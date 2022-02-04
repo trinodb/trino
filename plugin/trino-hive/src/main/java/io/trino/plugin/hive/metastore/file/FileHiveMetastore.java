@@ -64,7 +64,9 @@ import io.trino.spi.type.Type;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.RemoteIterator;
 import org.apache.hadoop.hive.metastore.TableType;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -129,6 +131,18 @@ import static org.apache.hadoop.hive.metastore.TableType.MANAGED_TABLE;
 import static org.apache.hadoop.hive.metastore.TableType.MATERIALIZED_VIEW;
 import static org.apache.hadoop.hive.metastore.TableType.VIRTUAL_VIEW;
 
+/**
+ * A {@code HiveMetastore} implementation that stores data and metadata
+ * directly in HDFS without the use of a metastore service.
+ *
+ * <p>Catalog-level metadata is stored in a set of files in the catalog
+ * directory.
+ *
+ * <p>Each database (schema) or table is represented by a directory, and their
+ * metadata is stored within that directory, allowing tables and schemas to be
+ * freely moved in the filesystem.
+ */
+// TODO: Restore the documented behavior regarding database metadata.
 @ThreadSafe
 public class FileHiveMetastore
         implements HiveMetastore
@@ -137,7 +151,7 @@ public class FileHiveMetastore
 
     private static final String PUBLIC_ROLE_NAME = "public";
     private static final String ADMIN_ROLE_NAME = "admin";
-    private static final String TRINO_SCHEMA_FILE_NAME_SUFFIX = ".trinoSchema";
+    private static final String TRINO_SCHEMA_FILE_NAME = ".trinoSchema";
     private static final String TRINO_PERMISSIONS_DIRECTORY_NAME = ".trinoPermissions";
     public static final String ROLES_FILE_NAME = ".roles";
     public static final String ROLE_GRANTS_FILE_NAME = ".roleGrants";
@@ -204,12 +218,6 @@ public class FileHiveMetastore
 
         Path databaseMetadataDirectory = getDatabaseMetadataDirectory(database.getDatabaseName());
         writeSchemaFile(DATABASE, databaseMetadataDirectory, databaseCodec, new DatabaseMetadata(currentVersion, database), false);
-        try {
-            metadataFileSystem.mkdirs(databaseMetadataDirectory);
-        }
-        catch (IOException e) {
-            throw new TrinoException(HIVE_METASTORE_ERROR, "Could not write database", e);
-        }
     }
 
     @Override
@@ -219,11 +227,22 @@ public class FileHiveMetastore
 
         Optional<Path> location = getRequiredDatabase(databaseName).getLocation().map(Path::new);
 
-        // If we see no files in the schema location, delete data.
-        // If we see files or fail checking the location, don't request deletion.
-        boolean deleteData = location.map(path -> {
+        if (!getAllTables(databaseName).isEmpty()) {
+            throw new TrinoException(HIVE_METASTORE_ERROR, "Database " + databaseName + " is not empty");
+        }
+
+        // If we see no files (besides the schema) in the location, delete the directory.
+        // If we see other files or fail checking the location, don't delete.
+        boolean deleteDirectory = location.map(path -> {
             try (FileSystem fs = hdfsEnvironment.getFileSystem(hdfsContext, path)) {
-                return !fs.listLocatedStatus(path).hasNext();
+                RemoteIterator<LocatedFileStatus> iterator = fs.listLocatedStatus(path);
+
+                while (iterator.hasNext()) {
+                    if (!TRINO_SCHEMA_FILE_NAME.equals(iterator.next().getPath().getName())) {
+                        return false;
+                    }
+                }
+                return true;
             }
             catch (IOException e) {
                 log.warn(e, "Could not check schema directory '%s'", path);
@@ -231,12 +250,8 @@ public class FileHiveMetastore
             }
         }).orElse(false);
 
-        if (!getAllTables(databaseName).isEmpty()) {
-            throw new TrinoException(HIVE_METASTORE_ERROR, "Database " + databaseName + " is not empty");
-        }
-
         // Either delete the entire database directory or just its metadata files
-        if (deleteData) {
+        if (deleteDirectory) {
             deleteDirectoryAndSchema(DATABASE, getDatabaseMetadataDirectory(databaseName));
         }
         else {
@@ -1254,10 +1269,6 @@ public class FileHiveMetastore
                 return;
             }
 
-            // Delete the schema file first, so it can never exist after the directory is deleted.
-            // (For cases when the schema file isn't in the metadata directory.)
-            deleteSchemaFile(type, metadataDirectory);
-
             if (!metadataFileSystem.delete(metadataDirectory, true)) {
                 throw new TrinoException(HIVE_METASTORE_ERROR, "Could not delete metadata directory");
             }
@@ -1398,12 +1409,7 @@ public class FileHiveMetastore
 
     private static Path getSchemaPath(SchemaType type, Path metadataDirectory)
     {
-        if (type == DATABASE) {
-            return new Path(
-                    requireNonNull(metadataDirectory.getParent(), "Can't use root directory as database path"),
-                    format(".%s%s", metadataDirectory.getName(), TRINO_SCHEMA_FILE_NAME_SUFFIX));
-        }
-        return new Path(metadataDirectory, TRINO_SCHEMA_FILE_NAME_SUFFIX);
+        return new Path(metadataDirectory, TRINO_SCHEMA_FILE_NAME);
     }
 
     private static boolean isChildDirectory(Path parentDirectory, Path childDirectory)
