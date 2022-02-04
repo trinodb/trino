@@ -149,11 +149,6 @@ public class OAuth2Service
                 Optional.of(handlerState));
     }
 
-    public Response startOAuth2Challenge(URI callbackUri, String handlerState)
-    {
-        return startOAuth2Challenge(callbackUri, Optional.of(handlerState));
-    }
-
     private Response startOAuth2Challenge(URI callbackUri, Optional<String> handlerState)
     {
         Instant challengeExpiration = now().plus(challengeTimeout);
