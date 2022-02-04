@@ -51,9 +51,6 @@ replacing the properties as appropriate:
    ## Default timeout used for user operations
    #kudu.client.default-operation-timeout = 30s
 
-   ## Default timeout to use when waiting on data from a socket
-   #kudu.client.default-socket-read-timeout = 10s
-
    ## Disable Kudu client's collection of statistics.
    #kudu.client.disable-statistics = false
 
