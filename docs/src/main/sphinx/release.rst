@@ -10,6 +10,7 @@ Release notes
 .. toctree::
     :maxdepth: 1
 
+    release/release-371
     release/release-370
     release/release-369
     release/release-368
