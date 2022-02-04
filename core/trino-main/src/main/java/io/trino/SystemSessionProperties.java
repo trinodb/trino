@@ -57,6 +57,7 @@ public final class SystemSessionProperties
     public static final String OPTIMIZE_HASH_GENERATION = "optimize_hash_generation";
     public static final String JOIN_DISTRIBUTION_TYPE = "join_distribution_type";
     public static final String JOIN_MAX_BROADCAST_TABLE_SIZE = "join_max_broadcast_table_size";
+    public static final String JOIN_MULTI_CLAUSE_INDEPENDENCE_FACTOR = "join_multi_clause_independence_factor";
     public static final String DISTRIBUTED_INDEX_JOIN = "distributed_index_join";
     public static final String HASH_PARTITION_COUNT = "hash_partition_count";
     public static final String GROUPED_EXECUTION = "grouped_execution";
@@ -205,6 +206,15 @@ public final class SystemSessionProperties
                         "Maximum estimated size of a table that can be broadcast when using automatic join type selection",
                         optimizerConfig.getJoinMaxBroadcastTableSize(),
                         false),
+                new PropertyMetadata<>(
+                        JOIN_MULTI_CLAUSE_INDEPENDENCE_FACTOR,
+                        "Scales the strength of independence assumption for selectivity estimates of multi-clause joins",
+                        DOUBLE,
+                        Double.class,
+                        optimizerConfig.getJoinMultiClauseIndependenceFactor(),
+                        false,
+                        value -> validateDoubleRange(value, JOIN_MULTI_CLAUSE_INDEPENDENCE_FACTOR, 0.0, 1.0),
+                        value -> value),
                 booleanProperty(
                         DISTRIBUTED_INDEX_JOIN,
                         "Distribute index joins on join keys instead of executing inline",
@@ -765,6 +775,11 @@ public final class SystemSessionProperties
     public static DataSize getJoinMaxBroadcastTableSize(Session session)
     {
         return session.getSystemProperty(JOIN_MAX_BROADCAST_TABLE_SIZE, DataSize.class);
+    }
+
+    public static double getJoinMultiClauseIndependenceFactor(Session session)
+    {
+        return session.getSystemProperty(JOIN_MULTI_CLAUSE_INDEPENDENCE_FACTOR, Double.class);
     }
 
     public static boolean isDistributedIndexJoinEnabled(Session session)
