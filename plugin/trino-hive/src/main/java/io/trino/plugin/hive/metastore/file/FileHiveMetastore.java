@@ -164,7 +164,7 @@ public class FileHiveMetastore
     private final Path catalogDirectory;
     private final HdfsContext hdfsContext;
     private final boolean hideDeltaLakeTables;
-    private final FileSystem metadataFileSystem;
+    private final FileSystem fileSystem;
 
     private final JsonCodec<DatabaseMetadata> databaseCodec = JsonCodec.jsonCodec(DatabaseMetadata.class);
     private final JsonCodec<TableMetadata> tableCodec = JsonCodec.jsonCodec(TableMetadata.class);
@@ -198,7 +198,7 @@ public class FileHiveMetastore
         this.hdfsContext = new HdfsContext(ConnectorIdentity.ofUser(config.getMetastoreUser()));
         this.hideDeltaLakeTables = requireNonNull(metastoreConfig, "metastoreConfig is null").isHideDeltaLakeTables();
         try {
-            metadataFileSystem = hdfsEnvironment.getFileSystem(hdfsContext, this.catalogDirectory);
+            fileSystem = hdfsEnvironment.getFileSystem(hdfsContext, this.catalogDirectory);
         }
         catch (IOException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
@@ -216,7 +216,7 @@ public class FileHiveMetastore
 
         verifyDatabaseNotExists(database.getDatabaseName());
 
-        Path databaseMetadataDirectory = getDatabaseMetadataDirectory(database.getDatabaseName());
+        Path databaseMetadataDirectory = getDatabaseDirectory(database.getDatabaseName());
         writeSchemaFile(DATABASE, databaseMetadataDirectory, databaseCodec, new DatabaseMetadata(currentVersion, database), false);
     }
 
@@ -252,10 +252,10 @@ public class FileHiveMetastore
 
         // Either delete the entire database directory or just its metadata files
         if (deleteDirectory) {
-            deleteDirectoryAndSchema(DATABASE, getDatabaseMetadataDirectory(databaseName));
+            deleteDirectoryAndSchema(DATABASE, getDatabaseDirectory(databaseName));
         }
         else {
-            deleteSchemaFile(DATABASE, getDatabaseMetadataDirectory(databaseName));
+            deleteSchemaFile(DATABASE, getDatabaseDirectory(databaseName));
         }
     }
 
@@ -269,7 +269,7 @@ public class FileHiveMetastore
         verifyDatabaseNotExists(newDatabaseName);
 
         try {
-            if (!metadataFileSystem.rename(getDatabaseMetadataDirectory(databaseName), getDatabaseMetadataDirectory(newDatabaseName))) {
+            if (!fileSystem.rename(getDatabaseDirectory(databaseName), getDatabaseDirectory(newDatabaseName))) {
                 throw new TrinoException(HIVE_METASTORE_ERROR, "Could not rename database metadata directory");
             }
         }
@@ -282,7 +282,7 @@ public class FileHiveMetastore
     public synchronized void setDatabaseOwner(String databaseName, HivePrincipal principal)
     {
         Database database = getRequiredDatabase(databaseName);
-        Path databaseMetadataDirectory = getDatabaseMetadataDirectory(database.getDatabaseName());
+        Path databaseMetadataDirectory = getDatabaseDirectory(database.getDatabaseName());
         Database newDatabase = Database.builder(database)
                 .setOwnerName(Optional.of(principal.getName()))
                 .setOwnerType(Optional.of(principal.getType()))
@@ -296,7 +296,7 @@ public class FileHiveMetastore
     {
         requireNonNull(databaseName, "databaseName is null");
 
-        Path databaseMetadataDirectory = getDatabaseMetadataDirectory(databaseName);
+        Path databaseMetadataDirectory = getDatabaseDirectory(databaseName);
         return readSchemaFile(DATABASE, databaseMetadataDirectory, databaseCodec)
                 .map(databaseMetadata -> {
                     checkVersion(databaseMetadata.getWriterVersion());
@@ -331,7 +331,7 @@ public class FileHiveMetastore
     {
         verifyTableNotExists(table.getDatabaseName(), table.getTableName());
 
-        Path tableMetadataDirectory = getTableMetadataDirectory(table);
+        Path tableMetadataDirectory = getTableDirectory(table);
 
         // validate table location
         if (table.getTableType().equals(VIRTUAL_VIEW.name())) {
@@ -374,7 +374,7 @@ public class FileHiveMetastore
         requireNonNull(databaseName, "databaseName is null");
         requireNonNull(tableName, "tableName is null");
 
-        Path tableMetadataDirectory = getTableMetadataDirectory(databaseName, tableName);
+        Path tableMetadataDirectory = getTableDirectory(databaseName, tableName);
         return readSchemaFile(TABLE, tableMetadataDirectory, tableCodec)
                 .map(tableMetadata -> {
                     checkVersion(tableMetadata.getWriterVersion());
@@ -391,7 +391,7 @@ public class FileHiveMetastore
         }
 
         Table table = getRequiredTable(databaseName, tableName);
-        Path tableMetadataDirectory = getTableMetadataDirectory(table);
+        Path tableMetadataDirectory = getTableDirectory(table);
         Table newTable = Table.builder(table)
                 .setOwner(Optional.of(principal.getName()))
                 .build();
@@ -413,7 +413,7 @@ public class FileHiveMetastore
 
     private synchronized PartitionStatistics getTableStatistics(String databaseName, String tableName)
     {
-        Path tableMetadataDirectory = getTableMetadataDirectory(databaseName, tableName);
+        Path tableMetadataDirectory = getTableDirectory(databaseName, tableName);
         TableMetadata tableMetadata = readSchemaFile(TABLE, tableMetadataDirectory, tableCodec)
                 .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
         checkVersion(tableMetadata.getWriterVersion());
@@ -457,7 +457,7 @@ public class FileHiveMetastore
         PartitionStatistics originalStatistics = getTableStatistics(databaseName, tableName);
         PartitionStatistics updatedStatistics = update.apply(originalStatistics);
 
-        Path tableMetadataDirectory = getTableMetadataDirectory(databaseName, tableName);
+        Path tableMetadataDirectory = getTableDirectory(databaseName, tableName);
         TableMetadata tableMetadata = readSchemaFile(TABLE, tableMetadataDirectory, tableCodec)
                 .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
         checkVersion(tableMetadata.getWriterVersion());
@@ -526,8 +526,8 @@ public class FileHiveMetastore
             return ImmutableList.of();
         }
 
-        Path databaseMetadataDirectory = getDatabaseMetadataDirectory(databaseName);
-        List<String> tables = getChildSchemaDirectories(TABLE, databaseMetadataDirectory).stream()
+        Path databaseDirectory = getDatabaseDirectory(databaseName);
+        List<String> tables = getChildSchemaDirectories(TABLE, databaseDirectory).stream()
                 .map(Path::getName)
                 .collect(toImmutableList());
         return tables;
@@ -553,15 +553,15 @@ public class FileHiveMetastore
 
         Table table = getRequiredTable(databaseName, tableName);
 
-        Path tableMetadataDirectory = getTableMetadataDirectory(databaseName, tableName);
+        Path tableDirectory = getTableDirectory(databaseName, tableName);
 
         // It is safe to delete the whole meta directory for external tables and views
         if (!table.getTableType().equals(MANAGED_TABLE.name()) || deleteData) {
-            deleteDirectoryAndSchema(TABLE, tableMetadataDirectory);
+            deleteDirectoryAndSchema(TABLE, tableDirectory);
         }
         else {
             // in this case we only want to delete the metadata of a managed table
-            deleteSchemaFile(TABLE, tableMetadataDirectory);
+            deleteSchemaFile(TABLE, tableDirectory);
             deleteTablePrivileges(table);
         }
     }
@@ -574,8 +574,8 @@ public class FileHiveMetastore
             throw new TrinoException(HIVE_METASTORE_ERROR, "Replacement table must have same name");
         }
 
-        Path tableMetadataDirectory = getTableMetadataDirectory(table);
-        writeSchemaFile(TABLE, tableMetadataDirectory, tableCodec, new TableMetadata(currentVersion, newTable), true);
+        Path tableDirectory = getTableDirectory(table);
+        writeSchemaFile(TABLE, tableDirectory, tableCodec, new TableMetadata(currentVersion, newTable), true);
 
         // replace existing permissions
         deleteTablePrivileges(table);
@@ -602,22 +602,23 @@ public class FileHiveMetastore
         // verify new table does not exist
         verifyTableNotExists(newDatabaseName, newTableName);
 
-        Path oldPath = getTableMetadataDirectory(databaseName, tableName);
-        Path newPath = getTableMetadataDirectory(newDatabaseName, newTableName);
+        Path oldPath = getTableDirectory(databaseName, tableName);
+        Path newPath = getTableDirectory(newDatabaseName, newTableName);
 
         try {
             if (isIcebergTable(table)) {
-                if (!metadataFileSystem.mkdirs(newPath)) {
+                if (!fileSystem.mkdirs(newPath)) {
                     throw new TrinoException(HIVE_METASTORE_ERROR, "Could not create new table directory");
                 }
-                // Iceberg metadata references files in old path, so these cannot be moved. Moving table description (metadata from metastore perspective) only.
-                if (!metadataFileSystem.rename(getSchemaPath(TABLE, oldPath), getSchemaPath(TABLE, newPath))) {
+                // Iceberg metadata references files in old path, so these cannot be moved.
+                // Moving table description (metadata from metastore perspective) only.
+                if (!fileSystem.rename(getSchemaPath(TABLE, oldPath), getSchemaPath(TABLE, newPath))) {
                     throw new TrinoException(HIVE_METASTORE_ERROR, "Could not rename table schema file");
                 }
                 // TODO drop data files when table is being dropped
             }
             else {
-                if (!metadataFileSystem.rename(oldPath, newPath)) {
+                if (!fileSystem.rename(oldPath, newPath)) {
                     throw new TrinoException(HIVE_METASTORE_ERROR, "Could not rename table directory");
                 }
             }
@@ -737,9 +738,9 @@ public class FileHiveMetastore
         requireNonNull(databaseName, "databaseName is null");
         requireNonNull(tableName, "tableName is null");
 
-        Path tableMetadataDirectory = getTableMetadataDirectory(databaseName, tableName);
+        Path tableDirectory = getTableDirectory(databaseName, tableName);
 
-        TableMetadata oldTableSchema = readSchemaFile(TABLE, tableMetadataDirectory, tableCodec)
+        TableMetadata oldTableSchema = readSchemaFile(TABLE, tableDirectory, tableCodec)
                 .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
         checkVersion(oldTableSchema.getWriterVersion());
 
@@ -748,7 +749,7 @@ public class FileHiveMetastore
             return;
         }
 
-        writeSchemaFile(TABLE, tableMetadataDirectory, tableCodec, newTableSchema, true);
+        writeSchemaFile(TABLE, tableDirectory, tableCodec, newTableSchema, true);
     }
 
     @Override
@@ -770,7 +771,7 @@ public class FileHiveMetastore
                 verifiedPartition(table, partition);
                 Path partitionMetadataDirectory = getPartitionMetadataDirectory(table, partition.getValues());
                 Path schemaPath = getSchemaPath(PARTITION, partitionMetadataDirectory);
-                if (metadataFileSystem.exists(schemaPath)) {
+                if (fileSystem.exists(schemaPath)) {
                     throw new TrinoException(HIVE_METASTORE_ERROR, "Partition already exists");
                 }
                 byte[] schemaJson = partitionCodec.toJsonBytes(new PartitionMetadata(table, partitionWithStatistics));
@@ -780,7 +781,7 @@ public class FileHiveMetastore
             Set<Path> createdFiles = new LinkedHashSet<>();
             try {
                 for (Entry<Path, byte[]> entry : schemaFiles.entrySet()) {
-                    try (OutputStream outputStream = metadataFileSystem.create(entry.getKey())) {
+                    try (OutputStream outputStream = fileSystem.create(entry.getKey())) {
                         createdFiles.add(entry.getKey());
                         outputStream.write(entry.getValue());
                     }
@@ -792,7 +793,7 @@ public class FileHiveMetastore
             catch (Throwable e) {
                 for (Path createdFile : createdFiles) {
                     try {
-                        metadataFileSystem.delete(createdFile, false);
+                        fileSystem.delete(createdFile, false);
                     }
                     catch (IOException ignored) {
                     }
@@ -1034,9 +1035,9 @@ public class FileHiveMetastore
         }
         Table table = tableReference.get();
 
-        Path tableMetadataDirectory = getTableMetadataDirectory(table);
+        Path tableDirectory = getTableDirectory(table);
 
-        List<ArrayDeque<String>> partitions = listPartitions(tableMetadataDirectory, table.getPartitionColumns());
+        List<ArrayDeque<String>> partitions = listPartitions(tableDirectory, table.getPartitionColumns());
 
         List<String> partitionNames = partitions.stream()
                 .map(partitionValues -> makePartitionName(table.getPartitionColumns(), ImmutableList.copyOf(partitionValues)))
@@ -1049,7 +1050,7 @@ public class FileHiveMetastore
     private boolean isValidPartition(Table table, String partitionName)
     {
         try {
-            return metadataFileSystem.exists(getSchemaPath(PARTITION, getPartitionMetadataDirectory(table, partitionName)));
+            return fileSystem.exists(getSchemaPath(PARTITION, getPartitionMetadataDirectory(table, partitionName)));
         }
         catch (IOException e) {
             return false;
@@ -1066,7 +1067,7 @@ public class FileHiveMetastore
             String directoryPrefix = partitionColumns.get(0).getName() + '=';
 
             List<ArrayDeque<String>> partitionValues = new ArrayList<>();
-            for (FileStatus fileStatus : metadataFileSystem.listStatus(director)) {
+            for (FileStatus fileStatus : fileSystem.listStatus(director)) {
                 if (!fileStatus.isDirectory()) {
                     continue;
                 }
@@ -1185,8 +1186,8 @@ public class FileHiveMetastore
 
             Path permissionsDirectory = getPermissionsDirectory(table);
 
-            boolean created = metadataFileSystem.mkdirs(permissionsDirectory);
-            if (!created && !metadataFileSystem.isDirectory(permissionsDirectory)) {
+            boolean created = fileSystem.mkdirs(permissionsDirectory);
+            if (!created && !fileSystem.isDirectory(permissionsDirectory)) {
                 throw new TrinoException(HIVE_METASTORE_ERROR, "Could not create permissions directory");
             }
 
@@ -1205,22 +1206,22 @@ public class FileHiveMetastore
     {
         try {
             Path permissionsDirectory = getPermissionsDirectory(table);
-            metadataFileSystem.delete(permissionsDirectory, true);
+            fileSystem.delete(permissionsDirectory, true);
         }
         catch (IOException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, "Could not delete table permissions", e);
         }
     }
 
-    private List<Path> getChildSchemaDirectories(SchemaType type, Path metadataDirectory)
+    private List<Path> getChildSchemaDirectories(SchemaType type, Path schemaDirectory)
     {
         try {
-            if (!metadataFileSystem.isDirectory(metadataDirectory)) {
+            if (!fileSystem.isDirectory(schemaDirectory)) {
                 return ImmutableList.of();
             }
 
             ImmutableList.Builder<Path> childSchemaDirectories = ImmutableList.builder();
-            for (FileStatus child : metadataFileSystem.listStatus(metadataDirectory)) {
+            for (FileStatus child : fileSystem.listStatus(schemaDirectory)) {
                 if (!child.isDirectory()) {
                     continue;
                 }
@@ -1228,7 +1229,7 @@ public class FileHiveMetastore
                 if (childPath.getName().startsWith(".")) {
                     continue;
                 }
-                if (metadataFileSystem.isFile(getSchemaPath(type, childPath))) {
+                if (fileSystem.isFile(getSchemaPath(type, childPath))) {
                     childSchemaDirectories.add(childPath);
                 }
             }
@@ -1249,7 +1250,7 @@ public class FileHiveMetastore
     private Set<HivePrivilegeInfo> readAllPermissions(Path permissionsDirectory)
     {
         try {
-            return Arrays.stream(metadataFileSystem.listStatus(permissionsDirectory))
+            return Arrays.stream(fileSystem.listStatus(permissionsDirectory))
                     .filter(FileStatus::isFile)
                     .filter(file -> !file.getPath().getName().startsWith("."))
                     .flatMap(file -> readPermissionsFile(file.getPath()).stream())
@@ -1260,17 +1261,17 @@ public class FileHiveMetastore
         }
     }
 
-    private void deleteDirectoryAndSchema(SchemaType type, Path metadataDirectory)
+    private void deleteDirectoryAndSchema(SchemaType type, Path schemaDirectory)
     {
         try {
-            Path schemaPath = getSchemaPath(type, metadataDirectory);
-            if (!metadataFileSystem.isFile(schemaPath)) {
+            Path schemaPath = getSchemaPath(type, schemaDirectory);
+            if (!fileSystem.isFile(schemaPath)) {
                 // if there is no schema file, assume this is not a database, partition or table
                 return;
             }
 
-            if (!metadataFileSystem.delete(metadataDirectory, true)) {
-                throw new TrinoException(HIVE_METASTORE_ERROR, "Could not delete metadata directory");
+            if (!fileSystem.delete(schemaDirectory, true)) {
+                throw new TrinoException(HIVE_METASTORE_ERROR, "Could not delete schema directory");
             }
         }
         catch (IOException e) {
@@ -1298,19 +1299,19 @@ public class FileHiveMetastore
                 UNSAFE_ASSUME_COMPATIBILITY));
     }
 
-    private <T> Optional<T> readSchemaFile(SchemaType type, Path metadataDirectory, JsonCodec<T> codec)
+    private <T> Optional<T> readSchemaFile(SchemaType type, Path schemaDirectory, JsonCodec<T> codec)
     {
-        return readFile(type + " schema", getSchemaPath(type, metadataDirectory), codec);
+        return readFile(type + " schema", getSchemaPath(type, schemaDirectory), codec);
     }
 
     private <T> Optional<T> readFile(String type, Path path, JsonCodec<T> codec)
     {
         try {
-            if (!metadataFileSystem.isFile(path)) {
+            if (!fileSystem.isFile(path)) {
                 return Optional.empty();
             }
 
-            try (FSDataInputStream inputStream = metadataFileSystem.open(path)) {
+            try (FSDataInputStream inputStream = fileSystem.open(path)) {
                 byte[] json = ByteStreams.toByteArray(inputStream);
                 return Optional.of(codec.fromJson(json));
             }
@@ -1331,15 +1332,15 @@ public class FileHiveMetastore
             byte[] json = codec.toJsonBytes(value);
 
             if (!overwrite) {
-                if (metadataFileSystem.exists(path)) {
+                if (fileSystem.exists(path)) {
                     throw new TrinoException(HIVE_METASTORE_ERROR, type + " file already exists");
                 }
             }
 
-            metadataFileSystem.mkdirs(path.getParent());
+            fileSystem.mkdirs(path.getParent());
 
             // todo implement safer overwrite code
-            try (OutputStream outputStream = metadataFileSystem.create(path, overwrite)) {
+            try (OutputStream outputStream = fileSystem.create(path, overwrite)) {
                 outputStream.write(json);
             }
         }
@@ -1348,10 +1349,10 @@ public class FileHiveMetastore
         }
     }
 
-    private void deleteSchemaFile(SchemaType type, Path metadataDirectory)
+    private void deleteSchemaFile(SchemaType type, Path schemaDirectory)
     {
         try {
-            if (!metadataFileSystem.delete(getSchemaPath(type, metadataDirectory), false)) {
+            if (!fileSystem.delete(getSchemaPath(type, schemaDirectory), false)) {
                 throw new TrinoException(HIVE_METASTORE_ERROR, "Could not delete " + type + " schema");
             }
         }
@@ -1360,19 +1361,19 @@ public class FileHiveMetastore
         }
     }
 
-    private Path getDatabaseMetadataDirectory(String databaseName)
+    private Path getDatabaseDirectory(String databaseName)
     {
         return new Path(catalogDirectory, databaseName);
     }
 
-    private Path getTableMetadataDirectory(Table table)
+    private Path getTableDirectory(Table table)
     {
-        return getTableMetadataDirectory(table.getDatabaseName(), table.getTableName());
+        return getTableDirectory(table.getDatabaseName(), table.getTableName());
     }
 
-    private Path getTableMetadataDirectory(String databaseName, String tableName)
+    private Path getTableDirectory(String databaseName, String tableName)
     {
-        return new Path(getDatabaseMetadataDirectory(databaseName), tableName);
+        return new Path(getDatabaseDirectory(databaseName), tableName);
     }
 
     private Path getPartitionMetadataDirectory(Table table, List<String> values)
@@ -1383,13 +1384,13 @@ public class FileHiveMetastore
 
     private Path getPartitionMetadataDirectory(Table table, String partitionName)
     {
-        Path tableMetadataDirectory = getTableMetadataDirectory(table);
-        return new Path(tableMetadataDirectory, partitionName);
+        Path tableDirectory = getTableDirectory(table);
+        return new Path(tableDirectory, partitionName);
     }
 
     private Path getPermissionsDirectory(Table table)
     {
-        return new Path(getTableMetadataDirectory(table), TRINO_PERMISSIONS_DIRECTORY_NAME);
+        return new Path(getTableDirectory(table), TRINO_PERMISSIONS_DIRECTORY_NAME);
     }
 
     private static Path getPermissionsPath(Path permissionsDirectory, HivePrincipal grantee)
@@ -1407,9 +1408,9 @@ public class FileHiveMetastore
         return new Path(catalogDirectory, ROLE_GRANTS_FILE_NAME);
     }
 
-    private static Path getSchemaPath(SchemaType type, Path metadataDirectory)
+    private static Path getSchemaPath(SchemaType type, Path schemaDirectory)
     {
-        return new Path(metadataDirectory, TRINO_SCHEMA_FILE_NAME);
+        return new Path(schemaDirectory, TRINO_SCHEMA_FILE_NAME);
     }
 
     private static boolean isChildDirectory(Path parentDirectory, Path childDirectory)
