@@ -109,7 +109,7 @@ property must be one of the following values:
       configuration file whose path is specified in the ``security.config-file``
       catalog configuration property. See
       :ref:`catalog-file-based-access-control` for information on the
-      authorzation configuration file.
+      authorization configuration file.
 
 .. _iceberg-sql-support:
 
