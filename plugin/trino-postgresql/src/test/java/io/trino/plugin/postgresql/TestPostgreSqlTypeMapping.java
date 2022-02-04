@@ -256,7 +256,8 @@ public class TestPostgreSqlTypeMapping
                 .addRoundTrip("decimal(30, 5)", "CAST('-3141592653589793238462643.38327' AS decimal(30, 5))", createDecimalType(30, 5), "CAST('-3141592653589793238462643.38327' AS decimal(30, 5))")
                 .addRoundTrip("decimal(38, 0)", "CAST('27182818284590452353602874713526624977' AS decimal(38, 0))", createDecimalType(38, 0), "CAST('27182818284590452353602874713526624977' AS decimal(38, 0))")
                 .addRoundTrip("decimal(38, 0)", "CAST('-27182818284590452353602874713526624977' AS decimal(38, 0))", createDecimalType(38, 0), "CAST('-27182818284590452353602874713526624977' AS decimal(38, 0))")
-                .execute(getQueryRunner(), postgresCreateAndInsert("test_decimal"))
+                .addRoundTrip("decimal(38, 38)", "CAST('0.27182818284590452353602874713526624977' AS decimal(38, 38))", createDecimalType(38, 38), "CAST('0.27182818284590452353602874713526624977' AS decimal(38, 38))")
+                .addRoundTrip("decimal(38, 38)", "CAST('-0.27182818284590452353602874713526624977' AS decimal(38, 38))", createDecimalType(38, 38), "CAST('-0.27182818284590452353602874713526624977' AS decimal(38, 38))").execute(getQueryRunner(), postgresCreateAndInsert("test_decimal"))
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_decimal"));
 
         SqlDataTypeTest.create()
