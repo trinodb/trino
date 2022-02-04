@@ -31,7 +31,7 @@ public final class Int128Math
     private static final int NUMBER_OF_LONGS = 2;
     private static final int NUMBER_OF_INTS = 2 * NUMBER_OF_LONGS;
 
-    private static final Int128[] POWERS_OF_TEN = new Int128[38]; // 10^38 is the largest value < Int128.MAX_VALUE
+    private static final Int128[] POWERS_OF_TEN = new Int128[39]; // 1..10^38 (largest value < Int128.MAX_VALUE)
     private static final Int128[] POWERS_OF_FIVE = new Int128[54]; // 5^54 is the largest value < Int128.MAX_VALUE
 
     private static final long ALL_BITS_SET_64 = 0xFFFFFFFFFFFFFFFFL;
