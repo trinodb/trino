@@ -161,3 +161,18 @@ more conservative estimates by assuming a greater degree of correlation between 
 columns of the predicates in a conjunction. A value of ``0`` results in the
 optimizer assuming that the columns of the predicates are fully correlated and only
 the most selective predicate drives the selectivity of a conjunction of predicates.
+
+``optimizer.join-multi-clause-independence-factor``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** :ref:`prop-type-double`
+* **Default value:** ``0.25``
+* **Min allowed value:** ``0``
+* **Max allowed value:** ``1``
+
+Scales the strength of independence assumption for estimating the output of a
+multi-clause join. Lower values for this property will produce more
+conservative estimates by assuming a greater degree of correlation between the
+columns of the clauses in a join. A value of ``0`` results in the optimizer
+assuming that the columns of the join clauses are fully correlated and only
+the most selective clause drives the selectivity of the join.
