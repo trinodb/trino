@@ -35,6 +35,7 @@ public class OptimizerConfig
 
     private DataSize joinMaxBroadcastTableSize = DataSize.of(100, MEGABYTE);
     private JoinDistributionType joinDistributionType = JoinDistributionType.AUTOMATIC;
+    private double joinMultiClauseIndependenceFactor = 0.25;
 
     private JoinReorderingStrategy joinReorderingStrategy = JoinReorderingStrategy.AUTOMATIC;
     private int maxReorderedJoins = 9;
@@ -167,6 +168,21 @@ public class OptimizerConfig
     public OptimizerConfig setJoinMaxBroadcastTableSize(DataSize joinMaxBroadcastTableSize)
     {
         this.joinMaxBroadcastTableSize = joinMaxBroadcastTableSize;
+        return this;
+    }
+
+    @Min(0)
+    @Max(1)
+    public double getJoinMultiClauseIndependenceFactor()
+    {
+        return joinMultiClauseIndependenceFactor;
+    }
+
+    @Config("optimizer.join-multi-clause-independence-factor")
+    @ConfigDescription("Scales the strength of independence assumption for selectivity estimates of multi-clause joins")
+    public OptimizerConfig setJoinMultiClauseIndependenceFactor(double joinMultiClauseIndependenceFactor)
+    {
+        this.joinMultiClauseIndependenceFactor = joinMultiClauseIndependenceFactor;
         return this;
     }
 
