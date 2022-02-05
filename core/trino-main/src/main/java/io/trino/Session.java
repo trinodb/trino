@@ -77,7 +77,7 @@ public final class Session
     private final Instant start;
     private final Map<String, String> systemProperties;
     // TODO use Table
-    private final Map<CatalogName, Map<String, String>> connectorProperties;
+    private final Map<String, Map<String, String>> connectorProperties;
     // TODO use Table
     private final Map<String, Map<String, String>> unprocessedCatalogProperties;
     private final SessionPropertyManager sessionPropertyManager;
@@ -104,7 +104,7 @@ public final class Session
             ResourceEstimates resourceEstimates,
             Instant start,
             Map<String, String> systemProperties,
-            Map<CatalogName, Map<String, String>> connectorProperties,
+            Map<String, Map<String, String>> connectorProperties,
             Map<String, Map<String, String>> unprocessedCatalogProperties,
             SessionPropertyManager sessionPropertyManager,
             Map<String, String> preparedStatements,
@@ -133,7 +133,7 @@ public final class Session
         this.preparedStatements = requireNonNull(preparedStatements, "preparedStatements is null");
         this.protocolHeaders = requireNonNull(protocolHeaders, "protocolHeaders is null");
 
-        ImmutableMap.Builder<CatalogName, Map<String, String>> catalogPropertiesBuilder = ImmutableMap.builder();
+        ImmutableMap.Builder<String, Map<String, String>> catalogPropertiesBuilder = ImmutableMap.builder();
         connectorProperties.entrySet().stream()
                 .map(entry -> Maps.immutableEntry(entry.getKey(), ImmutableMap.copyOf(entry.getValue())))
                 .forEach(catalogPropertiesBuilder::put);
@@ -256,12 +256,12 @@ public final class Session
         return sessionPropertyManager.decodeSystemPropertyValue(name, systemProperties.get(name), type);
     }
 
-    public Map<CatalogName, Map<String, String>> getConnectorProperties()
+    public Map<String, Map<String, String>> getConnectorProperties()
     {
         return connectorProperties;
     }
 
-    public Map<String, String> getConnectorProperties(CatalogName catalogName)
+    public Map<String, String> getConnectorProperties(String catalogName)
     {
         return connectorProperties.getOrDefault(catalogName, ImmutableMap.of());
     }
@@ -308,7 +308,7 @@ public final class Session
         validateSystemProperties(accessControl, this.systemProperties);
 
         // Now that there is a transaction, the catalog name can be resolved to a connector, and the catalog properties can be validated
-        ImmutableMap.Builder<CatalogName, Map<String, String>> connectorProperties = ImmutableMap.builder();
+        ImmutableMap.Builder<String, Map<String, String>> connectorProperties = ImmutableMap.builder();
         for (Entry<String, Map<String, String>> catalogEntry : unprocessedCatalogProperties.entrySet()) {
             String catalogName = catalogEntry.getKey();
             Map<String, String> catalogProperties = catalogEntry.getValue();
@@ -320,7 +320,7 @@ public final class Session
                     .getCatalogName();
 
             validateCatalogProperties(Optional.of(transactionId), accessControl, catalog, catalogProperties);
-            connectorProperties.put(catalog, catalogProperties);
+            connectorProperties.put(catalogName, catalogProperties);
         }
 
         ImmutableMap.Builder<String, SelectedRole> connectorRoles = ImmutableMap.builder();
@@ -433,7 +433,7 @@ public final class Session
         return new FullConnectorSession(
                 this,
                 identity.toConnectorIdentity(catalogName.getCatalogName()),
-                connectorProperties.getOrDefault(catalogName, ImmutableMap.of()),
+                connectorProperties.getOrDefault(catalogName.getCatalogName(), ImmutableMap.of()),
                 catalogName,
                 catalogName.getCatalogName(),
                 sessionPropertyManager);

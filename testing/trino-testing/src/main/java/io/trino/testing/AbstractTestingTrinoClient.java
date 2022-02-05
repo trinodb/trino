@@ -22,7 +22,6 @@ import io.trino.client.Column;
 import io.trino.client.QueryError;
 import io.trino.client.QueryStatusInfo;
 import io.trino.client.StatementClient;
-import io.trino.connector.CatalogName;
 import io.trino.metadata.MetadataUtil;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.QualifiedTablePrefix;
@@ -134,9 +133,10 @@ public abstract class AbstractTestingTrinoClient<T>
     {
         ImmutableMap.Builder<String, String> properties = ImmutableMap.builder();
         properties.putAll(session.getSystemProperties());
-        for (Entry<CatalogName, Map<String, String>> catalogAndConnectorProperties : session.getConnectorProperties().entrySet()) {
+        for (Entry<String, Map<String, String>> catalogAndConnectorProperties : session.getConnectorProperties().entrySet()) {
             for (Entry<String, String> connectorProperties : catalogAndConnectorProperties.getValue().entrySet()) {
-                properties.put(catalogAndConnectorProperties.getKey() + "." + connectorProperties.getKey(), connectorProperties.getValue());
+                String catalogName = catalogAndConnectorProperties.getKey();
+                properties.put(catalogName + "." + connectorProperties.getKey(), connectorProperties.getValue());
             }
         }
         for (Entry<String, Map<String, String>> connectorProperties : session.getUnprocessedCatalogProperties().entrySet()) {

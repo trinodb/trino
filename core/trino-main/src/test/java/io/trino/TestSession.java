@@ -13,7 +13,6 @@
  */
 package io.trino;
 
-import io.trino.connector.CatalogName;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -38,7 +37,7 @@ public class TestSession
                 .isEqualTo(Map.of());
 
         // empty, will be populated at transaction start
-        assertThat(session.getConnectorProperties(new CatalogName("some_catalog")))
+        assertThat(session.getConnectorProperties("some_catalog"))
                 .isEqualTo(Map.of());
     }
 
@@ -59,7 +58,7 @@ public class TestSession
                 .isEqualTo(Map.of());
 
         // empty, will be populated at transaction start
-        assertThat(session.getConnectorProperties(new CatalogName("some_catalog")))
+        assertThat(session.getConnectorProperties("some_catalog"))
                 .isEqualTo(Map.of());
     }
 
@@ -83,7 +82,7 @@ public class TestSession
                 .isEqualTo(Map.of());
 
         // empty, will be populated at transaction start
-        assertThat(session.getConnectorProperties(new CatalogName("some_catalog")))
+        assertThat(session.getConnectorProperties("some_catalog"))
                 .isEqualTo(Map.of());
     }
 }
