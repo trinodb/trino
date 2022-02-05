@@ -15,7 +15,7 @@ package io.trino.testing;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogHandle;
 import io.trino.cost.StatsCalculator;
 import io.trino.execution.FailureInjector.InjectedFailureType;
 import io.trino.metadata.AllNodes;
@@ -211,7 +211,7 @@ public final class StandaloneQueryRunner
         while (allNodes.getActiveNodes().isEmpty());
     }
 
-    private void refreshNodes(CatalogName catalogName)
+    private void refreshNodes(CatalogHandle catalogHandle)
     {
         Set<InternalNode> activeNodesWithConnector;
 
@@ -223,7 +223,7 @@ public final class StandaloneQueryRunner
                 Thread.currentThread().interrupt();
                 break;
             }
-            activeNodesWithConnector = server.getActiveNodesWithConnector(catalogName);
+            activeNodesWithConnector = server.getActiveNodesWithConnector(catalogHandle);
         }
         while (activeNodesWithConnector.isEmpty());
     }
@@ -248,7 +248,7 @@ public final class StandaloneQueryRunner
     @Override
     public void createCatalog(String catalogName, String connectorName, Map<String, String> properties)
     {
-        CatalogName catalog = server.createCatalog(catalogName, connectorName, properties);
+        CatalogHandle catalog = server.createCatalog(catalogName, connectorName, properties);
 
         refreshNodes(catalog);
     }

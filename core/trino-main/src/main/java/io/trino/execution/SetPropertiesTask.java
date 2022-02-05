@@ -76,9 +76,11 @@ public class SetPropertiesTask
         Session session = stateMachine.getSession();
         QualifiedObjectName objectName = createQualifiedObjectName(session, statement, statement.getName());
 
+        String catalogName = objectName.getCatalogName();
         if (statement.getType() == TABLE) {
             Map<String, Optional<Object>> properties = tablePropertyManager.getNullableProperties(
-                    getRequiredCatalogHandle(plannerContext.getMetadata(), session, statement, objectName.getCatalogName()),
+                    catalogName,
+                    getRequiredCatalogHandle(plannerContext.getMetadata(), session, statement, catalogName),
                     statement.getProperties(),
                     session,
                     plannerContext,
@@ -89,7 +91,8 @@ public class SetPropertiesTask
         }
         else if (statement.getType() == MATERIALIZED_VIEW) {
             Map<String, Optional<Object>> properties = materializedViewPropertyManager.getNullableProperties(
-                    getRequiredCatalogHandle(plannerContext.getMetadata(), session, statement, objectName.getCatalogName()),
+                    catalogName,
+                    getRequiredCatalogHandle(plannerContext.getMetadata(), session, statement, catalogName),
                     statement.getProperties(),
                     session,
                     plannerContext,

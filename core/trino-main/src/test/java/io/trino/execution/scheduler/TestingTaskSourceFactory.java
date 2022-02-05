@@ -22,7 +22,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.trino.Session;
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogHandle;
 import io.trino.metadata.Split;
 import io.trino.spi.exchange.Exchange;
 import io.trino.spi.exchange.ExchangeSourceHandle;
@@ -51,16 +51,16 @@ import static java.util.Objects.requireNonNull;
 public class TestingTaskSourceFactory
         implements TaskSourceFactory
 {
-    private final Optional<CatalogName> catalog;
+    private final Optional<CatalogHandle> catalog;
     private final ListenableFuture<List<Split>> splitsFuture;
     private final int tasksPerBatch;
 
-    public TestingTaskSourceFactory(Optional<CatalogName> catalog, List<Split> splits, int tasksPerBatch)
+    public TestingTaskSourceFactory(Optional<CatalogHandle> catalog, List<Split> splits, int tasksPerBatch)
     {
         this(catalog, immediateFuture(ImmutableList.copyOf(requireNonNull(splits, "splits is null"))), tasksPerBatch);
     }
 
-    public TestingTaskSourceFactory(Optional<CatalogName> catalog, ListenableFuture<List<Split>> splitsFuture, int tasksPerBatch)
+    public TestingTaskSourceFactory(Optional<CatalogHandle> catalog, ListenableFuture<List<Split>> splitsFuture, int tasksPerBatch)
     {
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.splitsFuture = requireNonNull(splitsFuture, "splitsFuture is null");
@@ -107,7 +107,7 @@ public class TestingTaskSourceFactory
     public static class TestingTaskSource
             implements TaskSource
     {
-        private final Optional<CatalogName> catalogRequirement;
+        private final Optional<CatalogHandle> catalogRequirement;
         private final ListenableFuture<List<Split>> splitsFuture;
         private final int tasksPerBatch;
         private final PlanNodeId tableScanPlanNodeId;
@@ -117,7 +117,7 @@ public class TestingTaskSourceFactory
         private Iterator<Split> splits;
 
         public TestingTaskSource(
-                Optional<CatalogName> catalogRequirement,
+                Optional<CatalogHandle> catalogRequirement,
                 ListenableFuture<List<Split>> splitsFuture,
                 int tasksPerBatch,
                 PlanNodeId tableScanPlanNodeId,

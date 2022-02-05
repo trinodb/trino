@@ -16,7 +16,7 @@ package io.trino.metadata;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
 import io.trino.Session;
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogHandle;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.AggregationApplicationResult;
@@ -72,7 +72,7 @@ import static io.trino.spi.function.OperatorType.CAST;
 
 public interface Metadata
 {
-    Set<ConnectorCapabilities> getConnectorCapabilities(Session session, CatalogName catalogName);
+    Set<ConnectorCapabilities> getConnectorCapabilities(Session session, CatalogHandle catalogHandle);
 
     boolean catalogExists(Session session, String catalogName);
 
@@ -271,7 +271,7 @@ public interface Metadata
     /**
      * Describes statistics that must be collected during a write.
      */
-    TableStatisticsMetadata getStatisticsCollectionMetadataForWrite(Session session, String catalogName, ConnectorTableMetadata tableMetadata);
+    TableStatisticsMetadata getStatisticsCollectionMetadataForWrite(Session session, CatalogHandle catalogHandle, ConnectorTableMetadata tableMetadata);
 
     /**
      * Describe statistics that must be collected during a statistics collection
@@ -376,9 +376,9 @@ public interface Metadata
     void finishUpdate(Session session, TableHandle tableHandle, Collection<Slice> fragments);
 
     /**
-     * Returns a connector id for the specified catalog name.
+     * Returns a catalog handle for the specified catalog name.
      */
-    Optional<CatalogName> getCatalogHandle(Session session, String catalogName);
+    Optional<CatalogHandle> getCatalogHandle(Session session, String catalogName);
 
     /**
      * Gets all the loaded catalogs

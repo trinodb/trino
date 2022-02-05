@@ -15,7 +15,7 @@ package io.trino.execution.scheduler;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogHandle;
 import io.trino.execution.RemoteTask;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.Split;
@@ -34,46 +34,46 @@ public class TestingNodeSelectorFactory
         implements NodeSelectorFactory
 {
     private final InternalNode currentNode;
-    private final Supplier<Map<InternalNode, List<CatalogName>>> nodesSupplier;
+    private final Supplier<Map<InternalNode, List<CatalogHandle>>> nodesSupplier;
 
-    public TestingNodeSelectorFactory(InternalNode currentNode, Supplier<Map<InternalNode, List<CatalogName>>> nodesSupplier)
+    public TestingNodeSelectorFactory(InternalNode currentNode, Supplier<Map<InternalNode, List<CatalogHandle>>> nodesSupplier)
     {
         this.currentNode = requireNonNull(currentNode, "currentNode is null");
         this.nodesSupplier = requireNonNull(nodesSupplier, "nodesSupplier is null");
     }
 
     @Override
-    public NodeSelector createNodeSelector(Session session, Optional<CatalogName> catalogName)
+    public NodeSelector createNodeSelector(Session session, Optional<CatalogHandle> catalogName)
     {
         return new TestingNodeSelector(currentNode, createNodesSupplierForCatalog(catalogName, nodesSupplier));
     }
 
-    private static Supplier<List<InternalNode>> createNodesSupplierForCatalog(Optional<CatalogName> catalogNameOptional, Supplier<Map<InternalNode, List<CatalogName>>> nodesSupplier)
+    private static Supplier<List<InternalNode>> createNodesSupplierForCatalog(Optional<CatalogHandle> catalogNameOptional, Supplier<Map<InternalNode, List<CatalogHandle>>> nodesSupplier)
     {
         return () -> {
-            Map<InternalNode, List<CatalogName>> allNodes = nodesSupplier.get();
+            Map<InternalNode, List<CatalogHandle>> allNodes = nodesSupplier.get();
             if (catalogNameOptional.isEmpty()) {
                 return ImmutableList.copyOf(allNodes.keySet());
             }
-            CatalogName catalogName = catalogNameOptional.get();
+            CatalogHandle catalogHandle = catalogNameOptional.get();
             return allNodes.entrySet().stream()
-                    .filter(entry -> entry.getValue().contains(catalogName))
+                    .filter(entry -> entry.getValue().contains(catalogHandle))
                     .map(Map.Entry::getKey)
                     .collect(toImmutableList());
         };
     }
 
     public static class TestingNodeSupplier
-            implements Supplier<Map<InternalNode, List<CatalogName>>>
+            implements Supplier<Map<InternalNode, List<CatalogHandle>>>
     {
-        private final Map<InternalNode, List<CatalogName>> nodes = new ConcurrentHashMap<>();
+        private final Map<InternalNode, List<CatalogHandle>> nodes = new ConcurrentHashMap<>();
 
         public static TestingNodeSupplier create()
         {
             return new TestingNodeSupplier();
         }
 
-        public static TestingNodeSupplier create(Map<InternalNode, List<CatalogName>> nodes)
+        public static TestingNodeSupplier create(Map<InternalNode, List<CatalogHandle>> nodes)
         {
             TestingNodeSupplier testingNodeSupplier = new TestingNodeSupplier();
             nodes.forEach(testingNodeSupplier::addNode);
@@ -82,7 +82,7 @@ public class TestingNodeSelectorFactory
 
         private TestingNodeSupplier() {}
 
-        public void addNode(InternalNode node, List<CatalogName> catalogs)
+        public void addNode(InternalNode node, List<CatalogHandle> catalogs)
         {
             nodes.put(node, catalogs);
         }
@@ -93,7 +93,7 @@ public class TestingNodeSelectorFactory
         }
 
         @Override
-        public Map<InternalNode, List<CatalogName>> get()
+        public Map<InternalNode, List<CatalogHandle>> get()
         {
             return nodes;
         }

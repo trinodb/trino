@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.trino.Session;
 import io.trino.client.NodeVersion;
-import io.trino.connector.CatalogName;
 import io.trino.execution.scheduler.PartitionMemoryEstimator.MemoryRequirements;
 import io.trino.memory.MemoryInfo;
 import io.trino.metadata.InMemoryNodeManager;
@@ -34,6 +33,7 @@ import java.util.Optional;
 
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
 import static io.trino.spi.StandardErrorCode.ADMINISTRATIVELY_PREEMPTED;
 import static io.trino.spi.StandardErrorCode.CLUSTER_OUT_OF_MEMORY;
 import static io.trino.spi.StandardErrorCode.EXCEEDED_LOCAL_MEMORY_LIMIT;
@@ -47,7 +47,7 @@ public class TestExponentialGrowthPartitionMemoryEstimator
             throws Exception
     {
         InMemoryNodeManager nodeManager = new InMemoryNodeManager();
-        nodeManager.addNode(new CatalogName("catalog"), new InternalNode("a-node", URI.create("local://blah"), NodeVersion.UNKNOWN, false));
+        nodeManager.addNode(createRootCatalogHandle("catalog"), new InternalNode("a-node", URI.create("local://blah"), NodeVersion.UNKNOWN, false));
         BinPackingNodeAllocatorService nodeAllocatorService = new BinPackingNodeAllocatorService(
                 nodeManager,
                 () -> ImmutableMap.of(new InternalNode("a-node", URI.create("local://blah"), NodeVersion.UNKNOWN, false).getNodeIdentifier(), Optional.of(buildWorkerMemoryInfo(DataSize.ofBytes(0)))),

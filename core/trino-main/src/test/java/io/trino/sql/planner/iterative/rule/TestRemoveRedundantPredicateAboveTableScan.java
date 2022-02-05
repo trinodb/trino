@@ -16,7 +16,7 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slices;
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogHandle;
 import io.trino.metadata.TableHandle;
 import io.trino.plugin.tpch.TpchColumnHandle;
 import io.trino.plugin.tpch.TpchTableHandle;
@@ -58,16 +58,16 @@ public class TestRemoveRedundantPredicateAboveTableScan
     public void setUpBeforeClass()
     {
         removeRedundantPredicateAboveTableScan = new RemoveRedundantPredicateAboveTableScan(tester().getPlannerContext(), tester().getTypeAnalyzer());
-        CatalogName catalogName = tester().getCurrentConnectorId();
+        CatalogHandle catalogHandle = tester().getCurrentCatalogHandle();
         TpchTableHandle nation = new TpchTableHandle("sf1", "nation", 1.0);
         nationTableHandle = new TableHandle(
-                catalogName,
+                catalogHandle,
                 nation,
                 TpchTransactionHandle.INSTANCE);
 
         TpchTableHandle orders = new TpchTableHandle("sf1", "orders", 1.0);
         ordersTableHandle = new TableHandle(
-                catalogName,
+                catalogHandle,
                 orders,
                 TpchTransactionHandle.INSTANCE);
     }

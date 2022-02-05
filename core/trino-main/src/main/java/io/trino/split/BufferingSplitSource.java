@@ -15,7 +15,7 @@ package io.trino.split;
 
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogHandle;
 import io.trino.metadata.Split;
 
 import java.util.ArrayList;
@@ -40,9 +40,9 @@ public class BufferingSplitSource
     }
 
     @Override
-    public CatalogName getCatalogName()
+    public CatalogHandle getCatalogHandle()
     {
-        return source.getCatalogName();
+        return source.getCatalogHandle();
     }
 
     @Override

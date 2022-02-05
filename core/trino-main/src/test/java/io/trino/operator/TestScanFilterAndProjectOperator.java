@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.trino.SequencePageBuilder;
 import io.trino.block.BlockAssertions;
-import io.trino.connector.CatalogName;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.InternalFunctionBundle;
 import io.trino.metadata.Split;
@@ -56,6 +55,7 @@ import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.trino.RowPagesBuilder.rowPagesBuilder;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.block.BlockAssertions.toValues;
+import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
 import static io.trino.operator.OperatorAssertion.toMaterializedResult;
 import static io.trino.operator.PageAssertions.assertPageEquals;
 import static io.trino.operator.project.PageProcessor.MAX_BATCH_SIZE;
@@ -116,7 +116,7 @@ public class TestScanFilterAndProjectOperator
                 0);
 
         SourceOperator operator = factory.createOperator(driverContext);
-        operator.addSplit(new Split(new CatalogName("test"), TestingSplit.createLocalSplit()));
+        operator.addSplit(new Split(createRootCatalogHandle("test"), TestingSplit.createLocalSplit()));
         operator.noMoreSplits();
 
         MaterializedResult expected = toMaterializedResult(driverContext.getSession(), ImmutableList.of(VARCHAR), ImmutableList.of(input));
@@ -159,7 +159,7 @@ public class TestScanFilterAndProjectOperator
                 2);
 
         SourceOperator operator = factory.createOperator(newDriverContext());
-        operator.addSplit(new Split(new CatalogName("test"), TestingSplit.createLocalSplit()));
+        operator.addSplit(new Split(createRootCatalogHandle("test"), TestingSplit.createLocalSplit()));
         operator.noMoreSplits();
 
         List<Page> actual = toPages(operator);
@@ -204,7 +204,7 @@ public class TestScanFilterAndProjectOperator
                 0);
 
         SourceOperator operator = factory.createOperator(driverContext);
-        operator.addSplit(new Split(new CatalogName("test"), TestingSplit.createLocalSplit()));
+        operator.addSplit(new Split(createRootCatalogHandle("test"), TestingSplit.createLocalSplit()));
         operator.noMoreSplits();
 
         MaterializedResult expected = toMaterializedResult(driverContext.getSession(), ImmutableList.of(BIGINT), ImmutableList.of(new Page(inputBlock)));
@@ -239,7 +239,7 @@ public class TestScanFilterAndProjectOperator
                 0);
 
         SourceOperator operator = factory.createOperator(driverContext);
-        operator.addSplit(new Split(new CatalogName("test"), TestingSplit.createLocalSplit()));
+        operator.addSplit(new Split(createRootCatalogHandle("test"), TestingSplit.createLocalSplit()));
         operator.noMoreSplits();
 
         MaterializedResult expected = toMaterializedResult(driverContext.getSession(), ImmutableList.of(VARCHAR), ImmutableList.of(input));
@@ -291,7 +291,7 @@ public class TestScanFilterAndProjectOperator
                 0);
 
         SourceOperator operator = factory.createOperator(driverContext);
-        operator.addSplit(new Split(new CatalogName("test"), TestingSplit.createLocalSplit()));
+        operator.addSplit(new Split(createRootCatalogHandle("test"), TestingSplit.createLocalSplit()));
         operator.noMoreSplits();
 
         // In the below loop we yield for every cell: 20 X 1000 times
@@ -356,7 +356,7 @@ public class TestScanFilterAndProjectOperator
                 0);
 
         SourceOperator operator = factory.createOperator(driverContext);
-        operator.addSplit(new Split(new CatalogName("test"), TestingSplit.createLocalSplit()));
+        operator.addSplit(new Split(createRootCatalogHandle("test"), TestingSplit.createLocalSplit()));
         operator.noMoreSplits();
 
         // start driver; get null value due to yield for the first 15 times

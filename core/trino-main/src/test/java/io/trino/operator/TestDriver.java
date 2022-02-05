@@ -19,7 +19,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.common.util.concurrent.Uninterruptibles;
 import io.airlift.units.Duration;
-import io.trino.connector.CatalogName;
 import io.trino.execution.ScheduledSplit;
 import io.trino.execution.SplitAssignment;
 import io.trino.memory.context.LocalMemoryContext;
@@ -54,6 +53,7 @@ import java.util.function.Function;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.RowPagesBuilder.rowPagesBuilder;
 import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -301,7 +301,7 @@ public class TestDriver
 
     private static Split newMockSplit()
     {
-        return new Split(new CatalogName("test"), new MockSplit());
+        return new Split(createRootCatalogHandle("test"), new MockSplit());
     }
 
     private PageConsumerOperator createSinkOperator(List<Type> types)

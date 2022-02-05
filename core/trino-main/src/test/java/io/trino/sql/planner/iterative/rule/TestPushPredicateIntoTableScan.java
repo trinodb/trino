@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slices;
 import io.trino.Session;
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogHandle;
 import io.trino.connector.MockConnectorColumnHandle;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorTableHandle;
@@ -57,6 +57,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
 import static io.trino.spi.predicate.Domain.singleValue;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -100,18 +101,18 @@ public class TestPushPredicateIntoTableScan
     {
         pushPredicateIntoTableScan = new PushPredicateIntoTableScan(tester().getPlannerContext(), createTestingTypeAnalyzer(tester().getPlannerContext()));
 
-        CatalogName catalogName = tester().getCurrentConnectorId();
+        CatalogHandle catalogHandle = tester().getCurrentCatalogHandle();
         tester().getQueryRunner().createCatalog(MOCK_CATALOG, createMockFactory(), ImmutableMap.of());
 
         TpchTableHandle nation = new TpchTableHandle("sf1", "nation", 1.0);
         nationTableHandle = new TableHandle(
-                catalogName,
+                catalogHandle,
                 nation,
                 TpchTransactionHandle.INSTANCE);
 
         TpchTableHandle orders = new TpchTableHandle("sf1", "orders", 1.0);
         ordersTableHandle = new TableHandle(
-                catalogName,
+                catalogHandle,
                 orders,
                 TpchTransactionHandle.INSTANCE);
     }
@@ -411,7 +412,7 @@ public class TestPushPredicateIntoTableScan
     private static TableHandle tableHandle(ConnectorTableHandle connectorTableHandle)
     {
         return new TableHandle(
-                new CatalogName(MOCK_CATALOG),
+                createRootCatalogHandle(MOCK_CATALOG),
                 connectorTableHandle,
                 TestingTransactionHandle.create());
     }

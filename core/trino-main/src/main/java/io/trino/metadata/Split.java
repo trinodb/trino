@@ -15,7 +15,7 @@ package io.trino.metadata;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogHandle;
 import io.trino.spi.HostAddress;
 import io.trino.spi.SplitWeight;
 import io.trino.spi.connector.ConnectorSplit;
@@ -30,22 +30,22 @@ public final class Split
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(Split.class).instanceSize();
 
-    private final CatalogName catalogName;
+    private final CatalogHandle catalogHandle;
     private final ConnectorSplit connectorSplit;
 
     @JsonCreator
     public Split(
-            @JsonProperty("catalogName") CatalogName catalogName,
+            @JsonProperty("catalogHandle") CatalogHandle catalogHandle,
             @JsonProperty("connectorSplit") ConnectorSplit connectorSplit)
     {
-        this.catalogName = requireNonNull(catalogName, "catalogName is null");
+        this.catalogHandle = requireNonNull(catalogHandle, "catalogHandle is null");
         this.connectorSplit = requireNonNull(connectorSplit, "connectorSplit is null");
     }
 
     @JsonProperty
-    public CatalogName getCatalogName()
+    public CatalogHandle getCatalogHandle()
     {
-        return catalogName;
+        return catalogHandle;
     }
 
     @JsonProperty
@@ -78,7 +78,7 @@ public final class Split
     public String toString()
     {
         return toStringHelper(this)
-                .add("catalogName", catalogName)
+                .add("catalogHandle", catalogHandle)
                 .add("connectorSplit", connectorSplit)
                 .toString();
     }
@@ -86,7 +86,7 @@ public final class Split
     public long getRetainedSizeInBytes()
     {
         return INSTANCE_SIZE
-                + catalogName.getRetainedSizeInBytes()
+                + catalogHandle.getRetainedSizeInBytes()
                 + connectorSplit.getRetainedSizeInBytes();
     }
 }

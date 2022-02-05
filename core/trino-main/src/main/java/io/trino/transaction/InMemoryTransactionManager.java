@@ -13,14 +13,13 @@
  */
 package io.trino.transaction;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.NotInTransactionException;
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogHandle;
 import io.trino.metadata.Catalog;
 import io.trino.metadata.CatalogInfo;
 import io.trino.metadata.CatalogManager;
@@ -63,6 +62,7 @@ import static io.trino.spi.StandardErrorCode.TRANSACTION_ALREADY_ABORTED;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toUnmodifiableList;
 
 @ThreadSafe
 public class InMemoryTransactionManager
@@ -185,7 +185,7 @@ public class InMemoryTransactionManager
     }
 
     @Override
-    public Optional<CatalogName> getCatalogName(TransactionId transactionId, String catalogName)
+    public Optional<CatalogHandle> getCatalogHandle(TransactionId transactionId, String catalogName)
     {
         return getTransactionMetadata(transactionId).tryRegisterCatalog(catalogName);
     }
@@ -199,16 +199,16 @@ public class InMemoryTransactionManager
     }
 
     @Override
-    public CatalogMetadata getCatalogMetadata(TransactionId transactionId, CatalogName catalogName)
+    public CatalogMetadata getCatalogMetadata(TransactionId transactionId, CatalogHandle catalogHandle)
     {
-        return getTransactionMetadata(transactionId).getTransactionCatalogMetadata(catalogName);
+        return getTransactionMetadata(transactionId).getTransactionCatalogMetadata(catalogHandle);
     }
 
     @Override
-    public CatalogMetadata getCatalogMetadataForWrite(TransactionId transactionId, CatalogName catalogName)
+    public CatalogMetadata getCatalogMetadataForWrite(TransactionId transactionId, CatalogHandle catalogHandle)
     {
-        CatalogMetadata catalogMetadata = getCatalogMetadata(transactionId, catalogName);
-        checkConnectorWrite(transactionId, catalogName);
+        CatalogMetadata catalogMetadata = getCatalogMetadata(transactionId, catalogHandle);
+        checkConnectorWrite(transactionId, catalogHandle);
         return catalogMetadata;
     }
 
@@ -217,22 +217,32 @@ public class InMemoryTransactionManager
     {
         TransactionMetadata transactionMetadata = getTransactionMetadata(transactionId);
 
-        // there is no need to ask for a connector specific id since the overlay connectors are read only
-        CatalogName catalog = transactionMetadata.tryRegisterCatalog(catalogName)
+        CatalogHandle catalogHandle = transactionMetadata.tryRegisterCatalog(catalogName)
                 .orElseThrow(() -> new TrinoException(NOT_FOUND, "Catalog does not exist: " + catalogName));
 
-        return getCatalogMetadataForWrite(transactionId, catalog);
+        return getCatalogMetadataForWrite(transactionId, catalogHandle);
     }
 
     @Override
-    public ConnectorTransactionHandle getConnectorTransaction(TransactionId transactionId, CatalogName catalogName)
+    public ConnectorTransactionHandle getConnectorTransaction(TransactionId transactionId, String catalogName)
     {
-        return getCatalogMetadata(transactionId, catalogName).getTransactionHandleFor(catalogName);
+        TransactionMetadata transactionMetadata = getTransactionMetadata(transactionId);
+
+        CatalogHandle catalogHandle = transactionMetadata.tryRegisterCatalog(catalogName)
+                .orElseThrow(() -> new TrinoException(NOT_FOUND, "Catalog does not exist: " + catalogName));
+
+        return transactionMetadata.getTransactionCatalogMetadata(catalogHandle).getTransactionHandleFor(catalogHandle);
     }
 
-    private void checkConnectorWrite(TransactionId transactionId, CatalogName catalogName)
+    @Override
+    public ConnectorTransactionHandle getConnectorTransaction(TransactionId transactionId, CatalogHandle catalogHandle)
     {
-        getTransactionMetadata(transactionId).checkConnectorWrite(catalogName);
+        return getCatalogMetadata(transactionId, catalogHandle).getTransactionHandleFor(catalogHandle);
+    }
+
+    private void checkConnectorWrite(TransactionId transactionId, CatalogHandle catalogHandle)
+    {
+        getTransactionMetadata(transactionId).checkConnectorWrite(catalogHandle);
     }
 
     @Override
@@ -319,9 +329,9 @@ public class InMemoryTransactionManager
         @GuardedBy("this")
         private final Map<String, Optional<Catalog>> registeredCatalogs = new ConcurrentHashMap<>();
         @GuardedBy("this")
-        private final Map<CatalogName, CatalogMetadata> activeCatalogs = new ConcurrentHashMap<>();
+        private final Map<CatalogHandle, CatalogMetadata> activeCatalogs = new ConcurrentHashMap<>();
         @GuardedBy("this")
-        private final AtomicReference<CatalogName> writtenCatalog = new AtomicReference<>();
+        private final AtomicReference<CatalogHandle> writtenCatalog = new AtomicReference<>();
 
         public TransactionMetadata(
                 TransactionId transactionId,
@@ -378,47 +388,49 @@ public class InMemoryTransactionManager
             return registeredCatalogs.values().stream()
                     .filter(Optional::isPresent)
                     .map(Optional::get)
-                    .map(catalog -> new CatalogInfo(catalog.getCatalogName(), catalog.getConnectorName()))
+                    .map(catalog -> new CatalogInfo(catalog.getCatalogName(), catalog.getCatalogHandle(), catalog.getConnectorName()))
                     .collect(toImmutableList());
         }
 
-        private synchronized Optional<CatalogName> tryRegisterCatalog(String catalogName)
+        private synchronized Optional<CatalogHandle> tryRegisterCatalog(String catalogName)
         {
             return registeredCatalogs.computeIfAbsent(catalogName, catalogManager::getCatalog)
-                    .map(Catalog::getCatalogName);
+                    .map(Catalog::getCatalogHandle);
         }
 
-        private synchronized CatalogMetadata getTransactionCatalogMetadata(CatalogName catalogName)
+        private synchronized CatalogMetadata getTransactionCatalogMetadata(CatalogHandle catalogHandle)
         {
             checkOpenTransaction();
 
-            CatalogMetadata catalogMetadata = activeCatalogs.get(catalogName.getActualName());
+            CatalogMetadata catalogMetadata = activeCatalogs.get(catalogHandle.getRootCatalogHandle());
             if (catalogMetadata == null) {
                 // catalog name will not be an internal catalog (e.g., information schema) because internal
                 // catalog references can only be generated from the main catalog
-                Catalog catalog = registeredCatalogs.getOrDefault(catalogName.getCatalogName(), Optional.empty())
-                        .orElseThrow(() -> new IllegalArgumentException("Unknown catalog: " + catalogName));
+                checkArgument(!catalogHandle.getType().isInternal(), "Internal catalog handle not allowed: %s", catalogHandle);
+                Catalog catalog = registeredCatalogs.getOrDefault(catalogHandle.getCatalogName(), Optional.empty())
+                        .orElseThrow(() -> new IllegalArgumentException("No catalog registered for handle: " + catalogHandle));
 
                 catalogMetadata = catalog.beginTransaction(transactionId, isolationLevel, readOnly, autoCommitContext);
 
-                activeCatalogs.put(catalogName, catalogMetadata);
+                activeCatalogs.put(catalogHandle, catalogMetadata);
             }
             return catalogMetadata;
         }
 
-        public synchronized void checkConnectorWrite(CatalogName catalogName)
+        public synchronized void checkConnectorWrite(CatalogHandle catalogHandle)
         {
             checkOpenTransaction();
-            CatalogMetadata catalogMetadata = activeCatalogs.get(catalogName);
+            CatalogMetadata catalogMetadata = activeCatalogs.get(catalogHandle);
             checkArgument(catalogMetadata != null, "Cannot record write for catalog not part of transaction");
             if (readOnly) {
                 throw new TrinoException(READ_ONLY_VIOLATION, "Cannot execute write in a read-only transaction");
             }
-            if (!writtenCatalog.compareAndSet(null, catalogName) && !writtenCatalog.get().equals(catalogName)) {
-                throw new TrinoException(MULTI_CATALOG_WRITE_CONFLICT, "Multi-catalog writes not supported in a single transaction. Already wrote to catalog " + writtenCatalog.get());
+            if (!writtenCatalog.compareAndSet(null, catalogHandle) && !writtenCatalog.get().equals(catalogHandle)) {
+                String writtenCatalogName = activeCatalogs.get(writtenCatalog.get()).getCatalogName();
+                throw new TrinoException(MULTI_CATALOG_WRITE_CONFLICT, "Multi-catalog writes not supported in a single transaction. Already wrote to catalog " + writtenCatalogName);
             }
             if (catalogMetadata.isSingleStatementWritesOnly() && !autoCommitContext) {
-                throw new TrinoException(AUTOCOMMIT_WRITE_CONFLICT, "Catalog only supports writes using autocommit: " + catalogName);
+                throw new TrinoException(AUTOCOMMIT_WRITE_CONFLICT, "Catalog only supports writes using autocommit: " + catalogMetadata.getCatalogName());
             }
         }
 
@@ -433,8 +445,8 @@ public class InMemoryTransactionManager
                 return immediateFailedFuture(new TrinoException(TRANSACTION_ALREADY_ABORTED, "Current transaction has already been aborted"));
             }
 
-            CatalogName writeCatalogName = this.writtenCatalog.get();
-            if (writeCatalogName == null) {
+            CatalogHandle writeCatalogHandle = this.writtenCatalog.get();
+            if (writeCatalogHandle == null) {
                 ListenableFuture<Void> future = asVoid(Futures.allAsList(activeCatalogs.values().stream()
                         .map(catalog -> Futures.submit(catalog::commit, finishingExecutor))
                         .collect(toList())));
@@ -447,7 +459,7 @@ public class InMemoryTransactionManager
 
             Supplier<ListenableFuture<Void>> commitReadOnlyConnectors = () -> {
                 List<ListenableFuture<Void>> futures = activeCatalogs.entrySet().stream()
-                        .filter(entry -> !entry.getKey().equals(writeCatalogName))
+                        .filter(entry -> !entry.getKey().equals(writeCatalogHandle))
                         .map(Entry::getValue)
                         .map(transactionMetadata -> Futures.submit(transactionMetadata::commit, finishingExecutor))
                         .collect(toList());
@@ -456,7 +468,7 @@ public class InMemoryTransactionManager
                 return future;
             };
 
-            CatalogMetadata writeCatalog = activeCatalogs.get(writeCatalogName);
+            CatalogMetadata writeCatalog = activeCatalogs.get(writeCatalogHandle);
             ListenableFuture<Void> commitFuture = Futures.submit(writeCatalog::commit, finishingExecutor);
             ListenableFuture<Void> readOnlyCommitFuture = Futures.transformAsync(commitFuture, ignored -> commitReadOnlyConnectors.get(), directExecutor());
             addExceptionCallback(readOnlyCommitFuture, this::abortInternal);
@@ -492,13 +504,18 @@ public class InMemoryTransactionManager
                     .map(Duration::nanosSince)
                     .orElse(new Duration(0, MILLISECONDS));
 
-            // dereferencing this field is safe because the field is atomic
-            @SuppressWarnings("FieldAccessNotGuarded") Optional<CatalogName> writtenConnectorId = Optional.ofNullable(this.writtenCatalog.get());
+            // dereferencing this field is safe because the field is atomic, and activeCatalogs is a concurrent map
+            @SuppressWarnings("FieldAccessNotGuarded") Optional<String> writtenCatalogName = Optional.ofNullable(this.writtenCatalog.get())
+                    .map(activeCatalogs::get)
+                    .map(CatalogMetadata::getCatalogName);
 
-            // copying the key set is safe here because the map is concurrent
-            @SuppressWarnings("FieldAccessNotGuarded") List<CatalogName> catalogNames = ImmutableList.copyOf(activeCatalogs.keySet());
+            // access here is safe here because the map is concurrent
+            @SuppressWarnings("FieldAccessNotGuarded") List<String> catalogNames = activeCatalogs.values().stream()
+                    .map(CatalogMetadata::getCatalogName)
+                    .sorted()
+                    .collect(toUnmodifiableList());
 
-            return new TransactionInfo(transactionId, isolationLevel, readOnly, autoCommitContext, createTime, idleTime, catalogNames, writtenConnectorId);
+            return new TransactionInfo(transactionId, isolationLevel, readOnly, autoCommitContext, createTime, idleTime, catalogNames, writtenCatalogName);
         }
     }
 }

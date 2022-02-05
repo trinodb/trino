@@ -96,7 +96,7 @@ public class ApplyTableScanRedirection
         });
 
         TableMetadata tableMetadata = plannerContext.getMetadata().getTableMetadata(context.getSession(), scanNode.getTable());
-        CatalogSchemaTableName sourceTable = new CatalogSchemaTableName(tableMetadata.getCatalogName().getCatalogName(), tableMetadata.getTable());
+        CatalogSchemaTableName sourceTable = new CatalogSchemaTableName(tableMetadata.getCatalogName(), tableMetadata.getTable());
         if (destinationTable.equals(sourceTable)) {
             return Result.empty();
         }

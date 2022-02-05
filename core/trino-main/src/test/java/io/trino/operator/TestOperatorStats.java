@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import io.trino.connector.CatalogName;
 import io.trino.operator.output.PartitionedOutputOperator.PartitionedOutputInfo;
 import io.trino.plugin.base.metrics.LongCount;
 import io.trino.spi.metrics.Metrics;
@@ -27,13 +26,14 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
 
 public class TestOperatorStats
 {
-    private static final SplitOperatorInfo NON_MERGEABLE_INFO = new SplitOperatorInfo(new CatalogName("some_catalog"), "some_info");
+    private static final SplitOperatorInfo NON_MERGEABLE_INFO = new SplitOperatorInfo(createRootCatalogHandle("some_catalog"), "some_info");
     private static final PartitionedOutputInfo MERGEABLE_INFO = new PartitionedOutputInfo(1, 2, 1024);
 
     public static final OperatorStats EXPECTED = new OperatorStats(

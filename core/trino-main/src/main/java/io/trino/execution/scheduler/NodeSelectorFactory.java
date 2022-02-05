@@ -14,11 +14,11 @@
 package io.trino.execution.scheduler;
 
 import io.trino.Session;
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogHandle;
 
 import java.util.Optional;
 
 public interface NodeSelectorFactory
 {
-    NodeSelector createNodeSelector(Session session, Optional<CatalogName> catalogName);
+    NodeSelector createNodeSelector(Session session, Optional<CatalogHandle> catalogHandle);
 }

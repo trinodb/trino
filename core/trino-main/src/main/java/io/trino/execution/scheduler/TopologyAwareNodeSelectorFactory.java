@@ -23,7 +23,7 @@ import io.airlift.log.Logger;
 import io.airlift.stats.CounterStat;
 import io.trino.Session;
 import io.trino.collect.cache.NonEvictableCache;
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogHandle;
 import io.trino.execution.NodeTaskMap;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.InternalNodeManager;
@@ -118,14 +118,14 @@ public class TopologyAwareNodeSelectorFactory
     }
 
     @Override
-    public NodeSelector createNodeSelector(Session session, Optional<CatalogName> catalogName)
+    public NodeSelector createNodeSelector(Session session, Optional<CatalogHandle> catalogHandle)
     {
-        requireNonNull(catalogName, "catalogName is null");
+        requireNonNull(catalogHandle, "catalogHandle is null");
 
         // this supplier is thread-safe. TODO: this logic should probably move to the scheduler since the choice of which node to run in should be
         // done as close to when the split is about to be scheduled
         Supplier<NodeMap> nodeMap = Suppliers.memoizeWithExpiration(
-                () -> createNodeMap(catalogName),
+                () -> createNodeMap(catalogHandle),
                 5, TimeUnit.SECONDS);
 
         return new TopologyAwareNodeSelector(
@@ -141,10 +141,10 @@ public class TopologyAwareNodeSelectorFactory
                 networkTopology);
     }
 
-    private NodeMap createNodeMap(Optional<CatalogName> catalogName)
+    private NodeMap createNodeMap(Optional<CatalogHandle> catalogHandle)
     {
-        Set<InternalNode> nodes = catalogName
-                .map(nodeManager::getActiveConnectorNodes)
+        Set<InternalNode> nodes = catalogHandle
+                .map(nodeManager::getActiveCatalogNodes)
                 .orElseGet(() -> nodeManager.getNodes(ACTIVE));
 
         Set<String> coordinatorNodeIds = nodeManager.getCoordinators().stream()

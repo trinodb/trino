@@ -15,7 +15,7 @@ package io.trino.metadata;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorTableExecuteHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 
@@ -29,25 +29,25 @@ import static java.util.Objects.requireNonNull;
  */
 public final class TableExecuteHandle
 {
-    private final CatalogName catalogName;
+    private final CatalogHandle catalogHandle;
     private final ConnectorTransactionHandle transactionHandle;
     private final ConnectorTableExecuteHandle connectorHandle;
 
     @JsonCreator
     public TableExecuteHandle(
-            @JsonProperty("catalogName") CatalogName catalogName,
+            @JsonProperty("catalogHandle") CatalogHandle catalogHandle,
             @JsonProperty("transactionHandle") ConnectorTransactionHandle transactionHandle,
             @JsonProperty("connectorHandle") ConnectorTableExecuteHandle connectorHandle)
     {
-        this.catalogName = requireNonNull(catalogName, "catalogName is null");
+        this.catalogHandle = requireNonNull(catalogHandle, "catalogHandle is null");
         this.transactionHandle = requireNonNull(transactionHandle, "transactionHandle is null");
         this.connectorHandle = requireNonNull(connectorHandle, "connectorHandle is null");
     }
 
     @JsonProperty
-    public CatalogName getCatalogName()
+    public CatalogHandle getCatalogHandle()
     {
-        return catalogName;
+        return catalogHandle;
     }
 
     @JsonProperty
@@ -64,7 +64,7 @@ public final class TableExecuteHandle
 
     public TableExecuteHandle withConnectorHandle(ConnectorTableExecuteHandle connectorHandle)
     {
-        return new TableExecuteHandle(catalogName, transactionHandle, connectorHandle);
+        return new TableExecuteHandle(catalogHandle, transactionHandle, connectorHandle);
     }
 
     @Override
@@ -77,7 +77,7 @@ public final class TableExecuteHandle
             return false;
         }
         TableExecuteHandle o = (TableExecuteHandle) obj;
-        return Objects.equals(this.catalogName, o.catalogName) &&
+        return Objects.equals(this.catalogHandle, o.catalogHandle) &&
                 Objects.equals(this.transactionHandle, o.transactionHandle) &&
                 Objects.equals(this.connectorHandle, o.connectorHandle);
     }
@@ -85,12 +85,12 @@ public final class TableExecuteHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(catalogName, transactionHandle, connectorHandle);
+        return Objects.hash(catalogHandle, transactionHandle, connectorHandle);
     }
 
     @Override
     public String toString()
     {
-        return catalogName + ":" + connectorHandle;
+        return catalogHandle + ":" + connectorHandle;
     }
 }

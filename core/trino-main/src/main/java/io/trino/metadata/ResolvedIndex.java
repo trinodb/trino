@@ -13,7 +13,7 @@
  */
 package io.trino.metadata;
 
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorResolvedIndex;
 import io.trino.spi.connector.ConnectorTransactionHandle;
@@ -26,12 +26,12 @@ public final class ResolvedIndex
     private final IndexHandle indexHandle;
     private final TupleDomain<ColumnHandle> undeterminedTupleDomain;
 
-    public ResolvedIndex(CatalogName catalogName, ConnectorTransactionHandle transactionHandle, ConnectorResolvedIndex index)
+    public ResolvedIndex(CatalogHandle catalogHandle, ConnectorTransactionHandle transactionHandle, ConnectorResolvedIndex index)
     {
-        requireNonNull(catalogName, "catalogName is null");
+        requireNonNull(catalogHandle, "catalogHandle is null");
         requireNonNull(index, "index is null");
 
-        indexHandle = new IndexHandle(catalogName, transactionHandle, index.getIndexHandle());
+        indexHandle = new IndexHandle(catalogHandle, transactionHandle, index.getIndexHandle());
         undeterminedTupleDomain = index.getUnresolvedTupleDomain();
     }
 

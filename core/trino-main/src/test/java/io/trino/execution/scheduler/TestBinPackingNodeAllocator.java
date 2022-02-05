@@ -20,7 +20,7 @@ import io.airlift.testing.TestingTicker;
 import io.airlift.units.DataSize;
 import io.trino.Session;
 import io.trino.client.NodeVersion;
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogHandle;
 import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
 import io.trino.memory.MemoryInfo;
@@ -46,6 +46,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
+import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.time.temporal.ChronoUnit.MINUTES;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -69,9 +70,9 @@ public class TestBinPackingNodeAllocator
     private static final InternalNode NODE_3 = new InternalNode("node-3", URI.create("local://" + NODE_3_ADDRESS), NodeVersion.UNKNOWN, false);
     private static final InternalNode NODE_4 = new InternalNode("node-4", URI.create("local://" + NODE_4_ADDRESS), NodeVersion.UNKNOWN, false);
 
-    private static final CatalogName CATALOG_1 = new CatalogName("catalog1");
-    private static final CatalogName CATALOG_2 = new CatalogName("catalog2");
-    private static final List<CatalogName> ALL_CATALOGS = ImmutableList.of(CATALOG_1, CATALOG_2);
+    private static final CatalogHandle CATALOG_1 = createRootCatalogHandle("catalog1");
+    private static final CatalogHandle CATALOG_2 = createRootCatalogHandle("catalog2");
+    private static final List<CatalogHandle> ALL_CATALOGS = ImmutableList.of(CATALOG_1, CATALOG_2);
 
     private static final NodeRequirements REQ_32 = new NodeRequirements(Optional.empty(), Set.of(), DataSize.of(32, GIGABYTE));
     private static final NodeRequirements REQ_20 = new NodeRequirements(Optional.empty(), Set.of(), DataSize.of(16, GIGABYTE));
@@ -615,20 +616,20 @@ public class TestBinPackingNodeAllocator
         return new TaskId(new StageId("test_query", 0), partition, 0);
     }
 
-    private InMemoryNodeManager testingNodeManager(Map<InternalNode, List<CatalogName>> nodeMap)
+    private InMemoryNodeManager testingNodeManager(Map<InternalNode, List<CatalogHandle>> nodeMap)
     {
         InMemoryNodeManager nodeManager = new InMemoryNodeManager();
-        for (Map.Entry<InternalNode, List<CatalogName>> entry : nodeMap.entrySet()) {
+        for (Map.Entry<InternalNode, List<CatalogHandle>> entry : nodeMap.entrySet()) {
             InternalNode node = entry.getKey();
-            List<CatalogName> catalogs = entry.getValue();
-            for (CatalogName catalog : catalogs) {
+            List<CatalogHandle> catalogs = entry.getValue();
+            for (CatalogHandle catalog : catalogs) {
                 nodeManager.addNode(catalog, node);
             }
         }
         return nodeManager;
     }
 
-    private Map<InternalNode, List<CatalogName>> basicNodesMap(InternalNode... nodes)
+    private Map<InternalNode, List<CatalogHandle>> basicNodesMap(InternalNode... nodes)
     {
         return Arrays.stream(nodes)
                 .collect(toImmutableMap(
@@ -636,7 +637,7 @@ public class TestBinPackingNodeAllocator
                         node -> ALL_CATALOGS));
     }
 
-    private ImmutableMap.Builder<InternalNode, List<CatalogName>> nodesMapBuilder()
+    private ImmutableMap.Builder<InternalNode, List<CatalogHandle>> nodesMapBuilder()
     {
         return ImmutableMap.builder();
     }
@@ -646,15 +647,15 @@ public class TestBinPackingNodeAllocator
         addNode(nodeManager, node, ALL_CATALOGS);
     }
 
-    private void addNode(InMemoryNodeManager nodeManager, InternalNode node, CatalogName... catalogs)
+    private void addNode(InMemoryNodeManager nodeManager, InternalNode node, CatalogHandle... catalogs)
     {
         addNode(nodeManager, node, ImmutableList.copyOf(Arrays.asList(catalogs)));
     }
 
-    private void addNode(InMemoryNodeManager nodeManager, InternalNode node, List<CatalogName> catalogs)
+    private void addNode(InMemoryNodeManager nodeManager, InternalNode node, List<CatalogHandle> catalogs)
     {
         checkArgument(!catalogs.isEmpty(), "no catalogs specified");
-        for (CatalogName catalog : catalogs) {
+        for (CatalogHandle catalog : catalogs) {
             nodeManager.addNode(catalog, node);
         }
     }

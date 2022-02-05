@@ -34,7 +34,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.trino.Session;
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogHandle;
 import io.trino.execution.ForQueryExecution;
 import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.TableExecuteContext;
@@ -92,7 +92,6 @@ import static io.trino.SystemSessionProperties.getFaultTolerantExecutionMinTaskS
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionTargetTaskInputSize;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionTargetTaskSplitCount;
 import static io.trino.SystemSessionProperties.getFaultTolerantPreserveInputPartitionsInWriteStage;
-import static io.trino.connector.CatalogName.isInternalSystemConnector;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_DISTRIBUTION;
@@ -161,7 +160,7 @@ public class StageTaskSourceFactory
                     exchangeSourceHandles,
                     getFaultTolerantExecutionTargetTaskInputSize(session));
         }
-        if (partitioning.equals(FIXED_HASH_DISTRIBUTION) || partitioning.getConnectorId().isPresent()) {
+        if (partitioning.equals(FIXED_HASH_DISTRIBUTION) || partitioning.getCatalogHandle().isPresent()) {
             return HashDistributionTaskSource.create(
                     session,
                     fragment,
@@ -379,7 +378,7 @@ public class StageTaskSourceFactory
         private final int[] bucketToPartitionMap;
         private final Optional<BucketNodeMap> bucketNodeMap;
         private final DataSize taskMemory;
-        private final Optional<CatalogName> catalogRequirement;
+        private final Optional<CatalogHandle> catalogRequirement;
         private final long targetPartitionSourceSizeInBytes; // compared data read from ExchangeSources
         private final long targetPartitionSplitWeight; // compared against splits from SplitSources
         private final Executor executor;
@@ -418,7 +417,7 @@ public class StageTaskSourceFactory
                     getSplitTimeRecorder,
                     bucketToPartitionMap,
                     bucketNodeMap,
-                    fragment.getPartitioning().getConnectorId(),
+                    fragment.getPartitioning().getCatalogHandle(),
                     targetPartitionSplitWeight,
                     (preserveInputPartitionsInWriteStage && isWriteFragment(fragment)) ? DataSize.of(0, BYTE) : targetPartitionSourceSize,
                     getFaultTolerantExecutionDefaultTaskMemory(session),
@@ -460,7 +459,7 @@ public class StageTaskSourceFactory
                 LongConsumer getSplitTimeRecorder,
                 int[] bucketToPartitionMap,
                 Optional<BucketNodeMap> bucketNodeMap,
-                Optional<CatalogName> catalogRequirement,
+                Optional<CatalogHandle> catalogRequirement,
                 long targetPartitionSplitWeight,
                 DataSize targetPartitionSourceSize,
                 DataSize taskMemory,
@@ -684,7 +683,7 @@ public class StageTaskSourceFactory
         private final ListMultimap<PlanNodeId, ExchangeSourceHandle> replicatedExchangeSourceHandles;
         private final int splitBatchSize;
         private final LongConsumer getSplitTimeRecorder;
-        private final Optional<CatalogName> catalogRequirement;
+        private final Optional<CatalogHandle> catalogRequirement;
         private final int minPartitionSplitCount;
         private final long targetPartitionSplitWeight;
         private final int maxPartitionSplitCount;
@@ -727,8 +726,8 @@ public class StageTaskSourceFactory
             Map<PlanNodeId, SplitSource> splitSources = splitSourceFactory.createSplitSources(session, fragment);
             SplitSource splitSource = splitSources.get(partitionedSourceNodeId);
 
-            Optional<CatalogName> catalogName = Optional.of(splitSource.getCatalogName())
-                    .filter(catalog -> !isInternalSystemConnector(catalog));
+            Optional<CatalogHandle> catalogName = Optional.of(splitSource.getCatalogHandle())
+                    .filter(catalog -> !catalog.getType().isInternal());
 
             return new SourceDistributionTaskSource(
                     session.getQueryId(),
@@ -755,7 +754,7 @@ public class StageTaskSourceFactory
                 ListMultimap<PlanNodeId, ExchangeSourceHandle> replicatedExchangeSourceHandles,
                 int splitBatchSize,
                 LongConsumer getSplitTimeRecorder,
-                Optional<CatalogName> catalogRequirement,
+                Optional<CatalogHandle> catalogRequirement,
                 int minPartitionSplitCount,
                 long targetPartitionSplitWeight,
                 int maxPartitionSplitCount,

@@ -18,7 +18,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogHandle;
 import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.TaskFailureListener;
 import io.trino.execution.TaskId;
@@ -49,6 +49,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
+import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -57,7 +58,7 @@ public class ExchangeOperator
 {
     private static final Logger log = Logger.get(ExchangeOperator.class);
 
-    public static final CatalogName REMOTE_CONNECTOR_ID = new CatalogName("$remote");
+    public static final CatalogHandle REMOTE_CATALOG_HANDLE = createRootCatalogHandle("$remote");
 
     public static class ExchangeOperatorFactory
             implements SourceOperatorFactory
@@ -157,7 +158,7 @@ public class ExchangeOperator
     public Supplier<Optional<UpdatablePageSource>> addSplit(Split split)
     {
         requireNonNull(split, "split is null");
-        checkArgument(split.getCatalogName().equals(REMOTE_CONNECTOR_ID), "split is not a remote split");
+        checkArgument(split.getCatalogHandle().equals(REMOTE_CATALOG_HANDLE), "split is not a remote split");
 
         exchangeDataSource.addSplit((RemoteSplit) split.getConnectorSplit());
 

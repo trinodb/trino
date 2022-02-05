@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Files;
 import io.trino.Session;
-import io.trino.connector.CatalogName;
 import io.trino.cost.ScalarStatsCalculator;
 import io.trino.metadata.TableHandle;
 import io.trino.plugin.hive.HdfsConfig;
@@ -66,6 +65,7 @@ import java.util.Optional;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
+import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.trino.plugin.hive.HiveColumnHandle.createBaseColumn;
 import static io.trino.plugin.hive.HiveType.HIVE_INT;
@@ -159,7 +159,7 @@ public class TestConnectorPushdownRulesWithHive
                 Optional.empty());
 
         HiveTableHandle hiveTable = new HiveTableHandle(SCHEMA_NAME, tableName, ImmutableMap.of(), ImmutableList.of(), ImmutableList.of(), Optional.empty());
-        TableHandle table = new TableHandle(new CatalogName(HIVE_CATALOG_NAME), hiveTable, new HiveTransactionHandle(false));
+        TableHandle table = new TableHandle(createRootCatalogHandle(HIVE_CATALOG_NAME), hiveTable, new HiveTransactionHandle(false));
 
         HiveColumnHandle fullColumn = partialColumn.getBaseColumn();
 
@@ -187,7 +187,7 @@ public class TestConnectorPushdownRulesWithHive
                                 Assignments.of(p.symbol("struct_of_int", baseType), p.symbol("struct_of_int", baseType).toSymbolReference()),
                                 p.tableScan(
                                         new TableHandle(
-                                                new CatalogName(HIVE_CATALOG_NAME),
+                                                createRootCatalogHandle(HIVE_CATALOG_NAME),
                                                 hiveTable.withProjectedColumns(ImmutableSet.of(fullColumn)),
                                                 new HiveTransactionHandle(false)),
                                         ImmutableList.of(p.symbol("struct_of_int", baseType)),
@@ -223,7 +223,7 @@ public class TestConnectorPushdownRulesWithHive
         PushPredicateIntoTableScan pushPredicateIntoTableScan = new PushPredicateIntoTableScan(tester().getPlannerContext(), tester().getTypeAnalyzer());
 
         HiveTableHandle hiveTable = new HiveTableHandle(SCHEMA_NAME, tableName, ImmutableMap.of(), ImmutableList.of(), ImmutableList.of(), Optional.empty());
-        TableHandle table = new TableHandle(new CatalogName(HIVE_CATALOG_NAME), hiveTable, new HiveTransactionHandle(false));
+        TableHandle table = new TableHandle(createRootCatalogHandle(HIVE_CATALOG_NAME), hiveTable, new HiveTransactionHandle(false));
 
         HiveColumnHandle column = createBaseColumn("a", 0, HIVE_INT, INTEGER, REGULAR, Optional.empty());
 
@@ -255,7 +255,7 @@ public class TestConnectorPushdownRulesWithHive
         PruneTableScanColumns pruneTableScanColumns = new PruneTableScanColumns(tester().getMetadata());
 
         HiveTableHandle hiveTable = new HiveTableHandle(SCHEMA_NAME, tableName, ImmutableMap.of(), ImmutableList.of(), ImmutableList.of(), Optional.empty());
-        TableHandle table = new TableHandle(new CatalogName(HIVE_CATALOG_NAME), hiveTable, new HiveTransactionHandle(false));
+        TableHandle table = new TableHandle(createRootCatalogHandle(HIVE_CATALOG_NAME), hiveTable, new HiveTransactionHandle(false));
 
         HiveColumnHandle columnA = createBaseColumn("a", 0, HIVE_INT, INTEGER, REGULAR, Optional.empty());
         HiveColumnHandle columnB = createBaseColumn("b", 1, HIVE_INT, INTEGER, REGULAR, Optional.empty());
@@ -298,7 +298,7 @@ public class TestConnectorPushdownRulesWithHive
                 new ScalarStatsCalculator(tester().getPlannerContext(), tester().getTypeAnalyzer()));
 
         HiveTableHandle hiveTable = new HiveTableHandle(SCHEMA_NAME, tableName, ImmutableMap.of(), ImmutableList.of(), ImmutableList.of(), Optional.empty());
-        TableHandle table = new TableHandle(new CatalogName(HIVE_CATALOG_NAME), hiveTable, new HiveTransactionHandle(false));
+        TableHandle table = new TableHandle(createRootCatalogHandle(HIVE_CATALOG_NAME), hiveTable, new HiveTransactionHandle(false));
 
         HiveColumnHandle bigintColumn = createBaseColumn("just_bigint", 1, toHiveType(BIGINT), BIGINT, REGULAR, Optional.empty());
         HiveColumnHandle partialColumn = new HiveColumnHandle(

@@ -13,7 +13,6 @@
  */
 package io.trino.server;
 
-import com.google.common.base.Joiner;
 import com.google.common.base.StandardSystemProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Injector;
@@ -38,6 +37,7 @@ import io.airlift.log.Logger;
 import io.airlift.node.NodeModule;
 import io.airlift.tracetoken.TraceTokenModule;
 import io.trino.client.NodeVersion;
+import io.trino.connector.CatalogHandle;
 import io.trino.connector.ConnectorManager.ConnectorServices;
 import io.trino.connector.ConnectorServicesProvider;
 import io.trino.eventlistener.EventListenerManager;
@@ -76,6 +76,7 @@ import static io.trino.server.TrinoSystemRequirements.verifyJvmRequirements;
 import static io.trino.server.TrinoSystemRequirements.verifySystemTimeIsReasonable;
 import static java.lang.String.format;
 import static java.nio.file.LinkOption.NOFOLLOW_LINKS;
+import static java.util.stream.Collectors.joining;
 
 public class Server
 {
@@ -140,7 +141,7 @@ public class Server
             catalogManager.getCatalogNames().stream()
                     .map(catalogManager::getCatalog)
                     .flatMap(Optional::stream)
-                    .map(Catalog::getCatalogName)
+                    .map(Catalog::getCatalogHandle)
                     .map(connectorServicesProvider::getConnectorServices)
                     .map(ConnectorServices::getEventListeners)
                     .flatMap(Collection::stream)
@@ -208,18 +209,25 @@ public class Server
         return ImmutableList.of();
     }
 
-    private static void updateConnectorIds(Announcer announcer, CatalogManager metadata)
+    private static void updateConnectorIds(Announcer announcer, CatalogManager catalogManager)
     {
         // get existing announcement
         ServiceAnnouncement announcement = getTrinoAnnouncement(announcer.getServiceAnnouncements());
 
-        // automatically build connectorIds if not configured
-        Set<String> connectorIds = metadata.getCatalogNames();
+        // automatically build catalogHandleIds if not configured
+        String catalogHandleIds = catalogManager.getCatalogNames().stream()
+                .map(catalogManager::getCatalog)
+                .flatMap(Optional::stream)
+                .map(Catalog::getCatalogHandle)
+                .map(CatalogHandle::getId)
+                .distinct()
+                .sorted()
+                .collect(joining(","));
 
         // build announcement with updated sources
         ServiceAnnouncementBuilder builder = serviceAnnouncement(announcement.getType());
         builder.addProperties(announcement.getProperties());
-        builder.addProperty("connectorIds", Joiner.on(',').join(connectorIds));
+        builder.addProperty("catalogHandleIds", catalogHandleIds);
 
         // update announcement
         announcer.removeServiceAnnouncement(announcement.getId());

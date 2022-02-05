@@ -15,7 +15,7 @@ package io.trino.sql.planner.sanity;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogHandle;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.TableHandle;
@@ -40,6 +40,7 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
@@ -53,8 +54,8 @@ public class TestValidateScaledWritersUsage
     private PlanBuilder planBuilder;
     private Symbol symbol;
     private TableScanNode tableScanNode;
-    private CatalogName catalogSupportingScaledWriters;
-    private CatalogName catalogNotSupportingScaledWriters;
+    private CatalogHandle catalogSupportingScaledWriters;
+    private CatalogHandle catalogNotSupportingScaledWriters;
     private LocalQueryRunner queryRunner;
     private SchemaTableName schemaTableName;
 
@@ -62,8 +63,8 @@ public class TestValidateScaledWritersUsage
     public void setup()
     {
         schemaTableName = new SchemaTableName("any", "any");
-        catalogSupportingScaledWriters = new CatalogName("bytes_written_reported");
-        catalogNotSupportingScaledWriters = new CatalogName("no_bytes_written_reported");
+        catalogSupportingScaledWriters = createRootCatalogHandle("bytes_written_reported");
+        catalogNotSupportingScaledWriters = createRootCatalogHandle("no_bytes_written_reported");
         queryRunner = LocalQueryRunner.create(TEST_SESSION);
         queryRunner.createCatalog(catalogSupportingScaledWriters.getCatalogName(), createConnectorFactorySupportingReportingBytesWritten(true, catalogSupportingScaledWriters.getCatalogName()), ImmutableMap.of());
         queryRunner.createCatalog(catalogNotSupportingScaledWriters.getCatalogName(), createConnectorFactorySupportingReportingBytesWritten(false, catalogNotSupportingScaledWriters.getCatalogName()), ImmutableMap.of());

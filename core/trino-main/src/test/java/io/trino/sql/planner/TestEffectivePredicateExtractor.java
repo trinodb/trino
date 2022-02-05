@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import io.trino.Session;
-import io.trino.connector.CatalogName;
 import io.trino.metadata.AbstractMockMetadata;
 import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionMetadata;
@@ -94,6 +93,7 @@ import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
 import static io.trino.metadata.FunctionId.toFunctionId;
 import static io.trino.spi.function.FunctionKind.SCALAR;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -162,7 +162,7 @@ public class TestEffectivePredicateExtractor
         public TableProperties getTableProperties(Session session, TableHandle handle)
         {
             return new TableProperties(
-                    new CatalogName("test"),
+                    createRootCatalogHandle("test"),
                     TestingConnectorTransactionHandle.INSTANCE,
                     new ConnectorTableProperties(
                             ((PredicatedTableHandle) handle.getConnectorHandle()).getPredicate(),
@@ -1233,7 +1233,7 @@ public class TestEffectivePredicateExtractor
     private static TableHandle makeTableHandle(TupleDomain<ColumnHandle> predicate)
     {
         return new TableHandle(
-                new CatalogName("test"),
+                createRootCatalogHandle("test"),
                 new PredicatedTableHandle(predicate),
                 TestingTransactionHandle.create());
     }

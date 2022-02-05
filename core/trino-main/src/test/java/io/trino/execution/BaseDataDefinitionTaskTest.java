@@ -16,7 +16,7 @@ package io.trino.execution;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogHandle;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.execution.warnings.WarningCollector;
@@ -72,6 +72,7 @@ import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.DIVISION_BY_ZERO;
@@ -110,12 +111,12 @@ public abstract class BaseDataDefinitionTaskTest
         queryRunner.createCatalog(CATALOG_NAME, MockConnectorFactory.create("initial"), ImmutableMap.of());
 
         testSession = testSessionBuilder().build();
-        metadata = new MockMetadata(new CatalogName(CATALOG_NAME));
+        metadata = new MockMetadata(CATALOG_NAME);
         plannerContext = plannerContextBuilder().withMetadata(metadata).build();
         Map<String, PropertyMetadata<?>> properties = ImmutableMap.of(
                 MATERIALIZED_VIEW_PROPERTY_1_NAME, longProperty(MATERIALIZED_VIEW_PROPERTY_1_NAME, "property 1", MATERIALIZED_VIEW_PROPERTY_1_DEFAULT_VALUE, false),
                 MATERIALIZED_VIEW_PROPERTY_2_NAME, stringProperty(MATERIALIZED_VIEW_PROPERTY_2_NAME, "property 2", MATERIALIZED_VIEW_PROPERTY_2_DEFAULT_VALUE, false));
-        materializedViewPropertyManager = new MaterializedViewPropertyManager(CatalogServiceProvider.singleton(new CatalogName(CATALOG_NAME), properties));
+        materializedViewPropertyManager = new MaterializedViewPropertyManager(CatalogServiceProvider.singleton(createRootCatalogHandle(CATALOG_NAME), properties));
         queryStateMachine = stateMachine(transactionManager, createTestMetadataManager(), new AllowAllAccessControl(), testSession);
     }
 
@@ -208,24 +209,24 @@ public abstract class BaseDataDefinitionTaskTest
             extends AbstractMockMetadata
     {
         private final MetadataManager delegate;
-        private final CatalogName catalogHandle;
+        private final String catalogName;
         private final List<CatalogSchemaName> schemas = new CopyOnWriteArrayList<>();
         private final AtomicBoolean failCreateSchema = new AtomicBoolean();
         private final Map<SchemaTableName, ConnectorTableMetadata> tables = new ConcurrentHashMap<>();
         private final Map<SchemaTableName, ViewDefinition> views = new ConcurrentHashMap<>();
         private final Map<SchemaTableName, MaterializedViewDefinition> materializedViews = new ConcurrentHashMap<>();
 
-        public MockMetadata(CatalogName catalogHandle)
+        public MockMetadata(String catalogName)
         {
             delegate = createTestMetadataManager();
-            this.catalogHandle = requireNonNull(catalogHandle, "catalogHandle is null");
+            this.catalogName = requireNonNull(catalogName, "catalogName is null");
         }
 
         @Override
-        public Optional<CatalogName> getCatalogHandle(Session session, String catalogName)
+        public Optional<CatalogHandle> getCatalogHandle(Session session, String catalogName)
         {
-            if (catalogHandle.getCatalogName().equals(catalogName)) {
-                return Optional.of(catalogHandle);
+            if (this.catalogName.equals(catalogName)) {
+                return Optional.of(createRootCatalogHandle(catalogName));
             }
             return Optional.empty();
         }
@@ -256,7 +257,7 @@ public abstract class BaseDataDefinitionTaskTest
         @Override
         public TableSchema getTableSchema(Session session, TableHandle tableHandle)
         {
-            return new TableSchema(tableHandle.getCatalogName(), getTableMetadata(tableHandle).getTableSchema());
+            return new TableSchema("catalog", getTableMetadata(tableHandle).getTableSchema());
         }
 
         @Override
@@ -264,7 +265,7 @@ public abstract class BaseDataDefinitionTaskTest
         {
             return Optional.ofNullable(tables.get(tableName.asSchemaTableName()))
                     .map(tableMetadata -> new TableHandle(
-                            new CatalogName(CATALOG_NAME),
+                            createRootCatalogHandle(CATALOG_NAME),
                             new TestingTableHandle(tableName.asSchemaTableName()),
                             TestingConnectorTransactionHandle.INSTANCE));
         }
@@ -272,7 +273,7 @@ public abstract class BaseDataDefinitionTaskTest
         @Override
         public TableMetadata getTableMetadata(Session session, TableHandle tableHandle)
         {
-            return new TableMetadata(new CatalogName("catalog"), getTableMetadata(tableHandle));
+            return new TableMetadata("catalog", getTableMetadata(tableHandle));
         }
 
         @Override

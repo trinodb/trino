@@ -356,7 +356,7 @@ class RelationPlanner
                 sources.stream().map(RelationPlan::getRoot).collect(toImmutableList()),
                 inputRelationsProperties,
                 inputDescriptorMappings,
-                new TableFunctionHandle(functionAnalysis.getCatalogName(), functionAnalysis.getConnectorTableFunctionHandle(), functionAnalysis.getTransactionHandle()));
+                new TableFunctionHandle(functionAnalysis.getCatalogHandle(), functionAnalysis.getConnectorTableFunctionHandle(), functionAnalysis.getTransactionHandle()));
 
         return new RelationPlan(root, scope, outputSymbols, outerContext);
     }

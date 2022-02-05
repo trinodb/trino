@@ -17,7 +17,6 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.trino.connector.CatalogName;
 import io.trino.metadata.TableHandle;
 import io.trino.plugin.tpch.TpchColumnHandle;
 import io.trino.plugin.tpch.TpchTableHandle;
@@ -33,6 +32,7 @@ import org.testng.annotations.Test;
 import java.util.function.Predicate;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCALE_FACTOR;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -81,7 +81,7 @@ public class TestPruneIndexSourceColumns
                                 .collect(toImmutableList())),
                 p.indexSource(
                         new TableHandle(
-                                new CatalogName("local"),
+                                createRootCatalogHandle("local"),
                                 new TpchTableHandle(TINY_SCHEMA_NAME, "orders", TINY_SCALE_FACTOR),
                                 TpchTransactionHandle.INSTANCE),
                         ImmutableSet.of(orderkey, custkey),

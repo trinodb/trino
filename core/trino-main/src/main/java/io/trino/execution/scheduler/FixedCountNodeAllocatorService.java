@@ -18,7 +18,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.log.Logger;
 import io.trino.Session;
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogHandle;
 import io.trino.metadata.InternalNode;
 import io.trino.spi.TrinoException;
 
@@ -131,7 +131,7 @@ public class FixedCountNodeAllocatorService
         private final int maximumAllocationsPerNode;
 
         @GuardedBy("this")
-        private final Map<Optional<CatalogName>, NodeSelector> nodeSelectorCache = new HashMap<>();
+        private final Map<Optional<CatalogHandle>, NodeSelector> nodeSelectorCache = new HashMap<>();
 
         @GuardedBy("this")
         private final Map<InternalNode, Integer> allocationCountMap = new HashMap<>();
@@ -174,7 +174,7 @@ public class FixedCountNodeAllocatorService
 
         private synchronized Optional<InternalNode> tryAcquireNode(NodeRequirements requirements)
         {
-            NodeSelector nodeSelector = nodeSelectorCache.computeIfAbsent(requirements.getCatalogName(), catalogName -> nodeScheduler.createNodeSelector(session, catalogName));
+            NodeSelector nodeSelector = nodeSelectorCache.computeIfAbsent(requirements.getCatalogHandle(), catalogHandle -> nodeScheduler.createNodeSelector(session, catalogHandle));
 
             List<InternalNode> nodes = nodeSelector.allNodes();
             if (nodes.isEmpty()) {

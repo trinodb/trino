@@ -20,7 +20,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Maps;
 import io.trino.Session;
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogHandle;
 import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.metadata.IndexHandle;
 import io.trino.metadata.Metadata;
@@ -126,6 +126,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
@@ -600,7 +601,7 @@ public class PlanBuilder
     public static class TableScanBuilder
     {
         private final PlanNodeIdAllocator idAllocator;
-        private TableHandle tableHandle = new TableHandle(new CatalogName("testConnector"), new TestingTableHandle(), TestingTransactionHandle.create());
+        private TableHandle tableHandle = new TableHandle(createRootCatalogHandle("testConnector"), new TestingTableHandle(), TestingTransactionHandle.create());
         private List<Symbol> symbols;
         private Map<Symbol, ColumnHandle> assignments;
         private TupleDomain<ColumnHandle> enforcedConstraint = TupleDomain.all();
@@ -746,16 +747,16 @@ public class PlanBuilder
     {
         return new DeleteTarget(
                 Optional.of(new TableHandle(
-                        new CatalogName("testConnector"),
+                        createRootCatalogHandle("testConnector"),
                         new TestingTableHandle(),
                         TestingTransactionHandle.create())),
                 schemaTableName);
     }
 
-    public CreateTarget createTarget(CatalogName catalog, SchemaTableName schemaTableName, boolean reportingWrittenBytesSupported)
+    public CreateTarget createTarget(CatalogHandle catalogHandle, SchemaTableName schemaTableName, boolean reportingWrittenBytesSupported)
     {
         OutputTableHandle tableHandle = new OutputTableHandle(
-                catalog,
+                catalogHandle,
                 schemaTableName,
                 TestingConnectorTransactionHandle.INSTANCE,
                 TestingHandle.INSTANCE);
@@ -796,7 +797,7 @@ public class PlanBuilder
     private UpdateTarget updateTarget(SchemaTableName schemaTableName, List<String> columnsToBeUpdated)
     {
         TableHandle tableHandle = new TableHandle(
-                new CatalogName("testConnector"),
+                createRootCatalogHandle("testConnector"),
                 new TestingTableHandle(),
                 TestingTransactionHandle.create());
         return new UpdateTarget(
@@ -893,7 +894,7 @@ public class PlanBuilder
         return new IndexSourceNode(
                 idAllocator.getNextId(),
                 new IndexHandle(
-                        tableHandle.getCatalogName(),
+                        tableHandle.getCatalogHandle(),
                         TestingConnectorTransactionHandle.INSTANCE,
                         TestingConnectorIndexHandle.INSTANCE),
                 tableHandle,
@@ -1230,17 +1231,16 @@ public class PlanBuilder
             Optional<PartitioningScheme> preferredPartitioningScheme,
             PlanNode source)
     {
-        CatalogName catalogName = new CatalogName("testConnector");
         return new TableExecuteNode(
                 idAllocator.getNextId(),
                 source,
                 new TableWriterNode.TableExecuteTarget(
                         new TableExecuteHandle(
-                                catalogName,
+                                createRootCatalogHandle("testConnector"),
                                 TestingTransactionHandle.create(),
                                 new TestingTableExecuteHandle()),
                         Optional.empty(),
-                        new SchemaTableName(catalogName.getCatalogName(), "tableName"),
+                        new SchemaTableName("schemaName", "tableName"),
                         false),
                 symbol("partialrows", BIGINT),
                 symbol("fragment", VARBINARY),

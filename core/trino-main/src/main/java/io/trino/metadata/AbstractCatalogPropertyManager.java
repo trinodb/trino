@@ -14,7 +14,7 @@
 package io.trino.metadata;
 
 import io.trino.Session;
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogHandle;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.security.AccessControl;
 import io.trino.spi.ErrorCodeSupplier;
@@ -52,7 +52,8 @@ abstract class AbstractCatalogPropertyManager
     }
 
     public Map<String, Object> getProperties(
-            CatalogName catalog,
+            String catalogName,
+            CatalogHandle catalogHandle,
             Iterable<Property> properties,
             Session session,
             PlannerContext plannerContext,
@@ -61,7 +62,8 @@ abstract class AbstractCatalogPropertyManager
             boolean includeAllProperties)
     {
         Map<String, Optional<Object>> nullableValues = getNullableProperties(
-                catalog,
+                catalogName,
+                catalogHandle,
                 properties,
                 session,
                 plannerContext,
@@ -74,7 +76,8 @@ abstract class AbstractCatalogPropertyManager
     }
 
     public Map<String, Optional<Object>> getNullableProperties(
-            CatalogName catalog,
+            String catalogName,
+            CatalogHandle catalogHandle,
             Iterable<Property> properties,
             Session session,
             PlannerContext plannerContext,
@@ -82,7 +85,7 @@ abstract class AbstractCatalogPropertyManager
             Map<NodeRef<Parameter>, Expression> parameters,
             boolean includeAllProperties)
     {
-        Map<String, PropertyMetadata<?>> propertyMetadata = connectorProperties.getService(catalog);
+        Map<String, PropertyMetadata<?>> propertyMetadata = connectorProperties.getService(catalogHandle);
         return evaluateProperties(
                 properties,
                 session,
@@ -92,11 +95,11 @@ abstract class AbstractCatalogPropertyManager
                 includeAllProperties,
                 propertyMetadata,
                 propertyError,
-                format("catalog '%s' %s property", catalog, propertyType));
+                format("catalog '%s' %s property", catalogName, propertyType));
     }
 
-    public Collection<PropertyMetadata<?>> getAllProperties(CatalogName catalogName)
+    public Collection<PropertyMetadata<?>> getAllProperties(CatalogHandle catalogHandle)
     {
-        return connectorProperties.getService(catalogName).values();
+        return connectorProperties.getService(catalogHandle).values();
     }
 }

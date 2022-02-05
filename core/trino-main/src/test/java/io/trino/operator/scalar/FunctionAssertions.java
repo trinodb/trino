@@ -24,7 +24,6 @@ import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import io.trino.FeaturesConfig;
 import io.trino.Session;
-import io.trino.connector.CatalogName;
 import io.trino.metadata.FunctionBundle;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
@@ -119,6 +118,7 @@ import static io.trino.block.BlockAssertions.createShortDecimalsBlock;
 import static io.trino.block.BlockAssertions.createSlicesBlock;
 import static io.trino.block.BlockAssertions.createStringsBlock;
 import static io.trino.block.BlockAssertions.createTimestampsWithTimeZoneMillisBlock;
+import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -972,12 +972,12 @@ public final class FunctionAssertions
 
     private static Split createRecordSetSplit()
     {
-        return new Split(new CatalogName("test"), new TestSplit(true));
+        return new Split(createRootCatalogHandle("test"), new TestSplit(true));
     }
 
     private static Split createNormalSplit()
     {
-        return new Split(new CatalogName("test"), new TestSplit(false));
+        return new Split(createRootCatalogHandle("test"), new TestSplit(false));
     }
 
     private static RowType createTestRowType(int numberOfFields)

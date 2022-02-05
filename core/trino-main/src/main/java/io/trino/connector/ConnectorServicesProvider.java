@@ -17,5 +17,5 @@ import io.trino.connector.ConnectorManager.ConnectorServices;
 
 public interface ConnectorServicesProvider
 {
-    ConnectorServices getConnectorServices(CatalogName catalogName);
+    ConnectorServices getConnectorServices(CatalogHandle catalogHandle);
 }

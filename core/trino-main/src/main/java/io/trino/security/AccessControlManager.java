@@ -19,7 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
 import io.airlift.stats.CounterStat;
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogHandle.CatalogHandleType;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.eventlistener.EventListenerManager;
 import io.trino.metadata.QualifiedObjectName;
@@ -1239,7 +1239,7 @@ public class AccessControlManager
             return null;
         }
 
-        return transactionManager.getCatalogName(transactionId, catalogName)
+        return transactionManager.getCatalogHandle(transactionId, catalogName)
                 .flatMap(connectorAccessControlProvider::getService)
                 .orElse(null);
     }
@@ -1325,7 +1325,7 @@ public class AccessControlManager
     private ConnectorSecurityContext toConnectorSecurityContext(String catalogName, TransactionId requiredTransactionId, Identity identity, QueryId queryId)
     {
         return new ConnectorSecurityContext(
-                transactionManager.getConnectorTransaction(requiredTransactionId, new CatalogName(catalogName)),
+                transactionManager.getRequiredCatalogMetadata(requiredTransactionId, catalogName).getTransactionHandleFor(CatalogHandleType.NORMAL),
                 identity.toConnectorIdentity(catalogName),
                 queryId);
     }

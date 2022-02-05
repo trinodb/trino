@@ -16,7 +16,6 @@ package io.trino.sql.planner.optimizations;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
-import io.trino.connector.CatalogName;
 import io.trino.cost.CachingTableStatsProvider;
 import io.trino.cost.StatsAndCosts;
 import io.trino.execution.warnings.WarningCollector;
@@ -45,6 +44,7 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCALE_FACTOR;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -149,7 +149,7 @@ public class TestUnaliasSymbolReferences
     private TableHandle tableHandle(Session session, String tableName)
     {
         return new TableHandle(
-                new CatalogName(session.getCatalog().get()),
+                createRootCatalogHandle(session.getCatalog().get()),
                 new TpchTableHandle(TINY_SCHEMA_NAME, tableName, TINY_SCALE_FACTOR),
                 TestingTransactionHandle.create());
     }

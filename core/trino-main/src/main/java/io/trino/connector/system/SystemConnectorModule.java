@@ -18,7 +18,6 @@ import com.google.inject.Module;
 import com.google.inject.Scopes;
 import com.google.inject.multibindings.Multibinder;
 import com.google.inject.multibindings.ProvidesIntoSet;
-import io.trino.connector.CatalogName;
 import io.trino.connector.ConnectorManager;
 import io.trino.connector.system.jdbc.AttributeJdbcTable;
 import io.trino.connector.system.jdbc.CatalogJdbcTable;
@@ -92,7 +91,7 @@ public class SystemConnectorModule
         @Inject
         public SystemConnectorRegistrar(ConnectorManager manager, GlobalSystemConnector globalSystemConnector)
         {
-            manager.createCatalog(new CatalogName(GlobalSystemConnector.NAME), GlobalSystemConnector.NAME, globalSystemConnector, () -> {});
+            manager.createCatalog(GlobalSystemConnector.NAME, GlobalSystemConnector.NAME, globalSystemConnector, () -> {});
         }
     }
 }

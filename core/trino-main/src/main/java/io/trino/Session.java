@@ -20,7 +20,7 @@ import com.google.common.collect.Maps;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.client.ProtocolHeaders;
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogHandle;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.security.AccessControl;
 import io.trino.security.SecurityContext;
@@ -300,10 +300,10 @@ public final class Session
             if (catalogProperties.isEmpty()) {
                 continue;
             }
-            CatalogName catalog = transactionManager.getCatalogName(transactionId, catalogName)
+            CatalogHandle catalogHandle = transactionManager.getCatalogHandle(transactionId, catalogName)
                     .orElseThrow(() -> new TrinoException(NOT_FOUND, "Session property catalog does not exist: " + catalogName));
 
-            validateCatalogProperties(Optional.of(transactionId), accessControl, catalog, catalogProperties);
+            validateCatalogProperties(Optional.of(transactionId), accessControl, catalogName, catalogHandle, catalogProperties);
             connectorProperties.put(catalogName, catalogProperties);
         }
 
@@ -311,7 +311,7 @@ public final class Session
         for (Entry<String, SelectedRole> entry : identity.getCatalogRoles().entrySet()) {
             String catalogName = entry.getKey();
             SelectedRole role = entry.getValue();
-            if (transactionManager.getCatalogName(transactionId, catalogName).isEmpty()) {
+            if (transactionManager.getCatalogHandle(transactionId, catalogName).isEmpty()) {
                 throw new TrinoException(NOT_FOUND, "Catalog for role does not exist: " + catalogName);
             }
             if (role.getType() == SelectedRole.Type.ROLE) {
@@ -399,21 +399,17 @@ public final class Session
         return new FullConnectorSession(this, identity.toConnectorIdentity());
     }
 
-    public ConnectorSession toConnectorSession(String catalogName)
+    public ConnectorSession toConnectorSession(CatalogHandle catalogHandle)
     {
-        return toConnectorSession(new CatalogName(catalogName));
-    }
+        requireNonNull(catalogHandle, "catalogHandle is null");
 
-    public ConnectorSession toConnectorSession(CatalogName catalogName)
-    {
-        requireNonNull(catalogName, "catalogName is null");
-
+        String catalogName = catalogHandle.getCatalogName();
         return new FullConnectorSession(
                 this,
-                identity.toConnectorIdentity(catalogName.getCatalogName()),
-                catalogProperties.getOrDefault(catalogName.getCatalogName(), ImmutableMap.of()),
+                identity.toConnectorIdentity(catalogName),
+                catalogProperties.getOrDefault(catalogName, ImmutableMap.of()),
+                catalogHandle,
                 catalogName,
-                catalogName.getCatalogName(),
                 sessionPropertyManager);
     }
 
@@ -474,16 +470,21 @@ public final class Session
                 .toString();
     }
 
-    private void validateCatalogProperties(Optional<TransactionId> transactionId, AccessControl accessControl, CatalogName catalog, Map<String, String> catalogProperties)
+    private void validateCatalogProperties(
+            Optional<TransactionId> transactionId,
+            AccessControl accessControl,
+            String catalogName,
+            CatalogHandle catalogHandle,
+            Map<String, String> catalogProperties)
     {
         for (Entry<String, String> property : catalogProperties.entrySet()) {
             // verify permissions
             if (transactionId.isPresent()) {
-                accessControl.checkCanSetCatalogSessionProperty(new SecurityContext(transactionId.get(), identity, queryId), catalog.getCatalogName(), property.getKey());
+                accessControl.checkCanSetCatalogSessionProperty(new SecurityContext(transactionId.get(), identity, queryId), catalogName, property.getKey());
             }
 
             // validate catalog session property value
-            sessionPropertyManager.validateCatalogSessionProperty(catalog, property.getKey(), property.getValue());
+            sessionPropertyManager.validateCatalogSessionProperty(catalogName, catalogHandle, property.getKey(), property.getValue());
         }
     }
 

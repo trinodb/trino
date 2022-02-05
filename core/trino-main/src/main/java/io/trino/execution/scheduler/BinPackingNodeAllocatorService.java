@@ -505,7 +505,7 @@ public class BinPackingNodeAllocatorService
         public ReserveResult tryReserve(PendingAcquire acquire)
         {
             NodeRequirements requirements = acquire.getNodeRequirements();
-            Optional<Set<InternalNode>> catalogNodes = requirements.getCatalogName().map(nodesSnapshot::getConnectorNodes);
+            Optional<Set<InternalNode>> catalogNodes = requirements.getCatalogHandle().map(nodesSnapshot::getConnectorNodes);
 
             List<InternalNode> candidates = allNodesSorted.stream()
                     .filter(node -> catalogNodes.isEmpty() || catalogNodes.get().contains(node))

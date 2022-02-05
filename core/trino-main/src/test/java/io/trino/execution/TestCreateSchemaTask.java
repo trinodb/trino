@@ -15,7 +15,6 @@ package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.connector.CatalogName;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.SchemaPropertyManager;
@@ -27,6 +26,7 @@ import io.trino.sql.tree.QualifiedName;
 import org.testng.annotations.Test;
 
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
+import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
 import static java.util.Collections.emptyList;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.testng.Assert.assertTrue;
@@ -83,7 +83,7 @@ public class TestCreateSchemaTask
 
     private CreateSchemaTask getCreateSchemaTask()
     {
-        SchemaPropertyManager schemaPropertyManager = new SchemaPropertyManager(CatalogServiceProvider.singleton(new CatalogName(CATALOG_NAME), ImmutableMap.of()));
+        SchemaPropertyManager schemaPropertyManager = new SchemaPropertyManager(CatalogServiceProvider.singleton(createRootCatalogHandle(CATALOG_NAME), ImmutableMap.of()));
         return new CreateSchemaTask(plannerContext, new AllowAllAccessControl(), schemaPropertyManager);
     }
 }

@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import io.trino.connector.CatalogName;
 import io.trino.execution.ScheduledSplit;
 import io.trino.execution.SplitAssignment;
 import io.trino.execution.StageId;
@@ -50,6 +49,7 @@ import java.util.function.Function;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.RowPagesBuilder.rowPagesBuilder;
 import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.TestingHandles.TEST_TABLE_HANDLE;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -114,7 +114,7 @@ public class TestMemoryBlocking
         Driver driver = Driver.createDriver(driverContext, source, sink);
         assertSame(driver.getDriverContext(), driverContext);
         assertFalse(driver.isFinished());
-        Split testSplit = new Split(new CatalogName("test"), new TestSplit());
+        Split testSplit = new Split(createRootCatalogHandle("test"), new TestSplit());
         driver.updateSplitAssignment(new SplitAssignment(sourceId, ImmutableSet.of(new ScheduledSplit(0, sourceId, testSplit)), true));
 
         ListenableFuture<Void> blocked = driver.processForDuration(new Duration(1, NANOSECONDS));

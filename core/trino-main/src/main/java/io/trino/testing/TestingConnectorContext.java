@@ -13,7 +13,7 @@
  */
 package io.trino.testing;
 
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogHandle;
 import io.trino.connector.ConnectorAwareNodeManager;
 import io.trino.metadata.InMemoryNodeManager;
 import io.trino.operator.GroupByHashPageIndexerFactory;
@@ -31,6 +31,7 @@ import io.trino.sql.gen.JoinCompiler;
 import io.trino.type.BlockTypeOperators;
 import io.trino.version.EmbedVersion;
 
+import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
 import static io.trino.spi.connector.MetadataProvider.NOOP_METADATA_PROVIDER;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 
@@ -46,10 +47,10 @@ public final class TestingConnectorContext
     {
         TypeOperators typeOperators = new TypeOperators();
         pageIndexerFactory = new GroupByHashPageIndexerFactory(new JoinCompiler(typeOperators), new BlockTypeOperators(typeOperators));
-        CatalogName catalogName = new CatalogName("test");
+        CatalogHandle catalogHandle = createRootCatalogHandle("test");
         InMemoryNodeManager inMemoryNodeManager = new InMemoryNodeManager();
-        inMemoryNodeManager.addCurrentNodeConnector(catalogName);
-        nodeManager = new ConnectorAwareNodeManager(inMemoryNodeManager, "testenv", catalogName, true);
+        inMemoryNodeManager.addCurrentNodeCatalog(catalogHandle);
+        nodeManager = new ConnectorAwareNodeManager(inMemoryNodeManager, "testenv", catalogHandle, true);
     }
 
     @Override

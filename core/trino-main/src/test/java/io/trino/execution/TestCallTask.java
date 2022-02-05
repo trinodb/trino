@@ -15,7 +15,7 @@ package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogHandle;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.execution.warnings.WarningCollector;
@@ -50,6 +50,7 @@ import java.util.function.Function;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
 import static io.trino.spi.block.MethodHandleUtil.methodHandle;
 import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.INSERT_TABLE;
@@ -150,8 +151,8 @@ public class TestCallTask
 
     private static ProcedureRegistry createProcedureRegistry(Procedure procedure)
     {
-        CatalogName catalogName = new CatalogName("test");
-        return new ProcedureRegistry(CatalogServiceProvider.singleton(catalogName, new CatalogProcedures(ImmutableList.of(procedure))));
+        CatalogHandle catalogHandle = createRootCatalogHandle("test");
+        return new ProcedureRegistry(CatalogServiceProvider.singleton(catalogHandle, new CatalogProcedures(ImmutableList.of(procedure))));
     }
 
     private QueryStateMachine stateMachine(TransactionManager transactionManager, Metadata metadata, AccessControl accessControl)

@@ -14,7 +14,7 @@
 package io.trino.split;
 
 import io.trino.Session;
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogHandle;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.execution.QueryManagerConfig;
 import io.trino.metadata.TableHandle;
@@ -47,13 +47,13 @@ public class SplitManager
             DynamicFilter dynamicFilter,
             Constraint constraint)
     {
-        CatalogName catalogName = table.getCatalogName();
-        ConnectorSplitManager splitManager = splitManagerProvider.getService(catalogName);
+        CatalogHandle catalogHandle = table.getCatalogHandle();
+        ConnectorSplitManager splitManager = splitManagerProvider.getService(catalogHandle);
         if (!isAllowPushdownIntoConnectors(session)) {
             dynamicFilter = DynamicFilter.EMPTY;
         }
 
-        ConnectorSession connectorSession = session.toConnectorSession(catalogName);
+        ConnectorSession connectorSession = session.toConnectorSession(catalogHandle);
 
         ConnectorSplitSource source = splitManager.getSplits(
                 table.getTransaction(),
@@ -62,7 +62,7 @@ public class SplitManager
                 dynamicFilter,
                 constraint);
 
-        SplitSource splitSource = new ConnectorAwareSplitSource(catalogName, source);
+        SplitSource splitSource = new ConnectorAwareSplitSource(catalogHandle, source);
         if (minScheduleSplitBatchSize > 1) {
             splitSource = new BufferingSplitSource(splitSource, minScheduleSplitBatchSize);
         }

@@ -28,7 +28,7 @@ import org.testng.annotations.Test;
 
 import static io.trino.sql.planner.iterative.rule.RemoveEmptyDeleteRuleSet.remoteEmptyDeleteRule;
 import static io.trino.sql.planner.iterative.rule.RemoveEmptyDeleteRuleSet.removeEmptyDeleteWithExchangeRule;
-import static io.trino.sql.planner.iterative.rule.test.RuleTester.CONNECTOR_ID;
+import static io.trino.sql.planner.iterative.rule.test.RuleTester.CATALOG_HANDLE;
 import static io.trino.testing.DataProviders.toDataProvider;
 
 public class TestRemoveEmptyDeleteRuleSet
@@ -41,7 +41,7 @@ public class TestRemoveEmptyDeleteRuleSet
                 .on(p -> p.tableDelete(
                         new SchemaTableName("sch", "tab"),
                         p.tableScan(
-                                new TableHandle(CONNECTOR_ID, new TpchTableHandle("sf1", "nation", 1.0), TpchTransactionHandle.INSTANCE),
+                                new TableHandle(CATALOG_HANDLE, new TpchTableHandle("sf1", "nation", 1.0), TpchTransactionHandle.INSTANCE),
                                 ImmutableList.of(),
                                 ImmutableMap.of()),
                         p.symbol("a", BigintType.BIGINT)))
@@ -50,7 +50,7 @@ public class TestRemoveEmptyDeleteRuleSet
                 .on(p -> p.tableWithExchangeDelete(
                         new SchemaTableName("sch", "tab"),
                         p.tableScan(
-                                new TableHandle(CONNECTOR_ID, new TpchTableHandle("sf1", "nation", 1.0), TpchTransactionHandle.INSTANCE),
+                                new TableHandle(CATALOG_HANDLE, new TpchTableHandle("sf1", "nation", 1.0), TpchTransactionHandle.INSTANCE),
                                 ImmutableList.of(),
                                 ImmutableMap.of()),
                         p.symbol("a", BigintType.BIGINT)))
