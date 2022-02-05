@@ -21,7 +21,7 @@ import io.airlift.json.JsonCodecFactory;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
 import io.trino.SystemSessionPropertiesProvider;
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogHandle;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.security.AccessControl;
 import io.trino.spi.TrinoException;
@@ -106,11 +106,11 @@ public final class SessionPropertyManager
         return Optional.ofNullable(systemSessionProperties.get(name));
     }
 
-    public Optional<PropertyMetadata<?>> getConnectorSessionPropertyMetadata(CatalogName catalogName, String propertyName)
+    public Optional<PropertyMetadata<?>> getConnectorSessionPropertyMetadata(CatalogHandle catalogHandle, String propertyName)
     {
-        requireNonNull(catalogName, "catalogName is null");
+        requireNonNull(catalogHandle, "catalogHandle is null");
         requireNonNull(propertyName, "propertyName is null");
-        Map<String, PropertyMetadata<?>> properties = connectorSessionProperties.getService(catalogName);
+        Map<String, PropertyMetadata<?>> properties = connectorSessionProperties.getService(catalogHandle);
         return Optional.ofNullable(properties.get(propertyName));
     }
 
@@ -135,10 +135,11 @@ public final class SessionPropertyManager
         }
 
         for (CatalogInfo catalogInfo : catalogInfos) {
-            CatalogName catalogName = catalogInfo.getCatalogName();
-            Map<String, String> connectorProperties = session.getCatalogProperties(catalogName.getCatalogName());
+            CatalogHandle catalogHandle = catalogInfo.getCatalogHandle();
+            String catalogName = catalogInfo.getCatalogName();
+            Map<String, String> connectorProperties = session.getCatalogProperties(catalogName);
 
-            for (PropertyMetadata<?> property : new TreeMap<>(connectorSessionProperties.getService(catalogName)).values()) {
+            for (PropertyMetadata<?> property : new TreeMap<>(connectorSessionProperties.getService(catalogHandle)).values()) {
                 String defaultValue = firstNonNull(property.getDefaultValue(), "").toString();
                 String value = connectorProperties.getOrDefault(property.getName(), defaultValue);
 
@@ -146,7 +147,7 @@ public final class SessionPropertyManager
                         value,
                         defaultValue,
                         catalogName + "." + property.getName(),
-                        Optional.of(catalogName.getCatalogName()),
+                        Optional.of(catalogName),
                         property.getName(),
                         property.getDescription(),
                         property.getSqlType().getDisplayName(),
@@ -165,10 +166,10 @@ public final class SessionPropertyManager
         return decodePropertyValue(name, value, type, property);
     }
 
-    public <T> T decodeCatalogPropertyValue(CatalogName catalog, String catalogName, String propertyName, @Nullable String propertyValue, Class<T> type)
+    public <T> T decodeCatalogPropertyValue(CatalogHandle catalogHandle, String catalogName, String propertyName, @Nullable String propertyValue, Class<T> type)
     {
         String fullPropertyName = catalogName + "." + propertyName;
-        PropertyMetadata<?> property = getConnectorSessionPropertyMetadata(catalog, propertyName)
+        PropertyMetadata<?> property = getConnectorSessionPropertyMetadata(catalogHandle, propertyName)
                 .orElseThrow(() -> new TrinoException(INVALID_SESSION_PROPERTY, "Unknown session property " + fullPropertyName));
 
         return decodePropertyValue(fullPropertyName, propertyValue, type, property);
@@ -182,10 +183,10 @@ public final class SessionPropertyManager
         decodePropertyValue(propertyName, propertyValue, propertyMetadata.getJavaType(), propertyMetadata);
     }
 
-    public void validateCatalogSessionProperty(CatalogName catalog, String propertyName, String propertyValue)
+    public void validateCatalogSessionProperty(String catalogName, CatalogHandle catalogHandle, String propertyName, String propertyValue)
     {
-        String fullPropertyName = catalog.getCatalogName() + "." + propertyName;
-        PropertyMetadata<?> propertyMetadata = getConnectorSessionPropertyMetadata(catalog, propertyName)
+        String fullPropertyName = catalogName + "." + propertyName;
+        PropertyMetadata<?> propertyMetadata = getConnectorSessionPropertyMetadata(catalogHandle, propertyName)
                 .orElseThrow(() -> new TrinoException(INVALID_SESSION_PROPERTY, "Unknown session property " + fullPropertyName));
 
         decodePropertyValue(fullPropertyName, propertyValue, propertyMetadata.getJavaType(), propertyMetadata);

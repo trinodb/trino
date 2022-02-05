@@ -28,7 +28,7 @@ import io.airlift.log.Logger;
 import io.airlift.stats.TimeStat;
 import io.airlift.units.Duration;
 import io.trino.Session;
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogHandle;
 import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.BasicStageStats;
 import io.trino.execution.ExecutionFailureInfo;
@@ -131,7 +131,6 @@ import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.SystemSessionProperties.getTaskRetryAttemptsOverall;
 import static io.trino.SystemSessionProperties.getTaskRetryAttemptsPerTask;
 import static io.trino.SystemSessionProperties.getWriterMinSize;
-import static io.trino.connector.CatalogName.isInternalSystemConnector;
 import static io.trino.execution.BasicStageStats.aggregateBasicStageStats;
 import static io.trino.execution.QueryState.FINISHING;
 import static io.trino.execution.QueryState.STARTING;
@@ -1383,9 +1382,9 @@ public class SqlQueryScheduler
                 Entry<PlanNodeId, SplitSource> entry = getOnlyElement(splitSources.entrySet());
                 PlanNodeId planNodeId = entry.getKey();
                 SplitSource splitSource = entry.getValue();
-                Optional<CatalogName> catalogName = Optional.of(splitSource.getCatalogName())
-                        .filter(catalog -> !isInternalSystemConnector(catalog));
-                NodeSelector nodeSelector = nodeScheduler.createNodeSelector(session, catalogName);
+                Optional<CatalogHandle> catalogHandle = Optional.of(splitSource.getCatalogHandle())
+                        .filter(catalog -> !catalog.getType().isInternal());
+                NodeSelector nodeSelector = nodeScheduler.createNodeSelector(session, catalogHandle);
                 SplitPlacementPolicy placementPolicy = new DynamicSplitPlacementPolicy(nodeSelector, stageExecution::getAllTasks);
 
                 return newSourcePartitionedSchedulerAsStageScheduler(
@@ -1431,8 +1430,8 @@ public class SqlQueryScheduler
 
             // contains local source
             List<PlanNodeId> schedulingOrder = fragment.getPartitionedSources();
-            Optional<CatalogName> catalogName = partitioningHandle.getConnectorId();
-            checkArgument(catalogName.isPresent(), "No connector ID for partitioning handle: %s", partitioningHandle);
+            Optional<CatalogHandle> catalogHandle = partitioningHandle.getCatalogHandle();
+            checkArgument(catalogHandle.isPresent(), "No catalog handle for partitioning handle: %s", partitioningHandle);
 
             BucketNodeMap bucketNodeMap;
             List<InternalNode> stageNodeList;
@@ -1440,7 +1439,7 @@ public class SqlQueryScheduler
                 // no remote source
                 bucketNodeMap = nodePartitioningManager.getBucketNodeMap(session, partitioningHandle, false);
 
-                stageNodeList = new ArrayList<>(nodeScheduler.createNodeSelector(session, catalogName).allNodes());
+                stageNodeList = new ArrayList<>(nodeScheduler.createNodeSelector(session, catalogHandle).allNodes());
                 Collections.shuffle(stageNodeList);
             }
             else {
@@ -1457,7 +1456,7 @@ public class SqlQueryScheduler
                     stageNodeList,
                     bucketNodeMap,
                     splitBatchSize,
-                    nodeScheduler.createNodeSelector(session, catalogName),
+                    nodeScheduler.createNodeSelector(session, catalogHandle),
                     dynamicFilterService,
                     tableExecuteContextManager);
         }
@@ -1889,7 +1888,7 @@ public class SqlQueryScheduler
             if (partitioningHandle.equals(FIXED_HASH_DISTRIBUTION)) {
                 return new BucketToPartition(Optional.of(IntStream.range(0, partitionCount).toArray()), Optional.empty());
             }
-            if (partitioningHandle.getConnectorId().isPresent()) {
+            if (partitioningHandle.getCatalogHandle().isPresent()) {
                 BucketNodeMap bucketNodeMap = nodePartitioningManager.getBucketNodeMap(session, partitioningHandle, true);
                 int bucketCount = bucketNodeMap.getBucketCount();
                 int[] bucketToPartition = new int[bucketCount];

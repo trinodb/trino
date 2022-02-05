@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import io.trino.Session;
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogHandle;
 import io.trino.security.AccessControl;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnMetadata;
@@ -50,7 +50,7 @@ public final class MetadataListing
     {
         Set<String> catalogs;
         if (catalogName.isPresent()) {
-            Optional<CatalogName> catalogHandle = metadata.getCatalogHandle(session, catalogName.get());
+            Optional<CatalogHandle> catalogHandle = metadata.getCatalogHandle(session, catalogName.get());
             if (catalogHandle.isEmpty()) {
                 return ImmutableSortedSet.of();
             }
@@ -59,7 +59,6 @@ public final class MetadataListing
         else {
             catalogs = metadata.listCatalogs(session).stream()
                     .map(CatalogInfo::getCatalogName)
-                    .map(CatalogName::getCatalogName)
                     .collect(toImmutableSet());
         }
         return ImmutableSortedSet.copyOf(accessControl.filterCatalogs(session.toSecurityContext(), catalogs));
@@ -70,11 +69,10 @@ public final class MetadataListing
         List<CatalogInfo> catalogs = metadata.listCatalogs(session);
         Set<String> catalogNames = catalogs.stream()
                 .map(CatalogInfo::getCatalogName)
-                .map(CatalogName::getCatalogName)
                 .collect(toImmutableSet());
         Set<String> allowedCatalogs = accessControl.filterCatalogs(session.toSecurityContext(), catalogNames);
         return catalogs.stream()
-                .filter(catalogInfo -> allowedCatalogs.contains(catalogInfo.getCatalogName().getCatalogName()))
+                .filter(catalogInfo -> allowedCatalogs.contains(catalogInfo.getCatalogName()))
                 .collect(toImmutableList());
     }
 

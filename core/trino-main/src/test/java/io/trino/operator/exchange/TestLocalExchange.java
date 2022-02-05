@@ -18,7 +18,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.trino.SequencePageBuilder;
 import io.trino.Session;
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogHandle;
 import io.trino.execution.NodeTaskMap;
 import io.trino.execution.scheduler.NodeScheduler;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
@@ -53,6 +53,7 @@ import java.util.function.Consumer;
 import java.util.function.ToIntFunction;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
 import static io.trino.spi.connector.ConnectorBucketNodeMap.createBucketNodeMap;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -77,7 +78,7 @@ public class TestLocalExchange
     private static final BlockTypeOperators TYPE_OPERATOR_FACTORY = new BlockTypeOperators(new TypeOperators());
     private static final Session SESSION = testSessionBuilder().build();
 
-    private final ConcurrentMap<CatalogName, ConnectorNodePartitioningProvider> partitionManagers = new ConcurrentHashMap<>();
+    private final ConcurrentMap<CatalogHandle, ConnectorNodePartitioningProvider> partitionManagers = new ConcurrentHashMap<>();
     private NodePartitioningManager nodePartitioningManager;
 
     @BeforeMethod
@@ -90,9 +91,9 @@ public class TestLocalExchange
         nodePartitioningManager = new NodePartitioningManager(
                 nodeScheduler,
                 new BlockTypeOperators(new TypeOperators()),
-                catalogName -> {
-                    ConnectorNodePartitioningProvider result = partitionManagers.get(catalogName);
-                    checkArgument(result != null, catalogName + " does not have a partition manager");
+                catalogHandle -> {
+                    ConnectorNodePartitioningProvider result = partitionManagers.get(catalogHandle);
+                    checkArgument(result != null, "No partition manager for catalog handle: %s", catalogHandle);
                     return result;
                 });
     }
@@ -468,10 +469,10 @@ public class TestLocalExchange
         };
         List<Type> types = ImmutableList.of(VARCHAR, BIGINT);
         partitionManagers.put(
-                new CatalogName("foo"),
+                createRootCatalogHandle("foo"),
                 connectorNodePartitioningProvider);
         PartitioningHandle partitioningHandle = new PartitioningHandle(
-                Optional.of(new CatalogName("foo")),
+                Optional.of(createRootCatalogHandle("foo")),
                 Optional.of(TestingTransactionHandle.create()),
                 connectorPartitioningHandle);
         LocalExchange localExchange = new LocalExchange(

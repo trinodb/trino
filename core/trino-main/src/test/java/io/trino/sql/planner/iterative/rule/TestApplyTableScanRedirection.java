@@ -16,7 +16,6 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
-import io.trino.connector.CatalogName;
 import io.trino.connector.MockConnectorColumnHandle;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorTableHandle;
@@ -41,6 +40,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
 import static io.trino.connector.MockConnectorFactory.ApplyTableScanRedirect;
 import static io.trino.spi.predicate.Domain.singleValue;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -82,7 +82,7 @@ public class TestApplyTableScanRedirection
     private static TableHandle createTableHandle(ConnectorTableHandle tableHandle)
     {
         return new TableHandle(
-                new CatalogName(MOCK_CATALOG),
+                createRootCatalogHandle(MOCK_CATALOG),
                 tableHandle,
                 TestingTransactionHandle.create());
     }

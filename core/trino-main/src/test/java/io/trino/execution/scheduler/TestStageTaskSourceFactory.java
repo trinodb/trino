@@ -25,7 +25,7 @@ import com.google.common.collect.Multimaps;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.DataSize;
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogHandle;
 import io.trino.execution.TableExecuteContextManager;
 import io.trino.execution.scheduler.StageTaskSourceFactory.ArbitraryDistributionTaskSource;
 import io.trino.execution.scheduler.StageTaskSourceFactory.HashDistributionTaskSource;
@@ -68,6 +68,7 @@ import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
+import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
 import static io.trino.spi.exchange.ExchangeId.createRandomExchangeId;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -83,7 +84,7 @@ public class TestStageTaskSourceFactory
     private static final PlanNodeId PLAN_NODE_3 = new PlanNodeId("planNode3");
     private static final PlanNodeId PLAN_NODE_4 = new PlanNodeId("planNode4");
     private static final PlanNodeId PLAN_NODE_5 = new PlanNodeId("planNode5");
-    private static final CatalogName CATALOG = new CatalogName("catalog");
+    private static final CatalogHandle CATALOG = createRootCatalogHandle("catalog");
     public static final long STANDARD_WEIGHT = SplitWeight.standard().getRawValue();
 
     @Test
@@ -103,7 +104,7 @@ public class TestStageTaskSourceFactory
         assertTrue(taskSource.isFinished());
 
         TaskDescriptor task = tasks.get(0);
-        assertThat(task.getNodeRequirements().getCatalogName()).isEmpty();
+        assertThat(task.getNodeRequirements().getCatalogHandle()).isEmpty();
         assertThat(task.getNodeRequirements().getAddresses()).isEmpty();
         assertEquals(task.getPartitionId(), 0);
         assertEquals(task.getExchangeSourceHandles(), sources);

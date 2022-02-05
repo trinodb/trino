@@ -25,7 +25,7 @@ import io.airlift.testing.TestingTicker;
 import io.airlift.units.DataSize;
 import io.trino.Session;
 import io.trino.client.NodeVersion;
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogHandle;
 import io.trino.cost.StatsAndCosts;
 import io.trino.execution.NodeTaskMap;
 import io.trino.execution.RemoteTaskFactory;
@@ -78,6 +78,7 @@ import static com.google.common.collect.Iterables.limit;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
 import static io.trino.operator.RetryPolicy.TASK;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
@@ -110,7 +111,7 @@ public class TestFaultTolerantStageScheduler
     private static final PlanFragmentId SOURCE_FRAGMENT_ID_2 = new PlanFragmentId("2");
     private static final PlanNodeId TABLE_SCAN_NODE_ID = new PlanNodeId("table_scan_id");
 
-    private static final CatalogName CATALOG = new CatalogName("catalog");
+    private static final CatalogHandle CATALOG = createRootCatalogHandle("catalog");
 
     private static final InternalNode NODE_1 = new InternalNode("node-1", URI.create("local://127.0.0.1:8080"), NodeVersion.UNKNOWN, false);
     private static final InternalNode NODE_2 = new InternalNode("node-2", URI.create("local://127.0.0.1:8081"), NodeVersion.UNKNOWN, false);

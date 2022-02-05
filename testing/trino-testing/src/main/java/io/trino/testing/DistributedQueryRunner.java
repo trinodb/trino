@@ -24,7 +24,7 @@ import io.airlift.testing.Assertions;
 import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.Session.SessionBuilder;
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogHandle;
 import io.trino.cost.StatsCalculator;
 import io.trino.execution.FailureInjector.InjectedFailureType;
 import io.trino.execution.QueryManager;
@@ -450,17 +450,17 @@ public class DistributedQueryRunner
     public void createCatalog(String catalogName, String connectorName, Map<String, String> properties)
     {
         long start = System.nanoTime();
-        Set<CatalogName> catalogNames = new HashSet<>();
+        Set<CatalogHandle> catalogHandles = new HashSet<>();
         for (TestingTrinoServer server : servers) {
-            catalogNames.add(server.createCatalog(catalogName, connectorName, properties));
+            catalogHandles.add(server.createCatalog(catalogName, connectorName, properties));
         }
-        CatalogName catalog = getOnlyElement(catalogNames);
+        CatalogHandle catalog = getOnlyElement(catalogHandles);
         log.info("Created catalog %s (%s) in %s", catalogName, catalog, nanosSince(start));
 
         // wait for all nodes to announce the new catalog
         start = System.nanoTime();
         while (!isConnectionVisibleToAllNodes(catalog)) {
-            Assertions.assertLessThan(nanosSince(start), new Duration(100, SECONDS), "waiting for connector " + catalog + " to be initialized in every node");
+            Assertions.assertLessThan(nanosSince(start), new Duration(100, SECONDS), "waiting for catalog " + catalogName + " to be initialized in every node");
             try {
                 MILLISECONDS.sleep(10);
             }
@@ -472,11 +472,11 @@ public class DistributedQueryRunner
         log.info("Announced catalog %s (%s) in %s", catalogName, catalog, nanosSince(start));
     }
 
-    private boolean isConnectionVisibleToAllNodes(CatalogName catalogName)
+    private boolean isConnectionVisibleToAllNodes(CatalogHandle catalogHandle)
     {
         for (TestingTrinoServer server : servers) {
             server.refreshNodes();
-            Set<InternalNode> activeNodesWithConnector = server.getActiveNodesWithConnector(catalogName);
+            Set<InternalNode> activeNodesWithConnector = server.getActiveNodesWithConnector(catalogHandle);
             if (activeNodesWithConnector.size() != servers.size()) {
                 return false;
             }

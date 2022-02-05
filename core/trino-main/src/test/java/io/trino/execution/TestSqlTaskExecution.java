@@ -24,7 +24,7 @@ import io.airlift.slice.Slice;
 import io.airlift.stats.TestingGcMonitor;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogHandle;
 import io.trino.execution.buffer.BufferResult;
 import io.trino.execution.buffer.BufferState;
 import io.trino.execution.buffer.OutputBuffer;
@@ -72,6 +72,7 @@ import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.block.BlockAssertions.createStringSequenceBlock;
+import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
 import static io.trino.execution.TaskState.FINISHED;
 import static io.trino.execution.TaskState.FLUSHING;
 import static io.trino.execution.TaskState.RUNNING;
@@ -92,7 +93,7 @@ import static org.testng.Assert.assertFalse;
 public class TestSqlTaskExecution
 {
     private static final OutputBufferId OUTPUT_BUFFER_ID = new OutputBufferId(0);
-    private static final CatalogName CONNECTOR_ID = new CatalogName("test");
+    private static final CatalogHandle CATALOG_HANDLE = createRootCatalogHandle("test");
     private static final Duration ASSERT_WAIT_TIMEOUT = new Duration(1, HOURS);
     public static final TaskId TASK_ID = new TaskId(new StageId("query", 0), 0, 0);
 
@@ -285,7 +286,7 @@ public class TestSqlTaskExecution
 
     private ScheduledSplit newScheduledSplit(int sequenceId, PlanNodeId planNodeId, int begin, int count)
     {
-        return new ScheduledSplit(sequenceId, planNodeId, new Split(CONNECTOR_ID, new TestingSplit(begin, begin + count)));
+        return new ScheduledSplit(sequenceId, planNodeId, new Split(CATALOG_HANDLE, new TestingSplit(begin, begin + count)));
     }
 
     public static class Pauser

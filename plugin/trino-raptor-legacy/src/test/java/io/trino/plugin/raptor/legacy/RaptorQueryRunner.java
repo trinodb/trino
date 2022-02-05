@@ -20,7 +20,6 @@ import com.google.common.collect.Maps;
 import io.airlift.log.Logger;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
-import io.trino.connector.CatalogName;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.SessionPropertyManager;
@@ -38,6 +37,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 
 import static io.airlift.units.Duration.nanosSince;
+import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -154,7 +154,7 @@ public final class RaptorQueryRunner
         SessionPropertyManager sessionPropertyManager = new SessionPropertyManager(
                 ImmutableSet.of(new SystemSessionProperties()),
                 CatalogServiceProvider.singleton(
-                        new CatalogName("raptor"),
+                        createRootCatalogHandle("raptor"),
                         Maps.uniqueIndex(new RaptorSessionProperties(new StorageManagerConfig()).getSessionProperties(), PropertyMetadata::getName)));
         return testSessionBuilder(sessionPropertyManager)
                 .setCatalog("raptor")

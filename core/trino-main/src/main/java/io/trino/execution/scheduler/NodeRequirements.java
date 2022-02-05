@@ -15,7 +15,7 @@ package io.trino.execution.scheduler;
 
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogHandle;
 import io.trino.spi.HostAddress;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -32,13 +32,13 @@ public class NodeRequirements
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(NodeRequirements.class).instanceSize();
 
-    private final Optional<CatalogName> catalogName;
+    private final Optional<CatalogHandle> catalogHandle;
     private final Set<HostAddress> addresses;
     private final DataSize memory;
 
-    public NodeRequirements(Optional<CatalogName> catalogName, Set<HostAddress> addresses, DataSize memory)
+    public NodeRequirements(Optional<CatalogHandle> catalogHandle, Set<HostAddress> addresses, DataSize memory)
     {
-        this.catalogName = requireNonNull(catalogName, "catalogName is null");
+        this.catalogHandle = requireNonNull(catalogHandle, "catalogHandle is null");
         this.addresses = ImmutableSet.copyOf(requireNonNull(addresses, "addresses is null"));
         this.memory = requireNonNull(memory, "memory is null");
     }
@@ -46,9 +46,9 @@ public class NodeRequirements
     /*
      * If present constraint execution to nodes with the specified catalog installed
      */
-    public Optional<CatalogName> getCatalogName()
+    public Optional<CatalogHandle> getCatalogHandle()
     {
-        return catalogName;
+        return catalogHandle;
     }
 
     /*
@@ -66,7 +66,7 @@ public class NodeRequirements
 
     public NodeRequirements withMemory(DataSize memory)
     {
-        return new NodeRequirements(catalogName, addresses, memory);
+        return new NodeRequirements(catalogHandle, addresses, memory);
     }
 
     @Override
@@ -79,20 +79,20 @@ public class NodeRequirements
             return false;
         }
         NodeRequirements that = (NodeRequirements) o;
-        return Objects.equals(catalogName, that.catalogName) && Objects.equals(addresses, that.addresses) && Objects.equals(memory, that.memory);
+        return Objects.equals(catalogHandle, that.catalogHandle) && Objects.equals(addresses, that.addresses) && Objects.equals(memory, that.memory);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(catalogName, addresses, memory);
+        return Objects.hash(catalogHandle, addresses, memory);
     }
 
     @Override
     public String toString()
     {
         return toStringHelper(this)
-                .add("catalogName", catalogName)
+                .add("catalogHandle", catalogHandle)
                 .add("addresses", addresses)
                 .add("memory", memory)
                 .toString();
@@ -101,7 +101,7 @@ public class NodeRequirements
     public long getRetainedSizeInBytes()
     {
         return INSTANCE_SIZE
-                + sizeOf(catalogName, CatalogName::getRetainedSizeInBytes)
+                + sizeOf(catalogHandle, CatalogHandle::getRetainedSizeInBytes)
                 + estimatedSizeOf(addresses, HostAddress::getRetainedSizeInBytes);
     }
 }

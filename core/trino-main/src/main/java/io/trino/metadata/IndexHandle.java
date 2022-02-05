@@ -15,7 +15,7 @@ package io.trino.metadata;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorIndexHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 
@@ -25,25 +25,25 @@ import static java.util.Objects.requireNonNull;
 
 public final class IndexHandle
 {
-    private final CatalogName catalogName;
+    private final CatalogHandle catalogHandle;
     private final ConnectorTransactionHandle transactionHandle;
     private final ConnectorIndexHandle connectorHandle;
 
     @JsonCreator
     public IndexHandle(
-            @JsonProperty("catalogName") CatalogName catalogName,
+            @JsonProperty("catalogHandle") CatalogHandle catalogHandle,
             @JsonProperty("transactionHandle") ConnectorTransactionHandle transactionHandle,
             @JsonProperty("connectorHandle") ConnectorIndexHandle connectorHandle)
     {
-        this.catalogName = requireNonNull(catalogName, "catalogName is null");
+        this.catalogHandle = requireNonNull(catalogHandle, "catalogHandle is null");
         this.transactionHandle = requireNonNull(transactionHandle, "transactionHandle is null");
         this.connectorHandle = requireNonNull(connectorHandle, "connectorHandle is null");
     }
 
     @JsonProperty
-    public CatalogName getCatalogName()
+    public CatalogHandle getCatalogHandle()
     {
-        return catalogName;
+        return catalogHandle;
     }
 
     @JsonProperty
@@ -61,7 +61,7 @@ public final class IndexHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(catalogName, transactionHandle, connectorHandle);
+        return Objects.hash(catalogHandle, transactionHandle, connectorHandle);
     }
 
     @Override
@@ -74,7 +74,7 @@ public final class IndexHandle
             return false;
         }
         IndexHandle other = (IndexHandle) obj;
-        return Objects.equals(this.catalogName, other.catalogName) &&
+        return Objects.equals(this.catalogHandle, other.catalogHandle) &&
                 Objects.equals(this.transactionHandle, other.transactionHandle) &&
                 Objects.equals(this.connectorHandle, other.connectorHandle);
     }
@@ -82,6 +82,6 @@ public final class IndexHandle
     @Override
     public String toString()
     {
-        return catalogName + ":" + connectorHandle;
+        return catalogHandle + ":" + connectorHandle;
     }
 }

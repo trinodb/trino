@@ -261,8 +261,8 @@ public class SourcePartitionedScheduler
                             // for example, 1) an AggregationOperator, 2) a HashAggregationOperator where one of the grouping sets is ().
                             // Scheduling an empty split kicks off necessary driver instantiation to make this work.
                             pendingSplits.add(new Split(
-                                    splitSource.getCatalogName(),
-                                    new EmptySplit(splitSource.getCatalogName())));
+                                    splitSource.getCatalogHandle(),
+                                    new EmptySplit(splitSource.getCatalogHandle())));
                         }
                         state = State.SPLITS_SCHEDULED;
                     }

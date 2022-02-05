@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.testing.TempFile;
-import io.trino.connector.CatalogName;
 import io.trino.metadata.TableHandle;
 import io.trino.operator.GroupByHashPageIndexerFactory;
 import io.trino.orc.OrcWriteValidation;
@@ -64,6 +63,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
+import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
 import static io.trino.orc.metadata.CompressionKind.NONE;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveType.HIVE_INT;
@@ -166,7 +166,7 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                 SplitWeight.standard());
 
         TableHandle tableHandle = new TableHandle(
-                new CatalogName(ICEBERG_CATALOG_NAME),
+                createRootCatalogHandle(ICEBERG_CATALOG_NAME),
                 new IcebergTableHandle(
                         SCHEMA_NAME,
                         TABLE_NAME,

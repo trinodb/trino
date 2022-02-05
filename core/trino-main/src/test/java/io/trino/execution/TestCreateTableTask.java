@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogHandle;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.eventlistener.EventListenerConfig;
 import io.trino.eventlistener.EventListenerManager;
@@ -62,6 +62,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import static com.google.common.collect.Sets.immutableEnumSet;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -350,10 +351,10 @@ public class TestCreateTableTask
         }
 
         @Override
-        public Optional<CatalogName> getCatalogHandle(Session session, String catalogName)
+        public Optional<CatalogHandle> getCatalogHandle(Session session, String catalogName)
         {
             if (catalogName.equals(CATALOG_NAME) || catalogName.equals(OTHER_CATALOG_NAME)) {
-                return Optional.of(new CatalogName(catalogName));
+                return Optional.of(createRootCatalogHandle(catalogName));
             }
             return Optional.empty();
         }
@@ -364,7 +365,7 @@ public class TestCreateTableTask
             if (tableName.asSchemaTableName().equals(PARENT_TABLE.getTable())) {
                 return Optional.of(
                         new TableHandle(
-                                new CatalogName(CATALOG_NAME),
+                                createRootCatalogHandle(CATALOG_NAME),
                                 new TestingTableHandle(tableName.asSchemaTableName()),
                                 TestingConnectorTransactionHandle.INSTANCE));
             }
@@ -376,7 +377,7 @@ public class TestCreateTableTask
         {
             if ((tableHandle.getConnectorHandle() instanceof TestingTableHandle)) {
                 if (((TestingTableHandle) tableHandle.getConnectorHandle()).getTableName().equals(PARENT_TABLE.getTable())) {
-                    return new TableMetadata(new CatalogName("catalog"), PARENT_TABLE);
+                    return new TableMetadata(CATALOG_NAME, PARENT_TABLE);
                 }
             }
 
@@ -394,7 +395,7 @@ public class TestCreateTableTask
         }
 
         @Override
-        public Set<ConnectorCapabilities> getConnectorCapabilities(Session session, CatalogName catalogName)
+        public Set<ConnectorCapabilities> getConnectorCapabilities(Session session, CatalogHandle catalogHandle)
         {
             return connectorCapabilities;
         }
