@@ -23,7 +23,6 @@ import io.airlift.json.ObjectMapperProvider;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import io.trino.Session;
-import io.trino.connector.CatalogName;
 import io.trino.cost.StatsAndCosts;
 import io.trino.execution.QueryInfo;
 import io.trino.metadata.InsertTableHandle;
@@ -8437,7 +8436,7 @@ public abstract class BaseHiveConnectorTest
     private boolean isNativeParquetWriter(Session session, HiveStorageFormat storageFormat)
     {
         return storageFormat == HiveStorageFormat.PARQUET &&
-                ("true".equals(session.getConnectorProperties(new CatalogName("hive")).get("experimental_parquet_optimized_writer_enabled")) ||
+                ("true".equals(session.getConnectorProperties("hive").get("experimental_parquet_optimized_writer_enabled")) ||
                         "true".equals(session.getUnprocessedCatalogProperties().getOrDefault("hive", Map.of()).get("experimental_parquet_optimized_writer_enabled")));
     }
 
