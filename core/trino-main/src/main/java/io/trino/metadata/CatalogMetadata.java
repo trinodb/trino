@@ -16,7 +16,6 @@ package io.trino.metadata;
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.connector.CatalogName;
-import io.trino.metadata.Catalog.SecurityManagement;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.ConnectorCapabilities;
 import io.trino.spi.connector.ConnectorMetadata;
@@ -32,6 +31,11 @@ import static java.util.Objects.requireNonNull;
 
 public class CatalogMetadata
 {
+    public enum SecurityManagement
+    {
+        SYSTEM, CONNECTOR
+    }
+
     private static final String INFORMATION_SCHEMA_NAME = "information_schema";
 
     private final CatalogName catalogName;
