@@ -63,7 +63,6 @@ public final class SessionRepresentation
     private final ResourceEstimates resourceEstimates;
     private final Map<String, String> systemProperties;
     private final Map<String, Map<String, String>> catalogProperties;
-    private final Map<String, Map<String, String>> unprocessedCatalogProperties;
     private final Map<String, SelectedRole> catalogRoles;
     private final Map<String, String> preparedStatements;
     private final String protocolName;
@@ -93,7 +92,6 @@ public final class SessionRepresentation
             @JsonProperty("start") Instant start,
             @JsonProperty("systemProperties") Map<String, String> systemProperties,
             @JsonProperty("catalogProperties") Map<String, Map<String, String>> catalogProperties,
-            @JsonProperty("unprocessedCatalogProperties") Map<String, Map<String, String>> unprocessedCatalogProperties,
             @JsonProperty("catalogRoles") Map<String, SelectedRole> catalogRoles,
             @JsonProperty("preparedStatements") Map<String, String> preparedStatements,
             @JsonProperty("protocolName") String protocolName)
@@ -129,12 +127,6 @@ public final class SessionRepresentation
             catalogPropertiesBuilder.put(entry.getKey(), ImmutableMap.copyOf(entry.getValue()));
         }
         this.catalogProperties = catalogPropertiesBuilder.buildOrThrow();
-
-        ImmutableMap.Builder<String, Map<String, String>> unprocessedCatalogPropertiesBuilder = ImmutableMap.builder();
-        for (Entry<String, Map<String, String>> entry : unprocessedCatalogProperties.entrySet()) {
-            unprocessedCatalogPropertiesBuilder.put(entry.getKey(), ImmutableMap.copyOf(entry.getValue()));
-        }
-        this.unprocessedCatalogProperties = unprocessedCatalogPropertiesBuilder.buildOrThrow();
     }
 
     @JsonProperty
@@ -276,12 +268,6 @@ public final class SessionRepresentation
     }
 
     @JsonProperty
-    public Map<String, Map<String, String>> getUnprocessedCatalogProperties()
-    {
-        return unprocessedCatalogProperties;
-    }
-
-    @JsonProperty
     public Map<String, SelectedRole> getCatalogRoles()
     {
         return catalogRoles;
@@ -349,7 +335,6 @@ public final class SessionRepresentation
                 start,
                 systemProperties,
                 catalogProperties,
-                unprocessedCatalogProperties,
                 sessionPropertyManager,
                 preparedStatements,
                 createProtocolHeaders(protocolName));

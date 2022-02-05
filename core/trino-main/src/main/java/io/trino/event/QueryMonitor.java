@@ -459,13 +459,6 @@ public class QueryMonitor
     {
         Map<String, String> mergedProperties = new LinkedHashMap<>(session.getSystemProperties());
 
-        // Either processed or unprocessed catalog properties, but not both.  Instead of trying to enforces this while
-        // firing events, allow both to be set and if there is a duplicate favor the processed properties.
-        for (Map.Entry<String, Map<String, String>> catalogEntry : session.getUnprocessedCatalogProperties().entrySet()) {
-            for (Map.Entry<String, String> entry : catalogEntry.getValue().entrySet()) {
-                mergedProperties.put(catalogEntry.getKey() + "." + entry.getKey(), entry.getValue());
-            }
-        }
         for (Map.Entry<String, Map<String, String>> catalogEntry : session.getCatalogProperties().entrySet()) {
             for (Map.Entry<String, String> entry : catalogEntry.getValue().entrySet()) {
                 mergedProperties.put(catalogEntry.getKey() + "." + entry.getKey(), entry.getValue());

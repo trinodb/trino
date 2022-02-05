@@ -77,9 +77,7 @@ public final class Session
     private final Instant start;
     private final Map<String, String> systemProperties;
     // TODO use Table
-    private final Map<String, Map<String, String>> connectorProperties;
-    // TODO use Table
-    private final Map<String, Map<String, String>> unprocessedCatalogProperties;
+    private final Map<String, Map<String, String>> catalogProperties;
     private final SessionPropertyManager sessionPropertyManager;
     private final Map<String, String> preparedStatements;
     private final ProtocolHeaders protocolHeaders;
@@ -104,8 +102,7 @@ public final class Session
             ResourceEstimates resourceEstimates,
             Instant start,
             Map<String, String> systemProperties,
-            Map<String, Map<String, String>> connectorProperties,
-            Map<String, Map<String, String>> unprocessedCatalogProperties,
+            Map<String, Map<String, String>> catalogProperties,
             SessionPropertyManager sessionPropertyManager,
             Map<String, String> preparedStatements,
             ProtocolHeaders protocolHeaders)
@@ -133,19 +130,12 @@ public final class Session
         this.preparedStatements = requireNonNull(preparedStatements, "preparedStatements is null");
         this.protocolHeaders = requireNonNull(protocolHeaders, "protocolHeaders is null");
 
+        requireNonNull(catalogProperties, "catalogProperties is null");
         ImmutableMap.Builder<String, Map<String, String>> catalogPropertiesBuilder = ImmutableMap.builder();
-        connectorProperties.entrySet().stream()
+        catalogProperties.entrySet().stream()
                 .map(entry -> Maps.immutableEntry(entry.getKey(), ImmutableMap.copyOf(entry.getValue())))
                 .forEach(catalogPropertiesBuilder::put);
-        this.connectorProperties = catalogPropertiesBuilder.buildOrThrow();
-
-        ImmutableMap.Builder<String, Map<String, String>> unprocessedCatalogPropertiesBuilder = ImmutableMap.builder();
-        unprocessedCatalogProperties.entrySet().stream()
-                .map(entry -> Maps.immutableEntry(entry.getKey(), ImmutableMap.copyOf(entry.getValue())))
-                .forEach(unprocessedCatalogPropertiesBuilder::put);
-        this.unprocessedCatalogProperties = unprocessedCatalogPropertiesBuilder.buildOrThrow();
-
-        checkArgument(transactionId.isEmpty() || unprocessedCatalogProperties.isEmpty(), "Catalog session properties cannot be set if there is an open transaction");
+        this.catalogProperties = catalogPropertiesBuilder.buildOrThrow();
 
         checkArgument(catalog.isPresent() || schema.isEmpty(), "schema is set but catalog is not");
     }
@@ -256,19 +246,14 @@ public final class Session
         return sessionPropertyManager.decodeSystemPropertyValue(name, systemProperties.get(name), type);
     }
 
-    public Map<String, Map<String, String>> getConnectorProperties()
+    public Map<String, Map<String, String>> getCatalogProperties()
     {
-        return connectorProperties;
+        return catalogProperties;
     }
 
-    public Map<String, String> getConnectorProperties(String catalogName)
+    public Map<String, String> getCatalogProperties(String catalogName)
     {
-        return connectorProperties.getOrDefault(catalogName, ImmutableMap.of());
-    }
-
-    public Map<String, Map<String, String>> getUnprocessedCatalogProperties()
-    {
-        return unprocessedCatalogProperties;
+        return catalogProperties.getOrDefault(catalogName, ImmutableMap.of());
     }
 
     public Map<String, String> getSystemProperties()
@@ -309,7 +294,7 @@ public final class Session
 
         // Now that there is a transaction, the catalog name can be resolved to a connector, and the catalog properties can be validated
         ImmutableMap.Builder<String, Map<String, String>> connectorProperties = ImmutableMap.builder();
-        for (Entry<String, Map<String, String>> catalogEntry : unprocessedCatalogProperties.entrySet()) {
+        for (Entry<String, Map<String, String>> catalogEntry : this.catalogProperties.entrySet()) {
             String catalogName = catalogEntry.getKey();
             Map<String, String> catalogProperties = catalogEntry.getValue();
             if (catalogProperties.isEmpty()) {
@@ -359,7 +344,6 @@ public final class Session
                 start,
                 systemProperties,
                 connectorProperties.buildOrThrow(),
-                ImmutableMap.of(),
                 sessionPropertyManager,
                 preparedStatements,
                 protocolHeaders);
@@ -371,22 +355,18 @@ public final class Session
         requireNonNull(catalogPropertyDefaults, "catalogPropertyDefaults is null");
 
         checkState(transactionId.isEmpty(), "property defaults can not be added to a transaction already in progress");
-        checkState(connectorProperties.isEmpty(), "catalog properties have already been processed");
 
         // NOTE: properties should not be validated here and instead will be validated in beginTransactionId
         Map<String, String> systemProperties = new HashMap<>();
         systemProperties.putAll(systemPropertyDefaults);
         systemProperties.putAll(this.systemProperties);
 
-        Map<String, Map<String, String>> unprocessedCatalogProperties = catalogPropertyDefaults.entrySet().stream()
+        Map<String, Map<String, String>> catalogProperties = catalogPropertyDefaults.entrySet().stream()
                 .map(entry -> Maps.immutableEntry(entry.getKey(), new HashMap<>(entry.getValue())))
                 .collect(Collectors.toMap(Entry::getKey, Entry::getValue));
-        for (Entry<String, Map<String, String>> catalogProperties : this.unprocessedCatalogProperties.entrySet()) {
-            String catalog = catalogProperties.getKey();
-            for (Entry<String, String> entry : catalogProperties.getValue().entrySet()) {
-                unprocessedCatalogProperties.computeIfAbsent(catalog, id -> new HashMap<>())
-                        .put(entry.getKey(), entry.getValue());
-            }
+        for (Entry<String, Map<String, String>> catalogEntry : this.catalogProperties.entrySet()) {
+            catalogProperties.computeIfAbsent(catalogEntry.getKey(), id -> new HashMap<>())
+                    .putAll(catalogEntry.getValue());
         }
 
         return new Session(
@@ -409,8 +389,7 @@ public final class Session
                 resourceEstimates,
                 start,
                 systemProperties,
-                ImmutableMap.of(),
-                unprocessedCatalogProperties,
+                catalogProperties,
                 sessionPropertyManager,
                 preparedStatements,
                 protocolHeaders);
@@ -433,7 +412,7 @@ public final class Session
         return new FullConnectorSession(
                 this,
                 identity.toConnectorIdentity(catalogName.getCatalogName()),
-                connectorProperties.getOrDefault(catalogName.getCatalogName(), ImmutableMap.of()),
+                catalogProperties.getOrDefault(catalogName.getCatalogName(), ImmutableMap.of()),
                 catalogName,
                 catalogName.getCatalogName(),
                 sessionPropertyManager);
@@ -464,8 +443,7 @@ public final class Session
                 resourceEstimates,
                 start,
                 systemProperties,
-                connectorProperties,
-                unprocessedCatalogProperties,
+                catalogProperties,
                 identity.getCatalogRoles(),
                 preparedStatements,
                 protocolHeaders.getProtocolName());
@@ -590,7 +568,7 @@ public final class Session
             this.clientTags = ImmutableSet.copyOf(session.clientTags);
             this.start = session.start;
             this.systemProperties.putAll(session.systemProperties);
-            session.unprocessedCatalogProperties
+            session.catalogProperties
                     .forEach((catalog, properties) -> catalogSessionProperties.put(catalog, new HashMap<>(properties)));
             this.preparedStatements.putAll(session.preparedStatements);
             this.protocolHeaders = session.protocolHeaders;
@@ -819,7 +797,6 @@ public final class Session
                     Optional.ofNullable(resourceEstimates).orElse(new ResourceEstimateBuilder().build()),
                     start,
                     systemProperties,
-                    ImmutableMap.of(),
                     catalogSessionProperties,
                     sessionPropertyManager,
                     preparedStatements,

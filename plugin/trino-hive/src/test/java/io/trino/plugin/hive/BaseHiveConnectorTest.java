@@ -8429,15 +8429,14 @@ public abstract class BaseHiveConnectorTest
             test.accept(session, storageFormat.getFormat());
         }
         catch (Exception | AssertionError e) {
-            fail(format("Failure for format %s with properties %s / %s", storageFormat.getFormat(), session.getConnectorProperties(), session.getUnprocessedCatalogProperties()), e);
+            fail(format("Failure for format %s with properties %s", storageFormat.getFormat(), session.getCatalogProperties()), e);
         }
     }
 
     private boolean isNativeParquetWriter(Session session, HiveStorageFormat storageFormat)
     {
         return storageFormat == HiveStorageFormat.PARQUET &&
-                ("true".equals(session.getConnectorProperties("hive").get("experimental_parquet_optimized_writer_enabled")) ||
-                        "true".equals(session.getUnprocessedCatalogProperties().getOrDefault("hive", Map.of()).get("experimental_parquet_optimized_writer_enabled")));
+                "true".equals(session.getCatalogProperties("hive").get("experimental_parquet_optimized_writer_enabled"));
     }
 
     private List<TestingHiveStorageFormat> getAllTestingHiveStorageFormat()
