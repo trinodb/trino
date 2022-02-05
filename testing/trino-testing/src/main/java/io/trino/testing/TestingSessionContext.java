@@ -21,8 +21,6 @@ import io.trino.spi.security.SelectedRole.Type;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static java.util.Map.Entry;
 import static java.util.Objects.requireNonNull;
 
 public final class TestingSessionContext
@@ -63,8 +61,7 @@ public final class TestingSessionContext
                 session.getClientCapabilities(),
                 session.getResourceEstimates(),
                 session.getSystemProperties(),
-                session.getConnectorProperties().entrySet().stream()
-                        .collect(toImmutableMap(entry -> entry.getKey().getCatalogName(), Entry::getValue)),
+                session.getConnectorProperties(),
                 session.getPreparedStatements(),
                 session.getTransactionId(),
                 session.isClientTransactionSupport(),
