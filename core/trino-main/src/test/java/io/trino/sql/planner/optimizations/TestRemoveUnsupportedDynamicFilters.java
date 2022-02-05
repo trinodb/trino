@@ -15,7 +15,7 @@ package io.trino.sql.planner.optimizations;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogHandle;
 import io.trino.cost.CachingTableStatsProvider;
 import io.trino.cost.StatsAndCosts;
 import io.trino.execution.warnings.WarningCollector;
@@ -84,16 +84,16 @@ public class TestRemoveUnsupportedDynamicFilters
         plannerContext = getQueryRunner().getPlannerContext();
         metadata = plannerContext.getMetadata();
         builder = new PlanBuilder(new PlanNodeIdAllocator(), metadata, TEST_SESSION);
-        CatalogName catalogName = getCurrentConnectorId();
+        CatalogHandle catalogHandle = getCurrentCatalogHandle();
         lineitemTableHandle = new TableHandle(
-                catalogName,
+                catalogHandle,
                 new TpchTableHandle("sf1", "lineitem", 1.0),
                 TestingTransactionHandle.create());
         lineitemOrderKeySymbol = builder.symbol("LINEITEM_OK", BIGINT);
         lineitemTableScanNode = builder.tableScan(lineitemTableHandle, ImmutableList.of(lineitemOrderKeySymbol), ImmutableMap.of(lineitemOrderKeySymbol, new TpchColumnHandle("orderkey", BIGINT)));
 
         TableHandle ordersTableHandle = new TableHandle(
-                catalogName,
+                catalogHandle,
                 new TpchTableHandle("sf1", "orders", 1.0),
                 TestingTransactionHandle.create());
         ordersOrderKeySymbol = builder.symbol("ORDERS_OK", BIGINT);

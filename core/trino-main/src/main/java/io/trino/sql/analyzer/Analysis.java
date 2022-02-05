@@ -23,7 +23,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Multiset;
 import com.google.common.collect.Streams;
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogHandle;
 import io.trino.metadata.AnalyzeMetadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.ResolvedFunction;
@@ -1914,29 +1914,29 @@ public class Analysis
 
     public static class TableFunctionInvocationAnalysis
     {
-        private final CatalogName catalogName;
+        private final CatalogHandle catalogHandle;
         private final String functionName;
         private final Map<String, Argument> arguments;
         private final ConnectorTableFunctionHandle connectorTableFunctionHandle;
         private final ConnectorTransactionHandle transactionHandle;
 
         public TableFunctionInvocationAnalysis(
-                CatalogName catalogName,
+                CatalogHandle catalogHandle,
                 String functionName,
                 Map<String, Argument> arguments,
                 ConnectorTableFunctionHandle connectorTableFunctionHandle,
                 ConnectorTransactionHandle transactionHandle)
         {
-            this.catalogName = requireNonNull(catalogName, "catalogName is null");
+            this.catalogHandle = requireNonNull(catalogHandle, "catalogHandle is null");
             this.functionName = requireNonNull(functionName, "functionName is null");
             this.arguments = requireNonNull(arguments, "arguments is null");
             this.connectorTableFunctionHandle = requireNonNull(connectorTableFunctionHandle, "connectorTableFunctionHandle is null");
             this.transactionHandle = requireNonNull(transactionHandle, "transactionHandle is null");
         }
 
-        public CatalogName getCatalogName()
+        public CatalogHandle getCatalogHandle()
         {
-            return catalogName;
+            return catalogHandle;
         }
 
         public String getFunctionName()

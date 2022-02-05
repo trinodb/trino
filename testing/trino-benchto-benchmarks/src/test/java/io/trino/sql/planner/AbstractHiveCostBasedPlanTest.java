@@ -17,6 +17,8 @@ package io.trino.sql.planner;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
+import io.trino.Session;
+import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableMetadata;
 import io.trino.plugin.hive.RecordingMetastoreConfig;
@@ -35,7 +37,6 @@ import io.trino.sql.planner.plan.SemiJoinNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.testing.LocalQueryRunner;
-import io.trino.testing.QueryRunner;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -63,11 +64,11 @@ import static io.trino.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
 import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
 import static io.trino.testing.DataProviders.toDataProvider;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static io.trino.transaction.TransactionBuilder.transaction;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.nio.file.Files.isDirectory;
 import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 import static org.testng.Assert.assertEquals;
 
@@ -209,11 +210,17 @@ public abstract class AbstractHiveCostBasedPlanTest
 
     private String generateQueryPlan(String query)
     {
-        Plan plan = plan(query, OPTIMIZED_AND_VALIDATED, false);
-
-        JoinOrderPrinter joinOrderPrinter = new JoinOrderPrinter();
-        plan.getRoot().accept(joinOrderPrinter, 0);
-        return joinOrderPrinter.result();
+        try {
+            return getQueryRunner().inTransaction(transactionSession -> {
+                Plan plan = getQueryRunner().createPlan(transactionSession, query, OPTIMIZED_AND_VALIDATED, false, WarningCollector.NOOP);
+                JoinOrderPrinter joinOrderPrinter = new JoinOrderPrinter(transactionSession);
+                plan.getRoot().accept(joinOrderPrinter, 0);
+                return joinOrderPrinter.result();
+            });
+        }
+        catch (RuntimeException e) {
+            throw new AssertionError("Planning failed for SQL: " + query, e);
+        }
     }
 
     protected Path getSourcePath()
@@ -234,7 +241,13 @@ public abstract class AbstractHiveCostBasedPlanTest
     private class JoinOrderPrinter
             extends SimplePlanVisitor<Integer>
     {
+        private final Session session;
         private final StringBuilder result = new StringBuilder();
+
+        public JoinOrderPrinter(Session session)
+        {
+            this.session = requireNonNull(session, "session is null");
+        }
 
         public String result()
         {
@@ -311,14 +324,7 @@ public abstract class AbstractHiveCostBasedPlanTest
 
         private TableMetadata getTableMetadata(TableHandle tableHandle)
         {
-            QueryRunner queryRunner = getQueryRunner();
-            return transaction(queryRunner.getTransactionManager(), queryRunner.getAccessControl())
-                    .singleStatement()
-                    .execute(queryRunner.getDefaultSession(), transactionSession -> {
-                        // metadata.getCatalogHandle() registers the catalog for the transaction
-                        queryRunner.getMetadata().getCatalogHandle(transactionSession, tableHandle.getCatalogName().getCatalogName());
-                        return queryRunner.getMetadata().getTableMetadata(transactionSession, tableHandle);
-                    });
+            return getQueryRunner().getMetadata().getTableMetadata(session, tableHandle);
         }
 
         @Override

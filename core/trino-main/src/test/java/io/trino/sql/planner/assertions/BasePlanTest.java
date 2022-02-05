@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogHandle;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.plugin.tpch.TpchConnectorFactory;
 import io.trino.sql.planner.LogicalPlanner;
@@ -93,7 +93,7 @@ public class BasePlanTest
         queryRunner = null;
     }
 
-    protected CatalogName getCurrentConnectorId()
+    protected CatalogHandle getCurrentCatalogHandle()
     {
         return queryRunner.inTransaction(transactionSession -> queryRunner.getMetadata().getCatalogHandle(transactionSession, transactionSession.getCatalog().get())).get();
     }

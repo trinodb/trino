@@ -16,7 +16,6 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
-import io.trino.connector.CatalogName;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorTableHandle;
 import io.trino.cost.PlanNodeStatsEstimate;
@@ -66,6 +65,7 @@ import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.RowType.field;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -343,7 +343,7 @@ public class TestPushProjectionIntoTableScan
     private static TableHandle createTableHandle(String schemaName, String tableName)
     {
         return new TableHandle(
-                new CatalogName(MOCK_CATALOG),
+                createRootCatalogHandle(MOCK_CATALOG),
                 new MockConnectorTableHandle(new SchemaTableName(schemaName, tableName)),
                 TestingTransactionHandle.create());
     }

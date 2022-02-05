@@ -81,7 +81,7 @@ public class SplitMonitor
                 .map(OperatorStats::getInfo)
                 .filter(SplitOperatorInfo.class::isInstance)
                 .map(SplitOperatorInfo.class::cast)
-                .map(info -> info.getCatalogName().getCatalogName())
+                .map(info -> info.getCatalogHandle().getCatalogName())
                 .findFirst();
 
         try {

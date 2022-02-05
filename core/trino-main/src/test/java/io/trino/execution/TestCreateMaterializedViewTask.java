@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogHandle;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.execution.warnings.WarningCollector;
@@ -75,6 +75,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.INVALID_MATERIALIZED_VIEW_PROPERTY;
@@ -137,7 +138,7 @@ public class TestCreateMaterializedViewTask
         materializedViewPropertyManager = queryRunner.getMaterializedViewPropertyManager();
 
         testSession = testSessionBuilder().build();
-        metadata = new MockMetadata(new CatalogName(CATALOG_NAME));
+        metadata = new MockMetadata(CATALOG_NAME);
         plannerContext = plannerContextBuilder().withMetadata(metadata).build();
         parser = queryRunner.getSqlParser();
         analyzerFactory = new AnalyzerFactory(createTestingStatementAnalyzerFactory(plannerContext,
@@ -286,12 +287,12 @@ public class TestCreateMaterializedViewTask
     private static class MockMetadata
             extends AbstractMockMetadata
     {
-        private final CatalogName catalogHandle;
+        private final String catalogName;
         private final Map<SchemaTableName, MaterializedViewDefinition> materializedViews = new ConcurrentHashMap<>();
 
-        public MockMetadata(CatalogName catalogHandle)
+        public MockMetadata(String catalogName)
         {
-            this.catalogHandle = requireNonNull(catalogHandle, "catalogHandle is null");
+            this.catalogName = requireNonNull(catalogName, "catalogName is null");
         }
 
         @Override
@@ -304,10 +305,10 @@ public class TestCreateMaterializedViewTask
         }
 
         @Override
-        public Optional<CatalogName> getCatalogHandle(Session session, String catalogName)
+        public Optional<CatalogHandle> getCatalogHandle(Session session, String catalogName)
         {
-            if (catalogHandle.getCatalogName().equals(catalogName)) {
-                return Optional.of(catalogHandle);
+            if (this.catalogName.equals(catalogName)) {
+                return Optional.of(createRootCatalogHandle(catalogName));
             }
             return Optional.empty();
         }
@@ -315,7 +316,7 @@ public class TestCreateMaterializedViewTask
         @Override
         public TableSchema getTableSchema(Session session, TableHandle tableHandle)
         {
-            return new TableSchema(tableHandle.getCatalogName(), MOCK_TABLE.getTableSchema());
+            return new TableSchema(CATALOG_NAME, MOCK_TABLE.getTableSchema());
         }
 
         @Override
@@ -324,7 +325,7 @@ public class TestCreateMaterializedViewTask
             if (tableName.asSchemaTableName().equals(MOCK_TABLE.getTable())) {
                 return Optional.of(
                         new TableHandle(
-                                new CatalogName(CATALOG_NAME),
+                                createRootCatalogHandle(CATALOG_NAME),
                                 new TestingTableHandle(tableName.asSchemaTableName()),
                                 TestingConnectorTransactionHandle.INSTANCE));
             }
@@ -345,7 +346,7 @@ public class TestCreateMaterializedViewTask
         {
             if ((tableHandle.getConnectorHandle() instanceof TestingTableHandle)) {
                 if (((TestingTableHandle) tableHandle.getConnectorHandle()).getTableName().equals(MOCK_TABLE.getTable())) {
-                    return new TableMetadata(new CatalogName("catalog"), MOCK_TABLE);
+                    return new TableMetadata("catalog", MOCK_TABLE);
                 }
             }
 

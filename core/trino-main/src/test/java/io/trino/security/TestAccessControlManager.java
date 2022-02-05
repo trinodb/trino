@@ -16,7 +16,6 @@ package io.trino.security;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.trino.connector.CatalogName;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.eventlistener.EventListenerManager;
@@ -58,6 +57,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
 import static io.trino.spi.security.AccessDeniedException.denySelectTable;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.testing.TestingEventListenerManager.emptyEventListenerManager;
@@ -175,7 +175,7 @@ public class TestAccessControlManager
             accessControlManager.loadSystemAccessControl("test", ImmutableMap.of());
 
             queryRunner.createCatalog("catalog", MockConnectorFactory.create(), ImmutableMap.of());
-            accessControlManager.setConnectorAccessControlProvider(CatalogServiceProvider.singleton(new CatalogName("catalog"), Optional.of(new DenyConnectorAccessControl())));
+            accessControlManager.setConnectorAccessControlProvider(CatalogServiceProvider.singleton(createRootCatalogHandle("catalog"), Optional.of(new DenyConnectorAccessControl())));
 
             assertThatThrownBy(() -> transaction(transactionManager, accessControlManager)
                     .execute(transactionId -> {
@@ -222,7 +222,7 @@ public class TestAccessControlManager
             accessControlManager.loadSystemAccessControl("test", ImmutableMap.of());
 
             queryRunner.createCatalog("catalog", MockConnectorFactory.create(), ImmutableMap.of());
-            accessControlManager.setConnectorAccessControlProvider(CatalogServiceProvider.singleton(new CatalogName("catalog"), Optional.of(new ConnectorAccessControl()
+            accessControlManager.setConnectorAccessControlProvider(CatalogServiceProvider.singleton(createRootCatalogHandle("catalog"), Optional.of(new ConnectorAccessControl()
             {
                 @Override
                 public List<ViewExpression> getColumnMasks(ConnectorSecurityContext context, SchemaTableName tableName, String column, Type type)
@@ -267,7 +267,7 @@ public class TestAccessControlManager
             accessControlManager.loadSystemAccessControl("test", ImmutableMap.of());
 
             queryRunner.createCatalog("catalog", MockConnectorFactory.create(), ImmutableMap.of());
-            accessControlManager.setConnectorAccessControlProvider(CatalogServiceProvider.singleton(new CatalogName("connector"), Optional.of(new DenyConnectorAccessControl())));
+            accessControlManager.setConnectorAccessControlProvider(CatalogServiceProvider.singleton(createRootCatalogHandle("connector"), Optional.of(new DenyConnectorAccessControl())));
 
             assertThatThrownBy(() -> transaction(transactionManager, accessControlManager)
                     .execute(transactionId -> {
@@ -304,7 +304,7 @@ public class TestAccessControlManager
             accessControlManager.loadSystemAccessControl("allow-all", ImmutableMap.of());
 
             queryRunner.createCatalog("connector", MockConnectorFactory.create(), ImmutableMap.of());
-            accessControlManager.setConnectorAccessControlProvider(CatalogServiceProvider.singleton(new CatalogName("connector"), Optional.of(new DenyConnectorAccessControl())));
+            accessControlManager.setConnectorAccessControlProvider(CatalogServiceProvider.singleton(createRootCatalogHandle("connector"), Optional.of(new DenyConnectorAccessControl())));
 
             assertDenyExecuteProcedure(transactionManager, accessControlManager, "Access Denied: Cannot execute procedure schema.procedure");
         }
@@ -319,7 +319,7 @@ public class TestAccessControlManager
             accessControlManager.loadSystemAccessControl("allow-all", ImmutableMap.of());
 
             queryRunner.createCatalog("connector", MockConnectorFactory.create(), ImmutableMap.of());
-            accessControlManager.setConnectorAccessControlProvider(CatalogServiceProvider.singleton(new CatalogName("connector"), Optional.of(new AllowAllAccessControl())));
+            accessControlManager.setConnectorAccessControlProvider(CatalogServiceProvider.singleton(createRootCatalogHandle("connector"), Optional.of(new AllowAllAccessControl())));
 
             transaction(transactionManager, accessControlManager)
                     .execute(transactionId -> {

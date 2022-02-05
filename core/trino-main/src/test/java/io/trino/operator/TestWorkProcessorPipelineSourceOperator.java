@@ -20,7 +20,6 @@ import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
-import io.trino.connector.CatalogName;
 import io.trino.memory.context.MemoryTrackingContext;
 import io.trino.metadata.Split;
 import io.trino.operator.WorkProcessor.Transformation;
@@ -46,6 +45,7 @@ import java.util.function.Supplier;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.RowPagesBuilder.rowPagesBuilder;
 import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
 import static io.trino.operator.WorkProcessorAssertion.transformationFrom;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.testing.TestingSplit.createLocalSplit;
@@ -297,7 +297,7 @@ public class TestWorkProcessorPipelineSourceOperator
     private Split createSplit()
     {
         return new Split(
-                new CatalogName("catalog_name"),
+                createRootCatalogHandle("catalog_name"),
                 createLocalSplit());
     }
 

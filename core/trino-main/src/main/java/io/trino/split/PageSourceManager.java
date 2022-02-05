@@ -14,7 +14,7 @@
 package io.trino.split;
 
 import io.trino.Session;
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogHandle;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.metadata.Split;
 import io.trino.metadata.TableHandle;
@@ -48,10 +48,10 @@ public class PageSourceManager
     public ConnectorPageSource createPageSource(Session session, Split split, TableHandle table, List<ColumnHandle> columns, DynamicFilter dynamicFilter)
     {
         requireNonNull(columns, "columns is null");
-        checkArgument(split.getCatalogName().equals(table.getCatalogName()), "mismatched split and table");
-        CatalogName catalogName = split.getCatalogName();
+        checkArgument(split.getCatalogHandle().equals(table.getCatalogHandle()), "mismatched split and table");
+        CatalogHandle catalogHandle = split.getCatalogHandle();
 
-        ConnectorPageSourceProvider provider = pageSourceProvider.getService(catalogName);
+        ConnectorPageSourceProvider provider = pageSourceProvider.getService(catalogHandle);
         TupleDomain<ColumnHandle> constraint = dynamicFilter.getCurrentPredicate();
         if (constraint.isNone()) {
             return new EmptyPageSource();
@@ -61,7 +61,7 @@ public class PageSourceManager
         }
         return provider.createPageSource(
                 table.getTransaction(),
-                session.toConnectorSession(catalogName),
+                session.toConnectorSession(catalogHandle),
                 split.getConnectorSplit(),
                 table.getConnectorHandle(),
                 columns,

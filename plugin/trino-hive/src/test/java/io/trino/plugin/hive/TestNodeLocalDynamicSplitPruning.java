@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.testing.TempFile;
-import io.trino.connector.CatalogName;
 import io.trino.metadata.TableHandle;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.orc.OrcReaderConfig;
@@ -43,6 +42,7 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
+import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
@@ -141,7 +141,7 @@ public class TestNodeLocalDynamicSplitPruning
                 SplitWeight.standard());
 
         TableHandle tableHandle = new TableHandle(
-                new CatalogName(HIVE_CATALOG_NAME),
+                createRootCatalogHandle(HIVE_CATALOG_NAME),
                 new HiveTableHandle(
                         SCHEMA_NAME,
                         TABLE_NAME,

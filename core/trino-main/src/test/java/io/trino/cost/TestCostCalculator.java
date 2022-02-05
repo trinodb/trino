@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
-import io.trino.connector.CatalogName;
 import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.TableHandle;
@@ -67,6 +66,7 @@ import java.util.function.Function;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
 import static io.trino.plugin.tpch.TpchTransactionHandle.INSTANCE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -797,7 +797,7 @@ public class TestCostCalculator
         TpchTableHandle tableHandle = new TpchTableHandle("sf1", "orders", 1.0);
         return new TableScanNode(
                 new PlanNodeId(id),
-                new TableHandle(new CatalogName("tpch"), tableHandle, INSTANCE),
+                new TableHandle(createRootCatalogHandle("tpch"), tableHandle, INSTANCE),
                 symbolsList,
                 assignments.buildOrThrow(),
                 TupleDomain.all(),

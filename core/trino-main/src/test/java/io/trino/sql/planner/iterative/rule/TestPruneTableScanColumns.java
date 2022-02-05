@@ -15,7 +15,6 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.connector.CatalogName;
 import io.trino.connector.MockConnectorColumnHandle;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorTableHandle;
@@ -48,6 +47,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCALE_FACTOR;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.spi.type.DateType.DATE;
@@ -74,7 +74,7 @@ public class TestPruneTableScanColumns
                             Assignments.of(p.symbol("x"), totalprice.toSymbolReference()),
                             p.tableScan(
                                     new TableHandle(
-                                            new CatalogName("local"),
+                                            createRootCatalogHandle("local"),
                                             new TpchTableHandle(TINY_SCHEMA_NAME, "orders", TINY_SCALE_FACTOR),
                                             TpchTransactionHandle.INSTANCE),
                                     ImmutableList.of(orderdate, totalprice),
@@ -101,7 +101,7 @@ public class TestPruneTableScanColumns
                             Assignments.of(p.symbol("x"), totalprice.toSymbolReference()),
                             p.tableScan(
                                     new TableHandle(
-                                            new CatalogName("local"),
+                                            createRootCatalogHandle("local"),
                                             new TpchTableHandle(TINY_SCHEMA_NAME, "orders", TINY_SCALE_FACTOR),
                                             TpchTransactionHandle.INSTANCE),
                                     List.of(orderdate, totalprice),
@@ -168,7 +168,7 @@ public class TestPruneTableScanColumns
                                 Assignments.of(p.symbol("x"), symbolB.toSymbolReference()),
                                 p.tableScan(
                                         new TableHandle(
-                                                new CatalogName(mockCatalog),
+                                                createRootCatalogHandle(mockCatalog),
                                                 new MockConnectorTableHandle(testSchemaTable),
                                                 MockConnectorTransactionHandle.INSTANCE),
                                         ImmutableList.of(symbolA, symbolB),

@@ -19,7 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.SetMultimap;
 import io.trino.client.NodeVersion;
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogHandle;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.inject.Inject;
@@ -36,7 +36,7 @@ public class InMemoryNodeManager
         implements InternalNodeManager
 {
     private final InternalNode localNode;
-    private final SetMultimap<CatalogName, InternalNode> remoteNodes = Multimaps.synchronizedSetMultimap(HashMultimap.create());
+    private final SetMultimap<CatalogHandle, InternalNode> remoteNodes = Multimaps.synchronizedSetMultimap(HashMultimap.create());
 
     @GuardedBy("this")
     private final List<Consumer<AllNodes>> listeners = new ArrayList<>();
@@ -52,19 +52,19 @@ public class InMemoryNodeManager
         localNode = new InternalNode("local", localUri, NodeVersion.UNKNOWN, true);
     }
 
-    public void addCurrentNodeConnector(CatalogName catalogName)
+    public void addCurrentNodeCatalog(CatalogHandle catalogHandle)
     {
-        addNode(catalogName, localNode);
+        addNode(catalogHandle, localNode);
     }
 
-    public void addNode(CatalogName catalogName, InternalNode... nodes)
+    public void addNode(CatalogHandle catalogHandle, InternalNode... nodes)
     {
-        addNode(catalogName, ImmutableList.copyOf(nodes));
+        addNode(catalogHandle, ImmutableList.copyOf(nodes));
     }
 
-    public void addNode(CatalogName catalogName, Iterable<InternalNode> nodes)
+    public void addNode(CatalogHandle catalogHandle, Iterable<InternalNode> nodes)
     {
-        remoteNodes.putAll(catalogName, nodes);
+        remoteNodes.putAll(catalogHandle, nodes);
 
         List<Consumer<AllNodes>> listeners;
         synchronized (this) {
@@ -76,14 +76,14 @@ public class InMemoryNodeManager
 
     public void removeNode(InternalNode node)
     {
-        for (CatalogName catalog : ImmutableSet.copyOf(remoteNodes.keySet())) {
-            removeNode(catalog, node);
+        for (CatalogHandle catalogHandle : ImmutableSet.copyOf(remoteNodes.keySet())) {
+            removeNode(catalogHandle, node);
         }
     }
 
-    public void removeNode(CatalogName catalogName, InternalNode node)
+    public void removeNode(CatalogHandle catalogHandle, InternalNode node)
     {
-        remoteNodes.remove(catalogName, node);
+        remoteNodes.remove(catalogHandle, node);
     }
 
     @Override
@@ -101,9 +101,9 @@ public class InMemoryNodeManager
     }
 
     @Override
-    public Set<InternalNode> getActiveConnectorNodes(CatalogName catalogName)
+    public Set<InternalNode> getActiveCatalogNodes(CatalogHandle catalogHandle)
     {
-        return ImmutableSet.copyOf(remoteNodes.get(catalogName));
+        return ImmutableSet.copyOf(remoteNodes.get(catalogHandle));
     }
 
     @Override

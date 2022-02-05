@@ -16,7 +16,6 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
-import io.trino.connector.CatalogName;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorTableHandle;
 import io.trino.metadata.TableHandle;
@@ -39,6 +38,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.sort;
@@ -72,7 +72,7 @@ public class TestPushTopNIntoTableScan
     private static TableHandle createTableHandle(ConnectorTableHandle tableHandle)
     {
         return new TableHandle(
-                new CatalogName(MOCK_CATALOG),
+                createRootCatalogHandle(MOCK_CATALOG),
                 tableHandle,
                 new ConnectorTransactionHandle() {});
     }
