@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Closer;
 import io.airlift.drift.server.DriftServer;
 import io.trino.Session;
-import io.trino.connector.CatalogName;
 import io.trino.cost.ScalarStatsCalculator;
 import io.trino.metadata.TableHandle;
 import io.trino.plugin.thrift.ThriftColumnHandle;
@@ -46,6 +45,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
 import static io.trino.plugin.thrift.integration.ThriftQueryRunner.driftServerPort;
 import static io.trino.plugin.thrift.integration.ThriftQueryRunner.startThriftServers;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -65,7 +65,7 @@ public class TestThriftProjectionPushdown
     private static final ThriftTableHandle NATION_THRIFT_TABLE = new ThriftTableHandle(new SchemaTableName(TINY_SCHEMA, "nation"));
 
     private static final TableHandle NATION_TABLE = new TableHandle(
-            new CatalogName(CATALOG),
+            createRootCatalogHandle(CATALOG),
             NATION_THRIFT_TABLE,
             ThriftTransactionHandle.INSTANCE);
 
@@ -150,7 +150,7 @@ public class TestThriftProjectionPushdown
                                     orderStatusSymbol.toSymbolReference()),
                             p.tableScan(
                                     new TableHandle(
-                                            new CatalogName(CATALOG),
+                                            createRootCatalogHandle(CATALOG),
                                             tableWithColumns,
                                             ThriftTransactionHandle.INSTANCE),
                                     ImmutableList.of(orderStatusSymbol),

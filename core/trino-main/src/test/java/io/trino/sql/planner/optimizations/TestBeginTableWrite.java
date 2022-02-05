@@ -166,7 +166,7 @@ public class TestBeginTableWrite
         public TableMetadata getTableMetadata(Session session, TableHandle tableHandle)
         {
             return new TableMetadata(
-                    tableHandle.getCatalogName(),
+                    tableHandle.getCatalogHandle().getCatalogName(),
                     new ConnectorTableMetadata(new SchemaTableName("sch", "tab"), ImmutableList.of()));
         }
     }

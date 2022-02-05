@@ -19,7 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.Session;
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogHandle;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.ColumnPropertyManager;
 import io.trino.metadata.QualifiedObjectName;
@@ -143,7 +143,8 @@ public class CreateTableTask
             return immediateVoidFuture();
         }
 
-        CatalogName catalogName = getRequiredCatalogHandle(plannerContext.getMetadata(), session, statement, tableName.getCatalogName());
+        String catalogName = tableName.getCatalogName();
+        CatalogHandle catalogHandle = getRequiredCatalogHandle(plannerContext.getMetadata(), session, statement, catalogName);
 
         LinkedHashMap<String, ColumnMetadata> columns = new LinkedHashMap<>();
         Map<String, Object> inheritedProperties = ImmutableMap.of();
@@ -165,11 +166,12 @@ public class CreateTableTask
                 if (columns.containsKey(name)) {
                     throw semanticException(DUPLICATE_COLUMN_NAME, column, "Column name '%s' specified more than once", column.getName());
                 }
-                if (!column.isNullable() && !plannerContext.getMetadata().getConnectorCapabilities(session, catalogName).contains(NOT_NULL_COLUMN_CONSTRAINT)) {
-                    throw semanticException(NOT_SUPPORTED, column, "Catalog '%s' does not support non-null column for column name '%s'", catalogName.getCatalogName(), column.getName());
+                if (!column.isNullable() && !plannerContext.getMetadata().getConnectorCapabilities(session, catalogHandle).contains(NOT_NULL_COLUMN_CONSTRAINT)) {
+                    throw semanticException(NOT_SUPPORTED, column, "Catalog '%s' does not support non-null column for column name '%s'", catalogName, column.getName());
                 }
                 Map<String, Object> columnProperties = columnPropertyManager.getProperties(
                         catalogName,
+                        catalogHandle,
                         column.getProperties(),
                         session,
                         plannerContext,
@@ -198,7 +200,7 @@ public class CreateTableTask
 
                 LikeClause.PropertiesOption propertiesOption = likeClause.getPropertiesOption().orElse(EXCLUDING);
                 QualifiedObjectName likeTableName = redirection.getRedirectedTableName().orElse(originalLikeTableName);
-                if (propertiesOption == INCLUDING && !tableName.getCatalogName().equals(likeTableName.getCatalogName())) {
+                if (propertiesOption == INCLUDING && !catalogName.equals(likeTableName.getCatalogName())) {
                     String message = "CREATE TABLE LIKE table INCLUDING PROPERTIES across catalogs is not supported";
                     if (!originalLikeTableName.equals(likeTableName)) {
                         message += format(". LIKE table '%s' redirected to '%s'.", originalLikeTableName, likeTableName);
@@ -251,6 +253,7 @@ public class CreateTableTask
         }
         Map<String, Object> properties = tablePropertyManager.getProperties(
                 catalogName,
+                catalogHandle,
                 statement.getProperties(),
                 session,
                 plannerContext,
@@ -267,7 +270,7 @@ public class CreateTableTask
 
         ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(tableName.asSchemaTableName(), ImmutableList.copyOf(columns.values()), finalProperties, statement.getComment());
         try {
-            plannerContext.getMetadata().createTable(session, tableName.getCatalogName(), tableMetadata, statement.isNotExists());
+            plannerContext.getMetadata().createTable(session, catalogName, tableMetadata, statement.isNotExists());
         }
         catch (TrinoException e) {
             // connectors are not required to handle the ignoreExisting flag
@@ -276,7 +279,7 @@ public class CreateTableTask
             }
         }
         outputConsumer.accept(new Output(
-                tableName.getCatalogName(),
+                catalogName,
                 tableName.getSchemaName(),
                 tableName.getObjectName(),
                 Optional.of(tableMetadata.getColumns().stream()

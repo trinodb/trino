@@ -15,7 +15,7 @@ package io.trino.sql.planner.iterative.rule.test;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogHandle;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.plugin.tpch.TpchConnectorFactory;
@@ -36,6 +36,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
 import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.Objects.requireNonNull;
@@ -43,8 +44,8 @@ import static java.util.Objects.requireNonNull;
 public class RuleTester
         implements Closeable
 {
-    public static final String CATALOG_ID = "local";
-    public static final CatalogName CONNECTOR_ID = new CatalogName(CATALOG_ID);
+    public static final String CATALOG_NAME = "local";
+    public static final CatalogHandle CATALOG_HANDLE = createRootCatalogHandle(CATALOG_NAME);
 
     private final Metadata metadata;
     private final Session session;
@@ -120,7 +121,7 @@ public class RuleTester
         return typeAnalyzer;
     }
 
-    public CatalogName getCurrentConnectorId()
+    public CatalogHandle getCurrentCatalogHandle()
     {
         return queryRunner.inTransaction(transactionSession -> metadata.getCatalogHandle(transactionSession, session.getCatalog().get())).get();
     }
@@ -170,7 +171,7 @@ public class RuleTester
         public RuleTester build()
         {
             Session.SessionBuilder sessionBuilder = testSessionBuilder()
-                    .setCatalog(CATALOG_ID)
+                    .setCatalog(CATALOG_NAME)
                     .setSchema("tiny")
                     .setSystemProperty("task_concurrency", "1"); // these tests don't handle exchanges from local parallel
 

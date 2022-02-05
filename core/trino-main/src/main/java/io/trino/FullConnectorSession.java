@@ -14,7 +14,7 @@
 package io.trino;
 
 import com.google.common.collect.ImmutableMap;
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogHandle;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
@@ -37,8 +37,8 @@ public class FullConnectorSession
     private final Session session;
     private final ConnectorIdentity identity;
     private final Map<String, String> properties;
-    private final CatalogName catalogName;
-    private final String catalog;
+    private final CatalogHandle catalogHandle;
+    private final String catalogName;
     private final SessionPropertyManager sessionPropertyManager;
 
     public FullConnectorSession(Session session, ConnectorIdentity identity)
@@ -46,8 +46,8 @@ public class FullConnectorSession
         this.session = requireNonNull(session, "session is null");
         this.identity = requireNonNull(identity, "identity is null");
         this.properties = null;
+        this.catalogHandle = null;
         this.catalogName = null;
-        this.catalog = null;
         this.sessionPropertyManager = null;
     }
 
@@ -55,15 +55,15 @@ public class FullConnectorSession
             Session session,
             ConnectorIdentity identity,
             Map<String, String> properties,
-            CatalogName catalogName,
-            String catalog,
+            CatalogHandle catalogHandle,
+            String catalogName,
             SessionPropertyManager sessionPropertyManager)
     {
         this.session = requireNonNull(session, "session is null");
         this.identity = requireNonNull(identity, "identity is null");
         this.properties = ImmutableMap.copyOf(requireNonNull(properties, "properties is null"));
+        this.catalogHandle = requireNonNull(catalogHandle, "catalogHandle is null");
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
-        this.catalog = requireNonNull(catalog, "catalog is null");
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
     }
 
@@ -118,10 +118,10 @@ public class FullConnectorSession
     public <T> T getProperty(String propertyName, Class<T> type)
     {
         if (properties == null) {
-            throw new TrinoException(INVALID_SESSION_PROPERTY, format("Unknown session property: %s.%s", catalog, propertyName));
+            throw new TrinoException(INVALID_SESSION_PROPERTY, format("Unknown session property: %s.%s", catalogName, propertyName));
         }
 
-        return sessionPropertyManager.decodeCatalogPropertyValue(catalogName, catalog, propertyName, properties.get(propertyName), type);
+        return sessionPropertyManager.decodeCatalogPropertyValue(catalogHandle, catalogName, propertyName, properties.get(propertyName), type);
     }
 
     @Override

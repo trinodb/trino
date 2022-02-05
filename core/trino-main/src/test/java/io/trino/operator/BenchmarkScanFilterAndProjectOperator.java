@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.trino.SequencePageBuilder;
 import io.trino.Session;
-import io.trino.connector.CatalogName;
 import io.trino.metadata.Split;
 import io.trino.operator.ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory;
 import io.trino.operator.project.CursorProcessor;
@@ -67,6 +66,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
+import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
 import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -252,7 +252,7 @@ public class BenchmarkScanFilterAndProjectOperator
         SourceOperator operator = (SourceOperator) context.getOperatorFactory().createOperator(driverContext);
 
         ImmutableList.Builder<Page> outputPages = ImmutableList.builder();
-        operator.addSplit(new Split(new CatalogName("test"), createLocalSplit()));
+        operator.addSplit(new Split(createRootCatalogHandle("test"), createLocalSplit()));
         operator.noMoreSplits();
 
         for (int loops = 0; !operator.isFinished() && loops < 1_000_000; loops++) {

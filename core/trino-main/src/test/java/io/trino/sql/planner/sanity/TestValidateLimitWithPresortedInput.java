@@ -17,7 +17,6 @@ import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
-import io.trino.connector.CatalogName;
 import io.trino.connector.MockConnectorColumnHandle;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorTableHandle;
@@ -43,6 +42,7 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 import java.util.function.Function;
 
+import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_FIRST;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -66,7 +66,7 @@ public class TestValidateLimitWithPresortedInput
     private static final ColumnHandle COLUMN_HANDLE_C = new MockConnectorColumnHandle(COLUMN_NAME_C, VARCHAR);
 
     private static final TableHandle MOCK_TABLE_HANDLE = new TableHandle(
-            new CatalogName(MOCK_CATALOG),
+            createRootCatalogHandle(MOCK_CATALOG),
             new MockConnectorTableHandle(MOCK_TABLE_NAME),
             TestingTransactionHandle.create());
 

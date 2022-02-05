@@ -39,7 +39,7 @@ import io.airlift.json.JsonModule;
 import io.airlift.log.Logger;
 import io.airlift.node.testing.TestingNodeModule;
 import io.airlift.tracetoken.TraceTokenModule;
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogHandle;
 import io.trino.connector.ConnectorManager;
 import io.trino.cost.StatsCalculator;
 import io.trino.dispatcher.DispatchManager;
@@ -428,16 +428,16 @@ public class TestingTrinoServer
         queryManager.addFinalQueryInfoListener(queryId, stateChangeListener);
     }
 
-    public CatalogName createCatalog(String catalogName, String connectorName)
+    public CatalogHandle createCatalog(String catalogName, String connectorName)
     {
         return createCatalog(catalogName, connectorName, ImmutableMap.of());
     }
 
-    public CatalogName createCatalog(String catalogName, String connectorName, Map<String, String> properties)
+    public CatalogHandle createCatalog(String catalogName, String connectorName, Map<String, String> properties)
     {
-        CatalogName catalog = connectorManager.createCatalog(catalogName, connectorName, properties);
-        updateConnectorIdAnnouncement(announcer, catalog, nodeManager);
-        return catalog;
+        CatalogHandle catalogHandle = connectorManager.createCatalog(catalogName, connectorName, properties);
+        updateConnectorIdAnnouncement(announcer, catalogHandle, nodeManager);
+        return catalogHandle;
     }
 
     public void loadExchangeManager(String name, Map<String, String> properties)
@@ -617,9 +617,9 @@ public class TestingTrinoServer
         }
     }
 
-    public Set<InternalNode> getActiveNodesWithConnector(CatalogName catalogName)
+    public Set<InternalNode> getActiveNodesWithConnector(CatalogHandle catalogHandle)
     {
-        return nodeManager.getActiveConnectorNodes(catalogName);
+        return nodeManager.getActiveCatalogNodes(catalogHandle);
     }
 
     public <T> T getInstance(Key<T> key)
@@ -644,7 +644,7 @@ public class TestingTrinoServer
                 errorType);
     }
 
-    private static void updateConnectorIdAnnouncement(Announcer announcer, CatalogName catalogName, InternalNodeManager nodeManager)
+    private static void updateConnectorIdAnnouncement(Announcer announcer, CatalogHandle catalogHandle, InternalNodeManager nodeManager)
     {
         //
         // This code was copied from TrinoServer, and is a hack that should be removed when the connectorId property is removed
@@ -653,12 +653,12 @@ public class TestingTrinoServer
         // get existing announcement
         ServiceAnnouncement announcement = getTrinoAnnouncement(announcer.getServiceAnnouncements());
 
-        // update connectorIds property
+        // update catalogHandleIds property
         Map<String, String> properties = new LinkedHashMap<>(announcement.getProperties());
-        String property = nullToEmpty(properties.get("connectorIds"));
-        Set<String> connectorIds = new LinkedHashSet<>(Splitter.on(',').trimResults().omitEmptyStrings().splitToList(property));
-        connectorIds.add(catalogName.toString());
-        properties.put("connectorIds", Joiner.on(',').join(connectorIds));
+        String property = nullToEmpty(properties.get("catalogHandleIds"));
+        Set<String> catalogHandleIds = new LinkedHashSet<>(Splitter.on(',').trimResults().omitEmptyStrings().splitToList(property));
+        catalogHandleIds.add(catalogHandle.getId());
+        properties.put("catalogHandleIds", Joiner.on(',').join(catalogHandleIds));
 
         // update announcement
         announcer.removeServiceAnnouncement(announcement.getId());

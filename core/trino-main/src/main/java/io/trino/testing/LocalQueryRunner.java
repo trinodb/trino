@@ -23,7 +23,7 @@ import io.trino.FeaturesConfig;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
 import io.trino.SystemSessionPropertiesProvider;
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogHandle;
 import io.trino.connector.CatalogServiceProviderModule;
 import io.trino.connector.ConnectorManager;
 import io.trino.connector.ConnectorServicesProvider;
@@ -472,7 +472,7 @@ public class LocalQueryRunner
                 handleResolver,
                 exchangeManagerRegistry);
 
-        connectorManager.createCatalog(new CatalogName(GlobalSystemConnector.NAME), GlobalSystemConnector.NAME, globalSystemConnector, () -> {});
+        connectorManager.createCatalog(GlobalSystemConnector.NAME, GlobalSystemConnector.NAME, globalSystemConnector, () -> {});
 
         // rewrite session to use managed SessionPropertyMetadata
         Optional<TransactionId> transactionId = withInitialTransaction ? Optional.of(transactionManager.beginTransaction(true)) : defaultSession.getTransactionId();
@@ -714,11 +714,12 @@ public class LocalQueryRunner
         return expressionCompiler;
     }
 
-    public void createCatalog(String catalogName, ConnectorFactory connectorFactory, Map<String, String> properties)
+    public CatalogHandle createCatalog(String catalogName, ConnectorFactory connectorFactory, Map<String, String> properties)
     {
-        nodeManager.addCurrentNodeConnector(new CatalogName(catalogName));
         connectorManager.addConnectorFactory(connectorFactory, ignored -> connectorFactory.getClass().getClassLoader());
-        connectorManager.createCatalog(catalogName, connectorFactory.getName(), properties);
+        CatalogHandle catalogHandle = connectorManager.createCatalog(catalogName, connectorFactory.getName(), properties);
+        nodeManager.addCurrentNodeCatalog(catalogHandle);
+        return catalogHandle;
     }
 
     @Override
@@ -736,8 +737,8 @@ public class LocalQueryRunner
     @Override
     public void createCatalog(String catalogName, String connectorName, Map<String, String> properties)
     {
-        nodeManager.addCurrentNodeConnector(new CatalogName(catalogName));
-        connectorManager.createCatalog(catalogName, connectorName, properties);
+        CatalogHandle catalogHandle = connectorManager.createCatalog(catalogName, connectorName, properties);
+        nodeManager.addCurrentNodeCatalog(catalogHandle);
     }
 
     public LocalQueryRunner printPlan()

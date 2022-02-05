@@ -75,8 +75,8 @@ public class CatalogSystemTable
         Builder table = InMemoryRecordSet.builder(CATALOG_TABLE);
         for (CatalogInfo catalogInfo : listCatalogs(session, metadata, accessControl)) {
             table.addRow(
-                    catalogInfo.getCatalogName().getCatalogName(),
-                    catalogInfo.getCatalogName().getCatalogName(),
+                    catalogInfo.getCatalogName(),
+                    catalogInfo.getCatalogName(),
                     catalogInfo.getConnectorName());
         }
         return table.build().cursor();

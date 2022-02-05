@@ -16,7 +16,7 @@ package io.trino.execution.scheduler;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogHandle;
 import io.trino.metadata.Split;
 import io.trino.split.SplitSource;
 
@@ -32,35 +32,35 @@ import static java.util.Objects.requireNonNull;
 public class TestingSplitSource
         implements SplitSource
 {
-    private final CatalogName catalogName;
+    private final CatalogHandle catalogHandle;
     private final ListenableFuture<List<Split>> splitsFuture;
     private int finishDelayRemainingIterations;
     private Iterator<Split> splits;
 
-    public TestingSplitSource(CatalogName catalogName, List<Split> splits)
+    public TestingSplitSource(CatalogHandle catalogHandle, List<Split> splits)
     {
-        this(catalogName, splits, 0);
+        this(catalogHandle, splits, 0);
     }
 
-    public TestingSplitSource(CatalogName catalogName, List<Split> splits, int finishDelayIterations)
+    public TestingSplitSource(CatalogHandle catalogHandle, List<Split> splits, int finishDelayIterations)
     {
         this(
-                catalogName,
+                catalogHandle,
                 immediateFuture(ImmutableList.copyOf(requireNonNull(splits, "splits is null"))),
                 finishDelayIterations);
     }
 
-    public TestingSplitSource(CatalogName catalogName, ListenableFuture<List<Split>> splitsFuture, int finishDelayIterations)
+    public TestingSplitSource(CatalogHandle catalogHandle, ListenableFuture<List<Split>> splitsFuture, int finishDelayIterations)
     {
-        this.catalogName = requireNonNull(catalogName, "catalogName is null");
+        this.catalogHandle = requireNonNull(catalogHandle, "catalogHandle is null");
         this.splitsFuture = requireNonNull(splitsFuture, "splitsFuture is null");
         this.finishDelayRemainingIterations = finishDelayIterations;
     }
 
     @Override
-    public CatalogName getCatalogName()
+    public CatalogHandle getCatalogHandle()
     {
-        return catalogName;
+        return catalogHandle;
     }
 
     @Override

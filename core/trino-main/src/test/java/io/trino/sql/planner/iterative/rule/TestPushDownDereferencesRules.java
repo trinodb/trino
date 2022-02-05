@@ -15,7 +15,6 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.connector.CatalogName;
 import io.trino.metadata.TableHandle;
 import io.trino.plugin.tpch.TpchColumnHandle;
 import io.trino.plugin.tpch.TpchTableHandle;
@@ -41,6 +40,7 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_FIRST;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -67,7 +67,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.unnest;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.window;
 import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
-import static io.trino.sql.planner.iterative.rule.test.RuleTester.CATALOG_ID;
+import static io.trino.sql.planner.iterative.rule.test.RuleTester.CATALOG_NAME;
 import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
 import static io.trino.sql.planner.plan.TopNRankingNode.RankingType.ROW_NUMBER;
 import static io.trino.sql.tree.SortItem.NullOrdering.FIRST;
@@ -298,7 +298,7 @@ public class TestPushDownDereferencesRules
     public void testExtractDereferencesFromFilterAboveScan()
     {
         TableHandle testTable = new TableHandle(
-                new CatalogName(CATALOG_ID),
+                createRootCatalogHandle(CATALOG_NAME),
                 new TpchTableHandle("sf1", "orders", 1.0),
                 TestingTransactionHandle.create());
 
