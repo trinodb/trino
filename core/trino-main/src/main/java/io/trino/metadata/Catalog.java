@@ -14,6 +14,7 @@
 package io.trino.metadata;
 
 import io.trino.connector.CatalogName;
+import io.trino.metadata.CatalogMetadata.SecurityManagement;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorCapabilities;
 import io.trino.spi.connector.ConnectorTransactionHandle;
@@ -29,11 +30,6 @@ import static java.util.Objects.requireNonNull;
 
 public class Catalog
 {
-    public enum SecurityManagement
-    {
-        SYSTEM, CONNECTOR
-    }
-
     private final String catalogName;
     private final CatalogName connectorCatalogName;
     private final String connectorName;
