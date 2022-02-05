@@ -80,7 +80,7 @@ public class TestSessionPropertyDefaults
                 .put(HASH_PARTITION_COUNT, "43")
                 .buildOrThrow());
         assertEquals(
-                session.getUnprocessedCatalogProperties(),
+                session.getCatalogProperties(),
                 ImmutableMap.of(
                         "testCatalog",
                         ImmutableMap.<String, String>builder()
@@ -96,7 +96,7 @@ public class TestSessionPropertyDefaults
                 .put(QUERY_MAX_TOTAL_MEMORY, "2GB") // Default value is used
                 .buildOrThrow());
         assertEquals(
-                session.getUnprocessedCatalogProperties(),
+                session.getCatalogProperties(),
                 ImmutableMap.of(
                         "testCatalog",
                         ImmutableMap.<String, String>builder()

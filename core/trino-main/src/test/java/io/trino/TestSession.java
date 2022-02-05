@@ -29,16 +29,8 @@ public class TestSession
                 .setCatalogSessionProperty("some_catalog", "first_property", "some_value")
                 .build();
 
-        assertThat(session.getUnprocessedCatalogProperties())
+        assertThat(session.getCatalogProperties())
                 .isEqualTo(Map.of("some_catalog", Map.of("first_property", "some_value")));
-
-        // empty, will be populated at transaction start
-        assertThat(session.getConnectorProperties())
-                .isEqualTo(Map.of());
-
-        // empty, will be populated at transaction start
-        assertThat(session.getConnectorProperties("some_catalog"))
-                .isEqualTo(Map.of());
     }
 
     @Test
@@ -50,16 +42,8 @@ public class TestSession
         session = Session.builder(session)
                 .build();
 
-        assertThat(session.getUnprocessedCatalogProperties())
+        assertThat(session.getCatalogProperties())
                 .isEqualTo(Map.of("some_catalog", Map.of("first_property", "some_value")));
-
-        // empty, will be populated at transaction start
-        assertThat(session.getConnectorProperties())
-                .isEqualTo(Map.of());
-
-        // empty, will be populated at transaction start
-        assertThat(session.getConnectorProperties("some_catalog"))
-                .isEqualTo(Map.of());
     }
 
     @Test
@@ -72,17 +56,9 @@ public class TestSession
                 .setCatalogSessionProperty("some_catalog", "second_property", "another_value")
                 .build();
 
-        assertThat(session.getUnprocessedCatalogProperties())
+        assertThat(session.getCatalogProperties())
                 .isEqualTo(Map.of("some_catalog", Map.of(
                         "first_property", "some_value",
                         "second_property", "another_value")));
-
-        // empty, will be populated at transaction start
-        assertThat(session.getConnectorProperties())
-                .isEqualTo(Map.of());
-
-        // empty, will be populated at transaction start
-        assertThat(session.getConnectorProperties("some_catalog"))
-                .isEqualTo(Map.of());
     }
 }

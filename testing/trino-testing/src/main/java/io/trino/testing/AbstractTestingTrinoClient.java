@@ -133,15 +133,10 @@ public abstract class AbstractTestingTrinoClient<T>
     {
         ImmutableMap.Builder<String, String> properties = ImmutableMap.builder();
         properties.putAll(session.getSystemProperties());
-        for (Entry<String, Map<String, String>> catalogAndConnectorProperties : session.getConnectorProperties().entrySet()) {
+        for (Entry<String, Map<String, String>> catalogAndConnectorProperties : session.getCatalogProperties().entrySet()) {
             for (Entry<String, String> connectorProperties : catalogAndConnectorProperties.getValue().entrySet()) {
                 String catalogName = catalogAndConnectorProperties.getKey();
                 properties.put(catalogName + "." + connectorProperties.getKey(), connectorProperties.getValue());
-            }
-        }
-        for (Entry<String, Map<String, String>> connectorProperties : session.getUnprocessedCatalogProperties().entrySet()) {
-            for (Entry<String, String> entry : connectorProperties.getValue().entrySet()) {
-                properties.put(connectorProperties.getKey() + "." + entry.getKey(), entry.getValue());
             }
         }
 
