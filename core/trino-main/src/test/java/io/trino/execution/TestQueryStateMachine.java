@@ -555,6 +555,6 @@ public class TestQueryStateMachine
         assertEquals(actual.getUserAgent(), expected.getUserAgent());
         assertEquals(actual.getStart(), expected.getStart());
         assertEquals(actual.getSystemProperties(), expected.getSystemProperties());
-        assertEquals(actual.getConnectorProperties(), expected.getConnectorProperties());
+        assertEquals(actual.getCatalogProperties(), expected.getCatalogProperties());
     }
 }

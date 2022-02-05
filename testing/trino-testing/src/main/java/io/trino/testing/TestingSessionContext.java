@@ -61,7 +61,7 @@ public final class TestingSessionContext
                 session.getClientCapabilities(),
                 session.getResourceEstimates(),
                 session.getSystemProperties(),
-                session.getConnectorProperties(),
+                session.getCatalogProperties(),
                 session.getPreparedStatements(),
                 session.getTransactionId(),
                 session.isClientTransactionSupport(),
