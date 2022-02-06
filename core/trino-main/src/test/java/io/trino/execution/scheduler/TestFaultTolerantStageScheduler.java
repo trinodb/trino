@@ -25,7 +25,6 @@ import io.airlift.testing.TestingTicker;
 import io.airlift.units.DataSize;
 import io.trino.Session;
 import io.trino.client.NodeVersion;
-import io.trino.connector.CatalogHandle;
 import io.trino.cost.StatsAndCosts;
 import io.trino.execution.NodeTaskMap;
 import io.trino.execution.RemoteTaskFactory;
@@ -78,7 +77,6 @@ import static com.google.common.collect.Iterables.limit;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
-import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
 import static io.trino.operator.RetryPolicy.TASK;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
@@ -86,6 +84,7 @@ import static io.trino.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPLICATE;
 import static io.trino.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
 import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
+import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.testing.TestingHandles.TEST_TABLE_HANDLE;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.TestingSplit.createRemoteSplit;
@@ -110,8 +109,6 @@ public class TestFaultTolerantStageScheduler
     private static final PlanFragmentId SOURCE_FRAGMENT_ID_1 = new PlanFragmentId("1");
     private static final PlanFragmentId SOURCE_FRAGMENT_ID_2 = new PlanFragmentId("2");
     private static final PlanNodeId TABLE_SCAN_NODE_ID = new PlanNodeId("table_scan_id");
-
-    private static final CatalogHandle CATALOG = createRootCatalogHandle("catalog");
 
     private static final InternalNode NODE_1 = new InternalNode("node-1", URI.create("local://127.0.0.1:8080"), NodeVersion.UNKNOWN, false);
     private static final InternalNode NODE_2 = new InternalNode("node-2", URI.create("local://127.0.0.1:8081"), NodeVersion.UNKNOWN, false);
@@ -166,9 +163,9 @@ public class TestFaultTolerantStageScheduler
         TestingRemoteTaskFactory remoteTaskFactory = new TestingRemoteTaskFactory();
         TestingTaskSourceFactory taskSourceFactory = createTaskSourceFactory(5, 2);
         TestingNodeSupplier nodeSupplier = TestingNodeSupplier.create(ImmutableMap.of(
-                NODE_1, ImmutableList.of(CATALOG),
-                NODE_2, ImmutableList.of(CATALOG),
-                NODE_3, ImmutableList.of(CATALOG)));
+                NODE_1, ImmutableList.of(TEST_CATALOG_HANDLE),
+                NODE_2, ImmutableList.of(TEST_CATALOG_HANDLE),
+                NODE_3, ImmutableList.of(TEST_CATALOG_HANDLE)));
         setupNodeAllocatorService(nodeSupplier);
 
         TestingExchange sinkExchange = new TestingExchange(false);
@@ -310,17 +307,17 @@ public class TestFaultTolerantStageScheduler
     {
         TestingRemoteTaskFactory remoteTaskFactory = new TestingRemoteTaskFactory();
         List<Split> splits = ImmutableList.of(
-                new Split(CATALOG, new TestingSplit(false, ImmutableList.of(NODE_1.getHostAndPort()))),  // 0
-                new Split(CATALOG, new TestingSplit(false, ImmutableList.of(NODE_1.getHostAndPort()))),  // 1
-                new Split(CATALOG, new TestingSplit(false, ImmutableList.of(NODE_1.getHostAndPort()))),  // 2
-                new Split(CATALOG, new TestingSplit(false, ImmutableList.of(NODE_2.getHostAndPort()))),  // 3
-                new Split(CATALOG, new TestingSplit(false, ImmutableList.of(NODE_1.getHostAndPort()))),  // 4
-                new Split(CATALOG, new TestingSplit(false, ImmutableList.of(NODE_3.getHostAndPort())))); // 5
-        TestingTaskSourceFactory taskSourceFactory = new TestingTaskSourceFactory(Optional.of(CATALOG), splits, 2);
+                new Split(TEST_CATALOG_HANDLE, new TestingSplit(false, ImmutableList.of(NODE_1.getHostAndPort()))),  // 0
+                new Split(TEST_CATALOG_HANDLE, new TestingSplit(false, ImmutableList.of(NODE_1.getHostAndPort()))),  // 1
+                new Split(TEST_CATALOG_HANDLE, new TestingSplit(false, ImmutableList.of(NODE_1.getHostAndPort()))),  // 2
+                new Split(TEST_CATALOG_HANDLE, new TestingSplit(false, ImmutableList.of(NODE_2.getHostAndPort()))),  // 3
+                new Split(TEST_CATALOG_HANDLE, new TestingSplit(false, ImmutableList.of(NODE_1.getHostAndPort()))),  // 4
+                new Split(TEST_CATALOG_HANDLE, new TestingSplit(false, ImmutableList.of(NODE_3.getHostAndPort())))); // 5
+        TestingTaskSourceFactory taskSourceFactory = new TestingTaskSourceFactory(Optional.of(TEST_CATALOG_HANDLE), splits, 2);
         TestingNodeSupplier nodeSupplier = TestingNodeSupplier.create(ImmutableMap.of(
-                NODE_1, ImmutableList.of(CATALOG),
-                NODE_2, ImmutableList.of(CATALOG),
-                NODE_3, ImmutableList.of(CATALOG)));
+                NODE_1, ImmutableList.of(TEST_CATALOG_HANDLE),
+                NODE_2, ImmutableList.of(TEST_CATALOG_HANDLE),
+                NODE_3, ImmutableList.of(TEST_CATALOG_HANDLE)));
         setupNodeAllocatorService(nodeSupplier);
 
         TestingExchange sinkExchange = new TestingExchange(false);
@@ -398,8 +395,8 @@ public class TestFaultTolerantStageScheduler
         TestingRemoteTaskFactory remoteTaskFactory = new TestingRemoteTaskFactory();
         TestingTaskSourceFactory taskSourceFactory = createTaskSourceFactory(2, 1);
         TestingNodeSupplier nodeSupplier = TestingNodeSupplier.create(ImmutableMap.of(
-                NODE_1, ImmutableList.of(CATALOG),
-                NODE_2, ImmutableList.of(CATALOG)));
+                NODE_1, ImmutableList.of(TEST_CATALOG_HANDLE),
+                NODE_2, ImmutableList.of(TEST_CATALOG_HANDLE)));
         setupNodeAllocatorService(nodeSupplier);
 
         TestingTaskLifecycleListener taskLifecycleListener = new TestingTaskLifecycleListener();
@@ -445,8 +442,8 @@ public class TestFaultTolerantStageScheduler
         TestingRemoteTaskFactory remoteTaskFactory = new TestingRemoteTaskFactory();
         TestingTaskSourceFactory taskSourceFactory = createTaskSourceFactory(3, 1);
         TestingNodeSupplier nodeSupplier = TestingNodeSupplier.create(ImmutableMap.of(
-                NODE_1, ImmutableList.of(CATALOG),
-                NODE_2, ImmutableList.of(CATALOG)));
+                NODE_1, ImmutableList.of(TEST_CATALOG_HANDLE),
+                NODE_2, ImmutableList.of(TEST_CATALOG_HANDLE)));
         setupNodeAllocatorService(nodeSupplier);
 
         TestingExchange sourceExchange1 = new TestingExchange(false);
@@ -473,8 +470,8 @@ public class TestFaultTolerantStageScheduler
             // waiting on node acquisition
             assertBlocked(blocked);
 
-            NodeAllocator.NodeLease acquireNode1 = nodeAllocator.acquire(new NodeRequirements(Optional.of(CATALOG), ImmutableSet.of(), DataSize.of(4, GIGABYTE)));
-            NodeAllocator.NodeLease acquireNode2 = nodeAllocator.acquire(new NodeRequirements(Optional.of(CATALOG), ImmutableSet.of(), DataSize.of(4, GIGABYTE)));
+            NodeAllocator.NodeLease acquireNode1 = nodeAllocator.acquire(new NodeRequirements(Optional.of(TEST_CATALOG_HANDLE), ImmutableSet.of(), DataSize.of(4, GIGABYTE)));
+            NodeAllocator.NodeLease acquireNode2 = nodeAllocator.acquire(new NodeRequirements(Optional.of(TEST_CATALOG_HANDLE), ImmutableSet.of(), DataSize.of(4, GIGABYTE)));
 
             remoteTaskFactory.getTasks().get(getTaskId(0, 0)).fail(new RuntimeException("some failure"));
 
@@ -497,8 +494,8 @@ public class TestFaultTolerantStageScheduler
         TestingRemoteTaskFactory remoteTaskFactory = new TestingRemoteTaskFactory();
         TestingTaskSourceFactory taskSourceFactory = createTaskSourceFactory(2, 1);
         TestingNodeSupplier nodeSupplier = TestingNodeSupplier.create(ImmutableMap.of(
-                NODE_1, ImmutableList.of(CATALOG),
-                NODE_2, ImmutableList.of(CATALOG)));
+                NODE_1, ImmutableList.of(TEST_CATALOG_HANDLE),
+                NODE_2, ImmutableList.of(TEST_CATALOG_HANDLE)));
         setupNodeAllocatorService(nodeSupplier);
 
         TestingExchange sourceExchange1 = new TestingExchange(false);
@@ -549,9 +546,9 @@ public class TestFaultTolerantStageScheduler
         TestingRemoteTaskFactory remoteTaskFactory = new TestingRemoteTaskFactory();
         TestingTaskSourceFactory taskSourceFactory = createTaskSourceFactory(3, 1);
         TestingNodeSupplier nodeSupplier = TestingNodeSupplier.create(ImmutableMap.of(
-                NODE_1, ImmutableList.of(CATALOG),
-                NODE_2, ImmutableList.of(CATALOG),
-                NODE_3, ImmutableList.of(CATALOG)));
+                NODE_1, ImmutableList.of(TEST_CATALOG_HANDLE),
+                NODE_2, ImmutableList.of(TEST_CATALOG_HANDLE),
+                NODE_3, ImmutableList.of(TEST_CATALOG_HANDLE)));
         setupNodeAllocatorService(nodeSupplier);
 
         TestingExchange sourceExchange1 = new TestingExchange(false);
@@ -834,8 +831,8 @@ public class TestFaultTolerantStageScheduler
         TestingRemoteTaskFactory remoteTaskFactory = new TestingRemoteTaskFactory();
         TestingTaskSourceFactory taskSourceFactory = createTaskSourceFactory(3, 1);
         TestingNodeSupplier nodeSupplier = TestingNodeSupplier.create(ImmutableMap.of(
-                NODE_1, ImmutableList.of(CATALOG),
-                NODE_2, ImmutableList.of(CATALOG)));
+                NODE_1, ImmutableList.of(TEST_CATALOG_HANDLE),
+                NODE_2, ImmutableList.of(TEST_CATALOG_HANDLE)));
         setupNodeAllocatorService(nodeSupplier);
 
         TestingExchange sourceExchange1 = new TestingExchange(false);
@@ -862,8 +859,8 @@ public class TestFaultTolerantStageScheduler
             // waiting on node acquisition
             assertBlocked(blocked);
 
-            NodeAllocator.NodeLease acquireNode1 = nodeAllocator.acquire(new NodeRequirements(Optional.of(CATALOG), ImmutableSet.of(), DataSize.of(4, GIGABYTE)));
-            NodeAllocator.NodeLease acquireNode2 = nodeAllocator.acquire(new NodeRequirements(Optional.of(CATALOG), ImmutableSet.of(), DataSize.of(4, GIGABYTE)));
+            NodeAllocator.NodeLease acquireNode1 = nodeAllocator.acquire(new NodeRequirements(Optional.of(TEST_CATALOG_HANDLE), ImmutableSet.of(), DataSize.of(4, GIGABYTE)));
+            NodeAllocator.NodeLease acquireNode2 = nodeAllocator.acquire(new NodeRequirements(Optional.of(TEST_CATALOG_HANDLE), ImmutableSet.of(), DataSize.of(4, GIGABYTE)));
 
             if (abort) {
                 scheduler.abort();
@@ -889,10 +886,10 @@ public class TestFaultTolerantStageScheduler
     {
         TestingRemoteTaskFactory remoteTaskFactory = new TestingRemoteTaskFactory();
         SettableFuture<List<Split>> splitsFuture = SettableFuture.create();
-        TestingTaskSourceFactory taskSourceFactory = new TestingTaskSourceFactory(Optional.of(CATALOG), splitsFuture, 1);
+        TestingTaskSourceFactory taskSourceFactory = new TestingTaskSourceFactory(Optional.of(TEST_CATALOG_HANDLE), splitsFuture, 1);
         TestingNodeSupplier nodeSupplier = TestingNodeSupplier.create(ImmutableMap.of(
-                NODE_1, ImmutableList.of(CATALOG),
-                NODE_2, ImmutableList.of(CATALOG)));
+                NODE_1, ImmutableList.of(TEST_CATALOG_HANDLE),
+                NODE_2, ImmutableList.of(TEST_CATALOG_HANDLE)));
         setupNodeAllocatorService(nodeSupplier);
 
         TestingExchange sourceExchange1 = new TestingExchange(false);
@@ -1048,12 +1045,12 @@ public class TestFaultTolerantStageScheduler
 
     private static TestingTaskSourceFactory createTaskSourceFactory(int splitCount, int taskPerBatch)
     {
-        return new TestingTaskSourceFactory(Optional.of(CATALOG), createSplits(splitCount), taskPerBatch);
+        return new TestingTaskSourceFactory(Optional.of(TEST_CATALOG_HANDLE), createSplits(splitCount), taskPerBatch);
     }
 
     private static List<Split> createSplits(int count)
     {
-        return ImmutableList.copyOf(limit(cycle(new Split(CATALOG, createRemoteSplit())), count));
+        return ImmutableList.copyOf(limit(cycle(new Split(TEST_CATALOG_HANDLE, createRemoteSplit())), count));
     }
 
     private static TaskId getTaskId(int partitionId, int attemptId)

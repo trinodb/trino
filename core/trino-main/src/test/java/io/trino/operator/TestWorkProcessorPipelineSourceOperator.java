@@ -45,9 +45,9 @@ import java.util.function.Supplier;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.RowPagesBuilder.rowPagesBuilder;
 import static io.trino.SessionTestUtils.TEST_SESSION;
-import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
 import static io.trino.operator.WorkProcessorAssertion.transformationFrom;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.testing.TestingSplit.createLocalSplit;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -297,7 +297,7 @@ public class TestWorkProcessorPipelineSourceOperator
     private Split createSplit()
     {
         return new Split(
-                createRootCatalogHandle("catalog_name"),
+                TEST_CATALOG_HANDLE,
                 createLocalSplit());
     }
 

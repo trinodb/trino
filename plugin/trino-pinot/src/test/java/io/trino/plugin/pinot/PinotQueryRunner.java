@@ -29,8 +29,8 @@ import io.trino.testing.kafka.TestingKafka;
 import java.util.Map;
 import java.util.Optional;
 
-import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
 import static io.trino.plugin.pinot.TestingPinotCluster.PINOT_LATEST_IMAGE_NAME;
+import static io.trino.testing.TestingHandles.createTestCatalogHandle;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 
 public class PinotQueryRunner
@@ -61,7 +61,7 @@ public class PinotQueryRunner
         PinotSessionProperties pinotSessionProperties = new PinotSessionProperties(config);
         SessionPropertyManager sessionPropertyManager = new SessionPropertyManager(
                 ImmutableSet.of(new SystemSessionProperties()),
-                CatalogServiceProvider.singleton(createRootCatalogHandle(PINOT_CATALOG), Maps.uniqueIndex(pinotSessionProperties.getSessionProperties(), PropertyMetadata::getName)));
+                CatalogServiceProvider.singleton(createTestCatalogHandle(PINOT_CATALOG), Maps.uniqueIndex(pinotSessionProperties.getSessionProperties(), PropertyMetadata::getName)));
         return testSessionBuilder(sessionPropertyManager)
                 .setCatalog(PINOT_CATALOG)
                 .setSchema(schema)

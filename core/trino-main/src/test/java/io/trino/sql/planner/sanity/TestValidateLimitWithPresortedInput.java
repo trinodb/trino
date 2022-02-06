@@ -42,12 +42,13 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 import java.util.function.Function;
 
-import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_FIRST;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
+import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
+import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -55,7 +56,6 @@ public class TestValidateLimitWithPresortedInput
         extends BasePlanTest
 {
     private final PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
-    private static final String MOCK_CATALOG = "mock_catalog";
     private static final String TEST_SCHEMA = "test_schema";
     private static final SchemaTableName MOCK_TABLE_NAME = new SchemaTableName(TEST_SCHEMA, "table_a");
     private static final String COLUMN_NAME_A = "col_a";
@@ -66,7 +66,7 @@ public class TestValidateLimitWithPresortedInput
     private static final ColumnHandle COLUMN_HANDLE_C = new MockConnectorColumnHandle(COLUMN_NAME_C, VARCHAR);
 
     private static final TableHandle MOCK_TABLE_HANDLE = new TableHandle(
-            createRootCatalogHandle(MOCK_CATALOG),
+            TEST_CATALOG_HANDLE,
             new MockConnectorTableHandle(MOCK_TABLE_NAME),
             TestingTransactionHandle.create());
 
@@ -74,7 +74,7 @@ public class TestValidateLimitWithPresortedInput
     protected LocalQueryRunner createLocalQueryRunner()
     {
         Session session = testSessionBuilder()
-                .setCatalog(MOCK_CATALOG)
+                .setCatalog(TEST_CATALOG_NAME)
                 .setSchema(TEST_SCHEMA)
                 .build();
         LocalQueryRunner queryRunner = LocalQueryRunner.builder(session).build();
@@ -103,7 +103,7 @@ public class TestValidateLimitWithPresortedInput
                     throw new IllegalArgumentException();
                 })
                 .build();
-        queryRunner.createCatalog(MOCK_CATALOG, mockFactory, ImmutableMap.of());
+        queryRunner.createCatalog(TEST_CATALOG_NAME, mockFactory, ImmutableMap.of());
         return queryRunner;
     }
 

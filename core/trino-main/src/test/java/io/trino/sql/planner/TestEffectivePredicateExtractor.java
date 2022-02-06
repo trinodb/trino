@@ -93,7 +93,6 @@ import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
 import static io.trino.metadata.FunctionId.toFunctionId;
 import static io.trino.spi.function.FunctionKind.SCALAR;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -111,6 +110,7 @@ import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static io.trino.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
+import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.transaction.TransactionBuilder.transaction;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static org.testng.Assert.assertEquals;
@@ -162,7 +162,7 @@ public class TestEffectivePredicateExtractor
         public TableProperties getTableProperties(Session session, TableHandle handle)
         {
             return new TableProperties(
-                    createRootCatalogHandle("test"),
+                    TEST_CATALOG_HANDLE,
                     TestingConnectorTransactionHandle.INSTANCE,
                     new ConnectorTableProperties(
                             ((PredicatedTableHandle) handle.getConnectorHandle()).getPredicate(),
@@ -1233,7 +1233,7 @@ public class TestEffectivePredicateExtractor
     private static TableHandle makeTableHandle(TupleDomain<ColumnHandle> predicate)
     {
         return new TableHandle(
-                createRootCatalogHandle("test"),
+                TEST_CATALOG_HANDLE,
                 new PredicatedTableHandle(predicate),
                 TestingTransactionHandle.create());
     }

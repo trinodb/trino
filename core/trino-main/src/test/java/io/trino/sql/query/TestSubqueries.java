@@ -48,6 +48,7 @@ import static io.trino.sql.planner.plan.AggregationNode.Step.FINAL;
 import static io.trino.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
+import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -58,7 +59,6 @@ import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 public class TestSubqueries
 {
     private static final String UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG = "line .*: Given correlated subquery is not supported";
-    private static final String CATALOG = "local";
 
     private QueryAssertions assertions;
 
@@ -66,14 +66,14 @@ public class TestSubqueries
     public void init()
     {
         Session session = testSessionBuilder()
-                .setCatalog(CATALOG)
+                .setCatalog(TEST_CATALOG_NAME)
                 .setSchema(TINY_SCHEMA_NAME)
                 .build();
 
         LocalQueryRunner runner = LocalQueryRunner.builder(session)
                 .build();
 
-        runner.createCatalog(CATALOG, new TpchConnectorFactory(1), ImmutableMap.of());
+        runner.createCatalog(TEST_CATALOG_NAME, new TpchConnectorFactory(1), ImmutableMap.of());
 
         assertions = new QueryAssertions(runner);
     }

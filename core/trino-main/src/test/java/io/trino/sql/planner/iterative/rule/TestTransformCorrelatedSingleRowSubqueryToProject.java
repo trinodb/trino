@@ -24,13 +24,13 @@ import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.Assignments;
 import org.testng.annotations.Test;
 
-import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCALE_FACTOR;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
+import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 
 public class TestTransformCorrelatedSingleRowSubqueryToProject
         extends BaseRuleTest
@@ -52,7 +52,7 @@ public class TestTransformCorrelatedSingleRowSubqueryToProject
                                 ImmutableList.of(p.symbol("l_nationkey")),
                                 p.tableScan(
                                         new TableHandle(
-                                                createRootCatalogHandle("local"),
+                                                TEST_CATALOG_HANDLE,
                                                 new TpchTableHandle(TINY_SCHEMA_NAME, "nation", TINY_SCALE_FACTOR),
                                                 TpchTransactionHandle.INSTANCE),
                                         ImmutableList.of(p.symbol("l_nationkey")),

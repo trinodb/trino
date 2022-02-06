@@ -37,9 +37,9 @@ import java.util.Map;
 import java.util.Map.Entry;
 
 import static io.airlift.units.Duration.nanosSince;
-import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
+import static io.trino.testing.TestingHandles.createTestCatalogHandle;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 
@@ -154,7 +154,7 @@ public final class RaptorQueryRunner
         SessionPropertyManager sessionPropertyManager = new SessionPropertyManager(
                 ImmutableSet.of(new SystemSessionProperties()),
                 CatalogServiceProvider.singleton(
-                        createRootCatalogHandle("raptor"),
+                        createTestCatalogHandle("raptor"),
                         Maps.uniqueIndex(new RaptorSessionProperties(new StorageManagerConfig()).getSessionProperties(), PropertyMetadata::getName)));
         return testSessionBuilder(sessionPropertyManager)
                 .setCatalog("raptor")

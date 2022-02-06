@@ -53,7 +53,6 @@ import java.util.function.Consumer;
 import java.util.function.ToIntFunction;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
 import static io.trino.spi.connector.ConnectorBucketNodeMap.createBucketNodeMap;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -62,6 +61,7 @@ import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DIST
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_PASSTHROUGH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
+import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -469,10 +469,10 @@ public class TestLocalExchange
         };
         List<Type> types = ImmutableList.of(VARCHAR, BIGINT);
         partitionManagers.put(
-                createRootCatalogHandle("foo"),
+                TEST_CATALOG_HANDLE,
                 connectorNodePartitioningProvider);
         PartitioningHandle partitioningHandle = new PartitioningHandle(
-                Optional.of(createRootCatalogHandle("foo")),
+                Optional.of(TEST_CATALOG_HANDLE),
                 Optional.of(TestingTransactionHandle.create()),
                 connectorPartitioningHandle);
         LocalExchange localExchange = new LocalExchange(

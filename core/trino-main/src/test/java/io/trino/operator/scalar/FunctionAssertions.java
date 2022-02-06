@@ -118,7 +118,6 @@ import static io.trino.block.BlockAssertions.createShortDecimalsBlock;
 import static io.trino.block.BlockAssertions.createSlicesBlock;
 import static io.trino.block.BlockAssertions.createStringsBlock;
 import static io.trino.block.BlockAssertions.createTimestampsWithTimeZoneMillisBlock;
-import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -137,6 +136,7 @@ import static io.trino.sql.ExpressionTestUtils.createExpression;
 import static io.trino.sql.ExpressionTestUtils.getTypes;
 import static io.trino.sql.relational.Expressions.constant;
 import static io.trino.sql.relational.SqlToRowExpressionTranslator.translate;
+import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.testing.TestingHandles.TEST_TABLE_HANDLE;
 import static io.trino.testing.TestingTaskContext.createTaskContext;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
@@ -972,12 +972,12 @@ public final class FunctionAssertions
 
     private static Split createRecordSetSplit()
     {
-        return new Split(createRootCatalogHandle("test"), new TestSplit(true));
+        return new Split(TEST_CATALOG_HANDLE, new TestSplit(true));
     }
 
     private static Split createNormalSplit()
     {
-        return new Split(createRootCatalogHandle("test"), new TestSplit(false));
+        return new Split(TEST_CATALOG_HANDLE, new TestSplit(false));
     }
 
     private static RowType createTestRowType(int numberOfFields)

@@ -32,6 +32,7 @@ import java.util.Optional;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
 import static io.trino.testing.TestingAccessControlManager.privilege;
+import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -39,12 +40,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @Test(singleThreaded = true) // shared access control
 public class TestFilterInaccessibleColumns
 {
-    private static final String CATALOG = "local";
     private static final String USER = "user";
     private static final String ADMIN = "admin";
 
     private static final Session SESSION = testSessionBuilder()
-            .setCatalog(CATALOG)
+            .setCatalog(TEST_CATALOG_NAME)
             .setSchema(TINY_SCHEMA_NAME)
             .setSystemProperty("hide_inaccessible_columns", "true")
             .setIdentity(Identity.forUser(USER).build())
@@ -60,7 +60,7 @@ public class TestFilterInaccessibleColumns
                 .withFeaturesConfig(new FeaturesConfig().setHideInaccessibleColumns(true))
                 .build();
 
-        runner.createCatalog(CATALOG, new TpchConnectorFactory(1), ImmutableMap.of());
+        runner.createCatalog(TEST_CATALOG_NAME, new TpchConnectorFactory(1), ImmutableMap.of());
         assertions = new QueryAssertions(runner);
         accessControl = assertions.getQueryRunner().getAccessControl();
     }
@@ -153,15 +153,15 @@ public class TestFilterInaccessibleColumns
 
         // Select all columns explicitly
         assertThatThrownBy(() -> assertions.query("SELECT nationkey, name, regionkey, comment FROM nation WHERE name = 'FRANCE'"))
-                .hasMessage("Access Denied: Cannot select from columns [nationkey, regionkey, name, comment] in table or view local.tiny.nation");
+                .hasMessage("Access Denied: Cannot select from columns [nationkey, regionkey, name, comment] in table or view test-catalog.tiny.nation");
     }
 
     @Test
     public void testRowFilterOnNotAccessibleColumn()
     {
-        accessControl.rowFilter(new QualifiedObjectName(CATALOG, TINY_SCHEMA_NAME, "nation"),
+        accessControl.rowFilter(new QualifiedObjectName(TEST_CATALOG_NAME, TINY_SCHEMA_NAME, "nation"),
                 USER,
-                new ViewExpression(ADMIN, Optional.of(CATALOG), Optional.of(TINY_SCHEMA_NAME), "comment IS NOT null"));
+                new ViewExpression(ADMIN, Optional.of(TEST_CATALOG_NAME), Optional.of(TINY_SCHEMA_NAME), "comment IS NOT null"));
         accessControl.deny(privilege(USER, "nation.comment", SELECT_COLUMN));
         assertThat(assertions.query("SELECT * FROM nation WHERE name = 'FRANCE'"))
                 .matches("VALUES (BIGINT '6', CAST('FRANCE' AS VARCHAR(25)), BIGINT '3')");
@@ -170,21 +170,21 @@ public class TestFilterInaccessibleColumns
     @Test
     public void testRowFilterOnNotAccessibleColumnKO()
     {
-        accessControl.rowFilter(new QualifiedObjectName(CATALOG, TINY_SCHEMA_NAME, "nation"),
+        accessControl.rowFilter(new QualifiedObjectName(TEST_CATALOG_NAME, TINY_SCHEMA_NAME, "nation"),
                 USER,
-                new ViewExpression(USER, Optional.of(CATALOG), Optional.of(TINY_SCHEMA_NAME), "comment IS NOT null"));
+                new ViewExpression(USER, Optional.of(TEST_CATALOG_NAME), Optional.of(TINY_SCHEMA_NAME), "comment IS NOT null"));
         accessControl.deny(privilege(USER, "nation.comment", SELECT_COLUMN));
         assertThatThrownBy(() -> assertions.query("SELECT * FROM nation WHERE name = 'FRANCE'"))
-                .hasMessage("Access Denied: Cannot select from columns [nationkey, regionkey, name, comment] in table or view local.tiny.nation");
+                .hasMessage("Access Denied: Cannot select from columns [nationkey, regionkey, name, comment] in table or view test-catalog.tiny.nation");
     }
 
     @Test
     public void testMaskingOnAccessibleColumn()
     {
-        accessControl.columnMask(new QualifiedObjectName(CATALOG, TINY_SCHEMA_NAME, "nation"),
+        accessControl.columnMask(new QualifiedObjectName(TEST_CATALOG_NAME, TINY_SCHEMA_NAME, "nation"),
                 "nationkey",
                 USER,
-                new ViewExpression(ADMIN, Optional.of(CATALOG), Optional.of(TINY_SCHEMA_NAME), "-nationkey"));
+                new ViewExpression(ADMIN, Optional.of(TEST_CATALOG_NAME), Optional.of(TINY_SCHEMA_NAME), "-nationkey"));
         assertThat(assertions.query("SELECT * FROM nation WHERE name = 'FRANCE'"))
                 .matches("VALUES (BIGINT '-6',CAST('FRANCE' AS VARCHAR(25)), BIGINT '3', CAST('refully final requests. regular, ironi' AS VARCHAR(152)))");
     }
@@ -193,23 +193,23 @@ public class TestFilterInaccessibleColumns
     public void testMaskingWithCaseOnNotAccessibleColumnKO()
     {
         accessControl.deny(privilege(USER, "nation.nationkey", SELECT_COLUMN));
-        accessControl.columnMask(new QualifiedObjectName(CATALOG, TINY_SCHEMA_NAME, "nation"),
+        accessControl.columnMask(new QualifiedObjectName(TEST_CATALOG_NAME, TINY_SCHEMA_NAME, "nation"),
                 "comment",
                 USER,
-                new ViewExpression(USER, Optional.of(CATALOG), Optional.of(TINY_SCHEMA_NAME), "CASE nationkey WHEN 6 THEN 'masked-comment' ELSE comment END"));
+                new ViewExpression(USER, Optional.of(TEST_CATALOG_NAME), Optional.of(TINY_SCHEMA_NAME), "CASE nationkey WHEN 6 THEN 'masked-comment' ELSE comment END"));
 
         assertThatThrownBy(() -> assertions.query("SELECT * FROM nation WHERE name = 'FRANCE'"))
-                .hasMessage("Access Denied: Cannot select from columns [nationkey, regionkey, name, comment] in table or view local.tiny.nation");
+                .hasMessage("Access Denied: Cannot select from columns [nationkey, regionkey, name, comment] in table or view test-catalog.tiny.nation");
     }
 
     @Test
     public void testMaskingWithCaseOnNotAccessibleColumn()
     {
         accessControl.deny(privilege(USER, "nation.nationkey", SELECT_COLUMN));
-        accessControl.columnMask(new QualifiedObjectName(CATALOG, TINY_SCHEMA_NAME, "nation"),
+        accessControl.columnMask(new QualifiedObjectName(TEST_CATALOG_NAME, TINY_SCHEMA_NAME, "nation"),
                 "comment",
                 USER,
-                new ViewExpression(ADMIN, Optional.of(CATALOG), Optional.of(TINY_SCHEMA_NAME), "CASE nationkey WHEN 6 THEN 'masked-comment' ELSE comment END"));
+                new ViewExpression(ADMIN, Optional.of(TEST_CATALOG_NAME), Optional.of(TINY_SCHEMA_NAME), "CASE nationkey WHEN 6 THEN 'masked-comment' ELSE comment END"));
 
         assertThat(assertions.query("SELECT * FROM nation WHERE name = 'FRANCE'"))
                 .matches("VALUES (CAST('FRANCE' AS VARCHAR(25)), BIGINT '3', CAST('masked-comment' AS VARCHAR(152)))");
@@ -224,7 +224,7 @@ public class TestFilterInaccessibleColumns
         // Hide name but use it in the query predicate
         accessControl.deny(privilege(USER, "nation.name", SELECT_COLUMN));
         assertThatThrownBy(() -> assertions.query("SELECT * FROM nation WHERE name = 'FRANCE'"))
-                .hasMessage("Access Denied: Cannot select from columns [nationkey, regionkey, name, comment] in table or view local.tiny.nation");
+                .hasMessage("Access Denied: Cannot select from columns [nationkey, regionkey, name, comment] in table or view test-catalog.tiny.nation");
     }
 
     @Test
@@ -263,6 +263,6 @@ public class TestFilterInaccessibleColumns
     {
         accessControl.deny(privilege(USER, "nation.name", SELECT_COLUMN));
         assertThatThrownBy(() -> assertions.query("SELECT * FROM (SELECT concat(name,'-test') FROM nation WHERE name = 'FRANCE')"))
-                .hasMessage("Access Denied: Cannot select from columns [name] in table or view local.tiny.nation");
+                .hasMessage("Access Denied: Cannot select from columns [name] in table or view test-catalog.tiny.nation");
     }
 }

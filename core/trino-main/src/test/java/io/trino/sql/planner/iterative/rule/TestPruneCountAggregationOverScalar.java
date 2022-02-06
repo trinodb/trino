@@ -29,13 +29,13 @@ import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.SymbolReference;
 import org.testng.annotations.Test;
 
-import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCALE_FACTOR;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expressions;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
+import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 
 public class TestPruneCountAggregationOverScalar
         extends BaseRuleTest
@@ -160,7 +160,7 @@ public class TestPruneCountAggregationOverScalar
                                             Assignments.of(totalPrice, totalPrice.toSymbolReference()),
                                             p.tableScan(
                                                     new TableHandle(
-                                                            createRootCatalogHandle("local"),
+                                                            TEST_CATALOG_HANDLE,
                                                             new TpchTableHandle(TINY_SCHEMA_NAME, "orders", TINY_SCALE_FACTOR),
                                                             TpchTransactionHandle.INSTANCE),
                                                     ImmutableList.of(totalPrice),
