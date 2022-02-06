@@ -61,8 +61,6 @@ import java.util.concurrent.CopyOnWriteArrayList;
 
 import static com.google.common.collect.Sets.immutableEnumSet;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
-import static io.trino.SessionTestUtils.TEST_SESSION;
-import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -80,6 +78,9 @@ import static io.trino.sql.tree.LikeClause.PropertiesOption.INCLUDING;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SHOW_CREATE_TABLE;
 import static io.trino.testing.TestingAccessControlManager.privilege;
+import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
+import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
+import static io.trino.testing.TestingHandles.createTestCatalogHandle;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static java.util.Collections.emptyList;
@@ -93,8 +94,8 @@ import static org.testng.Assert.assertTrue;
 @Test(singleThreaded = true)
 public class TestCreateTableTask
 {
-    private static final String CATALOG_NAME = "catalog";
     private static final String OTHER_CATALOG_NAME = "other_catalog";
+    private static final CatalogHandle OTHER_CATALOG_HANDLE = createTestCatalogHandle("other_catalog");
     private static final ConnectorTableMetadata PARENT_TABLE = new ConnectorTableMetadata(
             new SchemaTableName("schema", "parent_table"),
             List.of(new ColumnMetadata("a", SMALLINT), new ColumnMetadata("b", BIGINT)),
@@ -111,10 +112,12 @@ public class TestCreateTableTask
     @BeforeMethod
     public void setUp()
     {
-        queryRunner = LocalQueryRunner.create(TEST_SESSION);
+        queryRunner = LocalQueryRunner.create(testSessionBuilder()
+                .setCatalog(TEST_CATALOG_NAME)
+                .build());
         transactionManager = queryRunner.getTransactionManager();
         queryRunner.createCatalog(
-                CATALOG_NAME,
+                TEST_CATALOG_NAME,
                 MockConnectorFactory.builder()
                         .withTableProperties(() -> ImmutableList.of(stringProperty("baz", "test property", null, false)))
                         .build(),
@@ -126,7 +129,7 @@ public class TestCreateTableTask
 
         tablePropertyManager = queryRunner.getTablePropertyManager();
         columnPropertyManager = queryRunner.getColumnPropertyManager();
-        testSession = testSessionBuilder()
+        testSession = Session.builder(queryRunner.getDefaultSession())
                 .setTransactionId(transactionManager.beginTransaction(false))
                 .build();
         metadata = new MockMetadata();
@@ -184,7 +187,7 @@ public class TestCreateTableTask
         CreateTableTask createTableTask = new CreateTableTask(plannerContext, new AllowAllAccessControl(), columnPropertyManager, tablePropertyManager);
         assertTrinoExceptionThrownBy(() -> getFutureValue(createTableTask.internalExecute(statement, testSession, emptyList(), output -> {})))
                 .hasErrorCode(INVALID_TABLE_PROPERTY)
-                .hasMessage("Catalog 'catalog' table property 'foo' does not exist");
+                .hasMessage("Catalog 'test-catalog' table property 'foo' does not exist");
 
         assertEquals(metadata.getCreateTableCallCount(), 0);
     }
@@ -236,7 +239,7 @@ public class TestCreateTableTask
         assertTrinoExceptionThrownBy(() ->
                 getFutureValue(createTableTask.internalExecute(statement, testSession, emptyList(), output -> {})))
                 .hasErrorCode(NOT_SUPPORTED)
-                .hasMessage("Catalog 'catalog' does not support non-null column for column name 'b'");
+                .hasMessage("Catalog 'test-catalog' does not support non-null column for column name 'b'");
     }
 
     @Test
@@ -353,8 +356,11 @@ public class TestCreateTableTask
         @Override
         public Optional<CatalogHandle> getCatalogHandle(Session session, String catalogName)
         {
-            if (catalogName.equals(CATALOG_NAME) || catalogName.equals(OTHER_CATALOG_NAME)) {
-                return Optional.of(createRootCatalogHandle(catalogName));
+            if (catalogName.equals(TEST_CATALOG_NAME)) {
+                return Optional.of(TEST_CATALOG_HANDLE);
+            }
+            if (catalogName.equals(OTHER_CATALOG_NAME)) {
+                return Optional.of(OTHER_CATALOG_HANDLE);
             }
             return Optional.empty();
         }
@@ -365,7 +371,7 @@ public class TestCreateTableTask
             if (tableName.asSchemaTableName().equals(PARENT_TABLE.getTable())) {
                 return Optional.of(
                         new TableHandle(
-                                createRootCatalogHandle(CATALOG_NAME),
+                                TEST_CATALOG_HANDLE,
                                 new TestingTableHandle(tableName.asSchemaTableName()),
                                 TestingConnectorTransactionHandle.INSTANCE));
             }
@@ -377,7 +383,7 @@ public class TestCreateTableTask
         {
             if ((tableHandle.getConnectorHandle() instanceof TestingTableHandle)) {
                 if (((TestingTableHandle) tableHandle.getConnectorHandle()).getTableName().equals(PARENT_TABLE.getTable())) {
-                    return new TableMetadata(CATALOG_NAME, PARENT_TABLE);
+                    return new TableMetadata(TEST_CATALOG_NAME, PARENT_TABLE);
                 }
             }
 

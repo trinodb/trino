@@ -53,10 +53,10 @@ import java.util.function.Function;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.RowPagesBuilder.rowPagesBuilder;
 import static io.trino.SessionTestUtils.TEST_SESSION;
-import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.testing.TestingHandles.TEST_TABLE_HANDLE;
 import static io.trino.testing.TestingTaskContext.createTaskContext;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -301,7 +301,7 @@ public class TestDriver
 
     private static Split newMockSplit()
     {
-        return new Split(createRootCatalogHandle("test"), new MockSplit());
+        return new Split(TEST_CATALOG_HANDLE, new MockSplit());
     }
 
     private PageConsumerOperator createSinkOperator(List<Type> types)

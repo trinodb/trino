@@ -31,15 +31,15 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
 import static io.trino.split.MockSplitSource.Action.DO_NOTHING;
 import static io.trino.split.MockSplitSource.Action.FINISH;
+import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 
 @NotThreadSafe
 public class MockSplitSource
         implements SplitSource
 {
-    private static final Split SPLIT = new Split(createRootCatalogHandle("test"), new MockConnectorSplit());
+    private static final Split SPLIT = new Split(TEST_CATALOG_HANDLE, new MockConnectorSplit());
     private static final SettableFuture<List<Split>> COMPLETED_FUTURE = SettableFuture.create();
 
     static {

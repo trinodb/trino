@@ -71,8 +71,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-import static io.trino.SessionTestUtils.TEST_SESSION;
-import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.DIVISION_BY_ZERO;
@@ -80,13 +78,14 @@ import static io.trino.spi.session.PropertyMetadata.longProperty;
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
+import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
+import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.Objects.requireNonNull;
 
 @Test
 public abstract class BaseDataDefinitionTaskTest
 {
-    protected static final String CATALOG_NAME = "catalog";
     public static final String SCHEMA = "schema";
 
     protected static final String MATERIALIZED_VIEW_PROPERTY_1_NAME = "property1";
@@ -106,17 +105,19 @@ public abstract class BaseDataDefinitionTaskTest
     @BeforeMethod
     public void setUp()
     {
-        queryRunner = LocalQueryRunner.create(TEST_SESSION);
+        testSession = testSessionBuilder()
+                .setCatalog(TEST_CATALOG_NAME)
+                .build();
+        queryRunner = LocalQueryRunner.create(testSession);
         transactionManager = queryRunner.getTransactionManager();
-        queryRunner.createCatalog(CATALOG_NAME, MockConnectorFactory.create("initial"), ImmutableMap.of());
+        queryRunner.createCatalog(TEST_CATALOG_NAME, MockConnectorFactory.create("initial"), ImmutableMap.of());
 
-        testSession = testSessionBuilder().build();
-        metadata = new MockMetadata(CATALOG_NAME);
+        metadata = new MockMetadata(TEST_CATALOG_NAME);
         plannerContext = plannerContextBuilder().withMetadata(metadata).build();
         Map<String, PropertyMetadata<?>> properties = ImmutableMap.of(
                 MATERIALIZED_VIEW_PROPERTY_1_NAME, longProperty(MATERIALIZED_VIEW_PROPERTY_1_NAME, "property 1", MATERIALIZED_VIEW_PROPERTY_1_DEFAULT_VALUE, false),
                 MATERIALIZED_VIEW_PROPERTY_2_NAME, stringProperty(MATERIALIZED_VIEW_PROPERTY_2_NAME, "property 2", MATERIALIZED_VIEW_PROPERTY_2_DEFAULT_VALUE, false));
-        materializedViewPropertyManager = new MaterializedViewPropertyManager(CatalogServiceProvider.singleton(createRootCatalogHandle(CATALOG_NAME), properties));
+        materializedViewPropertyManager = new MaterializedViewPropertyManager(CatalogServiceProvider.singleton(TEST_CATALOG_HANDLE, properties));
         queryStateMachine = stateMachine(transactionManager, createTestMetadataManager(), new AllowAllAccessControl(), testSession);
     }
 
@@ -130,12 +131,12 @@ public abstract class BaseDataDefinitionTaskTest
 
     protected static QualifiedObjectName qualifiedObjectName(String objectName)
     {
-        return new QualifiedObjectName(CATALOG_NAME, SCHEMA, objectName);
+        return new QualifiedObjectName(TEST_CATALOG_NAME, SCHEMA, objectName);
     }
 
     protected static QualifiedName qualifiedName(String name)
     {
-        return QualifiedName.of(CATALOG_NAME, SCHEMA, name);
+        return QualifiedName.of(TEST_CATALOG_NAME, SCHEMA, name);
     }
 
     protected static QualifiedObjectName asQualifiedObjectName(QualifiedName viewName)
@@ -226,7 +227,7 @@ public abstract class BaseDataDefinitionTaskTest
         public Optional<CatalogHandle> getCatalogHandle(Session session, String catalogName)
         {
             if (this.catalogName.equals(catalogName)) {
-                return Optional.of(createRootCatalogHandle(catalogName));
+                return Optional.of(TEST_CATALOG_HANDLE);
             }
             return Optional.empty();
         }
@@ -257,7 +258,7 @@ public abstract class BaseDataDefinitionTaskTest
         @Override
         public TableSchema getTableSchema(Session session, TableHandle tableHandle)
         {
-            return new TableSchema("catalog", getTableMetadata(tableHandle).getTableSchema());
+            return new TableSchema(TEST_CATALOG_NAME, getTableMetadata(tableHandle).getTableSchema());
         }
 
         @Override
@@ -265,7 +266,7 @@ public abstract class BaseDataDefinitionTaskTest
         {
             return Optional.ofNullable(tables.get(tableName.asSchemaTableName()))
                     .map(tableMetadata -> new TableHandle(
-                            createRootCatalogHandle(CATALOG_NAME),
+                            TEST_CATALOG_HANDLE,
                             new TestingTableHandle(tableName.asSchemaTableName()),
                             TestingConnectorTransactionHandle.INSTANCE));
         }
@@ -273,7 +274,7 @@ public abstract class BaseDataDefinitionTaskTest
         @Override
         public TableMetadata getTableMetadata(Session session, TableHandle tableHandle)
         {
-            return new TableMetadata("catalog", getTableMetadata(tableHandle));
+            return new TableMetadata(TEST_CATALOG_NAME, getTableMetadata(tableHandle));
         }
 
         @Override

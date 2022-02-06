@@ -66,13 +66,13 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
-import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
 import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.ExpressionTestUtils.createExpression;
 import static io.trino.sql.ExpressionTestUtils.getTypes;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
+import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.testing.TestingHandles.TEST_TABLE_HANDLE;
 import static io.trino.testing.TestingSplit.createLocalSplit;
 import static java.util.Locale.ENGLISH;
@@ -252,7 +252,7 @@ public class BenchmarkScanFilterAndProjectOperator
         SourceOperator operator = (SourceOperator) context.getOperatorFactory().createOperator(driverContext);
 
         ImmutableList.Builder<Page> outputPages = ImmutableList.builder();
-        operator.addSplit(new Split(createRootCatalogHandle("test"), createLocalSplit()));
+        operator.addSplit(new Split(TEST_CATALOG_HANDLE, createLocalSplit()));
         operator.noMoreSplits();
 
         for (int loops = 0; !operator.isFinished() && loops < 1_000_000; loops++) {

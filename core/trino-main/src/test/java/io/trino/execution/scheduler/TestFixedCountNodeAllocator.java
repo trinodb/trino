@@ -30,7 +30,7 @@ import java.net.URI;
 import java.util.Optional;
 
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
-import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
+import static io.trino.testing.TestingHandles.createTestCatalogHandle;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -52,8 +52,8 @@ public class TestFixedCountNodeAllocator
     private static final InternalNode NODE_2 = new InternalNode("node-2", URI.create("local://" + NODE_2_ADDRESS), NodeVersion.UNKNOWN, false);
     private static final InternalNode NODE_3 = new InternalNode("node-3", URI.create("local://" + NODE_3_ADDRESS), NodeVersion.UNKNOWN, false);
 
-    private static final CatalogHandle CATALOG_1 = createRootCatalogHandle("catalog1");
-    private static final CatalogHandle CATALOG_2 = createRootCatalogHandle("catalog2");
+    private static final CatalogHandle CATALOG_1 = createTestCatalogHandle("catalog1");
+    private static final CatalogHandle CATALOG_2 = createTestCatalogHandle("catalog2");
     private static final DataSize MEMORY_REQUIREMENTS = DataSize.of(4, GIGABYTE);
 
     private FixedCountNodeAllocatorService nodeAllocatorService;
