@@ -40,11 +40,12 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.limit;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
+import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
+import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -52,8 +53,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestPushDistinctLimitIntoTableScan
         extends BaseRuleTest
 {
-    private static final String CATALOG_NAME = "test_push_dl_catalog";
-
     private PushDistinctLimitIntoTableScan rule;
     private TableHandle tableHandle;
 
@@ -63,14 +62,14 @@ public class TestPushDistinctLimitIntoTableScan
     protected Optional<LocalQueryRunner> createLocalQueryRunner()
     {
         Session defaultSession = TestingSession.testSessionBuilder()
-                .setCatalog(CATALOG_NAME)
+                .setCatalog(TEST_CATALOG_NAME)
                 .setSchema("tiny")
                 .build();
 
         LocalQueryRunner queryRunner = LocalQueryRunner.create(defaultSession);
 
         queryRunner.createCatalog(
-                CATALOG_NAME,
+                TEST_CATALOG_NAME,
                 MockConnectorFactory.builder()
                         .withApplyAggregation(
                                 (session, handle, aggregates, assignments, groupingSets) -> {
@@ -91,7 +90,7 @@ public class TestPushDistinctLimitIntoTableScan
         rule = new PushDistinctLimitIntoTableScan(tester().getPlannerContext(), tester().getTypeAnalyzer());
 
         tableHandle = new TableHandle(
-                createRootCatalogHandle(CATALOG_NAME),
+                TEST_CATALOG_HANDLE,
                 new MockConnectorTableHandle(new SchemaTableName("mock_schema", "mock_nation")),
                 MockConnectorTransactionHandle.INSTANCE);
     }

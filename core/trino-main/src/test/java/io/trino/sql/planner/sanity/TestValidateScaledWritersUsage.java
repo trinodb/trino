@@ -40,11 +40,11 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
-import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
+import static io.trino.testing.TestingHandles.createTestCatalogHandle;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestValidateScaledWritersUsage
@@ -63,8 +63,8 @@ public class TestValidateScaledWritersUsage
     public void setup()
     {
         schemaTableName = new SchemaTableName("any", "any");
-        catalogSupportingScaledWriters = createRootCatalogHandle("bytes_written_reported");
-        catalogNotSupportingScaledWriters = createRootCatalogHandle("no_bytes_written_reported");
+        catalogSupportingScaledWriters = createTestCatalogHandle("bytes_written_reported");
+        catalogNotSupportingScaledWriters = createTestCatalogHandle("no_bytes_written_reported");
         queryRunner = LocalQueryRunner.create(TEST_SESSION);
         queryRunner.createCatalog(catalogSupportingScaledWriters.getCatalogName(), createConnectorFactorySupportingReportingBytesWritten(true, catalogSupportingScaledWriters.getCatalogName()), ImmutableMap.of());
         queryRunner.createCatalog(catalogNotSupportingScaledWriters.getCatalogName(), createConnectorFactorySupportingReportingBytesWritten(false, catalogNotSupportingScaledWriters.getCatalogName()), ImmutableMap.of());

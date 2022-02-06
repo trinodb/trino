@@ -16,7 +16,6 @@ package io.trino.transaction;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
-import io.trino.connector.CatalogHandle;
 import io.trino.metadata.CatalogManager;
 import io.trino.plugin.tpch.TpchConnectorFactory;
 import io.trino.spi.connector.ConnectorMetadata;
@@ -32,8 +31,9 @@ import java.util.concurrent.TimeUnit;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.SessionTestUtils.TEST_SESSION;
-import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
 import static io.trino.spi.StandardErrorCode.TRANSACTION_ALREADY_ABORTED;
+import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
+import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -45,8 +45,6 @@ import static org.testng.Assert.assertTrue;
 
 public class TestTransactionManager
 {
-    private static final String CATALOG = "test_catalog";
-    private static final CatalogHandle CATALOG_HANDLE = createRootCatalogHandle(CATALOG);
     private final ExecutorService finishingExecutor = newCachedThreadPool(daemonThreadsNamed("transaction-%s"));
 
     @AfterClass(alwaysRun = true)
@@ -61,7 +59,7 @@ public class TestTransactionManager
         try (LocalQueryRunner queryRunner = LocalQueryRunner.create(TEST_SESSION)) {
             TransactionManager transactionManager = queryRunner.getTransactionManager();
 
-            queryRunner.createCatalog(CATALOG, new TpchConnectorFactory(), ImmutableMap.of());
+            queryRunner.createCatalog(TEST_CATALOG_NAME, new TpchConnectorFactory(), ImmutableMap.of());
 
             TransactionId transactionId = transactionManager.beginTransaction(false);
 
@@ -71,10 +69,10 @@ public class TestTransactionManager
             assertTrue(transactionInfo.getCatalogNames().isEmpty());
             assertFalse(transactionInfo.getWrittenCatalogName().isPresent());
 
-            ConnectorMetadata metadata = transactionManager.getOptionalCatalogMetadata(transactionId, CATALOG).get().getMetadata(TEST_SESSION);
-            metadata.listSchemaNames(TEST_SESSION.toConnectorSession(CATALOG_HANDLE));
+            ConnectorMetadata metadata = transactionManager.getOptionalCatalogMetadata(transactionId, TEST_CATALOG_NAME).get().getMetadata(TEST_SESSION);
+            metadata.listSchemaNames(TEST_SESSION.toConnectorSession(TEST_CATALOG_HANDLE));
             transactionInfo = transactionManager.getTransactionInfo(transactionId);
-            assertEquals(transactionInfo.getCatalogNames(), ImmutableList.of(CATALOG));
+            assertEquals(transactionInfo.getCatalogNames(), ImmutableList.of(TEST_CATALOG_NAME));
             assertFalse(transactionInfo.getWrittenCatalogName().isPresent());
 
             getFutureValue(transactionManager.asyncCommit(transactionId));
@@ -89,7 +87,7 @@ public class TestTransactionManager
         try (LocalQueryRunner queryRunner = LocalQueryRunner.create(TEST_SESSION)) {
             TransactionManager transactionManager = queryRunner.getTransactionManager();
 
-            queryRunner.createCatalog(CATALOG, new TpchConnectorFactory(), ImmutableMap.of());
+            queryRunner.createCatalog(TEST_CATALOG_NAME, new TpchConnectorFactory(), ImmutableMap.of());
 
             TransactionId transactionId = transactionManager.beginTransaction(false);
 
@@ -99,10 +97,10 @@ public class TestTransactionManager
             assertTrue(transactionInfo.getCatalogNames().isEmpty());
             assertFalse(transactionInfo.getWrittenCatalogName().isPresent());
 
-            ConnectorMetadata metadata = transactionManager.getOptionalCatalogMetadata(transactionId, CATALOG).get().getMetadata(TEST_SESSION);
-            metadata.listSchemaNames(TEST_SESSION.toConnectorSession(CATALOG_HANDLE));
+            ConnectorMetadata metadata = transactionManager.getOptionalCatalogMetadata(transactionId, TEST_CATALOG_NAME).get().getMetadata(TEST_SESSION);
+            metadata.listSchemaNames(TEST_SESSION.toConnectorSession(TEST_CATALOG_HANDLE));
             transactionInfo = transactionManager.getTransactionInfo(transactionId);
-            assertEquals(transactionInfo.getCatalogNames(), ImmutableList.of(CATALOG));
+            assertEquals(transactionInfo.getCatalogNames(), ImmutableList.of(TEST_CATALOG_NAME));
             assertFalse(transactionInfo.getWrittenCatalogName().isPresent());
 
             getFutureValue(transactionManager.asyncAbort(transactionId));
@@ -117,7 +115,7 @@ public class TestTransactionManager
         try (LocalQueryRunner queryRunner = LocalQueryRunner.create(TEST_SESSION)) {
             TransactionManager transactionManager = queryRunner.getTransactionManager();
 
-            queryRunner.createCatalog(CATALOG, new TpchConnectorFactory(), ImmutableMap.of());
+            queryRunner.createCatalog(TEST_CATALOG_NAME, new TpchConnectorFactory(), ImmutableMap.of());
 
             TransactionId transactionId = transactionManager.beginTransaction(false);
 
@@ -127,16 +125,16 @@ public class TestTransactionManager
             assertTrue(transactionInfo.getCatalogNames().isEmpty());
             assertFalse(transactionInfo.getWrittenCatalogName().isPresent());
 
-            ConnectorMetadata metadata = transactionManager.getOptionalCatalogMetadata(transactionId, CATALOG).get().getMetadata(TEST_SESSION);
-            metadata.listSchemaNames(TEST_SESSION.toConnectorSession(CATALOG_HANDLE));
+            ConnectorMetadata metadata = transactionManager.getOptionalCatalogMetadata(transactionId, TEST_CATALOG_NAME).get().getMetadata(TEST_SESSION);
+            metadata.listSchemaNames(TEST_SESSION.toConnectorSession(TEST_CATALOG_HANDLE));
             transactionInfo = transactionManager.getTransactionInfo(transactionId);
-            assertEquals(transactionInfo.getCatalogNames(), ImmutableList.of(CATALOG));
+            assertEquals(transactionInfo.getCatalogNames(), ImmutableList.of(TEST_CATALOG_NAME));
             assertFalse(transactionInfo.getWrittenCatalogName().isPresent());
 
             transactionManager.fail(transactionId);
             assertEquals(transactionManager.getAllTransactionInfos().size(), 1);
 
-            assertTrinoExceptionThrownBy(() -> transactionManager.getCatalogMetadata(transactionId, CATALOG_HANDLE))
+            assertTrinoExceptionThrownBy(() -> transactionManager.getCatalogMetadata(transactionId, TEST_CATALOG_HANDLE))
                     .hasErrorCode(TRANSACTION_ALREADY_ABORTED);
 
             assertEquals(transactionManager.getAllTransactionInfos().size(), 1);

@@ -48,7 +48,6 @@ import java.util.function.ToIntFunction;
 
 import static io.trino.SystemSessionProperties.TASK_CONCURRENCY;
 import static io.trino.SystemSessionProperties.USE_TABLE_SCAN_NODE_PARTITIONING;
-import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
 import static io.trino.spi.connector.ConnectorBucketNodeMap.createBucketNodeMap;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -65,6 +64,8 @@ import static io.trino.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.REMOTE;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPARTITION;
+import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
+import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -72,17 +73,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestTableScanNodePartitioning
         extends BasePlanTest
 {
-    public static final String MOCK_CATALOG = "mock_catalog";
     public static final String TEST_SCHEMA = "test_schema";
 
     public static final Session ENABLE_PLAN_WITH_TABLE_NODE_PARTITIONING = testSessionBuilder()
-            .setCatalog(MOCK_CATALOG)
+            .setCatalog(TEST_CATALOG_NAME)
             .setSchema(TEST_SCHEMA)
             .setSystemProperty(USE_TABLE_SCAN_NODE_PARTITIONING, "true")
             .setSystemProperty(TASK_CONCURRENCY, "2") // force parallel plan even on test nodes with single CPU
             .build();
     public static final Session DISABLE_PLAN_WITH_TABLE_NODE_PARTITIONING = testSessionBuilder()
-            .setCatalog(MOCK_CATALOG)
+            .setCatalog(TEST_CATALOG_NAME)
             .setSchema(TEST_SCHEMA)
             .setSystemProperty(USE_TABLE_SCAN_NODE_PARTITIONING, "false")
             .setSystemProperty(TASK_CONCURRENCY, "2") // force parallel plan even on test nodes with single CPU
@@ -123,14 +123,14 @@ public class TestTableScanNodePartitioning
     protected LocalQueryRunner createLocalQueryRunner()
     {
         Session.SessionBuilder sessionBuilder = testSessionBuilder()
-                .setCatalog(MOCK_CATALOG)
+                .setCatalog(TEST_CATALOG_NAME)
                 .setSchema(TEST_SCHEMA)
                 .setSystemProperty(TASK_CONCURRENCY, "2"); // force parallel plan even on test nodes with single CPU
 
         LocalQueryRunner queryRunner = LocalQueryRunner.builder(sessionBuilder.build())
                 .withNodeCountForStats(10)
                 .build();
-        queryRunner.createCatalog(MOCK_CATALOG, createMockFactory(), ImmutableMap.of());
+        queryRunner.createCatalog(TEST_CATALOG_NAME, createMockFactory(), ImmutableMap.of());
         return queryRunner;
     }
 
@@ -273,7 +273,7 @@ public class TestTableScanNodePartitioning
     private static TableHandle tableHandle(ConnectorTableHandle connectorTableHandle)
     {
         return new TableHandle(
-                createRootCatalogHandle(MOCK_CATALOG),
+                TEST_CATALOG_HANDLE,
                 connectorTableHandle,
                 TestingTransactionHandle.create());
     }

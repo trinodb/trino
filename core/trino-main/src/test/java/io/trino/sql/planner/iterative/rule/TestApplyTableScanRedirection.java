@@ -40,7 +40,6 @@ import java.util.Map;
 import java.util.Optional;
 
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
 import static io.trino.connector.MockConnectorFactory.ApplyTableScanRedirect;
 import static io.trino.spi.predicate.Domain.singleValue;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -49,7 +48,8 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
-import static io.trino.sql.planner.iterative.rule.test.RuleTester.defaultRuleTester;
+import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
+import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.tests.BogusType.BOGUS;
 import static io.trino.transaction.TransactionBuilder.transaction;
@@ -57,13 +57,12 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestApplyTableScanRedirection
 {
-    private static final String MOCK_CATALOG = "mock_catalog";
     private static final String TEST_SCHEMA = "test_schema";
     private static final String TEST_TABLE = "test_table";
     private static final SchemaTableName SOURCE_TABLE = new SchemaTableName(TEST_SCHEMA, TEST_TABLE);
     private static final TableHandle TEST_TABLE_HANDLE = createTableHandle(new MockConnectorTableHandle(SOURCE_TABLE));
 
-    private static final Session MOCK_SESSION = testSessionBuilder().setCatalog(MOCK_CATALOG).setSchema(TEST_SCHEMA).build();
+    private static final Session MOCK_SESSION = testSessionBuilder().setCatalog(TEST_CATALOG_NAME).setSchema(TEST_SCHEMA).build();
 
     private static final String SOURCE_COLUMN_NAME_A = "source_col_a";
     private static final ColumnHandle SOURCE_COLUMN_HANDLE_A = new MockConnectorColumnHandle(SOURCE_COLUMN_NAME_A, VARCHAR);
@@ -82,7 +81,7 @@ public class TestApplyTableScanRedirection
     private static TableHandle createTableHandle(ConnectorTableHandle tableHandle)
     {
         return new TableHandle(
-                createRootCatalogHandle(MOCK_CATALOG),
+                TEST_CATALOG_HANDLE,
                 tableHandle,
                 TestingTransactionHandle.create());
     }
@@ -90,10 +89,8 @@ public class TestApplyTableScanRedirection
     @Test
     public void testDoesNotFire()
     {
-        try (RuleTester ruleTester = defaultRuleTester()) {
-            MockConnectorFactory mockFactory = createMockFactory(Optional.empty());
-            ruleTester.getQueryRunner().createCatalog(MOCK_CATALOG, mockFactory, ImmutableMap.of());
-
+        MockConnectorFactory mockFactory = createMockFactory(Optional.empty());
+        try (RuleTester ruleTester = RuleTester.builder().withDefaultCatalogConnectorFactory(mockFactory).build()) {
             ruleTester.assertThat(new ApplyTableScanRedirection(ruleTester.getPlannerContext()))
                     .on(p -> {
                         Symbol column = p.symbol(SOURCE_COLUMN_NAME_A, VARCHAR);
@@ -109,14 +106,11 @@ public class TestApplyTableScanRedirection
     @Test
     public void testDoesNotFireForDeleteTableScan()
     {
-        try (RuleTester ruleTester = defaultRuleTester()) {
-            // make the mock connector return a table scan on different table
-            ApplyTableScanRedirect applyTableScanRedirect = getMockApplyRedirect(
-                    ImmutableMap.of(SOURCE_COLUMN_HANDLE_A, DESTINATION_COLUMN_NAME_A));
-            MockConnectorFactory mockFactory = createMockFactory(Optional.of(applyTableScanRedirect));
-
-            ruleTester.getQueryRunner().createCatalog(MOCK_CATALOG, mockFactory, ImmutableMap.of());
-
+        // make the mock connector return a table scan on different table
+        ApplyTableScanRedirect applyTableScanRedirect = getMockApplyRedirect(
+                ImmutableMap.of(SOURCE_COLUMN_HANDLE_A, DESTINATION_COLUMN_NAME_A));
+        MockConnectorFactory mockFactory = createMockFactory(Optional.of(applyTableScanRedirect));
+        try (RuleTester ruleTester = RuleTester.builder().withDefaultCatalogConnectorFactory(mockFactory).build()) {
             ruleTester.assertThat(new ApplyTableScanRedirection(ruleTester.getPlannerContext()))
                     .on(p -> {
                         Symbol column = p.symbol(SOURCE_COLUMN_NAME_A, VARCHAR);
@@ -133,12 +127,10 @@ public class TestApplyTableScanRedirection
     @Test
     public void doesNotFireIfNoTableScan()
     {
-        try (RuleTester ruleTester = defaultRuleTester()) {
-            ApplyTableScanRedirect applyTableScanRedirect = getMockApplyRedirect(
-                    ImmutableMap.of(SOURCE_COLUMN_HANDLE_A, DESTINATION_COLUMN_NAME_A));
-            MockConnectorFactory mockFactory = createMockFactory(Optional.of(applyTableScanRedirect));
-            ruleTester.getQueryRunner().createCatalog(MOCK_CATALOG, mockFactory, ImmutableMap.of());
-
+        ApplyTableScanRedirect applyTableScanRedirect = getMockApplyRedirect(
+                ImmutableMap.of(SOURCE_COLUMN_HANDLE_A, DESTINATION_COLUMN_NAME_A));
+        MockConnectorFactory mockFactory = createMockFactory(Optional.of(applyTableScanRedirect));
+        try (RuleTester ruleTester = RuleTester.builder().withDefaultCatalogConnectorFactory(mockFactory).build()) {
             ruleTester.assertThat(new ApplyTableScanRedirection(ruleTester.getPlannerContext()))
                     .on(p -> p.values(p.symbol("a", BIGINT)))
                     .withSession(MOCK_SESSION)
@@ -149,15 +141,11 @@ public class TestApplyTableScanRedirection
     @Test
     public void testMismatchedTypesWithCoercion()
     {
-        try (RuleTester ruleTester = defaultRuleTester()) {
-            // make the mock connector return a table scan on different table
-            ApplyTableScanRedirect applyTableScanRedirect = getMockApplyRedirect(
-                    ImmutableMap.of(SOURCE_COLUMN_HANDLE_A, DESTINATION_COLUMN_NAME_C));
-            MockConnectorFactory mockFactory = createMockFactory(Optional.of(applyTableScanRedirect));
-
-            LocalQueryRunner runner = ruleTester.getQueryRunner();
-            runner.createCatalog(MOCK_CATALOG, mockFactory, ImmutableMap.of());
-
+        // make the mock connector return a table scan on different table
+        ApplyTableScanRedirect applyTableScanRedirect = getMockApplyRedirect(
+                ImmutableMap.of(SOURCE_COLUMN_HANDLE_A, DESTINATION_COLUMN_NAME_C));
+        MockConnectorFactory mockFactory = createMockFactory(Optional.of(applyTableScanRedirect));
+        try (RuleTester ruleTester = RuleTester.builder().withDefaultCatalogConnectorFactory(mockFactory).build()) {
             ruleTester.assertThat(new ApplyTableScanRedirection(ruleTester.getPlannerContext()))
                     .on(p -> {
                         Symbol column = p.symbol(SOURCE_COLUMN_NAME_A, VARCHAR);
@@ -178,20 +166,17 @@ public class TestApplyTableScanRedirection
     @Test
     public void testMismatchedTypesWithMissingCoercion()
     {
-        try (RuleTester ruleTester = defaultRuleTester()) {
-            // make the mock connector return a table scan on different table
-            ApplyTableScanRedirect applyTableScanRedirect = getMockApplyRedirect(
-                    ImmutableMap.of(SOURCE_COLUMN_HANDLE_A, DESTINATION_COLUMN_NAME_D));
-            MockConnectorFactory mockFactory = createMockFactory(Optional.of(applyTableScanRedirect));
-
+        // make the mock connector return a table scan on different table
+        ApplyTableScanRedirect applyTableScanRedirect = getMockApplyRedirect(
+                ImmutableMap.of(SOURCE_COLUMN_HANDLE_A, DESTINATION_COLUMN_NAME_D));
+        MockConnectorFactory mockFactory = createMockFactory(Optional.of(applyTableScanRedirect));
+        try (RuleTester ruleTester = RuleTester.builder().withDefaultCatalogConnectorFactory(mockFactory).build()) {
             LocalQueryRunner runner = ruleTester.getQueryRunner();
-            runner.createCatalog(MOCK_CATALOG, mockFactory, ImmutableMap.of());
-
             transaction(runner.getTransactionManager(), runner.getAccessControl())
                     .execute(MOCK_SESSION, session -> {
                         assertThatThrownBy(() -> runner.createPlan(session, "SELECT source_col_a FROM test_table", WarningCollector.NOOP))
                                 .isInstanceOf(TrinoException.class)
-                                .hasMessageMatching("Cast not possible from redirected column mock_catalog.target_schema.target_table.destination_col_d with type Bogus to source column .*mock_catalog.test_schema.test_table.*source_col_a.* with type: varchar");
+                                .hasMessageMatching("Cast not possible from redirected column test-catalog.target_schema.target_table.destination_col_d with type Bogus to source column .*test-catalog.test_schema.test_table.*source_col_a.* with type: varchar");
                     });
         }
     }
@@ -199,14 +184,11 @@ public class TestApplyTableScanRedirection
     @Test
     public void testApplyTableScanRedirection()
     {
-        try (RuleTester ruleTester = defaultRuleTester()) {
-            // make the mock connector return a table scan on different table
-            ApplyTableScanRedirect applyTableScanRedirect = getMockApplyRedirect(
-                    ImmutableMap.of(SOURCE_COLUMN_HANDLE_A, DESTINATION_COLUMN_NAME_A));
-            MockConnectorFactory mockFactory = createMockFactory(Optional.of(applyTableScanRedirect));
-
-            ruleTester.getQueryRunner().createCatalog(MOCK_CATALOG, mockFactory, ImmutableMap.of());
-
+        // make the mock connector return a table scan on different table
+        ApplyTableScanRedirect applyTableScanRedirect = getMockApplyRedirect(
+                ImmutableMap.of(SOURCE_COLUMN_HANDLE_A, DESTINATION_COLUMN_NAME_A));
+        MockConnectorFactory mockFactory = createMockFactory(Optional.of(applyTableScanRedirect));
+        try (RuleTester ruleTester = RuleTester.builder().withDefaultCatalogConnectorFactory(mockFactory).build()) {
             ruleTester.assertThat(new ApplyTableScanRedirection(ruleTester.getPlannerContext()))
                     .on(p -> {
                         Symbol column = p.symbol(SOURCE_COLUMN_NAME_A, VARCHAR);
@@ -226,17 +208,14 @@ public class TestApplyTableScanRedirection
     @Test
     public void testApplyTableScanRedirectionWithFilter()
     {
-        try (RuleTester ruleTester = defaultRuleTester()) {
-            // make the mock connector return a table scan on different table
-            // source table handle has a pushed down predicate
-            ApplyTableScanRedirect applyTableScanRedirect = getMockApplyRedirect(
-                    ImmutableMap.of(
-                            SOURCE_COLUMN_HANDLE_A, DESTINATION_COLUMN_NAME_A,
-                            SOURCE_COLUMN_HANDLE_B, DESTINATION_COLUMN_NAME_B));
-            MockConnectorFactory mockFactory = createMockFactory(Optional.of(applyTableScanRedirect));
-
-            ruleTester.getQueryRunner().createCatalog(MOCK_CATALOG, mockFactory, ImmutableMap.of());
-
+        // make the mock connector return a table scan on different table
+        // source table handle has a pushed down predicate
+        ApplyTableScanRedirect applyTableScanRedirect = getMockApplyRedirect(
+                ImmutableMap.of(
+                        SOURCE_COLUMN_HANDLE_A, DESTINATION_COLUMN_NAME_A,
+                        SOURCE_COLUMN_HANDLE_B, DESTINATION_COLUMN_NAME_B));
+        MockConnectorFactory mockFactory = createMockFactory(Optional.of(applyTableScanRedirect));
+        try (RuleTester ruleTester = RuleTester.builder().withDefaultCatalogConnectorFactory(mockFactory).build()) {
             ApplyTableScanRedirection applyTableScanRedirection = new ApplyTableScanRedirection(ruleTester.getPlannerContext());
             TupleDomain<ColumnHandle> constraint = TupleDomain.withColumnDomains(
                     ImmutableMap.of(SOURCE_COLUMN_HANDLE_A, singleValue(VARCHAR, utf8Slice("foo"))));
@@ -286,7 +265,7 @@ public class TestApplyTableScanRedirection
     {
         return (ConnectorSession session, ConnectorTableHandle handle) -> Optional.of(
                 new TableScanRedirectApplicationResult(
-                        new CatalogSchemaTableName(MOCK_CATALOG, DESTINATION_TABLE),
+                        new CatalogSchemaTableName(TEST_CATALOG_NAME, DESTINATION_TABLE),
                         redirectionMapping,
                         ((MockConnectorTableHandle) handle).getConstraint()
                                 .transformKeys(MockConnectorColumnHandle.class::cast)

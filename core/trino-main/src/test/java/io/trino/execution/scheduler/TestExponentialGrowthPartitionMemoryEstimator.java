@@ -33,10 +33,10 @@ import java.util.Optional;
 
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
-import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
 import static io.trino.spi.StandardErrorCode.ADMINISTRATIVELY_PREEMPTED;
 import static io.trino.spi.StandardErrorCode.CLUSTER_OUT_OF_MEMORY;
 import static io.trino.spi.StandardErrorCode.EXCEEDED_LOCAL_MEMORY_LIMIT;
+import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static java.time.temporal.ChronoUnit.MINUTES;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -47,7 +47,7 @@ public class TestExponentialGrowthPartitionMemoryEstimator
             throws Exception
     {
         InMemoryNodeManager nodeManager = new InMemoryNodeManager();
-        nodeManager.addNode(createRootCatalogHandle("catalog"), new InternalNode("a-node", URI.create("local://blah"), NodeVersion.UNKNOWN, false));
+        nodeManager.addNode(TEST_CATALOG_HANDLE, new InternalNode("a-node", URI.create("local://blah"), NodeVersion.UNKNOWN, false));
         BinPackingNodeAllocatorService nodeAllocatorService = new BinPackingNodeAllocatorService(
                 nodeManager,
                 () -> ImmutableMap.of(new InternalNode("a-node", URI.create("local://blah"), NodeVersion.UNKNOWN, false).getNodeIdentifier(), Optional.of(buildWorkerMemoryInfo(DataSize.ofBytes(0)))),

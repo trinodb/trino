@@ -65,7 +65,6 @@ import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.RowType.field;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -76,7 +75,8 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
-import static io.trino.sql.planner.iterative.rule.test.RuleTester.defaultRuleTester;
+import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
+import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.Arrays.asList;
 import static java.util.Locale.ENGLISH;
@@ -84,7 +84,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestPushProjectionIntoTableScan
 {
-    private static final String MOCK_CATALOG = "mock_catalog";
     private static final String TEST_SCHEMA = "test_schema";
     private static final String TEST_TABLE = "test_table";
     private static final SchemaTableName TEST_SCHEMA_TABLE = new SchemaTableName(TEST_SCHEMA, TEST_TABLE);
@@ -93,20 +92,17 @@ public class TestPushProjectionIntoTableScan
     private static final TableHandle TEST_TABLE_HANDLE = createTableHandle(TEST_SCHEMA, TEST_TABLE);
     private static final ConnectorPartitioningHandle PARTITIONING_HANDLE = new ConnectorPartitioningHandle() {};
 
-    private static final Session MOCK_SESSION = testSessionBuilder().setCatalog(MOCK_CATALOG).setSchema(TEST_SCHEMA).build();
+    private static final Session MOCK_SESSION = testSessionBuilder().setCatalog(TEST_CATALOG_NAME).setSchema(TEST_SCHEMA).build();
 
     @Test
     public void testDoesNotFire()
     {
-        try (RuleTester ruleTester = defaultRuleTester()) {
-            String columnName = "input_column";
-            Type columnType = ROW_TYPE;
-            ColumnHandle inputColumnHandle = column(columnName, columnType);
+        String columnName = "input_column";
+        Type columnType = ROW_TYPE;
+        ColumnHandle inputColumnHandle = column(columnName, columnType);
 
-            MockConnectorFactory factory = createMockFactory(ImmutableMap.of(columnName, inputColumnHandle), Optional.empty());
-
-            ruleTester.getQueryRunner().createCatalog(MOCK_CATALOG, factory, ImmutableMap.of());
-
+        MockConnectorFactory factory = createMockFactory(ImmutableMap.of(columnName, inputColumnHandle), Optional.empty());
+        try (RuleTester ruleTester = RuleTester.builder().withDefaultCatalogConnectorFactory(factory).build()) {
             PushProjectionIntoTableScan optimizer = createRule(ruleTester);
 
             ruleTester.assertThat(optimizer)
@@ -124,17 +120,15 @@ public class TestPushProjectionIntoTableScan
     @Test
     public void testPushProjection()
     {
-        try (RuleTester ruleTester = defaultRuleTester()) {
-            // Building context for input
-            String columnName = "col0";
-            Type columnType = ROW_TYPE;
-            Symbol baseColumn = new Symbol(columnName);
-            ColumnHandle columnHandle = new TpchColumnHandle(columnName, columnType);
+        // Building context for input
+        String columnName = "col0";
+        Type columnType = ROW_TYPE;
+        Symbol baseColumn = new Symbol(columnName);
+        ColumnHandle columnHandle = new TpchColumnHandle(columnName, columnType);
 
-            // Create catalog with applyProjection enabled
-            MockConnectorFactory factory = createMockFactory(ImmutableMap.of(columnName, columnHandle), Optional.of(this::mockApplyProjection));
-            ruleTester.getQueryRunner().createCatalog(MOCK_CATALOG, factory, ImmutableMap.of());
-
+        // Create catalog with applyProjection enabled
+        MockConnectorFactory factory = createMockFactory(ImmutableMap.of(columnName, columnHandle), Optional.of(this::mockApplyProjection));
+        try (RuleTester ruleTester = RuleTester.builder().withDefaultCatalogConnectorFactory(factory).build()) {
             TypeAnalyzer typeAnalyzer = createTestingTypeAnalyzer(ruleTester.getPlannerContext());
 
             // Prepare project node symbols and types
@@ -226,14 +220,12 @@ public class TestPushProjectionIntoTableScan
     @Test
     public void testPartitioningChanged()
     {
-        try (RuleTester ruleTester = defaultRuleTester()) {
-            String columnName = "col0";
-            ColumnHandle columnHandle = new TpchColumnHandle(columnName, VARCHAR);
+        String columnName = "col0";
+        ColumnHandle columnHandle = new TpchColumnHandle(columnName, VARCHAR);
 
-            // Create catalog with applyProjection enabled
-            MockConnectorFactory factory = createMockFactory(ImmutableMap.of(columnName, columnHandle), Optional.of(this::mockApplyProjection));
-            ruleTester.getQueryRunner().createCatalog(MOCK_CATALOG, factory, ImmutableMap.of());
-
+        // Create catalog with applyProjection enabled
+        MockConnectorFactory factory = createMockFactory(ImmutableMap.of(columnName, columnHandle), Optional.of(this::mockApplyProjection));
+        try (RuleTester ruleTester = RuleTester.builder().withDefaultCatalogConnectorFactory(factory).build()) {
             assertThatThrownBy(() -> ruleTester.assertThat(createRule(ruleTester))
                     // projection pushdown results in different table handle without partitioning
                     .on(p -> p.project(
@@ -343,7 +335,7 @@ public class TestPushProjectionIntoTableScan
     private static TableHandle createTableHandle(String schemaName, String tableName)
     {
         return new TableHandle(
-                createRootCatalogHandle(MOCK_CATALOG),
+                TEST_CATALOG_HANDLE,
                 new MockConnectorTableHandle(new SchemaTableName(schemaName, tableName)),
                 TestingTransactionHandle.create());
     }
