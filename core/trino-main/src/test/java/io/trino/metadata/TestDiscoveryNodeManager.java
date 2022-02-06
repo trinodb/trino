@@ -26,6 +26,7 @@ import io.airlift.http.client.testing.TestingResponse;
 import io.airlift.node.NodeConfig;
 import io.airlift.node.NodeInfo;
 import io.trino.client.NodeVersion;
+import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.failuredetector.NoOpFailureDetector;
 import io.trino.server.InternalCommunicationConfig;
 import org.testng.annotations.BeforeMethod;
@@ -44,7 +45,6 @@ import static io.airlift.discovery.client.ServiceDescriptor.serviceDescriptor;
 import static io.airlift.discovery.client.ServiceSelectorConfig.DEFAULT_POOL;
 import static io.airlift.http.client.HttpStatus.OK;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
-import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
 import static io.trino.metadata.NodeState.ACTIVE;
 import static io.trino.metadata.NodeState.INACTIVE;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -93,7 +93,7 @@ public class TestDiscoveryNodeManager
         try {
             AllNodes allNodes = manager.getAllNodes();
 
-            Set<InternalNode> connectorNodes = manager.getActiveCatalogNodes(createRootCatalogHandle("system"));
+            Set<InternalNode> connectorNodes = manager.getActiveCatalogNodes(GlobalSystemConnector.CATALOG_HANDLE);
             assertEquals(connectorNodes.size(), 4);
             assertTrue(connectorNodes.stream().anyMatch(InternalNode::isCoordinator));
 
