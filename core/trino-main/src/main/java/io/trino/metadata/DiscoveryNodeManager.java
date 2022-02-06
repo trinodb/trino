@@ -28,7 +28,6 @@ import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
 import io.trino.client.NodeVersion;
 import io.trino.connector.CatalogHandle;
-import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.failuredetector.FailureDetector;
 import io.trino.server.InternalCommunicationConfig;
 import org.weakref.jmx.Managed;
@@ -56,6 +55,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.difference;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
+import static io.trino.connector.system.GlobalSystemConnector.CATALOG_HANDLE;
 import static io.trino.metadata.NodeState.ACTIVE;
 import static io.trino.metadata.NodeState.INACTIVE;
 import static io.trino.metadata.NodeState.SHUTTING_DOWN;
@@ -241,7 +241,7 @@ public final class DiscoveryNodeManager
                         }
 
                         // always add system connector
-                        byCatalogHandleBuilder.put(CatalogHandle.fromId(GlobalSystemConnector.NAME), node);
+                        byCatalogHandleBuilder.put(CATALOG_HANDLE, node);
                         break;
                     case INACTIVE:
                         inactiveNodesBuilder.add(node);
