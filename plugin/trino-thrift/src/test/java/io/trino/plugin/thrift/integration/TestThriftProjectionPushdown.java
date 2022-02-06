@@ -45,32 +45,32 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
 import static io.trino.plugin.thrift.integration.ThriftQueryRunner.driftServerPort;
 import static io.trino.plugin.thrift.integration.ThriftQueryRunner.startThriftServers;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
+import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
+import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.stream.Collectors.joining;
 
 public class TestThriftProjectionPushdown
         extends BaseRuleTest
 {
-    private static final String CATALOG = "test";
     private static final String TINY_SCHEMA = "tiny";
     private List<DriftServer> servers;
 
     private static final ThriftTableHandle NATION_THRIFT_TABLE = new ThriftTableHandle(new SchemaTableName(TINY_SCHEMA, "nation"));
 
     private static final TableHandle NATION_TABLE = new TableHandle(
-            createRootCatalogHandle(CATALOG),
+            TEST_CATALOG_HANDLE,
             NATION_THRIFT_TABLE,
             ThriftTransactionHandle.INSTANCE);
 
     private static final Session SESSION = testSessionBuilder()
-            .setCatalog(CATALOG)
+            .setCatalog(TEST_CATALOG_NAME)
             .setSchema(TINY_SCHEMA)
             .build();
 
@@ -102,7 +102,7 @@ public class TestThriftProjectionPushdown
                 .buildOrThrow();
 
         LocalQueryRunner runner = LocalQueryRunner.create(SESSION);
-        runner.createCatalog(CATALOG, getOnlyElement(new ThriftPlugin().getConnectorFactories()), connectorProperties);
+        runner.createCatalog(TEST_CATALOG_NAME, getOnlyElement(new ThriftPlugin().getConnectorFactories()), connectorProperties);
 
         return Optional.of(runner);
     }
@@ -150,7 +150,7 @@ public class TestThriftProjectionPushdown
                                     orderStatusSymbol.toSymbolReference()),
                             p.tableScan(
                                     new TableHandle(
-                                            createRootCatalogHandle(CATALOG),
+                                            TEST_CATALOG_HANDLE,
                                             tableWithColumns,
                                             ThriftTransactionHandle.INSTANCE),
                                     ImmutableList.of(orderStatusSymbol),

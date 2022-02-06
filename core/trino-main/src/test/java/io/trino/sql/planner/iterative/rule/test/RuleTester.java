@@ -21,6 +21,7 @@ import io.trino.metadata.Metadata;
 import io.trino.plugin.tpch.TpchConnectorFactory;
 import io.trino.security.AccessControl;
 import io.trino.spi.Plugin;
+import io.trino.spi.connector.ConnectorFactory;
 import io.trino.split.PageSourceManager;
 import io.trino.split.SplitManager;
 import io.trino.sql.PlannerContext;
@@ -36,17 +37,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
 import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
+import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.Objects.requireNonNull;
 
 public class RuleTester
         implements Closeable
 {
-    public static final String CATALOG_NAME = "local";
-    public static final CatalogHandle CATALOG_HANDLE = createRootCatalogHandle(CATALOG_NAME);
-
     private final Metadata metadata;
     private final Session session;
     private final LocalQueryRunner queryRunner;
@@ -141,6 +139,7 @@ public class RuleTester
         private final List<Plugin> plugins = new ArrayList<>();
         private final Map<String, String> sessionProperties = new HashMap<>();
         private Optional<Integer> nodeCountForStats = Optional.empty();
+        private ConnectorFactory defaultCatalogConnectorFactory = new TpchConnectorFactory(1);
 
         private Builder() {}
 
@@ -168,10 +167,16 @@ public class RuleTester
             return this;
         }
 
+        public Builder withDefaultCatalogConnectorFactory(ConnectorFactory defaultCatalogConnectorFactory)
+        {
+            this.defaultCatalogConnectorFactory = defaultCatalogConnectorFactory;
+            return this;
+        }
+
         public RuleTester build()
         {
             Session.SessionBuilder sessionBuilder = testSessionBuilder()
-                    .setCatalog(CATALOG_NAME)
+                    .setCatalog(TEST_CATALOG_NAME)
                     .setSchema("tiny")
                     .setSystemProperty("task_concurrency", "1"); // these tests don't handle exchanges from local parallel
 
@@ -189,7 +194,7 @@ public class RuleTester
 
             queryRunner.createCatalog(
                     session.getCatalog().orElseThrow(),
-                    new TpchConnectorFactory(1),
+                    defaultCatalogConnectorFactory,
                     ImmutableMap.of());
             plugins.forEach(queryRunner::installPlugin);
 

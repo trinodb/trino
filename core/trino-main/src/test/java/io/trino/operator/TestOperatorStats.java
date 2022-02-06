@@ -26,14 +26,14 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
+import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
 
 public class TestOperatorStats
 {
-    private static final SplitOperatorInfo NON_MERGEABLE_INFO = new SplitOperatorInfo(createRootCatalogHandle("some_catalog"), "some_info");
+    private static final SplitOperatorInfo NON_MERGEABLE_INFO = new SplitOperatorInfo(TEST_CATALOG_HANDLE, "some_info");
     private static final PartitionedOutputInfo MERGEABLE_INFO = new PartitionedOutputInfo(1, 2, 1024);
 
     public static final OperatorStats EXPECTED = new OperatorStats(

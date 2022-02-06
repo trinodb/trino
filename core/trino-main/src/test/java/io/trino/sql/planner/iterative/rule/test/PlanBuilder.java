@@ -126,13 +126,13 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.util.MoreLists.nElements;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
@@ -601,7 +601,7 @@ public class PlanBuilder
     public static class TableScanBuilder
     {
         private final PlanNodeIdAllocator idAllocator;
-        private TableHandle tableHandle = new TableHandle(createRootCatalogHandle("testConnector"), new TestingTableHandle(), TestingTransactionHandle.create());
+        private TableHandle tableHandle = new TableHandle(TEST_CATALOG_HANDLE, new TestingTableHandle(), TestingTransactionHandle.create());
         private List<Symbol> symbols;
         private Map<Symbol, ColumnHandle> assignments;
         private TupleDomain<ColumnHandle> enforcedConstraint = TupleDomain.all();
@@ -747,7 +747,7 @@ public class PlanBuilder
     {
         return new DeleteTarget(
                 Optional.of(new TableHandle(
-                        createRootCatalogHandle("testConnector"),
+                        TEST_CATALOG_HANDLE,
                         new TestingTableHandle(),
                         TestingTransactionHandle.create())),
                 schemaTableName);
@@ -797,7 +797,7 @@ public class PlanBuilder
     private UpdateTarget updateTarget(SchemaTableName schemaTableName, List<String> columnsToBeUpdated)
     {
         TableHandle tableHandle = new TableHandle(
-                createRootCatalogHandle("testConnector"),
+                TEST_CATALOG_HANDLE,
                 new TestingTableHandle(),
                 TestingTransactionHandle.create());
         return new UpdateTarget(
@@ -1236,7 +1236,7 @@ public class PlanBuilder
                 source,
                 new TableWriterNode.TableExecuteTarget(
                         new TableExecuteHandle(
-                                createRootCatalogHandle("testConnector"),
+                                TEST_CATALOG_HANDLE,
                                 TestingTransactionHandle.create(),
                                 new TestingTableExecuteHandle()),
                         Optional.empty(),
