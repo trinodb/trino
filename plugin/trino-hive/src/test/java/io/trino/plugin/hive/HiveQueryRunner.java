@@ -109,6 +109,7 @@ public final class HiveQueryRunner
                             .setMetastoreUser("test"));
         };
         private Module module = EMPTY_MODULE;
+        private Optional<CachingDirectoryLister> cachingDirectoryLister = Optional.empty();
 
         protected Builder()
         {
@@ -175,6 +176,12 @@ public final class HiveQueryRunner
             return self();
         }
 
+        public SELF setCachingDirectoryLister(CachingDirectoryLister cachingDirectoryLister)
+        {
+            this.cachingDirectoryLister = Optional.ofNullable(cachingDirectoryLister);
+            return self();
+        }
+
         @Override
         public DistributedQueryRunner build()
                 throws Exception
@@ -188,7 +195,7 @@ public final class HiveQueryRunner
                 queryRunner.createCatalog("tpch", "tpch");
 
                 HiveMetastore metastore = this.metastore.apply(queryRunner);
-                queryRunner.installPlugin(new TestingHivePlugin(metastore, module));
+                queryRunner.installPlugin(new TestingHivePlugin(metastore, module, cachingDirectoryLister));
 
                 if (!exchangeManagerProperties.isEmpty()) {
                     queryRunner.installPlugin(new FileSystemExchangePlugin());

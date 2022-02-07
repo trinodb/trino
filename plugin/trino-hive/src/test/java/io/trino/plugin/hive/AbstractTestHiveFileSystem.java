@@ -220,7 +220,8 @@ public abstract class AbstractTestHiveFileSystem
                         new PropertiesSystemTableProvider()),
                 new DefaultHiveMaterializedViewMetadataFactory(),
                 SqlStandardAccessControlMetadata::new,
-                NO_REDIRECTIONS);
+                NO_REDIRECTIONS,
+                TableInvalidationCallback.NOOP);
         transactionManager = new HiveTransactionManager(metadataFactory);
         splitManager = new HiveSplitManager(
                 transactionManager,
