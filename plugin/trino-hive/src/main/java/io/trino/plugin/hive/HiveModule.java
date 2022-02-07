@@ -58,7 +58,6 @@ public class HiveModule
     @Override
     public void configure(Binder binder)
     {
-        binder.bind(DirectoryLister.class).to(CachingDirectoryLister.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(HiveConfig.class);
         configBinder(binder).bindConfig(MetastoreConfig.class);
 

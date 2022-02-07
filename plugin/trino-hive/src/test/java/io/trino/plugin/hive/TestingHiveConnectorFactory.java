@@ -31,16 +31,18 @@ public class TestingHiveConnectorFactory
 {
     private final HiveMetastore metastore;
     private final Module module;
+    private final Optional<CachingDirectoryLister> cachingDirectoryLister;
 
     public TestingHiveConnectorFactory(HiveMetastore metastore)
     {
-        this(metastore, EMPTY_MODULE);
+        this(metastore, EMPTY_MODULE, Optional.empty());
     }
 
-    public TestingHiveConnectorFactory(HiveMetastore metastore, Module module)
+    public TestingHiveConnectorFactory(HiveMetastore metastore, Module module, Optional<CachingDirectoryLister> cachingDirectoryLister)
     {
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.module = requireNonNull(module, "module is null");
+        this.cachingDirectoryLister = requireNonNull(cachingDirectoryLister, "cachingDirectoryLister is null");
     }
 
     @Override
@@ -52,6 +54,6 @@ public class TestingHiveConnectorFactory
     @Override
     public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
-        return createConnector(catalogName, config, context, module, Optional.of(metastore));
+        return createConnector(catalogName, config, context, module, Optional.of(metastore), cachingDirectoryLister);
     }
 }

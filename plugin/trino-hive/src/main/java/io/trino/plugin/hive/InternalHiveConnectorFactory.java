@@ -78,10 +78,10 @@ public final class InternalHiveConnectorFactory
 
     public static Connector createConnector(String catalogName, Map<String, String> config, ConnectorContext context, Module module)
     {
-        return createConnector(catalogName, config, context, module, Optional.empty());
+        return createConnector(catalogName, config, context, module, Optional.empty(), Optional.empty());
     }
 
-    public static Connector createConnector(String catalogName, Map<String, String> config, ConnectorContext context, Module module, Optional<HiveMetastore> metastore)
+    public static Connector createConnector(String catalogName, Map<String, String> config, ConnectorContext context, Module module, Optional<HiveMetastore> metastore, Optional<CachingDirectoryLister> cachingDirectoryLister)
     {
         requireNonNull(config, "config is null");
 
@@ -95,6 +95,7 @@ public final class InternalHiveConnectorFactory
                     new JsonModule(),
                     new TypeDeserializerModule(context.getTypeManager()),
                     new HiveModule(),
+                    new CachingDirectoryListerModule(cachingDirectoryLister),
                     new HiveHdfsModule(),
                     new HiveS3Module(),
                     new HiveGcsModule(),
