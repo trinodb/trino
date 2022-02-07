@@ -865,7 +865,8 @@ public abstract class AbstractTestHive
                     }
                 },
                 SqlStandardAccessControlMetadata::new,
-                NO_REDIRECTIONS);
+                NO_REDIRECTIONS,
+                TableInvalidationCallback.NOOP);
         transactionManager = new HiveTransactionManager(metadataFactory);
         splitManager = new HiveSplitManager(
                 transactionManager,

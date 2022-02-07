@@ -35,6 +35,7 @@ import io.trino.plugin.hive.PartitionAndStatementId;
 import io.trino.plugin.hive.PartitionNotFoundException;
 import io.trino.plugin.hive.PartitionStatistics;
 import io.trino.plugin.hive.TableAlreadyExistsException;
+import io.trino.plugin.hive.TableInvalidationCallback;
 import io.trino.plugin.hive.acid.AcidOperation;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege;
@@ -68,6 +69,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -140,6 +142,7 @@ public class SemiTransactionalHiveMetastore
     private final boolean deleteSchemaLocationsFallback;
     private final ScheduledExecutorService heartbeatExecutor;
     private final Optional<Duration> configuredTransactionHeartbeatInterval;
+    private final TableInvalidationCallback tableInvalidationCallback;
 
     private boolean throwOnCleanupFailure;
 
@@ -176,7 +179,8 @@ public class SemiTransactionalHiveMetastore
             boolean skipTargetCleanupOnRollback,
             boolean deleteSchemaLocationsFallback,
             Optional<Duration> hiveTransactionHeartbeatInterval,
-            ScheduledExecutorService heartbeatService)
+            ScheduledExecutorService heartbeatService,
+            TableInvalidationCallback tableInvalidationCallback)
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.delegate = requireNonNull(delegate, "delegate is null");
@@ -188,6 +192,7 @@ public class SemiTransactionalHiveMetastore
         this.deleteSchemaLocationsFallback = deleteSchemaLocationsFallback;
         this.heartbeatExecutor = heartbeatService;
         this.configuredTransactionHeartbeatInterval = requireNonNull(hiveTransactionHeartbeatInterval, "hiveTransactionHeartbeatInterval is null");
+        this.tableInvalidationCallback = requireNonNull(tableInvalidationCallback, "tableInvalidationCallback is null");
     }
 
     public synchronized List<String> getAllDatabases()
@@ -547,7 +552,16 @@ public class SemiTransactionalHiveMetastore
 
     public synchronized void renameTable(String databaseName, String tableName, String newDatabaseName, String newTableName)
     {
-        setExclusive((delegate, hdfsEnvironment) -> delegate.renameTable(databaseName, tableName, newDatabaseName, newTableName));
+        setExclusive((delegate, hdfsEnvironment) -> {
+            Optional<Table> oldTable = delegate.getTable(databaseName, tableName);
+            try {
+                delegate.renameTable(databaseName, tableName, newDatabaseName, newTableName);
+            }
+            finally {
+                // perform explicit invalidation for the table in exclusive metastore operations
+                oldTable.ifPresent(tableInvalidationCallback::invalidate);
+            }
+        });
     }
 
     public synchronized void commentTable(String databaseName, String tableName, Optional<String> comment)
@@ -1504,6 +1518,9 @@ public class SemiTransactionalHiveMetastore
 
             throw t;
         }
+        finally {
+            committer.executeTableInvalidationCallback();
+        }
 
         try {
             // After this line, operations are no longer reversible.
@@ -1544,6 +1561,10 @@ public class SemiTransactionalHiveMetastore
         private final List<DirectoryCleanUpTask> cleanUpTasksForAbort = new ArrayList<>();
         private final List<DirectoryRenameTask> renameTasksForAbort = new ArrayList<>();
 
+        // Notify callback about changes on the schema tables / partitions
+        private final Set<Table> tablesToInvalidate = new LinkedHashSet<>();
+        private final Set<Partition> partitionsToInvalidate = new LinkedHashSet<>();
+
         // Metastore
         private final List<CreateTableOperation> addTableOperations = new ArrayList<>();
         private final List<AlterTableOperation> alterTableOperations = new ArrayList<>();
@@ -1566,7 +1587,16 @@ public class SemiTransactionalHiveMetastore
         {
             metastoreDeleteOperations.add(new IrreversibleMetastoreOperation(
                     format("drop table %s", schemaTableName),
-                    () -> delegate.dropTable(schemaTableName.getSchemaName(), schemaTableName.getTableName(), true)));
+                    () -> {
+                        Optional<Table> droppedTable = delegate.getTable(schemaTableName.getSchemaName(), schemaTableName.getTableName());
+                        try {
+                            delegate.dropTable(schemaTableName.getSchemaName(), schemaTableName.getTableName(), true);
+                        }
+                        finally {
+                            // perform explicit invalidation for the table in irreversible metastore operation
+                            droppedTable.ifPresent(tableInvalidationCallback::invalidate);
+                        }
+                    }));
         }
 
         private void prepareAlterTable(HdfsContext hdfsContext, String queryId, TableAndMore tableAndMore)
@@ -1579,6 +1609,7 @@ public class SemiTransactionalHiveMetastore
                     .orElseThrow(() -> new TrinoException(TRANSACTION_CONFLICT, "The table that this transaction modified was deleted in another transaction. " + table.getSchemaTableName()));
             String oldTableLocation = oldTable.getStorage().getLocation();
             Path oldTablePath = new Path(oldTableLocation);
+            tablesToInvalidate.add(oldTable);
 
             cleanExtraOutputFiles(hdfsContext, queryId, tableAndMore);
 
@@ -1695,6 +1726,7 @@ public class SemiTransactionalHiveMetastore
             deleteOnly = false;
             Table table = tableAndMore.getTable();
             Path targetPath = new Path(table.getStorage().getLocation());
+            tablesToInvalidate.add(table);
             Path currentPath = tableAndMore.getCurrentLocation().get();
             cleanUpTasksForAbort.add(new DirectoryCleanUpTask(context, targetPath, false));
 
@@ -1726,6 +1758,7 @@ public class SemiTransactionalHiveMetastore
 
             deleteOnly = false;
             Table table = deletionState.getTable();
+            tablesToInvalidate.add(table);
             checkArgument(currentHiveTransaction.isPresent(), "currentHiveTransaction isn't present");
             AcidTransaction transaction = currentHiveTransaction.get().getTransaction();
             checkArgument(transaction.isDelete(), "transaction should be delete, but is %s", transaction);
@@ -1809,6 +1842,7 @@ public class SemiTransactionalHiveMetastore
             checkArgument(!partitionAndStatementIds.isEmpty(), "partitionAndStatementIds is empty");
 
             Table table = updateState.getTable();
+            tablesToInvalidate.add(table);
             checkArgument(currentHiveTransaction.isPresent(), "currentHiveTransaction isn't present");
             AcidTransaction transaction = currentHiveTransaction.get().getTransaction();
             checkArgument(transaction.isUpdate(), "transaction should be update, but is %s", transaction);
@@ -1831,7 +1865,16 @@ public class SemiTransactionalHiveMetastore
         {
             metastoreDeleteOperations.add(new IrreversibleMetastoreOperation(
                     format("drop partition %s.%s %s", schemaTableName.getSchemaName(), schemaTableName.getTableName(), partitionValues),
-                    () -> delegate.dropPartition(schemaTableName.getSchemaName(), schemaTableName.getTableName(), partitionValues, deleteData)));
+                    () -> {
+                        Optional<Partition> droppedPartition = delegate.getPartition(schemaTableName.getSchemaName(), schemaTableName.getTableName(), partitionValues);
+                        try {
+                            delegate.dropPartition(schemaTableName.getSchemaName(), schemaTableName.getTableName(), partitionValues, deleteData);
+                        }
+                        finally {
+                            // perform explicit invalidation for the partition in irreversible metastore operation
+                            droppedPartition.ifPresent(tableInvalidationCallback::invalidate);
+                        }
+                    }));
         }
 
         private void prepareAlterPartition(HdfsContext hdfsContext, String queryId, PartitionAndMore partitionAndMore)
@@ -1839,6 +1882,7 @@ public class SemiTransactionalHiveMetastore
             deleteOnly = false;
 
             Partition partition = partitionAndMore.getPartition();
+            partitionsToInvalidate.add(partition);
             String targetLocation = partition.getStorage().getLocation();
             Optional<Partition> oldPartition = delegate.getPartition(partition.getDatabaseName(), partition.getTableName(), partition.getValues());
             if (oldPartition.isEmpty()) {
@@ -2031,6 +2075,7 @@ public class SemiTransactionalHiveMetastore
             deleteOnly = false;
 
             Partition partition = partitionAndMore.getPartition();
+            partitionsToInvalidate.add(partition);
             Path targetPath = new Path(partition.getStorage().getLocation());
             Path currentPath = partitionAndMore.getCurrentLocation();
             cleanUpTasksForAbort.add(new DirectoryCleanUpTask(hdfsContext, targetPath, false));
@@ -2186,6 +2231,12 @@ public class SemiTransactionalHiveMetastore
                 suppressedExceptions.forEach(trinoException::addSuppressed);
                 throw trinoException;
             }
+        }
+
+        private void executeTableInvalidationCallback()
+        {
+            tablesToInvalidate.forEach(tableInvalidationCallback::invalidate);
+            partitionsToInvalidate.forEach(tableInvalidationCallback::invalidate);
         }
 
         private void undoAddPartitionOperations()

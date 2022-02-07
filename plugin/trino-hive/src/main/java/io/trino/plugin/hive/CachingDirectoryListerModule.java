@@ -13,39 +13,36 @@
  */
 package io.trino.plugin.hive;
 
-import com.google.common.collect.ImmutableList;
+import com.google.inject.Binder;
 import com.google.inject.Module;
-import io.trino.plugin.hive.metastore.HiveMetastore;
-import io.trino.spi.Plugin;
-import io.trino.spi.connector.ConnectorFactory;
+import com.google.inject.Scopes;
 
 import java.util.Optional;
 
-import static com.google.inject.util.Modules.EMPTY_MODULE;
 import static java.util.Objects.requireNonNull;
 
-public class TestingHivePlugin
-        implements Plugin
+public class CachingDirectoryListerModule
+        implements Module
 {
-    private final HiveMetastore metastore;
-    private final Module module;
     private final Optional<CachingDirectoryLister> cachingDirectoryLister;
 
-    public TestingHivePlugin(HiveMetastore metastore)
+    public CachingDirectoryListerModule(Optional<CachingDirectoryLister> cachingDirectoryLister)
     {
-        this(metastore, EMPTY_MODULE, Optional.empty());
-    }
-
-    public TestingHivePlugin(HiveMetastore metastore, Module module, Optional<CachingDirectoryLister> cachingDirectoryLister)
-    {
-        this.metastore = requireNonNull(metastore, "metastore is null");
-        this.module = requireNonNull(module, "module is null");
         this.cachingDirectoryLister = requireNonNull(cachingDirectoryLister, "cachingDirectoryLister is null");
     }
 
     @Override
-    public Iterable<ConnectorFactory> getConnectorFactories()
+    public void configure(Binder binder)
     {
-        return ImmutableList.of(new TestingHiveConnectorFactory(metastore, module, cachingDirectoryLister));
+        if (cachingDirectoryLister.isPresent()) {
+            CachingDirectoryLister directoryLister = cachingDirectoryLister.get();
+            binder.bind(DirectoryLister.class).toInstance(directoryLister);
+            binder.bind(TableInvalidationCallback.class).toInstance(directoryLister);
+        }
+        else {
+            binder.bind(CachingDirectoryLister.class).in(Scopes.SINGLETON);
+            binder.bind(DirectoryLister.class).to(CachingDirectoryLister.class);
+            binder.bind(TableInvalidationCallback.class).to(CachingDirectoryLister.class);
+        }
     }
 }

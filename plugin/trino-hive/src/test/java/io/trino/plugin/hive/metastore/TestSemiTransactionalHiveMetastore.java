@@ -19,6 +19,7 @@ import io.trino.plugin.hive.HiveBucketProperty;
 import io.trino.plugin.hive.HiveMetastoreClosure;
 import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.PartitionStatistics;
+import io.trino.plugin.hive.TableInvalidationCallback;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import org.apache.hadoop.fs.Path;
 import org.testng.annotations.Test;
@@ -86,7 +87,8 @@ public class TestSemiTransactionalHiveMetastore
                 false,
                 true,
                 Optional.empty(),
-                newScheduledThreadPool(1));
+                newScheduledThreadPool(1),
+                TableInvalidationCallback.NOOP);
     }
 
     @Test
@@ -125,7 +127,8 @@ public class TestSemiTransactionalHiveMetastore
                 false,
                 true,
                 Optional.empty(),
-                newScheduledThreadPool(1));
+                newScheduledThreadPool(1),
+                TableInvalidationCallback.NOOP);
     }
 
     private class TestingHiveMetastore
