@@ -832,20 +832,15 @@ public class PhoenixClient
                 // For MR, skip the region boundary check exception if we encounter a split. ref: PHOENIX-2599
                 scan.setAttribute(SKIP_REGION_BOUNDARY_CHECK, Bytes.toBytes(true));
 
+                // TODO: How to make use of this with the new change.
                 ScanMetricsHolder scanMetricsHolder = ScanMetricsHolder.getInstance(
                         context.getReadMetricsQueue(),
                         physicalTableName.getString(),
                         scan,
                         phoenixConnection.getLogLevel());
 
-                TableResultIterator tableResultIterator = new TableResultIterator(
-                        phoenixConnection.getMutationState(),
-                        scan,
-                        scanMetricsHolder,
-                        services.getRenewLeaseThresholdMilliSeconds(),
-                        queryPlan,
-                        MapReduceParallelScanGrouper.getInstance());
-                iterators.add(LookAheadResultIterator.wrap(tableResultIterator));
+                ResultIterator resultIterator= queryPlan.iterator(MapReduceParallelScanGrouper.getInstance(), scan);
+                iterators.add(LookAheadResultIterator.wrap(resultIterator));
             }
             ResultIterator iterator = ConcatResultIterator.newIterator(iterators);
             if (context.getSequenceManager().getSequenceCount() > 0) {
