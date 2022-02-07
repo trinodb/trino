@@ -14,14 +14,17 @@
 package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slices;
 import io.trino.Session;
 import io.trino.block.BlockAssertions;
+import io.trino.operator.MultiChannelGroupByHash.GetLowCardinalityDictionaryGroupIdsWork;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.DictionaryId;
 import io.trino.spi.block.RunLengthEncodedBlock;
+import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.gen.JoinCompiler;
@@ -49,6 +52,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.type.TypeTestUtils.getHashBlock;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -501,5 +505,131 @@ public class TestGroupByHash
         // the rehash count is 10 = log2(1_000 / 0.75)
         assertEquals(currentQuota.get(), 10);
         assertEquals(currentQuota.get() / 3, yields);
+    }
+
+    @Test
+    public void testLowCardinalityDictionariesAddPage()
+    {
+        GroupByHash groupByHash = createGroupByHash(
+                TEST_SESSION,
+                ImmutableList.of(BIGINT, BIGINT),
+                new int[] {0, 1},
+                Optional.empty(),
+                100,
+                JOIN_COMPILER,
+                TYPE_OPERATOR_FACTORY,
+                NOOP);
+        Block firstBlock = BlockAssertions.createLongDictionaryBlock(0, 1000, 10);
+        Block secondBlock = BlockAssertions.createLongDictionaryBlock(0, 1000, 10);
+        Page page = new Page(firstBlock, secondBlock);
+
+        Work<?> work = groupByHash.addPage(page);
+        assertThat(work).isInstanceOf(MultiChannelGroupByHash.AddLowCardinalityDictionaryPageWork.class);
+        work.process();
+        assertThat(groupByHash.getGroupCount()).isEqualTo(10); // Blocks are identical so only 10 distinct groups
+
+        firstBlock = BlockAssertions.createLongDictionaryBlock(10, 1000, 5);
+        secondBlock = BlockAssertions.createLongDictionaryBlock(10, 1000, 7);
+        page = new Page(firstBlock, secondBlock);
+
+        groupByHash.addPage(page).process();
+        assertThat(groupByHash.getGroupCount()).isEqualTo(45); // Old 10 groups and 35 new
+    }
+
+    @Test
+    public void testLowCardinalityDictionariesGetGroupIds()
+    {
+        // Compare group id results from page with dictionaries only (processed via low cardinality work) and the same page processed normally
+        GroupByHash groupByHash = createGroupByHash(
+                TEST_SESSION,
+                ImmutableList.of(BIGINT, BIGINT, BIGINT, BIGINT, BIGINT),
+                new int[] {0, 1, 2, 3, 4},
+                Optional.empty(),
+                100,
+                JOIN_COMPILER,
+                TYPE_OPERATOR_FACTORY,
+                NOOP);
+
+        GroupByHash lowCardinalityGroupByHash = createGroupByHash(
+                TEST_SESSION,
+                ImmutableList.of(BIGINT, BIGINT, BIGINT, BIGINT),
+                new int[] {0, 1, 2, 3},
+                Optional.empty(),
+                100,
+                JOIN_COMPILER,
+                TYPE_OPERATOR_FACTORY,
+                NOOP);
+        Block sameValueBlock = BlockAssertions.createLongRepeatBlock(0, 100);
+        Block block1 = BlockAssertions.createLongDictionaryBlock(0, 100, 1);
+        Block block2 = BlockAssertions.createLongDictionaryBlock(0, 100, 2);
+        Block block3 = BlockAssertions.createLongDictionaryBlock(0, 100, 3);
+        Block block4 = BlockAssertions.createLongDictionaryBlock(0, 100, 4);
+        // Combining block 2 and 4 will result in only 4 distinct values since 2 and 4 are not coprime
+
+        Page lowCardinalityPage = new Page(block1, block2, block3, block4);
+        Page page = new Page(block1, block2, block3, block4, sameValueBlock); // sameValueBlock will prevent low cardinality optimization to fire
+
+        Work<GroupByIdBlock> lowCardinalityWork = lowCardinalityGroupByHash.getGroupIds(lowCardinalityPage);
+        assertThat(lowCardinalityWork).isInstanceOf(GetLowCardinalityDictionaryGroupIdsWork.class);
+        Work<GroupByIdBlock> work = groupByHash.getGroupIds(page);
+
+        lowCardinalityWork.process();
+        work.process();
+        GroupByIdBlock lowCardinalityResults = lowCardinalityWork.getResult();
+        GroupByIdBlock results = work.getResult();
+
+        assertThat(lowCardinalityResults.getGroupCount()).isEqualTo(results.getGroupCount());
+    }
+
+    @Test
+    public void testProperWorkTypesSelected()
+    {
+        Block bigintBlock = BlockAssertions.createLongsBlock(1, 2, 3, 4, 5, 6, 7, 8);
+        Block bigintDictionaryBlock = BlockAssertions.createLongDictionaryBlock(0, 8);
+        Block bigintRleBlock = BlockAssertions.createRLEBlock(42, 8);
+        Block varcharBlock = BlockAssertions.createStringsBlock("1", "2", "3", "4", "5", "6", "7", "8");
+        Block varcharDictionaryBlock = BlockAssertions.createStringDictionaryBlock(1, 8);
+        Block varcharRleBlock = new RunLengthEncodedBlock(new VariableWidthBlock(1, Slices.EMPTY_SLICE, new int[] {0, 1}, Optional.empty()), 8);
+        Block bigintBigDictionaryBlock = BlockAssertions.createLongDictionaryBlock(1, 8, 1000);
+        Block bigintSingletonDictionaryBlock = BlockAssertions.createLongDictionaryBlock(1, 500000, 1);
+        Block bigintHugeDictionaryBlock = BlockAssertions.createLongDictionaryBlock(1, 500000, 66000); // Above Short.MAX_VALUE
+
+        Page singleBigintPage = new Page(bigintBlock);
+        assertGroupByHashWork(singleBigintPage, ImmutableList.of(BIGINT), BigintGroupByHash.GetGroupIdsWork.class);
+        Page singleBigintDictionaryPage = new Page(bigintDictionaryBlock);
+        assertGroupByHashWork(singleBigintDictionaryPage, ImmutableList.of(BIGINT), BigintGroupByHash.GetDictionaryGroupIdsWork.class);
+        Page singleBigintRlePage = new Page(bigintRleBlock);
+        assertGroupByHashWork(singleBigintRlePage, ImmutableList.of(BIGINT), BigintGroupByHash.GetRunLengthEncodedGroupIdsWork.class);
+        Page singleVarcharPage = new Page(varcharBlock);
+        assertGroupByHashWork(singleVarcharPage, ImmutableList.of(VARCHAR), MultiChannelGroupByHash.GetNonDictionaryGroupIdsWork.class);
+        Page singleVarcharDictionaryPage = new Page(varcharDictionaryBlock);
+        assertGroupByHashWork(singleVarcharDictionaryPage, ImmutableList.of(VARCHAR), MultiChannelGroupByHash.GetDictionaryGroupIdsWork.class);
+        Page singleVarcharRlePage = new Page(varcharRleBlock);
+        assertGroupByHashWork(singleVarcharRlePage, ImmutableList.of(VARCHAR), MultiChannelGroupByHash.GetRunLengthEncodedGroupIdsWork.class);
+
+        Page lowCardinalityDictionaryPage = new Page(bigintDictionaryBlock, varcharDictionaryBlock);
+        assertGroupByHashWork(lowCardinalityDictionaryPage, ImmutableList.of(BIGINT, VARCHAR), MultiChannelGroupByHash.GetLowCardinalityDictionaryGroupIdsWork.class);
+        Page highCardinalityDictionaryPage = new Page(bigintDictionaryBlock, bigintBigDictionaryBlock);
+        assertGroupByHashWork(highCardinalityDictionaryPage, ImmutableList.of(BIGINT, VARCHAR), MultiChannelGroupByHash.GetNonDictionaryGroupIdsWork.class);
+
+        // Cardinality above Short.MAX_VALUE
+        Page lowCardinalityHugeDictionaryPage = new Page(bigintSingletonDictionaryBlock, bigintHugeDictionaryBlock);
+        assertGroupByHashWork(lowCardinalityHugeDictionaryPage, ImmutableList.of(BIGINT, BIGINT), MultiChannelGroupByHash.GetNonDictionaryGroupIdsWork.class);
+    }
+
+    private void assertGroupByHashWork(Page page, List<Type> types, Class<?> clazz)
+    {
+        GroupByHash groupByHash = createGroupByHash(
+                types,
+                IntStream.range(0, types.size()).toArray(),
+                Optional.empty(),
+                100,
+                true,
+                JOIN_COMPILER,
+                TYPE_OPERATOR_FACTORY,
+                NOOP);
+        Work<GroupByIdBlock> work = groupByHash.getGroupIds(page);
+        // Compare by name since classes are private
+        assertThat(work).isInstanceOf(clazz);
     }
 }
