@@ -11,7 +11,7 @@ behavior when required.
     :titlesonly:
 
     General <properties-general>
-    Memory management <properties-memory-management>
+    Resource management <properties-resource-management>
     Query management <properties-query-management>
     Spilling <properties-spilling>
     Exchange <properties-exchange>
