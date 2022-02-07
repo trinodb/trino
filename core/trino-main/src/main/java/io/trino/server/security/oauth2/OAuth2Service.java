@@ -33,7 +33,6 @@ import io.trino.server.ui.OAuthWebUiCookie;
 import javax.inject.Inject;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.UriBuilder;
-import javax.ws.rs.core.UriInfo;
 
 import java.io.IOException;
 import java.net.URI;
@@ -59,7 +58,6 @@ import static io.jsonwebtoken.Claims.AUDIENCE;
 import static io.jsonwebtoken.security.Keys.hmacShaKeyFor;
 import static io.trino.server.security.jwt.JwtUtil.newJwtBuilder;
 import static io.trino.server.security.jwt.JwtUtil.newJwtParserBuilder;
-import static io.trino.server.security.oauth2.OAuth2CallbackResource.CALLBACK_ENDPOINT;
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.UI_LOCATION;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -142,21 +140,7 @@ public class OAuth2Service
         this.webUiOAuthEnabled = requireNonNull(webUiOAuthEnabled, "webUiOAuthEnabled is null").isPresent();
     }
 
-    public Response startOAuth2Challenge(UriInfo uriInfo)
-    {
-        return startOAuth2Challenge(
-                uriInfo.getBaseUri().resolve(CALLBACK_ENDPOINT),
-                Optional.empty());
-    }
-
-    public Response startOAuth2Challenge(UriInfo uriInfo, String handlerState)
-    {
-        return startOAuth2Challenge(
-                uriInfo.getBaseUri().resolve(CALLBACK_ENDPOINT),
-                Optional.of(handlerState));
-    }
-
-    private Response startOAuth2Challenge(URI callbackUri, Optional<String> handlerState)
+    public Response startOAuth2Challenge(URI callbackUri, Optional<String> handlerState)
     {
         Instant challengeExpiration = now().plus(challengeTimeout);
         String state = newJwtBuilder()
