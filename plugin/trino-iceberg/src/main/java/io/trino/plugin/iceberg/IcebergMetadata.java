@@ -886,14 +886,13 @@ public class IcebergMetadata
     private List<ColumnMetadata> getColumnMetadatas(Table table)
     {
         return table.schema().columns().stream()
-                .map(column -> {
-                    return ColumnMetadata.builder()
-                            .setName(column.name())
-                            .setType(toTrinoType(column.type(), typeManager))
-                            .setNullable(column.isOptional())
-                            .setComment(Optional.ofNullable(column.doc()))
-                            .build();
-                })
+                .map(column ->
+                        ColumnMetadata.builder()
+                                .setName(column.name())
+                                .setType(toTrinoType(column.type(), typeManager))
+                                .setNullable(column.isOptional())
+                                .setComment(Optional.ofNullable(column.doc()))
+                                .build())
                 .collect(toImmutableList());
     }
 
