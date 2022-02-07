@@ -92,6 +92,33 @@ public class TestIcebergSystemTables
     }
 
     @Test
+    public void testPartitionTableOnDropColumn()
+    {
+        assertUpdate("CREATE TABLE test_schema.test_table_multi_column (_varchar VARCHAR, _bigint BIGINT, _date DATE) WITH (partitioning = ARRAY['_date'])");
+        assertUpdate("INSERT INTO test_schema.test_table_multi_column VALUES ('a', 0, CAST('2019-09-08' AS DATE)), ('a', 1, CAST('2019-09-09' AS DATE)), ('b', 2, CAST('2019-09-09' AS DATE))", 3);
+        assertUpdate("INSERT INTO test_schema.test_table_multi_column VALUES ('c', 3, CAST('2019-09-09' AS DATE)), ('a', 4, CAST('2019-09-10' AS DATE)), ('b', 5, CAST('2019-09-10' AS DATE))", 3);
+        assertQuery("SELECT count(*) FROM test_schema.test_table_multi_column", "VALUES 6");
+        MaterializedResult result = computeActual("SELECT * from test_schema.\"test_table_multi_column$partitions\"");
+
+        assertEquals(result.getRowCount(), 3);
+        Map<LocalDate, MaterializedRow> rowsByPartition = result.getMaterializedRows().stream()
+                .collect(toImmutableMap(row -> ((LocalDate) ((MaterializedRow) row.getField(0)).getField(0)), Function.identity()));
+
+        assertEquals(rowsByPartition.get(LocalDate.parse("2019-09-08")).getField(4), new MaterializedRow(DEFAULT_PRECISION,
+                new MaterializedRow(DEFAULT_PRECISION, "a", "a", 0L),
+                new MaterializedRow(DEFAULT_PRECISION, 0L, 0L, 0L)));
+
+        assertUpdate("ALTER TABLE test_schema.test_table_multi_column drop column _varchar");
+        MaterializedResult resultAfterDrop = computeActual("SELECT * from test_schema.\"test_table_multi_column$partitions\"");
+        assertEquals(resultAfterDrop.getRowCount(), 3);
+        Map<LocalDate, MaterializedRow> rowsByPartitionAfterDrop = resultAfterDrop.getMaterializedRows().stream()
+                .collect(toImmutableMap(row -> ((LocalDate) ((MaterializedRow) row.getField(0)).getField(0)), Function.identity()));
+        assertEquals(rowsByPartitionAfterDrop.get(LocalDate.parse("2019-09-08")).getField(4), new MaterializedRow(DEFAULT_PRECISION,
+                new MaterializedRow(DEFAULT_PRECISION, 0L, 0L, 0L)));
+        assertUpdate("DROP TABLE IF EXISTS test_schema.test_table_multi_column");
+    }
+
+    @Test
     public void testHistoryTable()
     {
         assertQuery("SHOW COLUMNS FROM test_schema.\"test_table$history\"",

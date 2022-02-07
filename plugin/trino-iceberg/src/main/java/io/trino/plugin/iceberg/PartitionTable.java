@@ -194,7 +194,7 @@ public class PartitionTable
 
                 partitions.computeIfAbsent(
                         partitionWrapper,
-                        ignored -> new IcebergStatistics.Builder(idToTypeMapping, icebergTable.schema().columns(), typeManager))
+                        ignored -> new IcebergStatistics.Builder(icebergTable.schema().columns(), typeManager))
                         .acceptDataFile(dataFile, fileScanTask.spec());
             }
 
