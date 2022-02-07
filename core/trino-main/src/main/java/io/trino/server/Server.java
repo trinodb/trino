@@ -38,12 +38,15 @@ import io.airlift.log.Logger;
 import io.airlift.node.NodeModule;
 import io.airlift.tracetoken.TraceTokenModule;
 import io.trino.client.NodeVersion;
+import io.trino.connector.ConnectorManager.ConnectorServices;
+import io.trino.connector.ConnectorServicesProvider;
 import io.trino.eventlistener.EventListenerManager;
 import io.trino.eventlistener.EventListenerModule;
 import io.trino.exchange.ExchangeManagerModule;
 import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.resourcegroups.ResourceGroupManager;
 import io.trino.execution.warnings.WarningCollectorModule;
+import io.trino.metadata.Catalog;
 import io.trino.metadata.CatalogManager;
 import io.trino.metadata.StaticCatalogStore;
 import io.trino.security.AccessControlManager;
@@ -62,6 +65,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -127,6 +131,20 @@ public class Server
             injector.getInstance(PluginManager.class).loadPlugins();
 
             injector.getInstance(StaticCatalogStore.class).loadCatalogs();
+
+            // Connector event listeners are only supported for statically loaded catalogs
+            // TODO: remove connector event listeners or add support for dynamic loading from connector
+            CatalogManager catalogManager = injector.getInstance(CatalogManager.class);
+            ConnectorServicesProvider connectorServicesProvider = injector.getInstance(ConnectorServicesProvider.class);
+            EventListenerManager eventListenerManager = injector.getInstance(EventListenerManager.class);
+            catalogManager.getCatalogNames().stream()
+                    .map(catalogManager::getCatalog)
+                    .flatMap(Optional::stream)
+                    .map(Catalog::getCatalogName)
+                    .map(connectorServicesProvider::getConnectorServices)
+                    .map(ConnectorServices::getEventListeners)
+                    .flatMap(Collection::stream)
+                    .forEach(eventListenerManager::addEventListener);
 
             // TODO: remove this huge hack
             updateConnectorIds(injector.getInstance(Announcer.class), injector.getInstance(CatalogManager.class));

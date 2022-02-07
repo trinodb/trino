@@ -401,7 +401,6 @@ public class LocalQueryRunner
                 pageSorter,
                 pageIndexerFactory,
                 transactionManager,
-                eventListenerManager,
                 typeManager,
                 nodeSchedulerConfig);
         this.splitManager = new SplitManager(createSplitManagerProvider(connectorManager), new QueryManagerConfig());

@@ -23,7 +23,6 @@ import io.trino.connector.system.CoordinatorSystemTablesProvider;
 import io.trino.connector.system.StaticSystemTablesProvider;
 import io.trino.connector.system.SystemConnector;
 import io.trino.connector.system.SystemTablesProvider;
-import io.trino.eventlistener.EventListenerManager;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
 import io.trino.metadata.Catalog;
 import io.trino.metadata.CatalogManager;
@@ -106,7 +105,6 @@ public class ConnectorManager
     private final NodeInfo nodeInfo;
     private final VersionEmbedder versionEmbedder;
     private final TransactionManager transactionManager;
-    private final EventListenerManager eventListenerManager;
     private final TypeManager typeManager;
 
     private final boolean schedulerIncludeCoordinator;
@@ -131,7 +129,6 @@ public class ConnectorManager
             PageSorter pageSorter,
             PageIndexerFactory pageIndexerFactory,
             TransactionManager transactionManager,
-            EventListenerManager eventListenerManager,
             TypeManager typeManager,
             NodeSchedulerConfig nodeSchedulerConfig)
     {
@@ -145,7 +142,6 @@ public class ConnectorManager
         this.nodeInfo = nodeInfo;
         this.versionEmbedder = versionEmbedder;
         this.transactionManager = transactionManager;
-        this.eventListenerManager = eventListenerManager;
         this.typeManager = typeManager;
         this.schedulerIncludeCoordinator = nodeSchedulerConfig.isIncludeCoordinator();
     }
@@ -261,9 +257,6 @@ public class ConnectorManager
             removeConnectorInternal(connector.getCatalogName());
             throw e;
         }
-
-        connector.getEventListeners()
-                .forEach(eventListenerManager::addEventListener);
     }
 
     private synchronized void addConnectorInternal(ConnectorServices connector)
