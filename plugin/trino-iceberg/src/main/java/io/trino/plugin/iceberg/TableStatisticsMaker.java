@@ -108,7 +108,7 @@ public class TableStatisticsMaker
                 .useSnapshot(tableHandle.getSnapshotId().get())
                 .includeColumnStats();
 
-        IcebergStatistics.Builder icebergStatisticsBuilder = new IcebergStatistics.Builder(idToTypeMapping, columns, typeManager);
+        IcebergStatistics.Builder icebergStatisticsBuilder = new IcebergStatistics.Builder(columns, typeManager);
         try (CloseableIterable<FileScanTask> fileScanTasks = tableScan.planFiles()) {
             for (FileScanTask fileScanTask : fileScanTasks) {
                 DataFile dataFile = fileScanTask.file();
