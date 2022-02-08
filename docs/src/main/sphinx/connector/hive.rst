@@ -301,7 +301,7 @@ Property Name                                      Description                  
 ``hive.create-empty-bucket-files``                 Should empty files be created for buckets that have no data? ``false``
 
 ``hive.partition-statistics-sample-size``          Specifies the number of partitions to analyze when           100
-                                                   computing table statistics.                 
+                                                   computing table statistics.
 
 ``hive.max-partitions-per-writers``                Maximum number of partitions per writer.                     100
 
@@ -393,10 +393,10 @@ Property Name                                      Description                  
                                                    session property for temporary, catalog specific use.
 
 ``hive.statistics_enabled``                        Enables :doc:`/optimizer/statistics`. The equivalent          ``true``
-                                                   :doc:`catalog session property </sql/set-session>` 
-                                                   is ``statistics_enabled`` for session specific use. 
+                                                   :doc:`catalog session property </sql/set-session>`
+                                                   is ``statistics_enabled`` for session specific use.
                                                    Set to ``false`` to disable statistics. Disabling statistics
-                                                   means that :doc:`/optimizer/cost-based-optimizations` can 
+                                                   means that :doc:`/optimizer/cost-based-optimizations` can
                                                    not make smart decisions about the query plan.
 ================================================== ============================================================ ============
 
