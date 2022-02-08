@@ -18,15 +18,19 @@ import alluxio.client.table.RetryHandlingTableMasterClient;
 import alluxio.client.table.TableMasterClient;
 import alluxio.conf.InstancedConfiguration;
 import alluxio.conf.PropertyKey;
+import alluxio.exception.status.AlluxioStatusException;
 import alluxio.master.MasterClientContext;
 import alluxio.util.ConfigurationUtils;
 import com.google.inject.Binder;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.airlift.log.Logger;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.RawHiveMetastoreFactory;
+
+import java.net.InetSocketAddress;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
 
@@ -36,6 +40,8 @@ import static io.airlift.configuration.ConfigBinder.configBinder;
 public class AlluxioMetastoreModule
         extends AbstractConfigurationAwareModule
 {
+    private static final Logger log = Logger.get(AlluxioMetastoreModule.class);
+
     @Override
     protected void setup(Binder binder)
     {
@@ -59,8 +65,22 @@ public class AlluxioMetastoreModule
         if (parts.length > 1) {
             conf.set(PropertyKey.MASTER_RPC_PORT, parts[1]);
         }
-        MasterClientContext context = MasterClientContext
-                .newBuilder(ClientContext.create(conf)).build();
-        return new RetryHandlingTableMasterClient(context);
+
+        // Uses default port from alluxio properties, when not specified in catalog config, to ensure port is not null.
+        InetSocketAddress masterAddr = InetSocketAddress.createUnresolved(parts[0], Integer.parseInt(conf.get(PropertyKey.MASTER_RPC_PORT)));
+        ClientContext context = ClientContext.create(conf);
+
+        try {
+            context.loadConf(masterAddr, true, false);
+            log.info("Successfully loaded config from Alluxio cluster");
+        }
+        catch (AlluxioStatusException e) {
+            String errorMessage = "Error while loading cluster config from Alluxio master:" + addr;
+            log.error(e, "%s", errorMessage);
+        }
+
+        MasterClientContext mContext = MasterClientContext
+                .newBuilder(context).build();
+        return new RetryHandlingTableMasterClient(mContext);
     }
 }
