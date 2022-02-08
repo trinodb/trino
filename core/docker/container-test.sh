@@ -1,6 +1,6 @@
 function cleanup {
     if [[ ! -z ${CONTAINER_ID:-} ]]; then
-        docker stop "${CONTAINER_ID}"
+        docker rm -f "${CONTAINER_ID}"
     fi
 }
 
@@ -13,7 +13,8 @@ function test_trino_starts {
 
     local CONTAINER_NAME=$1
     local PLATFORM=$2
-    CONTAINER_ID=$(docker run -d --rm --platform ${PLATFORM} "${CONTAINER_NAME}")
+    # We aren't passing --rm here to make sure container is available for inspection in case of failures
+    CONTAINER_ID=$(docker run -d --platform ${PLATFORM} "${CONTAINER_NAME}")
 
     set +e
     I=0
