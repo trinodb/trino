@@ -14,7 +14,7 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
-import io.trino.plugin.base.cache.NonEvictableLoadingCache;
+import io.trino.collect.cache.NonEvictableLoadingCache;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
 import io.trino.spi.TrinoException;
 import io.trino.spi.security.ConnectorIdentity;
@@ -23,7 +23,7 @@ import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 
 import static com.google.common.util.concurrent.Futures.immediateFuture;
-import static io.trino.plugin.base.cache.SafeCaches.buildNonEvictableCache;
+import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static java.lang.String.format;
 import static java.time.Duration.ofMinutes;

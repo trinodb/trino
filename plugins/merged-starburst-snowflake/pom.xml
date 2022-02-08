@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.starburstdata.presto</groupId>
         <artifactId>starburst-enterprise-root</artifactId>
-        <version>368-e-SNAPSHOT</version>
+        <version>371-e-SNAPSHOT</version>
         <relativePath>../..</relativePath>
     </parent>
 
@@ -42,6 +42,11 @@
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-base-jdbc</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-collect</artifactId>
         </dependency>
 
         <dependency>
