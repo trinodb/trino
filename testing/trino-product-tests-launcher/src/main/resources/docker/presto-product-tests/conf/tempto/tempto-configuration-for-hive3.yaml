@@ -7,5 +7,3 @@ databases:
   hive:
     prepare_statement:
       - USE ${databases.hive.schema}
-      # Hive 3 gathers stats by default. For test purposes we need to disable this behavior.
-      - SET hive.stats.column.autogather=false
