@@ -62,6 +62,7 @@ public abstract class BaseMySqlConnectorTest
                 return false;
 
             case SUPPORTS_ARRAY:
+            case SUPPORTS_NEGATIVE_DATE:
                 return false;
 
             case SUPPORTS_RENAME_SCHEMA:

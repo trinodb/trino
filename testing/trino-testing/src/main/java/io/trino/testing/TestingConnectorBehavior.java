@@ -78,6 +78,7 @@ public enum TestingConnectorBehavior
     SUPPORTS_TRUNCATE(false),
 
     SUPPORTS_ARRAY,
+    SUPPORTS_NEGATIVE_DATE,
 
     SUPPORTS_CANCELLATION(false),
 

@@ -82,6 +82,7 @@ public class TestClickHouseConnectorTest
                 return false;
 
             case SUPPORTS_ARRAY:
+            case SUPPORTS_NEGATIVE_DATE:
                 return false;
 
             case SUPPORTS_DELETE:
@@ -449,6 +450,27 @@ public class TestClickHouseConnectorTest
             assertQuery("SELECT * FROM " + table.getName(), "VALUES (NULL, 2)");
             assertQueryFails(format("INSERT INTO %s (not_null_col, nullable_col) VALUES (NULL, 3)", table.getName()), "NULL value not allowed for NOT NULL column: not_null_col");
         }
+    }
+
+    @Test
+    @Override
+    public void testInsertNegativeDate()
+    {
+        // Override because the connector throws a different error message in the super class
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "insert_date", "(dt DATE)")) {
+            assertQueryFails(format("INSERT INTO %s VALUES (DATE '-2016-12-07')", table.getName()), "Date must be between 1970-01-01 and 2106-02-07 in ClickHouse: -2016-12-07");
+        }
+    }
+
+    @Test
+    @Override
+    public void testDateYearOfEraPredicate()
+    {
+        // Override because the connector throws an exception instead of an empty result when the value is out of supported range
+        assertQuery("SELECT orderdate FROM orders WHERE orderdate = DATE '1997-09-14'", "VALUES DATE '1997-09-14'");
+        assertQueryFails(
+                "SELECT * FROM orders WHERE orderdate = DATE '-1996-09-14'",
+                "Date must be between 1970-01-01 and 2106-02-07 in ClickHouse: -1996-09-14");
     }
 
     @Override
