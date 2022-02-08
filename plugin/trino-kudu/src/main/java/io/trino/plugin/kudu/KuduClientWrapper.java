@@ -52,5 +52,6 @@ public interface KuduClientWrapper
 
     KuduScanner deserializeIntoScanner(byte[] serializedScanToken) throws IOException;
 
+    @Override
     void close() throws KuduException;
 }
