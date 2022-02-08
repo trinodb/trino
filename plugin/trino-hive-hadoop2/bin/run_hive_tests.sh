@@ -4,6 +4,8 @@ set -euo pipefail -x
 
 . "${BASH_SOURCE%/*}/common.sh"
 
+abort_if_not_gib_impacted
+
 cleanup_hadoop_docker_containers
 start_hadoop_docker_containers
 

@@ -3,6 +3,8 @@ set -euxo pipefail
 
 . "${BASH_SOURCE%/*}/common.sh"
 
+abort_if_not_gib_impacted
+
 check_vars ABFS_ACCOUNT ABFS_CONTAINER \
     ABFS_OAUTH_ENDPOINT ABFS_OAUTH_CLIENTID ABFS_OAUTH_SECRET
 
