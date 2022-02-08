@@ -15,6 +15,7 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.Slices;
 import io.trino.connector.CatalogName;
 import io.trino.metadata.TableHandle;
 import io.trino.plugin.tpch.TpchColumnHandle;
@@ -37,6 +38,7 @@ import org.testng.annotations.Test;
 
 import static io.trino.spi.predicate.Domain.singleValue;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.constrainedTableScanWithTableLayout;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
@@ -236,5 +238,65 @@ public class TestRemoveRedundantTableScanPredicate
                                 ImmutableList.of(p.symbol("orderstatus", createVarcharType(1))),
                                 ImmutableMap.of(p.symbol("orderstatus", createVarcharType(1)), new TpchColumnHandle("orderstatus", createVarcharType(1))))))
                 .doesNotFire();
+    }
+
+    @Test
+    public void doesNotFireOnNoTableScanPredicate()
+    {
+        ColumnHandle columnHandle = new TpchColumnHandle("nationkey", BIGINT);
+        tester().assertThat(removeRedundantTableScanPredicate)
+                .on(p -> p.filter(expression("(nationkey > 3 OR nationkey > 0) AND (nationkey > 3 OR nationkey < 1)"),
+                        p.tableScan(
+                                nationTableHandle,
+                                ImmutableList.of(p.symbol("nationkey", BIGINT)),
+                                ImmutableMap.of(p.symbol("nationkey", BIGINT), columnHandle),
+                                TupleDomain.all())))
+                .doesNotFire();
+    }
+
+    @Test
+    public void doesNotFireOnNotFullyExtractedConjunct()
+    {
+        ColumnHandle columnHandle = new TpchColumnHandle("name", VARCHAR);
+        tester().assertThat(removeRedundantTableScanPredicate)
+                .on(p -> p.filter(expression("name LIKE 'LARGE PLATED %'"),
+                        p.tableScan(
+                                nationTableHandle,
+                                ImmutableList.of(p.symbol("name", VARCHAR)),
+                                ImmutableMap.of(p.symbol("name", VARCHAR), columnHandle),
+                                TupleDomain.fromFixedValues(ImmutableMap.of(
+                                        columnHandle, NullableValue.of(VARCHAR, Slices.utf8Slice("value")))))))
+                .doesNotFire();
+    }
+
+    @Test
+    public void skipNotFullyExtractedConjunct()
+    {
+        ColumnHandle textColumnHandle = new TpchColumnHandle("name", VARCHAR);
+        ColumnHandle nationKeyColumnHandle = new TpchColumnHandle("nationkey", BIGINT);
+        tester().assertThat(removeRedundantTableScanPredicate)
+                .on(p -> p.filter(expression("name LIKE 'LARGE PLATED %' AND nationkey = BIGINT '44'"),
+                        p.tableScan(
+                                nationTableHandle,
+                                ImmutableList.of(
+                                        p.symbol("name", VARCHAR),
+                                        p.symbol("nationkey", BIGINT)),
+                                ImmutableMap.of(
+                                        p.symbol("name", VARCHAR), textColumnHandle,
+                                        p.symbol("nationkey", BIGINT), nationKeyColumnHandle),
+                                TupleDomain.fromFixedValues(ImmutableMap.of(
+                                        textColumnHandle, NullableValue.of(VARCHAR, Slices.utf8Slice("value")),
+                                        nationKeyColumnHandle, NullableValue.of(BIGINT, (long) 44))))))
+                .matches(
+                        filter(
+                                expression("name LIKE 'LARGE PLATED %'"),
+                                constrainedTableScanWithTableLayout(
+                                        "nation",
+                                        ImmutableMap.of(
+                                                "nationkey", Domain.singleValue(BIGINT, 44L),
+                                                "name", Domain.singleValue(VARCHAR, Slices.utf8Slice("value"))),
+                                        ImmutableMap.of(
+                                                "nationkey", "nationkey",
+                                                "name", "name"))));
     }
 }
