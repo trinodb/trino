@@ -73,6 +73,17 @@ public class KerberosAuthentication
         }
     }
 
+    public void attemptLogin(Subject subject)
+    {
+        try {
+            LoginContext loginContext = new LoginContext("", subject, null, configuration);
+            loginContext.login();
+        }
+        catch (LoginException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     private static KerberosPrincipal createKerberosPrincipal(String principal)
     {
         try {

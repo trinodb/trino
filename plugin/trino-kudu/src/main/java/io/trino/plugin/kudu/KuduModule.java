@@ -14,7 +14,6 @@
 package io.trino.plugin.kudu;
 
 import com.google.inject.Binder;
-import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.multibindings.Multibinder;
 import com.google.inject.multibindings.ProvidesIntoSet;
@@ -23,18 +22,12 @@ import io.trino.plugin.base.classloader.ClassLoaderSafeNodePartitioningProvider;
 import io.trino.plugin.base.classloader.ForClassLoaderSafe;
 import io.trino.plugin.kudu.procedures.RangePartitionProcedures;
 import io.trino.plugin.kudu.properties.KuduTableProperties;
-import io.trino.plugin.kudu.schema.NoSchemaEmulation;
-import io.trino.plugin.kudu.schema.SchemaEmulation;
-import io.trino.plugin.kudu.schema.SchemaEmulationByTableNameConvention;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.procedure.Procedure;
 import io.trino.spi.type.TypeManager;
-import org.apache.kudu.client.KuduClient;
-
-import javax.inject.Singleton;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static java.util.Objects.requireNonNull;
@@ -69,6 +62,8 @@ public class KuduModule
 
         binder.bind(RangePartitionProcedures.class).in(Scopes.SINGLETON);
         Multibinder.newSetBinder(binder, Procedure.class);
+
+        install(new KuduSecurityModule());
     }
 
     @ProvidesIntoSet
@@ -81,29 +76,5 @@ public class KuduModule
     Procedure getDropRangePartitionProcedure(RangePartitionProcedures procedures)
     {
         return procedures.getDropPartitionProcedure();
-    }
-
-    @Singleton
-    @Provides
-    KuduClientSession createKuduClientSession(KuduClientConfig config)
-    {
-        requireNonNull(config, "config is null");
-
-        KuduClient.KuduClientBuilder builder = new KuduClient.KuduClientBuilder(config.getMasterAddresses());
-        builder.defaultAdminOperationTimeoutMs(config.getDefaultAdminOperationTimeout().toMillis());
-        builder.defaultOperationTimeoutMs(config.getDefaultOperationTimeout().toMillis());
-        if (config.isDisableStatistics()) {
-            builder.disableStatistics();
-        }
-        KuduClient client = builder.build();
-
-        SchemaEmulation strategy;
-        if (config.isSchemaEmulationEnabled()) {
-            strategy = new SchemaEmulationByTableNameConvention(config.getSchemaEmulationPrefix());
-        }
-        else {
-            strategy = new NoSchemaEmulation();
-        }
-        return new KuduClientSession(new PassthroughKuduClient(client), strategy);
     }
 }
