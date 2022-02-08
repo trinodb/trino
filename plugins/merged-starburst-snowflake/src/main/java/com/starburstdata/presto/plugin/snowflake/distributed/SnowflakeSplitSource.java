@@ -28,6 +28,8 @@ import io.trino.plugin.hive.HivePartitionManager;
 import io.trino.plugin.hive.HiveSplit;
 import io.trino.plugin.hive.HiveSplitManager;
 import io.trino.plugin.hive.HiveTableHandle;
+import io.trino.plugin.hive.HiveTransactionHandle;
+import io.trino.plugin.hive.HiveTransactionManager;
 import io.trino.plugin.hive.NamenodeStats;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.HiveMetastore;
@@ -43,6 +45,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorPartitionHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitSource;
+import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.TypeManager;
@@ -302,9 +305,9 @@ public class SnowflakeSplitSource
                 false,
                 Optional.empty());
 
-        return getHiveSplitManager().getSplits(
-                // no transaction is needed
-                null,
+        ConnectorTransactionHandle transactionHandle = new HiveTransactionHandle(false);
+        return getHiveSplitManager(transactionHandle).getSplits(
+                transactionHandle,
                 session,
                 tableLayoutHandle,
                 // Snowflake connector does not support partitioning
@@ -312,16 +315,18 @@ public class SnowflakeSplitSource
                 DynamicFilter.EMPTY);
     }
 
-    private HiveSplitManager getHiveSplitManager()
+    private HiveSplitManager getHiveSplitManager(ConnectorTransactionHandle transactionHandle)
     {
         HiveConfig hiveConfig = snowflakeConfig.getHiveConfig();
         HdfsConfig hdfsConfig = new HdfsConfig();
         HdfsEnvironment hdfsEnvironment = getHdfsEnvironment(hdfsConfig, transferAgent);
         SemiTransactionalHiveMetastore metastore = getSemiTransactionalHiveMetastore(hiveConfig, hdfsEnvironment);
         metastore.beginQuery(session);
+        HiveTransactionManager transactionManager = new HiveTransactionManager(new SnowflakeHiveTransactionalMetadataFactory(metastore));
+        transactionManager.begin(transactionHandle);
 
         return new HiveSplitManager(
-                ignored -> metastore,
+                transactionManager,
                 new HivePartitionManager(hiveConfig),
                 new NamenodeStats(),
                 hdfsEnvironment,

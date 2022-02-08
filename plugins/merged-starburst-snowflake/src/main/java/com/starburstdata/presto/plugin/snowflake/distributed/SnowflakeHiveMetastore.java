@@ -9,7 +9,6 @@
  */
 package com.starburstdata.presto.plugin.snowflake.distributed;
 
-import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.metastore.Table;
 
 import java.util.Optional;
@@ -29,7 +28,7 @@ class SnowflakeHiveMetastore
     }
 
     @Override
-    public Optional<Table> getTable(HiveIdentity identity, String databaseName, String tableName)
+    public Optional<Table> getTable(String databaseName, String tableName)
     {
         checkArgument(table.getDatabaseName().toLowerCase(ENGLISH).equals(databaseName), "databaseName does not match");
         checkArgument(table.getTableName().toLowerCase(ENGLISH).equals(tableName), "tableName does not match");
