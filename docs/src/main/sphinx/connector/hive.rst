@@ -688,24 +688,46 @@ ALTER TABLE EXECUTE
 ^^^^^^^^^^^^^^^^^^^
 
 The connector supports the following commands for use with
-:ref:`ALTER TABLE EXECUTE <alter-table-execute>`:
+:ref:`ALTER TABLE EXECUTE <alter-table-execute>`.
 
-* ``optimize``: collapse files in a non-transactional table up to a threshold
-  defined in the ``file_size_threshold`` parameter. For example, the following
-  statement collapses files in a table that are under 10 megabytes in size:
+optimize
+~~~~~~~~
 
-  .. code-block:: sql
+The ``optimize`` command is used for rewriting the content
+of the specified non-transactional table so that it is merged
+into fewer but larger files.
+In case that the table is partitioned, the data compaction
+acts separately on each partition selected for optimization.
+This operation improves read performance.
+
+All files with a size below the optional ``file_size_threshold``
+parameter (default value for the threshold is ``100MB``) are
+merged:
+
+.. code-block:: sql
+
+    ALTER TABLE test_table EXECUTE optimize
+
+The following statement merges files in a table that are
+under 10 megabytes in size:
+
+.. code-block:: sql
 
     ALTER TABLE test_table EXECUTE optimize(file_size_threshold => '10MB')
 
-  You can use a ``WHERE`` clause with the columns used to partition the table,
-  to filter which partitions are optimized.
+You can use a ``WHERE`` clause with the columns used to partition the table,
+to filter which partitions are optimized:
 
-  The ``optimize`` procedure is disabled by default, and can be enabled for a
-  catalog with the ``<catalog-name>.non_transactional_optimize_enabled``
-  session property:
+.. code-block:: sql
 
-  .. code-block:: sql
+    ALTER TABLE test_partitioned_table EXECUTE optimize
+    WHERE partition_key = 1
+
+The ``optimize`` command is disabled by default, and can be enabled for a
+catalog with the ``<catalog-name>.non_transactional_optimize_enabled``
+session property:
+
+.. code-block:: sql
 
     SET SESSION <catalog_name>.non_transactional_optimize_enabled=true
 
