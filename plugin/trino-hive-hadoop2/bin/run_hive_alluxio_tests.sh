@@ -4,6 +4,8 @@ set -euo pipefail -x
 
 . "${BASH_SOURCE%/*}/common.sh"
 
+abort_if_not_gib_impacted
+
 export ALLUXIO_BASE_IMAGE="alluxio/alluxio"
 export ALLUXIO_IMAGE_TAG="2.1.2"
 

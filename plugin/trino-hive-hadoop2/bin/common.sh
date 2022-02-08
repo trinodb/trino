@@ -211,3 +211,14 @@ function deploy_core_site_xml() {
         'sed "${@:2}" "/docker/files/$1" > /etc/hadoop/conf/core-site.xml' \
         bash "$template" "${args[@]}"
 }
+
+# Checks if Gitflow Incremental Builder (GIB) is enabled and the trino-hive-hadoop2 module should be build and/or tested
+function abort_if_not_gib_impacted() {
+    local module=plugin/trino-hive-hadoop2
+    local impacted_log=gib-impacted.log
+    if [ -f "$impacted_log" ] && ! grep -q "^${module}$" "$impacted_log"; then
+        echo >&2 "Module $module not present in $impacted_log, exiting"
+        exit 0
+    fi
+    return 0
+}

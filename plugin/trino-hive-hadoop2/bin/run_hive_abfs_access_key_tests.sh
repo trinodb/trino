@@ -4,6 +4,8 @@ set -euo pipefail -x
 
 . "${BASH_SOURCE%/*}/common.sh"
 
+abort_if_not_gib_impacted
+
 check_vars ABFS_CONTAINER ABFS_ACCOUNT ABFS_ACCESS_KEY
 
 cleanup_hadoop_docker_containers
