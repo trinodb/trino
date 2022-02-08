@@ -360,34 +360,35 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        modules:
-          - ":trino-main"
-          - ":trino-tests"
-          - ":trino-raptor-legacy"
-          - ":trino-accumulo"
-          - ":trino-cassandra"
-          - ":trino-clickhouse"
-          - ":trino-hive"
-          - ":trino-hive -P test-parquet"
-          - ":trino-hive -P test-failure-recovery"
-          - ":trino-hive -P test-fault-tolerant-execution"
-          - ":trino-elasticsearch,:trino-elasticsearch -P test-stats"
-          - ":trino-mongodb"
-          - ":trino-kafka"
-          - ":trino-pinot"
-          - ":trino-redis"
-          - ":trino-mysql"
-          - ":trino-postgresql"
-          - ":trino-sqlserver"
-          - ":trino-memsql"
-          - ":trino-oracle"
-          - ":trino-kudu"
-          - ":trino-druid"
-          - ":trino-iceberg"
-          - ":trino-iceberg -P test-failure-recovery"
-          - ":trino-phoenix,:trino-phoenix5"
-          - ":trino-jdbc,:trino-base-jdbc,:trino-thrift,:trino-memory"
-          - ":trino-bigquery"
+        include:
+          - { modules: core/trino-main }
+          - { modules: testing/trino-tests }
+          - { modules: plugin/trino-raptor-legacy }
+          - { modules: plugin/trino-accumulo }
+          - { modules: plugin/trino-cassandra }
+          - { modules: plugin/trino-clickhouse }
+          - { modules: plugin/trino-hive }
+          - { modules: plugin/trino-hive, profile: test-parquet }
+          - { modules: plugin/trino-hive, profile: test-failure-recovery }
+          - { modules: plugin/trino-hive, profile: test-fault-tolerant-execution }
+          - { modules: plugin/trino-elasticsearch }
+          - { modules: plugin/trino-elasticsearch, profile: test-stats }
+          - { modules: plugin/trino-mongodb }
+          - { modules: plugin/trino-kafka }
+          - { modules: plugin/trino-pinot }
+          - { modules: plugin/trino-redis }
+          - { modules: plugin/trino-mysql }
+          - { modules: plugin/trino-postgresql }
+          - { modules: plugin/trino-sqlserver }
+          - { modules: plugin/trino-memsql }
+          - { modules: plugin/trino-oracle }
+          - { modules: plugin/trino-kudu }
+          - { modules: plugin/trino-druid }
+          - { modules: plugin/trino-iceberg }
+          - { modules: plugin/trino-iceberg, profile: test-failure-recovery }
+          - { modules: [ plugin/trino-phoenix, plugin/trino-phoenix5 ] }
+          - { modules: [ client/trino-jdbc, plugin/trino-base-jdbc, plugin/trino-thrift, plugin/trino-memory ] }
+          - { modules: plugin/trino-bigquery }
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v2
@@ -410,27 +411,27 @@ jobs:
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY $MAVEN install ${MAVEN_FAST_INSTALL} -am -pl $(echo '${{ matrix.modules }}' | cut -d' ' -f1)
+          $RETRY $MAVEN install ${MAVEN_FAST_INSTALL} -am -pl "${{ matrix.modules }}"
       - name: Maven Tests
-        if: matrix.modules != ':trino-memsql'
-        run: $MAVEN test ${MAVEN_TEST} -pl ${{ matrix.modules }}
+        if: matrix.modules != 'trino-memsql'
+        run: $MAVEN test ${MAVEN_TEST} -pl :${{ join(matrix.modules, ':,') }} ${{ matrix.profile != '' && format('-P {0}', matrix.profile) } || ''}
       # Additional tests for selected modules
       - name: Memsql Tests
         env:
           MEMSQL_LICENSE: ${{ secrets.MEMSQL_LICENSE }}
-        if: matrix.modules == ':trino-memsql' && env.MEMSQL_LICENSE != ''
+        if: matrix.modules == 'trino-memsql' && env.MEMSQL_LICENSE != ''
         run: |
           $MAVEN test ${MAVEN_TEST} -pl :trino-memsql -Dmemsql.license=${MEMSQL_LICENSE}
       - name: Cloud BigQuery Tests
         env:
           BIGQUERY_CREDENTIALS_KEY: ${{ secrets.BIGQUERY_CREDENTIALS_KEY }}
-        if: matrix.modules == ':trino-bigquery' && env.BIGQUERY_CREDENTIALS_KEY != ''
+        if: matrix.modules == 'trino-bigquery' && env.BIGQUERY_CREDENTIALS_KEY != ''
         run: |
           $MAVEN test ${MAVEN_TEST} -pl :trino-bigquery -Pcloud-tests -Dbigquery.credentials-key="${BIGQUERY_CREDENTIALS_KEY}"
       - name: Cloud BigQuery Case Insensitive Mapping Tests
         env:
           BIGQUERY_CASE_INSENSITIVE_CREDENTIALS_KEY: ${{ secrets.BIGQUERY_CASE_INSENSITIVE_CREDENTIALS_KEY }}
-        if: matrix.modules == ':trino-bigquery' && env.BIGQUERY_CASE_INSENSITIVE_CREDENTIALS_KEY != ''
+        if: matrix.modules == 'trino-bigquery' && env.BIGQUERY_CASE_INSENSITIVE_CREDENTIALS_KEY != ''
         run: |
           $MAVEN test ${MAVEN_TEST} -pl :trino-bigquery -Pcloud-tests-case-insensitive-mapping -Dbigquery.credentials-key="${BIGQUERY_CASE_INSENSITIVE_CREDENTIALS_KEY}"
       - name: Sanitize artifact name
