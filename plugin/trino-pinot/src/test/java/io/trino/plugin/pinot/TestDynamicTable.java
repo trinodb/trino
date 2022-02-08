@@ -35,6 +35,7 @@ import static io.trino.plugin.pinot.query.DynamicTableBuilder.buildFromPql;
 import static io.trino.plugin.pinot.query.DynamicTablePqlExtractor.extractPql;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
+import static java.lang.String.join;
 import static java.util.Locale.ENGLISH;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
@@ -55,8 +56,7 @@ public class TestDynamicTable
                 .collect(toList());
         long limit = 230;
         String query = format("select %s from %s order by %s limit %s",
-                columnNames.stream()
-                        .collect(joining(", ")),
+                join(", ", columnNames),
                 tableName,
                 orderByColumns.stream()
                         .collect(joining(", ")) + " desc",

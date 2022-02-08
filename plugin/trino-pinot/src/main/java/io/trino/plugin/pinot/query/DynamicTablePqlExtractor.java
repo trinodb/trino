@@ -54,7 +54,7 @@ public final class DynamicTablePqlExtractor
         builder.append(table.getTableName());
         builder.append(table.getSuffix().orElse(""));
 
-        Optional<String> filter = getFilter(table.getFilter(), tupleDomain, columnHandles);
+        Optional<String> filter = getFilter(table.getFilter(), tupleDomain);
         if (filter.isPresent()) {
             builder.append(" where ")
                     .append(filter.get());
@@ -82,9 +82,9 @@ public final class DynamicTablePqlExtractor
         return builder.toString();
     }
 
-    private static Optional<String> getFilter(Optional<String> filter, TupleDomain<ColumnHandle> tupleDomain, List<PinotColumnHandle> columnHandles)
+    private static Optional<String> getFilter(Optional<String> filter, TupleDomain<ColumnHandle> tupleDomain)
     {
-        Optional<String> tupleFilter = getFilterClause(tupleDomain, Optional.empty(), columnHandles);
+        Optional<String> tupleFilter = getFilterClause(tupleDomain, Optional.empty());
 
         if (tupleFilter.isPresent() && filter.isPresent()) {
             return Optional.of(format("%s AND %s", encloseInParentheses(tupleFilter.get()), encloseInParentheses(filter.get())));
