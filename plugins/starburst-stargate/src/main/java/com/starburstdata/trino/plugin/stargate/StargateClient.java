@@ -17,8 +17,8 @@ import com.starburstdata.presto.plugin.jdbc.redirection.TableScanRedirection;
 import com.starburstdata.presto.plugin.jdbc.stats.JdbcStatisticsConfig;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
+import io.trino.collect.cache.NonEvictableCache;
 import io.trino.jdbc.TrinoConnection;
-import io.trino.plugin.base.cache.NonEvictableCache;
 import io.trino.plugin.base.expression.AggregateFunctionRewriter;
 import io.trino.plugin.jdbc.BaseJdbcClient;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
@@ -94,7 +94,7 @@ import static com.starburstdata.trino.plugin.stargate.StargateColumnMappings.sta
 import static com.starburstdata.trino.plugin.stargate.StargateColumnMappings.stargateTimestampWithTimeZoneWriteMapping;
 import static com.starburstdata.trino.plugin.stargate.StargateColumnMappings.stargateTimestampWriteMapping;
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.trino.plugin.base.cache.SafeCaches.buildNonEvictableCache;
+import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.plugin.base.util.JsonTypeUtil.jsonParse;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.trino.plugin.jdbc.PredicatePushdownController.DISABLE_PUSHDOWN;
