@@ -4,6 +4,8 @@ set -euo pipefail -x
 
 . "${BASH_SOURCE%/*}/common.sh"
 
+abort_if_not_gib_impacted
+
 check_vars S3_BUCKET S3_BUCKET_ENDPOINT \
     AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY
 

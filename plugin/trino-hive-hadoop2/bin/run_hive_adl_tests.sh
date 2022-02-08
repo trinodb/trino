@@ -4,6 +4,8 @@ set -euo pipefail -x
 
 . "${BASH_SOURCE%/*}/common.sh"
 
+abort_if_not_gib_impacted
+
 check_vars ADL_NAME ADL_CLIENT_ID ADL_CREDENTIAL ADL_REFRESH_URL
 
 cleanup_hadoop_docker_containers
