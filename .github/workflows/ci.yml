@@ -127,12 +127,18 @@ jobs:
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY $MAVEN install ${MAVEN_FAST_INSTALL} -pl '!:trino-test-jdbc-compatibility-old-driver,!:trino-docs,!:trino-server,!:trino-server-rpm'
+          $RETRY $MAVEN install ${MAVEN_FAST_INSTALL} -pl '!:trino-docs,!:trino-server,!:trino-server-rpm'
       - name: Test old JDBC vs current server
-        run: testing/trino-test-jdbc-compatibility-old-driver/bin/run_tests.sh
+        run: |
+          if [ ! -f gib-impacted.log ] || grep -q testing/trino-test-jdbc-compatibility-old-driver gib-impacted.log; then
+            testing/trino-test-jdbc-compatibility-old-driver/bin/run_tests.sh
+          fi
       - name: Test current JDBC vs old server
         if: always()
-        run: $MAVEN test ${MAVEN_TEST} -pl :trino-test-jdbc-compatibility-old-server
+        run: |
+          if [ ! -f gib-impacted.log ] || grep -q testing/trino-test-jdbc-compatibility-old-server gib-impacted.log; then
+            $MAVEN test ${MAVEN_TEST} -pl :trino-test-jdbc-compatibility-old-server
+          fi
       - name: Upload test results
         uses: actions/upload-artifact@v2
         # Upload all test reports only on failure, because the artifacts are large
