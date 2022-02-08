@@ -51,8 +51,7 @@ jobs:
           java-version: ${{ matrix.java-version }}
           cache: 'maven'
       - name: Configure Problem Matchers
-        run: |
-          echo "::add-matcher::.github/problem-matcher.json"
+        run: echo "::add-matcher::.github/problem-matcher.json"
       - name: Maven Checks
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
@@ -84,8 +83,7 @@ jobs:
           java-version: 11
           cache: 'maven'
       - name: Configure Problem Matchers
-        run: |
-          echo "::add-matcher::.github/problem-matcher.json"
+        run: echo "::add-matcher::.github/problem-matcher.json"
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
@@ -122,8 +120,7 @@ jobs:
           java-version: 11
           cache: 'maven'
       - name: Configure Problem Matchers
-        run: |
-          echo "::add-matcher::.github/problem-matcher.json"
+        run: echo "::add-matcher::.github/problem-matcher.json"
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
@@ -183,8 +180,7 @@ jobs:
           java-version: 11
           cache: 'maven'
       - name: Configure Problem Matchers
-        run: |
-          echo "::add-matcher::.github/problem-matcher.json"
+        run: echo "::add-matcher::.github/problem-matcher.json"
       - name: Install Hive Module
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
@@ -300,8 +296,7 @@ jobs:
           java-version: 11
           cache: 'maven'
       - name: Configure Problem Matchers
-        run: |
-          echo "::add-matcher::.github/problem-matcher.json"
+        run: echo "::add-matcher::.github/problem-matcher.json"
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
@@ -431,8 +426,7 @@ jobs:
           java-version: 11
           cache: 'maven'
       - name: Configure Problem Matchers
-        run: |
-          echo "::add-matcher::.github/problem-matcher.json"
+        run: echo "::add-matcher::.github/problem-matcher.json"
       - name: Cleanup node
         # This is required as a virtual environment update 20210219.1 left too little space for MemSQL to work
         if: matrix.modules == ':trino-memsql'
