@@ -77,7 +77,8 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
-import static io.trino.plugin.pinot.PinotColumnHandle.getPinotColumnsForPinotSchema;
+import static io.trino.plugin.pinot.PinotColumnHandle.fromColumnMetadata;
+import static io.trino.plugin.pinot.PinotColumnHandle.getTrinoTypeFromPinotType;
 import static io.trino.plugin.pinot.PinotSessionProperties.isAggregationPushdownEnabled;
 import static io.trino.plugin.pinot.query.AggregateExpression.replaceIdentifier;
 import static java.util.Locale.ENGLISH;
@@ -87,13 +88,14 @@ import static java.util.function.UnaryOperator.identity;
 public class PinotMetadata
         implements ConnectorMetadata
 {
+    public static final String PINOT_COLUMN_NAME_PROPERTY = "pinotColumnName";
+
     private static final Logger log = Logger.get(PinotMetadata.class);
 
     private static final Object ALL_TABLES_CACHE_KEY = new Object();
     private static final String SCHEMA_NAME = "default";
-    private static final String PINOT_COLUMN_NAME_PROPERTY = "pinotColumnName";
 
-    private final NonEvictableLoadingCache<String, List<PinotColumnHandle>> pinotTableColumnCache;
+    private final NonEvictableLoadingCache<String, List<ColumnMetadata>> pinotTableColumnCache;
     private final NonEvictableLoadingCache<Object, List<String>> allTablesCache;
     private final int maxRowsPerBrokerQuery;
     private final AggregateFunctionRewriter<AggregateExpression, Void> aggregateFunctionRewriter;
@@ -119,11 +121,11 @@ public class PinotMetadata
                 asyncReloading(new CacheLoader<>()
                 {
                     @Override
-                    public List<PinotColumnHandle> load(String tableName)
+                    public List<ColumnMetadata> load(String tableName)
                             throws Exception
                     {
                         Schema tablePinotSchema = pinotClient.getTableSchema(tableName);
-                        return getPinotColumnsForPinotSchema(tablePinotSchema);
+                        return getPinotColumnMetadataForPinotSchema(tablePinotSchema);
                     }
                 }, executor));
 
@@ -212,15 +214,9 @@ public class PinotMetadata
         ImmutableMap.Builder<String, ColumnHandle> columnHandlesBuilder = ImmutableMap.builder();
         for (ColumnMetadata columnMetadata : getColumnsMetadata(tableName)) {
             columnHandlesBuilder.put(columnMetadata.getName(),
-                    new PinotColumnHandle(getPinotColumnName(columnMetadata), columnMetadata.getType()));
+                    fromColumnMetadata(columnMetadata));
         }
         return columnHandlesBuilder.buildOrThrow();
-    }
-
-    private static String getPinotColumnName(ColumnMetadata columnMetadata)
-    {
-        Object pinotColumnName = requireNonNull(columnMetadata.getProperties().get(PINOT_COLUMN_NAME_PROPERTY), "Pinot column name is missing");
-        return pinotColumnName.toString();
     }
 
     @Override
@@ -488,7 +484,7 @@ public class PinotMetadata
     }
 
     @VisibleForTesting
-    public List<PinotColumnHandle> getPinotColumns(String tableName)
+    public List<ColumnMetadata> getColumnsMetadata(String tableName)
     {
         String pinotTableName = getPinotTableNameFromTrinoTableName(tableName);
         return getFromCache(pinotTableColumnCache, pinotTableName);
@@ -544,23 +540,18 @@ public class PinotMetadata
         return new ConnectorTableMetadata(tableName, getColumnsMetadata(tableName.getTableName()));
     }
 
-    private List<ColumnMetadata> getColumnsMetadata(String tableName)
+    private List<ColumnMetadata> getPinotColumnMetadataForPinotSchema(Schema pinotTableSchema)
     {
-        List<PinotColumnHandle> columns = getPinotColumns(tableName);
-        return columns.stream()
-                .map(PinotMetadata::createPinotColumnMetadata)
+        return pinotTableSchema.getColumnNames().stream()
+                .filter(columnName -> !columnName.startsWith("$")) // Hidden columns starts with "$", ignore them as we can't use them in PQL
+                .map(columnName -> ColumnMetadata.builder()
+                        .setName(columnName)
+                        .setType(getTrinoTypeFromPinotType(pinotTableSchema.getFieldSpecFor(columnName)))
+                        .setProperties(ImmutableMap.<String, Object>builder()
+                                .put(PINOT_COLUMN_NAME_PROPERTY, columnName)
+                                .buildOrThrow())
+                        .build())
                 .collect(toImmutableList());
-    }
-
-    private static ColumnMetadata createPinotColumnMetadata(PinotColumnHandle pinotColumn)
-    {
-        return ColumnMetadata.builder()
-                .setName(pinotColumn.getColumnName().toLowerCase(ENGLISH))
-                .setType(pinotColumn.getDataType())
-                .setProperties(ImmutableMap.<String, Object>builder()
-                        .put(PINOT_COLUMN_NAME_PROPERTY, pinotColumn.getColumnName())
-                        .buildOrThrow())
-                .build();
     }
 
     private List<SchemaTableName> listTables(ConnectorSession session, SchemaTablePrefix prefix)
