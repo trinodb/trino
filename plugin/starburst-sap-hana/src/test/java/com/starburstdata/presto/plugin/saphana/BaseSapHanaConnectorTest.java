@@ -52,11 +52,29 @@ public abstract class BaseSapHanaConnectorTest
                 return false;
 
             case SUPPORTS_ARRAY:
+            case SUPPORTS_NEGATIVE_DATE:
                 return false;
 
             default:
                 return super.hasBehavior(connectorBehavior);
         }
+    }
+
+    @Override
+    public void testInsertNegativeDate()
+    {
+        // Override to correct error message
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "insert_date", "(dt DATE)")) {
+            assertQueryFails(format("INSERT INTO %s VALUES (DATE '-2016-12-07')", table.getName()), "SAP DBTech JDBC: Cannot convert data -2016-12-07 to type java.sql.Date.");
+        }
+    }
+
+    @Override
+    public void testDateYearOfEraPredicate()
+    {
+        // SAP HANA connector throws an exception for negative date values instead of an empty result
+        assertQuery("SELECT orderdate FROM orders WHERE orderdate = DATE '1997-09-14'", "VALUES DATE '1997-09-14'");
+        assertQueryFails("SELECT * FROM orders WHERE orderdate = DATE '-1996-09-14'", "SAP DBTech JDBC: Cannot convert data -1996-09-14 to type java.sql.Date.");
     }
 
     @Override
