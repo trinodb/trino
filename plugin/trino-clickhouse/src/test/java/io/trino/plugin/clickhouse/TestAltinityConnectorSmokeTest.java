@@ -40,8 +40,8 @@ public class TestAltinityConnectorSmokeTest
     @Override
     public void testRenameSchema()
     {
-        // Override because RENAME DATABASE statement isn't supported in version < v20.7.2.30-stable
+        // Override because RENAME DATABASE statement isn't supported in Altinity 20.8
         assertThatThrownBy(super::testRenameSchema)
-                .hasMessageMatching("ClickHouse exception, code: 62,.* Syntax error.*\\n");
+                .hasMessageMatching("ClickHouse exception, code: 48,.* RENAME DATABASE is not supported.*\\n");
     }
 }
