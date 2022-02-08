@@ -31,8 +31,7 @@ public abstract class BaseClickHouseConnectorSmokeTest
         }
     }
 
-    // TODO (https://github.com/trinodb/trino/issues/10653) Disable until fixing the flaky test issue
-    @Test(enabled = false)
+    @Test
     @Override
     public void testRenameSchema()
     {
