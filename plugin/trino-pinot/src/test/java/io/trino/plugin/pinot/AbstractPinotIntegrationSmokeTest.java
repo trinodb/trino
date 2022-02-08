@@ -732,6 +732,20 @@ public abstract class AbstractPinotIntegrationSmokeTest
                         "\" WHERE longcol = 3"))
                 .matches(singleRowValues)
                 .isFullyPushedDown();
+
+        assertThat(query("SELECT AVG(longcol), MIN(longcol), MAX(longcol), APPROX_DISTINCT(longcol), SUM(longcol)" +
+                "  FROM " + MIXED_CASE_COLUMN_NAMES_TABLE))
+                .matches("VALUES (DOUBLE '1.5', BIGINT '0', BIGINT '3', BIGINT '4', BIGINT '6')")
+                .isFullyPushedDown();
+
+        assertThat(query("SELECT stringcol, AVG(longcol), MIN(longcol), MAX(longcol), APPROX_DISTINCT(longcol), SUM(longcol)" +
+                "  FROM " + MIXED_CASE_COLUMN_NAMES_TABLE +
+                "  GROUP BY stringcol"))
+                .matches("VALUES (VARCHAR 'string_0', DOUBLE '0.0', BIGINT '0', BIGINT '0', BIGINT '1', BIGINT '0')," +
+                        "  (VARCHAR 'string_1', DOUBLE '1.0', BIGINT '1', BIGINT '1', BIGINT '1', BIGINT '1')," +
+                        "  (VARCHAR 'string_2', DOUBLE '2.0', BIGINT '2', BIGINT '2', BIGINT '1', BIGINT '2')," +
+                        "  (VARCHAR 'string_3', DOUBLE '3.0', BIGINT '3', BIGINT '3', BIGINT '1', BIGINT '3')")
+                .isFullyPushedDown();
     }
 
     @Test
