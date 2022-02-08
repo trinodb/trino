@@ -103,6 +103,6 @@ public class KuduModule
         else {
             strategy = new NoSchemaEmulation();
         }
-        return new KuduClientSession(client, strategy);
+        return new KuduClientSession(new PassthroughKuduClient(client), strategy);
     }
 }

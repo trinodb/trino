@@ -14,6 +14,7 @@
 package io.trino.plugin.kudu.schema;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.plugin.kudu.KuduClientWrapper;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
@@ -23,7 +24,6 @@ import org.apache.kudu.Type;
 import org.apache.kudu.client.CreateTableOptions;
 import org.apache.kudu.client.Delete;
 import org.apache.kudu.client.Insert;
-import org.apache.kudu.client.KuduClient;
 import org.apache.kudu.client.KuduException;
 import org.apache.kudu.client.KuduScanner;
 import org.apache.kudu.client.KuduSession;
@@ -56,7 +56,7 @@ public class SchemaEmulationByTableNameConvention
     }
 
     @Override
-    public void createSchema(KuduClient client, String schemaName)
+    public void createSchema(KuduClientWrapper client, String schemaName)
     {
         if (DEFAULT_SCHEMA.equals(schemaName)) {
             throw new SchemaAlreadyExistsException(schemaName);
@@ -81,7 +81,7 @@ public class SchemaEmulationByTableNameConvention
     }
 
     @Override
-    public boolean existsSchema(KuduClient client, String schemaName)
+    public boolean existsSchema(KuduClientWrapper client, String schemaName)
     {
         if (DEFAULT_SCHEMA.equals(schemaName)) {
             return true;
@@ -93,7 +93,7 @@ public class SchemaEmulationByTableNameConvention
     }
 
     @Override
-    public void dropSchema(KuduClient client, String schemaName)
+    public void dropSchema(KuduClientWrapper client, String schemaName)
     {
         if (DEFAULT_SCHEMA.equals(schemaName)) {
             throw new TrinoException(GENERIC_USER_ERROR, "Deleting default schema not allowed.");
@@ -123,7 +123,7 @@ public class SchemaEmulationByTableNameConvention
     }
 
     @Override
-    public List<String> listSchemaNames(KuduClient client)
+    public List<String> listSchemaNames(KuduClientWrapper client)
     {
         try {
             if (rawSchemasTable == null) {
@@ -149,7 +149,7 @@ public class SchemaEmulationByTableNameConvention
         }
     }
 
-    private KuduTable getSchemasTable(KuduClient client)
+    private KuduTable getSchemasTable(KuduClientWrapper client)
             throws KuduException
     {
         if (rawSchemasTable == null) {
@@ -158,7 +158,7 @@ public class SchemaEmulationByTableNameConvention
         return rawSchemasTable;
     }
 
-    private void createAndFillSchemasTable(KuduClient client)
+    private void createAndFillSchemasTable(KuduClientWrapper client)
             throws KuduException
     {
         List<String> existingSchemaNames = listSchemaNamesFromTablets(client);
@@ -181,7 +181,7 @@ public class SchemaEmulationByTableNameConvention
         }
     }
 
-    private List<String> listSchemaNamesFromTablets(KuduClient client)
+    private List<String> listSchemaNamesFromTablets(KuduClientWrapper client)
             throws KuduException
     {
         List<String> tables = client.getTablesList().getTablesList();
