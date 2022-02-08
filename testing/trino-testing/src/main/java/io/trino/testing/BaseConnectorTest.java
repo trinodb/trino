@@ -57,6 +57,7 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DELETE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DROP_COLUMN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_INSERT;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_MULTI_STATEMENT_WRITES;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_NEGATIVE_DATE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_NOT_NULL_CONSTRAINT;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_COLUMN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_MATERIALIZED_VIEW;
@@ -387,6 +388,14 @@ public abstract class BaseConnectorTest
                 "SELECT orderkey, custkey, orderstatus, totalprice, orderdate, orderpriority, clerk, shippriority, comment " +
                 "FROM orders " +
                 "WHERE orderkey BETWEEN 10 AND 50");
+    }
+
+    @Test
+    public void testDateYearOfEraPredicate()
+    {
+        // Verify the predicate of '-1996-09-14' doesn't match '1997-09-14'. Both values return same formatted string when we use 'yyyy-MM-dd' in DateTimeFormatter
+        assertQuery("SELECT orderdate FROM orders WHERE orderdate = DATE '1997-09-14'", "VALUES DATE '1997-09-14'");
+        assertQueryReturnsEmptyResult("SELECT * FROM orders WHERE orderdate = DATE '-1996-09-14'");
     }
 
     @Test
@@ -1182,6 +1191,22 @@ public abstract class BaseConnectorTest
         }
 
         super.testRenameColumn();
+    }
+
+    @Test
+    public void testInsertNegativeDate()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_INSERT));
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "insert_date", "(dt DATE)")) {
+            if (hasBehavior(SUPPORTS_NEGATIVE_DATE)) {
+                assertUpdate(format("INSERT INTO %s VALUES (DATE '-2016-12-07')", table.getName()), 1);
+                assertQuery("SELECT * FROM " + table.getName(), "VALUES DATE '-2016-12-07'");
+            }
+            else {
+                assertQueryFails(format("INSERT INTO %s VALUES (DATE '-2016-12-07')", table.getName()), "(?s).*Failed to insert data.*");
+            }
+        }
     }
 
     @Test
