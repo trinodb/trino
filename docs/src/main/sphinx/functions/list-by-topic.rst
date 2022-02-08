@@ -196,6 +196,7 @@ For more details, see :doc:`datetime`
 * :func:`date_format`
 * :func:`date_parse`
 * :func:`date_trunc`
+* :func:`format_datetime`
 * :func:`from_iso8601_date`
 * :func:`from_iso8601_timestamp`
 * :func:`from_unixtime`
