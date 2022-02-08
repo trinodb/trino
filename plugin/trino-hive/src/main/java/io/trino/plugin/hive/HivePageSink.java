@@ -23,7 +23,6 @@ import io.airlift.concurrent.MoreFutures;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
-import io.airlift.units.DataSize;
 import io.trino.plugin.hive.util.HiveBucketing.BucketingVersion;
 import io.trino.spi.Page;
 import io.trino.spi.PageIndexer;
@@ -44,7 +43,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
-import java.util.OptionalLong;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
@@ -87,7 +85,7 @@ public class HivePageSink
 
     private final ConnectorSession session;
 
-    private final OptionalLong targetMaxFileSize;
+    private final long targetMaxFileSize;
     private final List<HiveWriter> closedWriters = new ArrayList<>();
     private final List<Slice> partitionUpdates = new ArrayList<>();
     private final List<Callable<Object>> verificationTasks = new ArrayList<>();
@@ -164,7 +162,7 @@ public class HivePageSink
         }
 
         this.session = requireNonNull(session, "session is null");
-        this.targetMaxFileSize = Optional.ofNullable(HiveSessionProperties.getTargetMaxFileSize(session)).stream().mapToLong(DataSize::toBytes).findAny();
+        this.targetMaxFileSize = HiveSessionProperties.getTargetMaxFileSize(session).toBytes();
     }
 
     @Override
@@ -366,7 +364,7 @@ public class HivePageSink
                 // if current file not too big continue with the current writer
                 // for transactional tables we don't want to split output files because there is an explicit or implicit bucketing
                 // and file names have no random component (e.g. bucket_00000)
-                if (bucketFunction != null || isTransactional || writer.getWrittenBytes() <= targetMaxFileSize.orElse(Long.MAX_VALUE)) {
+                if (bucketFunction != null || isTransactional || writer.getWrittenBytes() <= targetMaxFileSize) {
                     continue;
                 }
                 // close current writer
