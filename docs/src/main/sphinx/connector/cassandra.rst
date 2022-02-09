@@ -214,7 +214,7 @@ BOOLEAN           BOOLEAN
 DATE              DATE
 DECIMAL           DOUBLE
 DOUBLE            DOUBLE
-FLOAT             DOUBLE
+FLOAT             REAL
 INET              VARCHAR(45)
 INT               INTEGER
 LIST<?>           VARCHAR
