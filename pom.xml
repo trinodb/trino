@@ -479,6 +479,12 @@
 
             <dependency>
                 <groupId>io.trino</groupId>
+                <artifactId>trino-plugin-reader</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
                 <artifactId>trino-plugin-toolkit</artifactId>
                 <version>${project.version}</version>
             </dependency>
