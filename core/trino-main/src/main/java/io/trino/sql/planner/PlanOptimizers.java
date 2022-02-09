@@ -871,6 +871,7 @@ public class PlanOptimizers
                 ImmutableSet.<Rule<?>>builder()
                         .addAll(simplifyOptimizerRules) // Should be always run after PredicatePushDown
                         .add(new PushPredicateIntoTableScan(plannerContext, typeAnalyzer))
+                        .add(new RemoveRedundantTableScanPredicate(plannerContext, typeAnalyzer))
                         .build()));
         builder.add(inlineProjections);
         builder.add(new UnaliasSymbolReferences(metadata)); // Run unalias after merging projections to simplify projections more efficiently
