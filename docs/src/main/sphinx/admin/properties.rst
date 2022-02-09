@@ -2,8 +2,10 @@
 Properties reference
 ====================
 
-This section describes the most important config properties, that
-may be used to tune Trino or alter its behavior when required.
+This section describes the most important config properties and (where
+applicable) their corresponding :ref:`session properties
+<session-properties-definition>`, that may be used to tune Trino or alter its
+behavior when required.
 
 .. toctree::
     :titlesonly:
