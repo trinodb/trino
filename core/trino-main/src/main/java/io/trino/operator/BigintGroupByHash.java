@@ -22,14 +22,18 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.DictionaryBlock;
+import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.AbstractLongType;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.Type;
+import it.unimi.dsi.fastutil.ints.IntArrayList;
+import it.unimi.dsi.fastutil.ints.IntList;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -40,6 +44,7 @@ import static io.trino.type.TypeUtils.NULL_HASH_CODE;
 import static io.trino.util.HashCollisionsEstimator.estimateNumberOfHashCollisions;
 import static it.unimi.dsi.fastutil.HashCommon.arraySize;
 import static it.unimi.dsi.fastutil.HashCommon.murmurHash3;
+import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
@@ -51,6 +56,14 @@ public class BigintGroupByHash
     private static final float FILL_RATIO = 0.75f;
     private static final List<Type> TYPES = ImmutableList.of(BIGINT);
     private static final List<Type> TYPES_WITH_RAW_HASH = ImmutableList.of(BIGINT, BIGINT);
+    private static final int BATCH_SIZE = 256;
+    /**
+     * Above that number of groups it is faster to use the batched way of execution.
+     * The allocation and method inlining overhead makes batched execution faster
+     * only for big number of groups.
+     * This number is an approximation based on microbenchmark results.
+     */
+    private static final int ADD_GROUP_BATCH_THRESHOLD = 200_000;
 
     private final int hashChannel;
     private final boolean outputRawHash;
@@ -243,7 +256,11 @@ public class BigintGroupByHash
         long value = BIGINT.getLong(block, position);
         int hashPosition = getHashPosition(value, mask);
 
-        // look for an empty slot or a slot containing this key
+        return putIfAbsent(value, hashPosition);
+    }
+
+    private int putIfAbsent(long value, int hashPosition)
+    {
         while (true) {
             int groupId = groupIds[hashPosition];
             if (groupId == -1) {
@@ -326,7 +343,7 @@ public class BigintGroupByHash
         values = newValues;
         groupIds = newGroupIds;
 
-        this.valuesByGroupId.ensureCapacity(maxFill);
+        valuesByGroupId.ensureCapacity(maxFill);
         return true;
     }
 
@@ -387,19 +404,27 @@ public class BigintGroupByHash
         {
             int positionCount = block.getPositionCount();
             checkState(lastPosition < positionCount, "position count out of bound");
+            int remainingPositions = positionCount - lastPosition;
 
-            // needRehash() == false indicates we have reached capacity boundary and a rehash is needed.
-            // We can only proceed if tryRehash() successfully did a rehash.
-            if (needRehash() && !tryRehash()) {
-                return false;
-            }
+            long[] dummyGroupIds = new long[BATCH_SIZE];
+            while (remainingPositions != 0) {
+                int batchSize = min(remainingPositions, BATCH_SIZE);
+                if (!ensureHashTableSize(batchSize)) {
+                    return false;
+                }
 
-            // putIfAbsent will rehash automatically if rehash is needed, unless there isn't enough memory to do so.
-            // Therefore needRehash will not generally return true even if we have just crossed the capacity boundary.
-            while (lastPosition < positionCount && !needRehash()) {
-                // get the group for the current row
-                putIfAbsent(lastPosition, block);
-                lastPosition++;
+                if (nextGroupId > ADD_GROUP_BATCH_THRESHOLD) {
+                    batchedPutIfAbsent(block, lastPosition, batchSize, dummyGroupIds, 0);
+                }
+                else {
+                    // The only advantage of batching in this path is not checking table capacity every iteration
+                    for (int i = 0; i < batchSize; i++) {
+                        putIfAbsent(lastPosition + i, block);
+                    }
+                }
+
+                lastPosition += batchSize;
+                remainingPositions -= batchSize;
             }
             return lastPosition == positionCount;
         }
@@ -423,7 +448,7 @@ public class BigintGroupByHash
         public AddDictionaryPageWork(DictionaryBlock block)
         {
             this.block = requireNonNull(block, "block is null");
-            this.dictionary = block.getDictionary();
+            dictionary = block.getDictionary();
             updateDictionaryLookBack(dictionary);
         }
 
@@ -502,7 +527,7 @@ public class BigintGroupByHash
     class GetGroupIdsWork
             implements Work<GroupByIdBlock>
     {
-        private final BlockBuilder blockBuilder;
+        private final long[] groupIds;
         private final Block block;
 
         private boolean finished;
@@ -512,7 +537,7 @@ public class BigintGroupByHash
         {
             this.block = requireNonNull(block, "block is null");
             // we know the exact size required for the block
-            this.blockBuilder = BIGINT.createFixedSizeBlockBuilder(block.getPositionCount());
+            groupIds = new long[block.getPositionCount()];
         }
 
         @Override
@@ -522,18 +547,18 @@ public class BigintGroupByHash
             checkState(lastPosition < positionCount, "position count out of bound");
             checkState(!finished);
 
-            // needRehash() == false indicates we have reached capacity boundary and a rehash is needed.
-            // We can only proceed if tryRehash() successfully did a rehash.
-            if (needRehash() && !tryRehash()) {
-                return false;
-            }
+            int remainingPositions = positionCount - lastPosition;
 
-            // putIfAbsent will rehash automatically if rehash is needed, unless there isn't enough memory to do so.
-            // Therefore needRehash will not generally return true even if we have just crossed the capacity boundary.
-            while (lastPosition < positionCount && !needRehash()) {
-                // output the group id for this row
-                BIGINT.writeLong(blockBuilder, putIfAbsent(lastPosition, block));
-                lastPosition++;
+            while (remainingPositions != 0) {
+                int batchSize = min(remainingPositions, BATCH_SIZE);
+                if (!ensureHashTableSize(batchSize)) {
+                    return false;
+                }
+
+                batchedPutIfAbsent(block, lastPosition, batchSize, groupIds, lastPosition);
+
+                lastPosition += batchSize;
+                remainingPositions -= batchSize;
             }
             return lastPosition == positionCount;
         }
@@ -544,7 +569,102 @@ public class BigintGroupByHash
             checkState(lastPosition == block.getPositionCount(), "process has not yet finished");
             checkState(!finished, "result has produced");
             finished = true;
-            return new GroupByIdBlock(nextGroupId, blockBuilder.build());
+            return new GroupByIdBlock(nextGroupId, new LongArrayBlock(groupIds.length, Optional.empty(), groupIds));
+        }
+    }
+
+    private void batchedPutIfAbsent(Block block, int blockOffset, int batchSize, long[] batchGroupIds, int batchGroupIdOffset)
+    {
+        if (block.mayHaveNull()) {
+            batchedPutIfAbsentNullable(block, blockOffset, batchSize, batchGroupIds, batchGroupIdOffset);
+        }
+        else {
+            batchedPutIfAbsentNoNull(block, blockOffset, batchSize, batchGroupIds, batchGroupIdOffset);
+        }
+    }
+
+    private void batchedPutIfAbsentNullable(Block block, int blockOffset, int batchSize, long[] batchGroupIds, int batchGroupIdOffset)
+    {
+        if (nullGroupId < 0) {
+            // This branch will be executed only until there is the first null, likely at most few times.
+            // This is done for two reasons:
+            // -Order of new groups must correspond to the order incoming rows
+            // -After the null group id is determined the code is more streamlined, thus more performant
+            for (int i = 0; i < batchSize; i++) {
+                batchGroupIds[batchGroupIdOffset + i] = putIfAbsent(blockOffset + i, block);
+            }
+            return;
+        }
+
+        // Allocate assuming no null values to prevent resizing
+        IntList nonNulls = new IntArrayList(batchSize);
+        int[] hashPositions = new int[batchSize];
+
+        for (int i = 0; i < batchSize; i++) {
+            if (block.isNull(blockOffset + i)) {
+                batchGroupIds[batchGroupIdOffset + i] = nullGroupId;
+            }
+            else {
+                hashPositions[nonNulls.size()] = getHashPosition(BIGINT.getLong(block, blockOffset + i), mask);
+                nonNulls.add(i);
+            }
+        }
+
+        for (int i = 0; i < nonNulls.size(); i++) {
+            int indexInBatch = nonNulls.getInt(i);
+            batchGroupIds[batchGroupIdOffset + indexInBatch] = groupIds[hashPositions[i]];
+        }
+
+        for (int i = 0; i < nonNulls.size(); i++) {
+            int indexInBatch = nonNulls.getInt(i);
+            if (batchGroupIds[batchGroupIdOffset + indexInBatch] >= 0) {
+                long value = BIGINT.getLong(block, blockOffset + indexInBatch);
+                long storedValue = values[hashPositions[i]];
+                // Same as
+                // if (value != storedValue)
+                //   batchGroupIds[batchGroupIdOffset + i] = -1;
+                // but without explicit branches
+                int match = value == storedValue ? 1 : 0;
+                batchGroupIds[batchGroupIdOffset + indexInBatch] = (batchGroupIds[batchGroupIdOffset + indexInBatch] + 1) * match - 1;
+            }
+        }
+
+        for (int i = 0; i < nonNulls.size(); i++) {
+            int indexInBatch = nonNulls.getInt(i);
+            if (batchGroupIds[batchGroupIdOffset + indexInBatch] == -1) {
+                batchGroupIds[batchGroupIdOffset + indexInBatch] = putIfAbsent(BIGINT.getLong(block, blockOffset + indexInBatch), hashPositions[i]);
+            }
+        }
+    }
+
+    private void batchedPutIfAbsentNoNull(Block block, int blockOffset, int batchSize, long[] batchGroupIds, int batchGroupIdOffset)
+    {
+        int[] hashPositions = new int[batchSize];
+        for (int i = 0; i < batchSize; i++) {
+            hashPositions[i] = getHashPosition(BIGINT.getLong(block, blockOffset + i), mask);
+        }
+
+        for (int i = 0; i < batchSize; i++) {
+            batchGroupIds[batchGroupIdOffset + i] = groupIds[hashPositions[i]];
+        }
+
+        for (int i = 0; i < batchSize; i++) {
+            if (batchGroupIds[batchGroupIdOffset + i] != -1) {
+                long value = BIGINT.getLong(block, blockOffset + i);
+                long storedValue = values[hashPositions[i]];
+                // Same as
+                // if (value != storedValue)
+                //   batchGroupIds[batchGroupIdOffset + i] = -1;
+                // but without explicit branches
+                int match = value == storedValue ? 1 : 0;
+                batchGroupIds[batchGroupIdOffset + i] = (batchGroupIds[batchGroupIdOffset + i] + 1) * match - 1;
+            }
+        }
+
+        for (int i = 0; i < batchSize; i++) {
+            if (batchGroupIds[batchGroupIdOffset + i] == -1) {
+                batchGroupIds[batchGroupIdOffset + i] = putIfAbsent(BIGINT.getLong(block, blockOffset + i), hashPositions[i]);
+            }
         }
     }
 
@@ -562,11 +682,11 @@ public class BigintGroupByHash
         public GetDictionaryGroupIdsWork(DictionaryBlock block)
         {
             this.block = requireNonNull(block, "block is null");
-            this.dictionary = block.getDictionary();
+            dictionary = block.getDictionary();
             updateDictionaryLookBack(dictionary);
 
             // we know the exact size required for the block
-            this.blockBuilder = BIGINT.createFixedSizeBlockBuilder(block.getPositionCount());
+            blockBuilder = BIGINT.createFixedSizeBlockBuilder(block.getPositionCount());
         }
 
         @Override
@@ -654,6 +774,18 @@ public class BigintGroupByHash
         }
     }
 
+    private boolean ensureHashTableSize(int batchSize)
+    {
+        int positionCountUntilRehash = maxFill - nextGroupId;
+        while (positionCountUntilRehash < batchSize) {
+            if (!tryRehash()) {
+                return false;
+            }
+            positionCountUntilRehash = maxFill - nextGroupId;
+        }
+        return true;
+    }
+
     private static final class DictionaryLookBack
     {
         private final Block dictionary;
@@ -662,7 +794,7 @@ public class BigintGroupByHash
         public DictionaryLookBack(Block dictionary)
         {
             this.dictionary = dictionary;
-            this.processed = new int[dictionary.getPositionCount()];
+            processed = new int[dictionary.getPositionCount()];
             Arrays.fill(processed, -1);
         }
 
