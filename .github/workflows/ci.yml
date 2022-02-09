@@ -364,11 +364,10 @@ jobs:
         with:
           distribution: 'zulu'
           java-version: 11
-          cache: 'maven'
-      - name: Maven install
+      - name: Maven validate
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY $MAVEN install ${MAVEN_FAST_INSTALL} -pl '!:trino-docs,!:trino-server,!:trino-server-rpm'
+          $RETRY $MAVEN validate ${MAVEN_FAST_INSTALL} -P disable-check-spi-dependencies -pl '!:trino-docs,!:trino-server,!:trino-server-rpm'
       - id: set-matrix
         run: |
           cat <<EOF > .github/test-matrix.yaml
