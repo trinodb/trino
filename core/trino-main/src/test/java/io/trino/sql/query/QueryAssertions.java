@@ -331,7 +331,7 @@ public class QueryAssertions
         {
             return satisfies(actual -> {
                 if (!skipTypesCheck) {
-                    assertTypes(query, actual, expected.getTypes());
+                    assertTypes(query, actual).isEqualTo(expected.getTypes());
                 }
 
                 ListAssert<MaterializedRow> assertion = assertThat(actual.getMaterializedRows())
@@ -363,7 +363,7 @@ public class QueryAssertions
         {
             return satisfies(actual -> {
                 if (!skipTypesCheck) {
-                    assertTypes(query, actual, expected.getTypes());
+                    assertTypes(query, actual).isEqualTo(expected.getTypes());
                 }
 
                 assertThat(actual.getMaterializedRows())
@@ -375,24 +375,21 @@ public class QueryAssertions
 
         public QueryAssert hasOutputTypes(List<Type> expectedTypes)
         {
-            return satisfies(actual -> assertTypes(query, actual, expectedTypes));
+            return satisfies(actual -> assertTypes(query, actual).isEqualTo(expectedTypes));
         }
 
         public QueryAssert outputHasType(int index, Type expectedType)
         {
             return satisfies(actual ->
-                    assertThat(actual.getTypes())
-                            .as(descriptionText().isEmpty()
-                                    ? format("Output types for query [%s]", query)
-                                    : descriptionText() + " [Output types]")
-                            .element(index).isEqualTo(expectedType));
+                    assertTypes(query, actual).element(index).isEqualTo(expectedType));
         }
 
-        private void assertTypes(String query, MaterializedResult actual, List<Type> expectedTypes)
+        private ListAssert<Type> assertTypes(String query, MaterializedResult actual)
         {
-            assertThat(actual.getTypes())
-                    .as(defaultDescription("Output types for query [%s]", query))
-                    .isEqualTo(expectedTypes);
+            return assertThat(actual.getTypes())
+                    .as(descriptionText().isEmpty()
+                            ? format("Output types for query [%s]", query)
+                            : descriptionText() + " [Output types]");
         }
 
         public QueryAssert returnsEmptyResult()
