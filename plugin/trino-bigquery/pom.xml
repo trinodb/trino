@@ -23,7 +23,7 @@
                 <groupId>com.google.cloud</groupId>
                 <artifactId>libraries-bom</artifactId>
                 <type>pom</type>
-                <version>22.0.0</version>
+                <version>24.2.0</version>
                 <scope>import</scope>
             </dependency>
 
@@ -42,13 +42,13 @@
             <dependency>
                 <groupId>org.apache.httpcomponents</groupId>
                 <artifactId>httpcore</artifactId>
-                <version>4.4.14</version>
+                <version>4.4.15</version>
             </dependency>
 
             <dependency>
                 <groupId>org.threeten</groupId>
                 <artifactId>threetenbp</artifactId>
-                <version>1.5.1</version>
+                <version>1.5.2</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
@@ -102,6 +102,10 @@
                     <groupId>io.grpc</groupId>
                     <artifactId>grpc-protobuf</artifactId>
                 </exclusion>
+                <exclusion>
+                    <groupId>io.grpc</groupId>
+                    <artifactId>grpc-xds</artifactId>
+                </exclusion>
             </exclusions>
         </dependency>
 
@@ -152,6 +156,10 @@
                 <exclusion>
                     <groupId>com.google.guava</groupId>
                     <artifactId>listenablefuture</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.google.re2j</groupId>
+                    <artifactId>re2j</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>
