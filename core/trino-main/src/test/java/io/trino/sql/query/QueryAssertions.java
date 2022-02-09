@@ -50,7 +50,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static io.trino.cost.StatsCalculator.noopStatsCalculator;
-import static io.trino.sql.planner.assertions.PlanAssert.assertPlan;
 import static io.trino.sql.query.QueryAssertions.ExpressionAssert.newExpressionAssert;
 import static io.trino.sql.query.QueryAssertions.QueryAssert.newQueryAssert;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -350,17 +349,7 @@ public class QueryAssertions
 
         public final QueryAssert matches(PlanMatchPattern expectedPlan)
         {
-            transaction(runner.getTransactionManager(), runner.getAccessControl())
-                    .execute(session, session -> {
-                        Plan plan = runner.createPlan(session, query, WarningCollector.NOOP);
-                        assertPlan(
-                                session,
-                                runner.getMetadata(),
-                                runner.getFunctionManager(),
-                                noopStatsCalculator(),
-                                plan,
-                                expectedPlan);
-                    });
+            assertPlan(expectedPlan);
             return this;
         }
 
@@ -421,19 +410,10 @@ public class QueryAssertions
         {
             checkState(!(runner instanceof LocalQueryRunner), "isFullyPushedDown() currently does not work with LocalQueryRunner");
 
-            transaction(runner.getTransactionManager(), runner.getAccessControl())
-                    .execute(session, session -> {
-                        Plan plan = runner.createPlan(session, query, WarningCollector.NOOP);
-                        assertPlan(
-                                session,
-                                runner.getMetadata(),
-                                runner.getFunctionManager(),
-                                noopStatsCalculator(),
-                                plan,
-                                PlanMatchPattern.output(
-                                        PlanMatchPattern.exchange(
-                                                PlanMatchPattern.node(TableScanNode.class))));
-                    });
+            assertPlan(
+                    PlanMatchPattern.output(
+                            PlanMatchPattern.exchange(
+                                    PlanMatchPattern.node(TableScanNode.class))));
 
             if (!skipResultsCorrectnessCheckForPushdown) {
                 // Compare the results with pushdown disabled, so that explicit matches() call is not needed
@@ -467,19 +447,7 @@ public class QueryAssertions
          */
         public final QueryAssert isNotFullyPushedDown(PlanMatchPattern retainedSubplan)
         {
-            PlanMatchPattern expectedPlan = PlanMatchPattern.anyTree(retainedSubplan);
-
-            transaction(runner.getTransactionManager(), runner.getAccessControl())
-                    .execute(session, session -> {
-                        Plan plan = runner.createPlan(session, query, WarningCollector.NOOP);
-                        assertPlan(
-                                session,
-                                runner.getMetadata(),
-                                runner.getFunctionManager(),
-                                noopStatsCalculator(),
-                                plan,
-                                expectedPlan);
-                    });
+            assertPlan(PlanMatchPattern.anyTree(retainedSubplan));
 
             if (!skipResultsCorrectnessCheckForPushdown) {
                 // Compare the results with pushdown disabled, so that explicit matches() call is not needed
@@ -494,6 +462,21 @@ public class QueryAssertions
                     .setSystemProperty("allow_pushdown_into_connectors", "false")
                     .build();
             matches(runner.execute(withoutPushdown, query));
+        }
+
+        private void assertPlan(PlanMatchPattern expectedPlan)
+        {
+            transaction(runner.getTransactionManager(), runner.getAccessControl())
+                    .execute(session, session -> {
+                        Plan plan = runner.createPlan(session, query, WarningCollector.NOOP);
+                        PlanAssert.assertPlan(
+                                session,
+                                runner.getMetadata(),
+                                runner.getFunctionManager(),
+                                noopStatsCalculator(),
+                                plan,
+                                expectedPlan);
+                    });
         }
     }
 
