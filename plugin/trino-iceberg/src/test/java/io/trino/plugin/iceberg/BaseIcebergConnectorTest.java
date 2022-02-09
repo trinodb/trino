@@ -2736,22 +2736,26 @@ public abstract class BaseIcebergConnectorTest
     public void testLocalDynamicFilteringWithSelectiveBuildSizeJoin()
     {
         long fullTableScan = (Long) computeActual("SELECT count(*) FROM lineitem").getOnlyValue();
-        long numberOfFiles = (Long) computeActual("SELECT count(*) FROM \"lineitem$files\"").getOnlyValue();
+        // Pick a value for totalprice where file level stats will not be able to filter out any data
+        // This assumes the totalprice ranges in every file have some overlap, otherwise this test will fail.
+        MaterializedRow range = getOnlyElement(computeActual("SELECT max(lower_bounds[4]), min(upper_bounds[4]) FROM \"orders$files\"").getMaterializedRows());
+        double totalPrice = (Double) computeActual(format(
+                "SELECT totalprice FROM orders WHERE totalprice > %s AND totalprice < %s LIMIT 1",
+                range.getField(0),
+                range.getField(1)))
+                .getOnlyValue();
+
         Session session = Session.builder(getSession())
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, FeaturesConfig.JoinDistributionType.BROADCAST.name())
                 .build();
 
         ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(
                 session,
-                "SELECT * FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.totalprice = 974.04");
-        assertEquals(result.getResult().getRowCount(), 1);
-
+                "SELECT * FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.totalprice = " + totalPrice);
         OperatorStats probeStats = searchScanFilterAndProjectOperatorStats(
                 result.getQueryId(),
                 new QualifiedObjectName(ICEBERG_CATALOG, "tpch", "lineitem"));
 
-        // Assert no split level pruning occurs. If this starts failing a new totalprice may need to be selected
-        assertThat(probeStats.getTotalDrivers()).isEqualTo(numberOfFiles);
         // Assert some lineitem rows were filtered out on file level
         assertThat(probeStats.getInputPositions()).isLessThan(fullTableScan);
     }
