@@ -27,8 +27,8 @@ import java.util.regex.Pattern;
 
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
-import static io.trino.spi.type.Int128Math.POWERS_OF_TEN;
 import static io.trino.spi.type.Int128Math.absExact;
+import static io.trino.spi.type.Int128Math.powerOfTen;
 import static java.lang.Math.abs;
 import static java.lang.Math.pow;
 import static java.lang.Math.round;
@@ -75,17 +75,6 @@ public final class Decimals
 
     public static DecimalParseResult parse(String stringValue)
     {
-        return parse(stringValue, false);
-    }
-
-    // visible for testing
-    public static DecimalParseResult parseIncludeLeadingZerosInPrecision(String stringValue)
-    {
-        return parse(stringValue, true);
-    }
-
-    private static DecimalParseResult parse(String stringValue, boolean includeLeadingZerosInPrecision)
-    {
         Matcher matcher = DECIMAL_PATTERN.matcher(stringValue);
         if (!matcher.matches()) {
             throw new IllegalArgumentException("Invalid decimal value '" + stringValue + "'");
@@ -104,15 +93,9 @@ public final class Decimals
         }
 
         int scale = fractionalPart.length();
-        int precision;
-        if (includeLeadingZerosInPrecision) {
-            precision = leadingZeros.length() + integralPart.length() + scale;
-        }
-        else {
-            precision = integralPart.length() + scale;
-            if (precision == 0) {
-                precision = 1;
-            }
+        int precision = integralPart.length() + scale;
+        if (precision == 0) {
+            precision = 1;
         }
 
         String unscaledValue = sign + leadingZeros + integralPart + fractionalPart;
@@ -339,6 +322,6 @@ public final class Decimals
             return overflows(value.getHigh(), value.getLow());
         }
 
-        return absExact(value).compareTo(POWERS_OF_TEN[precision]) >= 0;
+        return absExact(value).compareTo(powerOfTen(precision)) >= 0;
     }
 }

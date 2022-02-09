@@ -134,6 +134,186 @@ public class TestPhoenixTypeMapping
     }
 
     @Test
+    public void testBoolean()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("boolean", "true", BOOLEAN, "true")
+                .addRoundTrip("boolean", "false", BOOLEAN, "false")
+                .addRoundTrip("boolean", "NULL", BOOLEAN, "CAST(NULL AS BOOLEAN)")
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_boolean"))
+
+                .addRoundTrip("integer primary key", "1", INTEGER, "1")
+                .execute(getQueryRunner(), phoenixCreateAndInsert("tpch.test_boolean"));
+    }
+
+    @Test
+    public void testTinyInt()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("tinyint", "-128", TINYINT, "TINYINT '-128'") // min value in Phoenix
+                .addRoundTrip("tinyint", "0", TINYINT, "TINYINT '0'")
+                .addRoundTrip("tinyint", "127", TINYINT, "TINYINT '127'") // max value in Phoenix
+                .addRoundTrip("tinyint", "NULL", TINYINT, "CAST(NULL AS TINYINT)")
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_tinyint"))
+
+                .addRoundTrip("integer primary key", "1", INTEGER, "1")
+                .execute(getQueryRunner(), phoenixCreateAndInsert("tpch.test_tinyint"));
+    }
+
+    @Test
+    public void testUnsignedTinyInt()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("unsigned_tinyint", "0", TINYINT, "TINYINT '0'") // min value in Phoenix
+                .addRoundTrip("unsigned_tinyint", "127", TINYINT, "TINYINT '127'") // max value in Phoenix
+                .addRoundTrip("unsigned_tinyint", "NULL", TINYINT, "CAST(NULL AS TINYINT)")
+                .addRoundTrip("integer primary key", "1", INTEGER, "1")
+                .execute(getQueryRunner(), phoenixCreateAndInsert("tpch.test_unsigned_tinyint"));
+    }
+
+    @Test
+    public void testSmallInt()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("smallint", "-32768", SMALLINT, "SMALLINT '-32768'") // min value in Phoenix
+                .addRoundTrip("smallint", "0", SMALLINT, "SMALLINT '0'")
+                .addRoundTrip("smallint", "32767", SMALLINT, "SMALLINT '32767'") // max value in Phoenix
+                .addRoundTrip("smallint", "NULL", SMALLINT, "CAST(NULL AS SMALLINT)")
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_smallint"))
+
+                .addRoundTrip("integer primary key", "1", INTEGER, "1")
+                .execute(getQueryRunner(), phoenixCreateAndInsert("tpch.test_smallint"));
+    }
+
+    @Test
+    public void testUnsignedSmallInt()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("unsigned_smallint", "0", SMALLINT, "SMALLINT '0'") // min value in Phoenix
+                .addRoundTrip("unsigned_smallint", "32767", SMALLINT, "SMALLINT '32767'") // max value in Phoenix
+                .addRoundTrip("unsigned_smallint", "NULL", SMALLINT, "CAST(NULL AS SMALLINT)")
+                .addRoundTrip("integer primary key", "1", INTEGER, "1")
+                .execute(getQueryRunner(), phoenixCreateAndInsert("tpch.test_unsigned_smallint"));
+    }
+
+    @Test
+    public void testInteger()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("integer", "-2147483648", INTEGER, "-2147483648") // min value in Phoenix
+                .addRoundTrip("integer", "0", INTEGER, "0")
+                .addRoundTrip("integer", "2147483647", INTEGER, "2147483647") // max value in Phoenix
+                .addRoundTrip("integer", "NULL", INTEGER, "CAST(NULL AS INTEGER)")
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_integer"))
+
+                .addRoundTrip("integer primary key", "1", INTEGER, "1")
+                .execute(getQueryRunner(), phoenixCreateAndInsert("tpch.test_integer"));
+    }
+
+    @Test
+    public void testUnsignedInt()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("unsigned_int", "0", INTEGER, "0") // min value in Phoenix
+                .addRoundTrip("unsigned_int", "2147483647", INTEGER, "2147483647") // max value in Phoenix
+                .addRoundTrip("unsigned_int", "NULL", INTEGER, "CAST(NULL AS INTEGER)")
+                .addRoundTrip("integer primary key", "1", INTEGER, "1")
+                .execute(getQueryRunner(), phoenixCreateAndInsert("tpch.test_unsigned_int"));
+    }
+
+    @Test
+    public void testBigInt()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("bigint", "-9223372036854775808", BIGINT, "-9223372036854775808") // min value in Phoenix
+                .addRoundTrip("bigint", "0", BIGINT, "BIGINT '0'")
+                .addRoundTrip("bigint", "9223372036854775807", BIGINT, "9223372036854775807") // max value in Phoenix
+                .addRoundTrip("bigint", "NULL", BIGINT, "CAST(NULL AS BIGINT)")
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_bigint"))
+
+                .addRoundTrip("integer primary key", "1", INTEGER, "1")
+                .execute(getQueryRunner(), phoenixCreateAndInsert("tpch.test_bigint"));
+    }
+
+    @Test
+    public void testUnsignedLong()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("unsigned_long", "0", BIGINT, "BIGINT '0'") // min value in Phoenix
+                .addRoundTrip("unsigned_long", "9223372036854775807", BIGINT, "BIGINT '9223372036854775807'") // max value in Phoenix
+                .addRoundTrip("unsigned_long", "NULL", BIGINT, "CAST(NULL AS BIGINT)")
+                .addRoundTrip("integer primary key", "1", INTEGER, "1")
+                .execute(getQueryRunner(), phoenixCreateAndInsert("tpch.test_unsigned_long"));
+    }
+
+    @Test
+    public void testFloat()
+    {
+        // Not testing Nan/-Infinity/+Infinity as those are not supported by Phoenix
+        SqlDataTypeTest.create()
+                .addRoundTrip("real", "REAL '-3.402823466E38'", REAL, "REAL '-3.402823466E38'") // min value in Phoenix
+                .addRoundTrip("real", "REAL '0.0'", REAL, "REAL '0.0'")
+                .addRoundTrip("real", "REAL '123.456E10'", REAL, "REAL '123.456E10'")
+                .addRoundTrip("real", "REAL '3.402823466E38'", REAL, "REAL '3.402823466E38'") // max value in Phoenix
+                .addRoundTrip("real", "NULL", REAL, "CAST(NULL AS REAL)")
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_float"));
+
+        SqlDataTypeTest.create()
+                .addRoundTrip("float", "-3.402823466E38", REAL, "REAL '-3.402823466E38'") // min value in Phoenix
+                .addRoundTrip("float", "0.0", REAL, "REAL '0.0'")
+                .addRoundTrip("float", "123.456E10", REAL, "REAL '123.456E10'")
+                .addRoundTrip("float", "3.402823466E38", REAL, "REAL '3.402823466E38'") // max value in Phoenix
+                .addRoundTrip("float", "NULL", REAL, "CAST(NULL AS REAL)")
+                .addRoundTrip("integer primary key", "1", INTEGER, "1")
+                .execute(getQueryRunner(), phoenixCreateAndInsert("tpch.test_float"));
+    }
+
+    @Test
+    public void testUnsignedFloat()
+    {
+        // Not testing Nan/-Infinity/+Infinity as those are not supported by Phoenix
+        SqlDataTypeTest.create()
+                .addRoundTrip("unsigned_float", "0.0", REAL, "REAL '0.0'") // min value in Phoenix
+                .addRoundTrip("unsigned_float", "123.456E10", REAL, "REAL '123.456E10'")
+                .addRoundTrip("unsigned_float", "3.402823466E38", REAL, "REAL '3.402823466E38'") // max value in Phoenix
+                .addRoundTrip("unsigned_float", "NULL", REAL, "CAST(NULL AS REAL)")
+                .addRoundTrip("integer primary key", "1", INTEGER, "1")
+                .execute(getQueryRunner(), phoenixCreateAndInsert("tpch.test_unsigned_float"));
+    }
+
+    @Test
+    public void testDouble()
+    {
+        // Not testing Nan/-Infinity/+Infinity as those are not supported by Phoenix
+        SqlDataTypeTest.create()
+                .addRoundTrip("double", "-1.7976931348623158E308", DOUBLE, "DOUBLE '-1.7976931348623158E308'") // min value in Phoenix
+                .addRoundTrip("double", "0.0", DOUBLE, "DOUBLE '0.0'")
+                .addRoundTrip("double", "1.0E100", DOUBLE, "DOUBLE '1.0E100'")
+                .addRoundTrip("double", "123.456E10", DOUBLE, "DOUBLE '123.456E10'")
+                .addRoundTrip("double", "1.7976931348623158E308", DOUBLE, "DOUBLE '1.7976931348623158E308'") // max value in Phoenix
+                .addRoundTrip("double", "NULL", DOUBLE, "CAST(NULL AS DOUBLE)")
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_double"))
+
+                .addRoundTrip("integer primary key", "1", INTEGER, "1")
+                .execute(getQueryRunner(), phoenixCreateAndInsert("tpch.test_double"));
+    }
+
+    @Test
+    public void testUnsignedDouble()
+    {
+        // Not testing Nan/-Infinity/+Infinity as those are not supported by Phoenix
+        SqlDataTypeTest.create()
+                .addRoundTrip("unsigned_double", "0.0", DOUBLE, "DOUBLE '0.0'") // min value in Phoenix
+                .addRoundTrip("unsigned_double", "1.0E100", DOUBLE, "DOUBLE '1.0E100'")
+                .addRoundTrip("unsigned_double", "123.456E10", DOUBLE, "DOUBLE '123.456E10'")
+                .addRoundTrip("unsigned_double", "1.7976931348623158E308", DOUBLE, "DOUBLE '1.7976931348623158E308'") // max value in Phoenix
+                .addRoundTrip("unsigned_double", "NULL", DOUBLE, "CAST(NULL AS DOUBLE)")
+
+                .addRoundTrip("integer primary key", "1", INTEGER, "1")
+                .execute(getQueryRunner(), phoenixCreateAndInsert("tpch.test_unsigned_double"));
+    }
+
+    @Test
     public void testVarchar()
     {
         SqlDataTypeTest.create()
@@ -162,6 +342,28 @@ public class TestPhoenixTypeMapping
 
                 .addRoundTrip("integer primary key", "1", INTEGER, "1")
                 .execute(getQueryRunner(), phoenixCreateAndInsert("tpch.test_char"));
+    }
+
+    @Test
+    public void testBinary()
+    {
+        // Not testing max length (2147483647) because it leads to 'Requested array size exceeds VM limit'
+        SqlDataTypeTest.create()
+                .addRoundTrip("binary(1)", "NULL", VARBINARY, "X'00'") // NULL stored as zeros
+                .addRoundTrip("binary(10)", "DECODE('', 'HEX')", VARBINARY, "X'00000000000000000000'") // empty stored as zeros
+                .addRoundTrip("binary(5)", "DECODE('68656C6C6F', 'HEX')", VARBINARY, "to_utf8('hello')")
+                .addRoundTrip("binary(26)", "DECODE('5069C4996B6E6120C582C4856B61207720E69DB1E4BAACE983BD', 'HEX')", VARBINARY, "to_utf8('Piękna łąka w 東京都')")
+                .addRoundTrip("binary(16)", "DECODE('4261672066756C6C206F6620F09F92B0', 'HEX')", VARBINARY, "to_utf8('Bag full of 💰')")
+                .addRoundTrip("binary(17)", "DECODE('0001020304050607080DF9367AA7000000', 'HEX')", VARBINARY, "X'0001020304050607080DF9367AA7000000'") // non-text
+                .addRoundTrip("binary(6)", "DECODE('000000000000', 'HEX')", VARBINARY, "X'000000000000'")
+                .addRoundTrip("integer primary key", "1", INTEGER, "1")
+                .execute(getQueryRunner(), phoenixCreateAndInsert("tpch.test_binary"));
+
+        // Verify 'IS NULL' doesn't get rows where the value is X'00...' padded in Phoenix
+        try (TestTable table = new TestTable(new PhoenixSqlExecutor(phoenixServer.getJdbcUrl()), "tpch.test_binary", "(null_binary binary(1), empty_binary binary(10), pk integer primary key)", ImmutableList.of("NULL, DECODE('', 'HEX'), 1"))) {
+            assertQueryReturnsEmptyResult(format("SELECT * FROM %s WHERE null_binary IS NULL", table.getName()));
+            assertQueryReturnsEmptyResult(format("SELECT * FROM %s WHERE empty_binary IS NULL", table.getName()));
+        }
     }
 
     @Test
@@ -291,8 +493,16 @@ public class TestPhoenixTypeMapping
                 .setTimeZoneKey(getTimeZoneKey(sessionZone.getId()))
                 .build();
 
-        // TODO (https://github.com/trinodb/trino/issues/10074) Add more test cases when fixing incorrect date issue
         SqlDataTypeTest.create()
+                .addRoundTrip("date", "DATE '-5877641-06-23'", DATE, "DATE '-5877641-06-23'") // min value in Trino
+                .addRoundTrip("date", "DATE '-0001-01-01'", DATE, "DATE '-0001-01-01'")
+                .addRoundTrip("date", "DATE '0001-01-01'", DATE, "DATE '0001-01-01'")
+                .addRoundTrip("date", "DATE '1582-10-04'", DATE, "DATE '1582-10-04'")
+                .addRoundTrip("date", "DATE '1582-10-05'", DATE, "DATE '1582-10-15'") // begin julian->gregorian switch
+                .addRoundTrip("date", "DATE '1582-10-14'", DATE, "DATE '1582-10-24'") // end julian->gregorian switch
+                .addRoundTrip("date", "DATE '1582-10-15'", DATE, "DATE '1582-10-15'")
+                .addRoundTrip("date", "DATE '1899-12-31'", DATE, "DATE '1899-12-31'")
+                .addRoundTrip("date", "DATE '1900-01-01'", DATE, "DATE '1900-01-01'")
                 .addRoundTrip("date", "DATE '1952-04-04'", DATE, "DATE '1952-04-04'") // before epoch
                 .addRoundTrip("date", "DATE '1970-01-01'", DATE, "DATE '1970-01-01'")
                 .addRoundTrip("date", "DATE '1970-02-03'", DATE, "DATE '1970-02-03'")
@@ -300,12 +510,23 @@ public class TestPhoenixTypeMapping
                 .addRoundTrip("date", "DATE '2017-01-01'", DATE, "DATE '2017-01-01'") // winter on northern hemisphere (possible DST on southern hemisphere)
                 .addRoundTrip("date", "DATE '1983-04-01'", DATE, "DATE '1983-04-01'")
                 .addRoundTrip("date", "DATE '1983-10-01'", DATE, "DATE '1983-10-01'")
+                .addRoundTrip("date", "DATE '9999-12-31'", DATE, "DATE '9999-12-31'")
+                .addRoundTrip("date", "DATE '5881580-07-11'", DATE, "DATE '5881580-07-11'") // max value in Trino
                 .addRoundTrip("date", "NULL", DATE, "CAST(NULL AS DATE)")
                 .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_date"))
                 .execute(getQueryRunner(), session, trinoCreateAsSelect(getSession(), "test_date"))
                 .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_date"));
 
         SqlDataTypeTest.create()
+                .addRoundTrip("date", "TO_DATE('5877642-06-23 BC', 'yyyy-MM-dd G', 'local')", DATE, "DATE '-5877641-06-23'") // min value in Trino
+                .addRoundTrip("date", "TO_DATE('0002-01-01 BC', 'yyyy-MM-dd G', 'local')", DATE, "DATE '-0001-01-01'")
+                .addRoundTrip("date", "TO_DATE('0001-01-01', 'yyyy-MM-dd', 'local')", DATE, "DATE '0001-01-01'")
+                .addRoundTrip("date", "TO_DATE('1582-10-04', 'yyyy-MM-dd', 'local')", DATE, "DATE '1582-10-04'")
+                .addRoundTrip("date", "TO_DATE('1582-10-05', 'yyyy-MM-dd', 'local')", DATE, "DATE '1582-10-15'") // begin julian->gregorian switch
+                .addRoundTrip("date", "TO_DATE('1582-10-14', 'yyyy-MM-dd', 'local')", DATE, "DATE '1582-10-24'") // end julian->gregorian switch
+                .addRoundTrip("date", "TO_DATE('1582-10-15', 'yyyy-MM-dd', 'local')", DATE, "DATE '1582-10-15'")
+                .addRoundTrip("date", "TO_DATE('1899-12-31', 'yyyy-MM-dd', 'local')", DATE, "DATE '1899-12-31'")
+                .addRoundTrip("date", "TO_DATE('1900-01-01', 'yyyy-MM-dd', 'local')", DATE, "DATE '1900-01-01'")
                 .addRoundTrip("date", "TO_DATE('1952-04-04', 'yyyy-MM-dd', 'local')", DATE, "DATE '1952-04-04'") // before epoch
                 .addRoundTrip("date", "TO_DATE('1970-01-01', 'yyyy-MM-dd', 'local')", DATE, "DATE '1970-01-01'")
                 .addRoundTrip("date", "TO_DATE('1970-02-03', 'yyyy-MM-dd', 'local')", DATE, "DATE '1970-02-03'")
@@ -313,9 +534,32 @@ public class TestPhoenixTypeMapping
                 .addRoundTrip("date", "TO_DATE('2017-01-01', 'yyyy-MM-dd', 'local')", DATE, "DATE '2017-01-01'") // winter on northern hemisphere (possible DST on southern hemisphere)
                 .addRoundTrip("date", "TO_DATE('1983-04-01', 'yyyy-MM-dd', 'local')", DATE, "DATE '1983-04-01'")
                 .addRoundTrip("date", "TO_DATE('1983-10-01', 'yyyy-MM-dd', 'local')", DATE, "DATE '1983-10-01'")
+                .addRoundTrip("date", "TO_DATE('9999-12-31', 'yyyy-MM-dd', 'local')", DATE, "DATE '9999-12-31'")
+                .addRoundTrip("date", "TO_DATE('5881580-07-11', 'yyyy-MM-dd', 'local')", DATE, "DATE '5881580-07-11'") // max value in Trino
                 .addRoundTrip("date", "NULL", DATE, "CAST(NULL AS DATE)")
                 .addRoundTrip("integer primary key", "1", INTEGER, "1")
                 .execute(getQueryRunner(), session, phoenixCreateAndInsert("tpch.test_date"));
+    }
+
+    @Test(dataProvider = "sessionZonesDataProvider")
+    public void testUnsignedDate(ZoneId sessionZone)
+    {
+        Session session = Session.builder(getSession())
+                .setTimeZoneKey(getTimeZoneKey(sessionZone.getId()))
+                .build();
+
+        SqlDataTypeTest.create()
+                .addRoundTrip("unsigned_date", "TO_DATE('1970-01-01', 'yyyy-MM-dd', 'local')", DATE, "DATE '1970-01-01'") // min value in Phoenix
+                .addRoundTrip("unsigned_date", "TO_DATE('1970-02-03', 'yyyy-MM-dd', 'local')", DATE, "DATE '1970-02-03'")
+                .addRoundTrip("unsigned_date", "TO_DATE('1983-04-01', 'yyyy-MM-dd', 'local')", DATE, "DATE '1983-04-01'")
+                .addRoundTrip("unsigned_date", "TO_DATE('1983-10-01', 'yyyy-MM-dd', 'local')", DATE, "DATE '1983-10-01'")
+                .addRoundTrip("unsigned_date", "TO_DATE('2017-07-01', 'yyyy-MM-dd', 'local')", DATE, "DATE '2017-07-01'") // summer on northern hemisphere (possible DST)
+                .addRoundTrip("unsigned_date", "TO_DATE('2017-01-01', 'yyyy-MM-dd', 'local')", DATE, "DATE '2017-01-01'") // winter on northern hemisphere (possible DST on southern hemisphere)
+                .addRoundTrip("unsigned_date", "TO_DATE('9999-12-31', 'yyyy-MM-dd', 'local')", DATE, "DATE '9999-12-31'")
+                .addRoundTrip("unsigned_date", "TO_DATE('5881580-07-11', 'yyyy-MM-dd', 'local')", DATE, "DATE '5881580-07-11'") // max value in Trino
+                .addRoundTrip("unsigned_date", "NULL", DATE, "CAST(NULL AS DATE)")
+                .addRoundTrip("integer primary key", "1", INTEGER, "1")
+                .execute(getQueryRunner(), session, phoenixCreateAndInsert("tpch.test_unsigned_date"));
     }
 
     @Test

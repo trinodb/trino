@@ -220,7 +220,7 @@ public class TestJdbcQueryBuilder
                 .put(columns.get(2), Domain.create(SortedRangeSet.copyOf(BOOLEAN,
                         ImmutableList.of(Range.equal(BOOLEAN, true))),
                         false))
-                .build());
+                .buildOrThrow());
 
         Connection connection = database.getConnection();
         QueryBuilder queryBuilder = new QueryBuilder(jdbcClient);
@@ -262,7 +262,7 @@ public class TestJdbcQueryBuilder
                 .put(columns.get(1), Domain.create(ValueSet.of(DOUBLE, 200011.0, 200014.0, 200017.0), true).complement())
                 // this is here only to limit the list of results being read
                 .put(columns.get(9), Domain.create(ValueSet.ofRanges(Range.greaterThanOrEqual(INTEGER, 880L)), false))
-                .build());
+                .buildOrThrow());
 
         Connection connection = database.getConnection();
         QueryBuilder queryBuilder = new QueryBuilder(jdbcClient);

@@ -679,6 +679,6 @@ public class TestReorderJoins
 
     private RuleAssert assertReorderJoins()
     {
-        return tester.assertThat(new ReorderJoins(PLANNER_CONTEXT.getMetadata(), new CostComparator(1, 1, 1), createTestingTypeAnalyzer(PLANNER_CONTEXT)));
+        return tester.assertThat(new ReorderJoins(PLANNER_CONTEXT, new CostComparator(1, 1, 1), createTestingTypeAnalyzer(PLANNER_CONTEXT)));
     }
 }

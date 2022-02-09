@@ -10,16 +10,80 @@ it does not cause running queries to fail; instead new queries become queued.
 A resource group may have sub-groups or may accept queries, but may not do both.
 
 The resource groups and associated selection rules are configured by a manager, which is pluggable.
-Add an ``etc/resource-groups.properties`` file with the following contents to enable
-the built-in manager that reads a JSON config file:
+
+You can use a file-based or a database-based resource group manager:
+
+* Add a file ``etc/resource-groups.properties``
+* Set the ``resource-groups.configuration-manager`` property to ``file`` or ``db``
+* Add further configuration properties for the desired manager.
+
+File resource group manager
+---------------------------
+
+The file resource group manager reads a JSON configuration file, specified with
+``resource-groups.config-file``:
 
 .. code-block:: text
 
     resource-groups.configuration-manager=file
     resource-groups.config-file=etc/resource-groups.json
 
-Change the value of ``resource-groups.config-file`` to point to a JSON config file,
-which can be an absolute path, or a path relative to the Trino data directory.
+The path to the JSON file can be an absolute path, or a path relative to the Trino
+data directory. The JSON file only needs to be present on the coordinator.
+
+Database resource group manager
+-------------------------------
+
+The database resource group manager loads the configuration from a relational database. The
+supported databases are MySQL, PostgreSQL, and Oracle.
+
+.. code-block:: text
+
+    resource-groups.configuration-manager=db
+    resource-groups.config-db-url=jdbc:mysql://localhost:3306/resource_groups
+    resource-groups.config-db-user=username
+    resource-groups.config-db-password=password
+
+The resource group configuration must be populated through tables 
+``resource_groups_global_properties``, ``resource_groups``, and
+``selectors``. If any of the tables do not exist when Trino starts, they
+will be created automatically.
+
+The rules in the ``selectors`` table are processed in descending order of the 
+values in the ``priority`` field.
+
+The ``resource_groups`` table also contains an ``environment`` field which is
+matched with the value contained in the ``node.environment`` property in 
+:ref:`node_properties`. This allows the resource group configuration for different
+Trino clusters to be stored in the same database if required.
+
+The configuration is reloaded from the database every second, and the changes
+are reflected automatically for incoming queries.
+
+Database resource group manager properties
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+================================================ =========================================================== ===============
+Property Name                                    Description                                                 Default
+================================================ =========================================================== ===============
+``resource-groups.config-db-url``                Database URL to load configuration from.                    ``none``
+
+``resource-groups.config-db-user``               Database user to connect with.                              ``none``
+
+``resource-groups.config-db-password``           Password for database user to connect with.                 ``none``
+
+``resource-groups.max-refresh-interval``         Time period for which the cluster will continue to accept   ``1h``
+                                                 queries after refresh failures cause configuration to
+                                                 become stale.
+
+``resource-groups.exact-match-selector-enabled`` Setting this flag enables usage of an additional            ``false``
+                                                 ``exact_match_source_selectors`` table to configure
+                                                 resource group selection rules defined exact name based
+                                                 matches for source, environment and query type. By
+                                                 default, the rules are only loaded from the ``selectors``
+                                                 table, with a regex-based filter for ``source``, among
+                                                 other filters.
+================================================ =========================================================== ===============
 
 Resource group properties
 -------------------------
@@ -196,5 +260,90 @@ For the remaining users:
 
 * All remaining queries are placed into a per-user group under ``global.adhoc.other`` that behaves similarly.
 
+File resource group manager
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
 .. literalinclude:: resource-groups-example.json
     :language: json
+
+Database resource group manager
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+This example is for a MySQL database.
+
+.. code-block:: sql
+
+    -- global properties
+    INSERT INTO resource_groups_global_properties (name, value) VALUES ('cpu_quota_period', '1h');
+
+    -- Every row in resource_groups table indicates a resource group. The parent-child relationship
+    -- is indicated by the ID in 'parent' column.
+
+    -- create a root group 'global' with NULL parent
+    INSERT INTO resource_groups (name, soft_memory_limit, hard_concurrency_limit, max_queued, scheduling_policy, jmx_export, environment) VALUES ('global', '80%', 100, 1000, 'weighted', true, 'test');
+
+    -- get ID of 'global' group
+    SELECT resource_group_id FROM resource_groups WHERE name = 'global';  -- 1
+    -- create two new groups with 'global' as parent
+    INSERT INTO resource_groups (name, soft_memory_limit, hard_concurrency_limit, max_queued, scheduling_weight, environment, parent) VALUES ('data_definition', '10%', 5, 100, 1, 'test', 1);
+    INSERT INTO resource_groups (name, soft_memory_limit, hard_concurrency_limit, max_queued, scheduling_weight, environment, parent) VALUES ('adhoc', '10%', 50, 1, 10, 'test', 1);
+
+    -- get ID of 'adhoc' group
+    SELECT resource_group_id FROM resource_groups WHERE name = 'adhoc';   -- 3
+    -- create 'other' group with 'adhoc' as parent
+    INSERT INTO resource_groups (name, soft_memory_limit, hard_concurrency_limit, max_queued, scheduling_weight, scheduling_policy, environment, parent) VALUES ('other', '10%', 2, 1, 10, 'weighted_fair', 'test', 3);
+
+    -- get ID of 'other' group
+    SELECT resource_group_id FROM resource_groups WHERE name = 'other';  -- 4
+    -- create '${USER}' group with 'other' as parent.
+    INSERT INTO resource_groups (name, soft_memory_limit, hard_concurrency_limit, max_queued, environment, parent) VALUES ('${USER}', '10%', 1, 100, 'test', 4);
+
+    -- create 'bi-${toolname}' group with 'adhoc' as parent
+    INSERT INTO resource_groups (name, soft_memory_limit, hard_concurrency_limit, max_queued, scheduling_weight, scheduling_policy, environment, parent) VALUES ('bi-${toolname}', '10%', 10, 100, 10, 'weighted_fair', 'test', 3);
+
+    -- get ID of 'bi-${toolname}' group
+    SELECT resource_group_id FROM resource_groups WHERE name = 'bi-${toolname}';  -- 6
+    -- create '${USER}' group with 'bi-${toolname}' as parent. This indicates 
+    -- nested group 'global.adhoc.bi-${toolname}.${USER}', and will have a 
+    -- different ID than 'global.adhoc.other.${USER}' created above.
+    INSERT INTO resource_groups (name, soft_memory_limit, hard_concurrency_limit, max_queued,  environment, parent) VALUES ('${USER}', '10%', 3, 10, 'test', 6);
+
+    -- create 'pipeline' group with 'global' as parent
+    INSERT INTO resource_groups (name, soft_memory_limit, hard_concurrency_limit, max_queued, scheduling_weight, jmx_export, environment, parent) VALUES ('pipeline', '80%', 45, 100, 1, true, 'test', 1);
+
+    -- get ID of 'pipeline' group
+    SELECT resource_group_id FROM resource_groups WHERE name = 'pipeline'; -- 8
+    -- create 'pipeline_${USER}' group with 'pipeline' as parent 
+    INSERT INTO resource_groups (name, soft_memory_limit, hard_concurrency_limit, max_queued,  environment, parent) VALUES ('pipeline_${USER}', '50%', 5, 100, 'test', 8);
+
+    -- create a root group 'admin' with NULL parent
+    INSERT INTO resource_groups (name, soft_memory_limit, hard_concurrency_limit, max_queued, scheduling_policy, environment, jmx_export) VALUES ('admin', '100%', 50, 100, 'query_priority', 'test', true);
+
+
+    -- Selectors
+
+    -- use ID of 'admin' resource group for selector
+    INSERT INTO selectors (resource_group_id, user_regex, priority) VALUES ((SELECT resource_group_id FROM resource_groups WHERE name = 'admin'), 'bob', 6);
+
+    -- user group based matching is not supported for Database Resource Group configuration
+    -- INSERT INTO selectors (resource_group_id, user_regex, priority) VALUES ((SELECT resource_group_id FROM resource_groups WHERE name = 'admin'), 'admin', 5);
+
+    -- use ID of 'global.data_definition' resource group for selector
+    INSERT INTO selectors (resource_group_id, source_regex, query_type, priority) VALUES ((SELECT resource_group_id FROM resource_groups WHERE name = 'data_definition'), '.*pipeline.*', 'DATA_DEFINITION', 4);
+
+    -- use ID of 'global.pipeline.pipeline_${USER}' resource group for selector
+    INSERT INTO selectors (resource_group_id, source_regex, priority) VALUES ((SELECT resource_group_id FROM resource_groups WHERE name = 'pipeline_${USER}'), '.*pipeline.*', 3);
+
+    -- get ID of 'global.adhoc.bi-${toolname}.${USER}' resource group by disambiguating group name using parent ID
+    SELECT A.resource_group_id self_id, B.resource_group_id parent_id, concat(B.name, '.', A.name) name_with_parent 
+    FROM resource_groups A JOIN resource_groups B ON A.parent = B.resource_group_id
+    WHERE A.name = '${USER}' AND B.name = 'bi-${toolname}'; 
+    --  7 |         6 | bi-${toolname}.${USER}
+    INSERT INTO selectors (resource_group_id, source_regex, client_tags, priority) VALUES (7, 'jdbc#(?<toolname>.*)', '["hipri"]', 2);
+
+    -- get ID of 'global.adhoc.other.${USER}' resource group for by disambiguating group name using parent ID
+    SELECT A.resource_group_id self_id, B.resource_group_id parent_id, concat(B.name, '.', A.name) name_with_parent 
+    FROM resource_groups A JOIN resource_groups B ON A.parent = B.resource_group_id
+    WHERE A.name = '${USER}' AND B.name = 'other';
+    -- |       5 |         4 | other.${USER}    | 
+    INSERT INTO selectors (resource_group_id, priority) VALUES (5, 1);

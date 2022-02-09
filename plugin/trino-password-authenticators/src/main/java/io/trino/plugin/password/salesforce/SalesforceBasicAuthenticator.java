@@ -15,7 +15,6 @@ package io.trino.plugin.password.salesforce;
 
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.escape.Escaper;
 import com.google.common.util.concurrent.UncheckedExecutionException;
@@ -23,6 +22,7 @@ import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.Request;
 import io.airlift.http.client.StringResponseHandler;
 import io.airlift.log.Logger;
+import io.trino.collect.cache.NonEvictableLoadingCache;
 import io.trino.plugin.password.Credential;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.BasicPrincipal;
@@ -48,6 +48,7 @@ import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.xml.XmlEscapers.xmlContentEscaper;
 import static io.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
+import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
@@ -71,7 +72,7 @@ public class SalesforceBasicAuthenticator
     // Set of Salesforce orgs, which users must belong to in order to authN.
     private final Set<String> allowedOrganizations;
     private final HttpClient httpClient;
-    private final LoadingCache<Credential, Principal> userCache;
+    private final NonEvictableLoadingCache<Credential, Principal> userCache;
 
     @Inject
     public SalesforceBasicAuthenticator(SalesforceConfig config, @SalesforceAuthenticationClient HttpClient httpClient)
@@ -79,10 +80,11 @@ public class SalesforceBasicAuthenticator
         this.allowedOrganizations = ImmutableSet.copyOf(config.getOrgSet());
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
 
-        this.userCache = CacheBuilder.newBuilder()
-                .maximumSize(config.getCacheSize())
-                .expireAfterWrite(config.getCacheExpireDuration().toMillis(), MILLISECONDS)
-                .build(CacheLoader.from(this::doLogin));
+        this.userCache = buildNonEvictableCache(
+                CacheBuilder.newBuilder()
+                        .maximumSize(config.getCacheSize())
+                        .expireAfterWrite(config.getCacheExpireDuration().toMillis(), MILLISECONDS),
+                CacheLoader.from(this::doLogin));
     }
 
     @Override

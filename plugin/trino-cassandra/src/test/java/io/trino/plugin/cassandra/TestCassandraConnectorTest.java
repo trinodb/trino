@@ -50,6 +50,8 @@ import static io.trino.plugin.cassandra.CassandraTestingUtils.TABLE_CLUSTERING_K
 import static io.trino.plugin.cassandra.CassandraTestingUtils.TABLE_CLUSTERING_KEYS_LARGE;
 import static io.trino.plugin.cassandra.CassandraTestingUtils.TABLE_DELETE_DATA;
 import static io.trino.plugin.cassandra.CassandraTestingUtils.TABLE_MULTI_PARTITION_CLUSTERING_KEYS;
+import static io.trino.plugin.cassandra.CassandraTestingUtils.TABLE_PUSHDOWN_ALL_TYPES_PARTITION_KEY_PREDICATE;
+import static io.trino.plugin.cassandra.CassandraTestingUtils.TABLE_PUSHDOWN_UUID_PARTITION_KEY_PREDICATE;
 import static io.trino.plugin.cassandra.CassandraTestingUtils.createTestTables;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -235,6 +237,40 @@ public class TestCassandraConnectorTest
     {
         assertThatThrownBy(super::testCharVarcharComparison)
                 .hasMessage("unsupported type: char(3)");
+    }
+
+    @Test
+    public void testPushdownUuidPartitionKeyPredicate()
+    {
+        assertThat(query(format("SELECT col_text FROM %s.%s WHERE col_uuid = UUID '00000000-0000-0000-0000-000000000001'", KEYSPACE, TABLE_PUSHDOWN_UUID_PARTITION_KEY_PREDICATE)))
+                .matches("VALUES CAST('Trino' AS varchar)");
+    }
+
+    @Test
+    public void testPushdownAllTypesPartitionKeyPredicate()
+    {
+        // TODO partition key predicate pushdown for decimal types does not work https://github.com/trinodb/trino/issues/10927
+        String sql = "SELECT *" +
+                " FROM " + TABLE_PUSHDOWN_ALL_TYPES_PARTITION_KEY_PREDICATE +
+                " WHERE key = 'key 7'" +
+                " AND typeuuid = UUID '00000000-0000-0000-0000-000000000007'" +
+                " AND typetinyint = 7" +
+                " AND typesmallint = 7" +
+                " AND typeinteger = 7" +
+                " AND typelong = 1007" +
+                " AND typedate = DATE '1970-01-01'" +
+                " AND typetimestamp = TIMESTAMP '1970-01-01 03:04:05Z'" +
+                " AND typeansi = 'ansi 7'" +
+                " AND typeboolean = false" +
+                " AND typedouble = 16384.0" +
+                " AND typefloat = REAL '2097152.0'" +
+                " AND typeinet = '127.0.0.1'" +
+                " AND typevarchar = 'varchar 7'" +
+                " AND typetimeuuid = UUID 'd2177dd0-eaa2-11de-a572-001b779c76e7'" +
+                "";
+        MaterializedResult result = execute(sql);
+
+        assertEquals(result.getRowCount(), 1);
     }
 
     @Test

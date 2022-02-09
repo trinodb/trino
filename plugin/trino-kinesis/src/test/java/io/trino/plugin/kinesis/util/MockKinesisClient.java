@@ -111,8 +111,8 @@ public class MockKinesisClient
 
     public static class InternalStream
     {
-        private String streamName = "";
-        private String streamAmazonResourceName = "";
+        private final String streamName;
+        private final String streamAmazonResourceName;
         private String streamStatus = "CREATING";
         private List<InternalShard> shards = new ArrayList<>();
         private int sequenceNo = 100;
@@ -174,11 +174,6 @@ public class MockKinesisClient
             }
         }
 
-        public void activate()
-        {
-            this.streamStatus = "ACTIVE";
-        }
-
         public PutRecordResult putRecord(ByteBuffer data, String partitionKey)
         {
             // Create record and insert into the shards.  Initially just do it
@@ -203,19 +198,12 @@ public class MockKinesisClient
 
             return result;
         }
-
-        public void clearRecords()
-        {
-            for (InternalShard shard : this.shards) {
-                shard.clearRecords();
-            }
-        }
     }
 
     public static class ShardIterator
     {
-        public String streamId = "";
-        public int shardIndex;
+        public final String streamId;
+        public final int shardIndex;
         public int recordIndex;
 
         public ShardIterator(String streamId, int shardIndex, int recordIndex)
@@ -410,7 +398,6 @@ public class MockKinesisClient
         }
 
         // TODO: incorporate maximum batch size (getRecordsRequest.getLimit)
-        GetRecordsResult result = null;
         InternalStream stream = this.getStream(iterator.streamId);
         if (stream == null) {
             throw new AmazonClientException("Unknown stream or bad shard iterator.");
@@ -418,6 +405,7 @@ public class MockKinesisClient
 
         InternalShard shard = stream.getShards().get(iterator.shardIndex);
 
+        GetRecordsResult result;
         if (iterator.recordIndex == 100) {
             result = new GetRecordsResult();
             List<Record> recs = shard.getRecords();

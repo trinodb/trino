@@ -18,8 +18,8 @@ import com.google.auth.Credentials;
 import com.google.auth.oauth2.ServiceAccountCredentials;
 import com.google.cloud.bigquery.BigQuery;
 import com.google.cloud.bigquery.BigQueryOptions;
-import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
+import io.trino.collect.cache.NonEvictableCache;
 import io.trino.spi.connector.ConnectorSession;
 
 import javax.inject.Inject;
@@ -27,6 +27,7 @@ import javax.inject.Inject;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 
+import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -37,7 +38,7 @@ public class BigQueryClientFactory
     private final BigQueryConfig bigQueryConfig;
     private final ViewMaterializationCache materializationCache;
     private final HeaderProvider headerProvider;
-    private final Cache<IdentityCacheMapping.IdentityCacheKey, BigQueryClient> clientCache;
+    private final NonEvictableCache<IdentityCacheMapping.IdentityCacheKey, BigQueryClient> clientCache;
 
     @Inject
     public BigQueryClientFactory(
@@ -47,7 +48,7 @@ public class BigQueryClientFactory
             ViewMaterializationCache materializationCache,
             HeaderProvider headerProvider)
     {
-        this.identityCacheMapping = requireNonNull(identityCacheMapping, "identityCacheMaping is null");
+        this.identityCacheMapping = requireNonNull(identityCacheMapping, "identityCacheMapping is null");
         this.credentialsSupplier = requireNonNull(credentialsSupplier, "credentialsSupplier is null");
         this.bigQueryConfig = requireNonNull(bigQueryConfig, "bigQueryConfig is null");
         this.materializationCache = requireNonNull(materializationCache, "materializationCache is null");
@@ -56,7 +57,7 @@ public class BigQueryClientFactory
         CacheBuilder<Object, Object> cacheBuilder = CacheBuilder.newBuilder()
                 .expireAfterWrite(bigQueryConfig.getServiceCacheTtl().toMillis(), MILLISECONDS);
 
-        clientCache = cacheBuilder.build();
+        clientCache = buildNonEvictableCache(cacheBuilder);
     }
 
     public BigQueryClient create(ConnectorSession session)

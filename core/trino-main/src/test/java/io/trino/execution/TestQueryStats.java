@@ -72,10 +72,8 @@ public class TestQueryStats
                     new Duration(122, NANOSECONDS),
                     succinctBytes(124L),
                     succinctBytes(125L),
-                    succinctBytes(126L),
                     succinctBytes(127L),
                     succinctBytes(128L),
-                    succinctBytes(129L),
                     succinctBytes(130L),
                     succinctBytes(131L),
                     Optional.empty(),
@@ -113,10 +111,8 @@ public class TestQueryStats
                     new Duration(222, NANOSECONDS),
                     succinctBytes(224L),
                     succinctBytes(225L),
-                    succinctBytes(226L),
                     succinctBytes(227L),
                     succinctBytes(228L),
-                    succinctBytes(229L),
                     succinctBytes(230L),
                     succinctBytes(231L),
                     Optional.empty(),
@@ -154,11 +150,9 @@ public class TestQueryStats
                     new Duration(322, NANOSECONDS),
                     succinctBytes(324L),
                     succinctBytes(325L),
-                    succinctBytes(326L),
                     succinctBytes(327L),
                     succinctBytes(328L),
                     succinctBytes(329L),
-                    succinctBytes(330L),
                     succinctBytes(331L),
                     Optional.empty(),
                     null));
@@ -189,13 +183,11 @@ public class TestQueryStats
             16,
 
             17.0,
-            11.0,
             DataSize.ofBytes(18),
             DataSize.ofBytes(19),
             DataSize.ofBytes(20),
             DataSize.ofBytes(21),
             DataSize.ofBytes(22),
-            DataSize.ofBytes(30),
             DataSize.ofBytes(23),
             DataSize.ofBytes(24),
             DataSize.ofBytes(25),
@@ -278,7 +270,6 @@ public class TestQueryStats
         assertEquals(actual.getCompletedDrivers(), 16);
 
         assertEquals(actual.getCumulativeUserMemory(), 17.0);
-        assertEquals(actual.getCumulativeSystemMemory(), 11.0);
         assertEquals(actual.getUserMemoryReservation(), DataSize.ofBytes(18));
         assertEquals(actual.getRevocableMemoryReservation(), DataSize.ofBytes(19));
         assertEquals(actual.getTotalMemoryReservation(), DataSize.ofBytes(20));

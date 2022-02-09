@@ -136,7 +136,7 @@ public class OrcFileWriter
     }
 
     @Override
-    public long getSystemMemoryUsage()
+    public long getMemoryUsage()
     {
         return INSTANCE_SIZE + orcWriter.getRetainedBytes();
     }

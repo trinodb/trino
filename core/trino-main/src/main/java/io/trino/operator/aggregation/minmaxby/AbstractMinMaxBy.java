@@ -28,12 +28,16 @@ import io.trino.operator.aggregation.AggregationMetadata.AccumulatorStateDescrip
 import io.trino.operator.aggregation.state.BlockPositionState;
 import io.trino.operator.aggregation.state.BlockPositionStateSerializer;
 import io.trino.operator.aggregation.state.NullableBooleanState;
+import io.trino.operator.aggregation.state.NullableBooleanStateSerializer;
 import io.trino.operator.aggregation.state.NullableDoubleState;
+import io.trino.operator.aggregation.state.NullableDoubleStateSerializer;
 import io.trino.operator.aggregation.state.NullableLongState;
+import io.trino.operator.aggregation.state.NullableLongStateSerializer;
 import io.trino.operator.aggregation.state.NullableState;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AccumulatorState;
+import io.trino.spi.function.AccumulatorStateSerializer;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 import io.trino.util.MinMaxCompare;
@@ -46,7 +50,6 @@ import static io.trino.metadata.FunctionKind.AGGREGATE;
 import static io.trino.metadata.Signature.orderableTypeParameter;
 import static io.trino.metadata.Signature.typeVariable;
 import static io.trino.operator.aggregation.state.StateCompiler.generateStateFactory;
-import static io.trino.operator.aggregation.state.StateCompiler.generateStateSerializer;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
@@ -126,14 +129,14 @@ public abstract class AbstractMinMaxBy
                     new BlockPositionStateSerializer(type),
                     generateStateFactory(BlockPositionState.class));
         }
-        return getAccumulatorStateDescriptor(stateClass);
+        return getAccumulatorStateDescriptor(stateClass, type);
     }
 
-    private static <T extends AccumulatorState> AccumulatorStateDescriptor<T> getAccumulatorStateDescriptor(Class<T> stateClass)
+    private static <T extends AccumulatorState> AccumulatorStateDescriptor<T> getAccumulatorStateDescriptor(Class<T> stateClass, Type type)
     {
         return new AccumulatorStateDescriptor<>(
                 stateClass,
-                generateStateSerializer(stateClass),
+                getStateSerializer(stateClass, type),
                 generateStateFactory(stateClass));
     }
 
@@ -289,6 +292,24 @@ public abstract class AbstractMinMaxBy
             return NullableBooleanState.class;
         }
         return BlockPositionState.class;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <T extends AccumulatorState> AccumulatorStateSerializer<T> getStateSerializer(Class<T> state, Type type)
+    {
+        if (NullableLongState.class.equals(state)) {
+            return (AccumulatorStateSerializer<T>) new NullableLongStateSerializer(type);
+        }
+        if (NullableDoubleState.class.equals(state)) {
+            return (AccumulatorStateSerializer<T>) new NullableDoubleStateSerializer(type);
+        }
+        if (NullableBooleanState.class.equals(state)) {
+            return (AccumulatorStateSerializer<T>) new NullableBooleanStateSerializer(type);
+        }
+        if (BlockPositionState.class.equals(state)) {
+            return (AccumulatorStateSerializer<T>) new BlockPositionStateSerializer(type);
+        }
+        throw new IllegalArgumentException("Unsupported state class: " + state);
     }
 
     private static MethodHandle getSetStateValue(Type type, Class<?> stateClass)

@@ -22,11 +22,12 @@ import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingSession;
 import io.trino.testing.datatype.CreateAndInsertDataSetup;
+import io.trino.testing.datatype.CreateAndTrinoInsertDataSetup;
 import io.trino.testing.datatype.CreateAsSelectDataSetup;
 import io.trino.testing.datatype.DataSetup;
 import io.trino.testing.datatype.SqlDataTypeTest;
+import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TrinoSqlExecutor;
-import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -37,6 +38,7 @@ import java.time.ZoneId;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static io.trino.plugin.clickhouse.ClickHouseQueryRunner.TPCH_SCHEMA;
 import static io.trino.plugin.clickhouse.ClickHouseQueryRunner.createClickHouseQueryRunner;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
@@ -45,9 +47,14 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.trino.testing.TestingSession.testSessionBuilder;
+import static io.trino.type.IpAddressType.IPADDRESS;
+import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
 
 public class TestClickHouseTypeMapping
@@ -98,20 +105,13 @@ public class TestClickHouseTypeMapping
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        clickhouseServer = new TestingClickHouseServer();
+        clickhouseServer = closeAfterClass(new TestingClickHouseServer());
         return createClickHouseQueryRunner(clickhouseServer, ImmutableMap.of(),
                 ImmutableMap.<String, String>builder()
                         .put("metadata.cache-ttl", "10m")
                         .put("metadata.cache-missing", "true")
-                        .put("allow-drop-table", "true")
-                        .build(),
+                        .buildOrThrow(),
                 ImmutableList.of());
-    }
-
-    @AfterClass(alwaysRun = true)
-    public final void destroy()
-    {
-        clickhouseServer.close();
     }
 
     @Test
@@ -236,6 +236,21 @@ public class TestClickHouseTypeMapping
                 .addRoundTrip("Nullable(char(10))", "'text_a'", VARBINARY, "to_utf8('text_a')")
                 .addRoundTrip("Nullable(char(1))", "'😂'", VARBINARY, "to_utf8('😂')")
                 .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_char"));
+
+        // Set map_string_as_varchar session property as true
+        SqlDataTypeTest.create()
+                // plain
+                .addRoundTrip("char(10)", "'text_a'", VARCHAR, "CAST('text_a' AS varchar)")
+                .addRoundTrip("char(255)", "'text_b'", VARCHAR, "CAST('text_b' AS varchar)")
+                .addRoundTrip("char(5)", "'攻殻機動隊'", VARCHAR, "CAST('攻殻機動隊' AS varchar)")
+                .addRoundTrip("char(32)", "'攻殻機動隊'", VARCHAR, "CAST('攻殻機動隊' AS varchar)")
+                .addRoundTrip("char(1)", "'😂'", VARCHAR, "CAST('😂' AS varchar)")
+                .addRoundTrip("char(77)", "'Ну, погоди!'", VARCHAR, "CAST('Ну, погоди!' AS varchar)")
+                // nullable
+                .addRoundTrip("Nullable(char(10))", "NULL", VARCHAR, "CAST(NULL AS varchar)")
+                .addRoundTrip("Nullable(char(10))", "'text_a'", VARCHAR, "CAST('text_a' AS varchar)")
+                .addRoundTrip("Nullable(char(1))", "'😂'", VARCHAR, "CAST('😂' AS varchar)")
+                .execute(getQueryRunner(), mapStringAsVarcharSession(), clickhouseCreateAndInsert("tpch.test_char"));
     }
 
     @Test
@@ -250,6 +265,17 @@ public class TestClickHouseTypeMapping
                 .addRoundTrip("Nullable(FixedString(10))", "'c12345678b'", VARBINARY, "to_utf8('c12345678b')")
                 .addRoundTrip("Nullable(FixedString(10))", "'c123'", VARBINARY, "to_utf8('c123\0\0\0\0\0\0')")
                 .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_fixed_string"));
+
+        // Set map_string_as_varchar session property as true
+        SqlDataTypeTest.create()
+                // plain
+                .addRoundTrip("FixedString(10)", "'c12345678b'", VARCHAR, "CAST('c12345678b' AS varchar)")
+                .addRoundTrip("FixedString(10)", "'c123'", VARCHAR, "CAST('c123\0\0\0\0\0\0' AS varchar)")
+                // nullable
+                .addRoundTrip("Nullable(FixedString(10))", "NULL", VARCHAR, "CAST(NULL AS varchar)")
+                .addRoundTrip("Nullable(FixedString(10))", "'c12345678b'", VARCHAR, "CAST('c12345678b' AS varchar)")
+                .addRoundTrip("Nullable(FixedString(10))", "'c123'", VARCHAR, "CAST('c123\0\0\0\0\0\0' AS varchar)")
+                .execute(getQueryRunner(), mapStringAsVarcharSession(), clickhouseCreateAndInsert("tpch.test_fixed_string"));
     }
 
     @Test
@@ -263,34 +289,65 @@ public class TestClickHouseTypeMapping
                 .addRoundTrip("char(32)", "'攻殻機動隊'", VARBINARY, "to_utf8('攻殻機動隊')")
                 .addRoundTrip("char(1)", "'😂'", VARBINARY, "to_utf8('😂')")
                 .addRoundTrip("char(77)", "'Ну, погоди!'", VARBINARY, "to_utf8('Ну, погоди!')")
-                .execute(getQueryRunner(), trinoCreateAsSelect("test_char"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_char"))
+                .execute(getQueryRunner(), trinoCreateAsSelect(mapStringAsVarcharSession(), "test_char"));
+
+        // Set map_string_as_varchar session property as true
+        SqlDataTypeTest.create()
+                .addRoundTrip("char(10)", "NULL", VARCHAR, "CAST(NULL AS varchar)")
+                .addRoundTrip("char(10)", "'text_a'", VARCHAR, "CAST('text_a' AS varchar)")
+                .addRoundTrip("char(255)", "'text_b'", VARCHAR, "CAST('text_b' AS varchar)")
+                .addRoundTrip("char(5)", "'攻殻機動隊'", VARCHAR, "CAST('攻殻機動隊' AS varchar)")
+                .addRoundTrip("char(32)", "'攻殻機動隊'", VARCHAR, "CAST('攻殻機動隊' AS varchar)")
+                .addRoundTrip("char(1)", "'😂'", VARCHAR, "CAST('😂' AS varchar)")
+                .addRoundTrip("char(77)", "'Ну, погоди!'", VARCHAR, "CAST('Ну, погоди!' AS varchar)")
+                .execute(getQueryRunner(), mapStringAsVarcharSession(), trinoCreateAsSelect("test_char"))
+                .execute(getQueryRunner(), mapStringAsVarcharSession(), trinoCreateAsSelect(mapStringAsVarcharSession(), "test_char"));
     }
 
     @Test
     public void testClickHouseVarchar()
     {
+        // TODO add more test cases
         // ClickHouse varchar is String, which is arbitrary bytes
         SqlDataTypeTest.create()
-                // TODO add more test cases
                 // plain
                 .addRoundTrip("varchar(30)", "'Piękna łąka w 東京都'", VARBINARY, "to_utf8('Piękna łąka w 東京都')")
                 // nullable
                 .addRoundTrip("Nullable(varchar(30))", "NULL", VARBINARY, "CAST(NULL AS varbinary)")
                 .addRoundTrip("Nullable(varchar(30))", "'Piękna łąka w 東京都'", VARBINARY, "to_utf8('Piękna łąka w 東京都')")
                 .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_varchar"));
+
+        // Set map_string_as_varchar session property as true
+        SqlDataTypeTest.create()
+                // plain
+                .addRoundTrip("varchar(30)", "'Piękna łąka w 東京都'", VARCHAR, "CAST('Piękna łąka w 東京都' AS varchar)")
+                // nullable
+                .addRoundTrip("Nullable(varchar(30))", "NULL", VARCHAR, "CAST(NULL AS varchar)")
+                .addRoundTrip("Nullable(varchar(30))", "'Piękna łąka w 東京都'", VARCHAR, "CAST('Piękna łąka w 東京都' AS varchar)")
+                .execute(getQueryRunner(), mapStringAsVarcharSession(), clickhouseCreateAndInsert("tpch.test_varchar"));
     }
 
     @Test
     public void testClickHouseString()
     {
+        // TODO add more test cases
         SqlDataTypeTest.create()
-                // TODO add more test cases
                 // plain
                 .addRoundTrip("String", "'Piękna łąka w 東京都'", VARBINARY, "to_utf8('Piękna łąka w 東京都')")
                 // nullable
                 .addRoundTrip("Nullable(String)", "NULL", VARBINARY, "CAST(NULL AS varbinary)")
                 .addRoundTrip("Nullable(String)", "'Piękna łąka w 東京都'", VARBINARY, "to_utf8('Piękna łąka w 東京都')")
                 .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_varchar"));
+
+        // Set map_string_as_varchar session property as true
+        SqlDataTypeTest.create()
+                // plain
+                .addRoundTrip("String", "'Piękna łąka w 東京都'", VARCHAR, "CAST('Piękna łąka w 東京都' AS varchar)")
+                // nullable
+                .addRoundTrip("Nullable(String)", "NULL", VARCHAR, "CAST(NULL AS varchar)")
+                .addRoundTrip("Nullable(String)", "'Piękna łąka w 東京都'", VARCHAR, "CAST('Piękna łąka w 東京都' AS varchar)")
+                .execute(getQueryRunner(), mapStringAsVarcharSession(), clickhouseCreateAndInsert("tpch.test_varchar"));
     }
 
     @Test
@@ -299,7 +356,15 @@ public class TestClickHouseTypeMapping
         SqlDataTypeTest.create()
                 .addRoundTrip("varchar(30)", "NULL", VARBINARY, "CAST(NULL AS varbinary)")
                 .addRoundTrip("varchar(30)", "'Piękna łąka w 東京都'", VARBINARY, "to_utf8('Piękna łąka w 東京都')")
-                .execute(getQueryRunner(), trinoCreateAsSelect("test_varchar"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_varchar"))
+                .execute(getQueryRunner(), trinoCreateAsSelect(mapStringAsVarcharSession(), "test_varchar"));
+
+        // Set map_string_as_varchar session property as true
+        SqlDataTypeTest.create()
+                .addRoundTrip("varchar(30)", "NULL", VARCHAR, "CAST(NULL AS varchar)")
+                .addRoundTrip("varchar(30)", "'Piękna łąka w 東京都'", VARCHAR, "CAST('Piękna łąka w 東京都' AS varchar)")
+                .execute(getQueryRunner(), mapStringAsVarcharSession(), trinoCreateAsSelect("test_varchar"))
+                .execute(getQueryRunner(), mapStringAsVarcharSession(), trinoCreateAsSelect(mapStringAsVarcharSession(), "test_varchar"));
     }
 
     @Test
@@ -323,15 +388,92 @@ public class TestClickHouseTypeMapping
                 .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
                 .build();
         SqlDataTypeTest.create()
-                .addRoundTrip("date", "DATE '1970-01-01'", DATE, "DATE '1970-01-01'")
+                .addRoundTrip("date", "DATE '1970-01-01'", DATE, "DATE '1970-01-01'") // min value in ClickHouse
                 .addRoundTrip("date", "DATE '1970-02-03'", DATE, "DATE '1970-02-03'")
                 .addRoundTrip("date", "DATE '2017-07-01'", DATE, "DATE '2017-07-01'") // summer on northern hemisphere (possible DST)
                 .addRoundTrip("date", "DATE '2017-01-01'", DATE, "DATE '2017-01-01'") // winter on northern hemisphere (possible DST on southern hemisphere)
                 .addRoundTrip("date", "DATE '1970-01-01'", DATE, "DATE '1970-01-01'")
                 .addRoundTrip("date", "DATE '1983-04-01'", DATE, "DATE '1983-04-01'")
                 .addRoundTrip("date", "DATE '1983-10-01'", DATE, "DATE '1983-10-01'")
+                .addRoundTrip("date", "DATE '2106-02-07'", DATE, "DATE '2106-02-07'") // max value in ClickHouse
                 .execute(getQueryRunner(), session, clickhouseCreateAndInsert("tpch.test_date"))
                 .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_date"));
+
+        // Null
+        SqlDataTypeTest.create()
+                .addRoundTrip("date", "NULL", DATE, "CAST(NULL AS DATE)")
+                .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_date"));
+        SqlDataTypeTest.create()
+                .addRoundTrip("Nullable(date)", "NULL", DATE, "CAST(NULL AS DATE)")
+                .execute(getQueryRunner(), session, clickhouseCreateAndInsert("tpch.test_date"));
+    }
+
+    @Test
+    public void testUnsupportedDate()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_unsupported_date", "(dt date)")) {
+            assertQueryFails(
+                    format("INSERT INTO %s VALUES (DATE '1969-12-31')", table.getName()),
+                    "Date must be between 1970-01-01 and 2106-02-07 in ClickHouse: 1969-12-31");
+            assertQueryFails(
+                    format("INSERT INTO %s VALUES (DATE '2106-02-08')", table.getName()),
+                    "Date must be between 1970-01-01 and 2106-02-07 in ClickHouse: 2106-02-08");
+        }
+    }
+
+    @Test(dataProvider = "sessionZonesDataProvider")
+    public void testTimestamp(ZoneId sessionZone)
+    {
+        Session session = Session.builder(getSession())
+                .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
+                .build();
+
+        SqlDataTypeTest.create()
+                .addRoundTrip("timestamp(0)", "timestamp '1970-01-01 00:00:00'", createTimestampType(0), "TIMESTAMP '1970-01-01 00:00:00'") // min value in ClickHouse
+                .addRoundTrip("timestamp(0)", "timestamp '1986-01-01 00:13:07'", createTimestampType(0), "TIMESTAMP '1986-01-01 00:13:07'") // time gap in Kathmandu
+                .addRoundTrip("timestamp(0)", "timestamp '2018-03-25 03:17:17'", createTimestampType(0), "TIMESTAMP '2018-03-25 03:17:17'") // time gap in Vilnius
+                .addRoundTrip("timestamp(0)", "timestamp '2018-10-28 01:33:17'", createTimestampType(0), "TIMESTAMP '2018-10-28 01:33:17'") // time doubled in JVM zone
+                .addRoundTrip("timestamp(0)", "timestamp '2018-10-28 03:33:33'", createTimestampType(0), "TIMESTAMP '2018-10-28 03:33:33'") // time double in Vilnius
+                .addRoundTrip("timestamp(0)", "timestamp '2105-12-31 23:59:59'", createTimestampType(0), "TIMESTAMP '2105-12-31 23:59:59'") // max value in ClickHouse
+                .execute(getQueryRunner(), session, trinoCreateAsSelect("tpch.test_timestamp"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert("tpch.test_timestamp"));
+
+        addTimestampRoundTrips("timestamp")
+                .execute(getQueryRunner(), session, clickhouseCreateAndInsert("tpch.test_timestamp"));
+        addTimestampRoundTrips("datetime")
+                .execute(getQueryRunner(), session, clickhouseCreateAndInsert("tpch.test_datetime"));
+    }
+
+    private SqlDataTypeTest addTimestampRoundTrips(String inputType)
+    {
+        return SqlDataTypeTest.create()
+                .addRoundTrip(inputType, "'1969-12-31 23:59:59'", createTimestampType(0), "TIMESTAMP '1970-01-01 23:59:59'") // unsupported timestamp become 1970-01-01 23:59:59
+                .addRoundTrip(inputType, "'1970-01-01 00:00:00'", createTimestampType(0), "TIMESTAMP '1970-01-01 00:00:00'") // min value in ClickHouse
+                .addRoundTrip(inputType, "'1986-01-01 00:13:07'", createTimestampType(0), "TIMESTAMP '1986-01-01 00:13:07'") // time gap in Kathmandu
+                .addRoundTrip(inputType, "'2018-03-25 03:17:17'", createTimestampType(0), "TIMESTAMP '2018-03-25 03:17:17'") // time gap in Vilnius
+                .addRoundTrip(inputType, "'2018-10-28 01:33:17'", createTimestampType(0), "TIMESTAMP '2018-10-28 01:33:17'") // time doubled in JVM zone
+                .addRoundTrip(inputType, "'2018-10-28 03:33:33'", createTimestampType(0), "TIMESTAMP '2018-10-28 03:33:33'") // time double in Vilnius
+                .addRoundTrip(inputType, "'2105-12-31 23:59:59'", createTimestampType(0), "TIMESTAMP '2105-12-31 23:59:59'") // max value in ClickHouse
+                .addRoundTrip(format("Nullable(%s)", inputType), "NULL", createTimestampType(0), "CAST(NULL AS TIMESTAMP(0))");
+    }
+
+    @Test
+    public void testUnsupportedTimestamp()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_unsupported_timestamp", "(dt timestamp(0))")) {
+            assertQueryFails(
+                    format("INSERT INTO %s VALUES (TIMESTAMP '-9999-12-31 23:59:59')", table.getName()),
+                    "Timestamp must be between 1970-01-01 00:00:00 and 2105-12-31 23:59:59 in ClickHouse: -9999-12-31 23:59:59");
+            assertQueryFails(
+                    format("INSERT INTO %s VALUES (TIMESTAMP '1969-12-31 23:59:59')", table.getName()),
+                    "Timestamp must be between 1970-01-01 00:00:00 and 2105-12-31 23:59:59 in ClickHouse: 1969-12-31 23:59:59");
+            assertQueryFails(
+                    format("INSERT INTO %s VALUES (TIMESTAMP '2106-01-01 00:00:00')", table.getName()),
+                    "Timestamp must be between 1970-01-01 00:00:00 and 2105-12-31 23:59:59 in ClickHouse: 2106-01-01 00:00:00");
+            assertQueryFails(
+                    format("INSERT INTO %s VALUES (TIMESTAMP '9999-12-31 23:59:59')", table.getName()),
+                    "Timestamp must be between 1970-01-01 00:00:00 and 2105-12-31 23:59:59 in ClickHouse: 9999-12-31 23:59:59");
+        }
     }
 
     @DataProvider
@@ -375,13 +517,35 @@ public class TestClickHouseTypeMapping
     public void testIp()
     {
         SqlDataTypeTest.create()
-                // TODO map to Trino IPADDRESS
-                .addRoundTrip("IPv4", "'116.253.40.133'", createUnboundedVarcharType(), "VARCHAR '116.253.40.133'")
-                // TODO map to Trino IPADDRESS
-                .addRoundTrip("IPv6", "'2001:44c8:129:2632:33:0:252:2'", createUnboundedVarcharType(), "VARCHAR '2001:44c8:129:2632:33:0:252:2'")
+                .addRoundTrip("IPv4", "'0.0.0.0'", IPADDRESS, "IPADDRESS '0.0.0.0'")
+                .addRoundTrip("IPv4", "'116.253.40.133'", IPADDRESS, "IPADDRESS '116.253.40.133'")
+                .addRoundTrip("IPv4", "'255.255.255.255'", IPADDRESS, "IPADDRESS '255.255.255.255'")
+                .addRoundTrip("IPv6", "'::'", IPADDRESS, "IPADDRESS '::'")
+                .addRoundTrip("IPv6", "'2001:44c8:129:2632:33:0:252:2'", IPADDRESS, "IPADDRESS '2001:44c8:129:2632:33:0:252:2'")
+                .addRoundTrip("IPv6", "'ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff'", IPADDRESS, "IPADDRESS 'ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff'")
+                .addRoundTrip("Nullable(IPv4)", "NULL", IPADDRESS, "CAST(NULL AS IPADDRESS)")
+                .addRoundTrip("Nullable(IPv6)", "NULL", IPADDRESS, "CAST(NULL AS IPADDRESS)")
                 .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_ip"));
 
-        // TODO add test with IPADDRESS written from Trino
+        SqlDataTypeTest.create()
+                .addRoundTrip("IPv4", "IPADDRESS '0.0.0.0'", IPADDRESS, "IPADDRESS '0.0.0.0'")
+                .addRoundTrip("IPv4", "IPADDRESS '116.253.40.133'", IPADDRESS, "IPADDRESS '116.253.40.133'")
+                .addRoundTrip("IPv4", "IPADDRESS '255.255.255.255'", IPADDRESS, "IPADDRESS '255.255.255.255'")
+                .addRoundTrip("IPv6", "IPADDRESS '::'", IPADDRESS, "IPADDRESS '::'")
+                .addRoundTrip("IPv6", "IPADDRESS '2001:44c8:129:2632:33:0:252:2'", IPADDRESS, "IPADDRESS '2001:44c8:129:2632:33:0:252:2'")
+                .addRoundTrip("IPv6", "IPADDRESS 'ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff'", IPADDRESS, "IPADDRESS 'ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff'")
+                .addRoundTrip("Nullable(IPv4)", "NULL", IPADDRESS, "CAST(NULL AS IPADDRESS)")
+                .addRoundTrip("Nullable(IPv6)", "NULL", IPADDRESS, "CAST(NULL AS IPADDRESS)")
+                .execute(getQueryRunner(), clickhouseCreateTrinoInsert("tpch.test_ip"));
+    }
+
+    private static Session mapStringAsVarcharSession()
+    {
+        return testSessionBuilder()
+                .setCatalog("clickhouse")
+                .setSchema(TPCH_SCHEMA)
+                .setCatalogSessionProperty("clickhouse", "map_string_as_varchar", "true")
+                .build();
     }
 
     private DataSetup trinoCreateAsSelect(String tableNamePrefix)
@@ -407,5 +571,10 @@ public class TestClickHouseTypeMapping
     private DataSetup clickhouseCreateAndInsert(String tableNamePrefix)
     {
         return new CreateAndInsertDataSetup(new ClickHouseSqlExecutor(clickhouseServer::execute), tableNamePrefix);
+    }
+
+    private DataSetup clickhouseCreateTrinoInsert(String tableNamePrefix)
+    {
+        return new CreateAndTrinoInsertDataSetup(new ClickHouseSqlExecutor(clickhouseServer::execute), new TrinoSqlExecutor(getQueryRunner()), tableNamePrefix);
     }
 }

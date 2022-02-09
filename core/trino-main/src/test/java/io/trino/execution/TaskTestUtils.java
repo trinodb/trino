@@ -21,12 +21,14 @@ import io.trino.cost.StatsAndCosts;
 import io.trino.event.SplitMonitor;
 import io.trino.eventlistener.EventListenerConfig;
 import io.trino.eventlistener.EventListenerManager;
-import io.trino.execution.TestSqlTaskManager.MockExchangeClientSupplier;
+import io.trino.exchange.ExchangeManagerRegistry;
+import io.trino.execution.TestSqlTaskManager.MockDirectExchangeClientSupplier;
 import io.trino.execution.buffer.OutputBuffers;
 import io.trino.execution.scheduler.NodeScheduler;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
 import io.trino.execution.scheduler.UniformNodeSelectorFactory;
 import io.trino.index.IndexManager;
+import io.trino.metadata.ExchangeHandleResolver;
 import io.trino.metadata.InMemoryNodeManager;
 import io.trino.metadata.Split;
 import io.trino.operator.PagesIndex;
@@ -77,7 +79,7 @@ public final class TaskTestUtils
 
     public static final ScheduledSplit SPLIT = new ScheduledSplit(0, TABLE_SCAN_NODE_ID, new Split(CONNECTOR_ID, TestingSplit.createLocalSplit(), Lifespan.taskWide()));
 
-    public static final ImmutableList<TaskSource> EMPTY_SOURCES = ImmutableList.of();
+    public static final ImmutableList<SplitAssignment> EMPTY_SPLIT_ASSIGNMENTS = ImmutableList.of();
 
     public static final Symbol SYMBOL = new Symbol("column");
 
@@ -123,7 +125,7 @@ public final class TaskTestUtils
                 new IndexManager(),
                 nodePartitioningManager,
                 new PageSinkManager(),
-                new MockExchangeClientSupplier(),
+                new MockDirectExchangeClientSupplier(),
                 new ExpressionCompiler(PLANNER_CONTEXT.getMetadata(), pageFunctionCompiler),
                 pageFunctionCompiler,
                 new JoinFilterFunctionCompiler(PLANNER_CONTEXT.getMetadata()),
@@ -144,12 +146,13 @@ public final class TaskTestUtils
                 new OrderingCompiler(PLANNER_CONTEXT.getTypeOperators()),
                 new DynamicFilterConfig(),
                 blockTypeOperators,
-                new TableExecuteContextManager());
+                new TableExecuteContextManager(),
+                new ExchangeManagerRegistry(new ExchangeHandleResolver()));
     }
 
-    public static TaskInfo updateTask(SqlTask sqlTask, List<TaskSource> taskSources, OutputBuffers outputBuffers)
+    public static TaskInfo updateTask(SqlTask sqlTask, List<SplitAssignment> splitAssignments, OutputBuffers outputBuffers)
     {
-        return sqlTask.updateTask(TEST_SESSION, Optional.of(PLAN_FRAGMENT), taskSources, outputBuffers, ImmutableMap.of());
+        return sqlTask.updateTask(TEST_SESSION, Optional.of(PLAN_FRAGMENT), splitAssignments, outputBuffers, ImmutableMap.of());
     }
 
     public static SplitMonitor createTestSplitMonitor()

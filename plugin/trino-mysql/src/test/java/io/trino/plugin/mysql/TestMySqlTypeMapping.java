@@ -71,7 +71,7 @@ import static java.util.Arrays.asList;
 public class TestMySqlTypeMapping
         extends AbstractTestQueryFramework
 {
-    private TestingMySqlServer mysqlServer;
+    private TestingMySqlServer mySqlServer;
 
     private final ZoneId jvmZone = ZoneId.systemDefault();
     // no DST in 1970, but has DST in later years (e.g. 2018)
@@ -94,8 +94,8 @@ public class TestMySqlTypeMapping
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        mysqlServer = closeAfterClass(new TestingMySqlServer());
-        return createMySqlQueryRunner(mysqlServer, ImmutableMap.of(), ImmutableMap.of(), ImmutableList.of());
+        mySqlServer = closeAfterClass(new TestingMySqlServer());
+        return createMySqlQueryRunner(mySqlServer, ImmutableMap.of(), ImmutableMap.of(), ImmutableList.of());
     }
 
     @Test
@@ -240,7 +240,7 @@ public class TestMySqlTypeMapping
     public void testDecimalExceedingPrecisionMaxWithExceedingIntegerValues()
     {
         try (TestTable testTable = new TestTable(
-                mysqlServer::execute,
+                mySqlServer::execute,
                 "tpch.test_exceeding_max_decimal",
                 "(d_col decimal(65,25))",
                 asList("1234567890123456789012345678901234567890.123456789", "-1234567890123456789012345678901234567890.123456789"))) {
@@ -271,7 +271,7 @@ public class TestMySqlTypeMapping
     public void testDecimalExceedingPrecisionMaxWithNonExceedingIntegerValues()
     {
         try (TestTable testTable = new TestTable(
-                mysqlServer::execute,
+                mySqlServer::execute,
                 "tpch.test_exceeding_max_decimal",
                 "(d_col decimal(60,20))",
                 asList("123456789012345678901234567890.123456789012345", "-123456789012345678901234567890.123456789012345"))) {
@@ -326,7 +326,7 @@ public class TestMySqlTypeMapping
     public void testDecimalExceedingPrecisionMaxWithSupportedValues(int typePrecision, int typeScale)
     {
         try (TestTable testTable = new TestTable(
-                mysqlServer::execute,
+                mySqlServer::execute,
                 "tpch.test_exceeding_max_decimal",
                 format("(d_col decimal(%d,%d))", typePrecision, typeScale),
                 asList("12.01", "-12.01", "123", "-123", "1.12345678", "-1.12345678"))) {
@@ -900,7 +900,7 @@ public class TestMySqlTypeMapping
 
     private void testUnsupportedDataType(String databaseDataType)
     {
-        SqlExecutor jdbcSqlExecutor = mysqlServer::execute;
+        SqlExecutor jdbcSqlExecutor = mySqlServer::execute;
         jdbcSqlExecutor.execute(format("CREATE TABLE tpch.test_unsupported_data_type(supported_column varchar(5), unsupported_column %s)", databaseDataType));
         try {
             assertQuery(
@@ -929,6 +929,6 @@ public class TestMySqlTypeMapping
 
     private DataSetup mysqlCreateAndInsert(String tableNamePrefix)
     {
-        return new CreateAndInsertDataSetup(mysqlServer::execute, tableNamePrefix);
+        return new CreateAndInsertDataSetup(mySqlServer::execute, tableNamePrefix);
     }
 }

@@ -36,7 +36,7 @@ public class TestAlluxioHiveMetastoreConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("hive.metastore.alluxio.master.address", "localhost:19998")
-                .build();
+                .buildOrThrow();
 
         AlluxioHiveMetastoreConfig expected = new AlluxioHiveMetastoreConfig()
                 .setMasterAddress("localhost:19998");

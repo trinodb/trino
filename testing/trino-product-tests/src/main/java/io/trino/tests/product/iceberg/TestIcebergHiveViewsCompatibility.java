@@ -21,6 +21,7 @@ import org.testng.annotations.Test;
 import java.util.List;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
+import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tests.product.TestGroups.HMS_ONLY;
 import static io.trino.tests.product.TestGroups.ICEBERG;
@@ -29,6 +30,11 @@ import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+/**
+ * Tests interactions between Iceberg and Hive connectors, when one tries to read a view created by the other.
+ *
+ * @see TestIcebergHiveTablesCompatibility
+ */
 public class TestIcebergHiveViewsCompatibility
         extends ProductTest
 {
@@ -53,8 +59,8 @@ public class TestIcebergHiveViewsCompatibility
             onTrino().executeQuery("CREATE VIEW hive.default.hive_view_qualified_hive AS SELECT * FROM hive.default.hive_table");
             onTrino().executeQuery("CREATE VIEW hive.default.hive_view_unqualified_hive AS SELECT * FROM hive_table");
             onTrino().executeQuery("CREATE VIEW hive.default.hive_view_qualified_iceberg AS SELECT * FROM iceberg.default.iceberg_table");
-            // this should probably fail but it does not now; testing current behavior as a documentation
-            onTrino().executeQuery("CREATE VIEW hive.default.hive_view_unqualified_iceberg AS SELECT * FROM iceberg_table");
+            assertQueryFailure(() -> onTrino().executeQuery("CREATE VIEW hive.default.hive_view_unqualified_iceberg AS SELECT * FROM iceberg_table"))
+                    .hasMessageMatching("Query failed \\(#\\w+\\):\\Q Cannot query Iceberg table 'default.iceberg_table'");
 
             onTrino().executeQuery("USE iceberg.default"); // for sake of unqualified table references
             onTrino().executeQuery("CREATE VIEW iceberg.default.iceberg_view_qualified_hive AS SELECT * FROM hive.default.hive_table");
@@ -75,7 +81,6 @@ public class TestIcebergHiveViewsCompatibility
                             .add(row("hive_view_qualified_hive"))
                             .add(row("hive_view_unqualified_hive"))
                             .add(row("hive_view_qualified_iceberg"))
-                            .add(row("hive_view_unqualified_iceberg"))
                             .add(row("iceberg_view_qualified_hive"))
                             .add(row("iceberg_view_qualified_iceberg"))
                             .add(row("iceberg_view_unqualified_iceberg"))
@@ -88,7 +93,6 @@ public class TestIcebergHiveViewsCompatibility
                             .add(row("hive_view_qualified_hive"))
                             .add(row("hive_view_unqualified_hive"))
                             .add(row("hive_view_qualified_iceberg"))
-                            .add(row("hive_view_unqualified_iceberg"))
                             .add(row("iceberg_view_qualified_hive"))
                             .add(row("iceberg_view_qualified_iceberg"))
                             .add(row("iceberg_view_unqualified_iceberg"))
@@ -98,10 +102,6 @@ public class TestIcebergHiveViewsCompatibility
             assertThat(onTrino().executeQuery("SELECT * FROM hive.default.hive_view_qualified_hive")).containsOnly(row(1));
             assertThat(onTrino().executeQuery("SELECT * FROM hive.default.hive_view_unqualified_hive")).containsOnly(row(1));
             assertThat(onTrino().executeQuery("SELECT * FROM hive.default.hive_view_qualified_iceberg")).containsOnly(row(2));
-            assertThatThrownBy(() -> onTrino().executeQuery("SELECT * FROM hive.default.hive_view_unqualified_iceberg"))
-                    // hive connector tries to read from iceberg table
-                    // TODO: make query fail with nicer message
-                    .hasMessageContaining("Unable to create input format org.apache.hadoop.mapred.FileInputFormat");
             assertThat(onTrino().executeQuery("SELECT * FROM hive.default.iceberg_view_qualified_hive")).containsOnly(row(1));
             assertThat(onTrino().executeQuery("SELECT * FROM hive.default.iceberg_view_qualified_iceberg")).containsOnly(row(2));
             assertThat(onTrino().executeQuery("SELECT * FROM hive.default.iceberg_view_unqualified_iceberg")).containsOnly(row(2));
@@ -110,10 +110,6 @@ public class TestIcebergHiveViewsCompatibility
             assertThat(onTrino().executeQuery("SELECT * FROM iceberg.default.hive_view_qualified_hive")).containsOnly(row(1));
             assertThat(onTrino().executeQuery("SELECT * FROM iceberg.default.hive_view_unqualified_hive")).containsOnly(row(1));
             assertThat(onTrino().executeQuery("SELECT * FROM iceberg.default.hive_view_qualified_iceberg")).containsOnly(row(2));
-            assertThatThrownBy(() -> onTrino().executeQuery("SELECT * FROM iceberg.default.hive_view_unqualified_iceberg"))
-                    // hive connector tries to read from iceberg table
-                    // TODO: make query fail with nicer message
-                    .hasMessageContaining("Unable to create input format org.apache.hadoop.mapred.FileInputFormat");
             assertThat(onTrino().executeQuery("SELECT * FROM iceberg.default.iceberg_view_qualified_hive")).containsOnly(row(1));
             assertThat(onTrino().executeQuery("SELECT * FROM iceberg.default.iceberg_view_qualified_iceberg")).containsOnly(row(2));
             assertThat(onTrino().executeQuery("SELECT * FROM iceberg.default.iceberg_view_unqualified_iceberg")).containsOnly(row(2));

@@ -33,6 +33,7 @@ import io.trino.server.protocol.Slug;
 import io.trino.spi.TrinoException;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.sql.tree.Statement;
+import io.trino.transaction.TransactionId;
 import io.trino.transaction.TransactionManager;
 
 import javax.inject.Inject;
@@ -93,6 +94,7 @@ public class LocalDispatchQueryFactory
     @Override
     public DispatchQuery createDispatchQuery(
             Session session,
+            Optional<TransactionId> existingTransactionId,
             String query,
             PreparedQuery preparedQuery,
             Slug slug,
@@ -100,6 +102,7 @@ public class LocalDispatchQueryFactory
     {
         WarningCollector warningCollector = warningCollectorFactory.create();
         QueryStateMachine stateMachine = QueryStateMachine.begin(
+                existingTransactionId,
                 query,
                 preparedQuery.getPrepareSql(),
                 session,

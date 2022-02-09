@@ -179,7 +179,7 @@ public final class HiveType
                 //   3. The Parquet format doesn't support uniontypes itself so there's no need to add support for it in Trino.
                 //   4. TODO: RCFile tables are not supported yet.
                 //   5. TODO: The support for Avro is done in SerDeUtils so it's possible that formats other than Avro are also supported. But verification is needed.
-                if (storageFormat.getSerDe().equalsIgnoreCase(AVRO.getSerDe()) || storageFormat.getSerDe().equalsIgnoreCase(ORC.getSerDe())) {
+                if (storageFormat.getSerde().equalsIgnoreCase(AVRO.getSerde()) || storageFormat.getSerde().equalsIgnoreCase(ORC.getSerde())) {
                     UnionTypeInfo unionTypeInfo = (UnionTypeInfo) typeInfo;
                     return unionTypeInfo.getAllUnionObjectTypeInfos().stream()
                             .allMatch(fieldTypeInfo -> isSupportedType(fieldTypeInfo, storageFormat));

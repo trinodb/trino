@@ -17,7 +17,6 @@ import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
-import io.trino.spi.connector.ConnectorHandleResolver;
 
 import java.util.Map;
 
@@ -32,12 +31,6 @@ public class BlackHoleConnectorFactory
     public String getName()
     {
         return "blackhole";
-    }
-
-    @Override
-    public ConnectorHandleResolver getHandleResolver()
-    {
-        return new BlackHoleHandleResolver();
     }
 
     @Override

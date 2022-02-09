@@ -28,9 +28,12 @@ import org.testng.annotations.Test;
 
 import java.util.Collection;
 import java.util.Iterator;
+import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import static io.trino.spi.type.TestingIdType.ID;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -364,5 +367,18 @@ public class TestEquatableValueSet
 
         set = EquatableValueSet.of(ID, 1L, 2L).complement();
         assertEquals(set, mapper.readValue(mapper.writeValueAsString(set), EquatableValueSet.class));
+    }
+
+    @Test
+    public void testExpandRanges()
+    {
+        assertThat(ValueSet.all(ID).tryExpandRanges(10)).isEqualTo(Optional.empty());
+        assertThat(ValueSet.none(ID).tryExpandRanges(10)).isEqualTo(Optional.of(List.of()));
+        assertThat(ValueSet.none(ID).tryExpandRanges(1)).isEqualTo(Optional.of(List.of()));
+        assertThat(ValueSet.none(ID).tryExpandRanges(0)).isEqualTo(Optional.of(List.of()));
+        assertThat(ValueSet.of(ID, 1L, 2L).tryExpandRanges(3)).isEqualTo(Optional.of(List.of(1L, 2L)));
+        assertThat(ValueSet.of(ID, 1L, 2L).tryExpandRanges(2)).isEqualTo(Optional.of(List.of(1L, 2L)));
+        assertThat(ValueSet.of(ID, 1L, 2L).tryExpandRanges(1)).isEqualTo(Optional.empty());
+        assertThat(ValueSet.of(ID, 1L, 2L).tryExpandRanges(0)).isEqualTo(Optional.empty());
     }
 }

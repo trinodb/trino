@@ -110,7 +110,7 @@ public class TestHiveS3Config
                 .put("hive.s3.requester-pays.enabled", "true")
                 .put("hive.s3.streaming.enabled", "false")
                 .put("hive.s3.streaming.part-size", "15MB")
-                .build();
+                .buildOrThrow();
 
         HiveS3Config expected = new HiveS3Config()
                 .setS3AwsAccessKey("abc123")

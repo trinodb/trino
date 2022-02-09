@@ -73,7 +73,7 @@ public class TestRaptorIntegrationSmokeTestMySql
                 .put("storage.max-shard-rows", "2000")
                 .put("backup.provider", "file")
                 .put("backup.directory", new File(baseDir, "backup").getAbsolutePath())
-                .build();
+                .buildOrThrow();
 
         queryRunner.createCatalog("raptor", "raptor-legacy", raptorProperties);
 

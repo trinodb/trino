@@ -20,6 +20,7 @@ import io.trino.execution.StateMachine.StateChangeListener;
 import io.trino.execution.buffer.OutputBuffers.OutputBufferId;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface OutputBuffer
 {
@@ -30,10 +31,9 @@ public interface OutputBuffer
     OutputBufferInfo getInfo();
 
     /**
-     * A buffer is finished once no-more-pages has been set and all buffers have been closed
-     * with an abort call.
+     * Get buffer state
      */
-    boolean isFinished();
+    BufferState getState();
 
     /**
      * Get the memory utilization percentage.
@@ -73,9 +73,9 @@ public interface OutputBuffer
     void acknowledge(OutputBufferId bufferId, long token);
 
     /**
-     * Closes the specified output buffer.
+     * Destroys the specified output buffer, discarding all pages.
      */
-    void abort(OutputBufferId bufferId);
+    void destroy(OutputBufferId bufferId);
 
     /**
      * Get a future that will be completed when the buffer is not full.
@@ -106,13 +106,18 @@ public interface OutputBuffer
     void destroy();
 
     /**
-     * Fail the buffer, discarding all pages, but blocking readers.  It is expected that
+     * Abort the buffer, discarding all pages, but blocking readers.  It is expected that
      * readers will be unblocked when the failed query is cleaned up.
      */
-    void fail();
+    void abort();
 
     /**
      * @return the peak memory usage of this output buffer.
      */
     long getPeakMemoryUsage();
+
+    /**
+     * Returns non empty failure cause if the buffer is in state {@link BufferState#FAILED}
+     */
+    Optional<Throwable> getFailureCause();
 }

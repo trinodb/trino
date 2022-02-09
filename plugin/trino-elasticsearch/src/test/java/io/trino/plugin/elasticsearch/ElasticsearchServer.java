@@ -23,10 +23,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
 
-import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.nio.file.Files.createTempDirectory;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
 public class ElasticsearchServer
@@ -48,7 +48,7 @@ public class ElasticsearchServer
         container.withNetwork(network);
         container.withNetworkAliases("elasticsearch-server");
 
-        configurationPath = createTempDir().toPath();
+        configurationPath = createTempDirectory(null);
         for (Map.Entry<String, String> entry : configurationFiles.entrySet()) {
             String name = entry.getKey();
             String contents = entry.getValue();

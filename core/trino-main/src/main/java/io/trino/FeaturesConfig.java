@@ -44,6 +44,7 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 @DefunctConfig({
         "analyzer.experimental-syntax-enabled",
         "arrayagg.implementation",
+        "deprecated.disable-set-properties-security-check-for-create-ddl",
         "deprecated.group-by-uses-equal",
         "deprecated.legacy-char-to-varchar-coercion",
         "deprecated.legacy-join-using",
@@ -60,6 +61,10 @@ import static java.util.concurrent.TimeUnit.MINUTES;
         "optimizer.iterative-rule-based-column-pruning",
         "optimizer.processing-optimization",
         "resource-group-manager",
+        "spill-order-by",
+        "experimental.spill-order-by",
+        "spill-window-operator",
+        "experimental.spill-window-operator",
 })
 public class FeaturesConfig
 {
@@ -105,8 +110,6 @@ public class FeaturesConfig
     private int re2JDfaRetries = 5;
     private RegexLibrary regexLibrary = JONI;
     private boolean spillEnabled;
-    private boolean spillOrderBy = true;
-    private boolean spillWindowOperator = true;
     private DataSize aggregationOperatorUnspillMemoryLimit = DataSize.of(4, DataSize.Unit.MEGABYTE);
     private List<Path> spillerSpillPaths = ImmutableList.of();
     private int spillerThreads = 4;
@@ -142,11 +145,10 @@ public class FeaturesConfig
     private int maxGroupingSets = 2048;
 
     private boolean legacyCatalogRoles;
-    private boolean disableSetPropertiesSecurityCheckForCreateDdl;
     private boolean incrementalHashArrayLoadFactorEnabled = true;
     private boolean allowSetViewAuthorization;
 
-    private boolean hideInaccesibleColumns;
+    private boolean hideInaccessibleColumns;
 
     public enum JoinReorderingStrategy
     {
@@ -570,32 +572,6 @@ public class FeaturesConfig
     public FeaturesConfig setSpillEnabled(boolean spillEnabled)
     {
         this.spillEnabled = spillEnabled;
-        return this;
-    }
-
-    public boolean isSpillOrderBy()
-    {
-        return spillOrderBy;
-    }
-
-    @Config("spill-order-by")
-    @LegacyConfig("experimental.spill-order-by")
-    public FeaturesConfig setSpillOrderBy(boolean spillOrderBy)
-    {
-        this.spillOrderBy = spillOrderBy;
-        return this;
-    }
-
-    public boolean isSpillWindowOperator()
-    {
-        return spillWindowOperator;
-    }
-
-    @Config("spill-window-operator")
-    @LegacyConfig("experimental.spill-window-operator")
-    public FeaturesConfig setSpillWindowOperator(boolean spillWindowOperator)
-    {
-        this.spillWindowOperator = spillWindowOperator;
         return this;
     }
 
@@ -1085,18 +1061,6 @@ public class FeaturesConfig
         return this;
     }
 
-    public boolean isDisableSetPropertiesSecurityCheckForCreateDdl()
-    {
-        return disableSetPropertiesSecurityCheckForCreateDdl;
-    }
-
-    @Config("deprecated.disable-set-properties-security-check-for-create-ddl")
-    public FeaturesConfig setDisableSetPropertiesSecurityCheckForCreateDdl(boolean disableSetPropertiesSecurityCheckForCreateDdl)
-    {
-        this.disableSetPropertiesSecurityCheckForCreateDdl = disableSetPropertiesSecurityCheckForCreateDdl;
-        return this;
-    }
-
     @Deprecated
     public boolean isIncrementalHashArrayLoadFactorEnabled()
     {
@@ -1112,16 +1076,16 @@ public class FeaturesConfig
         return this;
     }
 
-    public boolean isHideInaccesibleColumns()
+    public boolean isHideInaccessibleColumns()
     {
-        return hideInaccesibleColumns;
+        return hideInaccessibleColumns;
     }
 
     @Config("hide-inaccessible-columns")
     @ConfigDescription("When enabled non-accessible columns are silently filtered from results from SELECT * statements")
-    public FeaturesConfig setHideInaccesibleColumns(boolean hideInaccesibleColumns)
+    public FeaturesConfig setHideInaccessibleColumns(boolean hideInaccessibleColumns)
     {
-        this.hideInaccesibleColumns = hideInaccesibleColumns;
+        this.hideInaccessibleColumns = hideInaccessibleColumns;
         return this;
     }
 

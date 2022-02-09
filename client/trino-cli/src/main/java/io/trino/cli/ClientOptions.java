@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
 import io.airlift.units.Duration;
 import io.trino.client.ClientSession;
+import io.trino.client.auth.external.ExternalRedirectStrategy;
 import okhttp3.logging.HttpLoggingInterceptor;
 
 import java.net.URI;
@@ -104,6 +105,9 @@ public class ClientOptions
 
     @Option(names = "--external-authentication", paramLabel = "<externalAuthentication>", description = "Enable external authentication")
     public boolean externalAuthentication;
+
+    @Option(names = "--external-authentication-redirect-handler", paramLabel = "<externalAuthenticationRedirectHandler>", description = "External authentication redirect handlers: ${COMPLETION-CANDIDATES} " + DEFAULT_VALUE, defaultValue = "ALL")
+    public List<ExternalRedirectStrategy> externalAuthenticationRedirectHandler = new ArrayList<>();
 
     @Option(names = "--source", paramLabel = "<source>", defaultValue = "trino-cli", description = "Name of source making query " + DEFAULT_VALUE)
     public String source;
@@ -244,7 +248,7 @@ public class ClientOptions
             }
             builder.put(name, sessionProperty.getValue());
         }
-        return builder.build();
+        return builder.buildOrThrow();
     }
 
     public static Map<String, String> toResourceEstimates(List<ClientResourceEstimate> estimates)
@@ -253,7 +257,7 @@ public class ClientOptions
         for (ClientResourceEstimate estimate : estimates) {
             builder.put(estimate.getResource(), estimate.getEstimate());
         }
-        return builder.build();
+        return builder.buildOrThrow();
     }
 
     public static Map<String, String> toExtraCredentials(List<ClientExtraCredential> extraCredentials)
@@ -262,7 +266,7 @@ public class ClientOptions
         for (ClientExtraCredential credential : extraCredentials) {
             builder.put(credential.getName(), credential.getValue());
         }
-        return builder.build();
+        return builder.buildOrThrow();
     }
 
     public static final class ClientResourceEstimate

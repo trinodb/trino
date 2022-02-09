@@ -1444,14 +1444,6 @@ export class QueryDetail extends React.Component {
                                     </tr>
                                     <tr>
                                         <td className="info-title">
-                                            Cumulative System Memory
-                                        </td>
-                                        <td className="info-text">
-                                            {formatDataSizeBytes(query.queryStats.cumulativeSystemMemory / 1000.0) + " seconds"}
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td className="info-title">
                                             Output Rows
                                         </td>
                                         <td className="info-text">

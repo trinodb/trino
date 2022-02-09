@@ -38,7 +38,7 @@ public class TestRaptorSecurityConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("raptor.security", "read-only")
-                .build();
+                .buildOrThrow();
 
         RaptorSecurityConfig expected = new RaptorSecurityConfig()
                 .setSecuritySystem(READ_ONLY);

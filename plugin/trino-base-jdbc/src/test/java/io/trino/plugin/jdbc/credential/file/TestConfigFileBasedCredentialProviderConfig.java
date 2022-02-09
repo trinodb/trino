@@ -42,7 +42,7 @@ public class TestConfigFileBasedCredentialProviderConfig
 
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("connection-credential-file", credentialFile.toString())
-                .build();
+                .buildOrThrow();
 
         ConfigFileBasedCredentialProviderConfig expected = new ConfigFileBasedCredentialProviderConfig()
                 .setCredentialFile(credentialFile.toString());

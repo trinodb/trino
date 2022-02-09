@@ -83,7 +83,6 @@ public final class GroupByHashYieldAssertion
         QueryContext queryContext = new QueryContext(
                 queryId,
                 DataSize.of(512, MEGABYTE),
-                DataSize.of(1024, MEGABYTE),
                 Optional.empty(),
                 memoryPool,
                 new TestingGcMonitor(),

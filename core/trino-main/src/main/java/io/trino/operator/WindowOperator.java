@@ -478,7 +478,7 @@ public class WindowOperator
             }
         }
 
-        return builder.build();
+        return builder.buildOrThrow();
     }
 
     public static class FrameBoundKey
@@ -790,7 +790,7 @@ public class WindowOperator
                 spiller = Optional.of(spillerFactory.create(
                         sourceTypes,
                         operatorContext.getSpillContext(),
-                        operatorContext.newAggregateSystemMemoryContext()));
+                        operatorContext.newAggregateUserMemoryContext()));
             }
 
             verify(inMemoryPagesIndexWithHashStrategies.pagesIndex.getPositionCount() > 0);

@@ -15,10 +15,13 @@ package io.trino.server;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
+import io.trino.connector.CatalogName;
 import io.trino.connector.ConnectorManager;
 import io.trino.eventlistener.EventListenerManager;
+import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.resourcegroups.ResourceGroupManager;
 import io.trino.metadata.BlockEncodingManager;
+import io.trino.metadata.HandleResolver;
 import io.trino.metadata.MetadataManager;
 import io.trino.metadata.TypeRegistry;
 import io.trino.security.AccessControlManager;
@@ -31,6 +34,7 @@ import io.trino.spi.block.BlockEncoding;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.spi.eventlistener.EventListenerFactory;
+import io.trino.spi.exchange.ExchangeManagerFactory;
 import io.trino.spi.resourcegroups.ResourceGroupConfigurationManagerFactory;
 import io.trino.spi.security.CertificateAuthenticatorFactory;
 import io.trino.spi.security.GroupProviderFactory;
@@ -49,6 +53,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.ServiceLoader;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -78,9 +83,11 @@ public class PluginManager
     private final Optional<HeaderAuthenticatorManager> headerAuthenticatorManager;
     private final EventListenerManager eventListenerManager;
     private final GroupProviderManager groupProviderManager;
+    private final ExchangeManagerRegistry exchangeManagerRegistry;
     private final SessionPropertyDefaults sessionPropertyDefaults;
     private final TypeRegistry typeRegistry;
     private final BlockEncodingManager blockEncodingManager;
+    private final HandleResolver handleResolver;
     private final AtomicBoolean pluginsLoading = new AtomicBoolean();
     private final AtomicBoolean pluginsLoaded = new AtomicBoolean();
 
@@ -98,7 +105,9 @@ public class PluginManager
             GroupProviderManager groupProviderManager,
             SessionPropertyDefaults sessionPropertyDefaults,
             TypeRegistry typeRegistry,
-            BlockEncodingManager blockEncodingManager)
+            BlockEncodingManager blockEncodingManager,
+            HandleResolver handleResolver,
+            ExchangeManagerRegistry exchangeManagerRegistry)
     {
         this.pluginsProvider = requireNonNull(pluginsProvider, "pluginsProvider is null");
         this.connectorManager = requireNonNull(connectorManager, "connectorManager is null");
@@ -113,6 +122,8 @@ public class PluginManager
         this.sessionPropertyDefaults = requireNonNull(sessionPropertyDefaults, "sessionPropertyDefaults is null");
         this.typeRegistry = requireNonNull(typeRegistry, "typeRegistry is null");
         this.blockEncodingManager = requireNonNull(blockEncodingManager, "blockEncodingManager is null");
+        this.handleResolver = requireNonNull(handleResolver, "handleResolver is null");
+        this.exchangeManagerRegistry = requireNonNull(exchangeManagerRegistry, "exchangeManagerRegistry is null");
     }
 
     public void loadPlugins()
@@ -139,6 +150,7 @@ public class PluginManager
             log.debug("    %s", url.getPath());
         }
 
+        handleResolver.registerClassLoader(pluginClassLoader);
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(pluginClassLoader)) {
             loadPlugin(pluginClassLoader);
         }
@@ -158,13 +170,13 @@ public class PluginManager
         }
     }
 
-    public void installPlugin(Plugin plugin, Supplier<ClassLoader> duplicatePluginClassLoaderFactory)
+    public void installPlugin(Plugin plugin, Function<CatalogName, ClassLoader> duplicatePluginClassLoaderFactory)
     {
         installPluginInternal(plugin, duplicatePluginClassLoaderFactory);
         typeRegistry.verifyTypes();
     }
 
-    private void installPluginInternal(Plugin plugin, Supplier<ClassLoader> duplicatePluginClassLoaderFactory)
+    private void installPluginInternal(Plugin plugin, Function<CatalogName, ClassLoader> duplicatePluginClassLoaderFactory)
     {
         for (BlockEncoding blockEncoding : plugin.getBlockEncodings()) {
             log.info("Registering block encoding %s", blockEncoding.getName());
@@ -234,12 +246,17 @@ public class PluginManager
             log.info("Registering group provider %s", groupProviderFactory.getName());
             groupProviderManager.addGroupProviderFactory(groupProviderFactory);
         }
+
+        for (ExchangeManagerFactory exchangeManagerFactory : plugin.getExchangeManagerFactories()) {
+            log.info("Registering exchange manager %s", exchangeManagerFactory.getName());
+            exchangeManagerRegistry.addExchangeManagerFactory(exchangeManagerFactory);
+        }
     }
 
-    public static PluginClassLoader createClassLoader(List<URL> urls)
+    public static PluginClassLoader createClassLoader(String pluginName, List<URL> urls)
     {
         ClassLoader parent = PluginManager.class.getClassLoader();
-        return new PluginClassLoader(urls, parent, SPI_PACKAGES);
+        return new PluginClassLoader(pluginName, urls, parent, SPI_PACKAGES);
     }
 
     public interface PluginsProvider
@@ -253,7 +270,7 @@ public class PluginManager
 
         interface ClassLoaderFactory
         {
-            PluginClassLoader create(List<URL> urls);
+            PluginClassLoader create(String pluginName, List<URL> urls);
         }
     }
 }

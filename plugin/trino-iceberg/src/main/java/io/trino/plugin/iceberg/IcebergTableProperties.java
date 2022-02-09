@@ -16,7 +16,6 @@ package io.trino.plugin.iceberg;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.type.ArrayType;
-import org.apache.iceberg.FileFormat;
 
 import javax.inject.Inject;
 
@@ -46,7 +45,7 @@ public class IcebergTableProperties
                 .add(enumProperty(
                         FILE_FORMAT_PROPERTY,
                         "File format for the table",
-                        FileFormat.class,
+                        IcebergFileFormat.class,
                         icebergConfig.getFileFormat(),
                         false))
                 .add(new PropertyMetadata<>(
@@ -73,9 +72,9 @@ public class IcebergTableProperties
         return tableProperties;
     }
 
-    public static FileFormat getFileFormat(Map<String, Object> tableProperties)
+    public static IcebergFileFormat getFileFormat(Map<String, Object> tableProperties)
     {
-        return (FileFormat) tableProperties.get(FILE_FORMAT_PROPERTY);
+        return (IcebergFileFormat) tableProperties.get(FILE_FORMAT_PROPERTY);
     }
 
     @SuppressWarnings("unchecked")

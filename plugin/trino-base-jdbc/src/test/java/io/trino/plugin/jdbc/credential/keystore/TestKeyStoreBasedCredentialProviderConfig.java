@@ -54,7 +54,7 @@ public class TestKeyStoreBasedCredentialProviderConfig
                 .put("keystore-user-credential-password", "keystore_password_for_user_name")
                 .put("keystore-password-credential-name", "password")
                 .put("keystore-password-credential-password", "keystore_password_for_password")
-                .build();
+                .buildOrThrow();
 
         KeyStoreBasedCredentialProviderConfig expected = new KeyStoreBasedCredentialProviderConfig()
                 .setKeyStoreFilePath(keystoreFile.toString())

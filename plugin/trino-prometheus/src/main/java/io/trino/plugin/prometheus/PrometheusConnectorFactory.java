@@ -20,7 +20,6 @@ import io.trino.plugin.base.TypeDeserializerModule;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
-import io.trino.spi.connector.ConnectorHandleResolver;
 
 import java.util.Map;
 
@@ -34,12 +33,6 @@ public class PrometheusConnectorFactory
     public String getName()
     {
         return "prometheus";
-    }
-
-    @Override
-    public ConnectorHandleResolver getHandleResolver()
-    {
-        return new PrometheusHandleResolver();
     }
 
     @Override

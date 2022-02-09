@@ -86,7 +86,7 @@ public class SheetsSplit
                 .put("schemaName", schemaName)
                 .put("tableName", tableName)
                 .put("hostAddresses", hostAddresses)
-                .build();
+                .buildOrThrow();
     }
 
     @Override

@@ -213,11 +213,6 @@ public class DriverContext
         return yieldSignal;
     }
 
-    public long getSystemMemoryUsage()
-    {
-        return driverMemoryContext.getSystemMemory();
-    }
-
     public long getMemoryUsage()
     {
         return driverMemoryContext.getUserMemory();
@@ -226,11 +221,6 @@ public class DriverContext
     public long getRevocableMemoryUsage()
     {
         return driverMemoryContext.getRevocableMemory();
-    }
-
-    public void moreMemoryAvailable()
-    {
-        operatorContexts.forEach(OperatorContext::moreMemoryAvailable);
     }
 
     public boolean isPerOperatorCpuTimerEnabled()
@@ -409,7 +399,6 @@ public class DriverContext
                 elapsedTime.convertToMostSuccinctTimeUnit(),
                 succinctBytes(driverMemoryContext.getUserMemory()),
                 succinctBytes(driverMemoryContext.getRevocableMemory()),
-                succinctBytes(driverMemoryContext.getSystemMemory()),
                 new Duration(totalScheduledTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalCpuTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalBlockedTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),

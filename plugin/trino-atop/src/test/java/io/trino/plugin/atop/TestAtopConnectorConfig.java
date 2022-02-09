@@ -56,7 +56,7 @@ public class TestAtopConnectorConfig
                 .put("atop.security", "file")
                 .put("atop.max-history-days", "10")
                 .put("atop.time-zone", "PST")
-                .build();
+                .buildOrThrow();
 
         AtopConnectorConfig expected = new AtopConnectorConfig()
                 .setExecutablePath(atopExecutable.toString())

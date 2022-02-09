@@ -26,7 +26,6 @@ import io.trino.metadata.TestingFunctionResolution;
 import io.trino.plugin.tpch.TpchColumnHandle;
 import io.trino.plugin.tpch.TpchConnectorFactory;
 import io.trino.plugin.tpch.TpchTableHandle;
-import io.trino.plugin.tpch.TpchTableLayoutHandle;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.predicate.TupleDomain;
@@ -441,7 +440,7 @@ public class TestCostCalculator
                 .put("le", statsEstimate(localExchange, 6000))
                 .put("ts1", statsEstimate(ts1, 6000))
                 .put("ts2", statsEstimate(ts2, 1000))
-                .build();
+                .buildOrThrow();
         Map<String, Type> types = ImmutableMap.of(
                 "orderkey", BIGINT,
                 "orderkey_0", BIGINT);
@@ -470,7 +469,7 @@ public class TestCostCalculator
                 .put("le", statsEstimate(localExchange, 6000))
                 .put("ts1", statsEstimate(ts1, 6000))
                 .put("ts2", statsEstimate(ts2, 1000))
-                .build();
+                .buildOrThrow();
         Map<String, Type> types = ImmutableMap.of(
                 "orderkey", BIGINT,
                 "orderkey_0", BIGINT);
@@ -794,9 +793,9 @@ public class TestCostCalculator
         TpchTableHandle tableHandle = new TpchTableHandle("sf1", "orders", 1.0);
         return new TableScanNode(
                 new PlanNodeId(id),
-                new TableHandle(new CatalogName("tpch"), tableHandle, INSTANCE, Optional.of(new TpchTableLayoutHandle(tableHandle, TupleDomain.all()))),
+                new TableHandle(new CatalogName("tpch"), tableHandle, INSTANCE),
                 symbolsList,
-                assignments.build(),
+                assignments.buildOrThrow(),
                 TupleDomain.all(),
                 Optional.empty(),
                 false,

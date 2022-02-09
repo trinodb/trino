@@ -27,8 +27,8 @@ chmod +x ${WORK_DIR}/trino-cli-${TRINO_VERSION}-executable.jar
 
 CONTAINER="trino:${TRINO_VERSION}"
 
-docker build ${WORK_DIR} --pull --platform linux/amd64 -f amd64.dockerfile -t ${CONTAINER}-amd64 --build-arg "TRINO_VERSION=${TRINO_VERSION}"
-docker build ${WORK_DIR} --pull --platform linux/arm64 -f arm64.dockerfile -t ${CONTAINER}-arm64 --build-arg "TRINO_VERSION=${TRINO_VERSION}"
+docker build ${WORK_DIR} --pull --platform linux/amd64 -f Dockerfile -t ${CONTAINER}-amd64 --build-arg "TRINO_VERSION=${TRINO_VERSION}"
+docker build ${WORK_DIR} --pull --platform linux/arm64 -f Dockerfile -t ${CONTAINER}-arm64 --build-arg "TRINO_VERSION=${TRINO_VERSION}"
 
 rm -r ${WORK_DIR}
 

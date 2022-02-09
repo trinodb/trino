@@ -478,7 +478,7 @@ public class InMemoryThriftMetastore
             }
             result.put(partitionName, statistics);
         }
-        return result.build();
+        return result.buildOrThrow();
     }
 
     @Override

@@ -258,7 +258,7 @@ public class ElasticsearchMetadata
                     supportsPredicates(field.getType())));
         }
 
-        return result.build();
+        return result.buildOrThrow();
     }
 
     private static boolean supportsPredicates(IndexMetadata.Type type)
@@ -454,12 +454,6 @@ public class ElasticsearchMetadata
         return listTables(session, prefix.getSchema()).stream()
                 .map(name -> getTableMetadata(name.getSchemaName(), name.getTableName()))
                 .collect(toImmutableMap(ConnectorTableMetadata::getTable, ConnectorTableMetadata::getColumns));
-    }
-
-    @Override
-    public boolean usesLegacyTableLayouts()
-    {
-        return false;
     }
 
     @Override

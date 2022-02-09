@@ -364,7 +364,7 @@ public class TestingHydraIdentityProvider
             try (TestingTrinoServer ignored = TestingTrinoServer.builder()
                     .setCoordinator(true)
                     .setAdditionalModule(new WebUiModule())
-                    .setProperties(config.build())
+                    .setProperties(config.buildOrThrow())
                     .build()) {
                 Thread.sleep(Long.MAX_VALUE);
             }

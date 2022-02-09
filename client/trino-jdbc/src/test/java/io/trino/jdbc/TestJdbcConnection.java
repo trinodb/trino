@@ -91,7 +91,7 @@ public class TestJdbcConnection
                 .put("hive.metastore", "file")
                 .put("hive.metastore.catalog.dir", server.getBaseDataDir().resolve("hive").toAbsolutePath().toString())
                 .put("hive.security", "sql-standard")
-                .build());
+                .buildOrThrow());
         server.installPlugin(new BlackHolePlugin());
         server.createCatalog("blackhole", "blackhole", ImmutableMap.of());
 
@@ -350,7 +350,7 @@ public class TestJdbcConnection
                     .put("test.token.foo", "bar")
                     .put("test.token.abc", "xyz")
                     .put("colon", "-::-")
-                    .build();
+                    .buildOrThrow();
             TrinoConnection trinoConnection = connection.unwrap(TrinoConnection.class);
             assertEquals(trinoConnection.getExtraCredentials(), expectedCredentials);
             assertEquals(listExtraCredentials(connection), expectedCredentials);
@@ -419,13 +419,13 @@ public class TestJdbcConnection
     public void testSessionProperties()
             throws SQLException
     {
-        try (Connection connection = createConnection("roles=hive:admin&sessionProperties=hive.temporary_staging_directory_path:/tmp;execution_policy:phased")) {
+        try (Connection connection = createConnection("roles=hive:admin&sessionProperties=hive.temporary_staging_directory_path:/tmp;execution_policy:legacy-phased")) {
             TrinoConnection trinoConnection = connection.unwrap(TrinoConnection.class);
             assertThat(trinoConnection.getSessionProperties())
                     .extractingByKeys("hive.temporary_staging_directory_path", "execution_policy")
-                    .containsExactly("/tmp", "phased");
+                    .containsExactly("/tmp", "legacy-phased");
             assertThat(listSession(connection)).containsAll(ImmutableSet.of(
-                    "execution_policy|phased|all-at-once",
+                    "execution_policy|legacy-phased|phased",
                     "hive.temporary_staging_directory_path|/tmp|/tmp/presto-${USER}"));
         }
     }
@@ -591,7 +591,7 @@ public class TestJdbcConnection
                 builder.put(rs.getString("name"), rs.getString("value"));
             }
         }
-        return builder.build();
+        return builder.buildOrThrow();
     }
 
     private static Set<String> listCurrentRoles(Connection connection)

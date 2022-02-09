@@ -17,8 +17,10 @@ import org.testng.annotations.Test;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.SqlDecimal.decimal;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 
@@ -257,37 +259,37 @@ public class TestConditions
                         "when false then DECIMAL '2.2' " +
                         "when true then DECIMAL '2.2' " +
                         "end",
-                decimal("2.2"));
+                decimal("2.2", createDecimalType(2, 1)));
 
         assertDecimalFunction("case " +
                         "when false then DECIMAL '1234567890.0987654321' " +
                         "when true then DECIMAL '3.3' " +
                         "end",
-                decimal("0000000003.3000000000"));
+                decimal("0000000003.3000000000", createDecimalType(20, 10)));
 
         assertDecimalFunction("case " +
                         "when false then 1 " +
                         "when true then DECIMAL '2.2' " +
                         "end",
-                decimal("0000000002.2"));
+                decimal("0000000002.2", createDecimalType(11, 1)));
 
         assertDecimalFunction("case " +
                         "when false then 2.2 " +
                         "when true then 2.2 " +
                         "end",
-                decimal("2.2"));
+                decimal("2.2", createDecimalType(2, 1)));
 
         assertDecimalFunction("case " +
                         "when false then 1234567890.0987654321 " +
                         "when true then 3.3 " +
                         "end",
-                decimal("0000000003.3000000000"));
+                decimal("0000000003.3000000000", createDecimalType(20, 10)));
 
         assertDecimalFunction("case " +
                         "when false then 1 " +
                         "when true then 2.2 " +
                         "end",
-                decimal("0000000002.2"));
+                decimal("0000000002.2", createDecimalType(11, 1)));
 
         assertFunction("case " +
                         "when false then DECIMAL '1.1' " +
@@ -394,19 +396,19 @@ public class TestConditions
                         "when false then DECIMAL '2.2' " +
                         "when true then DECIMAL '2.2' " +
                         "end",
-                decimal("2.2"));
+                decimal("2.2", createDecimalType(2, 1)));
 
         assertDecimalFunction("case true " +
                         "when false then DECIMAL '1234567890.0987654321' " +
                         "when true then DECIMAL '3.3' " +
                         "end",
-                decimal("0000000003.3000000000"));
+                decimal("0000000003.3000000000", createDecimalType(20, 10)));
 
         assertDecimalFunction("case true " +
                         "when false then 1 " +
                         "when true then DECIMAL '2.2' " +
                         "end",
-                decimal("0000000002.2"));
+                decimal("0000000002.2", createDecimalType(11, 1)));
 
         assertFunction("case true " +
                         "when false then DECIMAL '1.1' " +
@@ -419,19 +421,19 @@ public class TestConditions
                         "when false then 2.2 " +
                         "when true then 2.2 " +
                         "end",
-                decimal("2.2"));
+                decimal("2.2", createDecimalType(2, 1)));
 
         assertDecimalFunction("case true " +
                         "when false then 1234567890.0987654321 " +
                         "when true then 3.3 " +
                         "end",
-                decimal("0000000003.3000000000"));
+                decimal("0000000003.3000000000", createDecimalType(20, 10)));
 
         assertDecimalFunction("case true " +
                         "when false then 1 " +
                         "when true then 2.2 " +
                         "end",
-                decimal("0000000002.2"));
+                decimal("0000000002.2", createDecimalType(11, 1)));
 
         assertFunction("case true " +
                         "when false then 1.1 " +

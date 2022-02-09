@@ -13,6 +13,7 @@
  */
 package io.trino.operator.project;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.trino.spi.Page;
 
@@ -25,15 +26,23 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 public class InputChannels
 {
     private final int[] inputChannels;
+    private final int[] eagerlyLoadedChannels;
 
     public InputChannels(int... inputChannels)
     {
         this.inputChannels = inputChannels.clone();
+        this.eagerlyLoadedChannels = new int[0];
     }
 
     public InputChannels(List<Integer> inputChannels)
     {
+        this(inputChannels, ImmutableList.of());
+    }
+
+    public InputChannels(List<Integer> inputChannels, List<Integer> eagerlyLoadedChannels)
+    {
         this.inputChannels = inputChannels.stream().mapToInt(Integer::intValue).toArray();
+        this.eagerlyLoadedChannels = eagerlyLoadedChannels.stream().mapToInt(Integer::intValue).toArray();
     }
 
     public int size()
@@ -48,7 +57,7 @@ public class InputChannels
 
     public Page getInputChannels(Page page)
     {
-        return page.getColumns(inputChannels);
+        return page.getLoadedPage(inputChannels, eagerlyLoadedChannels);
     }
 
     @Override

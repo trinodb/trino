@@ -43,7 +43,6 @@ import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.InMemoryRecordSet;
-import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.SchemaNotFoundException;
@@ -322,13 +321,7 @@ public class BigQueryMetadata
                 // table disappeared during listing operation
             }
         }
-        return columns.build();
-    }
-
-    @Override
-    public boolean usesLegacyTableLayouts()
-    {
-        return false;
+        return columns.buildOrThrow();
     }
 
     @Override
@@ -394,24 +387,6 @@ public class BigQueryMetadata
         BigQueryTableHandle bigQueryTable = (BigQueryTableHandle) tableHandle;
         TableId tableId = bigQueryTable.getRemoteTableName().toTableId();
         client.dropTable(tableId);
-    }
-
-    @Override
-    public Optional<LimitApplicationResult<ConnectorTableHandle>> applyLimit(
-            ConnectorSession session,
-            ConnectorTableHandle handle,
-            long limit)
-    {
-        log.debug("applyLimit(session=%s, handle=%s, limit=%s)", session, handle, limit);
-        BigQueryTableHandle bigQueryTableHandle = (BigQueryTableHandle) handle;
-
-        if (bigQueryTableHandle.getLimit().isPresent() && bigQueryTableHandle.getLimit().getAsLong() <= limit) {
-            return Optional.empty();
-        }
-
-        bigQueryTableHandle = bigQueryTableHandle.withLimit(limit);
-
-        return Optional.of(new LimitApplicationResult<>(bigQueryTableHandle, false, false));
     }
 
     @Override

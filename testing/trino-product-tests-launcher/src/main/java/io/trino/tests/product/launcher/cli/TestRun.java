@@ -138,7 +138,7 @@ public final class TestRun
         public Duration timeout;
 
         @Parameters(paramLabel = "<argument>", description = "Test arguments")
-        public List<String> testArguments;
+        public List<String> testArguments = List.of();
 
         public Module toModule()
         {

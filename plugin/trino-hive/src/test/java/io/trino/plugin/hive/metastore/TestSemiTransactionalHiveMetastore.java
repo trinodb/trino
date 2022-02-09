@@ -20,7 +20,6 @@ import io.trino.plugin.hive.HiveMetastoreClosure;
 import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.PartitionStatistics;
 import io.trino.plugin.hive.acid.AcidTransaction;
-import io.trino.plugin.hive.authentication.HiveIdentity;
 import org.apache.hadoop.fs.Path;
 import org.testng.annotations.Test;
 
@@ -133,7 +132,7 @@ public class TestSemiTransactionalHiveMetastore
             extends UnimplementedHiveMetastore
     {
         @Override
-        public Optional<Table> getTable(HiveIdentity identity, String databaseName, String tableName)
+        public Optional<Table> getTable(String databaseName, String tableName)
         {
             if (databaseName.equals("database")) {
                 return Optional.of(new Table(
@@ -153,19 +152,22 @@ public class TestSemiTransactionalHiveMetastore
         }
 
         @Override
-        public PartitionStatistics getTableStatistics(HiveIdentity identity, Table table)
+        public PartitionStatistics getTableStatistics(Table table)
         {
             return new PartitionStatistics(createEmptyStatistics(), ImmutableMap.of());
         }
 
         @Override
-        public void dropPartition(HiveIdentity identity, String databaseName, String tableName, List<String> parts, boolean deleteData)
+        public void dropPartition(String databaseName, String tableName, List<String> parts, boolean deleteData)
         {
             assertCountDownLatch();
         }
 
         @Override
-        public void updateTableStatistics(HiveIdentity identity, String databaseName, String tableName, AcidTransaction transaction, Function<PartitionStatistics, PartitionStatistics> update)
+        public void updateTableStatistics(String databaseName,
+                String tableName,
+                AcidTransaction transaction,
+                Function<PartitionStatistics, PartitionStatistics> update)
         {
             assertCountDownLatch();
         }

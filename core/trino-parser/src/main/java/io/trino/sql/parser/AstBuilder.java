@@ -728,6 +728,16 @@ class AstBuilder
     }
 
     @Override
+    public Node visitSetMaterializedViewProperties(SqlBaseParser.SetMaterializedViewPropertiesContext context)
+    {
+        return new SetProperties(
+                getLocation(context),
+                SetProperties.Type.MATERIALIZED_VIEW,
+                getQualifiedName(context.qualifiedName()),
+                visit(context.propertyAssignments().property(), Property.class));
+    }
+
+    @Override
     public Node visitStartTransaction(SqlBaseParser.StartTransactionContext context)
     {
         return new StartTransaction(visit(context.transactionMode(), TransactionMode.class));
@@ -835,7 +845,14 @@ class AstBuilder
     @Override
     public Node visitProperty(SqlBaseParser.PropertyContext context)
     {
-        return new Property(getLocation(context), (Identifier) visit(context.identifier()), (Expression) visit(context.expression()));
+        NodeLocation location = getLocation(context);
+        Identifier name = (Identifier) visit(context.identifier());
+        SqlBaseParser.PropertyValueContext valueContext = context.propertyValue();
+        if (valueContext instanceof SqlBaseParser.DefaultPropertyValueContext) {
+            return new Property(location, name);
+        }
+        Expression value = (Expression) visit(((SqlBaseParser.NonDefaultPropertyValueContext) valueContext).expression());
+        return new Property(location, name, value);
     }
 
     // ********************** query expressions ********************

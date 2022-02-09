@@ -44,7 +44,7 @@ public class TestSqlEnvironmentConfig
                 .put("sql.default-catalog", "some-catalog")
                 .put("sql.default-schema", "some-schema")
                 .put("sql.forced-session-time-zone", "UTC")
-                .build();
+                .buildOrThrow();
 
         SqlEnvironmentConfig expected = new SqlEnvironmentConfig()
                 .setPath("a.b, c.d")

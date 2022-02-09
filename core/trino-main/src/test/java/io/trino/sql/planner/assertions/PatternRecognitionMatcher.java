@@ -287,7 +287,7 @@ public class PatternRecognitionMatcher
                             initial,
                             pattern,
                             subsets,
-                            variableDefinitions.build()));
+                            variableDefinitions.buildOrThrow()));
             windowFunctionMatchers.forEach(result::with);
             measures.entrySet().stream()
                     .map(entry -> {

@@ -256,14 +256,9 @@ public class PipelineContext
         taskContext.freeSpill(bytes);
     }
 
-    public LocalMemoryContext localSystemMemoryContext()
+    public LocalMemoryContext localMemoryContext()
     {
-        return pipelineMemoryContext.localSystemMemoryContext();
-    }
-
-    public void moreMemoryAvailable()
-    {
-        drivers.forEach(DriverContext::moreMemoryAvailable);
+        return pipelineMemoryContext.localUserMemoryContext();
     }
 
     public boolean isPerOperatorCpuTimerEnabled()
@@ -471,7 +466,6 @@ public class PipelineContext
 
                 succinctBytes(pipelineMemoryContext.getUserMemory()),
                 succinctBytes(pipelineMemoryContext.getRevocableMemory()),
-                succinctBytes(pipelineMemoryContext.getSystemMemory()),
 
                 queuedTime.snapshot(),
                 elapsedTime.snapshot(),

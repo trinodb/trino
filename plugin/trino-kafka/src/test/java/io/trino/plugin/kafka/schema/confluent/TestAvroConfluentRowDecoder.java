@@ -156,7 +156,7 @@ public class TestAvroConfluentRowDecoder
     {
         ImmutableMap<String, String> decoderParams = ImmutableMap.<String, String>builder()
                 .put(DATA_SCHEMA, schema.toString())
-                .build();
+                .buildOrThrow();
         return getAvroRowDecoderyFactory(schemaRegistryClient).create(decoderParams, columnHandles);
     }
 

@@ -18,7 +18,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
-import org.apache.iceberg.FileFormat;
 
 import java.util.List;
 import java.util.Map;
@@ -34,7 +33,7 @@ public class IcebergWritableTableHandle
     private final String partitionSpecAsJson;
     private final List<IcebergColumnHandle> inputColumns;
     private final String outputPath;
-    private final FileFormat fileFormat;
+    private final IcebergFileFormat fileFormat;
     private final Map<String, String> storageProperties;
 
     @JsonCreator
@@ -45,7 +44,7 @@ public class IcebergWritableTableHandle
             @JsonProperty("partitionSpecAsJson") String partitionSpecAsJson,
             @JsonProperty("inputColumns") List<IcebergColumnHandle> inputColumns,
             @JsonProperty("outputPath") String outputPath,
-            @JsonProperty("fileFormat") FileFormat fileFormat,
+            @JsonProperty("fileFormat") IcebergFileFormat fileFormat,
             @JsonProperty("properties") Map<String, String> storageProperties)
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
@@ -95,7 +94,7 @@ public class IcebergWritableTableHandle
     }
 
     @JsonProperty
-    public FileFormat getFileFormat()
+    public IcebergFileFormat getFileFormat()
     {
         return fileFormat;
     }

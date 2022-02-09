@@ -53,7 +53,7 @@ public class TestConnectorEventListener
             @Override
             public Iterable<ConnectorFactory> getConnectorFactories()
             {
-                return ImmutableList.of(new MockConnectorFactory.Builder()
+                return ImmutableList.of(MockConnectorFactory.builder()
                         .withEventListener(new TestingEventListener(generatedEvents))
                         .build());
             }

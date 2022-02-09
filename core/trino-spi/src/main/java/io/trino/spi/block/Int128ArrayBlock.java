@@ -152,15 +152,6 @@ public class Int128ArrayBlock
     }
 
     @Override
-    public void writePositionTo(int position, BlockBuilder blockBuilder)
-    {
-        checkReadablePosition(position);
-        blockBuilder.writeLong(values[(position + positionOffset) * 2]);
-        blockBuilder.writeLong(values[((position + positionOffset) * 2) + 1]);
-        blockBuilder.closeEntry();
-    }
-
-    @Override
     public Block getSingleValueBlock(int position)
     {
         checkReadablePosition(position);

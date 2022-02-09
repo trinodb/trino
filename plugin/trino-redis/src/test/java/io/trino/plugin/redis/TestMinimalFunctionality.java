@@ -76,7 +76,7 @@ public class TestMinimalFunctionality
         installRedisPlugin(redisServer, queryRunner,
                 ImmutableMap.<SchemaTableName, RedisTableDescription>builder()
                         .put(createEmptyTableDescription(new SchemaTableName("default", tableName)))
-                        .build());
+                        .buildOrThrow());
     }
 
     @AfterMethod(alwaysRun = true)

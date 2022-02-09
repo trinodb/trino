@@ -97,14 +97,11 @@ public interface Metadata
             String procedureName,
             Map<String, Object> executeProperties);
 
-    Optional<NewTableLayout> getLayoutForTableExecute(Session session, TableExecuteHandle tableExecuteHandle);
+    Optional<TableLayout> getLayoutForTableExecute(Session session, TableExecuteHandle tableExecuteHandle);
 
     BeginTableExecuteResult<TableExecuteHandle, TableHandle> beginTableExecute(Session session, TableExecuteHandle handle, TableHandle updatedSourceTableHandle);
 
     void finishTableExecute(Session session, TableExecuteHandle handle, Collection<Slice> fragments, List<Object> tableExecuteState);
-
-    @Deprecated
-    Optional<TableLayoutResult> getLayout(Session session, TableHandle tableHandle, Constraint constraint, Optional<Set<ColumnHandle>> desiredColumns);
 
     TableProperties getTableProperties(Session session, TableHandle handle);
 
@@ -170,7 +167,7 @@ public interface Metadata
      * Gets the columns metadata for all tables that match the specified prefix.
      * TODO: consider returning a stream for more efficient processing
      */
-    Map<CatalogName, List<TableColumnsMetadata>> listTableColumns(Session session, QualifiedTablePrefix prefix);
+    List<TableColumnsMetadata> listTableColumns(Session session, QualifiedTablePrefix prefix);
 
     /**
      * Creates a schema.
@@ -209,7 +206,7 @@ public interface Metadata
     /**
      * Set properties to the specified table.
      */
-    void setTableProperties(Session session, TableHandle tableHandle, Map<String, Object> properties);
+    void setTableProperties(Session session, TableHandle tableHandle, Map<String, Optional<Object>> properties);
 
     /**
      * Comments to the specified table.
@@ -253,19 +250,19 @@ public interface Metadata
      */
     void truncateTable(Session session, TableHandle tableHandle);
 
-    Optional<NewTableLayout> getNewTableLayout(Session session, String catalogName, ConnectorTableMetadata tableMetadata);
+    Optional<TableLayout> getNewTableLayout(Session session, String catalogName, ConnectorTableMetadata tableMetadata);
 
     /**
      * Begin the atomic creation of a table with data.
      */
-    OutputTableHandle beginCreateTable(Session session, String catalogName, ConnectorTableMetadata tableMetadata, Optional<NewTableLayout> layout);
+    OutputTableHandle beginCreateTable(Session session, String catalogName, ConnectorTableMetadata tableMetadata, Optional<TableLayout> layout);
 
     /**
      * Finish a table creation with data after the data is written.
      */
     Optional<ConnectorOutputMetadata> finishCreateTable(Session session, OutputTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics);
 
-    Optional<NewTableLayout> getInsertLayout(Session session, TableHandle target);
+    Optional<TableLayout> getInsertLayout(Session session, TableHandle target);
 
     /**
      * Describes statistics that must be collected during a write.
@@ -343,11 +340,6 @@ public interface Metadata
      * Get the row ID column handle used with UpdatablePageSource#updateRows.
      */
     ColumnHandle getUpdateRowIdColumnHandle(Session session, TableHandle tableHandle, List<ColumnHandle> updatedColumns);
-
-    /**
-     * @return whether delete without table scan is supported
-     */
-    boolean supportsMetadataDelete(Session session, TableHandle tableHandle);
 
     /**
      * Push delete into connector
@@ -448,9 +440,6 @@ public interface Metadata
      * Try to locate a table index that can lookup results by indexableColumns and provide the requested outputColumns.
      */
     Optional<ResolvedIndex> resolveIndex(Session session, TableHandle tableHandle, Set<ColumnHandle> indexableColumns, Set<ColumnHandle> outputColumns, TupleDomain<ColumnHandle> tupleDomain);
-
-    @Deprecated
-    boolean usesLegacyTableLayouts(Session session, TableHandle table);
 
     Optional<LimitApplicationResult<TableHandle>> applyLimit(Session session, TableHandle table, long limit);
 
@@ -692,6 +681,11 @@ public interface Metadata
      * Rename the specified materialized view.
      */
     void renameMaterializedView(Session session, QualifiedObjectName existingViewName, QualifiedObjectName newViewName);
+
+    /**
+     * Sets the properties of the specified materialized view.
+     */
+    void setMaterializedViewProperties(Session session, QualifiedObjectName viewName, Map<String, Optional<Object>> properties);
 
     /**
      * Returns the result of redirecting the table scan on a given table to a different table.

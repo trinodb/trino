@@ -104,7 +104,7 @@ public class StatisticsAggregationPlanner
             descriptor.addColumnStatistic(columnStatisticMetadata, symbol);
         }
 
-        StatisticAggregations aggregation = new StatisticAggregations(aggregations.build(), groupingSymbols);
+        StatisticAggregations aggregation = new StatisticAggregations(aggregations.buildOrThrow(), groupingSymbols);
         return new TableStatisticAggregation(aggregation, descriptor.build());
     }
 

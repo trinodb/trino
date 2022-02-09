@@ -29,7 +29,6 @@ import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.trino.plugin.redis.RedisHandleResolver.convertSplit;
 import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 
@@ -52,10 +51,10 @@ public class RedisRecordSetProvider
     @Override
     public RecordSet getRecordSet(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorSplit split, ConnectorTableHandle table, List<? extends ColumnHandle> columns)
     {
-        RedisSplit redisSplit = convertSplit(split);
+        RedisSplit redisSplit = (RedisSplit) split;
 
         List<RedisColumnHandle> redisColumns = columns.stream()
-                .map(RedisHandleResolver::convertColumnHandle)
+                .map(RedisColumnHandle.class::cast)
                 .collect(toImmutableList());
 
         RowDecoder keyDecoder = decoderFactory.create(

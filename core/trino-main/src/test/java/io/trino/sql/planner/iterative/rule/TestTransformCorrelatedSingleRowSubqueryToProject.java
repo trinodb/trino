@@ -25,8 +25,6 @@ import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.Assignments;
 import org.testng.annotations.Test;
 
-import java.util.Optional;
-
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCALE_FACTOR;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -56,8 +54,7 @@ public class TestTransformCorrelatedSingleRowSubqueryToProject
                                         new TableHandle(
                                                 new CatalogName("local"),
                                                 new TpchTableHandle(TINY_SCHEMA_NAME, "nation", TINY_SCALE_FACTOR),
-                                                TpchTransactionHandle.INSTANCE,
-                                                Optional.empty()),
+                                                TpchTransactionHandle.INSTANCE),
                                         ImmutableList.of(p.symbol("l_nationkey")),
                                         ImmutableMap.of(p.symbol("l_nationkey"), new TpchColumnHandle("nationkey",
                                                 BIGINT))),

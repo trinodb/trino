@@ -49,7 +49,7 @@ public class TestMemoryManagerConfig
                 .put("query.low-memory-killer.delay", "20s")
                 .put("query.max-memory", "2GB")
                 .put("query.max-total-memory", "3GB")
-                .build();
+                .buildOrThrow();
 
         MemoryManagerConfig expected = new MemoryManagerConfig()
                 .setLowMemoryKillerPolicy(NONE)

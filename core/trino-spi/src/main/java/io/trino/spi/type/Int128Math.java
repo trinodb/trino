@@ -31,7 +31,7 @@ public final class Int128Math
     private static final int NUMBER_OF_LONGS = 2;
     private static final int NUMBER_OF_INTS = 2 * NUMBER_OF_LONGS;
 
-    public static final Int128[] POWERS_OF_TEN = new Int128[38]; // 10^38 is the largest value < Int128.MAX_VALUE
+    private static final Int128[] POWERS_OF_TEN = new Int128[39]; // 1..10^38 (largest value < Int128.MAX_VALUE)
     private static final Int128[] POWERS_OF_FIVE = new Int128[54]; // 5^54 is the largest value < Int128.MAX_VALUE
 
     private static final long ALL_BITS_SET_64 = 0xFFFFFFFFFFFFFFFFL;
@@ -96,6 +96,11 @@ public final class Int128Math
         if (!ByteOrder.nativeOrder().equals(ByteOrder.LITTLE_ENDIAN)) {
             throw new IllegalStateException("UnsignedDecimal128Arithmetic is supported on little-endian machines only");
         }
+    }
+
+    public static Int128 powerOfTen(int exponent)
+    {
+        return POWERS_OF_TEN[exponent];
     }
 
     public static void rescale(long high, long low, int factor, long[] result, int offset)
@@ -216,6 +221,13 @@ public final class Int128Math
 
         result[offset] = resultHigh;
         result[offset + 1] = resultLow;
+    }
+
+    public static Int128 subtract(Int128 left, Int128 right)
+    {
+        long[] result = new long[2];
+        subtract(left.getHigh(), left.getLow(), right.getHigh(), right.getLow(), result, 0);
+        return Int128.valueOf(result);
     }
 
     private static long unsignedCarry(long a, long b)
@@ -589,6 +601,16 @@ public final class Int128Math
         return high + (low == ALL_BITS_SET_64 ? 1 : 0);
     }
 
+    private static long decrementLow(long unusedHigh, long low)
+    {
+        return low - 1;
+    }
+
+    private static long decrementHigh(long high, long low)
+    {
+        return high - (low == 0 ? 1 : 0);
+    }
+
     private static void incrementUnsafe(long[] value, int offset)
     {
         long high = value[offset];
@@ -596,6 +618,15 @@ public final class Int128Math
 
         value[offset] = incrementHigh(high, low);
         value[offset + 1] = incrementLow(high, low);
+    }
+
+    private static void decrementUnsafe(long[] value, int offset)
+    {
+        long high = value[offset];
+        long low = value[offset + 1];
+
+        value[offset] = decrementHigh(high, low);
+        value[offset + 1] = decrementLow(high, low);
     }
 
     public static Int128 absExact(Int128 value)
@@ -801,6 +832,50 @@ public final class Int128Math
 
         result[offset] = high;
         result[offset + 1] = low;
+    }
+
+    public static Int128 floorDiv(Int128 dividend, Int128 divisor)
+    {
+        return floorDiv(dividend.getHigh(), dividend.getLow(), divisor.getHigh(), divisor.getLow());
+    }
+
+    private static Int128 floorDiv(long dividendHigh, long dividendLow, long divisorHigh, long divisorLow)
+    {
+        long[] quotient = new long[2];
+        long[] remainder = new long[2];
+
+        boolean dividendIsNegative = dividendHigh < 0;
+        boolean divisorIsNegative = divisorHigh < 0;
+        boolean quotientIsNegative = (dividendIsNegative != divisorIsNegative);
+
+        if (dividendIsNegative) {
+            long tmpLow = negateLowExact(dividendHigh, dividendLow);
+            long tmpHigh = negateHighExact(dividendHigh, dividendLow);
+
+            dividendLow = tmpLow;
+            dividendHigh = tmpHigh;
+        }
+
+        if (divisorIsNegative) {
+            long tmpLow = negateLowExact(divisorHigh, divisorLow);
+            long tmpHigh = negateHighExact(divisorHigh, divisorLow);
+
+            divisorLow = tmpLow;
+            divisorHigh = tmpHigh;
+        }
+
+        dividePositives(dividendHigh, dividendLow, 0, divisorHigh, divisorLow, 0, quotient, remainder);
+
+        if (quotientIsNegative) {
+            // negateExact not needed since all positive values can be negated without overflow
+            negate(quotient, 0);
+
+            if ((remainder[0] != 0 || remainder[1] != 0)) {
+                decrementUnsafe(quotient, 0);
+            }
+        }
+
+        return Int128.valueOf(quotient);
     }
 
     public static Int128 divideRoundUp(long dividendHigh, long dividendLow, int dividendScaleFactor, long divisorHigh, long divisorLow, int divisorScaleFactor)

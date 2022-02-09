@@ -110,7 +110,7 @@ public class ExampleMetadata
             columnHandles.put(column.getName(), new ExampleColumnHandle(column.getName(), column.getType(), index));
             index++;
         }
-        return columnHandles.build();
+        return columnHandles.buildOrThrow();
     }
 
     @Override
@@ -125,7 +125,7 @@ public class ExampleMetadata
                 columns.put(tableName, tableMetadata.getColumns());
             }
         }
-        return columns.build();
+        return columns.buildOrThrow();
     }
 
     private ConnectorTableMetadata getTableMetadata(SchemaTableName tableName)
@@ -154,12 +154,6 @@ public class ExampleMetadata
     public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
         return ((ExampleColumnHandle) columnHandle).getColumnMetadata();
-    }
-
-    @Override
-    public boolean usesLegacyTableLayouts()
-    {
-        return false;
     }
 
     @Override

@@ -84,7 +84,7 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
         return KafkaWithConfluentSchemaRegistryQueryRunner.builder(testingKafka)
                 .setExtraKafkaProperties(ImmutableMap.<String, String>builder()
                         .put("kafka.confluent-subjects-cache-refresh-interval", "1ms")
-                        .build())
+                        .buildOrThrow())
                 .build();
     }
 
@@ -100,7 +100,7 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
                 schemaRegistryAwareProducer(testingKafka)
                         .put(KEY_SERIALIZER_CLASS_CONFIG, LongSerializer.class.getName())
                         .put(VALUE_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer.class.getName())
-                        .build());
+                        .buildOrThrow());
     }
 
     @Test
@@ -115,7 +115,7 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
                 schemaRegistryAwareProducer(testingKafka)
                         .put(KEY_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer.class.getName())
                         .put(VALUE_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer.class.getName())
-                        .build());
+                        .buildOrThrow());
     }
 
     @Test
@@ -131,7 +131,7 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
                         .put(KEY_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer.class.getName())
                         .put(VALUE_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer.class.getName())
                         .put(VALUE_SUBJECT_NAME_STRATEGY, RecordNameStrategy.class.getName())
-                        .build());
+                        .buildOrThrow());
     }
 
     @Test
@@ -147,7 +147,7 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
                         .put(KEY_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer.class.getName())
                         .put(VALUE_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer.class.getName())
                         .put(VALUE_SUBJECT_NAME_STRATEGY, TopicRecordNameStrategy.class.getName())
-                        .build());
+                        .buildOrThrow());
     }
 
     @Test
@@ -163,7 +163,7 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
                 schemaRegistryAwareProducer(testingKafka)
                         .put(KEY_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer.class.getName())
                         .put(VALUE_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer.class.getName())
-                        .build());
+                        .buildOrThrow());
 
         waitUntilTableExists(topicName);
 
@@ -184,7 +184,7 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
                 schemaRegistryAwareProducer(testingKafka)
                         .put(KEY_SERIALIZER_CLASS_CONFIG, LongSerializer.class.getName())
                         .put(VALUE_SERIALIZER_CLASS_CONFIG, KafkaJsonSchemaSerializer.class.getName())
-                        .build());
+                        .buildOrThrow());
 
         String errorMessage = "Not supported schema: JSON";
         assertEventually(

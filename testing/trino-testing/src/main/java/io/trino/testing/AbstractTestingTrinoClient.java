@@ -22,7 +22,6 @@ import io.trino.client.Column;
 import io.trino.client.QueryError;
 import io.trino.client.QueryStatusInfo;
 import io.trino.client.StatementClient;
-import io.trino.connector.CatalogName;
 import io.trino.metadata.MetadataUtil;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.QualifiedTablePrefix;
@@ -42,6 +41,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -133,14 +133,10 @@ public abstract class AbstractTestingTrinoClient<T>
     {
         ImmutableMap.Builder<String, String> properties = ImmutableMap.builder();
         properties.putAll(session.getSystemProperties());
-        for (Entry<CatalogName, Map<String, String>> catalogAndConnectorProperties : session.getConnectorProperties().entrySet()) {
+        for (Entry<String, Map<String, String>> catalogAndConnectorProperties : session.getCatalogProperties().entrySet()) {
             for (Entry<String, String> connectorProperties : catalogAndConnectorProperties.getValue().entrySet()) {
-                properties.put(catalogAndConnectorProperties.getKey() + "." + connectorProperties.getKey(), connectorProperties.getValue());
-            }
-        }
-        for (Entry<String, Map<String, String>> connectorProperties : session.getUnprocessedCatalogProperties().entrySet()) {
-            for (Entry<String, String> entry : connectorProperties.getValue().entrySet()) {
-                properties.put(connectorProperties.getKey() + "." + entry.getKey(), entry.getValue());
+                String catalogName = catalogAndConnectorProperties.getKey();
+                properties.put(catalogName + "." + connectorProperties.getKey(), connectorProperties.getValue());
             }
         }
 
@@ -163,8 +159,8 @@ public abstract class AbstractTestingTrinoClient<T>
                 session.getPath().toString(),
                 ZoneId.of(session.getTimeZoneKey().getId()),
                 session.getLocale(),
-                resourceEstimates.build(),
-                properties.build(),
+                resourceEstimates.buildOrThrow(),
+                properties.buildOrThrow(),
                 session.getPreparedStatements(),
                 getRoles(session),
                 session.getIdentity().getExtraCredentials(),
@@ -178,7 +174,7 @@ public abstract class AbstractTestingTrinoClient<T>
         ImmutableMap.Builder<String, ClientSelectedRole> builder = ImmutableMap.builder();
         session.getIdentity().getEnabledRoles().forEach(role -> builder.put("system", toClientSelectedRole(new SelectedRole(ROLE, Optional.of(role)))));
         session.getIdentity().getCatalogRoles().forEach((key, value) -> builder.put(key, toClientSelectedRole(value)));
-        return builder.build();
+        return builder.buildOrThrow();
     }
 
     private static ClientSelectedRole toClientSelectedRole(io.trino.spi.security.SelectedRole value)
@@ -188,20 +184,22 @@ public abstract class AbstractTestingTrinoClient<T>
 
     public List<QualifiedObjectName> listTables(Session session, String catalog, String schema)
     {
-        return transaction(trinoServer.getTransactionManager(), trinoServer.getAccessControl())
-                .readOnly()
-                .execute(session, transactionSession -> {
-                    return trinoServer.getMetadata().listTables(transactionSession, new QualifiedTablePrefix(catalog, schema));
-                });
+        return inTransaction(session, transactionSession ->
+                trinoServer.getMetadata().listTables(transactionSession, new QualifiedTablePrefix(catalog, schema)));
     }
 
     public boolean tableExists(Session session, String table)
     {
+        return inTransaction(session, transactionSession ->
+                MetadataUtil.tableExists(trinoServer.getMetadata(), transactionSession, table));
+    }
+
+    private <V> V inTransaction(Session session, Function<Session, V> callback)
+    {
         return transaction(trinoServer.getTransactionManager(), trinoServer.getAccessControl())
                 .readOnly()
-                .execute(session, transactionSession -> {
-                    return MetadataUtil.tableExists(trinoServer.getMetadata(), transactionSession, table);
-                });
+                .singleStatement()
+                .execute(session, callback);
     }
 
     public Session getDefaultSession()

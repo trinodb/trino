@@ -1214,7 +1214,7 @@ public class TestHashJoinOperator
 
         assertThatThrownBy(() -> buildLookupSource(executor, buildSideSetup))
                 .isInstanceOf(ExceededMemoryLimitException.class)
-                .hasMessageMatching("Query exceeded per-node user memory limit of.*");
+                .hasMessageMatching("Query exceeded per-node memory limit of.*");
     }
 
     @Test(dataProvider = "hashJoinTestValues")

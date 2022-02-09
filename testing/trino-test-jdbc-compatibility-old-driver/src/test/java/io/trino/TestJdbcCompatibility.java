@@ -40,7 +40,6 @@ import java.util.Optional;
 import java.util.Properties;
 import java.util.function.Consumer;
 
-import static com.google.common.base.Strings.repeat;
 import static io.trino.JdbcDriverCapabilities.correctlyReportsTimestampWithTimeZone;
 import static io.trino.JdbcDriverCapabilities.driverVersion;
 import static io.trino.JdbcDriverCapabilities.hasBrokenParametricTimestampWithTimeZoneSupport;
@@ -112,7 +111,7 @@ public class TestJdbcCompatibility
     public void testLongPreparedStatement()
             throws Exception
     {
-        String sql = format("SELECT '%s' = '%s'", repeat("x", 100_000), repeat("y", 100_000));
+        String sql = format("SELECT '%s' = '%s'", "x".repeat(100_000), "y".repeat(100_000));
 
         try (ResultSet rs = runQuery(sql)) {
             assertThat(rs.next()).isTrue();

@@ -252,7 +252,7 @@ public abstract class AbstractFileFormat
     static Properties createSchema(HiveStorageFormat format, List<String> columnNames, List<Type> columnTypes)
     {
         Properties schema = new Properties();
-        schema.setProperty(SERIALIZATION_LIB, format.getSerDe());
+        schema.setProperty(SERIALIZATION_LIB, format.getSerde());
         schema.setProperty(FILE_INPUT_FORMAT, format.getInputFormat());
         schema.setProperty(META_TABLE_COLUMNS, join(",", columnNames));
         schema.setProperty(META_TABLE_COLUMN_TYPES, columnTypes.stream()

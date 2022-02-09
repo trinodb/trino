@@ -44,6 +44,22 @@
     </violation>
 
     <violation>
+        <name>com/google/common/cache/CacheBuilder.build:()Lcom/google/common/cache/Cache;</name>
+        <version>1.8</version>
+        <comment>Guava Cache has concurrency issues around invalidation and ongoing loads. Use EvictableCache, EvictableLoadingCache, or SafeCaches to build caches.
+            See https://github.com/trinodb/trino/issues/10512 for more information and see https://github.com/trinodb/trino/issues/10512#issuecomment-1016221168
+            for why Caffeine does not solve the problem.</comment>
+    </violation>
+
+    <violation>
+        <name>com/google/common/cache/CacheBuilder.build:(Lcom/google/common/cache/CacheLoader;)Lcom/google/common/cache/LoadingCache;</name>
+        <version>1.8</version>
+        <comment>Guava LoadingCache has concurrency issues around invalidation and ongoing loads. Use EvictableCache, EvictableLoadingCache, or SafeCaches to build caches.
+            See https://github.com/trinodb/trino/issues/10512 for more information and see https://github.com/trinodb/trino/issues/10512#issuecomment-1016221168
+            for why Caffeine does not solve the problem.</comment>
+    </violation>
+
+    <violation>
         <name>org/testng/Assert.assertEquals:(Ljava/lang/Iterable;Ljava/lang/Iterable;)V</name>
         <version>1.8</version>
         <comment>Use io.trino.testing.assertions.Assert.assertEquals due to TestNG #543</comment>
@@ -155,5 +171,17 @@
         <name>com/google/inject/util/Modules.combine:([Lcom/google/inject/Module;)Lcom/google/inject/Module;</name>
         <version>1.8</version>
         <comment>Use io.airlift.configuration.ConfigurationAwareModule.combine</comment>
+    </violation>
+
+    <violation>
+        <name>io/jsonwebtoken/Jwts.builder:()Lio/jsonwebtoken/JwtBuilder;</name>
+        <version>1.8</version>
+        <comment>Use io.trino.server.security.jwt.JwtsUtil or equivalent</comment>
+    </violation>
+
+    <violation>
+        <name>io/jsonwebtoken/Jwts.parserBuilder:()Lio/jsonwebtoken/JwtParserBuilder;</name>
+        <version>1.8</version>
+        <comment>Use io.trino.server.security.jwt.JwtsUtil or equivalent</comment>
     </violation>
 </modernizer>

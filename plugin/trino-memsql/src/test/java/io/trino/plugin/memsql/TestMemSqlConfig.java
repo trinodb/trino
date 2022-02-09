@@ -40,7 +40,7 @@ public class TestMemSqlConfig
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("memsql.auto-reconnect", "false")
                 .put("memsql.connection-timeout", "4s")
-                .build();
+                .buildOrThrow();
 
         MemSqlConfig expected = new MemSqlConfig()
                 .setAutoReconnect(false)

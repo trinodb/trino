@@ -31,7 +31,6 @@
 
 ## Hive connector
 
-* Add support for writing Bloom filters in ORC files. ({issue}`3939`)
 * Make `location` parameter optional for the `system.register_partition` procedure. ({issue}`4443`)
 * Avoid creating tiny splits at the end of block boundaries. ({issue}`4485`)
 * Remove requirement to configure `metastore.storage.schema.reader.impl` in Hive 3.x metastore

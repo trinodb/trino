@@ -44,7 +44,7 @@ public class TestCachingHiveMetastoreConfig
                 .put("hive.metastore-refresh-interval", "30m")
                 .put("hive.metastore-cache-maximum-size", "5000")
                 .put("hive.metastore-refresh-max-threads", "2500")
-                .build();
+                .buildOrThrow();
 
         CachingHiveMetastoreConfig expected = new CachingHiveMetastoreConfig()
                 .setMetastoreCacheTtl(new Duration(2, TimeUnit.HOURS))

@@ -15,6 +15,7 @@ package io.trino.type;
 
 import io.airlift.slice.Slice;
 import io.trino.spi.TrinoException;
+import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.ScalarOperator;
@@ -27,6 +28,7 @@ import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.function.OperatorType.CAST;
 import static io.trino.util.DateTimeUtils.parseDate;
 import static io.trino.util.DateTimeUtils.printDate;
+import static java.lang.String.format;
 
 public final class DateOperators
 {
@@ -35,9 +37,15 @@ public final class DateOperators
     @ScalarOperator(CAST)
     @LiteralParameters("x")
     @SqlType("varchar(x)")
-    public static Slice castToSlice(@SqlType(StandardTypes.DATE) long value)
+    public static Slice castToSlice(@LiteralParameter("x") long x, @SqlType(StandardTypes.DATE) long value)
     {
-        return utf8Slice(printDate((int) value));
+        String stringValue = printDate((int) value);
+        // String is all-ASCII, so String.length() here returns actual code points count
+        if (stringValue.length() <= x) {
+            return utf8Slice(stringValue);
+        }
+
+        throw new TrinoException(INVALID_CAST_ARGUMENT, format("Value %s cannot be represented as varchar(%s)", stringValue, x));
     }
 
     @ScalarFunction("date")

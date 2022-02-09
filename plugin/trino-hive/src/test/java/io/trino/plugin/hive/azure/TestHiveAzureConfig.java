@@ -57,7 +57,7 @@ public class TestHiveAzureConfig
                 .put("hive.azure.abfs.oauth.endpoint", "abfsoauthendpoint")
                 .put("hive.azure.abfs.oauth.client-id", "abfsoauthclientid")
                 .put("hive.azure.abfs.oauth.secret", "abfsoauthsecret")
-                .build();
+                .buildOrThrow();
 
         HiveAzureConfig expected = new HiveAzureConfig()
                 .setWasbStorageAccount("testwasbstorage")

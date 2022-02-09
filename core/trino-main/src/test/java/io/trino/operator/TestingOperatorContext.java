@@ -36,7 +36,7 @@ public final class TestingOperatorContext
                 scheduledExecutor,
                 TestingSession.testSessionBuilder().build());
 
-        MemoryTrackingContext pipelineMemoryContext = new MemoryTrackingContext(newSimpleAggregatedMemoryContext(), newSimpleAggregatedMemoryContext(), newSimpleAggregatedMemoryContext());
+        MemoryTrackingContext pipelineMemoryContext = new MemoryTrackingContext(newSimpleAggregatedMemoryContext(), newSimpleAggregatedMemoryContext());
 
         PipelineContext pipelineContext = new PipelineContext(
                 1,

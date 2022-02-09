@@ -577,7 +577,7 @@ public final class PropertyDerivations
                             .constants(ImmutableMap.<Symbol, NullableValue>builder()
                                     .putAll(probeProperties.getConstants())
                                     .putAll(indexProperties.getConstants())
-                                    .build())
+                                    .buildOrThrow())
                             .build();
                 case SOURCE_OUTER:
                     return ActualProperties.builderFrom(probeProperties)

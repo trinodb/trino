@@ -34,6 +34,7 @@ import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
+import io.trino.spi.type.TestingTypeManager;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import org.apache.iceberg.Table;
@@ -116,8 +117,8 @@ public class TestIcebergSplitSource
 
         IcebergSplitSource splitSource = new IcebergSplitSource(
                 tableHandle,
-                ImmutableSet.of(),
                 nationTable.newScan(),
+                Optional.empty(),
                 new DynamicFilter()
                 {
                     @Override
@@ -158,7 +159,9 @@ public class TestIcebergSplitSource
                     }
                 },
                 new Duration(2, SECONDS),
-                alwaysTrue());
+                alwaysTrue(),
+                new TestingTypeManager(),
+                false);
 
         ImmutableList.Builder<IcebergSplit> splits = ImmutableList.builder();
         while (!splitSource.isFinished()) {

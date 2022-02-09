@@ -17,12 +17,15 @@ import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.NodeVersion;
-import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.spi.TrinoException;
+import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.TypeManager;
 
 import javax.inject.Inject;
+
+import java.util.Optional;
 
 import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.memoizeMetastore;
 import static io.trino.plugin.iceberg.IcebergSecurityConfig.IcebergSecurity.SYSTEM;
@@ -32,7 +35,7 @@ import static java.util.Objects.requireNonNull;
 public class TrinoCatalogFactory
 {
     private final CatalogName catalogName;
-    private final HiveMetastore metastore;
+    private final HiveMetastoreFactory metastoreFactory;
     private final HdfsEnvironment hdfsEnvironment;
     private final TypeManager typeManager;
     private final IcebergTableOperationsProvider tableOperationsProvider;
@@ -46,7 +49,7 @@ public class TrinoCatalogFactory
     public TrinoCatalogFactory(
             IcebergConfig config,
             CatalogName catalogName,
-            HiveMetastore metastore,
+            HiveMetastoreFactory metastoreFactory,
             HdfsEnvironment hdfsEnvironment,
             TypeManager typeManager,
             IcebergTableOperationsProvider tableOperationsProvider,
@@ -55,7 +58,7 @@ public class TrinoCatalogFactory
             HiveConfig hiveConfig)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
-        this.metastore = requireNonNull(metastore, "metastore is null");
+        this.metastoreFactory = requireNonNull(metastoreFactory, "metastoreFactory is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.tableOperationsProvider = requireNonNull(tableOperationsProvider, "tableOperationProvider is null");
@@ -67,14 +70,14 @@ public class TrinoCatalogFactory
         this.deleteSchemaLocationsFallback = requireNonNull(hiveConfig).isDeleteSchemaLocationsFallback();
     }
 
-    public TrinoCatalog create()
+    public TrinoCatalog create(ConnectorIdentity identity)
     {
         switch (catalogType) {
             case TESTING_FILE_METASTORE:
             case HIVE_METASTORE:
                 return new TrinoHiveCatalog(
                         catalogName,
-                        memoizeMetastore(metastore, 1000),
+                        memoizeMetastore(metastoreFactory.createMetastore(Optional.of(identity)), 1000),
                         hdfsEnvironment,
                         typeManager,
                         tableOperationsProvider,

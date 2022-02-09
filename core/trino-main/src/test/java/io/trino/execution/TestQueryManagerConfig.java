@@ -24,7 +24,9 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.concurrent.TimeUnit.MINUTES;
@@ -51,7 +53,7 @@ public class TestQueryManagerConfig
                 .setRemoteTaskMinErrorDuration(new Duration(5, MINUTES))
                 .setRemoteTaskMaxErrorDuration(new Duration(5, MINUTES))
                 .setRemoteTaskMaxCallbackThreads(1000)
-                .setQueryExecutionPolicy("all-at-once")
+                .setQueryExecutionPolicy("phased")
                 .setQueryMaxRunTime(new Duration(100, DAYS))
                 .setQueryMaxExecutionTime(new Duration(100, DAYS))
                 .setQueryMaxPlanningTime(new Duration(10, MINUTES))
@@ -62,7 +64,9 @@ public class TestQueryManagerConfig
                 .setRetryPolicy(RetryPolicy.NONE)
                 .setRetryAttempts(4)
                 .setRetryInitialDelay(new Duration(10, SECONDS))
-                .setRetryMaxDelay(new Duration(1, MINUTES)));
+                .setRetryMaxDelay(new Duration(1, MINUTES))
+                .setFaultTolerantExecutionTargetTaskInputSize(DataSize.of(1, GIGABYTE))
+                .setFaultTolerantExecutionTargetTaskSplitCount(16));
     }
 
     @Test
@@ -84,7 +88,7 @@ public class TestQueryManagerConfig
                 .put("query.remote-task.min-error-duration", "30s")
                 .put("query.remote-task.max-error-duration", "60s")
                 .put("query.remote-task.max-callback-threads", "10")
-                .put("query.execution-policy", "phased")
+                .put("query.execution-policy", "legacy-phased")
                 .put("query.max-run-time", "2h")
                 .put("query.max-execution-time", "3h")
                 .put("query.max-planning-time", "1h")
@@ -96,7 +100,9 @@ public class TestQueryManagerConfig
                 .put("retry-attempts", "0")
                 .put("retry-initial-delay", "1m")
                 .put("retry-max-delay", "1h")
-                .build();
+                .put("fault-tolerant-execution-target-task-input-size", "222MB")
+                .put("fault-tolerant-execution-target-task-split-count", "3")
+                .buildOrThrow();
 
         QueryManagerConfig expected = new QueryManagerConfig()
                 .setMinQueryExpireAge(new Duration(30, SECONDS))
@@ -114,7 +120,7 @@ public class TestQueryManagerConfig
                 .setRemoteTaskMinErrorDuration(new Duration(60, SECONDS))
                 .setRemoteTaskMaxErrorDuration(new Duration(60, SECONDS))
                 .setRemoteTaskMaxCallbackThreads(10)
-                .setQueryExecutionPolicy("phased")
+                .setQueryExecutionPolicy("legacy-phased")
                 .setQueryMaxRunTime(new Duration(2, HOURS))
                 .setQueryMaxExecutionTime(new Duration(3, HOURS))
                 .setQueryMaxPlanningTime(new Duration(1, HOURS))
@@ -125,7 +131,9 @@ public class TestQueryManagerConfig
                 .setRetryPolicy(RetryPolicy.QUERY)
                 .setRetryAttempts(0)
                 .setRetryInitialDelay(new Duration(1, MINUTES))
-                .setRetryMaxDelay(new Duration(1, HOURS));
+                .setRetryMaxDelay(new Duration(1, HOURS))
+                .setFaultTolerantExecutionTargetTaskInputSize(DataSize.of(222, MEGABYTE))
+                .setFaultTolerantExecutionTargetTaskSplitCount(3);
 
         assertFullMapping(properties, expected);
     }

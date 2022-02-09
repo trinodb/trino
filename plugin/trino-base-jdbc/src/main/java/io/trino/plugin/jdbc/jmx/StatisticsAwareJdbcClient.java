@@ -221,7 +221,7 @@ public final class StatisticsAwareJdbcClient
     }
 
     @Override
-    public void setTableProperties(ConnectorSession session, JdbcTableHandle handle, Map<String, Object> properties)
+    public void setTableProperties(ConnectorSession session, JdbcTableHandle handle, Map<String, Optional<Object>> properties)
     {
         stats.getSetTableProperties().wrap(() -> delegate().setTableProperties(session, handle, properties));
     }
@@ -328,6 +328,12 @@ public final class StatisticsAwareJdbcClient
     public void dropSchema(ConnectorSession session, String schemaName)
     {
         stats.getDropSchema().wrap(() -> delegate().dropSchema(session, schemaName));
+    }
+
+    @Override
+    public void renameSchema(ConnectorSession session, String schemaName, String newSchemaName)
+    {
+        stats.getRenameSchema().wrap(() -> delegate().renameSchema(session, schemaName, newSchemaName));
     }
 
     @Override

@@ -91,7 +91,7 @@ public final class DynamicTableBuilder
                 aggregateTypesBuilder.put(aggregationFunction.getResultColumnName(), toTrinoType(aggregationFunction.getFinalResultColumnType()));
             }
         }
-        Map<String, Type> aggregateTypes = aggregateTypesBuilder.build();
+        Map<String, Type> aggregateTypes = aggregateTypesBuilder.buildOrThrow();
         if (queryContext.getSelectExpressions() != null) {
             checkState(!queryContext.getSelectExpressions().isEmpty(), "Pinot selections is empty");
             selectColumns = getPinotColumns(schemaTableName, queryContext.getSelectExpressions(), queryContext.getAliasList(), columnHandles, pinotTypeResolver, aggregateTypes);

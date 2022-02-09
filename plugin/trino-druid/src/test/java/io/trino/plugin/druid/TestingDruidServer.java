@@ -58,6 +58,7 @@ public class TestingDruidServer
     private final GenericContainer<?> middleManager;
     private final GenericContainer<?> zookeeper;
     private final OkHttpClient httpClient;
+    private final Network network;
 
     private static final int DRUID_COORDINATOR_PORT = 8081;
     private static final int DRUID_BROKER_PORT = 8082;
@@ -85,7 +86,7 @@ public class TestingDruidServer
             f.setReadable(true, false);
             f.setExecutable(true, false);
             this.httpClient = new OkHttpClient();
-            Network network = Network.newNetwork();
+            network = Network.newNetwork();
             this.zookeeper = new GenericContainer<>("zookeeper")
                     .withNetwork(network)
                     .withNetworkAliases("zookeeper")
@@ -193,6 +194,7 @@ public class TestingDruidServer
             closer.register(middleManager::stop);
             closer.register(coordinator::stop);
             closer.register(zookeeper::stop);
+            closer.register(network::close);
         }
         catch (FileSystemException e) {
             // Unfortunately, on CI environment, the user running file deletion runs into

@@ -41,7 +41,6 @@ public class TestDriverStats
 
             DataSize.ofBytes(6),
             DataSize.ofBytes(7),
-            DataSize.ofBytes(8),
 
             new Duration(9, NANOSECONDS),
             new Duration(10, NANOSECONDS),
@@ -94,7 +93,6 @@ public class TestDriverStats
 
         assertEquals(actual.getUserMemoryReservation(), DataSize.ofBytes(6));
         assertEquals(actual.getRevocableMemoryReservation(), DataSize.ofBytes(7));
-        assertEquals(actual.getSystemMemoryReservation(), DataSize.ofBytes(8));
 
         assertEquals(actual.getTotalScheduledTime(), new Duration(9, NANOSECONDS));
         assertEquals(actual.getTotalCpuTime(), new Duration(10, NANOSECONDS));

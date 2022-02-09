@@ -45,6 +45,7 @@ public class S3SecurityMapping
     private final Optional<BasicAWSCredentials> credentials;
     private final boolean useClusterDefault;
     private final Optional<String> endpoint;
+    private final Optional<String> roleSessionName;
 
     @JsonCreator
     public S3SecurityMapping(
@@ -52,6 +53,7 @@ public class S3SecurityMapping
             @JsonProperty("group") Optional<Pattern> group,
             @JsonProperty("prefix") Optional<URI> prefix,
             @JsonProperty("iamRole") Optional<String> iamRole,
+            @JsonProperty("roleSessionName") Optional<String> roleSessionName,
             @JsonProperty("allowedIamRoles") Optional<List<String>> allowedIamRoles,
             @JsonProperty("kmsKeyId") Optional<String> kmsKeyId,
             @JsonProperty("allowedKmsKeyIds") Optional<List<String>> allowedKmsKeyIds,
@@ -72,6 +74,8 @@ public class S3SecurityMapping
                 .orElse(x -> true);
 
         this.iamRole = requireNonNull(iamRole, "iamRole is null");
+        this.roleSessionName = requireNonNull(roleSessionName, "roleSessionName is null");
+        checkArgument(!(iamRole.isEmpty() && roleSessionName.isPresent()), "iamRole must be provided when roleSessionName is provided");
 
         this.allowedIamRoles = ImmutableSet.copyOf(requireNonNull(allowedIamRoles, "allowedIamRoles is null")
                 .orElse(ImmutableList.of()));
@@ -138,6 +142,11 @@ public class S3SecurityMapping
         return endpoint;
     }
 
+    public Optional<String> getRoleSessionName()
+    {
+        return roleSessionName;
+    }
+
     @Override
     public String toString()
     {
@@ -146,6 +155,7 @@ public class S3SecurityMapping
                 .add("group", group)
                 .add("prefix", prefix)
                 .add("iamRole", iamRole)
+                .add("roleSessionName", roleSessionName.orElse(null))
                 .add("allowedIamRoles", allowedIamRoles)
                 .add("kmsKeyId", kmsKeyId)
                 .add("allowedKmsKeyIds", allowedKmsKeyIds)

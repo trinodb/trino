@@ -110,4 +110,15 @@ public class SampledRelation
     {
         return Objects.hash(relation, type, samplePercentage);
     }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        if (!sameClass(this, other)) {
+            return false;
+        }
+
+        SampledRelation otherRelation = (SampledRelation) other;
+        return type == otherRelation.type && Objects.equals(samplePercentage, otherRelation.samplePercentage);
+    }
 }

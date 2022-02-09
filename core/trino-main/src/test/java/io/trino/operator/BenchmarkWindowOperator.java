@@ -79,7 +79,7 @@ public class BenchmarkWindowOperator
         public int rowsPerPartition;
 
         @Param({"0", "1", "2", "3"})
-        public int numberOfPregroupedColumns;
+        public int numberOfPreGroupedColumns;
 
         @Param({"10", "50", "100"})
         public int partitionsPerGroup;
@@ -96,7 +96,7 @@ public class BenchmarkWindowOperator
             executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
             scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed(getClass().getSimpleName() + "-scheduledExecutor-%s"));
 
-            createOperatorFactoryAndGenerateTestData(numberOfPregroupedColumns);
+            createOperatorFactoryAndGenerateTestData(numberOfPreGroupedColumns);
         }
 
         @TearDown
@@ -311,7 +311,7 @@ public class BenchmarkWindowOperator
         Context context = new Context();
 
         context.rowsPerPartition = numberOfRowsPerPartition;
-        context.numberOfPregroupedColumns = numberOfPreGroupedColumns;
+        context.numberOfPreGroupedColumns = numberOfPreGroupedColumns;
 
         if (useSinglePartition) {
             context.partitionsPerGroup = 1;

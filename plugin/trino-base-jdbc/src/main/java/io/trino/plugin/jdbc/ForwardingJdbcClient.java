@@ -288,7 +288,7 @@ public abstract class ForwardingJdbcClient
     }
 
     @Override
-    public void setTableProperties(ConnectorSession session, JdbcTableHandle handle, Map<String, Object> properties)
+    public void setTableProperties(ConnectorSession session, JdbcTableHandle handle, Map<String, Optional<Object>> properties)
     {
         delegate().setTableProperties(session, handle, properties);
     }
@@ -309,6 +309,12 @@ public abstract class ForwardingJdbcClient
     public void dropSchema(ConnectorSession session, String schemaName)
     {
         delegate().dropSchema(session, schemaName);
+    }
+
+    @Override
+    public void renameSchema(ConnectorSession session, String schemaName, String newSchemaName)
+    {
+        delegate().renameSchema(session, schemaName, newSchemaName);
     }
 
     @Override

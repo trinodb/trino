@@ -58,7 +58,7 @@ public class TestKerberosConfig
                 .put("http-server.authentication.krb5.name-type", "USER_NAME")
                 .put("http-server.authentication.krb5.user-mapping.pattern", "(.*)@something")
                 .put("http-server.authentication.krb5.user-mapping.file", userMappingFile.toString())
-                .build();
+                .buildOrThrow();
 
         KerberosConfig expected = new KerberosConfig()
                 .setKerberosConfig(krbConfigFile.toFile())

@@ -13,23 +13,43 @@
  */
 package io.trino.operator;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.slice.Slice;
 import io.trino.connector.CatalogName;
+import io.trino.exchange.ExchangeManagerRegistry;
+import io.trino.execution.TaskFailureListener;
+import io.trino.execution.TaskId;
 import io.trino.execution.buffer.PagesSerde;
 import io.trino.execution.buffer.PagesSerdeFactory;
+import io.trino.memory.context.LocalMemoryContext;
 import io.trino.metadata.Split;
 import io.trino.spi.Page;
 import io.trino.spi.connector.UpdatablePageSource;
+import io.trino.spi.exchange.ExchangeId;
+import io.trino.spi.exchange.ExchangeManager;
+import io.trino.spi.exchange.ExchangeSource;
+import io.trino.spi.exchange.ExchangeSourceHandle;
 import io.trino.split.RemoteSplit;
+import io.trino.split.RemoteSplit.DirectExchangeInput;
+import io.trino.split.RemoteSplit.SpoolingExchangeInput;
 import io.trino.sql.planner.plan.PlanNodeId;
 
+import java.io.Closeable;
 import java.net.URI;
+import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
+import static io.airlift.concurrent.MoreFutures.asVoid;
+import static io.airlift.concurrent.MoreFutures.toListenableFuture;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class ExchangeOperator
@@ -42,24 +62,27 @@ public class ExchangeOperator
     {
         private final int operatorId;
         private final PlanNodeId sourceId;
-        private final ExchangeClientSupplier exchangeClientSupplier;
+        private final DirectExchangeClientSupplier directExchangeClientSupplier;
         private final PagesSerdeFactory serdeFactory;
         private final RetryPolicy retryPolicy;
-        private ExchangeClient exchangeClient;
+        private final ExchangeManagerRegistry exchangeManagerRegistry;
+        private ExchangeDataSource exchangeDataSource;
         private boolean closed;
 
         public ExchangeOperatorFactory(
                 int operatorId,
                 PlanNodeId sourceId,
-                ExchangeClientSupplier exchangeClientSupplier,
+                DirectExchangeClientSupplier directExchangeClientSupplier,
                 PagesSerdeFactory serdeFactory,
-                RetryPolicy retryPolicy)
+                RetryPolicy retryPolicy,
+                ExchangeManagerRegistry exchangeManagerRegistry)
         {
             this.operatorId = operatorId;
             this.sourceId = sourceId;
-            this.exchangeClientSupplier = exchangeClientSupplier;
+            this.directExchangeClientSupplier = directExchangeClientSupplier;
             this.serdeFactory = serdeFactory;
             this.retryPolicy = requireNonNull(retryPolicy, "retryPolicy is null");
+            this.exchangeManagerRegistry = requireNonNull(exchangeManagerRegistry, "exchangeManagerRegistry is null");
         }
 
         @Override
@@ -74,15 +97,25 @@ public class ExchangeOperator
             checkState(!closed, "Factory is already closed");
             TaskContext taskContext = driverContext.getPipelineContext().getTaskContext();
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, sourceId, ExchangeOperator.class.getSimpleName());
-            if (exchangeClient == null) {
-                exchangeClient = exchangeClientSupplier.get(driverContext.getPipelineContext().localSystemMemoryContext(), taskContext::sourceTaskFailed, retryPolicy);
+            LocalMemoryContext memoryContext = driverContext.getPipelineContext().localMemoryContext();
+            if (exchangeDataSource == null) {
+                // The decision of what exchange to use (streaming vs external) is currently made at the scheduling phase. It is more convenient to deliver it as part of a RemoteSplit.
+                // Postponing this decision until scheduling allows to dynamically change the exchange type as part of an adaptive query re-planning.
+                // LazyExchangeDataSource allows to choose an exchange source implementation based on the information received from a split.
+                exchangeDataSource = new LazyExchangeDataSource(
+                        taskContext.getTaskId(),
+                        sourceId,
+                        directExchangeClientSupplier,
+                        memoryContext,
+                        taskContext::sourceTaskFailed,
+                        retryPolicy,
+                        exchangeManagerRegistry);
             }
-
             return new ExchangeOperator(
                     operatorContext,
                     sourceId,
-                    serdeFactory.createPagesSerde(),
-                    exchangeClient);
+                    exchangeDataSource,
+                    serdeFactory.createPagesSerde());
         }
 
         @Override
@@ -94,22 +127,22 @@ public class ExchangeOperator
 
     private final OperatorContext operatorContext;
     private final PlanNodeId sourceId;
-    private final ExchangeClient exchangeClient;
+    private final ExchangeDataSource exchangeDataSource;
     private final PagesSerde serde;
     private ListenableFuture<Void> isBlocked = NOT_BLOCKED;
 
     public ExchangeOperator(
             OperatorContext operatorContext,
             PlanNodeId sourceId,
-            PagesSerde serde,
-            ExchangeClient exchangeClient)
+            ExchangeDataSource exchangeDataSource,
+            PagesSerde serde)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.sourceId = requireNonNull(sourceId, "sourceId is null");
-        this.exchangeClient = requireNonNull(exchangeClient, "exchangeClient is null");
+        this.exchangeDataSource = requireNonNull(exchangeDataSource, "exchangeDataSource is null");
         this.serde = requireNonNull(serde, "serde is null");
 
-        operatorContext.setInfoSupplier(exchangeClient::getStatus);
+        operatorContext.setInfoSupplier(exchangeDataSource::getInfo);
     }
 
     @Override
@@ -124,8 +157,7 @@ public class ExchangeOperator
         requireNonNull(split, "split is null");
         checkArgument(split.getCatalogName().equals(REMOTE_CONNECTOR_ID), "split is not a remote split");
 
-        RemoteSplit remoteSplit = (RemoteSplit) split.getConnectorSplit();
-        exchangeClient.addLocation(remoteSplit.getTaskId(), URI.create(remoteSplit.getLocation()));
+        exchangeDataSource.addSplit((RemoteSplit) split.getConnectorSplit());
 
         return Optional::empty;
     }
@@ -133,7 +165,7 @@ public class ExchangeOperator
     @Override
     public void noMoreSplits()
     {
-        exchangeClient.noMoreLocations();
+        exchangeDataSource.noMoreSplits();
     }
 
     @Override
@@ -151,15 +183,15 @@ public class ExchangeOperator
     @Override
     public boolean isFinished()
     {
-        return exchangeClient.isFinished();
+        return exchangeDataSource.isFinished();
     }
 
     @Override
     public ListenableFuture<Void> isBlocked()
     {
-        // Avoid registering a new callback in the ExchangeClient when one is already pending
+        // Avoid registering a new callback in the data source when one is already pending
         if (isBlocked.isDone()) {
-            isBlocked = exchangeClient.isBlocked();
+            isBlocked = exchangeDataSource.isBlocked();
             if (isBlocked.isDone()) {
                 isBlocked = NOT_BLOCKED;
             }
@@ -182,7 +214,7 @@ public class ExchangeOperator
     @Override
     public Page getOutput()
     {
-        Slice page = exchangeClient.pollPage();
+        Slice page = exchangeDataSource.pollPage();
         if (page == null) {
             return null;
         }
@@ -197,6 +229,303 @@ public class ExchangeOperator
     @Override
     public void close()
     {
-        exchangeClient.close();
+        exchangeDataSource.close();
+    }
+
+    private interface ExchangeDataSource
+            extends Closeable
+    {
+        Slice pollPage();
+
+        boolean isFinished();
+
+        ListenableFuture<Void> isBlocked();
+
+        void addSplit(RemoteSplit split);
+
+        void noMoreSplits();
+
+        OperatorInfo getInfo();
+
+        @Override
+        void close();
+    }
+
+    private static class LazyExchangeDataSource
+            implements ExchangeDataSource
+    {
+        private final TaskId taskId;
+        private final PlanNodeId sourceId;
+        private final DirectExchangeClientSupplier directExchangeClientSupplier;
+        private final LocalMemoryContext systemMemoryContext;
+        private final TaskFailureListener taskFailureListener;
+        private final RetryPolicy retryPolicy;
+        private final ExchangeManagerRegistry exchangeManagerRegistry;
+
+        private final SettableFuture<Void> initializationFuture = SettableFuture.create();
+        private final AtomicReference<ExchangeDataSource> delegate = new AtomicReference<>();
+        private final AtomicBoolean closed = new AtomicBoolean();
+
+        private LazyExchangeDataSource(
+                TaskId taskId,
+                PlanNodeId sourceId,
+                DirectExchangeClientSupplier directExchangeClientSupplier,
+                LocalMemoryContext systemMemoryContext,
+                TaskFailureListener taskFailureListener,
+                RetryPolicy retryPolicy,
+                ExchangeManagerRegistry exchangeManagerRegistry)
+        {
+            this.taskId = requireNonNull(taskId, "taskId is null");
+            this.sourceId = requireNonNull(sourceId, "sourceId is null");
+            this.directExchangeClientSupplier = requireNonNull(directExchangeClientSupplier, "directExchangeClientSupplier is null");
+            this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
+            this.taskFailureListener = requireNonNull(taskFailureListener, "taskFailureListener is null");
+            this.retryPolicy = requireNonNull(retryPolicy, "retryPolicy is null");
+            this.exchangeManagerRegistry = requireNonNull(exchangeManagerRegistry, "exchangeManagerRegistry is null");
+        }
+
+        @Override
+        public Slice pollPage()
+        {
+            ExchangeDataSource dataSource = delegate.get();
+            if (dataSource == null) {
+                return null;
+            }
+            return dataSource.pollPage();
+        }
+
+        @Override
+        public boolean isFinished()
+        {
+            if (closed.get()) {
+                return true;
+            }
+            ExchangeDataSource dataSource = delegate.get();
+            if (dataSource == null) {
+                return false;
+            }
+            return dataSource.isFinished();
+        }
+
+        @Override
+        public ListenableFuture<Void> isBlocked()
+        {
+            if (closed.get()) {
+                return immediateVoidFuture();
+            }
+            if (!initializationFuture.isDone()) {
+                return initializationFuture;
+            }
+            ExchangeDataSource dataSource = delegate.get();
+            checkState(dataSource != null, "dataSource is expected to be initialized");
+            return dataSource.isBlocked();
+        }
+
+        @Override
+        public void addSplit(RemoteSplit split)
+        {
+            boolean initialized = false;
+            synchronized (this) {
+                if (closed.get()) {
+                    return;
+                }
+                ExchangeDataSource dataSource = delegate.get();
+                if (dataSource == null) {
+                    if (split.getExchangeInput() instanceof DirectExchangeInput) {
+                        DirectExchangeClient client = directExchangeClientSupplier.get(
+                                taskId.getQueryId(),
+                                new ExchangeId(format("direct-exchange-%s-%s", taskId.getStageId().getId(), sourceId)),
+                                systemMemoryContext,
+                                taskFailureListener,
+                                retryPolicy);
+                        dataSource = new DirectExchangeDataSource(client);
+                    }
+                    else if (split.getExchangeInput() instanceof SpoolingExchangeInput) {
+                        SpoolingExchangeInput input = (SpoolingExchangeInput) split.getExchangeInput();
+                        ExchangeManager exchangeManager = exchangeManagerRegistry.getExchangeManager();
+                        List<ExchangeSourceHandle> sourceHandles = input.getExchangeSourceHandles();
+                        ExchangeSource exchangeSource = exchangeManager.createSource(sourceHandles);
+                        dataSource = new SpoolingExchangeDataSource(exchangeSource, sourceHandles, systemMemoryContext);
+                    }
+                    else {
+                        throw new IllegalArgumentException("Unexpected split: " + split);
+                    }
+                    delegate.set(dataSource);
+                    initialized = true;
+                }
+                dataSource.addSplit(split);
+            }
+
+            if (initialized) {
+                initializationFuture.set(null);
+            }
+        }
+
+        @Override
+        public synchronized void noMoreSplits()
+        {
+            if (closed.get()) {
+                return;
+            }
+            ExchangeDataSource dataSource = delegate.get();
+            if (dataSource != null) {
+                dataSource.noMoreSplits();
+            }
+            else {
+                // to unblock when no splits are provided (and delegate hasn't been created)
+                close();
+            }
+        }
+
+        @Override
+        public OperatorInfo getInfo()
+        {
+            ExchangeDataSource dataSource = delegate.get();
+            if (dataSource == null) {
+                return null;
+            }
+            return dataSource.getInfo();
+        }
+
+        @Override
+        public void close()
+        {
+            synchronized (this) {
+                if (!closed.compareAndSet(false, true)) {
+                    return;
+                }
+                ExchangeDataSource dataSource = delegate.get();
+                if (dataSource != null) {
+                    dataSource.close();
+                }
+            }
+            initializationFuture.set(null);
+        }
+    }
+
+    private static class DirectExchangeDataSource
+            implements ExchangeDataSource
+    {
+        private final DirectExchangeClient directExchangeClient;
+
+        private DirectExchangeDataSource(DirectExchangeClient directExchangeClient)
+        {
+            this.directExchangeClient = requireNonNull(directExchangeClient, "directExchangeClient is null");
+        }
+
+        @Override
+        public Slice pollPage()
+        {
+            return directExchangeClient.pollPage();
+        }
+
+        @Override
+        public boolean isFinished()
+        {
+            return directExchangeClient.isFinished();
+        }
+
+        @Override
+        public ListenableFuture<Void> isBlocked()
+        {
+            return directExchangeClient.isBlocked();
+        }
+
+        @Override
+        public void addSplit(RemoteSplit split)
+        {
+            DirectExchangeInput exchangeInput = (DirectExchangeInput) split.getExchangeInput();
+            directExchangeClient.addLocation(exchangeInput.getTaskId(), URI.create(exchangeInput.getLocation()));
+        }
+
+        @Override
+        public void noMoreSplits()
+        {
+            directExchangeClient.noMoreLocations();
+        }
+
+        @Override
+        public OperatorInfo getInfo()
+        {
+            return directExchangeClient.getStatus();
+        }
+
+        @Override
+        public void close()
+        {
+            directExchangeClient.close();
+        }
+    }
+
+    private static class SpoolingExchangeDataSource
+            implements ExchangeDataSource
+    {
+        private final ExchangeSource exchangeSource;
+        private final List<ExchangeSourceHandle> exchangeSourceHandles;
+        private final LocalMemoryContext systemMemoryContext;
+
+        private SpoolingExchangeDataSource(
+                ExchangeSource exchangeSource,
+                List<ExchangeSourceHandle> exchangeSourceHandles,
+                LocalMemoryContext systemMemoryContext)
+        {
+            this.exchangeSource = requireNonNull(exchangeSource, "exchangeSource is null");
+            this.exchangeSourceHandles = ImmutableList.copyOf(requireNonNull(exchangeSourceHandles, "exchangeSourceHandles is null"));
+            this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
+        }
+
+        @Override
+        public Slice pollPage()
+        {
+            Slice data = exchangeSource.read();
+            systemMemoryContext.setBytes(exchangeSource.getMemoryUsage());
+            return data;
+        }
+
+        @Override
+        public boolean isFinished()
+        {
+            return exchangeSource.isFinished();
+        }
+
+        @Override
+        public ListenableFuture<Void> isBlocked()
+        {
+            return asVoid(toListenableFuture(exchangeSource.isBlocked()));
+        }
+
+        @Override
+        public void addSplit(RemoteSplit split)
+        {
+            SpoolingExchangeInput exchangeInput = (SpoolingExchangeInput) split.getExchangeInput();
+            // Only a single split is expected when external exchange is used.
+            // The engine adds the same split to every instance of the ExchangeOperator.
+            // Since the ExchangeDataSource is shared between ExchangeOperator instances
+            // the same split may be delivered multiple times.
+            checkState(
+                    exchangeInput.getExchangeSourceHandles().equals(exchangeSourceHandles),
+                    "split is expected to contain an identical exchangeSourceHandles list: %s != %s",
+                    exchangeInput.getExchangeSourceHandles(),
+                    exchangeSourceHandles);
+        }
+
+        @Override
+        public void noMoreSplits()
+        {
+            // Only a single split is expected when external exchange is used.
+            // Thus the assumption of "noMoreSplit" is made on construction.
+        }
+
+        @Override
+        public OperatorInfo getInfo()
+        {
+            return null;
+        }
+
+        @Override
+        public void close()
+        {
+            exchangeSource.close();
+        }
     }
 }

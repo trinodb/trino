@@ -156,7 +156,7 @@ public final class PredicateUtils
                 }
             }
         }
-        return statistics.build();
+        return statistics.buildOrThrow();
     }
 
     private static boolean dictionaryPredicatesMatch(Predicate parquetPredicate, BlockMetaData blockMetadata, ParquetDataSource dataSource, Map<List<String>, RichColumnDescriptor> descriptorsByPath, TupleDomain<ColumnDescriptor> parquetTupleDomain)

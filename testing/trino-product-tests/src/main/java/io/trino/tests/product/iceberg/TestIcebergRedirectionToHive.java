@@ -35,6 +35,12 @@ import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 import static java.sql.JDBCType.VARCHAR;
 
+/**
+ * Tests interactions between Iceberg and Hive connectors, when one tries to read a table created by the other
+ * with redirects enabled.
+ *
+ * @see TestIcebergHiveTablesCompatibility
+ */
 public class TestIcebergRedirectionToHive
         extends ProductTest
 {

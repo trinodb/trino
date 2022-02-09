@@ -46,6 +46,7 @@ import java.util.OptionalLong;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.trino.plugin.base.util.Closables.closeAllSuppress;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
 import static io.trino.plugin.hive.HiveUpdatablePageSource.BUCKET_CHANNEL;
@@ -71,13 +72,13 @@ public class OrcPageSource
 
     private boolean closed;
 
-    private final AggregatedMemoryContext systemMemoryContext;
+    private final AggregatedMemoryContext memoryContext;
     private final LocalMemoryContext localMemoryContext;
 
     private final FileFormatDataSourceStats stats;
 
     // Row ID relative to all the original files of the same bucket ID before this file in lexicographic order
-    private Optional<Long> originalFileRowId = Optional.empty();
+    private final Optional<Long> originalFileRowId;
 
     private long completedPositions;
 
@@ -89,7 +90,7 @@ public class OrcPageSource
             OrcDataSource orcDataSource,
             Optional<OrcDeletedRows> deletedRows,
             Optional<Long> originalFileRowId,
-            AggregatedMemoryContext systemMemoryContext,
+            AggregatedMemoryContext memoryContext,
             FileFormatDataSourceStats stats)
     {
         this.recordReader = requireNonNull(recordReader, "recordReader is null");
@@ -97,8 +98,8 @@ public class OrcPageSource
         this.orcDataSource = requireNonNull(orcDataSource, "orcDataSource is null");
         this.deletedRows = requireNonNull(deletedRows, "deletedRows is null");
         this.stats = requireNonNull(stats, "stats is null");
-        this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
-        this.localMemoryContext = systemMemoryContext.newLocalMemoryContext(OrcPageSource.class.getSimpleName());
+        this.memoryContext = requireNonNull(memoryContext, "memoryContext is null");
+        this.localMemoryContext = memoryContext.newLocalMemoryContext(OrcPageSource.class.getSimpleName());
         this.originalFileRowId = requireNonNull(originalFileRowId, "originalFileRowId is null");
     }
 
@@ -150,7 +151,7 @@ public class OrcPageSource
             }
         }
         catch (IOException | RuntimeException e) {
-            closeWithSuppression(e);
+            closeAllSuppress(e, this);
             throw handleException(orcDataSource.getId(), e);
         }
 
@@ -239,23 +240,9 @@ public class OrcPageSource
     }
 
     @Override
-    public long getSystemMemoryUsage()
+    public long getMemoryUsage()
     {
-        return systemMemoryContext.getBytes();
-    }
-
-    private void closeWithSuppression(Throwable throwable)
-    {
-        requireNonNull(throwable, "throwable is null");
-        try {
-            close();
-        }
-        catch (RuntimeException e) {
-            // Self-suppression not permitted
-            if (throwable != e) {
-                throwable.addSuppressed(e);
-            }
-        }
+        return memoryContext.getBytes();
     }
 
     public interface ColumnAdaptation

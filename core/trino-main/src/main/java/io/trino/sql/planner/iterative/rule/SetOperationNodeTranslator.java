@@ -182,7 +182,7 @@ public class SetOperationNodeTranslator
 
         return new AggregationNode(idAllocator.getNextId(),
                 sourceNode,
-                aggregations.build(),
+                aggregations.buildOrThrow(),
                 singleGroupingSet(originalColumns),
                 ImmutableList.of(),
                 AggregationNode.Step.SINGLE,
@@ -214,7 +214,7 @@ public class SetOperationNodeTranslator
                 idAllocator.getNextId(),
                 sourceNode,
                 new Specification(originalColumns, Optional.empty()),
-                functions.build(),
+                functions.buildOrThrow(),
                 Optional.empty(),
                 ImmutableSet.of(),
                 0);

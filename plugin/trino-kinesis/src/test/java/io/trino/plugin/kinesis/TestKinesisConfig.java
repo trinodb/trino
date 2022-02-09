@@ -44,7 +44,6 @@ public class TestKinesisConfig
                 .setCheckpointEnabled(false)
                 .setDynamoReadCapacity(50)
                 .setDynamoWriteCapacity(10)
-                .setCheckpointInterval(new Duration(60000, TimeUnit.MILLISECONDS))
                 .setLogicalProcessName("process1")
                 .setIteratorNumber(0));
     }
@@ -70,10 +69,9 @@ public class TestKinesisConfig
                 .put("kinesis.checkpoint-enabled", "true")
                 .put("kinesis.dynamo-read-capacity", "100")
                 .put("kinesis.dynamo-write-capacity", "20")
-                .put("kinesis.checkpoint-interval", "50000ms")
                 .put("kinesis.checkpoint-logical-name", "process")
                 .put("kinesis.iterator-number", "1")
-                .build();
+                .buildOrThrow();
 
         KinesisConfig expected = new KinesisConfig()
                 .setTableDescriptionLocation("/var/lib/kinesis")
@@ -93,7 +91,6 @@ public class TestKinesisConfig
                 .setCheckpointEnabled(true)
                 .setDynamoReadCapacity(100)
                 .setDynamoWriteCapacity(20)
-                .setCheckpointInterval(new Duration(50000, TimeUnit.MILLISECONDS))
                 .setLogicalProcessName("process")
                 .setIteratorNumber(1);
 

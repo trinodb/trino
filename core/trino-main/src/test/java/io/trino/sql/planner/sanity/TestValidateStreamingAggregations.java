@@ -31,7 +31,6 @@ import io.trino.sql.planner.plan.PlanNode;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import java.util.Optional;
 import java.util.function.Function;
 
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -57,8 +56,7 @@ public class TestValidateStreamingAggregations
         nationTableHandle = new TableHandle(
                 catalogName,
                 new TpchTableHandle("sf1", "nation", 1.0),
-                TpchTransactionHandle.INSTANCE,
-                Optional.empty());
+                TpchTransactionHandle.INSTANCE);
     }
 
     @Test

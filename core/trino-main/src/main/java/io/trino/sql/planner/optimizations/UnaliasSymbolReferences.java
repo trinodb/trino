@@ -1034,7 +1034,7 @@ public class UnaliasSymbolReferences
                     dynamicFilterIdMap.put(entry.getKey(), canonicalDynamicFilterId);
                 }
             }
-            Map<DynamicFilterId, Symbol> newDynamicFilters = filtersBuilder.build();
+            Map<DynamicFilterId, Symbol> newDynamicFilters = filtersBuilder.buildOrThrow();
 
             // derive new mappings from inner join equi criteria
             Map<Symbol, Symbol> newMapping = new HashMap<>();

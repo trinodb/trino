@@ -295,7 +295,7 @@ public class HiveSplit
                 .put("deserializerClassName", getDeserializerClassName(schema))
                 .put("s3SelectPushdownEnabled", s3SelectPushdownEnabled)
                 .put("splitNumber", splitNumber)
-                .build();
+                .buildOrThrow();
     }
 
     @Override

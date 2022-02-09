@@ -13,11 +13,11 @@
  */
 package io.trino.plugin.hive;
 
-import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.Weigher;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;
+import io.trino.collect.cache.NonKeyEvictableCache;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.connector.SchemaTablePrefix;
 import org.apache.hadoop.fs.FileSystem;
@@ -36,11 +36,13 @@ import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.collect.cache.SafeCaches.buildNonEvictableCacheWithWeakInvalidateAll;
 
 public class CachingDirectoryLister
         implements DirectoryLister
 {
-    private final Cache<Path, List<LocatedFileStatus>> cache;
+    // TODO (https://github.com/trinodb/trino/issues/10621) this cache lacks invalidation
+    private final NonKeyEvictableCache<Path, List<LocatedFileStatus>> cache;
     private final List<SchemaTablePrefix> tablePrefixes;
 
     @Inject
@@ -51,12 +53,11 @@ public class CachingDirectoryLister
 
     public CachingDirectoryLister(Duration expireAfterWrite, long maxSize, List<String> tables)
     {
-        this.cache = CacheBuilder.newBuilder()
+        this.cache = buildNonEvictableCacheWithWeakInvalidateAll(CacheBuilder.newBuilder()
                 .maximumWeight(maxSize)
                 .weigher((Weigher<Path, List<LocatedFileStatus>>) (key, value) -> value.size())
                 .expireAfterWrite(expireAfterWrite.toMillis(), TimeUnit.MILLISECONDS)
-                .recordStats()
-                .build();
+                .recordStats());
         this.tablePrefixes = tables.stream()
                 .map(CachingDirectoryLister::parseTableName)
                 .collect(toImmutableList());
@@ -144,6 +145,8 @@ public class CachingDirectoryLister
     @Managed
     public void flushCache()
     {
+        // Note: this may not invalidate ongoing loads (https://github.com/trinodb/trino/issues/10512, https://github.com/google/guava/issues/1881)
+        // This is acceptable, since this operation is invoked manually, and not relied upon for correctness.
         cache.invalidateAll();
     }
 

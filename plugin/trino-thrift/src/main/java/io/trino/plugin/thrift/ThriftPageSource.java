@@ -113,7 +113,7 @@ public class ThriftPageSource
     }
 
     @Override
-    public long getSystemMemoryUsage()
+    public long getMemoryUsage()
     {
         return 0;
     }

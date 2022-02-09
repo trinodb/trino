@@ -94,7 +94,7 @@ public class TestS3TableConfigClient
                 .put("kinesis.hide-internal-columns", "false")
                 .put("kinesis.access-key", TestUtils.noneToBlank(accessKey))
                 .put("kinesis.secret-key", TestUtils.noneToBlank(secretKey))
-                .build();
+                .buildOrThrow();
 
         KinesisPlugin kinesisPlugin = new KinesisPlugin();
         KinesisConnector kinesisConnector = TestUtils.createConnector(kinesisPlugin, properties, false);
@@ -108,7 +108,7 @@ public class TestS3TableConfigClient
             log.error("interrupted ...");
         }
 
-        KinesisMetadata metadata = (KinesisMetadata) kinesisConnector.getMetadata(new ConnectorTransactionHandle() {});
+        KinesisMetadata metadata = (KinesisMetadata) kinesisConnector.getMetadata(SESSION, new ConnectorTransactionHandle() {});
         SchemaTableName tblName = new SchemaTableName("default", "test123");
         KinesisTableHandle tableHandle = metadata.getTableHandle(SESSION, tblName);
         assertNotNull(metadata);

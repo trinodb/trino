@@ -471,7 +471,7 @@ public class EffectivePredicateExtractor
             }
 
             // simplify to avoid a large expression if there are many rows in ValuesNode
-            return domainTranslator.toPredicate(session, TupleDomain.withColumnDomains(domains.build()).simplify());
+            return domainTranslator.toPredicate(session, TupleDomain.withColumnDomains(domains.buildOrThrow()).simplify());
         }
 
         private boolean hasNestedNulls(Type type, Object value)

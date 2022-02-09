@@ -60,7 +60,7 @@ public class BigQueryEmptyProjectionPageSource
     }
 
     @Override
-    public long getSystemMemoryUsage()
+    public long getMemoryUsage()
     {
         return 0;
     }

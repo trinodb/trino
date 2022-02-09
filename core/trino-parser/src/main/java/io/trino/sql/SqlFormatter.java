@@ -1225,7 +1225,7 @@ public final class SqlFormatter
             String propertyList = properties.stream()
                     .map(element -> INDENT +
                             formatExpression(element.getName()) + " = " +
-                            formatExpression(element.getValue()))
+                            (element.isSetToDefault() ? "DEFAULT" : formatExpression(element.getNonDefaultValue())))
                     .collect(joining(",\n"));
 
             return "\nWITH (\n" + propertyList + "\n)";
@@ -1310,10 +1310,21 @@ public final class SqlFormatter
         @Override
         protected Void visitSetProperties(SetProperties node, Integer context)
         {
-            builder.append("ALTER TABLE ");
-            builder.append(node.getName())
-                    .append(" SET PROPERTIES ");
-            builder.append(joinProperties(node.getProperties()));
+            SetProperties.Type type = node.getType();
+            builder.append("ALTER ");
+            switch (type) {
+                case TABLE:
+                    builder.append("TABLE ");
+                    break;
+                case MATERIALIZED_VIEW:
+                    builder.append("MATERIALIZED VIEW ");
+                    break;
+                default:
+                    throw new IllegalArgumentException("Unsupported SetProperties.Type: " + type);
+            }
+            builder.append(formatName(node.getName()))
+                    .append(" SET PROPERTIES ")
+                    .append(joinProperties(node.getProperties()));
 
             return null;
         }
@@ -1322,7 +1333,7 @@ public final class SqlFormatter
         {
             return properties.stream()
                     .map(element -> formatExpression(element.getName()) + " = " +
-                            formatExpression(element.getValue()))
+                            (element.isSetToDefault() ? "DEFAULT" : formatExpression(element.getNonDefaultValue())))
                     .collect(joining(", "));
         }
 

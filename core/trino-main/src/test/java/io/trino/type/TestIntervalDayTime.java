@@ -18,6 +18,7 @@ import io.trino.spi.type.Type;
 import org.testng.annotations.Test;
 
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.StandardErrorCode.INVALID_LITERAL;
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -97,11 +98,11 @@ public class TestIntervalDayTime
     @Test
     public void testInvalidLiteral()
     {
-        assertInvalidFunction("INTERVAL '12X' DAY", "Invalid INTERVAL DAY value: 12X");
-        assertInvalidFunction("INTERVAL '12 10' DAY", "Invalid INTERVAL DAY value: 12 10");
-        assertInvalidFunction("INTERVAL '12 X' DAY TO HOUR", "Invalid INTERVAL DAY TO HOUR value: 12 X");
-        assertInvalidFunction("INTERVAL '12 -10' DAY TO HOUR", "Invalid INTERVAL DAY TO HOUR value: 12 -10");
-        assertInvalidFunction("INTERVAL '--12 -10' DAY TO HOUR", "Invalid INTERVAL DAY TO HOUR value: --12 -10");
+        assertInvalidFunction("INTERVAL '12X' DAY", INVALID_LITERAL, "line 1:1: '12X' is not a valid interval literal");
+        assertInvalidFunction("INTERVAL '12 10' DAY", INVALID_LITERAL, "line 1:1: '12 10' is not a valid interval literal");
+        assertInvalidFunction("INTERVAL '12 X' DAY TO HOUR", INVALID_LITERAL, "line 1:1: '12 X' is not a valid interval literal");
+        assertInvalidFunction("INTERVAL '12 -10' DAY TO HOUR", INVALID_LITERAL, "line 1:1: '12 -10' is not a valid interval literal");
+        assertInvalidFunction("INTERVAL '--12 -10' DAY TO HOUR", INVALID_LITERAL, "line 1:1: '--12 -10' is not a valid interval literal");
     }
 
     @Test

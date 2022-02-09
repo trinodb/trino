@@ -120,7 +120,7 @@ public final class KafkaQueryRunner
                     .putAll(extraTopicDescription)
                     .putAll(tpchTopicDescriptions)
                     .putAll(testTopicDescriptions.build())
-                    .build();
+                    .buildOrThrow();
             setExtension(combine(
                     extension,
                     conditionalModule(
@@ -196,7 +196,7 @@ public final class KafkaQueryRunner
 
             topicDescriptions.put(loadTpchTopicDescription(topicDescriptionJsonCodec, tpchTable.toString(), tpchTable));
         }
-        return topicDescriptions.build();
+        return topicDescriptions.buildOrThrow();
     }
 
     public static void main(String[] args)

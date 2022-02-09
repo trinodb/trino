@@ -17,7 +17,6 @@ import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.units.Duration;
 import io.trino.plugin.hive.HiveCompressionCodec;
-import org.apache.iceberg.FileFormat;
 
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
@@ -52,9 +51,9 @@ public class IcebergConfig
     }
 
     @NotNull
-    public FileFormat getFileFormat()
+    public IcebergFileFormat getFileFormat()
     {
-        return FileFormat.valueOf(fileFormat.name());
+        return fileFormat;
     }
 
     @Config("iceberg.file-format")

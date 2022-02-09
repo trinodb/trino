@@ -596,9 +596,9 @@ public class TestPartitionedOutputOperator
         }
 
         @Override
-        public boolean isFinished()
+        public BufferState getState()
         {
-            return false;
+            return BufferState.NO_MORE_BUFFERS;
         }
 
         @Override
@@ -635,7 +635,7 @@ public class TestPartitionedOutputOperator
         }
 
         @Override
-        public void abort(OutputBuffers.OutputBufferId bufferId)
+        public void destroy(OutputBuffers.OutputBufferId bufferId)
         {
         }
 
@@ -661,7 +661,7 @@ public class TestPartitionedOutputOperator
         }
 
         @Override
-        public void fail()
+        public void abort()
         {
         }
 
@@ -669,6 +669,12 @@ public class TestPartitionedOutputOperator
         public long getPeakMemoryUsage()
         {
             return 0;
+        }
+
+        @Override
+        public Optional<Throwable> getFailureCause()
+        {
+            return Optional.empty();
         }
     }
 

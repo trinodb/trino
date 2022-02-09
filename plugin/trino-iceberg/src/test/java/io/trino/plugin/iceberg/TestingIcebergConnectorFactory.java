@@ -17,7 +17,6 @@ import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
-import io.trino.spi.connector.ConnectorHandleResolver;
 
 import java.util.Map;
 import java.util.Optional;
@@ -42,12 +41,6 @@ public class TestingIcebergConnectorFactory
     public String getName()
     {
         return "iceberg";
-    }
-
-    @Override
-    public ConnectorHandleResolver getHandleResolver()
-    {
-        return new IcebergHandleResolver();
     }
 
     @Override

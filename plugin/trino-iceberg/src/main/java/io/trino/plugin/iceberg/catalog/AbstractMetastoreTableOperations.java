@@ -14,7 +14,6 @@
 package io.trino.plugin.iceberg.catalog;
 
 import io.airlift.log.Logger;
-import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.MetastoreUtil;
@@ -221,8 +220,7 @@ public abstract class AbstractMetastoreTableOperations
         }
 
         PrincipalPrivileges privileges = owner.map(MetastoreUtil::buildInitialPrivilegeSet).orElse(NO_PRIVILEGES);
-        HiveIdentity identity = new HiveIdentity(session);
-        metastore.createTable(identity, table, privileges);
+        metastore.createTable(table, privileges);
     }
 
     protected abstract void commitToExistingTable(TableMetadata base, TableMetadata metadata);
@@ -260,7 +258,7 @@ public abstract class AbstractMetastoreTableOperations
 
     protected Table getTable()
     {
-        return metastore.getTable(new HiveIdentity(session), database, tableName)
+        return metastore.getTable(database, tableName)
                 .orElseThrow(() -> new TableNotFoundException(getSchemaTableName()));
     }
 

@@ -18,7 +18,6 @@ import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
-import io.trino.spi.connector.ConnectorHandleResolver;
 
 import java.util.Map;
 import java.util.Optional;
@@ -48,12 +47,6 @@ public class TestingHiveConnectorFactory
     public String getName()
     {
         return "hive";
-    }
-
-    @Override
-    public ConnectorHandleResolver getHandleResolver()
-    {
-        return new HiveHandleResolver();
     }
 
     @Override

@@ -46,7 +46,7 @@ public class TestPhoenixConfig
                 .put("phoenix.connection-url", "jdbc:phoenix:localhost:2181:/hbase")
                 .put("phoenix.config.resources", configFile.toString())
                 .put("phoenix.max-scans-per-split", "1")
-                .build();
+                .buildOrThrow();
 
         PhoenixConfig expected = new PhoenixConfig()
                 .setConnectionUrl("jdbc:phoenix:localhost:2181:/hbase")

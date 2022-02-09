@@ -44,7 +44,7 @@ public class TestCertificateConfig
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("http-server.authentication.certificate.user-mapping.pattern", "(.*)@something")
                 .put("http-server.authentication.certificate.user-mapping.file", userMappingFile.toString())
-                .build();
+                .buildOrThrow();
 
         CertificateConfig expected = new CertificateConfig()
                 .setUserMappingPattern("(.*)@something")

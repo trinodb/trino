@@ -14,16 +14,14 @@
 package io.trino.plugin.mongodb;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Primitives;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
-import com.google.common.util.concurrent.UncheckedExecutionException;
 import com.mongodb.DBRef;
 import com.mongodb.client.FindIterable;
 import com.mongodb.client.MongoClient;
@@ -34,6 +32,7 @@ import com.mongodb.client.model.IndexOptions;
 import com.mongodb.client.result.DeleteResult;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
+import io.trino.collect.cache.EvictableCache;
 import io.trino.spi.HostAddress;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
@@ -64,6 +63,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -86,7 +86,6 @@ import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
@@ -123,7 +122,7 @@ public class MongoSession
     private final boolean caseInsensitiveNameMatching;
     private final int cursorBatchSize;
 
-    private final LoadingCache<SchemaTableName, MongoTable> tableCache;
+    private final Cache<SchemaTableName, MongoTable> tableCache;
     private final String implicitPrefix;
 
     public MongoSession(TypeManager typeManager, MongoClient client, MongoClientConfig config)
@@ -135,10 +134,8 @@ public class MongoSession
         this.cursorBatchSize = config.getCursorBatchSize();
         this.implicitPrefix = requireNonNull(config.getImplicitRowFieldPrefix(), "config.getImplicitRowFieldPrefix() is null");
 
-        this.tableCache = CacheBuilder.newBuilder()
-                .expireAfterWrite(1, HOURS)  // TODO: Configure
-                .refreshAfterWrite(1, MINUTES)
-                .build(CacheLoader.from(this::loadTableSchema));
+        this.tableCache = EvictableCache.buildWith(CacheBuilder.newBuilder()
+                .expireAfterWrite(1, MINUTES));  // TODO: Configure
     }
 
     public void shutdown()
@@ -179,11 +176,11 @@ public class MongoSession
             throws TableNotFoundException
     {
         try {
-            return tableCache.getUnchecked(tableName);
+            return tableCache.get(tableName, () -> loadTableSchema(tableName));
         }
-        catch (UncheckedExecutionException e) {
+        catch (ExecutionException e) {
             throwIfInstanceOf(e.getCause(), TrinoException.class);
-            throw e;
+            throw new RuntimeException(e);
         }
     }
 
@@ -704,7 +701,7 @@ public class MongoSession
                 .put("listCollections", 1.0)
                 .put("filter", documentOf("name", tableName))
                 .put("nameOnly", true)
-                .build());
+                .buildOrThrow());
         Document cursor = client.getDatabase(schemaName).runCommand(listCollectionsCommand).get("cursor", Document.class);
         List<Document> firstBatch = cursor.get("firstBatch", List.class);
         if (firstBatch.isEmpty()) {

@@ -116,7 +116,6 @@ import java.util.concurrent.ThreadLocalRandom;
 import static com.google.common.base.Functions.constant;
 import static com.google.common.collect.Iterables.transform;
 import static com.google.common.collect.Iterators.advance;
-import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
@@ -149,6 +148,7 @@ import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.type.DateTimes.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.Math.toIntExact;
+import static java.nio.file.Files.createTempDirectory;
 import static java.util.Collections.nCopies;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_TABLE_COLUMNS;
@@ -418,7 +418,7 @@ public class RcFileTester
                     Map<String, String> expectedMetadata = ImmutableMap.<String, String>builder()
                             .putAll(metadata)
                             .put(PRESTO_RCFILE_WRITER_VERSION_METADATA_KEY, PRESTO_RCFILE_WRITER_VERSION)
-                            .build();
+                            .buildOrThrow();
 
                     assertFileContentsNew(type, tempFile, format, finalValues, false, expectedMetadata);
 
@@ -444,7 +444,7 @@ public class RcFileTester
             assertEquals(recordReader.getMetadata(), ImmutableMap.builder()
                     .putAll(metadata)
                     .put("hive.io.rcfile.column.number", "1")
-                    .build());
+                    .buildOrThrow());
 
             Iterator<?> iterator = expectedValues.iterator();
             int totalCount = 0;
@@ -1092,13 +1092,14 @@ public class RcFileTester
     private static class TempFile
             implements Closeable
     {
-        private final File tempDir;
+        private final java.nio.file.Path tempDir;
         private final File file;
 
         private TempFile()
+                throws IOException
         {
-            tempDir = createTempDir();
-            file = new File(tempDir, "data.rcfile");
+            tempDir = createTempDirectory(null);
+            file = tempDir.resolve("data.rcfile").toFile();
         }
 
         public File getFile()
@@ -1111,7 +1112,7 @@ public class RcFileTester
                 throws IOException
         {
             // hadoop creates crc files that must be deleted also, so just delete the whole directory
-            deleteRecursively(tempDir.toPath(), ALLOW_INSECURE);
+            deleteRecursively(tempDir, ALLOW_INSECURE);
         }
     }
 

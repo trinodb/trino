@@ -13,9 +13,9 @@
  */
 package io.trino.util;
 
-import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.util.concurrent.UncheckedExecutionException;
+import io.trino.collect.cache.NonEvictableCache;
 import io.trino.spi.type.Type;
 import it.unimi.dsi.fastutil.Hash;
 import it.unimi.dsi.fastutil.booleans.BooleanOpenHashSet;
@@ -36,6 +36,7 @@ import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.base.Verify.verifyNotNull;
+import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.util.SingleAccessMethodCompiler.compileSingleAccessMethod;
 import static java.lang.Boolean.TRUE;
 import static java.lang.invoke.MethodType.methodType;
@@ -238,10 +239,10 @@ public final class FastutilSetHelper
 
     private static class MethodGenerator
     {
-        private static final Cache<MethodKey<?>, GeneratedMethod<?>> generatedMethodCache = CacheBuilder.newBuilder()
-                .maximumSize(1_000)
-                .expireAfterWrite(2, TimeUnit.HOURS)
-                .build();
+        private static final NonEvictableCache<MethodKey<?>, GeneratedMethod<?>> generatedMethodCache = buildNonEvictableCache(
+                CacheBuilder.newBuilder()
+                        .maximumSize(1_000)
+                        .expireAfterWrite(2, TimeUnit.HOURS));
 
         private static <T> T getGeneratedMethod(Type type, Class<T> operatorInterface, MethodHandle methodHandle)
         {

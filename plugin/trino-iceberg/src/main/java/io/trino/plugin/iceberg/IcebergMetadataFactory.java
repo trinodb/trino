@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg;
 
 import io.airlift.json.JsonCodec;
+import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.TypeManager;
 
 import javax.inject.Inject;
@@ -37,8 +38,8 @@ public class IcebergMetadataFactory
         this.catalogFactory = requireNonNull(catalogFactory, "catalogFactory is null");
     }
 
-    public IcebergMetadata create()
+    public IcebergMetadata create(ConnectorIdentity identity)
     {
-        return new IcebergMetadata(typeManager, commitTaskCodec, catalogFactory.create());
+        return new IcebergMetadata(typeManager, commitTaskCodec, catalogFactory.create(identity));
     }
 }

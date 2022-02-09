@@ -175,7 +175,7 @@ public class TestDynamicTable
         TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.<ColumnHandle, Domain>builder()
                 .put(columnHandle,
                         Domain.create(ValueSet.ofRanges(Range.equal(VARCHAR, Slices.utf8Slice("Catfish Paradise"))), false))
-                .build());
+                .buildOrThrow());
         String expectedPql = "select \"FlightNum\" from realtimeonly where (\"OriginCityName\" = 'Catfish Paradise') limit 60";
         assertEquals(extractPql(dynamicTable, tupleDomain, ImmutableList.<PinotColumnHandle>builder()
                 .add(columnHandle)

@@ -21,13 +21,13 @@ import com.google.api.services.sheets.v4.Sheets;
 import com.google.api.services.sheets.v4.SheetsScopes;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
+import io.trino.collect.cache.NonEvictableLoadingCache;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.VarcharType;
 
@@ -46,8 +46,8 @@ import java.util.Set;
 
 import static com.google.api.client.googleapis.javanet.GoogleNetHttpTransport.newTrustedTransport;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
-import static com.google.common.cache.CacheLoader.from;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.plugin.google.sheets.SheetsErrorCode.SHEETS_BAD_CREDENTIALS_ERROR;
 import static io.trino.plugin.google.sheets.SheetsErrorCode.SHEETS_METASTORE_ERROR;
 import static io.trino.plugin.google.sheets.SheetsErrorCode.SHEETS_TABLE_LOAD_ERROR;
@@ -65,8 +65,8 @@ public class SheetsClient
 
     private static final List<String> SCOPES = ImmutableList.of(SheetsScopes.SPREADSHEETS_READONLY);
 
-    private final LoadingCache<String, Optional<String>> tableSheetMappingCache;
-    private final LoadingCache<String, List<List<Object>>> sheetDataCache;
+    private final NonEvictableLoadingCache<String, Optional<String>> tableSheetMappingCache;
+    private final NonEvictableLoadingCache<String, List<List<Object>>> sheetDataCache;
 
     private final String metadataSheetId;
     private final String credentialsFilePath;
@@ -91,8 +91,9 @@ public class SheetsClient
         long expiresAfterWriteMillis = config.getSheetsDataExpireAfterWrite().toMillis();
         long maxCacheSize = config.getSheetsDataMaxCacheSize();
 
-        this.tableSheetMappingCache = newCacheBuilder(expiresAfterWriteMillis, maxCacheSize)
-                .build(new CacheLoader<>()
+        this.tableSheetMappingCache = buildNonEvictableCache(
+                newCacheBuilder(expiresAfterWriteMillis, maxCacheSize),
+                new CacheLoader<>()
                 {
                     @Override
                     public Optional<String> load(String tableName)
@@ -107,7 +108,9 @@ public class SheetsClient
                     }
                 });
 
-        this.sheetDataCache = newCacheBuilder(expiresAfterWriteMillis, maxCacheSize).build(from(this::readAllValuesFromSheetExpression));
+        this.sheetDataCache = buildNonEvictableCache(
+                newCacheBuilder(expiresAfterWriteMillis, maxCacheSize),
+                CacheLoader.from(this::readAllValuesFromSheetExpression));
     }
 
     public Optional<SheetsTable> getTable(String tableName)
@@ -195,7 +198,7 @@ public class SheetsClient
                 tableSheetMap.put(tableId.toLowerCase(Locale.ENGLISH), Optional.of(sheetId));
             }
         }
-        return tableSheetMap.build();
+        return tableSheetMap.buildOrThrow();
     }
 
     private Credential getCredentials()

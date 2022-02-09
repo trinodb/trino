@@ -80,9 +80,9 @@ public class DecimalColumnReader
 
     private long[] nonNullValueTemp = new long[0];
 
-    private final LocalMemoryContext systemMemoryContext;
+    private final LocalMemoryContext memoryContext;
 
-    public DecimalColumnReader(Type type, OrcColumn column, LocalMemoryContext systemMemoryContext)
+    public DecimalColumnReader(Type type, OrcColumn column, LocalMemoryContext memoryContext)
             throws OrcCorruptionException
     {
         requireNonNull(type, "type is null");
@@ -90,7 +90,7 @@ public class DecimalColumnReader
         this.type = (DecimalType) type;
 
         this.column = requireNonNull(column, "column is null");
-        this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
+        this.memoryContext = requireNonNull(memoryContext, "memoryContext is null");
     }
 
     @Override
@@ -225,7 +225,7 @@ public class DecimalColumnReader
         int minNonNullValueSize = minNonNullValueSize(nonNullCount);
         if (nonNullValueTemp.length < minNonNullValueSize) {
             nonNullValueTemp = new long[minNonNullValueSize];
-            systemMemoryContext.setBytes(sizeOf(nonNullValueTemp));
+            memoryContext.setBytes(sizeOf(nonNullValueTemp));
         }
 
         decimalStream.nextShortDecimal(nonNullValueTemp, nonNullCount);
@@ -251,7 +251,7 @@ public class DecimalColumnReader
         int minTempSize = minNonNullValueSize(nonNullCount) * 2;
         if (nonNullValueTemp.length < minTempSize) {
             nonNullValueTemp = new long[minTempSize];
-            systemMemoryContext.setBytes(sizeOf(nonNullValueTemp));
+            memoryContext.setBytes(sizeOf(nonNullValueTemp));
         }
 
         decimalStream.nextLongDecimal(nonNullValueTemp, nonNullCount);
@@ -343,7 +343,7 @@ public class DecimalColumnReader
     @Override
     public void close()
     {
-        systemMemoryContext.close();
+        memoryContext.close();
     }
 
     @Override

@@ -145,7 +145,7 @@ public class TableScanOperator
     private final TableHandle table;
     private final List<ColumnHandle> columns;
     private final DynamicFilter dynamicFilter;
-    private final LocalMemoryContext systemMemoryContext;
+    private final LocalMemoryContext memoryContext;
     private final SettableFuture<Void> blocked = SettableFuture.create();
 
     @Nullable
@@ -173,7 +173,7 @@ public class TableScanOperator
         this.table = requireNonNull(table, "table is null");
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
         this.dynamicFilter = requireNonNull(dynamicFilter, "dynamicFilter is null");
-        this.systemMemoryContext = operatorContext.newLocalSystemMemoryContext(TableScanOperator.class.getSimpleName());
+        this.memoryContext = operatorContext.newLocalUserMemoryContext(TableScanOperator.class.getSimpleName());
     }
 
     @Override
@@ -247,7 +247,7 @@ public class TableScanOperator
             catch (IOException e) {
                 throw new UncheckedIOException(e);
             }
-            systemMemoryContext.setBytes(source.getSystemMemoryUsage());
+            memoryContext.setBytes(source.getMemoryUsage());
             operatorContext.setLatestConnectorMetrics(source.getMetrics());
         }
     }
@@ -258,7 +258,7 @@ public class TableScanOperator
         if (!finished) {
             finished = (source != null) && source.isFinished();
             if (source != null) {
-                systemMemoryContext.setBytes(source.getSystemMemoryUsage());
+                memoryContext.setBytes(source.getMemoryUsage());
             }
         }
 
@@ -328,8 +328,8 @@ public class TableScanOperator
             readTimeNanos = endReadTimeNanos;
         }
 
-        // updating system memory usage should happen after page is loaded.
-        systemMemoryContext.setBytes(source.getSystemMemoryUsage());
+        // updating memory usage should happen after page is loaded.
+        memoryContext.setBytes(source.getMemoryUsage());
         operatorContext.setLatestConnectorMetrics(source.getMetrics());
         return page;
     }

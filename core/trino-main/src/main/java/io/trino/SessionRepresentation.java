@@ -17,7 +17,6 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.trino.connector.CatalogName;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.spi.QueryId;
 import io.trino.spi.security.BasicPrincipal;
@@ -63,8 +62,7 @@ public final class SessionRepresentation
     private final Instant start;
     private final ResourceEstimates resourceEstimates;
     private final Map<String, String> systemProperties;
-    private final Map<CatalogName, Map<String, String>> catalogProperties;
-    private final Map<String, Map<String, String>> unprocessedCatalogProperties;
+    private final Map<String, Map<String, String>> catalogProperties;
     private final Map<String, SelectedRole> catalogRoles;
     private final Map<String, String> preparedStatements;
     private final String protocolName;
@@ -93,8 +91,7 @@ public final class SessionRepresentation
             @JsonProperty("resourceEstimates") ResourceEstimates resourceEstimates,
             @JsonProperty("start") Instant start,
             @JsonProperty("systemProperties") Map<String, String> systemProperties,
-            @JsonProperty("catalogProperties") Map<CatalogName, Map<String, String>> catalogProperties,
-            @JsonProperty("unprocessedCatalogProperties") Map<String, Map<String, String>> unprocessedCatalogProperties,
+            @JsonProperty("catalogProperties") Map<String, Map<String, String>> catalogProperties,
             @JsonProperty("catalogRoles") Map<String, SelectedRole> catalogRoles,
             @JsonProperty("preparedStatements") Map<String, String> preparedStatements,
             @JsonProperty("protocolName") String protocolName)
@@ -125,17 +122,11 @@ public final class SessionRepresentation
         this.preparedStatements = ImmutableMap.copyOf(preparedStatements);
         this.protocolName = requireNonNull(protocolName, "protocolName is null");
 
-        ImmutableMap.Builder<CatalogName, Map<String, String>> catalogPropertiesBuilder = ImmutableMap.builder();
-        for (Entry<CatalogName, Map<String, String>> entry : catalogProperties.entrySet()) {
+        ImmutableMap.Builder<String, Map<String, String>> catalogPropertiesBuilder = ImmutableMap.builder();
+        for (Entry<String, Map<String, String>> entry : catalogProperties.entrySet()) {
             catalogPropertiesBuilder.put(entry.getKey(), ImmutableMap.copyOf(entry.getValue()));
         }
-        this.catalogProperties = catalogPropertiesBuilder.build();
-
-        ImmutableMap.Builder<String, Map<String, String>> unprocessedCatalogPropertiesBuilder = ImmutableMap.builder();
-        for (Entry<String, Map<String, String>> entry : unprocessedCatalogProperties.entrySet()) {
-            unprocessedCatalogPropertiesBuilder.put(entry.getKey(), ImmutableMap.copyOf(entry.getValue()));
-        }
-        this.unprocessedCatalogProperties = unprocessedCatalogPropertiesBuilder.build();
+        this.catalogProperties = catalogPropertiesBuilder.buildOrThrow();
     }
 
     @JsonProperty
@@ -271,15 +262,9 @@ public final class SessionRepresentation
     }
 
     @JsonProperty
-    public Map<CatalogName, Map<String, String>> getCatalogProperties()
+    public Map<String, Map<String, String>> getCatalogProperties()
     {
         return catalogProperties;
-    }
-
-    @JsonProperty
-    public Map<String, Map<String, String>> getUnprocessedCatalogProperties()
-    {
-        return unprocessedCatalogProperties;
     }
 
     @JsonProperty
@@ -350,7 +335,6 @@ public final class SessionRepresentation
                 start,
                 systemProperties,
                 catalogProperties,
-                unprocessedCatalogProperties,
                 sessionPropertyManager,
                 preparedStatements,
                 createProtocolHeaders(protocolName));

@@ -91,7 +91,7 @@ public class ParquetReader
     private final List<PrimitiveColumnIO> columns;
     private final ParquetDataSource dataSource;
     private final DateTimeZone timeZone;
-    private final AggregatedMemoryContext systemMemoryContext;
+    private final AggregatedMemoryContext memoryContext;
     private final Optional<FilterPredicate> filter;
 
     private int currentRowGroup = -1;
@@ -127,11 +127,11 @@ public class ParquetReader
             Optional<List<Long>> firstRowsOfBlocks,
             ParquetDataSource dataSource,
             DateTimeZone timeZone,
-            AggregatedMemoryContext systemMemoryContext,
+            AggregatedMemoryContext memoryContext,
             ParquetReaderOptions options)
             throws IOException
     {
-        this(fileCreatedBy, messageColumnIO, blocks, firstRowsOfBlocks, dataSource, timeZone, systemMemoryContext, options, null, null);
+        this(fileCreatedBy, messageColumnIO, blocks, firstRowsOfBlocks, dataSource, timeZone, memoryContext, options, null, null);
     }
 
     public ParquetReader(
@@ -141,7 +141,7 @@ public class ParquetReader
             Optional<List<Long>> firstRowsOfBlocks,
             ParquetDataSource dataSource,
             DateTimeZone timeZone,
-            AggregatedMemoryContext systemMemoryContext,
+            AggregatedMemoryContext memoryContext,
             ParquetReaderOptions options,
             Predicate parquetPredicate,
             List<Optional<ColumnIndexStore>> columnIndexStore)
@@ -153,8 +153,8 @@ public class ParquetReader
         this.firstRowsOfBlocks = requireNonNull(firstRowsOfBlocks, "firstRowsOfBlocks is null");
         this.dataSource = requireNonNull(dataSource, "dataSource is null");
         this.timeZone = requireNonNull(timeZone, "timeZone is null");
-        this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
-        this.currentRowGroupMemoryContext = systemMemoryContext.newAggregatedMemoryContext();
+        this.memoryContext = requireNonNull(memoryContext, "memoryContext is null");
+        this.currentRowGroupMemoryContext = memoryContext.newAggregatedMemoryContext();
         this.options = requireNonNull(options, "options is null");
         this.columnReaders = new PrimitiveColumnReader[columns.size()];
         this.maxBytesPerCell = new long[columns.size()];
@@ -240,7 +240,7 @@ public class ParquetReader
     private boolean advanceToNextRowGroup()
     {
         currentRowGroupMemoryContext.close();
-        currentRowGroupMemoryContext = systemMemoryContext.newAggregatedMemoryContext();
+        currentRowGroupMemoryContext = memoryContext.newAggregatedMemoryContext();
         freeCurrentRowGroupBuffers();
         currentRowGroup++;
         if (currentRowGroup == blocks.size()) {
@@ -451,9 +451,9 @@ public class ParquetReader
         return dataSource;
     }
 
-    public AggregatedMemoryContext getSystemMemoryContext()
+    public AggregatedMemoryContext getMemoryContext()
     {
-        return systemMemoryContext;
+        return memoryContext;
     }
 
     private static <T> List<T> listWithNulls(int size)

@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.SizeOf;
 import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ConnectorSplit;
-import org.apache.iceberg.FileFormat;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
@@ -41,7 +40,7 @@ public class IcebergSplit
     private final long start;
     private final long length;
     private final long fileSize;
-    private final FileFormat fileFormat;
+    private final IcebergFileFormat fileFormat;
     private final List<HostAddress> addresses;
     private final Map<Integer, Optional<String>> partitionKeys;
 
@@ -51,7 +50,7 @@ public class IcebergSplit
             @JsonProperty("start") long start,
             @JsonProperty("length") long length,
             @JsonProperty("fileSize") long fileSize,
-            @JsonProperty("fileFormat") FileFormat fileFormat,
+            @JsonProperty("fileFormat") IcebergFileFormat fileFormat,
             @JsonProperty("addresses") List<HostAddress> addresses,
             @JsonProperty("partitionKeys") Map<Integer, Optional<String>> partitionKeys)
     {
@@ -102,7 +101,7 @@ public class IcebergSplit
     }
 
     @JsonProperty
-    public FileFormat getFileFormat()
+    public IcebergFileFormat getFileFormat()
     {
         return fileFormat;
     }
@@ -120,7 +119,7 @@ public class IcebergSplit
                 .put("path", path)
                 .put("start", start)
                 .put("length", length)
-                .build();
+                .buildOrThrow();
     }
 
     @Override

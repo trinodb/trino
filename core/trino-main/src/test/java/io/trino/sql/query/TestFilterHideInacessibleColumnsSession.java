@@ -33,7 +33,7 @@ public class TestFilterHideInacessibleColumnsSession
     public void testDisableWhenEnabledByDefault()
     {
         FeaturesConfig featuresConfig = new FeaturesConfig();
-        featuresConfig.setHideInaccesibleColumns(true);
+        featuresConfig.setHideInaccessibleColumns(true);
         SessionPropertyManager sessionPropertyManager = new SessionPropertyManager(new SystemSessionProperties(
                 new QueryManagerConfig(),
                 new TaskManagerConfig(),
@@ -50,7 +50,7 @@ public class TestFilterHideInacessibleColumnsSession
     public void testEnableWhenAlreadyEnabledByDefault()
     {
         FeaturesConfig featuresConfig = new FeaturesConfig();
-        featuresConfig.setHideInaccesibleColumns(true);
+        featuresConfig.setHideInaccessibleColumns(true);
         SessionPropertyManager sessionPropertyManager = new SessionPropertyManager(new SystemSessionProperties(
                 new QueryManagerConfig(),
                 new TaskManagerConfig(),

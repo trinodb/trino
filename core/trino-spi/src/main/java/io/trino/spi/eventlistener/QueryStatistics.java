@@ -37,8 +37,6 @@ public class QueryStatistics
     private final Optional<Duration> executionTime;
 
     private final long peakUserMemoryBytes;
-    // peak of user + system memory
-    private final long peakTotalNonRevocableMemoryBytes;
     private final long peakTaskUserMemory;
     private final long peakTaskTotalMemory;
     private final long physicalInputBytes;
@@ -53,7 +51,6 @@ public class QueryStatistics
     private final long writtenRows;
 
     private final double cumulativeMemory;
-    private final double cumulativeSystemMemory;
 
     private final List<StageGcStatistics> stageGcStatistics;
 
@@ -84,7 +81,6 @@ public class QueryStatistics
             Optional<Duration> planningTime,
             Optional<Duration> executionTime,
             long peakUserMemoryBytes,
-            long peakTotalNonRevocableMemoryBytes,
             long peakTaskUserMemory,
             long peakTaskTotalMemory,
             long physicalInputBytes,
@@ -98,7 +94,6 @@ public class QueryStatistics
             long writtenBytes,
             long writtenRows,
             double cumulativeMemory,
-            double cumulativeSystemMemory,
             List<StageGcStatistics> stageGcStatistics,
             int completedSplits,
             boolean complete,
@@ -115,7 +110,6 @@ public class QueryStatistics
         this.planningTime = requireNonNull(planningTime, "planningTime is null");
         this.executionTime = requireNonNull(executionTime, "executionTime is null");
         this.peakUserMemoryBytes = peakUserMemoryBytes;
-        this.peakTotalNonRevocableMemoryBytes = peakTotalNonRevocableMemoryBytes;
         this.peakTaskUserMemory = peakTaskUserMemory;
         this.peakTaskTotalMemory = peakTaskTotalMemory;
         this.physicalInputBytes = physicalInputBytes;
@@ -129,7 +123,6 @@ public class QueryStatistics
         this.writtenBytes = writtenBytes;
         this.writtenRows = writtenRows;
         this.cumulativeMemory = cumulativeMemory;
-        this.cumulativeSystemMemory = cumulativeSystemMemory;
         this.stageGcStatistics = requireNonNull(stageGcStatistics, "stageGcStatistics is null");
         this.completedSplits = completedSplits;
         this.complete = complete;
@@ -190,12 +183,6 @@ public class QueryStatistics
     public long getPeakUserMemoryBytes()
     {
         return peakUserMemoryBytes;
-    }
-
-    @JsonProperty
-    public long getPeakTotalNonRevocableMemoryBytes()
-    {
-        return peakTotalNonRevocableMemoryBytes;
     }
 
     @JsonProperty
@@ -274,12 +261,6 @@ public class QueryStatistics
     public double getCumulativeMemory()
     {
         return cumulativeMemory;
-    }
-
-    @JsonProperty
-    public double getCumulativeSystemMemory()
-    {
-        return cumulativeSystemMemory;
     }
 
     @JsonProperty

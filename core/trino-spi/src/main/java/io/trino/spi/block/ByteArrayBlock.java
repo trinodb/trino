@@ -148,14 +148,6 @@ public class ByteArrayBlock
     }
 
     @Override
-    public void writePositionTo(int position, BlockBuilder blockBuilder)
-    {
-        checkReadablePosition(position);
-        blockBuilder.writeByte(values[position + arrayOffset]);
-        blockBuilder.closeEntry();
-    }
-
-    @Override
     public Block getSingleValueBlock(int position)
     {
         checkReadablePosition(position);

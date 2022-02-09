@@ -28,8 +28,6 @@ import com.google.cloud.bigquery.TableId;
 import com.google.cloud.bigquery.TableInfo;
 import com.google.cloud.bigquery.TableResult;
 import com.google.cloud.http.BaseHttpServiceException;
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
@@ -54,7 +52,6 @@ import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_AMBIGUOUS_OBJE
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.stream.Collectors.joining;
 
 public class BigQueryClient
@@ -64,21 +61,12 @@ public class BigQueryClient
     private final BigQuery bigQuery;
     private final ViewMaterializationCache materializationCache;
     private final boolean caseInsensitiveNameMatching;
-    private final Cache<String, Optional<RemoteDatabaseObject>> remoteDatasets;
-    private final Cache<TableId, Optional<RemoteDatabaseObject>> remoteTables;
 
     public BigQueryClient(BigQuery bigQuery, BigQueryConfig config, ViewMaterializationCache materializationCache)
     {
         this.bigQuery = requireNonNull(bigQuery, "bigQuery is null");
         this.materializationCache = requireNonNull(materializationCache, "materializationCache is null");
-
-        Duration caseInsensitiveNameMatchingCacheTtl = requireNonNull(config.getCaseInsensitiveNameMatchingCacheTtl(), "caseInsensitiveNameMatchingCacheTtl is null");
-
         this.caseInsensitiveNameMatching = config.isCaseInsensitiveNameMatching();
-        CacheBuilder<Object, Object> remoteNamesCacheBuilder = CacheBuilder.newBuilder()
-                .expireAfterWrite(caseInsensitiveNameMatchingCacheTtl.toMillis(), MILLISECONDS);
-        this.remoteDatasets = remoteNamesCacheBuilder.build();
-        this.remoteTables = remoteNamesCacheBuilder.build();
     }
 
     public Optional<RemoteDatabaseObject> toRemoteDataset(String projectId, String datasetName)
@@ -90,12 +78,6 @@ public class BigQueryClient
             return Optional.of(RemoteDatabaseObject.of(datasetName));
         }
 
-        Optional<RemoteDatabaseObject> remoteDataset = remoteDatasets.getIfPresent(datasetName);
-        if (remoteDataset != null) {
-            return remoteDataset;
-        }
-
-        // cache miss, reload the cache
         Map<String, Optional<RemoteDatabaseObject>> mapping = new HashMap<>();
         for (Dataset dataset : listDatasets(projectId)) {
             mapping.merge(
@@ -104,8 +86,8 @@ public class BigQueryClient
                     (currentValue, collision) -> currentValue.map(current -> current.registerCollision(collision.get().getOnlyRemoteName())));
         }
 
-        // explicitly cache the information if the requested dataset doesn't exist
         if (!mapping.containsKey(datasetName)) {
+            // dataset doesn't exist
             mapping.put(datasetName, Optional.empty());
         }
 
@@ -134,12 +116,7 @@ public class BigQueryClient
         }
 
         TableId cacheKey = TableId.of(projectId, remoteDatasetName, tableName);
-        Optional<RemoteDatabaseObject> remoteTable = remoteTables.getIfPresent(cacheKey);
-        if (remoteTable != null) {
-            return remoteTable;
-        }
 
-        // cache miss, reload the cache
         Map<TableId, Optional<RemoteDatabaseObject>> mapping = new HashMap<>();
         for (Table table : tables.get()) {
             mapping.merge(
@@ -148,8 +125,8 @@ public class BigQueryClient
                     (currentValue, collision) -> currentValue.map(current -> current.registerCollision(collision.get().getOnlyRemoteName())));
         }
 
-        // explicitly cache the information if the requested table doesn't exist
         if (!mapping.containsKey(cacheKey)) {
+            // table doesn't exist
             mapping.put(cacheKey, Optional.empty());
         }
 

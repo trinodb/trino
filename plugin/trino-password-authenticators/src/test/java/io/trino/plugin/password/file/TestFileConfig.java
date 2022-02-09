@@ -49,7 +49,7 @@ public class TestFileConfig
                 .put("file.password-file", passwordFile.toString())
                 .put("file.refresh-period", "42s")
                 .put("file.auth-token-cache.max-size", "1234")
-                .build();
+                .buildOrThrow();
 
         FileConfig expected = new FileConfig()
                 .setPasswordFile(passwordFile.toFile())

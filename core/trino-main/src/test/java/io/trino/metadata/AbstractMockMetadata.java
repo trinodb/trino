@@ -135,7 +135,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public Optional<NewTableLayout> getLayoutForTableExecute(Session session, TableExecuteHandle tableExecuteHandle)
+    public Optional<TableLayout> getLayoutForTableExecute(Session session, TableExecuteHandle tableExecuteHandle)
     {
         throw new UnsupportedOperationException();
     }
@@ -154,12 +154,6 @@ public abstract class AbstractMockMetadata
 
     @Override
     public Optional<SystemTable> getSystemTable(Session session, QualifiedObjectName tableName)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public Optional<TableLayoutResult> getLayout(Session session, TableHandle tableHandle, Constraint constraint, Optional<Set<ColumnHandle>> desiredColumns)
     {
         throw new UnsupportedOperationException();
     }
@@ -225,7 +219,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public Map<CatalogName, List<TableColumnsMetadata>> listTableColumns(Session session, QualifiedTablePrefix prefix)
+    public List<TableColumnsMetadata> listTableColumns(Session session, QualifiedTablePrefix prefix)
     {
         throw new UnsupportedOperationException();
     }
@@ -267,7 +261,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public void setTableProperties(Session session, TableHandle tableHandle, Map<String, Object> properties)
+    public void setTableProperties(Session session, TableHandle tableHandle, Map<String, Optional<Object>> properties)
     {
         throw new UnsupportedOperationException();
     }
@@ -321,13 +315,13 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public Optional<NewTableLayout> getNewTableLayout(Session session, String catalogName, ConnectorTableMetadata tableMetadata)
+    public Optional<TableLayout> getNewTableLayout(Session session, String catalogName, ConnectorTableMetadata tableMetadata)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public OutputTableHandle beginCreateTable(Session session, String catalogName, ConnectorTableMetadata tableMetadata, Optional<NewTableLayout> layout)
+    public OutputTableHandle beginCreateTable(Session session, String catalogName, ConnectorTableMetadata tableMetadata, Optional<TableLayout> layout)
     {
         throw new UnsupportedOperationException();
     }
@@ -339,7 +333,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public Optional<NewTableLayout> getInsertLayout(Session session, TableHandle target)
+    public Optional<TableLayout> getInsertLayout(Session session, TableHandle target)
     {
         throw new UnsupportedOperationException();
     }
@@ -430,12 +424,6 @@ public abstract class AbstractMockMetadata
 
     @Override
     public ColumnHandle getUpdateRowIdColumnHandle(Session session, TableHandle tableHandle, List<ColumnHandle> updatedColumns)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public boolean supportsMetadataDelete(Session session, TableHandle tableHandle)
     {
         throw new UnsupportedOperationException();
     }
@@ -544,12 +532,6 @@ public abstract class AbstractMockMetadata
 
     @Override
     public Optional<ResolvedIndex> resolveIndex(Session session, TableHandle tableHandle, Set<ColumnHandle> indexableColumns, Set<ColumnHandle> outputColumns, TupleDomain<ColumnHandle> tupleDomain)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public boolean usesLegacyTableLayouts(Session session, TableHandle table)
     {
         throw new UnsupportedOperationException();
     }
@@ -865,6 +847,12 @@ public abstract class AbstractMockMetadata
 
     @Override
     public void renameMaterializedView(Session session, QualifiedObjectName existingViewName, QualifiedObjectName newViewName)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void setMaterializedViewProperties(Session session, QualifiedObjectName viewName, Map<String, Optional<Object>> properties)
     {
         throw new UnsupportedOperationException();
     }

@@ -30,6 +30,8 @@ import io.trino.orc.metadata.statistics.Utf8BloomFilterBuilder;
 import io.trino.orc.proto.OrcProto;
 import io.trino.orc.protobuf.CodedInputStream;
 import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.Range;
+import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.RealType;
 import io.trino.spi.type.Type;
 import org.apache.orc.util.Murmur3;
@@ -81,7 +83,7 @@ public class TestOrcBloomFilters
             .put(987654L, TIMESTAMP_MILLIS)
             .put(234.567, DOUBLE)
             .put((long) floatToIntBits(987.654f), REAL)
-            .build();
+            .buildOrThrow();
 
     @Test
     public void testHiveBloomFilterSerde()
@@ -219,7 +221,7 @@ public class TestOrcBloomFilters
     }
 
     @Test
-    // simulate query on a 2 columns where 1 is used as part of the where, with and without bloom filter
+    // simulate query on 2 columns where 1 is used as part of the where, with and without bloom filter
     public void testMatches()
     {
         TupleDomainOrcPredicate predicate = TupleDomainOrcPredicate.builder()
@@ -274,6 +276,78 @@ public class TestOrcBloomFilters
         assertTrue(predicate.matches(1L, withoutBloomFilterStatisticsByColumnIndex));
         assertFalse(predicate.matches(1L, nonMatchingStatisticsByColumnIndex));
         assertTrue(emptyPredicate.matches(1L, matchingStatisticsByColumnIndex));
+    }
+
+    @Test
+    public void testMatchesExpandedRange()
+    {
+        Range range = Range.range(BIGINT, 1233L, true, 1235L, true);
+        TupleDomainOrcPredicate predicate = TupleDomainOrcPredicate.builder()
+                .setBloomFiltersEnabled(true)
+                .addColumn(ROOT_COLUMN, Domain.create(ValueSet.ofRanges(range), false))
+                .setDomainCompactionThreshold(100)
+                .build();
+
+        ColumnMetadata<ColumnStatistics> matchingStatisticsByColumnIndex = new ColumnMetadata<>(ImmutableList.of(new ColumnStatistics(
+                null,
+                0,
+                null,
+                new IntegerStatistics(10L, 2000L, null),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                new Utf8BloomFilterBuilder(1000, 0.01)
+                        .addLong(1234L)
+                        .buildBloomFilter())));
+
+        ColumnMetadata<ColumnStatistics> nonMatchingStatisticsByColumnIndex = new ColumnMetadata<>(ImmutableList.of(new ColumnStatistics(
+                null,
+                0,
+                null,
+                new IntegerStatistics(10L, 2000L, null),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                new Utf8BloomFilterBuilder(1000, 0.01)
+                        .addLong(9876L)
+                        .buildBloomFilter())));
+
+        assertTrue(predicate.matches(1L, matchingStatisticsByColumnIndex));
+        assertFalse(predicate.matches(1L, nonMatchingStatisticsByColumnIndex));
+    }
+
+    @Test
+    public void testMatchesNonExpandedRange()
+    {
+        ColumnMetadata<ColumnStatistics> matchingStatisticsByColumnIndex = new ColumnMetadata<>(ImmutableList.of(new ColumnStatistics(
+                null,
+                0,
+                null,
+                new IntegerStatistics(10L, 2000L, null),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                new Utf8BloomFilterBuilder(1000, 0.01)
+                        .addLong(1500L)
+                        .buildBloomFilter())));
+
+        Range range = Range.range(BIGINT, 1233L, true, 1235L, true);
+        TupleDomainOrcPredicate.TupleDomainOrcPredicateBuilder builder = TupleDomainOrcPredicate.builder()
+                .setBloomFiltersEnabled(true)
+                .addColumn(ROOT_COLUMN, Domain.create(ValueSet.ofRanges(range), false));
+
+        // Domain expansion doesn't take place -> no bloom filtering -> ranges overlap
+        assertTrue(builder.setDomainCompactionThreshold(1).build().matches(1L, matchingStatisticsByColumnIndex));
+        assertFalse(builder.setDomainCompactionThreshold(100).build().matches(1L, matchingStatisticsByColumnIndex));
     }
 
     @Test

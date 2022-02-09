@@ -41,7 +41,7 @@ import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.JobConf;
-import org.apache.iceberg.FileFormat;
+import org.apache.iceberg.MetricsConfig;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
@@ -94,13 +94,14 @@ public class IcebergPageSink
     private final JobConf jobConf;
     private final JsonCodec<CommitTaskData> jsonCodec;
     private final ConnectorSession session;
-    private final FileFormat fileFormat;
+    private final IcebergFileFormat fileFormat;
+    private final MetricsConfig metricsConfig;
     private final PagePartitioner pagePartitioner;
 
     private final List<WriteContext> writers = new ArrayList<>();
 
     private long writtenBytes;
-    private long systemMemoryUsage;
+    private long memoryUsage;
     private long validationCpuNanos;
 
     public IcebergPageSink(
@@ -114,7 +115,8 @@ public class IcebergPageSink
             List<IcebergColumnHandle> inputColumns,
             JsonCodec<CommitTaskData> jsonCodec,
             ConnectorSession session,
-            FileFormat fileFormat,
+            IcebergFileFormat fileFormat,
+            Map<String, String> storageProperties,
             int maxOpenWriters)
     {
         requireNonNull(inputColumns, "inputColumns is null");
@@ -128,6 +130,7 @@ public class IcebergPageSink
         this.jsonCodec = requireNonNull(jsonCodec, "jsonCodec is null");
         this.session = requireNonNull(session, "session is null");
         this.fileFormat = requireNonNull(fileFormat, "fileFormat is null");
+        this.metricsConfig = MetricsConfig.fromProperties(requireNonNull(storageProperties, "storageProperties is null"));
         this.maxOpenWriters = maxOpenWriters;
         this.pagePartitioner = new PagePartitioner(pageIndexerFactory, toPartitionColumns(inputColumns, partitionSpec));
     }
@@ -139,9 +142,9 @@ public class IcebergPageSink
     }
 
     @Override
-    public long getSystemMemoryUsage()
+    public long getMemoryUsage()
     {
-        return systemMemoryUsage;
+        return memoryUsage;
     }
 
     @Override
@@ -260,12 +263,12 @@ public class IcebergPageSink
             IcebergFileWriter writer = writers.get(index).getWriter();
 
             long currentWritten = writer.getWrittenBytes();
-            long currentMemory = writer.getSystemMemoryUsage();
+            long currentMemory = writer.getMemoryUsage();
 
             writer.appendRows(pageForWriter);
 
             writtenBytes += (writer.getWrittenBytes() - currentWritten);
-            systemMemoryUsage += (writer.getSystemMemoryUsage() - currentMemory);
+            memoryUsage += (writer.getMemoryUsage() - currentMemory);
         }
     }
 
@@ -302,7 +305,7 @@ public class IcebergPageSink
 
     private WriteContext createWriter(Optional<PartitionData> partitionData)
     {
-        String fileName = fileFormat.addExtension(randomUUID().toString());
+        String fileName = fileFormat.toIceberg().addExtension(randomUUID().toString());
         Path outputPath = partitionData.map(partition -> new Path(locationProvider.newDataLocation(partitionSpec, partition, fileName)))
                 .orElse(new Path(locationProvider.newDataLocation(fileName)));
 
@@ -312,7 +315,8 @@ public class IcebergPageSink
                 jobConf,
                 session,
                 hdfsContext,
-                fileFormat);
+                fileFormat,
+                metricsConfig);
 
         return new WriteContext(writer, outputPath, partitionData);
     }

@@ -43,7 +43,6 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.jdbc.TestingJdbcTypeHandle.JDBC_BIGINT;
 import static io.trino.plugin.jdbc.TestingJdbcTypeHandle.JDBC_VARCHAR;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
-import static io.trino.spi.StandardErrorCode.PERMISSION_DENIED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
@@ -68,7 +67,7 @@ public class TestDefaultJdbcMetadata
             throws Exception
     {
         database = new TestingDatabase();
-        metadata = new DefaultJdbcMetadata(new GroupingSetsEnabledJdbcClient(database.getJdbcClient()), false);
+        metadata = new DefaultJdbcMetadata(new GroupingSetsEnabledJdbcClient(database.getJdbcClient()));
         tableHandle = metadata.getTableHandle(SESSION, new SchemaTableName("example", "numbers"));
     }
 
@@ -224,16 +223,10 @@ public class TestDefaultJdbcMetadata
     @Test
     public void testDropTableTable()
     {
-        assertTrinoExceptionThrownBy(() -> metadata.dropTable(SESSION, tableHandle))
-                .hasErrorCode(PERMISSION_DENIED)
-                .hasMessage("DROP TABLE is disabled in this catalog");
-
-        metadata = new DefaultJdbcMetadata(database.getJdbcClient(), true);
         metadata.dropTable(SESSION, tableHandle);
 
         assertTrinoExceptionThrownBy(() -> metadata.getTableMetadata(SESSION, tableHandle))
-                .hasErrorCode(NOT_FOUND)
-                .hasMessageMatching("Table '.*' has no supported columns \\(all \\d+ columns are not supported\\)");
+                .hasErrorCode(NOT_FOUND);
     }
 
     @Test

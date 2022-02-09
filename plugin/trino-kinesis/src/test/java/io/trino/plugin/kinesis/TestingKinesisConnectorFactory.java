@@ -54,7 +54,6 @@ public class TestingKinesisConnectorFactory
                     new KinesisModule(),
                     binder -> {
                         binder.bind(NodeManager.class).toInstance(context.getNodeManager());
-                        binder.bind(KinesisHandleResolver.class).toInstance(new KinesisHandleResolver());
                         binder.bind(KinesisClientProvider.class).toInstance(kinesisClientProvider);
                         binder.bind(new TypeLiteral<Supplier<Map<SchemaTableName, KinesisStreamDescription>>>() {}).to(KinesisTableDescriptionSupplier.class).in(Scopes.SINGLETON);
                     });

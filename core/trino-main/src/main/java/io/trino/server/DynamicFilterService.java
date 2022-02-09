@@ -232,7 +232,21 @@ public class DynamicFilterService
             return false;
         }
 
-        return !getSourceStageInnerLazyDynamicFilters(plan).isEmpty();
+        // dynamic filters are collected by additional task only for non-fixed source stage
+        return plan.getPartitioning().equals(SOURCE_DISTRIBUTION) && !getLazyDynamicFilters(plan).isEmpty();
+    }
+
+    public boolean isStageSchedulingNeededToCollectDynamicFilters(QueryId queryId, PlanFragment plan)
+    {
+        DynamicFilterContext context = dynamicFilterContexts.get(queryId);
+        if (context == null) {
+            // query has been removed or not registered (e.g dynamic filtering is disabled)
+            return false;
+        }
+
+        // stage scheduling is not needed to collect dynamic filters for non-fixed source stage, because
+        // for such stage collecting task is created
+        return !plan.getPartitioning().equals(SOURCE_DISTRIBUTION) && !getLazyDynamicFilters(plan).isEmpty();
     }
 
     /**
@@ -333,9 +347,10 @@ public class DynamicFilterService
                     return currentFilter.getDynamicFilter();
                 }
 
-                TupleDomain<ColumnHandle> dynamicFilter = completedDynamicFilters.stream()
-                        .map(filter -> translateSummaryToTupleDomain(filter, context, symbolsMap, columnHandles, typeProvider))
-                        .reduce(TupleDomain.all(), TupleDomain::intersect);
+                TupleDomain<ColumnHandle> dynamicFilter = TupleDomain.intersect(
+                        completedDynamicFilters.stream()
+                                .map(filter -> translateSummaryToTupleDomain(filter, context, symbolsMap, columnHandles, typeProvider))
+                                .collect(toImmutableList()));
 
                 // It could happen that two threads update currentDynamicFilter concurrently.
                 // In such case, currentDynamicFilter might be set to dynamic filter with less domains.
@@ -755,7 +770,7 @@ public class DynamicFilterService
                 // filter has already been collected
                 collectedDomainsBuilder.put(dynamicFilterId, dynamicFilterSummaries.get(dynamicFilterId));
             });
-            Map<DynamicFilterId, Domain> collectedDomains = collectedDomainsBuilder.build();
+            Map<DynamicFilterId, Domain> collectedDomains = collectedDomainsBuilder.buildOrThrow();
             if (!collectedDomains.isEmpty()) {
                 consumer.accept(collectedDomains);
             }

@@ -400,6 +400,12 @@ public class DruidJdbcClient
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping schemas");
     }
 
+    @Override
+    public void renameSchema(ConnectorSession session, String schemaName, String newSchemaName)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming schemas");
+    }
+
     private WriteMapping legacyToWriteMapping(Type type)
     {
         // TODO (https://github.com/trinodb/trino/issues/497) Implement proper type mapping and add test
