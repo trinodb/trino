@@ -65,7 +65,7 @@
         <dep.docker-java.version>3.2.12</dep.docker-java.version>
         <dep.coral.version>1.0.121</dep.coral.version>
         <dep.confluent.version>5.5.2</dep.confluent.version>
-	<just.a.test>1.2</just.a.test>
+	<just.a.test>1.3</just.a.test>
 
         <dep.docker.images.version>53</dep.docker.images.version>
 
