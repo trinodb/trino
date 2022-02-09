@@ -621,6 +621,9 @@ public class DeduplicatingDirectExchangeBuffer
             verify(exchange != null, "exchange is expected to be initialized");
             verify(sinkInstanceHandle != null, "sinkInstanceHandle is expected to be initialized");
 
+            // no more data will be added, the buffer can be safely discarded
+            writeBuffer = null;
+
             // Finish ExchangeSink and create ExchangeSource asynchronously to avoid blocking an ExchangeClient thread for potentially substantial amount of time
             ListenableFuture<ExchangeSource> exchangeSourceFuture = FluentFuture.from(toListenableFuture(exchangeSink.finish()))
                     .transformAsync((ignored) -> {
