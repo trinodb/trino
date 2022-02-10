@@ -16,6 +16,7 @@ package io.trino.server.ui;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.hash.Hashing;
+import com.google.common.io.BaseEncoding;
 import com.google.common.io.Resources;
 import com.google.inject.Key;
 import io.airlift.http.server.HttpServerConfig;
@@ -23,8 +24,9 @@ import io.airlift.http.server.HttpServerInfo;
 import io.airlift.http.server.testing.TestingHttpServer;
 import io.airlift.node.NodeInfo;
 import io.airlift.security.pem.PemReader;
+import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwsHeader;
-import io.jsonwebtoken.JwtBuilder;
+import io.jsonwebtoken.impl.DefaultClaims;
 import io.trino.security.AccessControl;
 import io.trino.server.HttpRequestSessionContextFactory;
 import io.trino.server.ProtocolConfig;
@@ -68,9 +70,13 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.Principal;
 import java.security.PrivateKey;
+import java.security.SecureRandom;
+import java.time.Duration;
+import java.time.Instant;
 import java.time.ZonedDateTime;
 import java.util.Base64;
 import java.util.Date;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -83,6 +89,7 @@ import static com.google.common.net.HttpHeaders.X_FORWARDED_PROTO;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
+import static io.jsonwebtoken.Claims.SUBJECT;
 import static io.jsonwebtoken.security.Keys.hmacShaKeyFor;
 import static io.trino.client.OkHttpUtil.setupSsl;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
@@ -97,7 +104,6 @@ import static io.trino.server.ui.FormWebUiAuthenticationFilter.UI_LOGIN;
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.UI_LOGOUT;
 import static io.trino.testing.assertions.Assert.assertEquals;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.function.Predicate.not;
 import static javax.servlet.http.HttpServletResponse.SC_NOT_FOUND;
@@ -630,7 +636,7 @@ public class TestWebUi
     public void testOAuth2Authenticator()
             throws Exception
     {
-        String accessToken = createTokenBuilder().compact();
+        OAuth2ClientStub oauthClient = new OAuth2ClientStub();
         TestingHttpServer jwkServer = createTestingJwkServer();
         jwkServer.start();
         try (TestingTrinoServer server = TestingTrinoServer.builder()
@@ -640,10 +646,10 @@ public class TestWebUi
                         .buildOrThrow())
                 .setAdditionalModule(binder -> newOptionalBinder(binder, OAuth2Client.class)
                         .setBinding()
-                        .toInstance(new OAuth2ClientStub(accessToken)))
+                        .toInstance(oauthClient))
                 .build()) {
             HttpServerInfo httpServerInfo = server.getInstance(Key.get(HttpServerInfo.class));
-            assertAuth2Authentication(httpServerInfo, accessToken);
+            assertAuth2Authentication(httpServerInfo, oauthClient.getAccessToken());
         }
         finally {
             jwkServer.stop();
@@ -654,7 +660,7 @@ public class TestWebUi
     public void testOAuth2AuthenticatorWithoutOpenIdScope()
             throws Exception
     {
-        String accessToken = createTokenBuilder().compact();
+        OAuth2ClientStub oauthClient = new OAuth2ClientStub(false);
         TestingHttpServer jwkServer = createTestingJwkServer();
         jwkServer.start();
         try (TestingTrinoServer server = TestingTrinoServer.builder()
@@ -665,10 +671,10 @@ public class TestWebUi
                         .buildOrThrow())
                 .setAdditionalModule(binder -> newOptionalBinder(binder, OAuth2Client.class)
                         .setBinding()
-                        .toInstance(new OAuth2ClientStub(accessToken)))
+                        .toInstance(oauthClient))
                 .build()) {
             HttpServerInfo httpServerInfo = server.getInstance(Key.get(HttpServerInfo.class));
-            assertAuth2Authentication(httpServerInfo, accessToken);
+            assertAuth2Authentication(httpServerInfo, oauthClient.getAccessToken());
         }
         finally {
             jwkServer.stop();
@@ -679,10 +685,12 @@ public class TestWebUi
     public void testCustomPrincipalField()
             throws Exception
     {
-        String accessToken = createTokenBuilder()
-                .setSubject("unknown")
-                .addClaims(ImmutableMap.of("preferred_username", "test-user@email.com"))
-                .compact();
+        OAuth2ClientStub oauthClient = new OAuth2ClientStub(
+                ImmutableMap.<String, String>builder()
+                        .put(SUBJECT, "unknown")
+                        .put("preferred_username", "test-user@email.com")
+                        .buildOrThrow(),
+                true);
         TestingHttpServer jwkServer = createTestingJwkServer();
         jwkServer.start();
         try (TestingTrinoServer server = TestingTrinoServer.builder()
@@ -695,12 +703,12 @@ public class TestWebUi
                 .setAdditionalModule(binder -> {
                     newOptionalBinder(binder, OAuth2Client.class)
                             .setBinding()
-                            .toInstance(new OAuth2ClientStub(accessToken));
+                            .toInstance(oauthClient);
                     jaxrsBinder(binder).bind(AuthenticatedIdentityCapturingFilter.class);
                 })
                 .build()) {
             HttpServerInfo httpServerInfo = server.getInstance(Key.get(HttpServerInfo.class));
-            assertAuth2Authentication(httpServerInfo, accessToken);
+            assertAuth2Authentication(httpServerInfo, oauthClient.getAccessToken());
             Identity identity = server.getInstance(Key.get(AuthenticatedIdentityCapturingFilter.class)).getAuthenticatedIdentity();
             assertThat(identity.getUser()).isEqualTo("test-user");
             assertThat(identity.getPrincipal()).isEqualTo(Optional.of(new BasicPrincipal("test-user@email.com")));
@@ -1038,18 +1046,6 @@ public class TestWebUi
         return uriBuilderFrom(baseUri).replacePath(path).replaceParameter(query).toString();
     }
 
-    private static JwtBuilder createTokenBuilder()
-    {
-        Date tokenExpiration = Date.from(ZonedDateTime.now().plusMinutes(5).toInstant());
-        return newJwtBuilder()
-                .signWith(JWK_PRIVATE_KEY)
-                .setHeaderParam(JwsHeader.KEY_ID, "test-rsa")
-                .setIssuer(TOKEN_ISSUER)
-                .setAudience(OAUTH_CLIENT_ID)
-                .setSubject("test-user")
-                .setExpiration(tokenExpiration);
-    }
-
     private static TestingHttpServer createTestingJwkServer()
             throws IOException
     {
@@ -1075,28 +1071,90 @@ public class TestWebUi
     private static class OAuth2ClientStub
             implements OAuth2Client
     {
+        private static final SecureRandom secureRandom = new SecureRandom();
+        private final Claims claims;
         private final String accessToken;
-        private Optional<JwtBuilder> idTokenBuilder = Optional.empty();
+        private final Optional<String> nonce;
+        private final Optional<String> idToken;
 
-        public OAuth2ClientStub(String accessToken)
+        public OAuth2ClientStub()
         {
-            this.accessToken = requireNonNull(accessToken, "accessToken is null");
+            this(true);
+        }
+
+        public OAuth2ClientStub(boolean issueIdToken)
+        {
+            this(ImmutableMap.of(), issueIdToken);
+        }
+
+        public OAuth2ClientStub(Map<String, String> additionalClaims, boolean issueIdToken)
+        {
+            claims = new DefaultClaims(createClaims());
+            claims.putAll(additionalClaims);
+            accessToken = issueToken(claims);
+            if (issueIdToken) {
+                nonce = Optional.of(randomNonce());
+                idToken = Optional.of(issueToken(
+                        new DefaultClaims(ImmutableMap.<String, Object>builder()
+                                .putAll(claims)
+                                .put(NONCE, nonce.get())
+                                .buildOrThrow())));
+            }
+            else {
+                nonce = Optional.empty();
+                idToken = Optional.empty();
+            }
         }
 
         @Override
-        public URI getAuthorizationUri(String state, URI callbackUri, Optional<String> nonceHash)
+        public Request createAuthorizationRequest(String state, URI callbackUri)
         {
-            nonceHash.ifPresent(nonce -> idTokenBuilder = Optional.of(createTokenBuilder().claim(NONCE, nonce)));
-            return URI.create("http://example.com/authorize");
+            return new Request(URI.create("http://example.com/authorize"), nonce);
         }
 
         @Override
-        public OAuth2Response getOAuth2Response(String code, URI callbackUri)
+        public Response getOAuth2Response(String code, URI callbackUri, Optional<String> nonce)
         {
             if (!"TEST_CODE".equals(code)) {
                 throw new IllegalArgumentException("Expected TEST_CODE");
             }
-            return new OAuth2Response(accessToken, Optional.empty(), idTokenBuilder.map(JwtBuilder::compact));
+            return new Response(accessToken, Instant.now().plusSeconds(5), idToken);
+        }
+
+        @Override
+        public Optional<Map<String, Object>> getClaims(String accessToken)
+        {
+            return Optional.of(claims);
+        }
+
+        public String getAccessToken()
+        {
+            return accessToken;
+        }
+
+        private static String issueToken(Claims claims)
+        {
+            return newJwtBuilder()
+                    .signWith(JWK_PRIVATE_KEY)
+                    .setHeaderParam(JwsHeader.KEY_ID, "test-rsa")
+                    .setClaims(claims)
+                    .compact();
+        }
+
+        private static Claims createClaims()
+        {
+            return new DefaultClaims()
+                    .setIssuer(TOKEN_ISSUER)
+                    .setAudience(OAUTH_CLIENT_ID)
+                    .setSubject("test-user")
+                    .setExpiration(Date.from(Instant.now().plus(Duration.ofMinutes(5))));
+        }
+
+        public static String randomNonce()
+        {
+            byte[] bytes = new byte[32];
+            secureRandom.nextBytes(bytes);
+            return BaseEncoding.base64Url().encode(bytes);
         }
     }
 

@@ -57,7 +57,6 @@
         <dep.jsonwebtoken.version>0.11.2</dep.jsonwebtoken.version>
         <dep.oracle.version>19.3.0.0</dep.oracle.version>
         <dep.drift.version>1.14</dep.drift.version>
-        <dep.scribejava.version>6.9.0</dep.scribejava.version>
         <dep.tempto.version>187</dep.tempto.version>
         <dep.gcs.version>2.0.0</dep.gcs.version>
         <dep.errorprone.version>2.11.0</dep.errorprone.version>
@@ -1038,18 +1037,6 @@
             </dependency>
 
             <dependency>
-                <groupId>com.github.scribejava</groupId>
-                <artifactId>scribejava-apis</artifactId>
-                <version>${dep.scribejava.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>com.github.scribejava</groupId>
-                <artifactId>scribejava-core</artifactId>
-                <version>${dep.scribejava.version}</version>
-            </dependency>
-
-            <dependency>
                 <groupId>com.google.cloud.bigdataoss</groupId>
                 <artifactId>gcs-connector</artifactId>
                 <version>hadoop2-${dep.gcs.version}</version>
@@ -1164,6 +1151,18 @@
                 <groupId>com.microsoft.sqlserver</groupId>
                 <artifactId>mssql-jdbc</artifactId>
                 <version>10.2.0.jre11</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.nimbusds</groupId>
+                <artifactId>nimbus-jose-jwt</artifactId>
+                <version>9.14</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.nimbusds</groupId>
+                <artifactId>oauth2-oidc-sdk</artifactId>
+                <version>9.18</version>
             </dependency>
 
             <dependency>
