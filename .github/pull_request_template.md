@@ -4,7 +4,7 @@
 
 <!-- Elaborate beyond the title of the PR as necessary to help the reviewers and maintainers.-->
 
-## Description
+## General information
 
 <!-- Answer the following questions to help reviewers and maintainers
 understand this PR's scope at a glance:
