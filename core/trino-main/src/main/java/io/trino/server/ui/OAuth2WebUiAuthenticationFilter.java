@@ -15,10 +15,9 @@ package io.trino.server.ui;
 
 import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
-import io.jsonwebtoken.JwtException;
 import io.trino.server.security.UserMapping;
 import io.trino.server.security.UserMappingException;
-import io.trino.server.security.oauth2.ChallengeFailedException;
+import io.trino.server.security.oauth2.OAuth2Client;
 import io.trino.server.security.oauth2.OAuth2Config;
 import io.trino.server.security.oauth2.OAuth2Service;
 import io.trino.spi.security.BasicPrincipal;
@@ -51,13 +50,15 @@ public class OAuth2WebUiAuthenticationFilter
 
     private final String principalField;
     private final OAuth2Service service;
+    private final OAuth2Client client;
     private final UserMapping userMapping;
     private final Optional<String> groupsField;
 
     @Inject
-    public OAuth2WebUiAuthenticationFilter(OAuth2Service service, OAuth2Config oauth2Config)
+    public OAuth2WebUiAuthenticationFilter(OAuth2Service service, OAuth2Client client, OAuth2Config oauth2Config)
     {
         this.service = requireNonNull(service, "service is null");
+        this.client = requireNonNull(client, "client is null");
         requireNonNull(oauth2Config, "oauth2Config is null");
         this.userMapping = UserMapping.createUserMapping(oauth2Config.getUserMappingPattern(), oauth2Config.getUserMappingFile());
         this.principalField = oauth2Config.getPrincipalField();
@@ -84,16 +85,9 @@ public class OAuth2WebUiAuthenticationFilter
             return;
         }
         Optional<Map<String, Object>> claims;
-        try {
-            claims = getAccessToken(request);
-            if (claims.isEmpty()) {
-                needAuthentication(request);
-                return;
-            }
-        }
-        catch (ChallengeFailedException e) {
-            LOG.debug(e, "Invalid token: %s", e.getMessage());
-            sendErrorMessage(request, UNAUTHORIZED, "Unauthorized");
+        claims = getAccessToken(request);
+        if (claims.isEmpty()) {
+            needAuthentication(request);
             return;
         }
 
@@ -117,16 +111,10 @@ public class OAuth2WebUiAuthenticationFilter
     }
 
     private Optional<Map<String, Object>> getAccessToken(ContainerRequestContext request)
-            throws ChallengeFailedException
     {
         Optional<String> accessToken = OAuthWebUiCookie.read(request.getCookies().get(OAUTH2_COOKIE));
         if (accessToken.isPresent()) {
-            try {
-                return service.convertTokenToClaims(accessToken.get());
-            }
-            catch (JwtException | IllegalArgumentException e) {
-                LOG.debug(e, "Unable to parse JWT token");
-            }
+            return client.getClaims(accessToken.get());
         }
         return Optional.empty();
     }
