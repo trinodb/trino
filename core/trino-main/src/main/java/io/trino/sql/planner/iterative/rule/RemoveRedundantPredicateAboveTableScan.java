@@ -57,7 +57,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.toList;
 
-public class RemoveRedundantTableScanPredicate
+public class RemoveRedundantPredicateAboveTableScan
         implements Rule<FilterNode>
 {
     private static final Capture<TableScanNode> TABLE_SCAN = newCapture();
@@ -71,7 +71,7 @@ public class RemoveRedundantTableScanPredicate
     private final PlannerContext plannerContext;
     private final TypeAnalyzer typeAnalyzer;
 
-    public RemoveRedundantTableScanPredicate(PlannerContext plannerContext, TypeAnalyzer typeAnalyzer)
+    public RemoveRedundantPredicateAboveTableScan(PlannerContext plannerContext, TypeAnalyzer typeAnalyzer)
     {
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");

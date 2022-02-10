@@ -195,9 +195,9 @@ import io.trino.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
 import io.trino.sql.planner.iterative.rule.RemoveRedundantJoin;
 import io.trino.sql.planner.iterative.rule.RemoveRedundantLimit;
 import io.trino.sql.planner.iterative.rule.RemoveRedundantOffset;
+import io.trino.sql.planner.iterative.rule.RemoveRedundantPredicateAboveTableScan;
 import io.trino.sql.planner.iterative.rule.RemoveRedundantSort;
 import io.trino.sql.planner.iterative.rule.RemoveRedundantSortBelowLimitWithTies;
-import io.trino.sql.planner.iterative.rule.RemoveRedundantTableScanPredicate;
 import io.trino.sql.planner.iterative.rule.RemoveRedundantTopN;
 import io.trino.sql.planner.iterative.rule.RemoveTrivialFilters;
 import io.trino.sql.planner.iterative.rule.RemoveUnreferencedScalarApplyNodes;
@@ -855,7 +855,7 @@ public class PlanOptimizers
                 costCalculator,
                 ImmutableSet.<Rule<?>>builder()
                         .addAll(simplifyOptimizerRules) // Should be always run after PredicatePushDown
-                        .add(new RemoveRedundantTableScanPredicate(plannerContext, typeAnalyzer))
+                        .add(new RemoveRedundantPredicateAboveTableScan(plannerContext, typeAnalyzer))
                         .build()));
         builder.add(pushProjectionIntoTableScanOptimizer);
         // Projection pushdown rules may push reducing projections (e.g. dereferences) below filters for potential
@@ -871,7 +871,7 @@ public class PlanOptimizers
                 ImmutableSet.<Rule<?>>builder()
                         .addAll(simplifyOptimizerRules) // Should be always run after PredicatePushDown
                         .add(new PushPredicateIntoTableScan(plannerContext, typeAnalyzer))
-                        .add(new RemoveRedundantTableScanPredicate(plannerContext, typeAnalyzer))
+                        .add(new RemoveRedundantPredicateAboveTableScan(plannerContext, typeAnalyzer))
                         .build()));
         builder.add(inlineProjections);
         builder.add(new UnaliasSymbolReferences(metadata)); // Run unalias after merging projections to simplify projections more efficiently
