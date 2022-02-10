@@ -47,17 +47,17 @@ import static io.trino.sql.tree.ArithmeticBinaryExpression.Operator.MODULUS;
 import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static io.trino.sql.tree.LogicalExpression.Operator.AND;
 
-public class TestRemoveRedundantTableScanPredicate
+public class TestRemoveRedundantPredicateAboveTableScan
         extends BaseRuleTest
 {
-    private RemoveRedundantTableScanPredicate removeRedundantTableScanPredicate;
+    private RemoveRedundantPredicateAboveTableScan removeRedundantPredicateAboveTableScan;
     private TableHandle nationTableHandle;
     private TableHandle ordersTableHandle;
 
     @BeforeClass
     public void setUpBeforeClass()
     {
-        removeRedundantTableScanPredicate = new RemoveRedundantTableScanPredicate(tester().getPlannerContext(), tester().getTypeAnalyzer());
+        removeRedundantPredicateAboveTableScan = new RemoveRedundantPredicateAboveTableScan(tester().getPlannerContext(), tester().getTypeAnalyzer());
         CatalogName catalogName = tester().getCurrentConnectorId();
         TpchTableHandle nation = new TpchTableHandle("sf1", "nation", 1.0);
         nationTableHandle = new TableHandle(
@@ -75,7 +75,7 @@ public class TestRemoveRedundantTableScanPredicate
     @Test
     public void doesNotFireIfNoTableScan()
     {
-        tester().assertThat(removeRedundantTableScanPredicate)
+        tester().assertThat(removeRedundantPredicateAboveTableScan)
                 .on(p -> p.values(p.symbol("a", BIGINT)))
                 .doesNotFire();
     }
@@ -84,7 +84,7 @@ public class TestRemoveRedundantTableScanPredicate
     public void consumesDeterministicPredicateIfNewDomainIsSame()
     {
         ColumnHandle columnHandle = new TpchColumnHandle("nationkey", BIGINT);
-        tester().assertThat(removeRedundantTableScanPredicate)
+        tester().assertThat(removeRedundantPredicateAboveTableScan)
                 .on(p -> p.filter(expression("nationkey = BIGINT '44'"),
                         p.tableScan(
                                 nationTableHandle,
@@ -102,7 +102,7 @@ public class TestRemoveRedundantTableScanPredicate
     public void consumesDeterministicPredicateIfNewDomainIsWider()
     {
         ColumnHandle columnHandle = new TpchColumnHandle("nationkey", BIGINT);
-        tester().assertThat(removeRedundantTableScanPredicate)
+        tester().assertThat(removeRedundantPredicateAboveTableScan)
                 .on(p -> p.filter(expression("nationkey = BIGINT '44' OR nationkey = BIGINT '45'"),
                         p.tableScan(
                                 nationTableHandle,
@@ -120,7 +120,7 @@ public class TestRemoveRedundantTableScanPredicate
     public void consumesDeterministicPredicateIfNewDomainIsNarrower()
     {
         ColumnHandle columnHandle = new TpchColumnHandle("nationkey", BIGINT);
-        tester().assertThat(removeRedundantTableScanPredicate)
+        tester().assertThat(removeRedundantPredicateAboveTableScan)
                 .on(p -> p.filter(expression("nationkey = BIGINT '44' OR nationkey = BIGINT '45' OR nationkey = BIGINT '47'"),
                         p.tableScan(
                                 nationTableHandle,
@@ -140,7 +140,7 @@ public class TestRemoveRedundantTableScanPredicate
     public void doesNotConsumeRemainingPredicateIfNewDomainIsWider()
     {
         ColumnHandle columnHandle = new TpchColumnHandle("nationkey", BIGINT);
-        tester().assertThat(removeRedundantTableScanPredicate)
+        tester().assertThat(removeRedundantPredicateAboveTableScan)
                 .on(p -> p.filter(
                         new LogicalExpression(
                                 AND,
@@ -199,7 +199,7 @@ public class TestRemoveRedundantTableScanPredicate
     public void doesNotFireOnNonDeterministicPredicate()
     {
         ColumnHandle columnHandle = new TpchColumnHandle("nationkey", BIGINT);
-        tester().assertThat(removeRedundantTableScanPredicate)
+        tester().assertThat(removeRedundantPredicateAboveTableScan)
                 .on(p -> p.filter(
                         new ComparisonExpression(
                                 EQUAL,
@@ -218,7 +218,7 @@ public class TestRemoveRedundantTableScanPredicate
     @Test
     public void doesNotFireIfRuleNotChangePlan()
     {
-        tester().assertThat(removeRedundantTableScanPredicate)
+        tester().assertThat(removeRedundantPredicateAboveTableScan)
                 .on(p -> p.filter(expression("nationkey % 17 = BIGINT '44' AND nationkey % 15 = BIGINT '43'"),
                         p.tableScan(
                                 nationTableHandle,
@@ -231,7 +231,7 @@ public class TestRemoveRedundantTableScanPredicate
     @Test
     public void doesNotAddTableLayoutToFilterTableScan()
     {
-        tester().assertThat(removeRedundantTableScanPredicate)
+        tester().assertThat(removeRedundantPredicateAboveTableScan)
                 .on(p -> p.filter(expression("orderstatus = 'F'"),
                         p.tableScan(
                                 ordersTableHandle,
@@ -244,7 +244,7 @@ public class TestRemoveRedundantTableScanPredicate
     public void doesNotFireOnNoTableScanPredicate()
     {
         ColumnHandle columnHandle = new TpchColumnHandle("nationkey", BIGINT);
-        tester().assertThat(removeRedundantTableScanPredicate)
+        tester().assertThat(removeRedundantPredicateAboveTableScan)
                 .on(p -> p.filter(expression("(nationkey > 3 OR nationkey > 0) AND (nationkey > 3 OR nationkey < 1)"),
                         p.tableScan(
                                 nationTableHandle,
@@ -258,7 +258,7 @@ public class TestRemoveRedundantTableScanPredicate
     public void doesNotFireOnNotFullyExtractedConjunct()
     {
         ColumnHandle columnHandle = new TpchColumnHandle("name", VARCHAR);
-        tester().assertThat(removeRedundantTableScanPredicate)
+        tester().assertThat(removeRedundantPredicateAboveTableScan)
                 .on(p -> p.filter(expression("name LIKE 'LARGE PLATED %'"),
                         p.tableScan(
                                 nationTableHandle,
@@ -274,7 +274,7 @@ public class TestRemoveRedundantTableScanPredicate
     {
         ColumnHandle textColumnHandle = new TpchColumnHandle("name", VARCHAR);
         ColumnHandle nationKeyColumnHandle = new TpchColumnHandle("nationkey", BIGINT);
-        tester().assertThat(removeRedundantTableScanPredicate)
+        tester().assertThat(removeRedundantPredicateAboveTableScan)
                 .on(p -> p.filter(expression("name LIKE 'LARGE PLATED %' AND nationkey = BIGINT '44'"),
                         p.tableScan(
                                 nationTableHandle,
