@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.hive.authentication;
 
-import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.security.ConnectorIdentity;
 
 import java.util.Objects;
@@ -31,11 +30,6 @@ public final class HiveIdentity
     private HiveIdentity()
     {
         this.username = Optional.empty();
-    }
-
-    public HiveIdentity(ConnectorSession session)
-    {
-        this(requireNonNull(session, "session is null").getIdentity());
     }
 
     public HiveIdentity(ConnectorIdentity identity)

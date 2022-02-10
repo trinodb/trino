@@ -48,7 +48,7 @@ public class TestLegacySecurityConfig
                 .put("hive.allow-comment-table", "true")
                 .put("hive.allow-comment-column", "true")
                 .put("hive.allow-rename-column", "true")
-                .build();
+                .buildOrThrow();
 
         LegacySecurityConfig expected = new LegacySecurityConfig()
                 .setAllowAddColumn(true)

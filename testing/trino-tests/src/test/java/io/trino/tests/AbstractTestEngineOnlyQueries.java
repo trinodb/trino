@@ -147,13 +147,16 @@ public abstract class AbstractTestEngineOnlyQueries
     @Test
     public void testTimeLiterals()
     {
+        Session chicago = Session.builder(getSession()).setTimeZoneKey(TimeZoneKey.getTimeZoneKey("America/Chicago")).build();
+        Session kathmandu = Session.builder(getSession()).setTimeZoneKey(TimeZoneKey.getTimeZoneKey("Asia/Kathmandu")).build();
+
         assertEquals(computeScalar("SELECT TIME '3:04:05'"), LocalTime.of(3, 4, 5, 0));
         assertEquals(computeScalar("SELECT TIME '3:04:05.123'"), LocalTime.of(3, 4, 5, 123_000_000));
         assertQuery("SELECT TIME '3:04:05'");
         assertQuery("SELECT TIME '0:04:05'");
-        // TODO https://github.com/trinodb/trino/issues/37
-        // TODO assertQuery(chicago, "SELECT TIME '3:04:05'");
-        // TODO assertQuery(kathmandu, "SELECT TIME '3:04:05'");
+
+        assertQuery(chicago, "SELECT TIME '3:04:05'");
+        assertQuery(kathmandu, "SELECT TIME '3:04:05'");
     }
 
     @Test
@@ -168,13 +171,15 @@ public abstract class AbstractTestEngineOnlyQueries
     @Test
     public void testTimestampLiterals()
     {
+        Session chicago = Session.builder(getSession()).setTimeZoneKey(TimeZoneKey.getTimeZoneKey("America/Chicago")).build();
+        Session kathmandu = Session.builder(getSession()).setTimeZoneKey(TimeZoneKey.getTimeZoneKey("Asia/Kathmandu")).build();
+
         assertEquals(computeScalar("SELECT TIMESTAMP '1960-01-22 3:04:05'"), LocalDateTime.of(1960, 1, 22, 3, 4, 5));
         assertEquals(computeScalar("SELECT TIMESTAMP '1960-01-22 3:04:05.123'"), LocalDateTime.of(1960, 1, 22, 3, 4, 5, 123_000_000));
         assertQuery("SELECT TIMESTAMP '1960-01-22 3:04:05'");
         assertQuery("SELECT TIMESTAMP '1960-01-22 3:04:05.123'");
-        // TODO https://github.com/trinodb/trino/issues/37
-        // TODO assertQuery(chicago, "SELECT TIMESTAMP '1960-01-22 3:04:05.123'");
-        // TODO assertQuery(kathmandu, "SELECT TIMESTAMP '1960-01-22 3:04:05.123'");
+        assertQuery(chicago, "SELECT TIMESTAMP '1960-01-22 3:04:05.123'");
+        assertQuery(kathmandu, "SELECT TIMESTAMP '1960-01-22 3:04:05.123'");
     }
 
     @Test
@@ -577,7 +582,6 @@ public abstract class AbstractTestEngineOnlyQueries
     @Test
     public void testAtTimeZone()
     {
-        // TODO the expected values here are non-sensical due to https://github.com/trinodb/trino/issues/37
         assertEquals(computeScalar("SELECT TIMESTAMP '2012-10-31 01:00' AT TIME ZONE INTERVAL '07:09' hour to minute"), zonedDateTime("2012-10-30 18:09:00.000 +07:09"));
         assertEquals(computeScalar("SELECT TIMESTAMP '2012-10-31 01:00' AT TIME ZONE 'Asia/Oral'"), zonedDateTime("2012-10-30 16:00:00.000 Asia/Oral"));
         assertEquals(computeScalar("SELECT MIN(x) AT TIME ZONE 'America/Chicago' FROM (VALUES TIMESTAMP '1970-01-01 00:01:00+00:00') t(x)"), zonedDateTime("1969-12-31 18:01:00.000 America/Chicago"));
@@ -1480,12 +1484,13 @@ public abstract class AbstractTestEngineOnlyQueries
         assertDescribeOutputEmpty("ALTER TABLE foo ADD COLUMN y bigint");
         assertDescribeOutputEmpty("ALTER TABLE foo SET AUTHORIZATION bar");
         assertDescribeOutputEmpty("ALTER TABLE foo RENAME TO bar");
-        assertDescribeOutputEmpty("ALTER TABLE foo SET PROPERTIES x = 'y'");
+        assertDescribeOutputEmpty("ALTER TABLE foo SET PROPERTIES x = 'y', a = DEFAULT");
         assertDescribeOutputEmpty("TRUNCATE TABLE foo");
         assertDescribeOutputEmpty("DROP TABLE foo");
         assertDescribeOutputEmpty("CREATE VIEW foo AS SELECT * FROM nation");
         assertDescribeOutputEmpty("DROP VIEW foo");
         assertDescribeOutputEmpty("ALTER VIEW foo SET AUTHORIZATION bar");
+        assertDescribeOutputEmpty("ALTER MATERIALIZED VIEW foo SET PROPERTIES propertyName1 = 'propertyValue1', propertyName2 = DEFAULT");
         assertDescribeOutputEmpty("PREPARE test FROM SELECT * FROM orders");
         assertDescribeOutputEmpty("EXECUTE test");
         assertDescribeOutputEmpty("DEALLOCATE PREPARE test");
@@ -3409,6 +3414,9 @@ public abstract class AbstractTestEngineOnlyQueries
     public void testMaxBy()
     {
         assertQuery("SELECT MAX_BY(orderkey, totalprice) FROM orders", "SELECT orderkey FROM orders ORDER BY totalprice DESC LIMIT 1");
+        assertQuery(
+                "SELECT clerk, max_by(orderstatus, shippriority) FROM orders WHERE orderstatus = 'O' GROUP BY 1",
+                "SELECT clerk, 'O' FROM orders GROUP BY clerk");
     }
 
     @Test
@@ -5281,12 +5289,11 @@ public abstract class AbstractTestEngineOnlyQueries
                 ImmutableMap.<String, String>builder()
                         .put("test_string", "foo string")
                         .put("test_long", "424242")
-                        .build(),
-                ImmutableMap.of(),
+                        .buildOrThrow(),
                 ImmutableMap.of(TESTING_CATALOG, ImmutableMap.<String, String>builder()
                         .put("connector_string", "bar string")
                         .put("connector_long", "11")
-                        .build()),
+                        .buildOrThrow()),
                 getQueryRunner().getSessionPropertyManager(),
                 getSession().getPreparedStatements(),
                 getSession().getProtocolHeaders());
@@ -5437,7 +5444,7 @@ public abstract class AbstractTestEngineOnlyQueries
         assertQuery("SELECT apply(5 + RANDOM(1), x -> x + TRY(1 / 0))", "SELECT NULL");
 
         // test try with invalid JSON
-        assertQuery("SELECT JSON_FORMAT(TRY(JSON 'INVALID'))", "SELECT NULL");
+        assertQueryFails("SELECT JSON_FORMAT(TRY(JSON 'INVALID'))", "line 1:24: 'INVALID' is not a valid json literal");
         assertQuery("SELECT JSON_FORMAT(TRY (JSON_PARSE('INVALID')))", "SELECT NULL");
 
         // tests that might be constant folded
@@ -5452,7 +5459,7 @@ public abstract class AbstractTestEngineOnlyQueries
         assertQuery("SELECT COALESCE(TRY(CAST(CONCAT('a', CAST(123 AS VARCHAR)) AS BIGINT)), 0)", "SELECT 0L");
         assertQuery("SELECT 123 + TRY(ABS(-9223372036854775807 - 1))", "SELECT NULL");
         assertQuery("SELECT JSON_FORMAT(TRY(JSON '[]')) || '123'", "SELECT '[]123'");
-        assertQuery("SELECT JSON_FORMAT(TRY(JSON 'INVALID')) || '123'", "SELECT NULL");
+        assertQueryFails("SELECT JSON_FORMAT(TRY(JSON 'INVALID')) || '123'", "line 1:24: 'INVALID' is not a valid json literal");
         assertQuery("SELECT TRY(2/1)", "SELECT 2");
         assertQuery("SELECT TRY(2/0)", "SELECT null");
         assertQuery("SELECT COALESCE(TRY(2/0), 0)", "SELECT 0");

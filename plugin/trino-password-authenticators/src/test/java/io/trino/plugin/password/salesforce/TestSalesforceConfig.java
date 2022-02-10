@@ -50,7 +50,7 @@ public class TestSalesforceConfig
                 .put("salesforce.allowed-organizations", org)
                 .put("salesforce.cache-size", cacheSize)
                 .put("salesforce.cache-expire-duration", cacheExpire)
-                .build();
+                .buildOrThrow();
 
         SalesforceConfig expected = new SalesforceConfig()
                 .setAllowedOrganizations(org)

@@ -25,12 +25,11 @@ import io.trino.spi.connector.Assignment;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
-import io.trino.spi.connector.ConnectorNewTableLayout;
 import io.trino.spi.connector.ConnectorOutputMetadata;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
-import io.trino.spi.connector.ConnectorTableLayoutHandle;
+import io.trino.spi.connector.ConnectorTableLayout;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTableProperties;
 import io.trino.spi.connector.ConnectorTableSchema;
@@ -80,7 +79,6 @@ import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.isAggregationPu
 import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.isJoinPushdownEnabled;
 import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.isTopNPushdownEnabled;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
-import static io.trino.spi.StandardErrorCode.PERMISSION_DENIED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
@@ -91,14 +89,12 @@ public class DefaultJdbcMetadata
     private static final String SYNTHETIC_COLUMN_NAME_PREFIX = "_pfgnrtd_";
 
     private final JdbcClient jdbcClient;
-    private final boolean allowDropTable;
 
     private final AtomicReference<Runnable> rollbackAction = new AtomicReference<>();
 
-    public DefaultJdbcMetadata(JdbcClient jdbcClient, boolean allowDropTable)
+    public DefaultJdbcMetadata(JdbcClient jdbcClient)
     {
         this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
-        this.allowDropTable = allowDropTable;
     }
 
     @Override
@@ -312,15 +308,14 @@ public class DefaultJdbcMetadata
 
         List<JdbcColumnHandle> newColumnsList = newColumns.build();
 
-        // TODO(https://github.com/trinodb/trino/issues/9021) We are reading all grouping columns from remote database as at this point we are not able to tell if they are needed up in the query.
-        // As a reason of that we need to also have matching column handles in JdbcTableHandle constructed below, as columns read via JDBC must match column handles list.
+        // We need to have matching column handles in JdbcTableHandle constructed below, as columns read via JDBC must match column handles list.
         // For more context see assertion in JdbcRecordSetProvider.getRecordSet
         PreparedQuery preparedQuery = jdbcClient.prepareQuery(
                 session,
                 handle,
                 Optional.of(groupingSetsAsJdbcColumnHandles),
                 newColumnsList,
-                expressions.build());
+                expressions.buildOrThrow());
         handle = new JdbcTableHandle(
                 new JdbcQueryRelationHandle(preparedQuery),
                 TupleDomain.all(),
@@ -359,7 +354,7 @@ public class DefaultJdbcMetadata
                     .build());
             nextSyntheticColumnId++;
         }
-        Map<JdbcColumnHandle, JdbcColumnHandle> newLeftColumns = newLeftColumnsBuilder.build();
+        Map<JdbcColumnHandle, JdbcColumnHandle> newLeftColumns = newLeftColumnsBuilder.buildOrThrow();
 
         ImmutableMap.Builder<JdbcColumnHandle, JdbcColumnHandle> newRightColumnsBuilder = ImmutableMap.builder();
         for (JdbcColumnHandle column : jdbcClient.getColumns(session, rightHandle)) {
@@ -368,7 +363,7 @@ public class DefaultJdbcMetadata
                     .build());
             nextSyntheticColumnId++;
         }
-        Map<JdbcColumnHandle, JdbcColumnHandle> newRightColumns = newRightColumnsBuilder.build();
+        Map<JdbcColumnHandle, JdbcColumnHandle> newRightColumns = newRightColumnsBuilder.buildOrThrow();
 
         ImmutableList.Builder<JdbcJoinCondition> jdbcJoinConditions = ImmutableList.builder();
         for (JoinCondition joinCondition : joinConditions) {
@@ -528,12 +523,6 @@ public class DefaultJdbcMetadata
     }
 
     @Override
-    public boolean usesLegacyTableLayouts()
-    {
-        return false;
-    }
-
-    @Override
     public ConnectorTableProperties getTableProperties(ConnectorSession session, ConnectorTableHandle table)
     {
         return new ConnectorTableProperties();
@@ -602,7 +591,7 @@ public class DefaultJdbcMetadata
                 // these exceptions are ignored because listTableColumns is used for metadata queries (SELECT FROM information_schema)
             }
         }
-        return columns.build();
+        return columns.buildOrThrow();
     }
 
     @Override
@@ -614,16 +603,13 @@ public class DefaultJdbcMetadata
     @Override
     public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        if (!allowDropTable) {
-            throw new TrinoException(PERMISSION_DENIED, "DROP TABLE is disabled in this catalog");
-        }
         JdbcTableHandle handle = (JdbcTableHandle) tableHandle;
         verify(!handle.isSynthetic(), "Not a table reference: %s", handle);
         jdbcClient.dropTable(session, handle);
     }
 
     @Override
-    public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorNewTableLayout> layout)
+    public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorTableLayout> layout)
     {
         JdbcOutputTableHandle handle = jdbcClient.beginCreateTable(session, tableMetadata);
         setRollback(() -> jdbcClient.rollbackCreateTable(session, handle));
@@ -698,12 +684,6 @@ public class DefaultJdbcMetadata
     }
 
     @Override
-    public boolean supportsMetadataDelete(ConnectorSession session, ConnectorTableHandle tableHandle, ConnectorTableLayoutHandle tableLayoutHandle)
-    {
-        return true;
-    }
-
-    @Override
     public Optional<ConnectorTableHandle> applyDelete(ConnectorSession session, ConnectorTableHandle handle)
     {
         return Optional.of(handle);
@@ -765,7 +745,7 @@ public class DefaultJdbcMetadata
     }
 
     @Override
-    public void setTableProperties(ConnectorSession session, ConnectorTableHandle table, Map<String, Object> properties)
+    public void setTableProperties(ConnectorSession session, ConnectorTableHandle table, Map<String, Optional<Object>> properties)
     {
         JdbcTableHandle tableHandle = (JdbcTableHandle) table;
         verify(!tableHandle.isSynthetic(), "Not a table reference: %s", tableHandle);
@@ -789,5 +769,11 @@ public class DefaultJdbcMetadata
     public void dropSchema(ConnectorSession session, String schemaName)
     {
         jdbcClient.dropSchema(session, schemaName);
+    }
+
+    @Override
+    public void renameSchema(ConnectorSession session, String schemaName, String newSchemaName)
+    {
+        jdbcClient.renameSchema(session, schemaName, newSchemaName);
     }
 }

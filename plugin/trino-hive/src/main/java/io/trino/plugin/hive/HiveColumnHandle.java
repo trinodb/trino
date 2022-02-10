@@ -15,10 +15,12 @@ package io.trino.plugin.hive;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.airlift.slice.SizeOf;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.type.Type;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 import java.util.Objects;
@@ -26,6 +28,8 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.SYNTHESIZED;
 import static io.trino.plugin.hive.HiveType.HIVE_INT;
@@ -48,6 +52,8 @@ import static java.util.Objects.requireNonNull;
 public class HiveColumnHandle
         implements ColumnHandle
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(HiveColumnHandle.class).instanceSize();
+
     public static final int PATH_COLUMN_INDEX = -11;
     public static final String PATH_COLUMN_NAME = "$path";
     public static final HiveType PATH_HIVE_TYPE = HIVE_STRING;
@@ -326,5 +332,16 @@ public class HiveColumnHandle
     public static boolean isRowIdColumnHandle(HiveColumnHandle column)
     {
         return column.getBaseHiveColumnIndex() == UPDATE_ROW_ID_COLUMN_INDEX;
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE
+                + estimatedSizeOf(baseColumnName)
+                + baseHiveType.getRetainedSizeInBytes()
+                // baseType is not accounted for as the instances are cached (by TypeRegistry) and shared
+                + sizeOf(comment, SizeOf::estimatedSizeOf)
+                + sizeOf(hiveColumnProjectionInfo, HiveColumnProjectionInfo::getRetainedSizeInBytes)
+                + estimatedSizeOf(name);
     }
 }

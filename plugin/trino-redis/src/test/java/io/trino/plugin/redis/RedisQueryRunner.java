@@ -121,7 +121,7 @@ public final class RedisQueryRunner
 
             tableDescriptions.put(loadTpchTableDescription(tableDescriptionJsonCodec, tpchTable, dataFormat));
         }
-        return tableDescriptions.build();
+        return tableDescriptions.buildOrThrow();
     }
 
     public static Session createSession()

@@ -253,7 +253,7 @@ public class SpillableHashAggregationBuilder
             spiller = Optional.of(spillerFactory.create(
                     hashAggregationBuilder.buildTypes(),
                     operatorContext.getSpillContext(),
-                    operatorContext.newAggregateSystemMemoryContext()));
+                    operatorContext.newAggregateUserMemoryContext()));
         }
 
         // start spilling process with current content of the hashAggregationBuilder builder...
@@ -270,7 +270,7 @@ public class SpillableHashAggregationBuilder
         checkState(spiller.isPresent());
 
         hashAggregationBuilder.setSpillOutput();
-        mergeHashSort = Optional.of(new MergeHashSort(operatorContext.newAggregateSystemMemoryContext(), blockTypeOperators));
+        mergeHashSort = Optional.of(new MergeHashSort(operatorContext.newAggregateUserMemoryContext(), blockTypeOperators));
 
         WorkProcessor<Page> mergedSpilledPages = mergeHashSort.get().merge(
                 groupByTypes,
@@ -290,7 +290,7 @@ public class SpillableHashAggregationBuilder
     {
         checkState(spiller.isPresent());
 
-        mergeHashSort = Optional.of(new MergeHashSort(operatorContext.newAggregateSystemMemoryContext(), blockTypeOperators));
+        mergeHashSort = Optional.of(new MergeHashSort(operatorContext.newAggregateUserMemoryContext(), blockTypeOperators));
 
         WorkProcessor<Page> mergedSpilledPages = mergeHashSort.get().merge(
                 groupByTypes,
@@ -313,7 +313,7 @@ public class SpillableHashAggregationBuilder
                 hashChannel,
                 operatorContext,
                 sortedPages,
-                operatorContext.aggregateSystemMemoryContext(),
+                operatorContext.aggregateUserMemoryContext(),
                 memoryLimitForMerge,
                 hashAggregationBuilder.getKeyChannels(),
                 joinCompiler,

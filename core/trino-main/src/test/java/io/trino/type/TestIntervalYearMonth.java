@@ -18,6 +18,7 @@ import io.trino.spi.type.Type;
 import org.testng.annotations.Test;
 
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.StandardErrorCode.INVALID_LITERAL;
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -70,11 +71,11 @@ public class TestIntervalYearMonth
     @Test
     public void testInvalidLiteral()
     {
-        assertInvalidFunction("INTERVAL '124X' YEAR", "Invalid INTERVAL YEAR value: 124X");
-        assertInvalidFunction("INTERVAL '124-30' YEAR", "Invalid INTERVAL YEAR value: 124-30");
-        assertInvalidFunction("INTERVAL '124-X' YEAR TO MONTH", "Invalid INTERVAL YEAR TO MONTH value: 124-X");
-        assertInvalidFunction("INTERVAL '124--30' YEAR TO MONTH", "Invalid INTERVAL YEAR TO MONTH value: 124--30");
-        assertInvalidFunction("INTERVAL '--124--30' YEAR TO MONTH", "Invalid INTERVAL YEAR TO MONTH value: --124--30");
+        assertInvalidFunction("INTERVAL '124X' YEAR", INVALID_LITERAL, "line 1:1: '124X' is not a valid interval literal");
+        assertInvalidFunction("INTERVAL '124-30' YEAR", INVALID_LITERAL, "line 1:1: '124-30' is not a valid interval literal");
+        assertInvalidFunction("INTERVAL '124-X' YEAR TO MONTH", INVALID_LITERAL, "line 1:1: '124-X' is not a valid interval literal");
+        assertInvalidFunction("INTERVAL '124--30' YEAR TO MONTH", INVALID_LITERAL, "line 1:1: '124--30' is not a valid interval literal");
+        assertInvalidFunction("INTERVAL '--124--30' YEAR TO MONTH", INVALID_LITERAL, "line 1:1: '--124--30' is not a valid interval literal");
     }
 
     @Test

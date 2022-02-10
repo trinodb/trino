@@ -119,7 +119,6 @@ public class QueryStateMachine
 
     private final AtomicLong currentRevocableMemory = new AtomicLong();
     private final AtomicLong peakRevocableMemory = new AtomicLong();
-    private final AtomicLong peakNonRevocableMemory = new AtomicLong();
 
     // peak of the user + system + revocable memory reservation
     private final AtomicLong currentTotalMemory = new AtomicLong();
@@ -201,6 +200,7 @@ public class QueryStateMachine
      * Created QueryStateMachines must be transitioned to terminal states to clean up resources.
      */
     public static QueryStateMachine begin(
+            Optional<TransactionId> existingTransactionId,
             String query,
             Optional<String> preparedQuery,
             Session session,
@@ -215,6 +215,7 @@ public class QueryStateMachine
             Optional<QueryType> queryType)
     {
         return beginWithTicker(
+                existingTransactionId,
                 query,
                 preparedQuery,
                 session,
@@ -231,6 +232,7 @@ public class QueryStateMachine
     }
 
     static QueryStateMachine beginWithTicker(
+            Optional<TransactionId> existingTransactionId,
             String query,
             Optional<String> preparedQuery,
             Session session,
@@ -245,10 +247,22 @@ public class QueryStateMachine
             WarningCollector warningCollector,
             Optional<QueryType> queryType)
     {
-        // If there is not an existing transaction, begin an auto commit transaction
-        if (session.getTransactionId().isEmpty() && !transactionControl) {
+        // if there is an existing transaction, activate it
+        existingTransactionId.ifPresent(transactionId -> {
+            if (transactionControl) {
+                transactionManager.trySetActive(transactionId);
+            }
+            else {
+                transactionManager.checkAndSetActive(transactionId);
+            }
+        });
+
+        // add the session to the existing transaction, or create a new auto commit transaction for the session
+        // NOTE: for the start transaction command, no transaction is created
+        if (existingTransactionId.isPresent() || !transactionControl) {
             // TODO: make autocommit isolation level a session parameter
-            TransactionId transactionId = transactionManager.beginTransaction(true);
+            TransactionId transactionId = existingTransactionId
+                    .orElseGet(() -> transactionManager.beginTransaction(true));
             session = session.beginTransactionId(transactionId, transactionManager, accessControl);
         }
 
@@ -264,7 +278,12 @@ public class QueryStateMachine
                 metadata,
                 warningCollector,
                 queryType);
-        queryStateMachine.addStateChangeListener(newState -> QUERY_STATE_LOG.debug("Query %s is %s", queryStateMachine.getQueryId(), newState));
+        queryStateMachine.addStateChangeListener(newState -> {
+            QUERY_STATE_LOG.debug("Query %s is %s", queryStateMachine.getQueryId(), newState);
+            if (newState.isDone()) {
+                queryStateMachine.getSession().getTransactionId().ifPresent(transactionManager::trySetInactive);
+            }
+        });
 
         return queryStateMachine;
     }
@@ -287,11 +306,6 @@ public class QueryStateMachine
     public long getPeakRevocableMemoryInBytes()
     {
         return peakRevocableMemory.get();
-    }
-
-    public long getPeakNonRevocableMemoryInBytes()
-    {
-        return peakNonRevocableMemory.get();
     }
 
     public long getPeakTotalMemoryInBytes()
@@ -332,7 +346,6 @@ public class QueryStateMachine
         currentTotalMemory.addAndGet(deltaTotalMemoryInBytes);
         peakUserMemory.updateAndGet(currentPeakValue -> Math.max(currentUserMemory.get(), currentPeakValue));
         peakRevocableMemory.updateAndGet(currentPeakValue -> Math.max(currentRevocableMemory.get(), currentPeakValue));
-        peakNonRevocableMemory.updateAndGet(currentPeakValue -> Math.max(currentTotalMemory.get() - currentRevocableMemory.get(), currentPeakValue));
         peakTotalMemory.updateAndGet(currentPeakValue -> Math.max(currentTotalMemory.get(), currentPeakValue));
         peakTaskUserMemory.accumulateAndGet(taskUserMemoryInBytes, Math::max);
         peakTaskRevocableMemory.accumulateAndGet(taskRevocableMemoryInBytes, Math::max);
@@ -373,7 +386,6 @@ public class QueryStateMachine
                 stageStats.getPhysicalInputDataSize(),
 
                 stageStats.getCumulativeUserMemory(),
-                stageStats.getCumulativeSystemMemory(),
                 stageStats.getUserMemoryReservation(),
                 stageStats.getTotalMemoryReservation(),
                 succinctBytes(getPeakUserMemoryInBytes()),
@@ -472,7 +484,6 @@ public class QueryStateMachine
         int completedDrivers = 0;
 
         long cumulativeUserMemory = 0;
-        long cumulativeSystemMemory = 0;
         long userMemoryReservation = 0;
         long revocableMemoryReservation = 0;
         long totalMemoryReservation = 0;
@@ -519,7 +530,6 @@ public class QueryStateMachine
             completedDrivers += stageStats.getCompletedDrivers();
 
             cumulativeUserMemory += stageStats.getCumulativeUserMemory();
-            cumulativeSystemMemory += stageStats.getCumulativeSystemMemory();
             userMemoryReservation += stageStats.getUserMemoryReservation().toBytes();
             revocableMemoryReservation += stageStats.getRevocableMemoryReservation().toBytes();
             totalMemoryReservation += stageStats.getTotalMemoryReservation().toBytes();
@@ -589,13 +599,11 @@ public class QueryStateMachine
                 completedDrivers,
 
                 cumulativeUserMemory,
-                cumulativeSystemMemory,
                 succinctBytes(userMemoryReservation),
                 succinctBytes(revocableMemoryReservation),
                 succinctBytes(totalMemoryReservation),
                 succinctBytes(getPeakUserMemoryInBytes()),
                 succinctBytes(getPeakRevocableMemoryInBytes()),
-                succinctBytes(getPeakNonRevocableMemoryInBytes()),
                 succinctBytes(getPeakTotalMemoryInBytes()),
                 succinctBytes(getPeakTaskUserMemory()),
                 succinctBytes(getPeakTaskRevocableMemory()),
@@ -1153,13 +1161,11 @@ public class QueryStateMachine
                 queryStats.getBlockedDrivers(),
                 queryStats.getCompletedDrivers(),
                 queryStats.getCumulativeUserMemory(),
-                queryStats.getCumulativeSystemMemory(),
                 queryStats.getUserMemoryReservation(),
                 queryStats.getRevocableMemoryReservation(),
                 queryStats.getTotalMemoryReservation(),
                 queryStats.getPeakUserMemoryReservation(),
                 queryStats.getPeakRevocableMemoryReservation(),
-                queryStats.getPeakNonRevocableMemoryReservation(),
                 queryStats.getPeakTotalMemoryReservation(),
                 queryStats.getPeakTaskUserMemory(),
                 queryStats.getPeakTaskRevocableMemory(),
@@ -1184,7 +1190,7 @@ public class QueryStateMachine
                 queryStats.getPhysicalWrittenDataSize(),
                 queryStats.getStageGcStatistics(),
                 queryStats.getDynamicFiltersStats(),
-                ImmutableList.of()); // Remove the operator summaries as OperatorInfo (especially ExchangeClientStatus) can hold onto a large amount of memory
+                ImmutableList.of()); // Remove the operator summaries as OperatorInfo (especially DirectExchangeClientStatus) can hold onto a large amount of memory
     }
 
     public static class QueryOutputManager

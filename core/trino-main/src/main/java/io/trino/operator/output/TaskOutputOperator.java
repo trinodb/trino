@@ -15,10 +15,10 @@ package io.trino.operator.output;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.slice.Slice;
 import io.trino.execution.buffer.OutputBuffer;
 import io.trino.execution.buffer.PagesSerde;
 import io.trino.execution.buffer.PagesSerdeFactory;
-import io.trino.execution.buffer.SerializedPage;
 import io.trino.operator.DriverContext;
 import io.trino.operator.Operator;
 import io.trino.operator.OperatorContext;
@@ -158,10 +158,10 @@ public class TaskOutputOperator
         operatorContext.recordOutput(page.getSizeInBytes(), page.getPositionCount());
     }
 
-    private List<SerializedPage> splitAndSerializePage(Page page)
+    private List<Slice> splitAndSerializePage(Page page)
     {
         List<Page> split = splitPage(page, DEFAULT_MAX_PAGE_SIZE_IN_BYTES);
-        ImmutableList.Builder<SerializedPage> builder = ImmutableList.builderWithExpectedSize(split.size());
+        ImmutableList.Builder<Slice> builder = ImmutableList.builderWithExpectedSize(split.size());
         try (PagesSerde.PagesSerdeContext context = serde.newContext()) {
             for (Page p : split) {
                 builder.add(serde.serialize(context, p));

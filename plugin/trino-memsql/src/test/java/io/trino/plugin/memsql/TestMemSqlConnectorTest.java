@@ -38,6 +38,7 @@ import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
@@ -127,8 +128,13 @@ public class TestMemSqlConnectorTest
             return Optional.empty();
         }
 
-        if (typeName.equals("time")
-                || typeName.equals("timestamp(3) with time zone")) {
+        if (typeName.equals("time")) {
+            // MemSQL supports only second precision
+            // Skip 'time' that is alias of time(3) here and add test cases in TestMemSqlTypeMapping.testTime instead
+            return Optional.empty();
+        }
+
+        if (typeName.equals("timestamp(3) with time zone")) {
             return Optional.of(dataMappingTestSetup.asUnsupported());
         }
 
@@ -291,6 +297,14 @@ public class TestMemSqlConnectorTest
         assertThat(query("SELECT regionkey, sum(nationkey) FROM nation GROUP BY regionkey HAVING sum(nationkey) = 77"))
                 .matches("VALUES (BIGINT '3', BIGINT '77')")
                 .isNotFullyPushedDown(AggregationNode.class);
+    }
+
+    @Test
+    @Override
+    public void testInsertNegativeDate()
+    {
+        // TODO (https://github.com/trinodb/trino/issues/10208) MemSQL stores '0000-00-00' when inserted negative dates and it throws an exception during reading the row
+        assertThatThrownBy(super::testInsertNegativeDate);
     }
 
     /**

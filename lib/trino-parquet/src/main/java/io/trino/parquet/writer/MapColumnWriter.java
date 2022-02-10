@@ -87,11 +87,4 @@ public class MapColumnWriter
     {
         return INSTANCE_SIZE + keyWriter.getRetainedBytes() + valueWriter.getRetainedBytes();
     }
-
-    @Override
-    public void reset()
-    {
-        keyWriter.reset();
-        valueWriter.reset();
-    }
 }

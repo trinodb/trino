@@ -24,7 +24,7 @@ replacing the properties as appropriate:
 .. code-block:: text
 
     connector.name=mongodb
-    mongodb.connection-url=protocol://user:pass@sample.host:27017/
+    mongodb.connection-url=mongodb://user:pass@sample.host:27017/
 
 Multiple MongoDB clusters
 ^^^^^^^^^^^^^^^^^^^^^^^^^

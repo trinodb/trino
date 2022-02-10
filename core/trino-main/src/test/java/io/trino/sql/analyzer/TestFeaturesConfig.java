@@ -69,8 +69,6 @@ public class TestFeaturesConfig
                 .setRe2JDfaStatesLimit(Integer.MAX_VALUE)
                 .setRe2JDfaRetries(5)
                 .setSpillEnabled(false)
-                .setSpillOrderBy(true)
-                .setSpillWindowOperator(true)
                 .setAggregationOperatorUnspillMemoryLimit(DataSize.valueOf("4MB"))
                 .setSpillerSpillPaths("")
                 .setSpillerThreads(4)
@@ -114,9 +112,8 @@ public class TestFeaturesConfig
                 .setTableScanNodePartitioningMinBucketToTaskRatio(0.5)
                 .setMergeProjectWithValues(true)
                 .setLegacyCatalogRoles(false)
-                .setDisableSetPropertiesSecurityCheckForCreateDdl(false)
                 .setIncrementalHashArrayLoadFactorEnabled(true)
-                .setHideInaccesibleColumns(false)
+                .setHideInaccessibleColumns(false)
                 .setAllowSetViewAuthorization(false));
     }
 
@@ -160,8 +157,6 @@ public class TestFeaturesConfig
                 .put("re2j.dfa-states-limit", "42")
                 .put("re2j.dfa-retries", "42")
                 .put("spill-enabled", "true")
-                .put("spill-order-by", "false")
-                .put("spill-window-operator", "false")
                 .put("aggregation-operator-unspill-memory-limit", "100MB")
                 .put("spiller-spill-path", "/tmp/custom/spill/path1,/tmp/custom/spill/path2")
                 .put("spiller-threads", "42")
@@ -195,11 +190,10 @@ public class TestFeaturesConfig
                 .put("optimizer.table-scan-node-partitioning-min-bucket-to-task-ratio", "0.0")
                 .put("optimizer.merge-project-with-values", "false")
                 .put("deprecated.legacy-catalog-roles", "true")
-                .put("deprecated.disable-set-properties-security-check-for-create-ddl", "true")
                 .put("incremental-hash-array-load-factor.enabled", "false")
                 .put("hide-inaccessible-columns", "true")
                 .put("legacy.allow-set-view-authorization", "true")
-                .build();
+                .buildOrThrow();
 
         FeaturesConfig expected = new FeaturesConfig()
                 .setCpuCostWeight(0.4)
@@ -237,8 +231,6 @@ public class TestFeaturesConfig
                 .setRe2JDfaStatesLimit(42)
                 .setRe2JDfaRetries(42)
                 .setSpillEnabled(true)
-                .setSpillOrderBy(false)
-                .setSpillWindowOperator(false)
                 .setAggregationOperatorUnspillMemoryLimit(DataSize.valueOf("100MB"))
                 .setSpillerSpillPaths("/tmp/custom/spill/path1,/tmp/custom/spill/path2")
                 .setSpillerThreads(42)
@@ -273,9 +265,8 @@ public class TestFeaturesConfig
                 .setTableScanNodePartitioningMinBucketToTaskRatio(0.0)
                 .setMergeProjectWithValues(false)
                 .setLegacyCatalogRoles(true)
-                .setDisableSetPropertiesSecurityCheckForCreateDdl(true)
                 .setIncrementalHashArrayLoadFactorEnabled(false)
-                .setHideInaccesibleColumns(true)
+                .setHideInaccessibleColumns(true)
                 .setAllowSetViewAuthorization(true);
         assertFullMapping(properties, expected);
     }

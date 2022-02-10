@@ -147,7 +147,7 @@ public class TestFilterStatsCalculator
                 .put(new Symbol("unknownRange"), DoubleType.DOUBLE)
                 .put(new Symbol("emptyRange"), DoubleType.DOUBLE)
                 .put(new Symbol("mediumVarchar"), MEDIUM_VARCHAR_TYPE)
-                .build());
+                .buildOrThrow());
 
         session = testSessionBuilder().build();
         statsCalculator = new FilterStatsCalculator(PLANNER_CONTEXT, new ScalarStatsCalculator(PLANNER_CONTEXT, createTestingTypeAnalyzer(PLANNER_CONTEXT)), new StatsNormalizer());

@@ -80,7 +80,7 @@ public class TestKafkaSslConfig
                 .put("kafka.ssl.truststore.type", "PKCS12")
                 .put("kafka.ssl.key.password", "key-password")
                 .put("kafka.ssl.endpoint-identification-algorithm", "disabled")
-                .build();
+                .buildOrThrow();
         KafkaSslConfig expected = new KafkaSslConfig()
                 .setKeystoreLocation(keystorePath.toString())
                 .setKeystorePassword("keystore-password")

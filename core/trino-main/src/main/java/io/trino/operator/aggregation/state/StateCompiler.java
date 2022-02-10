@@ -182,7 +182,9 @@ public final class StateCompiler
         generateSerialize(definition, callSiteBinder, clazz, fields);
         generateDeserialize(definition, callSiteBinder, clazz, fields);
 
-        Class<?> serializerClass = defineClass(definition, AccumulatorStateSerializer.class, callSiteBinder.getBindings(), new DynamicClassLoader(clazz.getClassLoader()));
+        // grouped aggregation state fields use engine classes, so generated class must be able to see both plugin and system classes
+        DynamicClassLoader classLoader = new DynamicClassLoader(clazz.getClassLoader(), StateCompiler.class.getClassLoader());
+        Class<?> serializerClass = defineClass(definition, AccumulatorStateSerializer.class, callSiteBinder.getBindings(), classLoader);
         try {
             //noinspection unchecked
             return (AccumulatorStateSerializer<T>) serializerClass.getConstructor().newInstance();

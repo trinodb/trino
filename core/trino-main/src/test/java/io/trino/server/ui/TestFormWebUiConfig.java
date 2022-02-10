@@ -40,7 +40,7 @@ public class TestFormWebUiConfig
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("web-ui.session-timeout", "33s")
                 .put("web-ui.shared-secret", "test-secret")
-                .build();
+                .buildOrThrow();
 
         FormWebUiConfig expected = new FormWebUiConfig()
                 .setSessionTimeout(new Duration(33, TimeUnit.SECONDS))

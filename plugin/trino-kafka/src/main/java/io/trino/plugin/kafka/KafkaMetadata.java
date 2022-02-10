@@ -45,8 +45,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.plugin.kafka.KafkaHandleResolver.convertColumnHandle;
-import static io.trino.plugin.kafka.KafkaHandleResolver.convertTableHandle;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -110,7 +108,7 @@ public class KafkaMetadata
     @Override
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        return getTableMetadata(session, convertTableHandle(tableHandle).toSchemaTableName());
+        return getTableMetadata(session, ((KafkaTableHandle) tableHandle).toSchemaTableName());
     }
 
     @Override
@@ -124,8 +122,7 @@ public class KafkaMetadata
     @Override
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        KafkaTableHandle kafkaTableHandle = convertTableHandle(tableHandle);
-        return getColumnHandles(session, kafkaTableHandle.toSchemaTableName());
+        return getColumnHandles(session, ((KafkaTableHandle) tableHandle).toSchemaTableName());
     }
 
     private Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, SchemaTableName schemaTableName)
@@ -158,7 +155,7 @@ public class KafkaMetadata
             columnHandles.put(kafkaInternalField.getColumnName(), kafkaInternalField.getColumnHandle(index.getAndIncrement(), hideInternalColumns));
         }
 
-        return columnHandles.build();
+        return columnHandles.buildOrThrow();
     }
 
     @Override
@@ -184,14 +181,13 @@ public class KafkaMetadata
                 // information_schema table or a system table
             }
         }
-        return columns.build();
+        return columns.buildOrThrow();
     }
 
     @Override
     public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
-        convertTableHandle(tableHandle);
-        return convertColumnHandle(columnHandle).getColumnMetadata();
+        return ((KafkaColumnHandle) columnHandle).getColumnMetadata();
     }
 
     private ConnectorTableMetadata getTableMetadata(ConnectorSession session, SchemaTableName schemaTableName)
@@ -223,12 +219,6 @@ public class KafkaMetadata
         }
 
         return new ConnectorTableMetadata(schemaTableName, builder.build());
-    }
-
-    @Override
-    public boolean usesLegacyTableLayouts()
-    {
-        return false;
     }
 
     @Override

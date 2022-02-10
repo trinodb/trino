@@ -26,7 +26,6 @@ import io.airlift.stats.Distribution.DistributionSnapshot;
 import io.airlift.units.DataSize;
 import io.trino.SessionRepresentation;
 import io.trino.client.NodeVersion;
-import io.trino.connector.CatalogName;
 import io.trino.cost.StatsAndCosts;
 import io.trino.eventlistener.EventListenerManager;
 import io.trino.execution.Column;
@@ -189,8 +188,6 @@ public class QueryMonitor
                         0,
                         0,
                         0,
-                        0,
-                        0,
                         ImmutableList.of(),
                         0,
                         true,
@@ -263,7 +260,6 @@ public class QueryMonitor
                 Optional.of(ofMillis(queryStats.getPlanningTime().toMillis())),
                 Optional.of(ofMillis(queryStats.getExecutionTime().toMillis())),
                 queryStats.getPeakUserMemoryReservation().toBytes(),
-                queryStats.getPeakNonRevocableMemoryReservation().toBytes(),
                 queryStats.getPeakTaskUserMemory().toBytes(),
                 queryStats.getPeakTaskTotalMemory().toBytes(),
                 queryStats.getPhysicalInputDataSize().toBytes(),
@@ -277,7 +273,6 @@ public class QueryMonitor
                 queryStats.getLogicalWrittenDataSize().toBytes(),
                 queryStats.getWrittenPositions(),
                 queryStats.getCumulativeUserMemory(),
-                queryStats.getCumulativeSystemMemory(),
                 queryStats.getStageGcStatistics(),
                 queryStats.getCompletedDrivers(),
                 queryInfo.isCompleteInfo(),
@@ -464,16 +459,9 @@ public class QueryMonitor
     {
         Map<String, String> mergedProperties = new LinkedHashMap<>(session.getSystemProperties());
 
-        // Either processed or unprocessed catalog properties, but not both.  Instead of trying to enforces this while
-        // firing events, allow both to be set and if there is a duplicate favor the processed properties.
-        for (Map.Entry<String, Map<String, String>> catalogEntry : session.getUnprocessedCatalogProperties().entrySet()) {
+        for (Map.Entry<String, Map<String, String>> catalogEntry : session.getCatalogProperties().entrySet()) {
             for (Map.Entry<String, String> entry : catalogEntry.getValue().entrySet()) {
                 mergedProperties.put(catalogEntry.getKey() + "." + entry.getKey(), entry.getValue());
-            }
-        }
-        for (Map.Entry<CatalogName, Map<String, String>> catalogEntry : session.getCatalogProperties().entrySet()) {
-            for (Map.Entry<String, String> entry : catalogEntry.getValue().entrySet()) {
-                mergedProperties.put(catalogEntry.getKey().getCatalogName() + "." + entry.getKey(), entry.getValue());
             }
         }
         return ImmutableMap.copyOf(mergedProperties);

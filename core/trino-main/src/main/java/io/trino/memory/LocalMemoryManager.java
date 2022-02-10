@@ -28,10 +28,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
-import static io.trino.memory.NodeMemoryConfig.QUERY_MAX_MEMORY_PER_NODE_CONFIG;
-import static io.trino.memory.NodeMemoryConfig.QUERY_MAX_TOTAL_MEMORY_PER_NODE_CONFIG;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -61,31 +58,26 @@ public final class LocalMemoryManager
     {
         validateHeapHeadroom(config, availableMemory);
         maxMemory = DataSize.ofBytes(availableMemory - config.getHeapHeadroom().toBytes());
-        checkArgument(
-                config.getMaxQueryMemoryPerNode().toBytes() <= config.getMaxQueryTotalMemoryPerNode().toBytes(),
-                "Max query memory per node (%s) cannot be greater than the max query total memory per node (%s).",
-                QUERY_MAX_MEMORY_PER_NODE_CONFIG,
-                QUERY_MAX_TOTAL_MEMORY_PER_NODE_CONFIG);
         ImmutableMap.Builder<MemoryPoolId, MemoryPool> builder = ImmutableMap.builder();
         long generalPoolSize = maxMemory.toBytes();
         if (!config.isReservedPoolDisabled()) {
-            builder.put(RESERVED_POOL, new MemoryPool(RESERVED_POOL, config.getMaxQueryTotalMemoryPerNode()));
-            generalPoolSize -= config.getMaxQueryTotalMemoryPerNode().toBytes();
+            builder.put(RESERVED_POOL, new MemoryPool(RESERVED_POOL, config.getMaxQueryMemoryPerNode()));
+            generalPoolSize -= config.getMaxQueryMemoryPerNode().toBytes();
         }
         verify(generalPoolSize > 0, "general memory pool size is 0");
         builder.put(GENERAL_POOL, new MemoryPool(GENERAL_POOL, DataSize.ofBytes(generalPoolSize)));
-        this.pools = builder.build();
+        this.pools = builder.buildOrThrow();
     }
 
     private void validateHeapHeadroom(NodeMemoryConfig config, long availableMemory)
     {
-        long maxQueryTotalMemoryPerNode = config.getMaxQueryTotalMemoryPerNode().toBytes();
+        long maxQueryTotalMemoryPerNode = config.getMaxQueryMemoryPerNode().toBytes();
         long heapHeadroom = config.getHeapHeadroom().toBytes();
         // (availableMemory - maxQueryTotalMemoryPerNode) bytes will be available for the general pool and the
         // headroom/untracked allocations, so the heapHeadroom cannot be larger than that space.
         if (heapHeadroom < 0 || heapHeadroom + maxQueryTotalMemoryPerNode > availableMemory) {
             throw new IllegalArgumentException(
-                    format("Invalid memory configuration. The sum of max total query memory per node (%s) and heap headroom (%s) cannot be larger than the available heap memory (%s)",
+                    format("Invalid memory configuration. The sum of max query memory per node (%s) and heap headroom (%s) cannot be larger than the available heap memory (%s)",
                             maxQueryTotalMemoryPerNode,
                             heapHeadroom,
                             availableMemory));
@@ -98,7 +90,7 @@ public final class LocalMemoryManager
         for (Map.Entry<MemoryPoolId, MemoryPool> entry : pools.entrySet()) {
             builder.put(entry.getKey(), entry.getValue().getInfo());
         }
-        return new MemoryInfo(OPERATING_SYSTEM_MX_BEAN.getAvailableProcessors(), maxMemory, builder.build());
+        return new MemoryInfo(OPERATING_SYSTEM_MX_BEAN.getAvailableProcessors(), maxMemory, builder.buildOrThrow());
     }
 
     public List<MemoryPool> getPools()

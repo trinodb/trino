@@ -17,19 +17,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
 import io.trino.connector.CatalogName;
-import io.trino.connector.informationschema.InformationSchemaConnector;
-import io.trino.connector.system.SystemConnector;
-import io.trino.metadata.Catalog;
-import io.trino.metadata.Catalog.SecurityManagement;
 import io.trino.metadata.CatalogManager;
-import io.trino.metadata.InMemoryNodeManager;
-import io.trino.metadata.InternalNodeManager;
-import io.trino.metadata.Metadata;
 import io.trino.plugin.tpch.TpchConnectorFactory;
-import io.trino.security.AllowAllAccessControl;
-import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorMetadata;
-import io.trino.testing.TestingConnectorContext;
+import io.trino.testing.LocalQueryRunner;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -43,7 +34,6 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.connector.CatalogName.createInformationSchemaCatalogName;
 import static io.trino.connector.CatalogName.createSystemTablesCatalogName;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.StandardErrorCode.TRANSACTION_ALREADY_ABORTED;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
@@ -71,12 +61,10 @@ public class TestTransactionManager
     @Test
     public void testTransactionWorkflow()
     {
-        try (IdleCheckExecutor executor = new IdleCheckExecutor()) {
-            CatalogManager catalogManager = new CatalogManager();
-            TransactionManager transactionManager = InMemoryTransactionManager.create(new TransactionManagerConfig(), executor.getExecutor(), catalogManager, finishingExecutor);
+        try (LocalQueryRunner queryRunner = LocalQueryRunner.create(TEST_SESSION)) {
+            TransactionManager transactionManager = queryRunner.getTransactionManager();
 
-            Connector c1 = new TpchConnectorFactory().create(CATALOG, ImmutableMap.of(), new TestingConnectorContext());
-            registerConnector(catalogManager, transactionManager, CATALOG, CATALOG_NAME, c1);
+            queryRunner.createCatalog(CATALOG, new TpchConnectorFactory(), ImmutableMap.of());
 
             TransactionId transactionId = transactionManager.beginTransaction(false);
 
@@ -86,7 +74,7 @@ public class TestTransactionManager
             assertTrue(transactionInfo.getCatalogNames().isEmpty());
             assertFalse(transactionInfo.getWrittenConnectorId().isPresent());
 
-            ConnectorMetadata metadata = transactionManager.getOptionalCatalogMetadata(transactionId, CATALOG).get().getMetadata();
+            ConnectorMetadata metadata = transactionManager.getOptionalCatalogMetadata(transactionId, CATALOG).get().getMetadata(TEST_SESSION);
             metadata.listSchemaNames(TEST_SESSION.toConnectorSession(CATALOG_NAME));
             transactionInfo = transactionManager.getTransactionInfo(transactionId);
             assertEquals(transactionInfo.getCatalogNames(), ImmutableList.of(CATALOG_NAME, INFORMATION_SCHEMA_ID, SYSTEM_TABLES_ID));
@@ -101,12 +89,10 @@ public class TestTransactionManager
     @Test
     public void testAbortedTransactionWorkflow()
     {
-        try (IdleCheckExecutor executor = new IdleCheckExecutor()) {
-            CatalogManager catalogManager = new CatalogManager();
-            TransactionManager transactionManager = InMemoryTransactionManager.create(new TransactionManagerConfig(), executor.getExecutor(), catalogManager, finishingExecutor);
+        try (LocalQueryRunner queryRunner = LocalQueryRunner.create(TEST_SESSION)) {
+            TransactionManager transactionManager = queryRunner.getTransactionManager();
 
-            Connector c1 = new TpchConnectorFactory().create(CATALOG, ImmutableMap.of(), new TestingConnectorContext());
-            registerConnector(catalogManager, transactionManager, CATALOG, CATALOG_NAME, c1);
+            queryRunner.createCatalog(CATALOG, new TpchConnectorFactory(), ImmutableMap.of());
 
             TransactionId transactionId = transactionManager.beginTransaction(false);
 
@@ -116,7 +102,7 @@ public class TestTransactionManager
             assertTrue(transactionInfo.getCatalogNames().isEmpty());
             assertFalse(transactionInfo.getWrittenConnectorId().isPresent());
 
-            ConnectorMetadata metadata = transactionManager.getOptionalCatalogMetadata(transactionId, CATALOG).get().getMetadata();
+            ConnectorMetadata metadata = transactionManager.getOptionalCatalogMetadata(transactionId, CATALOG).get().getMetadata(TEST_SESSION);
             metadata.listSchemaNames(TEST_SESSION.toConnectorSession(CATALOG_NAME));
             transactionInfo = transactionManager.getTransactionInfo(transactionId);
             assertEquals(transactionInfo.getCatalogNames(), ImmutableList.of(CATALOG_NAME, INFORMATION_SCHEMA_ID, SYSTEM_TABLES_ID));
@@ -131,12 +117,10 @@ public class TestTransactionManager
     @Test
     public void testFailedTransactionWorkflow()
     {
-        try (IdleCheckExecutor executor = new IdleCheckExecutor()) {
-            CatalogManager catalogManager = new CatalogManager();
-            TransactionManager transactionManager = InMemoryTransactionManager.create(new TransactionManagerConfig(), executor.getExecutor(), catalogManager, finishingExecutor);
+        try (LocalQueryRunner queryRunner = LocalQueryRunner.create(TEST_SESSION)) {
+            TransactionManager transactionManager = queryRunner.getTransactionManager();
 
-            Connector c1 = new TpchConnectorFactory().create(CATALOG, ImmutableMap.of(), new TestingConnectorContext());
-            registerConnector(catalogManager, transactionManager, CATALOG, CATALOG_NAME, c1);
+            queryRunner.createCatalog(CATALOG, new TpchConnectorFactory(), ImmutableMap.of());
 
             TransactionId transactionId = transactionManager.beginTransaction(false);
 
@@ -146,7 +130,7 @@ public class TestTransactionManager
             assertTrue(transactionInfo.getCatalogNames().isEmpty());
             assertFalse(transactionInfo.getWrittenConnectorId().isPresent());
 
-            ConnectorMetadata metadata = transactionManager.getOptionalCatalogMetadata(transactionId, CATALOG).get().getMetadata();
+            ConnectorMetadata metadata = transactionManager.getOptionalCatalogMetadata(transactionId, CATALOG).get().getMetadata(TEST_SESSION);
             metadata.listSchemaNames(TEST_SESSION.toConnectorSession(CATALOG_NAME));
             transactionInfo = transactionManager.getTransactionInfo(transactionId);
             assertEquals(transactionInfo.getCatalogNames(), ImmutableList.of(CATALOG_NAME, INFORMATION_SCHEMA_ID, SYSTEM_TABLES_ID));
@@ -189,32 +173,6 @@ public class TestTransactionManager
             transactionManager.trySetInactive(transactionId);
             assertEventually(new Duration(10, SECONDS), () -> assertTrue(transactionManager.getAllTransactionInfos().isEmpty()));
         }
-    }
-
-    private static void registerConnector(
-            CatalogManager catalogManager,
-            TransactionManager transactionManager,
-            String catalogName,
-            CatalogName catalog,
-            Connector connector)
-    {
-        CatalogName systemId = createSystemTablesCatalogName(catalog);
-        InternalNodeManager nodeManager = new InMemoryNodeManager();
-        Metadata metadata = createTestMetadataManager(catalogManager);
-
-        catalogManager.registerCatalog(new Catalog(
-                catalogName,
-                catalog,
-                "test",
-                connector,
-                SecurityManagement.CONNECTOR,
-                createInformationSchemaCatalogName(catalog),
-                new InformationSchemaConnector(catalogName, nodeManager, metadata, new AllowAllAccessControl()),
-                systemId,
-                new SystemConnector(
-                        nodeManager,
-                        connector.getSystemTables(),
-                        transactionId -> transactionManager.getConnectorTransaction(transactionId, catalog))));
     }
 
     private static class IdleCheckExecutor

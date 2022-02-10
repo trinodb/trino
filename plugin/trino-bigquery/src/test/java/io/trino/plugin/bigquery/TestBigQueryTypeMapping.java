@@ -43,6 +43,9 @@ import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
 
+/**
+ * @see <a href="https://cloud.google.com/bigquery/docs/reference/standard-sql/data-types">BigQuery data types</a>
+ */
 public class TestBigQueryTypeMapping
         extends AbstractTestQueryFramework
 {
@@ -213,9 +216,13 @@ public class TestBigQueryTypeMapping
     {
         SqlDataTypeTest.create()
                 .addRoundTrip("date", "NULL", DATE, "CAST(NULL AS DATE)")
-                .addRoundTrip("date", "DATE '0001-01-01'", DATE, "DATE '0001-01-01'")
+                .addRoundTrip("date", "DATE '0001-01-01'", DATE, "DATE '0001-01-01'") // min value in BigQuery
                 .addRoundTrip("date", "DATE '0012-12-12'", DATE, "DATE '0012-12-12'")
                 .addRoundTrip("date", "DATE '1500-01-01'", DATE, "DATE '1500-01-01'")
+                .addRoundTrip("date", "DATE '1582-10-04'", DATE, "DATE '1582-10-04'")
+                .addRoundTrip("date", "DATE '1582-10-05'", DATE, "DATE '1582-10-05'") // begin julian->gregorian switch
+                .addRoundTrip("date", "DATE '1582-10-14'", DATE, "DATE '1582-10-14'") // end julian->gregorian switch
+                .addRoundTrip("date", "DATE '1582-10-15'", DATE, "DATE '1582-10-15'")
                 .addRoundTrip("date", "DATE '1952-04-03'", DATE, "DATE '1952-04-03'")
                 .addRoundTrip("date", "DATE '1970-01-01'", DATE, "DATE '1970-01-01'")
                 .addRoundTrip("date", "DATE '1970-02-03'", DATE, "DATE '1970-02-03'")
@@ -224,7 +231,7 @@ public class TestBigQueryTypeMapping
                 .addRoundTrip("date", "DATE '1983-10-01'", DATE, "DATE '1983-10-01'")
                 .addRoundTrip("date", "DATE '2017-07-01'", DATE, "DATE '2017-07-01'")
                 .addRoundTrip("date", "DATE '2017-01-01'", DATE, "DATE '2017-01-01'")
-                .addRoundTrip("date", "DATE '9999-12-31'", DATE, "DATE '9999-12-31'")
+                .addRoundTrip("date", "DATE '9999-12-31'", DATE, "DATE '9999-12-31'") // max value in BigQuery
                 .execute(getQueryRunner(), bigqueryCreateAndInsert("test.date"));
     }
 
@@ -232,6 +239,8 @@ public class TestBigQueryTypeMapping
     public void testDatetime()
     {
         SqlDataTypeTest.create()
+                // min value in BigQuery
+                .addRoundTrip("datetime", "datetime '0001-01-01 00:00:00.000'", createTimestampType(6), "TIMESTAMP '0001-01-01 00:00:00.000000'")
                 // before epoch
                 .addRoundTrip("datetime", "datetime '1958-01-01 13:18:03.123'", createTimestampType(6), "TIMESTAMP '1958-01-01 13:18:03.123000'")
                 // after epoch
@@ -271,6 +280,9 @@ public class TestBigQueryTypeMapping
                 .addRoundTrip("datetime", "datetime '1969-12-31 23:59:59.999949'", createTimestampType(6), "TIMESTAMP '1969-12-31 23:59:59.999949'")
                 .addRoundTrip("datetime", "datetime '1969-12-31 23:59:59.999994'", createTimestampType(6), "TIMESTAMP '1969-12-31 23:59:59.999994'")
 
+                // max value in BigQuery
+                .addRoundTrip("datetime", "datetime '9999-12-31 23:59:59.999999'", createTimestampType(6), "TIMESTAMP '9999-12-31 23:59:59.999999'")
+
                 .execute(getQueryRunner(), bigqueryCreateAndInsert("test.datetime"));
     }
 
@@ -300,6 +312,9 @@ public class TestBigQueryTypeMapping
     public void testTimestampWithTimeZone()
     {
         SqlDataTypeTest.create()
+                // min value in BigQuery
+                .addRoundTrip("TIMESTAMP", "TIMESTAMP '0001-01-01 00:00:00.000000 UTC'",
+                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '0001-01-01 00:00:00.000000 UTC'")
                 .addRoundTrip("TIMESTAMP", "TIMESTAMP '1970-01-01 00:00:00.000000 UTC'",
                         TIMESTAMP_TZ_MICROS, "TIMESTAMP '1970-01-01 00:00:00.000000 UTC'")
                 .addRoundTrip("TIMESTAMP", "TIMESTAMP '1970-01-01 00:00:00.000000 Asia/Kathmandu'",
@@ -326,6 +341,9 @@ public class TestBigQueryTypeMapping
                         TIMESTAMP_TZ_MICROS, "TIMESTAMP '2019-03-18 17:32:17.987000 UTC'")
                 .addRoundTrip("TIMESTAMP", "TIMESTAMP '2021-09-07 23:59:59.999999-00:00'",
                         TIMESTAMP_TZ_MICROS, "TIMESTAMP '2021-09-07 23:59:59.999999 UTC'")
+                // max value in BigQuery
+                .addRoundTrip("TIMESTAMP", "TIMESTAMP '9999-12-31 23:59:59.999999-00:00'",
+                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '9999-12-31 23:59:59.999999 UTC'")
                 .execute(getQueryRunner(), bigqueryCreateAndInsert("test.timestamp_tz"));
     }
 

@@ -23,11 +23,11 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorMetadata;
-import io.trino.spi.connector.ConnectorNewTableLayout;
 import io.trino.spi.connector.ConnectorOutputMetadata;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
+import io.trino.spi.connector.ConnectorTableLayout;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTableProperties;
 import io.trino.spi.connector.Constraint;
@@ -165,7 +165,7 @@ public class CassandraMetadata
         for (CassandraColumnHandle columnHandle : table.getColumns()) {
             columnHandles.put(cqlNameToSqlName(columnHandle.getName()).toLowerCase(ENGLISH), columnHandle);
         }
-        return columnHandles.build();
+        return columnHandles.buildOrThrow();
     }
 
     @Override
@@ -181,7 +181,7 @@ public class CassandraMetadata
                 // table disappeared during listing operation
             }
         }
-        return columns.build();
+        return columns.buildOrThrow();
     }
 
     private List<SchemaTableName> listTables(ConnectorSession session, SchemaTablePrefix prefix)
@@ -196,12 +196,6 @@ public class CassandraMetadata
     public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
         return ((CassandraColumnHandle) columnHandle).getColumnMetadata();
-    }
-
-    @Override
-    public boolean usesLegacyTableLayouts()
-    {
-        return false;
     }
 
     @Override
@@ -273,7 +267,7 @@ public class CassandraMetadata
     }
 
     @Override
-    public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorNewTableLayout> layout)
+    public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorTableLayout> layout)
     {
         return createTable(tableMetadata);
     }

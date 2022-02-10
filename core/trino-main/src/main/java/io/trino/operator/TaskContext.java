@@ -33,7 +33,9 @@ import io.trino.execution.buffer.LazyOutputBuffer;
 import io.trino.memory.QueryContext;
 import io.trino.memory.QueryContextVisitor;
 import io.trino.memory.context.LocalMemoryContext;
+import io.trino.memory.context.MemoryAllocationValidator;
 import io.trino.memory.context.MemoryTrackingContext;
+import io.trino.memory.context.ValidatingAggregateContext;
 import io.trino.spi.predicate.Domain;
 import io.trino.sql.planner.LocalDynamicFiltersCollector;
 import io.trino.sql.planner.plan.DynamicFilterId;
@@ -44,6 +46,7 @@ import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
@@ -94,13 +97,9 @@ public class TaskContext
 
     private final Object cumulativeMemoryLock = new Object();
     private final AtomicDouble cumulativeUserMemory = new AtomicDouble(0.0);
-    private final AtomicDouble cumulativeSystemMemory = new AtomicDouble(0.0);
 
     @GuardedBy("cumulativeMemoryLock")
     private long lastUserMemoryReservation;
-
-    @GuardedBy("cumulativeMemoryLock")
-    private long lastSystemMemoryReservation;
 
     @GuardedBy("cumulativeMemoryLock")
     private long lastTaskStatCallNanos;
@@ -123,7 +122,8 @@ public class TaskContext
             MemoryTrackingContext taskMemoryContext,
             Runnable notifyStatusChanged,
             boolean perOperatorCpuTimerEnabled,
-            boolean cpuTimerEnabled)
+            boolean cpuTimerEnabled,
+            Optional<DataSize> maxMemory)
     {
         TaskContext taskContext = new TaskContext(
                 queryContext,
@@ -135,7 +135,8 @@ public class TaskContext
                 taskMemoryContext,
                 notifyStatusChanged,
                 perOperatorCpuTimerEnabled,
-                cpuTimerEnabled);
+                cpuTimerEnabled,
+                maxMemory);
         taskContext.initialize();
         return taskContext;
     }
@@ -150,7 +151,8 @@ public class TaskContext
             MemoryTrackingContext taskMemoryContext,
             Runnable notifyStatusChanged,
             boolean perOperatorCpuTimerEnabled,
-            boolean cpuTimerEnabled)
+            boolean cpuTimerEnabled,
+            Optional<DataSize> maxMemory)
     {
         this.taskStateMachine = requireNonNull(taskStateMachine, "taskStateMachine is null");
         this.gcMonitor = requireNonNull(gcMonitor, "gcMonitor is null");
@@ -158,9 +160,20 @@ public class TaskContext
         this.notificationExecutor = requireNonNull(notificationExecutor, "notificationExecutor is null");
         this.yieldExecutor = requireNonNull(yieldExecutor, "yieldExecutor is null");
         this.session = session;
-        this.taskMemoryContext = requireNonNull(taskMemoryContext, "taskMemoryContext is null");
+
+        requireNonNull(taskMemoryContext, "taskMemoryContext is null");
+        if (maxMemory.isPresent()) {
+            MemoryAllocationValidator memoryValidator = new TaskAllocationValidator(maxMemory.get());
+            this.taskMemoryContext = new MemoryTrackingContext(
+                    new ValidatingAggregateContext(taskMemoryContext.aggregateUserMemoryContext(), memoryValidator),
+                    taskMemoryContext.aggregateRevocableMemoryContext());
+        }
+        else {
+            this.taskMemoryContext = taskMemoryContext;
+        }
+
         // Initialize the local memory contexts with the LazyOutputBuffer tag as LazyOutputBuffer will do the local memory allocations
-        taskMemoryContext.initializeLocalMemoryContexts(LazyOutputBuffer.class.getSimpleName());
+        this.taskMemoryContext.initializeLocalMemoryContexts(LazyOutputBuffer.class.getSimpleName());
         this.dynamicFiltersCollector = new DynamicFiltersCollector(notifyStatusChanged);
         this.localDynamicFiltersCollector = new LocalDynamicFiltersCollector(session);
         this.perOperatorCpuTimerEnabled = perOperatorCpuTimerEnabled;
@@ -257,11 +270,6 @@ public class TaskContext
         return DataSize.ofBytes(taskMemoryContext.getUserMemory());
     }
 
-    public DataSize getSystemMemoryReservation()
-    {
-        return DataSize.ofBytes(taskMemoryContext.getSystemMemory());
-    }
-
     public DataSize getRevocableMemoryReservation()
     {
         return DataSize.ofBytes(taskMemoryContext.getRevocableMemory());
@@ -300,14 +308,9 @@ public class TaskContext
         queryContext.freeSpill(bytes);
     }
 
-    public LocalMemoryContext localSystemMemoryContext()
+    public LocalMemoryContext localMemoryContext()
     {
-        return taskMemoryContext.localSystemMemoryContext();
-    }
-
-    public void moreMemoryAvailable()
-    {
-        pipelineContexts.forEach(PipelineContext::moreMemoryAvailable);
+        return taskMemoryContext.localUserMemoryContext();
     }
 
     public boolean isPerOperatorCpuTimerEnabled()
@@ -519,19 +522,15 @@ public class TaskContext
         Duration fullGcTime = getFullGcTime();
 
         long userMemory = taskMemoryContext.getUserMemory();
-        long systemMemory = taskMemoryContext.getSystemMemory();
 
         synchronized (cumulativeMemoryLock) {
             long currentTimeNanos = System.nanoTime();
             double sinceLastPeriodMillis = (currentTimeNanos - lastTaskStatCallNanos) / 1_000_000.0;
             long averageUserMemoryForLastPeriod = (userMemory + lastUserMemoryReservation) / 2;
             cumulativeUserMemory.addAndGet(averageUserMemoryForLastPeriod * sinceLastPeriodMillis);
-            long averageSystemMemoryForLastPeriod = (systemMemory + lastSystemMemoryReservation) / 2;
-            cumulativeSystemMemory.addAndGet(averageSystemMemoryForLastPeriod * sinceLastPeriodMillis);
 
             lastTaskStatCallNanos = currentTimeNanos;
             lastUserMemoryReservation = userMemory;
-            lastSystemMemoryReservation = systemMemory;
         }
 
         boolean fullyBlocked = hasRunningPipelines && runningPipelinesFullyBlocked;
@@ -554,10 +553,8 @@ public class TaskContext
                 blockedDrivers,
                 completedDrivers,
                 cumulativeUserMemory.get(),
-                cumulativeSystemMemory.get(),
                 succinctBytes(userMemory),
                 succinctBytes(taskMemoryContext.getRevocableMemory()),
-                succinctBytes(systemMemory),
                 new Duration(totalScheduledTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalCpuTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalBlockedTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),

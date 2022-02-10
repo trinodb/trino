@@ -21,10 +21,12 @@ import com.google.common.collect.Sets;
 import io.airlift.stats.CounterStat;
 import io.airlift.stats.TestingGcMonitor;
 import io.airlift.units.DataSize;
+import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.executor.TaskExecutor;
 import io.trino.memory.MemoryPool;
 import io.trino.memory.QueryContext;
 import io.trino.memory.context.LocalMemoryContext;
+import io.trino.metadata.ExchangeHandleResolver;
 import io.trino.operator.DriverContext;
 import io.trino.operator.OperatorContext;
 import io.trino.operator.PipelineContext;
@@ -43,6 +45,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ScheduledExecutorService;
@@ -306,6 +309,7 @@ public class TestMemoryRevokingScheduler
                 sqlTask -> {},
                 DataSize.of(32, MEGABYTE),
                 DataSize.of(200, MEGABYTE),
+                new ExchangeManagerRegistry(new ExchangeHandleResolver()),
                 new CounterStat());
     }
 
@@ -313,7 +317,7 @@ public class TestMemoryRevokingScheduler
     {
         return queryContexts.computeIfAbsent(queryId, id -> new QueryContext(id,
                 DataSize.of(1, MEGABYTE),
-                DataSize.of(2, MEGABYTE),
+                Optional.empty(),
                 memoryPool,
                 new TestingGcMonitor(),
                 executor,

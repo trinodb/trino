@@ -25,7 +25,6 @@ import io.airlift.node.NodeInfo;
 import io.airlift.security.pem.PemReader;
 import io.jsonwebtoken.JwsHeader;
 import io.jsonwebtoken.JwtBuilder;
-import io.jsonwebtoken.Jwts;
 import io.trino.security.AccessControl;
 import io.trino.server.HttpRequestSessionContextFactory;
 import io.trino.server.security.PasswordAuthenticatorManager;
@@ -87,6 +86,7 @@ import static io.trino.client.OkHttpUtil.setupSsl;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.server.HttpRequestSessionContextFactory.AUTHENTICATED_IDENTITY;
 import static io.trino.server.security.ResourceSecurity.AccessType.WEB_UI;
+import static io.trino.server.security.jwt.JwtUtil.newJwtBuilder;
 import static io.trino.server.security.oauth2.OAuth2CallbackResource.CALLBACK_ENDPOINT;
 import static io.trino.server.security.oauth2.OAuth2Service.NONCE;
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.DISABLED_LOCATION;
@@ -117,7 +117,7 @@ public class TestWebUi
             .put("http-server.https.keystore.key", "")
             .put("http-server.process-forwarded", "true")
             .put("http-server.authentication.allow-insecure-over-http", "true")
-            .build();
+            .buildOrThrow();
     private static final String STATE_KEY = "test-state-key";
     public static final String TOKEN_ISSUER = "http://example.com/";
     public static final String OAUTH_CLIENT_ID = "client";
@@ -130,7 +130,7 @@ public class TestWebUi
             .put("http-server.authentication.oauth2.token-url", "http://example.com/")
             .put("http-server.authentication.oauth2.client-id", OAUTH_CLIENT_ID)
             .put("http-server.authentication.oauth2.client-secret", "client-secret")
-            .build();
+            .buildOrThrow();
     private static final String TEST_USER = "test-user";
     private static final String AUTHENTICATED_USER = TEST_USER + "@allowed";
     private static final String FORM_LOGIN_USER = "form-login-user";
@@ -179,7 +179,7 @@ public class TestWebUi
                 .setProperties(ImmutableMap.<String, String>builder()
                         .putAll(SECURE_PROPERTIES)
                         .put("http-server.authentication.insecure.user-mapping.pattern", ALLOWED_USER_MAPPING_PATTERN)
-                        .build())
+                        .buildOrThrow())
                 .setAdditionalModule(binder -> jaxrsBinder(binder).bind(TestResource.class))
                 .build()) {
             HttpServerInfo httpServerInfo = server.getInstance(Key.get(HttpServerInfo.class));
@@ -198,7 +198,7 @@ public class TestWebUi
                         .put("http-server.authentication.type", "password")
                         .put("password-authenticator.config-files", passwordConfigDummy.toString())
                         .put("http-server.authentication.password.user-mapping.pattern", ALLOWED_USER_MAPPING_PATTERN)
-                        .build())
+                        .buildOrThrow())
                 .setAdditionalModule(binder -> jaxrsBinder(binder).bind(TestResource.class))
                 .build()) {
             server.getInstance(Key.get(PasswordAuthenticatorManager.class)).setAuthenticators(TestWebUi::authenticate);
@@ -217,7 +217,7 @@ public class TestWebUi
                         .put("http-server.authentication.type", "password")
                         .put("password-authenticator.config-files", passwordConfigDummy.toString())
                         .put("http-server.authentication.password.user-mapping.pattern", ALLOWED_USER_MAPPING_PATTERN)
-                        .build())
+                        .buildOrThrow())
                 .setAdditionalModule(binder -> jaxrsBinder(binder).bind(TestResource.class))
                 .build()) {
             server.getInstance(Key.get(PasswordAuthenticatorManager.class)).setAuthenticators(TestWebUi::authenticate, TestWebUi::authenticate2);
@@ -432,7 +432,7 @@ public class TestWebUi
                 .setProperties(ImmutableMap.<String, String>builder()
                         .putAll(SECURE_PROPERTIES)
                         .put("web-ui.enabled", "false")
-                        .build())
+                        .buildOrThrow())
                 .build()) {
             HttpServerInfo httpServerInfo = server.getInstance(Key.get(HttpServerInfo.class));
             testDisabled(httpServerInfo.getHttpUri());
@@ -467,7 +467,7 @@ public class TestWebUi
                         .putAll(SECURE_PROPERTIES)
                         .put("http-server.authentication.type", "password")
                         .put("password-authenticator.config-files", passwordConfigDummy.toString())
-                        .build())
+                        .buildOrThrow())
                 .build()) {
             // a password manager is required, so a secure request will fail
             // a real server will fail to start, but verify that we get an exception here to be safe
@@ -489,7 +489,7 @@ public class TestWebUi
                         .putAll(SECURE_PROPERTIES)
                         .put("web-ui.authentication.type", "fixed")
                         .put("web-ui.user", "test-user")
-                        .build())
+                        .buildOrThrow())
                 .build()) {
             HttpServerInfo httpServerInfo = server.getInstance(Key.get(HttpServerInfo.class));
             String nodeId = server.getInstance(Key.get(NodeInfo.class)).getNodeId();
@@ -524,7 +524,7 @@ public class TestWebUi
                         .put("http-server.authentication.type", "certificate")
                         .put("http-server.https.truststore.path", LOCALHOST_KEYSTORE)
                         .put("http-server.https.truststore.key", "")
-                        .build())
+                        .buildOrThrow())
                 .build()) {
             HttpServerInfo httpServerInfo = server.getInstance(Key.get(HttpServerInfo.class));
             String nodeId = server.getInstance(Key.get(NodeInfo.class)).getNodeId();
@@ -556,7 +556,7 @@ public class TestWebUi
                         .putAll(SECURE_PROPERTIES)
                         .put("http-server.authentication.type", "jwt")
                         .put("http-server.authentication.jwt.key-file", HMAC_KEY)
-                        .build())
+                        .buildOrThrow())
                 .build()) {
             HttpServerInfo httpServerInfo = server.getInstance(Key.get(HttpServerInfo.class));
             String nodeId = server.getInstance(Key.get(NodeInfo.class)).getNodeId();
@@ -566,7 +566,7 @@ public class TestWebUi
             testNeverAuthorized(httpServerInfo.getHttpsUri(), client);
 
             SecretKey hmac = hmacShaKeyFor(Base64.getDecoder().decode(Files.readString(Paths.get(HMAC_KEY)).trim()));
-            String token = Jwts.builder()
+            String token = newJwtBuilder()
                     .signWith(hmac)
                     .setSubject("test-user")
                     .setExpiration(Date.from(ZonedDateTime.now().plusMinutes(5).toInstant()))
@@ -592,7 +592,7 @@ public class TestWebUi
                         .putAll(SECURE_PROPERTIES)
                         .put("http-server.authentication.type", "jwt")
                         .put("http-server.authentication.jwt.key-file", jwkServer.getBaseUrl().toString())
-                        .build())
+                        .buildOrThrow())
                 .build()) {
             HttpServerInfo httpServerInfo = server.getInstance(Key.get(HttpServerInfo.class));
             String nodeId = server.getInstance(Key.get(NodeInfo.class)).getNodeId();
@@ -601,7 +601,7 @@ public class TestWebUi
 
             testNeverAuthorized(httpServerInfo.getHttpsUri(), client);
 
-            String token = Jwts.builder()
+            String token = newJwtBuilder()
                     .signWith(JWK_PRIVATE_KEY)
                     .setHeaderParam(JwsHeader.KEY_ID, "test-rsa")
                     .setSubject("test-user")
@@ -631,7 +631,7 @@ public class TestWebUi
                 .setProperties(ImmutableMap.<String, String>builder()
                         .putAll(OAUTH2_PROPERTIES)
                         .put("http-server.authentication.oauth2.jwks-url", jwkServer.getBaseUrl().toString())
-                        .build())
+                        .buildOrThrow())
                 .setAdditionalModule(binder -> newOptionalBinder(binder, OAuth2Client.class)
                         .setBinding()
                         .toInstance(new OAuth2ClientStub(accessToken)))
@@ -656,7 +656,7 @@ public class TestWebUi
                         .putAll(OAUTH2_PROPERTIES)
                         .put("http-server.authentication.oauth2.jwks-url", jwkServer.getBaseUrl().toString())
                         .put("http-server.authentication.oauth2.scopes", "")
-                        .build())
+                        .buildOrThrow())
                 .setAdditionalModule(binder -> newOptionalBinder(binder, OAuth2Client.class)
                         .setBinding()
                         .toInstance(new OAuth2ClientStub(accessToken)))
@@ -685,7 +685,7 @@ public class TestWebUi
                         .put("http-server.authentication.oauth2.jwks-url", jwkServer.getBaseUrl().toString())
                         .put("http-server.authentication.oauth2.principal-field", "preferred_username")
                         .put("http-server.authentication.oauth2.user-mapping.pattern", "(.*)@.*")
-                        .build())
+                        .buildOrThrow())
                 .setAdditionalModule(binder -> {
                     newOptionalBinder(binder, OAuth2Client.class)
                             .setBinding()
@@ -707,7 +707,7 @@ public class TestWebUi
     private void assertAuth2Authentication(HttpServerInfo httpServerInfo, String accessToken)
             throws Exception
     {
-        String state = Jwts.builder()
+        String state = newJwtBuilder()
                 .signWith(hmacShaKeyFor(Hashing.sha256().hashString(STATE_KEY, UTF_8).asBytes()))
                 .setAudience("trino_oauth_ui")
                 .setExpiration(Date.from(ZonedDateTime.now().plusMinutes(10).toInstant()))
@@ -1035,7 +1035,7 @@ public class TestWebUi
     private static JwtBuilder createTokenBuilder()
     {
         Date tokenExpiration = Date.from(ZonedDateTime.now().plusMinutes(5).toInstant());
-        return Jwts.builder()
+        return newJwtBuilder()
                 .signWith(JWK_PRIVATE_KEY)
                 .setHeaderParam(JwsHeader.KEY_ID, "test-rsa")
                 .setIssuer(TOKEN_ISSUER)

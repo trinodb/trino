@@ -208,8 +208,7 @@ public class TestTableWriterOperator
                 new AggregationOperatorFactory(
                         1,
                         new PlanNodeId("test"),
-                        ImmutableList.of(LONG_MAX.createAggregatorFactory(SINGLE, ImmutableList.of(0), OptionalInt.empty())),
-                        true),
+                        ImmutableList.of(LONG_MAX.createAggregatorFactory(SINGLE, ImmutableList.of(0), OptionalInt.empty()))),
                 outputTypes,
                 session,
                 driverContext);
@@ -220,8 +219,7 @@ public class TestTableWriterOperator
         assertTrue(operator.isBlocked().isDone());
         assertTrue(operator.needsInput());
 
-        assertThat(driverContext.getSystemMemoryUsage()).isGreaterThan(0);
-        assertEquals(driverContext.getMemoryUsage(), 0);
+        assertThat(driverContext.getMemoryUsage()).isGreaterThan(0);
 
         operator.finish();
         assertFalse(operator.isFinished());
@@ -250,7 +248,6 @@ public class TestTableWriterOperator
     {
         OperatorContext tableWriterOperatorOperatorContext = tableWriterOperator.getOperatorContext();
         MemoryTrackingContext tableWriterMemoryContext = tableWriterOperatorOperatorContext.getOperatorMemoryContext();
-        assertEquals(tableWriterMemoryContext.getSystemMemory(), 0);
         assertEquals(tableWriterMemoryContext.getUserMemory(), 0);
         assertEquals(tableWriterMemoryContext.getRevocableMemory(), 0);
 
@@ -259,7 +256,6 @@ public class TestTableWriterOperator
         AggregationOperator aggregationOperator = (AggregationOperator) statisticAggregationOperator;
         OperatorContext aggregationOperatorOperatorContext = aggregationOperator.getOperatorContext();
         MemoryTrackingContext aggregationOperatorMemoryContext = aggregationOperatorOperatorContext.getOperatorMemoryContext();
-        assertEquals(aggregationOperatorMemoryContext.getSystemMemory(), 0);
         assertEquals(aggregationOperatorMemoryContext.getUserMemory(), 0);
         assertEquals(aggregationOperatorMemoryContext.getRevocableMemory(), 0);
     }
@@ -384,7 +380,7 @@ public class TestTableWriterOperator
         }
 
         @Override
-        public long getSystemMemoryUsage()
+        public long getMemoryUsage()
         {
             long memoryUsage = 0;
             for (Page page : pages) {

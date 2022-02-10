@@ -33,17 +33,18 @@ public final class SqlDecimal
         this.scale = scale;
     }
 
-    @Override
-    public boolean equals(Object o)
+    public static SqlDecimal decimal(String value, DecimalType type)
     {
-        if (this == o) {
-            return true;
+        DecimalParseResult parseResult = Decimals.parse(value);
+        BigInteger unscaledValue;
+        if (parseResult.getType().isShort()) {
+            unscaledValue = BigInteger.valueOf((Long) parseResult.getObject());
         }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
+        else {
+            unscaledValue = ((Int128) parseResult.getObject()).toBigInteger();
         }
-        SqlDecimal that = (SqlDecimal) o;
-        return Objects.equals(unscaledValue, that.unscaledValue);
+
+        return new SqlDecimal(unscaledValue, type.getPrecision(), type.getScale());
     }
 
     public int getPrecision()
@@ -56,26 +57,28 @@ public final class SqlDecimal
         return scale;
     }
 
-    public static SqlDecimal of(String decimalValue)
-    {
-        BigDecimal bigDecimal = new BigDecimal(decimalValue);
-        return new SqlDecimal(bigDecimal.unscaledValue(), bigDecimal.precision(), bigDecimal.scale());
-    }
-
-    public static SqlDecimal of(String unscaledValue, int precision, int scale)
-    {
-        return new SqlDecimal(new BigInteger(unscaledValue), precision, scale);
-    }
-
     public static SqlDecimal of(long unscaledValue, int precision, int scale)
     {
         return new SqlDecimal(BigInteger.valueOf(unscaledValue), precision, scale);
     }
 
     @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        SqlDecimal that = (SqlDecimal) o;
+        return precision == that.precision && scale == that.scale && unscaledValue.equals(that.unscaledValue);
+    }
+
+    @Override
     public int hashCode()
     {
-        return Objects.hash(unscaledValue);
+        return Objects.hash(unscaledValue, precision, scale);
     }
 
     @JsonValue

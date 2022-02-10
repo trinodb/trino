@@ -82,7 +82,7 @@ public class HttpEventListener
     public void queryCreated(QueryCreatedEvent queryCreatedEvent)
     {
         if (config.getLogCreated()) {
-            sendLog(queryCreatedEvent);
+            sendLog(queryCreatedEvent, queryCreatedEvent.getMetadata().getQueryId());
         }
     }
 
@@ -90,7 +90,7 @@ public class HttpEventListener
     public void queryCompleted(QueryCompletedEvent queryCompletedEvent)
     {
         if (config.getLogCompleted()) {
-            sendLog(queryCompletedEvent);
+            sendLog(queryCompletedEvent, queryCompletedEvent.getMetadata().getQueryId());
         }
     }
 
@@ -98,11 +98,11 @@ public class HttpEventListener
     public void splitCompleted(SplitCompletedEvent splitCompletedEvent)
     {
         if (config.getLogSplit()) {
-            sendLog(splitCompletedEvent);
+            sendLog(splitCompletedEvent, splitCompletedEvent.getQueryId());
         }
     }
 
-    private <T> void sendLog(T event)
+    private <T> void sendLog(T event, String queryId)
     {
         Request request = preparePost()
                 .addHeaders(Multimaps.forMap(config.getHttpHeaders()))
@@ -111,10 +111,10 @@ public class HttpEventListener
                 .setBodyGenerator(out -> objectWriter.writeValue(out, event))
                 .build();
 
-        attemptToSend(request, 0, Duration.valueOf("0s"));
+        attemptToSend(request, 0, Duration.valueOf("0s"), queryId);
     }
 
-    private void attemptToSend(Request request, int attempt, Duration delay)
+    private void attemptToSend(Request request, int attempt, Duration delay, String queryId)
     {
         this.executor.schedule(
                 () -> Futures.addCallback(client.executeAsync(request, createStatusResponseHandler()),
@@ -124,20 +124,39 @@ public class HttpEventListener
                             {
                                 verify(result != null);
 
-                                if (result.getStatusCode() >= 500 && attempt < config.getRetryCount()) {
-                                    attemptToSend(request, attempt + 1, nextDelay(delay));
+                                if (!(result.getStatusCode() >= 200 && result.getStatusCode() < 300) && attempt < config.getRetryCount()) {
+                                    Duration nextDelay = nextDelay(delay);
+                                    int nextAttempt = attempt + 1;
+
+                                    log.warn("QueryId = \"%s\", attempt = %d/%d, URL = %s | Ingest server responded with code %d, will retry after approximately %d seconds",
+                                            queryId, attempt + 1, config.getRetryCount() + 1, request.getUri().toString(),
+                                            result.getStatusCode(), nextDelay.roundTo(TimeUnit.SECONDS));
+
+                                    attemptToSend(request, nextAttempt, nextDelay, queryId);
                                     return;
                                 }
 
-                                if (!(result.getStatusCode() >= 200 && result.getStatusCode() < 300)) {
-                                    log.error("Received status code %d from ingest server URI %s; expecting status 200", result.getStatusCode(), request.getUri());
-                                }
+                                log.debug("QueryId = \"%s\", attempt = %d/%d, URL = %s | Query event delivered successfully",
+                                        queryId, attempt + 1, config.getRetryCount() + 1, request.getUri().toString());
                             }
 
                             @Override
                             public void onFailure(Throwable t)
                             {
-                                log.error("Error sending HTTP request to ingest server with URL %s: %s", request.getUri(), t);
+                                if (attempt < config.getRetryCount()) {
+                                    Duration nextDelay = nextDelay(delay);
+                                    int nextAttempt = attempt + 1;
+
+                                    log.warn(t, "QueryId = \"%s\", attempt = %d/%d, URL = %s | Sending event caused an exception, will retry after %d seconds",
+                                            queryId, attempt + 1, config.getRetryCount() + 1, request.getUri().toString(),
+                                            nextDelay.roundTo(TimeUnit.SECONDS));
+
+                                    attemptToSend(request, nextAttempt, nextDelay, queryId);
+                                    return;
+                                }
+
+                                log.error(t, "QueryId = \"%s\", attempt = %d/%d, URL = %s | Error sending HTTP request",
+                                        queryId, attempt + 1, config.getRetryCount() + 1, request.getUri().toString());
                             }
                         }, executor),
                 (long) delay.getValue(), delay.getUnit());
@@ -145,6 +164,10 @@ public class HttpEventListener
 
     private Duration nextDelay(Duration delay)
     {
+        if (delay.compareTo(Duration.valueOf("0s")) == 0) {
+            return config.getRetryDelay();
+        }
+
         Duration newDuration = Duration.succinctDuration(delay.getValue(TimeUnit.SECONDS) * this.config.getBackoffBase(), TimeUnit.SECONDS);
         if (newDuration.compareTo(config.getMaxDelay()) > 0) {
             return config.getMaxDelay();

@@ -64,7 +64,7 @@ public class TestExpressionEquivalence
             .put(new Symbol("c_bigint"), BIGINT)
             .put(new Symbol("d_bigint"), BIGINT)
             .put(new Symbol("b_double"), DOUBLE)
-            .build());
+            .buildOrThrow());
 
     @Test
     public void testEquivalent()

@@ -21,20 +21,25 @@ import io.airlift.units.DataSize;
 
 import javax.validation.constraints.NotNull;
 
+import java.util.Optional;
+
 // This is separate from MemoryManagerConfig because it's difficult to test the default value of maxQueryMemoryPerNode
-@DefunctConfig("deprecated.legacy-system-pool-enabled")
+@DefunctConfig({
+        "deprecated.legacy-system-pool-enabled",
+        "query.max-total-memory-per-node",
+})
 public class NodeMemoryConfig
 {
     public static final long AVAILABLE_HEAP_MEMORY = Runtime.getRuntime().maxMemory();
     public static final String QUERY_MAX_MEMORY_PER_NODE_CONFIG = "query.max-memory-per-node";
-    public static final String QUERY_MAX_TOTAL_MEMORY_PER_NODE_CONFIG = "query.max-total-memory-per-node";
+    public static final String QUERY_MAX_MEMORY_PER_TASK_CONFIG = "query.max-memory-per-task";
 
     private boolean isReservedPoolDisabled = true;
 
-    private DataSize maxQueryMemoryPerNode = DataSize.ofBytes(Math.round(AVAILABLE_HEAP_MEMORY * 0.1));
+    private DataSize maxQueryMemoryPerNode = DataSize.ofBytes(Math.round(AVAILABLE_HEAP_MEMORY * 0.3));
 
-    // This is a per-query limit for the user plus system allocations.
-    private DataSize maxQueryTotalMemoryPerNode = DataSize.ofBytes(Math.round(AVAILABLE_HEAP_MEMORY * 0.3));
+    private Optional<DataSize> maxQueryMemoryPerTask = Optional.empty();
+
     private DataSize heapHeadroom = DataSize.ofBytes(Math.round(AVAILABLE_HEAP_MEMORY * 0.3));
 
     @NotNull
@@ -47,6 +52,21 @@ public class NodeMemoryConfig
     public NodeMemoryConfig setMaxQueryMemoryPerNode(DataSize maxQueryMemoryPerNode)
     {
         this.maxQueryMemoryPerNode = maxQueryMemoryPerNode;
+        return this;
+    }
+
+    @NotNull
+    public Optional<DataSize> getMaxQueryMemoryPerTask()
+    {
+        return maxQueryMemoryPerTask;
+    }
+
+    @Config(QUERY_MAX_MEMORY_PER_TASK_CONFIG)
+    @LegacyConfig("query.max-total-memory-per-task")
+    @ConfigDescription("Sets memory limit enforced for a single task; there is no memory limit by default")
+    public NodeMemoryConfig setMaxQueryMemoryPerTask(DataSize maxQueryMemoryPerTask)
+    {
+        this.maxQueryMemoryPerTask = Optional.ofNullable(maxQueryMemoryPerTask);
         return this;
     }
 
@@ -68,19 +88,6 @@ public class NodeMemoryConfig
     public NodeMemoryConfig setReservedPoolDisabled(boolean reservedPoolDisabled)
     {
         this.isReservedPoolDisabled = reservedPoolDisabled;
-        return this;
-    }
-
-    @NotNull
-    public DataSize getMaxQueryTotalMemoryPerNode()
-    {
-        return maxQueryTotalMemoryPerNode;
-    }
-
-    @Config(QUERY_MAX_TOTAL_MEMORY_PER_NODE_CONFIG)
-    public NodeMemoryConfig setMaxQueryTotalMemoryPerNode(DataSize maxQueryTotalMemoryPerNode)
-    {
-        this.maxQueryTotalMemoryPerNode = maxQueryTotalMemoryPerNode;
         return this;
     }
 

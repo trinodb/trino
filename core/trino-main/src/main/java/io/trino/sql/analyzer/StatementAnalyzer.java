@@ -32,7 +32,6 @@ import io.trino.metadata.AnalyzePropertyManager;
 import io.trino.metadata.FunctionKind;
 import io.trino.metadata.MaterializedViewDefinition;
 import io.trino.metadata.Metadata;
-import io.trino.metadata.NewTableLayout;
 import io.trino.metadata.OperatorNotFoundException;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.RedirectionAwareTableHandle;
@@ -40,6 +39,7 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.metadata.TableExecuteHandle;
 import io.trino.metadata.TableHandle;
+import io.trino.metadata.TableLayout;
 import io.trino.metadata.TableMetadata;
 import io.trino.metadata.TableProceduresPropertyManager;
 import io.trino.metadata.TableProceduresRegistry;
@@ -284,7 +284,6 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.NodeUtils.getSortItemsFromOrderBy;
-import static io.trino.sql.NodeUtils.mapFromProperties;
 import static io.trino.sql.ParsingUtil.createParsingOptions;
 import static io.trino.sql.analyzer.AggregationAnalyzer.verifyOrderByAggregations;
 import static io.trino.sql.analyzer.AggregationAnalyzer.verifySourceAggregations;
@@ -488,7 +487,7 @@ class StatementAnalyzer
                     .collect(toImmutableList());
 
             // analyze target table layout, table columns should contain all partition columns
-            Optional<NewTableLayout> newTableLayout = metadata.getInsertLayout(session, targetTableHandle.get());
+            Optional<TableLayout> newTableLayout = metadata.getInsertLayout(session, targetTableHandle.get());
             newTableLayout.ifPresent(layout -> {
                 if (!ImmutableSet.copyOf(tableColumns).containsAll(layout.getPartitionColumns())) {
                     throw new TrinoException(NOT_SUPPORTED, "INSERT must write all distribution columns: " + layout.getPartitionColumns());
@@ -754,8 +753,7 @@ class StatementAnalyzer
 
             Map<String, Object> analyzeProperties = analyzePropertyManager.getProperties(
                     catalogName,
-                    catalogName.getCatalogName(),
-                    mapFromProperties(node.getProperties()),
+                    node.getProperties(),
                     session,
                     plannerContext,
                     accessControl,
@@ -806,7 +804,16 @@ class StatementAnalyzer
 
             validateProperties(node.getProperties(), scope);
 
-            accessControl.checkCanCreateTable(session.toSecurityContext(), targetTable);
+            CatalogName catalogName = getRequiredCatalogHandle(metadata, session, node, targetTable.getCatalogName());
+            Map<String, Object> properties = tablePropertyManager.getProperties(
+                    catalogName,
+                    node.getProperties(),
+                    session,
+                    plannerContext,
+                    accessControl,
+                    analysis.getParameters(),
+                    true);
+            accessControl.checkCanCreateTable(session.toSecurityContext(), targetTable, properties);
 
             // analyze the query that creates the table
             Scope queryScope = analyze(node.getQuery(), createScope(scope));
@@ -840,29 +847,17 @@ class StatementAnalyzer
             }
 
             // create target table metadata
-            CatalogName catalogName = getRequiredCatalogHandle(metadata, session, node, targetTable.getCatalogName());
-
-            Map<String, Object> properties = tablePropertyManager.getProperties(
-                    catalogName,
-                    targetTable.getCatalogName(),
-                    mapFromProperties(node.getProperties()),
-                    session,
-                    plannerContext,
-                    accessControl,
-                    analysis.getParameters(),
-                    true);
-
             ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(targetTable.asSchemaTableName(), columns.build(), properties, node.getComment());
 
             // analyze target table layout
-            Optional<NewTableLayout> newTableLayout = metadata.getNewTableLayout(session, targetTable.getCatalogName(), tableMetadata);
+            Optional<TableLayout> newTableLayout = metadata.getNewTableLayout(session, targetTable.getCatalogName(), tableMetadata);
 
             Set<String> columnNames = columns.build().stream()
                     .map(ColumnMetadata::getName)
                     .collect(toImmutableSet());
 
             if (newTableLayout.isPresent()) {
-                NewTableLayout layout = newTableLayout.get();
+                TableLayout layout = newTableLayout.get();
                 if (!columnNames.containsAll(layout.getPartitionColumns())) {
                     if (layout.getLayout().getPartitioning().isPresent()) {
                         throw new TrinoException(NOT_SUPPORTED, "INSERT must write all distribution columns: " + layout.getPartitionColumns());
@@ -968,9 +963,12 @@ class StatementAnalyzer
         @Override
         protected Scope visitProperty(Property node, Optional<Scope> scope)
         {
+            if (node.isSetToDefault()) {
+                return createAndAssignScope(node, scope);
+            }
             // Property value expressions must be constant
             createConstantAnalyzer(plannerContext, accessControl, session, analysis.getParameters(), WarningCollector.NOOP, analysis.isDescribe())
-                    .analyze(node.getValue(), createScope(scope));
+                    .analyze(node.getNonDefaultValue(), createScope(scope));
             return createAndAssignScope(node, scope);
         }
 
@@ -1084,13 +1082,11 @@ class StatementAnalyzer
             Map<String, Object> tableProperties = tableProceduresPropertyManager.getProperties(
                     catalogName,
                     procedureName,
-                    catalogName.getCatalogName(),
                     propertiesMap,
                     session,
                     plannerContext,
                     accessControl,
-                    analysis.getParameters(),
-                    true);
+                    analysis.getParameters());
 
             TableExecuteHandle executeHandle =
                     metadata.getTableHandleForExecute(
@@ -1244,12 +1240,6 @@ class StatementAnalyzer
             StatementAnalyzer analyzer = statementAnalyzerFactory.createStatementAnalyzer(analysis, session, warningCollector, CorrelationSupport.ALLOWED);
 
             Scope queryScope = analyzer.analyze(node.getQuery(), scope);
-
-            // Materialized view access control is implemented as a combination of access control check for creation of materialized view and creation of storage table.
-            // When the storage table name is generated by the connector, the table creation check is skipped since the table created by the connector
-            // should be accessible to the user. When the user specifies the name of the storage table (future extension), create table acccess check
-            // must be made on the storage table.
-            accessControl.checkCanCreateMaterializedView(session.toSecurityContext(), viewName);
 
             validateColumns(node, queryScope.getRelationType());
 
@@ -1433,7 +1423,7 @@ class StatementAnalyzer
 
             ordinalityField.ifPresent(outputFields::add);
 
-            analysis.setUnnest(node, new UnnestAnalysis(mappings.build(), ordinalityField));
+            analysis.setUnnest(node, new UnnestAnalysis(mappings.buildOrThrow(), ordinalityField));
 
             return createAndAssignScope(node, scope, outputFields.build());
         }
@@ -1932,7 +1922,7 @@ class StatementAnalyzer
                 analysis.recordSubqueries(relation, expressionAnalysis);
                 measureTypesBuilder.put(NodeRef.of(expression), expressionAnalysis.getType(expression));
             }
-            Map<NodeRef<Node>, Type> measureTypes = measureTypesBuilder.build();
+            Map<NodeRef<Node>, Type> measureTypes = measureTypesBuilder.buildOrThrow();
 
             // create output scope
             // ONE ROW PER MATCH: PARTITION BY columns, then MEASURES columns in order of declaration
@@ -3228,7 +3218,7 @@ class StatementAnalyzer
 
         private List<Field> filterInaccessibleFields(List<Field> fields)
         {
-            if (!SystemSessionProperties.isHideInaccesibleColumns(session)) {
+            if (!SystemSessionProperties.isHideInaccessibleColumns(session)) {
                 return fields;
             }
 
@@ -4341,18 +4331,13 @@ class StatementAnalyzer
 
         private PointerType toPointerType(QueryPeriod.RangeType type)
         {
-            PointerType pointerType = null;
             switch (type) {
                 case TIMESTAMP:
-                    pointerType = PointerType.TEMPORAL;
-                    break;
+                    return PointerType.TEMPORAL;
                 case VERSION:
-                    pointerType = PointerType.TARGET_ID;
-                    break;
-                default:
-                    throw new TrinoException(NOT_SUPPORTED, format("No TravelType maps from RangeType %s.", type.name()));
+                    return PointerType.TARGET_ID;
             }
-            return pointerType;
+            throw new UnsupportedOperationException("Unsupported range type: " + type);
         }
     }
 

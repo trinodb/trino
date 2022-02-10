@@ -47,7 +47,7 @@ public class TestDbResourceGroupConfig
                 .put("resource-groups.config-db-password", "trino_admin_pass")
                 .put("resource-groups.max-refresh-interval", "1m")
                 .put("resource-groups.exact-match-selector-enabled", "true")
-                .build();
+                .buildOrThrow();
         DbResourceGroupConfig expected = new DbResourceGroupConfig()
                 .setConfigDbUrl("jdbc:mysql://localhost:3306/config")
                 .setConfigDbUser("trino_admin")

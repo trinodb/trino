@@ -44,7 +44,7 @@ public class BackupModule
                 .put("file", new FileBackupModule())
                 .put("http", new HttpBackupModule())
                 .putAll(providers)
-                .build();
+                .buildOrThrow();
     }
 
     @Override

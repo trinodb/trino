@@ -17,6 +17,7 @@ import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.trino.Session;
 import io.trino.execution.StateMachine;
@@ -27,7 +28,6 @@ import io.trino.execution.buffer.OutputBufferInfo;
 import io.trino.execution.buffer.OutputBuffers;
 import io.trino.execution.buffer.PagesSerde;
 import io.trino.execution.buffer.PagesSerdeFactory;
-import io.trino.execution.buffer.SerializedPage;
 import io.trino.operator.BucketPartitionFunction;
 import io.trino.operator.DriverContext;
 import io.trino.operator.OperatorContext;
@@ -560,14 +560,14 @@ public class TestPartitionedOutputOperator
     private static class TestOutputBuffer
             implements OutputBuffer
     {
-        private final Multimap<Integer, SerializedPage> enqueued = ArrayListMultimap.create();
+        private final Multimap<Integer, Slice> enqueued = ArrayListMultimap.create();
 
         public Stream<Page> getEnqueuedDeserialized()
         {
             return getEnqueued().stream().map(PAGES_SERDE::deserialize);
         }
 
-        public List<SerializedPage> getEnqueued()
+        public List<Slice> getEnqueued()
         {
             return ImmutableList.copyOf(enqueued.values());
         }
@@ -577,14 +577,14 @@ public class TestPartitionedOutputOperator
             return getEnqueued(partition).stream().map(PAGES_SERDE::deserialize);
         }
 
-        public List<SerializedPage> getEnqueued(int partition)
+        public List<Slice> getEnqueued(int partition)
         {
-            Collection<SerializedPage> serializedPages = enqueued.get(partition);
+            Collection<Slice> serializedPages = enqueued.get(partition);
             return serializedPages == null ? ImmutableList.of() : ImmutableList.copyOf(serializedPages);
         }
 
         @Override
-        public void enqueue(int partition, List<SerializedPage> pages)
+        public void enqueue(int partition, List<Slice> pages)
         {
             enqueued.putAll(partition, pages);
         }
@@ -596,9 +596,9 @@ public class TestPartitionedOutputOperator
         }
 
         @Override
-        public boolean isFinished()
+        public BufferState getState()
         {
-            return false;
+            return BufferState.NO_MORE_BUFFERS;
         }
 
         @Override
@@ -635,7 +635,7 @@ public class TestPartitionedOutputOperator
         }
 
         @Override
-        public void abort(OutputBuffers.OutputBufferId bufferId)
+        public void destroy(OutputBuffers.OutputBufferId bufferId)
         {
         }
 
@@ -646,7 +646,7 @@ public class TestPartitionedOutputOperator
         }
 
         @Override
-        public void enqueue(List<SerializedPage> pages)
+        public void enqueue(List<Slice> pages)
         {
         }
 
@@ -661,7 +661,7 @@ public class TestPartitionedOutputOperator
         }
 
         @Override
-        public void fail()
+        public void abort()
         {
         }
 
@@ -669,6 +669,12 @@ public class TestPartitionedOutputOperator
         public long getPeakMemoryUsage()
         {
             return 0;
+        }
+
+        @Override
+        public Optional<Throwable> getFailureCause()
+        {
+            return Optional.empty();
         }
     }
 

@@ -50,7 +50,7 @@ public class TestJwtHandlerConfig
                 .put("jwt.key-id", "testkeyid")
                 .put("jwt.issuer", "testissuer")
                 .put("jwt.audience", "testaudience")
-                .build();
+                .buildOrThrow();
 
         JwtHandlerConfig expected = new JwtHandlerConfig()
                 .setJwtKeyFile(keyFile.toFile())

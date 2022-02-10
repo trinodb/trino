@@ -36,7 +36,6 @@ import io.trino.plugin.hive.metastore.SortingColumn;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.ErrorCodeSupplier;
 import io.trino.spi.TrinoException;
-import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
@@ -122,10 +121,11 @@ import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALUE;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_SERDE_NOT_FOUND;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
+import static io.trino.plugin.hive.HiveMetadata.ORC_BLOOM_FILTER_COLUMNS_KEY;
+import static io.trino.plugin.hive.HiveMetadata.ORC_BLOOM_FILTER_FPP_KEY;
 import static io.trino.plugin.hive.HiveMetadata.SKIP_FOOTER_COUNT_KEY;
 import static io.trino.plugin.hive.HiveMetadata.SKIP_HEADER_COUNT_KEY;
 import static io.trino.plugin.hive.HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION;
-import static io.trino.plugin.hive.HiveTableProperties.ORC_BLOOM_FILTER_COLUMNS;
 import static io.trino.plugin.hive.HiveTableProperties.ORC_BLOOM_FILTER_FPP;
 import static io.trino.plugin.hive.HiveType.toHiveTypes;
 import static io.trino.plugin.hive.metastore.SortingColumn.Order.ASCENDING;
@@ -163,7 +163,6 @@ import static java.lang.String.format;
 import static java.math.BigDecimal.ROUND_UNNECESSARY;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
-import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 import static org.apache.hadoop.hive.common.FileUtils.unescapePathName;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
@@ -178,6 +177,10 @@ public final class HiveUtil
 {
     public static final String SPARK_TABLE_PROVIDER_KEY = "spark.sql.sources.provider";
     public static final String DELTA_LAKE_PROVIDER = "delta";
+    public static final String SPARK_TABLE_BUCKET_NUMBER_KEY = "spark.sql.sources.schema.numBuckets";
+
+    public static final String ICEBERG_TABLE_TYPE_NAME = "table_type";
+    public static final String ICEBERG_TABLE_TYPE_VALUE = "iceberg";
 
     private static final DateTimeFormatter HIVE_DATE_PARSER = ISODateTimeFormat.date().withZoneUTC();
     private static final DateTimeFormatter HIVE_TIMESTAMP_PARSER;
@@ -190,8 +193,6 @@ public final class HiveUtil
     private static final String BIG_DECIMAL_POSTFIX = "BD";
 
     private static final Splitter COLUMN_NAMES_SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
-    private static final String ICEBERG_TABLE_TYPE_NAME = "table_type";
-    private static final String ICEBERG_TABLE_TYPE_VALUE = "iceberg";
 
     static {
         DateTimeParser[] timestampWithoutTimeZoneParser = {
@@ -325,14 +326,14 @@ public final class HiveUtil
 
             Class<? extends InputFormat<?, ?>> inputFormatClass = getInputFormatClass(jobConf, inputFormatName);
             if (symlinkTarget && inputFormatClass == SymlinkTextInputFormat.class) {
-                String serDe = getDeserializerClassName(schema);
+                String serde = getDeserializerClassName(schema);
                 for (HiveStorageFormat format : HiveStorageFormat.values()) {
-                    if (serDe.equals(format.getSerDe())) {
+                    if (serde.equals(format.getSerde())) {
                         inputFormatClass = getInputFormatClass(jobConf, format.getInputFormat());
                         return ReflectionUtils.newInstance(inputFormatClass, jobConf);
                     }
                 }
-                throw new TrinoException(HIVE_UNSUPPORTED_FORMAT, "Unknown SerDe for SymlinkTextInputFormat: " + serDe);
+                throw new TrinoException(HIVE_UNSUPPORTED_FORMAT, "Unknown SerDe for SymlinkTextInputFormat: " + serde);
             }
 
             return ReflectionUtils.newInstance(inputFormatClass, jobConf);
@@ -1023,21 +1024,6 @@ public final class HiveUtil
         throw new TrinoException(NOT_SUPPORTED, format("Unsupported column type %s for prefilled column: %s", type.getDisplayName(), name));
     }
 
-    public static void closeWithSuppression(RecordCursor recordCursor, Throwable throwable)
-    {
-        requireNonNull(recordCursor, "recordCursor is null");
-        requireNonNull(throwable, "throwable is null");
-        try {
-            recordCursor.close();
-        }
-        catch (RuntimeException e) {
-            // Self-suppression not permitted
-            if (throwable != e) {
-                throwable.addSuppressed(e);
-            }
-        }
-    }
-
     public static List<HiveType> extractStructFieldTypes(HiveType hiveType)
     {
         return ((StructTypeInfo) hiveType.getTypeInfo()).getAllStructFieldTypeInfos().stream()
@@ -1082,18 +1068,18 @@ public final class HiveUtil
 
     public static OrcWriterOptions getOrcWriterOptions(Properties schema, OrcWriterOptions orcWriterOptions)
     {
-        if (schema.containsKey(ORC_BLOOM_FILTER_COLUMNS)) {
-            if (!schema.containsKey(ORC_BLOOM_FILTER_FPP)) {
-                throw new TrinoException(HIVE_INVALID_METADATA, format("FPP for bloom filter is missing"));
+        if (schema.containsKey(ORC_BLOOM_FILTER_COLUMNS_KEY)) {
+            if (!schema.containsKey(ORC_BLOOM_FILTER_FPP_KEY)) {
+                throw new TrinoException(HIVE_INVALID_METADATA, "FPP for bloom filter is missing");
             }
             try {
-                double fpp = parseDouble(schema.getProperty(ORC_BLOOM_FILTER_FPP));
+                double fpp = parseDouble(schema.getProperty(ORC_BLOOM_FILTER_FPP_KEY));
                 return orcWriterOptions
-                        .withBloomFilterColumns(ImmutableSet.copyOf(COLUMN_NAMES_SPLITTER.splitToList(schema.getProperty(ORC_BLOOM_FILTER_COLUMNS))))
+                        .withBloomFilterColumns(ImmutableSet.copyOf(COLUMN_NAMES_SPLITTER.splitToList(schema.getProperty(ORC_BLOOM_FILTER_COLUMNS_KEY))))
                         .withBloomFilterFpp(fpp);
             }
             catch (NumberFormatException e) {
-                throw new TrinoException(HIVE_UNSUPPORTED_FORMAT, format("Invalid value for %s property: %s", ORC_BLOOM_FILTER_FPP, schema.getProperty(ORC_BLOOM_FILTER_FPP)));
+                throw new TrinoException(HIVE_UNSUPPORTED_FORMAT, format("Invalid value for %s property: %s", ORC_BLOOM_FILTER_FPP, schema.getProperty(ORC_BLOOM_FILTER_FPP_KEY)));
             }
         }
         return orcWriterOptions;
@@ -1142,5 +1128,11 @@ public final class HiveUtil
     public static boolean isIcebergTable(Table table)
     {
         return ICEBERG_TABLE_TYPE_VALUE.equalsIgnoreCase(table.getParameters().get(ICEBERG_TABLE_TYPE_NAME));
+    }
+
+    public static boolean isSparkBucketedTable(Table table)
+    {
+        return table.getParameters().containsKey(SPARK_TABLE_PROVIDER_KEY)
+                && table.getParameters().containsKey(SPARK_TABLE_BUCKET_NUMBER_KEY);
     }
 }

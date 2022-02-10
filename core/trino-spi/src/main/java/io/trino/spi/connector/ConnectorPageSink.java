@@ -38,7 +38,7 @@ public interface ConnectorPageSink
      *
      * @return the memory used so far in table read
      */
-    default long getSystemMemoryUsage()
+    default long getMemoryUsage()
     {
         return 0;
     }

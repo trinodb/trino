@@ -5,7 +5,7 @@ function cleanup {
 }
 
 function test_trino_starts {
-    local QUERY_PERIOD=5
+    local QUERY_PERIOD=10
     local QUERY_RETRIES=30
 
     CONTAINER_ID=
@@ -21,6 +21,8 @@ function test_trino_starts {
     do
         if [[ $((I++)) -ge ${QUERY_RETRIES} ]]; then
             echo "🚨 Too many retries waiting for Trino to start"
+            echo "Logs from ${CONTAINER_ID} follow..."
+            docker logs "${CONTAINER_ID}"
             break
         fi
         sleep ${QUERY_PERIOD}

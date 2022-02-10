@@ -24,6 +24,7 @@ import java.util.Optional;
 import java.util.function.BiConsumer;
 
 import static io.airlift.slice.SizeOf.sizeOf;
+import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.trino.spi.block.BlockUtil.checkArrayRange;
 import static io.trino.spi.block.BlockUtil.checkValidRegion;
 import static io.trino.spi.block.BlockUtil.compactArray;
@@ -158,28 +159,43 @@ public class VariableWidthBlock
     public Block copyPositions(int[] positions, int offset, int length)
     {
         checkArrayRange(positions, offset, length);
-
-        int finalLength = 0;
-        for (int i = offset; i < offset + length; i++) {
-            finalLength += getSliceLength(positions[i]);
+        if (length == 0) {
+            return new VariableWidthBlock(0, 0, EMPTY_SLICE, new int[1], null);
         }
-        SliceOutput newSlice = Slices.allocate(finalLength).getOutput();
+
         int[] newOffsets = new int[length + 1];
-        boolean[] newValueIsNull = null;
-        if (valueIsNull != null) {
-            newValueIsNull = new boolean[length];
-        }
-
+        int finalLength = 0;
         for (int i = 0; i < length; i++) {
             int position = positions[offset + i];
-            if (!isEntryNull(position)) {
-                newSlice.writeBytes(slice, getPositionOffset(position), getSliceLength(position));
-            }
-            else if (newValueIsNull != null) {
-                newValueIsNull[i] = true;
-            }
-            newOffsets[i + 1] = newSlice.size();
+            finalLength += getSliceLength(position);
+            newOffsets[i + 1] = finalLength;
         }
+
+        SliceOutput newSlice = Slices.allocate(finalLength).getOutput();
+        boolean[] newValueIsNull = null;
+        int firstPosition = positions[offset];
+        if (valueIsNull != null) {
+            newValueIsNull = new boolean[length];
+            newValueIsNull[0] = valueIsNull[firstPosition + arrayOffset];
+        }
+        int currentStart = getPositionOffset(firstPosition);
+        int currentEnd = getPositionOffset(firstPosition + 1);
+        for (int i = 1; i < length; i++) {
+            int position = positions[offset + i];
+            if (valueIsNull != null) {
+                newValueIsNull[i] = valueIsNull[position + arrayOffset];
+            }
+            // Null positions must have valid offsets for getSliceLength to work correctly on the next non-null position
+            int currentOffset = getPositionOffset(position);
+            if (currentOffset != currentEnd) {
+                // Copy last continuous range of bytes and update currentStart to start new range
+                newSlice.writeBytes(slice, currentStart, currentEnd - currentStart);
+                currentStart = currentOffset;
+            }
+            currentEnd = getPositionOffset(position + 1);
+        }
+        // Copy last range of bytes
+        newSlice.writeBytes(slice, currentStart, currentEnd - currentStart);
         return new VariableWidthBlock(0, length, newSlice.slice(), newOffsets, newValueIsNull);
     }
 

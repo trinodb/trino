@@ -17,7 +17,6 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.ArrayType;
-import io.trino.spi.type.SqlDecimal;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -27,6 +26,7 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.SqlDecimal.decimal;
 import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.type.JsonType.JSON;
@@ -54,7 +54,7 @@ public class TestTryFunction
     {
         assertFunction(createTryExpression("42"), INTEGER, 42);
         assertFunction(createTryExpression("DOUBLE '4.5'"), DOUBLE, 4.5);
-        assertFunction(createTryExpression("DECIMAL '4.5'"), createDecimalType(2, 1), SqlDecimal.of("4.5"));
+        assertFunction(createTryExpression("DECIMAL '4.5'"), createDecimalType(2, 1), decimal("4.5", createDecimalType(2, 1)));
         assertFunction(createTryExpression("TRUE"), BOOLEAN, true);
         assertFunction(createTryExpression("'hello'"), createVarcharType(5), "hello");
         assertFunction(createTryExpression("JSON '[true, false, 12, 12.7, \"12\", null]'"), JSON, "[true,false,12,12.7,\"12\",null]");

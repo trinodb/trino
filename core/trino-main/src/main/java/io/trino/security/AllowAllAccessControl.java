@@ -72,7 +72,7 @@ public class AllowAllAccessControl
     }
 
     @Override
-    public Set<String> filterCatalogs(Identity identity, Set<String> catalogs)
+    public Set<String> filterCatalogs(SecurityContext context, Set<String> catalogs)
     {
         return catalogs;
     }
@@ -119,11 +119,6 @@ public class AllowAllAccessControl
     }
 
     @Override
-    public void checkCanCreateTable(SecurityContext context, QualifiedObjectName tableName)
-    {
-    }
-
-    @Override
     public void checkCanCreateTable(SecurityContext context, QualifiedObjectName tableName, Map<String, Object> properties)
     {
     }
@@ -139,7 +134,7 @@ public class AllowAllAccessControl
     }
 
     @Override
-    public void checkCanSetTableProperties(SecurityContext context, QualifiedObjectName tableName, Map<String, Object> properties)
+    public void checkCanSetTableProperties(SecurityContext context, QualifiedObjectName tableName, Map<String, Optional<Object>> properties)
     {
     }
 
@@ -241,7 +236,7 @@ public class AllowAllAccessControl
     }
 
     @Override
-    public void checkCanCreateMaterializedView(SecurityContext context, QualifiedObjectName materializedViewName)
+    public void checkCanCreateMaterializedView(SecurityContext context, QualifiedObjectName materializedViewName, Map<String, Object> properties)
     {
     }
 
@@ -257,6 +252,11 @@ public class AllowAllAccessControl
 
     @Override
     public void checkCanRenameMaterializedView(SecurityContext context, QualifiedObjectName viewName, QualifiedObjectName newViewName)
+    {
+    }
+
+    @Override
+    public void checkCanSetMaterializedViewProperties(SecurityContext context, QualifiedObjectName materializedViewName, Map<String, Optional<Object>> properties)
     {
     }
 

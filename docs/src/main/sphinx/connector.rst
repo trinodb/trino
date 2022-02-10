@@ -16,8 +16,8 @@ from different data sources.
     Druid           <connector/druid>
     Elasticsearch   <connector/elasticsearch>
     Google Sheets   <connector/googlesheets>
-    Iceberg         <connector/iceberg>
     Hive            <connector/hive>
+    Iceberg         <connector/iceberg>
     JMX             <connector/jmx>
     Kafka           <connector/kafka>
     Kinesis         <connector/kinesis>

@@ -197,7 +197,7 @@ public class ColumnJdbcTable
                             .map(CatalogSchemaName::getSchemaName)
                             .collect(toVarcharDomain())
                             .simplify(MAX_DOMAIN_SIZE))
-                    .build());
+                    .buildOrThrow());
         }
 
         List<CatalogSchemaTableName> tables = schemas.stream()
@@ -227,7 +227,7 @@ public class ColumnJdbcTable
                         .map(catalogSchemaTableName -> catalogSchemaTableName.getSchemaTableName().getTableName())
                         .collect(toVarcharDomain())
                         .simplify(MAX_DOMAIN_SIZE))
-                .build());
+                .buildOrThrow());
     }
 
     @Override

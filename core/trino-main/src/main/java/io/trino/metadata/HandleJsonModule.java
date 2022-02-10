@@ -25,8 +25,9 @@ import io.trino.spi.connector.ConnectorPartitioningHandle;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorTableExecuteHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
-import io.trino.spi.connector.ConnectorTableLayoutHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.exchange.ExchangeSinkInstanceHandle;
+import io.trino.spi.exchange.ExchangeSourceHandle;
 
 public class HandleJsonModule
         implements Module
@@ -35,65 +36,72 @@ public class HandleJsonModule
     public void configure(Binder binder)
     {
         binder.bind(HandleResolver.class).in(Scopes.SINGLETON);
+        binder.bind(ExchangeHandleResolver.class).in(Scopes.SINGLETON);
     }
 
     @ProvidesIntoSet
     public static com.fasterxml.jackson.databind.Module tableHandleModule(HandleResolver resolver)
     {
-        return new AbstractTypedJacksonModule<>(ConnectorTableHandle.class, resolver::getId, resolver::getTableHandleClass) {};
-    }
-
-    @ProvidesIntoSet
-    public static com.fasterxml.jackson.databind.Module tableLayoutHandleModule(HandleResolver resolver)
-    {
-        return new AbstractTypedJacksonModule<>(ConnectorTableLayoutHandle.class, resolver::getId, resolver::getTableLayoutHandleClass) {};
+        return new AbstractTypedJacksonModule<>(ConnectorTableHandle.class, resolver::getId, resolver::getHandleClass) {};
     }
 
     @ProvidesIntoSet
     public static com.fasterxml.jackson.databind.Module columnHandleModule(HandleResolver resolver)
     {
-        return new AbstractTypedJacksonModule<>(ColumnHandle.class, resolver::getId, resolver::getColumnHandleClass) {};
+        return new AbstractTypedJacksonModule<>(ColumnHandle.class, resolver::getId, resolver::getHandleClass) {};
     }
 
     @ProvidesIntoSet
     public static com.fasterxml.jackson.databind.Module splitModule(HandleResolver resolver)
     {
-        return new AbstractTypedJacksonModule<>(ConnectorSplit.class, resolver::getId, resolver::getSplitClass) {};
+        return new AbstractTypedJacksonModule<>(ConnectorSplit.class, resolver::getId, resolver::getHandleClass) {};
     }
 
     @ProvidesIntoSet
     public static com.fasterxml.jackson.databind.Module outputTableHandleModule(HandleResolver resolver)
     {
-        return new AbstractTypedJacksonModule<>(ConnectorOutputTableHandle.class, resolver::getId, resolver::getOutputTableHandleClass) {};
+        return new AbstractTypedJacksonModule<>(ConnectorOutputTableHandle.class, resolver::getId, resolver::getHandleClass) {};
     }
 
     @ProvidesIntoSet
     public static com.fasterxml.jackson.databind.Module insertTableHandleModule(HandleResolver resolver)
     {
-        return new AbstractTypedJacksonModule<>(ConnectorInsertTableHandle.class, resolver::getId, resolver::getInsertTableHandleClass) {};
+        return new AbstractTypedJacksonModule<>(ConnectorInsertTableHandle.class, resolver::getId, resolver::getHandleClass) {};
     }
 
     @ProvidesIntoSet
     public static com.fasterxml.jackson.databind.Module tableExecuteHandleModule(HandleResolver resolver)
     {
-        return new AbstractTypedJacksonModule<>(ConnectorTableExecuteHandle.class, resolver::getId, resolver::getTableExecuteHandleClass) {};
+        return new AbstractTypedJacksonModule<>(ConnectorTableExecuteHandle.class, resolver::getId, resolver::getHandleClass) {};
     }
 
     @ProvidesIntoSet
     public static com.fasterxml.jackson.databind.Module indexHandleModule(HandleResolver resolver)
     {
-        return new AbstractTypedJacksonModule<>(ConnectorIndexHandle.class, resolver::getId, resolver::getIndexHandleClass) {};
+        return new AbstractTypedJacksonModule<>(ConnectorIndexHandle.class, resolver::getId, resolver::getHandleClass) {};
     }
 
     @ProvidesIntoSet
     public static com.fasterxml.jackson.databind.Module transactionHandleModule(HandleResolver resolver)
     {
-        return new AbstractTypedJacksonModule<>(ConnectorTransactionHandle.class, resolver::getId, resolver::getTransactionHandleClass) {};
+        return new AbstractTypedJacksonModule<>(ConnectorTransactionHandle.class, resolver::getId, resolver::getHandleClass) {};
     }
 
     @ProvidesIntoSet
     public static com.fasterxml.jackson.databind.Module partitioningHandleModule(HandleResolver resolver)
     {
-        return new AbstractTypedJacksonModule<>(ConnectorPartitioningHandle.class, resolver::getId, resolver::getPartitioningHandleClass) {};
+        return new AbstractTypedJacksonModule<>(ConnectorPartitioningHandle.class, resolver::getId, resolver::getHandleClass) {};
+    }
+
+    @ProvidesIntoSet
+    public static com.fasterxml.jackson.databind.Module exchangeSinkInstanceHandleModule(ExchangeHandleResolver resolver)
+    {
+        return new AbstractTypedJacksonModule<>(ExchangeSinkInstanceHandle.class, ignored -> "ExchangeSinkInstance", ignored -> resolver.getExchangeSinkInstanceHandleClass()) {};
+    }
+
+    @ProvidesIntoSet
+    public static com.fasterxml.jackson.databind.Module exchangeSourceHandleModule(ExchangeHandleResolver resolver)
+    {
+        return new AbstractTypedJacksonModule<>(ExchangeSourceHandle.class, ignored -> "ExchangeSource", ignored -> resolver.getExchangeSourceHandleClass()) {};
     }
 }

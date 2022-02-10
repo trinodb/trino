@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import io.airlift.slice.Slice;
 import io.airlift.stats.TestingGcMonitor;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -28,10 +29,10 @@ import io.trino.connector.CatalogName;
 import io.trino.execution.buffer.BufferResult;
 import io.trino.execution.buffer.BufferState;
 import io.trino.execution.buffer.OutputBuffer;
+import io.trino.execution.buffer.OutputBufferStateMachine;
 import io.trino.execution.buffer.OutputBuffers.OutputBufferId;
 import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.execution.buffer.PartitionedOutputBuffer;
-import io.trino.execution.buffer.SerializedPage;
 import io.trino.execution.executor.TaskExecutor;
 import io.trino.memory.MemoryPool;
 import io.trino.memory.QueryContext;
@@ -60,6 +61,7 @@ import io.trino.spi.type.Type;
 import io.trino.spiller.SpillSpaceTracker;
 import io.trino.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
 import io.trino.sql.planner.plan.PlanNodeId;
+import org.openjdk.jol.info.ClassLayout;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -94,10 +96,9 @@ import static io.trino.execution.TaskState.FLUSHING;
 import static io.trino.execution.TaskState.RUNNING;
 import static io.trino.execution.TaskTestUtils.TABLE_SCAN_NODE_ID;
 import static io.trino.execution.TaskTestUtils.createTestSplitMonitor;
-import static io.trino.execution.buffer.BufferState.OPEN;
-import static io.trino.execution.buffer.BufferState.TERMINAL_BUFFER_STATES;
 import static io.trino.execution.buffer.OutputBuffers.BufferType.PARTITIONED;
 import static io.trino.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
+import static io.trino.execution.buffer.PagesSerde.getSerializedPagePositionCount;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.operator.PipelineExecutionStrategy.GROUPED_EXECUTION;
 import static io.trino.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
@@ -183,8 +184,8 @@ public class TestSqlTaskExecution
 
             switch (executionStrategy) {
                 case UNGROUPED_EXECUTION:
-                    // add source for pipeline
-                    sqlTaskExecution.addSources(ImmutableList.of(new TaskSource(
+                    // add assignment for pipeline
+                    sqlTaskExecution.addSplitAssignments(ImmutableList.of(new SplitAssignment(
                             TABLE_SCAN_NODE_ID,
                             ImmutableSet.of(newScheduledSplit(0, TABLE_SCAN_NODE_ID, Lifespan.taskWide(), 100000, 123)),
                             false)));
@@ -195,8 +196,8 @@ public class TestSqlTaskExecution
                     // * operatorFactory will be closed even though operator can't execute
                     // * completedDriverGroups will NOT include the newly scheduled driver group while pause is in place
                     testingScanOperatorFactory.getPauser().pause();
-                    // add source for pipeline, mark as no more splits
-                    sqlTaskExecution.addSources(ImmutableList.of(new TaskSource(
+                    // add assignment for pipeline, mark as no more splits
+                    sqlTaskExecution.addSplitAssignments(ImmutableList.of(new SplitAssignment(
                             TABLE_SCAN_NODE_ID,
                             ImmutableSet.of(
                                     newScheduledSplit(1, TABLE_SCAN_NODE_ID, Lifespan.taskWide(), 200000, 300),
@@ -214,8 +215,8 @@ public class TestSqlTaskExecution
 
                     break;
                 case GROUPED_EXECUTION:
-                    // add source for pipeline (driver group [1, 5]), mark driver group [1] as noMoreSplits
-                    sqlTaskExecution.addSources(ImmutableList.of(new TaskSource(
+                    // add assignment for pipeline (driver group [1, 5]), mark driver group [1] as noMoreSplits
+                    sqlTaskExecution.addSplitAssignments(ImmutableList.of(new SplitAssignment(
                             TABLE_SCAN_NODE_ID,
                             ImmutableSet.of(
                                     newScheduledSplit(0, TABLE_SCAN_NODE_ID, Lifespan.driverGroup(1), 0, 1),
@@ -233,8 +234,8 @@ public class TestSqlTaskExecution
                     // * operatorFactory will be closed even though operator can't execute
                     // * completedDriverGroups will NOT include the newly scheduled driver group while pause is in place
                     testingScanOperatorFactory.getPauser().pause();
-                    // add source for pipeline (driver group [5]), mark driver group [5] as noMoreSplits
-                    sqlTaskExecution.addSources(ImmutableList.of(new TaskSource(
+                    // add assignment for pipeline (driver group [5]), mark driver group [5] as noMoreSplits
+                    sqlTaskExecution.addSplitAssignments(ImmutableList.of(new SplitAssignment(
                             TABLE_SCAN_NODE_ID,
                             ImmutableSet.of(newScheduledSplit(2, TABLE_SCAN_NODE_ID, Lifespan.driverGroup(5), 200000, 300)),
                             ImmutableSet.of(Lifespan.driverGroup(5)),
@@ -252,8 +253,8 @@ public class TestSqlTaskExecution
 
                     // pause operator execution to make sure that
                     testingScanOperatorFactory.getPauser().pause();
-                    // add source for pipeline (driver group [7]), mark pipeline as noMoreSplits without explicitly marking driver group 7
-                    sqlTaskExecution.addSources(ImmutableList.of(new TaskSource(
+                    // add assignment for pipeline (driver group [7]), mark pipeline as noMoreSplits without explicitly marking driver group 7
+                    sqlTaskExecution.addSplitAssignments(ImmutableList.of(new SplitAssignment(
                             TABLE_SCAN_NODE_ID,
                             ImmutableSet.of(
                                     newScheduledSplit(3, TABLE_SCAN_NODE_ID, Lifespan.driverGroup(7), 300000, 45),
@@ -341,12 +342,12 @@ public class TestSqlTaskExecution
             // The following behaviors are tested:
             // * DriverFactory are marked as noMoreDriver/Operator for particular lifespans as soon as they can be:
             //   * immediately, if the pipeline has task lifecycle (ungrouped and unpartitioned).
-            //   * when TaskSource containing the lifespan is encountered, if the pipeline has driver group lifecycle (grouped and unpartitioned).
-            //   * when TaskSource indicate that no more splits will be produced for the plan node (and plan nodes that schedule before it
+            //   * when SplitAssignment containing the lifespan is encountered, if the pipeline has driver group lifecycle (grouped and unpartitioned).
+            //   * when SplitAssignment indicate that no more splits will be produced for the plan node (and plan nodes that schedule before it
             //     due to phased scheduling) and lifespan combination, if the pipeline has split lifecycle (partitioned).
             // * DriverFactory are marked as noMoreDriver/Operator as soon as they can be:
             //   * immediately, if the pipeline has task lifecycle (ungrouped and unpartitioned).
-            //   * when TaskSource indicate that will no more splits, otherwise.
+            //   * when SplitAssignment indicate that will no more splits, otherwise.
             // * Driver groups are marked as completed as soon as they should be:
             //   * when there are no active driver, and all DriverFactory for the lifespan (across all pipelines) are marked as completed.
             // * Rows are produced as soon as they should be:
@@ -439,14 +440,14 @@ public class TestSqlTaskExecution
                     waitUntilEquals(buildOperatorFactoryA::isOverallNoMoreOperators, true, ASSERT_WAIT_TIMEOUT);
                     waitUntilEquals(buildOperatorFactoryC::isOverallNoMoreOperators, true, ASSERT_WAIT_TIMEOUT);
 
-                    // add source for pipeline 2, and mark as no more splits
-                    sqlTaskExecution.addSources(ImmutableList.of(new TaskSource(
+                    // add assignment for pipeline 2, and mark as no more splits
+                    sqlTaskExecution.addSplitAssignments(ImmutableList.of(new SplitAssignment(
                             scan2NodeId,
                             ImmutableSet.of(
                                     newScheduledSplit(0, scan2NodeId, Lifespan.taskWide(), 100000, 1),
                                     newScheduledSplit(1, scan2NodeId, Lifespan.taskWide(), 300000, 2)),
                             false)));
-                    sqlTaskExecution.addSources(ImmutableList.of(new TaskSource(
+                    sqlTaskExecution.addSplitAssignments(ImmutableList.of(new SplitAssignment(
                             scan2NodeId,
                             ImmutableSet.of(newScheduledSplit(2, scan2NodeId, Lifespan.taskWide(), 300000, 2)),
                             true)));
@@ -459,8 +460,8 @@ public class TestSqlTaskExecution
                     // * completedDriverGroups will NOT include the newly scheduled driver group while pause is in place
                     scanOperatorFactory0.getPauser().pause();
 
-                    // add source for pipeline 0, mark as no more splits
-                    sqlTaskExecution.addSources(ImmutableList.of(new TaskSource(
+                    // add assignment for pipeline 0, mark as no more splits
+                    sqlTaskExecution.addSplitAssignments(ImmutableList.of(new SplitAssignment(
                             scan0NodeId,
                             ImmutableSet.of(newScheduledSplit(3, scan0NodeId, Lifespan.taskWide(), 400000, 100)),
                             true)));
@@ -482,8 +483,8 @@ public class TestSqlTaskExecution
                     // (Unpartitioned ungrouped pipelines can have all driver instances created up front.)
                     waitUntilEquals(buildOperatorFactoryC::isOverallNoMoreOperators, true, ASSERT_WAIT_TIMEOUT);
 
-                    // add source for pipeline 2 driver group 3, and mark driver group 3 as no more splits
-                    sqlTaskExecution.addSources(ImmutableList.of(new TaskSource(
+                    // add assignment for pipeline 2 driver group 3, and mark driver group 3 as no more splits
+                    sqlTaskExecution.addSplitAssignments(ImmutableList.of(new SplitAssignment(
                             scan2NodeId,
                             ImmutableSet.of(
                                     newScheduledSplit(0, scan2NodeId, Lifespan.driverGroup(3), 0, 1),
@@ -492,7 +493,7 @@ public class TestSqlTaskExecution
                     // assert that pipeline 1 driver group [3] will have no more drivers
                     waitUntilEquals(joinOperatorFactoryB::getDriverGroupsWithNoMoreOperators, ImmutableSet.of(Lifespan.driverGroup(3)), ASSERT_WAIT_TIMEOUT);
                     waitUntilEquals(buildOperatorFactoryA::getDriverGroupsWithNoMoreOperators, ImmutableSet.of(Lifespan.driverGroup(3)), ASSERT_WAIT_TIMEOUT);
-                    sqlTaskExecution.addSources(ImmutableList.of(new TaskSource(
+                    sqlTaskExecution.addSplitAssignments(ImmutableList.of(new SplitAssignment(
                             scan2NodeId,
                             ImmutableSet.of(newScheduledSplit(2, scan2NodeId, Lifespan.driverGroup(3), 200000, 2)),
                             ImmutableSet.of(Lifespan.driverGroup(3)),
@@ -505,8 +506,8 @@ public class TestSqlTaskExecution
                     // * completedDriverGroups will NOT include the newly scheduled driver group while pause is in place
                     scanOperatorFactory0.getPauser().pause();
 
-                    // add source for pipeline 0 driver group 3, and mark driver group 3 as no more splits
-                    sqlTaskExecution.addSources(ImmutableList.of(new TaskSource(
+                    // add assignment for pipeline 0 driver group 3, and mark driver group 3 as no more splits
+                    sqlTaskExecution.addSplitAssignments(ImmutableList.of(new SplitAssignment(
                             scan0NodeId,
                             ImmutableSet.of(newScheduledSplit(3, scan0NodeId, Lifespan.driverGroup(3), 300000, 10)),
                             ImmutableSet.of(Lifespan.driverGroup(3)),
@@ -524,8 +525,8 @@ public class TestSqlTaskExecution
                     // assert that driver group [3] is fully completed
                     waitUntilEquals(taskContext::getCompletedDriverGroups, ImmutableSet.of(Lifespan.driverGroup(3)), ASSERT_WAIT_TIMEOUT);
 
-                    // add source for pipeline 2 driver group 7, and mark pipeline as no more splits
-                    sqlTaskExecution.addSources(ImmutableList.of(new TaskSource(
+                    // add assignment for pipeline 2 driver group 7, and mark pipeline as no more splits
+                    sqlTaskExecution.addSplitAssignments(ImmutableList.of(new SplitAssignment(
                             scan2NodeId,
                             ImmutableSet.of(newScheduledSplit(4, scan2NodeId, Lifespan.driverGroup(7), 400000, 2)),
                             ImmutableSet.of(Lifespan.driverGroup(7)),
@@ -539,8 +540,8 @@ public class TestSqlTaskExecution
                     // * completedDriverGroups will NOT include the newly scheduled driver group while pause is in place
                     scanOperatorFactory0.getPauser().pause();
 
-                    // add source for pipeline 0 driver group 7, mark pipeline as no more splits
-                    sqlTaskExecution.addSources(ImmutableList.of(new TaskSource(
+                    // add assignment for pipeline 0 driver group 7, mark pipeline as no more splits
+                    sqlTaskExecution.addSplitAssignments(ImmutableList.of(new SplitAssignment(
                             scan0NodeId,
                             ImmutableSet.of(newScheduledSplit(5, scan0NodeId, Lifespan.driverGroup(7), 500000, 1000)),
                             ImmutableSet.of(Lifespan.driverGroup(7)),
@@ -596,7 +597,7 @@ public class TestSqlTaskExecution
         QueryContext queryContext = new QueryContext(
                 new QueryId("queryid"),
                 DataSize.of(1, MEGABYTE),
-                DataSize.of(2, MEGABYTE),
+                Optional.empty(),
                 new MemoryPool(new MemoryPoolId("test"), DataSize.of(1, GIGABYTE)),
                 new TestingGcMonitor(),
                 taskNotificationExecutor,
@@ -610,7 +611,7 @@ public class TestSqlTaskExecution
     {
         return new PartitionedOutputBuffer(
                 TASK_ID.toString(),
-                new StateMachine<>("bufferState", taskNotificationExecutor, OPEN, TERMINAL_BUFFER_STATES),
+                new OutputBufferStateMachine(TASK_ID, taskNotificationExecutor),
                 createInitialEmptyOutputBuffers(PARTITIONED)
                         .withBuffer(OUTPUT_BUFFER_ID, 0)
                         .withNoMoreBufferIds(),
@@ -659,8 +660,8 @@ public class TestSqlTaskExecution
                 assertFalse(bufferComplete, "bufferComplete is set before enough positions are consumed");
                 BufferResult results = outputBuffer.get(outputBufferId, sequenceId, DataSize.of(1, MEGABYTE)).get(nanoUntil - System.nanoTime(), TimeUnit.NANOSECONDS);
                 bufferComplete = results.isBufferComplete();
-                for (SerializedPage serializedPage : results.getSerializedPages()) {
-                    surplusPositions += serializedPage.getPositionCount();
+                for (Slice serializedPage : results.getSerializedPages()) {
+                    surplusPositions += getSerializedPagePositionCount(serializedPage);
                 }
                 sequenceId += results.getSerializedPages().size();
             }
@@ -674,8 +675,8 @@ public class TestSqlTaskExecution
             while (!bufferComplete) {
                 BufferResult results = outputBuffer.get(outputBufferId, sequenceId, DataSize.of(1, MEGABYTE)).get(nanoUntil - System.nanoTime(), TimeUnit.NANOSECONDS);
                 bufferComplete = results.isBufferComplete();
-                for (SerializedPage serializedPage : results.getSerializedPages()) {
-                    assertEquals(serializedPage.getPositionCount(), 0);
+                for (Slice serializedPage : results.getSerializedPages()) {
+                    assertEquals(getSerializedPagePositionCount(serializedPage), 0);
                 }
                 sequenceId += results.getSerializedPages().size();
             }
@@ -683,7 +684,7 @@ public class TestSqlTaskExecution
 
         public void abort()
         {
-            outputBuffer.abort(outputBufferId);
+            outputBuffer.destroy(outputBufferId);
             assertEquals(outputBuffer.getInfo().getState(), BufferState.FINISHED);
         }
     }
@@ -1311,6 +1312,8 @@ public class TestSqlTaskExecution
     public static class TestingSplit
             implements ConnectorSplit
     {
+        private static final int INSTANCE_SIZE = ClassLayout.parseClass(TestingSplit.class).instanceSize();
+
         private final int begin;
         private final int end;
 
@@ -1337,6 +1340,12 @@ public class TestSqlTaskExecution
         public Object getInfo()
         {
             return this;
+        }
+
+        @Override
+        public long getRetainedSizeInBytes()
+        {
+            return INSTANCE_SIZE;
         }
 
         public int getBegin()

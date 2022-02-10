@@ -39,6 +39,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.plugin.base.util.Closables.closeAllSuppress;
 import static io.trino.plugin.raptor.legacy.RaptorColumnHandle.SHARD_UUID_COLUMN_TYPE;
 import static io.trino.plugin.raptor.legacy.RaptorErrorCode.RAPTOR_ERROR;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -57,7 +58,7 @@ public class RaptorPageSource
 
     private final BitSet rowsToDelete;
 
-    private final AggregatedMemoryContext systemMemoryContext;
+    private final AggregatedMemoryContext memoryContext;
 
     private boolean closed;
 
@@ -66,7 +67,7 @@ public class RaptorPageSource
             OrcRecordReader recordReader,
             List<ColumnAdaptation> columnAdaptations,
             OrcDataSource orcDataSource,
-            AggregatedMemoryContext systemMemoryContext)
+            AggregatedMemoryContext memoryContext)
     {
         this.shardRewriter = requireNonNull(shardRewriter, "shardRewriter is null");
         this.recordReader = requireNonNull(recordReader, "recordReader is null");
@@ -75,7 +76,7 @@ public class RaptorPageSource
 
         this.rowsToDelete = new BitSet(toIntExact(recordReader.getFileRowCount()));
 
-        this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
+        this.memoryContext = requireNonNull(memoryContext, "memoryContext is null");
     }
 
     @Override
@@ -104,7 +105,7 @@ public class RaptorPageSource
             page = recordReader.nextPage();
         }
         catch (IOException | RuntimeException e) {
-            closeWithSuppression(e);
+            closeAllSuppress(e, this);
             throw handleException(e);
         }
 
@@ -170,23 +171,9 @@ public class RaptorPageSource
     }
 
     @Override
-    public long getSystemMemoryUsage()
+    public long getMemoryUsage()
     {
-        return systemMemoryContext.getBytes();
-    }
-
-    private void closeWithSuppression(Throwable throwable)
-    {
-        requireNonNull(throwable, "throwable is null");
-        try {
-            close();
-        }
-        catch (RuntimeException e) {
-            // Self-suppression not permitted
-            if (throwable != e) {
-                throwable.addSuppressed(e);
-            }
-        }
+        return memoryContext.getBytes();
     }
 
     public interface ColumnAdaptation

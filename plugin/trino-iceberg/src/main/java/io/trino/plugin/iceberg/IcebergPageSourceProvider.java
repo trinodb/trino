@@ -74,7 +74,6 @@ import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hdfs.BlockMissingException;
-import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.mapping.MappedField;
 import org.apache.iceberg.mapping.MappedFields;
 import org.apache.iceberg.mapping.NameMapping;
@@ -224,7 +223,7 @@ public class IcebergPageSourceProvider
             long start,
             long length,
             long fileSize,
-            FileFormat fileFormat,
+            IcebergFileFormat fileFormat,
             List<IcebergColumnHandle> dataColumns,
             TupleDomain<IcebergColumnHandle> predicate,
             Optional<NameMapping> nameMapping)
@@ -373,7 +372,7 @@ public class IcebergPageSourceProvider
                 }
             }
 
-            AggregatedMemoryContext systemMemoryUsage = newSimpleAggregatedMemoryContext();
+            AggregatedMemoryContext memoryUsage = newSimpleAggregatedMemoryContext();
             OrcDataSourceId orcDataSourceId = orcDataSource.getId();
             OrcRecordReader recordReader = reader.createRecordReader(
                     fileReadColumns,
@@ -383,7 +382,7 @@ public class IcebergPageSourceProvider
                     start,
                     length,
                     UTC,
-                    systemMemoryUsage,
+                    memoryUsage,
                     INITIAL_BATCH_SIZE,
                     exception -> handleException(orcDataSourceId, exception),
                     new IdBasedFieldMapperFactory(readColumns));
@@ -395,7 +394,7 @@ public class IcebergPageSourceProvider
                             orcDataSource,
                             Optional.empty(),
                             Optional.empty(),
-                            systemMemoryUsage,
+                            memoryUsage,
                             stats),
                     columnProjections);
         }
@@ -457,7 +456,7 @@ public class IcebergPageSourceProvider
                             return setMissingFieldIds(nestedColumn, nameMapping, nextQualifiedPath.build());
                         })
                         .collect(toImmutableList()),
-                attributes.build());
+                attributes.buildOrThrow());
     }
 
     /**
@@ -491,7 +490,7 @@ public class IcebergPageSourceProvider
                         columnsById.put(Integer.parseInt(fieldId), column);
                     }
                 });
-        return columnsById.build();
+        return columnsById.buildOrThrow();
     }
 
     private static Integer getIcebergFieldId(OrcColumn column)
@@ -544,7 +543,7 @@ public class IcebergPageSourceProvider
                 populateMapping(column.getColumnIdentity(), mapping);
             }
 
-            this.fieldNameToIdMappingForTableColumns = mapping.build();
+            this.fieldNameToIdMappingForTableColumns = mapping.buildOrThrow();
         }
 
         @Override
@@ -611,7 +610,7 @@ public class IcebergPageSourceProvider
             FileFormatDataSourceStats fileFormatDataSourceStats,
             Optional<NameMapping> nameMapping)
     {
-        AggregatedMemoryContext systemMemoryContext = newSimpleAggregatedMemoryContext();
+        AggregatedMemoryContext memoryContext = newSimpleAggregatedMemoryContext();
 
         ParquetDataSource dataSource = null;
         try {
@@ -663,7 +662,7 @@ public class IcebergPageSourceProvider
                     Optional.empty(),
                     dataSource,
                     UTC,
-                    systemMemoryContext,
+                    memoryContext,
                     options);
 
             ImmutableList.Builder<Type> trinoTypes = ImmutableList.builder();
@@ -768,7 +767,7 @@ public class IcebergPageSourceProvider
                 }
             }
 
-            return new IcebergOrcProjectedLayout(fieldLayouts.build());
+            return new IcebergOrcProjectedLayout(fieldLayouts.buildOrThrow());
         }
 
         @Override
@@ -831,7 +830,7 @@ public class IcebergPageSourceProvider
                 }
             }
         });
-        return TupleDomain.withColumnDomains(predicate.build());
+        return TupleDomain.withColumnDomains(predicate.buildOrThrow());
     }
 
     private static TrinoException handleException(OrcDataSourceId dataSourceId, Exception exception)

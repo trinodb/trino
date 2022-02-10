@@ -214,7 +214,7 @@ public class HeartbeatFailureDetector
         for (MonitoringTask task : tasks.values()) {
             builder.put(task.getService(), task.getStats());
         }
-        return builder.build();
+        return builder.buildOrThrow();
     }
 
     @VisibleForTesting
@@ -515,7 +515,7 @@ public class HeartbeatFailureDetector
             for (Map.Entry<Class<? extends Throwable>, DecayCounter> entry : failureCountByType.entrySet()) {
                 builder.put(entry.getKey().getName(), entry.getValue().getCount());
             }
-            return builder.build();
+            return builder.buildOrThrow();
         }
     }
 }

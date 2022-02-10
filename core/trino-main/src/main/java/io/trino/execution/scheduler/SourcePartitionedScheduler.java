@@ -91,7 +91,7 @@ public class SourcePartitionedScheduler
         FINISHED
     }
 
-    private final PipelinedStageExecution stageExecution;
+    private final StageExecution stageExecution;
     private final SplitSource splitSource;
     private final SplitPlacementPolicy splitPlacementPolicy;
     private final int splitBatchSize;
@@ -110,7 +110,7 @@ public class SourcePartitionedScheduler
     private SettableFuture<Void> whenFinishedOrNewLifespanAdded = SettableFuture.create();
 
     private SourcePartitionedScheduler(
-            PipelinedStageExecution stageExecution,
+            StageExecution stageExecution,
             PlanNodeId partitionedNode,
             SplitSource splitSource,
             SplitPlacementPolicy splitPlacementPolicy,
@@ -150,7 +150,7 @@ public class SourcePartitionedScheduler
      * minimal management from the caller, which is ideal for use as a stage scheduler.
      */
     public static StageScheduler newSourcePartitionedSchedulerAsStageScheduler(
-            PipelinedStageExecution stageExecution,
+            StageExecution stageExecution,
             PlanNodeId partitionedNode,
             SplitSource splitSource,
             SplitPlacementPolicy splitPlacementPolicy,
@@ -176,6 +176,12 @@ public class SourcePartitionedScheduler
 
         return new StageScheduler()
         {
+            @Override
+            public void start()
+            {
+                sourcePartitionedScheduler.start();
+            }
+
             @Override
             public ScheduleResult schedule()
             {
@@ -204,7 +210,7 @@ public class SourcePartitionedScheduler
      * transitioning of the object will not work properly.
      */
     public static SourceScheduler newSourcePartitionedSchedulerAsSourceScheduler(
-            PipelinedStageExecution stageExecution,
+            StageExecution stageExecution,
             PlanNodeId partitionedNode,
             SplitSource splitSource,
             SplitPlacementPolicy splitPlacementPolicy,
@@ -249,6 +255,18 @@ public class SourcePartitionedScheduler
         // and the listener should stop waiting.
         whenFinishedOrNewLifespanAdded.set(null);
         whenFinishedOrNewLifespanAdded = SettableFuture.create();
+    }
+
+    @Override
+    public synchronized void start()
+    {
+        // Avoid deadlocks by immediately scheduling a task for collecting dynamic filters because:
+        // * there can be task in other stage blocked waiting for the dynamic filters, or
+        // * connector split source for this stage might be blocked waiting the dynamic filters.
+        if (dynamicFilterService.isCollectingTaskNeeded(stageExecution.getStageId().getQueryId(), stageExecution.getFragment())) {
+            stageExecution.beginScheduling();
+            createTaskOnRandomNode();
+        }
     }
 
     @Override
@@ -406,13 +424,6 @@ public class SourcePartitionedScheduler
             return new ScheduleResult(false, overallNewTasks.build(), overallSplitAssignmentCount);
         }
 
-        if (anyBlockedOnNextSplitBatch
-                && scheduledTasks.isEmpty()
-                && dynamicFilterService.isCollectingTaskNeeded(stageExecution.getStageId().getQueryId(), stageExecution.getFragment())) {
-            // schedule a task for collecting dynamic filters in case probe split generator is waiting for them
-            createTaskOnRandomNode().ifPresent(overallNewTasks::add);
-        }
-
         boolean anySourceTaskBlocked = this.anySourceTaskBlocked.getAsBoolean();
         if (anySourceTaskBlocked) {
             // Dynamic filters might not be collected due to build side source tasks being blocked on full buffer.
@@ -541,13 +552,13 @@ public class SourcePartitionedScheduler
         return newTasks.build();
     }
 
-    private Optional<RemoteTask> createTaskOnRandomNode()
+    private void createTaskOnRandomNode()
     {
         checkState(scheduledTasks.isEmpty(), "Stage task is already scheduled on node");
         List<InternalNode> allNodes = splitPlacementPolicy.allNodes();
         checkState(allNodes.size() > 0, "No nodes available");
         InternalNode node = allNodes.get(ThreadLocalRandom.current().nextInt(0, allNodes.size()));
-        return scheduleTask(node, ImmutableMultimap.of(), ImmutableMultimap.of());
+        scheduleTask(node, ImmutableMultimap.of(), ImmutableMultimap.of());
     }
 
     private Set<RemoteTask> finalizeTaskCreationIfNecessary()

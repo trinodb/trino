@@ -298,7 +298,7 @@ public class PushAggregationThroughOuterJoin
         // symbols in these new aggregations.
         ImmutableMap.Builder<Symbol, Symbol> aggregationsSymbolMappingBuilder = ImmutableMap.builder();
         ImmutableMap.Builder<Symbol, AggregationNode.Aggregation> aggregationsOverNullBuilder = ImmutableMap.builder();
-        SymbolMapper mapper = symbolMapper(sourcesSymbolMappingBuilder.build());
+        SymbolMapper mapper = symbolMapper(sourcesSymbolMappingBuilder.buildOrThrow());
         for (Map.Entry<Symbol, AggregationNode.Aggregation> entry : referenceAggregation.getAggregations().entrySet()) {
             Symbol aggregationSymbol = entry.getKey();
             Aggregation overNullAggregation = mapper.map(entry.getValue());
@@ -306,13 +306,13 @@ public class PushAggregationThroughOuterJoin
             aggregationsOverNullBuilder.put(overNullSymbol, overNullAggregation);
             aggregationsSymbolMappingBuilder.put(aggregationSymbol, overNullSymbol);
         }
-        Map<Symbol, Symbol> aggregationsSymbolMapping = aggregationsSymbolMappingBuilder.build();
+        Map<Symbol, Symbol> aggregationsSymbolMapping = aggregationsSymbolMappingBuilder.buildOrThrow();
 
         // create an aggregation node whose source is the null row.
         AggregationNode aggregationOverNullRow = new AggregationNode(
                 idAllocator.getNextId(),
                 nullRow,
-                aggregationsOverNullBuilder.build(),
+                aggregationsOverNullBuilder.buildOrThrow(),
                 globalAggregation(),
                 ImmutableList.of(),
                 AggregationNode.Step.SINGLE,

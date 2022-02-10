@@ -173,6 +173,12 @@ public class MockSplitSource
         {
             return "A mock split";
         }
+
+        @Override
+        public long getRetainedSizeInBytes()
+        {
+            return 0;
+        }
     }
 
     public enum Action

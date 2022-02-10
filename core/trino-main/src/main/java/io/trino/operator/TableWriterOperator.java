@@ -187,7 +187,7 @@ public class TableWriterOperator
             boolean statisticsCpuTimerEnabled)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
-        this.pageSinkMemoryContext = operatorContext.newLocalSystemMemoryContext(TableWriterOperator.class.getSimpleName());
+        this.pageSinkMemoryContext = operatorContext.newLocalUserMemoryContext(TableWriterOperator.class.getSimpleName());
         this.pageSink = requireNonNull(pageSink, "pageSink is null");
         this.columnChannels = requireNonNull(columnChannels, "columnChannels is null");
         this.notNullChannelColumnNames = requireNonNull(notNullChannelColumnNames, "notNullChannelColumnNames is null");
@@ -392,7 +392,7 @@ public class TableWriterOperator
 
     private void updateMemoryUsage()
     {
-        long pageSinkMemoryUsage = pageSink.getSystemMemoryUsage();
+        long pageSinkMemoryUsage = pageSink.getMemoryUsage();
         pageSinkMemoryContext.setBytes(pageSinkMemoryUsage);
         pageSinkPeakMemoryUsage.accumulateAndGet(pageSinkMemoryUsage, Math::max);
     }

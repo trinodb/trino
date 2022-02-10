@@ -340,7 +340,7 @@ public class DecorrelateInnerUnnestWithGlobalAggregation
         return new AggregationNode(
                 aggregationNode.getId(),
                 source,
-                rewriteWithMasks(aggregationNode.getAggregations(), masks.build()),
+                rewriteWithMasks(aggregationNode.getAggregations(), masks.buildOrThrow()),
                 singleGroupingSet(groupingSymbols),
                 ImmutableList.of(),
                 SINGLE,

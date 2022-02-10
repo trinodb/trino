@@ -24,6 +24,7 @@ import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.ExpressionRewriter;
 import io.trino.sql.tree.ExpressionTreeRewriter;
 import io.trino.sql.tree.LogicalExpression;
+import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import java.util.Comparator;
@@ -208,12 +209,12 @@ public class TestSimplifyExpressions
     public void testCastDoubleToBoundedVarchar()
     {
         // the varchar type length is enough to contain the number's representation
-        assertSimplifies("CAST(0e0 AS varchar(3))", "'0.0'");
-        assertSimplifies("CAST(-0e0 AS varchar(4))", "'-0.0'");
+        assertSimplifies("CAST(0e0 AS varchar(3))", "'0E0'");
+        assertSimplifies("CAST(-0e0 AS varchar(4))", "'-0E0'");
         assertSimplifies("CAST(0e0 / 0e0 AS varchar(3))", "'NaN'");
         assertSimplifies("CAST(DOUBLE 'Infinity' AS varchar(8))", "'Infinity'");
-        assertSimplifies("CAST(12e2 AS varchar(6))", "'1200.0'");
-        assertSimplifies("CAST(-12e2 AS varchar(50))", "CAST('-1200.0' AS varchar(50))");
+        assertSimplifies("CAST(12e2 AS varchar(5))", "'1.2E3'");
+        assertSimplifies("CAST(-12e2 AS varchar(50))", "CAST('-1.2E3' AS varchar(50))");
 
         // cast from double to varchar fails, so the expression is not modified
         assertSimplifies("CAST(12e2 AS varchar(3))", "CAST(12e2 AS varchar(3))");
@@ -227,12 +228,12 @@ public class TestSimplifyExpressions
     public void testCastRealToBoundedVarchar()
     {
         // the varchar type length is enough to contain the number's representation
-        assertSimplifies("CAST(REAL '0e0' AS varchar(3))", "'0.0'");
-        assertSimplifies("CAST(REAL '-0e0' AS varchar(4))", "'-0.0'");
+        assertSimplifies("CAST(REAL '0e0' AS varchar(3))", "'0E0'");
+        assertSimplifies("CAST(REAL '-0e0' AS varchar(4))", "'-0E0'");
         assertSimplifies("CAST(REAL '0e0' / REAL '0e0' AS varchar(3))", "'NaN'");
         assertSimplifies("CAST(REAL 'Infinity' AS varchar(8))", "'Infinity'");
-        assertSimplifies("CAST(REAL '12e2' AS varchar(6))", "'1200.0'");
-        assertSimplifies("CAST(REAL '-12e2' AS varchar(50))", "CAST('-1200.0' AS varchar(50))");
+        assertSimplifies("CAST(REAL '12e2' AS varchar(5))", "'1.2E3'");
+        assertSimplifies("CAST(REAL '-12e2' AS varchar(50))", "CAST('-1.2E3' AS varchar(50))");
 
         // cast from real to varchar fails, so the expression is not modified
         assertSimplifies("CAST(REAL '12e2' AS varchar(3))", "CAST(REAL '12e2' AS varchar(3))");
@@ -242,15 +243,30 @@ public class TestSimplifyExpressions
         assertSimplifies("CAST(REAL '12e2' AS varchar(3)) = '1200.0'", "CAST(REAL '12e2' AS varchar(3)) = '1200.0'");
     }
 
-    private static void assertSimplifies(String expression, String expected)
+    @Test
+    public void testCastDateToBoundedVarchar()
     {
-        ParsingOptions parsingOptions = new ParsingOptions();
-        Expression actualExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(expression, parsingOptions));
-        Expression expectedExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(expected, parsingOptions));
-        Expression rewritten = rewrite(actualExpression, TEST_SESSION, new SymbolAllocator(booleanSymbolTypeMapFor(actualExpression)), PLANNER_CONTEXT, createTestingTypeAnalyzer(PLANNER_CONTEXT));
+        // the varchar type length is enough to contain the date's representation
+        assertSimplifies("CAST(DATE '2013-02-02' AS varchar(10))", "'2013-02-02'");
+        assertSimplifies("CAST(DATE '2013-02-02' AS varchar(50))", "CAST('2013-02-02' AS varchar(50))");
+
+        // cast from date to varchar fails, so the expression is not modified
+        assertSimplifies("CAST(DATE '2013-02-02' AS varchar(3))", "CAST(DATE '2013-02-02' AS varchar(3))");
+        assertSimplifies("CAST(DATE '2013-02-02' AS varchar(3)) = '2013-02-02'", "CAST(DATE '2013-02-02' AS varchar(3)) = '2013-02-02'");
+    }
+
+    private static void assertSimplifies(@Language("SQL") String expression, @Language("SQL") String expected)
+    {
+        Expression expectedExpression = normalize(rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(expected, new ParsingOptions())));
         assertEquals(
-                normalize(rewritten),
-                normalize(expectedExpression));
+                simplify(expression),
+                expectedExpression);
+    }
+
+    private static Expression simplify(@Language("SQL") String expression)
+    {
+        Expression actualExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(expression, new ParsingOptions()));
+        return normalize(rewrite(actualExpression, TEST_SESSION, new SymbolAllocator(booleanSymbolTypeMapFor(actualExpression)), PLANNER_CONTEXT, createTestingTypeAnalyzer(PLANNER_CONTEXT)));
     }
 
     private static Map<Symbol, Type> booleanSymbolTypeMapFor(Expression expression)
@@ -309,6 +325,16 @@ public class TestSimplifyExpressions
         assertSimplifiesNumericTypes("NOT (1 > D2)", "NOT (1 > D2)");
         assertSimplifiesNumericTypes("NOT (R1 > 1)", "NOT (R1 > 1)");
         assertSimplifiesNumericTypes("NOT (1 > R2)", "NOT (1 > R2)");
+    }
+
+    @Test
+    public void testRewriteOrExpression()
+    {
+        assertSimplifiesNumericTypes("I1 = 1 OR I1 = 2 ", "I1 IN (1, 2)");
+        // TODO: Implement rule for Merging IN expression
+        assertSimplifiesNumericTypes("I1 = 1 OR I1 = 2 OR I1 IN (3, 4)", "I1 IN (3, 4) OR I1 IN (1, 2)");
+        assertSimplifiesNumericTypes("I1 = 1 OR I1 = 2 OR I1 = I2", "I1 IN (1, 2, I2)");
+        assertSimplifiesNumericTypes("I1 = 1 OR I1 = 2 OR I2 = 3 OR I2 = 4", "I1 IN (1, 2) OR I2 IN (3, 4)");
     }
 
     private static void assertSimplifiesNumericTypes(String expression, String expected)

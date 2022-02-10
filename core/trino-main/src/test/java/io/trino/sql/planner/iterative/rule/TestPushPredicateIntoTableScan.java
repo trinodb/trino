@@ -25,7 +25,6 @@ import io.trino.metadata.TableHandle;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.plugin.tpch.TpchColumnHandle;
 import io.trino.plugin.tpch.TpchTableHandle;
-import io.trino.plugin.tpch.TpchTableLayoutHandle;
 import io.trino.plugin.tpch.TpchTransactionHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPartitioningHandle;
@@ -103,15 +102,13 @@ public class TestPushPredicateIntoTableScan
         nationTableHandle = new TableHandle(
                 catalogName,
                 nation,
-                TpchTransactionHandle.INSTANCE,
-                Optional.of(new TpchTableLayoutHandle(nation, TupleDomain.all())));
+                TpchTransactionHandle.INSTANCE);
 
         TpchTableHandle orders = new TpchTableHandle("sf1", "orders", 1.0);
         ordersTableHandle = new TableHandle(
                 catalogName,
                 orders,
-                TpchTransactionHandle.INSTANCE,
-                Optional.of(new TpchTableLayoutHandle(orders, TupleDomain.all())));
+                TpchTransactionHandle.INSTANCE);
     }
 
     @Test
@@ -192,7 +189,7 @@ public class TestPushPredicateIntoTableScan
         ColumnHandle columnHandle = new TpchColumnHandle("orderstatus", orderStatusType);
         Map<String, Domain> filterConstraint = ImmutableMap.<String, Domain>builder()
                 .put("orderstatus", singleValue(orderStatusType, utf8Slice("O")))
-                .build();
+                .buildOrThrow();
         tester().assertThat(pushPredicateIntoTableScan)
                 .on(p -> p.filter(expression("orderstatus = 'O' OR orderstatus = 'F'"),
                         p.tableScan(
@@ -302,7 +299,7 @@ public class TestPushPredicateIntoTableScan
     {
         Map<String, Domain> filterConstraint = ImmutableMap.<String, Domain>builder()
                 .put("orderstatus", singleValue(createVarcharType(1), utf8Slice("F")))
-                .build();
+                .buildOrThrow();
         tester().assertThat(pushPredicateIntoTableScan)
                 .on(p -> p.filter(expression("orderstatus = 'F'"),
                         p.tableScan(
@@ -408,7 +405,6 @@ public class TestPushPredicateIntoTableScan
         return new TableHandle(
                 new CatalogName(MOCK_CATALOG),
                 connectorTableHandle,
-                TestingTransactionHandle.create(),
-                Optional.empty());
+                TestingTransactionHandle.create());
     }
 }

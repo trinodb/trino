@@ -414,7 +414,7 @@ public final class StandardFileFormats
                     columnNames,
                     fromHiveStorageFormat(format),
                     createSchema(format, columnNames, columnTypes),
-                    format.getEstimatedWriterSystemMemoryUsage(),
+                    format.getEstimatedWriterMemoryUsage(),
                     config,
                     TESTING_TYPE_MANAGER,
                     UTC,

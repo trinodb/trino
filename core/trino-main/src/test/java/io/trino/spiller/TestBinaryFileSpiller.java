@@ -149,7 +149,7 @@ public class TestBinaryFileSpiller
         try (PagesSerde.PagesSerdeContext context = pagesSerde.newContext()) {
             for (List<Page> spill : spills) {
                 spilledBytes += spill.stream()
-                        .mapToLong(page -> pagesSerde.serialize(context, page).getSizeInBytes())
+                        .mapToLong(page -> pagesSerde.serialize(context, page).length())
                         .sum();
                 spiller.spill(spill.iterator()).get();
             }

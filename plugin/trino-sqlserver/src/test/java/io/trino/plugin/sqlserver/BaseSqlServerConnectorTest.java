@@ -73,6 +73,7 @@ public abstract class BaseSqlServerConnectorTest
                 return false;
 
             case SUPPORTS_ARRAY:
+            case SUPPORTS_NEGATIVE_DATE:
                 return false;
 
             case SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS:
@@ -457,6 +458,17 @@ public abstract class BaseSqlServerConnectorTest
                         ")");
 
         assertUpdate("DROP TABLE test_show_unique_constraint_table");
+    }
+
+    @Test
+    @Override
+    public void testDateYearOfEraPredicate()
+    {
+        // SQL Server throws an exception instead of an empty result when the value is out of range
+        assertQuery("SELECT orderdate FROM orders WHERE orderdate = DATE '1997-09-14'", "VALUES DATE '1997-09-14'");
+        assertQueryFails(
+                "SELECT * FROM orders WHERE orderdate = DATE '-1996-09-14'",
+                "Conversion failed when converting date and/or time from character string\\.");
     }
 
     @Override

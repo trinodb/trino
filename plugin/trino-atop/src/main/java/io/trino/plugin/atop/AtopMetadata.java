@@ -119,7 +119,7 @@ public class AtopMetadata
         for (AtopColumn column : atopTableHandle.getTable().getColumns()) {
             columnHandles.put(column.getName(), new AtopColumnHandle(column.getName()));
         }
-        return columnHandles.build();
+        return columnHandles.buildOrThrow();
     }
 
     @Override
@@ -130,7 +130,7 @@ public class AtopMetadata
             ConnectorTableMetadata tableMetadata = getTableMetadata(session, getTableHandle(session, tableName));
             columns.put(tableName, tableMetadata.getColumns());
         }
-        return columns.build();
+        return columns.buildOrThrow();
     }
 
     @Override
@@ -147,12 +147,6 @@ public class AtopMetadata
         AtopTableHandle atopTableHandle = (AtopTableHandle) tableHandle;
         SchemaTableName tableName = new SchemaTableName(atopTableHandle.getSchema(), atopTableHandle.getTable().getName());
         throw new ColumnNotFoundException(tableName, columnName);
-    }
-
-    @Override
-    public boolean usesLegacyTableLayouts()
-    {
-        return false;
     }
 
     @Override

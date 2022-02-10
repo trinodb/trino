@@ -23,6 +23,7 @@ import io.trino.spi.connector.ConnectorCapabilities;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorRecordSetProvider;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.procedure.Procedure;
@@ -97,7 +98,7 @@ public class JdbcConnector
     }
 
     @Override
-    public ConnectorMetadata getMetadata(ConnectorTransactionHandle transaction)
+    public ConnectorMetadata getMetadata(ConnectorSession session, ConnectorTransactionHandle transaction)
     {
         JdbcMetadata metadata = transactions.get(transaction);
         checkArgument(metadata != null, "no such transaction: %s", transaction);

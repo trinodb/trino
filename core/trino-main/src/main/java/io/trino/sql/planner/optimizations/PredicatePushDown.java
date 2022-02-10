@@ -61,7 +61,6 @@ import io.trino.sql.tree.BetweenPredicate;
 import io.trino.sql.tree.BooleanLiteral;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.Literal;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.NotExpression;
 import io.trino.sql.tree.NullLiteral;
@@ -97,6 +96,7 @@ import static io.trino.sql.DynamicFilters.createDynamicFilterExpression;
 import static io.trino.sql.ExpressionUtils.combineConjuncts;
 import static io.trino.sql.ExpressionUtils.extractConjuncts;
 import static io.trino.sql.ExpressionUtils.filterDeterministicConjuncts;
+import static io.trino.sql.ExpressionUtils.isEffectivelyLiteral;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
 import static io.trino.sql.planner.ExpressionSymbolInliner.inlineSymbols;
 import static io.trino.sql.planner.SymbolsExtractor.extractUnique;
@@ -295,7 +295,7 @@ public class PredicatePushDown
 
             List<Expression> inlinedDeterministicConjuncts = inlineConjuncts.get(true).stream()
                     .map(entry -> inlineSymbols(node.getAssignments().getMap(), entry))
-                    .map(conjunct -> canonicalizeExpression(conjunct, typeAnalyzer.getTypes(session, types, conjunct), metadata, session)) // normalize expressions to a form that unwrapCasts understands
+                    .map(conjunct -> canonicalizeExpression(conjunct, typeAnalyzer.getTypes(session, types, conjunct), plannerContext, session)) // normalize expressions to a form that unwrapCasts understands
                     .map(conjunct -> unwrapCasts(session, plannerContext, typeAnalyzer, types, conjunct))
                     .collect(Collectors.toList());
 
@@ -331,7 +331,7 @@ public class PredicatePushDown
 
             return dependencies.entrySet().stream()
                     .allMatch(entry -> entry.getValue() == 1
-                            || node.getAssignments().get(entry.getKey()) instanceof Literal
+                            || isEffectivelyLiteral(plannerContext, session, node.getAssignments().get(entry.getKey()))
                             || node.getAssignments().get(entry.getKey()) instanceof SymbolReference);
         }
 

@@ -49,7 +49,7 @@ public class TestReaderColumns
             .put("col_struct_of_non_primitives", ROWTYPE_OF_ROW_AND_PRIMITIVES)
             .put("col_partition_key_1", BIGINT)
             .put("col_partition_key_2", BIGINT)
-            .build();
+            .buildOrThrow();
 
     private static final Map<String, HiveColumnHandle> TEST_FULL_COLUMNS = createTestFullColumns(TEST_COLUMN_NAMES, TEST_COLUMN_TYPES);
 

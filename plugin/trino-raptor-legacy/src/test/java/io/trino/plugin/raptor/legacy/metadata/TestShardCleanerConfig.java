@@ -54,7 +54,7 @@ public class TestShardCleanerConfig
                 .put("raptor.backup-clean-time", "35m")
                 .put("raptor.backup-deletion-threads", "37")
                 .put("raptor.max-completed-transaction-age", "39m")
-                .build();
+                .buildOrThrow();
 
         ShardCleanerConfig expected = new ShardCleanerConfig()
                 .setMaxTransactionAge(new Duration(42, MINUTES))

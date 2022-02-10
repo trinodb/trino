@@ -39,8 +39,12 @@ import io.trino.sql.planner.optimizations.PlanOptimizer;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.planprinter.PlanPrinter;
 
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
@@ -48,11 +52,15 @@ import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.spi.StandardErrorCode.OPTIMIZER_TIMEOUT;
 import static java.lang.String.format;
+import static java.lang.System.nanoTime;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
+import static java.util.stream.Collectors.joining;
 
 public class IterativeOptimizer
         implements PlanOptimizer
@@ -105,7 +113,7 @@ public class IterativeOptimizer
         Lookup lookup = Lookup.from(planNode -> Stream.of(memo.resolve(planNode)));
 
         Duration timeout = SystemSessionProperties.getOptimizerTimeout(session);
-        Context context = new Context(memo, lookup, idAllocator, symbolAllocator, System.nanoTime(), timeout.toMillis(), session, warningCollector);
+        Context context = new Context(memo, lookup, idAllocator, symbolAllocator, nanoTime(), timeout.toMillis(), session, warningCollector);
         exploreGroup(memo.getRootGroup(), context);
 
         return memo.extract();
@@ -151,19 +159,29 @@ public class IterativeOptimizer
             Iterator<Rule<?>> possiblyMatchingRules = ruleIndex.getCandidates(node).iterator();
             while (possiblyMatchingRules.hasNext()) {
                 Rule<?> rule = possiblyMatchingRules.next();
+                long timeStart = nanoTime();
+                long timeEnd;
+                boolean invoked = false;
+                boolean applied = false;
 
-                if (!rule.isEnabled(context.session)) {
-                    continue;
+                if (rule.isEnabled(context.session)) {
+                    invoked = true;
+                    Rule.Result result = transform(node, rule, context);
+                    timeEnd = nanoTime();
+
+                    if (result.getTransformedPlan().isPresent()) {
+                        node = context.memo.replace(group, result.getTransformedPlan().get(), rule.getClass().getName());
+
+                        applied = true;
+                        done = false;
+                        progress = true;
+                    }
+                }
+                else {
+                    timeEnd = nanoTime();
                 }
 
-                Rule.Result result = transform(node, rule, context);
-
-                if (result.getTransformedPlan().isPresent()) {
-                    node = context.memo.replace(group, result.getTransformedPlan().get(), rule.getClass().getName());
-
-                    done = false;
-                    progress = true;
-                }
+                context.recordRuleInvocation(rule, invoked, applied, timeEnd - timeStart);
             }
         }
 
@@ -180,7 +198,7 @@ public class IterativeOptimizer
             long duration;
             Rule.Result result;
             try {
-                long start = System.nanoTime();
+                long start = nanoTime();
                 result = rule.apply(match.capture(nodeCapture), match.captures(), ruleContext(context));
 
                 if (LOG.isDebugEnabled() && !result.isEmpty()) {
@@ -190,7 +208,7 @@ public class IterativeOptimizer
                             PlanPrinter.textLogicalPlan(node, context.symbolAllocator.getTypes(), metadata, StatsAndCosts.empty(), context.session, 0, false),
                             PlanPrinter.textLogicalPlan(result.getTransformedPlan().get(), context.symbolAllocator.getTypes(), metadata, StatsAndCosts.empty(), context.session, 0, false));
                 }
-                duration = System.nanoTime() - start;
+                duration = nanoTime() - start;
             }
             catch (RuntimeException e) {
                 stats.recordFailure(rule);
@@ -290,6 +308,8 @@ public class IterativeOptimizer
         private final Session session;
         private final WarningCollector warningCollector;
 
+        private final Map<Rule<?>, RuleInvocationStats> ruleStats = new HashMap<>();
+
         public Context(
                 Memo memo,
                 Lookup lookup,
@@ -314,8 +334,81 @@ public class IterativeOptimizer
 
         public void checkTimeoutNotExhausted()
         {
-            if ((NANOSECONDS.toMillis(System.nanoTime() - startTimeInNanos)) >= timeoutInMilliseconds) {
-                throw new TrinoException(OPTIMIZER_TIMEOUT, format("The optimizer exhausted the time limit of %d ms", timeoutInMilliseconds));
+            if ((NANOSECONDS.toMillis(nanoTime() - startTimeInNanos)) >= timeoutInMilliseconds) {
+                String message = format("The optimizer exhausted the time limit of %d ms", timeoutInMilliseconds);
+                if (ruleStats.isEmpty()) {
+                    message += ": no rules invoked";
+                }
+                else {
+                    long timeThresholdNanos = MILLISECONDS.toNanos(timeoutInMilliseconds) / 100;
+                    List<Entry<Rule<?>, RuleInvocationStats>> topRulesByTime = ruleStats.entrySet().stream()
+                            // Filter out rules that used less than 1% time that do not change the state
+                            .filter(entry -> entry.getValue().getApplicationCount() > 0 || entry.getValue().getElapsedTimeNanos() > timeThresholdNanos)
+                            .sorted(Comparator.<Entry<Rule<?>, RuleInvocationStats>, Long>comparing(entry -> entry.getValue().getElapsedTimeNanos()).reversed())
+                            .limit(5)
+                            .collect(toImmutableList());
+
+                    if (topRulesByTime.isEmpty()) {
+                        message += ": no rules used significant amount of time";
+                    }
+                    else {
+                        message += ": Top rules: " + topRulesByTime.stream()
+                                .map(entry -> format("%s: %s", entry.getKey(), entry.getValue()))
+                                .collect(joining(",\n\t\t", "{\n\t\t", " }"));
+                    }
+                }
+                throw new TrinoException(OPTIMIZER_TIMEOUT, message);
+            }
+        }
+
+        public void recordRuleInvocation(Rule<?> rule, boolean invoked, boolean applied, long elapsedNanos)
+        {
+            ruleStats.computeIfAbsent(rule, ignored -> new RuleInvocationStats())
+                    .recordRuleInvocation(invoked, applied, elapsedNanos);
+        }
+
+        private static class RuleInvocationStats
+        {
+            private long invocationCount;
+            private long applicationCount;
+            private long elapsedTimeNanos;
+
+            void recordRuleInvocation(boolean invoked, boolean applied, long elapsedNanos)
+            {
+                if (invoked) {
+                    invocationCount++;
+                }
+                if (applied) {
+                    applicationCount++;
+                }
+                elapsedTimeNanos += elapsedNanos;
+            }
+
+            public long getInvocationCount()
+            {
+                return invocationCount;
+            }
+
+            public long getApplicationCount()
+            {
+                return applicationCount;
+            }
+
+            public long getElapsedTimeNanos()
+            {
+                return elapsedTimeNanos;
+            }
+
+            private long getElapsedTimeMillis()
+            {
+                return NANOSECONDS.toMillis(elapsedTimeNanos);
+            }
+
+            @Override
+            public String toString()
+            {
+                long elapsedMillis = getElapsedTimeMillis();
+                return format("%s ms, %s invocations, %s applications", elapsedMillis, invocationCount, applicationCount);
             }
         }
     }

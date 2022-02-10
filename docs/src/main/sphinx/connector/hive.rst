@@ -300,6 +300,9 @@ Property Name                                      Description                  
 
 ``hive.create-empty-bucket-files``                 Should empty files be created for buckets that have no data? ``false``
 
+``hive.partition-statistics-sample-size``          Specifies the number of partitions to analyze when           100
+                                                   computing table statistics.                 
+
 ``hive.max-partitions-per-writers``                Maximum number of partitions per writer.                     100
 
 ``hive.max-partitions-per-scan``                   Maximum number of partitions for a single table scan.        100,000
@@ -319,7 +322,7 @@ Property Name                                      Description                  
 ``hive.security``                                  See :doc:`hive-security`.
 
 ``security.config-file``                           Path of config file to use when ``hive.security=file``.
-                                                   See :ref:`hive-file-based-authorization` for details.
+                                                   See :ref:`catalog-file-based-access-control` for details.
 
 ``hive.non-managed-table-writes-enabled``          Enable writes to non-managed (external) Hive tables.         ``false``
 
@@ -388,6 +391,13 @@ Property Name                                      Description                  
 ``hive.query-partition-filter-required``           Set to ``true`` to force a query to use a partition filter.   ``false``
                                                    You can use the ``query_partition_filter_required`` catalog
                                                    session property for temporary, catalog specific use.
+
+``hive.statistics_enabled``                        Enables :doc:`/optimizer/statistics`. The equivalent          ``true``
+                                                   :doc:`catalog session property </sql/set-session>` 
+                                                   is ``statistics_enabled`` for session specific use. 
+                                                   Set to ``false`` to disable statistics. Disabling statistics
+                                                   means that :doc:`/optimizer/cost-based-optimizations` can 
+                                                   not make smart decisions about the query plan.
 ================================================== ============================================================ ============
 
 ORC format configuration properties
@@ -669,6 +679,8 @@ features:
 * :ref:`sql-transactions`
 
 Refer to :doc:`the migration guide </appendix/from-hive>` for practical advice on migrating from Hive to Trino.
+
+.. include:: alter-mv-set-properties-unsupported.fragment
 
 .. _hive-alter-table-execute:
 
@@ -963,9 +975,16 @@ Procedures
   Unregisters given, existing partition in the metastore for the specified table.
   The partition data is not deleted.
 
+.. _hive_flush_metadata_cache:
+
 * ``system.flush_metadata_cache()``
 
-  Flush Hive metadata caches.
+  Flush all Hive metadata caches.
+
+* ``system.flush_metadata_cache(schema_name => ..., table_name => ..., partition_columns => ARRAY[...], partition_values => ARRAY[...])``
+
+  Flush Hive metadata cache entries connected with selected partition.
+  Procedure requires named parameters to be passed
 
 Special columns
 ---------------

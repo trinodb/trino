@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 
-launcher_opts=${LAUNCHER_OPTS:-}
 target="${BASH_SOURCE%/*/*}/target"
 launcher_jar=( "${target}"/trino-product-tests-launcher-*-executable.jar )
 
@@ -17,4 +16,5 @@ if ! test -x "${launcher_jar[0]}"; then
     exit 3
 fi
 
-exec java $launcher_opts -jar "${launcher_jar[0]}" "$@"
+# Run the executable directly to pick memory settings defined in it. Invoking as `java -jar ...` would ignore them.
+exec "${launcher_jar[0]}" "$@"

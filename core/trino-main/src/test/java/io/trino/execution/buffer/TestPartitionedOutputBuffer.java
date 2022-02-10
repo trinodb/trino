@@ -16,10 +16,12 @@ package io.trino.execution.buffer;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
-import io.trino.execution.StateMachine;
+import io.trino.execution.StageId;
+import io.trino.execution.TaskId;
 import io.trino.execution.buffer.OutputBuffers.OutputBufferId;
 import io.trino.memory.context.SimpleLocalMemoryContext;
 import io.trino.spi.Page;
+import io.trino.spi.QueryId;
 import io.trino.spi.type.BigintType;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -31,8 +33,10 @@ import java.util.concurrent.ScheduledExecutorService;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.execution.buffer.BufferResult.emptyResults;
-import static io.trino.execution.buffer.BufferState.OPEN;
-import static io.trino.execution.buffer.BufferState.TERMINAL_BUFFER_STATES;
+import static io.trino.execution.buffer.BufferState.ABORTED;
+import static io.trino.execution.buffer.BufferState.FINISHED;
+import static io.trino.execution.buffer.BufferState.FLUSHING;
+import static io.trino.execution.buffer.BufferState.NO_MORE_BUFFERS;
 import static io.trino.execution.buffer.BufferTestUtils.MAX_WAIT;
 import static io.trino.execution.buffer.BufferTestUtils.NO_WAIT;
 import static io.trino.execution.buffer.BufferTestUtils.acknowledgeBufferResult;
@@ -192,20 +196,20 @@ public class TestPartitionedOutputBuffer
 
         //
         // finish the buffer
-        assertFalse(buffer.isFinished());
+        assertEquals(buffer.getState(), NO_MORE_BUFFERS);
         buffer.setNoMorePages();
         assertQueueState(buffer, FIRST, 12, 4);
         assertQueueState(buffer, SECOND, 0, 10);
-        buffer.abort(SECOND);
+        buffer.destroy(SECOND);
         assertQueueClosed(buffer, SECOND, 10);
 
         // not fully finished until all pages are consumed
-        assertFalse(buffer.isFinished());
+        assertEquals(buffer.getState(), FLUSHING);
 
         // remove a page, not finished
         assertBufferResultEquals(TYPES, getBufferResult(buffer, FIRST, 5, sizeOfPages(1), NO_WAIT), bufferResult(5, createPage(5)));
         assertQueueState(buffer, FIRST, 11, 5);
-        assertFalse(buffer.isFinished());
+        assertEquals(buffer.getState(), FLUSHING);
 
         // remove all remaining pages from first queue, should not be finished
         BufferResult x = getBufferResult(buffer, FIRST, 6, sizeOfPages(30), NO_WAIT);
@@ -224,7 +228,7 @@ public class TestPartitionedOutputBuffer
         assertQueueState(buffer, FIRST, 10, 6);
         // acknowledge all pages from the first partition, should transition to finished state
         assertBufferResultEquals(TYPES, getBufferResult(buffer, FIRST, 16, sizeOfPages(10), NO_WAIT), emptyResults(TASK_INSTANCE_ID, 16, true));
-        buffer.abort(FIRST);
+        buffer.destroy(FIRST);
         assertQueueClosed(buffer, FIRST, 16);
         assertFinished(buffer);
     }
@@ -321,7 +325,7 @@ public class TestPartitionedOutputBuffer
                         .withNoMoreBufferIds(),
                 sizeOfPages(10));
 
-        assertFalse(buffer.isFinished());
+        assertEquals(buffer.getState(), NO_MORE_BUFFERS);
 
         assertThatThrownBy(() -> buffer.setOutputBuffers(createInitialEmptyOutputBuffers(PARTITIONED)
                 .withBuffer(FIRST, 0)
@@ -430,12 +434,12 @@ public class TestPartitionedOutputBuffer
         buffer.setNoMorePages();
 
         assertBufferResultEquals(TYPES, getBufferResult(buffer, FIRST, 0, sizeOfPages(1), NO_WAIT), bufferResult(0, createPage(0)));
-        buffer.abort(FIRST);
+        buffer.destroy(FIRST);
         assertQueueClosed(buffer, FIRST, 0);
         assertBufferResultEquals(TYPES, getBufferResult(buffer, FIRST, 1, sizeOfPages(1), NO_WAIT), emptyResults(TASK_INSTANCE_ID, 0, true));
 
         assertBufferResultEquals(TYPES, getBufferResult(buffer, SECOND, 0, sizeOfPages(1), NO_WAIT), bufferResult(0, createPage(0)));
-        buffer.abort(SECOND);
+        buffer.destroy(SECOND);
         assertQueueClosed(buffer, SECOND, 0);
         assertFinished(buffer);
         assertBufferResultEquals(TYPES, getBufferResult(buffer, SECOND, 1, sizeOfPages(1), NO_WAIT), emptyResults(TASK_INSTANCE_ID, 0, true));
@@ -457,8 +461,8 @@ public class TestPartitionedOutputBuffer
         assertQueueState(buffer, FIRST, 0, 0);
         assertQueueState(buffer, SECOND, 0, 0);
 
-        buffer.abort(FIRST);
-        buffer.abort(SECOND);
+        buffer.destroy(FIRST);
+        buffer.destroy(SECOND);
 
         assertQueueClosed(buffer, FIRST, 0);
         assertQueueClosed(buffer, SECOND, 0);
@@ -472,7 +476,7 @@ public class TestPartitionedOutputBuffer
                         .withBuffer(FIRST, 0)
                         .withNoMoreBufferIds(),
                 sizeOfPages(5));
-        assertFalse(buffer.isFinished());
+        assertEquals(buffer.getState(), NO_MORE_BUFFERS);
 
         // attempt to get a page
         ListenableFuture<BufferResult> future = buffer.get(FIRST, 0, sizeOfPages(10));
@@ -491,8 +495,8 @@ public class TestPartitionedOutputBuffer
         future = buffer.get(FIRST, 1, sizeOfPages(10));
         assertFalse(future.isDone());
 
-        // abort the buffer
-        buffer.abort(FIRST);
+        // destroy the buffer
+        buffer.destroy(FIRST);
 
         // verify the future completed
         // partitioned buffer does not return a "complete" result in this case, but it doesn't matter
@@ -510,7 +514,7 @@ public class TestPartitionedOutputBuffer
                         .withBuffer(FIRST, 0)
                         .withNoMoreBufferIds(),
                 sizeOfPages(5));
-        assertFalse(buffer.isFinished());
+        assertEquals(buffer.getState(), NO_MORE_BUFFERS);
 
         // attempt to get a page
         ListenableFuture<BufferResult> future = buffer.get(FIRST, 0, sizeOfPages(10));
@@ -544,7 +548,7 @@ public class TestPartitionedOutputBuffer
                         .withBuffer(FIRST, 0)
                         .withNoMoreBufferIds(),
                 sizeOfPages(5));
-        assertFalse(buffer.isFinished());
+        assertEquals(buffer.getState(), NO_MORE_BUFFERS);
 
         // fill the buffer
         for (int i = 0; i < 5; i++) {
@@ -565,7 +569,7 @@ public class TestPartitionedOutputBuffer
 
         // finish the query
         buffer.setNoMorePages();
-        assertFalse(buffer.isFinished());
+        assertEquals(buffer.getState(), FLUSHING);
 
         // verify futures are complete
         assertFutureIsDone(firstEnqueuePage);
@@ -576,7 +580,7 @@ public class TestPartitionedOutputBuffer
                 bufferResult(1, createPage(1), createPage(2), createPage(3), createPage(4), createPage(5), createPage(6)));
         assertBufferResultEquals(TYPES, getBufferResult(buffer, FIRST, 7, sizeOfPages(100), NO_WAIT), emptyResults(TASK_INSTANCE_ID, 7, true));
 
-        buffer.abort(FIRST);
+        buffer.destroy(FIRST);
 
         // verify finished
         assertFinished(buffer);
@@ -590,7 +594,7 @@ public class TestPartitionedOutputBuffer
                         .withBuffer(FIRST, 0)
                         .withNoMoreBufferIds(),
                 sizeOfPages(5));
-        assertFalse(buffer.isFinished());
+        assertEquals(buffer.getState(), NO_MORE_BUFFERS);
 
         // attempt to get a page
         ListenableFuture<BufferResult> future = buffer.get(FIRST, 0, sizeOfPages(10));
@@ -624,7 +628,7 @@ public class TestPartitionedOutputBuffer
                         .withBuffer(FIRST, 0)
                         .withNoMoreBufferIds(),
                 sizeOfPages(5));
-        assertFalse(buffer.isFinished());
+        assertEquals(buffer.getState(), NO_MORE_BUFFERS);
 
         // fill the buffer
         for (int i = 0; i < 5; i++) {
@@ -660,7 +664,7 @@ public class TestPartitionedOutputBuffer
                         .withBuffer(FIRST, 0)
                         .withNoMoreBufferIds(),
                 sizeOfPages(5));
-        assertFalse(buffer.isFinished());
+        assertEquals(buffer.getState(), NO_MORE_BUFFERS);
 
         // attempt to get a page
         ListenableFuture<BufferResult> future = buffer.get(FIRST, 0, sizeOfPages(10));
@@ -678,8 +682,8 @@ public class TestPartitionedOutputBuffer
         future = buffer.get(FIRST, 1, sizeOfPages(10));
         assertFalse(future.isDone());
 
-        // fail the buffer
-        buffer.fail();
+        // abort the buffer
+        buffer.abort();
 
         // future should have not finished
         assertFalse(future.isDone());
@@ -697,7 +701,7 @@ public class TestPartitionedOutputBuffer
                         .withBuffer(FIRST, 0)
                         .withNoMoreBufferIds(),
                 sizeOfPages(5));
-        assertFalse(buffer.isFinished());
+        assertEquals(buffer.getState(), NO_MORE_BUFFERS);
 
         // fill the buffer
         for (int i = 0; i < 5; i++) {
@@ -716,9 +720,9 @@ public class TestPartitionedOutputBuffer
         assertFalse(firstEnqueuePage.isDone());
         assertFalse(secondEnqueuePage.isDone());
 
-        // fail the buffer (i.e., cancel the query)
-        buffer.fail();
-        assertFalse(buffer.isFinished());
+        // abort the buffer (i.e., fail the query)
+        buffer.abort();
+        assertEquals(buffer.getState(), ABORTED);
 
         // verify the futures are completed
         assertFutureIsDone(firstEnqueuePage);
@@ -734,7 +738,7 @@ public class TestPartitionedOutputBuffer
                         .withNoMoreBufferIds(),
                 sizeOfPages(5));
 
-        assertFalse(buffer.isFinished());
+        assertEquals(buffer.getState(), NO_MORE_BUFFERS);
 
         // fill the buffer
         List<Page> pages = new ArrayList<>();
@@ -749,17 +753,14 @@ public class TestPartitionedOutputBuffer
         // get and acknowledge 5 pages
         assertBufferResultEquals(TYPES, getBufferResult(buffer, FIRST, 0, sizeOfPages(5), MAX_WAIT), createBufferResult(TASK_INSTANCE_ID, 0, pages));
 
-        // buffer is not finished
-        assertFalse(buffer.isFinished());
-
         // there are no more pages and no more buffers, but buffer is not finished because it didn't receive an acknowledgement yet
-        assertFalse(buffer.isFinished());
+        assertEquals(buffer.getState(), FLUSHING);
 
         // ask the buffer to finish
-        buffer.abort(FIRST);
+        buffer.destroy(FIRST);
 
         // verify that the buffer is finished
-        assertTrue(buffer.isFinished());
+        assertEquals(buffer.getState(), FINISHED);
     }
 
     @Test
@@ -780,14 +781,14 @@ public class TestPartitionedOutputBuffer
         }
 
         // the buffer is in the NO_MORE_BUFFERS state now
-        // and if we abort all the buffers it should destroy itself
+        // and if we destroy all the buffers it should destroy itself
         // and move to the FINISHED state
-        buffer.abort(FIRST);
-        assertFalse(buffer.isFinished());
-        buffer.abort(SECOND);
-        assertFalse(buffer.isFinished());
-        buffer.abort(THIRD);
-        assertTrue(buffer.isFinished());
+        buffer.destroy(FIRST);
+        assertEquals(buffer.getState(), NO_MORE_BUFFERS);
+        buffer.destroy(SECOND);
+        assertEquals(buffer.getState(), NO_MORE_BUFFERS);
+        buffer.destroy(THIRD);
+        assertEquals(buffer.getState(), FINISHED);
     }
 
     @Test
@@ -799,7 +800,7 @@ public class TestPartitionedOutputBuffer
                         .withNoMoreBufferIds(),
                 sizeOfPages(5));
         Page page = createPage(1);
-        long serializePageSize = serializePage(page).getRetainedSizeInBytes();
+        long serializePageSize = serializePage(page).getRetainedSize();
         for (int i = 0; i < 5; i++) {
             addPage(buffer, page, 0);
             assertEquals(buffer.getPeakMemoryUsage(), (i + 1) * serializePageSize);
@@ -830,7 +831,7 @@ public class TestPartitionedOutputBuffer
     {
         return new PartitionedOutputBuffer(
                 TASK_INSTANCE_ID,
-                new StateMachine<>("bufferState", stateNotificationExecutor, OPEN, TERMINAL_BUFFER_STATES),
+                new OutputBufferStateMachine(new TaskId(new StageId(new QueryId("query"), 0), 0, 0), stateNotificationExecutor),
                 buffers,
                 dataSize,
                 () -> new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),

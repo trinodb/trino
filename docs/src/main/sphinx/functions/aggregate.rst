@@ -144,7 +144,7 @@ General aggregate functions
 
     Returns the geometric mean of all input values.
 
-.. function:: listagg(x, separator)
+.. function:: listagg(x, separator) -> varchar
 
     Returns the concatenated input values, separated by the ``separator`` string.
 

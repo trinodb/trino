@@ -58,7 +58,7 @@ public class TestOracleConfig
                 .put("oracle.connection-pool.min-size", "10")
                 .put("oracle.connection-pool.max-size", "20")
                 .put("oracle.connection-pool.inactive-timeout", "30s")
-                .build();
+                .buildOrThrow();
 
         OracleConfig expected = new OracleConfig()
                 .setSynonymsEnabled(true)

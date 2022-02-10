@@ -46,7 +46,7 @@ public class TestMetastoreKerberosConfig
                 .put("hive.metastore.service.principal", "hive/_HOST@EXAMPLE.COM")
                 .put("hive.metastore.client.principal", "metastore@EXAMPLE.COM")
                 .put("hive.metastore.client.keytab", clientKeytabFile.toString())
-                .build();
+                .buildOrThrow();
 
         MetastoreKerberosConfig expected = new MetastoreKerberosConfig()
                 .setHiveMetastoreServicePrincipal("hive/_HOST@EXAMPLE.COM")

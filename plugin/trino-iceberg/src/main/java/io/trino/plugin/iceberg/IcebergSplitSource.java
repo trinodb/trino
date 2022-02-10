@@ -16,8 +16,10 @@ package io.trino.plugin.iceberg;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Streams;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
@@ -31,8 +33,11 @@ import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
+import io.trino.spi.type.TypeManager;
 import org.apache.iceberg.CombinedScanTask;
+import org.apache.iceberg.DataFile;
 import org.apache.iceberg.FileScanTask;
+import org.apache.iceberg.Schema;
 import org.apache.iceberg.TableScan;
 import org.apache.iceberg.expressions.Expression;
 import org.apache.iceberg.io.CloseableIterable;
@@ -47,18 +52,23 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Suppliers.memoize;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.intersection;
 import static io.trino.plugin.iceberg.ExpressionConverter.toIcebergExpression;
 import static io.trino.plugin.iceberg.IcebergSplitManager.ICEBERG_DOMAIN_COMPACTION_THRESHOLD;
 import static io.trino.plugin.iceberg.IcebergTypes.convertIcebergValueToTrino;
 import static io.trino.plugin.iceberg.IcebergUtil.deserializePartitionValue;
+import static io.trino.plugin.iceberg.IcebergUtil.getColumnHandle;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionKeys;
 import static io.trino.plugin.iceberg.IcebergUtil.primitiveFieldTypes;
 import static io.trino.plugin.iceberg.TypeConverter.toIcebergType;
@@ -75,34 +85,42 @@ public class IcebergSplitSource
     private static final ConnectorSplitBatch NO_MORE_SPLITS_BATCH = new ConnectorSplitBatch(ImmutableList.of(), true);
 
     private final IcebergTableHandle tableHandle;
-    private final Set<IcebergColumnHandle> identityPartitionColumns;
     private final TableScan tableScan;
+    private final Optional<Long> maxScannedFileSizeInBytes;
     private final Map<Integer, Type.PrimitiveType> fieldIdToType;
     private final DynamicFilter dynamicFilter;
     private final long dynamicFilteringWaitTimeoutMillis;
     private final Stopwatch dynamicFilterWaitStopwatch;
     private final Constraint constraint;
+    private final TypeManager typeManager;
 
     private CloseableIterable<CombinedScanTask> combinedScanIterable;
     private Iterator<FileScanTask> fileScanIterator;
     private TupleDomain<IcebergColumnHandle> pushedDownDynamicFilterPredicate;
 
+    private final boolean recordScannedFiles;
+    private final ImmutableSet.Builder<DataFile> scannedFiles = ImmutableSet.builder();
+
     public IcebergSplitSource(
             IcebergTableHandle tableHandle,
-            Set<IcebergColumnHandle> identityPartitionColumns,
             TableScan tableScan,
+            Optional<DataSize> maxScannedFileSize,
             DynamicFilter dynamicFilter,
             Duration dynamicFilteringWaitTimeout,
-            Constraint constraint)
+            Constraint constraint,
+            TypeManager typeManager,
+            boolean recordScannedFiles)
     {
         this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
-        this.identityPartitionColumns = requireNonNull(identityPartitionColumns, "identityPartitionColumns is null");
         this.tableScan = requireNonNull(tableScan, "tableScan is null");
+        this.maxScannedFileSizeInBytes = requireNonNull(maxScannedFileSize, "maxScannedFileSize is null").map(DataSize::toBytes);
         this.fieldIdToType = primitiveFieldTypes(tableScan.schema());
         this.dynamicFilter = requireNonNull(dynamicFilter, "dynamicFilter is null");
         this.dynamicFilteringWaitTimeoutMillis = requireNonNull(dynamicFilteringWaitTimeout, "dynamicFilteringWaitTimeout is null").toMillis();
         this.dynamicFilterWaitStopwatch = Stopwatch.createStarted();
         this.constraint = requireNonNull(constraint, "constraint is null");
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.recordScannedFiles = recordScannedFiles;
     }
 
     @Override
@@ -161,7 +179,16 @@ public class IcebergSplitSource
                 throw new TrinoException(NOT_SUPPORTED, "Iceberg tables with delete files are not supported: " + tableHandle.getSchemaTableName());
             }
 
+            if (maxScannedFileSizeInBytes.isPresent() && scanTask.file().fileSizeInBytes() > maxScannedFileSizeInBytes.get()) {
+                continue;
+            }
+
             IcebergSplit icebergSplit = toIcebergSplit(scanTask);
+
+            Schema fileSchema = scanTask.spec().schema();
+            Set<IcebergColumnHandle> identityPartitionColumns = icebergSplit.getPartitionKeys().keySet().stream()
+                    .map(fieldId -> getColumnHandle(fileSchema.findField(fieldId), typeManager))
+                    .collect(toImmutableSet());
 
             Supplier<Map<ColumnHandle, NullableValue>> partitionValues = memoize(() -> {
                 Map<ColumnHandle, NullableValue> bindings = new HashMap<>();
@@ -195,6 +222,9 @@ public class IcebergSplitSource
             if (!partitionMatchesConstraint(identityPartitionColumns, partitionValues, constraint)) {
                 continue;
             }
+            if (recordScannedFiles) {
+                scannedFiles.add(scanTask.file());
+            }
             splits.add(icebergSplit);
         }
         return completedFuture(new ConnectorSplitBatch(splits.build(), isFinished()));
@@ -211,6 +241,16 @@ public class IcebergSplitSource
     public boolean isFinished()
     {
         return fileScanIterator != null && !fileScanIterator.hasNext();
+    }
+
+    @Override
+    public Optional<List<Object>> getTableExecuteSplitsInfo()
+    {
+        checkState(isFinished(), "Split source must be finished before TableExecuteSplitsInfo is read");
+        if (!recordScannedFiles) {
+            return Optional.empty();
+        }
+        return Optional.of(ImmutableList.copyOf(scannedFiles.build()));
     }
 
     @Override
@@ -338,7 +378,7 @@ public class IcebergSplitSource
                 task.start(),
                 task.length(),
                 task.file().fileSizeInBytes(),
-                task.file().format(),
+                IcebergFileFormat.fromIceberg(task.file().format()),
                 ImmutableList.of(),
                 getPartitionKeys(task));
     }

@@ -16,11 +16,11 @@ package io.trino.sql.gen;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.ClassDefinition;
 import io.airlift.bytecode.CompilationException;
 import io.airlift.jmx.CacheStatsMBean;
+import io.trino.collect.cache.NonEvictableLoadingCache;
 import io.trino.metadata.Metadata;
 import io.trino.operator.project.CursorProcessor;
 import io.trino.operator.project.PageFilter;
@@ -45,6 +45,7 @@ import static io.airlift.bytecode.Access.FINAL;
 import static io.airlift.bytecode.Access.PUBLIC;
 import static io.airlift.bytecode.Access.a;
 import static io.airlift.bytecode.ParameterizedType.type;
+import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.spi.StandardErrorCode.COMPILER_ERROR;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.gen.BytecodeUtils.invoke;
@@ -56,7 +57,7 @@ import static java.util.Objects.requireNonNull;
 public class ExpressionCompiler
 {
     private final PageFunctionCompiler pageFunctionCompiler;
-    private final LoadingCache<CacheKey, Class<? extends CursorProcessor>> cursorProcessors;
+    private final NonEvictableLoadingCache<CacheKey, Class<? extends CursorProcessor>> cursorProcessors;
     private final CacheStatsMBean cacheStatsMBean;
 
     @Inject
@@ -64,10 +65,10 @@ public class ExpressionCompiler
     {
         requireNonNull(metadata, "metadata is null");
         this.pageFunctionCompiler = requireNonNull(pageFunctionCompiler, "pageFunctionCompiler is null");
-        this.cursorProcessors = CacheBuilder.newBuilder()
-                .recordStats()
-                .maximumSize(1000)
-                .build(CacheLoader.from(key -> compile(key.getFilter(), key.getProjections(), new CursorProcessorCompiler(metadata), CursorProcessor.class)));
+        this.cursorProcessors = buildNonEvictableCache(CacheBuilder.newBuilder()
+                        .recordStats()
+                        .maximumSize(1000),
+                CacheLoader.from(key -> compile(key.getFilter(), key.getProjections(), new CursorProcessorCompiler(metadata), CursorProcessor.class)));
         this.cacheStatsMBean = new CacheStatsMBean(cursorProcessors);
     }
 

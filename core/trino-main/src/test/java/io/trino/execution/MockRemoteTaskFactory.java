@@ -26,6 +26,7 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.cost.StatsAndCosts;
+import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.NodeTaskMap.PartitionedSplitCountTracker;
 import io.trino.execution.buffer.LazyOutputBuffer;
 import io.trino.execution.buffer.OutputBuffer;
@@ -33,6 +34,7 @@ import io.trino.execution.buffer.OutputBuffers;
 import io.trino.memory.MemoryPool;
 import io.trino.memory.QueryContext;
 import io.trino.memory.context.SimpleLocalMemoryContext;
+import io.trino.metadata.ExchangeHandleResolver;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.Split;
 import io.trino.operator.TaskContext;
@@ -195,7 +197,7 @@ public class MockRemoteTaskFactory
             SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(DataSize.of(1, GIGABYTE));
             QueryContext queryContext = new QueryContext(taskId.getQueryId(),
                     DataSize.of(1, MEGABYTE),
-                    DataSize.of(2, MEGABYTE),
+                    Optional.empty(),
                     memoryPool,
                     new TestingGcMonitor(),
                     executor,
@@ -213,7 +215,8 @@ public class MockRemoteTaskFactory
                     DataSize.ofBytes(1),
                     DataSize.ofBytes(1),
                     () -> new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
-                    () -> {});
+                    () -> {},
+                    new ExchangeManagerRegistry(new ExchangeHandleResolver()));
 
             this.fragment = requireNonNull(fragment, "fragment is null");
             this.nodeId = requireNonNull(nodeId, "nodeId is null");
@@ -260,7 +263,6 @@ public class MockRemoteTaskFactory
                             DataSize.ofBytes(0),
                             DataSize.ofBytes(0),
                             DataSize.ofBytes(0),
-                            DataSize.ofBytes(0),
                             0,
                             new Duration(0, MILLISECONDS),
                             INITIAL_DYNAMIC_FILTERS_VERSION,
@@ -292,7 +294,6 @@ public class MockRemoteTaskFactory
                     isOutputBufferOverUtilized,
                     stats.getPhysicalWrittenDataSize(),
                     stats.getUserMemoryReservation(),
-                    stats.getSystemMemoryReservation(),
                     stats.getRevocableMemoryReservation(),
                     0,
                     new Duration(0, MILLISECONDS),

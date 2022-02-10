@@ -44,6 +44,7 @@ import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.StandardTypes;
+import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
@@ -99,7 +100,8 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.realWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.shortDecimalWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.smallintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.smallintWriteFunction;
-import static io.trino.plugin.jdbc.StandardColumnMappings.timeColumnMappingUsingSqlTime;
+import static io.trino.plugin.jdbc.StandardColumnMappings.timeColumnMapping;
+import static io.trino.plugin.jdbc.StandardColumnMappings.timeWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.timestampColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.timestampWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintColumnMapping;
@@ -119,6 +121,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TimeType.createTimeType;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
 import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TinyintType.TINYINT;
@@ -275,7 +278,7 @@ public class MemSqlClient
                 "FROM information_schema.columns " +
                 "WHERE table_schema = ? " +
                 "AND table_name = ? " +
-                "AND column_type IN ('datetime', 'datetime(6)', 'timestamp', 'timestamp(6)')";
+                "AND column_type IN ('datetime', 'datetime(6)', 'time', 'time(6)', 'timestamp', 'timestamp(6)')";
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setString(1, tableHandle.getCatalogName());
             statement.setString(2, tableHandle.getTableName());
@@ -284,7 +287,7 @@ public class MemSqlClient
             try (ResultSet resultSet = statement.executeQuery()) {
                 while (resultSet.next()) {
                     String columnType = resultSet.getString("column_type");
-                    int size = columnType.equals("datetime") || columnType.equals("timestamp") ? 0 : 6;
+                    int size = columnType.equals("datetime") || columnType.equals("time") || columnType.equals("timestamp") ? 0 : 6;
                     timestampColumnPrecisions.put(resultSet.getString("column_name"), size);
                 }
             }
@@ -360,8 +363,8 @@ public class MemSqlClient
                         dateReadFunctionUsingLocalDate(),
                         dateWriteFunction()));
             case Types.TIME:
-                // TODO (https://github.com/trinodb/trino/issues/5450) Fix TIME type mapping
-                return Optional.of(timeColumnMappingUsingSqlTime());
+                TimeType timeType = createTimeType(typeHandle.getRequiredDecimalDigits());
+                return Optional.of(timeColumnMapping(timeType));
             case Types.TIMESTAMP:
                 // TODO (https://github.com/trinodb/trino/issues/5450) Fix DST handling
                 TimestampType timestampType = createTimestampType(typeHandle.getRequiredDecimalDigits());
@@ -417,6 +420,12 @@ public class MemSqlClient
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, e);
         }
+    }
+
+    @Override
+    public void renameSchema(ConnectorSession session, String schemaName, String newSchemaName)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming schemas");
     }
 
     @Override
@@ -487,6 +496,14 @@ public class MemSqlClient
         }
         if (type == DATE) {
             return WriteMapping.longMapping("date", dateWriteFunction());
+        }
+        if (type instanceof TimeType) {
+            TimeType timeType = (TimeType) type;
+            checkArgument(timeType.getPrecision() <= MEMSQL_DATE_TIME_MAX_PRECISION, "The max time precision in MemSQL is 6");
+            if (timeType.getPrecision() == 0) {
+                return WriteMapping.longMapping("time", timeWriteFunction(0));
+            }
+            return WriteMapping.longMapping("time(6)", timeWriteFunction(6));
         }
         // TODO implement TIME type
         if (type instanceof TimestampType) {

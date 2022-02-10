@@ -39,7 +39,7 @@ public class TestCredentialProviderTypeConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("credential-provider.type", "FILE")
-                .build();
+                .buildOrThrow();
 
         CredentialProviderTypeConfig expected = new CredentialProviderTypeConfig()
                 .setCredentialProviderType(FILE);

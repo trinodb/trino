@@ -48,6 +48,7 @@ import static io.trino.plugin.iceberg.TableType.FILES;
 import static io.trino.plugin.iceberg.TableType.HISTORY;
 import static io.trino.plugin.iceberg.TableType.MANIFESTS;
 import static io.trino.plugin.iceberg.TableType.PARTITIONS;
+import static io.trino.plugin.iceberg.TableType.PROPERTIES;
 import static io.trino.plugin.iceberg.TableType.SNAPSHOTS;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
@@ -287,9 +288,15 @@ public class TestIcebergMetastoreAccessOperations
                         .addCopies(GET_TABLE, 1)
                         .build());
 
+        // select from $properties
+        assertMetastoreInvocations("SELECT * FROM \"test_select_snapshots$properties\"",
+                ImmutableMultiset.builder()
+                        .addCopies(GET_TABLE, 1)
+                        .build());
+
         // This test should get updated if a new system table is added.
         assertThat(TableType.values())
-                .containsExactly(DATA, HISTORY, SNAPSHOTS, MANIFESTS, PARTITIONS, FILES);
+                .containsExactly(DATA, HISTORY, SNAPSHOTS, MANIFESTS, PARTITIONS, FILES, PROPERTIES);
     }
 
     private void assertMetastoreInvocations(String query, Multiset<?> expectedInvocations)

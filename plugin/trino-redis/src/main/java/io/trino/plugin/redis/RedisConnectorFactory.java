@@ -23,7 +23,6 @@ import io.trino.spi.NodeManager;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
-import io.trino.spi.connector.ConnectorHandleResolver;
 import io.trino.spi.connector.SchemaTableName;
 
 import java.util.Map;
@@ -46,12 +45,6 @@ public class RedisConnectorFactory
     public String getName()
     {
         return "redis";
-    }
-
-    @Override
-    public ConnectorHandleResolver getHandleResolver()
-    {
-        return new RedisHandleResolver();
     }
 
     @Override

@@ -14,6 +14,7 @@
 package io.trino.type;
 
 import io.trino.operator.scalar.AbstractTestFunctions;
+import io.trino.spi.type.Int128;
 import org.testng.annotations.Test;
 
 import static io.trino.spi.StandardErrorCode.DIVISION_BY_ZERO;
@@ -21,6 +22,8 @@ import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DecimalType.createDecimalType;
+import static io.trino.spi.type.SqlDecimal.decimal;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestDecimalOperators
         extends AbstractTestFunctions
@@ -29,40 +32,40 @@ public class TestDecimalOperators
     public void testAdd()
     {
         // short short -> short
-        assertDecimalFunction("DECIMAL '137.7' + DECIMAL '17.1'", decimal("0154.8"));
-        assertDecimalFunction("DECIMAL '-1' + DECIMAL '-2'", decimal("-03"));
-        assertDecimalFunction("DECIMAL '1' + DECIMAL '2'", decimal("03"));
-        assertDecimalFunction("DECIMAL '.1234567890123456' + DECIMAL '.1234567890123456'", decimal("0.2469135780246912"));
-        assertDecimalFunction("DECIMAL '-.1234567890123456' + DECIMAL '-.1234567890123456'", decimal("-0.2469135780246912"));
-        assertDecimalFunction("DECIMAL '1234567890123456' + DECIMAL '1234567890123456'", decimal("02469135780246912"));
+        assertDecimalFunction("DECIMAL '137.7' + DECIMAL '17.1'", decimal("0154.8", createDecimalType(5, 1)));
+        assertDecimalFunction("DECIMAL '-1' + DECIMAL '-2'", decimal("-03", createDecimalType(2)));
+        assertDecimalFunction("DECIMAL '1' + DECIMAL '2'", decimal("03", createDecimalType(2)));
+        assertDecimalFunction("DECIMAL '.1234567890123456' + DECIMAL '.1234567890123456'", decimal("0.2469135780246912", createDecimalType(17, 16)));
+        assertDecimalFunction("DECIMAL '-.1234567890123456' + DECIMAL '-.1234567890123456'", decimal("-0.2469135780246912", createDecimalType(17, 16)));
+        assertDecimalFunction("DECIMAL '1234567890123456' + DECIMAL '1234567890123456'", decimal("02469135780246912", createDecimalType(17)));
 
         // long long -> long
-        assertDecimalFunction("DECIMAL '123456789012345678' + DECIMAL '123456789012345678'", decimal("0246913578024691356"));
-        assertDecimalFunction("DECIMAL '.123456789012345678' + DECIMAL '.123456789012345678'", decimal("0.246913578024691356"));
-        assertDecimalFunction("DECIMAL '1234567890123456789' + DECIMAL '1234567890123456789'", decimal("02469135780246913578"));
-        assertDecimalFunction("DECIMAL '12345678901234567890123456789012345678' + DECIMAL '12345678901234567890123456789012345678'", decimal("24691357802469135780246913578024691356"));
-        assertDecimalFunction("DECIMAL '-99999999999999999999999999999999999999' + DECIMAL '99999999999999999999999999999999999999'", decimal("00000000000000000000000000000000000000"));
+        assertDecimalFunction("DECIMAL '123456789012345678' + DECIMAL '123456789012345678'", decimal("0246913578024691356", createDecimalType(19)));
+        assertDecimalFunction("DECIMAL '.123456789012345678' + DECIMAL '.123456789012345678'", decimal("0.246913578024691356", createDecimalType(19, 18)));
+        assertDecimalFunction("DECIMAL '1234567890123456789' + DECIMAL '1234567890123456789'", decimal("02469135780246913578", createDecimalType(20)));
+        assertDecimalFunction("DECIMAL '12345678901234567890123456789012345678' + DECIMAL '12345678901234567890123456789012345678'", decimal("24691357802469135780246913578024691356", createDecimalType(38)));
+        assertDecimalFunction("DECIMAL '-99999999999999999999999999999999999999' + DECIMAL '99999999999999999999999999999999999999'", decimal("00000000000000000000000000000000000000", createDecimalType(38)));
 
         // negative numbers
-        assertDecimalFunction("DECIMAL '12345678901234567890' + DECIMAL '-12345678901234567890'", decimal("000000000000000000000"));
-        assertDecimalFunction("DECIMAL '-12345678901234567890' + DECIMAL '12345678901234567890'", decimal("000000000000000000000"));
-        assertDecimalFunction("DECIMAL '-12345678901234567890' + DECIMAL '-12345678901234567890'", decimal("-024691357802469135780"));
-        assertDecimalFunction("DECIMAL '12345678901234567890' + DECIMAL '-12345678901234567891'", decimal("-000000000000000000001"));
-        assertDecimalFunction("DECIMAL '-12345678901234567891' + DECIMAL '12345678901234567890'", decimal("-000000000000000000001"));
-        assertDecimalFunction("DECIMAL '-12345678901234567890' + DECIMAL '12345678901234567891'", decimal("000000000000000000001"));
-        assertDecimalFunction("DECIMAL '12345678901234567891' + DECIMAL '-12345678901234567890'", decimal("000000000000000000001"));
+        assertDecimalFunction("DECIMAL '12345678901234567890' + DECIMAL '-12345678901234567890'", decimal("000000000000000000000", createDecimalType(21)));
+        assertDecimalFunction("DECIMAL '-12345678901234567890' + DECIMAL '12345678901234567890'", decimal("000000000000000000000", createDecimalType(21)));
+        assertDecimalFunction("DECIMAL '-12345678901234567890' + DECIMAL '-12345678901234567890'", decimal("-024691357802469135780", createDecimalType(21)));
+        assertDecimalFunction("DECIMAL '12345678901234567890' + DECIMAL '-12345678901234567891'", decimal("-000000000000000000001", createDecimalType(21)));
+        assertDecimalFunction("DECIMAL '-12345678901234567891' + DECIMAL '12345678901234567890'", decimal("-000000000000000000001", createDecimalType(21)));
+        assertDecimalFunction("DECIMAL '-12345678901234567890' + DECIMAL '12345678901234567891'", decimal("000000000000000000001", createDecimalType(21)));
+        assertDecimalFunction("DECIMAL '12345678901234567891' + DECIMAL '-12345678901234567890'", decimal("000000000000000000001", createDecimalType(21)));
 
         // short short -> long
-        assertDecimalFunction("DECIMAL '999999999999999999' + DECIMAL '999999999999999999'", decimal("1999999999999999998"));
-        assertDecimalFunction("DECIMAL '999999999999999999' + DECIMAL '.999999999999999999'", decimal("0999999999999999999.999999999999999999"));
+        assertDecimalFunction("DECIMAL '999999999999999999' + DECIMAL '999999999999999999'", decimal("1999999999999999998", createDecimalType(19)));
+        assertDecimalFunction("DECIMAL '999999999999999999' + DECIMAL '.999999999999999999'", decimal("0999999999999999999.999999999999999999", createDecimalType(37, 18)));
 
         // long short -> long
-        assertDecimalFunction("DECIMAL '123456789012345678901234567890' + DECIMAL '.12345678'", decimal("123456789012345678901234567890.12345678"));
-        assertDecimalFunction("DECIMAL '.123456789012345678901234567890' + DECIMAL '12345678'", decimal("12345678.123456789012345678901234567890"));
+        assertDecimalFunction("DECIMAL '123456789012345678901234567890' + DECIMAL '.12345678'", decimal("123456789012345678901234567890.12345678", createDecimalType(38, 8)));
+        assertDecimalFunction("DECIMAL '.123456789012345678901234567890' + DECIMAL '12345678'", decimal("12345678.123456789012345678901234567890", createDecimalType(38, 30)));
 
         // short long -> long
-        assertDecimalFunction("DECIMAL '.12345678' + DECIMAL '123456789012345678901234567890'", decimal("123456789012345678901234567890.12345678"));
-        assertDecimalFunction("DECIMAL '12345678' + DECIMAL '.123456789012345678901234567890'", decimal("12345678.123456789012345678901234567890"));
+        assertDecimalFunction("DECIMAL '.12345678' + DECIMAL '123456789012345678901234567890'", decimal("123456789012345678901234567890.12345678", createDecimalType(38, 8)));
+        assertDecimalFunction("DECIMAL '12345678' + DECIMAL '.123456789012345678901234567890'", decimal("12345678.123456789012345678901234567890", createDecimalType(38, 30)));
 
         // overflow tests
         assertInvalidFunction("DECIMAL '99999999999999999999999999999999999999' + DECIMAL '1'", NUMERIC_VALUE_OUT_OF_RANGE);
@@ -75,7 +78,7 @@ public class TestDecimalOperators
         // max supported value for rescaling
         // this works because rescaling allows overflowed values that exceed 10^38 but still fit in 127 bits.
         // 17014000000000000000000000000000000000 * 10 is an example of such number. Both arguments and result can be stored using DECIMAL(38,0) or DECIMAL(38,1)
-        assertDecimalFunction("DECIMAL '17014000000000000000000000000000000000' + DECIMAL '-7014000000000000000000000000000000000.1'", decimal("9999999999999999999999999999999999999.9"));
+        assertDecimalFunction("DECIMAL '17014000000000000000000000000000000000' + DECIMAL '-7014000000000000000000000000000000000.1'", decimal("9999999999999999999999999999999999999.9", createDecimalType(38, 1)));
         // 17015000000000000000000000000000000000 on the other hand is too large and rescaled to DECIMAL(38,1) it does not fit in in 127 bits
         assertInvalidFunction("DECIMAL '17015000000000000000000000000000000000' + DECIMAL '-7015000000000000000000000000000000000.1'", NUMERIC_VALUE_OUT_OF_RANGE);
     }
@@ -84,40 +87,40 @@ public class TestDecimalOperators
     public void testSubtract()
     {
         // short short -> short
-        assertDecimalFunction("DECIMAL '107.7' - DECIMAL '17.1'", decimal("0090.6"));
-        assertDecimalFunction("DECIMAL '-1' - DECIMAL '-2'", decimal("01"));
-        assertDecimalFunction("DECIMAL '1' - DECIMAL '2'", decimal("-01"));
-        assertDecimalFunction("DECIMAL '.1234567890123456' - DECIMAL '.1234567890123456'", decimal("0.0000000000000000"));
-        assertDecimalFunction("DECIMAL '-.1234567890123456' - DECIMAL '-.1234567890123456'", decimal("0.0000000000000000"));
-        assertDecimalFunction("DECIMAL '1234567890123456' - DECIMAL '1234567890123456'", decimal("00000000000000000"));
+        assertDecimalFunction("DECIMAL '107.7' - DECIMAL '17.1'", decimal("0090.6", createDecimalType(5, 1)));
+        assertDecimalFunction("DECIMAL '-1' - DECIMAL '-2'", decimal("01", createDecimalType(2)));
+        assertDecimalFunction("DECIMAL '1' - DECIMAL '2'", decimal("-01", createDecimalType(2)));
+        assertDecimalFunction("DECIMAL '.1234567890123456' - DECIMAL '.1234567890123456'", decimal("0.0000000000000000", createDecimalType(17, 16)));
+        assertDecimalFunction("DECIMAL '-.1234567890123456' - DECIMAL '-.1234567890123456'", decimal("0.0000000000000000", createDecimalType(17, 16)));
+        assertDecimalFunction("DECIMAL '1234567890123456' - DECIMAL '1234567890123456'", decimal("00000000000000000", createDecimalType(17)));
 
         // long long -> long
-        assertDecimalFunction("DECIMAL '1234567890123456789' - DECIMAL '1234567890123456789'", decimal("00000000000000000000"));
-        assertDecimalFunction("DECIMAL '.1234567890123456789' - DECIMAL '.1234567890123456789'", decimal("0.0000000000000000000"));
-        assertDecimalFunction("DECIMAL '12345678901234567890' - DECIMAL '12345678901234567890'", decimal("000000000000000000000"));
-        assertDecimalFunction("DECIMAL '12345678901234567890123456789012345678' - DECIMAL '12345678901234567890123456789012345678'", decimal("00000000000000000000000000000000000000"));
-        assertDecimalFunction("DECIMAL '-12345678901234567890' - DECIMAL '12345678901234567890'", decimal("-024691357802469135780"));
+        assertDecimalFunction("DECIMAL '1234567890123456789' - DECIMAL '1234567890123456789'", decimal("00000000000000000000", createDecimalType(20)));
+        assertDecimalFunction("DECIMAL '.1234567890123456789' - DECIMAL '.1234567890123456789'", decimal("0.0000000000000000000", createDecimalType(20, 19)));
+        assertDecimalFunction("DECIMAL '12345678901234567890' - DECIMAL '12345678901234567890'", decimal("000000000000000000000", createDecimalType(21)));
+        assertDecimalFunction("DECIMAL '12345678901234567890123456789012345678' - DECIMAL '12345678901234567890123456789012345678'", decimal("00000000000000000000000000000000000000", createDecimalType(38)));
+        assertDecimalFunction("DECIMAL '-12345678901234567890' - DECIMAL '12345678901234567890'", decimal("-024691357802469135780", createDecimalType(21)));
 
         // negative numbers
-        assertDecimalFunction("DECIMAL '12345678901234567890' - DECIMAL '12345678901234567890'", decimal("000000000000000000000"));
-        assertDecimalFunction("DECIMAL '-12345678901234567890' - DECIMAL '-12345678901234567890'", decimal("000000000000000000000"));
-        assertDecimalFunction("DECIMAL '-12345678901234567890' - DECIMAL '12345678901234567890'", decimal("-024691357802469135780"));
-        assertDecimalFunction("DECIMAL '12345678901234567890' - DECIMAL '12345678901234567891'", decimal("-000000000000000000001"));
-        assertDecimalFunction("DECIMAL '-12345678901234567891' - DECIMAL '-12345678901234567890'", decimal("-000000000000000000001"));
-        assertDecimalFunction("DECIMAL '-12345678901234567890' - DECIMAL '-12345678901234567891'", decimal("000000000000000000001"));
-        assertDecimalFunction("DECIMAL '12345678901234567891' - DECIMAL '12345678901234567890'", decimal("000000000000000000001"));
+        assertDecimalFunction("DECIMAL '12345678901234567890' - DECIMAL '12345678901234567890'", decimal("000000000000000000000", createDecimalType(21)));
+        assertDecimalFunction("DECIMAL '-12345678901234567890' - DECIMAL '-12345678901234567890'", decimal("000000000000000000000", createDecimalType(21)));
+        assertDecimalFunction("DECIMAL '-12345678901234567890' - DECIMAL '12345678901234567890'", decimal("-024691357802469135780", createDecimalType(21)));
+        assertDecimalFunction("DECIMAL '12345678901234567890' - DECIMAL '12345678901234567891'", decimal("-000000000000000000001", createDecimalType(21)));
+        assertDecimalFunction("DECIMAL '-12345678901234567891' - DECIMAL '-12345678901234567890'", decimal("-000000000000000000001", createDecimalType(21)));
+        assertDecimalFunction("DECIMAL '-12345678901234567890' - DECIMAL '-12345678901234567891'", decimal("000000000000000000001", createDecimalType(21)));
+        assertDecimalFunction("DECIMAL '12345678901234567891' - DECIMAL '12345678901234567890'", decimal("000000000000000000001", createDecimalType(21)));
 
         // short short -> long
-        assertDecimalFunction("DECIMAL '999999999999999999' - DECIMAL '999999999999999999'", decimal("0000000000000000000"));
-        assertDecimalFunction("DECIMAL '999999999999999999' - DECIMAL '.999999999999999999'", decimal("0999999999999999998.000000000000000001"));
+        assertDecimalFunction("DECIMAL '999999999999999999' - DECIMAL '999999999999999999'", decimal("0000000000000000000", createDecimalType(19)));
+        assertDecimalFunction("DECIMAL '999999999999999999' - DECIMAL '.999999999999999999'", decimal("0999999999999999998.000000000000000001", createDecimalType(37, 18)));
 
         // long short -> long
-        assertDecimalFunction("DECIMAL '123456789012345678901234567890' - DECIMAL '.00000001'", decimal("123456789012345678901234567889.99999999"));
-        assertDecimalFunction("DECIMAL '.000000000000000000000000000001' - DECIMAL '87654321'", decimal("-87654320.999999999999999999999999999999"));
+        assertDecimalFunction("DECIMAL '123456789012345678901234567890' - DECIMAL '.00000001'", decimal("123456789012345678901234567889.99999999", createDecimalType(38, 8)));
+        assertDecimalFunction("DECIMAL '.000000000000000000000000000001' - DECIMAL '87654321'", decimal("-87654320.999999999999999999999999999999", createDecimalType(38, 30)));
 
         // short long -> long
-        assertDecimalFunction("DECIMAL '.00000001' - DECIMAL '123456789012345678901234567890'", decimal("-123456789012345678901234567889.99999999"));
-        assertDecimalFunction("DECIMAL '12345678' - DECIMAL '.000000000000000000000000000001'", decimal("12345677.999999999999999999999999999999"));
+        assertDecimalFunction("DECIMAL '.00000001' - DECIMAL '123456789012345678901234567890'", decimal("-123456789012345678901234567889.99999999", createDecimalType(38, 8)));
+        assertDecimalFunction("DECIMAL '12345678' - DECIMAL '.000000000000000000000000000001'", decimal("12345677.999999999999999999999999999999", createDecimalType(38, 30)));
 
         // overflow tests
         assertInvalidFunction("DECIMAL '-99999999999999999999999999999999999999' - DECIMAL '1'", NUMERIC_VALUE_OUT_OF_RANGE);
@@ -129,7 +132,7 @@ public class TestDecimalOperators
         // max supported value for rescaling
         // this works because rescaling allows overflowed values that exceed 10^38 but still fit in 127 bits.
         // 17014000000000000000000000000000000000 * 10 is an example of such number. Both arguments and result can be stored using DECIMAL(38,0) or DECIMAL(38,1)
-        assertDecimalFunction("DECIMAL '17014000000000000000000000000000000000' - DECIMAL '7014000000000000000000000000000000000.1'", decimal("9999999999999999999999999999999999999.9"));
+        assertDecimalFunction("DECIMAL '17014000000000000000000000000000000000' - DECIMAL '7014000000000000000000000000000000000.1'", decimal("9999999999999999999999999999999999999.9", createDecimalType(38, 1)));
         // 17015000000000000000000000000000000000 on the other hand is too large and rescaled to DECIMAL(38,1) it does not fit in in 127 bits
         assertInvalidFunction("DECIMAL '17015000000000000000000000000000000000' - DECIMAL '7015000000000000000000000000000000000.1'", NUMERIC_VALUE_OUT_OF_RANGE);
     }
@@ -138,53 +141,53 @@ public class TestDecimalOperators
     public void testMultiply()
     {
         // short short -> short
-        assertDecimalFunction("DECIMAL '0' * DECIMAL '1'", decimal("00"));
-        assertDecimalFunction("DECIMAL '0' * DECIMAL '-1'", decimal("00"));
-        assertDecimalFunction("DECIMAL '1' * DECIMAL '0'", decimal("00"));
-        assertDecimalFunction("DECIMAL '-1' * DECIMAL '0'", decimal("00"));
-        assertDecimalFunction("DECIMAL '12' * DECIMAL '3'", decimal("036"));
-        assertDecimalFunction("DECIMAL '12' * DECIMAL '-3'", decimal("-036"));
-        assertDecimalFunction("DECIMAL '-12' * DECIMAL '3'", decimal("-036"));
-        assertDecimalFunction("DECIMAL '1234567890123456' * DECIMAL '3'", decimal("03703703670370368"));
-        assertDecimalFunction("DECIMAL '.1234567890123456' * DECIMAL '3'", decimal("0.3703703670370368"));
-        assertDecimalFunction("DECIMAL '.1234567890123456' * DECIMAL '.3'", decimal(".03703703670370368"));
+        assertDecimalFunction("DECIMAL '0' * DECIMAL '1'", decimal("00", createDecimalType(2)));
+        assertDecimalFunction("DECIMAL '0' * DECIMAL '-1'", decimal("00", createDecimalType(2)));
+        assertDecimalFunction("DECIMAL '1' * DECIMAL '0'", decimal("00", createDecimalType(2)));
+        assertDecimalFunction("DECIMAL '-1' * DECIMAL '0'", decimal("00", createDecimalType(2)));
+        assertDecimalFunction("DECIMAL '12' * DECIMAL '3'", decimal("036", createDecimalType(3)));
+        assertDecimalFunction("DECIMAL '12' * DECIMAL '-3'", decimal("-036", createDecimalType(3)));
+        assertDecimalFunction("DECIMAL '-12' * DECIMAL '3'", decimal("-036", createDecimalType(3)));
+        assertDecimalFunction("DECIMAL '1234567890123456' * DECIMAL '3'", decimal("03703703670370368", createDecimalType(17)));
+        assertDecimalFunction("DECIMAL '.1234567890123456' * DECIMAL '3'", decimal("0.3703703670370368", createDecimalType(17, 16)));
+        assertDecimalFunction("DECIMAL '.1234567890123456' * DECIMAL '.3'", decimal(".03703703670370368", createDecimalType(17, 17)));
 
         // short short -> long
-        assertDecimalFunction("CAST(0 AS DECIMAL(18,0)) * CAST(1 AS DECIMAL(18,0))", decimal("000000000000000000000000000000000000"));
-        assertDecimalFunction("CAST(0 AS DECIMAL(18,0)) * CAST(-1 AS DECIMAL(18,0))", decimal("000000000000000000000000000000000000"));
-        assertDecimalFunction("CAST(1 AS DECIMAL(18,0)) * CAST(0 AS DECIMAL(18,0))", decimal("000000000000000000000000000000000000"));
-        assertDecimalFunction("CAST(-1 AS DECIMAL(18,0)) * CAST(0 AS DECIMAL(18,0))", decimal("000000000000000000000000000000000000"));
-        assertDecimalFunction("DECIMAL '12345678901234567' * DECIMAL '123456789012345670'", decimal("01524157875323883455265967556774890"));
-        assertDecimalFunction("DECIMAL '-12345678901234567' * DECIMAL '123456789012345670'", decimal("-01524157875323883455265967556774890"));
-        assertDecimalFunction("DECIMAL '-12345678901234567' * DECIMAL '-123456789012345670'", decimal("01524157875323883455265967556774890"));
-        assertDecimalFunction("DECIMAL '.12345678901234567' * DECIMAL '.123456789012345670'", decimal(".01524157875323883455265967556774890"));
+        assertDecimalFunction("CAST(0 AS DECIMAL(18,0)) * CAST(1 AS DECIMAL(18,0))", decimal("000000000000000000000000000000000000", createDecimalType(36)));
+        assertDecimalFunction("CAST(0 AS DECIMAL(18,0)) * CAST(-1 AS DECIMAL(18,0))", decimal("000000000000000000000000000000000000", createDecimalType(36)));
+        assertDecimalFunction("CAST(1 AS DECIMAL(18,0)) * CAST(0 AS DECIMAL(18,0))", decimal("000000000000000000000000000000000000", createDecimalType(36)));
+        assertDecimalFunction("CAST(-1 AS DECIMAL(18,0)) * CAST(0 AS DECIMAL(18,0))", decimal("000000000000000000000000000000000000", createDecimalType(36)));
+        assertDecimalFunction("DECIMAL '12345678901234567' * DECIMAL '123456789012345670'", decimal("01524157875323883455265967556774890", createDecimalType(35)));
+        assertDecimalFunction("DECIMAL '-12345678901234567' * DECIMAL '123456789012345670'", decimal("-01524157875323883455265967556774890", createDecimalType(35)));
+        assertDecimalFunction("DECIMAL '-12345678901234567' * DECIMAL '-123456789012345670'", decimal("01524157875323883455265967556774890", createDecimalType(35)));
+        assertDecimalFunction("DECIMAL '.12345678901234567' * DECIMAL '.123456789012345670'", decimal(".01524157875323883455265967556774890", createDecimalType(35, 35)));
 
         // long short -> long
-        assertDecimalFunction("CAST(0 AS DECIMAL(38,0)) * 1", decimal("00000000000000000000000000000000000000"));
-        assertDecimalFunction("CAST(0 AS DECIMAL(38,0)) * -1", decimal("00000000000000000000000000000000000000"));
-        assertDecimalFunction("CAST(1 AS DECIMAL(38,0)) * 0", decimal("00000000000000000000000000000000000000"));
-        assertDecimalFunction("CAST(-1 AS DECIMAL(38,0)) * 0", decimal("00000000000000000000000000000000000000"));
-        assertDecimalFunction("DECIMAL '12345678901234567890123456789012345678' * DECIMAL '3'", decimal("37037036703703703670370370367037037034"));
-        assertDecimalFunction("DECIMAL '1234567890123456789.0123456789012345678' * DECIMAL '3'", decimal("3703703670370370367.0370370367037037034"));
-        assertDecimalFunction("DECIMAL '.12345678901234567890123456789012345678' * DECIMAL '3'", decimal(".37037036703703703670370370367037037034"));
+        assertDecimalFunction("CAST(0 AS DECIMAL(38,0)) * 1", decimal("00000000000000000000000000000000000000", createDecimalType(38)));
+        assertDecimalFunction("CAST(0 AS DECIMAL(38,0)) * -1", decimal("00000000000000000000000000000000000000", createDecimalType(38)));
+        assertDecimalFunction("CAST(1 AS DECIMAL(38,0)) * 0", decimal("00000000000000000000000000000000000000", createDecimalType(38)));
+        assertDecimalFunction("CAST(-1 AS DECIMAL(38,0)) * 0", decimal("00000000000000000000000000000000000000", createDecimalType(38)));
+        assertDecimalFunction("DECIMAL '12345678901234567890123456789012345678' * DECIMAL '3'", decimal("37037036703703703670370370367037037034", createDecimalType(38)));
+        assertDecimalFunction("DECIMAL '1234567890123456789.0123456789012345678' * DECIMAL '3'", decimal("3703703670370370367.0370370367037037034", createDecimalType(38, 19)));
+        assertDecimalFunction("DECIMAL '.12345678901234567890123456789012345678' * DECIMAL '3'", decimal(".37037036703703703670370370367037037034", createDecimalType(38, 38)));
 
         // short long -> long
-        assertDecimalFunction("0 * CAST(1 AS DECIMAL(38,0))", decimal("00000000000000000000000000000000000000"));
-        assertDecimalFunction("0 * CAST(-1 AS DECIMAL(38,0))", decimal("00000000000000000000000000000000000000"));
-        assertDecimalFunction("1 * CAST(0 AS DECIMAL(38,0))", decimal("00000000000000000000000000000000000000"));
-        assertDecimalFunction("-1 * CAST(0 AS DECIMAL(38,0))", decimal("00000000000000000000000000000000000000"));
-        assertDecimalFunction("DECIMAL '3' * DECIMAL '12345678901234567890123456789012345678'", decimal("37037036703703703670370370367037037034"));
-        assertDecimalFunction("DECIMAL '3' * DECIMAL '1234567890123456789.0123456789012345678'", decimal("3703703670370370367.0370370367037037034"));
-        assertDecimalFunction("DECIMAL '3' * DECIMAL '.12345678901234567890123456789012345678'", decimal(".37037036703703703670370370367037037034"));
+        assertDecimalFunction("0 * CAST(1 AS DECIMAL(38,0))", decimal("00000000000000000000000000000000000000", createDecimalType(38)));
+        assertDecimalFunction("0 * CAST(-1 AS DECIMAL(38,0))", decimal("00000000000000000000000000000000000000", createDecimalType(38)));
+        assertDecimalFunction("1 * CAST(0 AS DECIMAL(38,0))", decimal("00000000000000000000000000000000000000", createDecimalType(38)));
+        assertDecimalFunction("-1 * CAST(0 AS DECIMAL(38,0))", decimal("00000000000000000000000000000000000000", createDecimalType(38)));
+        assertDecimalFunction("DECIMAL '3' * DECIMAL '12345678901234567890123456789012345678'", decimal("37037036703703703670370370367037037034", createDecimalType(38)));
+        assertDecimalFunction("DECIMAL '3' * DECIMAL '1234567890123456789.0123456789012345678'", decimal("3703703670370370367.0370370367037037034", createDecimalType(38, 19)));
+        assertDecimalFunction("DECIMAL '3' * DECIMAL '.12345678901234567890123456789012345678'", decimal(".37037036703703703670370370367037037034", createDecimalType(38, 38)));
 
         // long long -> long
-        assertDecimalFunction("CAST(0 AS DECIMAL(38,0)) * CAST(1 AS DECIMAL(38,0))", decimal("00000000000000000000000000000000000000"));
-        assertDecimalFunction("CAST(0 AS DECIMAL(38,0)) * CAST(-1 AS DECIMAL(38,0))", decimal("00000000000000000000000000000000000000"));
-        assertDecimalFunction("CAST(1 AS DECIMAL(38,0)) * CAST(0 AS DECIMAL(38,0))", decimal("00000000000000000000000000000000000000"));
-        assertDecimalFunction("CAST(-1 AS DECIMAL(38,0)) * CAST(0 AS DECIMAL(38,0))", decimal("00000000000000000000000000000000000000"));
-        assertDecimalFunction("CAST(3 AS DECIMAL(38,0)) * CAST(2 AS DECIMAL(38,0))", decimal("00000000000000000000000000000000000006"));
-        assertDecimalFunction("CAST(3 AS DECIMAL(38,0)) * CAST(DECIMAL '0.2' AS DECIMAL(38,1))", decimal("0000000000000000000000000000000000000.6"));
-        assertDecimalFunction("DECIMAL '.1234567890123456789' * DECIMAL '.1234567890123456789'", decimal(".01524157875323883675019051998750190521"));
+        assertDecimalFunction("CAST(0 AS DECIMAL(38,0)) * CAST(1 AS DECIMAL(38,0))", decimal("00000000000000000000000000000000000000", createDecimalType(38)));
+        assertDecimalFunction("CAST(0 AS DECIMAL(38,0)) * CAST(-1 AS DECIMAL(38,0))", decimal("00000000000000000000000000000000000000", createDecimalType(38)));
+        assertDecimalFunction("CAST(1 AS DECIMAL(38,0)) * CAST(0 AS DECIMAL(38,0))", decimal("00000000000000000000000000000000000000", createDecimalType(38)));
+        assertDecimalFunction("CAST(-1 AS DECIMAL(38,0)) * CAST(0 AS DECIMAL(38,0))", decimal("00000000000000000000000000000000000000", createDecimalType(38)));
+        assertDecimalFunction("CAST(3 AS DECIMAL(38,0)) * CAST(2 AS DECIMAL(38,0))", decimal("00000000000000000000000000000000000006", createDecimalType(38)));
+        assertDecimalFunction("CAST(3 AS DECIMAL(38,0)) * CAST(DECIMAL '0.2' AS DECIMAL(38,1))", decimal("0000000000000000000000000000000000000.6", createDecimalType(38, 1)));
+        assertDecimalFunction("DECIMAL '.1234567890123456789' * DECIMAL '.1234567890123456789'", decimal(".01524157875323883675019051998750190521", createDecimalType(38, 38)));
 
         // scale exceeds max precision
         assertInvalidFunction("DECIMAL '.1234567890123456789' * DECIMAL '.12345678901234567890'", "DECIMAL scale must be in range [0, precision (38)]: 39");
@@ -195,96 +198,105 @@ public class TestDecimalOperators
         assertInvalidFunction("DECIMAL '.12345678901234567890123456789012345678' * DECIMAL '9'", NUMERIC_VALUE_OUT_OF_RANGE);
         assertInvalidFunction("DECIMAL '12345678901234567890123456789012345678' * DECIMAL '-9'", NUMERIC_VALUE_OUT_OF_RANGE);
         assertInvalidFunction("DECIMAL '.12345678901234567890123456789012345678' * DECIMAL '-9'", NUMERIC_VALUE_OUT_OF_RANGE);
+
+        assertThatThrownBy(() -> DecimalOperators.multiplyLongShortLong(Int128.valueOf("12345678901234567890123456789012345678"), 9))
+                .hasMessage("Decimal overflow");
+
+        assertThatThrownBy(() -> DecimalOperators.multiplyShortLongLong(9, Int128.valueOf("12345678901234567890123456789012345678")))
+                .hasMessage("Decimal overflow");
+
+        assertThatThrownBy(() -> DecimalOperators.multiplyLongLongLong(Int128.valueOf("12345678901234567890123456789012345678"), Int128.valueOf("9")))
+                .hasMessage("Decimal overflow");
     }
 
     @Test
     public void testDivide()
     {
         // short short -> short
-        assertDecimalFunction("DECIMAL '1' / DECIMAL '3'", decimal("0"));
-        assertDecimalFunction("DECIMAL '1' / DECIMAL '3'", decimal("0"));
-        assertDecimalFunction("DECIMAL '1.0' / DECIMAL '3'", decimal("0.3"));
-        assertDecimalFunction("DECIMAL '1.0' / DECIMAL '0.1'", decimal("10.0"));
-        assertDecimalFunction("DECIMAL '1.0' / DECIMAL '9.0'", decimal("00.1"));
-        assertDecimalFunction("DECIMAL '500.00' / DECIMAL '0.1'", decimal("5000.00"));
-        assertDecimalFunction("DECIMAL '100.00' / DECIMAL '0.3'", decimal("0333.33"));
-        assertDecimalFunction("DECIMAL '100.00' / DECIMAL '0.30'", decimal("00333.33"));
-        assertDecimalFunction("DECIMAL '100.00' / DECIMAL '-0.30'", decimal("-00333.33"));
-        assertDecimalFunction("DECIMAL '-100.00' / DECIMAL '0.30'", decimal("-00333.33"));
-        assertDecimalFunction("DECIMAL '200.00' / DECIMAL '0.3'", decimal("0666.67"));
-        assertDecimalFunction("DECIMAL '200.00000' / DECIMAL '0.3'", decimal("0666.66667"));
-        assertDecimalFunction("DECIMAL '200.00000' / DECIMAL '-0.3'", decimal("-0666.66667"));
-        assertDecimalFunction("DECIMAL '-200.00000' / DECIMAL '0.3'", decimal("-0666.66667"));
-        assertDecimalFunction("DECIMAL '999999999999999999' / DECIMAL '1'", decimal("999999999999999999"));
-        assertDecimalFunction("DECIMAL '9' / DECIMAL '000000000000000003'", decimal("3"));
-        assertDecimalFunction("DECIMAL '9.0' / DECIMAL '3.0'", decimal("03.0"));
-        assertDecimalFunction("DECIMAL '999999999999999999' / DECIMAL '500000000000000000'", decimal("000000000000000002"));
-        assertDecimalFunction("DECIMAL '1' / DECIMAL '999999999999999999'", decimal("0"));
-        assertDecimalFunction("DECIMAL '-1' / DECIMAL '999999999999999999'", decimal("0"));
+        assertDecimalFunction("DECIMAL '1' / DECIMAL '3'", decimal("0", createDecimalType(1)));
+        assertDecimalFunction("DECIMAL '1' / DECIMAL '3'", decimal("0", createDecimalType(1)));
+        assertDecimalFunction("DECIMAL '1.0' / DECIMAL '3'", decimal("0.3", createDecimalType(2, 1)));
+        assertDecimalFunction("DECIMAL '1.0' / DECIMAL '0.1'", decimal("10.0", createDecimalType(3, 1)));
+        assertDecimalFunction("DECIMAL '1.0' / DECIMAL '9.0'", decimal("00.1", createDecimalType(3, 1)));
+        assertDecimalFunction("DECIMAL '500.00' / DECIMAL '0.1'", decimal("5000.00", createDecimalType(6, 2)));
+        assertDecimalFunction("DECIMAL '100.00' / DECIMAL '0.3'", decimal("0333.33", createDecimalType(6, 2)));
+        assertDecimalFunction("DECIMAL '100.00' / DECIMAL '0.30'", decimal("00333.33", createDecimalType(7, 2)));
+        assertDecimalFunction("DECIMAL '100.00' / DECIMAL '-0.30'", decimal("-00333.33", createDecimalType(7, 2)));
+        assertDecimalFunction("DECIMAL '-100.00' / DECIMAL '0.30'", decimal("-00333.33", createDecimalType(7, 2)));
+        assertDecimalFunction("DECIMAL '200.00' / DECIMAL '0.3'", decimal("0666.67", createDecimalType(6, 2)));
+        assertDecimalFunction("DECIMAL '200.00000' / DECIMAL '0.3'", decimal("0666.66667", createDecimalType(9, 5)));
+        assertDecimalFunction("DECIMAL '200.00000' / DECIMAL '-0.3'", decimal("-0666.66667", createDecimalType(9, 5)));
+        assertDecimalFunction("DECIMAL '-200.00000' / DECIMAL '0.3'", decimal("-0666.66667", createDecimalType(9, 5)));
+        assertDecimalFunction("DECIMAL '999999999999999999' / DECIMAL '1'", decimal("999999999999999999", createDecimalType(18)));
+        assertDecimalFunction("DECIMAL '9' / DECIMAL '000000000000000003'", decimal("3", createDecimalType(1)));
+        assertDecimalFunction("DECIMAL '9.0' / DECIMAL '3.0'", decimal("03.0", createDecimalType(3, 1)));
+        assertDecimalFunction("DECIMAL '999999999999999999' / DECIMAL '500000000000000000'", decimal("000000000000000002", createDecimalType(18)));
+        assertDecimalFunction("DECIMAL '1' / DECIMAL '999999999999999999'", decimal("0", createDecimalType(1)));
+        assertDecimalFunction("DECIMAL '-1' / DECIMAL '999999999999999999'", decimal("0", createDecimalType(1)));
         // round
-        assertDecimalFunction("DECIMAL '9' / DECIMAL '5'", decimal("2"));
-        assertDecimalFunction("DECIMAL '7' / DECIMAL '5'", decimal("1"));
-        assertDecimalFunction("DECIMAL '-9' / DECIMAL '5'", decimal("-2"));
-        assertDecimalFunction("DECIMAL '-7' / DECIMAL '5'", decimal("-1"));
-        assertDecimalFunction("DECIMAL '-9' / DECIMAL '-5'", decimal("2"));
-        assertDecimalFunction("DECIMAL '-7' / DECIMAL '-5'", decimal("1"));
-        assertDecimalFunction("DECIMAL '9' / DECIMAL '-5'", decimal("-2"));
-        assertDecimalFunction("DECIMAL '7' / DECIMAL '-5'", decimal("-1"));
-        assertDecimalFunction("DECIMAL '-1' / DECIMAL '2'", decimal("-1"));
-        assertDecimalFunction("DECIMAL '1' / DECIMAL '-2'", decimal("-1"));
-        assertDecimalFunction("DECIMAL '-1' / DECIMAL '3'", decimal("0"));
+        assertDecimalFunction("DECIMAL '9' / DECIMAL '5'", decimal("2", createDecimalType(1)));
+        assertDecimalFunction("DECIMAL '7' / DECIMAL '5'", decimal("1", createDecimalType(1)));
+        assertDecimalFunction("DECIMAL '-9' / DECIMAL '5'", decimal("-2", createDecimalType(1)));
+        assertDecimalFunction("DECIMAL '-7' / DECIMAL '5'", decimal("-1", createDecimalType(1)));
+        assertDecimalFunction("DECIMAL '-9' / DECIMAL '-5'", decimal("2", createDecimalType(1)));
+        assertDecimalFunction("DECIMAL '-7' / DECIMAL '-5'", decimal("1", createDecimalType(1)));
+        assertDecimalFunction("DECIMAL '9' / DECIMAL '-5'", decimal("-2", createDecimalType(1)));
+        assertDecimalFunction("DECIMAL '7' / DECIMAL '-5'", decimal("-1", createDecimalType(1)));
+        assertDecimalFunction("DECIMAL '-1' / DECIMAL '2'", decimal("-1", createDecimalType(1)));
+        assertDecimalFunction("DECIMAL '1' / DECIMAL '-2'", decimal("-1", createDecimalType(1)));
+        assertDecimalFunction("DECIMAL '-1' / DECIMAL '3'", decimal("0", createDecimalType(1)));
 
         // short short -> long
-        assertDecimalFunction("DECIMAL '10' / DECIMAL '.000000001'", decimal("10000000000.000000000"));
-        assertDecimalFunction("DECIMAL '-10' / DECIMAL '.000000001'", decimal("-10000000000.000000000"));
-        assertDecimalFunction("DECIMAL '10' / DECIMAL '-.000000001'", decimal("-10000000000.000000000"));
-        assertDecimalFunction("DECIMAL '-10' / DECIMAL '-.000000001'", decimal("10000000000.000000000"));
+        assertDecimalFunction("DECIMAL '10' / DECIMAL '.000000001'", decimal("10000000000.000000000", createDecimalType(20, 9)));
+        assertDecimalFunction("DECIMAL '-10' / DECIMAL '.000000001'", decimal("-10000000000.000000000", createDecimalType(20, 9)));
+        assertDecimalFunction("DECIMAL '10' / DECIMAL '-.000000001'", decimal("-10000000000.000000000", createDecimalType(20, 9)));
+        assertDecimalFunction("DECIMAL '-10' / DECIMAL '-.000000001'", decimal("10000000000.000000000", createDecimalType(20, 9)));
 
         // long short -> long
-        assertDecimalFunction("DECIMAL '200000000000000000000000000000000000' / DECIMAL '0.30'", decimal("666666666666666666666666666666666666.67"));
-        assertDecimalFunction("DECIMAL '200000000000000000000000000000000000' / DECIMAL '-0.30'", decimal("-666666666666666666666666666666666666.67"));
-        assertDecimalFunction("DECIMAL '-.20000000000000000000000000000000000000' / DECIMAL '0.30'", decimal("-.66666666666666666666666666666666666667"));
-        assertDecimalFunction("DECIMAL '-.20000000000000000000000000000000000000' / DECIMAL '-0.30'", decimal(".66666666666666666666666666666666666667"));
-        assertDecimalFunction("DECIMAL '.20000000000000000000000000000000000000' / DECIMAL '0.30'", decimal(".66666666666666666666666666666666666667"));
+        assertDecimalFunction("DECIMAL '200000000000000000000000000000000000' / DECIMAL '0.30'", decimal("666666666666666666666666666666666666.67", createDecimalType(38, 2)));
+        assertDecimalFunction("DECIMAL '200000000000000000000000000000000000' / DECIMAL '-0.30'", decimal("-666666666666666666666666666666666666.67", createDecimalType(38, 2)));
+        assertDecimalFunction("DECIMAL '-.20000000000000000000000000000000000000' / DECIMAL '0.30'", decimal("-.66666666666666666666666666666666666667", createDecimalType(38, 38)));
+        assertDecimalFunction("DECIMAL '-.20000000000000000000000000000000000000' / DECIMAL '-0.30'", decimal(".66666666666666666666666666666666666667", createDecimalType(38, 38)));
+        assertDecimalFunction("DECIMAL '.20000000000000000000000000000000000000' / DECIMAL '0.30'", decimal(".66666666666666666666666666666666666667", createDecimalType(38, 38)));
         // round
-        assertDecimalFunction("DECIMAL '500000000000000000000000000000000075' / DECIMAL '50'", decimal("010000000000000000000000000000000002"));
-        assertDecimalFunction("DECIMAL '500000000000000000000000000000000070' / DECIMAL '50'", decimal("010000000000000000000000000000000001"));
-        assertDecimalFunction("DECIMAL '-500000000000000000000000000000000075' / DECIMAL '50'", decimal("-010000000000000000000000000000000002"));
-        assertDecimalFunction("DECIMAL '-500000000000000000000000000000000070' / DECIMAL '50'", decimal("-010000000000000000000000000000000001"));
-        assertDecimalFunction("DECIMAL '500000000000000000000000000000000075' / DECIMAL '-50'", decimal("-010000000000000000000000000000000002"));
-        assertDecimalFunction("DECIMAL '500000000000000000000000000000000070' / DECIMAL '-50'", decimal("-010000000000000000000000000000000001"));
-        assertDecimalFunction("DECIMAL '-500000000000000000000000000000000075' / DECIMAL '-50'", decimal("010000000000000000000000000000000002"));
-        assertDecimalFunction("DECIMAL '-500000000000000000000000000000000070' / DECIMAL '-50'", decimal("010000000000000000000000000000000001"));
-        assertDecimalFunction("CAST(-1 AS DECIMAL(19,0))/ DECIMAL '2'", decimal("-0000000000000000001"));
-        assertDecimalFunction("CAST(1 AS DECIMAL(19,0))/ DECIMAL '-2'", decimal("-0000000000000000001"));
-        assertDecimalFunction("CAST(-1 AS DECIMAL(19,0))/ DECIMAL '3'", decimal("0000000000000000000"));
+        assertDecimalFunction("DECIMAL '500000000000000000000000000000000075' / DECIMAL '50'", decimal("010000000000000000000000000000000002", createDecimalType(36)));
+        assertDecimalFunction("DECIMAL '500000000000000000000000000000000070' / DECIMAL '50'", decimal("010000000000000000000000000000000001", createDecimalType(36)));
+        assertDecimalFunction("DECIMAL '-500000000000000000000000000000000075' / DECIMAL '50'", decimal("-010000000000000000000000000000000002", createDecimalType(36)));
+        assertDecimalFunction("DECIMAL '-500000000000000000000000000000000070' / DECIMAL '50'", decimal("-010000000000000000000000000000000001", createDecimalType(36)));
+        assertDecimalFunction("DECIMAL '500000000000000000000000000000000075' / DECIMAL '-50'", decimal("-010000000000000000000000000000000002", createDecimalType(36)));
+        assertDecimalFunction("DECIMAL '500000000000000000000000000000000070' / DECIMAL '-50'", decimal("-010000000000000000000000000000000001", createDecimalType(36)));
+        assertDecimalFunction("DECIMAL '-500000000000000000000000000000000075' / DECIMAL '-50'", decimal("010000000000000000000000000000000002", createDecimalType(36)));
+        assertDecimalFunction("DECIMAL '-500000000000000000000000000000000070' / DECIMAL '-50'", decimal("010000000000000000000000000000000001", createDecimalType(36)));
+        assertDecimalFunction("CAST(-1 AS DECIMAL(19,0))/ DECIMAL '2'", decimal("-0000000000000000001", createDecimalType(19)));
+        assertDecimalFunction("CAST(1 AS DECIMAL(19,0))/ DECIMAL '-2'", decimal("-0000000000000000001", createDecimalType(19)));
+        assertDecimalFunction("CAST(-1 AS DECIMAL(19,0))/ DECIMAL '3'", decimal("0000000000000000000", createDecimalType(19)));
 
         // short long -> long
-        assertDecimalFunction("DECIMAL '0.1' / DECIMAL '.0000000000000000001'", decimal("1000000000000000000.0000000000000000000"));
-        assertDecimalFunction("DECIMAL '-0.1' / DECIMAL '.0000000000000000001'", decimal("-1000000000000000000.0000000000000000000"));
-        assertDecimalFunction("DECIMAL '0.1' / DECIMAL '-.0000000000000000001'", decimal("-1000000000000000000.0000000000000000000"));
-        assertDecimalFunction("DECIMAL '-0.1' / DECIMAL '-.0000000000000000001'", decimal("1000000000000000000.0000000000000000000"));
+        assertDecimalFunction("DECIMAL '0.1' / DECIMAL '.0000000000000000001'", decimal("1000000000000000000.0000000000000000000", createDecimalType(38, 19)));
+        assertDecimalFunction("DECIMAL '-0.1' / DECIMAL '.0000000000000000001'", decimal("-1000000000000000000.0000000000000000000", createDecimalType(38, 19)));
+        assertDecimalFunction("DECIMAL '0.1' / DECIMAL '-.0000000000000000001'", decimal("-1000000000000000000.0000000000000000000", createDecimalType(38, 19)));
+        assertDecimalFunction("DECIMAL '-0.1' / DECIMAL '-.0000000000000000001'", decimal("1000000000000000000.0000000000000000000", createDecimalType(38, 19)));
 
         // short long -> short
-        assertDecimalFunction("DECIMAL '9' / DECIMAL '000000000000000003.0'", decimal("03.0"));
-        assertDecimalFunction("DECIMAL '1' / DECIMAL '99999999999999999999999999999999999999'", decimal("0"));
-        assertDecimalFunction("DECIMAL '-1' / DECIMAL '99999999999999999999999999999999999999'", decimal("0"));
-        assertDecimalFunction("DECIMAL '1' / DECIMAL '-99999999999999999999999999999999999999'", decimal("0"));
-        assertDecimalFunction("DECIMAL '-1' / DECIMAL '-99999999999999999999999999999999999999'", decimal("0"));
+        assertDecimalFunction("DECIMAL '9' / DECIMAL '000000000000000003.0'", decimal("03.0", createDecimalType(3, 1)));
+        assertDecimalFunction("DECIMAL '1' / DECIMAL '99999999999999999999999999999999999999'", decimal("0", createDecimalType(1)));
+        assertDecimalFunction("DECIMAL '-1' / DECIMAL '99999999999999999999999999999999999999'", decimal("0", createDecimalType(1)));
+        assertDecimalFunction("DECIMAL '1' / DECIMAL '-99999999999999999999999999999999999999'", decimal("0", createDecimalType(1)));
+        assertDecimalFunction("DECIMAL '-1' / DECIMAL '-99999999999999999999999999999999999999'", decimal("0", createDecimalType(1)));
 
         // long long -> long
-        assertDecimalFunction("DECIMAL '99999999999999999999999999999999999999' / DECIMAL '11111111111111111111111111111111111111'", decimal("00000000000000000000000000000000000009"));
-        assertDecimalFunction("DECIMAL '-99999999999999999999999999999999999999' / DECIMAL '11111111111111111111111111111111111111'", decimal("-00000000000000000000000000000000000009"));
-        assertDecimalFunction("DECIMAL '99999999999999999999999999999999999999' / DECIMAL '-11111111111111111111111111111111111111'", decimal("-00000000000000000000000000000000000009"));
-        assertDecimalFunction("DECIMAL '-99999999999999999999999999999999999999' / DECIMAL '-11111111111111111111111111111111111111'", decimal("00000000000000000000000000000000000009"));
-        assertDecimalFunction("DECIMAL '11111111111111111111111111111111111111' / DECIMAL '99999999999999999999999999999999999999'", decimal("00000000000000000000000000000000000000"));
-        assertDecimalFunction("DECIMAL '-11111111111111111111111111111111111111' / DECIMAL '99999999999999999999999999999999999999'", decimal("00000000000000000000000000000000000000"));
-        assertDecimalFunction("DECIMAL '11111111111111111111111111111111111111' / DECIMAL '-99999999999999999999999999999999999999'", decimal("00000000000000000000000000000000000000"));
-        assertDecimalFunction("DECIMAL '-11111111111111111111111111111111111111' / DECIMAL '-99999999999999999999999999999999999999'", decimal("00000000000000000000000000000000000000"));
-        assertDecimalFunction("DECIMAL '99999999999999999999999999999999999998' / DECIMAL '99999999999999999999999999999999999999'", decimal("00000000000000000000000000000000000001"));
-        assertDecimalFunction("DECIMAL '9999999999999999999999999999999999999.8' / DECIMAL '9999999999999999999999999999999999999.9'", decimal("0000000000000000000000000000000000001.0"));
-        assertDecimalFunction("DECIMAL '9999999999999999999999.9' / DECIMAL '1111111111111111111111.100'", decimal("0000000000000000000000009.000"));
-        assertDecimalFunction("CAST('1635619.3155' AS DECIMAL(38,4)) / CAST('47497517.7405' AS DECIMAL(38,4))", decimal("0000000000000000000000000000000000.0344"));
+        assertDecimalFunction("DECIMAL '99999999999999999999999999999999999999' / DECIMAL '11111111111111111111111111111111111111'", decimal("00000000000000000000000000000000000009", createDecimalType(38)));
+        assertDecimalFunction("DECIMAL '-99999999999999999999999999999999999999' / DECIMAL '11111111111111111111111111111111111111'", decimal("-00000000000000000000000000000000000009", createDecimalType(38)));
+        assertDecimalFunction("DECIMAL '99999999999999999999999999999999999999' / DECIMAL '-11111111111111111111111111111111111111'", decimal("-00000000000000000000000000000000000009", createDecimalType(38)));
+        assertDecimalFunction("DECIMAL '-99999999999999999999999999999999999999' / DECIMAL '-11111111111111111111111111111111111111'", decimal("00000000000000000000000000000000000009", createDecimalType(38)));
+        assertDecimalFunction("DECIMAL '11111111111111111111111111111111111111' / DECIMAL '99999999999999999999999999999999999999'", decimal("00000000000000000000000000000000000000", createDecimalType(38)));
+        assertDecimalFunction("DECIMAL '-11111111111111111111111111111111111111' / DECIMAL '99999999999999999999999999999999999999'", decimal("00000000000000000000000000000000000000", createDecimalType(38)));
+        assertDecimalFunction("DECIMAL '11111111111111111111111111111111111111' / DECIMAL '-99999999999999999999999999999999999999'", decimal("00000000000000000000000000000000000000", createDecimalType(38)));
+        assertDecimalFunction("DECIMAL '-11111111111111111111111111111111111111' / DECIMAL '-99999999999999999999999999999999999999'", decimal("00000000000000000000000000000000000000", createDecimalType(38)));
+        assertDecimalFunction("DECIMAL '99999999999999999999999999999999999998' / DECIMAL '99999999999999999999999999999999999999'", decimal("00000000000000000000000000000000000001", createDecimalType(38)));
+        assertDecimalFunction("DECIMAL '9999999999999999999999999999999999999.8' / DECIMAL '9999999999999999999999999999999999999.9'", decimal("0000000000000000000000000000000000001.0", createDecimalType(38, 1)));
+        assertDecimalFunction("DECIMAL '9999999999999999999999.9' / DECIMAL '1111111111111111111111.100'", decimal("0000000000000000000000009.000", createDecimalType(28, 3)));
+        assertDecimalFunction("CAST('1635619.3155' AS DECIMAL(38,4)) / CAST('47497517.7405' AS DECIMAL(38,4))", decimal("0000000000000000000000000000000000.0344", createDecimalType(38, 4)));
 
         // runtime overflow
         assertInvalidFunction("DECIMAL '12345678901234567890123456789012345678' / DECIMAL '.1'", NUMERIC_VALUE_OUT_OF_RANGE);
@@ -298,97 +310,97 @@ public class TestDecimalOperators
         assertInvalidFunction("DECIMAL '1.000000000000000000000000000000000000' / DECIMAL '0.0000000000000000000000000000000000000'", DIVISION_BY_ZERO);
         assertInvalidFunction("DECIMAL '1' / DECIMAL '0.0000000000000000000000000000000000000'", DIVISION_BY_ZERO);
 
-        assertDecimalFunction("CAST(1000 AS DECIMAL(38,8)) / CAST(25 AS DECIMAL(38,8))", decimal("000000000000000000000000000040.00000000"));
+        assertDecimalFunction("CAST(1000 AS DECIMAL(38,8)) / CAST(25 AS DECIMAL(38,8))", decimal("000000000000000000000000000040.00000000", createDecimalType(38, 8)));
     }
 
     @Test
     public void testModulus()
     {
         // short short -> short
-        assertDecimalFunction("DECIMAL '1' % DECIMAL '3'", decimal("1"));
-        assertDecimalFunction("DECIMAL '10' % DECIMAL '3'", decimal("1"));
-        assertDecimalFunction("DECIMAL '0' % DECIMAL '3'", decimal("0"));
-        assertDecimalFunction("DECIMAL '0' % DECIMAL '-3'", decimal("0"));
-        assertDecimalFunction("DECIMAL '10.0' % DECIMAL '3'", decimal("1.0"));
-        assertDecimalFunction("DECIMAL '10.0' % DECIMAL '3.000'", decimal("1.000"));
-        assertDecimalFunction("DECIMAL '7' % DECIMAL '3.0000000000000000'", decimal("1.0000000000000000"));
-        assertDecimalFunction("DECIMAL '7.00000000000000000' % DECIMAL '3.00000000000000000'", decimal("1.00000000000000000"));
-        assertDecimalFunction("DECIMAL '7.00000000000000000' % DECIMAL '3'", decimal("1.00000000000000000"));
-        assertDecimalFunction("DECIMAL '7' % CAST(3 AS DECIMAL(17,0))", decimal("1"));
-        assertDecimalFunction("DECIMAL '.1' % DECIMAL '.03'", decimal(".01"));
-        assertDecimalFunction("DECIMAL '.0001' % DECIMAL '.03'", decimal(".0001"));
-        assertDecimalFunction("DECIMAL '-10' % DECIMAL '3'", decimal("-1"));
-        assertDecimalFunction("DECIMAL '10' % DECIMAL '-3'", decimal("1"));
-        assertDecimalFunction("DECIMAL '-10' % DECIMAL '-3'", decimal("-1"));
-        assertDecimalFunction("DECIMAL '9' % DECIMAL '3'", decimal("0"));
-        assertDecimalFunction("DECIMAL '-9' % DECIMAL '3'", decimal("0"));
-        assertDecimalFunction("DECIMAL '9' % DECIMAL '-3'", decimal("0"));
-        assertDecimalFunction("DECIMAL '-9' % DECIMAL '-3'", decimal("0"));
+        assertDecimalFunction("DECIMAL '1' % DECIMAL '3'", decimal("1", createDecimalType(1, 0)));
+        assertDecimalFunction("DECIMAL '10' % DECIMAL '3'", decimal("1", createDecimalType(1, 0)));
+        assertDecimalFunction("DECIMAL '0' % DECIMAL '3'", decimal("0", createDecimalType(1, 0)));
+        assertDecimalFunction("DECIMAL '0' % DECIMAL '-3'", decimal("0", createDecimalType(1, 0)));
+        assertDecimalFunction("DECIMAL '10.0' % DECIMAL '3'", decimal("1.0", createDecimalType(2, 1)));
+        assertDecimalFunction("DECIMAL '10.0' % DECIMAL '3.000'", decimal("1.000", createDecimalType(4, 3)));
+        assertDecimalFunction("DECIMAL '7' % DECIMAL '3.0000000000000000'", decimal("1.0000000000000000", createDecimalType(17, 16)));
+        assertDecimalFunction("DECIMAL '7.00000000000000000' % DECIMAL '3.00000000000000000'", decimal("1.00000000000000000", createDecimalType(18, 17)));
+        assertDecimalFunction("DECIMAL '7.00000000000000000' % DECIMAL '3'", decimal("1.00000000000000000", createDecimalType(18, 17)));
+        assertDecimalFunction("DECIMAL '7' % CAST(3 AS DECIMAL(17,0))", decimal("1", createDecimalType(1)));
+        assertDecimalFunction("DECIMAL '.1' % DECIMAL '.03'", decimal(".01", createDecimalType(2, 2)));
+        assertDecimalFunction("DECIMAL '.0001' % DECIMAL '.03'", decimal(".0001", createDecimalType(4, 4)));
+        assertDecimalFunction("DECIMAL '-10' % DECIMAL '3'", decimal("-1", createDecimalType(1)));
+        assertDecimalFunction("DECIMAL '10' % DECIMAL '-3'", decimal("1", createDecimalType(1)));
+        assertDecimalFunction("DECIMAL '-10' % DECIMAL '-3'", decimal("-1", createDecimalType(1)));
+        assertDecimalFunction("DECIMAL '9' % DECIMAL '3'", decimal("0", createDecimalType(1)));
+        assertDecimalFunction("DECIMAL '-9' % DECIMAL '3'", decimal("0", createDecimalType(1)));
+        assertDecimalFunction("DECIMAL '9' % DECIMAL '-3'", decimal("0", createDecimalType(1)));
+        assertDecimalFunction("DECIMAL '-9' % DECIMAL '-3'", decimal("0", createDecimalType(1)));
 
         // short long -> short
-        assertDecimalFunction("DECIMAL '0' % CAST(3 AS DECIMAL(38,16))", decimal("0.0000000000000000"));
-        assertDecimalFunction("DECIMAL '0' % CAST(-3 AS DECIMAL(38,16))", decimal("0.0000000000000000"));
-        assertDecimalFunction("DECIMAL '7' % CAST(3 AS DECIMAL(38,0))", decimal("1"));
-        assertDecimalFunction("DECIMAL '7' % CAST(3 AS DECIMAL(38,16))", decimal("1.0000000000000000"));
-        assertDecimalFunction("DECIMAL '7.00000000000000000' % CAST(3 AS DECIMAL(38,17))", decimal("1.00000000000000000"));
-        assertDecimalFunction("DECIMAL '-7.00000000000000000' % CAST(3 AS DECIMAL(38,17))", decimal("-1.00000000000000000"));
-        assertDecimalFunction("DECIMAL '7.0000000000000000' % CAST(-3 AS DECIMAL(38,16))", decimal("1.0000000000000000"));
-        assertDecimalFunction("DECIMAL '-7.0000000000000000' % CAST(-3 AS DECIMAL(38,16))", decimal("-1.0000000000000000"));
-        assertDecimalFunction("DECIMAL '9.00000000000000000' % CAST(3 AS DECIMAL(38,17))", decimal("0.00000000000000000"));
-        assertDecimalFunction("DECIMAL '-9.00000000000000000' % CAST(3 AS DECIMAL(38,17))", decimal("0.00000000000000000"));
-        assertDecimalFunction("DECIMAL '9.0000000000000000' % CAST(-3 AS DECIMAL(38,16))", decimal("0.0000000000000000"));
-        assertDecimalFunction("DECIMAL '-9.0000000000000000' % CAST(-3 AS DECIMAL(38,16))", decimal("0.0000000000000000"));
+        assertDecimalFunction("DECIMAL '0' % CAST(3 AS DECIMAL(38,16))", decimal("0.0000000000000000", createDecimalType(17, 16)));
+        assertDecimalFunction("DECIMAL '0' % CAST(-3 AS DECIMAL(38,16))", decimal("0.0000000000000000", createDecimalType(17, 16)));
+        assertDecimalFunction("DECIMAL '7' % CAST(3 AS DECIMAL(38,0))", decimal("1", createDecimalType(1)));
+        assertDecimalFunction("DECIMAL '7' % CAST(3 AS DECIMAL(38,16))", decimal("1.0000000000000000", createDecimalType(17, 16)));
+        assertDecimalFunction("DECIMAL '7.00000000000000000' % CAST(3 AS DECIMAL(38,17))", decimal("1.00000000000000000", createDecimalType(18, 17)));
+        assertDecimalFunction("DECIMAL '-7.00000000000000000' % CAST(3 AS DECIMAL(38,17))", decimal("-1.00000000000000000", createDecimalType(18, 17)));
+        assertDecimalFunction("DECIMAL '7.0000000000000000' % CAST(-3 AS DECIMAL(38,16))", decimal("1.0000000000000000", createDecimalType(17, 16)));
+        assertDecimalFunction("DECIMAL '-7.0000000000000000' % CAST(-3 AS DECIMAL(38,16))", decimal("-1.0000000000000000", createDecimalType(17, 16)));
+        assertDecimalFunction("DECIMAL '9.00000000000000000' % CAST(3 AS DECIMAL(38,17))", decimal("0.00000000000000000", createDecimalType(18, 17)));
+        assertDecimalFunction("DECIMAL '-9.00000000000000000' % CAST(3 AS DECIMAL(38,17))", decimal("0.00000000000000000", createDecimalType(18, 17)));
+        assertDecimalFunction("DECIMAL '9.0000000000000000' % CAST(-3 AS DECIMAL(38,16))", decimal("0.0000000000000000", createDecimalType(17, 16)));
+        assertDecimalFunction("DECIMAL '-9.0000000000000000' % CAST(-3 AS DECIMAL(38,16))", decimal("0.0000000000000000", createDecimalType(17, 16)));
 
         // short long -> long
-        assertDecimalFunction("DECIMAL '0' % DECIMAL '3.0000000000000000000000000000000000000'", decimal("0.0000000000000000000000000000000000000"));
-        assertDecimalFunction("DECIMAL '0' % DECIMAL '-3.0000000000000000000000000000000000000'", decimal("0.0000000000000000000000000000000000000"));
-        assertDecimalFunction("DECIMAL '7' % DECIMAL '3.0000000000000000000000000000000000000'", decimal("1.0000000000000000000000000000000000000"));
-        assertDecimalFunction("DECIMAL '7.00000000000000000' % DECIMAL '3.0000000000000000000000000000000000000'", decimal("1.0000000000000000000000000000000000000"));
-        assertDecimalFunction("DECIMAL '.01' % DECIMAL '3.0000000000000000000000000000000000000'", decimal(".0100000000000000000000000000000000000"));
-        assertDecimalFunction("DECIMAL '-7' % DECIMAL '3.0000000000000000000000000000000000000'", decimal("-1.0000000000000000000000000000000000000"));
-        assertDecimalFunction("DECIMAL '7' % DECIMAL '-3.0000000000000000000000000000000000000'", decimal("1.0000000000000000000000000000000000000"));
-        assertDecimalFunction("DECIMAL '-7' % DECIMAL '-3.0000000000000000000000000000000000000'", decimal("-1.0000000000000000000000000000000000000"));
-        assertDecimalFunction("DECIMAL '9' % DECIMAL '3.0000000000000000000000000000000000000'", decimal("0.0000000000000000000000000000000000000"));
-        assertDecimalFunction("DECIMAL '-9' % DECIMAL '3.0000000000000000000000000000000000000'", decimal("0.0000000000000000000000000000000000000"));
-        assertDecimalFunction("DECIMAL '9' % DECIMAL '-3.0000000000000000000000000000000000000'", decimal("0.0000000000000000000000000000000000000"));
-        assertDecimalFunction("DECIMAL '-9' % DECIMAL '-3.0000000000000000000000000000000000000'", decimal("0.0000000000000000000000000000000000000"));
+        assertDecimalFunction("DECIMAL '0' % DECIMAL '3.0000000000000000000000000000000000000'", decimal("0.0000000000000000000000000000000000000", createDecimalType(38, 37)));
+        assertDecimalFunction("DECIMAL '0' % DECIMAL '-3.0000000000000000000000000000000000000'", decimal("0.0000000000000000000000000000000000000", createDecimalType(38, 37)));
+        assertDecimalFunction("DECIMAL '7' % DECIMAL '3.0000000000000000000000000000000000000'", decimal("1.0000000000000000000000000000000000000", createDecimalType(38, 37)));
+        assertDecimalFunction("DECIMAL '7.00000000000000000' % DECIMAL '3.0000000000000000000000000000000000000'", decimal("1.0000000000000000000000000000000000000", createDecimalType(38, 37)));
+        assertDecimalFunction("DECIMAL '.01' % DECIMAL '3.0000000000000000000000000000000000000'", decimal(".0100000000000000000000000000000000000", createDecimalType(37, 37)));
+        assertDecimalFunction("DECIMAL '-7' % DECIMAL '3.0000000000000000000000000000000000000'", decimal("-1.0000000000000000000000000000000000000", createDecimalType(38, 37)));
+        assertDecimalFunction("DECIMAL '7' % DECIMAL '-3.0000000000000000000000000000000000000'", decimal("1.0000000000000000000000000000000000000", createDecimalType(38, 37)));
+        assertDecimalFunction("DECIMAL '-7' % DECIMAL '-3.0000000000000000000000000000000000000'", decimal("-1.0000000000000000000000000000000000000", createDecimalType(38, 37)));
+        assertDecimalFunction("DECIMAL '9' % DECIMAL '3.0000000000000000000000000000000000000'", decimal("0.0000000000000000000000000000000000000", createDecimalType(38, 37)));
+        assertDecimalFunction("DECIMAL '-9' % DECIMAL '3.0000000000000000000000000000000000000'", decimal("0.0000000000000000000000000000000000000", createDecimalType(38, 37)));
+        assertDecimalFunction("DECIMAL '9' % DECIMAL '-3.0000000000000000000000000000000000000'", decimal("0.0000000000000000000000000000000000000", createDecimalType(38, 37)));
+        assertDecimalFunction("DECIMAL '-9' % DECIMAL '-3.0000000000000000000000000000000000000'", decimal("0.0000000000000000000000000000000000000", createDecimalType(38, 37)));
 
         // long short -> short
-        assertDecimalFunction("DECIMAL '99999999999999999999999999999999999997' % DECIMAL '3'", decimal("1"));
-        assertDecimalFunction("DECIMAL '99999999999999999999999999999999999997' % DECIMAL '3.0000000000000000'", decimal("1.0000000000000000"));
-        assertDecimalFunction("DECIMAL '-99999999999999999999999999999999999997' % DECIMAL '3'", decimal("-1"));
-        assertDecimalFunction("DECIMAL '99999999999999999999999999999999999997' % DECIMAL '-3'", decimal("1"));
-        assertDecimalFunction("DECIMAL '-99999999999999999999999999999999999997' % DECIMAL '-3'", decimal("-1"));
-        assertDecimalFunction("DECIMAL '99999999999999999999999999999999999999' % DECIMAL '3'", decimal("0"));
-        assertDecimalFunction("DECIMAL '-99999999999999999999999999999999999999' % DECIMAL '3'", decimal("0"));
-        assertDecimalFunction("DECIMAL '99999999999999999999999999999999999999' % DECIMAL '-3'", decimal("0"));
-        assertDecimalFunction("DECIMAL '-99999999999999999999999999999999999999' % DECIMAL '-3'", decimal("0"));
+        assertDecimalFunction("DECIMAL '99999999999999999999999999999999999997' % DECIMAL '3'", decimal("1", createDecimalType(1)));
+        assertDecimalFunction("DECIMAL '99999999999999999999999999999999999997' % DECIMAL '3.0000000000000000'", decimal("1.0000000000000000", createDecimalType(17, 16)));
+        assertDecimalFunction("DECIMAL '-99999999999999999999999999999999999997' % DECIMAL '3'", decimal("-1", createDecimalType(1)));
+        assertDecimalFunction("DECIMAL '99999999999999999999999999999999999997' % DECIMAL '-3'", decimal("1", createDecimalType(1)));
+        assertDecimalFunction("DECIMAL '-99999999999999999999999999999999999997' % DECIMAL '-3'", decimal("-1", createDecimalType(1)));
+        assertDecimalFunction("DECIMAL '99999999999999999999999999999999999999' % DECIMAL '3'", decimal("0", createDecimalType(1)));
+        assertDecimalFunction("DECIMAL '-99999999999999999999999999999999999999' % DECIMAL '3'", decimal("0", createDecimalType(1)));
+        assertDecimalFunction("DECIMAL '99999999999999999999999999999999999999' % DECIMAL '-3'", decimal("0", createDecimalType(1)));
+        assertDecimalFunction("DECIMAL '-99999999999999999999999999999999999999' % DECIMAL '-3'", decimal("0", createDecimalType(1)));
 
         // long short -> long
-        assertDecimalFunction("DECIMAL '0.000000000000000000000000000000000000' % DECIMAL '3'", decimal(".000000000000000000000000000000000000"));
-        assertDecimalFunction("DECIMAL '0.000000000000000000000000000000000000' % DECIMAL '-3'", decimal(".000000000000000000000000000000000000"));
-        assertDecimalFunction("DECIMAL '7.000000000000000000000000000000000000' % DECIMAL '3'", decimal("1.000000000000000000000000000000000000"));
-        assertDecimalFunction("DECIMAL '-7.000000000000000000000000000000000000' % DECIMAL '3'", decimal("-1.000000000000000000000000000000000000"));
-        assertDecimalFunction("DECIMAL '7.000000000000000000000000000000000000' % DECIMAL '-3'", decimal("1.000000000000000000000000000000000000"));
-        assertDecimalFunction("DECIMAL '-7.000000000000000000000000000000000000' % DECIMAL '-3'", decimal("-1.000000000000000000000000000000000000"));
-        assertDecimalFunction("DECIMAL '9.000000000000000000000000000000000000' % DECIMAL '3'", decimal("0.000000000000000000000000000000000000"));
-        assertDecimalFunction("DECIMAL '-9.000000000000000000000000000000000000' % DECIMAL '3'", decimal("0.000000000000000000000000000000000000"));
-        assertDecimalFunction("DECIMAL '9.000000000000000000000000000000000000' % DECIMAL '-3'", decimal("0.000000000000000000000000000000000000"));
-        assertDecimalFunction("DECIMAL '-9.000000000000000000000000000000000000' % DECIMAL '-3'", decimal("0.000000000000000000000000000000000000"));
+        assertDecimalFunction("DECIMAL '0.000000000000000000000000000000000000' % DECIMAL '3'", decimal(".000000000000000000000000000000000000", createDecimalType(36, 36)));
+        assertDecimalFunction("DECIMAL '0.000000000000000000000000000000000000' % DECIMAL '-3'", decimal(".000000000000000000000000000000000000", createDecimalType(36, 36)));
+        assertDecimalFunction("DECIMAL '7.000000000000000000000000000000000000' % DECIMAL '3'", decimal("1.000000000000000000000000000000000000", createDecimalType(37, 36)));
+        assertDecimalFunction("DECIMAL '-7.000000000000000000000000000000000000' % DECIMAL '3'", decimal("-1.000000000000000000000000000000000000", createDecimalType(37, 36)));
+        assertDecimalFunction("DECIMAL '7.000000000000000000000000000000000000' % DECIMAL '-3'", decimal("1.000000000000000000000000000000000000", createDecimalType(37, 36)));
+        assertDecimalFunction("DECIMAL '-7.000000000000000000000000000000000000' % DECIMAL '-3'", decimal("-1.000000000000000000000000000000000000", createDecimalType(37, 36)));
+        assertDecimalFunction("DECIMAL '9.000000000000000000000000000000000000' % DECIMAL '3'", decimal("0.000000000000000000000000000000000000", createDecimalType(37, 36)));
+        assertDecimalFunction("DECIMAL '-9.000000000000000000000000000000000000' % DECIMAL '3'", decimal("0.000000000000000000000000000000000000", createDecimalType(37, 36)));
+        assertDecimalFunction("DECIMAL '9.000000000000000000000000000000000000' % DECIMAL '-3'", decimal("0.000000000000000000000000000000000000", createDecimalType(37, 36)));
+        assertDecimalFunction("DECIMAL '-9.000000000000000000000000000000000000' % DECIMAL '-3'", decimal("0.000000000000000000000000000000000000", createDecimalType(37, 36)));
 
         // long long -> long
-        assertDecimalFunction("CAST(0 AS DECIMAL(38,0)) % CAST(3 AS DECIMAL(38,0))", decimal("00000000000000000000000000000000000000"));
-        assertDecimalFunction("CAST(0 AS DECIMAL(38,0)) % CAST(-3 AS DECIMAL(38,0))", decimal("00000000000000000000000000000000000000"));
-        assertDecimalFunction("CAST(7 AS DECIMAL(38,0)) % CAST(3 AS DECIMAL(38,0))", decimal("00000000000000000000000000000000000001"));
-        assertDecimalFunction("CAST(7 AS DECIMAL(34,0)) % CAST(3 AS DECIMAL(38,0))", decimal("0000000000000000000000000000000001"));
-        assertDecimalFunction("CAST(7 AS DECIMAL(38,0)) % CAST(3 AS DECIMAL(34,0))", decimal("0000000000000000000000000000000001"));
-        assertDecimalFunction("CAST(-7 AS DECIMAL(38,0)) % CAST(3 AS DECIMAL(38,0))", decimal("-00000000000000000000000000000000000001"));
-        assertDecimalFunction("CAST(7 AS DECIMAL(38,0)) % CAST(-3 AS DECIMAL(38,0))", decimal("00000000000000000000000000000000000001"));
-        assertDecimalFunction("CAST(-7 AS DECIMAL(38,0)) % CAST(-3 AS DECIMAL(38,0))", decimal("-00000000000000000000000000000000000001"));
-        assertDecimalFunction("CAST(9 AS DECIMAL(38,0)) % CAST(3 AS DECIMAL(38,0))", decimal("00000000000000000000000000000000000000"));
-        assertDecimalFunction("CAST(-9 AS DECIMAL(38,0)) % CAST(3 AS DECIMAL(38,0))", decimal("00000000000000000000000000000000000000"));
-        assertDecimalFunction("CAST(9 AS DECIMAL(38,0)) % CAST(-3 AS DECIMAL(38,0))", decimal("00000000000000000000000000000000000000"));
-        assertDecimalFunction("CAST(-9 AS DECIMAL(38,0)) % CAST(-3 AS DECIMAL(38,0))", decimal("00000000000000000000000000000000000000"));
+        assertDecimalFunction("CAST(0 AS DECIMAL(38,0)) % CAST(3 AS DECIMAL(38,0))", decimal("00000000000000000000000000000000000000", createDecimalType(38)));
+        assertDecimalFunction("CAST(0 AS DECIMAL(38,0)) % CAST(-3 AS DECIMAL(38,0))", decimal("00000000000000000000000000000000000000", createDecimalType(38)));
+        assertDecimalFunction("CAST(7 AS DECIMAL(38,0)) % CAST(3 AS DECIMAL(38,0))", decimal("00000000000000000000000000000000000001", createDecimalType(38)));
+        assertDecimalFunction("CAST(7 AS DECIMAL(34,0)) % CAST(3 AS DECIMAL(38,0))", decimal("0000000000000000000000000000000001", createDecimalType(34)));
+        assertDecimalFunction("CAST(7 AS DECIMAL(38,0)) % CAST(3 AS DECIMAL(34,0))", decimal("0000000000000000000000000000000001", createDecimalType(34)));
+        assertDecimalFunction("CAST(-7 AS DECIMAL(38,0)) % CAST(3 AS DECIMAL(38,0))", decimal("-00000000000000000000000000000000000001", createDecimalType(38)));
+        assertDecimalFunction("CAST(7 AS DECIMAL(38,0)) % CAST(-3 AS DECIMAL(38,0))", decimal("00000000000000000000000000000000000001", createDecimalType(38)));
+        assertDecimalFunction("CAST(-7 AS DECIMAL(38,0)) % CAST(-3 AS DECIMAL(38,0))", decimal("-00000000000000000000000000000000000001", createDecimalType(38)));
+        assertDecimalFunction("CAST(9 AS DECIMAL(38,0)) % CAST(3 AS DECIMAL(38,0))", decimal("00000000000000000000000000000000000000", createDecimalType(38)));
+        assertDecimalFunction("CAST(-9 AS DECIMAL(38,0)) % CAST(3 AS DECIMAL(38,0))", decimal("00000000000000000000000000000000000000", createDecimalType(38)));
+        assertDecimalFunction("CAST(9 AS DECIMAL(38,0)) % CAST(-3 AS DECIMAL(38,0))", decimal("00000000000000000000000000000000000000", createDecimalType(38)));
+        assertDecimalFunction("CAST(-9 AS DECIMAL(38,0)) % CAST(-3 AS DECIMAL(38,0))", decimal("00000000000000000000000000000000000000", createDecimalType(38)));
 
         // division by zero tests
         assertInvalidFunction("DECIMAL '1' % DECIMAL '0'", DIVISION_BY_ZERO);
@@ -402,18 +414,18 @@ public class TestDecimalOperators
     public void testNegation()
     {
         // short
-        assertDecimalFunction("-DECIMAL '1' ", decimal("-1"));
-        assertDecimalFunction("-DECIMAL '-1' ", decimal("1"));
-        assertDecimalFunction("-DECIMAL '123456.00000010' ", decimal("-123456.00000010"));
-        assertDecimalFunction("-DECIMAL '1234567.00500010734' ", decimal("-1234567.00500010734"));
-        assertDecimalFunction("-DECIMAL '-1234567.00500010734' ", decimal("1234567.00500010734"));
-        assertDecimalFunction("-DECIMAL '0' ", decimal("0"));
-        assertDecimalFunction("-DECIMAL '0.00000000000000000000' ", decimal(".00000000000000000000"));
+        assertDecimalFunction("-DECIMAL '1' ", decimal("-1", createDecimalType(1)));
+        assertDecimalFunction("-DECIMAL '-1' ", decimal("1", createDecimalType(1)));
+        assertDecimalFunction("-DECIMAL '123456.00000010' ", decimal("-123456.00000010", createDecimalType(14, 8)));
+        assertDecimalFunction("-DECIMAL '1234567.00500010734' ", decimal("-1234567.00500010734", createDecimalType(18, 11)));
+        assertDecimalFunction("-DECIMAL '-1234567.00500010734' ", decimal("1234567.00500010734", createDecimalType(18, 11)));
+        assertDecimalFunction("-DECIMAL '0' ", decimal("0", createDecimalType(1)));
+        assertDecimalFunction("-DECIMAL '0.00000000000000000000' ", decimal(".00000000000000000000", createDecimalType(20, 20)));
 
         // long
-        assertDecimalFunction("-DECIMAL '12345678901234567890123456789012345678'", decimal("-12345678901234567890123456789012345678"));
-        assertDecimalFunction("-DECIMAL '-12345678901234567890123456789012345678'", decimal("12345678901234567890123456789012345678"));
-        assertDecimalFunction("-DECIMAL '123456789012345678.90123456789012345678'", decimal("-123456789012345678.90123456789012345678"));
+        assertDecimalFunction("-DECIMAL '12345678901234567890123456789012345678'", decimal("-12345678901234567890123456789012345678", createDecimalType(38)));
+        assertDecimalFunction("-DECIMAL '-12345678901234567890123456789012345678'", decimal("12345678901234567890123456789012345678", createDecimalType(38)));
+        assertDecimalFunction("-DECIMAL '123456789012345678.90123456789012345678'", decimal("-123456789012345678.90123456789012345678", createDecimalType(38, 20)));
     }
 
     @Test
@@ -762,104 +774,104 @@ public class TestDecimalOperators
     public void testAddDecimalBigint()
     {
         // decimal + bigint
-        assertDecimalFunction("DECIMAL '123456789012345678' + 123456789012345678", decimal("00246913578024691356"));
-        assertDecimalFunction("DECIMAL '.123456789012345678' + 123456789012345678", decimal("00123456789012345678.123456789012345678"));
-        assertDecimalFunction("DECIMAL '-1234567890123456789' + 1234567890123456789", decimal("00000000000000000000"));
+        assertDecimalFunction("DECIMAL '123456789012345678' + 123456789012345678", decimal("00246913578024691356", createDecimalType(20)));
+        assertDecimalFunction("DECIMAL '.123456789012345678' + 123456789012345678", decimal("00123456789012345678.123456789012345678", createDecimalType(38, 18)));
+        assertDecimalFunction("DECIMAL '-1234567890123456789' + 1234567890123456789", decimal("00000000000000000000", createDecimalType(20)));
 
         // bigint + decimal
-        assertDecimalFunction("123456789012345678 + DECIMAL '123456789012345678'", decimal("00246913578024691356"));
-        assertDecimalFunction("123456789012345678 + DECIMAL '.123456789012345678'", decimal("00123456789012345678.123456789012345678"));
-        assertDecimalFunction("1234567890123456789 + DECIMAL '-1234567890123456789'", decimal("00000000000000000000"));
+        assertDecimalFunction("123456789012345678 + DECIMAL '123456789012345678'", decimal("00246913578024691356", createDecimalType(20)));
+        assertDecimalFunction("123456789012345678 + DECIMAL '.123456789012345678'", decimal("00123456789012345678.123456789012345678", createDecimalType(38, 18)));
+        assertDecimalFunction("1234567890123456789 + DECIMAL '-1234567890123456789'", decimal("00000000000000000000", createDecimalType(20)));
     }
 
     @Test
     public void testSubtractDecimalBigint()
     {
         // decimal - bigint
-        assertDecimalFunction("DECIMAL '1234567890123456789' - 1234567890123456789", decimal("00000000000000000000"));
-        assertDecimalFunction("DECIMAL '.1234567890123456789' - 1234567890123456789", decimal("-1234567890123456788.8765432109876543211"));
-        assertDecimalFunction("DECIMAL '-1234567890123456789' - 1234567890123456789", decimal("-02469135780246913578"));
+        assertDecimalFunction("DECIMAL '1234567890123456789' - 1234567890123456789", decimal("00000000000000000000", createDecimalType(20)));
+        assertDecimalFunction("DECIMAL '.1234567890123456789' - 1234567890123456789", decimal("-1234567890123456788.8765432109876543211", createDecimalType(38, 19)));
+        assertDecimalFunction("DECIMAL '-1234567890123456789' - 1234567890123456789", decimal("-02469135780246913578", createDecimalType(20)));
 
         // bigint - decimal
-        assertDecimalFunction("1234567890123456789 - DECIMAL '1234567890123456789'", decimal("00000000000000000000"));
-        assertDecimalFunction("1234567890123456789 - DECIMAL '.1234567890123456789'", decimal("1234567890123456788.8765432109876543211"));
-        assertDecimalFunction("-1234567890123456789 - DECIMAL '1234567890123456789'", decimal("-02469135780246913578"));
+        assertDecimalFunction("1234567890123456789 - DECIMAL '1234567890123456789'", decimal("00000000000000000000", createDecimalType(20)));
+        assertDecimalFunction("1234567890123456789 - DECIMAL '.1234567890123456789'", decimal("1234567890123456788.8765432109876543211", createDecimalType(38, 19)));
+        assertDecimalFunction("-1234567890123456789 - DECIMAL '1234567890123456789'", decimal("-02469135780246913578", createDecimalType(20)));
     }
 
     @Test
     public void testMultiplyDecimalBigint()
     {
         // decimal bigint
-        assertDecimalFunction("DECIMAL '12345678901234567' * 12345678901234567", decimal("000152415787532388345526596755677489"));
-        assertDecimalFunction("DECIMAL '-12345678901234567' * 12345678901234567", decimal("-000152415787532388345526596755677489"));
-        assertDecimalFunction("DECIMAL '-12345678901234567' * -12345678901234567", decimal("000152415787532388345526596755677489"));
-        assertDecimalFunction("DECIMAL '.1234567890' * BIGINT '3'", decimal("0000000000000000000.3703703670"));
-        assertDecimalFunction("DECIMAL '.1234567890' * BIGINT '0'", decimal("0000000000000000000.0000000000"));
-        assertDecimalFunction("DECIMAL '-.1234567890' * BIGINT '0'", decimal("0000000000000000000.0000000000"));
+        assertDecimalFunction("DECIMAL '12345678901234567' * 12345678901234567", decimal("000152415787532388345526596755677489", createDecimalType(36)));
+        assertDecimalFunction("DECIMAL '-12345678901234567' * 12345678901234567", decimal("-000152415787532388345526596755677489", createDecimalType(36)));
+        assertDecimalFunction("DECIMAL '-12345678901234567' * -12345678901234567", decimal("000152415787532388345526596755677489", createDecimalType(36)));
+        assertDecimalFunction("DECIMAL '.1234567890' * BIGINT '3'", decimal("0000000000000000000.3703703670", createDecimalType(29, 10)));
+        assertDecimalFunction("DECIMAL '.1234567890' * BIGINT '0'", decimal("0000000000000000000.0000000000", createDecimalType(29, 10)));
+        assertDecimalFunction("DECIMAL '-.1234567890' * BIGINT '0'", decimal("0000000000000000000.0000000000", createDecimalType(29, 10)));
 
         // bigint decimal
-        assertDecimalFunction("12345678901234567 * DECIMAL '12345678901234567'", decimal("000152415787532388345526596755677489"));
-        assertDecimalFunction("12345678901234567 * DECIMAL '-12345678901234567'", decimal("-000152415787532388345526596755677489"));
-        assertDecimalFunction("-12345678901234567 * DECIMAL '-12345678901234567'", decimal("000152415787532388345526596755677489"));
-        assertDecimalFunction("BIGINT '3' * DECIMAL '.1234567890'", decimal("0000000000000000000.3703703670"));
-        assertDecimalFunction("BIGINT '3' * DECIMAL '.0000000000'", decimal("0000000000000000000.0000000000"));
-        assertDecimalFunction("BIGINT '-3' * DECIMAL '.0000000000'", decimal("0000000000000000000.0000000000"));
+        assertDecimalFunction("12345678901234567 * DECIMAL '12345678901234567'", decimal("000152415787532388345526596755677489", createDecimalType(36)));
+        assertDecimalFunction("12345678901234567 * DECIMAL '-12345678901234567'", decimal("-000152415787532388345526596755677489", createDecimalType(36)));
+        assertDecimalFunction("-12345678901234567 * DECIMAL '-12345678901234567'", decimal("000152415787532388345526596755677489", createDecimalType(36)));
+        assertDecimalFunction("BIGINT '3' * DECIMAL '.1234567890'", decimal("0000000000000000000.3703703670", createDecimalType(29, 10)));
+        assertDecimalFunction("BIGINT '3' * DECIMAL '.0000000000'", decimal("0000000000000000000.0000000000", createDecimalType(29, 10)));
+        assertDecimalFunction("BIGINT '-3' * DECIMAL '.0000000000'", decimal("0000000000000000000.0000000000", createDecimalType(29, 10)));
     }
 
     @Test
     public void testDivideDecimalBigint()
     {
         // bigint / decimal
-        assertDecimalFunction("BIGINT '9' / DECIMAL '3.0'", decimal("00000000000000000003.0"));
-        assertDecimalFunction("BIGINT '-9' / DECIMAL '3.0'", decimal("-00000000000000000003.0"));
-        assertDecimalFunction("BIGINT '9' / DECIMAL '-3.0'", decimal("-00000000000000000003.0"));
-        assertDecimalFunction("BIGINT '-9' / DECIMAL '-3.0'", decimal("00000000000000000003.0"));
-        assertDecimalFunction("BIGINT '9' / DECIMAL '000000000000000003.0'", decimal("00000000000000000003.0"));
-        assertDecimalFunction("BIGINT '18' / DECIMAL '0.01'", decimal("000000000000000001800.00"));
-        assertDecimalFunction("BIGINT '9' / DECIMAL '00000000000000000.1'", decimal("00000000000000000090.0"));
-        assertDecimalFunction("BIGINT '9' / DECIMAL '300.0'", decimal("00000000000000000000.0"));
-        assertDecimalFunction("BIGINT '-9' / DECIMAL '300.0'", decimal("00000000000000000000.0"));
-        assertDecimalFunction("BIGINT '9' / DECIMAL '-300.0'", decimal("00000000000000000000.0"));
-        assertDecimalFunction("BIGINT '-9' / DECIMAL '-300.0'", decimal("00000000000000000000.0"));
+        assertDecimalFunction("BIGINT '9' / DECIMAL '3.0'", decimal("00000000000000000003.0", createDecimalType(21, 1)));
+        assertDecimalFunction("BIGINT '-9' / DECIMAL '3.0'", decimal("-00000000000000000003.0", createDecimalType(21, 1)));
+        assertDecimalFunction("BIGINT '9' / DECIMAL '-3.0'", decimal("-00000000000000000003.0", createDecimalType(21, 1)));
+        assertDecimalFunction("BIGINT '-9' / DECIMAL '-3.0'", decimal("00000000000000000003.0", createDecimalType(21, 1)));
+        assertDecimalFunction("BIGINT '9' / DECIMAL '000000000000000003.0'", decimal("00000000000000000003.0", createDecimalType(21, 1)));
+        assertDecimalFunction("BIGINT '18' / DECIMAL '0.01'", decimal("000000000000000001800.00", createDecimalType(23, 2)));
+        assertDecimalFunction("BIGINT '9' / DECIMAL '00000000000000000.1'", decimal("00000000000000000090.0", createDecimalType(21, 1)));
+        assertDecimalFunction("BIGINT '9' / DECIMAL '300.0'", decimal("00000000000000000000.0", createDecimalType(21, 1)));
+        assertDecimalFunction("BIGINT '-9' / DECIMAL '300.0'", decimal("00000000000000000000.0", createDecimalType(21, 1)));
+        assertDecimalFunction("BIGINT '9' / DECIMAL '-300.0'", decimal("00000000000000000000.0", createDecimalType(21, 1)));
+        assertDecimalFunction("BIGINT '-9' / DECIMAL '-300.0'", decimal("00000000000000000000.0", createDecimalType(21, 1)));
 
         // decimal / bigint
-        assertDecimalFunction("DECIMAL '9.0' / BIGINT '3'", decimal("3.0"));
-        assertDecimalFunction("DECIMAL '-9.0' / BIGINT '3'", decimal("-3.0"));
-        assertDecimalFunction("DECIMAL '9.0' / BIGINT '-3'", decimal("-3.0"));
-        assertDecimalFunction("DECIMAL '-9.0' / BIGINT '-3'", decimal("3.0"));
-        assertDecimalFunction("DECIMAL '0.018' / BIGINT '9'", decimal(".002"));
-        assertDecimalFunction("DECIMAL '-0.018' / BIGINT '9'", decimal("-.002"));
-        assertDecimalFunction("DECIMAL '0.018' / BIGINT '-9'", decimal("-.002"));
-        assertDecimalFunction("DECIMAL '-0.018' / BIGINT '-9'", decimal(".002"));
-        assertDecimalFunction("DECIMAL '.999' / BIGINT '9'", decimal(".111"));
-        assertDecimalFunction("DECIMAL '9.0' / BIGINT '300'", decimal("0.0"));
-        assertDecimalFunction("DECIMAL '-9.0' / BIGINT '300'", decimal("0.0"));
-        assertDecimalFunction("DECIMAL '9.0' / BIGINT '-300'", decimal("0.0"));
-        assertDecimalFunction("DECIMAL '-9.0' / BIGINT '-300'", decimal("0.0"));
+        assertDecimalFunction("DECIMAL '9.0' / BIGINT '3'", decimal("3.0", createDecimalType(2, 1)));
+        assertDecimalFunction("DECIMAL '-9.0' / BIGINT '3'", decimal("-3.0", createDecimalType(2, 1)));
+        assertDecimalFunction("DECIMAL '9.0' / BIGINT '-3'", decimal("-3.0", createDecimalType(2, 1)));
+        assertDecimalFunction("DECIMAL '-9.0' / BIGINT '-3'", decimal("3.0", createDecimalType(2, 1)));
+        assertDecimalFunction("DECIMAL '0.018' / BIGINT '9'", decimal(".002", createDecimalType(3, 3)));
+        assertDecimalFunction("DECIMAL '-0.018' / BIGINT '9'", decimal("-.002", createDecimalType(3, 3)));
+        assertDecimalFunction("DECIMAL '0.018' / BIGINT '-9'", decimal("-.002", createDecimalType(3, 3)));
+        assertDecimalFunction("DECIMAL '-0.018' / BIGINT '-9'", decimal(".002", createDecimalType(3, 3)));
+        assertDecimalFunction("DECIMAL '.999' / BIGINT '9'", decimal(".111", createDecimalType(3, 3)));
+        assertDecimalFunction("DECIMAL '9.0' / BIGINT '300'", decimal("0.0", createDecimalType(2, 1)));
+        assertDecimalFunction("DECIMAL '-9.0' / BIGINT '300'", decimal("0.0", createDecimalType(2, 1)));
+        assertDecimalFunction("DECIMAL '9.0' / BIGINT '-300'", decimal("0.0", createDecimalType(2, 1)));
+        assertDecimalFunction("DECIMAL '-9.0' / BIGINT '-300'", decimal("0.0", createDecimalType(2, 1)));
     }
 
     @Test
     public void testModulusDecimalBigint()
     {
         // bigint % decimal
-        assertDecimalFunction("BIGINT '13' % DECIMAL '9.0'", decimal("4.0"));
-        assertDecimalFunction("BIGINT '18' % DECIMAL '0.01'", decimal(".00"));
-        assertDecimalFunction("BIGINT '9' % DECIMAL '.1'", decimal(".0"));
-        assertDecimalFunction("BIGINT '-9' % DECIMAL '.1'", decimal(".0"));
-        assertDecimalFunction("BIGINT '9' % DECIMAL '-.1'", decimal(".0"));
-        assertDecimalFunction("BIGINT '-9' % DECIMAL '-.1'", decimal(".0"));
+        assertDecimalFunction("BIGINT '13' % DECIMAL '9.0'", decimal("4.0", createDecimalType(2, 1)));
+        assertDecimalFunction("BIGINT '18' % DECIMAL '0.01'", decimal(".00", createDecimalType(2, 2)));
+        assertDecimalFunction("BIGINT '9' % DECIMAL '.1'", decimal(".0", createDecimalType(1, 1)));
+        assertDecimalFunction("BIGINT '-9' % DECIMAL '.1'", decimal(".0", createDecimalType(1, 1)));
+        assertDecimalFunction("BIGINT '9' % DECIMAL '-.1'", decimal(".0", createDecimalType(1, 1)));
+        assertDecimalFunction("BIGINT '-9' % DECIMAL '-.1'", decimal(".0", createDecimalType(1, 1)));
 
         // decimal % bigint
-        assertDecimalFunction("DECIMAL '13.0' % BIGINT '9'", decimal("04.0"));
-        assertDecimalFunction("DECIMAL '-13.0' % BIGINT '9'", decimal("-04.0"));
-        assertDecimalFunction("DECIMAL '13.0' % BIGINT '-9'", decimal("04.0"));
-        assertDecimalFunction("DECIMAL '-13.0' % BIGINT '-9'", decimal("-04.0"));
-        assertDecimalFunction("DECIMAL '18.00' % BIGINT '3'", decimal("00.00"));
-        assertDecimalFunction("DECIMAL '9.0' % BIGINT '3'", decimal("0.0"));
-        assertDecimalFunction("DECIMAL '-9.0' % BIGINT '3'", decimal("0.0"));
-        assertDecimalFunction("DECIMAL '9.0' % BIGINT '-3'", decimal("0.0"));
-        assertDecimalFunction("DECIMAL '-9.0' % BIGINT '-3'", decimal("0.0"));
-        assertDecimalFunction("DECIMAL '5.128' % BIGINT '2'", decimal("1.128"));
+        assertDecimalFunction("DECIMAL '13.0' % BIGINT '9'", decimal("04.0", createDecimalType(3, 1)));
+        assertDecimalFunction("DECIMAL '-13.0' % BIGINT '9'", decimal("-04.0", createDecimalType(3, 1)));
+        assertDecimalFunction("DECIMAL '13.0' % BIGINT '-9'", decimal("04.0", createDecimalType(3, 1)));
+        assertDecimalFunction("DECIMAL '-13.0' % BIGINT '-9'", decimal("-04.0", createDecimalType(3, 1)));
+        assertDecimalFunction("DECIMAL '18.00' % BIGINT '3'", decimal("00.00", createDecimalType(4, 2)));
+        assertDecimalFunction("DECIMAL '9.0' % BIGINT '3'", decimal("0.0", createDecimalType(2, 1)));
+        assertDecimalFunction("DECIMAL '-9.0' % BIGINT '3'", decimal("0.0", createDecimalType(2, 1)));
+        assertDecimalFunction("DECIMAL '9.0' % BIGINT '-3'", decimal("0.0", createDecimalType(2, 1)));
+        assertDecimalFunction("DECIMAL '-9.0' % BIGINT '-3'", decimal("0.0", createDecimalType(2, 1)));
+        assertDecimalFunction("DECIMAL '5.128' % BIGINT '2'", decimal("1.128", createDecimalType(4, 3)));
     }
 
     @Test
@@ -911,39 +923,39 @@ public class TestDecimalOperators
     public void testNullIf()
     {
         // short short
-        assertDecimalFunction("nullif(DECIMAL '-2', DECIMAL '-3')", decimal("-2"));
-        assertDecimalFunction("nullif(DECIMAL '-2', CAST(NULL AS DECIMAL(1,0)))", decimal("-2"));
+        assertDecimalFunction("nullif(DECIMAL '-2', DECIMAL '-3')", decimal("-2", createDecimalType(1, 0)));
+        assertDecimalFunction("nullif(DECIMAL '-2', CAST(NULL AS DECIMAL(1,0)))", decimal("-2", createDecimalType(1, 0)));
         assertFunction("nullif(DECIMAL '-2', DECIMAL '-2')", createDecimalType(1, 0), null);
         assertFunction("nullif(CAST(NULL AS DECIMAL(1,0)), DECIMAL '-2')", createDecimalType(1, 0), null);
         assertFunction("nullif(CAST(NULL AS DECIMAL(1,0)), CAST(NULL AS DECIMAL(1,0)))", createDecimalType(1, 0), null);
 
         // long long
-        assertDecimalFunction("nullif(DECIMAL '12345678901234567.89012345678901234567', DECIMAL '12345678901234567.8902345678901234567')", decimal("12345678901234567.89012345678901234567"));
-        assertDecimalFunction("nullif(DECIMAL '12345678901234567.89012345678901234567', CAST(NULL AS DECIMAL(36,1)))", decimal("12345678901234567.89012345678901234567"));
+        assertDecimalFunction("nullif(DECIMAL '12345678901234567.89012345678901234567', DECIMAL '12345678901234567.8902345678901234567')", decimal("12345678901234567.89012345678901234567", createDecimalType(37, 20)));
+        assertDecimalFunction("nullif(DECIMAL '12345678901234567.89012345678901234567', CAST(NULL AS DECIMAL(36,1)))", decimal("12345678901234567.89012345678901234567", createDecimalType(37, 20)));
         assertFunction("nullif(DECIMAL '12345678901234567.89012345678901234567', DECIMAL '12345678901234567.89012345678901234567')", createDecimalType(37, 20), null);
         assertFunction("nullif(CAST(NULL AS DECIMAL(38,0)), DECIMAL '12345678901234567.89012345678901234567')", createDecimalType(38, 0), null);
         assertFunction("nullif(CAST(NULL AS DECIMAL(38,0)), CAST(NULL AS DECIMAL(38,0)))", createDecimalType(38, 0), null);
 
         // short long
-        assertDecimalFunction("nullif(DECIMAL '12345678901234567.89012345678901234567', DECIMAL '-3')", decimal("12345678901234567.89012345678901234567"));
-        assertDecimalFunction("nullif(DECIMAL '12345678901234567.89012345678901234567', CAST(NULL AS DECIMAL(1,0)))", decimal("12345678901234567.89012345678901234567"));
+        assertDecimalFunction("nullif(DECIMAL '12345678901234567.89012345678901234567', DECIMAL '-3')", decimal("12345678901234567.89012345678901234567", createDecimalType(37, 20)));
+        assertDecimalFunction("nullif(DECIMAL '12345678901234567.89012345678901234567', CAST(NULL AS DECIMAL(1,0)))", decimal("12345678901234567.89012345678901234567", createDecimalType(37, 20)));
         assertFunction("nullif(DECIMAL '12345678901234567.89012345678901234567', DECIMAL '12345678901234567.89012345678901234567')", createDecimalType(37, 20), null);
         assertFunction("nullif(CAST(NULL AS DECIMAL(1,0)), DECIMAL '12345678901234567.89012345678901234567')", createDecimalType(1, 0), null);
 
         // with unknown
         assertFunction("nullif(NULL, NULL)", UnknownType.UNKNOWN, null);
         assertFunction("nullif(NULL, DECIMAL '-2')", UnknownType.UNKNOWN, null);
-        assertDecimalFunction("nullif(DECIMAL '-2', NULL)", decimal("-2"));
+        assertDecimalFunction("nullif(DECIMAL '-2', NULL)", decimal("-2", createDecimalType(1, 0)));
         assertFunction("nullif(NULL, DECIMAL '12345678901234567.89012345678901234567')", UnknownType.UNKNOWN, null);
-        assertDecimalFunction("nullif(DECIMAL '12345678901234567.89012345678901234567', NULL)", decimal("12345678901234567.89012345678901234567"));
+        assertDecimalFunction("nullif(DECIMAL '12345678901234567.89012345678901234567', NULL)", decimal("12345678901234567.89012345678901234567", createDecimalType(37, 20)));
     }
 
     @Test
     public void testCoalesce()
     {
-        assertDecimalFunction("coalesce(2.1, null, cast(null as decimal(5,3)))", decimal("02.100"));
+        assertDecimalFunction("coalesce(2.1, null, cast(null as decimal(5,3)))", decimal("02.100", createDecimalType(5, 3)));
         assertFunction("coalesce(cast(null as decimal(17,3)), null, cast(null as decimal(12,3)))", createDecimalType(17, 3), null);
-        assertDecimalFunction("coalesce(3, 2.1, null, cast(null as decimal(6,3)))", decimal("0000000003.000"));
+        assertDecimalFunction("coalesce(3, 2.1, null, cast(null as decimal(6,3)))", decimal("0000000003.000", createDecimalType(13, 3)));
         assertFunction("coalesce(cast(null as decimal(17,3)), null, cast(null as decimal(12,3)))", createDecimalType(17, 3), null);
     }
 

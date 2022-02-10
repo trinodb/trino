@@ -22,10 +22,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import io.trino.metadata.InsertTableHandle;
-import io.trino.metadata.NewTableLayout;
 import io.trino.metadata.OutputTableHandle;
 import io.trino.metadata.TableExecuteHandle;
 import io.trino.metadata.TableHandle;
+import io.trino.metadata.TableLayout;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
@@ -216,9 +216,9 @@ public class TableWriterNode
     {
         private final String catalog;
         private final ConnectorTableMetadata tableMetadata;
-        private final Optional<NewTableLayout> layout;
+        private final Optional<TableLayout> layout;
 
-        public CreateReference(String catalog, ConnectorTableMetadata tableMetadata, Optional<NewTableLayout> layout)
+        public CreateReference(String catalog, ConnectorTableMetadata tableMetadata, Optional<TableLayout> layout)
         {
             this.catalog = requireNonNull(catalog, "catalog is null");
             this.tableMetadata = requireNonNull(tableMetadata, "tableMetadata is null");
@@ -235,7 +235,7 @@ public class TableWriterNode
             return tableMetadata;
         }
 
-        public Optional<NewTableLayout> getLayout()
+        public Optional<TableLayout> getLayout()
         {
             return layout;
         }

@@ -17,12 +17,13 @@ import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
 import io.trino.plugin.base.CatalogName;
-import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.MetastoreConfig;
 import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.trino.plugin.hive.security.AccessControlMetadataFactory;
 import io.trino.plugin.hive.statistics.MetastoreHiveStatisticsProvider;
 import io.trino.spi.connector.MetadataProvider;
+import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.TypeManager;
 
 import javax.inject.Inject;
@@ -49,7 +50,7 @@ public class HiveMetadataFactory
     private final boolean translateHiveViews;
     private final boolean hideDeltaLakeTables;
     private final long perTransactionCacheMaximumSize;
-    private final HiveMetastore metastore;
+    private final HiveMetastoreFactory metastoreFactory;
     private final HdfsEnvironment hdfsEnvironment;
     private final HivePartitionManager partitionManager;
     private final TypeManager typeManager;
@@ -73,7 +74,7 @@ public class HiveMetadataFactory
             CatalogName catalogName,
             HiveConfig hiveConfig,
             MetastoreConfig metastoreConfig,
-            HiveMetastore metastore,
+            HiveMetastoreFactory metastoreFactory,
             HdfsEnvironment hdfsEnvironment,
             HivePartitionManager partitionManager,
             ExecutorService executorService,
@@ -91,7 +92,7 @@ public class HiveMetadataFactory
     {
         this(
                 catalogName,
-                metastore,
+                metastoreFactory,
                 hdfsEnvironment,
                 partitionManager,
                 hiveConfig.getMaxConcurrentFileRenames(),
@@ -122,7 +123,7 @@ public class HiveMetadataFactory
 
     public HiveMetadataFactory(
             CatalogName catalogName,
-            HiveMetastore metastore,
+            HiveMetastoreFactory metastoreFactory,
             HdfsEnvironment hdfsEnvironment,
             HivePartitionManager partitionManager,
             int maxConcurrentFileRenames,
@@ -160,7 +161,7 @@ public class HiveMetadataFactory
         this.hideDeltaLakeTables = hideDeltaLakeTables;
         this.perTransactionCacheMaximumSize = perTransactionCacheMaximumSize;
 
-        this.metastore = requireNonNull(metastore, "metastore is null");
+        this.metastoreFactory = requireNonNull(metastoreFactory, "metastoreFactory is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.partitionManager = requireNonNull(partitionManager, "partitionManager is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
@@ -188,10 +189,10 @@ public class HiveMetadataFactory
     }
 
     @Override
-    public TransactionalMetadata create(boolean autoCommit)
+    public TransactionalMetadata create(ConnectorIdentity identity, boolean autoCommit)
     {
         HiveMetastoreClosure hiveMetastoreClosure = new HiveMetastoreClosure(
-                memoizeMetastore(metastore, perTransactionCacheMaximumSize)); // per-transaction cache
+                memoizeMetastore(metastoreFactory.createMetastore(Optional.of(identity)), perTransactionCacheMaximumSize)); // per-transaction cache
 
         SemiTransactionalHiveMetastore metastore = new SemiTransactionalHiveMetastore(
                 hdfsEnvironment,

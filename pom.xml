@@ -5,12 +5,12 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>115</version>
+        <version>119</version>
     </parent>
 
     <groupId>io.trino</groupId>
     <artifactId>trino-root</artifactId>
-    <version>368-SNAPSHOT</version>
+    <version>371-SNAPSHOT</version>
 
     <name>trino-root</name>
     <description>Trino</description>
@@ -49,19 +49,19 @@
         <dep.accumulo.version>1.7.4</dep.accumulo.version>
         <dep.accumulo-hadoop.version>2.7.7-1</dep.accumulo-hadoop.version>
         <dep.antlr.version>4.9.2</dep.antlr.version>
-        <dep.airlift.version>212</dep.airlift.version>
+        <dep.airlift.version>214</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
         <dep.aws-sdk.version>1.12.85</dep.aws-sdk.version>
         <dep.okhttp.version>3.14.9</dep.okhttp.version>
+        <dep.joda.version>2.10.13</dep.joda.version>
         <dep.jsonwebtoken.version>0.11.2</dep.jsonwebtoken.version>
         <dep.oracle.version>19.3.0.0</dep.oracle.version>
         <dep.drift.version>1.14</dep.drift.version>
         <dep.scribejava.version>6.9.0</dep.scribejava.version>
-        <dep.selenium.version>3.141.59</dep.selenium.version>
         <dep.tempto.version>187</dep.tempto.version>
         <dep.gcs.version>2.0.0</dep.gcs.version>
-        <dep.errorprone.version>2.10.0</dep.errorprone.version>
-        <dep.testcontainers.version>1.16.2</dep.testcontainers.version>
+        <dep.errorprone.version>2.11.0</dep.errorprone.version>
+        <dep.testcontainers.version>1.16.3</dep.testcontainers.version>
         <dep.docker-java.version>3.2.12</dep.docker-java.version>
         <dep.coral.version>1.0.121</dep.coral.version>
         <dep.confluent.version>5.5.2</dep.confluent.version>
@@ -96,6 +96,7 @@
         <module>core/trino-spi</module>
         <module>docs</module>
         <module>lib/trino-array</module>
+        <module>lib/trino-collect</module>
         <module>lib/trino-geospatial-toolkit</module>
         <module>lib/trino-matching</module>
         <module>lib/trino-memory-context</module>
@@ -160,6 +161,7 @@
         <module>testing/trino-test-jdbc-compatibility-old-driver</module>
         <module>testing/trino-test-jdbc-compatibility-old-server</module>
         <module>testing/trino-testing</module>
+        <module>testing/trino-testing-containers</module>
         <module>testing/trino-testing-kafka</module>
         <module>testing/trino-testing-services</module>
         <module>testing/trino-tests</module>
@@ -224,6 +226,19 @@
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-client</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-collect</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-collect</artifactId>
+                <type>test-jar</type>
                 <version>${project.version}</version>
             </dependency>
 
@@ -390,6 +405,13 @@
 
             <dependency>
                 <groupId>io.trino</groupId>
+                <artifactId>trino-plugin-toolkit</artifactId>
+                <type>test-jar</type>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
                 <artifactId>trino-product-tests</artifactId>
                 <version>${project.version}</version>
             </dependency>
@@ -477,6 +499,12 @@
 
             <dependency>
                 <groupId>io.trino</groupId>
+                <artifactId>trino-testing-containers</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
                 <artifactId>trino-testing-kafka</artifactId>
                 <version>${project.version}</version>
             </dependency>
@@ -535,7 +563,7 @@
             <dependency>
                 <groupId>io.trino.benchto</groupId>
                 <artifactId>benchto-driver</artifactId>
-                <version>0.16</version>
+                <version>0.17</version>
             </dependency>
 
             <dependency>
@@ -981,7 +1009,7 @@
             <dependency>
                 <groupId>com.github.ben-manes.caffeine</groupId>
                 <artifactId>caffeine</artifactId>
-                <version>3.0.3</version>
+                <version>3.0.5</version>
             </dependency>
 
             <dependency>
@@ -1093,7 +1121,7 @@
             <dependency>
                 <groupId>com.microsoft.sqlserver</groupId>
                 <artifactId>mssql-jdbc</artifactId>
-                <version>9.2.1.jre8</version>
+                <version>9.4.1.jre11</version>
             </dependency>
 
             <dependency>
@@ -1117,6 +1145,12 @@
             <dependency>
                 <groupId>com.squareup.okhttp3</groupId>
                 <artifactId>okhttp</artifactId>
+                <version>${dep.okhttp.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.squareup.okhttp3</groupId>
+                <artifactId>okhttp-tls</artifactId>
                 <version>${dep.okhttp.version}</version>
             </dependency>
 
@@ -1437,13 +1471,20 @@
             <dependency>
                 <groupId>org.checkerframework</groupId>
                 <artifactId>checker-qual</artifactId>
-                <version>3.18.0</version>
+                <version>3.20.0</version>
             </dependency>
 
             <dependency>
                 <groupId>org.flywaydb</groupId>
                 <artifactId>flyway-core</artifactId>
                 <version>7.15.0</version>
+            </dependency>
+
+            <dependency>
+                <!-- TODO remove once we upgrade to airbase with https://github.com/airlift/airbase/pull/298 -->
+                <groupId>org.gaul</groupId>
+                <artifactId>modernizer-maven-annotations</artifactId>
+                <version>2.3.0</version>
             </dependency>
 
             <!-- force newer version to be used for dependencies -->
@@ -1513,54 +1554,6 @@
                 <groupId>org.postgresql</groupId>
                 <artifactId>postgresql</artifactId>
                 <version>42.3.1</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.seleniumhq.selenium</groupId>
-                <artifactId>selenium-api</artifactId>
-                <version>${dep.selenium.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.seleniumhq.selenium</groupId>
-                <artifactId>selenium-chrome-driver</artifactId>
-                <version>${dep.selenium.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.seleniumhq.selenium</groupId>
-                <artifactId>selenium-java</artifactId>
-                <version>${dep.selenium.version}</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>commons-logging</groupId>
-                        <artifactId>commons-logging</artifactId>
-                    </exclusion>
-                </exclusions>
-            </dependency>
-
-            <dependency>
-                <groupId>org.seleniumhq.selenium</groupId>
-                <artifactId>selenium-remote-driver</artifactId>
-                <version>${dep.selenium.version}</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>commons-logging</groupId>
-                        <artifactId>commons-logging</artifactId>
-                    </exclusion>
-                </exclusions>
-            </dependency>
-
-            <dependency>
-                <groupId>org.seleniumhq.selenium</groupId>
-                <artifactId>selenium-support</artifactId>
-                <version>${dep.selenium.version}</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>commons-logging</groupId>
-                        <artifactId>commons-logging</artifactId>
-                    </exclusion>
-                </exclusions>
             </dependency>
 
             <dependency>
@@ -1743,6 +1736,16 @@
                     <artifactId>provisio-maven-plugin</artifactId>
                     <version>1.0.18</version>
                 </plugin>
+
+                <plugin>
+                    <groupId>pl.project13.maven</groupId>
+                    <artifactId>git-commit-id-plugin</artifactId>
+                    <configuration>
+                        <runOnlyOnce>true</runOnlyOnce>
+                        <injectAllReactorProjects>true</injectAllReactorProjects>
+                        <offline>true</offline>
+                    </configuration>
+                </plugin>
             </plugins>
         </pluginManagement>
 
@@ -1797,44 +1800,39 @@
                         <artifactId>maven-compiler-plugin</artifactId>
                         <!--suppress MavenModelInspection -->
                         <configuration combine.children="merge">
-                            <!-- forking required for JDK 16: https://errorprone.info/docs/installation -->
-                            <fork>true</fork>
+                            <!-- forking not required due to JVM flags in .mvn/jvm.config -->
+                            <!-- see https://errorprone.info/docs/installation#maven -->
                             <compilerArgs>
                                 <arg>-XDcompilePolicy=simple</arg>
                                 <arg>
                                     -Xplugin:ErrorProne \
-                                    <!-- -Xep:ReferenceEquality:OFF fails in IDEA --> \
-                                    <!-- -Xep:BoxedPrimitiveEquality:OFF fails in IDEA --> \
-                                    -Xep:GuardedBy:OFF <!-- needs some careful inspection --> \
                                     -Xep:BadInstanceof:ERROR \
                                     -Xep:BoxedPrimitiveConstructor:ERROR \
                                     -Xep:ClassCanBeStatic:ERROR \
                                     -Xep:CompareToZero:ERROR \
+                                    -Xep:DoubleBraceInitialization:ERROR \
+                                    -Xep:EqualsGetClass:OFF <!-- we would rather want the opposite check --> \
                                     -Xep:EqualsIncompatibleType:ERROR \
                                     -Xep:FallThrough:ERROR \
+                                    -Xep:GuardedBy:OFF <!-- needs some careful inspection --> \
+                                    -Xep:ImmutableEnumChecker:OFF <!-- flags enums with List fields even if initialized with ImmutableList, and other false positives --> \
                                     -Xep:ImmutableSetForContains:ERROR \
+                                    -Xep:InconsistentCapitalization:ERROR <!-- fields/variables should not differ only in case --> \
                                     -Xep:InconsistentHashCode:ERROR \
                                     -Xep:InjectOnConstructorOfAbstractClass:ERROR \
                                     -Xep:MissingCasesInEnumSwitch:ERROR \
                                     -Xep:MissingOverride:ERROR \
+                                    -Xep:MutablePublicArray:ERROR \
                                     -Xep:NullOptional:ERROR \
                                     -Xep:ObjectToString:ERROR \
+                                    -Xep:PreferredInterfaceType:OFF <!-- flags List fields even if initialized with ImmutableList --> \
+                                    -Xep:StreamResourceLeak:ERROR \
                                     -Xep:UnnecessaryMethodReference:ERROR \
                                     -Xep:UnnecessaryOptionalGet:ERROR \
                                     -Xep:UnusedVariable:ERROR \
                                     -Xep:UseEnumSwitch:ERROR \
                                     -XepExcludedPaths:.*/target/generated-(|test-)sources/.*
                                 </arg>
-                                <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED</arg>
-                                <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED</arg>
-                                <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED</arg>
-                                <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED</arg>
-                                <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED</arg>
-                                <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED</arg>
-                                <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED</arg>
-                                <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED</arg>
-                                <arg>-J--add-opens=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED</arg>
-                                <arg>-J--add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED</arg>
                             </compilerArgs>
                             <annotationProcessorPaths>
                                 <path>

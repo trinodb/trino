@@ -29,6 +29,7 @@ import javax.validation.constraints.NotNull;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
+import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -43,6 +44,8 @@ import static java.util.concurrent.TimeUnit.SECONDS;
         "query.remote-task.max-consecutive-error-count"})
 public class QueryManagerConfig
 {
+    public static final long AVAILABLE_HEAP_MEMORY = Runtime.getRuntime().maxMemory();
+
     private int scheduleSplitBatchSize = 1000;
     private int minScheduleSplitBatchSize = 100;
     private int maxConcurrentQueries = 1000;
@@ -62,7 +65,7 @@ public class QueryManagerConfig
     private Duration remoteTaskMaxErrorDuration = new Duration(5, TimeUnit.MINUTES);
     private int remoteTaskMaxCallbackThreads = 1000;
 
-    private String queryExecutionPolicy = "all-at-once";
+    private String queryExecutionPolicy = "phased";
     private Duration queryMaxRunTime = new Duration(100, TimeUnit.DAYS);
     private Duration queryMaxExecutionTime = new Duration(100, TimeUnit.DAYS);
     private Duration queryMaxPlanningTime = new Duration(10, TimeUnit.MINUTES);
@@ -76,6 +79,10 @@ public class QueryManagerConfig
     private int retryAttempts = 4;
     private Duration retryInitialDelay = new Duration(10, SECONDS);
     private Duration retryMaxDelay = new Duration(1, MINUTES);
+
+    private DataSize faultTolerantExecutionTargetTaskInputSize = DataSize.of(1, GIGABYTE);
+    private int faultTolerantExecutionTargetTaskSplitCount = 16;
+    private DataSize faultTolerantExecutionTaskDescriptorStorageMaxMemory = DataSize.ofBytes(Math.round(AVAILABLE_HEAP_MEMORY * 0.15));
 
     @Min(1)
     public int getScheduleSplitBatchSize()
@@ -439,6 +446,46 @@ public class QueryManagerConfig
     public QueryManagerConfig setRetryMaxDelay(Duration retryMaxDelay)
     {
         this.retryMaxDelay = retryMaxDelay;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getFaultTolerantExecutionTargetTaskInputSize()
+    {
+        return faultTolerantExecutionTargetTaskInputSize;
+    }
+
+    @Config("fault-tolerant-execution-target-task-input-size")
+    public QueryManagerConfig setFaultTolerantExecutionTargetTaskInputSize(DataSize faultTolerantExecutionTargetTaskInputSize)
+    {
+        this.faultTolerantExecutionTargetTaskInputSize = faultTolerantExecutionTargetTaskInputSize;
+        return this;
+    }
+
+    @Min(1)
+    public int getFaultTolerantExecutionTargetTaskSplitCount()
+    {
+        return faultTolerantExecutionTargetTaskSplitCount;
+    }
+
+    @Config("fault-tolerant-execution-target-task-split-count")
+    public QueryManagerConfig setFaultTolerantExecutionTargetTaskSplitCount(int faultTolerantExecutionTargetTaskSplitCount)
+    {
+        this.faultTolerantExecutionTargetTaskSplitCount = faultTolerantExecutionTargetTaskSplitCount;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getFaultTolerantExecutionTaskDescriptorStorageMaxMemory()
+    {
+        return faultTolerantExecutionTaskDescriptorStorageMaxMemory;
+    }
+
+    @Config("fault-tolerant-execution-task-descriptor-storage-max-memory")
+    @ConfigDescription("Maximum amount of memory to be used to store task descriptors for fault tolerant queries on coordinator")
+    public QueryManagerConfig setFaultTolerantExecutionTaskDescriptorStorageMaxMemory(DataSize faultTolerantExecutionTaskDescriptorStorageMaxMemory)
+    {
+        this.faultTolerantExecutionTaskDescriptorStorageMaxMemory = faultTolerantExecutionTaskDescriptorStorageMaxMemory;
         return this;
     }
 }

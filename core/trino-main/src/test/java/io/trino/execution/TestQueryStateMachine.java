@@ -98,7 +98,7 @@ public class TestQueryStateMachine
     private static final Map<String, String> SET_SESSION_PROPERTIES = ImmutableMap.<String, String>builder()
             .put("fruit", "apple")
             .put("drink", "coffee")
-            .build();
+            .buildOrThrow();
     private static final List<String> RESET_SESSION_PROPERTIES = ImmutableList.of("candy");
     private static final Optional<QueryType> QUERY_TYPE = Optional.of(QueryType.SELECT);
 
@@ -516,6 +516,7 @@ public class TestQueryStateMachine
                 DefaultSystemAccessControl.NAME);
         accessControl.setSystemAccessControls(List.of(AllowAllSystemAccessControl.INSTANCE));
         QueryStateMachine stateMachine = QueryStateMachine.beginWithTicker(
+                Optional.empty(),
                 QUERY,
                 Optional.empty(),
                 TEST_SESSION,
@@ -554,6 +555,6 @@ public class TestQueryStateMachine
         assertEquals(actual.getUserAgent(), expected.getUserAgent());
         assertEquals(actual.getStart(), expected.getStart());
         assertEquals(actual.getSystemProperties(), expected.getSystemProperties());
-        assertEquals(actual.getConnectorProperties(), expected.getConnectorProperties());
+        assertEquals(actual.getCatalogProperties(), expected.getCatalogProperties());
     }
 }

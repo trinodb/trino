@@ -15,7 +15,6 @@ package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedMap;
-import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
@@ -33,6 +32,8 @@ import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.hive.SystemTableHandler.PROPERTIES;
+import static io.trino.plugin.hive.util.HiveUtil.isDeltaLakeTable;
+import static io.trino.plugin.hive.util.HiveUtil.isIcebergTable;
 import static io.trino.plugin.hive.util.SystemTables.createSystemTable;
 
 public class PropertiesSystemTableProvider
@@ -56,11 +57,14 @@ public class PropertiesSystemTableProvider
         }
 
         SchemaTableName sourceTableName = PROPERTIES.getSourceTableName(tableName);
-        Optional<Table> table = metadata.getMetastore().getTable(new HiveIdentity(session), sourceTableName.getSchemaName(), sourceTableName.getTableName());
-        if (table.isEmpty()) {
-            throw new TableNotFoundException(tableName);
+        Table table = metadata.getMetastore()
+                .getTable(sourceTableName.getSchemaName(), sourceTableName.getTableName())
+                .orElseThrow(() -> new TableNotFoundException(tableName));
+
+        if (isDeltaLakeTable(table) || isIcebergTable(table)) {
+            return Optional.empty();
         }
-        Map<String, String> sortedTableParameters = ImmutableSortedMap.copyOf(table.get().getParameters());
+        Map<String, String> sortedTableParameters = ImmutableSortedMap.copyOf(table.getParameters());
         List<ColumnMetadata> columns = sortedTableParameters.keySet().stream()
                 .map(key -> new ColumnMetadata(key, VarcharType.VARCHAR))
                 .collect(toImmutableList());

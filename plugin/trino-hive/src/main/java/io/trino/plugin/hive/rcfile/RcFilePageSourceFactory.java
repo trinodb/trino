@@ -59,7 +59,6 @@ import javax.inject.Inject;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -76,7 +75,7 @@ import static io.trino.plugin.hive.HiveSessionProperties.getTimestampPrecision;
 import static io.trino.plugin.hive.ReaderPageSource.noProjectionAdaptation;
 import static io.trino.plugin.hive.util.HiveUtil.getDeserializerClassName;
 import static io.trino.rcfile.text.TextRcFileEncoding.DEFAULT_NULL_SEQUENCE;
-import static io.trino.rcfile.text.TextRcFileEncoding.DEFAULT_SEPARATORS;
+import static io.trino.rcfile.text.TextRcFileEncoding.getDefaultSeparators;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
@@ -194,7 +193,7 @@ public class RcFilePageSourceFactory
             RcFileReader rcFileReader = new RcFileReader(
                     dataSource,
                     rcFileEncoding,
-                    readColumns.build(),
+                    readColumns.buildOrThrow(),
                     new AircompressorCodecFactory(new HadoopCodecFactory(configuration.getClassLoader())),
                     start,
                     length,
@@ -238,14 +237,14 @@ public class RcFilePageSourceFactory
         else {
             nestingLevels = TEXT_EXTENDED_NESTING_LEVELS;
         }
-        byte[] separators = Arrays.copyOf(DEFAULT_SEPARATORS, nestingLevels);
+        byte[] separators = getDefaultSeparators(nestingLevels);
 
         // the first three separators are set by old-old properties
-        separators[0] = getByte(schema.getProperty(FIELD_DELIM, schema.getProperty(SERIALIZATION_FORMAT)), DEFAULT_SEPARATORS[0]);
+        separators[0] = getByte(schema.getProperty(FIELD_DELIM, schema.getProperty(SERIALIZATION_FORMAT)), separators[0]);
         // for map field collection delimiter, Hive 1.x uses "colelction.delim" but Hive 3.x uses "collection.delim"
         // https://issues.apache.org/jira/browse/HIVE-16922
-        separators[1] = getByte(schema.getProperty(COLLECTION_DELIM, schema.getProperty("colelction.delim")), DEFAULT_SEPARATORS[1]);
-        separators[2] = getByte(schema.getProperty(MAPKEY_DELIM), DEFAULT_SEPARATORS[2]);
+        separators[1] = getByte(schema.getProperty(COLLECTION_DELIM, schema.getProperty("colelction.delim")), separators[1]);
+        separators[2] = getByte(schema.getProperty(MAPKEY_DELIM), separators[2]);
 
         // null sequence
         Slice nullSequence;

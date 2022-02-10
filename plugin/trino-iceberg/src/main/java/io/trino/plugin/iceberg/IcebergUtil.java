@@ -166,16 +166,19 @@ public final class IcebergUtil
     public static List<IcebergColumnHandle> getColumns(Schema schema, TypeManager typeManager)
     {
         return schema.columns().stream()
-                .map(column -> {
-                    Type type = toTrinoType(column.type(), typeManager);
-                    return new IcebergColumnHandle(
-                            createColumnIdentity(column),
-                            type,
-                            ImmutableList.of(),
-                            type,
-                            Optional.ofNullable(column.doc()));
-                })
+                .map(column -> getColumnHandle(column, typeManager))
                 .collect(toImmutableList());
+    }
+
+    public static IcebergColumnHandle getColumnHandle(NestedField column, TypeManager typeManager)
+    {
+        Type type = toTrinoType(column.type(), typeManager);
+        return new IcebergColumnHandle(
+                createColumnIdentity(column),
+                type,
+                ImmutableList.of(),
+                type,
+                Optional.ofNullable(column.doc()));
     }
 
     public static Map<PartitionField, Integer> getIdentityPartitions(PartitionSpec partitionSpec)
@@ -188,7 +191,7 @@ public final class IcebergUtil
                 columns.put(field, i);
             }
         }
-        return columns.build();
+        return columns.buildOrThrow();
     }
 
     public static Map<Integer, PrimitiveType> primitiveFieldTypes(Schema schema)
@@ -217,11 +220,11 @@ public final class IcebergUtil
         throw new IllegalStateException("Unsupported field type: " + nestedField);
     }
 
-    public static FileFormat getFileFormat(Table table)
+    public static IcebergFileFormat getFileFormat(Table table)
     {
-        return FileFormat.valueOf(table.properties()
+        return IcebergFileFormat.fromIceberg(FileFormat.valueOf(table.properties()
                 .getOrDefault(DEFAULT_FILE_FORMAT, DEFAULT_FILE_FORMAT_DEFAULT)
-                .toUpperCase(Locale.ENGLISH));
+                .toUpperCase(Locale.ENGLISH)));
     }
 
     public static Optional<String> getTableComment(Table table)
@@ -324,8 +327,11 @@ public final class IcebergUtil
      */
     public static Map<Integer, Optional<String>> getPartitionKeys(FileScanTask scanTask)
     {
-        StructLike partition = scanTask.file().partition();
-        PartitionSpec spec = scanTask.spec();
+        return getPartitionKeys(scanTask.file().partition(), scanTask.spec());
+    }
+
+    public static Map<Integer, Optional<String>> getPartitionKeys(StructLike partition, PartitionSpec spec)
+    {
         Map<PartitionField, Integer> fieldToIndex = getIdentityPartitions(spec);
         ImmutableMap.Builder<Integer, Optional<String>> partitionKeys = ImmutableMap.builder();
 
@@ -351,7 +357,7 @@ public final class IcebergUtil
             }
         });
 
-        return partitionKeys.build();
+        return partitionKeys.buildOrThrow();
     }
 
     public static LocationProvider getLocationProvider(SchemaTableName schemaTableName, String tableLocation, Map<String, String> storageProperties)
@@ -386,15 +392,15 @@ public final class IcebergUtil
         Schema schema = toIcebergSchema(tableMetadata.getColumns());
         PartitionSpec partitionSpec = parsePartitionFields(schema, getPartitioning(tableMetadata.getProperties()));
         String targetPath = getTableLocation(tableMetadata.getProperties())
-                .orElse(catalog.defaultTableLocation(session, schemaTableName));
+                .orElseGet(() -> catalog.defaultTableLocation(session, schemaTableName));
 
         ImmutableMap.Builder<String, String> propertiesBuilder = ImmutableMap.builderWithExpectedSize(2);
-        FileFormat fileFormat = IcebergTableProperties.getFileFormat(tableMetadata.getProperties());
-        propertiesBuilder.put(DEFAULT_FILE_FORMAT, fileFormat.toString());
+        IcebergFileFormat fileFormat = IcebergTableProperties.getFileFormat(tableMetadata.getProperties());
+        propertiesBuilder.put(DEFAULT_FILE_FORMAT, fileFormat.toIceberg().toString());
         if (tableMetadata.getComment().isPresent()) {
             propertiesBuilder.put(TABLE_COMMENT, tableMetadata.getComment().get());
         }
 
-        return catalog.newCreateTableTransaction(session, schemaTableName, schema, partitionSpec, targetPath, propertiesBuilder.build());
+        return catalog.newCreateTableTransaction(session, schemaTableName, schema, partitionSpec, targetPath, propertiesBuilder.buildOrThrow());
     }
 }

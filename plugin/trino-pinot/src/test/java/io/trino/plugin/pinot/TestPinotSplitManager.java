@@ -118,7 +118,7 @@ public class TestPinotSplitManager
                 .setPropertyValues(ImmutableMap.<String, Object>builder()
                         .put(PinotSessionProperties.SEGMENTS_PER_SPLIT, numSegmentsPerSplit)
                         .put(PinotSessionProperties.FORBID_SEGMENT_QUERIES, forbidSegmentQueries)
-                        .build())
+                        .buildOrThrow())
                 .build();
     }
 

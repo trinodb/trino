@@ -24,7 +24,6 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDe
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.MINUTES;
-import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class TestBigQueryConfig
 {
@@ -39,7 +38,6 @@ public class TestBigQueryConfig
                 .setViewMaterializationDataset(null)
                 .setMaxReadRowsRetries(3)
                 .setCaseInsensitiveNameMatching(false)
-                .setCaseInsensitiveNameMatchingCacheTtl(new Duration(1, MINUTES))
                 .setViewsCacheTtl(new Duration(15, MINUTES))
                 .setServiceCacheTtl(new Duration(3, MINUTES))
                 .setViewsEnabled(false));
@@ -57,10 +55,9 @@ public class TestBigQueryConfig
                 .put("bigquery.view-materialization-dataset", "vmdataset")
                 .put("bigquery.max-read-rows-retries", "10")
                 .put("bigquery.case-insensitive-name-matching", "true")
-                .put("bigquery.case-insensitive-name-matching.cache-ttl", "1s")
                 .put("bigquery.views-cache-ttl", "1m")
                 .put("bigquery.service-cache-ttl", "10d")
-                .build();
+                .buildOrThrow();
 
         BigQueryConfig expected = new BigQueryConfig()
                 .setProjectId("pid")
@@ -71,7 +68,6 @@ public class TestBigQueryConfig
                 .setViewMaterializationDataset("vmdataset")
                 .setMaxReadRowsRetries(10)
                 .setCaseInsensitiveNameMatching(true)
-                .setCaseInsensitiveNameMatchingCacheTtl(new Duration(1, SECONDS))
                 .setViewsCacheTtl(new Duration(1, MINUTES))
                 .setServiceCacheTtl(new Duration(10, DAYS));
 

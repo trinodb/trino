@@ -40,6 +40,8 @@ import io.airlift.tracetoken.TraceTokenModule;
 import io.trino.client.NodeVersion;
 import io.trino.eventlistener.EventListenerManager;
 import io.trino.eventlistener.EventListenerModule;
+import io.trino.exchange.ExchangeManagerModule;
+import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.resourcegroups.ResourceGroupManager;
 import io.trino.execution.warnings.WarningCollectorModule;
 import io.trino.metadata.Catalog;
@@ -104,6 +106,7 @@ public class Server
                 new ServerSecurityModule(),
                 new AccessControlModule(),
                 new EventListenerModule(),
+                new ExchangeManagerModule(),
                 new CoordinatorDiscoveryModule(),
                 new ServerMainModule(trinoVersion),
                 new GracefulShutdownModule(),
@@ -134,13 +137,14 @@ public class Server
                     .ifPresent(PasswordAuthenticatorManager::loadPasswordAuthenticator);
             injector.getInstance(EventListenerManager.class).loadEventListeners();
             injector.getInstance(GroupProviderManager.class).loadConfiguredGroupProvider();
+            injector.getInstance(ExchangeManagerRegistry.class).loadExchangeManager();
             injector.getInstance(CertificateAuthenticatorManager.class).loadCertificateAuthenticator();
             injector.getInstance(optionalKey(HeaderAuthenticatorManager.class))
                     .ifPresent(HeaderAuthenticatorManager::loadHeaderAuthenticator);
 
             injector.getInstance(Announcer.class).start();
 
-            injector.getInstance(ServerInfoResource.class).startupComplete();
+            injector.getInstance(StartupStatus.class).startupComplete();
 
             log.info("======== SERVER STARTED ========");
         }

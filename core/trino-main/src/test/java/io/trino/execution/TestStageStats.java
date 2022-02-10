@@ -46,7 +46,6 @@ public class TestStageStats
             11,
 
             12.0,
-            10.0,
             DataSize.ofBytes(13),
             DataSize.ofBytes(14),
             DataSize.ofBytes(15),
@@ -118,7 +117,6 @@ public class TestStageStats
         assertEquals(actual.getCompletedDrivers(), 11);
 
         assertEquals(actual.getCumulativeUserMemory(), 12.0);
-        assertEquals(actual.getCumulativeSystemMemory(), 10.0);
         assertEquals(actual.getUserMemoryReservation(), DataSize.ofBytes(13));
         assertEquals(actual.getRevocableMemoryReservation(), DataSize.ofBytes(14));
         assertEquals(actual.getTotalMemoryReservation(), DataSize.ofBytes(15));

@@ -136,13 +136,7 @@ public class SystemTablesMetadata
                 builder.put(tableMetadata.getTable(), tableMetadata.getColumns());
             }
         }
-        return builder.build();
-    }
-
-    @Override
-    public boolean usesLegacyTableLayouts()
-    {
-        return false;
+        return builder.buildOrThrow();
     }
 
     @Override

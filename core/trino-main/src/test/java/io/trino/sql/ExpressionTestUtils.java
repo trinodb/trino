@@ -107,7 +107,7 @@ public final class ExpressionTestUtils
         Expression rewritten = rewriteIdentifiersToSymbolReferences(expression);
         rewritten = DesugarLikeRewriter.rewrite(rewritten, transactionSession, plannerContext.getMetadata(), createTestingTypeAnalyzer(plannerContext), typeProvider);
         rewritten = DesugarArrayConstructorRewriter.rewrite(rewritten, transactionSession, plannerContext.getMetadata(), createTestingTypeAnalyzer(plannerContext), typeProvider);
-        rewritten = CanonicalizeExpressionRewriter.rewrite(rewritten, transactionSession, plannerContext.getMetadata(), createTestingTypeAnalyzer(plannerContext), typeProvider);
+        rewritten = CanonicalizeExpressionRewriter.rewrite(rewritten, transactionSession, plannerContext, createTestingTypeAnalyzer(plannerContext), typeProvider);
         return resolveFunctionCalls(plannerContext, transactionSession, typeProvider, rewritten);
     }
 

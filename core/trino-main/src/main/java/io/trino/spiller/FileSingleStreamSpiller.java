@@ -22,10 +22,10 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import io.airlift.slice.InputStreamSliceInput;
 import io.airlift.slice.OutputStreamSliceOutput;
+import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.trino.execution.buffer.PagesSerde;
 import io.trino.execution.buffer.PagesSerdeUtil;
-import io.trino.execution.buffer.SerializedPage;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.operator.SpillContext;
 import io.trino.spi.Page;
@@ -45,7 +45,6 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
-import static io.trino.execution.buffer.PagesSerdeUtil.writeSerializedPage;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spiller.FileSingleStreamSpillerFactory.SPILL_FILE_PREFIX;
 import static io.trino.spiller.FileSingleStreamSpillerFactory.SPILL_FILE_SUFFIX;
@@ -149,11 +148,11 @@ public class FileSingleStreamSpiller
             while (pageIterator.hasNext()) {
                 Page page = pageIterator.next();
                 spilledPagesInMemorySize += page.getSizeInBytes();
-                SerializedPage serializedPage = serde.serialize(context, page);
-                long pageSize = serializedPage.getSizeInBytes();
+                Slice serializedPage = serde.serialize(context, page);
+                long pageSize = serializedPage.length();
                 localSpillContext.updateBytes(pageSize);
                 spillerStats.addToTotalSpilledBytes(pageSize);
-                writeSerializedPage(output, serializedPage);
+                output.writeBytes(serializedPage);
             }
         }
         catch (UncheckedIOException | IOException e) {

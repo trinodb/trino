@@ -21,6 +21,8 @@ import io.airlift.log.Logger;
 import io.trino.plugin.base.CatalogName;
 import io.trino.spi.connector.ConnectorAccessControl;
 
+import java.io.File;
+
 import static com.google.common.base.Suppliers.memoizeWithExpiration;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -40,15 +42,16 @@ public class FileBasedAccessControlModule
     @Provides
     public ConnectorAccessControl getConnectorAccessControl(CatalogName catalogName, FileBasedAccessControlConfig config)
     {
+        File configFile = config.getConfigFile();
         if (config.getRefreshPeriod() != null) {
             return ForwardingConnectorAccessControl.of(memoizeWithExpiration(
                     () -> {
-                        log.info("Refreshing access control for catalog '%s' from: %s", catalogName, config.getConfigFile());
-                        return new FileBasedAccessControl(catalogName, config);
+                        log.info("Refreshing access control for catalog '%s' from: %s", catalogName, configFile);
+                        return new FileBasedAccessControl(catalogName, configFile);
                     },
                     config.getRefreshPeriod().toMillis(),
                     MILLISECONDS));
         }
-        return new FileBasedAccessControl(catalogName, config);
+        return new FileBasedAccessControl(catalogName, configFile);
     }
 }

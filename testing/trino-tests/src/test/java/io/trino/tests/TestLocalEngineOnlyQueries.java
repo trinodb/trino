@@ -13,13 +13,13 @@
  */
 package io.trino.tests;
 
-import io.trino.connector.CatalogName;
+import com.google.common.collect.ImmutableMap;
+import io.trino.connector.MockConnectorFactory;
 import io.trino.testing.LocalQueryRunner;
 import io.trino.testing.QueryRunner;
 import org.testng.SkipException;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
-import static io.trino.testing.TestingSession.createBogusTestingCatalog;
 
 public class TestLocalEngineOnlyQueries
         extends AbstractTestEngineOnlyQueries
@@ -31,8 +31,12 @@ public class TestLocalEngineOnlyQueries
         try {
             // for testing session properties
             queryRunner.getSessionPropertyManager().addSystemSessionProperties(TEST_SYSTEM_PROPERTIES);
-            queryRunner.getCatalogManager().registerCatalog(createBogusTestingCatalog(TESTING_CATALOG));
-            queryRunner.getSessionPropertyManager().addConnectorSessionProperties(new CatalogName(TESTING_CATALOG), TEST_CATALOG_PROPERTIES);
+            queryRunner.createCatalog(
+                    TESTING_CATALOG,
+                    MockConnectorFactory.builder()
+                            .withSessionProperties(TEST_CATALOG_PROPERTIES)
+                            .build(),
+                    ImmutableMap.of());
         }
         catch (RuntimeException e) {
             throw closeAllSuppress(e, queryRunner);

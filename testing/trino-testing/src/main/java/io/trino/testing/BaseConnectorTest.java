@@ -26,16 +26,24 @@ import org.testng.SkipException;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
 import java.util.function.Consumer;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static io.trino.SystemSessionProperties.IGNORE_STATS_CALCULATOR_FAILURES;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static io.trino.sql.planner.planprinter.PlanPrinter.textLogicalPlan;
 import static io.trino.testing.DataProviders.toDataProvider;
 import static io.trino.testing.QueryAssertions.assertContains;
+import static io.trino.testing.QueryAssertions.getTrinoExceptionCause;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ADD_COLUMN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ARRAY;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_COMMENT_ON_COLUMN;
@@ -49,6 +57,7 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DELETE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DROP_COLUMN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_INSERT;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_MULTI_STATEMENT_WRITES;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_NEGATIVE_DATE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_NOT_NULL_CONSTRAINT;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_COLUMN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_MATERIALIZED_VIEW;
@@ -59,12 +68,16 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_TABLE_AC
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ROW_LEVEL_DELETE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_TOPN_PUSHDOWN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_TRUNCATE;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_UPDATE;
 import static io.trino.testing.assertions.Assert.assertEquals;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.util.Collections.nCopies;
 import static java.util.Locale.ENGLISH;
+import static java.util.concurrent.Executors.newFixedThreadPool;
+import static java.util.concurrent.TimeUnit.SECONDS;
+import static java.util.stream.Collectors.joining;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertFalse;
@@ -375,6 +388,14 @@ public abstract class BaseConnectorTest
                 "SELECT orderkey, custkey, orderstatus, totalprice, orderdate, orderpriority, clerk, shippriority, comment " +
                 "FROM orders " +
                 "WHERE orderkey BETWEEN 10 AND 50");
+    }
+
+    @Test
+    public void testDateYearOfEraPredicate()
+    {
+        // Verify the predicate of '-1996-09-14' doesn't match '1997-09-14'. Both values return same formatted string when we use 'yyyy-MM-dd' in DateTimeFormatter
+        assertQuery("SELECT orderdate FROM orders WHERE orderdate = DATE '1997-09-14'", "VALUES DATE '1997-09-14'");
+        assertQueryReturnsEmptyResult("SELECT * FROM orders WHERE orderdate = DATE '-1996-09-14'");
     }
 
     @Test
@@ -980,10 +1001,11 @@ public abstract class BaseConnectorTest
         assertQuery("SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = '" + schema + "' AND table_name = 'orders'", ordersTableWithColumns);
         assertQuery("SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = '" + schema + "' AND table_name LIKE '%rders'", ordersTableWithColumns);
         assertQuery("SELECT table_name, column_name FROM information_schema.columns WHERE table_schema LIKE '" + schemaPattern + "' AND table_name LIKE '_rder_'", ordersTableWithColumns);
-        assertQuery(
+        assertThat(query(
                 "SELECT table_name, column_name FROM information_schema.columns " +
-                        "WHERE table_catalog = '" + catalog + "' AND table_schema = '" + schema + "' AND table_name LIKE '%orders%'",
-                ordersTableWithColumns);
+                        "WHERE table_catalog = '" + catalog + "' AND table_schema = '" + schema + "' AND table_name LIKE '%orders%'"))
+                .skippingTypesCheck()
+                .containsAll(ordersTableWithColumns);
 
         assertQuerySucceeds("SELECT * FROM information_schema.columns");
         assertQuery("SELECT DISTINCT table_name, column_name FROM information_schema.columns WHERE table_name LIKE '_rders'", ordersTableWithColumns);
@@ -1173,6 +1195,22 @@ public abstract class BaseConnectorTest
     }
 
     @Test
+    public void testInsertNegativeDate()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_INSERT));
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "insert_date", "(dt DATE)")) {
+            if (hasBehavior(SUPPORTS_NEGATIVE_DATE)) {
+                assertUpdate(format("INSERT INTO %s VALUES (DATE '-2016-12-07')", table.getName()), 1);
+                assertQuery("SELECT * FROM " + table.getName(), "VALUES DATE '-2016-12-07'");
+            }
+            else {
+                assertQueryFails(format("INSERT INTO %s VALUES (DATE '-2016-12-07')", table.getName()), "(?s).*Failed to insert data.*");
+            }
+        }
+    }
+
+    @Test
     public void testInsertIntoNotNullColumn()
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
@@ -1253,6 +1291,96 @@ public abstract class BaseConnectorTest
             assertUpdate("DELETE FROM " + table.getName() + " WHERE regionkey = 2", 1);
             assertQuery("SELECT count(*) FROM " + table.getName(), "VALUES 4");
         }
+    }
+
+    @Test
+    public void testUpdate()
+    {
+        if (!hasBehavior(SUPPORTS_UPDATE)) {
+            // Note this change is a no-op, if actually run
+            assertQueryFails("UPDATE nation SET nationkey = nationkey + regionkey WHERE regionkey < 1", "This connector does not support updates");
+            return;
+        }
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_update", "AS TABLE tpch.tiny.nation")) {
+            String tableName = table.getName();
+            assertUpdate("UPDATE " + tableName + " SET nationkey = 100 + nationkey WHERE regionkey = 2", 5);
+            assertThat(query("SELECT * FROM " + tableName))
+                    .skippingTypesCheck()
+                    .matches("SELECT IF(regionkey=2, nationkey + 100, nationkey) nationkey, name, regionkey, comment FROM tpch.tiny.nation");
+
+            // UPDATE after UPDATE
+            assertUpdate("UPDATE " + tableName + " SET nationkey = nationkey * 2 WHERE regionkey IN (2,3)", 10);
+            assertThat(query("SELECT * FROM " + tableName))
+                    .skippingTypesCheck()
+                    .matches("SELECT CASE regionkey WHEN 2 THEN 2*(nationkey+100) WHEN 3 THEN 2*nationkey ELSE nationkey END nationkey, name, regionkey, comment FROM tpch.tiny.nation");
+        }
+    }
+
+    // Repeat test with invocationCount for better test coverage, since the tested aspect is inherently non-deterministic.
+    @Test(timeOut = 60_000, invocationCount = 4)
+    public void testUpdateRowConcurrently()
+            throws Exception
+    {
+        if (!hasBehavior(SUPPORTS_UPDATE)) {
+            // Covered by testUpdate
+            return;
+        }
+
+        int threads = 4;
+        CyclicBarrier barrier = new CyclicBarrier(threads);
+        ExecutorService executor = newFixedThreadPool(threads);
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_concurrent_update",
+                IntStream.range(0, threads)
+                        .mapToObj(i -> format("col%s integer", i))
+                        .collect(joining(", ", "(", ")")))) {
+            String tableName = table.getName();
+            assertUpdate(format("INSERT INTO %s VALUES (%s)", tableName, join(",", nCopies(threads, "0"))), 1);
+
+            List<Future<Boolean>> futures = IntStream.range(0, threads)
+                    .mapToObj(threadNumber -> executor.submit(() -> {
+                        barrier.await(10, SECONDS);
+                        try {
+                            String columnName = "col" + threadNumber;
+                            getQueryRunner().execute(format("UPDATE %s SET %s = %s + 1", tableName, columnName, columnName));
+                            return true;
+                        }
+                        catch (Exception e) {
+                            RuntimeException trinoException = getTrinoExceptionCause(e);
+                            try {
+                                verifyConcurrentUpdateFailurePermissible(trinoException);
+                            }
+                            catch (Throwable verifyFailure) {
+                                if (trinoException != e && verifyFailure != e) {
+                                    verifyFailure.addSuppressed(e);
+                                }
+                                throw verifyFailure;
+                            }
+                            return false;
+                        }
+                    }))
+                    .collect(toImmutableList());
+
+            String expected = futures.stream()
+                    .map(future -> tryGetFutureValue(future, 10, SECONDS).orElseThrow(() -> new RuntimeException("Wait timed out")))
+                    .map(success -> success ? "1" : "0")
+                    .collect(joining(",", "VALUES (", ")"));
+
+            assertThat(query("TABLE " + tableName))
+                    .matches(expected);
+        }
+        finally {
+            executor.shutdownNow();
+            executor.awaitTermination(10, SECONDS);
+        }
+    }
+
+    protected void verifyConcurrentUpdateFailurePermissible(Exception e)
+    {
+        // By default, do not expect UPDATE to fail in case of concurrent updates
+        throw new AssertionError("Unexpected concurrent update failure", e);
     }
 
     @Test

@@ -13,9 +13,6 @@
  */
 package io.trino.plugin.redis;
 
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
 import io.airlift.log.Logger;
 import io.trino.spi.HostAddress;
 import io.trino.spi.NodeManager;
@@ -26,6 +23,8 @@ import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -37,7 +36,7 @@ public class RedisJedisManager
 {
     private static final Logger log = Logger.get(RedisJedisManager.class);
 
-    private final LoadingCache<HostAddress, JedisPool> jedisPoolCache;
+    private final ConcurrentMap<HostAddress, JedisPool> jedisPoolCache = new ConcurrentHashMap<>();
 
     private final RedisConnectorConfig redisConnectorConfig;
     private final JedisPoolConfig jedisPoolConfig;
@@ -48,14 +47,13 @@ public class RedisJedisManager
             NodeManager nodeManager)
     {
         this.redisConnectorConfig = requireNonNull(redisConnectorConfig, "redisConnectorConfig is null");
-        this.jedisPoolCache = CacheBuilder.newBuilder().build(CacheLoader.from(this::createConsumer));
         this.jedisPoolConfig = new JedisPoolConfig();
     }
 
     @PreDestroy
     public void tearDown()
     {
-        for (Map.Entry<HostAddress, JedisPool> entry : jedisPoolCache.asMap().entrySet()) {
+        for (Map.Entry<HostAddress, JedisPool> entry : jedisPoolCache.entrySet()) {
             try {
                 entry.getValue().destroy();
             }
@@ -73,7 +71,7 @@ public class RedisJedisManager
     public JedisPool getJedisPool(HostAddress host)
     {
         requireNonNull(host, "host is null");
-        return jedisPoolCache.getUnchecked(host);
+        return jedisPoolCache.computeIfAbsent(host, this::createConsumer);
     }
 
     private JedisPool createConsumer(HostAddress host)

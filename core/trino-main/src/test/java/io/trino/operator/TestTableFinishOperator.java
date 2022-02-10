@@ -103,8 +103,7 @@ public class TestTableFinishOperator
                 new AggregationOperator.AggregationOperatorFactory(
                         1,
                         new PlanNodeId("test"),
-                        ImmutableList.of(LONG_MAX.createAggregatorFactory(SINGLE, ImmutableList.of(2), OptionalInt.empty())),
-                        true),
+                        ImmutableList.of(LONG_MAX.createAggregatorFactory(SINGLE, ImmutableList.of(2), OptionalInt.empty()))),
                 descriptor,
                 tableExecuteContextManager,
                 true,
@@ -124,8 +123,7 @@ public class TestTableFinishOperator
         operator.addInput(rowPagesBuilder(inputTypes).row(null, null, 6).build().get(0));
         operator.addInput(rowPagesBuilder(inputTypes).row(null, null, 7).build().get(0));
 
-        assertThat(driverContext.getSystemMemoryUsage()).as("systemMemoryUsage").isGreaterThan(0);
-        assertEquals(driverContext.getMemoryUsage(), 0, "memoryUsage");
+        assertThat(driverContext.getMemoryUsage()).as("memoryUsage").isGreaterThan(0);
 
         assertTrue(operator.isBlocked().isDone(), "isBlocked should be done");
         assertTrue(operator.needsInput(), "needsInput should be true");
@@ -152,7 +150,6 @@ public class TestTableFinishOperator
                 .build();
         assertBlockEquals(BIGINT, getOnlyElement(tableFinisher.getComputedStatistics()).getColumnStatistics().get(statisticMetadata), expectedStatisticsBlock);
 
-        assertEquals(driverContext.getSystemMemoryUsage(), 0, "systemMemoryUsage");
         assertEquals(driverContext.getMemoryUsage(), 0, "memoryUsage");
     }
 

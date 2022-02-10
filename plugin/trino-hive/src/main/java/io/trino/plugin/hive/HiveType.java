@@ -26,6 +26,7 @@ import org.apache.hadoop.hive.serde2.typeinfo.PrimitiveTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.StructTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.UnionTypeInfo;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 import java.util.Optional;
@@ -56,6 +57,8 @@ import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoUtils.getTypeInfosF
 
 public final class HiveType
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(HiveType.class).instanceSize();
+
     public static final HiveType HIVE_BOOLEAN = new HiveType(booleanTypeInfo);
     public static final HiveType HIVE_BYTE = new HiveType(byteTypeInfo);
     public static final HiveType HIVE_SHORT = new HiveType(shortTypeInfo);
@@ -176,7 +179,7 @@ public final class HiveType
                 //   3. The Parquet format doesn't support uniontypes itself so there's no need to add support for it in Trino.
                 //   4. TODO: RCFile tables are not supported yet.
                 //   5. TODO: The support for Avro is done in SerDeUtils so it's possible that formats other than Avro are also supported. But verification is needed.
-                if (storageFormat.getSerDe().equalsIgnoreCase(AVRO.getSerDe()) || storageFormat.getSerDe().equalsIgnoreCase(ORC.getSerDe())) {
+                if (storageFormat.getSerde().equalsIgnoreCase(AVRO.getSerde()) || storageFormat.getSerde().equalsIgnoreCase(ORC.getSerde())) {
                     UnionTypeInfo unionTypeInfo = (UnionTypeInfo) typeInfo;
                     return unionTypeInfo.getAllUnionObjectTypeInfos().stream()
                             .allMatch(fieldTypeInfo -> isSupportedType(fieldTypeInfo, storageFormat));
@@ -244,5 +247,11 @@ public final class HiveType
         }
 
         return dereferenceNames.build();
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        // typeInfo is not accounted for as the instances are cached (by TypeInfoFactory) and shared
+        return INSTANCE_SIZE + hiveTypeName.getEstimatedSizeInBytes();
     }
 }

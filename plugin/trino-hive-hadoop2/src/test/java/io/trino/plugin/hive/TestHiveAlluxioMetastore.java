@@ -167,6 +167,13 @@ public class TestHiveAlluxioMetastore
     }
 
     @Override
+    public void testDisallowQueryingOfIcebergTables()
+    {
+        // Alluxio metastore does not support create operations
+        throw new SkipException("not supported");
+    }
+
+    @Override
     public void testIllegalStorageFormatDuringTableScan()
     {
         // Alluxio metastore does not support create operations
@@ -351,5 +358,19 @@ public class TestHiveAlluxioMetastore
     public void testNewDirectoryPermissions()
     {
         // Alluxio metastore does not support create operations
+    }
+
+    @Override
+    public void testInsertBucketedTransactionalTableLayout()
+            throws Exception
+    {
+        // Alluxio metastore does not support insert/update/delete operations
+    }
+
+    @Override
+    public void testInsertPartitionedBucketedTransactionalTableLayout()
+            throws Exception
+    {
+        // Alluxio metastore does not support insert/update/delete operations
     }
 }

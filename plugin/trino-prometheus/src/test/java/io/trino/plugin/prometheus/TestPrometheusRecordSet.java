@@ -23,7 +23,6 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import java.net.URI;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -42,7 +41,7 @@ import static org.testng.Assert.assertFalse;
 public class TestPrometheusRecordSet
 {
     private PrometheusHttpServer prometheusHttpServer;
-    private URI dataUri;
+    private String dataUri;
 
     @Test
     public void testCursorSimple()
@@ -96,7 +95,7 @@ public class TestPrometheusRecordSet
     public void setUp()
     {
         prometheusHttpServer = new PrometheusHttpServer();
-        dataUri = prometheusHttpServer.resolve("/prometheus-data/up_matrix_response.json");
+        dataUri = prometheusHttpServer.resolve("/prometheus-data/up_matrix_response.json").toString();
     }
 
     @AfterClass(alwaysRun = true)

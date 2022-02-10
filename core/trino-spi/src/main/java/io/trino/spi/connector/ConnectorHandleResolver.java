@@ -13,14 +13,17 @@
  */
 package io.trino.spi.connector;
 
+import java.util.LinkedHashSet;
+import java.util.Optional;
+import java.util.Set;
+import java.util.function.Supplier;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+@Deprecated
 public interface ConnectorHandleResolver
 {
     default Class<? extends ConnectorTableHandle> getTableHandleClass()
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    default Class<? extends ConnectorTableLayoutHandle> getTableLayoutHandleClass()
     {
         throw new UnsupportedOperationException();
     }
@@ -63,5 +66,31 @@ public interface ConnectorHandleResolver
     default Class<? extends ConnectorTransactionHandle> getTransactionHandleClass()
     {
         throw new UnsupportedOperationException();
+    }
+
+    default Set<Class<?>> getHandleClasses()
+    {
+        return Stream.of(
+                value(this::getTableHandleClass),
+                value(this::getColumnHandleClass),
+                value(this::getSplitClass),
+                value(this::getIndexHandleClass),
+                value(this::getOutputTableHandleClass),
+                value(this::getInsertTableHandleClass),
+                value(this::getTableExecuteHandleClass),
+                value(this::getPartitioningHandleClass),
+                value(this::getTransactionHandleClass))
+                .flatMap(Optional::stream)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+    }
+
+    private static Optional<Class<?>> value(Supplier<Class<?>> supplier)
+    {
+        try {
+            return Optional.of(supplier.get());
+        }
+        catch (UnsupportedOperationException e) {
+            return Optional.empty();
+        }
     }
 }

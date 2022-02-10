@@ -53,7 +53,6 @@ import java.util.function.Predicate;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -157,12 +156,6 @@ public class InformationSchemaMetadata
         return Arrays.stream(InformationSchemaTable.values())
                 .filter(table -> prefix.matches(table.getSchemaTableName()))
                 .collect(toImmutableMap(InformationSchemaTable::getSchemaTableName, table -> table.getTableMetadata().getColumns()));
-    }
-
-    @Override
-    public boolean usesLegacyTableLayouts()
-    {
-        return false;
     }
 
     @Override
@@ -432,7 +425,6 @@ public class InformationSchemaMetadata
         if (domain.getValues() instanceof SortedRangeSet) {
             ImmutableSet.Builder<String> result = ImmutableSet.builder();
             for (Range range : domain.getValues().getRanges().getOrderedRanges()) {
-                checkState(!range.isAll()); // Already checked
                 if (!range.isSingleValue()) {
                     return Optional.empty();
                 }

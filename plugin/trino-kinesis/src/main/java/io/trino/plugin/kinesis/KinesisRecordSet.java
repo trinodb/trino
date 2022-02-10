@@ -115,7 +115,6 @@ public class KinesisRecordSet
         requireNonNull(kinesisConfig, "kinesisConfig is null");
         long dynamoReadCapacity = kinesisConfig.getDynamoReadCapacity();
         long dynamoWriteCapacity = kinesisConfig.getDynamoWriteCapacity();
-        long checkPointIntervalMillis = kinesisConfig.getCheckpointInterval().toMillis();
         this.isLogBatches = kinesisConfig.isLogBatches();
 
         this.clientManager = requireNonNull(clientManager, "clientManager is null");
@@ -159,7 +158,6 @@ public class KinesisRecordSet
                     split,
                     logicalProcessName,
                     curIterationNumber,
-                    checkPointIntervalMillis,
                     dynamoReadCapacity,
                     dynamoWriteCapacity);
 

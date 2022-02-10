@@ -36,7 +36,7 @@ public class FixedCountScheduler
     private final TaskScheduler taskScheduler;
     private final List<InternalNode> partitionToNode;
 
-    public FixedCountScheduler(PipelinedStageExecution stageExecution, List<InternalNode> partitionToNode)
+    public FixedCountScheduler(StageExecution stageExecution, List<InternalNode> partitionToNode)
     {
         requireNonNull(stageExecution, "stage is null");
         this.taskScheduler = (node, partition) -> stageExecution.scheduleTask(node, partition, ImmutableMultimap.of(), ImmutableMultimap.of());

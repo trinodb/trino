@@ -30,6 +30,7 @@ public class Int128
 
     public static final Int128 MAX_VALUE = Int128.valueOf(0x7FFF_FFFF_FFFF_FFFFL, 0xFFFF_FFFF_FFFF_FFFFL);
     public static final Int128 MIN_VALUE = Int128.valueOf(0x8000_0000_0000_0000L, 0x0000_0000_0000_0000L);
+    public static final Int128 ONE = Int128.valueOf(0, 1);
     public static final Int128 ZERO = Int128.valueOf(0, 0);
 
     private final long high;
@@ -120,7 +121,7 @@ public class Int128
     public static Int128 valueOf(BigInteger value)
     {
         long low = value.longValue();
-        long high = 0;
+        long high;
         try {
             high = value.shiftRight(64).longValueExact();
         }

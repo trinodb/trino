@@ -251,7 +251,7 @@ public class TpchMetadata
         for (ColumnMetadata columnMetadata : getTableMetadata(session, tableHandle).getColumns()) {
             builder.put(columnMetadata.getName(), new TpchColumnHandle(columnMetadata.getName(), columnMetadata.getType()));
         }
-        return builder.build();
+        return builder.buildOrThrow();
     }
 
     @Override
@@ -266,7 +266,7 @@ public class TpchMetadata
                 }
             }
         }
-        return tableColumns.build();
+        return tableColumns.buildOrThrow();
     }
 
     @Override
@@ -424,12 +424,6 @@ public class TpchMetadata
             }
         }
         return builder.build();
-    }
-
-    @Override
-    public boolean usesLegacyTableLayouts()
-    {
-        return false;
     }
 
     @Override

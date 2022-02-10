@@ -84,8 +84,7 @@ public class TestApplyTableScanRedirection
         return new TableHandle(
                 new CatalogName(MOCK_CATALOG),
                 tableHandle,
-                TestingTransactionHandle.create(),
-                Optional.empty());
+                TestingTransactionHandle.create());
     }
 
     @Test

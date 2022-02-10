@@ -56,7 +56,7 @@ public class FixedSourcePartitionedScheduler
 {
     private static final Logger log = Logger.get(FixedSourcePartitionedScheduler.class);
 
-    private final PipelinedStageExecution stageExecution;
+    private final StageExecution stageExecution;
     private final List<InternalNode> nodes;
     private final List<SourceScheduler> sourceSchedulers;
     private final List<ConnectorPartitionHandle> partitionHandles;
@@ -66,7 +66,7 @@ public class FixedSourcePartitionedScheduler
     private final Map<InternalNode, RemoteTask> scheduledTasks;
 
     public FixedSourcePartitionedScheduler(
-            PipelinedStageExecution stageExecution,
+            StageExecution stageExecution,
             Map<PlanNodeId, SplitSource> splitSources,
             StageExecutionDescriptor stageExecutionDescriptor,
             List<PlanNodeId> schedulingOrder,
@@ -320,6 +320,12 @@ public class FixedSourcePartitionedScheduler
         {
             this.sourceScheduler = requireNonNull(sourceScheduler, "sourceScheduler is null");
             pendingCompleted = new ArrayList<>();
+        }
+
+        @Override
+        public void start()
+        {
+            sourceScheduler.start();
         }
 
         @Override

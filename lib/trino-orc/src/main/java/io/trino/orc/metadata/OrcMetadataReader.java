@@ -327,7 +327,7 @@ public class OrcMetadataReader
         for (OrcProto.UserMetadataItem item : metadataList) {
             mapBuilder.put(item.getName(), byteStringToSlice(item.getValue()));
         }
-        return mapBuilder.build();
+        return mapBuilder.buildOrThrow();
     }
 
     private static BooleanStatistics toBooleanStatistics(OrcProto.BucketStatistics bucketStatistics)
@@ -593,7 +593,7 @@ public class OrcMetadataReader
                 }
             }
         }
-        return results.build();
+        return results.buildOrThrow();
     }
 
     private static StreamKind toStreamKind(OrcProto.Stream.Kind streamKind)

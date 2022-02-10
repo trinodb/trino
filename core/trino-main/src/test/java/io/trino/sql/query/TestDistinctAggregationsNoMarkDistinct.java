@@ -13,7 +13,7 @@
  */
 package io.trino.sql.query;
 
-import org.testng.annotations.BeforeClass;
+import org.junit.jupiter.api.BeforeAll;
 
 import static io.trino.SystemSessionProperties.USE_MARK_DISTINCT;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -21,7 +21,7 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 public class TestDistinctAggregationsNoMarkDistinct
         extends TestDistinctAggregations
 {
-    @BeforeClass
+    @BeforeAll
     @Override
     public void init()
     {

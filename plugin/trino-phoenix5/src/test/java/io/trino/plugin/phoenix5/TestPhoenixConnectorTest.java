@@ -33,6 +33,7 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -70,7 +71,7 @@ public class TestPhoenixConnectorTest
             throws Exception
     {
         testingPhoenixServer = TestingPhoenixServer.getInstance();
-        return createPhoenixQueryRunner(testingPhoenixServer, ImmutableMap.of());
+        return createPhoenixQueryRunner(testingPhoenixServer, ImmutableMap.of(), REQUIRED_TPCH_TABLES);
     }
 
     @AfterClass(alwaysRun = true)
@@ -194,10 +195,25 @@ public class TestPhoenixConnectorTest
     }
 
     @Override
-    public void testDataMappingSmokeTest(DataMappingTestSetup dataMappingTestSetup)
+    protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
     {
-        // TODO enable the test
-        throw new SkipException("test fails on Phoenix");
+        String typeName = dataMappingTestSetup.getTrinoTypeName();
+        if (typeName.equals("timestamp")
+                || typeName.equals("timestamp(3) with time zone")) {
+            return Optional.of(dataMappingTestSetup.asUnsupported());
+        }
+
+        if (typeName.equals("time")) {
+            // TODO Enable when adding support reading time column
+            return Optional.empty();
+        }
+
+        if (typeName.equals("date") && dataMappingTestSetup.getSampleValueLiteral().equals("DATE '1582-10-05'")) {
+            // Phoenix connector returns +10 days during julian->gregorian switch. The test case exists in TestPhoenixTypeMapping.testDate().
+            return Optional.empty();
+        }
+
+        return Optional.of(dataMappingTestSetup);
     }
 
     @Override

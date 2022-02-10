@@ -594,8 +594,7 @@ public class TestPushJoinIntoTableScan
         return new TableHandle(
                 new CatalogName(catalog),
                 tableHandle,
-                new ConnectorTransactionHandle() {},
-                Optional.empty());
+                new ConnectorTransactionHandle() {});
     }
 
     private MockConnectorFactory createMockConnectorFactory(MockConnectorFactory.ApplyJoin applyJoin)

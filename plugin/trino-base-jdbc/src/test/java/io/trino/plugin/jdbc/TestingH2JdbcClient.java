@@ -14,6 +14,7 @@
 package io.trino.plugin.jdbc;
 
 import com.google.common.collect.ImmutableSet;
+import io.airlift.log.Logger;
 import io.trino.plugin.base.expression.AggregateFunctionRewriter;
 import io.trino.plugin.jdbc.expression.ImplementCountAll;
 import io.trino.plugin.jdbc.mapping.DefaultIdentifierMapping;
@@ -27,9 +28,12 @@ import io.trino.spi.type.CharType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
+import net.jodah.failsafe.Failsafe;
+import net.jodah.failsafe.RetryPolicy;
 
 import java.sql.Connection;
 import java.sql.Types;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -71,6 +75,8 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 class TestingH2JdbcClient
         extends BaseJdbcClient
 {
+    private static final Logger log = Logger.get(TestingH2JdbcClient.class);
+
     private static final JdbcTypeHandle BIGINT_TYPE_HANDLE = new JdbcTypeHandle(Types.BIGINT, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
 
     public TestingH2JdbcClient(BaseJdbcConfig config, ConnectionFactory connectionFactory)
@@ -81,6 +87,16 @@ class TestingH2JdbcClient
     public TestingH2JdbcClient(BaseJdbcConfig config, ConnectionFactory connectionFactory, IdentifierMapping identifierMapping)
     {
         super(config, "\"", connectionFactory, identifierMapping);
+    }
+
+    @Override
+    public Collection<String> listSchemas(Connection connection)
+    {
+        // listing schemas in H2 may fail with NullPointerException when a schema is concurrently dropped
+        return Failsafe.with(new RetryPolicy<Collection<String>>()
+                        .withMaxAttempts(100)
+                        .onRetry(event -> log.warn(event.getLastFailure(), "Failed to list schemas, retrying")))
+                .get(() -> super.listSchemas(connection));
     }
 
     @Override

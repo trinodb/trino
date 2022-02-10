@@ -20,7 +20,6 @@ import io.trino.plugin.base.jmx.MBeanServerModule;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
-import io.trino.spi.connector.ConnectorHandleResolver;
 import org.weakref.jmx.guice.MBeanModule;
 
 import java.util.Map;
@@ -34,12 +33,6 @@ public class CassandraConnectorFactory
     public String getName()
     {
         return "cassandra";
-    }
-
-    @Override
-    public ConnectorHandleResolver getHandleResolver()
-    {
-        return new CassandraHandleResolver();
     }
 
     @Override

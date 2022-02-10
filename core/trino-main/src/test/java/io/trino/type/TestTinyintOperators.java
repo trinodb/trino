@@ -17,7 +17,7 @@ import io.trino.operator.scalar.AbstractTestFunctions;
 import org.testng.annotations.Test;
 
 import static io.trino.spi.StandardErrorCode.DIVISION_BY_ZERO;
-import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
+import static io.trino.spi.StandardErrorCode.INVALID_LITERAL;
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -38,7 +38,7 @@ public class TestTinyintOperators
     {
         assertFunction("TINYINT '37'", TINYINT, (byte) 37);
         assertFunction("TINYINT '17'", TINYINT, (byte) 17);
-        assertInvalidCast("TINYINT '" + ((long) Byte.MAX_VALUE + 1L) + "'");
+        assertInvalidFunction("TINYINT '" + ((long) Byte.MAX_VALUE + 1L) + "'", INVALID_LITERAL);
     }
 
     @Test
@@ -53,7 +53,7 @@ public class TestTinyintOperators
     {
         assertFunction("TINYINT '-37'", TINYINT, (byte) -37);
         assertFunction("TINYINT '-17'", TINYINT, (byte) -17);
-        assertInvalidFunction("TINYINT '-" + Byte.MIN_VALUE + "'", INVALID_CAST_ARGUMENT);
+        assertInvalidFunction("TINYINT '-" + Byte.MIN_VALUE + "'", INVALID_LITERAL);
     }
 
     @Test

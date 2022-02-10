@@ -116,9 +116,6 @@ public class TestPostgreSqlConnectorTest
             case SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS:
                 return false;
 
-            case SUPPORTS_RENAME_SCHEMA:
-                return false;
-
             case SUPPORTS_CANCELLATION:
                 return true;
 
@@ -202,6 +199,41 @@ public class TestPostgreSqlConnectorTest
         // SYSTEM VIEW
         assertThat(computeActual("SELECT tablename FROM pg_catalog.pg_tables WHERE schemaname = 'tpch'").getOnlyColumn())
                 .contains("orders");
+    }
+
+    @Test
+    public void testPartitionedTables()
+            throws Exception
+    {
+        try (TestTable testTable = new TestTable(
+                postgreSqlServer::execute,
+                "test_part_tbl",
+                "(id int NOT NULL, payload varchar, logdate date NOT NULL) PARTITION BY RANGE (logdate)")) {
+            String values202111 = "(1, 'A', '2021-11-01'), (2, 'B', '2021-11-25')";
+            String values202112 = "(3, 'C', '2021-12-01')";
+            execute(format("CREATE TABLE %s_2021_11 PARTITION OF %s FOR VALUES FROM ('2021-11-01') TO ('2021-12-01')", testTable.getName(), testTable.getName()));
+            execute(format("CREATE TABLE %s_2021_12 PARTITION OF %s FOR VALUES FROM ('2021-12-01') TO ('2022-01-01')", testTable.getName(), testTable.getName()));
+            execute(format("INSERT INTO %s VALUES %s ,%s", testTable.getName(), values202111, values202112));
+            assertThat(computeActual("SHOW TABLES").getOnlyColumnAsSet())
+                    .contains(testTable.getName(), testTable.getName() + "_2021_11", testTable.getName() + "_2021_12");
+            assertQuery(format("SELECT * FROM %s", testTable.getName()), format("VALUES %s, %s", values202111, values202112));
+            assertQuery(format("SELECT * FROM %s_2021_12", testTable.getName()), "VALUES " + values202112);
+        }
+
+        try (TestTable testTable = new TestTable(
+                postgreSqlServer::execute,
+                "test_part_tbl",
+                "(id int NOT NULL, type varchar, logdate varchar) PARTITION BY LIST (type)")) {
+            String valuesA = "(1, 'A', '2021-11-11'), (4, 'A', '2021-12-25')";
+            String valuesB = "(3, 'B', '2021-12-12'), (2, 'B', '2021-12-28')";
+            execute(format("CREATE TABLE %s_a PARTITION OF %s FOR VALUES IN ('A')", testTable.getName(), testTable.getName()));
+            execute(format("CREATE TABLE %s_b PARTITION OF %s FOR VALUES IN ('B')", testTable.getName(), testTable.getName()));
+            assertUpdate(format("INSERT INTO %s VALUES %s ,%s", testTable.getName(), valuesA, valuesB), 4);
+            assertThat(computeActual("SHOW TABLES").getOnlyColumnAsSet())
+                    .contains(testTable.getName(), testTable.getName() + "_a", testTable.getName() + "_b");
+            assertQuery(format("SELECT * FROM %s", testTable.getName()), format("VALUES %s, %s", valuesA, valuesB));
+            assertQuery(format("SELECT * FROM %s_a", testTable.getName()), "VALUES " + valuesA);
+        }
     }
 
     @Test

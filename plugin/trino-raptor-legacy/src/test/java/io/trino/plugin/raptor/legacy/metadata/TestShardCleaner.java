@@ -34,6 +34,7 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Path;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
@@ -41,13 +42,13 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
-import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.raptor.legacy.DatabaseTesting.createTestingJdbi;
 import static io.trino.plugin.raptor.legacy.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static io.trino.plugin.raptor.legacy.util.UuidUtil.uuidFromBytes;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
+import static java.nio.file.Files.createTempDirectory;
 import static java.util.Arrays.asList;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.TimeUnit.HOURS;
@@ -61,7 +62,7 @@ public class TestShardCleaner
 {
     private Jdbi dbi;
     private Handle dummyHandle;
-    private File temporary;
+    private Path temporary;
     private StorageService storageService;
     private BackupStore backupStore;
     private TestingTicker ticker;
@@ -69,17 +70,18 @@ public class TestShardCleaner
 
     @BeforeMethod
     public void setup()
+            throws IOException
     {
         dbi = createTestingJdbi();
         dummyHandle = dbi.open();
         createTablesWithRetry(dbi);
 
-        temporary = createTempDir();
-        File directory = new File(temporary, "data");
+        temporary = createTempDirectory(null);
+        File directory = temporary.resolve("data").toFile();
         storageService = new FileStorageService(directory);
         storageService.start();
 
-        File backupDirectory = new File(temporary, "backup");
+        File backupDirectory = temporary.resolve("backup").toFile();
         backupStore = new FileBackupStore(backupDirectory);
         ((FileBackupStore) backupStore).start();
 
@@ -110,7 +112,7 @@ public class TestShardCleaner
         if (dummyHandle != null) {
             dummyHandle.close();
         }
-        deleteRecursively(temporary.toPath(), ALLOW_INSECURE);
+        deleteRecursively(temporary, ALLOW_INSECURE);
     }
 
     @Test
@@ -406,7 +408,7 @@ public class TestShardCleaner
             throws IOException
     {
         for (UUID uuid : uuids) {
-            File file = new File(temporary, "empty-" + randomUUID());
+            File file = temporary.resolve("empty-" + randomUUID()).toFile();
             assertTrue(file.createNewFile());
             backupStore.backupShard(uuid, file);
         }

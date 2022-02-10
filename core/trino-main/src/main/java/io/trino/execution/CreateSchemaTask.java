@@ -42,7 +42,6 @@ import static io.trino.metadata.MetadataUtil.createPrincipal;
 import static io.trino.metadata.MetadataUtil.getRequiredCatalogHandle;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.SCHEMA_ALREADY_EXISTS;
-import static io.trino.sql.NodeUtils.mapFromProperties;
 import static io.trino.sql.ParameterUtils.parameterExtractor;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static java.util.Objects.requireNonNull;
@@ -104,8 +103,7 @@ public class CreateSchemaTask
 
         Map<String, Object> properties = schemaPropertyManager.getProperties(
                 catalogName,
-                schema.getCatalogName(),
-                mapFromProperties(statement.getProperties()),
+                statement.getProperties(),
                 session,
                 plannerContext,
                 accessControl,

@@ -113,7 +113,7 @@ public abstract class SetOperationNode
             builder.put(entry.getKey(), Iterables.get(entry.getValue(), sourceIndex).toSymbolReference());
         }
 
-        return builder.build();
+        return builder.buildOrThrow();
     }
 
     /**

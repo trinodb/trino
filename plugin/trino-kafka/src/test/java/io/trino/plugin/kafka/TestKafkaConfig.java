@@ -49,7 +49,7 @@ public class TestKafkaConfig
                 .put("kafka.hide-internal-columns", "false")
                 .put("kafka.messages-per-split", "1")
                 .put("kafka.timestamp-upper-bound-force-push-down-enabled", "true")
-                .build();
+                .buildOrThrow();
 
         KafkaConfig expected = new KafkaConfig()
                 .setDefaultSchema("kafka")

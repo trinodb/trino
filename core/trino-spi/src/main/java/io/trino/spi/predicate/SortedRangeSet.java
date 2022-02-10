@@ -21,11 +21,14 @@ import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Type;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -35,6 +38,7 @@ import java.util.function.Function;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
+import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
@@ -62,6 +66,8 @@ import static java.util.stream.Collectors.joining;
 public final class SortedRangeSet
         implements ValueSet
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SortedRangeSet.class).instanceSize();
+
     private final Type type;
     private final MethodHandle equalOperator;
     private final MethodHandle hashCodeOperator;
@@ -899,6 +905,56 @@ public final class SortedRangeSet
                 .add("ranges=" + getRangeCount())
                 .add(formatRanges(session, limit))
                 .toString();
+    }
+
+    @Override
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE
+                + sizeOf(inclusive)
+                + sortedRanges.getRetainedSizeInBytes();
+    }
+
+    @Override
+    public Optional<Collection<Object>> tryExpandRanges(int valuesLimit)
+    {
+        List<Range> ranges = getRanges().getOrderedRanges();
+        Type type = getType();
+
+        Range typeRange = type.getRange().map(range -> Range.range(type, range.getMin(), true, range.getMax(), true)).orElse(Range.all(type));
+
+        List<Object> result = new ArrayList<>();
+        for (Range range : ranges) {
+            if (range.isLowUnbounded() || range.isHighUnbounded()) {
+                // Try to restrict the current unbounded range with the type min-max values.
+                range = range.intersect(typeRange).orElse(range);
+                if (range.isLowUnbounded() || range.isHighUnbounded()) {
+                    return Optional.empty();
+                }
+            }
+            Optional<Stream<?>> discreteValues = type.getDiscreteValues(new Type.Range(range.getLowBoundedValue(), range.getHighBoundedValue()));
+            if (discreteValues.isEmpty()) {
+                return Optional.empty();
+            }
+            Iterator<?> iterator = discreteValues.get().iterator();
+            if (!iterator.hasNext()) {
+                throw new IllegalStateException("discreteValues iterator is empty");
+            }
+            if (!range.isLowInclusive()) {
+                iterator.next();
+            }
+            while (iterator.hasNext()) {
+                Object current = iterator.next();
+                // Don't add the highest value in the range (if it's not included).
+                if (range.isHighInclusive() || iterator.hasNext()) {
+                    if (result.size() >= valuesLimit) {
+                        return Optional.empty();
+                    }
+                    result.add(current);
+                }
+            }
+        }
+        return Optional.of(Collections.unmodifiableList(result));
     }
 
     private String formatRanges(ConnectorSession session, int limit)

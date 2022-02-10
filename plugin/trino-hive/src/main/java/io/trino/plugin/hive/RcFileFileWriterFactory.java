@@ -108,10 +108,10 @@ public class RcFileFileWriterFactory
         }
 
         RcFileEncoding rcFileEncoding;
-        if (LazyBinaryColumnarSerDe.class.getName().equals(storageFormat.getSerDe())) {
+        if (LazyBinaryColumnarSerDe.class.getName().equals(storageFormat.getSerde())) {
             rcFileEncoding = new BinaryRcFileEncoding(timeZone);
         }
-        else if (ColumnarSerDe.class.getName().equals(storageFormat.getSerDe())) {
+        else if (ColumnarSerDe.class.getName().equals(storageFormat.getSerde())) {
             rcFileEncoding = createTextVectorEncoding(schema);
         }
         else {
@@ -166,7 +166,7 @@ public class RcFileFileWriterFactory
                     ImmutableMap.<String, String>builder()
                             .put(PRESTO_VERSION_NAME, nodeVersion.toString())
                             .put(PRESTO_QUERY_ID_NAME, session.getQueryId())
-                            .build(),
+                            .buildOrThrow(),
                     validationInputFactory));
         }
         catch (Exception e) {

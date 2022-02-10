@@ -42,7 +42,7 @@ public class TestFileResourceGroupConfig
 
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("resource-groups.config-file", resourceGroupConfigFile.toString())
-                .build();
+                .buildOrThrow();
 
         FileResourceGroupConfig expected = new FileResourceGroupConfig()
                 .setConfigFile(resourceGroupConfigFile.toString());

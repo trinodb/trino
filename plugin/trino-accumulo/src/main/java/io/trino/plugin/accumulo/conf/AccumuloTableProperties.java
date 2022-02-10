@@ -149,7 +149,7 @@ public final class AccumuloTableProperties
             mapping.put(tokens[0], Pair.of(tokens[1], tokens[2]));
         }
 
-        return Optional.of(mapping.build());
+        return Optional.of(mapping.buildOrThrow());
     }
 
     public static Optional<List<String>> getIndexColumns(Map<String, Object> tableProperties)
@@ -203,7 +203,7 @@ public final class AccumuloTableProperties
             groups.put(grpName.toLowerCase(Locale.ENGLISH), colSet.build());
         }
 
-        return Optional.of(groups.build());
+        return Optional.of(groups.buildOrThrow());
     }
 
     public static Optional<String> getRowId(Map<String, Object> tableProperties)

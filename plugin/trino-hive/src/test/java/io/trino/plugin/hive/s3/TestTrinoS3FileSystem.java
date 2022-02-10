@@ -67,7 +67,6 @@ import java.util.List;
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Strings.repeat;
 import static com.google.common.io.ByteStreams.toByteArray;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
@@ -99,6 +98,7 @@ import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.nio.file.Files.createTempDirectory;
 import static java.nio.file.Files.createTempFile;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
@@ -327,7 +327,7 @@ public class TestTrinoS3FileSystem
     }
 
     @SuppressWarnings("ResultOfMethodCallIgnored")
-    @Test(expectedExceptions = IOException.class, expectedExceptionsMessageRegExp = ".*Failing getObject call with " + HTTP_NOT_FOUND + ".*")
+    @Test
     public void testReadNotFound()
             throws Exception
     {
@@ -337,13 +337,15 @@ public class TestTrinoS3FileSystem
             fs.initialize(new URI("s3n://test-bucket/"), new Configuration(false));
             fs.setS3Client(s3);
             try (FSDataInputStream inputStream = fs.open(new Path("s3n://test-bucket/test"))) {
-                inputStream.read();
+                assertThatThrownBy(() -> inputStream.read())
+                        .isInstanceOf(IOException.class)
+                        .hasMessageContaining("Failing getObject call with " + HTTP_NOT_FOUND);
             }
         }
     }
 
     @SuppressWarnings("ResultOfMethodCallIgnored")
-    @Test(expectedExceptions = IOException.class, expectedExceptionsMessageRegExp = ".*Failing getObject call with " + HTTP_FORBIDDEN + ".*")
+    @Test
     public void testReadForbidden()
             throws Exception
     {
@@ -353,7 +355,9 @@ public class TestTrinoS3FileSystem
             fs.initialize(new URI("s3n://test-bucket/"), new Configuration(false));
             fs.setS3Client(s3);
             try (FSDataInputStream inputStream = fs.open(new Path("s3n://test-bucket/test"))) {
-                inputStream.read();
+                assertThatThrownBy(inputStream::read)
+                        .isInstanceOf(IOException.class)
+                        .hasMessageContaining("Failing getObject call with " + HTTP_FORBIDDEN);
             }
         }
     }
@@ -383,7 +387,7 @@ public class TestTrinoS3FileSystem
         }
     }
 
-    @Test(expectedExceptions = IOException.class, expectedExceptionsMessageRegExp = "Configured staging path is not a directory: .*")
+    @Test
     public void testCreateWithStagingDirectoryFile()
             throws Exception
     {
@@ -397,7 +401,9 @@ public class TestTrinoS3FileSystem
             conf.set(S3_STREAMING_UPLOAD_ENABLED, "false");
             fs.initialize(new URI("s3n://test-bucket/"), conf);
             fs.setS3Client(s3);
-            fs.create(new Path("s3n://test-bucket/test"));
+            assertThatThrownBy(() -> fs.create(new Path("s3n://test-bucket/test")))
+                    .isInstanceOf(IOException.class)
+                    .hasMessageStartingWith("Configured staging path is not a directory:");
         }
         finally {
             Files.deleteIfExists(staging);
@@ -453,7 +459,7 @@ public class TestTrinoS3FileSystem
         }
     }
 
-    @Test(expectedExceptions = IOException.class, expectedExceptionsMessageRegExp = ".*Failing getObjectMetadata call with " + HTTP_FORBIDDEN + ".*")
+    @Test
     public void testGetMetadataForbidden()
             throws Exception
     {
@@ -462,7 +468,9 @@ public class TestTrinoS3FileSystem
             s3.setGetObjectMetadataHttpCode(HTTP_FORBIDDEN);
             fs.initialize(new URI("s3n://test-bucket/"), new Configuration(false));
             fs.setS3Client(s3);
-            fs.getS3ObjectMetadata(new Path("s3n://test-bucket/test"));
+            assertThatThrownBy(() -> fs.getS3ObjectMetadata(new Path("s3n://test-bucket/test")))
+                    .isInstanceOf(IOException.class)
+                    .hasMessageContaining("Failing getObjectMetadata call with " + HTTP_FORBIDDEN);
         }
     }
 
@@ -727,9 +735,9 @@ public class TestTrinoS3FileSystem
             fs.setS3Client(s3);
             try (FSDataOutputStream stream = fs.create(new Path("s3n://test-bucket/test"))) {
                 stream.write('a');
-                stream.write(repeat("foo", 2).getBytes(US_ASCII));
-                stream.write(repeat("bar", 3).getBytes(US_ASCII));
-                stream.write(repeat("orange", 4).getBytes(US_ASCII), 6, 12);
+                stream.write("foo".repeat(2).getBytes(US_ASCII));
+                stream.write("bar".repeat(3).getBytes(US_ASCII));
+                stream.write("orange".repeat(4).getBytes(US_ASCII), 6, 12);
             }
 
             List<UploadPartRequest> parts = s3.getUploadParts();

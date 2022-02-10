@@ -267,9 +267,9 @@ public class HiveUpdatablePageSource
     }
 
     @Override
-    public long getSystemMemoryUsage()
+    public long getMemoryUsage()
     {
-        return hivePageSource.getSystemMemoryUsage();
+        return hivePageSource.getMemoryUsage();
     }
 
     @Override

@@ -52,6 +52,7 @@ public class TestIcebergPartitionEvolution
                                 ")\n" +
                                 "WITH (\n" +
                                 "   format = 'ORC',\n" +
+                                "   location = 'hdfs://hadoop-master:9000/user/hive/warehouse/test_dropped_partition_field',\n" +
                                 "   partitioning = ARRAY[" + (dropFirst ? "'void(a)','b'" : "'a','void(b)'") + "]\n" +
                                 ")"));
 

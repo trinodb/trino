@@ -10,8 +10,9 @@ write a SQL query to process it.
 Code
 ----
 
-The Example HTTP connector can be found in the ``trino-example-http``
-directory in the root of the Trino source tree.
+The Example HTTP connector can be found in the `trino-example-http
+<https://github.com/trinodb/trino/tree/master/plugin/trino-example-http>`_
+directory within the Trino source tree.
 
 Plugin implementation
 ---------------------

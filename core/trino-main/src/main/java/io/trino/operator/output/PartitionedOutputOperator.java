@@ -214,7 +214,7 @@ public class PartitionedOutputOperator
     private final OperatorContext operatorContext;
     private final Function<Page, Page> pagePreprocessor;
     private final PagePartitioner partitionFunction;
-    private final LocalMemoryContext systemMemoryContext;
+    private final LocalMemoryContext memoryContext;
     private final long partitionsInitialRetainedSize;
     private ListenableFuture<Void> isBlocked = NOT_BLOCKED;
     private boolean finished;
@@ -248,9 +248,9 @@ public class PartitionedOutputOperator
                 operatorContext);
 
         operatorContext.setInfoSupplier(this.partitionFunction.getOperatorInfoSupplier());
-        this.systemMemoryContext = operatorContext.newLocalSystemMemoryContext(PartitionedOutputOperator.class.getSimpleName());
+        this.memoryContext = operatorContext.newLocalUserMemoryContext(PartitionedOutputOperator.class.getSimpleName());
         this.partitionsInitialRetainedSize = this.partitionFunction.getRetainedSizeInBytes();
-        this.systemMemoryContext.setBytes(partitionsInitialRetainedSize);
+        this.memoryContext.setBytes(partitionsInitialRetainedSize);
     }
 
     @Override
@@ -309,7 +309,7 @@ public class PartitionedOutputOperator
         long partitionsSizeInBytes = partitionFunction.getSizeInBytes();
 
         // We also add partitionsInitialRetainedSize as an approximation of the object overhead of the partitions.
-        systemMemoryContext.setBytes(partitionsSizeInBytes + partitionsInitialRetainedSize);
+        memoryContext.setBytes(partitionsSizeInBytes + partitionsInitialRetainedSize);
     }
 
     @Override
@@ -321,7 +321,7 @@ public class PartitionedOutputOperator
     @Override
     public void close()
     {
-        systemMemoryContext.close();
+        memoryContext.close();
     }
 
     public static class PartitionedOutputInfo

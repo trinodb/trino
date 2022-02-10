@@ -16,6 +16,7 @@ package io.trino.plugin.clickhouse;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
+import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
@@ -64,8 +65,7 @@ public class TestClickHouseConnectorTest
                 ImmutableMap.of(),
                 ImmutableMap.<String, String>builder()
                         .put("clickhouse.map-string-as-varchar", "true")
-                        .put("allow-drop-table", "true")
-                        .build(),
+                        .buildOrThrow(),
                 REQUIRED_TPCH_TABLES);
     }
 
@@ -79,16 +79,13 @@ public class TestClickHouseConnectorTest
                 return false;
 
             case SUPPORTS_COMMENT_ON_TABLE:
-            case SUPPORTS_COMMENT_ON_COLUMN:
                 return false;
 
             case SUPPORTS_ARRAY:
+            case SUPPORTS_NEGATIVE_DATE:
                 return false;
 
             case SUPPORTS_DELETE:
-                return false;
-
-            case SUPPORTS_RENAME_SCHEMA:
                 return false;
 
             default:
@@ -133,8 +130,8 @@ public class TestClickHouseConnectorTest
         // the columns are referenced by order_by/order_by property can not be dropped
         assertUpdate("CREATE TABLE " + tableName + "(x int NOT NULL, y int, a int NOT NULL) WITH " +
                 "(engine = 'MergeTree', order_by = ARRAY['x'], partition_by = ARRAY['a'])");
-        assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN x", "ClickHouse exception, code: 47,.*\\n");
-        assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN a", "ClickHouse exception, code: 47,.*\\n");
+        assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN x", "Code: 47,.* Missing columns: 'x' while processing query: 'x', required columns: 'x' 'x' .*\\n.*");
+        assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN a", "Code: 47,.* Missing columns: 'a' while processing query: 'a', required columns: 'a' 'a' .*\\n.*");
     }
 
     @Override
@@ -263,7 +260,8 @@ public class TestClickHouseConnectorTest
         assertUpdate("DROP TABLE " + tableName);
 
         //NOT support engine
-        assertQueryFails("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR) WITH (engine = 'bad_engine')", "Unable to set table property 'engine' to.*");
+        assertQueryFails("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR) WITH (engine = 'bad_engine')",
+                "Unable to set catalog 'clickhouse' table property 'engine' to.*");
     }
 
     /**
@@ -296,9 +294,9 @@ public class TestClickHouseConnectorTest
         assertUpdate("DROP TABLE " + tableName);
 
         // Log engine DOES NOT any property
-        assertQueryFails("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR) WITH (engine = 'Log', order_by=ARRAY['id'])", ".* doesn't support PARTITION_BY, PRIMARY_KEY, ORDER_BY or SAMPLE_BY clauses.*\\n");
-        assertQueryFails("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR) WITH (engine = 'Log', partition_by=ARRAY['id'])", ".* doesn't support PARTITION_BY, PRIMARY_KEY, ORDER_BY or SAMPLE_BY clauses.*\\n");
-        assertQueryFails("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR) WITH (engine = 'Log', sample_by='id')", ".* doesn't support PARTITION_BY, PRIMARY_KEY, ORDER_BY or SAMPLE_BY clauses.*\\n");
+        assertQueryFails("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR) WITH (engine = 'Log', order_by=ARRAY['id'])", ".* doesn't support PARTITION_BY, PRIMARY_KEY, ORDER_BY or SAMPLE_BY clauses.*\\n.*");
+        assertQueryFails("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR) WITH (engine = 'Log', partition_by=ARRAY['id'])", ".* doesn't support PARTITION_BY, PRIMARY_KEY, ORDER_BY or SAMPLE_BY clauses.*\\n.*");
+        assertQueryFails("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR) WITH (engine = 'Log', sample_by='id')", ".* doesn't support PARTITION_BY, PRIMARY_KEY, ORDER_BY or SAMPLE_BY clauses.*\\n.*");
 
         // optional properties
         assertUpdate("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR) WITH (engine = 'MergeTree', order_by = ARRAY['id'])");
@@ -306,7 +304,7 @@ public class TestClickHouseConnectorTest
         assertUpdate("DROP TABLE " + tableName);
 
         // the column refers by order by must be not null
-        assertQueryFails("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR) WITH (engine = 'MergeTree', order_by = ARRAY['id', 'x'])", ".* Sorting key cannot contain nullable columns.*\\n");
+        assertQueryFails("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR) WITH (engine = 'MergeTree', order_by = ARRAY['id', 'x'])", ".* Sorting key cannot contain nullable columns.*\\n.*");
 
         assertUpdate("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR) WITH (engine = 'MergeTree', order_by = ARRAY['id'], primary_key = ARRAY['id'])");
         assertTrue(getQueryRunner().tableExists(getSession(), tableName));
@@ -322,15 +320,15 @@ public class TestClickHouseConnectorTest
 
         // Primary key must be a prefix of the sorting key,
         assertQueryFails("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR NOT NULL, y VARCHAR NOT NULL) WITH (engine = 'MergeTree', order_by = ARRAY['id'], sample_by = ARRAY['x', 'y'])",
-                "Invalid value for table property 'sample_by': .*");
+                "Invalid value for catalog 'clickhouse' table property 'sample_by': .*");
 
         // wrong property type
         assertQueryFails("CREATE TABLE " + tableName + " (id int NOT NULL) WITH (engine = 'MergeTree', order_by = 'id')",
-                "Invalid value for table property 'order_by': .*");
+                "Invalid value for catalog 'clickhouse' table property 'order_by': .*");
         assertQueryFails("CREATE TABLE " + tableName + " (id int NOT NULL) WITH (engine = 'MergeTree', order_by = ARRAY['id'], primary_key = 'id')",
-                "Invalid value for table property 'primary_key': .*");
+                "Invalid value for catalog 'clickhouse' table property 'primary_key': .*");
         assertQueryFails("CREATE TABLE " + tableName + " (id int NOT NULL) WITH (engine = 'MergeTree', order_by = ARRAY['id'], primary_key = ARRAY['id'], partition_by = 'id')",
-                "Invalid value for table property 'partition_by': .*");
+                "Invalid value for catalog 'clickhouse' table property 'partition_by': .*");
     }
 
     @Test
@@ -369,7 +367,7 @@ public class TestClickHouseConnectorTest
                 "(p1 int NOT NULL, p2 int NOT NULL, x VARCHAR) WITH (engine = 'MergeTree', order_by = ARRAY['p1', 'p2'], primary_key = ARRAY['p1', 'p2'])")) {
             assertQueryFails(
                     "ALTER TABLE " + table.getName() + " SET PROPERTIES invalid_property = 'p2'",
-                    "Catalog 'clickhouse' does not support table property 'invalid_property'");
+                    "Catalog 'clickhouse' table property 'invalid_property' does not exist");
         }
     }
 
@@ -418,7 +416,8 @@ public class TestClickHouseConnectorTest
             assertThat(query("SELECT min(short_decimal), min(long_decimal), min(a_bigint), min(t_double) FROM " + testTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT max(short_decimal), max(long_decimal), max(a_bigint), max(t_double) FROM " + testTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT sum(short_decimal), sum(long_decimal), sum(a_bigint), sum(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-            assertThat(query("SELECT avg(short_decimal), avg(long_decimal), avg(a_bigint), avg(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT avg(a_bigint), avg(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT avg(short_decimal), avg(long_decimal) FROM " + testTable.getName())).isNotFullyPushedDown(AggregationNode.class);
         }
     }
 
@@ -453,6 +452,27 @@ public class TestClickHouseConnectorTest
         }
     }
 
+    @Test
+    @Override
+    public void testInsertNegativeDate()
+    {
+        // Override because the connector throws a different error message in the super class
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "insert_date", "(dt DATE)")) {
+            assertQueryFails(format("INSERT INTO %s VALUES (DATE '-2016-12-07')", table.getName()), "Date must be between 1970-01-01 and 2106-02-07 in ClickHouse: -2016-12-07");
+        }
+    }
+
+    @Test
+    @Override
+    public void testDateYearOfEraPredicate()
+    {
+        // Override because the connector throws an exception instead of an empty result when the value is out of supported range
+        assertQuery("SELECT orderdate FROM orders WHERE orderdate = DATE '1997-09-14'", "VALUES DATE '1997-09-14'");
+        assertQueryFails(
+                "SELECT * FROM orders WHERE orderdate = DATE '-1996-09-14'",
+                "Date must be between 1970-01-01 and 2106-02-07 in ClickHouse: -1996-09-14");
+    }
+
     @Override
     protected SqlExecutor onRemoteDatabase()
     {
@@ -477,7 +497,7 @@ public class TestClickHouseConnectorTest
                 properties.put(PRIMARY_KEY_PROPERTY, resultSet.getString("primary_key"));
                 properties.put(SAMPLE_BY_PROPERTY, resultSet.getString("sampling_key"));
             }
-            return properties.build();
+            return properties.buildOrThrow();
         }
     }
 }

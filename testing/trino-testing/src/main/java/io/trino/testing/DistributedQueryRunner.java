@@ -233,7 +233,7 @@ public class DistributedQueryRunner
             propertiesBuilder.put("scheduler.http-client.min-threads", "1"); // default 8
             propertiesBuilder.put("workerInfo.http-client.min-threads", "1"); // default 8
         }
-        HashMap<String, String> properties = new HashMap<>(propertiesBuilder.build());
+        HashMap<String, String> properties = new HashMap<>(propertiesBuilder.buildOrThrow());
         properties.putAll(extraProperties);
 
         TestingTrinoServer server = TestingTrinoServer.builder()

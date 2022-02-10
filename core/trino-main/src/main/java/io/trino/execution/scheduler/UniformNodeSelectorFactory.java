@@ -15,14 +15,15 @@ package io.trino.execution.scheduler;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Suppliers;
-import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableSetMultimap;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.Session;
+import io.trino.collect.cache.NonEvictableCache;
 import io.trino.connector.CatalogName;
 import io.trino.execution.NodeTaskMap;
+import io.trino.execution.scheduler.NodeSchedulerConfig.SplitsBalancingPolicy;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.InternalNodeManager;
 import io.trino.spi.HostAddress;
@@ -34,12 +35,14 @@ import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.SystemSessionProperties.getMaxUnacknowledgedSplitsPerTask;
+import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.metadata.NodeState.ACTIVE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -50,15 +53,16 @@ public class UniformNodeSelectorFactory
 {
     private static final Logger LOG = Logger.get(UniformNodeSelectorFactory.class);
 
-    private final Cache<InternalNode, Boolean> inaccessibleNodeLogCache = CacheBuilder.newBuilder()
-            .expireAfterWrite(30, TimeUnit.SECONDS)
-            .build();
+    private final NonEvictableCache<InternalNode, Object> inaccessibleNodeLogCache = buildNonEvictableCache(
+            CacheBuilder.newBuilder()
+                    .expireAfterWrite(30, TimeUnit.SECONDS));
 
     private final InternalNodeManager nodeManager;
     private final int minCandidates;
     private final boolean includeCoordinator;
     private final long maxSplitsWeightPerNode;
     private final long maxPendingSplitsWeightPerTask;
+    private final SplitsBalancingPolicy splitsBalancingPolicy;
     private final boolean optimizedLocalScheduling;
     private final NodeTaskMap nodeTaskMap;
     private final Duration nodeMapMemoizationDuration;
@@ -86,6 +90,7 @@ public class UniformNodeSelectorFactory
         this.nodeManager = nodeManager;
         this.minCandidates = config.getMinCandidates();
         this.includeCoordinator = config.isIncludeCoordinator();
+        this.splitsBalancingPolicy = config.getSplitsBalancingPolicy();
         this.optimizedLocalScheduling = config.getOptimizedLocalScheduling();
         this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
         int maxSplitsPerNode = config.getMaxSplitsPerNode();
@@ -122,6 +127,7 @@ public class UniformNodeSelectorFactory
                 maxSplitsWeightPerNode,
                 maxPendingSplitsWeightPerTask,
                 getMaxUnacknowledgedSplitsPerTask(session),
+                splitsBalancingPolicy,
                 optimizedLocalScheduling);
     }
 
@@ -143,13 +149,27 @@ public class UniformNodeSelectorFactory
                 byHost.put(node.getInternalAddress(), node);
             }
             catch (UnknownHostException e) {
-                if (inaccessibleNodeLogCache.getIfPresent(node) == null) {
-                    inaccessibleNodeLogCache.put(node, true);
+                if (markInaccessibleNode(node)) {
                     LOG.warn(e, "Unable to resolve host name for node: %s", node);
                 }
             }
         }
 
         return new NodeMap(byHostAndPort.build(), byHost.build(), ImmutableSetMultimap.of(), coordinatorNodeIds);
+    }
+
+    /**
+     * Returns true if node has been marked as inaccessible, or false if it was known to be inaccessible.
+     */
+    private boolean markInaccessibleNode(InternalNode node)
+    {
+        Object marker = new Object();
+        try {
+            return inaccessibleNodeLogCache.get(node, () -> marker) == marker;
+        }
+        catch (ExecutionException e) {
+            // impossible
+            throw new RuntimeException(e);
+        }
     }
 }

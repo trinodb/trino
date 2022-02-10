@@ -28,26 +28,33 @@ import io.trino.spi.type.BigintType;
 import io.trino.spi.type.VarcharType;
 import io.trino.testing.LocalQueryRunner;
 import io.trino.testing.TestingAccessControlManager;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.Optional;
 
 import static io.trino.connector.MockConnectorEntities.TPCH_NATION_DATA;
 import static io.trino.connector.MockConnectorEntities.TPCH_NATION_SCHEMA;
 import static io.trino.connector.MockConnectorEntities.TPCH_NATION_WITH_HIDDEN_COLUMN;
+import static io.trino.connector.MockConnectorEntities.TPCH_NATION_WITH_OPTIONAL_COLUMN;
 import static io.trino.connector.MockConnectorEntities.TPCH_WITH_HIDDEN_COLUMN_DATA;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_CLASS)
+@Execution(SAME_THREAD)
 public class TestRowFilter
 {
     private static final String CATALOG = "local";
     private static final String MOCK_CATALOG = "mock";
+    private static final String MOCK_CATALOG_MISSING_COLUMNS = "mockmissingcolumns";
     private static final String USER = "user";
     private static final String VIEW_OWNER = "view-owner";
     private static final String RUN_AS_USER = "run-as-user";
@@ -61,7 +68,7 @@ public class TestRowFilter
     private QueryAssertions assertions;
     private TestingAccessControlManager accessControl;
 
-    @BeforeClass
+    @BeforeAll
     public void init()
     {
         LocalQueryRunner runner = LocalQueryRunner.builder(SESSION).build();
@@ -81,13 +88,16 @@ public class TestRowFilter
         MockConnectorFactory mock = MockConnectorFactory.builder()
                 .withGetViews((s, prefix) -> ImmutableMap.<SchemaTableName, ConnectorViewDefinition>builder()
                         .put(new SchemaTableName("default", "nation_view"), view)
-                        .build())
+                        .buildOrThrow())
                 .withGetColumns(schemaTableName -> {
                     if (schemaTableName.equals(new SchemaTableName("tiny", "nation"))) {
                         return TPCH_NATION_SCHEMA;
                     }
                     if (schemaTableName.equals(new SchemaTableName("tiny", "nation_with_hidden_column"))) {
                         return TPCH_NATION_WITH_HIDDEN_COLUMN;
+                    }
+                    if (schemaTableName.equals(new SchemaTableName("tiny", "nation_with_optional_column"))) {
+                        return TPCH_NATION_WITH_OPTIONAL_COLUMN;
                     }
                     throw new UnsupportedOperationException();
                 })
@@ -98,17 +108,42 @@ public class TestRowFilter
                     if (schemaTableName.equals(new SchemaTableName("tiny", "nation_with_hidden_column"))) {
                         return TPCH_WITH_HIDDEN_COLUMN_DATA;
                     }
+                    if (schemaTableName.equals(new SchemaTableName("tiny", "nation_with_optional_column"))) {
+                        return TPCH_NATION_DATA;
+                    }
                     throw new UnsupportedOperationException();
                 })
                 .build();
 
         runner.createCatalog(MOCK_CATALOG, mock, ImmutableMap.of());
 
+        MockConnectorFactory mockMissingColumns = MockConnectorFactory.builder()
+                .withName("mockmissingcolumns")
+                .withGetViews((s, prefix) -> ImmutableMap.<SchemaTableName, ConnectorViewDefinition>builder()
+                        .put(new SchemaTableName("default", "nation_view"), view)
+                        .build())
+                .withGetColumns(schemaTableName -> {
+                    if (schemaTableName.equals(new SchemaTableName("tiny", "nation_with_optional_column"))) {
+                        return TPCH_NATION_WITH_OPTIONAL_COLUMN;
+                    }
+                    throw new UnsupportedOperationException();
+                })
+                .withData(schemaTableName -> {
+                    if (schemaTableName.equals(new SchemaTableName("tiny", "nation_with_optional_column"))) {
+                        return TPCH_NATION_DATA;
+                    }
+                    throw new UnsupportedOperationException();
+                })
+                .withAllowMissingColumnsOnInsert(true)
+                .build();
+
+        runner.createCatalog(MOCK_CATALOG_MISSING_COLUMNS, mockMissingColumns, ImmutableMap.of());
+
         assertions = new QueryAssertions(runner);
         accessControl = assertions.getQueryRunner().getAccessControl();
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void teardown()
     {
         assertions.close();
@@ -553,5 +588,29 @@ public class TestRowFilter
                 .assertThat()
                 .skippingTypesCheck()
                 .matches("SELECT BIGINT '25'");
+    }
+
+    @Test
+    public void testRowFilterOnOptionalColumn()
+    {
+        accessControl.reset();
+
+        accessControl.rowFilter(
+                new QualifiedObjectName(MOCK_CATALOG_MISSING_COLUMNS, "tiny", "nation_with_optional_column"),
+                USER,
+                new ViewExpression(USER, Optional.empty(), Optional.empty(), "length(optional) > 2"));
+
+        assertions.query("INSERT INTO mockmissingcolumns.tiny.nation_with_optional_column(nationkey, name, regionkey, comment, optional) VALUES (0, 'POLAND', 0, 'No comment', 'some string')")
+                .assertThat()
+                .skippingTypesCheck()
+                .matches("VALUES BIGINT '1'");
+
+        assertThatThrownBy(() -> assertions.query("INSERT INTO mockmissingcolumns.tiny.nation_with_optional_column(nationkey, name, regionkey, comment, optional) VALUES (0, 'POLAND', 0, 'No comment', 'so')"))
+                .isInstanceOf(TrinoException.class)
+                .hasMessage("Access Denied: Cannot insert row that does not match to a row filter");
+
+        assertThatThrownBy(() -> assertions.query("INSERT INTO mockmissingcolumns.tiny.nation_with_optional_column(nationkey, name, regionkey, comment, optional) VALUES (0, 'POLAND', 0, 'No comment', null)"))
+                .isInstanceOf(TrinoException.class)
+                .hasMessage("Access Denied: Cannot insert row that does not match to a row filter");
     }
 }

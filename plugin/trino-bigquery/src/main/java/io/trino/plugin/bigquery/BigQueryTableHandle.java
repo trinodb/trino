@@ -24,7 +24,6 @@ import io.trino.spi.predicate.TupleDomain;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.OptionalLong;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -37,7 +36,6 @@ public class BigQueryTableHandle
     private final String type;
     private final TupleDomain<ColumnHandle> constraint;
     private final Optional<List<ColumnHandle>> projectedColumns;
-    private final OptionalLong limit;
 
     @JsonCreator
     public BigQueryTableHandle(
@@ -45,15 +43,13 @@ public class BigQueryTableHandle
             @JsonProperty("remoteTableName") RemoteTableName remoteTableName,
             @JsonProperty("type") String type,
             @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint,
-            @JsonProperty("projectedColumns") Optional<List<ColumnHandle>> projectedColumns,
-            @JsonProperty("limit") OptionalLong limit)
+            @JsonProperty("projectedColumns") Optional<List<ColumnHandle>> projectedColumns)
     {
         this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
         this.remoteTableName = requireNonNull(remoteTableName, "remoteTableName is null");
         this.type = requireNonNull(type, "type is null");
         this.constraint = requireNonNull(constraint, "constraint is null");
         this.projectedColumns = requireNonNull(projectedColumns, "projectedColumns is null");
-        this.limit = requireNonNull(limit, "limit is null");
     }
 
     public BigQueryTableHandle(SchemaTableName schemaTableName, RemoteTableName remoteTableName, TableInfo tableInfo)
@@ -63,8 +59,7 @@ public class BigQueryTableHandle
                 remoteTableName,
                 tableInfo.getDefinition().getType().toString(),
                 TupleDomain.all(),
-                Optional.empty(),
-                OptionalLong.empty());
+                Optional.empty());
     }
 
     @JsonProperty
@@ -97,12 +92,6 @@ public class BigQueryTableHandle
         return projectedColumns;
     }
 
-    @JsonProperty
-    public OptionalLong getLimit()
-    {
-        return limit;
-    }
-
     @Override
     public boolean equals(Object o)
     {
@@ -118,14 +107,13 @@ public class BigQueryTableHandle
         return Objects.equals(schemaTableName, that.schemaTableName) &&
                 Objects.equals(type, that.type) &&
                 Objects.equals(constraint, that.constraint) &&
-                Objects.equals(projectedColumns, that.projectedColumns) &&
-                Objects.equals(limit, that.limit);
+                Objects.equals(projectedColumns, that.projectedColumns);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(schemaTableName, type, constraint, projectedColumns, limit);
+        return Objects.hash(schemaTableName, type, constraint, projectedColumns);
     }
 
     @Override
@@ -137,22 +125,16 @@ public class BigQueryTableHandle
                 .add("type", type)
                 .add("constraint", constraint)
                 .add("projectedColumns", projectedColumns)
-                .add("limit", limit)
                 .toString();
     }
 
     BigQueryTableHandle withConstraint(TupleDomain<ColumnHandle> newConstraint)
     {
-        return new BigQueryTableHandle(schemaTableName, remoteTableName, type, newConstraint, projectedColumns, limit);
+        return new BigQueryTableHandle(schemaTableName, remoteTableName, type, newConstraint, projectedColumns);
     }
 
     BigQueryTableHandle withProjectedColumns(List<ColumnHandle> newProjectedColumns)
     {
-        return new BigQueryTableHandle(schemaTableName, remoteTableName, type, constraint, Optional.of(newProjectedColumns), limit);
-    }
-
-    BigQueryTableHandle withLimit(long newLimit)
-    {
-        return new BigQueryTableHandle(schemaTableName, remoteTableName, type, constraint, projectedColumns, OptionalLong.of(newLimit));
+        return new BigQueryTableHandle(schemaTableName, remoteTableName, type, constraint, Optional.of(newProjectedColumns));
     }
 }

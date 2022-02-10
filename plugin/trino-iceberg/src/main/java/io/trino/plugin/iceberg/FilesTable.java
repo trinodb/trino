@@ -177,7 +177,7 @@ public class FilesTable
         for (Types.NestedField field : schema.columns()) {
             populateIcebergIdToTypeMapping(field, icebergIdToTypeMapping);
         }
-        return icebergIdToTypeMapping.build();
+        return icebergIdToTypeMapping.buildOrThrow();
     }
 
     private static void populateIcebergIdToTypeMapping(Types.NestedField field, ImmutableMap.Builder<Integer, Type> icebergIdToTypeMapping)

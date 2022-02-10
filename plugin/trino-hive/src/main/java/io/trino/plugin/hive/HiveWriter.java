@@ -62,9 +62,9 @@ public class HiveWriter
         return fileWriter.getWrittenBytes();
     }
 
-    public long getSystemMemoryUsage()
+    public long getMemoryUsage()
     {
-        return fileWriter.getSystemMemoryUsage();
+        return fileWriter.getMemoryUsage();
     }
 
     public long getRowCount()

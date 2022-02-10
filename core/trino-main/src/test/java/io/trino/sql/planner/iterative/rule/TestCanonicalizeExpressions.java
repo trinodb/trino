@@ -25,7 +25,7 @@ public class TestCanonicalizeExpressions
     @Test
     public void testDoesNotFireForExpressionsInCanonicalForm()
     {
-        CanonicalizeExpressions canonicalizeExpressions = new CanonicalizeExpressions(tester().getMetadata(), tester().getTypeAnalyzer());
+        CanonicalizeExpressions canonicalizeExpressions = new CanonicalizeExpressions(tester().getPlannerContext(), tester().getTypeAnalyzer());
         tester().assertThat(canonicalizeExpressions.filterExpressionRewrite())
                 .on(p -> p.filter(FALSE_LITERAL, p.values()))
                 .doesNotFire();
@@ -34,7 +34,7 @@ public class TestCanonicalizeExpressions
     @Test
     public void testDoesNotFireForUnfilteredJoin()
     {
-        CanonicalizeExpressions canonicalizeExpressions = new CanonicalizeExpressions(tester().getMetadata(), tester().getTypeAnalyzer());
+        CanonicalizeExpressions canonicalizeExpressions = new CanonicalizeExpressions(tester().getPlannerContext(), tester().getTypeAnalyzer());
         tester().assertThat(canonicalizeExpressions.joinExpressionRewrite())
                 .on(p -> p.join(INNER, p.values(), p.values()))
                 .doesNotFire();
@@ -43,7 +43,7 @@ public class TestCanonicalizeExpressions
     @Test
     public void testDoesNotFireForCanonicalExpressions()
     {
-        CanonicalizeExpressions canonicalizeExpressions = new CanonicalizeExpressions(tester().getMetadata(), tester().getTypeAnalyzer());
+        CanonicalizeExpressions canonicalizeExpressions = new CanonicalizeExpressions(tester().getPlannerContext(), tester().getTypeAnalyzer());
         tester().assertThat(canonicalizeExpressions.joinExpressionRewrite())
                 .on(p -> p.join(INNER, p.values(), p.values(), FALSE_LITERAL))
                 .doesNotFire();

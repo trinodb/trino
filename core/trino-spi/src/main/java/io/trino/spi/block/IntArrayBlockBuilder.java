@@ -205,14 +205,6 @@ public class IntArrayBlockBuilder
     }
 
     @Override
-    public void writePositionTo(int position, BlockBuilder blockBuilder)
-    {
-        checkReadablePosition(position);
-        blockBuilder.writeInt(values[position]);
-        blockBuilder.closeEntry();
-    }
-
-    @Override
     public Block getSingleValueBlock(int position)
     {
         checkReadablePosition(position);

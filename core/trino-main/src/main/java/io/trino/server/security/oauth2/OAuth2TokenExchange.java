@@ -20,6 +20,7 @@ import com.google.common.hash.Hashing;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.Duration;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
@@ -42,6 +43,7 @@ public class OAuth2TokenExchange
 {
     public static final Duration MAX_POLL_TIME = new Duration(10, SECONDS);
     private static final TokenPoll TOKEN_POLL_TIMED_OUT = TokenPoll.error("Authentication has timed out");
+    private static final TokenPoll TOKEN_POLL_DROPPED = TokenPoll.error("Authentication has been finished by the client");
 
     private final LoadingCache<String, SettableFuture<TokenPoll>> cache;
     private final ScheduledExecutorService executor = newSingleThreadScheduledExecutor(daemonThreadsNamed("oauth2-token-exchange"));
@@ -50,10 +52,11 @@ public class OAuth2TokenExchange
     public OAuth2TokenExchange(OAuth2Config config)
     {
         long challengeTimeoutMillis = config.getChallengeTimeout().toMillis();
-        this.cache = CacheBuilder.newBuilder()
-                .expireAfterWrite(challengeTimeoutMillis + (MAX_POLL_TIME.toMillis() * 10), MILLISECONDS)
-                .<String, SettableFuture<TokenPoll>>removalListener(notification -> notification.getValue().set(TOKEN_POLL_TIMED_OUT))
-                .build(new CacheLoader<>()
+        this.cache = buildUnsafeCache(
+                CacheBuilder.newBuilder()
+                        .expireAfterWrite(challengeTimeoutMillis + (MAX_POLL_TIME.toMillis() * 10), MILLISECONDS)
+                        .removalListener(notification -> notification.getValue().set(TOKEN_POLL_TIMED_OUT)),
+                new CacheLoader<>()
                 {
                     @Override
                     public SettableFuture<TokenPoll> load(String authIdHash)
@@ -64,6 +67,13 @@ public class OAuth2TokenExchange
                         return future;
                     }
                 });
+    }
+
+    // TODO (https://github.com/trinodb/trino/issues/10685) Investigate cache correctness with respect to invalidation
+    @SuppressModernizer
+    private static <K, V> LoadingCache<K, V> buildUnsafeCache(CacheBuilder<? super K, ? super V> cacheBuilder, CacheLoader<? super K, V> cacheLoader)
+    {
+        return cacheBuilder.build(cacheLoader);
     }
 
     @PreDestroy
@@ -91,7 +101,7 @@ public class OAuth2TokenExchange
 
     public void dropToken(UUID authId)
     {
-        cache.invalidate(hashAuthId(authId));
+        cache.getUnchecked(hashAuthId(authId)).set(TOKEN_POLL_DROPPED);
     }
 
     public static String hashAuthId(UUID authId)

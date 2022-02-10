@@ -46,7 +46,8 @@ public enum TestingConnectorBehavior
     SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_EQUALITY(fallback -> fallback.test(SUPPORTS_JOIN_PUSHDOWN) && fallback.test(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY)),
     SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_INEQUALITY(fallback -> fallback.test(SUPPORTS_JOIN_PUSHDOWN) && fallback.test(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY)),
     SUPPORTS_CREATE_SCHEMA,
-    SUPPORTS_RENAME_SCHEMA,
+    // Expect rename to be supported when create schema is supported, to help make connector implementations coherent.
+    SUPPORTS_RENAME_SCHEMA(SUPPORTS_CREATE_SCHEMA),
 
     SUPPORTS_CREATE_TABLE,
     SUPPORTS_CREATE_TABLE_WITH_DATA(SUPPORTS_CREATE_TABLE),
@@ -77,6 +78,7 @@ public enum TestingConnectorBehavior
     SUPPORTS_TRUNCATE(false),
 
     SUPPORTS_ARRAY,
+    SUPPORTS_NEGATIVE_DATE,
 
     SUPPORTS_CANCELLATION(false),
 

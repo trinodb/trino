@@ -150,7 +150,7 @@ public class ThriftIndexPageSource
     }
 
     @Override
-    public long getSystemMemoryUsage()
+    public long getMemoryUsage()
     {
         return 0;
     }

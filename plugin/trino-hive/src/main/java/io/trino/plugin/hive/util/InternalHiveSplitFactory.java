@@ -178,17 +178,6 @@ public class InternalHiveSplitFactory
             return Optional.empty();
         }
 
-        boolean forceLocalScheduling = this.forceLocalScheduling;
-
-        // For empty files, some filesystem (e.g. LocalFileSystem) produce one empty block
-        // while others (e.g. hdfs.DistributedFileSystem) produces no block.
-        // Synthesize an empty block if one does not already exist.
-        if (estimatedFileSize == 0 && blockLocations.length == 0) {
-            blockLocations = new BlockLocation[] {new BlockLocation()};
-            // Turn off force local scheduling because hosts list doesn't exist.
-            forceLocalScheduling = false;
-        }
-
         ImmutableList.Builder<InternalHiveBlock> blockBuilder = ImmutableList.builder();
         for (BlockLocation blockLocation : blockLocations) {
             // clamp the block range

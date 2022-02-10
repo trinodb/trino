@@ -149,7 +149,7 @@ public class SymbolMapper
         return new AggregationNode(
                 newNodeId,
                 source,
-                aggregations.build(),
+                aggregations.buildOrThrow(),
                 groupingSets(
                         mapAndDistinct(node.getGroupingKeys()),
                         node.getGroupingSetCount(),
@@ -215,7 +215,7 @@ public class SymbolMapper
                 node.getId(),
                 source,
                 mapAndDistinct(node.getSpecification()),
-                newFunctions.build(),
+                newFunctions.buildOrThrow(),
                 node.getHashSymbol().map(this::map),
                 node.getPrePartitionedInputs().stream()
                         .map(this::map)
@@ -274,8 +274,8 @@ public class SymbolMapper
                         .map(this::map)
                         .collect(toImmutableSet()),
                 node.getPreSortedOrderPrefix(),
-                newFunctions.build(),
-                newMeasures.build(),
+                newFunctions.buildOrThrow(),
+                newMeasures.buildOrThrow(),
                 node.getCommonBaseFrame().map(this::map),
                 node.getRowsPerMatch(),
                 node.getSkipToLabel(),
@@ -283,7 +283,7 @@ public class SymbolMapper
                 node.isInitial(),
                 node.getPattern(),
                 node.getSubsets(),
-                newVariableDefinitions.build());
+                newVariableDefinitions.buildOrThrow());
     }
 
     private ExpressionAndValuePointers map(ExpressionAndValuePointers expressionAndValuePointers)
@@ -362,7 +362,7 @@ public class SymbolMapper
                 newOrderings.put(canonical, orderingScheme.getOrdering(symbol));
             }
         }
-        return new OrderingScheme(newSymbols.build(), newOrderings.build());
+        return new OrderingScheme(newSymbols.build(), newOrderings.buildOrThrow());
     }
 
     public DistinctLimitNode map(DistinctLimitNode node, PlanNode source)
@@ -514,7 +514,7 @@ public class SymbolMapper
 
         public SymbolMapper build()
         {
-            return SymbolMapper.symbolMapper(mappings.build());
+            return SymbolMapper.symbolMapper(mappings.buildOrThrow());
         }
     }
 }

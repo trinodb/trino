@@ -53,7 +53,7 @@ public class TestJwtAuthenticatorConfig
                 .put("http-server.authentication.jwt.principal-field", "some-field")
                 .put("http-server.authentication.jwt.user-mapping.pattern", "(.*)@something")
                 .put("http-server.authentication.jwt.user-mapping.file", userMappingFile.toString())
-                .build();
+                .buildOrThrow();
 
         JwtAuthenticatorConfig expected = new JwtAuthenticatorConfig()
                 .setKeyFile(jwtKeyFile.toString())

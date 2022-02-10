@@ -34,7 +34,7 @@ public final class ColumnReaders
             Type type,
             OrcColumn column,
             OrcReader.ProjectedLayout projectedLayout,
-            AggregatedMemoryContext systemMemoryContext,
+            AggregatedMemoryContext memoryContext,
             OrcBlockFactory blockFactory,
             FieldMapperFactory fieldMapperFactory)
             throws OrcCorruptionException
@@ -44,41 +44,41 @@ public final class ColumnReaders
                     !"TIME".equals(column.getAttributes().get("iceberg.long-type"))) {
                 throw invalidStreamType(column, type);
             }
-            return new TimeColumnReader(type, column, systemMemoryContext.newLocalMemoryContext(ColumnReaders.class.getSimpleName()));
+            return new TimeColumnReader(type, column, memoryContext.newLocalMemoryContext(ColumnReaders.class.getSimpleName()));
         }
 
         switch (column.getColumnType()) {
             case BOOLEAN:
-                return new BooleanColumnReader(type, column, systemMemoryContext.newLocalMemoryContext(ColumnReaders.class.getSimpleName()));
+                return new BooleanColumnReader(type, column, memoryContext.newLocalMemoryContext(ColumnReaders.class.getSimpleName()));
             case BYTE:
-                return new ByteColumnReader(type, column, systemMemoryContext.newLocalMemoryContext(ColumnReaders.class.getSimpleName()));
+                return new ByteColumnReader(type, column, memoryContext.newLocalMemoryContext(ColumnReaders.class.getSimpleName()));
             case SHORT:
             case INT:
             case LONG:
             case DATE:
-                return new LongColumnReader(type, column, systemMemoryContext.newLocalMemoryContext(ColumnReaders.class.getSimpleName()));
+                return new LongColumnReader(type, column, memoryContext.newLocalMemoryContext(ColumnReaders.class.getSimpleName()));
             case FLOAT:
-                return new FloatColumnReader(type, column, systemMemoryContext.newLocalMemoryContext(ColumnReaders.class.getSimpleName()));
+                return new FloatColumnReader(type, column, memoryContext.newLocalMemoryContext(ColumnReaders.class.getSimpleName()));
             case DOUBLE:
-                return new DoubleColumnReader(type, column, systemMemoryContext.newLocalMemoryContext(ColumnReaders.class.getSimpleName()));
+                return new DoubleColumnReader(type, column, memoryContext.newLocalMemoryContext(ColumnReaders.class.getSimpleName()));
             case BINARY:
             case STRING:
             case VARCHAR:
             case CHAR:
-                return new SliceColumnReader(type, column, systemMemoryContext);
+                return new SliceColumnReader(type, column, memoryContext);
             case TIMESTAMP:
             case TIMESTAMP_INSTANT:
-                return new TimestampColumnReader(type, column, systemMemoryContext.newLocalMemoryContext(ColumnReaders.class.getSimpleName()));
+                return new TimestampColumnReader(type, column, memoryContext.newLocalMemoryContext(ColumnReaders.class.getSimpleName()));
             case LIST:
-                return new ListColumnReader(type, column, systemMemoryContext, blockFactory, fieldMapperFactory);
+                return new ListColumnReader(type, column, memoryContext, blockFactory, fieldMapperFactory);
             case STRUCT:
-                return new StructColumnReader(type, column, projectedLayout, systemMemoryContext, blockFactory, fieldMapperFactory);
+                return new StructColumnReader(type, column, projectedLayout, memoryContext, blockFactory, fieldMapperFactory);
             case MAP:
-                return new MapColumnReader(type, column, systemMemoryContext, blockFactory, fieldMapperFactory);
+                return new MapColumnReader(type, column, memoryContext, blockFactory, fieldMapperFactory);
             case DECIMAL:
-                return new DecimalColumnReader(type, column, systemMemoryContext.newLocalMemoryContext(ColumnReaders.class.getSimpleName()));
+                return new DecimalColumnReader(type, column, memoryContext.newLocalMemoryContext(ColumnReaders.class.getSimpleName()));
             case UNION:
-                return new UnionColumnReader(type, column, systemMemoryContext, blockFactory, fieldMapperFactory);
+                return new UnionColumnReader(type, column, memoryContext, blockFactory, fieldMapperFactory);
         }
         throw new IllegalArgumentException("Unsupported type: " + column.getColumnType());
     }

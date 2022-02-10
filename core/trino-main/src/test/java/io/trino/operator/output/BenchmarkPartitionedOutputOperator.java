@@ -14,14 +14,15 @@
 package io.trino.operator.output;
 
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.trino.Session;
-import io.trino.execution.StateMachine;
-import io.trino.execution.buffer.BufferState;
+import io.trino.execution.StageId;
+import io.trino.execution.TaskId;
+import io.trino.execution.buffer.OutputBufferStateMachine;
 import io.trino.execution.buffer.OutputBuffers;
 import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.execution.buffer.PartitionedOutputBuffer;
-import io.trino.execution.buffer.SerializedPage;
 import io.trino.jmh.Benchmarks;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.memory.context.SimpleLocalMemoryContext;
@@ -34,6 +35,7 @@ import io.trino.operator.PrecomputedHashGenerator;
 import io.trino.operator.TaskContext;
 import io.trino.operator.TrinoOperatorFactories;
 import io.trino.spi.Page;
+import io.trino.spi.QueryId;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.block.TestingBlockEncodingSerde;
@@ -85,8 +87,6 @@ import static io.trino.block.BlockAssertions.createLongsBlock;
 import static io.trino.block.BlockAssertions.createRLEBlock;
 import static io.trino.block.BlockAssertions.createRandomBlockForType;
 import static io.trino.block.BlockAssertions.createRandomLongsBlock;
-import static io.trino.execution.buffer.BufferState.OPEN;
-import static io.trino.execution.buffer.BufferState.TERMINAL_BUFFER_STATES;
 import static io.trino.execution.buffer.OutputBuffers.BufferType.PARTITIONED;
 import static io.trino.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
@@ -461,7 +461,7 @@ public class BenchmarkPartitionedOutputOperator
         {
             return new TestingPartitionedOutputBuffer(
                     "task-instance-id",
-                    new StateMachine<>("bufferState", SCHEDULER, OPEN, TERMINAL_BUFFER_STATES),
+                    new OutputBufferStateMachine(new TaskId(new StageId(new QueryId("query"), 0), 0, 0), SCHEDULER),
                     buffers,
                     dataSize,
                     () -> new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
@@ -476,20 +476,20 @@ public class BenchmarkPartitionedOutputOperator
 
             public TestingPartitionedOutputBuffer(
                     String taskInstanceId,
-                    StateMachine<BufferState> state,
+                    OutputBufferStateMachine stateMachine,
                     OutputBuffers outputBuffers,
                     DataSize maxBufferSize,
-                    Supplier<LocalMemoryContext> systemMemoryContextSupplier,
+                    Supplier<LocalMemoryContext> memoryContextSupplier,
                     Executor notificationExecutor,
                     Blackhole blackhole)
             {
-                super(taskInstanceId, state, outputBuffers, maxBufferSize, systemMemoryContextSupplier, notificationExecutor);
+                super(taskInstanceId, stateMachine, outputBuffers, maxBufferSize, memoryContextSupplier, notificationExecutor);
                 this.blackhole = blackhole;
             }
 
             // Use a dummy enqueue method to avoid OutOfMemory error
             @Override
-            public void enqueue(int partitionNumber, List<SerializedPage> pages)
+            public void enqueue(int partitionNumber, List<Slice> pages)
             {
                 // The blackhole will be null only for not benchmark runs (test and profile pollution).
                 // For the benchmarks, the instance will be provided by jmh infra via setup method.

@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>368-SNAPSHOT</version>
+        <version>371-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -18,6 +18,11 @@
     </properties>
 
     <dependencies>
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-collect</artifactId>
+        </dependency>
+
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-memory-context</artifactId>
@@ -149,6 +154,11 @@
             <artifactId>mysql-connector-java</artifactId>
             <!-- TODO (https://github.com/trinodb/trino/issues/8302) update MySQL driver to version used everywhere else -->
             <version>5.1.48</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.gaul</groupId>
+            <artifactId>modernizer-maven-annotations</artifactId>
         </dependency>
 
         <dependency>

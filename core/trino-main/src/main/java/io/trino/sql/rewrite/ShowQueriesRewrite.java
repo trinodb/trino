@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import com.google.common.primitives.Primitives;
 import io.trino.Session;
 import io.trino.connector.CatalogName;
@@ -91,6 +92,7 @@ import io.trino.sql.tree.Values;
 
 import javax.inject.Inject;
 
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -591,9 +593,7 @@ public final class ShowQueriesRewrite
                 accessControl.checkCanShowCreateTable(session.toSecurityContext(), new QualifiedObjectName(catalogName.getValue(), schemaName.getValue(), tableName.getValue()));
 
                 Map<String, Object> properties = viewDefinition.get().getProperties();
-                Map<String, PropertyMetadata<?>> allMaterializedViewProperties = materializedViewPropertyManager
-                        .getAllProperties()
-                        .get(new CatalogName(catalogName.getValue()));
+                Collection<PropertyMetadata<?>> allMaterializedViewProperties = materializedViewPropertyManager.getAllProperties(new CatalogName(catalogName.getValue()));
                 List<Property> propertyNodes = buildProperties(objectName, Optional.empty(), INVALID_MATERIALIZED_VIEW_PROPERTY, properties, allMaterializedViewProperties);
 
                 String sql = formatSql(new CreateMaterializedView(Optional.empty(), QualifiedName.of(ImmutableList.of(catalogName, schemaName, tableName)),
@@ -657,7 +657,7 @@ public final class ShowQueriesRewrite
                 accessControl.checkCanShowCreateTable(session.toSecurityContext(), targetTableName);
                 ConnectorTableMetadata connectorTableMetadata = metadata.getTableMetadata(session, tableHandle.get()).getMetadata();
 
-                Map<String, PropertyMetadata<?>> allColumnProperties = columnPropertyManager.getAllProperties().get(tableHandle.get().getCatalogName());
+                Collection<PropertyMetadata<?>> allColumnProperties = columnPropertyManager.getAllProperties(tableHandle.get().getCatalogName());
 
                 List<TableElement> columns = connectorTableMetadata.getColumns().stream()
                         .filter(column -> !column.isHidden())
@@ -673,7 +673,7 @@ public final class ShowQueriesRewrite
                         .collect(toImmutableList());
 
                 Map<String, Object> properties = connectorTableMetadata.getProperties();
-                Map<String, PropertyMetadata<?>> allTableProperties = tablePropertyManager.getAllProperties().get(tableHandle.get().getCatalogName());
+                Collection<PropertyMetadata<?>> allTableProperties = tablePropertyManager.getAllProperties(tableHandle.get().getCatalogName());
                 List<Property> propertyNodes = buildProperties(targetTableName, Optional.empty(), INVALID_TABLE_PROPERTY, properties, allTableProperties);
 
                 CreateTable createTable = new CreateTable(
@@ -695,7 +695,7 @@ public final class ShowQueriesRewrite
                 accessControl.checkCanShowCreateSchema(session.toSecurityContext(), schemaName);
 
                 Map<String, Object> properties = metadata.getSchemaProperties(session, schemaName);
-                Map<String, PropertyMetadata<?>> allTableProperties = schemaPropertyManager.getAllProperties().get(new CatalogName(schemaName.getCatalogName()));
+                Collection<PropertyMetadata<?>> allTableProperties = schemaPropertyManager.getAllProperties(new CatalogName(schemaName.getCatalogName()));
                 QualifiedName qualifiedSchemaName = QualifiedName.of(schemaName.getCatalogName(), schemaName.getSchemaName());
                 List<Property> propertyNodes = buildProperties(qualifiedSchemaName, Optional.empty(), INVALID_SCHEMA_PROPERTY, properties, allTableProperties);
 
@@ -717,12 +717,13 @@ public final class ShowQueriesRewrite
                 Optional<String> columnName,
                 StandardErrorCode errorCode,
                 Map<String, Object> properties,
-                Map<String, PropertyMetadata<?>> allProperties)
+                Collection<PropertyMetadata<?>> allProperties)
         {
             if (properties.isEmpty()) {
                 return Collections.emptyList();
             }
 
+            Map<String, PropertyMetadata<?>> indexedPropertyMetadata = Maps.uniqueIndex(allProperties, PropertyMetadata::getName);
             ImmutableSortedMap.Builder<String, Expression> sqlProperties = ImmutableSortedMap.naturalOrder();
 
             for (Map.Entry<String, Object> propertyEntry : properties.entrySet()) {
@@ -732,7 +733,7 @@ public final class ShowQueriesRewrite
                     throw new TrinoException(errorCode, format("Property %s for %s cannot have a null value", propertyName, toQualifiedName(objectName, columnName)));
                 }
 
-                PropertyMetadata<?> property = allProperties.get(propertyName);
+                PropertyMetadata<?> property = indexedPropertyMetadata.get(propertyName);
                 if (property == null) {
                     throw new TrinoException(errorCode, "No PropertyMetadata for property: " + propertyName);
                 }
@@ -781,7 +782,7 @@ public final class ShowQueriesRewrite
                     .put("function_type", "Function Type")
                     .put("deterministic", "Deterministic")
                     .put("description", "Description")
-                    .build();
+                    .buildOrThrow();
 
             return simpleQuery(
                     selectAll(columns.entrySet().stream()

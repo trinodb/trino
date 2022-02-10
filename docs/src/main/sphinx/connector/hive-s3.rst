@@ -160,6 +160,12 @@ The security mapping must provide one or more configuration settings:
   is allowed to be specified as an extra credential, although specifying it
   explicitly has no effect, as it would be used anyway.
 
+* ``roleSessionName``: Optional role session name to use with ``iamRole``. This can only
+  be used when ``iamRole`` is specified. If ``roleSessionName`` includes the string
+  ``${USER}``, then the ``${USER}`` portion of the string will be replaced with the
+  current session's username. If ``roleSessionName`` is not specified, it defaults
+  to ``trino-session``.
+
 * ``allowedIamRoles``: IAM roles that are allowed to be specified as an extra
   credential. This is useful because a particular AWS account may have permissions
   to use many roles, but a specific user should only be allowed to use a subset

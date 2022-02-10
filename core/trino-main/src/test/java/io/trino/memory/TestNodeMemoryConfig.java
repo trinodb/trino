@@ -23,6 +23,7 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertFullMappin
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.memory.NodeMemoryConfig.AVAILABLE_HEAP_MEMORY;
 
 public class TestNodeMemoryConfig
@@ -31,8 +32,8 @@ public class TestNodeMemoryConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(NodeMemoryConfig.class)
-                .setMaxQueryMemoryPerNode(DataSize.ofBytes(Math.round(AVAILABLE_HEAP_MEMORY * 0.1)))
-                .setMaxQueryTotalMemoryPerNode(DataSize.ofBytes(Math.round(AVAILABLE_HEAP_MEMORY * 0.3)))
+                .setMaxQueryMemoryPerNode(DataSize.ofBytes(Math.round(AVAILABLE_HEAP_MEMORY * 0.3)))
+                .setMaxQueryMemoryPerTask(null)
                 .setHeapHeadroom(DataSize.ofBytes(Math.round(AVAILABLE_HEAP_MEMORY * 0.3)))
                 .setReservedPoolDisabled(true));
     }
@@ -42,14 +43,14 @@ public class TestNodeMemoryConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("query.max-memory-per-node", "1GB")
-                .put("query.max-total-memory-per-node", "3GB")
+                .put("query.max-memory-per-task", "200MB")
                 .put("memory.heap-headroom-per-node", "1GB")
                 .put("experimental.reserved-pool-disabled", "false")
-                .build();
+                .buildOrThrow();
 
         NodeMemoryConfig expected = new NodeMemoryConfig()
                 .setMaxQueryMemoryPerNode(DataSize.of(1, GIGABYTE))
-                .setMaxQueryTotalMemoryPerNode(DataSize.of(3, GIGABYTE))
+                .setMaxQueryMemoryPerTask(DataSize.of(200, MEGABYTE))
                 .setHeapHeadroom(DataSize.of(1, GIGABYTE))
                 .setReservedPoolDisabled(false);
 

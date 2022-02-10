@@ -49,6 +49,13 @@ public class IndexSplit
         return null;
     }
 
+    @Override
+    public long getRetainedSizeInBytes()
+    {
+        // IndexSplit is expected to be short lived and is not expected to be queried for the memory it retains
+        throw new UnsupportedOperationException();
+    }
+
     public RecordSet getKeyRecordSet()
     {
         return keyRecordSet;

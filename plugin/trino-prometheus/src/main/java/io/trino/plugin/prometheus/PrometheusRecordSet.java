@@ -19,6 +19,7 @@ import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.RecordSet;
 import io.trino.spi.type.Type;
 
+import java.net.URI;
 import java.util.List;
 
 import static java.util.Objects.requireNonNull;
@@ -42,7 +43,7 @@ public class PrometheusRecordSet
         }
         this.columnTypes = types.build();
 
-        this.byteSource = ByteSource.wrap(prometheusClient.fetchUri(split.getUri()));
+        this.byteSource = ByteSource.wrap(prometheusClient.fetchUri(URI.create(split.getUri())));
     }
 
     @Override

@@ -17,25 +17,30 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.SizeOf;
 import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ConnectorSplit;
-import org.apache.iceberg.FileFormat;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
 
 public class IcebergSplit
         implements ConnectorSplit
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(IcebergSplit.class).instanceSize();
+
     private final String path;
     private final long start;
     private final long length;
     private final long fileSize;
-    private final FileFormat fileFormat;
+    private final IcebergFileFormat fileFormat;
     private final List<HostAddress> addresses;
     private final Map<Integer, Optional<String>> partitionKeys;
 
@@ -45,7 +50,7 @@ public class IcebergSplit
             @JsonProperty("start") long start,
             @JsonProperty("length") long length,
             @JsonProperty("fileSize") long fileSize,
-            @JsonProperty("fileFormat") FileFormat fileFormat,
+            @JsonProperty("fileFormat") IcebergFileFormat fileFormat,
             @JsonProperty("addresses") List<HostAddress> addresses,
             @JsonProperty("partitionKeys") Map<Integer, Optional<String>> partitionKeys)
     {
@@ -96,7 +101,7 @@ public class IcebergSplit
     }
 
     @JsonProperty
-    public FileFormat getFileFormat()
+    public IcebergFileFormat getFileFormat()
     {
         return fileFormat;
     }
@@ -114,7 +119,16 @@ public class IcebergSplit
                 .put("path", path)
                 .put("start", start)
                 .put("length", length)
-                .build();
+                .buildOrThrow();
+    }
+
+    @Override
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE
+                + estimatedSizeOf(path)
+                + estimatedSizeOf(addresses, HostAddress::getRetainedSizeInBytes)
+                + estimatedSizeOf(partitionKeys, SizeOf::sizeOf, valueOptional -> sizeOf(valueOptional, SizeOf::estimatedSizeOf));
     }
 
     @Override

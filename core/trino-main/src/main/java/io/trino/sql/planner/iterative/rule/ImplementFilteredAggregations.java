@@ -149,7 +149,7 @@ public class ImplementFilteredAggregations
                                         aggregationNode.getSource(),
                                         newAssignments.build()),
                                 predicate),
-                        aggregations.build(),
+                        aggregations.buildOrThrow(),
                         aggregationNode.getGroupingSets(),
                         ImmutableList.of(),
                         aggregationNode.getStep(),

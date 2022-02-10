@@ -25,6 +25,8 @@ import io.trino.plugin.jdbc.JdbcSortItem;
 import io.trino.plugin.jdbc.JdbcSplit;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
+import io.trino.plugin.jdbc.LongReadFunction;
+import io.trino.plugin.jdbc.LongWriteFunction;
 import io.trino.plugin.jdbc.ObjectReadFunction;
 import io.trino.plugin.jdbc.ObjectWriteFunction;
 import io.trino.plugin.jdbc.PreparedQuery;
@@ -93,6 +95,9 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
+import java.text.SimpleDateFormat;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedList;
@@ -115,8 +120,6 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.booleanColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.booleanWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.charWriteFunction;
-import static io.trino.plugin.jdbc.StandardColumnMappings.dateColumnMappingUsingSqlDate;
-import static io.trino.plugin.jdbc.StandardColumnMappings.dateWriteFunctionUsingSqlDate;
 import static io.trino.plugin.jdbc.StandardColumnMappings.decimalColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.defaultCharColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.defaultVarcharColumnMapping;
@@ -193,6 +196,9 @@ public class PhoenixClient
 {
     private static final String ROWKEY = "ROWKEY";
     private static final long MAX_TOPN_LIMIT = 2000000;
+
+    private static final String DATE_FORMAT = "y-MM-dd G";
+    private static final DateTimeFormatter LOCAL_DATE_FORMATTER = DateTimeFormatter.ofPattern(DATE_FORMAT);
 
     private final Configuration configuration;
 
@@ -423,11 +429,15 @@ public class PhoenixClient
                 }
                 return Optional.of(defaultVarcharColumnMapping(typeHandle.getRequiredColumnSize(), true));
 
+            case Types.BINARY:
             case Types.VARBINARY:
                 return Optional.of(varbinaryColumnMapping());
 
             case Types.DATE:
-                return Optional.of(dateColumnMappingUsingSqlDate());
+                return Optional.of(ColumnMapping.longMapping(
+                        DATE,
+                        dateReadFunction(),
+                        dateWriteFunctionUsingString()));
 
             // TODO add support for TIMESTAMP after Phoenix adds support for LocalDateTime
             case TIMESTAMP:
@@ -513,7 +523,7 @@ public class PhoenixClient
         }
 
         if (type == DATE) {
-            return WriteMapping.longMapping("date", dateWriteFunctionUsingSqlDate());
+            return WriteMapping.longMapping("date", dateWriteFunctionUsingString());
         }
         if (TIME.equals(type)) {
             return WriteMapping.longMapping("time", timeWriteFunctionUsingSqlTime());
@@ -622,6 +632,12 @@ public class PhoenixClient
     }
 
     @Override
+    public void renameSchema(ConnectorSession session, String schemaName, String newSchemaName)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming schemas");
+    }
+
+    @Override
     public Map<String, Object> getTableProperties(ConnectorSession session, JdbcTableHandle handle)
     {
         ImmutableMap.Builder<String, Object> properties = ImmutableMap.builder();
@@ -685,7 +701,35 @@ public class PhoenixClient
         catch (IOException | SQLException e) {
             throw new TrinoException(PHOENIX_METADATA_ERROR, "Couldn't get Phoenix table properties", e);
         }
-        return properties.build();
+        return properties.buildOrThrow();
+    }
+
+    private static LongReadFunction dateReadFunction()
+    {
+        return (resultSet, index) -> {
+            // Convert to LocalDate from java.sql.Date via String because java.sql.Date#toLocalDate() returns wrong results in B.C. dates. -5881579-07-11 -> +5881580-07-11
+            // Phoenix JDBC driver supports getObject(index, LocalDate.class), but it leads to incorrect issues. -5877641-06-23 -> 7642-06-23 & 5881580-07-11 -> 1580-07-11
+            // The current implementation still returns +10 days during julian -> gregorian switch
+            return LocalDate.parse(new SimpleDateFormat(DATE_FORMAT).format(resultSet.getDate(index)), LOCAL_DATE_FORMATTER).toEpochDay();
+        };
+    }
+
+    private static LongWriteFunction dateWriteFunctionUsingString()
+    {
+        return new LongWriteFunction() {
+            @Override
+            public String getBindExpression()
+            {
+                return "TO_DATE(?, 'y-MM-dd G', 'local')";
+            }
+
+            @Override
+            public void set(PreparedStatement statement, int index, long value)
+                    throws SQLException
+            {
+                statement.setString(index, LOCAL_DATE_FORMATTER.format(LocalDate.ofEpochDay(value)));
+            }
+        };
     }
 
     private static ColumnMapping arrayColumnMapping(ConnectorSession session, ArrayType arrayType, String elementJdbcTypeName)

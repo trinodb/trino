@@ -173,7 +173,7 @@ public class HttpRequestSessionContextFactory
                 clientTags,
                 clientCapabilities,
                 resourceEstimates,
-                systemProperties.build(),
+                systemProperties.buildOrThrow(),
                 catalogSessionProperties,
                 preparedStatements,
                 transactionId,
@@ -297,7 +297,7 @@ public class HttpRequestSessionContextFactory
             }
             roles.put(key, toSelectedRole(protocolHeaders, value));
         });
-        return roles.build();
+        return roles.buildOrThrow();
     }
 
     private static SelectedRole toSelectedRole(ProtocolHeaders protocolHeaders, String value)
@@ -402,7 +402,7 @@ public class HttpRequestSessionContextFactory
             preparedStatements.put(statementName, sqlString);
         });
 
-        return preparedStatements.build();
+        return preparedStatements.buildOrThrow();
     }
 
     private static Optional<TransactionId> parseTransactionId(String transactionId)

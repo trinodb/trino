@@ -20,6 +20,7 @@ import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.log.Logger;
+import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
@@ -47,16 +48,16 @@ import io.trino.execution.StageInfo;
 import io.trino.execution.TaskInfo;
 import io.trino.execution.buffer.PagesSerde;
 import io.trino.execution.buffer.PagesSerdeFactory;
-import io.trino.execution.buffer.SerializedPage;
 import io.trino.memory.context.SimpleLocalMemoryContext;
-import io.trino.operator.ExchangeClient;
-import io.trino.operator.ExchangeClientSupplier;
+import io.trino.operator.DirectExchangeClient;
+import io.trino.operator.DirectExchangeClientSupplier;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.Page;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoWarning;
 import io.trino.spi.WarningCode;
 import io.trino.spi.block.BlockEncodingSerde;
+import io.trino.spi.exchange.ExchangeId;
 import io.trino.spi.security.SelectedRole;
 import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.Type;
@@ -130,7 +131,7 @@ class Query
     private final Optional<URI> queryInfoUrl;
 
     @GuardedBy("this")
-    private final ExchangeClient exchangeClient;
+    private final DirectExchangeClient exchangeClient;
 
     private final Executor resultsProcessorExecutor;
     private final ScheduledExecutorService timeoutExecutor;
@@ -194,12 +195,14 @@ class Query
             Slug slug,
             QueryManager queryManager,
             Optional<URI> queryInfoUrl,
-            ExchangeClientSupplier exchangeClientSupplier,
+            DirectExchangeClientSupplier directExchangeClientSupplier,
             Executor dataProcessorExecutor,
             ScheduledExecutorService timeoutExecutor,
             BlockEncodingSerde blockEncodingSerde)
     {
-        ExchangeClient exchangeClient = exchangeClientSupplier.get(
+        DirectExchangeClient exchangeClient = directExchangeClientSupplier.get(
+                session.getQueryId(),
+                new ExchangeId("direct-exchange-query-results"),
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), Query.class.getSimpleName()),
                 queryManager::outputTaskFailed,
                 getRetryPolicy(session));
@@ -223,7 +226,7 @@ class Query
             Slug slug,
             QueryManager queryManager,
             Optional<URI> queryInfoUrl,
-            ExchangeClient exchangeClient,
+            DirectExchangeClient exchangeClient,
             Executor resultsProcessorExecutor,
             ScheduledExecutorService timeoutExecutor,
             BlockEncodingSerde blockEncodingSerde)
@@ -523,7 +526,7 @@ class Query
         try (PagesSerde.PagesSerdeContext context = serde.newContext()) {
             long bytes = 0;
             while (bytes < targetResultBytes) {
-                SerializedPage serializedPage = exchangeClient.pollPage();
+                Slice serializedPage = exchangeClient.pollPage();
                 if (serializedPage == null) {
                     break;
                 }

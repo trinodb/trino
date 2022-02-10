@@ -8,17 +8,6 @@ different systems like BigQuery and Hive. The connector uses the `BigQuery
 Storage API <https://cloud.google.com/bigquery/docs/reference/storage/>`_ to
 read the data from the tables.
 
-Beta disclaimer
----------------
-
-This connector is in Beta and is subject to change.
-
-Changes may include, but are not limited to:
-
-* Type conversion
-* Partitioning
-* Parameters
-
 BigQuery Storage API
 --------------------
 
@@ -141,11 +130,6 @@ Property                                              Description               
 ``bigquery.credentials-key``                          The base64 encoded credentials key                             None. See the `requirements <#requirements>`_ section.
 ``bigquery.credentials-file``                         The path to the JSON credentials file                          None. See the `requirements <#requirements>`_ section.
 ``bigquery.case-insensitive-name-matching``           Match dataset and table names case-insensitively               ``false``
-``bigquery.case-insensitive-name-matching.cache-ttl`` Duration for which remote dataset and table names will be      ``1m``
-                                                      cached. Higher values reduce the number of API calls to
-                                                      BigQuery but can cause newly created dataset or tables to not
-                                                      be visible until the configured duration. Set to ``0ms`` to
-                                                      disable the cache.
 ===================================================== ============================================================== ======================================================
 
 Data types

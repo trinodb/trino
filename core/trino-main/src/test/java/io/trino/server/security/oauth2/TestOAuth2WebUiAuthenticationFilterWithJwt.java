@@ -19,12 +19,12 @@ import io.airlift.http.client.HttpClientConfig;
 import io.airlift.http.client.jetty.JettyHttpClient;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jws;
-import io.jsonwebtoken.Jwts;
 import io.trino.server.security.jwt.JwkService;
 import io.trino.server.security.jwt.JwkSigningKeyResolver;
 
 import java.net.URI;
 
+import static io.trino.server.security.jwt.JwtUtil.newJwtParserBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestOAuth2WebUiAuthenticationFilterWithJwt
@@ -48,7 +48,7 @@ public class TestOAuth2WebUiAuthenticationFilterWithJwt
                 .put("http-server.authentication.oauth2.additional-audiences", TRUSTED_CLIENT_ID)
                 .put("http-server.authentication.oauth2.user-mapping.pattern", "(.*)(@.*)?")
                 .put("oauth2-jwk.http-client.trust-store-path", Resources.getResource("cert/localhost.pem").getPath())
-                .build();
+                .buildOrThrow();
     }
 
     @Override
@@ -65,7 +65,7 @@ public class TestOAuth2WebUiAuthenticationFilterWithJwt
     protected void validateAccessToken(String cookieValue)
     {
         assertThat(cookieValue).isNotBlank();
-        Jws<Claims> jwt = Jwts.parserBuilder()
+        Jws<Claims> jwt = newJwtParserBuilder()
                 .setSigningKeyResolver(new JwkSigningKeyResolver(new JwkService(
                         URI.create("https://localhost:" + hydraIdP.getAuthPort() + "/.well-known/jwks.json"),
                         new JettyHttpClient(new HttpClientConfig()

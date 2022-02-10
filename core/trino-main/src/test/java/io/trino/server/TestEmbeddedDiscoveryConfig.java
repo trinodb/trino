@@ -36,7 +36,7 @@ public class TestEmbeddedDiscoveryConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("discovery-server.enabled", "false")
-                .build();
+                .buildOrThrow();
 
         EmbeddedDiscoveryConfig expected = new EmbeddedDiscoveryConfig()
                 .setEnabled(false);

@@ -68,8 +68,7 @@ public class TestValidateLimitWithPresortedInput
     private static final TableHandle MOCK_TABLE_HANDLE = new TableHandle(
             new CatalogName(MOCK_CATALOG),
             new MockConnectorTableHandle(MOCK_TABLE_NAME),
-            TestingTransactionHandle.create(),
-            Optional.empty());
+            TestingTransactionHandle.create());
 
     @Override
     protected LocalQueryRunner createLocalQueryRunner()
