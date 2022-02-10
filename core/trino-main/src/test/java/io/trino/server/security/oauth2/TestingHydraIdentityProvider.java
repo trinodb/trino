@@ -16,10 +16,10 @@ package io.trino.server.security.oauth2;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.github.scribejava.core.model.OAuthConstants;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
+import com.nimbusds.oauth2.sdk.GrantType;
 import io.airlift.http.server.HttpServerConfig;
 import io.airlift.http.server.HttpServerInfo;
 import io.airlift.http.server.testing.TestingHttpServer;
@@ -50,6 +50,7 @@ import org.testcontainers.utility.MountableFile;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import javax.ws.rs.core.HttpHeaders;
 
 import java.io.IOException;
 import java.net.URI;
@@ -182,9 +183,9 @@ public class TestingHydraIdentityProvider
                 .newCall(
                         new Request.Builder()
                                 .url("https://localhost:" + getAuthPort() + "/oauth2/token")
-                                .addHeader(OAuthConstants.HEADER, Credentials.basic(clientId, clientSecret))
+                                .addHeader(HttpHeaders.AUTHORIZATION, Credentials.basic(clientId, clientSecret))
                                 .post(new FormBody.Builder()
-                                        .add(OAuthConstants.GRANT_TYPE, OAuthConstants.CLIENT_CREDENTIALS)
+                                        .add("grant_type", GrantType.CLIENT_CREDENTIALS.getValue())
                                         .add("audience", String.join(" ", audiences))
                                         .build())
                                 .build())

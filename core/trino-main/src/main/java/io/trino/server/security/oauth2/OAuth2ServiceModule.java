@@ -44,9 +44,10 @@ public class OAuth2ServiceModule
         configBinder(binder).bindConfig(OAuth2Config.class);
         binder.bind(OAuth2Service.class).in(Scopes.SINGLETON);
         binder.bind(OAuth2TokenHandler.class).to(OAuth2TokenExchange.class).in(Scopes.SINGLETON);
+        binder.bind(NimbusHttpClient.class).to(NimbusAirliftHttpClient.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, OAuth2Client.class)
                 .setDefault()
-                .to(ScribeJavaOAuth2Client.class)
+                .to(NimbusOAuth2Client.class)
                 .in(Scopes.SINGLETON);
         httpClientBinder(binder)
                 .bindHttpClient("oauth2-jwk", ForOAuth2.class)
