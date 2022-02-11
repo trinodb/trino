@@ -49,6 +49,7 @@ public class TestOAuth2WebUiAuthenticationFilterWithOpaque
                 // This is necessary as Hydra does not return `sub` from `/userinfo` for client credential grants.
                 .put("http-server.authentication.oauth2.principal-field", "iss")
                 .put("http-server.authentication.oauth2.additional-audiences", TRUSTED_CLIENT_ID)
+                .put("http-server.authentication.oauth2.max-clock-skew", "0s")
                 .put("http-server.authentication.oauth2.user-mapping.pattern", "(.*)(@.*)?")
                 .put("oauth2-jwk.http-client.trust-store-path", Resources.getResource("cert/localhost.pem").getPath())
                 .buildOrThrow();

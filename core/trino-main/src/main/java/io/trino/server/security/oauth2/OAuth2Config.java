@@ -52,6 +52,7 @@ public class OAuth2Config
     private Optional<String> groupsField = Optional.empty();
     private List<String> additionalAudiences = Collections.emptyList();
     private Duration challengeTimeout = new Duration(15, TimeUnit.MINUTES);
+    private Duration maxClockSkew = new Duration(1, TimeUnit.MINUTES);
     private Optional<String> userMappingPattern = Optional.empty();
     private Optional<File> userMappingFile = Optional.empty();
 
@@ -248,6 +249,21 @@ public class OAuth2Config
     public OAuth2Config setChallengeTimeout(Duration challengeTimeout)
     {
         this.challengeTimeout = challengeTimeout;
+        return this;
+    }
+
+    @MinDuration("0s")
+    @NotNull
+    public Duration getMaxClockSkew()
+    {
+        return maxClockSkew;
+    }
+
+    @Config("http-server.authentication.oauth2.max-clock-skew")
+    @ConfigDescription("Max clock skew between the Authorization Server and the coordinator")
+    public OAuth2Config setMaxClockSkew(Duration maxClockSkew)
+    {
+        this.maxClockSkew = maxClockSkew;
         return this;
     }
 
