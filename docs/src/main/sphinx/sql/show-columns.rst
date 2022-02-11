@@ -12,5 +12,10 @@ Synopsis
 Description
 -----------
 
-List the columns in ``table`` along with their data type and other attributes.
-The ``LIKE`` clause can be used to restrict the list of column names.
+List the columns in a ``table`` along with their data type and other attributes.
+
+:ref:`Specify a pattern <like_operator>` in the optional ``LIKE`` clause to
+filter the results to the desired subset. For example, the following query
+allows you to find columns ending in ``key``::
+
+    SHOW COLUMNS FROM nation LIKE '%key'
