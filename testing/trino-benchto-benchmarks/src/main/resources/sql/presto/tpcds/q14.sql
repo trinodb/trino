@@ -82,7 +82,7 @@ SELECT
 FROM
   (
    SELECT
-     '${database}.${schema}.store' "channel"
+     'store' "channel"
    , "i_brand_id"
    , "i_class_id"
    , "i_category_id"
