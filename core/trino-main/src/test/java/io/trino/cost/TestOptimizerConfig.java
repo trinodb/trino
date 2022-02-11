@@ -80,7 +80,10 @@ public class TestOptimizerConfig
                 .setUseTableScanNodePartitioning(true)
                 .setTableScanNodePartitioningMinBucketToTaskRatio(0.5)
                 .setMergeProjectWithValues(true)
-                .setForceSingleNodeOutput(true));
+                .setForceSingleNodeOutput(true)
+                .setAdaptivePartialAggregationEnabled(true)
+                .setAdaptivePartialAggregationMinRows(100_000)
+                .setAdaptivePartialAggregationUniqueRowsRatioThreshold(0.8));
     }
 
     @Test
@@ -129,6 +132,9 @@ public class TestOptimizerConfig
                 .put("optimizer.use-table-scan-node-partitioning", "false")
                 .put("optimizer.table-scan-node-partitioning-min-bucket-to-task-ratio", "0.0")
                 .put("optimizer.merge-project-with-values", "false")
+                .put("adaptive-partial-aggregation.enabled", "false")
+                .put("adaptive-partial-aggregation.min-rows", "1")
+                .put("adaptive-partial-aggregation.unique-rows-ratio-threshold", "0.99")
                 .buildOrThrow();
 
         OptimizerConfig expected = new OptimizerConfig()
@@ -173,7 +179,10 @@ public class TestOptimizerConfig
                 .setUseTableScanNodePartitioning(false)
                 .setTableScanNodePartitioningMinBucketToTaskRatio(0.0)
                 .setMergeProjectWithValues(false)
-                .setForceSingleNodeOutput(false);
+                .setForceSingleNodeOutput(false)
+                .setAdaptivePartialAggregationEnabled(false)
+                .setAdaptivePartialAggregationMinRows(1)
+                .setAdaptivePartialAggregationUniqueRowsRatioThreshold(0.99);
         assertFullMapping(properties, expected);
     }
 }

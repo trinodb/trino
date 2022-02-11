@@ -44,6 +44,7 @@ import static io.trino.spi.session.PropertyMetadata.booleanProperty;
 import static io.trino.spi.session.PropertyMetadata.doubleProperty;
 import static io.trino.spi.session.PropertyMetadata.enumProperty;
 import static io.trino.spi.session.PropertyMetadata.integerProperty;
+import static io.trino.spi.session.PropertyMetadata.longProperty;
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
@@ -156,6 +157,9 @@ public final class SystemSessionProperties
     public static final String FAULT_TOLERANT_EXECUTION_TARGET_TASK_SPLIT_COUNT = "fault_tolerant_execution_target_task_split_count";
     public static final String FAULT_TOLERANT_EXECUTION_MAX_TASK_SPLIT_COUNT = "fault_tolerant_execution_max_task_split_count";
     public static final String FAULT_TOLERANT_EXECUTION_TASK_MEMORY = "fault_tolerant_execution_task_memory";
+    public static final String ADAPTIVE_PARTIAL_AGGREGATION_ENABLED = "adaptive_partial_aggregation_enabled";
+    public static final String ADAPTIVE_PARTIAL_AGGREGATION_MIN_ROWS = "adaptive_partial_aggregation_min_rows";
+    public static final String ADAPTIVE_PARTIAL_AGGREGATION_UNIQUE_ROWS_RATIO_THRESHOLD = "adaptive_partial_aggregation_unique_rows_ratio_threshold";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -739,6 +743,21 @@ public final class SystemSessionProperties
                         FAULT_TOLERANT_EXECUTION_TASK_MEMORY,
                         "Estimated amount of memory a single task will use when task level retries are used; value is used allocating nodes for tasks execution",
                         memoryManagerConfig.getFaultTolerantTaskMemory(),
+                        false),
+                booleanProperty(
+                        ADAPTIVE_PARTIAL_AGGREGATION_ENABLED,
+                        "When enabled, partial aggregation might be adaptively turned off when it does not provide any performance gain",
+                        optimizerConfig.isAdaptivePartialAggregationEnabled(),
+                        false),
+                longProperty(
+                        ADAPTIVE_PARTIAL_AGGREGATION_MIN_ROWS,
+                        "Minimum number of processed rows before partial aggregation might be adaptively turned off",
+                        optimizerConfig.getAdaptivePartialAggregationMinRows(),
+                        false),
+                doubleProperty(
+                        ADAPTIVE_PARTIAL_AGGREGATION_UNIQUE_ROWS_RATIO_THRESHOLD,
+                        "Ratio between aggregation output and input rows above which partial aggregation might be adaptively turned off",
+                        optimizerConfig.getAdaptivePartialAggregationUniqueRowsRatioThreshold(),
                         false));
     }
 
@@ -1329,5 +1348,20 @@ public final class SystemSessionProperties
     public static DataSize getFaultTolerantExecutionDefaultTaskMemory(Session session)
     {
         return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_TASK_MEMORY, DataSize.class);
+    }
+
+    public static boolean isAdaptivePartialAggregationEnabled(Session session)
+    {
+        return session.getSystemProperty(ADAPTIVE_PARTIAL_AGGREGATION_ENABLED, Boolean.class);
+    }
+
+    public static long getAdaptivePartialAggregationMinRows(Session session)
+    {
+        return session.getSystemProperty(ADAPTIVE_PARTIAL_AGGREGATION_MIN_ROWS, Long.class);
+    }
+
+    public static double getAdaptivePartialAggregationUniqueRowsRatioThreshold(Session session)
+    {
+        return session.getSystemProperty(ADAPTIVE_PARTIAL_AGGREGATION_UNIQUE_ROWS_RATIO_THRESHOLD, Double.class);
     }
 }
