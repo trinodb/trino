@@ -267,7 +267,7 @@ public abstract class BaseOAuth2WebUiAuthenticationFilterTest
     {
         String token = hydraIdP.getToken(TRINO_CLIENT_ID, TRINO_CLIENT_SECRET, ImmutableList.of(TRINO_AUDIENCE));
         assertUICallWithCookie(token);
-        Thread.sleep(TTL_ACCESS_TOKEN_IN_SECONDS.plusSeconds(61).toMillis()); // wait for the token expiration = ttl of access token + max clock skew + 1 sec
+        Thread.sleep(TTL_ACCESS_TOKEN_IN_SECONDS.plusSeconds(1).toMillis()); // wait for the token expiration = ttl of access token + 1 sec
         try (Response response = httpClientWithOAuth2Cookie(token, false).newCall(uiCall().build()).execute()) {
             assertRedirectResponse(response);
         }
