@@ -266,7 +266,8 @@ public class BenchmarkHashAndStreamingAggregationOperators
                     succinctBytes(Integer.MAX_VALUE),
                     spillerFactory,
                     JOIN_COMPILER,
-                    BLOCK_TYPE_OPERATORS);
+                    BLOCK_TYPE_OPERATORS,
+                    Optional.empty());
         }
 
         private static void repeatToBigintBlock(long value, int count, BlockBuilder blockBuilder)

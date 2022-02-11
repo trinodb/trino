@@ -22,6 +22,8 @@ import io.trino.operator.aggregation.AggregatorFactory;
 import io.trino.operator.aggregation.builder.HashAggregationBuilder;
 import io.trino.operator.aggregation.builder.InMemoryHashAggregationBuilder;
 import io.trino.operator.aggregation.builder.SpillableHashAggregationBuilder;
+import io.trino.operator.aggregation.partial.PartialAggregationController;
+import io.trino.operator.aggregation.partial.SkipAggregationBuilder;
 import io.trino.operator.scalar.CombineHashFunction;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
@@ -36,6 +38,7 @@ import io.trino.type.BlockTypeOperators;
 import java.util.List;
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.operator.aggregation.builder.InMemoryHashAggregationBuilder.toTypes;
@@ -70,6 +73,7 @@ public class HashAggregationOperator
         private final SpillerFactory spillerFactory;
         private final JoinCompiler joinCompiler;
         private final BlockTypeOperators blockTypeOperators;
+        private final Optional<PartialAggregationController> partialAggregationController;
 
         private boolean closed;
 
@@ -87,7 +91,8 @@ public class HashAggregationOperator
                 int expectedGroups,
                 Optional<DataSize> maxPartialMemory,
                 JoinCompiler joinCompiler,
-                BlockTypeOperators blockTypeOperators)
+                BlockTypeOperators blockTypeOperators,
+                Optional<PartialAggregationController> partialAggregationController)
         {
             this(operatorId,
                     planNodeId,
@@ -108,7 +113,8 @@ public class HashAggregationOperator
                         throw new UnsupportedOperationException();
                     },
                     joinCompiler,
-                    blockTypeOperators);
+                    blockTypeOperators,
+                    partialAggregationController);
         }
 
         public HashAggregationOperatorFactory(
@@ -128,7 +134,8 @@ public class HashAggregationOperator
                 DataSize unspillMemoryLimit,
                 SpillerFactory spillerFactory,
                 JoinCompiler joinCompiler,
-                BlockTypeOperators blockTypeOperators)
+                BlockTypeOperators blockTypeOperators,
+                Optional<PartialAggregationController> partialAggregationController)
         {
             this(operatorId,
                     planNodeId,
@@ -147,7 +154,8 @@ public class HashAggregationOperator
                     DataSize.succinctBytes((long) (unspillMemoryLimit.toBytes() * MERGE_WITH_MEMORY_RATIO)),
                     spillerFactory,
                     joinCompiler,
-                    blockTypeOperators);
+                    blockTypeOperators,
+                    partialAggregationController);
         }
 
         @VisibleForTesting
@@ -169,7 +177,8 @@ public class HashAggregationOperator
                 DataSize memoryLimitForMergeWithMemory,
                 SpillerFactory spillerFactory,
                 JoinCompiler joinCompiler,
-                BlockTypeOperators blockTypeOperators)
+                BlockTypeOperators blockTypeOperators,
+                Optional<PartialAggregationController> partialAggregationController)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -189,6 +198,7 @@ public class HashAggregationOperator
             this.spillerFactory = requireNonNull(spillerFactory, "spillerFactory is null");
             this.joinCompiler = requireNonNull(joinCompiler, "joinCompiler is null");
             this.blockTypeOperators = requireNonNull(blockTypeOperators, "blockTypeOperators is null");
+            this.partialAggregationController = requireNonNull(partialAggregationController, "partialAggregationController is null");
         }
 
         @Override
@@ -214,7 +224,8 @@ public class HashAggregationOperator
                     memoryLimitForMergeWithMemory,
                     spillerFactory,
                     joinCompiler,
-                    blockTypeOperators);
+                    blockTypeOperators,
+                    partialAggregationController);
             return hashAggregationOperator;
         }
 
@@ -245,11 +256,13 @@ public class HashAggregationOperator
                     memoryLimitForMergeWithMemory,
                     spillerFactory,
                     joinCompiler,
-                    blockTypeOperators);
+                    blockTypeOperators,
+                    partialAggregationController.map(PartialAggregationController::duplicate));
         }
     }
 
     private final OperatorContext operatorContext;
+    private final Optional<PartialAggregationController> partialAggregationController;
     private final List<Type> groupByTypes;
     private final List<Integer> groupByChannels;
     private final List<Integer> globalAggregationGroupIds;
@@ -279,6 +292,8 @@ public class HashAggregationOperator
 
     // for yield when memory is not available
     private Work<?> unfinishedWork;
+    private long numberOfInputRowsProcessed;
+    private long numberOfUniqueRowsProduced;
 
     private HashAggregationOperator(
             OperatorContext operatorContext,
@@ -297,12 +312,15 @@ public class HashAggregationOperator
             DataSize memoryLimitForMergeWithMemory,
             SpillerFactory spillerFactory,
             JoinCompiler joinCompiler,
-            BlockTypeOperators blockTypeOperators)
+            BlockTypeOperators blockTypeOperators,
+            Optional<PartialAggregationController> partialAggregationController)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
+        this.partialAggregationController = requireNonNull(partialAggregationController, "partialAggregationControl is null");
         requireNonNull(step, "step is null");
         requireNonNull(aggregatorFactories, "aggregatorFactories is null");
         requireNonNull(operatorContext, "operatorContext is null");
+        checkArgument(partialAggregationController.isEmpty() || step.isOutputPartial(), "partialAggregationController should be present only for partial aggregation");
 
         this.groupByTypes = ImmutableList.copyOf(groupByTypes);
         this.groupByChannels = ImmutableList.copyOf(groupByChannels);
@@ -368,8 +386,14 @@ public class HashAggregationOperator
         inputProcessed = true;
 
         if (aggregationBuilder == null) {
-            // TODO: We ignore spillEnabled here if any aggregate has ORDER BY clause or DISTINCT because they are not yet implemented for spilling.
-            if (step.isOutputPartial() || !spillEnabled || !isSpillable()) {
+            boolean partialAggregationDisabled = partialAggregationController
+                    .map(PartialAggregationController::isPartialAggregationDisabled)
+                    .orElse(false);
+            if (step.isOutputPartial() && partialAggregationDisabled) {
+                aggregationBuilder = new SkipAggregationBuilder(groupByChannels, hashChannel, aggregatorFactories, memoryContext);
+            }
+            else if (step.isOutputPartial() || !spillEnabled || !isSpillable()) {
+                // TODO: We ignore spillEnabled here if any aggregate has ORDER BY clause or DISTINCT because they are not yet implemented for spilling.
                 aggregationBuilder = new InMemoryHashAggregationBuilder(
                         aggregatorFactories,
                         step,
@@ -418,6 +442,7 @@ public class HashAggregationOperator
             unfinishedWork = null;
         }
         aggregationBuilder.updateMemory();
+        numberOfInputRowsProcessed += page.getPositionCount();
     }
 
     private boolean isSpillable()
@@ -490,7 +515,9 @@ public class HashAggregationOperator
             return null;
         }
 
-        return outputPages.getResult();
+        Page result = outputPages.getResult();
+        numberOfUniqueRowsProduced += result.getPositionCount();
+        return result;
     }
 
     @Override
@@ -516,6 +543,10 @@ public class HashAggregationOperator
             aggregationBuilder = null;
         }
         memoryContext.setBytes(0);
+        partialAggregationController.ifPresent(
+                controller -> controller.onFlush(numberOfInputRowsProcessed, numberOfUniqueRowsProduced));
+        numberOfInputRowsProcessed = 0;
+        numberOfUniqueRowsProduced = 0;
     }
 
     private Page getGlobalAggregationOutput()

@@ -102,6 +102,7 @@ import io.trino.operator.aggregation.AggregatorFactory;
 import io.trino.operator.aggregation.DistinctAccumulatorFactory;
 import io.trino.operator.aggregation.LambdaProvider;
 import io.trino.operator.aggregation.OrderedAccumulatorFactory;
+import io.trino.operator.aggregation.partial.PartialAggregationController;
 import io.trino.operator.exchange.LocalExchange.LocalExchangeFactory;
 import io.trino.operator.exchange.LocalExchangeSinkOperator.LocalExchangeSinkOperatorFactory;
 import io.trino.operator.exchange.LocalExchangeSourceOperator.LocalExchangeSourceOperatorFactory;
@@ -278,11 +279,14 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Range.closedOpen;
 import static com.google.common.collect.Sets.difference;
 import static io.airlift.concurrent.MoreFutures.addSuccessCallback;
+import static io.trino.SystemSessionProperties.getAdaptivePartialAggregationMinRows;
+import static io.trino.SystemSessionProperties.getAdaptivePartialAggregationUniqueRowsRatioThreshold;
 import static io.trino.SystemSessionProperties.getAggregationOperatorUnspillMemoryLimit;
 import static io.trino.SystemSessionProperties.getFilterAndProjectMinOutputPageRowCount;
 import static io.trino.SystemSessionProperties.getFilterAndProjectMinOutputPageSize;
 import static io.trino.SystemSessionProperties.getTaskConcurrency;
 import static io.trino.SystemSessionProperties.getTaskWriterCount;
+import static io.trino.SystemSessionProperties.isAdaptivePartialAggregationEnabled;
 import static io.trino.SystemSessionProperties.isEnableCoordinatorDynamicFiltersDistribution;
 import static io.trino.SystemSessionProperties.isEnableLargeDynamicFilters;
 import static io.trino.SystemSessionProperties.isExchangeCompressionEnabled;
@@ -3827,9 +3831,19 @@ public class LocalExecutionPlanner
                         unspillMemoryLimit,
                         spillerFactory,
                         joinCompiler,
-                        blockTypeOperators);
+                        blockTypeOperators,
+                        createPartialAggregationController(step, session));
             }
         }
+    }
+
+    private static Optional<PartialAggregationController> createPartialAggregationController(AggregationNode.Step step, Session session)
+    {
+        return step.isOutputPartial() && isAdaptivePartialAggregationEnabled(session) ?
+                Optional.of(new PartialAggregationController(
+                        getAdaptivePartialAggregationMinRows(session),
+                        getAdaptivePartialAggregationUniqueRowsRatioThreshold(session))) :
+                Optional.empty();
     }
 
     private int getDynamicFilteringMaxDistinctValuesPerDriver(Session session, boolean isReplicatedJoin)
