@@ -77,6 +77,10 @@ public class OptimizerConfig
     private double tableScanNodePartitioningMinBucketToTaskRatio = 0.5;
     private boolean mergeProjectWithValues = true;
     private boolean forceSingleNodeOutput = true;
+    // adaptive partial aggregation
+    private boolean adaptivePartialAggregationEnabled = true;
+    private long adaptivePartialAggregationMinRows = 100_000;
+    private double adaptivePartialAggregationUniqueRowsRatioThreshold = 0.8;
 
     public enum JoinReorderingStrategy
     {
@@ -622,6 +626,44 @@ public class OptimizerConfig
     public OptimizerConfig setForceSingleNodeOutput(boolean value)
     {
         this.forceSingleNodeOutput = value;
+        return this;
+    }
+
+    public boolean isAdaptivePartialAggregationEnabled()
+    {
+        return adaptivePartialAggregationEnabled;
+    }
+
+    @Config("adaptive-partial-aggregation.enabled")
+    public OptimizerConfig setAdaptivePartialAggregationEnabled(boolean adaptivePartialAggregationEnabled)
+    {
+        this.adaptivePartialAggregationEnabled = adaptivePartialAggregationEnabled;
+        return this;
+    }
+
+    public long getAdaptivePartialAggregationMinRows()
+    {
+        return adaptivePartialAggregationMinRows;
+    }
+
+    @Config("adaptive-partial-aggregation.min-rows")
+    @ConfigDescription("Minimum number of processed rows before partial aggregation might be adaptively turned off")
+    public OptimizerConfig setAdaptivePartialAggregationMinRows(long adaptivePartialAggregationMinRows)
+    {
+        this.adaptivePartialAggregationMinRows = adaptivePartialAggregationMinRows;
+        return this;
+    }
+
+    public double getAdaptivePartialAggregationUniqueRowsRatioThreshold()
+    {
+        return adaptivePartialAggregationUniqueRowsRatioThreshold;
+    }
+
+    @Config("adaptive-partial-aggregation.unique-rows-ratio-threshold")
+    @ConfigDescription("Ratio between aggregation output and input rows above which partial aggregation might be adaptively turned off")
+    public OptimizerConfig setAdaptivePartialAggregationUniqueRowsRatioThreshold(double adaptivePartialAggregationUniqueRowsRatioThreshold)
+    {
+        this.adaptivePartialAggregationUniqueRowsRatioThreshold = adaptivePartialAggregationUniqueRowsRatioThreshold;
         return this;
     }
 }
