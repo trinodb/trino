@@ -9,7 +9,7 @@ SELECT
 FROM
   (
    SELECT
-     '${database}.${schema}.store' "channel"
+     'store' "channel"
    , 'ss_store_sk' "col_name"
    , "d_year"
    , "d_qoy"
