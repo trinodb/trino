@@ -229,7 +229,7 @@ TUPLE             ROW with anonymous fields
 UUID              UUID
 UDT               ROW with field names
 VARCHAR           VARCHAR
-VARIANT           VARCHAR
+VARINT            VARCHAR
 ================  ======
 
 Any collection (LIST/MAP/SET) can be designated as FROZEN, and the value is
