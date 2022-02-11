@@ -302,22 +302,23 @@ public class BigintGroupByHash
         int[] newGroupIds = new int[newCapacity];
         Arrays.fill(newGroupIds, -1);
 
-        for (int groupId = 0; groupId < nextGroupId; groupId++) {
-            if (groupId == nullGroupId) {
-                continue;
-            }
-            long value = valuesByGroupId.get(groupId);
+        for (int i = 0; i < values.length; i++) {
+            int groupId = groupIds[i];
 
-            // find an empty slot for the address
-            int hashPosition = getHashPosition(value, newMask);
-            while (newGroupIds[hashPosition] != -1) {
-                hashPosition = (hashPosition + 1) & newMask;
-                hashCollisions++;
-            }
+            if (groupId != -1) {
+                long value = values[i];
+                int hashPosition = getHashPosition(value, newMask);
 
-            // record the mapping
-            newValues[hashPosition] = value;
-            newGroupIds[hashPosition] = groupId;
+                // find an empty slot for the address
+                while (newGroupIds[hashPosition] != -1) {
+                    hashPosition = (hashPosition + 1) & newMask;
+                    hashCollisions++;
+                }
+
+                // record the mapping
+                newValues[hashPosition] = value;
+                newGroupIds[hashPosition] = groupId;
+            }
         }
 
         mask = newMask;
