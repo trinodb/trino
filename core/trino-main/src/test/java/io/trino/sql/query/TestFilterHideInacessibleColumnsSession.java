@@ -35,15 +35,7 @@ public class TestFilterHideInacessibleColumnsSession
     {
         FeaturesConfig featuresConfig = new FeaturesConfig();
         featuresConfig.setHideInaccessibleColumns(true);
-        SessionPropertyManager sessionPropertyManager = new SessionPropertyManager(new SystemSessionProperties(
-                new QueryManagerConfig(),
-                new TaskManagerConfig(),
-                new MemoryManagerConfig(),
-                featuresConfig,
-                new OptimizerConfig(),
-                new NodeMemoryConfig(),
-                new DynamicFilterConfig(),
-                new NodeSchedulerConfig()));
+        SessionPropertyManager sessionPropertyManager = createSessionPropertyManager(featuresConfig);
         assertThatThrownBy(() -> sessionPropertyManager.validateSystemSessionProperty(SystemSessionProperties.HIDE_INACCESSIBLE_COLUMNS, "false"))
                 .hasMessage("hide_inaccessible_columns cannot be disabled with session property when it was enabled with configuration");
     }
@@ -53,15 +45,7 @@ public class TestFilterHideInacessibleColumnsSession
     {
         FeaturesConfig featuresConfig = new FeaturesConfig();
         featuresConfig.setHideInaccessibleColumns(true);
-        SessionPropertyManager sessionPropertyManager = new SessionPropertyManager(new SystemSessionProperties(
-                new QueryManagerConfig(),
-                new TaskManagerConfig(),
-                new MemoryManagerConfig(),
-                featuresConfig,
-                new OptimizerConfig(),
-                new NodeMemoryConfig(),
-                new DynamicFilterConfig(),
-                new NodeSchedulerConfig()));
+        SessionPropertyManager sessionPropertyManager = createSessionPropertyManager(featuresConfig);
         assertThatNoException().isThrownBy(() -> sessionPropertyManager.validateSystemSessionProperty(SystemSessionProperties.HIDE_INACCESSIBLE_COLUMNS, "true"));
     }
 
@@ -69,15 +53,7 @@ public class TestFilterHideInacessibleColumnsSession
     public void testDisableWhenAlreadyDisabledByDefault()
     {
         FeaturesConfig featuresConfig = new FeaturesConfig();
-        SessionPropertyManager sessionPropertyManager = new SessionPropertyManager(new SystemSessionProperties(
-                new QueryManagerConfig(),
-                new TaskManagerConfig(),
-                new MemoryManagerConfig(),
-                featuresConfig,
-                new OptimizerConfig(),
-                new NodeMemoryConfig(),
-                new DynamicFilterConfig(),
-                new NodeSchedulerConfig()));
+        SessionPropertyManager sessionPropertyManager = createSessionPropertyManager(featuresConfig);
         assertThatNoException().isThrownBy(() -> sessionPropertyManager.validateSystemSessionProperty(SystemSessionProperties.HIDE_INACCESSIBLE_COLUMNS, "false"));
     }
 
@@ -85,7 +61,13 @@ public class TestFilterHideInacessibleColumnsSession
     public void testEnableWhenDisabledByDefault()
     {
         FeaturesConfig featuresConfig = new FeaturesConfig();
-        SessionPropertyManager sessionPropertyManager = new SessionPropertyManager(new SystemSessionProperties(
+        SessionPropertyManager sessionPropertyManager = createSessionPropertyManager(featuresConfig);
+        assertThatNoException().isThrownBy(() -> sessionPropertyManager.validateSystemSessionProperty(SystemSessionProperties.HIDE_INACCESSIBLE_COLUMNS, "true"));
+    }
+
+    private SessionPropertyManager createSessionPropertyManager(FeaturesConfig featuresConfig)
+    {
+        return new SessionPropertyManager(new SystemSessionProperties(
                 new QueryManagerConfig(),
                 new TaskManagerConfig(),
                 new MemoryManagerConfig(),
@@ -94,6 +76,5 @@ public class TestFilterHideInacessibleColumnsSession
                 new NodeMemoryConfig(),
                 new DynamicFilterConfig(),
                 new NodeSchedulerConfig()));
-        assertThatNoException().isThrownBy(() -> sessionPropertyManager.validateSystemSessionProperty(SystemSessionProperties.HIDE_INACCESSIBLE_COLUMNS, "true"));
     }
 }
