@@ -54,6 +54,7 @@ import com.nimbusds.openid.connect.sdk.validators.AccessTokenValidator;
 import com.nimbusds.openid.connect.sdk.validators.IDTokenValidator;
 import com.nimbusds.openid.connect.sdk.validators.InvalidHashException;
 import io.airlift.log.Logger;
+import io.airlift.units.Duration;
 
 import javax.inject.Inject;
 
@@ -75,6 +76,7 @@ import static com.nimbusds.oauth2.sdk.ResponseType.CODE;
 import static com.nimbusds.openid.connect.sdk.OIDCScopeValue.OPENID;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class NimbusOAuth2Client
         implements OAuth2Client
@@ -88,6 +90,7 @@ public class NimbusOAuth2Client
     private final URI authUrl;
     private final URI tokenUrl;
     private final Optional<URI> userinfoUri;
+    private final Duration maxClockSkew;
     private final NimbusHttpClient httpClient;
     private final JWSKeySelector<SecurityContext> jwsKeySelector;
     private final JWTProcessor<SecurityContext> accessTokenProcessor;
@@ -106,6 +109,7 @@ public class NimbusOAuth2Client
         authUrl = URI.create(requireNonNull(config.getAuthUrl(), "authUrl is null"));
         tokenUrl = URI.create(requireNonNull(config.getTokenUrl(), "tokenUrl is null"));
         userinfoUri = config.getUserinfoUrl().map(URI::create);
+        maxClockSkew = config.getMaxClockSkew();
 
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
 
@@ -118,13 +122,16 @@ public class NimbusOAuth2Client
         Set<String> allowedAudiences = new HashSet<>(config.getAdditionalAudiences());
         allowedAudiences.add(clientId.getValue());
         allowedAudiences.add(null); // A null value in the set allows JWTs with no audience
-        processor.setJWTClaimsSetVerifier(new DefaultJWTClaimsVerifier<>(
+
+        DefaultJWTClaimsVerifier<SecurityContext> accessTokenVerifier = new DefaultJWTClaimsVerifier<>(
                 allowedAudiences,
                 new JWTClaimsSet.Builder()
                         .issuer(config.getAccessTokenIssuer().orElse(config.getIssuer()))
                         .build(),
                 ImmutableSet.of(requireNonNull(config.getPrincipalField(), "principalField is null")),
-                ImmutableSet.of()));
+                ImmutableSet.of());
+        accessTokenVerifier.setMaxClockSkew((int) maxClockSkew.roundTo(SECONDS));
+        processor.setJWTClaimsSetVerifier(accessTokenVerifier);
         accessTokenProcessor = processor;
 
         flow = scope.contains(OPENID) ? new OAuth2WithOidcExtensionsCodeFlow() : new OAuth2AuthorizationCodeFlow();
@@ -193,7 +200,13 @@ public class NimbusOAuth2Client
     private class OAuth2WithOidcExtensionsCodeFlow
             implements AuthorizationCodeFlow
     {
-        private final IDTokenValidator idTokenValidator = new IDTokenValidator(issuer, clientId, jwsKeySelector, null);
+        private final IDTokenValidator idTokenValidator;
+
+        public OAuth2WithOidcExtensionsCodeFlow()
+        {
+            idTokenValidator = new IDTokenValidator(issuer, clientId, jwsKeySelector, null);
+            idTokenValidator.setMaxClockSkew((int) maxClockSkew.roundTo(SECONDS));
+        }
 
         @Override
         public Request createAuthorizationRequest(String state, URI callbackUri)
