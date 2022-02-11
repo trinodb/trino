@@ -13,4 +13,9 @@ Description
 -----------
 
 List all the functions available for use in queries.
-The ``LIKE`` clause can be used to restrict the list of functions.
+
+:ref:`Specify a pattern <like_operator>` in the optional ``LIKE`` clause to
+filter the results to the desired subset. For example, the following query
+allows you to find functions beginning with ``array``::
+
+    SHOW FUNCTIONS LIKE 'array%';
