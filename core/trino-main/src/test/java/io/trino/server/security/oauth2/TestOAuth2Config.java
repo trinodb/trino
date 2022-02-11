@@ -50,6 +50,7 @@ public class TestOAuth2Config
                 .setPrincipalField("sub")
                 .setGroupsField(null)
                 .setAdditionalAudiences(Collections.emptyList())
+                .setMaxClockSkew(new Duration(1, MINUTES))
                 .setUserMappingPattern(null)
                 .setUserMappingFile(null));
     }
@@ -74,6 +75,7 @@ public class TestOAuth2Config
                 .put("http-server.authentication.oauth2.groups-field", "groups")
                 .put("http-server.authentication.oauth2.additional-audiences", "test-aud1,test-aud2")
                 .put("http-server.authentication.oauth2.challenge-timeout", "90s")
+                .put("http-server.authentication.oauth2.max-clock-skew", "15s")
                 .put("http-server.authentication.oauth2.user-mapping.pattern", "(.*)@something")
                 .put("http-server.authentication.oauth2.user-mapping.file", userMappingFile.toString())
                 .buildOrThrow();
@@ -93,6 +95,7 @@ public class TestOAuth2Config
                 .setGroupsField("groups")
                 .setAdditionalAudiences(List.of("test-aud1", "test-aud2"))
                 .setChallengeTimeout(new Duration(90, SECONDS))
+                .setMaxClockSkew(new Duration(15, SECONDS))
                 .setUserMappingPattern("(.*)@something")
                 .setUserMappingFile(userMappingFile.toFile());
 
