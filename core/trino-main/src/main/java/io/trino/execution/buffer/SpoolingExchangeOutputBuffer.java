@@ -22,6 +22,8 @@ import io.trino.execution.StateMachine;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.spi.exchange.ExchangeSink;
 
+import javax.annotation.concurrent.ThreadSafe;
+
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
@@ -35,6 +37,7 @@ import static io.trino.execution.buffer.OutputBuffers.BufferType.SPOOL;
 import static io.trino.execution.buffer.PagesSerde.getSerializedPagePositionCount;
 import static java.util.Objects.requireNonNull;
 
+@ThreadSafe
 public class SpoolingExchangeOutputBuffer
         implements OutputBuffer
 {
@@ -42,6 +45,10 @@ public class SpoolingExchangeOutputBuffer
 
     private final OutputBufferStateMachine stateMachine;
     private final OutputBuffers outputBuffers;
+    // This field is not final to allow releasing the memory retained by the ExchangeSink instance.
+    // It is modified (assigned to null) when the OutputBuffer is destroyed (either finished or aborted).
+    // It doesn't have to be declared as volatile as the nullification of this variable doesn't have to be immediately visible to other threads.
+    // However since the abort can be triggered at any moment of time this variable has to be accessed in a safe way (avoiding "check-then-use").
     private ExchangeSink exchangeSink;
     private final Supplier<LocalMemoryContext> memoryContextSupplier;
 
