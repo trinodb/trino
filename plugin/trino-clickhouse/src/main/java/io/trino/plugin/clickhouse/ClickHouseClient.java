@@ -144,7 +144,6 @@ import static java.time.ZoneOffset.UTC;
 public class ClickHouseClient
         extends BaseJdbcClient
 {
-    static final int CLICKHOUSE_MAX_DECIMAL_PRECISION = 76;
     private static final long MIN_SUPPORTED_DATE_EPOCH = LocalDate.parse("1970-01-01").toEpochDay();
     private static final long MAX_SUPPORTED_DATE_EPOCH = LocalDate.parse("2106-02-07").toEpochDay(); // The max date is '2148-12-31' in new ClickHouse version
 
@@ -562,14 +561,12 @@ public class ClickHouseClient
         if (prop == null || prop.isEmpty()) {
             return Optional.empty();
         }
-        else if (prop.size() == 1) {
+        if (prop.size() == 1) {
             // only one column
             return Optional.of(prop.get(0));
         }
-        else {
-            // include more than one columns
-            return Optional.of("(" + String.join(",", prop) + ")");
-        }
+        // include more than one column
+        return Optional.of("(" + String.join(",", prop) + ")");
     }
 
     private static ColumnMapping dateColumnMappingUsingLocalDate()
