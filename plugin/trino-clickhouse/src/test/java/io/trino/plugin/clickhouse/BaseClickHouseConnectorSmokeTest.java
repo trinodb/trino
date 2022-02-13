@@ -15,7 +15,6 @@ package io.trino.plugin.clickhouse;
 
 import io.trino.plugin.jdbc.BaseJdbcConnectorSmokeTest;
 import io.trino.testing.TestingConnectorBehavior;
-import org.testng.annotations.Test;
 
 public abstract class BaseClickHouseConnectorSmokeTest
         extends BaseJdbcConnectorSmokeTest
@@ -29,12 +28,5 @@ public abstract class BaseClickHouseConnectorSmokeTest
             default:
                 return super.hasBehavior(connectorBehavior);
         }
-    }
-
-    @Test
-    @Override
-    public void testRenameSchema()
-    {
-        super.testRenameSchema();
     }
 }
