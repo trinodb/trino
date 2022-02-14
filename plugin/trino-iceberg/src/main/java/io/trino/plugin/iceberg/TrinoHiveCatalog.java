@@ -103,6 +103,7 @@ import static org.apache.iceberg.BaseMetastoreTableOperations.TABLE_TYPE_PROP;
 import static org.apache.iceberg.TableMetadata.newTableMetadata;
 import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT_DEFAULT;
 import static org.apache.iceberg.TableProperties.OBJECT_STORE_PATH;
+import static org.apache.iceberg.TableProperties.WRITE_DATA_LOCATION;
 import static org.apache.iceberg.TableProperties.WRITE_METADATA_LOCATION;
 import static org.apache.iceberg.TableProperties.WRITE_NEW_DATA_LOCATION;
 import static org.apache.iceberg.Transactions.createTableTransaction;
@@ -301,7 +302,8 @@ class TrinoHiveCatalog
         Table table = loadTable(session, schemaTableName);
         if (table.properties().containsKey(OBJECT_STORE_PATH) ||
                 table.properties().containsKey(WRITE_NEW_DATA_LOCATION) ||
-                table.properties().containsKey(WRITE_METADATA_LOCATION)) {
+                table.properties().containsKey(WRITE_METADATA_LOCATION) ||
+                table.properties().containsKey(WRITE_DATA_LOCATION)) {
             throw new TrinoException(NOT_SUPPORTED, "Table " + schemaTableName + " contains Iceberg path override properties and cannot be dropped from Trino");
         }
         metastore.dropTable(schemaTableName.getSchemaName(), schemaTableName.getTableName(), purgeData);
