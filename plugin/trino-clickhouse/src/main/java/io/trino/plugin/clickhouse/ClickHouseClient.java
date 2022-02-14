@@ -15,7 +15,10 @@ package io.trino.plugin.clickhouse;
 
 import com.clickhouse.client.ClickHouseColumn;
 import com.clickhouse.client.ClickHouseDataType;
+import com.google.common.base.Enums;
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.net.InetAddresses;
 import io.airlift.slice.Slice;
@@ -64,6 +67,7 @@ import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.time.LocalDate;
@@ -83,6 +87,10 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.plugin.clickhouse.ClickHouseSessionProperties.isMapStringAsVarchar;
+import static io.trino.plugin.clickhouse.ClickHouseTableProperties.ENGINE_PROPERTY;
+import static io.trino.plugin.clickhouse.ClickHouseTableProperties.ORDER_BY_PROPERTY;
+import static io.trino.plugin.clickhouse.ClickHouseTableProperties.PARTITION_BY_PROPERTY;
+import static io.trino.plugin.clickhouse.ClickHouseTableProperties.PRIMARY_KEY_PROPERTY;
 import static io.trino.plugin.clickhouse.ClickHouseTableProperties.SAMPLE_BY_PROPERTY;
 import static io.trino.plugin.jdbc.DecimalConfig.DecimalMapping.ALLOW_OVERFLOW;
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalDefaultScale;
@@ -140,10 +148,13 @@ import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.lang.System.arraycopy;
 import static java.time.ZoneOffset.UTC;
+import static java.util.Locale.ENGLISH;
 
 public class ClickHouseClient
         extends BaseJdbcClient
 {
+    private static final Splitter TABLE_PROPERTY_SPLITTER = Splitter.on(',').omitEmptyStrings().trimResults();
+
     private static final long MIN_SUPPORTED_DATE_EPOCH = LocalDate.parse("1970-01-01").toEpochDay();
     private static final long MAX_SUPPORTED_DATE_EPOCH = LocalDate.parse("2106-02-07").toEpochDay(); // The max date is '2148-12-31' in new ClickHouse version
 
@@ -241,6 +252,51 @@ public class ClickHouseClient
         ClickHouseTableProperties.getSampleBy(tableProperties).ifPresent(value -> tableOptions.add("SAMPLE BY " + value));
 
         return format("CREATE TABLE %s (%s) %s", quoted(remoteTableName), join(", ", columns), join(" ", tableOptions.build()));
+    }
+
+    @Override
+    public Map<String, Object> getTableProperties(ConnectorSession session, JdbcTableHandle tableHandle)
+    {
+        try (Connection connection = connectionFactory.openConnection(session);
+                PreparedStatement statement = connection.prepareStatement("" +
+                        "SELECT engine, sorting_key, partition_key, primary_key, sampling_key " +
+                        "FROM system.tables " +
+                        "WHERE database = ? AND name = ?")) {
+            statement.setString(1, tableHandle.asPlainTable().getRemoteTableName().getSchemaName().orElse(null));
+            statement.setString(2, tableHandle.asPlainTable().getRemoteTableName().getTableName());
+
+            try (ResultSet resultSet = statement.executeQuery()) {
+                ImmutableMap.Builder<String, Object> properties = new ImmutableMap.Builder<>();
+                while (resultSet.next()) {
+                    String engine = resultSet.getString("engine");
+                    if (!isNullOrEmpty(engine)) {
+                        // Don't throw an exception because many table engines aren't supported in ClickHouseEngineType
+                        Optional<ClickHouseEngineType> engineType = Enums.getIfPresent(ClickHouseEngineType.class, engine.toUpperCase(ENGLISH)).toJavaUtil();
+                        engineType.ifPresent(type -> properties.put(ENGINE_PROPERTY, type));
+                    }
+                    String sortingKey = resultSet.getString("sorting_key");
+                    if (!isNullOrEmpty(sortingKey)) {
+                        properties.put(ORDER_BY_PROPERTY, TABLE_PROPERTY_SPLITTER.splitToList(sortingKey));
+                    }
+                    String partitionKey = resultSet.getString("partition_key");
+                    if (!isNullOrEmpty(partitionKey)) {
+                        properties.put(PARTITION_BY_PROPERTY, TABLE_PROPERTY_SPLITTER.splitToList(partitionKey));
+                    }
+                    String primaryKey = resultSet.getString("primary_key");
+                    if (!isNullOrEmpty(primaryKey)) {
+                        properties.put(PRIMARY_KEY_PROPERTY, TABLE_PROPERTY_SPLITTER.splitToList(primaryKey));
+                    }
+                    String samplingKey = resultSet.getString("sampling_key");
+                    if (!isNullOrEmpty(samplingKey)) {
+                        properties.put(SAMPLE_BY_PROPERTY, samplingKey);
+                    }
+                }
+                return properties.build();
+            }
+        }
+        catch (SQLException e) {
+            throw new TrinoException(JDBC_ERROR, e);
+        }
     }
 
     @Override
