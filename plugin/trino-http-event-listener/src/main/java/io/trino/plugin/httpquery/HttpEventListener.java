@@ -134,16 +134,18 @@ public class HttpEventListener
                             {
                                 verify(result != null);
 
-                                if (!(result.getStatusCode() >= 200 && result.getStatusCode() < 300) && attempt < config.getRetryCount()) {
-                                    Duration nextDelay = nextDelay(delay);
-                                    int nextAttempt = attempt + 1;
+                                if (shouldRetry(result)) {
+                                    if (attempt < config.getRetryCount()) {
+                                        Duration nextDelay = nextDelay(delay);
+                                        int nextAttempt = attempt + 1;
 
-                                    log.warn("QueryId = \"%s\", attempt = %d/%d, URL = %s | Ingest server responded with code %d, will retry after approximately %d seconds",
-                                            queryId, attempt + 1, config.getRetryCount() + 1, request.getUri().toString(),
-                                            result.getStatusCode(), nextDelay.roundTo(TimeUnit.SECONDS));
+                                        log.warn("QueryId = \"%s\", attempt = %d/%d, URL = %s | Ingest server responded with code %d, will retry after approximately %d seconds",
+                                                queryId, attempt + 1, config.getRetryCount() + 1, request.getUri().toString(),
+                                                result.getStatusCode(), nextDelay.roundTo(TimeUnit.SECONDS));
 
-                                    attemptToSend(request, nextAttempt, nextDelay, queryId);
-                                    return;
+                                        attemptToSend(request, nextAttempt, nextDelay, queryId);
+                                        return;
+                                    }
                                 }
 
                                 log.debug("QueryId = \"%s\", attempt = %d/%d, URL = %s | Query event delivered successfully",
@@ -170,6 +172,30 @@ public class HttpEventListener
                             }
                         }, executor),
                 (long) delay.getValue(), delay.getUnit());
+    }
+
+    private boolean shouldRetry(StatusResponse response)
+    {
+        int statusCode = response.getStatusCode();
+
+        // 1XX Information, requests can't be split
+        if (statusCode < 200) {
+            return false;
+        }
+        // 2XX - OK
+        if (200 <= statusCode && statusCode < 300) {
+            return false;
+        }
+        // 3XX Redirects, not following redirects
+        if (300 <= statusCode && statusCode <= 400) {
+            return false;
+        }
+        // 4XX - client error, no retry except 408 Request Timeout and 429 Too Many Requests
+        if (400 <= statusCode && statusCode < 500 && statusCode != 408 && statusCode != 429) {
+            return false;
+        }
+
+        return true;
     }
 
     private Duration nextDelay(Duration delay)

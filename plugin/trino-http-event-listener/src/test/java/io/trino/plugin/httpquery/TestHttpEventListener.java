@@ -35,6 +35,7 @@ import okhttp3.mockwebserver.RecordedRequest;
 import okhttp3.mockwebserver.SocketPolicy;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import javax.net.ssl.KeyManagerFactory;
@@ -356,8 +357,14 @@ public class TestHttpEventListener
         assertNull(recordedRequest, "Handshake should have failed");
     }
 
-    @Test
-    public void testServer500ShouldRetry()
+    @DataProvider(name = "retryStatusCodes")
+    public static Object[][] retryStatusCodes()
+    {
+        return new Object[][] {{503}, {500}, {429}, {408}};
+    }
+
+    @Test(dataProvider = "retryStatusCodes")
+    public void testServerShouldRetry(int responseCode)
             throws Exception
     {
         EventListener eventListener = factory.create(Map.of(
@@ -365,7 +372,7 @@ public class TestHttpEventListener
                 "http-event-listener.log-completed", "true",
                 "http-event-listener.connect-retry-count", "1"));
 
-        server.enqueue(new MockResponse().setResponseCode(500));
+        server.enqueue(new MockResponse().setResponseCode(responseCode));
         server.enqueue(new MockResponse().setResponseCode(200));
 
         eventListener.queryCompleted(queryCompleteEvent);
