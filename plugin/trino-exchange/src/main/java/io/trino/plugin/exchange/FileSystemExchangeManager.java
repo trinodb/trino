@@ -51,6 +51,7 @@ public class FileSystemExchangeManager
     private final FileSystemExchangeStorage exchangeStorage;
     private final URI baseDirectory;
     private final boolean exchangeEncryptionEnabled;
+    private final int exchangeSinkBufferPoolMinSize;
     private final ExecutorService executor;
 
     @Inject
@@ -66,6 +67,7 @@ public class FileSystemExchangeManager
         }
         this.baseDirectory = URI.create(baseDirectory);
         this.exchangeEncryptionEnabled = fileSystemExchangeConfig.isExchangeEncryptionEnabled();
+        this.exchangeSinkBufferPoolMinSize = fileSystemExchangeConfig.getExchangeSinkBufferPoolMinSize();
         this.executor = newCachedThreadPool(daemonThreadsNamed("exchange-source-handles-creation-%s"));
     }
 
@@ -96,7 +98,8 @@ public class FileSystemExchangeManager
                 exchangeStorage,
                 instanceHandle.getOutputDirectory(),
                 instanceHandle.getOutputPartitionCount(),
-                instanceHandle.getSinkHandle().getSecretKey().map(key -> new SecretKeySpec(key, 0, key.length, "AES")));
+                instanceHandle.getSinkHandle().getSecretKey().map(key -> new SecretKeySpec(key, 0, key.length, "AES")),
+                exchangeSinkBufferPoolMinSize);
     }
 
     @Override
