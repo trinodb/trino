@@ -35,6 +35,7 @@ import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
+import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.statistics.TableStatistics;
@@ -187,6 +188,12 @@ public class CachingJdbcClient
     public Optional<JdbcExpression> implementAggregation(ConnectorSession session, AggregateFunction aggregate, Map<String, ColumnHandle> assignments)
     {
         return delegate.implementAggregation(session, aggregate, assignments);
+    }
+
+    @Override
+    public Optional<String> convertPredicate(ConnectorSession session, ConnectorExpression expression, Map<String, ColumnHandle> assignments)
+    {
+        return delegate.convertPredicate(session, expression, assignments);
     }
 
     @Override

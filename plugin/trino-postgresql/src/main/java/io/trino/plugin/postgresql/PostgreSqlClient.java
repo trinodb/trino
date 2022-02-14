@@ -21,6 +21,7 @@ import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.trino.plugin.base.aggregation.AggregateFunctionRewriter;
 import io.trino.plugin.base.aggregation.AggregateFunctionRule;
+import io.trino.plugin.base.expression.ConnectorExpressionRewriter;
 import io.trino.plugin.jdbc.BaseJdbcClient;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.BooleanReadFunction;
@@ -61,6 +62,9 @@ import io.trino.plugin.jdbc.aggregation.ImplementStddevSamp;
 import io.trino.plugin.jdbc.aggregation.ImplementSum;
 import io.trino.plugin.jdbc.aggregation.ImplementVariancePop;
 import io.trino.plugin.jdbc.aggregation.ImplementVarianceSamp;
+import io.trino.plugin.jdbc.expression.RewriteLike;
+import io.trino.plugin.jdbc.expression.RewriteVarcharConstant;
+import io.trino.plugin.jdbc.expression.RewriteVariable;
 import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.plugin.postgresql.PostgreSqlConfig.ArrayMapping;
 import io.trino.spi.TrinoException;
@@ -74,6 +78,7 @@ import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.JoinCondition;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
+import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
@@ -235,6 +240,7 @@ public class PostgreSqlClient
     private final MapType varcharMapType;
     private final List<String> tableTypes;
     private final AggregateFunctionRewriter<JdbcExpression> aggregateFunctionRewriter;
+    private final ConnectorExpressionRewriter<String> connectorExpressionRewriter;
 
     private static final PredicatePushdownController POSTGRESQL_STRING_PUSHDOWN_WITHOUT_COLLATE = (session, domain) -> {
         checkArgument(
@@ -305,6 +311,11 @@ public class PostgreSqlClient
                         .add(new ImplementRegrIntercept())
                         .add(new ImplementRegrSlope())
                         .build());
+
+        connectorExpressionRewriter = new ConnectorExpressionRewriter<>(this::quoted, ImmutableSet.of(
+                new RewriteVariable(),
+                new RewriteVarcharConstant(),
+                new RewriteLike()));
     }
 
     @Override
@@ -718,6 +729,12 @@ public class PostgreSqlClient
     {
         // Postgres sorts textual types differently compared to Trino so we cannot safely pushdown any aggregations which take a text type as an input or as part of grouping set
         return preventTextualTypeAggregationPushdown(groupingSets);
+    }
+
+    @Override
+    public Optional<String> convertPredicate(ConnectorSession session, ConnectorExpression expression, Map<String, ColumnHandle> assignments)
+    {
+        return connectorExpressionRewriter.rewrite(session, expression, assignments);
     }
 
     private static Optional<JdbcTypeHandle> toTypeHandle(DecimalType decimalType)

@@ -57,6 +57,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -397,7 +398,18 @@ public abstract class BaseJdbcClient
                 columns,
                 columnExpressions,
                 table.getConstraint(),
-                split.flatMap(JdbcSplit::getAdditionalPredicate)));
+                getAdditionalPredicate(table.getConstraintExpressions(), split.flatMap(JdbcSplit::getAdditionalPredicate))));
+    }
+
+    protected static Optional<String> getAdditionalPredicate(List<String> constraintExpressions, Optional<String> splitPredicate)
+    {
+        if (constraintExpressions.isEmpty() && splitPredicate.isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(Stream.concat(
+                        constraintExpressions.stream(),
+                        splitPredicate.stream())
+                .collect(joining(" AND ")));
     }
 
     @Override

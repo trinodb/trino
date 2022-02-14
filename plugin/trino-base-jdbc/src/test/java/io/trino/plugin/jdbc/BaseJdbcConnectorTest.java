@@ -78,6 +78,7 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_JOIN_PUSHDOWN_W
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_EQUALITY;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_INEQUALITY;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_LIMIT_PUSHDOWN;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN_WITH_LIKE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ROW_LEVEL_DELETE;
@@ -111,6 +112,10 @@ public abstract class BaseJdbcConnectorTest
             case SUPPORTS_DELETE:
             case SUPPORTS_TRUNCATE:
                 return true;
+
+            case SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN:
+                // TODO support pushdown of complex expressions in predicates
+                return false;
 
             default:
                 return super.hasBehavior(connectorBehavior);
@@ -213,6 +218,14 @@ public abstract class BaseJdbcConnectorTest
                 "SELECT nationkey, min(regionkey) FROM nation WHERE name = 'ARGENTINA' GROUP BY nationkey",
                 hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY),
                 node(FilterNode.class, node(TableScanNode.class)));
+        // GROUP BY with WHERE complex predicate
+        assertConditionallyPushedDown(
+                getSession(),
+                "SELECT regionkey, sum(nationkey) FROM nation WHERE name LIKE '%N%' GROUP BY regionkey",
+                false, // TODO: hasBehavior(SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN_WITH_LIKE), --  currently, applyAggregation is not invoked after applyFilter with expression
+                hasBehavior(SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN_WITH_LIKE)
+                        ? node(AggregationNode.class, node(TableScanNode.class))
+                        : node(FilterNode.class, node(TableScanNode.class)));
         // aggregation on varchar column
         assertThat(query("SELECT count(name) FROM nation")).isFullyPushedDown();
         // aggregation on varchar column with GROUPING

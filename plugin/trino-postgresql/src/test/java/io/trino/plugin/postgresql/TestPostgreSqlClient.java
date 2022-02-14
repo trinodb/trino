@@ -24,6 +24,12 @@ import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Variable;
+import io.trino.sql.planner.ConnectorExpressionTranslator;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.TypeProvider;
+import io.trino.sql.tree.LikePredicate;
+import io.trino.sql.tree.StringLiteral;
+import io.trino.sql.tree.SymbolReference;
 import org.testng.annotations.Test;
 
 import java.sql.Types;
@@ -31,9 +37,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
+import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.assertions.Assert.assertEquals;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
@@ -54,6 +64,13 @@ public class TestPostgreSqlClient
                     .setColumnName("c_double")
                     .setColumnType(DOUBLE)
                     .setJdbcTypeHandle(new JdbcTypeHandle(Types.DOUBLE, Optional.of("double"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()))
+                    .build();
+
+    private static final JdbcColumnHandle VARCHAR_COLUMN =
+            JdbcColumnHandle.builder()
+                    .setColumnName("c_varchar")
+                    .setColumnType(createVarcharType(10))
+                    .setJdbcTypeHandle(new JdbcTypeHandle(Types.VARCHAR, Optional.of("varchar"), Optional.of(10), Optional.empty(), Optional.empty(), Optional.empty()))
                     .build();
 
     private static final JdbcClient JDBC_CLIENT = new PostgreSqlClient(
@@ -153,5 +170,37 @@ public class TestPostgreSqlClient
             assertTrue(columnMapping.isPresent(), "No mapping for: " + result.get().getJdbcTypeHandle());
             assertEquals(columnMapping.get().getType(), aggregateFunction.getOutputType());
         }
+    }
+
+    @Test
+    public void testConvertLike()
+    {
+        // c_varchar LIKE '%pattern%'
+        assertThat(JDBC_CLIENT.convertPredicate(SESSION,
+                ConnectorExpressionTranslator.translate(
+                                TEST_SESSION,
+                                new LikePredicate(
+                                        new SymbolReference("c_varchar"),
+                                        new StringLiteral("%pattern%"),
+                                        Optional.empty()),
+                                createTestingTypeAnalyzer(PLANNER_CONTEXT),
+                                TypeProvider.viewOf(Map.of(new Symbol("c_varchar"), VARCHAR_COLUMN.getColumnType())),
+                                PLANNER_CONTEXT)
+                        .orElseThrow(),
+                Map.of(VARCHAR_COLUMN.getColumnName(), VARCHAR_COLUMN)))
+                .hasValue("\"c_varchar\" LIKE '%pattern%'");
+
+        // c_varchar LIKE '%pattern\%' ESCAPE '\'
+        assertThat(ConnectorExpressionTranslator.translate(
+                TEST_SESSION,
+                new LikePredicate(
+                        new SymbolReference("c_varchar"),
+                        new StringLiteral("%pattern\\%"),
+                        new StringLiteral("\\")),
+                createTestingTypeAnalyzer(PLANNER_CONTEXT),
+                TypeProvider.viewOf(Map.of(new Symbol("c_varchar"), VARCHAR_COLUMN.getColumnType())),
+                PLANNER_CONTEXT))
+                // Currently, LIKE with ESCAPE isn't converted to ConnectorExpression. Update the test when it gets converted.
+                .isEmpty();
     }
 }
