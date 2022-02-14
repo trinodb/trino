@@ -21,7 +21,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.io.BaseEncoding;
 import io.airlift.json.ObjectMapperProvider;
 import io.airlift.slice.Slice;
-import io.trino.plugin.base.util.ConnectorExpressionUtils;
+import io.trino.plugin.base.expression.ConnectorExpressions;
 import io.trino.plugin.elasticsearch.client.ElasticsearchClient;
 import io.trino.plugin.elasticsearch.client.IndexMetadata;
 import io.trino.plugin.elasticsearch.client.IndexMetadata.DateTimeType;
@@ -537,7 +537,7 @@ public class ElasticsearchMetadata
 
         ConnectorExpression oldExpression = constraint.getExpression();
         Map<String, String> newRegexes = new HashMap<>(handle.getRegexes());
-        List<ConnectorExpression> expressions = ConnectorExpressionUtils.extractConjuncts(constraint.getExpression());
+        List<ConnectorExpression> expressions = ConnectorExpressions.extractConjuncts(constraint.getExpression());
         List<ConnectorExpression> notHandledExpressions = new ArrayList<>();
         for (ConnectorExpression expression : expressions) {
             if (expression instanceof Call) {
@@ -561,7 +561,7 @@ public class ElasticsearchMetadata
             notHandledExpressions.add(expression);
         }
 
-        ConnectorExpression newExpression = ConnectorExpressionUtils.and(notHandledExpressions);
+        ConnectorExpression newExpression = ConnectorExpressions.and(notHandledExpressions);
         if (oldDomain.equals(newDomain) && oldExpression.equals(newExpression)) {
             return Optional.empty();
         }
