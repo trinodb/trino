@@ -15,9 +15,8 @@ package io.trino.plugin.httpquery;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.json.JsonCodec;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.eventlistener.QueryCompletedEvent;
 import io.trino.spi.eventlistener.QueryContext;
@@ -62,21 +61,25 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
+import static io.airlift.json.JsonCodec.jsonCodec;
+import static io.trino.testing.assertions.Assert.assertEquals;
 import static java.lang.String.format;
 import static java.time.Duration.ofMillis;
-import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
-public class TestHttpQueryListener
+public class TestHttpEventListener
 {
     private MockWebServer server;
 
     private final HttpEventListenerFactory factory = new HttpEventListenerFactory();
-    private final ObjectMapper objectMapper = new ObjectMapper().registerModule(new Jdk8Module()).registerModule(new JavaTimeModule());
+
+    private static JsonCodec<QueryCompletedEvent> queryCompleteEventJsonCodec = jsonCodec(QueryCompletedEvent.class);
+    private static JsonCodec<QueryCreatedEvent> queryCreateEventJsonCodec = jsonCodec(QueryCreatedEvent.class);
+    private static JsonCodec<SplitCompletedEvent> splitCompleteEventJsonCodec = jsonCodec(SplitCompletedEvent.class);
 
     private static final QueryIOMetadata queryIOMetadata;
     private static final QueryContext queryContext;
@@ -86,6 +89,10 @@ public class TestHttpQueryListener
     private static final SplitCompletedEvent splitCompleteEvent;
     private static final QueryCreatedEvent queryCreatedEvent;
     private static final QueryCompletedEvent queryCompleteEvent;
+
+    private static final String queryCreatedEventJson;
+    private static final String queryCompleteEventJson;
+    private static final String splitCompleteEventJson;
 
     static {
         queryIOMetadata = new QueryIOMetadata(Collections.emptyList(), Optional.empty());
@@ -188,6 +195,10 @@ public class TestHttpQueryListener
                 Instant.now(),
                 Instant.now(),
                 Instant.now());
+
+        queryCompleteEventJson = queryCompleteEventJsonCodec.toJson(queryCompleteEvent);
+        queryCreatedEventJson = queryCreateEventJsonCodec.toJson(queryCreatedEvent);
+        splitCompleteEventJson = splitCompleteEventJsonCodec.toJson(splitCompleteEvent);
     }
 
     @BeforeMethod
@@ -219,10 +230,12 @@ public class TestHttpQueryListener
         server.enqueue(new MockResponse()
                 .setResponseCode(200));
 
-        EventListener querylogListener = factory.create(Map.of("http-event-listener.connect-ingest-uri", server.url("/").toString()));
-        querylogListener.queryCreated(null);
-        querylogListener.queryCompleted(null);
-        querylogListener.splitCompleted(null);
+        EventListener eventListener = factory.create(Map.of(
+                "http-event-listener.connect-ingest-uri", server.url("/").toString()));
+
+        eventListener.queryCreated(null);
+        eventListener.queryCompleted(null);
+        eventListener.splitCompleted(null);
 
         assertNull(server.takeRequest(5, TimeUnit.SECONDS));
     }
@@ -231,37 +244,37 @@ public class TestHttpQueryListener
     public void testAllLoggingEnabledShouldSendCorrectEvent()
             throws Exception
     {
-        EventListener querylogListener = factory.create(Map.of(
-                "http-event-listener.log-created", "true",
+        EventListener eventListener = factory.create(Map.of(
+                "http-event-listener.connect-ingest-uri", server.url("/").toString(),
                 "http-event-listener.log-completed", "true",
-                "http-event-listener.log-split", "true",
-                "http-event-listener.connect-ingest-uri", server.url("/").toString()));
+                "http-event-listener.log-created", "true",
+                "http-event-listener.log-split", "true"));
 
         server.enqueue(new MockResponse().setResponseCode(200));
         server.enqueue(new MockResponse().setResponseCode(200));
         server.enqueue(new MockResponse().setResponseCode(200));
 
-        querylogListener.queryCreated(queryCreatedEvent);
-        checkRequest(server.takeRequest(5, TimeUnit.SECONDS), queryCreatedEvent);
+        eventListener.queryCreated(queryCreatedEvent);
+        checkRequest(server.takeRequest(5, TimeUnit.SECONDS), queryCreatedEventJson);
 
-        querylogListener.queryCompleted(queryCompleteEvent);
-        checkRequest(server.takeRequest(5, TimeUnit.SECONDS), queryCompleteEvent);
+        eventListener.queryCompleted(queryCompleteEvent);
+        checkRequest(server.takeRequest(5, TimeUnit.SECONDS), queryCompleteEventJson);
 
-        querylogListener.splitCompleted(splitCompleteEvent);
-        checkRequest(server.takeRequest(5, TimeUnit.SECONDS), splitCompleteEvent);
+        eventListener.splitCompleted(splitCompleteEvent);
+        checkRequest(server.takeRequest(5, TimeUnit.SECONDS), splitCompleteEventJson);
     }
 
     @Test
     public void testContentTypeDefaultHeaderShouldAlwaysBeSet()
             throws Exception
     {
-        EventListener querylogListener = factory.create(Map.of(
+        EventListener eventListener = factory.create(Map.of(
                 "http-event-listener.connect-ingest-uri", server.url("/").toString(),
                 "http-event-listener.log-completed", "true"));
 
         server.enqueue(new MockResponse().setResponseCode(200));
 
-        querylogListener.queryCompleted(queryCompleteEvent);
+        eventListener.queryCompleted(queryCompleteEvent);
 
         assertEquals(server.takeRequest(5, TimeUnit.SECONDS).getHeader("Content-Type"), "application/json; charset=utf-8");
     }
@@ -270,18 +283,18 @@ public class TestHttpQueryListener
     public void testHttpHeadersShouldBePresent()
             throws Exception
     {
-        EventListener querylogListener = factory.create(Map.of(
+        EventListener eventListener = factory.create(Map.of(
                 "http-event-listener.connect-ingest-uri", server.url("/").toString(),
                 "http-event-listener.log-completed", "true",
                 "http-event-listener.connect-http-headers", "Authorization: Trust Me!, Cache-Control: no-cache"));
 
         server.enqueue(new MockResponse().setResponseCode(200));
 
-        querylogListener.queryCompleted(queryCompleteEvent);
+        eventListener.queryCompleted(queryCompleteEvent);
 
         checkRequest(server.takeRequest(5, TimeUnit.SECONDS), Map.of(
                 "Authorization", "Trust Me!",
-                "Cache-Control", "no-cache"), queryCompleteEvent);
+                "Cache-Control", "no-cache"), queryCompleteEventJson);
     }
 
     @Test
@@ -291,19 +304,19 @@ public class TestHttpQueryListener
         setupServerTLSCertificate();
         server.enqueue(new MockResponse().setResponseCode(200));
 
-        EventListener querylogListener = factory.create(Map.of(
+        EventListener eventListener = factory.create(Map.of(
                 "http-event-listener.connect-ingest-uri", server.url("/").toString(),
                 "http-event-listener.log-completed", "true",
                 "http-event-listener.http-client.key-store-path", "src/test/resources/trino-httpquery-test.p12",
                 "http-event-listener.http-client.key-store-password", "testing-ssl"));
-        querylogListener.queryCompleted(queryCompleteEvent);
+        eventListener.queryCompleted(queryCompleteEvent);
 
         RecordedRequest recordedRequest = server.takeRequest(5, TimeUnit.SECONDS);
 
         assertNotNull(recordedRequest, "Handshake probably failed");
         assertEquals(recordedRequest.getTlsVersion().javaName(), "TLSv1.3");
 
-        checkRequest(recordedRequest, queryCompleteEvent);
+        checkRequest(recordedRequest, queryCompleteEventJson);
     }
 
     @Test
@@ -313,12 +326,12 @@ public class TestHttpQueryListener
         setupServerTLSCertificate();
         server.enqueue(new MockResponse().setResponseCode(200));
 
-        EventListener querylogListener = factory.create(Map.of(
+        EventListener eventListener = factory.create(Map.of(
                 "http-event-listener.connect-ingest-uri", server.url("/").toString(),
                 "http-event-listener.log-completed", "true",
                 "http-event-listener.http-client.key-store-path", "src/test/resources/trino-httpquery-test2.p12",
                 "http-event-listener.http-client.key-store-password", "testing-ssl"));
-        querylogListener.queryCompleted(queryCompleteEvent);
+        eventListener.queryCompleted(queryCompleteEvent);
 
         RecordedRequest recordedRequest = server.takeRequest(5, TimeUnit.SECONDS);
 
@@ -331,12 +344,12 @@ public class TestHttpQueryListener
     {
         server.enqueue(new MockResponse().setResponseCode(200));
 
-        EventListener querylogListener = factory.create(Map.of(
+        EventListener eventListener = factory.create(Map.of(
                 "http-event-listener.connect-ingest-uri", new URL("https", server.getHostName(), server.getPort(), "/").toString(),
                 "http-event-listener.log-completed", "true",
                 "http-event-listener.http-client.key-store-path", "src/test/resources/trino-httpquery-test.p12",
                 "http-event-listener.http-client.key-store-password", "testing-ssl"));
-        querylogListener.queryCompleted(queryCompleteEvent);
+        eventListener.queryCompleted(queryCompleteEvent);
 
         RecordedRequest recordedRequest = server.takeRequest(5, TimeUnit.SECONDS);
 
@@ -347,7 +360,7 @@ public class TestHttpQueryListener
     public void testServer500ShouldRetry()
             throws Exception
     {
-        EventListener querylogListener = factory.create(Map.of(
+        EventListener eventListener = factory.create(Map.of(
                 "http-event-listener.connect-ingest-uri", server.url("/").toString(),
                 "http-event-listener.log-completed", "true",
                 "http-event-listener.connect-retry-count", "1"));
@@ -355,87 +368,72 @@ public class TestHttpQueryListener
         server.enqueue(new MockResponse().setResponseCode(500));
         server.enqueue(new MockResponse().setResponseCode(200));
 
-        querylogListener.queryCompleted(queryCompleteEvent);
+        eventListener.queryCompleted(queryCompleteEvent);
 
-        assertNotNull(server.takeRequest(5, TimeUnit.SECONDS)); // First request that responds with 500
-        checkRequest(server.takeRequest(5, TimeUnit.SECONDS), queryCompleteEvent); // The retry that responds with 200
-    }
-
-    @Test
-    public void testServer400ShouldRetry()
-            throws Exception
-    {
-        EventListener querylogListener = factory.create(Map.of(
-                "http-event-listener.connect-ingest-uri", server.url("/").toString(),
-                "http-event-listener.log-completed", "true",
-                "http-event-listener.connect-retry-count", "1"));
-
-        server.enqueue(new MockResponse().setResponseCode(400));
-        server.enqueue(new MockResponse().setResponseCode(200));
-
-        querylogListener.queryCompleted(queryCompleteEvent);
-
-        assertNotNull(server.takeRequest(5, TimeUnit.SECONDS)); // First request, send back 400
-        checkRequest(server.takeRequest(5, TimeUnit.SECONDS), queryCompleteEvent); // The retry that responds with 200
+        assertNotNull(server.takeRequest(5, TimeUnit.SECONDS));
+        checkRequest(server.takeRequest(5, TimeUnit.SECONDS), queryCompleteEventJson);
     }
 
     @Test
     public void testServerDisconnectShouldRetry()
             throws Exception
     {
-        EventListener querylogListener = factory.create(Map.of(
+        EventListener eventListener = factory.create(Map.of(
                 "http-event-listener.connect-ingest-uri", server.url("/").toString(),
                 "http-event-listener.log-completed", "true",
-                "http-event-listener.connect-retry-count", "1"));
+                "http-event-listener.connect-retry-count", "1",
+                "http-event-listener.http-client.min-threads", "1",
+                "http-event-listener.http-client.max-threads", "4"));
 
-        server.enqueue(new MockResponse().setSocketPolicy(SocketPolicy.DISCONNECT_AT_START));
+        server.enqueue(new MockResponse().setSocketPolicy(SocketPolicy.DISCONNECT_DURING_REQUEST_BODY));
         server.enqueue(new MockResponse().setResponseCode(200));
 
-        querylogListener.queryCompleted(queryCompleteEvent);
+        eventListener.queryCompleted(queryCompleteEvent);
 
         assertNotNull(server.takeRequest(5, TimeUnit.SECONDS)); // First request, causes exception
-        checkRequest(server.takeRequest(5, TimeUnit.SECONDS), queryCompleteEvent);
+        checkRequest(server.takeRequest(5, TimeUnit.SECONDS), queryCompleteEventJson);
     }
 
     @Test
     public void testServerDelayDoesNotBlock()
             throws Exception
     {
-        EventListener querylogListener = factory.create(Map.of(
+        EventListener eventListener = factory.create(Map.of(
                 "http-event-listener.connect-ingest-uri", server.url("/").toString(),
                 "http-event-listener.log-completed", "true"));
 
         server.enqueue(new MockResponse().setResponseCode(200).setHeadersDelay(5, TimeUnit.SECONDS));
 
         long startTime = System.nanoTime();
-        querylogListener.queryCompleted(queryCompleteEvent);
+        eventListener.queryCompleted(queryCompleteEvent);
         long endTime = System.nanoTime();
 
         assertTrue(Duration.of(endTime - startTime, ChronoUnit.NANOS).compareTo(Duration.of(1, ChronoUnit.SECONDS)) < 0,
                 "Server delay is blocking main thread");
 
-        checkRequest(server.takeRequest(5, TimeUnit.SECONDS), queryCompleteEvent);
+        checkRequest(server.takeRequest(5, TimeUnit.SECONDS), queryCompleteEventJson);
     }
 
-    private void checkRequest(RecordedRequest recordedRequest, Object event)
+    private void checkRequest(RecordedRequest recordedRequest, String eventJson)
             throws JsonProcessingException
     {
-        checkRequest(recordedRequest, ImmutableMap.of(), event);
+        checkRequest(recordedRequest, ImmutableMap.of(), eventJson);
     }
 
-    private void checkRequest(RecordedRequest recordedRequest, Map<String, String> customHeaders, Object event)
+    private void checkRequest(RecordedRequest recordedRequest, Map<String, String> customHeaders, String eventJson)
             throws JsonProcessingException
     {
-        assertNotNull(recordedRequest, format("No request sent when logging is enabled for %s", event));
+        assertNotNull(recordedRequest, "No request sent when logging is enabled");
         for (String key : customHeaders.keySet()) {
-            assertNotNull(recordedRequest.getHeader(key), format("Custom header %s not present in request for %s event", key, event));
+            assertNotNull(recordedRequest.getHeader(key), format("Custom header %s not present in request", key));
             assertEquals(recordedRequest.getHeader(key), customHeaders.get(key),
-                    format("Expected value %s for header %s but got %s for %s event", customHeaders.get(key), key, recordedRequest.getHeader(key), event));
+                    format("Expected value %s for header %s but got %s", customHeaders.get(key), key, recordedRequest.getHeader(key)));
         }
         String body = recordedRequest.getBody().readUtf8();
-        assertFalse(body.isEmpty(), format("Body is empty for %s event", event));
-        String eventJson = objectMapper.writeValueAsString(event);
-        assertTrue(objectMapper.readTree(eventJson).equals(objectMapper.readTree(body)), format("Json value is wrong for event %s, expected %s but found %s", event, eventJson, body));
+        assertFalse(body.isEmpty(), "Body is empty");
+
+        ObjectMapper objectMapper = new ObjectMapper();
+        assertEquals(objectMapper.readTree(body), objectMapper.readTree(eventJson), format("Json value is wrong, expected %s but found %s", eventJson, body));
     }
 
     private void setupServerTLSCertificate()
