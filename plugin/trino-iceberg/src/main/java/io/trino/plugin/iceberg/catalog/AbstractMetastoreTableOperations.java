@@ -291,7 +291,7 @@ public abstract class AbstractMetastoreTableOperations
                 .retry(20)
                 .exponentialBackoff(100, 5000, 600000, 4.0)
                 .run(metadataLocation -> newMetadata.set(
-                        TableMetadataParser.read(this, io().newInputFile(metadataLocation))));
+                        TableMetadataParser.read(fileIo, io().newInputFile(metadataLocation))));
 
         String newUUID = newMetadata.get().uuid();
         if (currentMetadata != null) {
