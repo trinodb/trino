@@ -72,15 +72,10 @@ public final class ConnectorExpressionRewriter<Result>
             @Override
             public Optional<Result> defaultRewrite(ConnectorExpression expression)
             {
-                return rewrite(expression, this);
+                return rewrite(session, expression, assignments);
             }
         };
 
-        return rewrite(expression, context);
-    }
-
-    private Optional<Result> rewrite(ConnectorExpression expression, RewriteContext<Result> context)
-    {
         for (ConnectorExpressionRule<?, Result> rule : rules) {
             Optional<Result> rewritten = rewrite(rule, expression, context);
             if (rewritten.isPresent()) {
