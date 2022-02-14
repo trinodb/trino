@@ -47,6 +47,7 @@ import static io.airlift.concurrent.MoreFutures.addSuccessCallback;
 import static io.airlift.concurrent.MoreFutures.asVoid;
 import static io.airlift.concurrent.MoreFutures.toCompletableFuture;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
@@ -71,14 +72,19 @@ public class FileSystemExchangeSink
     private final AtomicReference<Throwable> failure = new AtomicReference<>();
     private volatile boolean closed;
 
-    public FileSystemExchangeSink(FileSystemExchangeStorage exchangeStorage, URI outputDirectory, int outputPartitionCount, Optional<SecretKey> secretKey)
+    public FileSystemExchangeSink(
+            FileSystemExchangeStorage exchangeStorage,
+            URI outputDirectory,
+            int outputPartitionCount,
+            Optional<SecretKey> secretKey,
+            int exchangeSinkBufferPoolMinSize)
     {
         this.exchangeStorage = requireNonNull(exchangeStorage, "exchangeStorage is null");
         this.outputDirectory = requireNonNull(outputDirectory, "outputDirectory is null");
         this.outputPartitionCount = outputPartitionCount;
         this.secretKey = requireNonNull(secretKey, "secretKey is null");
         // double buffering to overlap computation and I/O
-        this.bufferPool = new BufferPool(outputPartitionCount * 2, exchangeStorage.getWriteBufferSize());
+        this.bufferPool = new BufferPool(max(outputPartitionCount * 2, exchangeSinkBufferPoolMinSize), exchangeStorage.getWriteBufferSize());
     }
 
     // The future returned by {@link #isBlocked()} should only be considered as a best-effort hint.

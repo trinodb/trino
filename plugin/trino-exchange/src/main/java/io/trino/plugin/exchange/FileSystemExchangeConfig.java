@@ -15,12 +15,14 @@ package io.trino.plugin.exchange;
 
 import io.airlift.configuration.Config;
 
+import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
 public class FileSystemExchangeConfig
 {
     private String baseDirectory;
     private boolean exchangeEncryptionEnabled;
+    private int exchangeSinkBufferPoolMinSize;
 
     @NotNull
     public String getBaseDirectory()
@@ -44,6 +46,19 @@ public class FileSystemExchangeConfig
     public FileSystemExchangeConfig setExchangeEncryptionEnabled(boolean exchangeEncryptionEnabled)
     {
         this.exchangeEncryptionEnabled = exchangeEncryptionEnabled;
+        return this;
+    }
+
+    @Min(0)
+    public int getExchangeSinkBufferPoolMinSize()
+    {
+        return exchangeSinkBufferPoolMinSize;
+    }
+
+    @Config("exchange.sink-buffer-pool-min-size")
+    public FileSystemExchangeConfig setExchangeSinkBufferPoolMinSize(int exchangeSinkBufferPoolMinSize)
+    {
+        this.exchangeSinkBufferPoolMinSize = exchangeSinkBufferPoolMinSize;
         return this;
     }
 }

@@ -29,7 +29,8 @@ public class TestFileSystemExchangeConfig
     {
         assertRecordedDefaults(recordDefaults(FileSystemExchangeConfig.class)
                 .setBaseDirectory(null)
-                .setExchangeEncryptionEnabled(false));
+                .setExchangeEncryptionEnabled(false)
+                .setExchangeSinkBufferPoolMinSize(0));
     }
 
     @Test
@@ -38,11 +39,13 @@ public class TestFileSystemExchangeConfig
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("exchange.base-directory", "s3n://exchange-spooling-test/")
                 .put("exchange.encryption-enabled", "true")
+                .put("exchange.sink-buffer-pool-min-size", "10")
                 .build();
 
         FileSystemExchangeConfig expected = new FileSystemExchangeConfig()
                 .setBaseDirectory("s3n://exchange-spooling-test/")
-                .setExchangeEncryptionEnabled(true);
+                .setExchangeEncryptionEnabled(true)
+                .setExchangeSinkBufferPoolMinSize(10);
 
         assertFullMapping(properties, expected);
     }
