@@ -23,6 +23,7 @@ import javax.validation.constraints.Min;
 @DefunctConfig("allow-drop-table")
 public class JdbcMetadataConfig
 {
+    private boolean complexExpressionPushdownEnabled = true;
     /*
      * Join pushdown is disabled by default as this is the safer option.
      * Pushing down a join which substantially increases the row count vs
@@ -40,6 +41,18 @@ public class JdbcMetadataConfig
     // Use 32 as compaction threshold as it provides reasonable balance
     // between performance and pushdown capabilities
     private int domainCompactionThreshold = 32;
+
+    public boolean isComplexExpressionPushdownEnabled()
+    {
+        return complexExpressionPushdownEnabled;
+    }
+
+    @Config("complex-expression-pushdown.enabled")
+    public JdbcMetadataConfig setComplexExpressionPushdownEnabled(boolean complexExpressionPushdownEnabled)
+    {
+        this.complexExpressionPushdownEnabled = complexExpressionPushdownEnabled;
+        return this;
+    }
 
     public boolean isJoinPushdownEnabled()
     {
