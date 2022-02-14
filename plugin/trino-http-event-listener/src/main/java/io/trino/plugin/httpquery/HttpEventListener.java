@@ -13,16 +13,14 @@
  */
 package io.trino.plugin.httpquery;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.ObjectWriter;
-import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.google.common.collect.Multimaps;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.inject.Inject;
+import io.airlift.http.client.BodyGenerator;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.Request;
+import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.spi.eventlistener.EventListener;
@@ -39,6 +37,7 @@ import java.util.concurrent.TimeUnit;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static com.google.common.net.MediaType.JSON_UTF_8;
+import static io.airlift.http.client.JsonBodyGenerator.jsonBodyGenerator;
 import static io.airlift.http.client.Request.Builder.preparePost;
 import static io.airlift.http.client.StatusResponseHandler.StatusResponse;
 import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
@@ -56,7 +55,9 @@ public class HttpEventListener
 
     private final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
 
-    private final ObjectWriter objectWriter = new ObjectMapper().registerModule(new Jdk8Module()).registerModule(new JavaTimeModule()).writer();
+    private final JsonCodec<QueryCompletedEvent> queryCompletedEventJsonCodec;
+    private final JsonCodec<QueryCreatedEvent> queryCreatedEventJsonCodec;
+    private final JsonCodec<SplitCompletedEvent> splitCompletedEventJsonCodec;
 
     private final HttpClient client;
 
@@ -65,10 +66,19 @@ public class HttpEventListener
     private final URI ingestUri;
 
     @Inject
-    public HttpEventListener(HttpEventListenerConfig config, @ForHttpEventListener HttpClient httpClient)
+    public HttpEventListener(
+            JsonCodec<QueryCompletedEvent> queryCompletedEventJsonCodec,
+            JsonCodec<QueryCreatedEvent> queryCreatedEventJsonCodec,
+            JsonCodec<SplitCompletedEvent> splitCompletedEventJsonCodec,
+            HttpEventListenerConfig config,
+            @ForHttpEventListener HttpClient httpClient)
     {
         this.config = requireNonNull(config, "http event listener config is null");
         this.client = requireNonNull(httpClient, "http event listener http client is null");
+
+        this.queryCompletedEventJsonCodec = requireNonNull(queryCompletedEventJsonCodec, "queryCompletedEventJsonCodec is null");
+        this.queryCreatedEventJsonCodec = requireNonNull(queryCreatedEventJsonCodec, "queryCreatedEventJsonCodec is null");
+        this.splitCompletedEventJsonCodec = requireNonNull(splitCompletedEventJsonCodec, "splitCompletedEventJsonCodec is null");
 
         try {
             ingestUri = new URI(this.config.getIngestUri());
@@ -82,7 +92,7 @@ public class HttpEventListener
     public void queryCreated(QueryCreatedEvent queryCreatedEvent)
     {
         if (config.getLogCreated()) {
-            sendLog(queryCreatedEvent, queryCreatedEvent.getMetadata().getQueryId());
+            sendLog(jsonBodyGenerator(queryCreatedEventJsonCodec, queryCreatedEvent), queryCreatedEvent.getMetadata().getQueryId());
         }
     }
 
@@ -90,7 +100,7 @@ public class HttpEventListener
     public void queryCompleted(QueryCompletedEvent queryCompletedEvent)
     {
         if (config.getLogCompleted()) {
-            sendLog(queryCompletedEvent, queryCompletedEvent.getMetadata().getQueryId());
+            sendLog(jsonBodyGenerator(queryCompletedEventJsonCodec, queryCompletedEvent), queryCompletedEvent.getMetadata().getQueryId());
         }
     }
 
@@ -98,17 +108,17 @@ public class HttpEventListener
     public void splitCompleted(SplitCompletedEvent splitCompletedEvent)
     {
         if (config.getLogSplit()) {
-            sendLog(splitCompletedEvent, splitCompletedEvent.getQueryId());
+            sendLog(jsonBodyGenerator(splitCompletedEventJsonCodec, splitCompletedEvent), splitCompletedEvent.getQueryId());
         }
     }
 
-    private <T> void sendLog(T event, String queryId)
+    private void sendLog(BodyGenerator eventBodyGenerator, String queryId)
     {
         Request request = preparePost()
                 .addHeaders(Multimaps.forMap(config.getHttpHeaders()))
                 .addHeader(CONTENT_TYPE, JSON_UTF_8.toString())
                 .setUri(ingestUri)
-                .setBodyGenerator(out -> objectWriter.writeValue(out, event))
+                .setBodyGenerator(eventBodyGenerator)
                 .build();
 
         attemptToSend(request, 0, Duration.valueOf("0s"), queryId);
