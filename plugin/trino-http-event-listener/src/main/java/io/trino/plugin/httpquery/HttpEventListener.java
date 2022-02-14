@@ -144,12 +144,17 @@ public class HttpEventListener
                                                 result.getStatusCode(), nextDelay.roundTo(TimeUnit.SECONDS));
 
                                         attemptToSend(request, nextAttempt, nextDelay, queryId);
-                                        return;
+                                    }
+                                    else {
+                                        log.error("QueryId = \"%s\", attempt = %d/%d, URL = %s | Ingest server responded with code %d, fatal error",
+                                                queryId, attempt + 1, config.getRetryCount() + 1, request.getUri().toString(),
+                                                result.getStatusCode());
                                     }
                                 }
-
-                                log.debug("QueryId = \"%s\", attempt = %d/%d, URL = %s | Query event delivered successfully",
-                                        queryId, attempt + 1, config.getRetryCount() + 1, request.getUri().toString());
+                                else {
+                                    log.debug("QueryId = \"%s\", attempt = %d/%d, URL = %s | Query event delivered successfully",
+                                            queryId, attempt + 1, config.getRetryCount() + 1, request.getUri().toString());
+                                }
                             }
 
                             @Override
@@ -164,11 +169,11 @@ public class HttpEventListener
                                             nextDelay.roundTo(TimeUnit.SECONDS));
 
                                     attemptToSend(request, nextAttempt, nextDelay, queryId);
-                                    return;
                                 }
-
-                                log.error(t, "QueryId = \"%s\", attempt = %d/%d, URL = %s | Error sending HTTP request",
-                                        queryId, attempt + 1, config.getRetryCount() + 1, request.getUri().toString());
+                                else {
+                                    log.error(t, "QueryId = \"%s\", attempt = %d/%d, URL = %s | Error sending HTTP request",
+                                            queryId, attempt + 1, config.getRetryCount() + 1, request.getUri().toString());
+                                }
                             }
                         }, executor),
                 (long) delay.getValue(), delay.getUnit());
