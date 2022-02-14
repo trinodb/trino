@@ -13,12 +13,12 @@
  */
 package io.trino.plugin.base.aggregation;
 
-import com.google.common.collect.ImmutableList;
 import io.trino.matching.Captures;
 import io.trino.matching.Match;
 import io.trino.matching.Pattern;
 import io.trino.matching.PatternVisitor;
 import io.trino.matching.Property;
+import io.trino.plugin.base.expression.ConnectorExpressionPatterns;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Variable;
@@ -28,9 +28,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
-
-import static com.google.common.collect.ImmutableList.toImmutableList;
-import static java.util.Objects.requireNonNull;
 
 public final class AggregateFunctionPatterns
 {
@@ -85,9 +82,10 @@ public final class AggregateFunctionPatterns
         return Property.property("hasFilter", aggregateFunction -> aggregateFunction.getFilter().isPresent());
     }
 
+    @Deprecated
     public static Pattern<Variable> variable()
     {
-        return Pattern.typeOf(Variable.class);
+        return ConnectorExpressionPatterns.variable();
     }
 
     public static Pattern<List<Variable>> variables()
@@ -115,16 +113,15 @@ public final class AggregateFunctionPatterns
         };
     }
 
+    @Deprecated
     public static Property<ConnectorExpression, ?, Type> expressionType()
     {
-        return Property.property("type", ConnectorExpression::getType);
+        return ConnectorExpressionPatterns.type();
     }
 
+    @Deprecated
     public static Predicate<List<? extends ConnectorExpression>> expressionTypes(Type... types)
     {
-        List<Type> expectedTypes = ImmutableList.copyOf(requireNonNull(types, "types is null"));
-        return expressions -> expectedTypes.equals(expressions.stream()
-                .map(ConnectorExpression::getType)
-                .collect(toImmutableList()));
+        return ConnectorExpressionPatterns.expressionTypes(types);
     }
 }
