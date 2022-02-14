@@ -49,6 +49,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Stream;
 
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -99,6 +100,11 @@ public class TestPostgreSqlConnectorTest
         switch (connectorBehavior) {
             case SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY:
                 return false;
+
+            case SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN:
+                // TODO remove once super has this set to true
+                verify(!super.hasBehavior(connectorBehavior));
+                return true;
 
             case SUPPORTS_TOPN_PUSHDOWN:
             case SUPPORTS_TOPN_PUSHDOWN_WITH_VARCHAR:
@@ -693,6 +699,29 @@ public class TestPostgreSqlConnectorTest
         assertEquals(getQueryRunner().execute("SELECT * FROM char_trailing_space WHERE x = char ' test'").getRowCount(), 0);
 
         assertUpdate("DROP TABLE char_trailing_space");
+    }
+
+    @Test
+    public void testLikePredicatePushdown()
+    {
+        assertThat(query("SELECT nationkey FROM nation WHERE name LIKE '%A%'"))
+                .isFullyPushedDown();
+
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_like_predicate_pushdown",
+                "(id integer, a_varchar varchar(1))",
+                List.of(
+                        "1, 'A'",
+                        "2, 'a'",
+                        "3, 'B'",
+                        "4, 'ą'",
+                        "5, 'Ą'"))) {
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE a_varchar LIKE '%A%'"))
+                    .isFullyPushedDown();
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE a_varchar LIKE '%ą%'"))
+                    .isFullyPushedDown();
+        }
     }
 
     @Override

@@ -53,6 +53,7 @@ public final class JdbcClientStats
     private final JdbcApiStats getColumnMappings = new JdbcApiStats();
     private final JdbcApiStats toWriteMapping = new JdbcApiStats();
     private final JdbcApiStats implementAggregation = new JdbcApiStats();
+    private final JdbcApiStats convertPredicate = new JdbcApiStats();
     private final JdbcApiStats getTableScanRedirection = new JdbcApiStats();
     private final JdbcApiStats delete = new JdbcApiStats();
     private final JdbcApiStats truncateTable = new JdbcApiStats();
@@ -300,6 +301,13 @@ public final class JdbcClientStats
     public JdbcApiStats getImplementAggregation()
     {
         return implementAggregation;
+    }
+
+    @Managed
+    @Nested
+    public JdbcApiStats getConvertPredicate()
+    {
+        return convertPredicate;
     }
 
     @Managed
