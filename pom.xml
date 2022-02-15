@@ -34,6 +34,7 @@
     </scm>
 
     <properties>
+        <just.a.test>1</just.a.test>
         <air.main.basedir>${project.basedir}</air.main.basedir>
 
         <air.check.skip-spotbugs>true</air.check.skip-spotbugs>
