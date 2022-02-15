@@ -162,13 +162,13 @@ public final class IcebergQueryRunner
                 queryRunner.installPlugin(new TpchPlugin());
                 queryRunner.createCatalog("tpch", "tpch");
 
-                Path dataDir = metastoreDirectory.map(File::toPath).orElseGet(() -> queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data"));
-
                 queryRunner.installPlugin(new IcebergPlugin());
-                Map<String, String> icebergProperties = new HashMap<>();
-                icebergProperties.put("iceberg.catalog.type", "TESTING_FILE_METASTORE");
-                icebergProperties.put("hive.metastore.catalog.dir", dataDir.toString());
-                icebergProperties.putAll(this.icebergProperties.buildOrThrow());
+                Map<String, String> icebergProperties = new HashMap<>(this.icebergProperties.buildOrThrow());
+                if (!icebergProperties.containsKey("iceberg.catalog.type")) {
+                    Path dataDir = metastoreDirectory.map(File::toPath).orElseGet(() -> queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data"));
+                    icebergProperties.put("iceberg.catalog.type", "TESTING_FILE_METASTORE");
+                    icebergProperties.put("hive.metastore.catalog.dir", dataDir.toString());
+                }
 
                 queryRunner.createCatalog(ICEBERG_CATALOG, "iceberg", icebergProperties);
                 schemaInitializer.orElse(SchemaInitializer.builder().build()).accept(queryRunner);
