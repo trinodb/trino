@@ -29,9 +29,9 @@ import java.util.function.Function;
 
 import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.trino.plugin.base.util.SystemProperties.setJavaSecurityKrb5Conf;
 import static io.trino.plugin.kudu.KuduAuthenticationConfig.KuduAuthenticationType.KERBEROS;
 import static io.trino.plugin.kudu.KuduAuthenticationConfig.KuduAuthenticationType.NONE;
-import static io.trino.plugin.kudu.SystemProperties.setJavaSecurityKrb5Conf;
 import static java.util.Objects.requireNonNull;
 import static org.apache.kudu.client.KuduClient.KuduClientBuilder;
 
