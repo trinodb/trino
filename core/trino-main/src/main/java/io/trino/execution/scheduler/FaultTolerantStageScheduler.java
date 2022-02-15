@@ -34,7 +34,6 @@ import io.trino.execution.TaskState;
 import io.trino.execution.TaskStatus;
 import io.trino.execution.buffer.OutputBuffers;
 import io.trino.failuredetector.FailureDetector;
-import io.trino.metadata.InternalNode;
 import io.trino.metadata.Split;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.TrinoException;
@@ -108,7 +107,7 @@ public class FaultTolerantStageScheduler
     private ListenableFuture<Void> blocked = immediateVoidFuture();
 
     @GuardedBy("this")
-    private ListenableFuture<InternalNode> acquireNodeFuture;
+    private ListenableFuture<NodeInfo> acquireNodeFuture;
     @GuardedBy("this")
     private SettableFuture<Void> taskFinishedFuture;
 
@@ -121,7 +120,7 @@ public class FaultTolerantStageScheduler
     @GuardedBy("this")
     private final Map<TaskId, RemoteTask> runningTasks = new HashMap<>();
     @GuardedBy("this")
-    private final Map<TaskId, InternalNode> runningNodes = new HashMap<>();
+    private final Map<TaskId, NodeInfo> runningNodes = new HashMap<>();
     @GuardedBy("this")
     private final Set<Integer> allPartitions = new HashSet<>();
     @GuardedBy("this")
@@ -261,7 +260,7 @@ public class FaultTolerantStageScheduler
                 blocked = asVoid(acquireNodeFuture);
                 return;
             }
-            InternalNode node = getFutureValue(acquireNodeFuture);
+            NodeInfo node = getFutureValue(acquireNodeFuture);
             acquireNodeFuture = null;
 
             queuedPartitions.poll();
@@ -300,7 +299,7 @@ public class FaultTolerantStageScheduler
                     .build();
 
             RemoteTask task = stage.createTask(
-                    node,
+                    node.getNode(),
                     partition,
                     attemptId,
                     sinkBucketToPartitionMap,
@@ -403,7 +402,7 @@ public class FaultTolerantStageScheduler
     private void releaseAcquiredNode()
     {
         verify(!Thread.holdsLock(this));
-        ListenableFuture<InternalNode> future;
+        ListenableFuture<NodeInfo> future;
         synchronized (this) {
             future = acquireNodeFuture;
             acquireNodeFuture = null;
@@ -498,7 +497,7 @@ public class FaultTolerantStageScheduler
                     taskFinishedFuture = null;
                 }
 
-                InternalNode node = requireNonNull(runningNodes.remove(taskId), () -> "node not found for task id: " + taskId);
+                NodeInfo node = requireNonNull(runningNodes.remove(taskId), () -> "node not found for task id: " + taskId);
                 nodeAllocator.release(node);
 
                 int partitionId = taskId.getPartitionId();

@@ -14,16 +14,15 @@
 package io.trino.execution.scheduler;
 
 import com.google.common.util.concurrent.ListenableFuture;
-import io.trino.metadata.InternalNode;
 
 import java.io.Closeable;
 
 public interface NodeAllocator
         extends Closeable
 {
-    ListenableFuture<InternalNode> acquire(NodeRequirements requirements);
+    ListenableFuture<NodeInfo> acquire(NodeRequirements requirements);
 
-    void release(InternalNode node);
+    void release(NodeInfo node);
 
     @Override
     void close();
