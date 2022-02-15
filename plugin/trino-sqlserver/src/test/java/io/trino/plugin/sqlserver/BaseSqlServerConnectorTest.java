@@ -472,6 +472,18 @@ public abstract class BaseSqlServerConnectorTest
     }
 
     @Override
+    protected String errorMessageForCreateTableAsSelectNegativeDate(String date)
+    {
+        return "Failed to insert data: Conversion failed when converting date and/or time from character string.";
+    }
+
+    @Override
+    protected String errorMessageForInsertNegativeDate(String date)
+    {
+        return "Failed to insert data: Conversion failed when converting date and/or time from character string.";
+    }
+
+    @Override
     protected String errorMessageForInsertIntoNotNullColumn(String columnName)
     {
         return format("Cannot insert the value NULL into column '%s'.*", columnName);
