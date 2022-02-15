@@ -53,7 +53,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
@@ -360,13 +359,6 @@ public class ClusterMemoryManager
         return ImmutableMap.copyOf(pools);
     }
 
-    public synchronized Map<MemoryPoolId, MemoryPoolInfo> getMemoryPoolInfo()
-    {
-        ImmutableMap.Builder<MemoryPoolId, MemoryPoolInfo> builder = new ImmutableMap.Builder<>();
-        pools.forEach((poolId, memoryPool) -> builder.put(poolId, memoryPool.getInfo()));
-        return builder.buildOrThrow();
-    }
-
     private synchronized boolean isClusterOutOfMemory()
     {
         ClusterMemoryPool reservedPool = pools.get(RESERVED_POOL);
@@ -512,17 +504,6 @@ public class ClusterMemoryManager
                 }
             }
         }
-    }
-
-    public synchronized Map<String, Optional<MemoryInfo>> getWorkerMemoryInfo()
-    {
-        Map<String, Optional<MemoryInfo>> memoryInfo = new HashMap<>();
-        for (Entry<String, RemoteNodeMemory> entry : nodes.entrySet()) {
-            // workerId is of the form "node_identifier [node_host]"
-            String workerId = entry.getKey() + " [" + entry.getValue().getNode().getHost() + "]";
-            memoryInfo.put(workerId, entry.getValue().getInfo());
-        }
-        return memoryInfo;
     }
 
     @PreDestroy
