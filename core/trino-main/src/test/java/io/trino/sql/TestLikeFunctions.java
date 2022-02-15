@@ -17,12 +17,14 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.operator.scalar.AbstractTestFunctions;
 import io.trino.spi.TrinoException;
+import io.trino.spi.expression.StandardFunctions;
 import io.trino.type.JoniRegexp;
 import io.trino.type.LikeFunctions;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.type.LikeFunctions.isLikePattern;
@@ -45,6 +47,14 @@ public class TestLikeFunctions
         Slice result = Slices.allocate(source.length() + 5);
         result.setBytes(2, source);
         return result.slice(2, source.length());
+    }
+
+    @Test
+    public void testFunctionNameConstantsInSync()
+    {
+        // Test may need to be updated when this changes.
+        verify(StandardFunctions.LIKE_PATTERN_FUNCTION_NAME.getCatalogSchema().isEmpty());
+        assertEquals(StandardFunctions.LIKE_PATTERN_FUNCTION_NAME.getName(), LikeFunctions.LIKE_PATTERN_FUNCTION_NAME);
     }
 
     @Test
