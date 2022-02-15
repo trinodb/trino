@@ -26,6 +26,7 @@ import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Constant;
 import io.trino.spi.expression.FieldDereference;
 import io.trino.spi.expression.FunctionName;
+import io.trino.spi.expression.StandardFunctions;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.RowType;
@@ -62,7 +63,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.SliceUtf8.countCodePoints;
 import static io.trino.SystemSessionProperties.isComplexExpressionPushdown;
 import static io.trino.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
-import static io.trino.type.LikeFunctions.LIKE_PATTERN_FUNCTION_NAME;
 import static java.util.Objects.requireNonNull;
 
 public final class ConnectorExpressionTranslator
@@ -126,16 +126,17 @@ public final class ConnectorExpressionTranslator
             if (call.getFunctionName().getCatalogSchema().isPresent()) {
                 return Optional.empty();
             }
+
+            // TODO Support ESCAPE character
+            if (StandardFunctions.LIKE_PATTERN_FUNCTION_NAME.equals(call.getFunctionName()) && call.getArguments().size() == 2) {
+                return translateLike(call.getArguments().get(0), call.getArguments().get(1));
+            }
+
             QualifiedName name = QualifiedName.of(call.getFunctionName().getName());
             List<TypeSignature> argumentTypes = call.getArguments().stream()
                     .map(argument -> argument.getType().getTypeSignature())
                     .collect(toImmutableList());
             ResolvedFunction resolved = plannerContext.getMetadata().resolveFunction(session, name, TypeSignatureProvider.fromTypeSignatures(argumentTypes));
-
-            // TODO Support ESCAPE character
-            if (LIKE_PATTERN_FUNCTION_NAME.equals(resolved.getSignature().getName()) && call.getArguments().size() == 2) {
-                return translateLike(call.getArguments().get(0), call.getArguments().get(1));
-            }
 
             FunctionCallBuilder builder = FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
                     .setName(name);
@@ -275,7 +276,7 @@ public final class ConnectorExpressionTranslator
                 Optional<ConnectorExpression> value = process(node.getValue());
                 Optional<ConnectorExpression> pattern = process(node.getPattern());
                 if (value.isPresent() && pattern.isPresent()) {
-                    return Optional.of(new Call(typeOf(node), new FunctionName(LIKE_PATTERN_FUNCTION_NAME), List.of(value.get(), pattern.get())));
+                    return Optional.of(new Call(typeOf(node), StandardFunctions.LIKE_PATTERN_FUNCTION_NAME, List.of(value.get(), pattern.get())));
                 }
             }
             return Optional.empty();
