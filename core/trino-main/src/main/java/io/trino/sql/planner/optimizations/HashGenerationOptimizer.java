@@ -868,26 +868,7 @@ public class HashGenerationOptimizer
 
     public static Optional<Expression> getHashExpression(Session session, Metadata metadata, SymbolAllocator symbolAllocator, List<Symbol> symbols)
     {
-        if (symbols.isEmpty()) {
-            return Optional.empty();
-        }
-
-        Expression result = new GenericLiteral(StandardTypes.BIGINT, String.valueOf(INITIAL_HASH_VALUE));
-        for (Symbol symbol : symbols) {
-            Expression hashField = FunctionCallBuilder.resolve(session, metadata)
-                    .setName(QualifiedName.of(HASH_CODE))
-                    .addArgument(symbolAllocator.getTypes().get(symbol), new SymbolReference(symbol.getName()))
-                    .build();
-
-            hashField = new CoalesceExpression(hashField, new LongLiteral(String.valueOf(NULL_HASH_CODE)));
-
-            result = FunctionCallBuilder.resolve(session, metadata)
-                    .setName(QualifiedName.of("combine_hash"))
-                    .addArgument(BIGINT, result)
-                    .addArgument(BIGINT, hashField)
-                    .build();
-        }
-        return Optional.of(result);
+        return computeHash(symbols).map(hash -> hash.getHashExpression(session, metadata, symbolAllocator.getTypes()));
     }
 
     private static class HashComputation
