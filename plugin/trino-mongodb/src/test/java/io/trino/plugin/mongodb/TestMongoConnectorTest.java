@@ -16,16 +16,18 @@ package io.trino.plugin.mongodb;
 import com.google.common.collect.ImmutableMap;
 import io.trino.testing.QueryRunner;
 
+import static io.trino.plugin.mongodb.MongoQueryRunner.createMongoClient;
 import static io.trino.plugin.mongodb.MongoQueryRunner.createMongoQueryRunner;
 
-public class TestMongoDistributedQueries
-        extends BaseMongoDistributedQueries
+public class TestMongoConnectorTest
+        extends BaseMongoConnectorTest
 {
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        MongoServer server = closeAfterClass(new MongoServer());
+        server = closeAfterClass(new MongoServer());
+        client = createMongoClient(server);
         return createMongoQueryRunner(server, ImmutableMap.of(), REQUIRED_TPCH_TABLES);
     }
 }
