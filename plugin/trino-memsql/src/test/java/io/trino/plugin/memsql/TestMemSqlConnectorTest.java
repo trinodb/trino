@@ -299,12 +299,25 @@ public class TestMemSqlConnectorTest
                 .isNotFullyPushedDown(AggregationNode.class);
     }
 
+    @Override
+    public void testCreateTableAsSelectNegativeDate()
+    {
+        // TODO (https://github.com/trinodb/trino/issues/10320) MemSQL stores '0000-00-00' when inserted negative dates and it throws an exception during reading the row
+        assertThatThrownBy(super::testCreateTableAsSelectNegativeDate)
+                .hasCauseInstanceOf(RuntimeException.class)
+                .hasStackTraceContaining("JDBC_ERROR")
+                .hasStackTraceContaining("JdbcRecordCursor.getLong");
+    }
+
     @Test
     @Override
     public void testInsertNegativeDate()
     {
-        // TODO (https://github.com/trinodb/trino/issues/10208) MemSQL stores '0000-00-00' when inserted negative dates and it throws an exception during reading the row
-        assertThatThrownBy(super::testInsertNegativeDate);
+        // TODO (https://github.com/trinodb/trino/issues/10320) MemSQL stores '0000-00-00' when inserted negative dates and it throws an exception during reading the row
+        assertThatThrownBy(super::testInsertNegativeDate)
+                .hasCauseInstanceOf(RuntimeException.class)
+                .hasStackTraceContaining("JDBC_ERROR")
+                .hasStackTraceContaining("JdbcRecordCursor.getLong");
     }
 
     /**

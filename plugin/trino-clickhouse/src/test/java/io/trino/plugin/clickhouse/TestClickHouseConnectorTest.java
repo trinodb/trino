@@ -533,14 +533,16 @@ public class TestClickHouseConnectorTest
         }
     }
 
-    @Test
     @Override
-    public void testInsertNegativeDate()
+    protected String errorMessageForCreateTableAsSelectNegativeDate(String date)
     {
-        // Override because the connector throws a different error message in the super class
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "insert_date", "(dt DATE)")) {
-            assertQueryFails(format("INSERT INTO %s VALUES (DATE '-2016-12-07')", table.getName()), "Date must be between 1970-01-01 and 2106-02-07 in ClickHouse: -2016-12-07");
-        }
+        return "Date must be between 1970-01-01 and 2106-02-07 in ClickHouse: " + date;
+    }
+
+    @Override
+    protected String errorMessageForInsertNegativeDate(String date)
+    {
+        return "Date must be between 1970-01-01 and 2106-02-07 in ClickHouse: " + date;
     }
 
     @Test
