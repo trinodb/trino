@@ -682,6 +682,11 @@ features:
 * :ref:`sql-security-operations`, see also :ref:`hive-sql-standard-based-authorization`
 * :ref:`sql-transactions`
 
+Some :ref:`sql-data-management` statements may be affected by the
+Hive catalog's authorization check policy. In the default ``legacy`` policy,
+some statements are disabled by default. See :doc:`hive-security` for more
+information.
+
 Refer to :doc:`the migration guide </appendix/from-hive>` for practical advice on migrating from Hive to Trino.
 
 .. _hive-alter-table-execute:
