@@ -19,12 +19,15 @@ import com.mongodb.DBRef;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
 import io.trino.sql.planner.plan.LimitNode;
-import io.trino.testing.AbstractTestIntegrationSmokeTest;
+import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.TestingConnectorBehavior;
+import io.trino.testing.sql.TestTable;
 import org.bson.Document;
 import org.bson.types.ObjectId;
+import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -41,14 +44,14 @@ import static io.trino.tpch.TpchTable.REGION;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 
 @Test(singleThreaded = true)
 public class TestBaseMongoConnectorTest
-        // TODO extend BaseConnectorTest
-        extends AbstractTestIntegrationSmokeTest
+        extends BaseConnectorTest
 {
     private MongoServer server;
     private MongoClient client;
@@ -67,6 +70,53 @@ public class TestBaseMongoConnectorTest
     {
         server.close();
         client.close();
+    }
+
+    @Override
+    protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
+    {
+        switch (connectorBehavior) {
+            case SUPPORTS_CREATE_SCHEMA:
+            case SUPPORTS_NOT_NULL_CONSTRAINT:
+            case SUPPORTS_RENAME_TABLE:
+            case SUPPORTS_RENAME_COLUMN:
+            case SUPPORTS_COMMENT_ON_TABLE:
+            case SUPPORTS_COMMENT_ON_COLUMN:
+                return false;
+            default:
+                return super.hasBehavior(connectorBehavior);
+        }
+    }
+
+    @Override
+    protected TestTable createTableWithDefaultColumns()
+    {
+        throw new SkipException("MongoDB connector does not support column default values");
+    }
+
+    @Test(dataProvider = "testColumnNameDataProvider")
+    @Override
+    public void testColumnName(String columnName)
+    {
+        if (columnName.equals("a.dot")) {
+            assertThatThrownBy(() -> super.testColumnName(columnName))
+                    .isInstanceOf(RuntimeException.class)
+                    .hasMessage("Column name must not contain '$' or '.' for INSERT: " + columnName);
+            throw new SkipException("Insert would fail");
+        }
+
+        super.testColumnName(columnName);
+    }
+
+    @Test
+    @Override
+    public void testSortItemsReflectedInExplain()
+    {
+        // The format of the string representation of what gets shown in the table scan is connector-specific
+        // and there's no requirement that the conform to a specific shape or contain certain keywords.
+        assertExplain(
+                "EXPLAIN SELECT name FROM nation ORDER BY nationkey DESC NULLS LAST LIMIT 5",
+                "TopNPartial\\[5 by \\(nationkey DESC");
     }
 
     @Test
