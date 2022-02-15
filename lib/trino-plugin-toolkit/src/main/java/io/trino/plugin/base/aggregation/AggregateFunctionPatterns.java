@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.base.expression;
+package io.trino.plugin.base.aggregation;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.matching.Captures;
