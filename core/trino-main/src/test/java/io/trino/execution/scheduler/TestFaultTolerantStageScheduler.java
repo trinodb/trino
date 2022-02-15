@@ -361,8 +361,8 @@ public class TestFaultTolerantStageScheduler
             // waiting on node acquisition
             assertBlocked(blocked);
 
-            ListenableFuture<InternalNode> acquireNode1 = nodeAllocator.acquire(new NodeRequirements(Optional.of(CATALOG), ImmutableSet.of()));
-            ListenableFuture<InternalNode> acquireNode2 = nodeAllocator.acquire(new NodeRequirements(Optional.of(CATALOG), ImmutableSet.of()));
+            ListenableFuture<NodeInfo> acquireNode1 = nodeAllocator.acquire(new NodeRequirements(Optional.of(CATALOG), ImmutableSet.of()));
+            ListenableFuture<NodeInfo> acquireNode2 = nodeAllocator.acquire(new NodeRequirements(Optional.of(CATALOG), ImmutableSet.of()));
 
             remoteTaskFactory.getTasks().get(getTaskId(0, 0)).fail(new RuntimeException("some failure"));
 
@@ -469,8 +469,8 @@ public class TestFaultTolerantStageScheduler
             // waiting on node acquisition
             assertBlocked(blocked);
 
-            ListenableFuture<InternalNode> acquireNode1 = nodeAllocator.acquire(new NodeRequirements(Optional.of(CATALOG), ImmutableSet.of()));
-            ListenableFuture<InternalNode> acquireNode2 = nodeAllocator.acquire(new NodeRequirements(Optional.of(CATALOG), ImmutableSet.of()));
+            ListenableFuture<NodeInfo> acquireNode1 = nodeAllocator.acquire(new NodeRequirements(Optional.of(CATALOG), ImmutableSet.of()));
+            ListenableFuture<NodeInfo> acquireNode2 = nodeAllocator.acquire(new NodeRequirements(Optional.of(CATALOG), ImmutableSet.of()));
 
             if (abort) {
                 scheduler.abort();
