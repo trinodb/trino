@@ -40,7 +40,7 @@ Use :white_check_mark: or (x) to signal selection.
 ( ) No release notes entries required.
 ( ) Release notes entries required with the following suggested text:
 
-```
+```markdown
 # Section
 * Fix some things. ({issue}`5678`)
 ```
