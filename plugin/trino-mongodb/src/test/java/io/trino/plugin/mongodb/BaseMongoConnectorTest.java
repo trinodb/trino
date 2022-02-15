@@ -22,7 +22,6 @@ import io.trino.sql.planner.plan.LimitNode;
 import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
-import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
 import org.bson.Document;
@@ -35,12 +34,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 
-import static io.trino.plugin.mongodb.MongoQueryRunner.createMongoClient;
-import static io.trino.plugin.mongodb.MongoQueryRunner.createMongoQueryRunner;
-import static io.trino.tpch.TpchTable.CUSTOMER;
-import static io.trino.tpch.TpchTable.NATION;
-import static io.trino.tpch.TpchTable.ORDERS;
-import static io.trino.tpch.TpchTable.REGION;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -49,21 +42,11 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 
-@Test(singleThreaded = true)
-public class TestBaseMongoConnectorTest
+public abstract class BaseMongoConnectorTest
         extends BaseConnectorTest
 {
-    private MongoServer server;
-    private MongoClient client;
-
-    @Override
-    protected QueryRunner createQueryRunner()
-            throws Exception
-    {
-        this.server = new MongoServer();
-        this.client = createMongoClient(server);
-        return createMongoQueryRunner(server, CUSTOMER, NATION, ORDERS, REGION);
-    }
+    protected MongoServer server;
+    protected MongoClient client;
 
     @AfterClass(alwaysRun = true)
     public final void destroy()
