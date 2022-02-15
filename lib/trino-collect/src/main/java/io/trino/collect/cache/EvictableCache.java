@@ -20,6 +20,7 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.CacheStats;
 import com.google.common.cache.LoadingCache;
+import com.google.common.cache.RemovalCause;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableList;
@@ -73,7 +74,9 @@ class EvictableCache<K, V>
                         .<Token<K>, V>removalListener(removal -> {
                             Token<K> token = removal.getKey();
                             verify(token != null, "token is null");
-                            tokens.remove(token.getKey(), token);
+                            if (removal.getCause() != RemovalCause.REPLACED) {
+                                tokens.remove(token.getKey(), token);
+                            }
                         }),
                 new TokenCacheLoader<>(cacheLoader));
     }
