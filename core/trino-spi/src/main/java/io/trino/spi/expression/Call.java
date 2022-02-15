@@ -24,6 +24,8 @@ import static java.util.Objects.requireNonNull;
 public final class Call
         extends ConnectorExpression
 {
+    public static final String LIKE_PATTERN_FUNCTION_NAME = "$like_pattern"; // TODO should this be FunctionName?
+
     private final FunctionName functionName;
     private final List<ConnectorExpression> arguments;
 

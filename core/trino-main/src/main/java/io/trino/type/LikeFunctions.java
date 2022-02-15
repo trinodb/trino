@@ -22,6 +22,7 @@ import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.spi.TrinoException;
+import io.trino.spi.expression.Call;
 import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarFunction;
@@ -43,7 +44,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 public final class LikeFunctions
 {
-    public static final String LIKE_PATTERN_FUNCTION_NAME = "$like_pattern";
+    public static final String LIKE_PATTERN_FUNCTION_NAME = Call.LIKE_PATTERN_FUNCTION_NAME;
     private static final Syntax SYNTAX = new Syntax(
             OP_DOT_ANYCHAR | OP_ASTERISK_ZERO_INF | OP_LINE_ANCHOR,
             0,

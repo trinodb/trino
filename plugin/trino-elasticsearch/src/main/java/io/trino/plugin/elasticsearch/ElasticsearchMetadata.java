@@ -88,6 +88,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.plugin.elasticsearch.ElasticsearchTableHandle.Type.QUERY;
 import static io.trino.plugin.elasticsearch.ElasticsearchTableHandle.Type.SCAN;
 import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
+import static io.trino.spi.expression.Call.LIKE_PATTERN_FUNCTION_NAME;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -544,7 +545,7 @@ public class ElasticsearchMetadata
             if (expression instanceof Call) {
                 Call call = (Call) expression;
                 // TODO Support ESCAPE character when it's pushed down by the engine
-                if (new FunctionName("$like_pattern").equals(call.getFunctionName()) && call.getArguments().size() == 2 &&
+                if (new FunctionName(LIKE_PATTERN_FUNCTION_NAME).equals(call.getFunctionName()) && call.getArguments().size() == 2 &&
                         call.getArguments().get(0) instanceof Variable && call.getArguments().get(1) instanceof Constant) {
                     String columnName = ((Variable) call.getArguments().get(0)).getName();
                     Object pattern = ((Constant) call.getArguments().get(1)).getValue();
