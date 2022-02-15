@@ -28,7 +28,6 @@ import io.trino.SystemSessionProperties;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.spi.function.OperatorType;
-import io.trino.spi.type.StandardTypes;
 import io.trino.sql.planner.FunctionCallBuilder;
 import io.trino.sql.planner.Partitioning.ArgumentBinding;
 import io.trino.sql.planner.PartitioningScheme;
@@ -60,8 +59,6 @@ import io.trino.sql.planner.plan.UnnestNode;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.tree.CoalesceExpression;
 import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.FunctionCall;
-import io.trino.sql.tree.GenericLiteral;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.SymbolReference;
@@ -95,7 +92,6 @@ import static java.util.Objects.requireNonNull;
 public class HashGenerationOptimizer
         implements PlanOptimizer
 {
-    public static final int INITIAL_HASH_VALUE = 0;
     private static final String HASH_CODE = mangleOperatorName(OperatorType.HASH_CODE);
 
     private final Metadata metadata;
@@ -907,25 +903,31 @@ public class HashGenerationOptimizer
 
         private Expression getHashExpression(Session session, Metadata metadata, TypeProvider types)
         {
-            Expression hashExpression = new GenericLiteral(StandardTypes.BIGINT, Integer.toString(INITIAL_HASH_VALUE));
-            for (Symbol field : fields) {
-                hashExpression = getHashFunctionCall(session, hashExpression, field, metadata, types);
+            Expression hashExpression = hashCodeExpression(session, metadata, types, fields.get(0));
+            for (int i = 1; i < fields.size(); i++) {
+                hashExpression = getHashFunctionCall(session, hashExpression, fields.get(i), metadata, types);
             }
             return hashExpression;
         }
 
         private static Expression getHashFunctionCall(Session session, Expression previousHashValue, Symbol symbol, Metadata metadata, TypeProvider types)
         {
-            FunctionCall functionCall = FunctionCallBuilder.resolve(session, metadata)
-                    .setName(QualifiedName.of(HASH_CODE))
-                    .addArgument(types.get(symbol), symbol.toSymbolReference())
-                    .build();
+            Expression functionCall = hashCodeExpression(session, metadata, types, symbol);
 
             return FunctionCallBuilder.resolve(session, metadata)
                     .setName(QualifiedName.of("combine_hash"))
                     .addArgument(BIGINT, previousHashValue)
-                    .addArgument(BIGINT, orNullHashCode(functionCall))
+                    .addArgument(BIGINT, functionCall)
                     .build();
+        }
+
+        private static Expression hashCodeExpression(Session session, Metadata metadata, TypeProvider types, Symbol symbol)
+        {
+            return orNullHashCode(
+                    FunctionCallBuilder.resolve(session, metadata)
+                            .setName(QualifiedName.of(HASH_CODE))
+                            .addArgument(types.get(symbol), symbol.toSymbolReference())
+                            .build());
         }
 
         private static Expression orNullHashCode(Expression expression)

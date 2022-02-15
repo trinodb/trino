@@ -43,6 +43,7 @@ import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.trino.SystemSessionProperties.SPILL_ENABLED;
 import static io.trino.SystemSessionProperties.TASK_CONCURRENCY;
+import static io.trino.sql.ExpressionTestUtils.orNullHashExpression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.any;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyNot;
@@ -356,7 +357,7 @@ public class TestAddExchangesPlans
                                                                         ImmutableMap.of(
                                                                                 "regionkey", expression("regionkey"),
                                                                                 "nationkey", expression("nationkey"),
-                                                                                "hash", expression("combine_hash(bigint '0', COALESCE(\"$operator$hash_code\"(regionkey), 0))")),
+                                                                                "hash", orNullHashExpression("regionkey")),
                                                                         any(
                                                                                 tableScan("nation", ImmutableMap.of("regionkey", "regionkey", "nationkey", "nationkey")))))))))));
 
@@ -386,7 +387,7 @@ public class TestAddExchangesPlans
                                                                         ImmutableMap.of(
                                                                                 "a", expression("a"),
                                                                                 "b", expression("b"),
-                                                                                "hash", expression("combine_hash(bigint '0', COALESCE(\"$operator$hash_code\"(b), 0))")),
+                                                                                "hash", orNullHashExpression("b")),
                                                                         values("a", "b")))))))));
 
         // * source of Projection is single stream (topN)

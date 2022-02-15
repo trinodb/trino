@@ -39,7 +39,6 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.operator.aggregation.builder.InMemoryHashAggregationBuilder.toTypes;
-import static io.trino.sql.planner.optimizations.HashGenerationOptimizer.INITIAL_HASH_VALUE;
 import static io.trino.type.TypeUtils.NULL_HASH_CODE;
 import static java.util.Objects.requireNonNull;
 
@@ -559,14 +558,9 @@ public class HashAggregationOperator
     private static long calculateDefaultOutputHash(List<Type> groupByChannels, int groupIdChannel, int groupId)
     {
         // Default output has NULLs on all columns except of groupIdChannel
-        long result = INITIAL_HASH_VALUE;
-        for (int channel = 0; channel < groupByChannels.size(); channel++) {
-            if (channel != groupIdChannel) {
-                result = CombineHashFunction.getHash(result, NULL_HASH_CODE);
-            }
-            else {
-                result = CombineHashFunction.getHash(result, BigintType.hash(groupId));
-            }
+        long result = BigintType.hash(groupId);
+        for (int channel = groupIdChannel + 1; channel < groupByChannels.size(); channel++) {
+            result = CombineHashFunction.getHash(result, NULL_HASH_CODE);
         }
         return result;
     }

@@ -96,6 +96,8 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.sql.ExpressionTestUtils.combinedHash;
+import static io.trino.sql.ExpressionTestUtils.orNullHashExpression;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.planner.LogicalPlanner.Stage.CREATED;
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED;
@@ -247,6 +249,30 @@ public class TestLogicalPlanner
     }
 
     @Test
+    public void testHashCodeProjection()
+    {
+        // single column hash
+        assertDistributedPlan("SELECT orderstatus, sum(totalprice) FROM orders GROUP BY orderstatus",
+                anyTree(
+                        node(AggregationNode.class,
+                                anyTree(project(
+                                        ImmutableMap.of("hash", orNullHashExpression("orderstatus")),
+                                        tableScan(
+                                                "orders",
+                                                ImmutableMap.of("totalprice", "totalprice", "orderstatus", "orderstatus")))))));
+
+        // multiple column hash
+        assertDistributedPlan("SELECT orderstatus, shippriority, sum(totalprice) FROM orders GROUP BY orderstatus, shippriority",
+                anyTree(
+                        node(AggregationNode.class,
+                                anyTree(project(
+                                        ImmutableMap.of("hash", combinedHash("orderstatus", "shippriority")),
+                                        tableScan(
+                                                "orders",
+                                                ImmutableMap.of("totalprice", "totalprice", "orderstatus", "orderstatus", "shippriority", "shippriority")))))));
+    }
+
+    @Test
     public void testAllFieldsDereferenceOnSubquery()
     {
         assertPlan("SELECT (SELECT (min(regionkey), max(name)) FROM nation).*",
@@ -373,7 +399,7 @@ public class TestLogicalPlanner
                                 ImmutableList.of("orderstatus"),
                                 "hash",
                                 anyTree(
-                                        project(ImmutableMap.of("hash", expression("combine_hash(bigint '0', coalesce(\"$operator$hash_code\"(orderstatus), 0))")),
+                                        project(ImmutableMap.of("hash", orNullHashExpression("orderstatus")),
                                                 tableScan("orders", ImmutableMap.of("orderstatus", "orderstatus")))))));
     }
 
@@ -1525,10 +1551,10 @@ public class TestLogicalPlanner
                         project(
                                 node(AggregationNode.class,
                                         exchange(LOCAL, REPARTITION,
-                                                project(ImmutableMap.of("hash", expression("combine_hash(bigint '0', coalesce(\"$operator$hash_code\"(nationkey), 0))")),
+                                                project(ImmutableMap.of("hash", orNullHashExpression("nationkey")),
                                                         node(AggregationNode.class,
                                                                 tableScan("customer", ImmutableMap.of("nationkey", "nationkey")))),
-                                                project(ImmutableMap.of("hash_1", expression("combine_hash(bigint '0', coalesce(\"$operator$hash_code\"(nationkey_6), 0))")),
+                                                project(ImmutableMap.of("hash_1", orNullHashExpression("nationkey_6")),
                                                         node(AggregationNode.class,
                                                                 tableScan("customer", ImmutableMap.of("nationkey_6", "nationkey")))))))));
     }
@@ -1547,8 +1573,8 @@ public class TestLogicalPlanner
                                         node(MarkDistinctNode.class,
                                                 anyTree(
                                                         project(ImmutableMap.of(
-                                                                "hash_1", expression("combine_hash(bigint '0', coalesce(\"$operator$hash_code\"(suppkey), 0))"),
-                                                                "hash_2", expression("combine_hash(bigint '0', coalesce(\"$operator$hash_code\"(partkey), 0))")),
+                                                                        "hash_1", orNullHashExpression("suppkey"),
+                                                                        "hash_2", orNullHashExpression("partkey")),
                                                                 node(MarkDistinctNode.class,
                                                                         tableScan("lineitem", ImmutableMap.of("suppkey", "suppkey", "partkey", "partkey"))))))))));
     }
@@ -1565,7 +1591,7 @@ public class TestLogicalPlanner
                                                 node(MarkDistinctNode.class,
                                                         exchange(LOCAL, REPARTITION,
                                                                 exchange(REMOTE, REPARTITION,
-                                                                        project(ImmutableMap.of("hash_custkey", expression("combine_hash(bigint '0', COALESCE(\"$operator$hash_code\"(custkey), 0))"), "hash_nationkey", expression("combine_hash(bigint '0', COALESCE(\"$operator$hash_code\"(nationkey), 0))")),
+                                                                        project(ImmutableMap.of("hash_custkey", orNullHashExpression("custkey"), "hash_nationkey", orNullHashExpression("nationkey")),
                                                                                 tableScan("customer", ImmutableMap.of("custkey", "custkey", "nationkey", "nationkey")))),
                                                                 exchange(REMOTE, REPARTITION,
                                                                         node(ProjectNode.class,

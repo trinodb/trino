@@ -25,6 +25,7 @@ import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.DesugarArrayConstructorRewriter;
 import io.trino.sql.planner.DesugarLikeRewriter;
 import io.trino.sql.planner.TypeProvider;
+import io.trino.sql.planner.assertions.ExpressionMatcher;
 import io.trino.sql.planner.assertions.ExpressionVerifier;
 import io.trino.sql.planner.assertions.SymbolAliases;
 import io.trino.sql.planner.iterative.rule.CanonicalizeExpressionRewriter;
@@ -46,7 +47,9 @@ import static io.trino.sql.ParsingUtil.createParsingOptions;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.transaction.TransactionBuilder.transaction;
+import static java.lang.String.format;
 import static org.testng.internal.EclipseInterface.ASSERT_LEFT;
 import static org.testng.internal.EclipseInterface.ASSERT_MIDDLE;
 import static org.testng.internal.EclipseInterface.ASSERT_RIGHT;
@@ -186,5 +189,15 @@ public final class ExpressionTestUtils
                 .execute(session, transactionSession -> {
                     return createTestingTypeAnalyzer(plannerContext).getTypes(transactionSession, typeProvider, expression);
                 });
+    }
+
+    public static ExpressionMatcher combinedHash(String leftColumn, String rightColumn)
+    {
+        return expression(format("combine_hash(%s, %s) ", orNullHashExpression(leftColumn), orNullHashExpression(rightColumn)));
+    }
+
+    public static ExpressionMatcher orNullHashExpression(String column)
+    {
+        return expression("coalesce(\"$operator$hash_code\"(" + column + "), 0)");
     }
 }
