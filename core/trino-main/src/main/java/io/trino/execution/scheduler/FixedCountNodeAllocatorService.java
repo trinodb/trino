@@ -47,6 +47,7 @@ import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.trino.execution.scheduler.NodeInfo.unlimitedMemoryNode;
 import static io.trino.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
@@ -147,19 +148,19 @@ public class FixedCountNodeAllocatorService
         }
 
         @Override
-        public synchronized ListenableFuture<InternalNode> acquire(NodeRequirements requirements)
+        public synchronized ListenableFuture<NodeInfo> acquire(NodeRequirements requirements)
         {
             try {
                 Optional<InternalNode> node = tryAcquireNode(requirements);
                 if (node.isPresent()) {
-                    return immediateFuture(node.get());
+                    return immediateFuture(unlimitedMemoryNode(node.get()));
                 }
             }
             catch (RuntimeException e) {
                 return immediateFailedFuture(e);
             }
 
-            SettableFuture<InternalNode> future = SettableFuture.create();
+            SettableFuture<NodeInfo> future = SettableFuture.create();
             PendingAcquire pendingAcquire = new PendingAcquire(requirements, future);
             pendingAcquires.add(pendingAcquire);
 
@@ -167,9 +168,9 @@ public class FixedCountNodeAllocatorService
         }
 
         @Override
-        public void release(InternalNode node)
+        public void release(NodeInfo node)
         {
-            releaseNodeInternal(node);
+            releaseNodeInternal(node.getNode());
             processPendingAcquires();
         }
 
@@ -243,15 +244,15 @@ public class FixedCountNodeAllocatorService
 
             // set futures outside of critical section
             assignedNodes.forEach((pendingAcquire, node) -> {
-                SettableFuture<InternalNode> future = pendingAcquire.getFuture();
-                future.set(node);
+                SettableFuture<NodeInfo> future = pendingAcquire.getFuture();
+                future.set(unlimitedMemoryNode(node));
                 if (future.isCancelled()) {
                     releaseNodeInternal(node);
                 }
             });
 
             failures.forEach((pendingAcquire, failure) -> {
-                SettableFuture<InternalNode> future = pendingAcquire.getFuture();
+                SettableFuture<NodeInfo> future = pendingAcquire.getFuture();
                 future.setException(failure);
             });
         }
@@ -266,9 +267,9 @@ public class FixedCountNodeAllocatorService
     private static class PendingAcquire
     {
         private final NodeRequirements nodeRequirements;
-        private final SettableFuture<InternalNode> future;
+        private final SettableFuture<NodeInfo> future;
 
-        private PendingAcquire(NodeRequirements nodeRequirements, SettableFuture<InternalNode> future)
+        private PendingAcquire(NodeRequirements nodeRequirements, SettableFuture<NodeInfo> future)
         {
             this.nodeRequirements = requireNonNull(nodeRequirements, "nodeRequirements is null");
             this.future = requireNonNull(future, "future is null");
@@ -279,7 +280,7 @@ public class FixedCountNodeAllocatorService
             return nodeRequirements;
         }
 
-        public SettableFuture<InternalNode> getFuture()
+        public SettableFuture<NodeInfo> getFuture()
         {
             return future;
         }
