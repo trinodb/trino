@@ -20,6 +20,7 @@ import io.trino.spi.predicate.TupleDomain;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.StringJoiner;
 import java.util.function.Predicate;
 
 import static io.trino.spi.expression.Constant.TRUE;
@@ -133,5 +134,16 @@ public class Constraint
     public Optional<Set<ColumnHandle>> getPredicateColumns()
     {
         return predicateColumns;
+    }
+
+    @Override
+    public String toString()
+    {
+        StringJoiner stringJoiner = new StringJoiner(", ", Constraint.class.getSimpleName() + "[", "]");
+        stringJoiner.add("summary=" + summary);
+        stringJoiner.add("expression=" + expression);
+        predicate.ifPresent(predicate -> stringJoiner.add("predicate=" + predicate));
+        predicateColumns.ifPresent(predicateColumns -> stringJoiner.add("predicateColumns=" + predicateColumns));
+        return stringJoiner.toString();
     }
 }
