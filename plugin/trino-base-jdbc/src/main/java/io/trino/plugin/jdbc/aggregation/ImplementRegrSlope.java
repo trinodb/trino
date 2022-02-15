@@ -11,12 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.jdbc.expression;
+package io.trino.plugin.jdbc.aggregation;
 
 import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
-import io.trino.plugin.base.expression.AggregateFunctionRule;
+import io.trino.plugin.base.aggregation.AggregateFunctionRule;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
 import io.trino.spi.connector.AggregateFunction;
@@ -27,16 +27,16 @@ import java.util.Optional;
 
 import static com.google.common.base.Verify.verify;
 import static io.trino.matching.Capture.newCapture;
-import static io.trino.plugin.base.expression.AggregateFunctionPatterns.basicAggregation;
-import static io.trino.plugin.base.expression.AggregateFunctionPatterns.expressionTypes;
-import static io.trino.plugin.base.expression.AggregateFunctionPatterns.functionName;
-import static io.trino.plugin.base.expression.AggregateFunctionPatterns.inputs;
-import static io.trino.plugin.base.expression.AggregateFunctionPatterns.variables;
+import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.basicAggregation;
+import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.expressionTypes;
+import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.functionName;
+import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.inputs;
+import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.variables;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
 import static java.lang.String.format;
 
-public class ImplementRegrIntercept
+public class ImplementRegrSlope
         implements AggregateFunctionRule<JdbcExpression>
 {
     private static final Capture<List<Variable>> INPUTS = newCapture();
@@ -45,7 +45,7 @@ public class ImplementRegrIntercept
     public Pattern<AggregateFunction> getPattern()
     {
         return basicAggregation()
-                .with(functionName().equalTo("regr_intercept"))
+                .with(functionName().equalTo("regr_slope"))
                 .with(inputs().matching(
                         variables()
                                 .matching(expressionTypes(REAL, REAL).or(expressionTypes(DOUBLE, DOUBLE)))
@@ -63,7 +63,7 @@ public class ImplementRegrIntercept
         verify(aggregateFunction.getOutputType().equals(columnHandle1.getColumnType()));
 
         return Optional.of(new JdbcExpression(
-                format("regr_intercept(%s, %s)", context.getIdentifierQuote().apply(columnHandle1.getColumnName()), context.getIdentifierQuote().apply(columnHandle2.getColumnName())),
+                format("regr_slope(%s, %s)", context.getIdentifierQuote().apply(columnHandle1.getColumnName()), context.getIdentifierQuote().apply(columnHandle2.getColumnName())),
                 columnHandle1.getJdbcTypeHandle()));
     }
 }

@@ -11,51 +11,43 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.jdbc.expression;
+package io.trino.plugin.jdbc.aggregation;
 
 import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
-import io.trino.plugin.base.expression.AggregateFunctionRule;
+import io.trino.plugin.base.aggregation.AggregateFunctionRule;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.expression.Variable;
-import io.trino.spi.type.CharType;
-import io.trino.spi.type.VarcharType;
+import io.trino.spi.type.DoubleType;
 
 import java.util.Optional;
-import java.util.Set;
 
 import static com.google.common.base.Verify.verify;
 import static io.trino.matching.Capture.newCapture;
-import static io.trino.plugin.base.expression.AggregateFunctionPatterns.basicAggregation;
-import static io.trino.plugin.base.expression.AggregateFunctionPatterns.functionName;
-import static io.trino.plugin.base.expression.AggregateFunctionPatterns.singleInput;
-import static io.trino.plugin.base.expression.AggregateFunctionPatterns.variable;
+import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.basicAggregation;
+import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.expressionType;
+import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.functionName;
+import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.singleInput;
+import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.variable;
 import static java.lang.String.format;
 
-/**
- * Implements {@code min(x)}, {@code max(x)}.
- */
-public class ImplementMinMax
+public class ImplementVarianceSamp
         implements AggregateFunctionRule<JdbcExpression>
 {
     private static final Capture<Variable> INPUT = newCapture();
-
-    private final boolean isRemoteCollationSensitive;
-
-    public ImplementMinMax(boolean isRemoteCollationSensitive)
-    {
-        this.isRemoteCollationSensitive = isRemoteCollationSensitive;
-    }
 
     @Override
     public Pattern<AggregateFunction> getPattern()
     {
         return basicAggregation()
-                .with(functionName().matching(Set.of("min", "max")::contains))
-                .with(singleInput().matching(variable().capturedAs(INPUT)));
+                .with(functionName().equalTo("variance"))
+                .with(singleInput().matching(
+                        variable()
+                                .with(expressionType().matching(DoubleType.class::isInstance))
+                                .capturedAs(INPUT)));
     }
 
     @Override
@@ -63,15 +55,10 @@ public class ImplementMinMax
     {
         Variable input = captures.get(INPUT);
         JdbcColumnHandle columnHandle = (JdbcColumnHandle) context.getAssignment(input.getName());
-        verify(columnHandle.getColumnType().equals(aggregateFunction.getOutputType()));
-
-        // Remote database is case insensitive or sorts values differently from Trino
-        if (!isRemoteCollationSensitive && (columnHandle.getColumnType() instanceof CharType || columnHandle.getColumnType() instanceof VarcharType)) {
-            return Optional.empty();
-        }
+        verify(aggregateFunction.getOutputType() == columnHandle.getColumnType());
 
         return Optional.of(new JdbcExpression(
-                format("%s(%s)", aggregateFunction.getFunctionName(), context.getIdentifierQuote().apply(columnHandle.getColumnName())),
+                format("var_samp(%s)", context.getIdentifierQuote().apply(columnHandle.getColumnName())),
                 columnHandle.getJdbcTypeHandle()));
     }
 }
