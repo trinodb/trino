@@ -15,8 +15,8 @@ package io.trino.plugin.jdbc;
 
 import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
-import io.trino.plugin.base.expression.AggregateFunctionRewriter;
-import io.trino.plugin.jdbc.expression.ImplementCountAll;
+import io.trino.plugin.base.aggregation.AggregateFunctionRewriter;
+import io.trino.plugin.jdbc.aggregation.ImplementCountAll;
 import io.trino.plugin.jdbc.mapping.DefaultIdentifierMapping;
 import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.spi.TrinoException;

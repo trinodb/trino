@@ -11,33 +11,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.jdbc.expression;
+package io.trino.plugin.jdbc.aggregation;
 
 import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
-import io.trino.plugin.base.expression.AggregateFunctionRule;
+import io.trino.plugin.base.aggregation.AggregateFunctionRule;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.expression.Variable;
-import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.DoubleType;
 
 import java.util.Optional;
 
 import static com.google.common.base.Verify.verify;
 import static io.trino.matching.Capture.newCapture;
-import static io.trino.plugin.base.expression.AggregateFunctionPatterns.basicAggregation;
-import static io.trino.plugin.base.expression.AggregateFunctionPatterns.expressionType;
-import static io.trino.plugin.base.expression.AggregateFunctionPatterns.functionName;
-import static io.trino.plugin.base.expression.AggregateFunctionPatterns.singleInput;
-import static io.trino.plugin.base.expression.AggregateFunctionPatterns.variable;
+import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.basicAggregation;
+import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.expressionType;
+import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.functionName;
+import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.singleInput;
+import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.variable;
 import static java.lang.String.format;
 
-/**
- * Implements {@code avg(decimal(p, s)}
- */
-public class ImplementAvgDecimal
+public class ImplementVariancePop
         implements AggregateFunctionRule<JdbcExpression>
 {
     private static final Capture<Variable> INPUT = newCapture();
@@ -46,10 +43,10 @@ public class ImplementAvgDecimal
     public Pattern<AggregateFunction> getPattern()
     {
         return basicAggregation()
-                .with(functionName().equalTo("avg"))
+                .with(functionName().equalTo("var_pop"))
                 .with(singleInput().matching(
                         variable()
-                                .with(expressionType().matching(DecimalType.class::isInstance))
+                                .with(expressionType().matching(DoubleType.class::isInstance))
                                 .capturedAs(INPUT)));
     }
 
@@ -58,11 +55,10 @@ public class ImplementAvgDecimal
     {
         Variable input = captures.get(INPUT);
         JdbcColumnHandle columnHandle = (JdbcColumnHandle) context.getAssignment(input.getName());
-        DecimalType type = (DecimalType) columnHandle.getColumnType();
-        verify(aggregateFunction.getOutputType().equals(type));
+        verify(aggregateFunction.getOutputType() == columnHandle.getColumnType());
 
         return Optional.of(new JdbcExpression(
-                format("CAST(avg(%s) AS decimal(%s, %s))", context.getIdentifierQuote().apply(columnHandle.getColumnName()), type.getPrecision(), type.getScale()),
+                format("var_pop(%s)", context.getIdentifierQuote().apply(columnHandle.getColumnName())),
                 columnHandle.getJdbcTypeHandle()));
     }
 }
