@@ -54,6 +54,14 @@ public class GlueMetastoreApiStats
         return totalFailures;
     }
 
+    public void recordCall(long executionTimeInMillis, boolean failure)
+    {
+        time.add(executionTimeInMillis, MILLISECONDS);
+        if (failure) {
+            totalFailures.update(1);
+        }
+    }
+
     public interface ThrowingCallable<V, E extends Exception>
     {
         V call()
