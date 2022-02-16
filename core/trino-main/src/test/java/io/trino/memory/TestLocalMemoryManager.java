@@ -18,21 +18,9 @@ import org.testng.annotations.Test;
 
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
 
 public class TestLocalMemoryManager
 {
-    @Test
-    public void testLocalMemoryManger()
-    {
-        NodeMemoryConfig config = new NodeMemoryConfig()
-                .setHeapHeadroom(DataSize.of(10, GIGABYTE))
-                .setMaxQueryMemoryPerNode(DataSize.of(20, GIGABYTE));
-
-        LocalMemoryManager localMemoryManager = new LocalMemoryManager(config, DataSize.of(60, GIGABYTE).toBytes());
-        assertEquals(localMemoryManager.getPools().size(), 1);
-    }
-
     @Test
     public void testNotEnoughAvailableMemory()
     {

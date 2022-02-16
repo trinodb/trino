@@ -1428,14 +1428,6 @@ export class QueryDetail extends React.Component {
                                     </tr>
                                     <tr>
                                         <td className="info-title">
-                                            Memory Pool
-                                        </td>
-                                        <td className="info-text">
-                                            {query.memoryPool}
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td className="info-title">
                                             Cumulative User Memory
                                         </td>
                                         <td className="info-text">

@@ -19,8 +19,6 @@ import io.trino.spi.QueryId;
 import java.util.List;
 import java.util.Optional;
 
-import static io.trino.memory.LocalMemoryManager.GENERAL_POOL;
-
 public class TotalReservationLowMemoryKiller
         implements LowMemoryKiller
 {
@@ -31,7 +29,7 @@ public class TotalReservationLowMemoryKiller
         long maxMemory = 0;
         for (QueryMemoryInfo query : runningQueries) {
             long bytesUsed = query.getMemoryReservation();
-            if (bytesUsed > maxMemory && GENERAL_POOL.equals(query.getMemoryPoolId())) {
+            if (bytesUsed > maxMemory) {
                 biggestQuery = query.getQueryId();
                 maxMemory = bytesUsed;
             }

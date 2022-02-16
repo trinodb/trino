@@ -22,7 +22,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static io.trino.memory.LocalMemoryManager.GENERAL_POOL;
 import static java.util.Comparator.comparingLong;
 
 public class TotalReservationOnBlockedNodesLowMemoryKiller
@@ -33,14 +32,14 @@ public class TotalReservationOnBlockedNodesLowMemoryKiller
     {
         Map<QueryId, Long> memoryReservationOnBlockedNodes = new HashMap<>();
         for (MemoryInfo node : nodes) {
-            MemoryPoolInfo generalPool = node.getPools().get(GENERAL_POOL);
-            if (generalPool == null) {
+            MemoryPoolInfo memoryPool = node.getPool();
+            if (memoryPool == null) {
                 continue;
             }
-            if (generalPool.getFreeBytes() + generalPool.getReservedRevocableBytes() > 0) {
+            if (memoryPool.getFreeBytes() + memoryPool.getReservedRevocableBytes() > 0) {
                 continue;
             }
-            Map<QueryId, Long> queryMemoryReservations = generalPool.getQueryMemoryReservations();
+            Map<QueryId, Long> queryMemoryReservations = memoryPool.getQueryMemoryReservations();
             queryMemoryReservations.forEach((queryId, memoryReservation) -> {
                 memoryReservationOnBlockedNodes.compute(queryId, (id, oldValue) -> oldValue == null ? memoryReservation : oldValue + memoryReservation);
             });

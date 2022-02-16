@@ -22,7 +22,6 @@ import io.trino.execution.QueryPreparer.PreparedQuery;
 import io.trino.execution.QueryTracker.TrackedQuery;
 import io.trino.execution.StateMachine.StateChangeListener;
 import io.trino.execution.warnings.WarningCollector;
-import io.trino.memory.VersionedMemoryPoolId;
 import io.trino.server.BasicQueryInfo;
 import io.trino.server.protocol.Slug;
 import io.trino.spi.type.Type;
@@ -61,10 +60,6 @@ public interface QueryExecution
     DataSize getUserMemoryReservation();
 
     DataSize getTotalMemoryReservation();
-
-    VersionedMemoryPoolId getMemoryPool();
-
-    void setMemoryPool(VersionedMemoryPoolId poolId);
 
     void start();
 

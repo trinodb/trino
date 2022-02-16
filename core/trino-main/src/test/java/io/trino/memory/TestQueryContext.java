@@ -27,7 +27,6 @@ import java.util.concurrent.ScheduledExecutorService;
 
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.trino.SessionTestUtils.TEST_SESSION;
-import static io.trino.memory.LocalMemoryManager.GENERAL_POOL;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.testng.Assert.assertTrue;
 
@@ -49,7 +48,7 @@ public class TestQueryContext
                     new QueryId("query"),
                     DataSize.ofBytes(10),
                     Optional.empty(),
-                    new MemoryPool(GENERAL_POOL, DataSize.ofBytes(10)),
+                    new MemoryPool(DataSize.ofBytes(10)),
                     new TestingGcMonitor(),
                     localQueryRunner.getExecutor(),
                     localQueryRunner.getScheduler(),

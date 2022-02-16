@@ -15,7 +15,6 @@
 package io.trino.memory;
 
 import io.trino.spi.QueryId;
-import io.trino.spi.memory.MemoryPoolId;
 
 import java.util.List;
 import java.util.Optional;
@@ -30,24 +29,17 @@ public interface LowMemoryKiller
     class QueryMemoryInfo
     {
         private final QueryId queryId;
-        private final MemoryPoolId memoryPoolId;
         private final long memoryReservation;
 
-        public QueryMemoryInfo(QueryId queryId, MemoryPoolId memoryPoolId, long memoryReservation)
+        public QueryMemoryInfo(QueryId queryId, long memoryReservation)
         {
             this.queryId = requireNonNull(queryId, "queryId is null");
-            this.memoryPoolId = requireNonNull(memoryPoolId, "memoryPoolId is null");
             this.memoryReservation = memoryReservation;
         }
 
         public QueryId getQueryId()
         {
             return queryId;
-        }
-
-        public MemoryPoolId getMemoryPoolId()
-        {
-            return memoryPoolId;
         }
 
         public long getMemoryReservation()
@@ -60,7 +52,6 @@ public interface LowMemoryKiller
         {
             return toStringHelper(this)
                     .add("queryId", queryId)
-                    .add("memoryPoolId", memoryPoolId)
                     .add("memoryReservation", memoryReservation)
                     .toString();
         }

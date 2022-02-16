@@ -20,7 +20,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.trino.spi.QueryId;
 import io.trino.spi.memory.MemoryAllocation;
-import io.trino.spi.memory.MemoryPoolId;
 import io.trino.spi.memory.MemoryPoolInfo;
 import org.weakref.jmx.Managed;
 
@@ -37,15 +36,11 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.operator.Operator.NOT_BLOCKED;
 import static java.util.Objects.requireNonNull;
 
 public class MemoryPool
 {
-    private static final String MOVE_QUERY_TAG = "MOVE_QUERY_OPERATION";
-
-    private final MemoryPoolId id;
     private final long maxBytes;
 
     @GuardedBy("this")
@@ -70,16 +65,10 @@ public class MemoryPool
 
     private final List<MemoryPoolListener> listeners = new CopyOnWriteArrayList<>();
 
-    public MemoryPool(MemoryPoolId id, DataSize size)
+    public MemoryPool(DataSize size)
     {
-        this.id = requireNonNull(id, "id is null");
         requireNonNull(size, "size is null");
         maxBytes = size.toBytes();
-    }
-
-    public MemoryPoolId getId()
-    {
-        return id;
     }
 
     public synchronized MemoryPoolInfo getInfo()
@@ -241,28 +230,6 @@ public class MemoryPool
         }
     }
 
-    // When this method returns the MOVE_QUERY_TAG won't be visible in the tagged memory allocations map.
-    // Because, we remove the tagged allocations from this MemoryPool for queryId, and then we reserve
-    // N bytes with MOVE_QUERY_TAG in the targetMemoryPool, and then immediately overwrite it
-    // with a put() call.
-    synchronized ListenableFuture<Void> moveQuery(QueryId queryId, MemoryPool targetMemoryPool)
-    {
-        long originalReserved = getQueryMemoryReservation(queryId);
-        long originalRevocableReserved = getQueryRevocableMemoryReservation(queryId);
-        // Get the tags before we call free() as that would remove the tags and we will lose the tags.
-        Map<String, Long> taggedAllocations = taggedMemoryAllocations.remove(queryId);
-        if (taggedAllocations == null) {
-            // query is not registered (likely a race with query completion)
-            return immediateVoidFuture();
-        }
-        ListenableFuture<Void> future = targetMemoryPool.reserve(queryId, MOVE_QUERY_TAG, originalReserved);
-        free(queryId, MOVE_QUERY_TAG, originalReserved);
-        targetMemoryPool.reserveRevocable(queryId, originalRevocableReserved);
-        freeRevocable(queryId, originalRevocableReserved);
-        targetMemoryPool.taggedMemoryAllocations.put(queryId, taggedAllocations);
-        return future;
-    }
-
     /**
      * Returns the number of free bytes. This value may be negative, which indicates that the pool is over-committed.
      */
@@ -304,7 +271,6 @@ public class MemoryPool
     public synchronized String toString()
     {
         return toStringHelper(this)
-                .add("id", id)
                 .add("maxBytes", maxBytes)
                 .add("freeBytes", getFreeBytes())
                 .add("reservedBytes", reservedBytes)
