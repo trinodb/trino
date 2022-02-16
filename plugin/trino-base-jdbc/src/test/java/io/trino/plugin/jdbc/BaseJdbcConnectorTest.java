@@ -222,10 +222,8 @@ public abstract class BaseJdbcConnectorTest
         assertConditionallyPushedDown(
                 getSession(),
                 "SELECT regionkey, sum(nationkey) FROM nation WHERE name LIKE '%N%' GROUP BY regionkey",
-                false, // TODO: hasBehavior(SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN_WITH_LIKE), --  currently, applyAggregation is not invoked after applyFilter with expression
-                hasBehavior(SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN_WITH_LIKE)
-                        ? node(AggregationNode.class, node(TableScanNode.class))
-                        : node(FilterNode.class, node(TableScanNode.class)));
+                hasBehavior(SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN_WITH_LIKE),
+                node(FilterNode.class, node(TableScanNode.class)));
         // aggregation on varchar column
         assertThat(query("SELECT count(name) FROM nation")).isFullyPushedDown();
         // aggregation on varchar column with GROUPING
