@@ -45,6 +45,8 @@ public class GlueMetastoreStats
     private final GlueMetastoreApiStats createPartitions = new GlueMetastoreApiStats();
     private final GlueMetastoreApiStats deletePartition = new GlueMetastoreApiStats();
     private final GlueMetastoreApiStats updatePartition = new GlueMetastoreApiStats();
+    private final GlueMetastoreApiStats batchUpdatePartition = new GlueMetastoreApiStats();
+    private final GlueMetastoreApiStats batchCreatePartition = new GlueMetastoreApiStats();
     private final GlueMetastoreApiStats getColumnStatisticsForTable = new GlueMetastoreApiStats();
     private final GlueMetastoreApiStats getColumnStatisticsForPartition = new GlueMetastoreApiStats();
     private final GlueMetastoreApiStats updateColumnStatisticsForTable = new GlueMetastoreApiStats();
@@ -187,6 +189,20 @@ public class GlueMetastoreStats
     public GlueMetastoreApiStats getUpdatePartition()
     {
         return updatePartition;
+    }
+
+    @Managed
+    @Nested
+    public GlueMetastoreApiStats getBatchUpdatePartition()
+    {
+        return batchUpdatePartition;
+    }
+
+    @Managed
+    @Nested
+    public GlueMetastoreApiStats getBatchCreatePartition()
+    {
+        return batchCreatePartition;
     }
 
     @Managed

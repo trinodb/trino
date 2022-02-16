@@ -37,7 +37,8 @@ public final class AwsSdkUtil
             Function<Request, Result> submission,
             Request request,
             BiConsumer<Request, String> setNextToken,
-            Function<Result, String> extractNextToken)
+            Function<Result, String> extractNextToken,
+            GlueMetastoreApiStats stats)
     {
         requireNonNull(submission, "submission is null");
         requireNonNull(request, "request is null");
@@ -57,7 +58,7 @@ public final class AwsSdkUtil
                 }
 
                 setNextToken.accept(request, nextToken);
-                Result result = submission.apply(request);
+                Result result = stats.call(() -> submission.apply(request));
                 firstRequest = false;
                 nextToken = extractNextToken.apply(result);
                 return result;
