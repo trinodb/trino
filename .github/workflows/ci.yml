@@ -662,6 +662,17 @@ jobs:
         with:
           distribution: 'zulu'
           java-version: 11
+      - uses: dorny/paths-filter@v2
+        id: filter
+        with:
+          filters: |
+            product-tests:
+              - 'testing/trino-product-tests*/**'
+              - 'testing/trino-testing-services/**'
+              # run all tests when there are any changes in the trino-server Maven module
+              # because it uses Provisio to determine its dependencies
+              - 'core/trino-server/**'
+              - '.github/**'
       - name: Product tests artifact
         uses: actions/download-artifact@v2
         with:
@@ -669,7 +680,16 @@ jobs:
       - name: Fix artifact permissions
         run: |
           find . -type f -name \*-executable.jar -exec chmod 0777 {} \;
-      - name: Product Tests
+      - name: Product Tests (all)
+        if: steps.filter.outputs.product-tests == 'true' || contains(github.event.pull_request.labels.*.name, 'tests:all') || contains(github.event.pull_request.labels.*.name, 'tests:all-product')
+        run: |
+          testing/bin/ptl suite run \
+            --suite ${{ matrix.suite }} \
+            --config config-${{ matrix.config }} \
+            --bind=off --logs-dir logs/ --timeout 2h \
+            --trino-jdk-version zulu_${{ matrix.jdk }}
+      - name: Product Tests (impacted-features)
+        if: steps.filter.outputs.product-tests == 'false' && !contains(github.event.pull_request.labels.*.name, 'tests:all') && !contains(github.event.pull_request.labels.*.name, 'tests:all-product')
         run: |
           testing/bin/ptl suite run \
             --suite ${{ matrix.suite }} \
