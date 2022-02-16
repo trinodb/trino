@@ -24,7 +24,6 @@ import io.trino.operator.BlockedReason;
 import io.trino.spi.QueryId;
 import io.trino.spi.StandardErrorCode;
 import io.trino.spi.eventlistener.StageGcStatistics;
-import io.trino.spi.memory.MemoryPoolId;
 import io.trino.spi.resourcegroups.QueryType;
 import org.joda.time.DateTime;
 import org.testng.annotations.Test;
@@ -50,7 +49,6 @@ public class TestBasicQueryInfo
                         new QueryId("0"),
                         TEST_SESSION.toSessionRepresentation(),
                         RUNNING,
-                        new MemoryPoolId("reserved"),
                         false,
                         URI.create("1"),
                         ImmutableList.of("2", "3"),
@@ -140,7 +138,6 @@ public class TestBasicQueryInfo
 
         assertEquals(basicInfo.getQueryId().getId(), "0");
         assertEquals(basicInfo.getState(), RUNNING);
-        assertEquals(basicInfo.getMemoryPool().getId(), "reserved");
         assertEquals(basicInfo.isScheduled(), false);
         assertEquals(basicInfo.getQuery(), "SELECT 4");
         assertEquals(basicInfo.getQueryType().get(), QueryType.SELECT);

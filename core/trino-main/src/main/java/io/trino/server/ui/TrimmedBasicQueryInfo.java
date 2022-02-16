@@ -20,7 +20,6 @@ import io.trino.server.BasicQueryStats;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.ErrorType;
 import io.trino.spi.QueryId;
-import io.trino.spi.memory.MemoryPoolId;
 import io.trino.spi.resourcegroups.QueryType;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 
@@ -43,7 +42,6 @@ public class TrimmedBasicQueryInfo
     private final Optional<String> sessionSource;
     private final Optional<ResourceGroupId> resourceGroupId;
     private final QueryState state;
-    private final MemoryPoolId memoryPool;
     private final boolean scheduled;
     private final URI self;
     private final String queryTextPreview;
@@ -62,7 +60,6 @@ public class TrimmedBasicQueryInfo
         this.sessionSource = requireNonNull(queryInfo.getSession().getSource(), "source is null");
         this.resourceGroupId = requireNonNull(queryInfo.getResourceGroupId(), "resourceGroupId is null");
         this.state = requireNonNull(queryInfo.getState(), "state is null");
-        this.memoryPool = requireNonNull(queryInfo.getMemoryPool(), "memoryPool is null");
         this.errorType = Optional.ofNullable(queryInfo.getErrorType());
         this.errorCode = Optional.ofNullable(queryInfo.getErrorCode());
         this.scheduled = queryInfo.isScheduled();
@@ -114,12 +111,6 @@ public class TrimmedBasicQueryInfo
     public QueryState getState()
     {
         return state;
-    }
-
-    @JsonProperty
-    public MemoryPoolId getMemoryPool()
-    {
-        return memoryPool;
     }
 
     @JsonProperty

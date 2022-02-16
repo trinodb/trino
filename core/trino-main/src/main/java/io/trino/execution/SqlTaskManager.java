@@ -180,7 +180,7 @@ public class SqlTaskManager
                 queryId,
                 maxQueryUserMemoryPerNode,
                 maxQueryMemoryPerTask,
-                localMemoryManager.getGeneralPool(),
+                localMemoryManager.getMemoryPool(),
                 gcMonitor,
                 taskNotificationExecutor,
                 driverYieldExecutor,

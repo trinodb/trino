@@ -19,16 +19,12 @@ import io.trino.spi.memory.MemoryPoolInfo;
 import javax.inject.Inject;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
-import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
-import static io.trino.memory.LocalMemoryManager.GENERAL_POOL;
 import static io.trino.server.security.ResourceSecurity.AccessType.INTERNAL_ONLY;
-import static io.trino.server.security.ResourceSecurity.AccessType.MANAGEMENT_READ;
 import static java.util.Objects.requireNonNull;
-import static javax.ws.rs.core.Response.Status.NOT_FOUND;
 
 /**
  * Manages memory pools on this worker node
@@ -50,18 +46,6 @@ public class MemoryResource
     public MemoryInfo getMemoryInfo()
     {
         return memoryManager.getInfo();
-    }
-
-    @ResourceSecurity(MANAGEMENT_READ)
-    @GET
-    @Path("{poolId}")
-    public Response getMemoryInfo(@PathParam("poolId") String poolId)
-    {
-        if (GENERAL_POOL.getId().equals(poolId)) {
-            return toSuccessfulResponse(memoryManager.getGeneralPool().getInfo());
-        }
-
-        return Response.status(NOT_FOUND).build();
     }
 
     private Response toSuccessfulResponse(MemoryPoolInfo memoryInfo)

@@ -49,7 +49,6 @@ import io.trino.spi.QueryId;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.DynamicFilter;
-import io.trino.spi.memory.MemoryPoolId;
 import io.trino.spi.type.Type;
 import io.trino.spiller.SpillSpaceTracker;
 import io.trino.split.SplitSource;
@@ -295,7 +294,7 @@ public abstract class AbstractOperatorBenchmark
                 .setSystemProperty("optimizer.optimize-hash-generation", "true")
                 .setTransactionId(this.session.getRequiredTransactionId())
                 .build();
-        MemoryPool memoryPool = new MemoryPool(new MemoryPoolId("test"), DataSize.of(1, GIGABYTE));
+        MemoryPool memoryPool = new MemoryPool(DataSize.of(1, GIGABYTE));
         SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(DataSize.of(1, GIGABYTE));
 
         TaskContext taskContext = new QueryContext(

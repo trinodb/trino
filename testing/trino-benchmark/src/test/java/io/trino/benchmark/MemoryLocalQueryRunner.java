@@ -32,7 +32,6 @@ import io.trino.plugin.memory.MemoryConnectorFactory;
 import io.trino.plugin.tpch.TpchConnectorFactory;
 import io.trino.spi.Page;
 import io.trino.spi.QueryId;
-import io.trino.spi.memory.MemoryPoolId;
 import io.trino.spiller.SpillSpaceTracker;
 import io.trino.testing.LocalQueryRunner;
 import io.trino.testing.PageConsumerOperator;
@@ -68,7 +67,7 @@ public class MemoryLocalQueryRunner
 
     public List<Page> execute(@Language("SQL") String query)
     {
-        MemoryPool memoryPool = new MemoryPool(new MemoryPoolId("test"), DataSize.of(2, GIGABYTE));
+        MemoryPool memoryPool = new MemoryPool(DataSize.of(2, GIGABYTE));
         SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(DataSize.of(1, GIGABYTE));
         QueryContext queryContext = new QueryContext(
                 new QueryId("test"),

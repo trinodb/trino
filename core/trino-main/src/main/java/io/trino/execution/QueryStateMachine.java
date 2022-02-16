@@ -28,7 +28,6 @@ import io.trino.Session;
 import io.trino.execution.QueryExecution.QueryOutputInfo;
 import io.trino.execution.StateMachine.StateChangeListener;
 import io.trino.execution.warnings.WarningCollector;
-import io.trino.memory.VersionedMemoryPoolId;
 import io.trino.metadata.Metadata;
 import io.trino.operator.BlockedReason;
 import io.trino.operator.OperatorStats;
@@ -89,7 +88,6 @@ import static io.trino.execution.QueryState.STARTING;
 import static io.trino.execution.QueryState.TERMINAL_QUERY_STATES;
 import static io.trino.execution.QueryState.WAITING_FOR_RESOURCES;
 import static io.trino.execution.StageInfo.getAllStages;
-import static io.trino.memory.LocalMemoryManager.GENERAL_POOL;
 import static io.trino.server.DynamicFilterService.DynamicFiltersStats;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.USER_CANCELED;
@@ -111,8 +109,6 @@ public class QueryStateMachine
     private final TransactionManager transactionManager;
     private final Metadata metadata;
     private final QueryOutputManager outputManager;
-
-    private final AtomicReference<VersionedMemoryPoolId> memoryPool = new AtomicReference<>(new VersionedMemoryPoolId(GENERAL_POOL, 0));
 
     private final AtomicLong currentUserMemory = new AtomicLong();
     private final AtomicLong peakUserMemory = new AtomicLong();
@@ -403,7 +399,6 @@ public class QueryStateMachine
                 session.toSessionRepresentation(),
                 Optional.of(resourceGroup),
                 state,
-                memoryPool.get().getId(),
                 stageStats.isScheduled(),
                 self,
                 query,
@@ -440,7 +435,6 @@ public class QueryStateMachine
                 queryId,
                 session.toSessionRepresentation(),
                 state,
-                memoryPool.get().getId(),
                 isScheduled,
                 self,
                 outputManager.getQueryOutputInfo().map(QueryOutputInfo::getColumnNames).orElse(ImmutableList.of()),
@@ -636,16 +630,6 @@ public class QueryStateMachine
                 getDynamicFiltersStats(),
 
                 operatorStatsSummary.build());
-    }
-
-    public VersionedMemoryPoolId getMemoryPool()
-    {
-        return memoryPool.get();
-    }
-
-    public void setMemoryPool(VersionedMemoryPoolId memoryPool)
-    {
-        this.memoryPool.set(requireNonNull(memoryPool, "memoryPool is null"));
     }
 
     public void addOutputInfoListener(Consumer<QueryOutputInfo> listener)
@@ -1105,7 +1089,6 @@ public class QueryStateMachine
                 queryInfo.getQueryId(),
                 queryInfo.getSession(),
                 queryInfo.getState(),
-                getMemoryPool().getId(),
                 queryInfo.isScheduled(),
                 queryInfo.getSelf(),
                 queryInfo.getFieldNames(),

@@ -24,7 +24,6 @@ import io.trino.server.BasicQueryInfo;
 import io.trino.server.BasicQueryStats;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.QueryId;
-import io.trino.spi.memory.MemoryPoolId;
 import org.joda.time.DateTime;
 
 import java.net.URI;
@@ -113,7 +112,6 @@ public class MockManagedQueryExecution
                 session.toSessionRepresentation(),
                 Optional.empty(),
                 state,
-                new MemoryPoolId("test"),
                 !state.isDone(),
                 URI.create("http://test"),
                 "SELECT 1",
@@ -154,7 +152,6 @@ public class MockManagedQueryExecution
                 new QueryId("test"),
                 session.toSessionRepresentation(),
                 state,
-                new MemoryPoolId("test"),
                 !state.isDone(),
                 URI.create("http://test"),
                 ImmutableList.of(),

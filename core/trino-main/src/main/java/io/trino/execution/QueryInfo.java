@@ -25,7 +25,6 @@ import io.trino.spi.QueryId;
 import io.trino.spi.TrinoWarning;
 import io.trino.spi.eventlistener.RoutineInfo;
 import io.trino.spi.eventlistener.TableInfo;
-import io.trino.spi.memory.MemoryPoolId;
 import io.trino.spi.resourcegroups.QueryType;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.security.SelectedRole;
@@ -51,7 +50,6 @@ public class QueryInfo
     private final QueryId queryId;
     private final SessionRepresentation session;
     private final QueryState state;
-    private final MemoryPoolId memoryPool;
     private final boolean scheduled;
     private final URI self;
     private final List<String> fieldNames;
@@ -87,7 +85,6 @@ public class QueryInfo
             @JsonProperty("queryId") QueryId queryId,
             @JsonProperty("session") SessionRepresentation session,
             @JsonProperty("state") QueryState state,
-            @JsonProperty("memoryPool") MemoryPoolId memoryPool,
             @JsonProperty("scheduled") boolean scheduled,
             @JsonProperty("self") URI self,
             @JsonProperty("fieldNames") List<String> fieldNames,
@@ -145,7 +142,6 @@ public class QueryInfo
         this.queryId = queryId;
         this.session = session;
         this.state = state;
-        this.memoryPool = requireNonNull(memoryPool, "memoryPool is null");
         this.scheduled = scheduled;
         this.self = self;
         this.fieldNames = ImmutableList.copyOf(fieldNames);
@@ -193,12 +189,6 @@ public class QueryInfo
     public QueryState getState()
     {
         return state;
-    }
-
-    @JsonProperty
-    public MemoryPoolId getMemoryPool()
-    {
-        return memoryPool;
     }
 
     @JsonProperty

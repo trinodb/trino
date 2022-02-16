@@ -16,7 +16,6 @@ package io.trino.memory;
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.QueryId;
 import io.trino.spi.memory.MemoryAllocation;
-import io.trino.spi.memory.MemoryPoolId;
 import io.trino.spi.memory.MemoryPoolInfo;
 import org.weakref.jmx.Managed;
 
@@ -27,7 +26,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -35,8 +33,6 @@ import static java.util.Objects.requireNonNull;
 @ThreadSafe
 public class ClusterMemoryPool
 {
-    private final MemoryPoolId id;
-
     @GuardedBy("this")
     private long totalDistributedBytes;
 
@@ -65,11 +61,6 @@ public class ClusterMemoryPool
     @GuardedBy("this")
     private final Map<QueryId, Long> queryMemoryRevocableReservations = new HashMap<>();
 
-    public ClusterMemoryPool(MemoryPoolId id)
-    {
-        this.id = requireNonNull(id, "id is null");
-    }
-
     public synchronized MemoryPoolInfo getInfo()
     {
         return new MemoryPoolInfo(
@@ -79,11 +70,6 @@ public class ClusterMemoryPool
                 ImmutableMap.copyOf(queryMemoryReservations),
                 ImmutableMap.copyOf(queryMemoryAllocations),
                 ImmutableMap.copyOf(queryMemoryRevocableReservations));
-    }
-
-    public MemoryPoolId getId()
-    {
-        return id;
     }
 
     @Managed
@@ -151,24 +137,22 @@ public class ClusterMemoryPool
         this.queryMemoryRevocableReservations.clear();
 
         for (MemoryInfo info : memoryInfos) {
-            MemoryPoolInfo poolInfo = info.getPools().get(id);
-            if (poolInfo != null) {
-                nodes++;
-                if (poolInfo.getFreeBytes() + poolInfo.getReservedRevocableBytes() <= 0) {
-                    blockedNodes++;
-                }
-                totalDistributedBytes += poolInfo.getMaxBytes();
-                reservedDistributedBytes += poolInfo.getReservedBytes();
-                reservedRevocableDistributedBytes += poolInfo.getReservedRevocableBytes();
-                for (Map.Entry<QueryId, Long> entry : poolInfo.getQueryMemoryReservations().entrySet()) {
-                    queryMemoryReservations.merge(entry.getKey(), entry.getValue(), Long::sum);
-                }
-                for (Map.Entry<QueryId, List<MemoryAllocation>> entry : poolInfo.getQueryMemoryAllocations().entrySet()) {
-                    queryMemoryAllocations.merge(entry.getKey(), entry.getValue(), this::mergeQueryAllocations);
-                }
-                for (Map.Entry<QueryId, Long> entry : poolInfo.getQueryMemoryRevocableReservations().entrySet()) {
-                    queryMemoryRevocableReservations.merge(entry.getKey(), entry.getValue(), Long::sum);
-                }
+            MemoryPoolInfo poolInfo = info.getPool();
+            nodes++;
+            if (poolInfo.getFreeBytes() + poolInfo.getReservedRevocableBytes() <= 0) {
+                blockedNodes++;
+            }
+            totalDistributedBytes += poolInfo.getMaxBytes();
+            reservedDistributedBytes += poolInfo.getReservedBytes();
+            reservedRevocableDistributedBytes += poolInfo.getReservedRevocableBytes();
+            for (Map.Entry<QueryId, Long> entry : poolInfo.getQueryMemoryReservations().entrySet()) {
+                queryMemoryReservations.merge(entry.getKey(), entry.getValue(), Long::sum);
+            }
+            for (Map.Entry<QueryId, List<MemoryAllocation>> entry : poolInfo.getQueryMemoryAllocations().entrySet()) {
+                queryMemoryAllocations.merge(entry.getKey(), entry.getValue(), this::mergeQueryAllocations);
+            }
+            for (Map.Entry<QueryId, Long> entry : poolInfo.getQueryMemoryRevocableReservations().entrySet()) {
+                queryMemoryRevocableReservations.merge(entry.getKey(), entry.getValue(), Long::sum);
             }
         }
     }
@@ -195,29 +179,9 @@ public class ClusterMemoryPool
     }
 
     @Override
-    public boolean equals(Object o)
-    {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        ClusterMemoryPool that = (ClusterMemoryPool) o;
-        return Objects.equals(id, that.id);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(id);
-    }
-
-    @Override
     public synchronized String toString()
     {
         return toStringHelper(this)
-                .add("id", id)
                 .add("totalDistributedBytes", totalDistributedBytes)
                 .add("freeDistributedBytes", getFreeDistributedBytes())
                 .add("reservedDistributedBytes", reservedDistributedBytes)

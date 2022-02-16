@@ -33,7 +33,6 @@ import io.trino.execution.scheduler.TaskSourceFactory;
 import io.trino.execution.scheduler.policy.ExecutionPolicy;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.failuredetector.FailureDetector;
-import io.trino.memory.VersionedMemoryPoolId;
 import io.trino.metadata.TableHandle;
 import io.trino.operator.ForScheduler;
 import io.trino.server.BasicQueryInfo;
@@ -274,18 +273,6 @@ public class SqlQueryExecution
     public Slug getSlug()
     {
         return slug;
-    }
-
-    @Override
-    public VersionedMemoryPoolId getMemoryPool()
-    {
-        return stateMachine.getMemoryPool();
-    }
-
-    @Override
-    public void setMemoryPool(VersionedMemoryPoolId poolId)
-    {
-        stateMachine.setMemoryPool(poolId);
     }
 
     @Override

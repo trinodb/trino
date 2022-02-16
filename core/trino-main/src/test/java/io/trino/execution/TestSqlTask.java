@@ -32,7 +32,6 @@ import io.trino.memory.QueryContext;
 import io.trino.metadata.ExchangeHandleResolver;
 import io.trino.operator.TaskContext;
 import io.trino.spi.QueryId;
-import io.trino.spi.memory.MemoryPoolId;
 import io.trino.spi.predicate.Domain;
 import io.trino.spiller.SpillSpaceTracker;
 import io.trino.sql.planner.LocalExecutionPlanner;
@@ -348,7 +347,7 @@ public class TestSqlTask
         QueryContext queryContext = new QueryContext(new QueryId("query"),
                 DataSize.of(1, MEGABYTE),
                 Optional.empty(),
-                new MemoryPool(new MemoryPoolId("test"), DataSize.of(1, GIGABYTE)),
+                new MemoryPool(DataSize.of(1, GIGABYTE)),
                 new TestingGcMonitor(),
                 taskNotificationExecutor,
                 driverYieldExecutor,
