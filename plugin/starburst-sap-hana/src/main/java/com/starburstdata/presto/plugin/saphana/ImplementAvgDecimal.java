@@ -12,7 +12,7 @@ package com.starburstdata.presto.plugin.saphana;
 import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
-import io.trino.plugin.base.expression.AggregateFunctionRule;
+import io.trino.plugin.base.aggregation.AggregateFunctionRule;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
 import io.trino.spi.connector.AggregateFunction;
@@ -24,11 +24,11 @@ import java.util.Optional;
 import static com.google.common.base.Verify.verify;
 import static com.starburstdata.presto.plugin.saphana.SapHanaClient.SAP_HANA_MAX_DECIMAL_PRECISION;
 import static io.trino.matching.Capture.newCapture;
-import static io.trino.plugin.base.expression.AggregateFunctionPatterns.basicAggregation;
-import static io.trino.plugin.base.expression.AggregateFunctionPatterns.expressionType;
-import static io.trino.plugin.base.expression.AggregateFunctionPatterns.functionName;
-import static io.trino.plugin.base.expression.AggregateFunctionPatterns.singleInput;
-import static io.trino.plugin.base.expression.AggregateFunctionPatterns.variable;
+import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.basicAggregation;
+import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.expressionType;
+import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.functionName;
+import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.singleInput;
+import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.variable;
 import static java.lang.String.format;
 
 public class ImplementAvgDecimal

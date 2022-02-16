@@ -9,7 +9,7 @@
  */
 package com.starburstdata.presto.plugin.saphana;
 
-import io.trino.plugin.jdbc.expression.BaseImplementAvgBigint;
+import io.trino.plugin.jdbc.aggregation.BaseImplementAvgBigint;
 
 public class ImplementAvgBigint
         extends BaseImplementAvgBigint
