@@ -1097,6 +1097,9 @@ public abstract class BaseIcebergConnectorTest
         File tempDir = getDistributedQueryRunner().getCoordinator().getBaseDataDir().toFile();
         String tempDirPath = tempDir.toURI().toASCIIString() + randomTableSuffix();
 
+        // LIKE source INCLUDING PROPERTIES copies all the properties of the source table, including the `location`.
+        // For this reason the source and the copied table will share the same directory.
+        // This test does not drop intentionally the created tables to avoid affecting the source table or the information_schema.
         assertUpdate(format("CREATE TABLE test_create_table_like_original (col1 INTEGER, aDate DATE) WITH(format = '%s', location = '%s', partitioning = ARRAY['aDate'])", format, tempDirPath));
         assertEquals(getTablePropertiesString("test_create_table_like_original"), "WITH (\n" +
                 format("   format = '%s',\n", format) +
@@ -1107,12 +1110,10 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate("CREATE TABLE test_create_table_like_copy0 (LIKE test_create_table_like_original, col2 INTEGER)");
         assertUpdate("INSERT INTO test_create_table_like_copy0 (col1, aDate, col2) VALUES (1, CAST('1950-06-28' AS DATE), 3)", 1);
         assertQuery("SELECT * from test_create_table_like_copy0", "VALUES(1, CAST('1950-06-28' AS DATE), 3)");
-        dropTable("test_create_table_like_copy0");
 
         assertUpdate("CREATE TABLE test_create_table_like_copy1 (LIKE test_create_table_like_original)");
         assertEquals(getTablePropertiesString("test_create_table_like_copy1"), "WITH (\n" +
                 format("   format = '%s',\n   location = '%s'\n)", format, tempDir + "/iceberg_data/tpch/test_create_table_like_copy1"));
-        dropTable("test_create_table_like_copy1");
 
         assertUpdate("CREATE TABLE test_create_table_like_copy2 (LIKE test_create_table_like_original EXCLUDING PROPERTIES)");
         assertEquals(getTablePropertiesString("test_create_table_like_copy2"), "WITH (\n" +
@@ -1125,7 +1126,6 @@ public abstract class BaseIcebergConnectorTest
                 format("   location = '%s',\n", tempDirPath) +
                 "   partitioning = ARRAY['adate']\n" +
                 ")");
-        dropTable("test_create_table_like_copy3");
 
         assertUpdate(format("CREATE TABLE test_create_table_like_copy4 (LIKE test_create_table_like_original INCLUDING PROPERTIES) WITH (format = '%s')", otherFormat));
         assertEquals(getTablePropertiesString("test_create_table_like_copy4"), "WITH (\n" +
@@ -1133,9 +1133,6 @@ public abstract class BaseIcebergConnectorTest
                 format("   location = '%s',\n", tempDirPath) +
                 "   partitioning = ARRAY['adate']\n" +
                 ")");
-        dropTable("test_create_table_like_copy4");
-
-        dropTable("test_create_table_like_original");
     }
 
     private String getTablePropertiesString(String tableName)
@@ -3366,5 +3363,17 @@ public abstract class BaseIcebergConnectorTest
                 // as target_max_file_size is set to quite low value it can happen that created files are bigger,
                 // so just to be safe we check if it is not much bigger
                 .forEach(row -> assertThat((Long) row.getField(0)).isBetween(1L, maxSize.toBytes() * 3));
+    }
+
+    @Test
+    public void testDroppingIcebergAndCreatingANewTableWithTheSameNameShouldBePossible()
+    {
+        assertUpdate("CREATE TABLE test_iceberg_recreate (a_int) AS VALUES (1)", 1);
+        assertThat(query("SELECT min(a_int) FROM test_iceberg_recreate")).matches("VALUES 1");
+        dropTable("test_iceberg_recreate");
+
+        assertUpdate("CREATE TABLE test_iceberg_recreate (a_varchar) AS VALUES ('Trino')", 1);
+        assertThat(query("SELECT min(a_varchar) FROM test_iceberg_recreate")).matches("VALUES CAST('Trino' AS varchar)");
+        dropTable("test_iceberg_recreate");
     }
 }
