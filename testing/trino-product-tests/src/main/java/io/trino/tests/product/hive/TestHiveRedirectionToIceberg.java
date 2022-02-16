@@ -230,9 +230,9 @@ public class TestHiveRedirectionToIceberg
         String icebergTableName = "iceberg.default." + tableName;
 
         createIcebergTable(icebergTableName, false);
-        //TODO restore test assertions after adding redirection awareness to the DropTableTask
-        assertQueryFailure(() -> onTrino().executeQuery("DROP TABLE " + hiveTableName))
-                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): Cannot query Iceberg table 'default." + tableName + "'");
+        onTrino().executeQuery("DROP TABLE " + hiveTableName);
+        assertQueryFailure(() -> onTrino().executeQuery("TABLE " + icebergTableName))
+                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): line 1:1: Table '" + icebergTableName + "' does not exist");
     }
 
     @Test(groups = {HIVE_ICEBERG_REDIRECTIONS, PROFILE_SPECIFIC_TESTS})
