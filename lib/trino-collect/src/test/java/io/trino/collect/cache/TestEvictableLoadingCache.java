@@ -20,6 +20,7 @@ import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import org.gaul.modernizer_maven_annotations.SuppressModernizer;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -44,6 +45,7 @@ import static java.lang.String.format;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotSame;
 import static org.testng.Assert.assertSame;
@@ -104,13 +106,33 @@ public class TestEvictableLoadingCache
         assertThat(cache.asMap().values().stream().mapToInt(String::length).sum()).as("values length sum").isLessThanOrEqualTo(20);
     }
 
-    @Test(timeOut = TEST_TIMEOUT_MILLIS)
-    public void testDisabledCache()
+    @Test(timeOut = TEST_TIMEOUT_MILLIS, dataProvider = "testDisabledCacheDataProvider")
+    public void testDisabledCache(String behavior)
             throws Exception
     {
-        LoadingCache<Integer, Integer> cache = EvictableCacheBuilder.newBuilder()
-                .maximumSize(0)
-                .build(CacheLoader.from(key -> key * 10));
+        CacheLoader<Integer, Integer> loader = CacheLoader.from(key -> key * 10);
+        EvictableCacheBuilder<Object, Object> builder = EvictableCacheBuilder.newBuilder()
+                .maximumSize(0);
+
+        switch (behavior) {
+            case "share-nothing":
+                builder.shareNothingWhenDisabled();
+                break;
+            case "guava":
+                builder.shareResultsAndFailuresEvenIfDisabled();
+                break;
+            case "none":
+                assertThatThrownBy(() -> builder.build(loader))
+                        .isInstanceOf(IllegalStateException.class)
+                        .hasMessage("Even when cache is disabled, the loads are synchronized and both load results and failures are shared between threads. " +
+                                "This is rarely desired, thus builder caller is expected to either opt-in into this behavior with shareResultsAndFailuresEvenIfDisabled(), " +
+                                "or choose not to share results (and failures) between concurrent invocations with shareNothingWhenDisabled().");
+                return;
+            default:
+                throw new UnsupportedOperationException("Unsupported: " + behavior);
+        }
+
+        LoadingCache<Integer, Integer> cache = builder.build(loader);
 
         for (int i = 0; i < 10; i++) {
             assertEquals((Object) cache.get(i), i * 10);
@@ -119,6 +141,16 @@ public class TestEvictableLoadingCache
         assertEquals(cache.size(), 0);
         assertThat(cache.asMap().keySet()).as("keySet").isEmpty();
         assertThat(cache.asMap().values()).as("values").isEmpty();
+    }
+
+    @DataProvider
+    public static Object[][] testDisabledCacheDataProvider()
+    {
+        return new Object[][] {
+                {"share-nothing"},
+                {"guava"},
+                {"none"},
+        };
     }
 
     @Test(timeOut = TEST_TIMEOUT_MILLIS)
