@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.base.util;
+package io.trino.plugin.base.expression;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.expression.ConnectorExpression;
@@ -20,11 +20,12 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.spi.expression.Constant.TRUE;
 
-public final class ConnectorExpressionUtils
+public final class ConnectorExpressions
 {
-    private ConnectorExpressionUtils() {}
+    private ConnectorExpressions() {}
 
     public static List<ConnectorExpression> extractConjuncts(ConnectorExpression expression)
     {
@@ -46,7 +47,6 @@ public final class ConnectorExpressionUtils
         if (expressions.isEmpty()) {
             return TRUE;
         }
-        return expressions.stream()
-                .findFirst().get();
+        return getOnlyElement(expressions);
     }
 }

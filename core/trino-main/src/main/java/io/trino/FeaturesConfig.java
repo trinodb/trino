@@ -954,7 +954,7 @@ public class FeaturesConfig
         return complexExpressionPushdownEnabled;
     }
 
-    @Config("optimizer.complex-expression-pushdown-enabled")
+    @Config("optimizer.complex-expression-pushdown.enabled")
     public FeaturesConfig setComplexExpressionPushdownEnabled(boolean complexExpressionPushdownEnabled)
     {
         this.complexExpressionPushdownEnabled = complexExpressionPushdownEnabled;

@@ -181,7 +181,7 @@ public class TestFeaturesConfig
                 .put("analyzer.max-grouping-sets", "2047")
                 .put("experimental.late-materialization.enabled", "true")
                 .put("optimizer.skip-redundant-sort", "false")
-                .put("optimizer.complex-expression-pushdown-enabled", "false")
+                .put("optimizer.complex-expression-pushdown.enabled", "false")
                 .put("optimizer.predicate-pushdown-use-table-properties", "false")
                 .put("optimizer.ignore-downstream-preferences", "true")
                 .put("deprecated.omit-datetime-type-precision", "true")

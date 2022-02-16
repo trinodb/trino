@@ -23,6 +23,7 @@ import io.trino.spi.expression.Call;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Constant;
 import io.trino.spi.expression.FieldDereference;
+import io.trino.spi.expression.FunctionName;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.RowType;
@@ -120,7 +121,10 @@ public final class ConnectorExpressionTranslator
 
         protected Optional<Expression> translateCall(Call call)
         {
-            QualifiedName name = QualifiedName.of(call.getName());
+            if (call.getFunctionName().getCatalogSchemaName().isPresent()) {
+                return Optional.empty();
+            }
+            QualifiedName name = QualifiedName.of(call.getFunctionName().getFunctionName());
             List<TypeSignature> argumentTypes = call.getArguments().stream()
                     .map(argument -> argument.getType().getTypeSignature())
                     .collect(toImmutableList());
@@ -258,7 +262,7 @@ public final class ConnectorExpressionTranslator
                 arguments.add(argument.get());
             }
 
-            return Optional.of(new Call(typeOf(node), Optional.empty(), functionName, arguments.build()));
+            return Optional.of(new Call(typeOf(node), new FunctionName(functionName), arguments.build()));
         }
 
         @Override
@@ -269,8 +273,7 @@ public final class ConnectorExpressionTranslator
                 Optional<ConnectorExpression> value = process(node.getValue());
                 Optional<ConnectorExpression> pattern = process(node.getPattern());
                 if (value.isPresent() && pattern.isPresent()) {
-                    Type columnType = typeOf(node.getValue());
-                    return Optional.of(new Call(columnType, Optional.empty(), LIKE_PATTERN_FUNCTION_NAME, List.of(value.get(), pattern.get())));
+                    return Optional.of(new Call(typeOf(node), new FunctionName(LIKE_PATTERN_FUNCTION_NAME), List.of(value.get(), pattern.get())));
                 }
             }
             return Optional.empty();

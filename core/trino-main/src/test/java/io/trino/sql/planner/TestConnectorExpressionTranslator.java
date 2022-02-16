@@ -21,6 +21,7 @@ import io.trino.spi.expression.Call;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Constant;
 import io.trino.spi.expression.FieldDereference;
+import io.trino.spi.expression.FunctionName;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.type.Type;
 import io.trino.sql.tree.Expression;
@@ -39,6 +40,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RowType.field;
@@ -93,9 +95,8 @@ public class TestConnectorExpressionTranslator
                         new SymbolReference("varchar_symbol_1"),
                         new StringLiteral(pattern),
                         Optional.empty()),
-                Optional.of(new Call(VARCHAR_TYPE,
-                                     Optional.empty(),
-                                     LIKE_PATTERN_FUNCTION_NAME,
+                Optional.of(new Call(BOOLEAN,
+                                     new FunctionName(LIKE_PATTERN_FUNCTION_NAME),
                                      List.of(new Variable("varchar_symbol_1", VARCHAR_TYPE),
                                              new Constant(Slices.wrappedBuffer(pattern.getBytes(UTF_8)), createVarcharType(pattern.length()))))));
 
@@ -108,8 +109,7 @@ public class TestConnectorExpressionTranslator
                                                                    .addArgument(VARCHAR_TYPE, new SymbolReference("varchar_symbol_1"))
                                                                    .build(),
                                                            Optional.of(new Call(VARCHAR_TYPE,
-                                                                                Optional.empty(),
-                                                                                "lower",
+                                                                                new FunctionName("lower"),
                                                                                 List.of(new Variable("varchar_symbol_1", VARCHAR_TYPE)))));
                 });
     }
@@ -131,8 +131,7 @@ public class TestConnectorExpressionTranslator
         String pattern = "%pattern%";
         assertTranslationFromConnectorExpression(
                 new Call(VARCHAR_TYPE,
-                         Optional.empty(),
-                         LIKE_PATTERN_FUNCTION_NAME,
+                         new FunctionName(LIKE_PATTERN_FUNCTION_NAME),
                          List.of(new Variable("varchar_symbol_1", VARCHAR_TYPE),
                                  new Constant(Slices.wrappedBuffer(pattern.getBytes(UTF_8)), createVarcharType(pattern.length())))),
                 new LikePredicate(new SymbolReference("varchar_symbol_1"),
@@ -141,8 +140,7 @@ public class TestConnectorExpressionTranslator
 
         assertTranslationFromConnectorExpression(
                 new Call(VARCHAR_TYPE,
-                         Optional.empty(),
-                         "lower",
+                         new FunctionName("lower"),
                          List.of(new Variable("varchar_symbol_1", VARCHAR_TYPE))),
                 FunctionCallBuilder.resolve(TEST_SESSION, PLANNER_CONTEXT.getMetadata())
                                    .setName(QualifiedName.of(("lower")))

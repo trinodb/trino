@@ -56,6 +56,7 @@ import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.SystemSessionProperties.isAllowPushdownIntoConnectors;
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.spi.expression.Constant.TRUE;
@@ -180,6 +181,12 @@ public class PushPredicateIntoTableScan
         Map<NodeRef<Expression>, Type> remainingExpressionTypes = typeAnalyzer.getTypes(session, symbolAllocator.getTypes(), decomposedPredicate.getRemainingExpression());
         Optional<ConnectorExpression> connectorExpression = new ConnectorExpressionTranslator.SqlToConnectorExpressionTranslator(session, remainingExpressionTypes, plannerContext)
                 .process(decomposedPredicate.getRemainingExpression());
+        Map<String, ColumnHandle> connectorExpressionAssignments = connectorExpression
+                .map(ignored ->
+                    node.getAssignments()
+                    .entrySet().stream()
+                    .collect(toImmutableMap(entry -> entry.getKey().getName(), Map.Entry::getValue)))
+                .orElse(ImmutableMap.of());
 
         Map<ColumnHandle, Symbol> assignments = ImmutableBiMap.copyOf(node.getAssignments()).inverse();
 
@@ -198,12 +205,12 @@ public class PushPredicateIntoTableScan
                             // Simplify the tuple domain to avoid creating an expression with too many nodes,
                             // which would be expensive to evaluate in the call to isCandidate below.
                             domainTranslator.toPredicate(session, newDomain.simplify().transformKeys(assignments::get))));
-            constraint = new Constraint(newDomain, connectorExpression.orElse(TRUE), evaluator::isCandidate, evaluator.getArguments());
+            constraint = new Constraint(newDomain, connectorExpression.orElse(TRUE), connectorExpressionAssignments, evaluator::isCandidate, evaluator.getArguments());
         }
         else {
             // Currently, invoking the expression interpreter is very expensive.
             // TODO invoke the interpreter unconditionally when the interpreter becomes cheap enough.
-            constraint = new Constraint(newDomain, connectorExpression.orElse(TRUE));
+            constraint = new Constraint(newDomain, connectorExpression.orElse(TRUE), connectorExpressionAssignments);
         }
 
         // check if new domain is wider than domain already provided by table scan

@@ -13,12 +13,10 @@
  */
 package io.trino.spi.expression;
 
-import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.type.Type;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.StringJoiner;
 
 import static java.util.Objects.requireNonNull;
@@ -26,36 +24,22 @@ import static java.util.Objects.requireNonNull;
 public final class Call
         extends ConnectorExpression
 {
-    private final Optional<CatalogSchemaName> catalogSchemaName;
-    private final String name;
+    private final FunctionName functionName;
     private final List<ConnectorExpression> arguments;
 
     public Call(
             Type type,
-            Optional<CatalogSchemaName> catalogSchemaName,
-            String name,
+            FunctionName functionName,
             List<ConnectorExpression> arguments)
     {
         super(type);
-        this.catalogSchemaName = requireNonNull(catalogSchemaName, "catalogSchemaName is null");
-        this.name = requireNonNull(name, "name is null");
+        this.functionName = requireNonNull(functionName, "functionName is null");
         this.arguments = List.copyOf(requireNonNull(arguments, "arguments is null"));
     }
 
-    /**
-     * @return the catalog and schema of this function call, or {@link Optional#empty()} if this is a built-in function call
-     */
-    public Optional<CatalogSchemaName> getCatalogSchemaName()
+    public FunctionName getFunctionName()
     {
-        return catalogSchemaName;
-    }
-
-    /**
-     * @return the function's name
-     */
-    public String getName()
-    {
-        return name;
+        return functionName;
     }
 
     public List<ConnectorExpression> getArguments()
@@ -79,8 +63,7 @@ public final class Call
             return false;
         }
         Call call = (Call) o;
-        return Objects.equals(catalogSchemaName, call.catalogSchemaName) &&
-                Objects.equals(name, call.name) &&
+        return Objects.equals(functionName, call.functionName) &&
                 Objects.equals(arguments, call.arguments) &&
                 Objects.equals(getType(), call.getType());
     }
@@ -88,16 +71,15 @@ public final class Call
     @Override
     public int hashCode()
     {
-        return Objects.hash(catalogSchemaName, name, arguments, getType());
+        return Objects.hash(functionName, arguments, getType());
     }
 
     @Override
     public String toString()
     {
         StringJoiner stringJoiner = new StringJoiner(", ", Call.class.getSimpleName() + "[", "]");
-        catalogSchemaName.ifPresent(name -> stringJoiner.add("catalogSchemaName=" + name));
         return stringJoiner
-                .add("name='" + name + "'")
+                .add("functionName=" + functionName)
                 .add("arguments=" + arguments)
                 .toString();
     }
