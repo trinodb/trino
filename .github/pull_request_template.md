@@ -40,5 +40,5 @@ Use :white_check_mark: or (x) to signal selection.
 
 ```markdown
 # Section
-* Fix some things. ({issue}`5678`)
+* Fix some things. ({issue}`issuenumber`)
 ```
