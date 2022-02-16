@@ -93,9 +93,10 @@ Property                           Description
                                    ``ldap.allow-insecure=true``.
 ``ldap.allow-insecure``            Allow using an LDAP connection that is not secured with
                                    TLS.
-``ldap.ssl-trust-certificate``     The path to the PEM encoded trust certificate for the
-                                   LDAP server. This file should contain the LDAP
-                                   server's certificate or its certificate authority.
+``ldap.ssl.keystore.path``         Path to the PEM or JKS key store.
+``ldap.ssl.keystore.password``     Password for the key store.
+``ldap.ssl.truststore.path``       Path to the PEM or JKS trust store.
+``ldap.ssl.truststore.password``   Password for the trust store.
 ``ldap.user-bind-pattern``         This property can be used to specify the LDAP user
                                    bind string for password authentication. This property
                                    must contain the pattern ``${USER}``, which is

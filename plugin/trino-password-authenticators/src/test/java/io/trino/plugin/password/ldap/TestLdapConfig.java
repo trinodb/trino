@@ -43,7 +43,10 @@ public class TestLdapConfig
         assertRecordedDefaults(recordDefaults(LdapConfig.class)
                 .setLdapUrl(null)
                 .setAllowInsecure(false)
-                .setTrustCertificate(null)
+                .setKeystorePath(null)
+                .setKeystorePassword(null)
+                .setTrustStorePath(null)
+                .setTruststorePassword(null)
                 .setUserBindSearchPatterns(" : ")
                 .setUserBaseDistinguishedName(null)
                 .setGroupAuthorizationSearchPattern(null)
@@ -59,12 +62,16 @@ public class TestLdapConfig
     public void testExplicitConfig()
             throws IOException
     {
-        Path trustCertificateFile = Files.createTempFile(null, null);
+        Path trustStoreFile = Files.createTempFile(null, null);
+        Path keyStoreFile = Files.createTempFile(null, null);
 
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("ldap.url", "ldaps://localhost:636")
                 .put("ldap.allow-insecure", "true")
-                .put("ldap.ssl-trust-certificate", trustCertificateFile.toString())
+                .put("ldap.ssl.keystore.path", keyStoreFile.toString())
+                .put("ldap.ssl.keystore.password", "12345")
+                .put("ldap.ssl.truststore.path", trustStoreFile.toString())
+                .put("ldap.ssl.truststore.password", "54321")
                 .put("ldap.user-bind-pattern", "uid=${USER},ou=org,dc=test,dc=com:uid=${USER},ou=alt")
                 .put("ldap.user-base-dn", "dc=test,dc=com")
                 .put("ldap.group-auth-pattern", "&(objectClass=user)(memberOf=cn=group)(user=username)")
@@ -79,7 +86,10 @@ public class TestLdapConfig
         LdapConfig expected = new LdapConfig()
                 .setLdapUrl("ldaps://localhost:636")
                 .setAllowInsecure(true)
-                .setTrustCertificate(trustCertificateFile.toFile())
+                .setKeystorePath(keyStoreFile.toFile())
+                .setKeystorePassword("12345")
+                .setTrustStorePath(trustStoreFile.toFile())
+                .setTruststorePassword("54321")
                 .setUserBindSearchPatterns(ImmutableList.of("uid=${USER},ou=org,dc=test,dc=com", "uid=${USER},ou=alt"))
                 .setUserBaseDistinguishedName("dc=test,dc=com")
                 .setGroupAuthorizationSearchPattern("&(objectClass=user)(memberOf=cn=group)(user=username)")
