@@ -354,6 +354,7 @@ public final class HttpPageBufferClient
                 backoff.success();
 
                 List<Slice> pages;
+                boolean pagesAccepted;
                 try {
                     if (result.isTaskFailed()) {
                         throw new TrinoException(REMOTE_TASK_FAILED, format("Remote task failed: %s", remoteTaskId));
@@ -413,19 +414,27 @@ public final class HttpPageBufferClient
                     // clientCallback can keep stats of requests and responses. For example, it may
                     // keep track of how often a client returns empty response and adjust request
                     // frequency or buffer size.
-                    if (clientCallback.addPages(HttpPageBufferClient.this, pages)) {
-                        pagesReceived.addAndGet(pages.size());
-                        rowsReceived.addAndGet(pages.stream().mapToLong(PagesSerde::getSerializedPagePositionCount).sum());
-                    }
-                    else {
-                        pagesRejected.addAndGet(pages.size());
-                        rowsRejected.addAndGet(pages.stream().mapToLong(PagesSerde::getSerializedPagePositionCount).sum());
-                    }
+                    pagesAccepted = clientCallback.addPages(HttpPageBufferClient.this, pages);
                 }
                 catch (TrinoException e) {
                     handleFailure(e, resultFuture);
                     return;
                 }
+
+                // update client stats
+                if (!pages.isEmpty()) {
+                    int pageCount = pages.size();
+                    long rowCount = pages.stream().mapToLong(PagesSerde::getSerializedPagePositionCount).sum();
+                    if (pagesAccepted) {
+                        pagesReceived.addAndGet(pageCount);
+                        rowsReceived.addAndGet(rowCount);
+                    }
+                    else {
+                        pagesRejected.addAndGet(pageCount);
+                        rowsRejected.addAndGet(rowCount);
+                    }
+                }
+                requestsCompleted.incrementAndGet();
 
                 synchronized (HttpPageBufferClient.this) {
                     // client is complete, acknowledge it by sending it a delete in the next request
@@ -437,7 +446,6 @@ public final class HttpPageBufferClient
                     }
                     lastUpdate = DateTime.now();
                 }
-                requestsCompleted.incrementAndGet();
                 clientCallback.requestComplete(HttpPageBufferClient.this);
             }
 
