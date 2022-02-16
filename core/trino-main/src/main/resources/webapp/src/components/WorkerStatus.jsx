@@ -421,10 +421,6 @@ export class WorkerStatus extends React.Component {
                                 {WorkerStatus.renderPoolBar("General", serverInfo.memoryInfo.pools.general)}
                                 {this.renderPoolQueries(serverInfo.memoryInfo.pools.general)}
                             </div>
-                            <div className="col-xs-6">
-                                {WorkerStatus.renderPoolBar("Reserved", serverInfo.memoryInfo.pools.reserved)}
-                                {this.renderPoolQueries(serverInfo.memoryInfo.pools.reserved)}
-                            </div>
                         </div>
                     </div>
                 </div>
