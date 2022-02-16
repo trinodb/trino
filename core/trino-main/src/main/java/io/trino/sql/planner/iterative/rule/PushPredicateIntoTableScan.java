@@ -214,7 +214,10 @@ public class PushPredicateIntoTableScan
         }
 
         // check if new domain is wider than domain already provided by table scan
-        if (constraint.predicate().isEmpty() && newDomain.contains(node.getEnforcedConstraint())) {
+        if (constraint.predicate().isEmpty() &&
+                // TODO do we need to track enforced ConnectorExpression in TableScanNode?
+                TRUE.equals(connectorExpression.orElse(TRUE)) &&
+                newDomain.contains(node.getEnforcedConstraint())) {
             Expression resultingPredicate = createResultingPredicate(
                     plannerContext,
                     session,
