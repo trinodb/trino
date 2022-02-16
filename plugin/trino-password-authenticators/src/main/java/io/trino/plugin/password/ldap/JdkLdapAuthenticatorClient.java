@@ -79,8 +79,11 @@ public class JdkLdapAuthenticatorClient
 
         this.basicEnvironment = builder.buildOrThrow();
 
-        this.sslContext = Optional.ofNullable(ldapConfig.getTrustCertificate())
-                .map(JdkLdapAuthenticatorClient::createSslContext);
+        this.sslContext = createSslContext(
+                ldapConfig.getKeystorePath(),
+                ldapConfig.getKeystorePassword(),
+                ldapConfig.getTrustStorePath(),
+                ldapConfig.getTruststorePassword());
     }
 
     @Override
@@ -157,10 +160,17 @@ public class JdkLdapAuthenticatorClient
         return environment.buildOrThrow();
     }
 
-    private static SSLContext createSslContext(File trustCertificate)
+    private static Optional<SSLContext> createSslContext(
+            Optional<File> keyStorePath,
+            Optional<String> keyStorePassword,
+            Optional<File> trustStorePath,
+            Optional<String> trustStorePassword)
     {
+        if (keyStorePath.isEmpty() && trustStorePath.isEmpty()) {
+            return Optional.empty();
+        }
         try {
-            return SslUtils.createSSLContext(Optional.empty(), Optional.empty(), Optional.of(trustCertificate), Optional.empty());
+            return Optional.of(SslUtils.createSSLContext(keyStorePath, keyStorePassword, trustStorePath, trustStorePassword));
         }
         catch (GeneralSecurityException | IOException e) {
             throw new RuntimeException(e);
