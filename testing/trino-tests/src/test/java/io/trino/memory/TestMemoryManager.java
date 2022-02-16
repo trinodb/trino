@@ -37,13 +37,11 @@ import java.util.concurrent.Future;
 
 import static io.trino.SystemSessionProperties.RESOURCE_OVERCOMMIT;
 import static io.trino.execution.QueryState.FINISHED;
-import static io.trino.memory.LocalMemoryManager.GENERAL_POOL;
 import static io.trino.operator.BlockedReason.WAITING_FOR_MEMORY;
 import static io.trino.spi.StandardErrorCode.CLUSTER_OUT_OF_MEMORY;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -115,9 +113,8 @@ public class TestMemoryManager
             // Reserve all the memory
             QueryId fakeQueryId = new QueryId("fake");
             for (TestingTrinoServer server : queryRunner.getServers()) {
-                List<MemoryPool> memoryPools = server.getLocalMemoryManager().getPools();
-                assertEquals(memoryPools.size(), 1, "Only general pool should exist");
-                assertTrue(memoryPools.get(0).tryReserve(fakeQueryId, "test", memoryPools.get(0).getMaxBytes()));
+                MemoryPool memoryPool = server.getLocalMemoryManager().getMemoryPool();
+                assertTrue(memoryPool.tryReserve(fakeQueryId, "test", memoryPool.getMaxBytes()));
             }
 
             List<Future<?>> queryFutures = new ArrayList<>();
@@ -129,11 +126,11 @@ public class TestMemoryManager
             waitForQueryToBeKilled(queryRunner);
 
             for (TestingTrinoServer server : queryRunner.getServers()) {
-                MemoryPool general = server.getLocalMemoryManager().getGeneralPool();
-                assertTrue(general.getReservedBytes() > 0);
+                MemoryPool pool = server.getLocalMemoryManager().getMemoryPool();
+                assertTrue(pool.getReservedBytes() > 0);
                 // Free up the entire pool
-                general.free(fakeQueryId, "test", general.getMaxBytes());
-                assertTrue(general.getFreeBytes() > 0);
+                pool.free(fakeQueryId, "test", pool.getMaxBytes());
+                assertTrue(pool.getFreeBytes() > 0);
             }
 
             for (Future<?> query : queryFutures) {
@@ -181,8 +178,8 @@ public class TestMemoryManager
 
             // Make sure we didn't leak any memory on the workers
             for (TestingTrinoServer worker : queryRunner.getServers()) {
-                MemoryPool general = worker.getLocalMemoryManager().getGeneralPool();
-                assertEquals(general.getMaxBytes(), general.getFreeBytes());
+                MemoryPool pool = worker.getLocalMemoryManager().getMemoryPool();
+                assertEquals(pool.getMaxBytes(), pool.getFreeBytes());
             }
         }
     }
@@ -199,9 +196,8 @@ public class TestMemoryManager
             // Reserve all the memory
             QueryId fakeQueryId = new QueryId("fake");
             for (TestingTrinoServer server : queryRunner.getServers()) {
-                for (MemoryPool pool : server.getLocalMemoryManager().getPools()) {
-                    assertTrue(pool.tryReserve(fakeQueryId, "test", pool.getMaxBytes()));
-                }
+                MemoryPool pool = server.getLocalMemoryManager().getMemoryPool();
+                assertTrue(pool.tryReserve(fakeQueryId, "test", pool.getMaxBytes()));
             }
 
             List<Future<?>> queryFutures = new ArrayList<>();
@@ -211,11 +207,11 @@ public class TestMemoryManager
 
             ClusterMemoryManager memoryManager = queryRunner.getCoordinator().getClusterMemoryManager();
 
-            ClusterMemoryPool generalPool = memoryManager.getPools().get(GENERAL_POOL);
-            assertNotNull(generalPool);
+            ClusterMemoryPool clusterPool = memoryManager.getPool();
+            assertNotNull(clusterPool);
 
             // Wait for the pools to become blocked
-            while (generalPool.getBlockedNodes() != 2) {
+            while (clusterPool.getBlockedNodes() != 2) {
                 MILLISECONDS.sleep(10);
             }
 
@@ -231,10 +227,6 @@ public class TestMemoryManager
                 assertFalse(info.getState().isDone());
             }
 
-            // Check that queries are assigned to expected pools
-            assertThat(currentQueryInfos.get(0).getMemoryPool()).isIn(GENERAL_POOL);
-            assertThat(currentQueryInfos.get(1).getMemoryPool()).isIn(GENERAL_POOL);
-
             while (!currentQueryInfos.stream().allMatch(TestMemoryManager::isBlockedWaitingForMemory)) {
                 MILLISECONDS.sleep(10);
                 currentQueryInfos = queryRunner.getCoordinator().getQueryManager().getQueries();
@@ -243,15 +235,15 @@ public class TestMemoryManager
                 }
             }
 
-            // Release the memory in the general pool
+            // Release the memory in the memory pool
             for (TestingTrinoServer server : queryRunner.getServers()) {
-                MemoryPool general = server.getLocalMemoryManager().getGeneralPool();
+                MemoryPool pool = server.getLocalMemoryManager().getMemoryPool();
                 // Free up the entire pool
-                general.free(fakeQueryId, "test", general.getMaxBytes());
-                assertTrue(general.getFreeBytes() > 0);
+                pool.free(fakeQueryId, "test", pool.getMaxBytes());
+                assertTrue(pool.getFreeBytes() > 0);
             }
 
-            // Make sure both queries finish now that there's memory free in the general pool.
+            // Make sure both queries finish now that there's memory free in the memory pool.
             for (Future<?> query : queryFutures) {
                 query.get();
             }
@@ -262,8 +254,8 @@ public class TestMemoryManager
 
             // Make sure we didn't leak any memory on the workers
             for (TestingTrinoServer worker : queryRunner.getServers()) {
-                MemoryPool general = worker.getLocalMemoryManager().getGeneralPool();
-                assertEquals(general.getMaxBytes(), general.getFreeBytes());
+                MemoryPool pool = worker.getLocalMemoryManager().getMemoryPool();
+                assertEquals(pool.getMaxBytes(), pool.getFreeBytes());
             }
         }
     }

@@ -30,7 +30,6 @@ import io.trino.operator.PipelineStats;
 import io.trino.operator.TaskContext;
 import io.trino.operator.TaskStats;
 import io.trino.spi.QueryId;
-import io.trino.spi.memory.MemoryPoolId;
 import io.trino.spiller.SpillSpaceTracker;
 import io.trino.sql.planner.plan.PlanNodeId;
 import org.testng.annotations.AfterClass;
@@ -100,7 +99,7 @@ public class TestMemoryTracking
 
     private void setupTestWithLimits(DataSize queryMaxMemory, Optional<DataSize> queryMaxTaskMemory)
     {
-        memoryPool = new MemoryPool(new MemoryPoolId("test"), memoryPoolSize);
+        memoryPool = new MemoryPool(memoryPoolSize);
         queryContext = new QueryContext(
                 new QueryId("test_query"),
                 queryMaxMemory,

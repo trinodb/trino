@@ -23,7 +23,6 @@ import io.trino.execution.QueryState;
 import io.trino.execution.QueryStats;
 import io.trino.execution.resourcegroups.InternalResourceGroup;
 import io.trino.spi.QueryId;
-import io.trino.spi.memory.MemoryPoolId;
 import io.trino.spi.resourcegroups.QueryType;
 import org.joda.time.DateTime;
 import org.testng.annotations.Test;
@@ -101,7 +100,6 @@ public class TestQueryStateInfo
                 new QueryId(queryId),
                 TEST_SESSION.toSessionRepresentation(),
                 state,
-                new MemoryPoolId("reserved"),
                 true,
                 URI.create("1"),
                 ImmutableList.of("2", "3"),

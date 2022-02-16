@@ -30,23 +30,23 @@ public class TestTotalReservationOnBlockedNodesLowMemoryKiller
     private final LowMemoryKiller lowMemoryKiller = new TotalReservationOnBlockedNodesLowMemoryKiller();
 
     @Test
-    public void testGeneralPoolHasNoReservation()
+    public void testMemoryPoolHasNoReservation()
     {
-        int generalPool = 12;
+        int memoryPool = 12;
         Map<String, Map<String, Long>> queries = ImmutableMap.<String, Map<String, Long>>builder()
                 .put("q_1", ImmutableMap.of("n1", 0L, "n2", 0L, "n3", 0L, "n4", 0L, "n5", 0L))
                 .buildOrThrow();
         assertEquals(
                 lowMemoryKiller.chooseQueryToKill(
                         toQueryMemoryInfoList(queries),
-                        toNodeMemoryInfoList(generalPool, queries)),
+                        toNodeMemoryInfoList(memoryPool, queries)),
                 Optional.empty());
     }
 
     @Test
-    public void testGeneralPoolNotBlocked()
+    public void testMemoryPoolNotBlocked()
     {
-        int generalPool = 12;
+        int memoryPool = 12;
         Map<String, Map<String, Long>> queries = ImmutableMap.<String, Map<String, Long>>builder()
                 .put("q_1", ImmutableMap.of("n1", 0L, "n2", 6L, "n3", 0L, "n4", 0L, "n5", 0L))
                 .put("q_2", ImmutableMap.of("n1", 3L, "n2", 5L, "n3", 2L, "n4", 4L, "n5", 0L))
@@ -54,16 +54,16 @@ public class TestTotalReservationOnBlockedNodesLowMemoryKiller
         assertEquals(
                 lowMemoryKiller.chooseQueryToKill(
                         toQueryMemoryInfoList(queries),
-                        toNodeMemoryInfoList(generalPool, queries)),
+                        toNodeMemoryInfoList(memoryPool, queries)),
                 Optional.empty());
     }
 
     @Test
     public void testSkewedQuery()
     {
-        int generalPool = 12;
+        int memoryPool = 12;
         // q1 is neither the query with the most total memory reservation, nor the query with the max memory reservation.
-        // This also tests the corner case where a node doesn't have a general pool.
+        // This also tests the corner case where a node has an empty memory pool
         Map<String, Map<String, Long>> queries = ImmutableMap.<String, Map<String, Long>>builder()
                 .put("q_1", ImmutableMap.of("n1", 0L, "n2", 8L, "n3", 0L, "n4", 0L, "n5", 0L))
                 .put("q_2", ImmutableMap.of("n1", 3L, "n2", 5L, "n3", 2L, "n4", 4L, "n5", 0L))
@@ -72,7 +72,7 @@ public class TestTotalReservationOnBlockedNodesLowMemoryKiller
         assertEquals(
                 lowMemoryKiller.chooseQueryToKill(
                         toQueryMemoryInfoList(queries),
-                        toNodeMemoryInfoList(generalPool, queries)),
+                        toNodeMemoryInfoList(memoryPool, queries)),
                 Optional.of(new QueryId("q_1")));
     }
 }

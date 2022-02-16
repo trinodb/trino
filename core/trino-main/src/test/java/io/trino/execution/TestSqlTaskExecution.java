@@ -56,7 +56,6 @@ import io.trino.spi.QueryId;
 import io.trino.spi.block.TestingBlockEncodingSerde;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.UpdatablePageSource;
-import io.trino.spi.memory.MemoryPoolId;
 import io.trino.spi.type.Type;
 import io.trino.spiller.SpillSpaceTracker;
 import io.trino.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
@@ -598,7 +597,7 @@ public class TestSqlTaskExecution
                 new QueryId("queryid"),
                 DataSize.of(1, MEGABYTE),
                 Optional.empty(),
-                new MemoryPool(new MemoryPoolId("test"), DataSize.of(1, GIGABYTE)),
+                new MemoryPool(DataSize.of(1, GIGABYTE)),
                 new TestingGcMonitor(),
                 taskNotificationExecutor,
                 driverYieldExecutor,

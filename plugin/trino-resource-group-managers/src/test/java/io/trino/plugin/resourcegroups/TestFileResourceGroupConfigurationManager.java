@@ -31,7 +31,6 @@ import java.util.regex.Pattern;
 
 import static com.google.common.io.Resources.getResource;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
-import static io.trino.memory.LocalMemoryManager.GENERAL_POOL;
 import static io.trino.plugin.resourcegroups.TestingResourceGroups.groupIdTemplate;
 import static io.trino.plugin.resourcegroups.TestingResourceGroups.managerSpec;
 import static io.trino.plugin.resourcegroups.TestingResourceGroups.resourceGroupSpec;
@@ -86,7 +85,7 @@ public class TestFileResourceGroupConfigurationManager
                 ImmutableList.of(selectorSpec(groupIdTemplate("group"))
                         .userGroups("first matching", "second matching")));
 
-        FileResourceGroupConfigurationManager groupManager = new FileResourceGroupConfigurationManager((poolId, listener) -> {}, managerSpec);
+        FileResourceGroupConfigurationManager groupManager = new FileResourceGroupConfigurationManager(listener -> {}, managerSpec);
 
         assertThat(groupManager.match(userGroupsSelectionCriteria("not matching"))).isEmpty();
         assertThat(groupManager.match(userGroupsSelectionCriteria("first matching")))
@@ -102,7 +101,7 @@ public class TestFileResourceGroupConfigurationManager
                 ImmutableList.of(selectorSpec(groupIdTemplate("group"))
                         .users("First matching user", "Second matching user")));
 
-        FileResourceGroupConfigurationManager groupManager = new FileResourceGroupConfigurationManager((poolId, listener) -> {}, managerSpec);
+        FileResourceGroupConfigurationManager groupManager = new FileResourceGroupConfigurationManager(listener -> {}, managerSpec);
 
         assertThat(groupManager.match(userSelectionCriteria("Not matching user"))).isEmpty();
         assertThat(groupManager.match(userSelectionCriteria("First matching user")))
@@ -119,7 +118,7 @@ public class TestFileResourceGroupConfigurationManager
                         .userGroups("Matching group")
                         .users("Matching user")));
 
-        FileResourceGroupConfigurationManager groupManager = new FileResourceGroupConfigurationManager((poolId, listener) -> {}, managerSpec);
+        FileResourceGroupConfigurationManager groupManager = new FileResourceGroupConfigurationManager(listener -> {}, managerSpec);
 
         assertThat(groupManager.match(userAndUserGroupsSelectionCriteria("Matching user", "Not matching group"))).isEmpty();
         assertThat(groupManager.match(userAndUserGroupsSelectionCriteria("Not matching user", "Matching group"))).isEmpty();
@@ -189,13 +188,9 @@ public class TestFileResourceGroupConfigurationManager
     @Test
     public void testDocsExample()
     {
-        long generalPoolSize = 31415926535900L; // arbitrary uneven value for testing
+        long memoryPoolSize = 31415926535900L; // arbitrary uneven value for testing
         FileResourceGroupConfigurationManager manager = new FileResourceGroupConfigurationManager(
-                (poolId, listener) -> {
-                    if (poolId.equals(GENERAL_POOL)) {
-                        listener.accept(new MemoryPoolInfo(generalPoolSize, 0, 0, ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of()));
-                    }
-                },
+                (listener) -> listener.accept(new MemoryPoolInfo(memoryPoolSize, 0, 0, ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of())),
                 new FileResourceGroupConfig()
                         // TODO: figure out a better way to validate documentation
                         .setConfigFile("../../docs/src/main/sphinx/admin/resource-groups-example.json"));
@@ -213,7 +208,7 @@ public class TestFileResourceGroupConfigurationManager
         manager.configure(resourceGroup, selectionContext);
         assertEquals(resourceGroup.getHardConcurrencyLimit(), 3);
         assertEquals(resourceGroup.getMaxQueuedQueries(), 10);
-        assertEquals(resourceGroup.getSoftMemoryLimitBytes(), generalPoolSize / 10);
+        assertEquals(resourceGroup.getSoftMemoryLimitBytes(), memoryPoolSize / 10);
     }
 
     @Test
@@ -249,7 +244,7 @@ public class TestFileResourceGroupConfigurationManager
     {
         FileResourceGroupConfig config = new FileResourceGroupConfig();
         config.setConfigFile(getResource(fileName).getPath());
-        return new FileResourceGroupConfigurationManager((poolId, listener) -> {}, config);
+        return new FileResourceGroupConfigurationManager(listener -> {}, config);
     }
 
     private static ManagerSpec parseManagerSpec(String fileName)
