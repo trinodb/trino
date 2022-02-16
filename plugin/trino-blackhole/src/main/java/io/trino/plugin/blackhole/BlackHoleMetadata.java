@@ -135,10 +135,14 @@ public class BlackHoleMetadata
     @Override
     public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
     {
-        return tables.values().stream()
-                .filter(table -> schemaName.isEmpty() || table.getSchemaName().equals(schemaName.get()))
-                .map(BlackHoleTableHandle::toSchemaTableName)
-                .collect(toList());
+        // Deduplicate with set because state may change concurrently
+        return ImmutableSet.<SchemaTableName>builder()
+                .addAll(tables.values().stream()
+                        .filter(table -> schemaName.isEmpty() || table.getSchemaName().equals(schemaName.get()))
+                        .map(BlackHoleTableHandle::toSchemaTableName)
+                        .collect(toList()))
+                .addAll(listViews(session, schemaName))
+                .build().asList();
     }
 
     @Override
