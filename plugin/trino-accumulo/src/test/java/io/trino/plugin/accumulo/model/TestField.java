@@ -24,9 +24,9 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignatureParameter;
 import org.testng.annotations.Test;
 
-import java.sql.Date;
 import java.sql.Time;
 import java.sql.Timestamp;
+import java.time.LocalDate;
 import java.util.GregorianCalendar;
 
 import static io.airlift.slice.Slices.utf8Slice;
@@ -91,7 +91,7 @@ public class TestField
     public void testDate()
     {
         Type type = DATE;
-        Date expected = new Date(new GregorianCalendar(1999, 0, 1).getTime().getTime());
+        long expected = LocalDate.parse("1999-01-01").toEpochDay();
         Field f1 = new Field(10592L, type);
         assertEquals(f1.getDate(), expected);
         assertEquals(f1.getObject(), expected);
