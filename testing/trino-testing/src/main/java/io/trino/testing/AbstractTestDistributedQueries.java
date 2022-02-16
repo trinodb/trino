@@ -795,7 +795,7 @@ public abstract class AbstractTestDistributedQueries
             return;
         }
 
-        @Language("SQL") String query = "SELECT orderkey, orderstatus, totalprice / 2 half FROM orders";
+        @Language("SQL") String query = "SELECT orderkey, orderstatus, (totalprice / 2) half FROM orders";
 
         String catalogName = getSession().getCatalog().orElseThrow();
         String schemaName = getSession().getSchema().orElseThrow();
@@ -807,6 +807,7 @@ public abstract class AbstractTestDistributedQueries
         assertUpdate("CREATE VIEW " + testViewWithComment + " COMMENT 'orders' AS SELECT 123 x");
         assertUpdate("CREATE OR REPLACE VIEW " + testViewWithComment + " COMMENT 'orders' AS " + query);
 
+        // verify comment
         MaterializedResult materializedRows = computeActual("SHOW CREATE VIEW " + testViewWithComment);
         assertThat((String) materializedRows.getOnlyValue()).contains("COMMENT 'orders'");
         assertThat(query(
@@ -816,6 +817,7 @@ public abstract class AbstractTestDistributedQueries
                 .skippingTypesCheck()
                 .containsAll("VALUES ('" + testView + "', null), ('" + testViewWithComment + "', 'orders')");
 
+        // reading
         assertQuery("SELECT * FROM " + testView, query);
         assertQuery("SELECT * FROM " + testViewWithComment, query);
 
@@ -828,8 +830,114 @@ public abstract class AbstractTestDistributedQueries
         String name = format("%s.%s." + testView, catalogName, schemaName);
         assertQuery("SELECT * FROM " + name, query);
 
-        assertUpdate("DROP VIEW " + testView);
         assertUpdate("DROP VIEW " + testViewWithComment);
+
+        // information_schema.views without table_name filter
+        assertThat(query(
+                "SELECT table_name, regexp_replace(view_definition, '\\s', '') FROM information_schema.views " +
+                        "WHERE table_schema = '" + schemaName + "'"))
+                .skippingTypesCheck()
+                .containsAll("VALUES ('" + testView + "', '" + query.replaceAll("\\s", "") + "')");
+        // information_schema.views with table_name filter
+        assertQuery(
+                "SELECT table_name, regexp_replace(view_definition, '\\s', '') FROM information_schema.views " +
+                        "WHERE table_schema = '" + schemaName + "' and table_name = '" + testView + "'",
+                "VALUES ('" + testView + "', '" + query.replaceAll("\\s", "") + "')");
+
+        // table listing
+        assertThat(query("SHOW TABLES"))
+                .skippingTypesCheck()
+                .containsAll("VALUES '" + testView + "'");
+        // information_schema.tables without table_name filter
+        assertThat(query(
+                "SELECT table_name, table_type FROM information_schema.tables " +
+                        "WHERE table_schema = '" + schemaName + "'"))
+                .skippingTypesCheck()
+                .containsAll("VALUES ('" + testView + "', 'VIEW')");
+        // information_schema.tables with table_name filter
+        assertQuery(
+                "SELECT table_name, table_type FROM information_schema.tables " +
+                        "WHERE table_schema = '" + schemaName + "' and table_name = '" + testView + "'",
+                "VALUES ('" + testView + "', 'VIEW')");
+
+        // system.jdbc.tables without filter
+        assertThat(query("SELECT table_schem, table_name, table_type FROM system.jdbc.tables"))
+                .skippingTypesCheck()
+                .containsAll("VALUES ('" + schemaName + "', '" + testView + "', 'VIEW')");
+
+        // system.jdbc.tables with table prefix filter
+        assertQuery(
+                "SELECT table_schem, table_name, table_type " +
+                        "FROM system.jdbc.tables " +
+                        "WHERE table_cat = '" + catalogName + "' AND " +
+                        "table_schem = '" + schemaName + "' AND " +
+                        "table_name = '" + testView + "'",
+                "VALUES ('" + schemaName + "', '" + testView + "', 'VIEW')");
+
+        // column listing
+        assertThat(query("SHOW COLUMNS FROM " + testView))
+                .projected(0) // column types can very between connectors
+                .skippingTypesCheck()
+                .matches("VALUES 'orderkey', 'orderstatus', 'half'");
+
+        assertThat(query("DESCRIBE " + testView))
+                .projected(0) // column types can very between connectors
+                .skippingTypesCheck()
+                .matches("VALUES 'orderkey', 'orderstatus', 'half'");
+
+        // information_schema.columns without table_name filter
+        assertThat(query(
+                "SELECT table_name, column_name " +
+                        "FROM information_schema.columns " +
+                        "WHERE table_schema = '" + schemaName + "'"))
+                .skippingTypesCheck()
+                .containsAll(
+                        "SELECT * FROM (VALUES '" + testView + "') " +
+                                "CROSS JOIN UNNEST(ARRAY['orderkey', 'orderstatus', 'half'])");
+
+        // information_schema.columns with table_name filter
+        assertThat(query(
+                "SELECT table_name, column_name " +
+                        "FROM information_schema.columns " +
+                        "WHERE table_schema = '" + schemaName + "' and table_name = '" + testView + "'"))
+                .skippingTypesCheck()
+                .containsAll(
+                        "SELECT * FROM (VALUES '" + testView + "') " +
+                                "CROSS JOIN UNNEST(ARRAY['orderkey', 'orderstatus', 'half'])");
+
+        // view-specific listings
+        assertThat(query("SELECT table_name FROM information_schema.views WHERE table_schema = '" + schemaName + "'"))
+                .skippingTypesCheck()
+                .containsAll("VALUES '" + testView + "'");
+
+        // system.jdbc.columns without filter
+        assertThat(query("SELECT table_schem, table_name, column_name FROM system.jdbc.columns"))
+                .skippingTypesCheck()
+                .containsAll(
+                        "SELECT * FROM (VALUES ('" + schemaName + "', '" + testView + "')) " +
+                                "CROSS JOIN UNNEST(ARRAY['orderkey', 'orderstatus', 'half'])");
+
+        // system.jdbc.columns with schema filter
+        assertThat(query(
+                "SELECT table_schem, table_name, column_name " +
+                        "FROM system.jdbc.columns " +
+                        "WHERE table_schem LIKE '%" + schemaName + "%'"))
+                .skippingTypesCheck()
+                .containsAll(
+                        "SELECT * FROM (VALUES ('" + schemaName + "', '" + testView + "')) " +
+                                "CROSS JOIN UNNEST(ARRAY['orderkey', 'orderstatus', 'half'])");
+
+        // system.jdbc.columns with table filter
+        assertThat(query(
+                "SELECT table_schem, table_name, column_name " +
+                        "FROM system.jdbc.columns " +
+                        "WHERE table_name LIKE '%" + testView + "%'"))
+                .skippingTypesCheck()
+                .containsAll(
+                        "SELECT * FROM (VALUES ('" + schemaName + "', '" + testView + "')) " +
+                                "CROSS JOIN UNNEST(ARRAY['orderkey', 'orderstatus', 'half'])");
+
+        assertUpdate("DROP VIEW " + testView);
     }
 
     @Test

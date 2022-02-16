@@ -15,6 +15,7 @@ package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.HdfsEnvironment;
@@ -277,7 +278,7 @@ class TrinoHiveCatalog
     @Override
     public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> namespace)
     {
-        ImmutableList.Builder<SchemaTableName> tablesListBuilder = ImmutableList.builder();
+        ImmutableSet.Builder<SchemaTableName> tablesListBuilder = ImmutableSet.builder();
         listNamespaces(session, namespace)
                 .stream()
                 .flatMap(schema -> Stream.concat(
@@ -291,8 +292,10 @@ class TrinoHiveCatalog
                         .distinct())  // distinct() to avoid duplicates for case-insensitive HMS backends
                 .forEach(tablesListBuilder::add);
 
+        tablesListBuilder.addAll(listViews(session, namespace));
         tablesListBuilder.addAll(listMaterializedViews(session, namespace));
-        return tablesListBuilder.build();
+        // Deduplicate with set because state may change concurrently
+        return tablesListBuilder.build().asList();
     }
 
     @Override
@@ -439,12 +442,16 @@ class TrinoHiveCatalog
     @Override
     public List<SchemaTableName> listViews(ConnectorSession session, Optional<String> namespace)
     {
-        // Filter on PRESTO_VIEW_COMMENT to distinguish from materialized views
         return listNamespaces(session, namespace).stream()
-                .flatMap(schema ->
-                        metastore.getTablesWithParameter(schema, TABLE_COMMENT, PRESTO_VIEW_COMMENT).stream()
-                                .map(table -> new SchemaTableName(schema, table)))
+                .flatMap(this::listViews)
                 .collect(toImmutableList());
+    }
+
+    private Stream<SchemaTableName> listViews(String schema)
+    {
+        // Filter on PRESTO_VIEW_COMMENT to distinguish from materialized views
+        return metastore.getTablesWithParameter(schema, TABLE_COMMENT, PRESTO_VIEW_COMMENT).stream()
+                .map(table -> new SchemaTableName(schema, table));
     }
 
     @Override
