@@ -111,6 +111,7 @@ public class CachingJdbcClient
 
         EvictableCacheBuilder<Object, Object> cacheBuilder = EvictableCacheBuilder.newBuilder()
                 .expireAfterWrite(metadataCachingTtl.toMillis(), MILLISECONDS)
+                .shareNothingWhenDisabled()
                 .recordStats();
 
         if (metadataCachingTtl.equals(CACHING_DISABLED)) {

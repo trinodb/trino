@@ -51,6 +51,7 @@ public final class EvictableCacheBuilder<K, V>
     private Optional<Long> maximumWeight = Optional.empty();
     private Optional<Weigher<? super Token<K>, ? super V>> weigher = Optional.empty();
     private boolean recordStats;
+    private Optional<DisabledCacheImplementation> disabledCacheImplementation = Optional.empty();
 
     private EvictableCacheBuilder() {}
 
@@ -109,6 +110,27 @@ public final class EvictableCacheBuilder<K, V>
         return this;
     }
 
+    /**
+     * Choose a behavior for case when caching is disabled that may allow data and failure sharing between concurrent callers.
+     */
+    public EvictableCacheBuilder<K, V> shareResultsAndFailuresEvenIfDisabled()
+    {
+        checkState(!disabledCacheImplementation.isPresent(), "disabledCacheImplementation already set");
+        disabledCacheImplementation = Optional.of(DisabledCacheImplementation.GUAVA);
+        return this;
+    }
+
+    /**
+     * Choose a behavior for case when caching is disabled that prevents data and failure sharing between concurrent callers.
+     * Note: disabled cache won't report any statistics.
+     */
+    public EvictableCacheBuilder<K, V> shareNothingWhenDisabled()
+    {
+        checkState(!disabledCacheImplementation.isPresent(), "disabledCacheImplementation already set");
+        disabledCacheImplementation = Optional.of(DisabledCacheImplementation.NOOP);
+        return this;
+    }
+
     @CheckReturnValue
     public <K1 extends K, V1 extends V> Cache<K1, V1> build()
     {
@@ -119,15 +141,26 @@ public final class EvictableCacheBuilder<K, V>
     public <K1 extends K, V1 extends V> LoadingCache<K1, V1> build(CacheLoader<? super K1, V1> loader)
     {
         if (cacheDisabled()) {
-            // Disabled cache is always empty, so doesn't exhibit invalidation problems.
-            // Avoid overhead of EvictableCache wrapper.
-            CacheBuilder<Object, Object> cacheBuilder = CacheBuilder.newBuilder()
-                    .maximumSize(0)
-                    .expireAfterWrite(0, SECONDS);
-            if (recordStats) {
-                cacheBuilder.recordStats();
+            // Silently providing a behavior different from Guava's could be surprising, so require explicit choice.
+            DisabledCacheImplementation disabledCacheImplementation = this.disabledCacheImplementation.orElseThrow(() -> new IllegalStateException(
+                    "Even when cache is disabled, the loads are synchronized and both load results and failures are shared between threads. " +
+                            "This is rarely desired, thus builder caller is expected to either opt-in into this behavior with shareResultsAndFailuresEvenIfDisabled(), " +
+                            "or choose not to share results (and failures) between concurrent invocations with shareNothingWhenDisabled()."));
+            switch (disabledCacheImplementation) {
+                case NOOP:
+                    return new EmptyCache<>(loader, recordStats);
+                case GUAVA:
+                    // Disabled cache is always empty, so doesn't exhibit invalidation problems.
+                    // Avoid overhead of EvictableCache wrapper.
+                    CacheBuilder<Object, Object> cacheBuilder = CacheBuilder.newBuilder()
+                            .maximumSize(0)
+                            .expireAfterWrite(0, SECONDS);
+                    if (recordStats) {
+                        cacheBuilder.recordStats();
+                    }
+                    return buildUnsafeCache(cacheBuilder, loader);
             }
-            return buildUnsafeCache(cacheBuilder, loader);
+            throw new UnsupportedOperationException("Unsupported option: " + disabledCacheImplementation);
         }
 
         if (!(maximumSize.isPresent() || maximumWeight.isPresent() || expireAfterWrite.isPresent())) {
@@ -190,5 +223,11 @@ public final class EvictableCacheBuilder<K, V>
     {
         // Saturated conversion, as in com.google.common.cache.CacheBuilder.toNanosSaturated
         return Duration.ofNanos(unit.toNanos(duration));
+    }
+
+    private enum DisabledCacheImplementation
+    {
+        NOOP,
+        GUAVA,
     }
 }
