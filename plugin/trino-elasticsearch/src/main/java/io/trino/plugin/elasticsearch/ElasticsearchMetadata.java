@@ -21,7 +21,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.io.BaseEncoding;
 import io.airlift.json.ObjectMapperProvider;
 import io.airlift.slice.Slice;
-import io.trino.plugin.base.util.ConnectorExpressionUtils;
+import io.trino.plugin.base.expression.ConnectorExpressions;
 import io.trino.plugin.elasticsearch.client.ElasticsearchClient;
 import io.trino.plugin.elasticsearch.client.IndexMetadata;
 import io.trino.plugin.elasticsearch.client.IndexMetadata.DateTimeType;
@@ -58,6 +58,7 @@ import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.expression.Call;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Constant;
+import io.trino.spi.expression.FunctionName;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
@@ -537,13 +538,13 @@ public class ElasticsearchMetadata
 
         ConnectorExpression oldExpression = constraint.getExpression();
         Map<String, String> newRegexes = new HashMap<>(handle.getRegexes());
-        List<ConnectorExpression> expressions = ConnectorExpressionUtils.extractConjuncts(constraint.getExpression());
+        List<ConnectorExpression> expressions = ConnectorExpressions.extractConjuncts(constraint.getExpression());
         List<ConnectorExpression> notHandledExpressions = new ArrayList<>();
         for (ConnectorExpression expression : expressions) {
             if (expression instanceof Call) {
                 Call call = (Call) expression;
                 // TODO Support ESCAPE character when it's pushed down by the engine
-                if ("$like_pattern".equals(call.getName()) && call.getArguments().size() == 2 &&
+                if (new FunctionName("$like_pattern").equals(call.getFunctionName()) && call.getArguments().size() == 2 &&
                         call.getArguments().get(0) instanceof Variable && call.getArguments().get(1) instanceof Constant) {
                     String columnName = ((Variable) call.getArguments().get(0)).getName();
                     Object pattern = ((Constant) call.getArguments().get(1)).getValue();
@@ -561,7 +562,7 @@ public class ElasticsearchMetadata
             notHandledExpressions.add(expression);
         }
 
-        ConnectorExpression newExpression = ConnectorExpressionUtils.and(notHandledExpressions);
+        ConnectorExpression newExpression = ConnectorExpressions.and(notHandledExpressions);
         if (oldDomain.equals(newDomain) && oldExpression.equals(newExpression)) {
             return Optional.empty();
         }
