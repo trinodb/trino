@@ -220,11 +220,14 @@ public class TestHiveGlueMetastore
     public void cleanupOrphanedDatabases()
     {
         long creationTimeMillisThreshold = currentTimeMillis() - DAYS.toMillis(1);
+        GlueHiveMetastore metastore = (GlueHiveMetastore) getMetastoreClient();
+        GlueMetastoreStats stats = metastore.getStats();
         List<String> orphanedDatabases = getPaginatedResults(
                 glueClient::getDatabases,
                 new GetDatabasesRequest(),
                 GetDatabasesRequest::setNextToken,
-                GetDatabasesResult::getNextToken)
+                GetDatabasesResult::getNextToken,
+                stats.getGetDatabases())
                 .map(GetDatabasesResult::getDatabaseList)
                 .flatMap(List::stream)
                 .filter(database -> database.getName().startsWith(TEST_DATABASE_NAME_PREFIX) &&
@@ -1009,8 +1012,12 @@ public class TestHiveGlueMetastore
                     .setColumnStatistics(columnStatistics).build();
 
             createDummyPartitionedTable(tableName, columns);
+            GlueHiveMetastore metastoreClient = (GlueHiveMetastore) getMetastoreClient();
+            double countBefore = metastoreClient.getStats().getBatchUpdatePartition().getTime().getAllTime().getCount();
+
             metastore.updatePartitionStatistics(tableName.getSchemaName(), tableName.getTableName(), "ds=2016-01-01", actualStatistics -> partitionStatistics);
 
+            assertThat(metastoreClient.getStats().getBatchUpdatePartition().getTime().getAllTime().getCount()).isEqualTo(countBefore + 1);
             PartitionStatistics tableStatistics = new PartitionStatistics(createEmptyStatistics(), Map.of());
             assertThat(metastore.getTableStatistics(tableName.getSchemaName(), tableName.getTableName()))
                     .isEqualTo(tableStatistics);
