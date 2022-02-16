@@ -321,10 +321,14 @@ public class TestHiveRedirectionToIceberg
 
         createIcebergTable(icebergTableName, false);
 
-        //TODO restore test assertions after adding redirection awareness to the AddColumnTask
-        assertQueryFailure(() -> onTrino().executeQuery("ALTER TABLE " + hiveTableName + " ADD COLUMN some_new_column double"))
-                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): Cannot query Iceberg table 'default." + tableName + "'");
+        onTrino().executeQuery("ALTER TABLE " + hiveTableName + " ADD COLUMN some_new_column double");
 
+        Assertions.assertThat(onTrino().executeQuery("DESCRIBE " + icebergTableName).column(1))
+                .containsOnly("nationkey", "name", "regionkey", "comment", "some_new_column");
+
+        assertResultsEqual(
+                onTrino().executeQuery("TABLE " + icebergTableName),
+                onTrino().executeQuery("SELECT * , NULL FROM tpch.tiny.nation"));
         onTrino().executeQuery("DROP TABLE " + icebergTableName);
     }
 
