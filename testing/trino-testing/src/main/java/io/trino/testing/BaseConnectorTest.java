@@ -624,14 +624,11 @@ public abstract class BaseConnectorTest
         checkInformationSchemaViewsForMaterializedView(view.getSchemaName(), view.getObjectName());
 
         // system.jdbc.columns without filter
-        @Language("SQL") String expectedValues = "VALUES ('" + view.getSchemaName() + "', '" + view.getObjectName() + "', 'nationkey'), " +
-                "('" + view.getSchemaName() + "', '" + view.getObjectName() + "', 'name'), " +
-                "('" + view.getSchemaName() + "', '" + view.getObjectName() + "', 'regionkey'), " +
-                "('" + view.getSchemaName() + "', '" + view.getObjectName() + "', 'comment')";
-        assertThat(query(
-                "SELECT table_schem, table_name, column_name FROM system.jdbc.columns"))
+        assertThat(query("SELECT table_schem, table_name, column_name FROM system.jdbc.columns"))
                 .skippingTypesCheck()
-                .containsAll(expectedValues);
+                .containsAll(
+                        "SELECT * FROM (VALUES ('" + view.getSchemaName() + "', '" + view.getObjectName() + "')) " +
+                                "CROSS JOIN UNNEST(ARRAY['nationkey', 'name', 'regionkey', 'comment'])");
 
         // system.jdbc.columns with schema filter
         assertThat(query(
@@ -639,14 +636,19 @@ public abstract class BaseConnectorTest
                         "FROM system.jdbc.columns " +
                         "WHERE table_schem LIKE '%" + view.getSchemaName() + "%'"))
                 .skippingTypesCheck()
-                .containsAll(expectedValues);
+                .containsAll(
+                        "SELECT * FROM (VALUES ('" + view.getSchemaName() + "', '" + view.getObjectName() + "')) " +
+                                "CROSS JOIN UNNEST(ARRAY['nationkey', 'name', 'regionkey', 'comment'])");
 
         // system.jdbc.columns with table filter
-        assertQuery(
+        assertThat(query(
                 "SELECT table_schem, table_name, column_name " +
                         "FROM system.jdbc.columns " +
-                        "WHERE table_name LIKE '%" + view.getObjectName() + "%'",
-                expectedValues);
+                        "WHERE table_name LIKE '%" + view.getObjectName() + "%'"))
+                .skippingTypesCheck()
+                .containsAll(
+                        "SELECT * FROM (VALUES ('" + view.getSchemaName() + "', '" + view.getObjectName() + "')) " +
+                                "CROSS JOIN UNNEST(ARRAY['nationkey', 'name', 'regionkey', 'comment'])");
 
         // details
         assertThat(((String) computeScalar("SHOW CREATE MATERIALIZED VIEW " + view.getObjectName())))
