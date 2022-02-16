@@ -26,6 +26,8 @@ import java.util.Optional;
 // This is separate from MemoryManagerConfig because it's difficult to test the default value of maxQueryMemoryPerNode
 @DefunctConfig({
         "deprecated.legacy-system-pool-enabled",
+        "experimental.reserved-pool-disabled",
+        "experimental.reserved-pool-enabled",
         "query.max-total-memory-per-node",
 })
 public class NodeMemoryConfig
@@ -33,8 +35,6 @@ public class NodeMemoryConfig
     public static final long AVAILABLE_HEAP_MEMORY = Runtime.getRuntime().maxMemory();
     public static final String QUERY_MAX_MEMORY_PER_NODE_CONFIG = "query.max-memory-per-node";
     public static final String QUERY_MAX_MEMORY_PER_TASK_CONFIG = "query.max-memory-per-task";
-
-    private boolean isReservedPoolDisabled = true;
 
     private DataSize maxQueryMemoryPerNode = DataSize.ofBytes(Math.round(AVAILABLE_HEAP_MEMORY * 0.3));
 
@@ -67,27 +67,6 @@ public class NodeMemoryConfig
     public NodeMemoryConfig setMaxQueryMemoryPerTask(DataSize maxQueryMemoryPerTask)
     {
         this.maxQueryMemoryPerTask = Optional.ofNullable(maxQueryMemoryPerTask);
-        return this;
-    }
-
-    @Deprecated
-    @LegacyConfig(value = "experimental.reserved-pool-enabled", replacedBy = "experimental.reserved-pool-disabled")
-    public void setReservedPoolEnabled(boolean reservedPoolEnabled)
-    {
-        isReservedPoolDisabled = !reservedPoolEnabled;
-    }
-
-    @Deprecated
-    public boolean isReservedPoolDisabled()
-    {
-        return isReservedPoolDisabled;
-    }
-
-    @Deprecated
-    @Config("experimental.reserved-pool-disabled")
-    public NodeMemoryConfig setReservedPoolDisabled(boolean reservedPoolDisabled)
-    {
-        this.isReservedPoolDisabled = reservedPoolDisabled;
         return this;
     }
 

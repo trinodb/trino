@@ -60,7 +60,6 @@ import io.trino.memory.LocalMemoryManager;
 import io.trino.memory.LocalMemoryManagerExporter;
 import io.trino.memory.MemoryInfo;
 import io.trino.memory.MemoryManagerConfig;
-import io.trino.memory.MemoryPoolAssignmentsRequest;
 import io.trino.memory.MemoryResource;
 import io.trino.memory.NodeMemoryConfig;
 import io.trino.metadata.AnalyzePropertyManager;
@@ -355,7 +354,6 @@ public class ServerMainModule
         // memory manager
         jaxrsBinder(binder).bind(MemoryResource.class);
         jsonCodecBinder(binder).bindJsonCodec(MemoryInfo.class);
-        jsonCodecBinder(binder).bindJsonCodec(MemoryPoolAssignmentsRequest.class);
 
         // transaction manager
         configBinder(binder).bindConfig(TransactionManagerConfig.class);
