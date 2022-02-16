@@ -211,7 +211,7 @@ class TrinoHiveCatalog
     }
 
     @Override
-    public boolean dropNamespace(ConnectorSession session, String namespace)
+    public void dropNamespace(ConnectorSession session, String namespace)
     {
         // basic sanity check to provide a better error message
         if (!listTables(session, Optional.of(namespace)).isEmpty() ||
@@ -239,7 +239,6 @@ class TrinoHiveCatalog
         }).orElse(deleteSchemaLocationsFallback);
 
         metastore.dropDatabase(namespace, deleteData);
-        return true;
     }
 
     @Override
@@ -296,7 +295,7 @@ class TrinoHiveCatalog
     }
 
     @Override
-    public boolean dropTable(ConnectorSession session, SchemaTableName schemaTableName, boolean purgeData)
+    public void dropTable(ConnectorSession session, SchemaTableName schemaTableName, boolean purgeData)
     {
         // TODO: support path override in Iceberg table creation: https://github.com/trinodb/trino/issues/8861
         Table table = loadTable(session, schemaTableName);
@@ -306,7 +305,6 @@ class TrinoHiveCatalog
             throw new TrinoException(NOT_SUPPORTED, "Table " + schemaTableName + " contains Iceberg path override properties and cannot be dropped from Trino");
         }
         metastore.dropTable(schemaTableName.getSchemaName(), schemaTableName.getTableName(), purgeData);
-        return true;
     }
 
     @Override
