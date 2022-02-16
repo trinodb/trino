@@ -82,6 +82,7 @@ import static io.trino.plugin.hive.metastore.PrincipalPrivileges.NO_PRIVILEGES;
 import static io.trino.plugin.hive.metastore.StorageFormat.VIEW_STORAGE_FORMAT;
 import static io.trino.plugin.hive.util.HiveUtil.isHiveSystemSchema;
 import static io.trino.plugin.hive.util.HiveWriteUtils.getTableDefaultLocation;
+import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
 import static io.trino.plugin.iceberg.IcebergMaterializedViewDefinition.decodeMaterializedViewData;
 import static io.trino.plugin.iceberg.IcebergMaterializedViewDefinition.encodeMaterializedViewData;
 import static io.trino.plugin.iceberg.IcebergMaterializedViewDefinition.fromConnectorMaterializedViewDefinition;
@@ -96,11 +97,13 @@ import static io.trino.spi.StandardErrorCode.INVALID_SCHEMA_PROPERTY;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static org.apache.hadoop.hive.metastore.TableType.VIRTUAL_VIEW;
 import static org.apache.iceberg.BaseMetastoreTableOperations.ICEBERG_TABLE_TYPE_VALUE;
 import static org.apache.iceberg.BaseMetastoreTableOperations.TABLE_TYPE_PROP;
+import static org.apache.iceberg.CatalogUtil.dropTableData;
 import static org.apache.iceberg.TableMetadata.newTableMetadata;
 import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT_DEFAULT;
 import static org.apache.iceberg.TableProperties.OBJECT_STORE_PATH;
@@ -302,14 +305,40 @@ class TrinoHiveCatalog
     public void dropTable(ConnectorSession session, SchemaTableName schemaTableName)
     {
         // TODO: support path override in Iceberg table creation: https://github.com/trinodb/trino/issues/8861
-        Table table = loadTable(session, schemaTableName);
+        BaseTable table = (BaseTable) loadTable(session, schemaTableName);
+        TableMetadata metadata = table.operations().current();
         if (table.properties().containsKey(OBJECT_STORE_PATH) ||
                 table.properties().containsKey(WRITE_NEW_DATA_LOCATION) ||
                 table.properties().containsKey(WRITE_METADATA_LOCATION) ||
                 table.properties().containsKey(WRITE_DATA_LOCATION)) {
             throw new TrinoException(NOT_SUPPORTED, "Table " + schemaTableName + " contains Iceberg path override properties and cannot be dropped from Trino");
         }
-        metastore.dropTable(schemaTableName.getSchemaName(), schemaTableName.getTableName(), true);
+
+        io.trino.plugin.hive.metastore.Table metastoreTable = metastore.getTable(schemaTableName.getSchemaName(), schemaTableName.getTableName())
+                .orElseThrow(() -> new TableNotFoundException(schemaTableName));
+        metastore.dropTable(
+                schemaTableName.getSchemaName(),
+                schemaTableName.getTableName(),
+                false /* do not delete data */);
+        // Use the Iceberg routine for dropping the table data because the data files
+        // of the Iceberg table may be located in different locations
+        dropTableData(table.io(), metadata);
+        deleteTableDirectory(session, metastoreTable);
+    }
+
+    private void deleteTableDirectory(ConnectorSession session, io.trino.plugin.hive.metastore.Table metastoreTable)
+    {
+        Path tablePath = new Path(metastoreTable.getStorage().getLocation());
+        try {
+            FileSystem fileSystem = hdfsEnvironment.getFileSystem(new HdfsContext(session), tablePath);
+            fileSystem.delete(tablePath, true);
+        }
+        catch (IOException e) {
+            throw new TrinoException(
+                    ICEBERG_FILESYSTEM_ERROR,
+                    format("Failed to delete directory %s of the table %s.%s", tablePath, metastoreTable.getDatabaseName(), metastoreTable.getTableName()),
+                    e);
+        }
     }
 
     @Override
