@@ -368,7 +368,7 @@ public class SnowflakeClient
         if (typeHandle.getJdbcType() == DATE) {
             return Optional.of(ColumnMapping.longMapping(
                     DateType.DATE,
-                    (resultSet, columnIndex) -> LocalDate.ofEpochDay(resultSet.getLong(columnIndex)).toEpochDay(),
+                    ResultSet::getLong,
                     dateWriteFunctionUsingString()));
         }
 
