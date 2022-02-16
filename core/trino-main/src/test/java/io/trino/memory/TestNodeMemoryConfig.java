@@ -34,8 +34,7 @@ public class TestNodeMemoryConfig
         assertRecordedDefaults(recordDefaults(NodeMemoryConfig.class)
                 .setMaxQueryMemoryPerNode(DataSize.ofBytes(Math.round(AVAILABLE_HEAP_MEMORY * 0.3)))
                 .setMaxQueryMemoryPerTask(null)
-                .setHeapHeadroom(DataSize.ofBytes(Math.round(AVAILABLE_HEAP_MEMORY * 0.3)))
-                .setReservedPoolDisabled(true));
+                .setHeapHeadroom(DataSize.ofBytes(Math.round(AVAILABLE_HEAP_MEMORY * 0.3))));
     }
 
     @Test
@@ -45,14 +44,12 @@ public class TestNodeMemoryConfig
                 .put("query.max-memory-per-node", "1GB")
                 .put("query.max-memory-per-task", "200MB")
                 .put("memory.heap-headroom-per-node", "1GB")
-                .put("experimental.reserved-pool-disabled", "false")
                 .buildOrThrow();
 
         NodeMemoryConfig expected = new NodeMemoryConfig()
                 .setMaxQueryMemoryPerNode(DataSize.of(1, GIGABYTE))
                 .setMaxQueryMemoryPerTask(DataSize.of(200, MEGABYTE))
-                .setHeapHeadroom(DataSize.of(1, GIGABYTE))
-                .setReservedPoolDisabled(false);
+                .setHeapHeadroom(DataSize.of(1, GIGABYTE));
 
         assertFullMapping(properties, expected);
     }

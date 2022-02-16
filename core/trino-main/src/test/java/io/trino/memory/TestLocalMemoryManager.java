@@ -19,34 +19,18 @@ import org.testng.annotations.Test;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 public class TestLocalMemoryManager
 {
     @Test
-    public void testReservedMemoryPoolDisabled()
+    public void testLocalMemoryManger()
     {
         NodeMemoryConfig config = new NodeMemoryConfig()
                 .setHeapHeadroom(DataSize.of(10, GIGABYTE))
                 .setMaxQueryMemoryPerNode(DataSize.of(20, GIGABYTE));
 
         LocalMemoryManager localMemoryManager = new LocalMemoryManager(config, DataSize.of(60, GIGABYTE).toBytes());
-        assertFalse(localMemoryManager.getReservedPool().isPresent());
         assertEquals(localMemoryManager.getPools().size(), 1);
-    }
-
-    @Test
-    public void testReservedMemoryPoolEnabled()
-    {
-        NodeMemoryConfig config = new NodeMemoryConfig()
-                .setReservedPoolDisabled(false)
-                .setHeapHeadroom(DataSize.of(10, GIGABYTE))
-                .setMaxQueryMemoryPerNode(DataSize.of(20, GIGABYTE));
-
-        LocalMemoryManager localMemoryManager = new LocalMemoryManager(config, DataSize.of(60, GIGABYTE).toBytes());
-        assertTrue(localMemoryManager.getReservedPool().isPresent());
-        assertEquals(localMemoryManager.getPools().size(), 2);
     }
 
     @Test

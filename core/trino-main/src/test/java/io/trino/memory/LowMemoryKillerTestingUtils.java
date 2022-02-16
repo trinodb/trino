@@ -29,13 +29,12 @@ import java.util.List;
 import java.util.Map;
 
 import static io.trino.memory.LocalMemoryManager.GENERAL_POOL;
-import static io.trino.memory.LocalMemoryManager.RESERVED_POOL;
 
 public final class LowMemoryKillerTestingUtils
 {
     private LowMemoryKillerTestingUtils() {}
 
-    static List<MemoryInfo> toNodeMemoryInfoList(long maxReservedPoolBytes, long maxGeneralPoolBytes, String reservedQuery, Map<String, Map<String, Long>> queries)
+    static List<MemoryInfo> toNodeMemoryInfoList(long maxGeneralPoolBytes, Map<String, Map<String, Long>> queries)
     {
         Map<InternalNode, NodeReservation> nodeReservations = new HashMap<>();
 
@@ -49,12 +48,7 @@ public final class LowMemoryKillerTestingUtils
                 if (bytes == 0) {
                     continue;
                 }
-                if (reservedQuery.equals(entry.getKey())) {
-                    nodeReservations.computeIfAbsent(node, ignored -> new NodeReservation()).getReserved().add(queryId, bytes);
-                }
-                else {
-                    nodeReservations.computeIfAbsent(node, ignored -> new NodeReservation()).getGeneral().add(queryId, bytes);
-                }
+                nodeReservations.computeIfAbsent(node, ignored -> new NodeReservation()).getGeneral().add(queryId, bytes);
             }
         }
 
@@ -73,23 +67,12 @@ public final class LowMemoryKillerTestingUtils
                                 ImmutableMap.of(),
                                 ImmutableMap.of()));
             }
-            if (nodeReservation.getReserved().getTotalReservedBytes() > 0) {
-                pools.put(
-                        RESERVED_POOL,
-                        new MemoryPoolInfo(
-                                maxReservedPoolBytes,
-                                nodeReservation.getReserved().getTotalReservedBytes(),
-                                0,
-                                nodeReservation.getReserved().getReservationByQuery(),
-                                ImmutableMap.of(),
-                                ImmutableMap.of()));
-            }
-            result.add(new MemoryInfo(7, DataSize.ofBytes(maxReservedPoolBytes + maxGeneralPoolBytes), pools.buildOrThrow()));
+            result.add(new MemoryInfo(7, DataSize.ofBytes(maxGeneralPoolBytes), pools.buildOrThrow()));
         }
         return result.build();
     }
 
-    static List<LowMemoryKiller.QueryMemoryInfo> toQueryMemoryInfoList(String reservedQuery, Map<String, Map<String, Long>> queries)
+    static List<LowMemoryKiller.QueryMemoryInfo> toQueryMemoryInfoList(Map<String, Map<String, Long>> queries)
     {
         ImmutableList.Builder<LowMemoryKiller.QueryMemoryInfo> result = ImmutableList.builder();
         for (Map.Entry<String, Map<String, Long>> entry : queries.entrySet()) {
@@ -97,7 +80,7 @@ public final class LowMemoryKillerTestingUtils
             long totalReservation = entry.getValue().values().stream()
                     .mapToLong(x -> x)
                     .sum();
-            result.add(new LowMemoryKiller.QueryMemoryInfo(new QueryId(queryId), queryId.equals(reservedQuery) ? RESERVED_POOL : GENERAL_POOL, totalReservation));
+            result.add(new LowMemoryKiller.QueryMemoryInfo(new QueryId(queryId), GENERAL_POOL, totalReservation));
         }
         return result.build();
     }
@@ -105,16 +88,10 @@ public final class LowMemoryKillerTestingUtils
     private static class NodeReservation
     {
         private final PoolReservation general = new PoolReservation();
-        private final PoolReservation reserved = new PoolReservation();
 
         public PoolReservation getGeneral()
         {
             return general;
-        }
-
-        public PoolReservation getReserved()
-        {
-            return reserved;
         }
     }
 

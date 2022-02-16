@@ -21,7 +21,6 @@ import io.trino.execution.StateMachine.StateChangeListener;
 import io.trino.execution.buffer.BufferResult;
 import io.trino.execution.buffer.OutputBuffers;
 import io.trino.execution.buffer.OutputBuffers.OutputBufferId;
-import io.trino.memory.MemoryPoolAssignmentsRequest;
 import io.trino.spi.predicate.Domain;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.plan.DynamicFilterId;
@@ -81,8 +80,6 @@ public interface TaskManager
     ListenableFuture<TaskStatus> getTaskStatus(TaskId taskId, long currentVersion);
 
     VersionedDynamicFilterDomains acknowledgeAndGetNewDynamicFilterDomains(TaskId taskId, long currentDynamicFiltersVersion);
-
-    void updateMemoryPoolAssignments(MemoryPoolAssignmentsRequest assignments);
 
     /**
      * Updates the task plan, splitAssignments and output buffers.  If the task does not
