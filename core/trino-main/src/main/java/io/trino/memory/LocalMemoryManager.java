@@ -26,7 +26,6 @@ import java.lang.management.ManagementFactory;
 import java.lang.management.OperatingSystemMXBean;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 import static com.google.common.base.Verify.verify;
 import static java.lang.String.format;
@@ -35,7 +34,6 @@ import static java.util.Objects.requireNonNull;
 public final class LocalMemoryManager
 {
     public static final MemoryPoolId GENERAL_POOL = new MemoryPoolId("general");
-    public static final MemoryPoolId RESERVED_POOL = new MemoryPoolId("reserved");
     private static final OperatingSystemMXBean OPERATING_SYSTEM_MX_BEAN = ManagementFactory.getOperatingSystemMXBean();
 
     private DataSize maxMemory;
@@ -60,10 +58,6 @@ public final class LocalMemoryManager
         maxMemory = DataSize.ofBytes(availableMemory - config.getHeapHeadroom().toBytes());
         ImmutableMap.Builder<MemoryPoolId, MemoryPool> builder = ImmutableMap.builder();
         long generalPoolSize = maxMemory.toBytes();
-        if (!config.isReservedPoolDisabled()) {
-            builder.put(RESERVED_POOL, new MemoryPool(RESERVED_POOL, config.getMaxQueryMemoryPerNode()));
-            generalPoolSize -= config.getMaxQueryMemoryPerNode().toBytes();
-        }
         verify(generalPoolSize > 0, "general memory pool size is 0");
         builder.put(GENERAL_POOL, new MemoryPool(GENERAL_POOL, DataSize.ofBytes(generalPoolSize)));
         this.pools = builder.buildOrThrow();
@@ -101,10 +95,5 @@ public final class LocalMemoryManager
     public MemoryPool getGeneralPool()
     {
         return pools.get(GENERAL_POOL);
-    }
-
-    public Optional<MemoryPool> getReservedPool()
-    {
-        return Optional.ofNullable(pools.get(RESERVED_POOL));
     }
 }
