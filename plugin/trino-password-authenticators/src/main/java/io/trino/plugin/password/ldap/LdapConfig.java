@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
+import io.airlift.configuration.DefunctConfig;
 import io.airlift.configuration.validation.FileExists;
 import io.airlift.units.Duration;
 
@@ -33,11 +34,15 @@ import java.util.concurrent.TimeUnit;
 import static com.google.common.base.Strings.nullToEmpty;
 import static java.util.Objects.requireNonNull;
 
+@DefunctConfig("ldap.ssl-trust-certificate")
 public class LdapConfig
 {
     private String ldapUrl;
     private boolean allowInsecure;
-    private File trustCertificate;
+    private File keystorePath;
+    private String keystorePassword;
+    private File trustStorePath;
+    private String truststorePassword;
     private List<String> userBindSearchPatterns = ImmutableList.of();
     private String groupAuthorizationSearchPattern;
     private String userBaseDistinguishedName;
@@ -82,17 +87,57 @@ public class LdapConfig
         return nullToEmpty(ldapUrl).startsWith("ldaps://") || allowInsecure;
     }
 
-    @FileExists
-    public File getTrustCertificate()
+    public Optional<@FileExists File> getKeystorePath()
     {
-        return trustCertificate;
+        return Optional.ofNullable(keystorePath);
     }
 
-    @Config("ldap.ssl-trust-certificate")
-    @ConfigDescription("Path to the PEM trust certificate for the LDAP server")
-    public LdapConfig setTrustCertificate(File trustCertificate)
+    @Config("ldap.ssl.keystore.path")
+    @ConfigDescription("Path to the PEM or JKS key store")
+    public LdapConfig setKeystorePath(File path)
     {
-        this.trustCertificate = trustCertificate;
+        this.keystorePath = path;
+        return this;
+    }
+
+    public Optional<String> getKeystorePassword()
+    {
+        return Optional.ofNullable(keystorePassword);
+    }
+
+    @Config("ldap.ssl.keystore.password")
+    @ConfigSecuritySensitive
+    @ConfigDescription("Password for the key store")
+    public LdapConfig setKeystorePassword(String password)
+    {
+        this.keystorePassword = password;
+        return this;
+    }
+
+    public Optional<@FileExists File> getTrustStorePath()
+    {
+        return Optional.ofNullable(trustStorePath);
+    }
+
+    @Config("ldap.ssl.truststore.path")
+    @ConfigDescription("Path to the PEM or JKS trust store")
+    public LdapConfig setTrustStorePath(File path)
+    {
+        this.trustStorePath = path;
+        return this;
+    }
+
+    public Optional<String> getTruststorePassword()
+    {
+        return Optional.ofNullable(truststorePassword);
+    }
+
+    @Config("ldap.ssl.truststore.password")
+    @ConfigSecuritySensitive
+    @ConfigDescription("Password for the trust store")
+    public LdapConfig setTruststorePassword(String password)
+    {
+        this.truststorePassword = password;
         return this;
     }
 
