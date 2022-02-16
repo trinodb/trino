@@ -16,8 +16,8 @@ package io.trino.plugin.password.ldap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
-import io.airlift.security.pem.PemReader;
 import io.airlift.units.Duration;
+import io.trino.plugin.base.ssl.SslUtils;
 import io.trino.spi.security.AccessDeniedException;
 
 import javax.inject.Inject;
@@ -28,15 +28,10 @@ import javax.naming.directory.DirContext;
 import javax.naming.directory.SearchControls;
 import javax.naming.directory.SearchResult;
 import javax.net.ssl.SSLContext;
-import javax.net.ssl.TrustManager;
-import javax.net.ssl.TrustManagerFactory;
-import javax.net.ssl.X509TrustManager;
 
 import java.io.File;
 import java.io.IOException;
 import java.security.GeneralSecurityException;
-import java.security.KeyStore;
-import java.util.Arrays;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -165,19 +160,7 @@ public class JdkLdapAuthenticatorClient
     private static SSLContext createSslContext(File trustCertificate)
     {
         try {
-            KeyStore trustStore = PemReader.loadTrustStore(trustCertificate);
-
-            TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
-            trustManagerFactory.init(trustStore);
-
-            TrustManager[] trustManagers = trustManagerFactory.getTrustManagers();
-            if (trustManagers.length != 1 || !(trustManagers[0] instanceof X509TrustManager)) {
-                throw new RuntimeException("Unexpected default trust managers:" + Arrays.toString(trustManagers));
-            }
-
-            SSLContext sslContext = SSLContext.getInstance("SSL");
-            sslContext.init(null, trustManagers, null);
-            return sslContext;
+            return SslUtils.createSSLContext(Optional.empty(), Optional.empty(), Optional.of(trustCertificate), Optional.empty());
         }
         catch (GeneralSecurityException | IOException e) {
             throw new RuntimeException(e);

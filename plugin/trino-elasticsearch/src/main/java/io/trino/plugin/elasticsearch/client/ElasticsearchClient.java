@@ -30,7 +30,6 @@ import com.google.common.collect.Sets;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.ObjectMapperProvider;
 import io.airlift.log.Logger;
-import io.airlift.security.pem.PemReader;
 import io.airlift.stats.TimeStat;
 import io.airlift.units.Duration;
 import io.trino.plugin.elasticsearch.AwsSecurityConfig;
@@ -69,24 +68,11 @@ import org.weakref.jmx.Nested;
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
-import javax.net.ssl.KeyManager;
-import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
-import javax.net.ssl.TrustManager;
-import javax.net.ssl.TrustManagerFactory;
-import javax.net.ssl.X509TrustManager;
-import javax.security.auth.x500.X500Principal;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.security.GeneralSecurityException;
-import java.security.KeyStore;
-import java.security.cert.Certificate;
-import java.security.cert.CertificateExpiredException;
-import java.security.cert.CertificateNotYetValidException;
-import java.security.cert.X509Certificate;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
@@ -105,6 +91,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.json.JsonCodec.jsonCodec;
+import static io.trino.plugin.base.ssl.SslUtils.createSSLContext;
 import static io.trino.plugin.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH_CONNECTION_ERROR;
 import static io.trino.plugin.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH_INVALID_METADATA;
 import static io.trino.plugin.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH_INVALID_RESPONSE;
@@ -113,7 +100,6 @@ import static io.trino.plugin.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH
 import static java.lang.StrictMath.toIntExact;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.util.Collections.list;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -295,102 +281,10 @@ public class ElasticsearchClient
         }
 
         try {
-            // load KeyStore if configured and get KeyManagers
-            KeyStore keyStore = null;
-            KeyManager[] keyManagers = null;
-            if (keyStorePath.isPresent()) {
-                char[] keyManagerPassword;
-                try {
-                    // attempt to read the key store as a PEM file
-                    keyStore = PemReader.loadKeyStore(keyStorePath.get(), keyStorePath.get(), keyStorePassword);
-                    // for PEM encoded keys, the password is used to decrypt the specific key (and does not protect the keystore itself)
-                    keyManagerPassword = new char[0];
-                }
-                catch (IOException | GeneralSecurityException ignored) {
-                    keyManagerPassword = keyStorePassword.map(String::toCharArray).orElse(null);
-
-                    keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
-                    try (InputStream in = new FileInputStream(keyStorePath.get())) {
-                        keyStore.load(in, keyManagerPassword);
-                    }
-                }
-                validateCertificates(keyStore);
-                KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
-                keyManagerFactory.init(keyStore, keyManagerPassword);
-                keyManagers = keyManagerFactory.getKeyManagers();
-            }
-
-            // load TrustStore if configured, otherwise use KeyStore
-            KeyStore trustStore = keyStore;
-            if (trustStorePath.isPresent()) {
-                trustStore = loadTrustStore(trustStorePath.get(), trustStorePassword);
-            }
-
-            // create TrustManagerFactory
-            TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
-            trustManagerFactory.init(trustStore);
-
-            // get X509TrustManager
-            TrustManager[] trustManagers = trustManagerFactory.getTrustManagers();
-            if (trustManagers.length != 1 || !(trustManagers[0] instanceof X509TrustManager)) {
-                throw new RuntimeException("Unexpected default trust managers:" + Arrays.toString(trustManagers));
-            }
-            // create SSLContext
-            SSLContext result = SSLContext.getInstance("SSL");
-            result.init(keyManagers, trustManagers, null);
-            return Optional.of(result);
+            return Optional.of(createSSLContext(keyStorePath, keyStorePassword, trustStorePath, trustStorePassword));
         }
         catch (GeneralSecurityException | IOException e) {
             throw new TrinoException(ELASTICSEARCH_SSL_INITIALIZATION_FAILURE, e);
-        }
-    }
-
-    private static KeyStore loadTrustStore(File trustStorePath, Optional<String> trustStorePassword)
-            throws IOException, GeneralSecurityException
-    {
-        KeyStore trustStore = KeyStore.getInstance(KeyStore.getDefaultType());
-        try {
-            // attempt to read the trust store as a PEM file
-            List<X509Certificate> certificateChain = PemReader.readCertificateChain(trustStorePath);
-            if (!certificateChain.isEmpty()) {
-                trustStore.load(null, null);
-                for (X509Certificate certificate : certificateChain) {
-                    X500Principal principal = certificate.getSubjectX500Principal();
-                    trustStore.setCertificateEntry(principal.getName(), certificate);
-                }
-                return trustStore;
-            }
-        }
-        catch (IOException | GeneralSecurityException ignored) {
-        }
-
-        try (InputStream in = new FileInputStream(trustStorePath)) {
-            trustStore.load(in, trustStorePassword.map(String::toCharArray).orElse(null));
-        }
-        return trustStore;
-    }
-
-    private static void validateCertificates(KeyStore keyStore)
-            throws GeneralSecurityException
-    {
-        for (String alias : list(keyStore.aliases())) {
-            if (!keyStore.isKeyEntry(alias)) {
-                continue;
-            }
-            Certificate certificate = keyStore.getCertificate(alias);
-            if (!(certificate instanceof X509Certificate)) {
-                continue;
-            }
-
-            try {
-                ((X509Certificate) certificate).checkValidity();
-            }
-            catch (CertificateExpiredException e) {
-                throw new CertificateExpiredException("KeyStore certificate is expired: " + e.getMessage());
-            }
-            catch (CertificateNotYetValidException e) {
-                throw new CertificateNotYetValidException("KeyStore certificate is not yet valid: " + e.getMessage());
-            }
         }
     }
 
