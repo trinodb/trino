@@ -20,6 +20,7 @@ import io.trino.testing.QueryRunner;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import static io.trino.SystemSessionProperties.DEFAULT_FILTER_FACTOR_ENABLED;
 import static io.trino.SystemSessionProperties.PREFER_PARTIAL_AGGREGATION;
 import static io.trino.SystemSessionProperties.USE_PARTIAL_DISTINCT_LIMIT;
 import static io.trino.SystemSessionProperties.USE_PARTIAL_TOPN;
@@ -679,7 +680,20 @@ public class TestShowStats
                         "   ('comment', 371.4, 5, 0, null, null, null), " +
                         "   ('regionkey', null, 5, 0, null, 0, 4), " +
                         "   (null, null, null, null, 5, null, null)");
+        // Estimates produced through DEFAULT_FILTER_FACTOR_ENABLED
         assertQuery(
+                "SHOW STATS FOR (SELECT * FROM nation_partitioned WHERE sin(regionkey) > 0)",
+                "VALUES " +
+                        "   ('nationkey', null, 5.0, 0.0, null, 1, 24), " +
+                        "   ('name', 98.1, 5.0, 0.0, null, null, null), " +
+                        "   ('comment', 1079.1000000000001, 5.0, 0.0, null, null, null), " +
+                        "   ('regionkey', null, 3.0, 0.0, null, 1, 3), " +
+                        "   (null, null, null, null, 13.5, null, null)");
+        assertQuery(
+                Session.builder(getSession())
+                        // Avoid producing estimate for sin(x) through filter factor
+                        .setSystemProperty(DEFAULT_FILTER_FACTOR_ENABLED, "false")
+                        .build(),
                 "SHOW STATS FOR (SELECT * FROM nation_partitioned WHERE sin(regionkey) > 0)",
                 "VALUES " +
                         "   ('nationkey', null, null, null, null, null, null), " +

@@ -44,7 +44,7 @@ public class OptimizerConfig
     private boolean statisticsPrecalculationForPushdownEnabled;
     private boolean collectPlanStatisticsForAllQueries;
     private boolean ignoreStatsCalculatorFailures = true;
-    private boolean defaultFilterFactorEnabled;
+    private boolean defaultFilterFactorEnabled = true;
     private double filterConjunctionIndependenceFactor = 0.75;
 
     private boolean colocatedJoinsEnabled;

@@ -25,6 +25,7 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import static io.trino.SystemSessionProperties.DEFAULT_FILTER_FACTOR_ENABLED;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -32,28 +33,35 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 public class TestFilterStatsRule
         extends BaseStatsCalculatorTest
 {
-    public StatsCalculatorTester defaultFilterTester;
+    public StatsCalculatorTester defaultFilterEnabledTester;
+    public StatsCalculatorTester defaultFilterDisabledTester;
 
     @BeforeClass
     public void setupClass()
     {
-        defaultFilterTester = new StatsCalculatorTester(
+        defaultFilterEnabledTester = new StatsCalculatorTester(
                 testSessionBuilder()
-                        .setSystemProperty("default_filter_factor_enabled", "true")
+                        .setSystemProperty(DEFAULT_FILTER_FACTOR_ENABLED, "true")
+                        .build());
+        defaultFilterDisabledTester = new StatsCalculatorTester(
+                testSessionBuilder()
+                        .setSystemProperty(DEFAULT_FILTER_FACTOR_ENABLED, "false")
                         .build());
     }
 
     @AfterClass(alwaysRun = true)
     public void tearDownClass()
     {
-        defaultFilterTester.close();
-        defaultFilterTester = null;
+        defaultFilterEnabledTester.close();
+        defaultFilterEnabledTester = null;
+        defaultFilterDisabledTester.close();
+        defaultFilterDisabledTester = null;
     }
 
     @Test
     public void testEstimatableFilter()
     {
-        tester().assertStatsFor(pb -> pb
+        defaultFilterDisabledTester.assertStatsFor(pb -> pb
                 .filter(expression("i1 = 5"),
                         pb.values(pb.symbol("i1"), pb.symbol("i2"), pb.symbol("i3"))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
@@ -98,7 +106,7 @@ public class TestFilterStatsRule
                                 .distinctValuesCount(1.9)
                                 .nullsFraction(0.05)));
 
-        defaultFilterTester.assertStatsFor(pb -> pb
+        defaultFilterEnabledTester.assertStatsFor(pb -> pb
                 .filter(expression("i1 = 5"),
                         pb.values(pb.symbol("i1"), pb.symbol("i2"), pb.symbol("i3"))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
@@ -156,7 +164,7 @@ public class TestFilterStatsRule
                         .build(),
                 new DoubleLiteral("1"));
 
-        tester()
+        defaultFilterDisabledTester
                 .assertStatsFor(pb -> pb
                         .filter(unestimatableExpression,
                                 pb.values(pb.symbol("i1"), pb.symbol("i2"), pb.symbol("i3"))))
@@ -184,7 +192,7 @@ public class TestFilterStatsRule
                 .check(PlanNodeStatsAssertion::outputRowsCountUnknown);
 
         // can't estimate function, but default filter factor is turned on
-        defaultFilterTester.assertStatsFor(pb -> pb
+        defaultFilterEnabledTester.assertStatsFor(pb -> pb
                 .filter(unestimatableExpression,
                         pb.values(pb.symbol("i1"), pb.symbol("i2"), pb.symbol("i3"))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()

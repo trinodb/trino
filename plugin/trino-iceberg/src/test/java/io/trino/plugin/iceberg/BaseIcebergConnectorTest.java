@@ -82,6 +82,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.MoreCollectors.onlyElement;
+import static io.trino.SystemSessionProperties.DEFAULT_FILTER_FACTOR_ENABLED;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.PREFERRED_WRITE_PARTITIONING_MIN_NUMBER_OF_PARTITIONS;
 import static io.trino.cost.OptimizerConfig.JoinDistributionType.BROADCAST;
@@ -557,8 +558,12 @@ public abstract class BaseIcebergConnectorTest
                             "(NULL, NULL, NULL, NULL, 1e0, NULL, NULL)");
         }
         else {
+            // Disable default filter factor to avoid getting stats when NDV is not present
+            Session session = Session.builder(getSession())
+                    .setSystemProperty(DEFAULT_FILTER_FACTOR_ENABLED, "false")
+                    .build();
             // show stats with predicate
-            assertThat(query("SHOW STATS FOR (SELECT * FROM " + tableName + " WHERE _timestamptz = " + instant1La + ")"))
+            assertThat(query(session, "SHOW STATS FOR (SELECT * FROM " + tableName + " WHERE _timestamptz = " + instant1La + ")"))
                     .skippingTypesCheck()
                     .matches("VALUES " +
                             "('_timestamptz', NULL, NULL, NULL, NULL, NULL, NULL), " +
