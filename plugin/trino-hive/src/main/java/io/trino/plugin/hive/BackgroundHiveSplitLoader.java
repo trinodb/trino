@@ -38,7 +38,6 @@ import io.trino.plugin.hive.util.InternalHiveSplitFactory;
 import io.trino.plugin.hive.util.ResumableTask;
 import io.trino.plugin.hive.util.ResumableTasks;
 import io.trino.spi.TrinoException;
-import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.predicate.TupleDomain;
@@ -147,7 +146,7 @@ public class BackgroundHiveSplitLoader
 
     private final Table table;
     private final AcidTransaction transaction;
-    private final TupleDomain<? extends ColumnHandle> compactEffectivePredicate;
+    private final TupleDomain<HiveColumnHandle> compactEffectivePredicate;
     private final DynamicFilter dynamicFilter;
     private final long dynamicFilteringWaitTimeoutMillis;
     private final TypeManager typeManager;
@@ -192,7 +191,7 @@ public class BackgroundHiveSplitLoader
             Table table,
             AcidTransaction transaction,
             Iterable<HivePartitionMetadata> partitions,
-            TupleDomain<? extends ColumnHandle> compactEffectivePredicate,
+            TupleDomain<HiveColumnHandle> compactEffectivePredicate,
             DynamicFilter dynamicFilter,
             Duration dynamicFilteringWaitTimeout,
             TypeManager typeManager,
@@ -371,7 +370,6 @@ public class BackgroundHiveSplitLoader
         String partitionName = hivePartition.getPartitionId();
         Properties schema = getPartitionSchema(table, partition.getPartition());
         List<HivePartitionKey> partitionKeys = getPartitionKeys(table, partition.getPartition());
-        TupleDomain<HiveColumnHandle> effectivePredicate = compactEffectivePredicate.transformKeys(HiveColumnHandle.class::cast);
 
         List<HiveColumnHandle> partitionColumns = getPartitionKeyColumnHandles(table, typeManager);
         BooleanSupplier partitionMatchSupplier =
@@ -412,7 +410,7 @@ public class BackgroundHiveSplitLoader
                         partitionName,
                         schema,
                         partitionKeys,
-                        effectivePredicate,
+                        compactEffectivePredicate,
                         partitionMatchSupplier,
                         s3SelectPushdownEnabled,
                         partition.getTableToPartitionMapping(),
@@ -429,7 +427,7 @@ public class BackgroundHiveSplitLoader
                     targetInputFormat,
                     schema,
                     partitionKeys,
-                    effectivePredicate,
+                    compactEffectivePredicate,
                     partitionMatchSupplier,
                     s3SelectPushdownEnabled,
                     partition.getTableToPartitionMapping(),
@@ -467,7 +465,7 @@ public class BackgroundHiveSplitLoader
                 inputFormat,
                 schema,
                 partitionKeys,
-                effectivePredicate,
+                compactEffectivePredicate,
                 partitionMatchSupplier,
                 partition.getTableToPartitionMapping(),
                 bucketConversionRequiresWorkerParticipation ? bucketConversion : Optional.empty(),

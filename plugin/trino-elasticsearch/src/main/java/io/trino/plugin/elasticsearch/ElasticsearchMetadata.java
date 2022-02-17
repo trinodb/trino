@@ -504,7 +504,7 @@ public class ElasticsearchMetadata
             return Optional.empty();
         }
 
-        Map<ColumnHandle, Domain> supported = new HashMap<>();
+        Map<ElasticsearchColumnHandle, Domain> supported = new HashMap<>();
         Map<ColumnHandle, Domain> unsupported = new HashMap<>();
         if (constraint.getSummary().getDomains().isPresent()) {
             for (Map.Entry<ColumnHandle, Domain> entry : constraint.getSummary().getDomains().get().entrySet()) {
@@ -519,8 +519,8 @@ public class ElasticsearchMetadata
             }
         }
 
-        TupleDomain<ColumnHandle> oldDomain = handle.getConstraint();
-        TupleDomain<ColumnHandle> newDomain = oldDomain.intersect(TupleDomain.withColumnDomains(supported));
+        TupleDomain<ElasticsearchColumnHandle> oldDomain = handle.getConstraint();
+        TupleDomain<ElasticsearchColumnHandle> newDomain = oldDomain.intersect(TupleDomain.withColumnDomains(supported));
         if (oldDomain.equals(newDomain)) {
             return Optional.empty();
         }

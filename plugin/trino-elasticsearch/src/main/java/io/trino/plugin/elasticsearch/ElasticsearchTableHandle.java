@@ -15,7 +15,6 @@ package io.trino.plugin.elasticsearch;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.predicate.TupleDomain;
 
@@ -36,7 +35,7 @@ public final class ElasticsearchTableHandle
     private final Type type;
     private final String schema;
     private final String index;
-    private final TupleDomain<ColumnHandle> constraint;
+    private final TupleDomain<ElasticsearchColumnHandle> constraint;
     private final Optional<String> query;
     private final OptionalLong limit;
 
@@ -56,7 +55,7 @@ public final class ElasticsearchTableHandle
             @JsonProperty("type") Type type,
             @JsonProperty("schema") String schema,
             @JsonProperty("index") String index,
-            @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint,
+            @JsonProperty("constraint") TupleDomain<ElasticsearchColumnHandle> constraint,
             @JsonProperty("query") Optional<String> query,
             @JsonProperty("limit") OptionalLong limit)
     {
@@ -87,7 +86,7 @@ public final class ElasticsearchTableHandle
     }
 
     @JsonProperty
-    public TupleDomain<ColumnHandle> getConstraint()
+    public TupleDomain<ElasticsearchColumnHandle> getConstraint()
     {
         return constraint;
     }
