@@ -1481,6 +1481,7 @@ public class TrinoS3FileSystem
         private byte[] buffer;
         private int bufferSize;
 
+        private boolean closed;
         private boolean failed;
         // Mutated and read by main thread; mutated just before scheduling upload to background thread (access does not need to be thread safe)
         private boolean multipartUploadStarted;
@@ -1548,6 +1549,11 @@ public class TrinoS3FileSystem
         public void close()
                 throws IOException
         {
+            if (closed) {
+                return;
+            }
+            closed = true;
+
             if (failed) {
                 try {
                     abortUpload();
