@@ -186,6 +186,7 @@ import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.DeleteNode;
 import io.trino.sql.planner.plan.DistinctLimitNode;
 import io.trino.sql.planner.plan.DynamicFilterId;
+import io.trino.sql.planner.plan.DynamicFilterSourceNode;
 import io.trino.sql.planner.plan.EnforceSingleRowNode;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.ExplainAnalyzeNode;
@@ -2834,6 +2835,46 @@ public class LocalExecutionPlanner
                     buildContext.getDriverInstanceCount());
 
             return lookupSourceFactoryManager;
+        }
+
+        @Override
+        public PhysicalOperation visitDynamicFilterSource(DynamicFilterSourceNode node, LocalExecutionPlanContext context)
+        {
+            checkState(
+                    !node.getDynamicFilters().isEmpty(),
+                    "Dynamic filters cannot be empty in DynamicFilterSourceNode");
+            log.debug("[DynamicFilterSource] Dynamic filters: %s", node.getDynamicFilters());
+            PhysicalOperation source = node.getSource().accept(this, context);
+
+            Map<DynamicFilterId, Integer> dynamicFilterChannels = node.getDynamicFilters().entrySet().stream()
+                    .collect(toImmutableMap(
+                            // Dynamic filter ID
+                            Map.Entry::getKey,
+                            // Build-side channel index
+                            entry -> {
+                                Symbol buildSymbol = entry.getValue();
+                                int buildChannelIndex = node.getOutputSymbols().indexOf(buildSymbol);
+                                verify(buildChannelIndex >= 0);
+                                return buildChannelIndex;
+                            }));
+            Map<DynamicFilterId, Type> dynamicFilterChannelTypes = dynamicFilterChannels.entrySet().stream()
+                    .collect(toImmutableMap(
+                            Map.Entry::getKey,
+                            entry -> source.getTypes().get(entry.getValue())));
+
+            LocalDynamicFilterConsumer dynamicFilterSourceConsumer = new LocalDynamicFilterConsumer(
+                    dynamicFilterChannels,
+                    dynamicFilterChannelTypes,
+                    ImmutableList.of(context.getCoordinatorDynamicFilterDomainsCollector(node.getDynamicFilters().keySet())),
+                    getDynamicFilteringMaxSizePerOperator(session, false));
+            return createDynamicFilterSourceOperatorFactory(
+                    context.getNextOperatorId(),
+                    dynamicFilterSourceConsumer,
+                    node,
+                    false,
+                    false,
+                    source,
+                    context);
         }
 
         private PhysicalOperation createDynamicFilterSourceOperatorFactory(

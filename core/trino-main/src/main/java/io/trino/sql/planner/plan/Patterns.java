@@ -105,6 +105,11 @@ public final class Patterns
         return typeOf(JoinNode.class);
     }
 
+    public static Pattern<DynamicFilterSourceNode> dynamicFilterSource()
+    {
+        return typeOf(DynamicFilterSourceNode.class);
+    }
+
     public static Pattern<SpatialJoinNode> spatialJoin()
     {
         return typeOf(SpatialJoinNode.class);

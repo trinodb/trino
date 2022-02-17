@@ -21,4 +21,6 @@ public interface DynamicFilterSourceConsumer
     void addPartition(TupleDomain<DynamicFilterId> tupleDomain);
 
     void setPartitionCount(int partitionCount);
+
+    boolean isDomainCollectionComplete();
 }

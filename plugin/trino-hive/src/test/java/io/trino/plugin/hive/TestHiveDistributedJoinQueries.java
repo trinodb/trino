@@ -29,7 +29,7 @@ import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.BROADCAS
 import static org.testng.Assert.assertEquals;
 
 /**
- * @see TestHiveDistributedJoinQueriesWithoutDynamicFiltering for tests with dynamic filtering enabled
+ * @see TestHiveDistributedJoinQueriesWithoutDynamicFiltering for tests with dynamic filtering disabled
  */
 public class TestHiveDistributedJoinQueries
         extends AbstractTestJoinQueries
@@ -40,6 +40,8 @@ public class TestHiveDistributedJoinQueries
     {
         verify(new DynamicFilterConfig().isEnableDynamicFiltering(), "this class assumes dynamic filtering is enabled by default");
         return HiveQueryRunner.builder()
+                .addExtraProperty("retry-policy", "NONE") // See TestHiveFaultTolerantExecutionJoinQueries for tests with task retries enabled
+                .addHiveProperty("hive.dynamic-filtering.wait-timeout", "1h")
                 .setInitialTables(REQUIRED_TPCH_TABLES)
                 .build();
     }

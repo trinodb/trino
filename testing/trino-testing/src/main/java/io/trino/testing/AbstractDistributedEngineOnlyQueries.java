@@ -30,6 +30,7 @@ import java.util.regex.Pattern;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
+import static io.trino.SystemSessionProperties.ENABLE_LARGE_DYNAMIC_FILTERS;
 import static io.trino.execution.QueryState.RUNNING;
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.BROADCAST;
 import static io.trino.testing.assertions.Assert.assertEventually;
@@ -207,6 +208,9 @@ public abstract class AbstractDistributedEngineOnlyQueries
     {
         // ExplainAnalyzeOperator may finish before dynamic filter stats are reported to QueryInfo
         assertEventually(() -> assertExplainAnalyze(
+                Session.builder(getSession())
+                        .setSystemProperty(ENABLE_LARGE_DYNAMIC_FILTERS, "true")
+                        .build(),
                 "EXPLAIN ANALYZE SELECT * FROM nation a, nation b WHERE a.nationkey = b.nationkey",
                 "Dynamic filters: \n.*ranges=25, \\{\\[0], ..., \\[24]}.* collection time=\\d+.*"));
     }
