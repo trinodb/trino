@@ -597,7 +597,7 @@
             <dependency>
                 <groupId>io.trino.orc</groupId>
                 <artifactId>orc-protobuf</artifactId>
-                <version>11</version>
+                <version>13</version>
             </dependency>
 
             <dependency>
