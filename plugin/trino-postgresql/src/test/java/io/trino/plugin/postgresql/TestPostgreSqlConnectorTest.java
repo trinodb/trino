@@ -693,6 +693,16 @@ public class TestPostgreSqlConnectorTest
     }
 
     @Test
+    public void testOrPredicatePushdown()
+    {
+        assertThat(query("SELECT * FROM nation WHERE nationkey != 3 OR regionkey = 4")).isFullyPushedDown();
+        assertThat(query("SELECT * FROM nation WHERE nationkey != 3 OR regionkey != 4")).isFullyPushedDown();
+        assertThat(query("SELECT * FROM nation WHERE name = 'ALGERIA' OR regionkey = 4")).isFullyPushedDown();
+        assertThat(query("SELECT * FROM nation WHERE name IS NULL OR regionkey = 4")).isNotFullyPushedDown(FilterNode.class); // TODO `name IS NULL` is not pushed down
+        assertThat(query("SELECT * FROM nation WHERE name = NULL OR regionkey = 4")).isNotFullyPushedDown(FilterNode.class); // TODO `name = NULL` should be eliminated by the engine
+    }
+
+    @Test
     public void testLikePredicatePushdown()
     {
         assertThat(query("SELECT nationkey FROM nation WHERE name LIKE '%A%'"))
