@@ -148,7 +148,7 @@ public final class ExpressionFormatter
         protected String visitRow(Row node, Void context)
         {
             return "ROW (" + Joiner.on(", ").join(node.getItems().stream()
-                    .map((child) -> process(child, context))
+                    .map(child -> process(child, context))
                     .collect(toList())) + ")";
         }
 
@@ -613,7 +613,7 @@ public final class ExpressionFormatter
             }
 
             node.getDefaultValue()
-                    .ifPresent((value) -> parts.add("ELSE").add(process(value, context)));
+                    .ifPresent(value -> parts.add("ELSE").add(process(value, context)));
 
             parts.add("END");
 
@@ -633,7 +633,7 @@ public final class ExpressionFormatter
             }
 
             node.getDefaultValue()
-                    .ifPresent((value) -> parts.add("ELSE").add(process(value, context)));
+                    .ifPresent(value -> parts.add("ELSE").add(process(value, context)));
 
             parts.add("END");
 

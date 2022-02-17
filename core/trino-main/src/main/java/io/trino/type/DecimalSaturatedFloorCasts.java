@@ -49,7 +49,7 @@ public final class DecimalSaturatedFloorCasts
             .choice(choice -> choice
                     .implementation(methodsGroup -> methodsGroup
                             .methods("shortDecimalToShortDecimal", "shortDecimalToLongDecimal", "longDecimalToShortDecimal", "longDecimalToLongDecimal")
-                            .withExtraParameters((context) -> {
+                            .withExtraParameters(context -> {
                                 int sourcePrecision = toIntExact(context.getLiteral("source_precision"));
                                 int sourceScale = toIntExact(context.getLiteral("source_scale"));
                                 int resultPrecision = toIntExact(context.getLiteral("result_precision"));
@@ -120,7 +120,7 @@ public final class DecimalSaturatedFloorCasts
                 .choice(choice -> choice
                         .implementation(methodsGroup -> methodsGroup
                                 .methods("shortDecimalToGenericIntegerType", "longDecimalToGenericIntegerType")
-                                .withExtraParameters((context) -> {
+                                .withExtraParameters(context -> {
                                     int sourceScale = toIntExact(context.getLiteral("source_scale"));
                                     return ImmutableList.of(sourceScale, minValue, maxValue);
                                 })))
@@ -171,7 +171,7 @@ public final class DecimalSaturatedFloorCasts
                 .choice(choice -> choice
                         .implementation(methodsGroup -> methodsGroup
                                 .methods("genericIntegerTypeToShortDecimal", "genericIntegerTypeToLongDecimal")
-                                .withExtraParameters((context) -> {
+                                .withExtraParameters(context -> {
                                     int resultPrecision = toIntExact(context.getLiteral("result_precision"));
                                     int resultScale = toIntExact(context.getLiteral("result_scale"));
                                     return ImmutableList.of(resultPrecision, resultScale);

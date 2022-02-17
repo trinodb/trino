@@ -228,7 +228,7 @@ public class ReorderJoins
                 memo.put(multiJoinKey, bestResult);
             }
 
-            bestResult.planNode.ifPresent((planNode) -> log.debug("Least cost join was: %s", planNode));
+            bestResult.planNode.ifPresent(planNode -> log.debug("Least cost join was: %s", planNode));
             return bestResult;
         }
 
@@ -446,7 +446,7 @@ public class ReorderJoins
 
         private List<JoinEnumerationResult> getPossibleJoinNodes(JoinNode joinNode, DistributionType distributionType)
         {
-            return getPossibleJoinNodes(joinNode, distributionType, (node) -> true);
+            return getPossibleJoinNodes(joinNode, distributionType, node -> true);
         }
 
         private List<JoinEnumerationResult> getPossibleJoinNodes(JoinNode joinNode, DistributionType distributionType, Predicate<JoinNode> isAllowed)
