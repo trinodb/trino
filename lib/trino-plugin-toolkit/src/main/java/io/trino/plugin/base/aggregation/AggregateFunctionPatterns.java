@@ -54,19 +54,19 @@ public final class AggregateFunctionPatterns
         return Property.property("outputType", AggregateFunction::getOutputType);
     }
 
-    public static Property<AggregateFunction, ?, List<ConnectorExpression>> inputs()
+    public static Property<AggregateFunction, ?, List<ConnectorExpression>> arguments()
     {
-        return Property.property("inputs", AggregateFunction::getInputs);
+        return Property.property("arguments", AggregateFunction::getArguments);
     }
 
-    public static Property<AggregateFunction, ?, ConnectorExpression> singleInput()
+    public static Property<AggregateFunction, ?, ConnectorExpression> singleArgument()
     {
-        return Property.optionalProperty("inputs", aggregateFunction -> {
-            List<ConnectorExpression> inputs = aggregateFunction.getInputs();
-            if (inputs.size() != 1) {
+        return Property.optionalProperty("arguments", aggregateFunction -> {
+            List<ConnectorExpression> arguments = aggregateFunction.getArguments();
+            if (arguments.size() != 1) {
                 return Optional.empty();
             }
-            return Optional.of(inputs.get(0));
+            return Optional.of(arguments.get(0));
         });
     }
 

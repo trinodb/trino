@@ -31,7 +31,7 @@ import static com.google.common.base.Verify.verify;
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.basicAggregation;
 import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.functionName;
-import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.singleInput;
+import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.singleArgument;
 import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.variable;
 import static java.lang.String.format;
 
@@ -41,7 +41,7 @@ import static java.lang.String.format;
 public class ImplementMinMax
         implements AggregateFunctionRule<JdbcExpression>
 {
-    private static final Capture<Variable> INPUT = newCapture();
+    private static final Capture<Variable> ARGUMENT = newCapture();
 
     private final boolean isRemoteCollationSensitive;
 
@@ -55,14 +55,14 @@ public class ImplementMinMax
     {
         return basicAggregation()
                 .with(functionName().matching(Set.of("min", "max")::contains))
-                .with(singleInput().matching(variable().capturedAs(INPUT)));
+                .with(singleArgument().matching(variable().capturedAs(ARGUMENT)));
     }
 
     @Override
     public Optional<JdbcExpression> rewrite(AggregateFunction aggregateFunction, Captures captures, RewriteContext context)
     {
-        Variable input = captures.get(INPUT);
-        JdbcColumnHandle columnHandle = (JdbcColumnHandle) context.getAssignment(input.getName());
+        Variable argument = captures.get(ARGUMENT);
+        JdbcColumnHandle columnHandle = (JdbcColumnHandle) context.getAssignment(argument.getName());
         verify(columnHandle.getColumnType().equals(aggregateFunction.getOutputType()));
 
         // Remote database is case insensitive or sorts values differently from Trino
