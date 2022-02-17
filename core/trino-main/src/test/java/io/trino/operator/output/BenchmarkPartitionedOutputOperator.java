@@ -109,6 +109,8 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 @BenchmarkMode(Mode.AverageTime)
 public class BenchmarkPartitionedOutputOperator
 {
+    private static final PositionsAppenderFactory POSITIONS_APPENDER_FACTORY = new PositionsAppenderFactory();
+
     @Benchmark
     public void addPage(BenchmarkData data)
     {
@@ -158,6 +160,7 @@ public class BenchmarkPartitionedOutputOperator
                 "BIGINT_DICTIONARY_PARTITION_CHANNEL_50_PERCENT",
                 "BIGINT_DICTIONARY_PARTITION_CHANNEL_80_PERCENT",
                 "BIGINT_DICTIONARY_PARTITION_CHANNEL_100_PERCENT",
+                "BIGINT_DICTIONARY_PARTITION_CHANNEL_100_PERCENT_MINUS_1",
                 "RLE_PARTITION_BIGINT",
                 "RLE_PARTITION_NULL_BIGINT",
                 "LONG_DECIMAL",
@@ -268,6 +271,17 @@ public class BenchmarkPartitionedOutputOperator
                             types.size(),
                             () -> createRandomBlockForType(BigintType.BIGINT, positionCount, nullRate),
                             createLongDictionaryBlock(0, positionCount, positionCount));
+                }
+            },
+            BIGINT_DICTIONARY_PARTITION_CHANNEL_100_PERCENT_MINUS_1(BigintType.BIGINT, 3000) {
+                @Override
+                public Page createPage(List<Type> types, int positionCount, float nullRate)
+                {
+                    return page(
+                            positionCount,
+                            types.size(),
+                            () -> createRandomBlockForType(BigintType.BIGINT, positionCount, nullRate),
+                            createLongDictionaryBlock(0, positionCount, positionCount - 1));
                 }
             },
             RLE_PARTITION_BIGINT(BigintType.BIGINT, 5000) {
@@ -423,7 +437,8 @@ public class BenchmarkPartitionedOutputOperator
                     false,
                     OptionalInt.empty(),
                     buffer,
-                    MAX_PARTITION_BUFFER_SIZE);
+                    MAX_PARTITION_BUFFER_SIZE,
+                    POSITIONS_APPENDER_FACTORY);
             return (PartitionedOutputOperator) operatorFactory
                     .createOutputOperator(0, new PlanNodeId("plan-node-0"), types, Function.identity(), serdeFactory)
                     .createOperator(createDriverContext());

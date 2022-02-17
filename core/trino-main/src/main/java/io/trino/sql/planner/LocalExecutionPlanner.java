@@ -123,6 +123,7 @@ import io.trino.operator.join.NestedLoopJoinBridge;
 import io.trino.operator.join.NestedLoopJoinPagesSupplier;
 import io.trino.operator.join.PartitionedLookupSourceFactory;
 import io.trino.operator.output.PartitionedOutputOperator.PartitionedOutputFactory;
+import io.trino.operator.output.PositionsAppenderFactory;
 import io.trino.operator.output.TaskOutputOperator.TaskOutputFactory;
 import io.trino.operator.project.CursorProcessor;
 import io.trino.operator.project.PageProcessor;
@@ -386,6 +387,7 @@ public class LocalExecutionPlanner
     private final BlockTypeOperators blockTypeOperators;
     private final TableExecuteContextManager tableExecuteContextManager;
     private final ExchangeManagerRegistry exchangeManagerRegistry;
+    private final PositionsAppenderFactory positionsAppenderFactory = new PositionsAppenderFactory();
 
     @Inject
     public LocalExecutionPlanner(
@@ -523,7 +525,8 @@ public class LocalExecutionPlanner
                         partitioningScheme.isReplicateNullsAndAny(),
                         nullChannel,
                         outputBuffer,
-                        maxPagePartitioningBufferSize));
+                        maxPagePartitioningBufferSize,
+                        positionsAppenderFactory));
     }
 
     public LocalExecutionPlan plan(
