@@ -41,6 +41,7 @@ import io.trino.execution.scheduler.PartitionMemoryEstimator.MemoryRequirements;
 import io.trino.failuredetector.FailureDetector;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.Split;
+import io.trino.server.DynamicFilterService;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.TrinoException;
 import io.trino.spi.exchange.Exchange;
@@ -168,6 +169,8 @@ public class FaultTolerantStageScheduler
     @GuardedBy("this")
     private final Map<Integer, MemoryRequirements> partitionMemoryRequirements = new HashMap<>();
 
+    private final DynamicFilterService dynamicFilterService;
+
     @GuardedBy("this")
     private Throwable failure;
     @GuardedBy("this")
@@ -192,7 +195,8 @@ public class FaultTolerantStageScheduler
             Optional<BucketNodeMap> sourceBucketNodeMap,
             AtomicInteger remainingRetryAttemptsOverall,
             int taskRetryAttemptsPerTask,
-            int maxTasksWaitingForNodePerStage)
+            int maxTasksWaitingForNodePerStage,
+            DynamicFilterService dynamicFilterService)
     {
         this.session = requireNonNull(session, "session is null");
         this.stage = requireNonNull(stage, "stage is null");
@@ -215,6 +219,7 @@ public class FaultTolerantStageScheduler
         this.minRetryDelay = Duration.ofMillis(getRetryInitialDelay(session).toMillis());
         this.maxRetryDelay = Duration.ofMillis(getRetryMaxDelay(session).toMillis());
         this.retryDelayScaleFactor = getRetryDelayScaleFactor(session);
+        this.dynamicFilterService = requireNonNull(dynamicFilterService, "dynamicFilterService is null");
         this.delayStopwatch = Stopwatch.createUnstarted(ticker);
     }
 
@@ -296,6 +301,7 @@ public class FaultTolerantStageScheduler
                                     });
                                 }
                                 if (taskSource.isFinished()) {
+                                    dynamicFilterService.stageCannotScheduleMoreTasks(stage.getStageId(), 0, allPartitions.size());
                                     sinkExchange.ifPresent(Exchange::noMoreSinks);
                                 }
                                 return null;

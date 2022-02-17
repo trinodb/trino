@@ -16,6 +16,7 @@ package io.trino.execution;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
+import io.trino.operator.RetryPolicy;
 import io.trino.plugin.memory.MemoryPlugin;
 import io.trino.plugin.tpcds.TpcdsPlugin;
 import io.trino.plugin.tpch.TpchPlugin;
@@ -56,6 +57,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 import java.util.stream.LongStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -81,6 +83,7 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.TestingSplit.createRemoteSplit;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -94,14 +97,14 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
     private static final TestingMetadata.TestingColumnHandle SS_SOLD_SK_HANDLE = new TestingMetadata.TestingColumnHandle("ss_sold_date_sk", 0, BIGINT);
 
     private volatile Set<ColumnHandle> expectedDynamicFilterColumnsCovered;
-    private volatile TupleDomain<ColumnHandle> expectedCoordinatorDynamicFilter;
-    private volatile TupleDomain<ColumnHandle> expectedTableScanDynamicFilter;
+    private volatile Consumer<TupleDomain<ColumnHandle>> expectedCoordinatorDynamicFilterAssertion;
+    private volatile Consumer<TupleDomain<ColumnHandle>> expectedTableScanDynamicFilterAssertion;
 
     @BeforeClass
     public void setup()
     {
         // create lineitem table in test connector
-        getQueryRunner().installPlugin(new TestPlugin());
+        getQueryRunner().installPlugin(new TestPlugin(getRetryPolicy() == RetryPolicy.TASK));
         getQueryRunner().installPlugin(new TpchPlugin());
         getQueryRunner().installPlugin(new TpcdsPlugin());
         getQueryRunner().installPlugin(new MemoryPlugin());
@@ -111,11 +114,13 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
                 "tpch",
                 ImmutableMap.of(TPCH_PARTITIONING_ENABLED, "false", TPCH_SPLITS_PER_NODE, "16"));
         getQueryRunner().createCatalog("tpcds", "tpcds", ImmutableMap.of());
-        getQueryRunner().createCatalog("memory", "memory", ImmutableMap.of());
+        getQueryRunner().createCatalog("memory", "memory", ImmutableMap.of("memory.splits-per-node", "16"));
         computeActual("CREATE TABLE lineitem AS SELECT * FROM tpch.tiny.lineitem");
         computeActual("CREATE TABLE customer AS SELECT * FROM tpch.tiny.customer");
         computeActual("CREATE TABLE store_sales AS SELECT * FROM tpcds.tiny.store_sales");
     }
+
+    protected abstract RetryPolicy getRetryPolicy();
 
     @Test(timeOut = 30_000, dataProvider = "testJoinDistributionType")
     public void testJoinWithEmptyBuildSide(JoinDistributionType joinDistributionType, boolean coordinatorDynamicFiltersDistribution)
@@ -384,13 +389,22 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
 
     private void assertQueryDynamicFilters(Session session, @Language("SQL") String query, Set<ColumnHandle> expectedColumnsCovered, TupleDomain<ColumnHandle> expectedTupleDomain)
     {
+        assertQueryDynamicFilters(session, query, expectedColumnsCovered, collectedDomain -> assertThat(collectedDomain).isEqualTo(expectedTupleDomain));
+    }
+
+    protected void assertQueryDynamicFilters(
+            Session session,
+            @Language("SQL") String query,
+            Set<ColumnHandle> expectedColumnsCovered,
+            Consumer<TupleDomain<ColumnHandle>> expectedTupleDomainAssertion)
+    {
         expectedDynamicFilterColumnsCovered = expectedColumnsCovered;
-        expectedCoordinatorDynamicFilter = expectedTupleDomain;
+        expectedCoordinatorDynamicFilterAssertion = expectedTupleDomainAssertion;
         if (!isEnableCoordinatorDynamicFiltersDistribution(session) && getJoinDistributionType(session).equals(PARTITIONED)) {
-            expectedTableScanDynamicFilter = TupleDomain.all();
+            expectedTableScanDynamicFilterAssertion = TupleDomain::isAll;
         }
         else {
-            expectedTableScanDynamicFilter = expectedTupleDomain;
+            expectedTableScanDynamicFilterAssertion = expectedTupleDomainAssertion;
         }
 
         computeActual(session, query);
@@ -399,6 +413,13 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
     private class TestPlugin
             implements Plugin
     {
+        private final boolean isTaskRetryMode;
+
+        public TestPlugin(boolean isTaskRetryMode)
+        {
+            this.isTaskRetryMode = isTaskRetryMode;
+        }
+
         @Override
         public Iterable<ConnectorFactory> getConnectorFactories()
         {
@@ -415,7 +436,7 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
                 @Override
                 public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
                 {
-                    return new TestConnector(metadata);
+                    return new TestConnector(metadata, isTaskRetryMode);
                 }
             });
         }
@@ -425,10 +446,12 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
             implements Connector
     {
         private final ConnectorMetadata metadata;
+        private final boolean isTaskRetryMode;
 
-        private TestConnector(ConnectorMetadata metadata)
+        private TestConnector(ConnectorMetadata metadata, boolean isTaskRetryMode)
         {
             this.metadata = requireNonNull(metadata, "metadata is null");
+            this.isTaskRetryMode = isTaskRetryMode;
         }
 
         @Override
@@ -456,11 +479,14 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
                         DynamicFilter dynamicFilter,
                         Constraint constraint)
                 {
-                    AtomicBoolean splitProduced = new AtomicBoolean();
-
+                    if (!isTaskRetryMode) {
+                        // In task retry mode, dynamic filter collection is done outside the join stage,
+                        // so it's not necessary that dynamicFilter will be blocked initially.
+                        assertFalse(dynamicFilter.isBlocked().isDone(), "Dynamic filter should be initially blocked");
+                    }
                     assertEquals(dynamicFilter.getColumnsCovered(), expectedDynamicFilterColumnsCovered, "columns covered");
-                    assertFalse(dynamicFilter.isBlocked().isDone(), "Dynamic filter should be initially blocked");
 
+                    AtomicBoolean splitProduced = new AtomicBoolean();
                     return new ConnectorSplitSource()
                     {
                         @Override
@@ -493,8 +519,8 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
                                 return false;
                             }
 
-                            assertEquals(dynamicFilter.getCurrentPredicate(), expectedCoordinatorDynamicFilter);
                             assertTrue(dynamicFilter.isBlocked().isDone());
+                            expectedCoordinatorDynamicFilterAssertion.accept(dynamicFilter.getCurrentPredicate());
 
                             return true;
                         }
@@ -537,8 +563,8 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
                             }
 
                             // ConnectorPageSource is blocked until the dynamicFilter is complete
-                            assertEquals(dynamicFilter.getCurrentPredicate(), expectedTableScanDynamicFilter);
                             assertTrue(dynamicFilter.isBlocked().isDone());
+                            expectedTableScanDynamicFilterAssertion.accept(dynamicFilter.getCurrentPredicate());
 
                             return true;
                         }

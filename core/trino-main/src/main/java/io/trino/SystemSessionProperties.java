@@ -1286,10 +1286,6 @@ public final class SystemSessionProperties
 
     public static boolean isEnableDynamicFiltering(Session session)
     {
-        if (getRetryPolicy(session) == RetryPolicy.TASK) {
-            // dynamic filtering is not supported with task level failure recovery enabled
-            return false;
-        }
         return session.getSystemProperty(ENABLE_DYNAMIC_FILTERING, Boolean.class);
     }
 

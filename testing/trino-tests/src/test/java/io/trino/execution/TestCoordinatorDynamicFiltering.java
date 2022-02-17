@@ -19,6 +19,8 @@ import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import org.testng.annotations.Test;
 
+import static io.trino.operator.RetryPolicy.NONE;
+
 @Test(singleThreaded = true)
 public class TestCoordinatorDynamicFiltering
         extends AbstractTestCoordinatorDynamicFiltering
@@ -29,10 +31,16 @@ public class TestCoordinatorDynamicFiltering
     {
         return DistributedQueryRunner.builder(getDefaultSession())
                 .setExtraProperties(ImmutableMap.of(
-                        "retry-policy", RetryPolicy.NONE.name(),
+                        "retry-policy", getRetryPolicy().name(),
                         // keep limits lower to test edge cases
                         "dynamic-filtering.small-partitioned.max-distinct-values-per-driver", "10",
                         "dynamic-filtering.small-broadcast.max-distinct-values-per-driver", "10"))
                 .build();
+    }
+
+    @Override
+    protected RetryPolicy getRetryPolicy()
+    {
+        return NONE;
     }
 }

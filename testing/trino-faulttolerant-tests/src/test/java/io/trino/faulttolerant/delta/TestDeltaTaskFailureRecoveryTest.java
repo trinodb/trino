@@ -30,7 +30,6 @@ import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createS3DeltaLakeQu
 import static io.trino.plugin.exchange.filesystem.containers.MinioStorage.getExchangeManagerProperties;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestDeltaTaskFailureRecoveryTest
         extends BaseDeltaFailureRecoveryTest
@@ -71,12 +70,5 @@ public class TestDeltaTaskFailureRecoveryTest
         requiredTpchTables.forEach(table -> queryRunner.execute(format("CREATE TABLE %s AS SELECT * FROM tpch.tiny.%1$s", table.getTableName())));
 
         return queryRunner;
-    }
-
-    @Override
-    public void testJoinDynamicFilteringEnabled()
-    {
-        assertThatThrownBy(super::testJoinDynamicFilteringEnabled)
-                .hasMessageContaining("Dynamic filter is missing");
     }
 }

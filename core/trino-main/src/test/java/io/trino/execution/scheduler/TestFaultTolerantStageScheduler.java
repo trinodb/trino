@@ -26,6 +26,7 @@ import io.airlift.units.DataSize;
 import io.trino.Session;
 import io.trino.client.NodeVersion;
 import io.trino.cost.StatsAndCosts;
+import io.trino.execution.DynamicFilterConfig;
 import io.trino.execution.NodeTaskMap;
 import io.trino.execution.RemoteTaskFactory;
 import io.trino.execution.SqlStage;
@@ -40,11 +41,13 @@ import io.trino.execution.scheduler.TestingNodeSelectorFactory.TestingNodeSuppli
 import io.trino.failuredetector.NoOpFailureDetector;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.Split;
+import io.trino.server.DynamicFilterService;
 import io.trino.spi.QueryId;
 import io.trino.spi.StandardErrorCode;
 import io.trino.spi.TrinoException;
 import io.trino.spi.exchange.Exchange;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.Partitioning;
 import io.trino.sql.planner.PartitioningScheme;
 import io.trino.sql.planner.PlanFragment;
@@ -81,6 +84,7 @@ import static io.trino.operator.RetryPolicy.TASK;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
+import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPLICATE;
 import static io.trino.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
 import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
@@ -103,7 +107,6 @@ public class TestFaultTolerantStageScheduler
     private static final Session SESSION = testSessionBuilder()
             .setQueryId(QUERY_ID)
             .build();
-
     private static final StageId STAGE_ID = new StageId(QUERY_ID, 0);
     private static final PlanFragmentId FRAGMENT_ID = new PlanFragmentId("0");
     private static final PlanFragmentId SOURCE_FRAGMENT_ID_1 = new PlanFragmentId("1");
@@ -113,6 +116,8 @@ public class TestFaultTolerantStageScheduler
     private static final InternalNode NODE_1 = new InternalNode("node-1", URI.create("local://127.0.0.1:8080"), NodeVersion.UNKNOWN, false);
     private static final InternalNode NODE_2 = new InternalNode("node-2", URI.create("local://127.0.0.1:8081"), NodeVersion.UNKNOWN, false);
     private static final InternalNode NODE_3 = new InternalNode("node-3", URI.create("local://127.0.0.1:8082"), NodeVersion.UNKNOWN, false);
+
+    private static final PlannerContext PLANNER_CONTEXT = plannerContextBuilder().build();
 
     private FinalizerService finalizerService;
     private NodeTaskMap nodeTaskMap;
@@ -979,7 +984,8 @@ public class TestFaultTolerantStageScheduler
                 Optional.empty(),
                 new AtomicInteger(retryAttempts),
                 retryAttempts,
-                maxTasksWaitingForNodePerStage);
+                maxTasksWaitingForNodePerStage,
+                new DynamicFilterService(PLANNER_CONTEXT.getMetadata(), PLANNER_CONTEXT.getFunctionManager(), PLANNER_CONTEXT.getTypeOperators(), new DynamicFilterConfig()));
     }
 
     private SqlStage createSqlStage(RemoteTaskFactory remoteTaskFactory)
