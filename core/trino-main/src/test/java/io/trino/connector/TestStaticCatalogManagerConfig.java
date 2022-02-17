@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.metadata;
+package io.trino.connector;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -24,12 +24,12 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertFullMappin
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 
-public class TestStaticCatalogStoreConfig
+public class TestStaticCatalogManagerConfig
 {
     @Test
     public void testDefaults()
     {
-        assertRecordedDefaults(recordDefaults(StaticCatalogStoreConfig.class)
+        assertRecordedDefaults(recordDefaults(StaticCatalogManagerConfig.class)
                 .setCatalogConfigurationDir(new File("etc/catalog"))
                 .setDisabledCatalogs((String) null));
     }
@@ -42,7 +42,7 @@ public class TestStaticCatalogStoreConfig
                 .put("catalog.disabled-catalogs", "abc,xyz")
                 .buildOrThrow();
 
-        StaticCatalogStoreConfig expected = new StaticCatalogStoreConfig()
+        StaticCatalogManagerConfig expected = new StaticCatalogManagerConfig()
                 .setCatalogConfigurationDir(new File("/foo"))
                 .setDisabledCatalogs(ImmutableList.of("abc", "xyz"));
 
