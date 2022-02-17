@@ -37,11 +37,13 @@ import io.trino.sql.analyzer.TypeSignatureProvider;
 import io.trino.sql.tree.AstVisitor;
 import io.trino.sql.tree.BinaryLiteral;
 import io.trino.sql.tree.BooleanLiteral;
+import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.CharLiteral;
 import io.trino.sql.tree.DecimalLiteral;
 import io.trino.sql.tree.DoubleLiteral;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionCall;
+import io.trino.sql.tree.GenericLiteral;
 import io.trino.sql.tree.LikePredicate;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.NodeRef;
@@ -62,6 +64,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.SliceUtf8.countCodePoints;
 import static io.trino.SystemSessionProperties.isComplexExpressionPushdown;
 import static io.trino.spi.expression.StandardFunctions.LIKE_PATTERN_FUNCTION_NAME;
+import static io.trino.sql.ExpressionUtils.isEffectivelyLiteral;
 import static io.trino.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
 import static java.util.Objects.requireNonNull;
 
@@ -245,10 +248,32 @@ public final class ConnectorExpressionTranslator
         }
 
         @Override
+        protected Optional<ConnectorExpression> visitGenericLiteral(GenericLiteral node, Void context)
+        {
+            if (!isComplexExpressionPushdown(session)) {
+                return Optional.empty();
+            }
+            return Optional.of(constantFor(node));
+        }
+
+        @Override
+        protected Optional<ConnectorExpression> visitCast(Cast node, Void context)
+        {
+            if (isEffectivelyLiteral(plannerContext, session, node)) {
+                return Optional.of(constantFor(node));
+            }
+            return Optional.empty();
+        }
+
+        @Override
         protected Optional<ConnectorExpression> visitFunctionCall(FunctionCall node, Void context)
         {
             if (!isComplexExpressionPushdown(session)) {
                 return Optional.empty();
+            }
+
+            if (isEffectivelyLiteral(plannerContext, session, node)) {
+                return Optional.of(constantFor(node));
             }
 
             if (node.getFilter().isPresent() || node.getOrderBy().isPresent() || node.getWindow().isPresent() || node.getNullTreatment().isPresent() || node.isDistinct()) {
@@ -283,6 +308,19 @@ public final class ConnectorExpressionTranslator
             // TODO Translate catalog/schema qualifier when available.
             FunctionName name = new FunctionName(functionName);
             return Optional.of(new Call(typeOf(node), name, arguments.build()));
+        }
+
+        private ConnectorExpression constantFor(Expression node)
+        {
+            Type type = typeOf(node);
+            Object value = evaluateConstantExpression(
+                    node,
+                    type,
+                    plannerContext,
+                    session,
+                    new AllowAllAccessControl(),
+                    ImmutableMap.of());
+            return new Constant(value, type);
         }
 
         @Override

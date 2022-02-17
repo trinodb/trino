@@ -40,12 +40,18 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.expression.StandardFunctions.LIKE_PATTERN_FUNCTION_NAME;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.RowType.field;
 import static io.trino.spi.type.RowType.rowType;
+import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.planner.ConnectorExpressionTranslator.translate;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
@@ -71,6 +77,31 @@ public class TestConnectorExpressionTranslator
     private static final TypeProvider TYPE_PROVIDER = TypeProvider.copyOf(symbols);
     private static final Map<String, Symbol> variableMappings = symbols.entrySet().stream()
             .collect(toImmutableMap(entry -> entry.getKey().getName(), Map.Entry::getKey));
+
+    @Test
+    public void testTranslateConstant()
+    {
+        testTranslateConstant(true, BOOLEAN);
+
+        testTranslateConstant(42L, TINYINT);
+        testTranslateConstant(42L, SMALLINT);
+        testTranslateConstant(42L, INTEGER);
+        testTranslateConstant(42L, BIGINT);
+
+        testTranslateConstant(42L, REAL);
+        testTranslateConstant(42d, DOUBLE);
+
+        testTranslateConstant(4200L, createDecimalType(4, 2));
+        testTranslateConstant(4200L, createDecimalType(8, 2));
+
+        testTranslateConstant(utf8Slice("abc"), createVarcharType(3));
+        testTranslateConstant(utf8Slice("abc"), createVarcharType(33));
+    }
+
+    private void testTranslateConstant(Object nativeValue, Type type)
+    {
+        assertTranslationRoundTrips(LITERAL_ENCODER.toExpression(TEST_SESSION, nativeValue, type), new Constant(nativeValue, type));
+    }
 
     @Test
     public void testTranslationToConnectorExpression()
@@ -131,6 +162,8 @@ public class TestConnectorExpressionTranslator
     @Test
     public void testTranslationFromConnectorExpression()
     {
+        // TODO convert to assertTranslationRoundTrips where possible
+
         assertTranslationFromConnectorExpression(new Variable("double_symbol_1", DOUBLE), new SymbolReference("double_symbol_1"));
 
         assertTranslationFromConnectorExpression(
@@ -160,6 +193,12 @@ public class TestConnectorExpressionTranslator
                         .setName(QualifiedName.of(("lower")))
                         .addArgument(VARCHAR_TYPE, new SymbolReference("varchar_symbol_1"))
                         .build());
+    }
+
+    private void assertTranslationRoundTrips(Expression expression, ConnectorExpression connectorExpression)
+    {
+        assertTranslationToConnectorExpression(TEST_SESSION, expression, Optional.of(connectorExpression));
+        assertTranslationFromConnectorExpression(connectorExpression, expression);
     }
 
     private void assertTranslationToConnectorExpression(Session session, Expression expression, Optional<ConnectorExpression> connectorExpression)
