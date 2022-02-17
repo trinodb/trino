@@ -408,7 +408,7 @@ public class TestStageTaskSourceFactory
                 partitionedExchangeSources,
                 replicatedExchangeSources,
                 splitBatchSize,
-                (getSplitsTime) -> {},
+                getSplitsTime -> {},
                 bucketToPartitionMap,
                 bucketNodeMap,
                 Optional.of(CATALOG));
@@ -625,7 +625,7 @@ public class TestStageTaskSourceFactory
                 new TestingSplitSource(CATALOG, splits),
                 replicatedSources,
                 splitBatchSize,
-                (getSplitsTime) -> {},
+                getSplitsTime -> {},
                 Optional.of(CATALOG),
                 minSplitsPerTask,
                 splitWeightPerTask,
@@ -676,7 +676,7 @@ public class TestStageTaskSourceFactory
 
     private static BucketNodeMap getTestingBucketNodeMap(int bucketCount)
     {
-        return new DynamicBucketNodeMap((split) -> {
+        return new DynamicBucketNodeMap(split -> {
             TestingConnectorSplit testingConnectorSplit = (TestingConnectorSplit) split.getConnectorSplit();
             return testingConnectorSplit.getBucket().getAsInt();
         }, bucketCount);

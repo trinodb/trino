@@ -75,7 +75,7 @@ public class TestPruneCountAggregationOverScalar
                                 .globalGrouping()
                                 .step(AggregationNode.Step.SINGLE)
                                 .source(
-                                        p.aggregation((aggregationBuilder) -> aggregationBuilder
+                                        p.aggregation(aggregationBuilder -> aggregationBuilder
                                                 .source(p.tableScan(ImmutableList.of(), ImmutableMap.of()))
                                                 .globalGrouping()
                                                 .step(AggregationNode.Step.SINGLE)))))

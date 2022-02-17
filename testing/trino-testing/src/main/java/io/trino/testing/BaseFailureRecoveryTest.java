@@ -748,17 +748,17 @@ public abstract class BaseFailureRecoveryTest
 
     protected static Function<MaterializedResult, Integer> rootStage()
     {
-        return (result) -> parseInt(getRootStage(result).getStageId());
+        return result -> parseInt(getRootStage(result).getStageId());
     }
 
     protected static Function<MaterializedResult, Integer> boundaryCoordinatorStage()
     {
-        return (result) -> findStageId(result, stage -> stage.isCoordinatorOnly() && stage.getSubStages().stream().noneMatch(StageStats::isCoordinatorOnly));
+        return result -> findStageId(result, stage -> stage.isCoordinatorOnly() && stage.getSubStages().stream().noneMatch(StageStats::isCoordinatorOnly));
     }
 
     protected static Function<MaterializedResult, Integer> boundaryDistributedStage()
     {
-        return (result) -> {
+        return result -> {
             StageStats rootStage = getRootStage(result);
             if (!rootStage.isCoordinatorOnly()) {
                 return parseInt(rootStage.getStageId());
@@ -772,12 +772,12 @@ public abstract class BaseFailureRecoveryTest
 
     protected static Function<MaterializedResult, Integer> intermediateDistributedStage()
     {
-        return (result) -> findStageId(result, stage -> !stage.isCoordinatorOnly() && !stage.getSubStages().isEmpty());
+        return result -> findStageId(result, stage -> !stage.isCoordinatorOnly() && !stage.getSubStages().isEmpty());
     }
 
     protected static Function<MaterializedResult, Integer> leafStage()
     {
-        return (result) -> findStageId(result, stage -> stage.getSubStages().isEmpty());
+        return result -> findStageId(result, stage -> stage.getSubStages().isEmpty());
     }
 
     private static int findStageId(MaterializedResult result, Predicate<StageStats> predicate)

@@ -166,7 +166,7 @@ public class TestCsv
     {
         QueryResult expected = onTrino().executeQuery(format(query, "tpch.tiny.nation"));
         List<Row> expectedRows = expected.rows().stream()
-                .map((columns) -> row(columns.toArray()))
+                .map(columns -> row(columns.toArray()))
                 .collect(toImmutableList());
         QueryResult actual = onTrino().executeQuery(format(query, tableName));
         assertThat(actual)
