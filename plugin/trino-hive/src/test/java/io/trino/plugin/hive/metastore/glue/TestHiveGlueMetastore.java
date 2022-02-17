@@ -303,12 +303,12 @@ public class TestHiveGlueMetastore
     {
         GlueHiveMetastore metastore = (GlueHiveMetastore) getMetastoreClient();
         GlueMetastoreStats stats = metastore.getStats();
-        double initialCallCount = stats.getGetAllDatabases().getTime().getAllTime().getCount();
-        long initialFailureCount = stats.getGetAllDatabases().getTotalFailures().getTotalCount();
+        double initialCallCount = stats.getGetDatabases().getTime().getAllTime().getCount();
+        long initialFailureCount = stats.getGetDatabases().getTotalFailures().getTotalCount();
         getMetastoreClient().getAllDatabases();
-        assertEquals(stats.getGetAllDatabases().getTime().getAllTime().getCount(), initialCallCount + 1.0);
-        assertTrue(stats.getGetAllDatabases().getTime().getAllTime().getAvg() > 0.0);
-        assertEquals(stats.getGetAllDatabases().getTotalFailures().getTotalCount(), initialFailureCount);
+        assertEquals(stats.getGetDatabases().getTime().getAllTime().getCount(), initialCallCount + 1.0);
+        assertTrue(stats.getGetDatabases().getTime().getAllTime().getAvg() > 0.0);
+        assertEquals(stats.getGetDatabases().getTotalFailures().getTotalCount(), initialFailureCount);
     }
 
     @Test
