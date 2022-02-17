@@ -137,7 +137,7 @@ public class ConnectorManager
     private final ConcurrentMap<String, InternalConnectorFactory> connectorFactories = new ConcurrentHashMap<>();
 
     @GuardedBy("this")
-    private final ConcurrentMap<CatalogName, MaterializedConnector> connectors = new ConcurrentHashMap<>();
+    private final ConcurrentMap<CatalogName, ConnectorServices> connectors = new ConcurrentHashMap<>();
 
     private final AtomicBoolean stopped = new AtomicBoolean();
 
@@ -209,7 +209,7 @@ public class ConnectorManager
             return;
         }
 
-        for (MaterializedConnector connector : connectors.values()) {
+        for (ConnectorServices connector : connectors.values()) {
             connector.shutdown();
         }
         connectors.clear();
@@ -254,12 +254,12 @@ public class ConnectorManager
     {
         // create all connectors before adding, so a broken connector does not leave the system half updated
         CatalogClassLoaderSupplier duplicatePluginClassLoaderFactory = new CatalogClassLoaderSupplier(catalogName, factory.getDuplicatePluginClassLoaderFactory(), handleResolver);
-        MaterializedConnector connector = new MaterializedConnector(
+        ConnectorServices connector = new ConnectorServices(
                 catalogName,
                 createConnector(catalogName, factory.getConnectorFactory(), duplicatePluginClassLoaderFactory, properties),
                 duplicatePluginClassLoaderFactory::destroy);
 
-        MaterializedConnector informationSchemaConnector = new MaterializedConnector(
+        ConnectorServices informationSchemaConnector = new ConnectorServices(
                 createInformationSchemaCatalogName(catalogName),
                 new InformationSchemaConnector(catalogName.getCatalogName(), nodeManager, metadata, accessControlManager),
                 () -> {});
@@ -278,7 +278,7 @@ public class ConnectorManager
             systemTablesProvider = new StaticSystemTablesProvider(connector.getSystemTables());
         }
 
-        MaterializedConnector systemConnector = new MaterializedConnector(systemId, new SystemConnector(
+        ConnectorServices systemConnector = new ConnectorServices(systemId, new SystemConnector(
                 nodeManager,
                 systemTablesProvider,
                 transactionId -> transactionManager.getConnectorTransaction(transactionId, catalogName)),
@@ -310,7 +310,7 @@ public class ConnectorManager
                 .forEach(eventListenerManager::addEventListener);
     }
 
-    private synchronized void addConnectorInternal(MaterializedConnector connector)
+    private synchronized void addConnectorInternal(ConnectorServices connector)
     {
         checkState(!stopped.get(), "ConnectorManager is stopped");
         CatalogName catalogName = connector.getCatalogName();
@@ -370,9 +370,9 @@ public class ConnectorManager
         tableProceduresPropertyManager.removeProperties(catalogName);
         sessionPropertyManager.removeConnectorSessionProperties(catalogName);
 
-        MaterializedConnector materializedConnector = connectors.remove(catalogName);
-        if (materializedConnector != null) {
-            materializedConnector.shutdown();
+        ConnectorServices connectorServices = connectors.remove(catalogName);
+        if (connectorServices != null) {
+            connectorServices.shutdown();
         }
     }
 
@@ -479,7 +479,7 @@ public class ConnectorManager
         }
     }
 
-    public static class MaterializedConnector
+    public static class ConnectorServices
     {
         private final CatalogName catalogName;
         private final Connector connector;
@@ -503,7 +503,7 @@ public class ConnectorManager
         private final List<PropertyMetadata<?>> analyzeProperties;
         private final Set<ConnectorCapabilities> capabilities;
 
-        public MaterializedConnector(CatalogName catalogName, Connector connector, Runnable afterShutdown)
+        public ConnectorServices(CatalogName catalogName, Connector connector, Runnable afterShutdown)
         {
             this.catalogName = requireNonNull(catalogName, "catalogName is null");
             this.connector = requireNonNull(connector, "connector is null");
