@@ -27,7 +27,7 @@ import static io.trino.matching.Capture.newCapture;
 import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.basicAggregation;
 import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.functionName;
 import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.outputType;
-import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.singleInput;
+import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.singleArgument;
 import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.variable;
 import static io.trino.spi.type.BigintType.BIGINT;
 
@@ -35,7 +35,7 @@ public class ImplementApproxDistinct
         implements AggregateFunctionRule<AggregateExpression>
 {
     // Extracted from io.trino.plugin.jdbc.expression
-    private static final Capture<Variable> INPUT = newCapture();
+    private static final Capture<Variable> ARGUMENT = newCapture();
 
     @Override
     public Pattern<AggregateFunction> getPattern()
@@ -43,13 +43,13 @@ public class ImplementApproxDistinct
         return basicAggregation()
                 .with(functionName().equalTo("approx_distinct"))
                 .with(outputType().equalTo(BIGINT))
-                .with(singleInput().matching(variable().capturedAs(INPUT)));
+                .with(singleArgument().matching(variable().capturedAs(ARGUMENT)));
     }
 
     @Override
     public Optional<AggregateExpression> rewrite(AggregateFunction aggregateFunction, Captures captures, RewriteContext context)
     {
-        Variable input = captures.get(INPUT);
-        return Optional.of(new AggregateExpression("distinctcounthll", context.getIdentifierQuote().apply(input.getName()), false));
+        Variable argument = captures.get(ARGUMENT);
+        return Optional.of(new AggregateExpression("distinctcounthll", context.getIdentifierQuote().apply(argument.getName()), false));
     }
 }

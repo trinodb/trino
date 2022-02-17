@@ -29,7 +29,7 @@ import static io.trino.matching.Capture.newCapture;
 import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.basicAggregation;
 import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.expressionType;
 import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.functionName;
-import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.singleInput;
+import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.singleArgument;
 import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.variable;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
@@ -41,24 +41,24 @@ import static java.lang.String.format;
 public class ImplementAvgFloatingPoint
         implements AggregateFunctionRule<JdbcExpression>
 {
-    private static final Capture<Variable> INPUT = newCapture();
+    private static final Capture<Variable> ARGUMENT = newCapture();
 
     @Override
     public Pattern<AggregateFunction> getPattern()
     {
         return basicAggregation()
                 .with(functionName().equalTo("avg"))
-                .with(singleInput().matching(
+                .with(singleArgument().matching(
                         variable()
                                 .with(expressionType().matching(type -> type == REAL || type == DOUBLE))
-                                .capturedAs(INPUT)));
+                                .capturedAs(ARGUMENT)));
     }
 
     @Override
     public Optional<JdbcExpression> rewrite(AggregateFunction aggregateFunction, Captures captures, RewriteContext context)
     {
-        Variable input = captures.get(INPUT);
-        JdbcColumnHandle columnHandle = (JdbcColumnHandle) context.getAssignment(input.getName());
+        Variable argument = captures.get(ARGUMENT);
+        JdbcColumnHandle columnHandle = (JdbcColumnHandle) context.getAssignment(argument.getName());
         verify(aggregateFunction.getOutputType() == columnHandle.getColumnType());
 
         return Optional.of(new JdbcExpression(
