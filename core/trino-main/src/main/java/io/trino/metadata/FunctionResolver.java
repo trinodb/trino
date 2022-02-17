@@ -281,7 +281,7 @@ public class FunctionResolver
     private List<ApplicableFunction> getUnknownOnlyCastFunctions(List<ApplicableFunction> applicableFunction, List<Type> actualParameters)
     {
         return applicableFunction.stream()
-                .filter((function) -> onlyCastsUnknown(function, actualParameters))
+                .filter(function -> onlyCastsUnknown(function, actualParameters))
                 .collect(toImmutableList());
     }
 

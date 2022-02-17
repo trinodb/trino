@@ -845,7 +845,7 @@ public abstract class AbstractTestHive
                 ImmutableSet.of(
                         new PartitionsSystemTableProvider(partitionManager, TESTING_TYPE_MANAGER),
                         new PropertiesSystemTableProvider()),
-                (metastore) -> new NoneHiveMaterializedViewMetadata()
+                metastore -> new NoneHiveMaterializedViewMetadata()
                 {
                     @Override
                     public Optional<ConnectorMaterializedViewDefinition> getMaterializedView(ConnectorSession session, SchemaTableName viewName)

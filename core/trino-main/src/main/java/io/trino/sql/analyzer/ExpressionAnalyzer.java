@@ -547,7 +547,7 @@ public class ExpressionAnalyzer
         protected Type visitRow(Row node, StackableAstVisitorContext<Context> context)
         {
             List<Type> types = node.getItems().stream()
-                    .map((child) -> process(child, context))
+                    .map(child -> process(child, context))
                     .collect(toImmutableList());
 
             Type type = RowType.anonymous(types);

@@ -626,7 +626,7 @@ public class DeduplicatingDirectExchangeBuffer
 
             // Finish ExchangeSink and create ExchangeSource asynchronously to avoid blocking an ExchangeClient thread for potentially substantial amount of time
             ListenableFuture<ExchangeSource> exchangeSourceFuture = FluentFuture.from(toListenableFuture(exchangeSink.finish()))
-                    .transformAsync((ignored) -> {
+                    .transformAsync(ignored -> {
                         exchange.sinkFinished(sinkInstanceHandle);
                         synchronized (this) {
                             exchangeSink = null;

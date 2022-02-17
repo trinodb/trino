@@ -328,7 +328,7 @@ public class MockConnectorFactory
         private ListRoleGrants roleGrants = defaultRoleAuthorizations();
         private Grants<String> schemaGrants = new AllowAllGrants<>();
         private Grants<SchemaTableName> tableGrants = new AllowAllGrants<>();
-        private Function<SchemaTableName, ViewExpression> rowFilter = (tableName) -> null;
+        private Function<SchemaTableName, ViewExpression> rowFilter = tableName -> null;
         private BiFunction<SchemaTableName, String, ViewExpression> columnMask = (tableName, columnName) -> null;
         private boolean allowMissingColumnsOnInsert;
 
@@ -603,7 +603,7 @@ public class MockConnectorFactory
 
         public static Function<ConnectorSession, List<String>> defaultListSchemaNames()
         {
-            return (session) -> ImmutableList.of();
+            return session -> ImmutableList.of();
         }
 
         public static ListRoleGrants defaultRoleAuthorizations()

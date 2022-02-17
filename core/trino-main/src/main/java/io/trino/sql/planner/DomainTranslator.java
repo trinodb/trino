@@ -763,7 +763,7 @@ public final class DomainTranslator
             Type valueType = nullableValue.getType();
             Object value = nullableValue.getValue();
             return floorValue(valueType, symbolExpressionType, value)
-                    .map((floorValue) -> rewriteComparisonExpression(symbolExpressionType, symbolExpression, valueType, value, floorValue, comparisonOperator));
+                    .map(floorValue -> rewriteComparisonExpression(symbolExpressionType, symbolExpression, valueType, value, floorValue, comparisonOperator));
         }
 
         private Expression rewriteComparisonExpression(
@@ -833,7 +833,7 @@ public final class DomainTranslator
         private Optional<Object> floorValue(Type fromType, Type toType, Object value)
         {
             return getSaturatedFloorCastOperator(fromType, toType)
-                    .map((operator) -> functionInvoker.invoke(operator, session.toConnectorSession(), value));
+                    .map(operator -> functionInvoker.invoke(operator, session.toConnectorSession(), value));
         }
 
         private Optional<ResolvedFunction> getSaturatedFloorCastOperator(Type fromType, Type toType)
