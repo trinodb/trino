@@ -760,7 +760,7 @@ public class DeduplicatingDirectExchangeBuffer
     {
         private final Set<TaskId> selectedTasks;
         private final QueryId queryId;
-        private final ListenableFuture<ExchangeSource> exchangeSourceFuture;
+        private ListenableFuture<ExchangeSource> exchangeSourceFuture;
 
         private ExchangeSource exchangeSource;
         private boolean finished;
@@ -848,6 +848,7 @@ public class DeduplicatingDirectExchangeBuffer
                 return;
             }
             finished = true;
+            exchangeSource = null;
             addCallback(exchangeSourceFuture, new FutureCallback<>()
             {
                 @Override
@@ -868,6 +869,7 @@ public class DeduplicatingDirectExchangeBuffer
                     // It a failure occurred it is expected to be propagated by the getNext method
                 }
             }, directExecutor());
+            exchangeSourceFuture = null;
         }
     }
 }
