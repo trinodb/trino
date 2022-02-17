@@ -163,7 +163,7 @@ public class LocalDynamicFilterConsumer
                 return;
             }
             if (partitionCount == 0) {
-                result = TupleDomain.all();
+                result = TupleDomain.none();
             }
             else {
                 // run final compaction as previous concurrent compactions may have left more than a single domain
@@ -206,6 +206,12 @@ public class LocalDynamicFilterConsumer
         long currentSize = summaryDomainsRetainedSizeInBytes.get();
         verify(currentSize >= 0, "currentSize is expected to be greater than or equal to zero: %s", currentSize);
         summaryDomains.add(union);
+    }
+
+    @Override
+    public synchronized boolean isDomainCollectionComplete()
+    {
+        return collected;
     }
 
     private void clearSummaryDomains()

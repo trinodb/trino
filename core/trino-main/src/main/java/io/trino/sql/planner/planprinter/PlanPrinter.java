@@ -60,6 +60,7 @@ import io.trino.sql.planner.plan.CorrelatedJoinNode;
 import io.trino.sql.planner.plan.DeleteNode;
 import io.trino.sql.planner.plan.DistinctLimitNode;
 import io.trino.sql.planner.plan.DynamicFilterId;
+import io.trino.sql.planner.plan.DynamicFilterSourceNode;
 import io.trino.sql.planner.plan.EnforceSingleRowNode;
 import io.trino.sql.planner.plan.ExceptNode;
 import io.trino.sql.planner.plan.ExchangeNode;
@@ -535,6 +536,17 @@ public class PlanPrinter
             node.getSource().accept(this, context);
             node.getFilteringSource().accept(this, context);
 
+            return null;
+        }
+
+        @Override
+        public Void visitDynamicFilterSource(DynamicFilterSourceNode node, Void context)
+        {
+            addNode(
+                    node,
+                    "DynamicFilterSource",
+                    ImmutableMap.of("dynamicFilterAssignments", printDynamicFilterAssignments(node.getDynamicFilters())));
+            node.getSource().accept(this, context);
             return null;
         }
 

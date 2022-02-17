@@ -30,6 +30,7 @@ import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AssignUniqueId;
 import io.trino.sql.planner.plan.DeleteNode;
 import io.trino.sql.planner.plan.DistinctLimitNode;
+import io.trino.sql.planner.plan.DynamicFilterSourceNode;
 import io.trino.sql.planner.plan.EnforceSingleRowNode;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.ExplainAnalyzeNode;
@@ -222,6 +223,12 @@ public class SplitSourceFactory
         public Map<PlanNodeId, SplitSource> visitIndexJoin(IndexJoinNode node, Void context)
         {
             return node.getProbeSource().accept(this, context);
+        }
+
+        @Override
+        public Map<PlanNodeId, SplitSource> visitDynamicFilterSource(DynamicFilterSourceNode node, Void context)
+        {
+            return node.getSource().accept(this, context);
         }
 
         @Override

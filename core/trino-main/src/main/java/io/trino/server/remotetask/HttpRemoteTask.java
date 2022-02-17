@@ -701,7 +701,6 @@ public final class HttpRemoteTask
         }
 
         taskStatusFetcher.stop();
-        dynamicFiltersFetcher.stop();
 
         // The remote task is likely to get a delete from the PageBufferClient first.
         // We send an additional delete anyway to get the final TaskInfo

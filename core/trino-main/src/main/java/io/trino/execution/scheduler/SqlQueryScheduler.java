@@ -341,9 +341,6 @@ public class SqlQueryScheduler
         if (queryStateMachine.isDone()) {
             return Optional.empty();
         }
-        if (attempt > 0) {
-            dynamicFilterService.registerQueryRetry(queryStateMachine.getQueryId(), attempt);
-        }
         DistributedStagesScheduler distributedStagesScheduler;
         switch (retryPolicy) {
             case TASK:
@@ -364,10 +361,14 @@ public class SqlQueryScheduler
                         schedulerStats,
                         nodeAllocatorService,
                         partitionMemoryEstimatorFactory,
-                        taskExecutionStats);
+                        taskExecutionStats,
+                        dynamicFilterService);
                 break;
             case QUERY:
             case NONE:
+                if (attempt > 0) {
+                    dynamicFilterService.registerQueryRetry(queryStateMachine.getQueryId(), attempt);
+                }
                 distributedStagesScheduler = PipelinedDistributedStagesScheduler.create(
                         queryStateMachine,
                         schedulerStats,
@@ -1740,7 +1741,8 @@ public class SqlQueryScheduler
                 SplitSchedulerStats schedulerStats,
                 NodeAllocatorService nodeAllocatorService,
                 PartitionMemoryEstimatorFactory partitionMemoryEstimatorFactory,
-                TaskExecutionStats taskExecutionStats)
+                TaskExecutionStats taskExecutionStats,
+                DynamicFilterService dynamicFilterService)
         {
             taskDescriptorStorage.initialize(queryStateMachine.getQueryId());
             queryStateMachine.addStateChangeListener(state -> {
@@ -1816,7 +1818,8 @@ public class SqlQueryScheduler
                             inputBucketToPartition.getBucketNodeMap(),
                             remainingTaskRetryAttemptsOverall,
                             taskRetryAttemptsPerTask,
-                            maxTasksWaitingForNodePerStage);
+                            maxTasksWaitingForNodePerStage,
+                            dynamicFilterService);
 
                     schedulers.add(scheduler);
                 }

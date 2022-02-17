@@ -29,6 +29,7 @@ import io.trino.sql.planner.plan.AssignUniqueId;
 import io.trino.sql.planner.plan.CorrelatedJoinNode;
 import io.trino.sql.planner.plan.DeleteNode;
 import io.trino.sql.planner.plan.DistinctLimitNode;
+import io.trino.sql.planner.plan.DynamicFilterSourceNode;
 import io.trino.sql.planner.plan.EnforceSingleRowNode;
 import io.trino.sql.planner.plan.ExceptNode;
 import io.trino.sql.planner.plan.ExchangeNode;
@@ -550,6 +551,15 @@ public final class ValidateDependenciesChecker
         {
             checkDependencies(node.getOutputSymbols(), node.getLookupSymbols(), "Lookup symbols must be part of output symbols");
             checkDependencies(node.getAssignments().keySet(), node.getOutputSymbols(), "Assignments must contain mappings for output symbols");
+
+            return null;
+        }
+
+        @Override
+        public Void visitDynamicFilterSource(DynamicFilterSourceNode node, Set<Symbol> boundSymbols)
+        {
+            node.getSource().accept(this, boundSymbols); // visit child
+            checkDependencies(node.getOutputSymbols(), node.getDynamicFilters().values(), "Dynamic filter symbols must be part of output symbols");
 
             return null;
         }

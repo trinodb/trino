@@ -116,15 +116,20 @@ public class DynamicFilterSourceOperator
         {
             checkState(!closed, "Factory is already closed");
             createdOperatorsCount++;
-            return new DynamicFilterSourceOperator(
-                    driverContext.addOperatorContext(operatorId, planNodeId, DynamicFilterSourceOperator.class.getSimpleName()),
-                    dynamicPredicateConsumer,
-                    channels,
-                    planNodeId,
-                    maxDisinctValues,
-                    maxFilterSize,
-                    minMaxCollectionLimit,
-                    blockTypeOperators);
+            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, DynamicFilterSourceOperator.class.getSimpleName());
+            if (!dynamicPredicateConsumer.isDomainCollectionComplete()) {
+                return new DynamicFilterSourceOperator(
+                        operatorContext,
+                        dynamicPredicateConsumer,
+                        channels,
+                        planNodeId,
+                        maxDisinctValues,
+                        maxFilterSize,
+                        minMaxCollectionLimit,
+                        blockTypeOperators);
+            }
+            // Return a pass-through operator which adds little overhead
+            return new PassthroughDynamicFilterSourceOperator(operatorContext);
         }
 
         @Override
@@ -424,5 +429,61 @@ public class DynamicFilterSourceOperator
     public boolean isFinished()
     {
         return current == null && finished;
+    }
+
+    private static class PassthroughDynamicFilterSourceOperator
+            implements Operator
+    {
+        private final OperatorContext operatorContext;
+        private boolean finished;
+        private Page current;
+
+        private PassthroughDynamicFilterSourceOperator(OperatorContext operatorContext)
+        {
+            this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
+        }
+
+        @Override
+        public OperatorContext getOperatorContext()
+        {
+            return operatorContext;
+        }
+
+        @Override
+        public boolean needsInput()
+        {
+            return current == null && !finished;
+        }
+
+        @Override
+        public void addInput(Page page)
+        {
+            verify(!finished, "DynamicFilterSourceOperator: addInput() may not be called after finish()");
+            current = page;
+        }
+
+        @Override
+        public Page getOutput()
+        {
+            Page result = current;
+            current = null;
+            return result;
+        }
+
+        @Override
+        public void finish()
+        {
+            if (finished) {
+                // NOTE: finish() may be called multiple times (see comment at Driver::processInternal).
+                return;
+            }
+            finished = true;
+        }
+
+        @Override
+        public boolean isFinished()
+        {
+            return current == null && finished;
+        }
     }
 }

@@ -43,6 +43,7 @@ import static java.util.Objects.requireNonNull;
         @JsonSubTypes.Type(value = SortNode.class, name = "sort"),
         @JsonSubTypes.Type(value = RemoteSourceNode.class, name = "remoteSource"),
         @JsonSubTypes.Type(value = JoinNode.class, name = "join"),
+        @JsonSubTypes.Type(value = DynamicFilterSourceNode.class, name = "dynamicFilterSource"),
         @JsonSubTypes.Type(value = SemiJoinNode.class, name = "semijoin"),
         @JsonSubTypes.Type(value = SpatialJoinNode.class, name = "spatialjoin"),
         @JsonSubTypes.Type(value = IndexJoinNode.class, name = "indexjoin"),

@@ -89,6 +89,11 @@ public abstract class PlanVisitor<R, C>
         return visitPlan(node, context);
     }
 
+    public R visitDynamicFilterSource(DynamicFilterSourceNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
     public R visitJoin(JoinNode node, C context)
     {
         return visitPlan(node, context);

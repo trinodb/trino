@@ -31,6 +31,7 @@ import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.iterative.IterativeOptimizer;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.iterative.RuleStats;
+import io.trino.sql.planner.iterative.rule.AddDynamicFilterSource;
 import io.trino.sql.planner.iterative.rule.AddExchangesBelowPartialAggregationOverGroupIdRuleSet;
 import io.trino.sql.planner.iterative.rule.AddIntermediateAggregations;
 import io.trino.sql.planner.iterative.rule.ApplyPreferredTableExecutePartitioning;
@@ -970,6 +971,16 @@ public class PlanOptimizers
 
         // Precomputed hashes - this assumes that partitioning will not change
         builder.add(new HashGenerationOptimizer(metadata));
+
+        builder.add(new IterativeOptimizer(
+                plannerContext,
+                ruleStats,
+                statsCalculator,
+                costCalculator,
+                AddDynamicFilterSource.rules()));
+        // If AddDynamicFilterSource fails to rewrite dynamic filter from JoinNode/SemiJoinNode to DynamicFilterSourceNode,
+        // RemoveUnsupportedDynamicFilters needs to be run again to clean up the corresponding dynamic filter expression left over the table scan.
+        builder.add(new RemoveUnsupportedDynamicFilters(plannerContext));
 
         builder.add(new BeginTableWrite(metadata, plannerContext.getFunctionManager())); // HACK! see comments in BeginTableWrite
 

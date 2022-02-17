@@ -29,6 +29,7 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.operator.join.JoinUtils.getSemiJoinDynamicFilterId;
 import static io.trino.sql.DynamicFilters.extractDynamicFilters;
 import static io.trino.sql.planner.ExpressionExtractor.extractExpressions;
 import static io.trino.sql.planner.assertions.MatchResult.NO_MATCH;
@@ -81,11 +82,12 @@ final class SemiJoinMatcher
         }
 
         if (hasDynamicFilter.isPresent()) {
+            Optional<DynamicFilterId> semiJoinDynamicFilterId = getSemiJoinDynamicFilterId(semiJoinNode);
             if (hasDynamicFilter.get()) {
-                if (semiJoinNode.getDynamicFilterId().isEmpty()) {
+                if (semiJoinDynamicFilterId.isEmpty()) {
                     return NO_MATCH;
                 }
-                DynamicFilterId dynamicFilterId = semiJoinNode.getDynamicFilterId().get();
+                DynamicFilterId dynamicFilterId = semiJoinDynamicFilterId.get();
                 List<DynamicFilters.Descriptor> matchingDescriptors = searchFrom(semiJoinNode.getSource())
                         .where(FilterNode.class::isInstance)
                         .findAll()
@@ -102,7 +104,7 @@ final class SemiJoinMatcher
                 }
                 return NO_MATCH;
             }
-            if (semiJoinNode.getDynamicFilterId().isPresent()) {
+            if (semiJoinDynamicFilterId.isPresent()) {
                 return NO_MATCH;
             }
         }

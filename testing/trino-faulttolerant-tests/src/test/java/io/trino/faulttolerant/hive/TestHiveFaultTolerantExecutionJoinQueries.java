@@ -13,15 +13,18 @@
  */
 package io.trino.faulttolerant.hive;
 
+import io.trino.execution.DynamicFilterConfig;
 import io.trino.plugin.exchange.filesystem.FileSystemExchangePlugin;
 import io.trino.plugin.exchange.filesystem.containers.MinioStorage;
 import io.trino.plugin.hive.HiveQueryRunner;
 import io.trino.testing.AbstractTestFaultTolerantExecutionJoinQueries;
 import io.trino.testing.QueryRunner;
 import org.testng.annotations.AfterClass;
+import org.testng.annotations.Test;
 
 import java.util.Map;
 
+import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.exchange.filesystem.containers.MinioStorage.getExchangeManagerProperties;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static io.trino.tpch.TpchTable.getTables;
@@ -38,6 +41,7 @@ public class TestHiveFaultTolerantExecutionJoinQueries
         this.minioStorage = new MinioStorage("test-exchange-spooling-" + randomTableSuffix());
         minioStorage.start();
 
+        verify(new DynamicFilterConfig().isEnableDynamicFiltering(), "this class assumes dynamic filtering is enabled by default");
         return HiveQueryRunner.builder()
                 .setExtraProperties(extraProperties)
                 .setAdditionalSetup(runner -> {
@@ -45,7 +49,16 @@ public class TestHiveFaultTolerantExecutionJoinQueries
                     runner.loadExchangeManager("filesystem", getExchangeManagerProperties(minioStorage));
                 })
                 .setInitialTables(getTables())
+                .addHiveProperty("hive.dynamic-filtering.wait-timeout", "1h")
                 .build();
+    }
+
+    @Test
+    public void verifyDynamicFilteringEnabled()
+    {
+        assertQuery(
+                "SHOW SESSION LIKE 'enable_dynamic_filtering'",
+                "VALUES ('enable_dynamic_filtering', 'true', 'true', 'boolean', 'Enable dynamic filtering')");
     }
 
     @AfterClass(alwaysRun = true)
