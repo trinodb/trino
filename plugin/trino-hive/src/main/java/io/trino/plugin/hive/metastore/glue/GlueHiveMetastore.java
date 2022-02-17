@@ -291,7 +291,7 @@ public class GlueHiveMetastore
     public List<String> getAllDatabases()
     {
         try {
-            return stats.getGetAllDatabases().call(() -> {
+            return stats.getGetDatabases().call(() -> {
                 List<String> databaseNames = getPaginatedResults(
                         glueClient::getDatabases,
                         new GetDatabasesRequest().withCatalogId(catalogId),
@@ -448,7 +448,7 @@ public class GlueHiveMetastore
     public List<String> getAllTables(String databaseName)
     {
         try {
-            return stats.getGetAllTables().call(() -> {
+            return stats.getGetTables().call(() -> {
                 List<String> tableNames = getPaginatedResults(
                         glueClient::getTables,
                         new GetTablesRequest()
@@ -548,7 +548,7 @@ public class GlueHiveMetastore
         }
 
         try {
-            stats.getDropDatabase().call(() ->
+            stats.getDeleteDatabase().call(() ->
                     glueClient.deleteDatabase(new DeleteDatabaseRequest().withCatalogId(catalogId).withName(databaseName)));
         }
         catch (EntityNotFoundException e) {
@@ -569,7 +569,7 @@ public class GlueHiveMetastore
         try {
             Database database = getDatabase(databaseName).orElseThrow(() -> new SchemaNotFoundException(databaseName));
             DatabaseInput renamedDatabase = GlueInputConverter.convertDatabase(database).withName(newDatabaseName);
-            stats.getRenameDatabase().call(() ->
+            stats.getUpdateDatabase().call(() ->
                     glueClient.updateDatabase(new UpdateDatabaseRequest()
                             .withCatalogId(catalogId)
                             .withName(databaseName)
@@ -614,7 +614,7 @@ public class GlueHiveMetastore
         Table table = getExistingTable(databaseName, tableName);
 
         try {
-            stats.getDropTable().call(() ->
+            stats.getDeleteTable().call(() ->
                     glueClient.deleteTable(new DeleteTableRequest()
                             .withCatalogId(catalogId)
                             .withDatabaseName(databaseName)
@@ -651,7 +651,7 @@ public class GlueHiveMetastore
     {
         try {
             TableInput newTableInput = GlueInputConverter.convertTable(newTable);
-            stats.getReplaceTable().call(() ->
+            stats.getUpdateTable().call(() ->
                     glueClient.updateTable(new UpdateTableRequest()
                             .withCatalogId(catalogId)
                             .withDatabaseName(databaseName)
@@ -690,7 +690,7 @@ public class GlueHiveMetastore
             TableInput newTableInput = GlueInputConverter.convertTable(table);
             newTableInput.setOwner(principal.getName());
 
-            stats.getReplaceTable().call(() ->
+            stats.getUpdateTable().call(() ->
                     glueClient.updateTable(new UpdateTableRequest()
                             .withCatalogId(catalogId)
                             .withDatabaseName(databaseName)
@@ -960,7 +960,7 @@ public class GlueHiveMetastore
     public void addPartitions(String databaseName, String tableName, List<PartitionWithStatistics> partitions)
     {
         try {
-            stats.getAddPartitions().call(() -> {
+            stats.getCreatePartitions().call(() -> {
                 List<Future<BatchCreatePartitionResult>> futures = new ArrayList<>();
 
                 for (List<PartitionWithStatistics> partitionBatch : Lists.partition(partitions, BATCH_CREATE_PARTITION_MAX_PAGE_SIZE)) {
@@ -1023,7 +1023,7 @@ public class GlueHiveMetastore
                 .orElseThrow(() -> new PartitionNotFoundException(new SchemaTableName(databaseName, tableName), parts));
 
         try {
-            stats.getDropPartition().call(() ->
+            stats.getDeletePartition().call(() ->
                     glueClient.deletePartition(new DeletePartitionRequest()
                             .withCatalogId(catalogId)
                             .withDatabaseName(databaseName)
@@ -1045,7 +1045,7 @@ public class GlueHiveMetastore
     {
         try {
             PartitionInput newPartition = convertPartition(partition);
-            stats.getAlterPartition().call(() ->
+            stats.getUpdatePartition().call(() ->
                     glueClient.updatePartition(new UpdatePartitionRequest()
                             .withCatalogId(catalogId)
                             .withDatabaseName(databaseName)
