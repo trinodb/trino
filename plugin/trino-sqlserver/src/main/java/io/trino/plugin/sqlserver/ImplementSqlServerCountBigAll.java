@@ -23,9 +23,9 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Verify.verify;
+import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.arguments;
 import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.basicAggregation;
 import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.functionName;
-import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.inputs;
 import static io.trino.plugin.sqlserver.SqlServerClient.BIGINT_TYPE;
 import static io.trino.spi.type.BigintType.BIGINT;
 
@@ -40,7 +40,7 @@ public class ImplementSqlServerCountBigAll
     {
         return basicAggregation()
                 .with(functionName().equalTo("count"))
-                .with(inputs().equalTo(List.of()));
+                .with(arguments().equalTo(List.of()));
     }
 
     @Override

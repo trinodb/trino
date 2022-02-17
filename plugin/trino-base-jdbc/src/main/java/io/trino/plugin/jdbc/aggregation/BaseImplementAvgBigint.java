@@ -31,7 +31,7 @@ import static io.trino.matching.Capture.newCapture;
 import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.basicAggregation;
 import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.expressionType;
 import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.functionName;
-import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.singleInput;
+import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.singleArgument;
 import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.variable;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -45,11 +45,11 @@ import static java.lang.String.format;
 public abstract class BaseImplementAvgBigint
         implements AggregateFunctionRule<JdbcExpression>
 {
-    private final Capture<Variable> input;
+    private final Capture<Variable> argument;
 
     public BaseImplementAvgBigint()
     {
-        this.input = newCapture();
+        this.argument = newCapture();
     }
 
     @Override
@@ -57,17 +57,17 @@ public abstract class BaseImplementAvgBigint
     {
         return basicAggregation()
                 .with(functionName().equalTo("avg"))
-                .with(singleInput().matching(
+                .with(singleArgument().matching(
                         variable()
                                 .with(expressionType().matching(type -> type == BIGINT))
-                                .capturedAs(this.input)));
+                                .capturedAs(this.argument)));
     }
 
     @Override
     public Optional<JdbcExpression> rewrite(AggregateFunction aggregateFunction, Captures captures, RewriteContext context)
     {
-        Variable input = captures.get(this.input);
-        JdbcColumnHandle columnHandle = (JdbcColumnHandle) context.getAssignment(input.getName());
+        Variable argument = captures.get(this.argument);
+        JdbcColumnHandle columnHandle = (JdbcColumnHandle) context.getAssignment(argument.getName());
         verify(aggregateFunction.getOutputType() == DOUBLE);
 
         String columnName = context.getIdentifierQuote().apply(columnHandle.getColumnName());

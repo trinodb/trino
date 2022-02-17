@@ -447,14 +447,14 @@ public class PinotMetadata
         };
 
         if (implementCountDistinct.getPattern().matches(aggregate, context)) {
-            Variable input = (Variable) getOnlyElement(aggregate.getInputs());
+            Variable argument = (Variable) getOnlyElement(aggregate.getArguments());
             // If this is the second pass to applyAggregation for count distinct then
             // the first pass will have added the distinct column to the grouping columns,
             // otherwise do not push down the aggregation.
             // This is to avoid count(column_name) being pushed into pinot, which is currently unsupported.
             // Currently Pinot treats count(column_name) as count(*), i.e. it counts nulls.
             if (tableHandle.getQuery().isEmpty() || tableHandle.getQuery().get().getGroupingColumns().stream()
-                    .noneMatch(groupingExpression -> groupingExpression.getColumnName().equals(input.getName()))) {
+                    .noneMatch(groupingExpression -> groupingExpression.getColumnName().equals(argument.getName()))) {
                 return Optional.empty();
             }
         }

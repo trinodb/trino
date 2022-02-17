@@ -22,9 +22,9 @@ import io.trino.spi.connector.AggregateFunction;
 import java.util.List;
 import java.util.Optional;
 
+import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.arguments;
 import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.basicAggregation;
 import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.functionName;
-import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.inputs;
 import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.outputType;
 import static io.trino.spi.type.BigintType.BIGINT;
 
@@ -39,7 +39,7 @@ public class ImplementCountAll
     {
         return basicAggregation()
                 .with(functionName().equalTo("count"))
-                .with(inputs().equalTo(List.of()))
+                .with(arguments().equalTo(List.of()))
                 .with(outputType().equalTo(BIGINT));
     }
 
