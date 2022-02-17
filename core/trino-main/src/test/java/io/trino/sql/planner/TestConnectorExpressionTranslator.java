@@ -24,6 +24,7 @@ import io.trino.spi.expression.FieldDereference;
 import io.trino.spi.expression.FunctionName;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.type.Type;
+import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.LikePredicate;
 import io.trino.sql.tree.LongLiteral;
@@ -33,11 +34,13 @@ import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.SymbolReference;
 import io.trino.testing.TestingSession;
 import io.trino.transaction.TestingTransactionManager;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -56,6 +59,7 @@ import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.planner.ConnectorExpressionTranslator.translate;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
+import static io.trino.testing.DataProviders.toDataProvider;
 import static io.trino.transaction.TransactionBuilder.transaction;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testng.Assert.assertEquals;
@@ -70,6 +74,7 @@ public class TestConnectorExpressionTranslator
 
     private static final Map<Symbol, Type> symbols = ImmutableMap.<Symbol, Type>builder()
             .put(new Symbol("double_symbol_1"), DOUBLE)
+            .put(new Symbol("double_symbol_2"), DOUBLE)
             .put(new Symbol("row_symbol_1"), ROW_TYPE)
             .put(new Symbol("varchar_symbol_1"), VARCHAR_TYPE)
             .buildOrThrow();
@@ -101,6 +106,24 @@ public class TestConnectorExpressionTranslator
     private void testTranslateConstant(Object nativeValue, Type type)
     {
         assertTranslationRoundTrips(LITERAL_ENCODER.toExpression(TEST_SESSION, nativeValue, type), new Constant(nativeValue, type));
+    }
+
+    @Test(dataProvider = "testTranslateComparisonExpressionDataProvider")
+    public void testTranslateComparisonExpression(ComparisonExpression.Operator operator)
+    {
+        assertTranslationRoundTrips(
+                new ComparisonExpression(operator, new SymbolReference("double_symbol_1"), new SymbolReference("double_symbol_2")),
+                new Call(
+                        BOOLEAN,
+                        ConnectorExpressionTranslator.functionNameForComparisonOperator(operator),
+                        List.of(new Variable("double_symbol_1", DOUBLE), new Variable("double_symbol_2", DOUBLE))));
+    }
+
+    @DataProvider
+    public static Object[][] testTranslateComparisonExpressionDataProvider()
+    {
+        return Stream.of(ComparisonExpression.Operator.values())
+                .collect(toDataProvider());
     }
 
     @Test

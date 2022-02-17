@@ -13,6 +13,7 @@
  */
 package io.trino.sql.planner;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
@@ -39,6 +40,7 @@ import io.trino.sql.tree.BinaryLiteral;
 import io.trino.sql.tree.BooleanLiteral;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.CharLiteral;
+import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.DecimalLiteral;
 import io.trino.sql.tree.DoubleLiteral;
 import io.trino.sql.tree.Expression;
@@ -63,7 +65,14 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.SliceUtf8.countCodePoints;
 import static io.trino.SystemSessionProperties.isComplexExpressionPushdown;
+import static io.trino.spi.expression.StandardFunctions.EQUAL_OPERATOR_FUNCTION_NAME;
+import static io.trino.spi.expression.StandardFunctions.GREATER_THAN_OPERATOR_FUNCTION_NAME;
+import static io.trino.spi.expression.StandardFunctions.GREATER_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME;
+import static io.trino.spi.expression.StandardFunctions.IS_DISTINCT_FROM_OPERATOR_FUNCTION_NAME;
+import static io.trino.spi.expression.StandardFunctions.LESS_THAN_OPERATOR_FUNCTION_NAME;
+import static io.trino.spi.expression.StandardFunctions.LESS_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.LIKE_PATTERN_FUNCTION_NAME;
+import static io.trino.spi.expression.StandardFunctions.NOT_EQUAL_OPERATOR_FUNCTION_NAME;
 import static io.trino.sql.ExpressionUtils.isEffectivelyLiteral;
 import static io.trino.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
 import static java.util.Objects.requireNonNull;
@@ -83,6 +92,28 @@ public final class ConnectorExpressionTranslator
     {
         return new SqlToConnectorExpressionTranslator(session, types.getTypes(session, inputTypes, expression), plannerContext)
                 .process(expression);
+    }
+
+    @VisibleForTesting
+    static FunctionName functionNameForComparisonOperator(ComparisonExpression.Operator operator)
+    {
+        switch (operator) {
+            case EQUAL:
+                return EQUAL_OPERATOR_FUNCTION_NAME;
+            case NOT_EQUAL:
+                return NOT_EQUAL_OPERATOR_FUNCTION_NAME;
+            case LESS_THAN:
+                return LESS_THAN_OPERATOR_FUNCTION_NAME;
+            case LESS_THAN_OR_EQUAL:
+                return LESS_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME;
+            case GREATER_THAN:
+                return GREATER_THAN_OPERATOR_FUNCTION_NAME;
+            case GREATER_THAN_OR_EQUAL:
+                return GREATER_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME;
+            case IS_DISTINCT_FROM:
+                return IS_DISTINCT_FROM_OPERATOR_FUNCTION_NAME;
+        }
+        throw new UnsupportedOperationException("Unsupported operator: " + operator);
     }
 
     private static class ConnectorToSqlExpressionTranslator
@@ -130,6 +161,13 @@ public final class ConnectorExpressionTranslator
                 return Optional.empty();
             }
 
+            if (call.getArguments().size() == 2) {
+                Optional<ComparisonExpression.Operator> operator = comparisonOperatorForFunctionName(call.getFunctionName());
+                if (operator.isPresent()) {
+                    return translateComparison(operator.get(), call.getArguments().get(0), call.getArguments().get(1));
+                }
+            }
+
             if (LIKE_PATTERN_FUNCTION_NAME.equals(call.getFunctionName())) {
                 switch (call.getArguments().size()) {
                     case 2:
@@ -155,6 +193,39 @@ public final class ConnectorExpressionTranslator
                 builder.addArgument(type, expression);
             }
             return Optional.of(builder.build());
+        }
+
+        private Optional<Expression> translateComparison(ComparisonExpression.Operator operator, ConnectorExpression left, ConnectorExpression right)
+        {
+            return translate(session, left).flatMap(leftTranslated ->
+                    translate(session, right).map(rightTranslated ->
+                            new ComparisonExpression(operator, leftTranslated, rightTranslated)));
+        }
+
+        private Optional<ComparisonExpression.Operator> comparisonOperatorForFunctionName(FunctionName functionName)
+        {
+            if (EQUAL_OPERATOR_FUNCTION_NAME.equals(functionName)) {
+                return Optional.of(ComparisonExpression.Operator.EQUAL);
+            }
+            if (NOT_EQUAL_OPERATOR_FUNCTION_NAME.equals(functionName)) {
+                return Optional.of(ComparisonExpression.Operator.NOT_EQUAL);
+            }
+            if (LESS_THAN_OPERATOR_FUNCTION_NAME.equals(functionName)) {
+                return Optional.of(ComparisonExpression.Operator.LESS_THAN);
+            }
+            if (LESS_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME.equals(functionName)) {
+                return Optional.of(ComparisonExpression.Operator.LESS_THAN_OR_EQUAL);
+            }
+            if (GREATER_THAN_OPERATOR_FUNCTION_NAME.equals(functionName)) {
+                return Optional.of(ComparisonExpression.Operator.GREATER_THAN);
+            }
+            if (GREATER_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME.equals(functionName)) {
+                return Optional.of(ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL);
+            }
+            if (IS_DISTINCT_FROM_OPERATOR_FUNCTION_NAME.equals(functionName)) {
+                return Optional.of(ComparisonExpression.Operator.IS_DISTINCT_FROM);
+            }
+            return Optional.empty();
         }
 
         protected Optional<Expression> translateLike(ConnectorExpression value, ConnectorExpression pattern, Optional<ConnectorExpression> escape)
@@ -254,6 +325,17 @@ public final class ConnectorExpressionTranslator
                 return Optional.empty();
             }
             return Optional.of(constantFor(node));
+        }
+
+        @Override
+        protected Optional<ConnectorExpression> visitComparisonExpression(ComparisonExpression node, Void context)
+        {
+            if (!isComplexExpressionPushdown(session)) {
+                return Optional.empty();
+            }
+
+            return process(node.getLeft()).flatMap(left -> process(node.getRight()).map(right ->
+                    new Call(typeOf(node), functionNameForComparisonOperator(node.getOperator()), ImmutableList.of(left, right))));
         }
 
         @Override
