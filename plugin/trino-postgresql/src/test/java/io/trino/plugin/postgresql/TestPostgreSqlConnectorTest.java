@@ -117,6 +117,9 @@ public class TestPostgreSqlConnectorTest
                 // Arrays are supported conditionally. Check the defaults.
                 return new PostgreSqlConfig().getArrayMapping() != PostgreSqlConfig.ArrayMapping.DISABLED;
 
+            case SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN_WITH_LIKE:
+                return true;
+
             case SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS:
                 return false;
 

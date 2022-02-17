@@ -872,7 +872,7 @@ public abstract class BaseJdbcClient
     protected void execute(Connection connection, String query)
     {
         try (Statement statement = connection.createStatement()) {
-            log.debug("Execute: %s", query);
+            log.info("Execute: %s", query);
             statement.execute(query);
         }
         catch (SQLException e) {

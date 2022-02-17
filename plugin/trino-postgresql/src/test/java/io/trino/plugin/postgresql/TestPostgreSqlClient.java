@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.postgresql;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ColumnMapping;
 import io.trino.plugin.jdbc.JdbcClient;
@@ -27,9 +28,14 @@ import io.trino.spi.expression.Variable;
 import io.trino.sql.planner.ConnectorExpressionTranslator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeProvider;
+import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.LikePredicate;
+import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.SymbolReference;
+import io.trino.testing.AllowAllAccessControlManager;
+import io.trino.transaction.TestingTransactionManager;
+import io.trino.transaction.TransactionId;
 import org.testng.annotations.Test;
 
 import java.sql.Types;
@@ -191,16 +197,36 @@ public class TestPostgreSqlClient
                 .hasValue("\"c_varchar\" LIKE '%pattern%'");
 
         // c_varchar LIKE '%pattern\%' ESCAPE '\'
-        assertThat(ConnectorExpressionTranslator.translate(
-                TEST_SESSION,
-                new LikePredicate(
-                        new SymbolReference("c_varchar"),
-                        new StringLiteral("%pattern\\%"),
-                        new StringLiteral("\\")),
-                createTestingTypeAnalyzer(PLANNER_CONTEXT),
-                TypeProvider.viewOf(Map.of(new Symbol("c_varchar"), VARCHAR_COLUMN.getColumnType())),
-                PLANNER_CONTEXT))
-                // Currently, LIKE with ESCAPE isn't converted to ConnectorExpression. Update the test when it gets converted.
-                .isEmpty();
+        assertThat(JDBC_CLIENT.convertPredicate(SESSION,
+                ConnectorExpressionTranslator.translate(
+                        TEST_SESSION,
+                        new LikePredicate(
+                                new SymbolReference("c_varchar"),
+                                new StringLiteral("%pattern\\%"),
+                                new StringLiteral("\\")),
+                        createTestingTypeAnalyzer(PLANNER_CONTEXT),
+                        TypeProvider.viewOf(Map.of(new Symbol("c_varchar"), VARCHAR_COLUMN.getColumnType())),
+                        PLANNER_CONTEXT)
+                    .orElseThrow(),
+                Map.of(VARCHAR_COLUMN.getColumnName(), VARCHAR_COLUMN)))
+                .hasValue("\"c_varchar\" LIKE '%pattern\\%' ESCAPE '\\'");
+    }
+
+    @Test
+    public void testConvertUpper()
+    {
+        // UPPER("c_varchar")
+        assertThat(JDBC_CLIENT.convertPredicate(SESSION,
+                ConnectorExpressionTranslator.translate(
+                                TEST_SESSION.beginTransactionId(TransactionId.create(), new TestingTransactionManager(), new AllowAllAccessControlManager()),
+                                new FunctionCall(
+                                        QualifiedName.of("upper"),
+                                        ImmutableList.of(new SymbolReference("c_varchar"))),
+                                createTestingTypeAnalyzer(PLANNER_CONTEXT),
+                                TypeProvider.viewOf(Map.of(new Symbol("c_varchar"), VARCHAR_COLUMN.getColumnType())),
+                                PLANNER_CONTEXT)
+                        .orElseThrow(),
+                Map.of(VARCHAR_COLUMN.getColumnName(), VARCHAR_COLUMN)))
+                .hasValue("UPPER(\"c_varchar\")");
     }
 }

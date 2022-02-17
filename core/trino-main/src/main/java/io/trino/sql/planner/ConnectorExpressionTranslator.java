@@ -20,7 +20,10 @@ import io.trino.Session;
 import io.trino.metadata.LiteralFunction;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.expression.Call;
+import io.trino.spi.expression.ConnectorCast;
+import io.trino.spi.expression.ConnectorComparison;
 import io.trino.spi.expression.ConnectorExpression;
+import io.trino.spi.expression.ConnectorLogicalExpression;
 import io.trino.spi.expression.Constant;
 import io.trino.spi.expression.FieldDereference;
 import io.trino.spi.expression.FunctionName;
@@ -36,12 +39,17 @@ import io.trino.sql.analyzer.TypeSignatureProvider;
 import io.trino.sql.tree.AstVisitor;
 import io.trino.sql.tree.BinaryLiteral;
 import io.trino.sql.tree.BooleanLiteral;
+import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.CharLiteral;
+import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.DecimalLiteral;
 import io.trino.sql.tree.DoubleLiteral;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionCall;
+import io.trino.sql.tree.InListExpression;
+import io.trino.sql.tree.InPredicate;
 import io.trino.sql.tree.LikePredicate;
+import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.NullLiteral;
@@ -60,6 +68,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.SliceUtf8.countCodePoints;
 import static io.trino.SystemSessionProperties.isComplexExpressionPushdown;
+import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.type.LikeFunctions.LIKE_PATTERN_FUNCTION_NAME;
 import static java.util.Objects.requireNonNull;
 
@@ -106,6 +115,18 @@ public final class ConnectorExpressionTranslator
                 return Optional.of(literalEncoder.toExpression(session, ((Constant) expression).getValue(), expression.getType()));
             }
 
+            if (expression instanceof ConnectorCast) {
+                return translateCast((ConnectorCast) expression);
+            }
+
+            if (expression instanceof ConnectorComparison) {
+                return translateComparison((ConnectorComparison) expression);
+            }
+
+            if (expression instanceof ConnectorLogicalExpression) {
+                return translateLogicalExpression((ConnectorLogicalExpression) expression);
+            }
+
             if (expression instanceof FieldDereference) {
                 FieldDereference dereference = (FieldDereference) expression;
                 return translate(session, dereference.getTarget())
@@ -119,6 +140,38 @@ public final class ConnectorExpressionTranslator
             return Optional.empty();
         }
 
+        private Optional<Expression> translateLogicalExpression(ConnectorLogicalExpression expression)
+        {
+            ImmutableList.Builder<Expression> translatedTerms = ImmutableList.builder();
+
+            for (ConnectorExpression term : expression.getTerms()) {
+                Optional<Expression> translatedTerm = translate(session, term);
+                if (translatedTerm.isEmpty()) {
+                    return Optional.empty();
+                }
+
+                translatedTerms.add(translatedTerm.get());
+            }
+
+            return Optional.of(new LogicalExpression(LogicalExpression.Operator.valueOf(expression.getOperator()), translatedTerms.build()));
+        }
+
+        private Optional<Expression> translateComparison(ConnectorComparison expression)
+        {
+            Optional<Expression> left = translate(session, expression.getLeft());
+            Optional<Expression> right = expression.getRight().flatMap(value -> translate(session, value));
+            if (left.isPresent() && right.isPresent()) {
+                return Optional.of(new ComparisonExpression(ComparisonExpression.Operator.forSymbol(expression.getOperatorSymbol()), left.get(), right.get()));
+            }
+            return Optional.empty();
+        }
+
+        private Optional<Expression> translateCast(ConnectorCast expression)
+        {
+            Optional<Expression> translatedExpression = translate(session, expression.getExpression());
+            return translatedExpression.map(value -> new Cast(value, toSqlType(expression.getType())));
+        }
+
         protected Optional<Expression> translateCall(Call call)
         {
             if (call.getFunctionName().getCatalogSchemaName().isPresent()) {
@@ -130,9 +183,12 @@ public final class ConnectorExpressionTranslator
                     .collect(toImmutableList());
             ResolvedFunction resolved = plannerContext.getMetadata().resolveFunction(session, name, TypeSignatureProvider.fromTypeSignatures(argumentTypes));
 
-            // TODO Support ESCAPE character
             if (LIKE_PATTERN_FUNCTION_NAME.equals(resolved.getSignature().getName()) && call.getArguments().size() == 2) {
                 return translateLike(call.getArguments().get(0), call.getArguments().get(1));
+            }
+
+            if (LIKE_PATTERN_FUNCTION_NAME.equals(resolved.getSignature().getName()) && call.getArguments().size() == 3) {
+                return translateLikeWithEscape(call.getArguments().get(0), call.getArguments().get(1), call.getArguments().get(2));
             }
 
             FunctionCallBuilder builder = FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
@@ -143,6 +199,19 @@ public final class ConnectorExpressionTranslator
                 builder.addArgument(type, expression);
             }
             return Optional.of(builder.build());
+        }
+
+        private Optional<Expression> translateLikeWithEscape(ConnectorExpression value, ConnectorExpression pattern, ConnectorExpression escape)
+        {
+            Optional<Expression> translatedValue = translate(session, value);
+            Optional<Expression> translatedPattern = translate(session, pattern);
+            Optional<Expression> translatedEscape = translate(session, escape);
+
+            if (translatedValue.isPresent() && translatedPattern.isPresent() && translatedEscape.isPresent()) {
+                return Optional.of(new LikePredicate(translatedValue.get(), translatedPattern.get(), translatedEscape.get()));
+            }
+
+            return Optional.empty();
         }
 
         protected Optional<Expression> translateLike(ConnectorExpression value, ConnectorExpression pattern)
@@ -268,14 +337,17 @@ public final class ConnectorExpressionTranslator
         @Override
         protected Optional<ConnectorExpression> visitLikePredicate(LikePredicate node, Void context)
         {
-            // TODO Support ESCAPE character
-            if (node.getEscape().isEmpty()) {
-                Optional<ConnectorExpression> value = process(node.getValue());
-                Optional<ConnectorExpression> pattern = process(node.getPattern());
-                if (value.isPresent() && pattern.isPresent()) {
-                    return Optional.of(new Call(typeOf(node), new FunctionName(LIKE_PATTERN_FUNCTION_NAME), List.of(value.get(), pattern.get())));
-                }
+            Optional<ConnectorExpression> value = process(node.getValue());
+            Optional<ConnectorExpression> pattern = process(node.getPattern());
+            Optional<ConnectorExpression> escape = node.getEscape().flatMap(this::process);
+            if (value.isPresent() && pattern.isPresent()) {
+                return Optional.of(new Call(typeOf(node), new FunctionName(LIKE_PATTERN_FUNCTION_NAME), List.of(value.get(), pattern.get())));
             }
+
+            if (value.isPresent() && pattern.isPresent() && escape.isPresent()) {
+                return Optional.of(new Call(typeOf(node), new FunctionName(LIKE_PATTERN_FUNCTION_NAME), List.of(value.get(), pattern.get(), escape.get())));
+            }
+
             return Optional.empty();
         }
 
@@ -292,6 +364,61 @@ public final class ConnectorExpressionTranslator
             }
 
             return Optional.of(new FieldDereference(typeOf(node), translatedBase.get(), (int) (((LongLiteral) node.getIndex()).getValue() - 1)));
+        }
+
+        @Override
+        protected Optional<ConnectorExpression> visitComparisonExpression(ComparisonExpression node, Void context)
+        {
+            Optional<ConnectorExpression> leftExpression = process(node.getLeft());
+            if (leftExpression.isEmpty()) {
+                return Optional.empty();
+            }
+
+            return Optional.of(new ConnectorComparison(typeOf(node), node.getOperator().getValue(), leftExpression.get(), process(node.getRight())));
+        }
+
+        @Override
+        protected Optional<ConnectorExpression> visitLogicalExpression(LogicalExpression node, Void context)
+        {
+            ImmutableList.Builder<ConnectorExpression> terms = ImmutableList.builder();
+
+            for (Expression term : node.getTerms()) {
+                Optional<ConnectorExpression> termExpression = process(term);
+                if (termExpression.isEmpty()) {
+                    return Optional.empty();
+                }
+
+                terms.add(termExpression.get());
+            }
+
+            return Optional.of(new ConnectorLogicalExpression(node.getOperator().name(), terms.build()));
+        }
+
+        @Override
+        protected Optional<ConnectorExpression> visitInPredicate(InPredicate node, Void context)
+        {
+            Optional<ConnectorExpression> valueExpression = process(node.getValue());
+            if (valueExpression.isEmpty()) {
+                return Optional.empty();
+            }
+
+            Optional<ConnectorExpression> valueList = process(node.getValueList());
+            if (valueList.isEmpty()) {
+                return Optional.empty();
+            }
+
+            return Optional.of(new Call(typeOf(node), new FunctionName("in"), List.of(valueExpression.get(), valueList.get())));
+        }
+
+        @Override
+        protected Optional<ConnectorExpression> visitCast(Cast node, Void context)
+        {
+            Optional<ConnectorExpression> expression = process(node.getExpression());
+            if (expression.isEmpty()) {
+                return Optional.empty();
+            }
+
+            return Optional.of(new ConnectorCast(typeOf(node), expression.get()));
         }
 
         @Override

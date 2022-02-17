@@ -17,7 +17,10 @@ import com.google.common.collect.ImmutableList;
 import io.trino.matching.Pattern;
 import io.trino.matching.Property;
 import io.trino.spi.expression.Call;
+import io.trino.spi.expression.ConnectorCast;
+import io.trino.spi.expression.ConnectorComparison;
 import io.trino.spi.expression.ConnectorExpression;
+import io.trino.spi.expression.ConnectorLogicalExpression;
 import io.trino.spi.expression.Constant;
 import io.trino.spi.expression.FunctionName;
 import io.trino.spi.expression.Variable;
@@ -51,6 +54,26 @@ public final class ConnectorExpressionPatterns
         return Pattern.typeOf(Call.class);
     }
 
+    public static Pattern<ConnectorCast> connectorCast()
+    {
+        return Pattern.typeOf(ConnectorCast.class);
+    }
+
+    public static Pattern<ConnectorLogicalExpression> connectorLogicalExpression()
+    {
+        return Pattern.typeOf(ConnectorLogicalExpression.class);
+    }
+
+    public static Property<ConnectorLogicalExpression, ?, List<? extends ConnectorExpression>> terms()
+    {
+        return Property.property("terms", ConnectorLogicalExpression::getTerms);
+    }
+
+    public static Pattern<ConnectorComparison> connectorComparison()
+    {
+        return Pattern.typeOf(ConnectorComparison.class);
+    }
+
     // TODO rename to `name()` if https://github.com/trinodb/trino/pull/7994/files#r806611558 is dismissed
     public static Property<Call, ?, String> functionName()
     {
@@ -77,6 +100,21 @@ public final class ConnectorExpressionPatterns
             }
             return Optional.empty();
         });
+    }
+
+    public static Property<ConnectorCast, ?, ConnectorExpression> castExpression()
+    {
+        return Property.optionalProperty("expression", cast -> Optional.of(cast.getExpression()));
+    }
+
+    public static Property<ConnectorComparison, ?, ConnectorExpression> comparisonLeft()
+    {
+        return Property.optionalProperty("comparisonLeft", comparison -> Optional.of(comparison.getLeft()));
+    }
+
+    public static Property<ConnectorComparison, ?, ConnectorExpression> comparisonRight()
+    {
+        return Property.optionalProperty("comparisonRight", ConnectorComparison::getRight);
     }
 
     public static Property<Call, ?, Type> argumentType(int argument)

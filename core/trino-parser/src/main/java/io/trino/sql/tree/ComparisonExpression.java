@@ -163,6 +163,16 @@ public class ComparisonExpression
             }
             throw new IllegalArgumentException("Unsupported comparison: " + this);
         }
+
+        public static Operator forSymbol(String symbol)
+        {
+            for (Operator operator : values()) {
+                if (Objects.equals(operator.value, symbol)) {
+                    return operator;
+                }
+            }
+            throw new IllegalArgumentException("Unsupported symbol: " + symbol);
+        }
     }
 
     @Override
