@@ -17,6 +17,16 @@ public final class StandardFunctions
 {
     private StandardFunctions() {}
 
+    /**
+     * $and is a vararg function accepting boolean arguments
+     */
+    public static final FunctionName AND_FUNCTION_NAME = new FunctionName("$and");
+
+    /**
+     * $or is a vararg function accepting boolean arguments
+     */
+    public static final FunctionName OR_FUNCTION_NAME = new FunctionName("$or");
+
     public static final FunctionName EQUAL_OPERATOR_FUNCTION_NAME = new FunctionName("$equal");
     public static final FunctionName NOT_EQUAL_OPERATOR_FUNCTION_NAME = new FunctionName("$not_equal");
     public static final FunctionName LESS_THAN_OPERATOR_FUNCTION_NAME = new FunctionName("$less_than");
