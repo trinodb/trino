@@ -189,34 +189,22 @@ public abstract class AbstractMetastoreTableOperations
     {
         String newMetadataLocation = writeNewMetadata(metadata, version + 1);
 
-        Table table;
-        try {
-            Table.Builder builder = Table.builder()
-                    .setDatabaseName(database)
-                    .setTableName(tableName)
-                    .setOwner(owner)
-                    .setTableType(TableType.EXTERNAL_TABLE.name())
-                    .setDataColumns(toHiveColumns(metadata.schema().columns()))
-                    .withStorage(storage -> storage.setLocation(metadata.location()))
-                    .withStorage(storage -> storage.setStorageFormat(STORAGE_FORMAT))
-                    .setParameter("EXTERNAL", "TRUE")
-                    .setParameter(TABLE_TYPE_PROP, ICEBERG_TABLE_TYPE_VALUE)
-                    .setParameter(METADATA_LOCATION_PROP, newMetadataLocation);
-            String tableComment = metadata.properties().get(TABLE_COMMENT);
-            if (tableComment != null) {
-                builder.setParameter(TABLE_COMMENT, tableComment);
-            }
-            table = builder.build();
+        Table.Builder builder = Table.builder()
+                .setDatabaseName(database)
+                .setTableName(tableName)
+                .setOwner(owner)
+                .setTableType(TableType.EXTERNAL_TABLE.name())
+                .setDataColumns(toHiveColumns(metadata.schema().columns()))
+                .withStorage(storage -> storage.setLocation(metadata.location()))
+                .withStorage(storage -> storage.setStorageFormat(STORAGE_FORMAT))
+                .setParameter("EXTERNAL", "TRUE")
+                .setParameter(TABLE_TYPE_PROP, ICEBERG_TABLE_TYPE_VALUE)
+                .setParameter(METADATA_LOCATION_PROP, newMetadataLocation);
+        String tableComment = metadata.properties().get(TABLE_COMMENT);
+        if (tableComment != null) {
+            builder.setParameter(TABLE_COMMENT, tableComment);
         }
-        catch (RuntimeException e) {
-            try {
-                io().deleteFile(newMetadataLocation);
-            }
-            catch (RuntimeException ex) {
-                e.addSuppressed(ex);
-            }
-            throw e;
-        }
+        Table table = builder.build();
 
         PrincipalPrivileges privileges = owner.map(MetastoreUtil::buildInitialPrivilegeSet).orElse(NO_PRIVILEGES);
         metastore.createTable(table, privileges);
