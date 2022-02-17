@@ -13,7 +13,11 @@
  */
 package io.trino.connector;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.io.Files;
+import io.airlift.log.Logger;
 import io.trino.metadata.Catalog;
 import io.trino.metadata.CatalogManager;
 import io.trino.spi.connector.Connector;
@@ -23,45 +27,121 @@ import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
+import java.io.File;
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.atomic.AtomicBoolean;
 
+import static com.google.common.base.MoreObjects.firstNonNull;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.configuration.ConfigurationLoader.loadPropertiesFrom;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
 public class StaticCatalogManager
         implements CatalogManager, ConnectorServicesProvider
 {
+    private static final Logger log = Logger.get(StaticCatalogManager.class);
+
+    private enum State { CREATED, INITIALIZED, STOPPED }
+
     private final CatalogFactory catalogFactory;
+    private final List<CatalogProperties> catalogProperties;
 
     @GuardedBy("this")
     private final ConcurrentMap<String, CatalogConnector> catalogs = new ConcurrentHashMap<>();
 
-    private final AtomicBoolean stopped = new AtomicBoolean();
+    @GuardedBy("this")
+    private State state = State.CREATED;
 
     @Inject
-    public StaticCatalogManager(CatalogFactory catalogFactory)
+    public StaticCatalogManager(CatalogFactory catalogFactory, StaticCatalogManagerConfig config)
     {
         this.catalogFactory = requireNonNull(catalogFactory, "catalogFactory is null");
+        List<String> disabledCatalogs = firstNonNull(config.getDisabledCatalogs(), ImmutableList.of());
+
+        ImmutableList.Builder<CatalogProperties> catalogProperties = ImmutableList.builder();
+        for (File file : listCatalogFiles(config.getCatalogConfigurationDir())) {
+            String catalogName = Files.getNameWithoutExtension(file.getName());
+            if (disabledCatalogs.contains(catalogName)) {
+                log.info("Skipping disabled catalog %s", catalogName);
+                continue;
+            }
+
+            Map<String, String> properties;
+            try {
+                properties = new HashMap<>(loadPropertiesFrom(file.getPath()));
+            }
+            catch (IOException e) {
+                throw new UncheckedIOException("Error reading catalog property file " + file, e);
+            }
+
+            String connectorName = properties.remove("connector.name");
+            checkState(connectorName != null, "Catalog configuration %s does not contain connector.name", file.getAbsoluteFile());
+
+            catalogProperties.add(new CatalogProperties(catalogName, connectorName, ImmutableMap.copyOf(properties)));
+        }
+        this.catalogProperties = catalogProperties.build();
+    }
+
+    private static List<File> listCatalogFiles(File catalogsDirectory)
+    {
+        if (catalogsDirectory == null || !catalogsDirectory.isDirectory()) {
+            return ImmutableList.of();
+        }
+
+        File[] files = catalogsDirectory.listFiles();
+        if (files == null) {
+            return ImmutableList.of();
+        }
+        return Arrays.stream(files)
+                .filter(File::isFile)
+                .filter(file -> file.getName().endsWith(".properties"))
+                .collect(toImmutableList());
     }
 
     @PreDestroy
     public synchronized void stop()
     {
-        if (stopped.getAndSet(true)) {
+        if (state == State.STOPPED) {
             return;
         }
+        state = State.STOPPED;
 
         for (CatalogConnector connector : catalogs.values()) {
             connector.shutdown();
         }
         catalogs.clear();
+    }
+
+    public synchronized void loadInitialCatalogs()
+    {
+        switch (state) {
+            case CREATED:
+                break;
+            case INITIALIZED:
+                return;
+            case STOPPED:
+                throw new IllegalStateException("Catalog manager is stopped");
+        }
+        state = State.INITIALIZED;
+
+        for (CatalogProperties catalog : catalogProperties) {
+            log.info("-- Loading catalog %s --", catalog.getCatalogName());
+            CatalogConnector newCatalog = catalogFactory.createCatalog(catalog.getCatalogName(), catalog.getConnectorName(), catalog.getProperties());
+            catalogs.put(catalog.getCatalogName(), newCatalog);
+            log.info("-- Added catalog %s using connector %s --", catalog.getCatalogName(), catalog.getConnectorName());
+        }
     }
 
     @Override
@@ -91,7 +171,8 @@ public class StaticCatalogManager
         requireNonNull(connectorName, "connectorName is null");
         requireNonNull(properties, "properties is null");
 
-        checkState(!stopped.get(), "Catalog manager is stopped");
+        checkState(state != State.STOPPED, "Catalog manager is stopped");
+
         checkArgument(!catalogs.containsKey(catalogName), "Catalog '%s' already exists", catalogName);
         CatalogConnector catalog = catalogFactory.createCatalog(catalogName, connectorName, properties);
         catalogs.put(catalogName, catalog);
@@ -104,11 +185,49 @@ public class StaticCatalogManager
         requireNonNull(connectorName, "connectorName is null");
         requireNonNull(connector, "connector is null");
 
-        checkState(!stopped.get(), "Catalog manager is stopped");
+        checkState(state != State.STOPPED, "Catalog manager is stopped");
         String catalogName = catalogHandle.getCatalogName();
         checkArgument(!catalogs.containsKey(catalogName), "Catalog '%s' already exists", catalogName);
 
         CatalogConnector catalog = catalogFactory.createCatalog(catalogHandle, connectorName, connector);
         catalogs.put(catalogName, catalog);
+    }
+
+    private static class CatalogProperties
+    {
+        private final String catalogName;
+        private final String connectorName;
+        private final Map<String, String> properties;
+
+        public CatalogProperties(String catalogName, String connectorName, Map<String, String> properties)
+        {
+            this.catalogName = requireNonNull(catalogName, "catalogName is null");
+            this.connectorName = requireNonNull(connectorName, "connectorName is null");
+            this.properties = requireNonNull(properties, "properties is null");
+        }
+
+        public String getCatalogName()
+        {
+            return catalogName;
+        }
+
+        public String getConnectorName()
+        {
+            return connectorName;
+        }
+
+        public Map<String, String> getProperties()
+        {
+            return properties;
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("catalogName", catalogName)
+                    .add("connectorName", connectorName)
+                    .toString();
+        }
     }
 }

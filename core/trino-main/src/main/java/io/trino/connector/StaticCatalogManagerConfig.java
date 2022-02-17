@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.metadata;
+package io.trino.connector;
 
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
@@ -23,7 +23,7 @@ import javax.validation.constraints.NotNull;
 import java.io.File;
 import java.util.List;
 
-public class StaticCatalogStoreConfig
+public class StaticCatalogManagerConfig
 {
     private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
 
@@ -38,7 +38,7 @@ public class StaticCatalogStoreConfig
 
     @LegacyConfig("plugin.config-dir")
     @Config("catalog.config-dir")
-    public StaticCatalogStoreConfig setCatalogConfigurationDir(File dir)
+    public StaticCatalogManagerConfig setCatalogConfigurationDir(File dir)
     {
         this.catalogConfigurationDir = dir;
         return this;
@@ -50,13 +50,13 @@ public class StaticCatalogStoreConfig
     }
 
     @Config("catalog.disabled-catalogs")
-    public StaticCatalogStoreConfig setDisabledCatalogs(String catalogs)
+    public StaticCatalogManagerConfig setDisabledCatalogs(String catalogs)
     {
         this.disabledCatalogs = (catalogs == null) ? null : SPLITTER.splitToList(catalogs);
         return this;
     }
 
-    public StaticCatalogStoreConfig setDisabledCatalogs(List<String> catalogs)
+    public StaticCatalogManagerConfig setDisabledCatalogs(List<String> catalogs)
     {
         this.disabledCatalogs = (catalogs == null) ? null : ImmutableList.copyOf(catalogs);
         return this;
