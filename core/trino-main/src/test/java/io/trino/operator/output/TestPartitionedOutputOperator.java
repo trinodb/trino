@@ -40,6 +40,7 @@ import io.trino.spi.block.TestingBlockEncodingSerde;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Decimals;
+import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.TestingTaskContext;
@@ -82,6 +83,7 @@ import static io.trino.spi.type.UuidType.UUID;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.sql.planner.SystemPartitioningHandle.SystemPartitionFunction.ROUND_ROBIN;
+import static io.trino.type.IpAddressType.IPADDRESS;
 import static java.lang.Math.toIntExact;
 import static java.util.Collections.nCopies;
 import static java.util.Collections.unmodifiableList;
@@ -372,7 +374,10 @@ public class TestPartitionedOutputOperator
                         {VARBINARY},
                         {createDecimalType(1)},
                         {createDecimalType(Decimals.MAX_SHORT_PRECISION + 1)},
-                        {new ArrayType(BIGINT)}
+                        {new ArrayType(BIGINT)},
+                        {TimestampType.createTimestampType(9)},
+                        {TimestampType.createTimestampType(3)},
+                        {IPADDRESS}
                 };
     }
 
@@ -429,6 +434,7 @@ public class TestPartitionedOutputOperator
 
     static class PartitionedOutputOperatorBuilder
     {
+        public static final PositionsAppenderFactory POSITIONS_APPENDER_FACTORY = new PositionsAppenderFactory();
         private final ExecutorService executor;
         private final ScheduledExecutorService scheduledExecutor;
         private final OutputBuffer outputBuffer;
@@ -523,7 +529,8 @@ public class TestPartitionedOutputOperator
                     shouldReplicate,
                     nullChannel,
                     outputBuffer,
-                    PARTITION_MAX_MEMORY);
+                    PARTITION_MAX_MEMORY,
+                    POSITIONS_APPENDER_FACTORY);
 
             return (PartitionedOutputOperator) operatorFactory
                     .createOutputOperator(0, new PlanNodeId("plan-node-0"), types, Function.identity(), PAGES_SERDE_FACTORY)

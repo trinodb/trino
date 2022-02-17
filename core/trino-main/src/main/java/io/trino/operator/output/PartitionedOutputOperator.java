@@ -54,6 +54,7 @@ public class PartitionedOutputOperator
         private final boolean replicatesAnyRow;
         private final OptionalInt nullChannel;
         private final DataSize maxMemory;
+        private final PositionsAppenderFactory positionsAppenderFactory;
 
         public PartitionedOutputFactory(
                 PartitionFunction partitionFunction,
@@ -62,7 +63,8 @@ public class PartitionedOutputOperator
                 boolean replicatesAnyRow,
                 OptionalInt nullChannel,
                 OutputBuffer outputBuffer,
-                DataSize maxMemory)
+                DataSize maxMemory,
+                PositionsAppenderFactory positionsAppenderFactory)
         {
             this.partitionFunction = requireNonNull(partitionFunction, "partitionFunction is null");
             this.partitionChannels = requireNonNull(partitionChannels, "partitionChannels is null");
@@ -71,6 +73,7 @@ public class PartitionedOutputOperator
             this.nullChannel = requireNonNull(nullChannel, "nullChannel is null");
             this.outputBuffer = requireNonNull(outputBuffer, "outputBuffer is null");
             this.maxMemory = requireNonNull(maxMemory, "maxMemory is null");
+            this.positionsAppenderFactory = requireNonNull(positionsAppenderFactory, "positionsAppenderFactory is null");
         }
 
         @Override
@@ -93,7 +96,8 @@ public class PartitionedOutputOperator
                     nullChannel,
                     outputBuffer,
                     serdeFactory,
-                    maxMemory);
+                    maxMemory,
+                    positionsAppenderFactory);
         }
     }
 
@@ -112,6 +116,7 @@ public class PartitionedOutputOperator
         private final OutputBuffer outputBuffer;
         private final PagesSerdeFactory serdeFactory;
         private final DataSize maxMemory;
+        private final PositionsAppenderFactory positionsAppenderFactory;
 
         public PartitionedOutputOperatorFactory(
                 int operatorId,
@@ -125,7 +130,8 @@ public class PartitionedOutputOperator
                 OptionalInt nullChannel,
                 OutputBuffer outputBuffer,
                 PagesSerdeFactory serdeFactory,
-                DataSize maxMemory)
+                DataSize maxMemory,
+                PositionsAppenderFactory positionsAppenderFactory)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -139,6 +145,7 @@ public class PartitionedOutputOperator
             this.outputBuffer = requireNonNull(outputBuffer, "outputBuffer is null");
             this.serdeFactory = requireNonNull(serdeFactory, "serdeFactory is null");
             this.maxMemory = requireNonNull(maxMemory, "maxMemory is null");
+            this.positionsAppenderFactory = requireNonNull(positionsAppenderFactory, "positionsAppenderFactory is null");
         }
 
         @Override
@@ -156,7 +163,8 @@ public class PartitionedOutputOperator
                     nullChannel,
                     outputBuffer,
                     serdeFactory,
-                    maxMemory);
+                    maxMemory,
+                    positionsAppenderFactory);
         }
 
         @Override
@@ -179,7 +187,8 @@ public class PartitionedOutputOperator
                     nullChannel,
                     outputBuffer,
                     serdeFactory,
-                    maxMemory);
+                    maxMemory,
+                    positionsAppenderFactory);
         }
     }
 
@@ -202,7 +211,8 @@ public class PartitionedOutputOperator
             OptionalInt nullChannel,
             OutputBuffer outputBuffer,
             PagesSerdeFactory serdeFactory,
-            DataSize maxMemory)
+            DataSize maxMemory,
+            PositionsAppenderFactory positionsAppenderFactory)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.pagePreprocessor = requireNonNull(pagePreprocessor, "pagePreprocessor is null");
@@ -216,7 +226,8 @@ public class PartitionedOutputOperator
                 serdeFactory,
                 sourceTypes,
                 maxMemory,
-                operatorContext);
+                operatorContext,
+                positionsAppenderFactory);
 
         operatorContext.setInfoSupplier(this.partitionFunction.getOperatorInfoSupplier());
         this.memoryContext = operatorContext.newLocalUserMemoryContext(PartitionedOutputOperator.class.getSimpleName());
