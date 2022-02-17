@@ -34,7 +34,7 @@
     </scm>
 
     <properties>
-        <just.a.test>7</just.a.test>
+        <just.a.test>8</just.a.test>
         <air.main.basedir>${project.basedir}</air.main.basedir>
 
         <air.check.skip-spotbugs>true</air.check.skip-spotbugs>
