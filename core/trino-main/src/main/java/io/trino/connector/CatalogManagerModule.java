@@ -21,6 +21,8 @@ import io.trino.metadata.CatalogManager;
 
 import javax.inject.Inject;
 
+import static io.airlift.configuration.ConfigBinder.configBinder;
+
 public class CatalogManagerModule
         extends AbstractConfigurationAwareModule
 {
@@ -32,6 +34,7 @@ public class CatalogManagerModule
         binder.bind(CatalogFactory.class).to(LazyCatalogFactory.class).in(Scopes.SINGLETON);
         binder.bind(LazyRegister.class).asEagerSingleton();
 
+        configBinder(binder).bindConfig(StaticCatalogManagerConfig.class);
         binder.bind(StaticCatalogManager.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorServicesProvider.class).to(StaticCatalogManager.class).in(Scopes.SINGLETON);
         binder.bind(CatalogManager.class).to(StaticCatalogManager.class).in(Scopes.SINGLETON);

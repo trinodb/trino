@@ -42,6 +42,7 @@ import io.trino.connector.CatalogHandle;
 import io.trino.connector.CatalogManagerModule;
 import io.trino.connector.ConnectorServices;
 import io.trino.connector.ConnectorServicesProvider;
+import io.trino.connector.StaticCatalogManager;
 import io.trino.eventlistener.EventListenerManager;
 import io.trino.eventlistener.EventListenerModule;
 import io.trino.exchange.ExchangeManagerModule;
@@ -50,7 +51,6 @@ import io.trino.execution.resourcegroups.ResourceGroupManager;
 import io.trino.execution.warnings.WarningCollectorModule;
 import io.trino.metadata.Catalog;
 import io.trino.metadata.CatalogManager;
-import io.trino.metadata.StaticCatalogStore;
 import io.trino.security.AccessControlManager;
 import io.trino.security.AccessControlModule;
 import io.trino.security.GroupProviderManager;
@@ -134,7 +134,7 @@ public class Server
 
             injector.getInstance(PluginManager.class).loadPlugins();
 
-            injector.getInstance(StaticCatalogStore.class).loadCatalogs();
+            injector.getInstance(StaticCatalogManager.class).loadInitialCatalogs();
 
             // Connector event listeners are only supported for statically loaded catalogs
             // TODO: remove connector event listeners or add support for dynamic loading from connector

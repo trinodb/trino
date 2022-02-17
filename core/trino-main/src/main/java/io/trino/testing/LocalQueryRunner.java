@@ -30,6 +30,7 @@ import io.trino.connector.ConnectorServicesProvider;
 import io.trino.connector.DefaultCatalogFactory;
 import io.trino.connector.LazyCatalogFactory;
 import io.trino.connector.StaticCatalogManager;
+import io.trino.connector.StaticCatalogManagerConfig;
 import io.trino.connector.system.AnalyzePropertiesSystemTable;
 import io.trino.connector.system.CatalogSystemTable;
 import io.trino.connector.system.ColumnPropertiesSystemTable;
@@ -350,7 +351,7 @@ public class LocalQueryRunner
         this.optimizerConfig = new OptimizerConfig();
         LazyCatalogFactory catalogFactory = new LazyCatalogFactory();
         this.catalogFactory = catalogFactory;
-        this.catalogManager = new StaticCatalogManager(catalogFactory);
+        this.catalogManager = new StaticCatalogManager(catalogFactory, new StaticCatalogManagerConfig());
         this.transactionManager = InMemoryTransactionManager.create(
                 new TransactionManagerConfig().setIdleTimeout(new Duration(1, TimeUnit.DAYS)),
                 yieldExecutor,
