@@ -66,9 +66,11 @@ import io.trino.memory.NodeMemoryConfig;
 import io.trino.metadata.AnalyzePropertyManager;
 import io.trino.metadata.BlockEncodingManager;
 import io.trino.metadata.CatalogManager;
+import io.trino.metadata.CatalogResource;
 import io.trino.metadata.ColumnPropertyManager;
 import io.trino.metadata.DisabledSystemSecurityMetadata;
 import io.trino.metadata.DiscoveryNodeManager;
+import io.trino.metadata.DynamicCatalogStore;
 import io.trino.metadata.ForNodeManager;
 import io.trino.metadata.HandleJsonModule;
 import io.trino.metadata.InternalBlockEncodingSerde;
@@ -370,6 +372,7 @@ public class ServerMainModule
 
         // metadata
         binder.bind(StaticCatalogStore.class).in(Scopes.SINGLETON);
+        binder.bind(DynamicCatalogStore.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(StaticCatalogStoreConfig.class);
         binder.bind(MetadataManager.class).in(Scopes.SINGLETON);
         binder.bind(Metadata.class).to(MetadataManager.class).in(Scopes.SINGLETON);
@@ -384,6 +387,7 @@ public class ServerMainModule
         binder.bind(ProcedureRegistry.class).in(Scopes.SINGLETON);
         binder.bind(TableProceduresRegistry.class).in(Scopes.SINGLETON);
         binder.bind(PlannerContext.class).in(Scopes.SINGLETON);
+        jaxrsBinder(binder).bind(CatalogResource.class);
 
         // type
         binder.bind(TypeAnalyzer.class).in(Scopes.SINGLETON);
