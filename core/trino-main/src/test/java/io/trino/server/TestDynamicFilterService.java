@@ -63,6 +63,7 @@ import java.util.stream.LongStream;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
+import static io.trino.SystemSessionProperties.RETRY_POLICY;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.server.DynamicFilterService.DynamicFilterDomainStats;
 import static io.trino.server.DynamicFilterService.DynamicFiltersStats;
@@ -797,7 +798,7 @@ public class TestDynamicFilterService
     }
 
     @Test
-    public void testMultipleAttempts()
+    public void testMultipleQueryAttempts()
     {
         DynamicFilterService dynamicFilterService = createDynamicFilterService();
         DynamicFilterId filterId = new DynamicFilterId("df");
@@ -975,6 +976,56 @@ public class TestDynamicFilterService
                 ImmutableMap.of(filter, domain3));
         assertThat(dynamicFilterService.getSummary(query, filter)).isPresent();
         assertEquals(dynamicFilterService.getSummary(query, filter).get(), domain1.union(domain3));
+    }
+
+    @Test
+    public void testMultipleTaskAttempts()
+    {
+        DynamicFilterService dynamicFilterService = createDynamicFilterService();
+        DynamicFilterId filterId = new DynamicFilterId("df");
+        QueryId queryId = new QueryId("query");
+        StageId stageId = new StageId(queryId, 0);
+
+        Session taskRetriesEnabled = Session.builder(session)
+                .setSystemProperty(RETRY_POLICY, RetryPolicy.TASK.name())
+                .build();
+        dynamicFilterService.registerQuery(queryId, taskRetriesEnabled, ImmutableSet.of(filterId), ImmutableSet.of(filterId), ImmutableSet.of());
+        dynamicFilterService.stageCannotScheduleMoreTasks(stageId, 0, 3);
+        assertFalse(dynamicFilterService.getSummary(queryId, filterId).isPresent());
+
+        // Collect DF from 2 tasks
+        dynamicFilterService.addTaskDynamicFilters(
+                new TaskId(stageId, 0, 0),
+                ImmutableMap.of(filterId, singleValue(INTEGER, 1L)));
+        dynamicFilterService.addTaskDynamicFilters(
+                new TaskId(stageId, 1, 0),
+                ImmutableMap.of(filterId, singleValue(INTEGER, 2L)));
+        assertFalse(dynamicFilterService.getSummary(queryId, filterId).isPresent());
+
+        // Collect DF from task retry of partitionId 0
+        dynamicFilterService.addTaskDynamicFilters(
+                new TaskId(stageId, 0, 1),
+                ImmutableMap.of(filterId, singleValue(INTEGER, 0L)));
+        assertFalse(dynamicFilterService.getSummary(queryId, filterId).isPresent());
+
+        // Collect DF from 3rd partition
+        dynamicFilterService.addTaskDynamicFilters(
+                new TaskId(stageId, 2, 0),
+                ImmutableMap.of(filterId, singleValue(INTEGER, 6L)));
+        // DF from task retry of partitionId 0 is ignored and the collected value from first successful attempt is kept
+        assertEquals(
+                dynamicFilterService.getSummary(queryId, filterId),
+                Optional.of(multipleValues(INTEGER, ImmutableList.of(1L, 2L, 6L))));
+
+        DynamicFiltersStats stats = dynamicFilterService.getDynamicFilteringStats(queryId, session);
+        assertEquals(stats.getDynamicFiltersCompleted(), 1);
+        assertEquals(stats.getLazyDynamicFilters(), 1);
+        assertEquals(stats.getReplicatedDynamicFilters(), 0);
+        assertEquals(
+                stats.getDynamicFilterDomainStats(),
+                ImmutableList.of(new DynamicFilterDomainStats(
+                        filterId,
+                        getSimplifiedDomainString(1L, 6L, 3, INTEGER))));
     }
 
     private static DynamicFilterService createDynamicFilterService()

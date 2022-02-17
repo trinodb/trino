@@ -35,6 +35,7 @@ import io.trino.sql.planner.plan.AssignUniqueId;
 import io.trino.sql.planner.plan.CorrelatedJoinNode;
 import io.trino.sql.planner.plan.DeleteNode;
 import io.trino.sql.planner.plan.DistinctLimitNode;
+import io.trino.sql.planner.plan.DynamicFilterSourceNode;
 import io.trino.sql.planner.plan.EnforceSingleRowNode;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.ExplainAnalyzeNode;
@@ -261,6 +262,12 @@ public final class StreamPropertyDerivations
                     return probeProperties.withUnspecifiedPartitioning();
             }
             throw new UnsupportedOperationException("Unsupported join type: " + node.getType());
+        }
+
+        @Override
+        public StreamProperties visitDynamicFilterSource(DynamicFilterSourceNode node, List<StreamProperties> inputProperties)
+        {
+            return Iterables.getOnlyElement(inputProperties);
         }
 
         //

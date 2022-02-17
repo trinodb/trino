@@ -25,7 +25,6 @@ import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
-import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestDistributedFaultTolerantEngineOnlyQueries
         extends AbstractDistributedEngineOnlyQueries
@@ -58,13 +57,5 @@ public class TestDistributedFaultTolerantEngineOnlyQueries
             throw closeAllSuppress(e, queryRunner);
         }
         return queryRunner;
-    }
-
-    @Override
-    public void testExplainAnalyzeDynamicFilterInfo()
-    {
-        // dynamic filters are disabled
-        String result = (String) computeActual("EXPLAIN ANALYZE SELECT * FROM nation a, nation b WHERE a.nationkey = b.nationkey").getOnlyValue();
-        assertThat(result).doesNotContainPattern("Dynamic filters:.*");
     }
 }
