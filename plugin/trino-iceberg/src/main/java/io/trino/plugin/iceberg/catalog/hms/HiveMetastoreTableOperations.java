@@ -34,6 +34,8 @@ import static io.trino.plugin.hive.metastore.MetastoreUtil.buildInitialPrivilege
 import static io.trino.plugin.hive.metastore.PrincipalPrivileges.NO_PRIVILEGES;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.fromMetastoreApiTable;
 import static java.util.Objects.requireNonNull;
+import static org.apache.iceberg.BaseMetastoreTableOperations.METADATA_LOCATION_PROP;
+import static org.apache.iceberg.BaseMetastoreTableOperations.PREVIOUS_METADATA_LOCATION_PROP;
 
 @NotThreadSafe
 public class HiveMetastoreTableOperations
@@ -73,7 +75,7 @@ public class HiveMetastoreTableOperations
                         .orElseThrow(() -> new TableNotFoundException(getSchemaTableName())));
 
                 checkState(currentMetadataLocation != null, "No current metadata location for existing table");
-                String metadataLocation = currentTable.getParameters().get(METADATA_LOCATION);
+                String metadataLocation = currentTable.getParameters().get(METADATA_LOCATION_PROP);
                 if (!currentMetadataLocation.equals(metadataLocation)) {
                     throw new CommitFailedException("Metadata location [%s] is not same as table metadata location [%s] for %s",
                             currentMetadataLocation, metadataLocation, getSchemaTableName());
@@ -82,8 +84,8 @@ public class HiveMetastoreTableOperations
                 table = Table.builder(currentTable)
                         .setDataColumns(toHiveColumns(metadata.schema().columns()))
                         .withStorage(storage -> storage.setLocation(metadata.location()))
-                        .setParameter(METADATA_LOCATION, newMetadataLocation)
-                        .setParameter(PREVIOUS_METADATA_LOCATION, currentMetadataLocation)
+                        .setParameter(METADATA_LOCATION_PROP, newMetadataLocation)
+                        .setParameter(PREVIOUS_METADATA_LOCATION_PROP, currentMetadataLocation)
                         .build();
             }
             catch (RuntimeException e) {

@@ -62,6 +62,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static org.apache.iceberg.BaseMetastoreTableOperations.ICEBERG_TABLE_TYPE_VALUE;
+import static org.apache.iceberg.BaseMetastoreTableOperations.METADATA_LOCATION_PROP;
 import static org.apache.iceberg.BaseMetastoreTableOperations.TABLE_TYPE_PROP;
 import static org.apache.iceberg.TableMetadataParser.getFileExtension;
 import static org.apache.iceberg.TableProperties.METADATA_COMPRESSION;
@@ -74,8 +75,6 @@ public abstract class AbstractMetastoreTableOperations
 {
     private static final Logger log = Logger.get(AbstractMetastoreTableOperations.class);
 
-    public static final String METADATA_LOCATION = "metadata_location";
-    public static final String PREVIOUS_METADATA_LOCATION = "previous_metadata_location";
     protected static final String METADATA_FOLDER_NAME = "metadata";
 
     protected static final StorageFormat STORAGE_FORMAT = StorageFormat.create(
@@ -151,9 +150,9 @@ public abstract class AbstractMetastoreTableOperations
             throw new UnknownTableTypeException(getSchemaTableName());
         }
 
-        String metadataLocation = table.getParameters().get(METADATA_LOCATION);
+        String metadataLocation = table.getParameters().get(METADATA_LOCATION_PROP);
         if (metadataLocation == null) {
-            throw new TrinoException(ICEBERG_INVALID_METADATA, format("Table is missing [%s] property: %s", METADATA_LOCATION, getSchemaTableName()));
+            throw new TrinoException(ICEBERG_INVALID_METADATA, format("Table is missing [%s] property: %s", METADATA_LOCATION_PROP, getSchemaTableName()));
         }
 
         refreshFromMetadataLocation(metadataLocation);
@@ -202,7 +201,7 @@ public abstract class AbstractMetastoreTableOperations
                     .withStorage(storage -> storage.setStorageFormat(STORAGE_FORMAT))
                     .setParameter("EXTERNAL", "TRUE")
                     .setParameter(TABLE_TYPE_PROP, ICEBERG_TABLE_TYPE_VALUE)
-                    .setParameter(METADATA_LOCATION, newMetadataLocation);
+                    .setParameter(METADATA_LOCATION_PROP, newMetadataLocation);
             String tableComment = metadata.properties().get(TABLE_COMMENT);
             if (tableComment != null) {
                 builder.setParameter(TABLE_COMMENT, tableComment);
