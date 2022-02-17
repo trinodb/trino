@@ -22,11 +22,13 @@ import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Constant;
 import io.trino.spi.expression.FieldDereference;
 import io.trino.spi.expression.FunctionName;
+import io.trino.spi.expression.StandardFunctions;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.type.Type;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.LikePredicate;
+import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.StringLiteral;
@@ -106,6 +108,36 @@ public class TestConnectorExpressionTranslator
     private void testTranslateConstant(Object nativeValue, Type type)
     {
         assertTranslationRoundTrips(LITERAL_ENCODER.toExpression(TEST_SESSION, nativeValue, type), new Constant(nativeValue, type));
+    }
+
+    @Test(dataProvider = "testTranslateLogicalExpressionDataProvider")
+    public void testTranslateLogicalExpression(LogicalExpression.Operator operator)
+    {
+        assertTranslationRoundTrips(
+                new LogicalExpression(
+                        operator,
+                        List.of(
+                                new ComparisonExpression(ComparisonExpression.Operator.LESS_THAN, new SymbolReference("double_symbol_1"), new SymbolReference("double_symbol_2")),
+                                new ComparisonExpression(ComparisonExpression.Operator.EQUAL, new SymbolReference("double_symbol_1"), new SymbolReference("double_symbol_2")))),
+                new Call(
+                        BOOLEAN,
+                        operator == LogicalExpression.Operator.AND ? StandardFunctions.AND_FUNCTION_NAME : StandardFunctions.OR_FUNCTION_NAME,
+                        List.of(
+                                new Call(
+                                        BOOLEAN,
+                                        StandardFunctions.LESS_THAN_OPERATOR_FUNCTION_NAME,
+                                        List.of(new Variable("double_symbol_1", DOUBLE), new Variable("double_symbol_2", DOUBLE))),
+                                new Call(
+                                        BOOLEAN,
+                                        StandardFunctions.EQUAL_OPERATOR_FUNCTION_NAME,
+                                        List.of(new Variable("double_symbol_1", DOUBLE), new Variable("double_symbol_2", DOUBLE))))));
+    }
+
+    @DataProvider
+    public Object[][] testTranslateLogicalExpressionDataProvider()
+    {
+        return Stream.of(LogicalExpression.Operator.values())
+                .collect(toDataProvider());
     }
 
     @Test(dataProvider = "testTranslateComparisonExpressionDataProvider")

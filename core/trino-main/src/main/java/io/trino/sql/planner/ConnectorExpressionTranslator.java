@@ -47,7 +47,9 @@ import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.GenericLiteral;
 import io.trino.sql.tree.LikePredicate;
+import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.QualifiedName;
@@ -65,6 +67,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.SliceUtf8.countCodePoints;
 import static io.trino.SystemSessionProperties.isComplexExpressionPushdown;
+import static io.trino.spi.expression.StandardFunctions.AND_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.EQUAL_OPERATOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.GREATER_THAN_OPERATOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.GREATER_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME;
@@ -73,6 +76,8 @@ import static io.trino.spi.expression.StandardFunctions.LESS_THAN_OPERATOR_FUNCT
 import static io.trino.spi.expression.StandardFunctions.LESS_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.LIKE_PATTERN_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.NOT_EQUAL_OPERATOR_FUNCTION_NAME;
+import static io.trino.spi.expression.StandardFunctions.OR_FUNCTION_NAME;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.ExpressionUtils.isEffectivelyLiteral;
 import static io.trino.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
 import static java.util.Objects.requireNonNull;
@@ -161,6 +166,13 @@ public final class ConnectorExpressionTranslator
                 return Optional.empty();
             }
 
+            if (AND_FUNCTION_NAME.equals(call.getFunctionName())) {
+                return translateLogicalExpression(LogicalExpression.Operator.AND, call.getArguments());
+            }
+            if (OR_FUNCTION_NAME.equals(call.getFunctionName())) {
+                return translateLogicalExpression(LogicalExpression.Operator.OR, call.getArguments());
+            }
+
             if (call.getArguments().size() == 2) {
                 Optional<ComparisonExpression.Operator> operator = comparisonOperatorForFunctionName(call.getFunctionName());
                 if (operator.isPresent()) {
@@ -193,6 +205,19 @@ public final class ConnectorExpressionTranslator
                 builder.addArgument(type, expression);
             }
             return Optional.of(builder.build());
+        }
+
+        private Optional<Expression> translateLogicalExpression(LogicalExpression.Operator operator, List<ConnectorExpression> arguments)
+        {
+            ImmutableList.Builder<Expression> translatedArguments = ImmutableList.builderWithExpectedSize(arguments.size());
+            for (ConnectorExpression argument : arguments) {
+                Optional<Expression> translated = translate(session, argument);
+                if (translated.isEmpty()) {
+                    return Optional.empty();
+                }
+                translatedArguments.add(translated.get());
+            }
+            return Optional.of(new LogicalExpression(operator, translatedArguments.build()));
         }
 
         private Optional<Expression> translateComparison(ComparisonExpression.Operator operator, ConnectorExpression left, ConnectorExpression right)
@@ -325,6 +350,30 @@ public final class ConnectorExpressionTranslator
                 return Optional.empty();
             }
             return Optional.of(constantFor(node));
+        }
+
+        @Override
+        protected Optional<ConnectorExpression> visitLogicalExpression(LogicalExpression node, Void context)
+        {
+            if (!isComplexExpressionPushdown(session)) {
+                return Optional.empty();
+            }
+
+            ImmutableList.Builder<ConnectorExpression> arguments = ImmutableList.builderWithExpectedSize(node.getTerms().size());
+            for (Node argument : node.getChildren()) {
+                Optional<ConnectorExpression> translated = process(argument);
+                if (translated.isEmpty()) {
+                    return Optional.empty();
+                }
+                arguments.add(translated.get());
+            }
+            switch (node.getOperator()) {
+                case AND:
+                    return Optional.of(new Call(BOOLEAN, AND_FUNCTION_NAME, arguments.build()));
+                case OR:
+                    return Optional.of(new Call(BOOLEAN, OR_FUNCTION_NAME, arguments.build()));
+            }
+            throw new UnsupportedOperationException("Unsupported operator: " + node.getOperator());
         }
 
         @Override

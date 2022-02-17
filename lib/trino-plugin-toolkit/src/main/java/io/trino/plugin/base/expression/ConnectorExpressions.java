@@ -14,14 +14,16 @@
 package io.trino.plugin.base.expression;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.spi.expression.Call;
 import io.trino.spi.expression.ConnectorExpression;
 
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.List;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.spi.expression.Constant.TRUE;
+import static io.trino.spi.expression.StandardFunctions.AND_FUNCTION_NAME;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 
 public final class ConnectorExpressions
 {
@@ -29,8 +31,23 @@ public final class ConnectorExpressions
 
     public static List<ConnectorExpression> extractConjuncts(ConnectorExpression expression)
     {
-        // TODO: Implement after supporting the conversion of io.trino.sql.tree.LogicalExpression to io.trino.spi.expression.Call
-        return ImmutableList.of(expression);
+        ImmutableList.Builder<ConnectorExpression> resultBuilder = ImmutableList.builder();
+        extractConjuncts(expression, resultBuilder);
+        return resultBuilder.build();
+    }
+
+    private static void extractConjuncts(ConnectorExpression expression, ImmutableList.Builder<ConnectorExpression> resultBuilder)
+    {
+        if (expression instanceof Call) {
+            Call call = (Call) expression;
+            if (AND_FUNCTION_NAME.equals(call.getFunctionName())) {
+                for (ConnectorExpression argument : call.getArguments()) {
+                    extractConjuncts(argument, resultBuilder);
+                }
+                return;
+            }
+        }
+        resultBuilder.add(expression);
     }
 
     public static ConnectorExpression and(ConnectorExpression... expressions)
@@ -38,11 +55,10 @@ public final class ConnectorExpressions
         return and(Arrays.asList(expressions));
     }
 
-    public static ConnectorExpression and(Collection<ConnectorExpression> expressions)
+    public static ConnectorExpression and(List<ConnectorExpression> expressions)
     {
-        // TODO: Implement after supporting the conversion of io.trino.sql.tree.LogicalExpression to io.trino.spi.expression.Call
         if (expressions.size() > 1) {
-            throw new RuntimeException("Only single expression is currently supported");
+            return new Call(BOOLEAN, AND_FUNCTION_NAME, expressions);
         }
         if (expressions.isEmpty()) {
             return TRUE;
