@@ -1103,6 +1103,9 @@ public class IcebergMetadata
 
     private static IcebergColumnHandle createProjectedColumnHandle(IcebergColumnHandle column, List<Integer> indices, io.trino.spi.type.Type projectedColumnType)
     {
+        if (indices.isEmpty()) {
+            return column;
+        }
         ImmutableList.Builder<Integer> fullPath = ImmutableList.builder();
         fullPath.addAll(column.getPath());
 
