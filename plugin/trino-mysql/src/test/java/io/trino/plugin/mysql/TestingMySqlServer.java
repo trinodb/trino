@@ -33,6 +33,10 @@ public class TestingMySqlServer
     private final MySQLContainer<?> container;
     private final Closeable cleanup;
 
+    public final int majorVersion;
+    public final int minorVersion;
+    public final int patchVersion;
+
     public TestingMySqlServer()
     {
         this(false);
@@ -40,11 +44,16 @@ public class TestingMySqlServer
 
     public TestingMySqlServer(boolean globalTransactionEnable)
     {
-        this("mysql:8.0.12", globalTransactionEnable);
+        this(8, 0, 12, globalTransactionEnable);
     }
 
-    public TestingMySqlServer(String dockerImageName, boolean globalTransactionEnable)
+    public TestingMySqlServer(int majorVersion, int minorVersion, int patchVersion, boolean globalTransactionEnable)
     {
+        this.majorVersion = majorVersion;
+        this.minorVersion = minorVersion;
+        this.patchVersion = patchVersion;
+        String dockerImageName = format("mysql:%s.%s.%s", majorVersion, minorVersion, patchVersion);
+
         MySQLContainer<?> container = new MySQLContainer<>(dockerImageName);
         container = container.withDatabaseName("tpch");
         if (globalTransactionEnable) {
