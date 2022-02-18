@@ -47,7 +47,6 @@ import static io.trino.plugin.hive.metastore.MetastoreUtil.computePartitionKeyFi
 import static io.trino.plugin.hive.metastore.MetastoreUtil.toPartitionName;
 import static io.trino.plugin.hive.util.HiveBucketing.getHiveBucketFilter;
 import static io.trino.plugin.hive.util.HiveUtil.parsePartitionValue;
-import static io.trino.spi.predicate.TupleDomain.none;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.toList;
 
@@ -85,7 +84,7 @@ public class HivePartitionManager
         List<HiveColumnHandle> partitionColumns = hiveTableHandle.getPartitionColumns();
 
         if (effectivePredicate.isNone()) {
-            return new HivePartitionResult(partitionColumns, Optional.empty(), ImmutableList.of(), none(), none(), hiveBucketHandle, Optional.empty());
+            return new HivePartitionResult(partitionColumns, Optional.empty(), ImmutableList.of(), TupleDomain.none(), TupleDomain.none(), hiveBucketHandle, Optional.empty());
         }
 
         Optional<HiveBucketFilter> bucketFilter = getHiveBucketFilter(hiveTableHandle, effectivePredicate);
