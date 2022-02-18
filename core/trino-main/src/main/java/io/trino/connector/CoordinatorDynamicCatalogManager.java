@@ -15,6 +15,7 @@ package io.trino.connector;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.log.Logger;
 import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.metadata.Catalog;
 import io.trino.metadata.CatalogManager;
@@ -45,17 +46,23 @@ import static java.util.Objects.requireNonNull;
 public class CoordinatorDynamicCatalogManager
         implements CatalogManager, ConnectorServicesProvider
 {
+    private static final Logger log = Logger.get(CoordinatorDynamicCatalogManager.class);
+
+    private enum State { CREATED, INITIALIZED, STOPPED }
+
+    private final CatalogStore catalogStore;
     private final CatalogFactory catalogFactory;
 
     private final Lock catalogsUpdateLock = new ReentrantLock();
     private final ConcurrentMap<String, CatalogConnector> catalogs = new ConcurrentHashMap<>();
 
     @GuardedBy("catalogsUpdateLock")
-    private boolean stopped;
+    private State state = State.CREATED;
 
     @Inject
-    public CoordinatorDynamicCatalogManager(CatalogFactory catalogFactory)
+    public CoordinatorDynamicCatalogManager(CatalogStore catalogStore, CatalogFactory catalogFactory)
     {
+        this.catalogStore = requireNonNull(catalogStore, "catalogStore is null");
         this.catalogFactory = requireNonNull(catalogFactory, "catalogFactory is null");
     }
 
@@ -66,10 +73,10 @@ public class CoordinatorDynamicCatalogManager
 
         catalogsUpdateLock.lock();
         try {
-            if (stopped) {
+            if (state == State.STOPPED) {
                 return;
             }
-            stopped = true;
+            state = State.STOPPED;
 
             catalogs = ImmutableList.copyOf(this.catalogs.values());
             this.catalogs.clear();
@@ -84,7 +91,27 @@ public class CoordinatorDynamicCatalogManager
     }
 
     @Override
-    public void loadInitialCatalogs() {}
+    public void loadInitialCatalogs()
+    {
+        catalogsUpdateLock.lock();
+        try {
+            if (state == State.INITIALIZED) {
+                return;
+            }
+            checkState(state != State.STOPPED, "ConnectorManager is stopped");
+            state = State.INITIALIZED;
+
+            for (CatalogProperties catalog : catalogStore.getCatalogs()) {
+                log.info("-- Loading catalog %s --", catalog.getCatalogHandle().getCatalogName());
+                CatalogConnector newCatalog = catalogFactory.createCatalog(catalog);
+                catalogs.put(catalog.getCatalogHandle().getCatalogName(), newCatalog);
+                log.info("-- Added catalog %s using connector %s --", catalog.getCatalogHandle().getCatalogName(), catalog.getConnectorName());
+            }
+        }
+        finally {
+            catalogsUpdateLock.unlock();
+        }
+    }
 
     @Override
     public Set<String> getCatalogNames()
@@ -116,7 +143,7 @@ public class CoordinatorDynamicCatalogManager
 
         catalogsUpdateLock.lock();
         try {
-            checkState(!stopped, "ConnectorManager is stopped");
+            checkState(state != State.STOPPED, "ConnectorManager is stopped");
 
             if (catalogs.containsKey(catalogName)) {
                 throw new TrinoException(ALREADY_EXISTS, format("Catalog '%s' already exists", catalogName));
@@ -138,7 +165,7 @@ public class CoordinatorDynamicCatalogManager
 
         catalogsUpdateLock.lock();
         try {
-            if (stopped) {
+            if (state == State.STOPPED) {
                 return;
             }
 

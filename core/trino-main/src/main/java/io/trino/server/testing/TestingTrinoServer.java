@@ -245,6 +245,7 @@ public class TestingTrinoServer
         if (coordinator) {
             // TODO: enable failure detector
             serverProperties.put("failure-detector.enabled", "false");
+            serverProperties.put("catalog.store", "none");
         }
 
         serverProperties.put("optimizer.ignore-stats-calculator-failures", "false");
