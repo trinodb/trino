@@ -32,7 +32,9 @@ import io.trino.SystemSessionProperties;
 import io.trino.SystemSessionPropertiesProvider;
 import io.trino.block.BlockJsonSerde;
 import io.trino.client.NodeVersion;
+import io.trino.connector.CatalogServiceProviderModule;
 import io.trino.connector.ConnectorManager;
+import io.trino.connector.ConnectorServicesProvider;
 import io.trino.connector.system.SystemConnectorModule;
 import io.trino.dispatcher.DispatchManager;
 import io.trino.event.SplitMonitor;
@@ -424,6 +426,8 @@ public class ServerMainModule
 
         // connector
         binder.bind(ConnectorManager.class).in(Scopes.SINGLETON);
+        binder.bind(ConnectorServicesProvider.class).to(ConnectorManager.class).in(Scopes.SINGLETON);
+        binder.install(new CatalogServiceProviderModule());
 
         // system connector
         binder.install(new SystemConnectorModule());

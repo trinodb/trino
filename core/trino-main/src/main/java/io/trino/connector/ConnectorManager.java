@@ -99,6 +99,7 @@ import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
 public class ConnectorManager
+        implements ConnectorServicesProvider
 {
     private static final Logger log = Logger.get(ConnectorManager.class);
 
@@ -224,6 +225,14 @@ public class ConnectorManager
                 connectorFactory.getName(),
                 new InternalConnectorFactory(connectorFactory, duplicatePluginClassLoaderFactory));
         checkArgument(existingConnectorFactory == null, "Connector '%s' is already registered", connectorFactory.getName());
+    }
+
+    @Override
+    public synchronized ConnectorServices getConnectorServices(CatalogName catalogName)
+    {
+        ConnectorServices connectorServices = connectors.get(catalogName);
+        checkArgument(connectorServices != null, "No catalog '%s'", catalogName);
+        return connectorServices;
     }
 
     public synchronized CatalogName createCatalog(String catalogName, String connectorName, Map<String, String> properties)
