@@ -64,7 +64,7 @@ class StatementClientV1
     private static final MediaType MEDIA_TYPE_TEXT = MediaType.parse("text/plain; charset=utf-8");
     private static final JsonCodec<QueryResults> QUERY_RESULTS_CODEC = jsonCodec(QueryResults.class);
 
-    private static final Splitter SESSION_HEADER_SPLITTER = Splitter.on('=').limit(2).trimResults();
+    private static final Splitter COLLECTION_HEADER_SPLITTER = Splitter.on('=').limit(2).trimResults();
     private static final String USER_AGENT_VALUE = StatementClientV1.class.getSimpleName() +
             "/" +
             firstNonNull(StatementClientV1.class.getPackage().getImplementationVersion(), "unknown");
@@ -395,7 +395,7 @@ class StatementClientV1
         setPath.set(headers.get(TRINO_HEADERS.responseSetPath()));
 
         for (String setSession : headers.values(TRINO_HEADERS.responseSetSession())) {
-            List<String> keyValue = SESSION_HEADER_SPLITTER.splitToList(setSession);
+            List<String> keyValue = COLLECTION_HEADER_SPLITTER.splitToList(setSession);
             if (keyValue.size() != 2) {
                 continue;
             }
@@ -404,7 +404,7 @@ class StatementClientV1
         resetSessionProperties.addAll(headers.values(TRINO_HEADERS.responseClearSession()));
 
         for (String setRole : headers.values(TRINO_HEADERS.responseSetRole())) {
-            List<String> keyValue = SESSION_HEADER_SPLITTER.splitToList(setRole);
+            List<String> keyValue = COLLECTION_HEADER_SPLITTER.splitToList(setRole);
             if (keyValue.size() != 2) {
                 continue;
             }
@@ -412,7 +412,7 @@ class StatementClientV1
         }
 
         for (String entry : headers.values(TRINO_HEADERS.responseAddedPrepare())) {
-            List<String> keyValue = SESSION_HEADER_SPLITTER.splitToList(entry);
+            List<String> keyValue = COLLECTION_HEADER_SPLITTER.splitToList(entry);
             if (keyValue.size() != 2) {
                 continue;
             }
