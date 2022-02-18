@@ -588,6 +588,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
+      product-tests-changed: ${{ steps.filter.outputs.product-tests }}
       have_azure_secrets: ${{ steps.check-secrets.outputs.have_azure_secrets }}
       have_databricks_secrets: ${{ steps.check-databricks-secrets.outputs.have_databricks_secrets }}
       have_gcp_secrets: ${{ steps.check-gcp-secrets.outputs.have_gcp_secrets }}
@@ -597,6 +598,18 @@ jobs:
           fetch-depth: 0 # checkout all commits to be able to determine merge base for GIB
       - name: Fetch base ref to find merge-base for GIB
         run: .github/bin/git-fetch-base-ref.sh
+      - uses: dorny/paths-filter@v2
+        id: filter
+        with:
+          filters: |
+            product-tests:
+              - 'testing/trino-product-tests*/**'
+              - 'testing/trino-testing-services/**'
+              # run all tests when there are any changes in the trino-server Maven module
+              # because it doesn't define it's Trino dependencies and
+              # it relies on the Provisio plugin to find the right artifacts
+              - 'core/trino-server/**'
+              - '.github/**'
       - uses: actions/setup-java@v3
         with:
           distribution: 'zulu'
@@ -662,7 +675,7 @@ jobs:
             testing/trino-product-tests/target/*-executable.jar
             client/trino-cli/target/*-executable.jar
           retention-days: 1
-      - id: set-matrix
+      - id: prepare-matrix-template
         run: |
           cat <<EOF > .github/test-pt-matrix.yaml
           config:
@@ -751,7 +764,16 @@ jobs:
             - config: default
               suite: suite-delta-lake-oss
           EOF
-          ./.github/bin/build-pt-matrix-from-impacted-connectors.py -v -m .github/test-pt-matrix.yaml -i impacted-features.log  -o matrix.json
+      - name: Build PT matrix (all)
+        if: steps.filter.outputs.product-tests == 'true' || contains(github.event.pull_request.labels.*.name, 'tests:all') || contains(github.event.pull_request.labels.*.name, 'tests:all-product')
+        run: |
+          ./.github/bin/build-pt-matrix-from-impacted-connectors.py -v -m .github/test-pt-matrix.yaml -o matrix.json
+      - name: Build PT matrix (impacted-features)
+        if: steps.filter.outputs.product-tests == 'false' && !contains(github.event.pull_request.labels.*.name, 'tests:all') && !contains(github.event.pull_request.labels.*.name, 'product-tests:all')
+        run: |
+          ./.github/bin/build-pt-matrix-from-impacted-connectors.py -v -m .github/test-pt-matrix.yaml -i impacted-features.log -o matrix.json
+      - id: set-matrix
+        run: |
           echo "Matrix: $(jq '.' matrix.json)"
           echo "::set-output name=matrix::$(cat matrix.json)"
       - name: Clean local Maven repo
@@ -777,17 +799,6 @@ jobs:
         with:
           distribution: 'zulu'
           java-version: 17
-      - uses: dorny/paths-filter@v2
-        id: filter
-        with:
-          filters: |
-            product-tests:
-              - 'testing/trino-product-tests*/**'
-              - 'testing/trino-testing-services/**'
-              # run all tests when there are any changes in the trino-server Maven module
-              # because it uses Provisio to determine its dependencies
-              - 'core/trino-server/**'
-              - '.github/**'
       - name: Product tests artifact
         uses: actions/download-artifact@v3
         with:
@@ -799,7 +810,7 @@ jobs:
         # don't enable this on pushes to master and in PRs in the main repository (not from forks)
         # because these are most often used to run all tests with additional secrets
         if: |
-          steps.filter.outputs.product-tests == 'false' &&
+          needs.build-pt.outputs.product-tests-changed == 'false' &&
           github.event_name == 'pull_request' &&
           github.event.pull_request.head.repo.full_name != github.repository &&
           !contains(github.event.pull_request.labels.*.name, 'tests:all') &&
