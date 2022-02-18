@@ -16,6 +16,7 @@ package io.trino.server;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 
+import javax.annotation.Nonnull;
 import javax.validation.constraints.Pattern;
 
 import java.util.Optional;
@@ -23,6 +24,8 @@ import java.util.Optional;
 public class ProtocolConfig
 {
     private String alternateHeaderName;
+    private int preparedStatementCompressionThreshold = 2 * 1024;
+    private int preparedStatementCompressionMinimalGain = 512;
 
     @Deprecated
     public Optional<@Pattern(regexp = "[A-Za-z]+") String> getAlternateHeaderName()
@@ -36,6 +39,34 @@ public class ProtocolConfig
     public ProtocolConfig setAlternateHeaderName(String alternateHeaderName)
     {
         this.alternateHeaderName = alternateHeaderName;
+        return this;
+    }
+
+    @Nonnull
+    public int getPreparedStatementCompressionThreshold()
+    {
+        return preparedStatementCompressionThreshold;
+    }
+
+    @Config("protocol.v1.prepared-statement-compression.length-threshold")
+    @ConfigDescription("Prepared statements longer than the configured value will be compressed")
+    public ProtocolConfig setPreparedStatementCompressionThreshold(int preparedStatementCompressionThreshold)
+    {
+        this.preparedStatementCompressionThreshold = preparedStatementCompressionThreshold;
+        return this;
+    }
+
+    @Nonnull
+    public int getPreparedStatementCompressionMinimalGain()
+    {
+        return preparedStatementCompressionMinimalGain;
+    }
+
+    @Config("protocol.v1.prepared-statement-compression.min-gain")
+    @ConfigDescription("Prepared statement compression will not be applied if size gain is less than the configured value")
+    public ProtocolConfig setPreparedStatementCompressionMinimalGain(int preparedStatementCompressionMinimalGain)
+    {
+        this.preparedStatementCompressionMinimalGain = preparedStatementCompressionMinimalGain;
         return this;
     }
 }

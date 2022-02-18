@@ -14,6 +14,8 @@
 package io.trino.jdbc;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import io.airlift.log.Logging;
 import io.trino.client.ClientTypeSignature;
 import io.trino.client.ClientTypeSignatureParameter;
@@ -49,6 +51,7 @@ import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.Calendar;
 import java.util.TimeZone;
+import java.util.stream.LongStream;
 
 import static com.google.common.base.Strings.repeat;
 import static com.google.common.base.Verify.verify;
@@ -72,6 +75,8 @@ import static org.testng.Assert.assertTrue;
 
 public class TestJdbcPreparedStatement
 {
+    private static final int HEADER_SIZE_LIMIT = 16 * 1024;
+
     private TestingTrinoServer server;
 
     @BeforeClass
@@ -79,7 +84,12 @@ public class TestJdbcPreparedStatement
             throws Exception
     {
         Logging.initialize();
-        server = TestingTrinoServer.create();
+        server = TestingTrinoServer.builder()
+                .setProperties(ImmutableMap.<String, String>builder()
+                        .put("http-server.max-request-header-size", format("%sB", HEADER_SIZE_LIMIT))
+                        .put("http-server.max-response-header-size", format("%sB", HEADER_SIZE_LIMIT))
+                        .buildOrThrow())
+                .build();
         server.installPlugin(new BlackHolePlugin());
         server.installPlugin(new MemoryPlugin());
         server.createCatalog("blackhole", "blackhole");
@@ -383,6 +393,23 @@ public class TestJdbcPreparedStatement
                 catch (Exception e) {
                     throw new RuntimeException("Failed at " + i, e);
                 }
+            }
+        }
+    }
+
+    @Test
+    public void testLargePreparedStatement()
+            throws Exception
+    {
+        int elements = HEADER_SIZE_LIMIT + 1;
+        try (Connection connection = createConnection();
+                PreparedStatement statement = connection.prepareStatement("VALUES ?" + repeat(", ?", elements - 1))) {
+            for (int i = 0; i < elements; i++) {
+                statement.setLong(i + 1, i);
+            }
+            try (ResultSet resultSet = statement.executeQuery()) {
+                assertThat(readRows(resultSet).stream().map(Iterables::getOnlyElement))
+                        .containsExactlyInAnyOrder(LongStream.range(0, elements).boxed().toArray());
             }
         }
     }
