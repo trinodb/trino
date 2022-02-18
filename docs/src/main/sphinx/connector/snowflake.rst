@@ -37,6 +37,7 @@ or want to connect to multiple Snowflake accounts, you must configure
 multiple instances of the Snowflake connector.
 
 .. snowflake-type-mapping:
+
 Type mapping
 ------------
 
