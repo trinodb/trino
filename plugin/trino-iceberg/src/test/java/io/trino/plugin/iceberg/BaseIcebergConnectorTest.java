@@ -3218,6 +3218,23 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testProjectionPushdownOnPartitionedTableWithComments()
+    {
+        assertUpdate("CREATE TABLE test_projection_pushdown_comments (id BIGINT COMMENT 'id', qid BIGINT COMMENT 'QID', root ROW(f1 BIGINT, f2 BIGINT) COMMENT 'root') WITH (partitioning = ARRAY['id'])");
+        assertUpdate("INSERT INTO test_projection_pushdown_comments VALUES (1, 1, ROW(1, 2)), (1, 2, ROW(2, 3)), (1, 3, ROW(3, 4))", 3);
+        assertQuery("SELECT id, root.f2 FROM test_projection_pushdown_comments", "VALUES (1, 2), (1, 3), (1, 4)");
+        // Query with predicates on both nested and top-level columns (with partition column)
+        assertQuery("SELECT id, root.f2 FROM test_projection_pushdown_comments WHERE id = 1 AND qid = 1 AND root.f1 = 1", "VALUES (1, 2)");
+        // Query with predicates on both nested and top-level columns (no partition column)
+        assertQuery("SELECT id, root.f2 FROM test_projection_pushdown_comments WHERE qid = 2 AND root.f1 = 2", "VALUES (1, 3)");
+        // Query with predicates on top-level columns only
+        assertQuery("SELECT id, root.f2 FROM test_projection_pushdown_comments WHERE id = 1 AND qid = 1", "VALUES (1, 2)");
+        // Query with predicates on nested columns only
+        assertQuery("SELECT id, root.f2 FROM test_projection_pushdown_comments WHERE root.f1 = 2", "VALUES (1, 3)");
+        assertUpdate("DROP TABLE IF EXISTS test_projection_pushdown_comments");
+    }
+
+    @Test
     public void testOptimize()
             throws Exception
     {
