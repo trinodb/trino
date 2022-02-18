@@ -13,32 +13,41 @@
  */
 package io.trino.connector;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.connector.CatalogStoreConfig.CatalogStoreKind;
 import org.testng.annotations.Test;
 
+import java.io.File;
 import java.util.Map;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 
-public class TestCatalogStoreConfig
+public class TestFileCatalogStoreConfig
 {
     @Test
     public void testDefaults()
     {
-        assertRecordedDefaults(recordDefaults(CatalogStoreConfig.class)
-                .setCatalogStoreKind(CatalogStoreKind.FILE));
+        assertRecordedDefaults(recordDefaults(FileCatalogStoreConfig.class)
+                .setCatalogConfigurationDir(new File("etc/catalog"))
+                .setDisabledCatalogs((String) null)
+                .setReadOnly(false));
     }
 
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = ImmutableMap.of("catalog.store", "memory");
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
+                .put("catalog.config-dir", "/foo")
+                .put("catalog.disabled-catalogs", "abc,xyz")
+                .put("catalog.read-only", "true")
+                .buildOrThrow();
 
-        CatalogStoreConfig expected = new CatalogStoreConfig()
-                .setCatalogStoreKind(CatalogStoreKind.MEMORY);
+        FileCatalogStoreConfig expected = new FileCatalogStoreConfig()
+                .setCatalogConfigurationDir(new File("/foo"))
+                .setDisabledCatalogs(ImmutableList.of("abc", "xyz"))
+                .setReadOnly(true);
 
         assertFullMapping(properties, expected);
     }

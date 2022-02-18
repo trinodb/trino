@@ -15,9 +15,6 @@ package io.trino.connector;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSortedMap;
-import com.google.common.hash.Hasher;
-import com.google.common.hash.Hashing;
 import io.airlift.log.Logger;
 import io.trino.Session;
 import io.trino.connector.system.GlobalSystemConnector;
@@ -26,7 +23,6 @@ import io.trino.metadata.CatalogManager;
 import io.trino.server.ForStartup;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogHandle;
-import io.trino.spi.connector.CatalogHandle.CatalogVersion;
 
 import javax.annotation.PreDestroy;
 import javax.annotation.concurrent.GuardedBy;
@@ -50,7 +46,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.CATALOG_NOT_AVAILABLE;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
-import static io.trino.spi.connector.CatalogHandle.createRootCatalogHandle;
 import static io.trino.util.Executors.executeUntilFailure;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -203,11 +198,14 @@ public class CoordinatorDynamicCatalogManager
                 return;
             }
 
+            CatalogProperties catalogProperties = catalogStore.createCatalogProperties(catalogName, connectorName, properties);
+
             // get or create catalog for the handle
             CatalogConnector catalog = allCatalogs.computeIfAbsent(
-                    createRootCatalogHandle(catalogName, computeCatalogVersion(catalogName, connectorName, properties)),
-                    handle -> catalogFactory.createCatalog(new CatalogProperties(handle, connectorName, properties)));
+                    catalogProperties.getCatalogHandle(),
+                    handle -> catalogFactory.createCatalog(catalogProperties));
             activeCatalogs.put(catalogName, catalog);
+            catalogStore.addOrReplaceCatalog(catalogProperties);
         }
         finally {
             catalogsUpdateLock.unlock();
@@ -243,10 +241,9 @@ public class CoordinatorDynamicCatalogManager
         boolean removed;
         catalogsUpdateLock.lock();
         try {
-            if (state == State.STOPPED) {
-                return;
-            }
+            checkState(state != State.STOPPED, "ConnectorManager is stopped");
 
+            catalogStore.removeCatalog(catalogName);
             removed = activeCatalogs.remove(catalogName) != null;
         }
         finally {
@@ -258,25 +255,5 @@ public class CoordinatorDynamicCatalogManager
         }
         // Do not shut down the catalog, because there may still be running queries using this catalog.
         // Catalog shutdown logic will be added later.
-    }
-
-    static CatalogVersion computeCatalogVersion(String catalogName, ConnectorName connectorName, Map<String, String> properties)
-    {
-        Hasher hasher = Hashing.sha256().newHasher();
-        hasher.putUnencodedChars("catalog-hash");
-        hashLengthPrefixedString(hasher, catalogName);
-        hashLengthPrefixedString(hasher, connectorName.toString());
-        hasher.putInt(properties.size());
-        ImmutableSortedMap.copyOf(properties).forEach((key, value) -> {
-            hashLengthPrefixedString(hasher, key);
-            hashLengthPrefixedString(hasher, value);
-        });
-        return new CatalogVersion(hasher.hash().toString());
-    }
-
-    private static void hashLengthPrefixedString(Hasher hasher, String value)
-    {
-        hasher.putInt(value.length());
-        hasher.putUnencodedChars(value);
     }
 }
