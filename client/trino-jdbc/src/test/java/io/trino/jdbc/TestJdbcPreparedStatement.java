@@ -208,9 +208,9 @@ public class TestJdbcPreparedStatement
 
             try (PreparedStatement statement = connection.prepareStatement(
                     "SELECT ? FROM test_get_parameterMetaData WHERE c_boolean = ? AND c_decimal = ? " +
-                        "AND c_decimal_2 = ? AND c_varchar = ? AND c_varchar_2 = ? AND c_row = ? " +
-                        "AND c_array = ? AND c_map = ? AND c_tinyint = ? AND c_integer = ? AND c_bigint = ? " +
-                        "AND c_smallint = ? AND c_real = ? AND c_double = ?")) {
+                            "AND c_decimal_2 = ? AND c_varchar = ? AND c_varchar_2 = ? AND c_row = ? " +
+                            "AND c_array = ? AND c_map = ? AND c_tinyint = ? AND c_integer = ? AND c_bigint = ? " +
+                            "AND c_smallint = ? AND c_real = ? AND c_double = ?")) {
                 ParameterMetaData parameterMetaData = statement.getParameterMetaData();
                 assertEquals(parameterMetaData.getParameterCount(), 15);
 
