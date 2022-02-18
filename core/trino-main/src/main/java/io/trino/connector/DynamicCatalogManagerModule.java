@@ -23,7 +23,6 @@ import io.trino.server.ServerConfig;
 import javax.inject.Inject;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static io.trino.connector.CatalogStore.NO_STORED_CATALOGS;
 
 public class DynamicCatalogManagerModule
         extends AbstractConfigurationAwareModule
@@ -35,9 +34,9 @@ public class DynamicCatalogManagerModule
             binder.bind(CoordinatorDynamicCatalogManager.class).in(Scopes.SINGLETON);
             CatalogStoreConfig config = buildConfigObject(CatalogStoreConfig.class);
             switch (config.getCatalogStoreKind()) {
-                case NONE -> binder.bind(CatalogStore.class).toInstance(NO_STORED_CATALOGS);
+                case MEMORY -> binder.bind(CatalogStore.class).to(InMemoryCatalogStore.class).in(Scopes.SINGLETON);
                 case FILE -> {
-                    configBinder(binder).bindConfig(StaticCatalogManagerConfig.class);
+                    configBinder(binder).bindConfig(FileCatalogStoreConfig.class);
                     binder.bind(CatalogStore.class).to(FileCatalogStore.class).in(Scopes.SINGLETON);
                 }
             }
