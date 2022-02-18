@@ -15,60 +15,132 @@ package io.trino.connector;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.io.Files;
+import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.hash.Hasher;
+import com.google.common.hash.Hashing;
 import io.airlift.log.Logger;
 import io.trino.connector.system.GlobalSystemConnector;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogHandle;
+import io.trino.spi.connector.CatalogHandle.CatalogVersion;
 
 import javax.inject.Inject;
 
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.file.Files;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.io.Files.getNameWithoutExtension;
 import static io.airlift.configuration.ConfigurationLoader.loadPropertiesFrom;
-import static io.trino.connector.CoordinatorDynamicCatalogManager.computeCatalogVersion;
+import static io.trino.spi.StandardErrorCode.CATALOG_STORE_ERROR;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.connector.CatalogHandle.createRootCatalogHandle;
+import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 import static java.util.Objects.requireNonNull;
 
-public class FileCatalogStore
+public final class FileCatalogStore
         implements CatalogStore
 {
     private static final Logger log = Logger.get(FileCatalogStore.class);
 
-    private final List<StoredCatalog> catalogs;
+    private final boolean readOnly;
+    private final File catalogsDirectory;
+    private final ConcurrentMap<String, StoredCatalog> catalogs = new ConcurrentHashMap<>();
 
     @Inject
-    public FileCatalogStore(StaticCatalogManagerConfig config)
+    public FileCatalogStore(FileCatalogStoreConfig config)
     {
+        requireNonNull(config, "config is null");
+        readOnly = config.isReadOnly();
+        catalogsDirectory = config.getCatalogConfigurationDir();
         List<String> disabledCatalogs = firstNonNull(config.getDisabledCatalogs(), ImmutableList.of());
 
-        ImmutableList.Builder<StoredCatalog> storedCatalogs = ImmutableList.builder();
-        for (File file : listCatalogFiles(config.getCatalogConfigurationDir())) {
-            String catalogName = Files.getNameWithoutExtension(file.getName());
+        for (File file : listCatalogFiles(catalogsDirectory)) {
+            String catalogName = getNameWithoutExtension(file.getName());
             checkArgument(!catalogName.equals(GlobalSystemConnector.NAME), "Catalog name SYSTEM is reserved for internal usage");
             if (disabledCatalogs.contains(catalogName)) {
                 log.info("Skipping disabled catalog %s", catalogName);
                 continue;
             }
-            storedCatalogs.add(new FileStoredCatalog(catalogName, file));
+            catalogs.put(catalogName, new FileStoredCatalog(catalogName, file));
         }
-        this.catalogs = storedCatalogs.build();
     }
 
     @Override
     public Collection<StoredCatalog> getCatalogs()
     {
-        return catalogs;
+        return ImmutableList.copyOf(catalogs.values());
+    }
+
+    @Override
+    public CatalogProperties createCatalogProperties(String catalogName, ConnectorName connectorName, Map<String, String> properties)
+    {
+        checkModifiable();
+        return new CatalogProperties(
+                createRootCatalogHandle(catalogName, computeCatalogVersion(catalogName, connectorName, properties)),
+                connectorName,
+                ImmutableMap.copyOf(properties));
+    }
+
+    @Override
+    public void addOrReplaceCatalog(CatalogProperties catalogProperties)
+    {
+        checkModifiable();
+        String catalogName = catalogProperties.getCatalogHandle().getCatalogName();
+        File file = toFile(catalogName);
+        Properties properties = new Properties();
+        properties.setProperty("connector.name", catalogProperties.getConnectorName().toString());
+        properties.putAll(catalogProperties.getProperties());
+
+        try {
+            File temporary = new File(file.getPath() + ".tmp");
+            try (FileOutputStream out = new FileOutputStream(temporary)) {
+                properties.store(out, null);
+                out.flush();
+                out.getFD().sync();
+            }
+            Files.move(temporary.toPath(), file.toPath(), REPLACE_EXISTING);
+        }
+        catch (IOException e) {
+            log.error(e, "Could not store catalog properties for %s", catalogName);
+            // don't expose exception to end user
+            throw new TrinoException(CATALOG_STORE_ERROR, "Could not store catalog properties");
+        }
+        catalogs.put(catalogName, new FileStoredCatalog(catalogName, file));
+    }
+
+    @Override
+    public void removeCatalog(String catalogName)
+    {
+        checkModifiable();
+        catalogs.remove(catalogName);
+        toFile(catalogName).delete();
+    }
+
+    private void checkModifiable()
+    {
+        if (readOnly) {
+            throw new TrinoException(NOT_SUPPORTED, "Catalog store is read only");
+        }
+    }
+
+    private File toFile(String catalogName)
+    {
+        return new File(catalogsDirectory, catalogName + ".properties");
     }
 
     private static List<File> listCatalogFiles(File catalogsDirectory)
@@ -85,6 +157,30 @@ public class FileCatalogStore
                 .filter(File::isFile)
                 .filter(file -> file.getName().endsWith(".properties"))
                 .collect(toImmutableList());
+    }
+
+    /**
+     * This is not a generic, universal, or stable version computation, and can and will change from version to version without warning.
+     * For places that need a long term stable version, do not use this code.
+     */
+    static CatalogVersion computeCatalogVersion(String catalogName, ConnectorName connectorName, Map<String, String> properties)
+    {
+        Hasher hasher = Hashing.sha256().newHasher();
+        hasher.putUnencodedChars("catalog-hash");
+        hashLengthPrefixedString(hasher, catalogName);
+        hashLengthPrefixedString(hasher, connectorName.toString());
+        hasher.putInt(properties.size());
+        ImmutableSortedMap.copyOf(properties).forEach((key, value) -> {
+            hashLengthPrefixedString(hasher, key);
+            hashLengthPrefixedString(hasher, value);
+        });
+        return new CatalogVersion(hasher.hash().toString());
+    }
+
+    private static void hashLengthPrefixedString(Hasher hasher, String value)
+    {
+        hasher.putInt(value.length());
+        hasher.putUnencodedChars(value);
     }
 
     private static class FileStoredCatalog
