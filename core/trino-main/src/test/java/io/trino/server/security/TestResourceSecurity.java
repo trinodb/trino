@@ -32,6 +32,8 @@ import io.trino.plugin.base.security.AllowAllSystemAccessControl;
 import io.trino.security.AccessControl;
 import io.trino.security.AccessControlManager;
 import io.trino.server.HttpRequestSessionContextFactory;
+import io.trino.server.ProtocolConfig;
+import io.trino.server.protocol.PreparedStatementEncoder;
 import io.trino.server.security.oauth2.OAuth2Client;
 import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spi.security.AccessDeniedException;
@@ -949,7 +951,11 @@ public class TestResourceSecurity
         @Inject
         public TestResource(AccessControl accessControl)
         {
-            this.sessionContextFactory = new HttpRequestSessionContextFactory(createTestMetadataManager(), user -> ImmutableSet.of(), accessControl);
+            this.sessionContextFactory = new HttpRequestSessionContextFactory(
+                    new PreparedStatementEncoder(new ProtocolConfig()),
+                    createTestMetadataManager(),
+                    user -> ImmutableSet.of(),
+                    accessControl);
         }
 
         @ResourceSecurity(AUTHENTICATED_USER)

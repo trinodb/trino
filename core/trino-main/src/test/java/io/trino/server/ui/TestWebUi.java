@@ -27,6 +27,8 @@ import io.jsonwebtoken.JwsHeader;
 import io.jsonwebtoken.JwtBuilder;
 import io.trino.security.AccessControl;
 import io.trino.server.HttpRequestSessionContextFactory;
+import io.trino.server.ProtocolConfig;
+import io.trino.server.protocol.PreparedStatementEncoder;
 import io.trino.server.security.PasswordAuthenticatorManager;
 import io.trino.server.security.ResourceSecurity;
 import io.trino.server.security.oauth2.OAuth2Client;
@@ -392,7 +394,11 @@ public class TestWebUi
         @Inject
         public TestResource(AccessControl accessControl)
         {
-            this.sessionContextFactory = new HttpRequestSessionContextFactory(createTestMetadataManager(), ImmutableSet::of, accessControl);
+            this.sessionContextFactory = new HttpRequestSessionContextFactory(
+                    new PreparedStatementEncoder(new ProtocolConfig()),
+                    createTestMetadataManager(),
+                    ImmutableSet::of,
+                    accessControl);
         }
 
         @ResourceSecurity(WEB_UI)
