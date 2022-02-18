@@ -15,7 +15,7 @@ launcher_jar="${target}/trino-product-tests-launcher-${trino_version}-executable
 
 if ! test -x "${launcher_jar}"; then
     echo "Could not find launcher jar ${launcher_jar}." >&2
-    echo "Run \`${mvn} clean install -pl :trino-product-tests-launcher\`" >&2
+    echo "Run \`${mvn} clean install -pl :trino-product-tests-launcher -DskipTests\`" >&2
     exit 3
 fi
 
