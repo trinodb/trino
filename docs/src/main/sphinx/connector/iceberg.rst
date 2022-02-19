@@ -659,9 +659,9 @@ You can retrieve the information about the partitions of the Iceberg table
 .. code-block:: text
 
      partition             | record_count  | file_count    | total_size    |  data
-    -----------------------+---------------+---------------+---------------+--------------------------------------
-    {c1=1, c2=2021-01-12}  |  2            | 2             |  884          | {c3={min=1.0, max=2.0, null_count=0}}
-    {c1=1, c2=2021-01-13}  |  1            | 1             |  442          | {c3={min=1.0, max=1.0, null_count=0}}
+    -----------------------+---------------+---------------+---------------+------------------------------------------------------
+    {c1=1, c2=2021-01-12}  |  2            | 2             |  884          | {c3={min=1.0, max=2.0, null_count=0, nan_count=NULL}}
+    {c1=1, c2=2021-01-13}  |  1            | 1             |  442          | {c3={min=1.0, max=1.0, null_count=0, nan_count=NULL}}
 
 
 The output of the query has the following columns:
@@ -686,7 +686,7 @@ The output of the query has the following columns:
     - ``bigint``
     - The size of all the files in the partition
   * - ``data``
-    - ``row(... row (min ..., max ... , null_count bigint))``
+    - ``row(... row (min ..., max ... , null_count bigint, nan_count bigint))``
     - Partition range metadata
 
 ``$files`` table

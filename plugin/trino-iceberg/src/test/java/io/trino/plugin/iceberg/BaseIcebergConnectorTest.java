@@ -530,7 +530,7 @@ public abstract class BaseIcebergConnectorTest
         else {
             assertThat(query(format("SELECT record_count, file_count, data._timestamptz FROM \"%s$partitions\"", tableName)))
                     .matches(format(
-                            "VALUES (BIGINT '3', BIGINT '3', CAST(ROW(%s, %s, 0) AS row(min timestamp(6) with time zone, max timestamp(6) with time zone, null_count bigint)))",
+                            "VALUES (BIGINT '3', BIGINT '3', CAST(ROW(%s, %s, 0, NULL) AS row(min timestamp(6) with time zone, max timestamp(6) with time zone, null_count bigint, nan_count bigint)))",
                             instant1Utc,
                             format == ORC ? "TIMESTAMP '2021-10-31 00:30:00.007999 UTC'" : instant3Utc));
         }
@@ -1752,8 +1752,8 @@ public abstract class BaseIcebergConnectorTest
 
         assertQuery("SELECT COUNT(*) FROM \"test_void_transform$partitions\"", "SELECT 1");
         assertQuery(
-                "SELECT partition.d_null, record_count, file_count, data.d.min, data.d.max, data.d.null_count, data.b.min, data.b.max, data.b.null_count FROM \"test_void_transform$partitions\"",
-                "VALUES (NULL, 7, 1, 'Warsaw', 'mommy', 2, 1, 7, 0)");
+                "SELECT partition.d_null, record_count, file_count, data.d.min, data.d.max, data.d.null_count, data.d.nan_count, data.b.min, data.b.max, data.b.null_count, data.b.nan_count FROM \"test_void_transform$partitions\"",
+                "VALUES (NULL, 7, 1, 'Warsaw', 'mommy', 2, NULL, 1, 7, 0, NULL)");
 
         assertQuery(
                 "SELECT d, b FROM test_void_transform WHERE d IS NOT NULL",
@@ -2144,18 +2144,18 @@ public abstract class BaseIcebergConnectorTest
                         "(SELECT total_size FROM \"test_partitions_with_conflict$partitions\"), " +
                         "CAST(" +
                         "  ROW (" +
-                        (partitioned ? "" : "  ROW(11, 11, 0), ") +
-                        "    ROW(12, 12, 0), " +
-                        "    ROW(13, 13, 0), " +
-                        "    ROW(14, 14, 0), " +
-                        "    ROW(15, 15, 0) " +
+                        (partitioned ? "" : "  ROW(11, 11, 0, NULL), ") +
+                        "    ROW(12, 12, 0, NULL), " +
+                        "    ROW(13, 13, 0, NULL), " +
+                        "    ROW(14, 14, 0, NULL), " +
+                        "    ROW(15, 15, 0, NULL) " +
                         "  ) " +
                         "  AS row(" +
-                        (partitioned ? "" : "    p row(min integer, max integer, null_count bigint), ") +
-                        "    row_count row(min integer, max integer, null_count bigint), " +
-                        "    record_count row(min integer, max integer, null_count bigint), " +
-                        "    file_count row(min integer, max integer, null_count bigint), " +
-                        "    total_size row(min integer, max integer, null_count bigint) " +
+                        (partitioned ? "" : "    p row(min integer, max integer, null_count bigint, nan_count bigint), ") +
+                        "    row_count row(min integer, max integer, null_count bigint, nan_count bigint), " +
+                        "    record_count row(min integer, max integer, null_count bigint, nan_count bigint), " +
+                        "    file_count row(min integer, max integer, null_count bigint, nan_count bigint), " +
+                        "    total_size row(min integer, max integer, null_count bigint, nan_count bigint) " +
                         "  )" +
                         ")");
 
@@ -2677,28 +2677,28 @@ public abstract class BaseIcebergConnectorTest
                         "VALUES (" +
                                 "  BIGINT '2', " +
                                 "  BIGINT '2', " +
-                                "  CAST(ROW(true, true, 1) AS ROW(min boolean, max boolean, null_count bigint)), " +
-                                "  CAST(ROW(1, 1, 1) AS ROW(min integer, max integer, null_count bigint)), " +
-                                "  CAST(ROW(1, 1, 1) AS ROW(min bigint, max bigint, null_count bigint)), " +
-                                "  CAST(ROW(1, 1, 1) AS ROW(min real, max real, null_count bigint)), " +
-                                "  CAST(ROW(1, 1, 1) AS ROW(min double, max double, null_count bigint)), " +
-                                "  CAST(ROW(1, 1, 1) AS ROW(min decimal(5,2), max decimal(5,2), null_count bigint)), " +
-                                "  CAST(ROW(11, 11, 1) AS ROW(min decimal(38,20), max decimal(38,20), null_count bigint)), " +
-                                "  CAST(ROW('onefsadfdsf', 'onefsadfdsf', 1) AS ROW(min varchar, max varchar, null_count bigint)), " +
+                                "  CAST(ROW(true, true, 1, NULL) AS ROW(min boolean, max boolean, null_count bigint, nan_count bigint)), " +
+                                "  CAST(ROW(1, 1, 1, NULL) AS ROW(min integer, max integer, null_count bigint, nan_count bigint)), " +
+                                "  CAST(ROW(1, 1, 1, NULL) AS ROW(min bigint, max bigint, null_count bigint, nan_count bigint)), " +
+                                "  CAST(ROW(1, 1, 1, NULL) AS ROW(min real, max real, null_count bigint, nan_count bigint)), " +
+                                "  CAST(ROW(1, 1, 1, NULL) AS ROW(min double, max double, null_count bigint, nan_count bigint)), " +
+                                "  CAST(ROW(1, 1, 1, NULL) AS ROW(min decimal(5,2), max decimal(5,2), null_count bigint, nan_count bigint)), " +
+                                "  CAST(ROW(11, 11, 1, NULL) AS ROW(min decimal(38,20), max decimal(38,20), null_count bigint, nan_count bigint)), " +
+                                "  CAST(ROW('onefsadfdsf', 'onefsadfdsf', 1, NULL) AS ROW(min varchar, max varchar, null_count bigint, nan_count bigint)), " +
                                 (format == ORC ?
-                                        "  CAST(ROW(NULL, NULL, 1) AS ROW(min varbinary, max varbinary, null_count bigint)), " :
-                                        "  CAST(ROW(X'000102f0feff', X'000102f0feff', 1) AS ROW(min varbinary, max varbinary, null_count bigint)), ") +
-                                "  CAST(ROW(DATE '2021-07-24', DATE '2021-07-24', 1) AS ROW(min date, max date, null_count bigint)), " +
-                                "  CAST(ROW(TIME '02:43:57.987654', TIME '02:43:57.987654', 1) AS ROW(min time(6), max time(6), null_count bigint)), " +
+                                        "  CAST(ROW(NULL, NULL, 1, NULL) AS ROW(min varbinary, max varbinary, null_count bigint, nan_count bigint)), " :
+                                        "  CAST(ROW(X'000102f0feff', X'000102f0feff', 1, NULL) AS ROW(min varbinary, max varbinary, null_count bigint, nan_count bigint)), ") +
+                                "  CAST(ROW(DATE '2021-07-24', DATE '2021-07-24', 1, NULL) AS ROW(min date, max date, null_count bigint, nan_count bigint)), " +
+                                "  CAST(ROW(TIME '02:43:57.987654', TIME '02:43:57.987654', 1, NULL) AS ROW(min time(6), max time(6), null_count bigint, nan_count bigint)), " +
                                 (format == ORC ?
-                                        "  CAST(ROW(TIMESTAMP '2021-07-24 03:43:57.987000', TIMESTAMP '2021-07-24 03:43:57.987999', 1) AS ROW(min timestamp(6), max timestamp(6), null_count bigint)), " :
-                                        "  CAST(ROW(TIMESTAMP '2021-07-24 03:43:57.987654', TIMESTAMP '2021-07-24 03:43:57.987654', 1) AS ROW(min timestamp(6), max timestamp(6), null_count bigint)), ") +
+                                        "  CAST(ROW(TIMESTAMP '2021-07-24 03:43:57.987000', TIMESTAMP '2021-07-24 03:43:57.987999', 1, NULL) AS ROW(min timestamp(6), max timestamp(6), null_count bigint, nan_count bigint)), " :
+                                        "  CAST(ROW(TIMESTAMP '2021-07-24 03:43:57.987654', TIMESTAMP '2021-07-24 03:43:57.987654', 1, NULL) AS ROW(min timestamp(6), max timestamp(6), null_count bigint, nan_count bigint)), ") +
                                 (format == ORC ?
-                                        "  CAST(ROW(TIMESTAMP '2021-07-24 04:43:57.987000 UTC', TIMESTAMP '2021-07-24 04:43:57.987999 UTC', 1) AS ROW(min timestamp(6) with time zone, max timestamp(6) with time zone, null_count bigint)), " :
-                                        "  CAST(ROW(TIMESTAMP '2021-07-24 04:43:57.987654 UTC', TIMESTAMP '2021-07-24 04:43:57.987654 UTC', 1) AS ROW(min timestamp(6) with time zone, max timestamp(6) with time zone, null_count bigint)), ") +
+                                        "  CAST(ROW(TIMESTAMP '2021-07-24 04:43:57.987000 UTC', TIMESTAMP '2021-07-24 04:43:57.987999 UTC', 1, NULL) AS ROW(min timestamp(6) with time zone, max timestamp(6) with time zone, null_count bigint, nan_count bigint)), " :
+                                        "  CAST(ROW(TIMESTAMP '2021-07-24 04:43:57.987654 UTC', TIMESTAMP '2021-07-24 04:43:57.987654 UTC', 1, NULL) AS ROW(min timestamp(6) with time zone, max timestamp(6) with time zone, null_count bigint, nan_count bigint)), ") +
                                 (format == ORC ?
-                                        "  CAST(ROW(NULL, NULL, 1) AS ROW(min uuid, max uuid, null_count bigint)) " :
-                                        "  CAST(ROW(UUID '20050910-1330-11e9-ffff-2a86e4085a59', UUID '20050910-1330-11e9-ffff-2a86e4085a59', 1) AS ROW(min uuid, max uuid, null_count bigint)) "
+                                        "  CAST(ROW(NULL, NULL, 1, NULL) AS ROW(min uuid, max uuid, null_count bigint, nan_count bigint)) " :
+                                        "  CAST(ROW(UUID '20050910-1330-11e9-ffff-2a86e4085a59', UUID '20050910-1330-11e9-ffff-2a86e4085a59', 1, NULL) AS ROW(min uuid, max uuid, null_count bigint, nan_count bigint)) "
                                 ) +
                                 ")");
 
