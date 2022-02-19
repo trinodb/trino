@@ -432,6 +432,19 @@ public abstract class AbstractKuduConnectorTest
         throw new SkipException("Kudu connector does not support column default values");
     }
 
+    @Override
+    protected String tableDefinitionForQueryLoggingCount()
+    {
+        return "( " +
+                " foo_1 int WITH (primary_key=true), " +
+                " foo_2_4 int " +
+                ") " +
+                "WITH ( " +
+                " partition_by_hash_columns = ARRAY['foo_1'], " +
+                " partition_by_hash_buckets = 2 " +
+                ")";
+    }
+
     private void assertTableProperty(String tableProperties, String key, String regexValue)
     {
         assertTrue(Pattern.compile(key + "\\s*=\\s*" + regexValue + ",?\\s+").matcher(tableProperties).find(),

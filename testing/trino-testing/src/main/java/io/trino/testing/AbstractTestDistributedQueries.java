@@ -1143,8 +1143,8 @@ public abstract class AbstractTestDistributedQueries
             long beforeCompletedQueriesCount = waitUntilStable(() -> dispatchManager.getStats().getCompletedQueries().getTotalCount(), new Duration(5, SECONDS));
             long beforeSubmittedQueriesCount = dispatchManager.getStats().getSubmittedQueries().getTotalCount();
             String tableName = "test_logging_count" + randomTableSuffix();
-            assertUpdate("CREATE TABLE " + tableName + " AS SELECT 1 foo_1, 2 foo_2_4", 1);
-            assertQuery("SELECT foo_1, foo_2_4 FROM " + tableName, "SELECT 1, 2");
+            assertUpdate("CREATE TABLE " + tableName + tableDefinitionForQueryLoggingCount());
+            assertQueryReturnsEmptyResult("SELECT foo_1, foo_2_4 FROM " + tableName);
             assertUpdate("DROP TABLE " + tableName);
             assertQueryFails("SELECT * FROM " + tableName, ".*Table .* does not exist");
 
@@ -1154,6 +1154,15 @@ public abstract class AbstractTestDistributedQueries
                     () -> assertEquals(dispatchManager.getStats().getCompletedQueries().getTotalCount() - beforeCompletedQueriesCount, 4));
             assertEquals(dispatchManager.getStats().getSubmittedQueries().getTotalCount() - beforeSubmittedQueriesCount, 4);
         });
+    }
+
+    /**
+     * The table must have two columns foo_1 and foo_2_4 of any type.
+     */
+    @Language("SQL")
+    protected String tableDefinitionForQueryLoggingCount()
+    {
+        return "(foo_1 int, foo_2_4 int)";
     }
 
     private <T> T waitUntilStable(Supplier<T> computation, Duration timeout)
