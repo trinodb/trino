@@ -73,6 +73,6 @@ public class TestTotalReservationOnBlockedNodesLowMemoryKiller
                 lowMemoryKiller.chooseQueryToKill(
                         toQueryMemoryInfoList(queries),
                         toNodeMemoryInfoList(memoryPool, queries)),
-                Optional.of(new QueryId("q_1")));
+                Optional.of(KillTarget.wholeQuery(new QueryId("q_1"))));
     }
 }
