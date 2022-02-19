@@ -68,6 +68,7 @@ public class BinaryStatisticsBuilder
                 null,
                 null,
                 null,
+                null,
                 binaryStatistics.orElse(null),
                 null);
     }

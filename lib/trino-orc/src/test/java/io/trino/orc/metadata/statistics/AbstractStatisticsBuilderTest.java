@@ -142,6 +142,12 @@ public abstract class AbstractStatisticsBuilderTest<B extends StatisticsBuilder,
         assertNull(columnStatistics.getBloomFilter());
     }
 
+    protected static void assertNoColumnStatistics(ColumnStatistics columnStatistics, int expectedNumberOfValues, int expectedNumberOfNanValues)
+    {
+        assertNoColumnStatistics(columnStatistics, expectedNumberOfValues);
+        assertEquals(columnStatistics.getNumberOfNanValues(), expectedNumberOfNanValues);
+    }
+
     private void assertColumnStatistics(
             ColumnStatistics columnStatistics,
             int expectedNumberOfValues,
@@ -171,7 +177,7 @@ public abstract class AbstractStatisticsBuilderTest<B extends StatisticsBuilder,
     static List<ColumnStatistics> insertEmptyColumnStatisticsAt(List<ColumnStatistics> statisticsList, int index, long numberOfValues)
     {
         List<ColumnStatistics> newStatisticsList = new ArrayList<>(statisticsList);
-        newStatisticsList.add(index, new ColumnStatistics(numberOfValues, 0, null, null, null, null, null, null, null, null, null));
+        newStatisticsList.add(index, new ColumnStatistics(numberOfValues, 0, null, null, null, null, null, null, null, null, null, null));
         return newStatisticsList;
     }
 

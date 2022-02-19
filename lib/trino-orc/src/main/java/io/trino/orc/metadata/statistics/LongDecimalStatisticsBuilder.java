@@ -102,6 +102,7 @@ public class LongDecimalStatisticsBuilder
                 null,
                 null,
                 null,
+                null,
                 decimalStatistics.orElse(null),
                 null,
                 null);

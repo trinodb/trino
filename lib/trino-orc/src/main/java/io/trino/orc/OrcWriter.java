@@ -433,7 +433,7 @@ public final class OrcWriter
 
         // the 0th column is a struct column for the whole row
         columnEncodings.put(ROOT_COLUMN, new ColumnEncoding(DIRECT, 0));
-        columnStatistics.put(ROOT_COLUMN, new ColumnStatistics((long) stripeRowCount, 0, null, null, null, null, null, null, null, null, null));
+        columnStatistics.put(ROOT_COLUMN, new ColumnStatistics((long) stripeRowCount, 0, null, null, null, null, null, null, null, null, null, null));
 
         // add footer
         StripeFooter stripeFooter = new StripeFooter(allStreams, toColumnMetadata(columnEncodings, orcTypes.size()), ZoneId.of("UTC"));

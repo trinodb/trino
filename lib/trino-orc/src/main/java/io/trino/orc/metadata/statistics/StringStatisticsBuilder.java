@@ -133,6 +133,7 @@ public class StringStatisticsBuilder
                 null,
                 null,
                 null,
+                null,
                 stringStatistics.orElse(null),
                 null,
                 null,
