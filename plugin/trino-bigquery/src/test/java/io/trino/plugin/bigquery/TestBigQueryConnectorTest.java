@@ -35,7 +35,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
-public class TestBigQueryIntegrationSmokeTest
+public class TestBigQueryConnectorTest
         // TODO extend BaseConnectorTest
         extends AbstractTestIntegrationSmokeTest
 {
