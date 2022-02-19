@@ -302,6 +302,7 @@ public class TestStringStatisticsBuilder
                 null,
                 null,
                 null,
+                null,
                 minimum == null && maximum == null ? null : new StringStatistics(minimum, maximum, 100),
                 null,
                 null,
