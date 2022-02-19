@@ -341,8 +341,11 @@ public class TestIcebergOrcMetricsCollection
         // Check per-column value count
         datafile.getValueCounts().values().forEach(valueCount -> assertEquals(valueCount, (Long) 3L));
 
-        // TODO: add more checks after NaN info is collected
-        assertNull(datafile.getNanValueCounts());
+        // Check per-column nan value count
+        assertEquals(datafile.getNanValueCounts().size(), 2);
+        assertEquals(datafile.getNanValueCounts().get(2), (Long) 1L);
+        assertEquals(datafile.getNanValueCounts().get(3), (Long) 1L);
+
         assertNull(datafile.getLowerBounds().get(2));
         assertNull(datafile.getLowerBounds().get(3));
         assertNull(datafile.getUpperBounds().get(2));
