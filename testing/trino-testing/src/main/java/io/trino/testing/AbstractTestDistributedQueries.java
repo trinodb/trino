@@ -771,7 +771,7 @@ public abstract class AbstractTestDistributedQueries
     protected void skipTestUnlessSupportsDeletes()
     {
         skipTestUnless(supportsCreateTable());
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_supports_delete", "(col varchar(1))", ImmutableList.of("'a'", "'A'"))) {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_supports_delete", "(col varchar(1))")) {
             if (!supportsDelete()) {
                 assertQueryFails("DELETE FROM " + table.getName(), "This connector does not support deletes");
                 throw new SkipException("This connector does not support deletes");
