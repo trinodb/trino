@@ -28,7 +28,7 @@ public class TotalReservationOnBlockedNodesLowMemoryKiller
         implements LowMemoryKiller
 {
     @Override
-    public Optional<QueryId> chooseQueryToKill(List<QueryMemoryInfo> runningQueries, List<MemoryInfo> nodes)
+    public Optional<KillTarget> chooseQueryToKill(List<QueryMemoryInfo> runningQueries, List<MemoryInfo> nodes)
     {
         Map<QueryId, Long> memoryReservationOnBlockedNodes = new HashMap<>();
         for (MemoryInfo node : nodes) {
@@ -47,6 +47,7 @@ public class TotalReservationOnBlockedNodesLowMemoryKiller
 
         return memoryReservationOnBlockedNodes.entrySet().stream()
                 .max(comparingLong(Map.Entry::getValue))
-                .map(Map.Entry::getKey);
+                .map(Map.Entry::getKey)
+                .map(KillTarget::wholeQuery);
     }
 }
