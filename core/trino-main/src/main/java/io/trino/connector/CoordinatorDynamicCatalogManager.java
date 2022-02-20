@@ -49,6 +49,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.CATALOG_NOT_AVAILABLE;
+import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.connector.CatalogHandle.createRootCatalogHandle;
 import static io.trino.util.Executors.executeUntilFailure;
 import static java.lang.String.format;
@@ -185,7 +186,7 @@ public class CoordinatorDynamicCatalogManager
     }
 
     @Override
-    public void createCatalog(String catalogName, ConnectorName connectorName, Map<String, String> properties)
+    public void createCatalog(String catalogName, ConnectorName connectorName, Map<String, String> properties, boolean notExists)
     {
         requireNonNull(catalogName, "catalogName is null");
         requireNonNull(connectorName, "connectorName is null");
@@ -196,7 +197,10 @@ public class CoordinatorDynamicCatalogManager
             checkState(state != State.STOPPED, "ConnectorManager is stopped");
 
             if (activeCatalogs.containsKey(catalogName)) {
-                throw new TrinoException(ALREADY_EXISTS, format("Catalog '%s' already exists", catalogName));
+                if (!notExists) {
+                    throw new TrinoException(ALREADY_EXISTS, format("Catalog '%s' already exists", catalogName));
+                }
+                return;
             }
 
             // get or create catalog for the handle
@@ -229,6 +233,31 @@ public class CoordinatorDynamicCatalogManager
         finally {
             catalogsUpdateLock.unlock();
         }
+    }
+
+    @Override
+    public void dropCatalog(String catalogName, boolean exists)
+    {
+        requireNonNull(catalogName, "catalogName is null");
+
+        boolean removed;
+        catalogsUpdateLock.lock();
+        try {
+            if (state == State.STOPPED) {
+                return;
+            }
+
+            removed = activeCatalogs.remove(catalogName) != null;
+        }
+        finally {
+            catalogsUpdateLock.unlock();
+        }
+
+        if (!removed && !exists) {
+            throw new TrinoException(NOT_FOUND, format("Catalog '%s' does not exist", catalogName));
+        }
+        // Do not shut down the catalog, because there may still be running queries using this catalog.
+        // Catalog shutdown logic will be added later.
     }
 
     static CatalogVersion computeCatalogVersion(String catalogName, ConnectorName connectorName, Map<String, String> properties)

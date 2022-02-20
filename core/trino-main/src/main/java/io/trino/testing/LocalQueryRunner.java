@@ -736,7 +736,12 @@ public class LocalQueryRunner
     public void createCatalog(String catalogName, ConnectorFactory connectorFactory, Map<String, String> properties)
     {
         catalogFactory.addConnectorFactory(connectorFactory, ignored -> connectorFactory.getClass().getClassLoader());
-        catalogManager.createCatalog(catalogName, new ConnectorName(connectorFactory.getName()), properties);
+        catalogManager.createCatalog(catalogName, new ConnectorName(connectorFactory.getName()), properties, false);
+    }
+
+    public void registerCatalogFactory(ConnectorFactory connectorFactory)
+    {
+        catalogFactory.addConnectorFactory(connectorFactory, ignored -> connectorFactory.getClass().getClassLoader());
     }
 
     @Override
@@ -754,7 +759,7 @@ public class LocalQueryRunner
     @Override
     public void createCatalog(String catalogName, String connectorName, Map<String, String> properties)
     {
-        catalogManager.createCatalog(catalogName, new ConnectorName(connectorName), properties);
+        catalogManager.createCatalog(catalogName, new ConnectorName(connectorName), properties, false);
     }
 
     public CatalogManager getCatalogManager()
