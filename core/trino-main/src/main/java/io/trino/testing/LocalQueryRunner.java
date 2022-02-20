@@ -847,6 +847,12 @@ public class LocalQueryRunner
         return createDrivers(defaultSession, sql, outputFactory, taskContext);
     }
 
+    @Override
+    public void loadExchangeManager(String name, Map<String, String> properties)
+    {
+        exchangeManagerRegistry.loadExchangeManager(name, properties);
+    }
+
     public List<Driver> createDrivers(Session session, @Language("SQL") String sql, OutputFactory outputFactory, TaskContext taskContext)
     {
         Plan plan = createPlan(session, sql, WarningCollector.NOOP);

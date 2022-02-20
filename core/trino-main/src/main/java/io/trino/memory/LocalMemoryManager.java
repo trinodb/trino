@@ -14,19 +14,12 @@
 package io.trino.memory;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
-import io.trino.spi.memory.MemoryPoolId;
-import io.trino.spi.memory.MemoryPoolInfo;
 
 import javax.inject.Inject;
 
 import java.lang.management.ManagementFactory;
 import java.lang.management.OperatingSystemMXBean;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
 
 import static com.google.common.base.Verify.verify;
 import static java.lang.String.format;
@@ -34,12 +27,9 @@ import static java.util.Objects.requireNonNull;
 
 public final class LocalMemoryManager
 {
-    public static final MemoryPoolId GENERAL_POOL = new MemoryPoolId("general");
-    public static final MemoryPoolId RESERVED_POOL = new MemoryPoolId("reserved");
     private static final OperatingSystemMXBean OPERATING_SYSTEM_MX_BEAN = ManagementFactory.getOperatingSystemMXBean();
 
-    private DataSize maxMemory;
-    private Map<MemoryPoolId, MemoryPool> pools;
+    private final MemoryPool memoryPool;
 
     @Inject
     public LocalMemoryManager(NodeMemoryConfig config)
@@ -51,29 +41,17 @@ public final class LocalMemoryManager
     LocalMemoryManager(NodeMemoryConfig config, long availableMemory)
     {
         requireNonNull(config, "config is null");
-        configureMemoryPools(config, availableMemory);
-    }
-
-    private void configureMemoryPools(NodeMemoryConfig config, long availableMemory)
-    {
         validateHeapHeadroom(config, availableMemory);
-        maxMemory = DataSize.ofBytes(availableMemory - config.getHeapHeadroom().toBytes());
-        ImmutableMap.Builder<MemoryPoolId, MemoryPool> builder = ImmutableMap.builder();
-        long generalPoolSize = maxMemory.toBytes();
-        if (!config.isReservedPoolDisabled()) {
-            builder.put(RESERVED_POOL, new MemoryPool(RESERVED_POOL, config.getMaxQueryMemoryPerNode()));
-            generalPoolSize -= config.getMaxQueryMemoryPerNode().toBytes();
-        }
-        verify(generalPoolSize > 0, "general memory pool size is 0");
-        builder.put(GENERAL_POOL, new MemoryPool(GENERAL_POOL, DataSize.ofBytes(generalPoolSize)));
-        this.pools = builder.buildOrThrow();
+        DataSize memoryPoolSize = DataSize.ofBytes(availableMemory - config.getHeapHeadroom().toBytes());
+        verify(memoryPoolSize.toBytes() > 0, "memory pool size is 0");
+        memoryPool = new MemoryPool(memoryPoolSize);
     }
 
     private void validateHeapHeadroom(NodeMemoryConfig config, long availableMemory)
     {
         long maxQueryTotalMemoryPerNode = config.getMaxQueryMemoryPerNode().toBytes();
         long heapHeadroom = config.getHeapHeadroom().toBytes();
-        // (availableMemory - maxQueryTotalMemoryPerNode) bytes will be available for the general pool and the
+        // (availableMemory - maxQueryTotalMemoryPerNode) bytes will be available for the memory pool and the
         // headroom/untracked allocations, so the heapHeadroom cannot be larger than that space.
         if (heapHeadroom < 0 || heapHeadroom + maxQueryTotalMemoryPerNode > availableMemory) {
             throw new IllegalArgumentException(
@@ -86,25 +64,11 @@ public final class LocalMemoryManager
 
     public MemoryInfo getInfo()
     {
-        ImmutableMap.Builder<MemoryPoolId, MemoryPoolInfo> builder = ImmutableMap.builder();
-        for (Map.Entry<MemoryPoolId, MemoryPool> entry : pools.entrySet()) {
-            builder.put(entry.getKey(), entry.getValue().getInfo());
-        }
-        return new MemoryInfo(OPERATING_SYSTEM_MX_BEAN.getAvailableProcessors(), maxMemory, builder.buildOrThrow());
+        return new MemoryInfo(OPERATING_SYSTEM_MX_BEAN.getAvailableProcessors(), memoryPool.getInfo());
     }
 
-    public List<MemoryPool> getPools()
+    public MemoryPool getMemoryPool()
     {
-        return ImmutableList.copyOf(pools.values());
-    }
-
-    public MemoryPool getGeneralPool()
-    {
-        return pools.get(GENERAL_POOL);
-    }
-
-    public Optional<MemoryPool> getReservedPool()
-    {
-        return Optional.ofNullable(pools.get(RESERVED_POOL));
+        return memoryPool;
     }
 }

@@ -664,7 +664,7 @@ public class TestDynamicFilterService
                 queryId,
                 0,
                 dynamicFilters,
-                (domains) -> domains.forEach((filter, domain) -> assertNull(consumerCollectedFilters.put(filter, domain))));
+                domains -> domains.forEach((filter, domain) -> assertNull(consumerCollectedFilters.put(filter, domain))));
         assertTrue(consumerCollectedFilters.isEmpty());
 
         dynamicFilterService.addTaskDynamicFilters(
@@ -686,7 +686,7 @@ public class TestDynamicFilterService
                 queryId,
                 0,
                 ImmutableSet.of(filterId1),
-                (domains) -> domains.forEach((filter, domain) -> assertNull(secondConsumerCollectedFilters.put(filter, domain))));
+                domains -> domains.forEach((filter, domain) -> assertNull(secondConsumerCollectedFilters.put(filter, domain))));
         assertEquals(secondConsumerCollectedFilters, ImmutableMap.of(filterId1, multipleValues(INTEGER, ImmutableList.of(1L, 3L))));
 
         // complete filterId2
@@ -722,7 +722,7 @@ public class TestDynamicFilterService
                 queryId,
                 0,
                 dynamicFilters,
-                (domains) -> {
+                domains -> {
                     callbackCount.getAndIncrement();
                     domains.forEach((filter, domain) -> assertNull(consumerCollectedFilters.put(filter, domain)));
                 });
@@ -756,7 +756,7 @@ public class TestDynamicFilterService
                 queryId,
                 0,
                 dynamicFilters,
-                (domains) -> {
+                domains -> {
                     secondCallbackCount.getAndIncrement();
                     domains.forEach((filter, domain) -> assertNull(secondConsumerCollectedFilters.put(filter, domain)));
                 });

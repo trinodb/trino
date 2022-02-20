@@ -75,7 +75,7 @@ final class PageReference
         static PageReleasedListener forLocalExchangeMemoryManager(LocalExchangeMemoryManager memoryManager)
         {
             requireNonNull(memoryManager, "memoryManager is null");
-            return (releasedSizeInBytes) -> memoryManager.updateMemoryUsage(-releasedSizeInBytes);
+            return releasedSizeInBytes -> memoryManager.updateMemoryUsage(-releasedSizeInBytes);
         }
     }
 }

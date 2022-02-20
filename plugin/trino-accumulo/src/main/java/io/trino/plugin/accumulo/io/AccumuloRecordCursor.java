@@ -54,7 +54,6 @@ import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 /**
  * Implementation of Trino RecordCursor, responsible for iterating over a Trino split,
@@ -203,7 +202,7 @@ public class AccumuloRecordCursor
             return serializer.getLong(fieldToColumnName[field]);
         }
         if (type.equals(DATE)) {
-            return MILLISECONDS.toDays(serializer.getDate(fieldToColumnName[field]).getTime());
+            return serializer.getDate(fieldToColumnName[field]);
         }
         if (type.equals(INTEGER)) {
             return serializer.getInt(fieldToColumnName[field]);

@@ -13,184 +13,232 @@
  */
 package io.trino.collect.cache;
 
-import com.google.common.cache.AbstractCache;
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.cache.AbstractLoadingCache;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
 import com.google.common.cache.CacheStats;
-import com.google.common.util.concurrent.SettableFuture;
+import com.google.common.cache.LoadingCache;
+import com.google.common.cache.RemovalCause;
+import com.google.common.collect.BiMap;
+import com.google.common.collect.HashBiMap;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.util.concurrent.ListenableFuture;
 import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import javax.annotation.CheckForNull;
 
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.Callable;
-import java.util.concurrent.CancellationException;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
 
-import static io.trino.collect.cache.MoreFutures.getDone;
-import static java.lang.System.nanoTime;
+import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 /**
- * A {@link Cache} implementation similar to ones produced by {@link CacheBuilder#build()}, but one that does not exhibit
- * <a href="https://github.com/google/guava/issues/1881">Guava issue #1881</a>: a cache inspection with
- * {@link #getIfPresent(Object)} or {@link #get(Object, Callable)} is guaranteed to return fresh state after
- * {@link #invalidate(Object)}, {@link #invalidateAll(Iterable)} or {@link #invalidateAll()} were called.
+ * A {@link Cache} and {@link LoadingCache} implementation similar to ones produced by {@link CacheBuilder#build()},
+ * but one that does not exhibit <a href="https://github.com/google/guava/issues/1881">Guava issue #1881</a>:
+ * a cache inspection with {@link #getIfPresent(Object)} or {@link #get(Object, Callable)} is guaranteed to return
+ * fresh state after {@link #invalidate(Object)}, {@link #invalidateAll(Iterable)} or {@link #invalidateAll()} were called.
+ *
+ * @see EvictableCacheBuilder
  */
-public class EvictableCache<K, V>
-        extends AbstractCache<K, V>
-        implements Cache<K, V>
+class EvictableCache<K, V>
+        extends AbstractLoadingCache<K, V>
+        implements LoadingCache<K, V>
 {
-    /**
-     * @apiNote Piggy-back on {@link CacheBuilder} for cache TTL.
-     */
-    public static <K, V> EvictableCache<K, V> buildWith(CacheBuilder<? super K, Object> cacheBuilder)
+    // Invariant: for every (K, token) entry in the tokens map, there is a live
+    // cache entry (token, ?) in dataCache, that, upon eviction, will cause the tokens'
+    // entry to be removed.
+    private final ConcurrentHashMap<K, Token<K>> tokens = new ConcurrentHashMap<>();
+    // The dataCache can have entries with no corresponding tokens in the tokens map.
+    // For example, this can happen when invalidation concurs with load.
+    // The dataCache must be bounded.
+    private final LoadingCache<Token<K>, V> dataCache;
+
+    EvictableCache(CacheBuilder<? super Token<K>, ? super V> cacheBuilder, CacheLoader<? super K, V> cacheLoader)
     {
-        return new EvictableCache<>(cacheBuilder);
+        dataCache = buildUnsafeCache(
+                cacheBuilder
+                        .<Token<K>, V>removalListener(removal -> {
+                            Token<K> token = removal.getKey();
+                            verify(token != null, "token is null");
+                            if (removal.getCause() != RemovalCause.REPLACED) {
+                                tokens.remove(token.getKey(), token);
+                            }
+                        }),
+                new TokenCacheLoader<>(cacheLoader));
     }
 
-    // private final Map<K, Future<V>> map = new ConcurrentHashMap<>();
-    private final Cache<K, Future<V>> delegate;
-
-    private final StatsCounter statsCounter = new SimpleStatsCounter();
-
-    private EvictableCache(CacheBuilder<? super K, Object> cacheBuilder)
+    @SuppressModernizer // CacheBuilder.build(CacheLoader) is forbidden, advising to use this class as a safety-adding wrapper.
+    private static <K, V> LoadingCache<K, V> buildUnsafeCache(CacheBuilder<? super K, ? super V> cacheBuilder, CacheLoader<? super K, V> cacheLoader)
     {
-        requireNonNull(cacheBuilder, "cacheBuilder is null");
-        this.delegate = buildUnsafeCache(cacheBuilder);
-    }
-
-    @SuppressModernizer // CacheBuilder.build() is forbidden, advising to use this class as a safety-adding wrapper.
-    private static <K, V> Cache<K, V> buildUnsafeCache(CacheBuilder<? super K, ? super V> cacheBuilder)
-    {
-        return cacheBuilder.build();
+        return cacheBuilder.build(cacheLoader);
     }
 
     @CheckForNull
     @Override
     public V getIfPresent(Object key)
     {
-        Future<V> future = delegate.getIfPresent(key);
-        if (future != null && future.isDone()) {
-            statsCounter.recordHits(1);
-            return getDone(future);
+        @SuppressWarnings("SuspiciousMethodCalls") // Object passed to map as key K
+        Token<K> token = tokens.get(key);
+        if (token == null) {
+            return null;
         }
-        statsCounter.recordMisses(1);
-        return null;
+        return dataCache.getIfPresent(token);
     }
 
     @Override
-    public V get(K key, Callable<? extends V> loader)
+    public V get(K key, Callable<? extends V> valueLoader)
             throws ExecutionException
     {
-        requireNonNull(key, "key is null");
-        requireNonNull(loader, "loader is null");
-
-        while (true) {
-            SettableFuture<V> newFuture = SettableFuture.create();
-            Future<V> future = delegate.asMap().computeIfAbsent(key, ignored -> newFuture);
-            if (future.isDone() && !future.isCancelled()) {
-                statsCounter.recordHits(1);
-                return getDone(future);
+        Token<K> newToken = new Token<>(key);
+        Token<K> token = tokens.computeIfAbsent(key, ignored -> newToken);
+        try {
+            return dataCache.get(token, valueLoader);
+        }
+        catch (Throwable e) {
+            if (newToken == token) {
+                // Failed to load and it was our new token persisted in tokens map.
+                // No cache entry exists for the token (unless concurrent load happened),
+                // so we need to remove it.
+                tokens.remove(key, newToken);
             }
-
-            statsCounter.recordMisses(1);
-            if (future == newFuture) {
-                // We put the future in.
-
-                V computed;
-                long loadStartNanos = nanoTime();
-                try {
-                    computed = loader.call();
-                    requireNonNull(computed, "computed is null");
-                }
-                catch (Exception e) {
-                    statsCounter.recordLoadException(nanoTime() - loadStartNanos);
-                    delegate.asMap().remove(key, newFuture);
-                    // wake up waiters, let them retry
-                    newFuture.cancel(false);
-                    throw new ExecutionException(e);
-                }
-                statsCounter.recordLoadSuccess(nanoTime() - loadStartNanos);
-                newFuture.set(computed);
-                return computed;
-            }
-
-            // Someone else is loading the key, let's wait.
-            try {
-                return future.get();
-            }
-            catch (CancellationException e) {
-                // Invalidated, or load failed
-            }
-            catch (ExecutionException e) {
-                // Should never happen
-                throw new IllegalStateException("Future unexpectedly completed with exception", e);
-            }
-            catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                throw new RuntimeException("Interrupted", e);
-            }
-
-            // Someone else was loading the key, but the load was invalidated.
+            throw e;
         }
     }
 
     @Override
-    public void put(K key, V value)
+    public V get(K key)
+            throws ExecutionException
     {
-        throw new UnsupportedOperationException("The operation is not supported, as in inherently races with cache invalidation. Use get(key, callable) instead.");
+        Token<K> newToken = new Token<>(key);
+        Token<K> token = tokens.computeIfAbsent(key, ignored -> newToken);
+        try {
+            return dataCache.get(token);
+        }
+        catch (Throwable e) {
+            if (newToken == token) {
+                // Failed to load and it was our new token persisted in tokens map.
+                // No cache entry exists for the token (unless concurrent load happened),
+                // so we need to remove it.
+                tokens.remove(key, newToken);
+            }
+            throw e;
+        }
     }
 
     @Override
-    public void invalidate(Object key)
+    public ImmutableMap<K, V> getAll(Iterable<? extends K> keys)
+            throws ExecutionException
     {
-        delegate.invalidate(key);
+        List<Token<K>> newTokens = new ArrayList<>();
+        try {
+            BiMap<K, Token<K>> keyToToken = HashBiMap.create();
+            for (K key : keys) {
+                // This is not bulk, but is fast local operation
+                Token<K> newToken = new Token<>(key);
+                Token<K> token = tokens.computeIfAbsent(key, ignored -> newToken);
+                keyToToken.put(key, token);
+                if (token == newToken) {
+                    newTokens.add(newToken);
+                }
+            }
+
+            Map<Token<K>, V> values = dataCache.getAll(keyToToken.values());
+
+            BiMap<Token<K>, K> tokenToKey = keyToToken.inverse();
+            ImmutableMap.Builder<K, V> result = ImmutableMap.builder();
+            for (Map.Entry<Token<K>, V> entry : values.entrySet()) {
+                Token<K> token = entry.getKey();
+
+                // While token.getKey() returns equal key, a caller may expect us to maintain key identity, in case equal keys are still distinguishable.
+                K key = tokenToKey.get(token);
+                checkState(key != null, "No key found for %s in %s when loading %s", token, tokenToKey, keys);
+
+                result.put(key, entry.getValue());
+            }
+            return result.buildOrThrow();
+        }
+        catch (Throwable e) {
+            for (Token<K> token : newTokens) {
+                // Failed to load and it was our new token persisted in tokens map.
+                // No cache entry exists for the token (unless concurrent load happened),
+                // so we need to remove it.
+                tokens.remove(token.getKey(), token);
+            }
+            throw e;
+        }
     }
 
     @Override
-    public void invalidateAll(Iterable<?> keys)
+    public void refresh(K key)
     {
-        delegate.invalidateAll(keys);
-    }
-
-    @Override
-    public void invalidateAll()
-    {
-        delegate.invalidateAll();
+        // The refresh loads a new entry, if it wasn't in the cache yet. Thus, we would create a new Token.
+        // However, dataCache.refresh is asynchronous and may fail, so no cache entry may be created.
+        // In such case we would leak the newly created token.
+        throw new UnsupportedOperationException();
     }
 
     @Override
     public long size()
     {
-        // Includes entries being computed. Approximate, as allowed per method contract.
-        return delegate.size();
+        return dataCache.size();
+    }
+
+    @Override
+    public void cleanUp()
+    {
+        dataCache.cleanUp();
+    }
+
+    @VisibleForTesting
+    int tokensCount()
+    {
+        return tokens.size();
+    }
+
+    @Override
+    public void invalidate(Object key)
+    {
+        @SuppressWarnings("SuspiciousMethodCalls") // Object passed to map as key K
+        Token<K> token = tokens.remove(key);
+        if (token != null) {
+            dataCache.invalidate(token);
+        }
+    }
+
+    @Override
+    public void invalidateAll()
+    {
+        dataCache.invalidateAll();
+        tokens.clear();
     }
 
     @Override
     public CacheStats stats()
     {
-        return statsCounter.snapshot().plus(
-                new CacheStats(
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                        delegate.stats().evictionCount()));
+        return dataCache.stats();
     }
 
     @Override
     public ConcurrentMap<K, V> asMap()
     {
-        ConcurrentMap<K, Future<V>> delegate = this.delegate.asMap();
         return new ConcurrentMap<K, V>()
         {
+            private final ConcurrentMap<Token<K>, V> dataCacheMap = dataCache.asMap();
+
             @Override
             public V putIfAbsent(K key, V value)
             {
@@ -200,14 +248,22 @@ public class EvictableCache<K, V>
             @Override
             public boolean remove(Object key, Object value)
             {
-                // We could use delegate.compute(key, ..) to check existence and remove, but compute takes `K key` and we have `Object`
-                throw new UnsupportedOperationException();
+                @SuppressWarnings("SuspiciousMethodCalls") // Object passed to map as key K
+                Token<K> token = tokens.get(key);
+                if (token != null) {
+                    return dataCacheMap.remove(token, value);
+                }
+                return false;
             }
 
             @Override
             public boolean replace(K key, V oldValue, V newValue)
             {
-                throw new UnsupportedOperationException("The operation is not supported, as in inherently races with cache invalidation");
+                Token<K> token = tokens.get(key);
+                if (token != null) {
+                    return dataCacheMap.replace(token, oldValue, newValue);
+                }
+                return false;
             }
 
             @Override
@@ -219,30 +275,25 @@ public class EvictableCache<K, V>
             @Override
             public int size()
             {
-                return delegate.size();
+                return dataCache.asMap().size();
             }
 
             @Override
             public boolean isEmpty()
             {
-                return delegate.isEmpty();
+                return dataCache.asMap().isEmpty();
             }
 
             @Override
             public boolean containsKey(Object key)
             {
-                return delegate.containsKey(key);
+                return tokens.containsKey(key);
             }
 
             @Override
             public boolean containsValue(Object value)
             {
-                for (Future<V> future : delegate.values()) {
-                    if (future.isDone() && !future.isCancelled() && Objects.equals(getDone(future), value)) {
-                        return true;
-                    }
-                }
-                return false;
+                return values().contains(value);
             }
 
             @Override
@@ -260,9 +311,9 @@ public class EvictableCache<K, V>
             @Override
             public V remove(Object key)
             {
-                Future<V> future = delegate.remove(key);
-                if (future != null && future.isDone() && !future.isCancelled()) {
-                    return getDone(future);
+                Token<K> token = tokens.remove(key);
+                if (token != null) {
+                    return dataCacheMap.remove(token);
                 }
                 return null;
             }
@@ -276,33 +327,106 @@ public class EvictableCache<K, V>
             @Override
             public void clear()
             {
-                delegate.clear();
+                dataCacheMap.clear();
+                tokens.clear();
             }
 
             @Override
             public Set<K> keySet()
             {
-                return delegate.keySet();
+                return tokens.keySet();
             }
 
             @Override
             public Collection<V> values()
             {
-                // values() should be a view, but also, it has a size and, iterating values shouldn't throw for incomplete futures.
-                throw new UnsupportedOperationException();
+                return dataCacheMap.values();
             }
 
             @Override
-            public Set<Entry<K, V>> entrySet()
+            public Set<Map.Entry<K, V>> entrySet()
             {
                 throw new UnsupportedOperationException();
             }
         };
     }
 
-    @Override
-    public void cleanUp()
+    // instance-based equality
+    static final class Token<K>
     {
-        delegate.cleanUp();
+        private final K key;
+
+        Token(K key)
+        {
+            this.key = requireNonNull(key, "key is null");
+        }
+
+        K getKey()
+        {
+            return key;
+        }
+
+        @Override
+        public String toString()
+        {
+            return format("CacheToken(%s; %s)", Integer.toHexString(hashCode()), key);
+        }
+    }
+
+    private static class TokenCacheLoader<K, V>
+            extends CacheLoader<Token<K>, V>
+    {
+        private final CacheLoader<? super K, V> delegate;
+
+        public TokenCacheLoader(CacheLoader<? super K, V> delegate)
+        {
+            this.delegate = requireNonNull(delegate, "delegate is null");
+        }
+
+        @Override
+        public V load(Token<K> token)
+                throws Exception
+        {
+            return delegate.load(token.getKey());
+        }
+
+        @Override
+        public ListenableFuture<V> reload(Token<K> token, V oldValue)
+                throws Exception
+        {
+            return delegate.reload(token.getKey(), oldValue);
+        }
+
+        @Override
+        public Map<Token<K>, V> loadAll(Iterable<? extends Token<K>> tokens)
+                throws Exception
+        {
+            List<Token<K>> tokenList = ImmutableList.copyOf(tokens);
+            List<K> keys = new ArrayList<>();
+            for (Token<K> token : tokenList) {
+                keys.add(token.getKey());
+            }
+            Map<? super K, V> values = delegate.loadAll(keys);
+
+            ImmutableMap.Builder<Token<K>, V> result = ImmutableMap.builder();
+            for (int i = 0; i < tokenList.size(); i++) {
+                Token<K> token = tokenList.get(i);
+                K key = keys.get(i);
+                V value = values.get(key);
+                // CacheLoader.loadAll is not guaranteed to return values for all the keys
+                if (value != null) {
+                    result.put(token, value);
+                }
+            }
+            return result.buildOrThrow();
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .addValue(delegate)
+                    .toString();
+        }
     }
 }

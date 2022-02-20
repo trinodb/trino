@@ -198,7 +198,7 @@ public class TestHivePlans
     @Test
     public void testSubsumePartitionPartOfAFilter()
     {
-        // Test that the partition filter is fully subsumed (TODO it's not) into the partitioned table, while also being propagated into the other Join side, in the presence
+        // Test that the partition filter is fully subsumed into the partitioned table, while also being propagated into the other Join side, in the presence
         // of other pushdown-able filter.
         // Join is important because it triggers PredicatePushDown logic (EffectivePredicateExtractor)
         assertDistributedPlan(
@@ -210,12 +210,12 @@ public class TestHivePlans
                                 join(INNER, List.of(equiJoinClause("L_INT_PART", "R_INT_COL")),
                                         exchange(REMOTE, REPARTITION,
                                                 project(
-                                                        filter("L_STR_COL != 'three' AND L_INT_PART IN (2, 3, 4)", // TODO the L_INT_PART filter is redundant
+                                                        filter("L_STR_COL != 'three'",
                                                                 tableScan("table_int_partitioned", Map.of("L_INT_PART", "int_part", "L_STR_COL", "str_col"))))),
                                         exchange(LOCAL,
                                                 exchange(REMOTE, REPARTITION,
                                                         project(
-                                                                filter("R_INT_COL IN (2, 3, 4)",
+                                                                filter("R_INT_COL IN (2, 3, 4) AND R_INT_COL BETWEEN 2 AND 4", // TODO: R_INT_COL BETWEEN 2 AND 4 is redundant
                                                                         tableScan("table_unpartitioned", Map.of("R_STR_COL", "str_col", "R_INT_COL", "int_col"))))))))));
     }
 

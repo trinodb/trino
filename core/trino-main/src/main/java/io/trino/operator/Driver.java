@@ -185,7 +185,7 @@ public class Driver
         exclusiveLock.interruptCurrentOwner();
 
         // if we can get the lock, attempt a clean shutdown; otherwise someone else will shutdown
-        tryWithLock(() -> TRUE);
+        tryWithLockUninterruptibly(() -> TRUE);
     }
 
     public boolean isFinished()
@@ -193,7 +193,7 @@ public class Driver
         checkLockNotHeld("Cannot check finished status while holding the driver lock");
 
         // if we can get the lock, attempt a clean shutdown; otherwise someone else will shutdown
-        Optional<Boolean> result = tryWithLock(this::isFinishedInternal);
+        Optional<Boolean> result = tryWithLockUninterruptibly(this::isFinishedInternal);
         return result.orElseGet(() -> state.get() != State.ALIVE || driverContext.isDone());
     }
 
@@ -221,7 +221,7 @@ public class Driver
 
         // attempt to get the lock and process the updates we staged above
         // updates will be processed in close if and only if we got the lock
-        tryWithLock(() -> TRUE);
+        tryWithLockUninterruptibly(() -> TRUE);
     }
 
     @GuardedBy("exclusiveLock")
@@ -282,7 +282,7 @@ public class Driver
 
         long maxRuntime = duration.roundTo(TimeUnit.NANOSECONDS);
 
-        Optional<ListenableFuture<Void>> result = tryWithLock(100, TimeUnit.MILLISECONDS, () -> {
+        Optional<ListenableFuture<Void>> result = tryWithLock(100, TimeUnit.MILLISECONDS, true, () -> {
             OperationTimer operationTimer = createTimer();
             driverContext.startProcessTimer();
             driverContext.getYieldSignal().setWithDelay(maxRuntime, driverContext.getYieldExecutor());
@@ -315,7 +315,7 @@ public class Driver
             return blockedFuture;
         }
 
-        Optional<ListenableFuture<Void>> result = tryWithLock(100, TimeUnit.MILLISECONDS, () -> {
+        Optional<ListenableFuture<Void>> result = tryWithLock(100, TimeUnit.MILLISECONDS, true, () -> {
             ListenableFuture<Void> future = processInternal(createTimer());
             return updateDriverBlockedFuture(future);
         });
@@ -654,20 +654,31 @@ public class Driver
         return result;
     }
 
-    // Note: task cannot return null
-    private <T> Optional<T> tryWithLock(Supplier<T> task)
+    /**
+     * Try to acquire the {@code exclusiveLock} immediately and run a {@code task}
+     * The task will not be interrupted if the {@code Driver} is closed.
+     * <p>
+     * Note: task cannot return null
+     */
+    private <T> Optional<T> tryWithLockUninterruptibly(Supplier<T> task)
     {
-        return tryWithLock(0, TimeUnit.MILLISECONDS, task);
+        return tryWithLock(0, TimeUnit.MILLISECONDS, false, task);
     }
 
-    // Note: task cannot return null
-    private <T> Optional<T> tryWithLock(long timeout, TimeUnit unit, Supplier<T> task)
+    /**
+     * Try to acquire the {@code exclusiveLock} with {@code timeout} and run a {@code task}.
+     * If the {@code interruptOnClose} flag is set to {@code true} the {@code task} will be
+     * interrupted if the {@code Driver} is closed.
+     * <p>
+     * Note: task cannot return null
+     */
+    private <T> Optional<T> tryWithLock(long timeout, TimeUnit unit, boolean interruptOnClose, Supplier<T> task)
     {
         checkLockNotHeld("Lock cannot be reacquired");
 
         boolean acquired = false;
         try {
-            acquired = exclusiveLock.tryLock(timeout, unit);
+            acquired = exclusiveLock.tryLock(timeout, unit, interruptOnClose);
         }
         catch (InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -701,7 +712,7 @@ public class Driver
         // The first condition is for processing the pending updates if this driver is still ALIVE
         // The second condition is to destroy the driver if the state is NEED_DESTRUCTION
         while (((pendingSplitAssignmentUpdates.get() != null && state.get() == State.ALIVE) || state.get() == State.NEED_DESTRUCTION)
-                && exclusiveLock.tryLock()) {
+                && exclusiveLock.tryLock(interruptOnClose)) {
             try {
                 try {
                     processNewSources();
@@ -724,6 +735,8 @@ public class Driver
 
         @GuardedBy("this")
         private Thread currentOwner;
+        @GuardedBy("this")
+        private boolean currentOwnerInterruptionAllowed;
 
         @GuardedBy("this")
         private List<StackTraceElement> interrupterStack;
@@ -733,31 +746,32 @@ public class Driver
             return lock.isHeldByCurrentThread();
         }
 
-        public boolean tryLock()
+        public boolean tryLock(boolean currentThreadInterruptionAllowed)
         {
             checkState(!lock.isHeldByCurrentThread(), "Lock is not reentrant");
             boolean acquired = lock.tryLock();
             if (acquired) {
-                setOwner();
+                setOwner(currentThreadInterruptionAllowed);
             }
             return acquired;
         }
 
-        public boolean tryLock(long timeout, TimeUnit unit)
+        public boolean tryLock(long timeout, TimeUnit unit, boolean currentThreadInterruptionAllowed)
                 throws InterruptedException
         {
             checkState(!lock.isHeldByCurrentThread(), "Lock is not reentrant");
             boolean acquired = lock.tryLock(timeout, unit);
             if (acquired) {
-                setOwner();
+                setOwner(currentThreadInterruptionAllowed);
             }
             return acquired;
         }
 
-        private synchronized void setOwner()
+        private synchronized void setOwner(boolean interruptionAllowed)
         {
             checkState(lock.isHeldByCurrentThread(), "Current thread does not hold lock");
             currentOwner = Thread.currentThread();
+            currentOwnerInterruptionAllowed = interruptionAllowed;
             // NOTE: We do not use interrupted stack information to know that another
             // thread has attempted to interrupt the driver, and interrupt this new lock
             // owner.  The interrupted stack information is for debugging purposes only.
@@ -769,6 +783,7 @@ public class Driver
         {
             checkState(lock.isHeldByCurrentThread(), "Current thread does not hold lock");
             currentOwner = null;
+            currentOwnerInterruptionAllowed = false;
             lock.unlock();
         }
 
@@ -779,6 +794,9 @@ public class Driver
 
         public synchronized void interruptCurrentOwner()
         {
+            if (!currentOwnerInterruptionAllowed) {
+                return;
+            }
             // there is a benign race condition here were the lock holder
             // can be change between attempting to get lock and grabbing
             // the synchronized lock here, but in either case we want to

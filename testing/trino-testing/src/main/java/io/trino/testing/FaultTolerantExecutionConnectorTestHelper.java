@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;
 
-public class FaultTolerantExecutionConnectorTestHelper
+public final class FaultTolerantExecutionConnectorTestHelper
 {
     private FaultTolerantExecutionConnectorTestHelper() {}
 

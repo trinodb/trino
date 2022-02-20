@@ -171,6 +171,7 @@ public class TestClickHouseConnectorTest
         assertFalse(getQueryRunner().tableExists(getSession(), tableName));
     }
 
+    @Test
     @Override
     public void testShowCreateTable()
     {
@@ -185,6 +186,9 @@ public class TestClickHouseConnectorTest
                         "   clerk varchar,\n" +
                         "   shippriority integer,\n" +
                         "   comment varchar\n" +
+                        ")\n" +
+                        "WITH (\n" +
+                        "   engine = 'LOG'\n" +
                         ")");
     }
 
@@ -264,13 +268,6 @@ public class TestClickHouseConnectorTest
                 "Unable to set catalog 'clickhouse' table property 'engine' to.*");
     }
 
-    /**
-     * test clickhouse table properties
-     * <p>
-     * Because the current connector does not support the `show create table` statement to display all the table properties,
-     * so we cannot use this statement to test whether the properties of the created table meet our expectations,
-     * and we will modify the test case after the `show create table` is full supported
-     */
     @Test
     public void testTableProperty()
     {
@@ -282,15 +279,39 @@ public class TestClickHouseConnectorTest
 
         // one required property
         assertUpdate("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR) WITH (engine = 'Log')");
-        assertTrue(getQueryRunner().tableExists(getSession(), tableName));
+        assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName))
+                .isEqualTo(format("" +
+                        "CREATE TABLE clickhouse.tpch.%s (\n" +
+                        "   id integer NOT NULL,\n" +
+                        "   x varchar\n" +
+                        ")\n" +
+                        "WITH (\n" +
+                        "   engine = 'LOG'\n" +
+                        ")", tableName));
         assertUpdate("DROP TABLE " + tableName);
 
         assertUpdate("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR) WITH (engine = 'StripeLog')");
-        assertTrue(getQueryRunner().tableExists(getSession(), tableName));
+        assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName))
+                .isEqualTo(format("" +
+                        "CREATE TABLE clickhouse.tpch.%s (\n" +
+                        "   id integer NOT NULL,\n" +
+                        "   x varchar\n" +
+                        ")\n" +
+                        "WITH (\n" +
+                        "   engine = 'STRIPELOG'\n" +
+                        ")", tableName));
         assertUpdate("DROP TABLE " + tableName);
 
         assertUpdate("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR) WITH (engine = 'TinyLog')");
-        assertTrue(getQueryRunner().tableExists(getSession(), tableName));
+        assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName))
+                .isEqualTo(format("" +
+                        "CREATE TABLE clickhouse.tpch.%s (\n" +
+                        "   id integer NOT NULL,\n" +
+                        "   x varchar\n" +
+                        ")\n" +
+                        "WITH (\n" +
+                        "   engine = 'TINYLOG'\n" +
+                        ")", tableName));
         assertUpdate("DROP TABLE " + tableName);
 
         // Log engine DOES NOT any property
@@ -300,22 +321,82 @@ public class TestClickHouseConnectorTest
 
         // optional properties
         assertUpdate("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR) WITH (engine = 'MergeTree', order_by = ARRAY['id'])");
-        assertTrue(getQueryRunner().tableExists(getSession(), tableName));
+        assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName))
+                .isEqualTo(format("" +
+                        "CREATE TABLE clickhouse.tpch.%s (\n" +
+                        "   id integer NOT NULL,\n" +
+                        "   x varchar\n" +
+                        ")\n" +
+                        "WITH (\n" +
+                        "   engine = 'MERGETREE',\n" +
+                        "   order_by = ARRAY['id'],\n" +
+                        "   primary_key = ARRAY['id']\n" + // order_by become primary_key automatically in ClickHouse
+                        ")", tableName));
         assertUpdate("DROP TABLE " + tableName);
 
         // the column refers by order by must be not null
         assertQueryFails("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR) WITH (engine = 'MergeTree', order_by = ARRAY['id', 'x'])", ".* Sorting key cannot contain nullable columns.*\\n.*");
 
         assertUpdate("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR) WITH (engine = 'MergeTree', order_by = ARRAY['id'], primary_key = ARRAY['id'])");
-        assertTrue(getQueryRunner().tableExists(getSession(), tableName));
+        assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName))
+                .isEqualTo(format("" +
+                        "CREATE TABLE clickhouse.tpch.%s (\n" +
+                        "   id integer NOT NULL,\n" +
+                        "   x varchar\n" +
+                        ")\n" +
+                        "WITH (\n" +
+                        "   engine = 'MERGETREE',\n" +
+                        "   order_by = ARRAY['id'],\n" +
+                        "   primary_key = ARRAY['id']\n" +
+                        ")", tableName));
         assertUpdate("DROP TABLE " + tableName);
 
         assertUpdate("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR NOT NULL, y VARCHAR NOT NULL) WITH (engine = 'MergeTree', order_by = ARRAY['id', 'x', 'y'], primary_key = ARRAY['id', 'x'])");
-        assertTrue(getQueryRunner().tableExists(getSession(), tableName));
+        assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName))
+                .isEqualTo(format("" +
+                        "CREATE TABLE clickhouse.tpch.%s (\n" +
+                        "   id integer NOT NULL,\n" +
+                        "   x varchar NOT NULL,\n" +
+                        "   y varchar NOT NULL\n" +
+                        ")\n" +
+                        "WITH (\n" +
+                        "   engine = 'MERGETREE',\n" +
+                        "   order_by = ARRAY['id','x','y'],\n" +
+                        "   primary_key = ARRAY['id','x']\n" +
+                        ")", tableName));
         assertUpdate("DROP TABLE " + tableName);
 
         assertUpdate("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR NOT NULL, y VARCHAR NOT NULL) WITH (engine = 'MergeTree', order_by = ARRAY['id', 'x'], primary_key = ARRAY['id','x'], sample_by = 'x' )");
-        assertTrue(getQueryRunner().tableExists(getSession(), tableName));
+        assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName))
+                .isEqualTo(format("" +
+                        "CREATE TABLE clickhouse.tpch.%s (\n" +
+                        "   id integer NOT NULL,\n" +
+                        "   x varchar NOT NULL,\n" +
+                        "   y varchar NOT NULL\n" +
+                        ")\n" +
+                        "WITH (\n" +
+                        "   engine = 'MERGETREE',\n" +
+                        "   order_by = ARRAY['id','x'],\n" +
+                        "   primary_key = ARRAY['id','x'],\n" +
+                        "   sample_by = 'x'\n" +
+                        ")", tableName));
+        assertUpdate("DROP TABLE " + tableName);
+
+        // Partition column
+        assertUpdate("CREATE TABLE " + tableName + "(id int NOT NULL, part int NOT NULL) WITH " +
+                "(engine = 'MergeTree', order_by = ARRAY['id'], partition_by = ARRAY['part'])");
+        assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName))
+                .isEqualTo(format("" +
+                        "CREATE TABLE clickhouse.tpch.%s (\n" +
+                        "   id integer NOT NULL,\n" +
+                        "   part integer NOT NULL\n" +
+                        ")\n" +
+                        "WITH (\n" +
+                        "   engine = 'MERGETREE',\n" +
+                        "   order_by = ARRAY['id'],\n" +
+                        "   partition_by = ARRAY['part'],\n" +
+                        "   primary_key = ARRAY['id']\n" +
+                        ")", tableName));
         assertUpdate("DROP TABLE " + tableName);
 
         // Primary key must be a prefix of the sorting key,
@@ -452,14 +533,16 @@ public class TestClickHouseConnectorTest
         }
     }
 
-    @Test
     @Override
-    public void testInsertNegativeDate()
+    protected String errorMessageForCreateTableAsSelectNegativeDate(String date)
     {
-        // Override because the connector throws a different error message in the super class
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "insert_date", "(dt DATE)")) {
-            assertQueryFails(format("INSERT INTO %s VALUES (DATE '-2016-12-07')", table.getName()), "Date must be between 1970-01-01 and 2106-02-07 in ClickHouse: -2016-12-07");
-        }
+        return "Date must be between 1970-01-01 and 2106-02-07 in ClickHouse: " + date;
+    }
+
+    @Override
+    protected String errorMessageForInsertNegativeDate(String date)
+    {
+        return "Date must be between 1970-01-01 and 2106-02-07 in ClickHouse: " + date;
     }
 
     @Test

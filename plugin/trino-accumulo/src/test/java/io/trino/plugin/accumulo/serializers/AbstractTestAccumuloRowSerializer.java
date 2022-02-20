@@ -22,13 +22,11 @@ import io.trino.spi.type.TypeSignatureParameter;
 import org.apache.accumulo.core.data.Key;
 import org.apache.accumulo.core.data.Mutation;
 import org.apache.accumulo.core.data.Value;
-import org.joda.time.DateTime;
-import org.joda.time.DateTimeZone;
 import org.testng.annotations.Test;
 
-import java.sql.Date;
 import java.sql.Time;
 import java.sql.Timestamp;
+import java.time.LocalDate;
 import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.List;
 import java.util.Map;
@@ -48,7 +46,6 @@ import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.testng.Assert.assertEquals;
 
 public abstract class AbstractTestAccumuloRowSerializer
@@ -104,15 +101,14 @@ public abstract class AbstractTestAccumuloRowSerializer
     public void testDate()
             throws Exception
     {
-        Date expected = new Date(new DateTime(2001, 2, 3, 4, 5, 6, DateTimeZone.UTC).getMillis());
+        long expected = LocalDate.parse("2001-02-03").toEpochDay();
         AccumuloRowSerializer serializer = serializerClass.getConstructor().newInstance();
         byte[] data = serializer.encode(DATE, expected);
 
         deserializeData(serializer, data);
-        Date actual = serializer.getDate(COLUMN_NAME);
+        long actual = serializer.getDate(COLUMN_NAME);
 
-        // Convert milliseconds to days so they can be compared regardless of the time of day
-        assertEquals(MILLISECONDS.toDays(actual.getTime()), MILLISECONDS.toDays(expected.getTime()));
+        assertEquals(actual, expected);
     }
 
     @Test

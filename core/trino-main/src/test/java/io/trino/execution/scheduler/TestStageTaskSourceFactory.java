@@ -13,11 +13,15 @@
  */
 package io.trino.execution.scheduler;
 
+import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimap;
+import com.google.common.collect.Multimaps;
 import io.airlift.units.DataSize;
 import io.trino.connector.CatalogName;
 import io.trino.execution.Lifespan;
@@ -31,6 +35,7 @@ import io.trino.execution.scheduler.group.DynamicBucketNodeMap;
 import io.trino.metadata.Split;
 import io.trino.spi.HostAddress;
 import io.trino.spi.QueryId;
+import io.trino.spi.SplitWeight;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.exchange.Exchange;
 import io.trino.spi.exchange.ExchangeContext;
@@ -42,6 +47,7 @@ import io.trino.sql.planner.plan.PlanNodeId;
 import org.openjdk.jol.info.ClassLayout;
 import org.testng.annotations.Test;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -49,12 +55,16 @@ import java.util.Optional;
 import java.util.OptionalInt;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.Multimaps.toMultimap;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.trino.spi.exchange.ExchangeId.createRandomExchangeId;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.guava.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -69,11 +79,12 @@ public class TestStageTaskSourceFactory
     private static final PlanNodeId PLAN_NODE_4 = new PlanNodeId("planNode4");
     private static final PlanNodeId PLAN_NODE_5 = new PlanNodeId("planNode5");
     private static final CatalogName CATALOG = new CatalogName("catalog");
+    public static final long STANDARD_WEIGHT = SplitWeight.standard().getRawValue();
 
     @Test
     public void testSingleDistributionTaskSource()
     {
-        Multimap<PlanNodeId, ExchangeSourceHandle> sources = ImmutableListMultimap.<PlanNodeId, ExchangeSourceHandle>builder()
+        ListMultimap<PlanNodeId, ExchangeSourceHandle> sources = ImmutableListMultimap.<PlanNodeId, ExchangeSourceHandle>builder()
                 .put(PLAN_NODE_1, new TestingExchangeSourceHandle(0, 123))
                 .put(PLAN_NODE_2, new TestingExchangeSourceHandle(0, 321))
                 .put(PLAN_NODE_1, new TestingExchangeSourceHandle(0, 222))
@@ -397,7 +408,7 @@ public class TestStageTaskSourceFactory
                 partitionedExchangeSources,
                 replicatedExchangeSources,
                 splitBatchSize,
-                (getSplitsTime) -> {},
+                getSplitsTime -> {},
                 bucketToPartitionMap,
                 bucketNodeMap,
                 Optional.of(CATALOG));
@@ -406,7 +417,7 @@ public class TestStageTaskSourceFactory
     @Test
     public void testSourceDistributionTaskSource()
     {
-        TaskSource taskSource = createSourceDistributionTaskSource(ImmutableList.of(), ImmutableListMultimap.of(), 2, 3);
+        TaskSource taskSource = createSourceDistributionTaskSource(ImmutableList.of(), ImmutableListMultimap.of(), 2, 0, 3 * STANDARD_WEIGHT, 1000);
         assertFalse(taskSource.isFinished());
         assertEquals(taskSource.getMoreTasks(), ImmutableList.of());
         assertTrue(taskSource.isFinished());
@@ -419,7 +430,9 @@ public class TestStageTaskSourceFactory
                 ImmutableList.of(split1),
                 ImmutableListMultimap.of(),
                 2,
-                2);
+                0,
+                2 * STANDARD_WEIGHT,
+                1000);
         assertEquals(taskSource.getMoreTasks(), ImmutableList.of(new TaskDescriptor(
                 0,
                 ImmutableListMultimap.of(PLAN_NODE_1, split1),
@@ -431,11 +444,20 @@ public class TestStageTaskSourceFactory
                 ImmutableList.of(split1, split2, split3),
                 ImmutableListMultimap.of(),
                 3,
-                2);
-        assertEquals(taskSource.getMoreTasks(), ImmutableList.of(
-                new TaskDescriptor(0, ImmutableListMultimap.of(PLAN_NODE_1, split1, PLAN_NODE_1, split2), ImmutableListMultimap.of(), new NodeRequirements(Optional.of(CATALOG), ImmutableSet.of()))));
-        assertEquals(taskSource.getMoreTasks(), ImmutableList.of(
-                new TaskDescriptor(1, ImmutableListMultimap.of(PLAN_NODE_1, split3), ImmutableListMultimap.of(), new NodeRequirements(Optional.of(CATALOG), ImmutableSet.of()))));
+                0,
+                2 * STANDARD_WEIGHT,
+                1000);
+
+        List<TaskDescriptor> tasks = readAllTasks(taskSource);
+        assertThat(tasks).hasSize(2);
+        assertThat(tasks.get(0).getSplits().values()).hasSize(2);
+        assertThat(tasks.get(1).getSplits().values()).hasSize(1);
+        assertThat(tasks).allMatch(taskDescriptor -> taskDescriptor.getNodeRequirements().equals(new NodeRequirements(Optional.of(CATALOG), ImmutableSet.of())));
+        assertThat(tasks).allMatch(taskDescriptor -> taskDescriptor.getExchangeSourceHandles().isEmpty());
+        assertThat(flattenSplits(tasks)).hasSameEntriesAs(ImmutableMultimap.of(
+                PLAN_NODE_1, split1,
+                PLAN_NODE_1, split2,
+                PLAN_NODE_1, split3));
         assertTrue(taskSource.isFinished());
 
         ImmutableListMultimap<PlanNodeId, ExchangeSourceHandle> replicatedSources = ImmutableListMultimap.of(PLAN_NODE_2, new TestingExchangeSourceHandle(0, 1));
@@ -443,55 +465,158 @@ public class TestStageTaskSourceFactory
                 ImmutableList.of(split1, split2, split3),
                 replicatedSources,
                 2,
-                2);
-        assertEquals(taskSource.getMoreTasks(), ImmutableList.of(
-                new TaskDescriptor(0, ImmutableListMultimap.of(PLAN_NODE_1, split1, PLAN_NODE_1, split2), replicatedSources, new NodeRequirements(Optional.of(CATALOG), ImmutableSet.of()))));
-        assertFalse(taskSource.isFinished());
-        assertEquals(taskSource.getMoreTasks(), ImmutableList.of(
-                new TaskDescriptor(1, ImmutableListMultimap.of(PLAN_NODE_1, split3), replicatedSources, new NodeRequirements(Optional.of(CATALOG), ImmutableSet.of()))));
+                0,
+                2 * STANDARD_WEIGHT,
+                1000);
+
+        tasks = readAllTasks(taskSource);
+        assertThat(tasks).hasSize(2);
+        assertThat(tasks.get(0).getSplits().values()).hasSize(2);
+        assertThat(tasks.get(1).getSplits().values()).hasSize(1);
+        assertThat(tasks).allMatch(taskDescriptor -> taskDescriptor.getNodeRequirements().equals(new NodeRequirements(Optional.of(CATALOG), ImmutableSet.of())));
+        assertThat(tasks).allMatch(taskDescriptor -> taskDescriptor.getExchangeSourceHandles().equals(replicatedSources));
+        assertThat(flattenSplits(tasks)).hasSameEntriesAs(ImmutableMultimap.of(
+                PLAN_NODE_1, split1,
+                PLAN_NODE_1, split2,
+                PLAN_NODE_1, split3));
         assertTrue(taskSource.isFinished());
 
         // non remotely accessible splits
         ImmutableList<Split> splits = ImmutableList.of(
-                createSplit(1, ImmutableList.of(HostAddress.fromString("host1:8080"), HostAddress.fromString("host2:8080"))),
-                createSplit(2, ImmutableList.of(HostAddress.fromString("host2:8080"))),
-                createSplit(3, ImmutableList.of(HostAddress.fromString("host1:8080"), HostAddress.fromString("host3:8080"))),
-                createSplit(4, ImmutableList.of(HostAddress.fromString("host3:8080"), HostAddress.fromString("host1:8080"))),
-                createSplit(5, ImmutableList.of(HostAddress.fromString("host1:8080"), HostAddress.fromString("host2:8080"))),
-                createSplit(6, ImmutableList.of(HostAddress.fromString("host2:8080"), HostAddress.fromString("host3:8080"))),
-                createSplit(7, ImmutableList.of(HostAddress.fromString("host3:8080"), HostAddress.fromString("host4:8080"))));
-        taskSource = createSourceDistributionTaskSource(splits, ImmutableListMultimap.of(), 3, 2);
+                createSplit(1, "host1:8080", "host2:8080"),
+                createSplit(2, "host2:8080"),
+                createSplit(3, "host1:8080", "host3:8080"),
+                createSplit(4, "host3:8080", "host1:8080"),
+                createSplit(5, "host1:8080", "host2:8080"),
+                createSplit(6, "host2:8080", "host3:8080"),
+                createSplit(7, "host3:8080", "host4:8080"));
+        taskSource = createSourceDistributionTaskSource(splits, ImmutableListMultimap.of(), 3, 0, 2 * STANDARD_WEIGHT, 1000);
 
-        List<TaskDescriptor> tasks = taskSource.getMoreTasks();
-        assertEquals(tasks.size(), 1);
-        assertEquals(tasks.get(0).getNodeRequirements().getAddresses(), ImmutableSet.of(HostAddress.fromString("host1:8080")));
-        assertThat(tasks.get(0).getSplits().get(PLAN_NODE_1)).containsExactlyInAnyOrder(splits.get(0), splits.get(2));
-        assertFalse(taskSource.isFinished());
+        tasks = readAllTasks(taskSource);
 
-        tasks = taskSource.getMoreTasks();
-        assertEquals(tasks.size(), 1);
-        assertEquals(tasks.get(0).getNodeRequirements().getAddresses(), ImmutableSet.of(HostAddress.fromString("host1:8080")));
-        assertThat(tasks.get(0).getSplits().get(PLAN_NODE_1)).containsExactlyInAnyOrder(splits.get(3), splits.get(4));
-        assertFalse(taskSource.isFinished());
+        assertThat(tasks).hasSize(4);
+        assertThat(tasks.stream()).allMatch(taskDescriptor -> taskDescriptor.getExchangeSourceHandles().isEmpty());
+        assertThat(flattenSplits(tasks)).hasSameEntriesAs(Multimaps.index(splits, split -> PLAN_NODE_1));
+        assertThat(tasks).allMatch(task -> task.getSplits().values().stream().allMatch(split -> {
+            HostAddress requiredAddress = getOnlyElement(task.getNodeRequirements().getAddresses());
+            return split.getAddresses().contains(requiredAddress);
+        }));
+        assertTrue(taskSource.isFinished());
+    }
 
-        tasks = taskSource.getMoreTasks();
-        assertEquals(tasks.size(), 1);
-        assertEquals(tasks.get(0).getNodeRequirements().getAddresses(), ImmutableSet.of(HostAddress.fromString("host2:8080")));
-        assertThat(tasks.get(0).getSplits().get(PLAN_NODE_1)).containsExactlyInAnyOrder(splits.get(1), splits.get(5));
-        assertFalse(taskSource.isFinished());
+    @Test
+    public void testSourceDistributionTaskSourceWithWeights()
+    {
+        Split split1 = createWeightedSplit(1, STANDARD_WEIGHT);
+        long heavyWeight = 2 * STANDARD_WEIGHT;
+        Split heavySplit1 = createWeightedSplit(11, heavyWeight);
+        Split heavySplit2 = createWeightedSplit(12, heavyWeight);
+        Split heavySplit3 = createWeightedSplit(13, heavyWeight);
+        long lightWeight = (long) (0.5 * STANDARD_WEIGHT);
+        Split lightSplit1 = createWeightedSplit(21, lightWeight);
+        Split lightSplit2 = createWeightedSplit(22, lightWeight);
+        Split lightSplit3 = createWeightedSplit(23, lightWeight);
+        Split lightSplit4 = createWeightedSplit(24, lightWeight);
 
-        tasks = taskSource.getMoreTasks();
-        assertEquals(tasks.size(), 1);
-        assertEquals(tasks.get(0).getNodeRequirements().getAddresses(), ImmutableSet.of(HostAddress.fromString("host3:8080")));
-        assertThat(tasks.get(0).getSplits().get(PLAN_NODE_1)).containsExactlyInAnyOrder(splits.get(6));
+        // no limits
+        TaskSource taskSource = createSourceDistributionTaskSource(
+                ImmutableList.of(lightSplit1, lightSplit2, split1, heavySplit1, heavySplit2, lightSplit4),
+                ImmutableListMultimap.of(),
+                1, // single split per batch for predictable results
+                0,
+                (long) (1.9 * STANDARD_WEIGHT),
+                1000);
+        List<TaskDescriptor> tasks = readAllTasks(taskSource);
+        assertThat(tasks).hasSize(4);
+        assertThat(tasks).allMatch(task -> getOnlyElement(task.getSplits().keySet()).equals(PLAN_NODE_1));
+        assertThat(tasks.get(0).getSplits().values()).containsExactlyInAnyOrder(lightSplit1, lightSplit2, split1);
+        assertThat(tasks.get(1).getSplits().values()).containsExactlyInAnyOrder(heavySplit1);
+        assertThat(tasks.get(2).getSplits().values()).containsExactlyInAnyOrder(heavySplit2);
+        assertThat(tasks.get(3).getSplits().values()).containsExactlyInAnyOrder(lightSplit4); // remainder
+        assertTrue(taskSource.isFinished());
+
+        // min splits == 2
+        taskSource = createSourceDistributionTaskSource(
+                ImmutableList.of(heavySplit1, heavySplit2, heavySplit3, lightSplit1, lightSplit2, lightSplit3, lightSplit4),
+                ImmutableListMultimap.of(),
+                1, // single split per batch for predictable results
+                2,
+                2 * STANDARD_WEIGHT,
+                1000);
+
+        tasks = readAllTasks(taskSource);
+        assertThat(tasks).hasSize(3);
+        assertThat(tasks).allMatch(task -> getOnlyElement(task.getSplits().keySet()).equals(PLAN_NODE_1));
+        assertThat(tasks.get(0).getSplits().values()).containsExactlyInAnyOrder(heavySplit1, heavySplit2);
+        assertThat(tasks.get(1).getSplits().values()).containsExactlyInAnyOrder(heavySplit3, lightSplit1);
+        assertThat(tasks.get(2).getSplits().values()).containsExactlyInAnyOrder(lightSplit2, lightSplit3, lightSplit4);
+        assertTrue(taskSource.isFinished());
+
+        // max splits == 3
+        taskSource = createSourceDistributionTaskSource(
+                ImmutableList.of(lightSplit1, lightSplit2, lightSplit3, heavySplit1, lightSplit4),
+                ImmutableListMultimap.of(),
+                1, // single split per batch for predictable results
+                0,
+                2 * STANDARD_WEIGHT,
+                3);
+
+        tasks = readAllTasks(taskSource);
+        assertThat(tasks).hasSize(3);
+        assertThat(tasks).allMatch(task -> getOnlyElement(task.getSplits().keySet()).equals(PLAN_NODE_1));
+        assertThat(tasks.get(0).getSplits().values()).containsExactlyInAnyOrder(lightSplit1, lightSplit2, lightSplit3);
+        assertThat(tasks.get(1).getSplits().values()).containsExactlyInAnyOrder(heavySplit1);
+        assertThat(tasks.get(2).getSplits().values()).containsExactlyInAnyOrder(lightSplit4);
+        assertTrue(taskSource.isFinished());
+
+        // with addresses
+        Split split1a1 = createWeightedSplit(1, STANDARD_WEIGHT, "host1:8080");
+        Split split2a2 = createWeightedSplit(2, STANDARD_WEIGHT, "host2:8080");
+        Split split3a1 = createWeightedSplit(3, STANDARD_WEIGHT, "host1:8080");
+        Split split3a12 = createWeightedSplit(3, STANDARD_WEIGHT, "host1:8080", "host2:8080");
+        Split heavySplit2a2 = createWeightedSplit(12, heavyWeight, "host2:8080");
+        Split lightSplit1a1 = createWeightedSplit(21, lightWeight, "host1:8080");
+
+        taskSource = createSourceDistributionTaskSource(
+                ImmutableList.of(split1a1, heavySplit2a2, split3a1, lightSplit1a1),
+                ImmutableListMultimap.of(),
+                1, // single split per batch for predictable results
+                0,
+                2 * STANDARD_WEIGHT,
+                3);
+
+        tasks = readAllTasks(taskSource);
+        assertThat(tasks).hasSize(3);
+        assertThat(tasks).allMatch(task -> getOnlyElement(task.getSplits().keySet()).equals(PLAN_NODE_1));
+        assertThat(tasks.get(0).getSplits().values()).containsExactlyInAnyOrder(heavySplit2a2);
+        assertThat(tasks.get(1).getSplits().values()).containsExactlyInAnyOrder(split1a1, split3a1);
+        assertThat(tasks.get(2).getSplits().values()).containsExactlyInAnyOrder(lightSplit1a1);
+        assertTrue(taskSource.isFinished());
+
+        // with addresses with multiple matching
+        taskSource = createSourceDistributionTaskSource(
+                ImmutableList.of(split1a1, split3a12, split2a2),
+                ImmutableListMultimap.of(),
+                1, // single split per batch for predictable results
+                0,
+                2 * STANDARD_WEIGHT,
+                3);
+
+        tasks = readAllTasks(taskSource);
+        assertThat(tasks).hasSize(2);
+        assertThat(tasks).allMatch(task -> getOnlyElement(task.getSplits().keySet()).equals(PLAN_NODE_1));
+        assertThat(tasks.get(0).getSplits().values()).containsExactlyInAnyOrder(split1a1, split3a12);
+        assertThat(tasks.get(1).getSplits().values()).containsExactlyInAnyOrder(split2a2);
         assertTrue(taskSource.isFinished());
     }
 
     private static SourceDistributionTaskSource createSourceDistributionTaskSource(
             List<Split> splits,
-            Multimap<PlanNodeId, ExchangeSourceHandle> replicatedSources,
+            ListMultimap<PlanNodeId, ExchangeSourceHandle> replicatedSources,
             int splitBatchSize,
-            int splitsPerTask)
+            int minSplitsPerTask,
+            long splitWeightPerTask,
+            int maxSplitsPerTask)
     {
         return new SourceDistributionTaskSource(
                 new QueryId("query"),
@@ -500,34 +625,58 @@ public class TestStageTaskSourceFactory
                 new TestingSplitSource(CATALOG, splits),
                 replicatedSources,
                 splitBatchSize,
-                (getSplitsTime) -> {},
+                getSplitsTime -> {},
                 Optional.of(CATALOG),
-                splitsPerTask);
+                minSplitsPerTask,
+                splitWeightPerTask,
+                maxSplitsPerTask);
     }
 
-    private static Split createSplit(int id)
+    private static Split createSplit(int id, String... addresses)
     {
-        return new Split(CATALOG, new TestingConnectorSplit(id, OptionalInt.empty(), Optional.empty()), Lifespan.taskWide());
+        return new Split(CATALOG, new TestingConnectorSplit(id, OptionalInt.empty(), addressesList(addresses)), Lifespan.taskWide());
     }
 
-    private static Split createSplit(int id, List<HostAddress> addresses)
+    private static Split createWeightedSplit(int id, long weight, String... addresses)
     {
-        return new Split(CATALOG, new TestingConnectorSplit(id, OptionalInt.empty(), Optional.of(addresses)), Lifespan.taskWide());
+        return new Split(CATALOG, new TestingConnectorSplit(id, OptionalInt.empty(), addressesList(addresses), weight), Lifespan.taskWide());
     }
 
     private static Split createBucketedSplit(int id, int bucket)
     {
-        return createBucketedSplit(id, bucket, Optional.empty());
+        return new Split(CATALOG, new TestingConnectorSplit(id, OptionalInt.of(bucket), Optional.empty()), Lifespan.taskWide());
     }
 
-    private static Split createBucketedSplit(int id, int bucket, Optional<List<HostAddress>> addresses)
+    private List<TaskDescriptor> readAllTasks(TaskSource taskSource)
     {
-        return new Split(CATALOG, new TestingConnectorSplit(id, OptionalInt.of(bucket), addresses), Lifespan.taskWide());
+        ImmutableList.Builder<TaskDescriptor> tasks = ImmutableList.builder();
+        while (!taskSource.isFinished()) {
+            tasks.addAll(taskSource.getMoreTasks());
+        }
+        return tasks.build();
+    }
+
+    private Multimap<PlanNodeId, Split> flattenSplits(List<TaskDescriptor> tasks)
+    {
+        return tasks.stream()
+                .flatMap(taskDescriptor -> taskDescriptor.getSplits().entries().stream())
+                .collect(toMultimap(Map.Entry::getKey, Map.Entry::getValue, HashMultimap::create));
+    }
+
+    private static Optional<List<HostAddress>> addressesList(String... addresses)
+    {
+        requireNonNull(addresses, "addresses is null");
+        if (addresses.length == 0) {
+            return Optional.empty();
+        }
+        return Optional.of(Arrays.stream(addresses)
+                .map(HostAddress::fromString)
+                .collect(toImmutableList()));
     }
 
     private static BucketNodeMap getTestingBucketNodeMap(int bucketCount)
     {
-        return new DynamicBucketNodeMap((split) -> {
+        return new DynamicBucketNodeMap(split -> {
             TestingConnectorSplit testingConnectorSplit = (TestingConnectorSplit) split.getConnectorSplit();
             return testingConnectorSplit.getBucket().getAsInt();
         }, bucketCount);
@@ -541,12 +690,19 @@ public class TestStageTaskSourceFactory
         private final int id;
         private final OptionalInt bucket;
         private final Optional<List<HostAddress>> addresses;
+        private final SplitWeight weight;
 
         public TestingConnectorSplit(int id, OptionalInt bucket, Optional<List<HostAddress>> addresses)
+        {
+            this(id, bucket, addresses, SplitWeight.standard().getRawValue());
+        }
+
+        public TestingConnectorSplit(int id, OptionalInt bucket, Optional<List<HostAddress>> addresses, long weight)
         {
             this.id = id;
             this.bucket = requireNonNull(bucket, "bucket is null");
             this.addresses = requireNonNull(addresses, "addresses is null").map(ImmutableList::copyOf);
+            this.weight = SplitWeight.fromRawValue(weight);
         }
 
         public int getId()
@@ -569,6 +725,12 @@ public class TestStageTaskSourceFactory
         public List<HostAddress> getAddresses()
         {
             return addresses.orElse(ImmutableList.of());
+        }
+
+        @Override
+        public SplitWeight getSplitWeight()
+        {
+            return weight;
         }
 
         @Override
@@ -595,13 +757,13 @@ public class TestStageTaskSourceFactory
                 return false;
             }
             TestingConnectorSplit that = (TestingConnectorSplit) o;
-            return id == that.id && Objects.equals(bucket, that.bucket) && Objects.equals(addresses, that.addresses);
+            return id == that.id && weight == that.weight && Objects.equals(bucket, that.bucket) && Objects.equals(addresses, that.addresses);
         }
 
         @Override
         public int hashCode()
         {
-            return Objects.hash(id, bucket, addresses);
+            return Objects.hash(id, bucket, addresses, weight);
         }
 
         @Override
@@ -611,6 +773,7 @@ public class TestStageTaskSourceFactory
                     .add("id", id)
                     .add("bucket", bucket)
                     .add("addresses", addresses)
+                    .add("weight", weight)
                     .toString();
         }
     }

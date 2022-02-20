@@ -16,6 +16,7 @@ package io.trino.execution.scheduler;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimap;
 import io.trino.Session;
 import io.trino.connector.CatalogName;
@@ -76,7 +77,7 @@ public class TestingTaskSourceFactory
                 getHandlesForRemoteSources(fragment.getRemoteSourceNodes(), exchangeSourceHandles));
     }
 
-    private static Multimap<PlanNodeId, ExchangeSourceHandle> getHandlesForRemoteSources(
+    private static ListMultimap<PlanNodeId, ExchangeSourceHandle> getHandlesForRemoteSources(
             List<RemoteSourceNode> remoteSources,
             Multimap<PlanFragmentId, ExchangeSourceHandle> exchangeSourceHandles)
     {
@@ -99,7 +100,7 @@ public class TestingTaskSourceFactory
         private final Iterator<Split> splits;
         private final int tasksPerBatch;
         private final PlanNodeId tableScanPlanNodeId;
-        private final Multimap<PlanNodeId, ExchangeSourceHandle> exchangeSourceHandles;
+        private final ListMultimap<PlanNodeId, ExchangeSourceHandle> exchangeSourceHandles;
 
         private final AtomicInteger nextPartitionId = new AtomicInteger();
 
@@ -108,7 +109,7 @@ public class TestingTaskSourceFactory
                 List<Split> splits,
                 int tasksPerBatch,
                 PlanNodeId tableScanPlanNodeId,
-                Multimap<PlanNodeId, ExchangeSourceHandle> exchangeSourceHandles)
+                ListMultimap<PlanNodeId, ExchangeSourceHandle> exchangeSourceHandles)
         {
             this.catalogRequirement = requireNonNull(catalogRequirement, "catalogRequirement is null");
             this.splits = ImmutableList.copyOf(requireNonNull(splits, "splits is null")).iterator();

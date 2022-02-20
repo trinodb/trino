@@ -279,6 +279,13 @@ public abstract class BaseDruidConnectorTest
 
     @Test
     @Override
+    public void testInsertNegativeDate()
+    {
+        throw new SkipException("Druid connector does not map 'orderdate' column to date type and INSERT statement");
+    }
+
+    @Test
+    @Override
     public void testDateYearOfEraPredicate()
     {
         throw new SkipException("Druid connector does not map 'orderdate' column to date type");

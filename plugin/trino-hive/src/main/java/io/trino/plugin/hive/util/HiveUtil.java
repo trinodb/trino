@@ -126,6 +126,7 @@ import static io.trino.plugin.hive.HiveMetadata.ORC_BLOOM_FILTER_FPP_KEY;
 import static io.trino.plugin.hive.HiveMetadata.SKIP_FOOTER_COUNT_KEY;
 import static io.trino.plugin.hive.HiveMetadata.SKIP_HEADER_COUNT_KEY;
 import static io.trino.plugin.hive.HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION;
+import static io.trino.plugin.hive.HiveStorageFormat.TEXTFILE;
 import static io.trino.plugin.hive.HiveTableProperties.ORC_BLOOM_FILTER_FPP;
 import static io.trino.plugin.hive.HiveType.toHiveTypes;
 import static io.trino.plugin.hive.metastore.SortingColumn.Order.ASCENDING;
@@ -327,6 +328,12 @@ public final class HiveUtil
             Class<? extends InputFormat<?, ?>> inputFormatClass = getInputFormatClass(jobConf, inputFormatName);
             if (symlinkTarget && inputFormatClass == SymlinkTextInputFormat.class) {
                 String serde = getDeserializerClassName(schema);
+                // LazySimpleSerDe is used by TEXTFILE and SEQUENCEFILE. Default to TEXTFILE
+                // per Hive spec (https://hive.apache.org/javadocs/r2.1.1/api/org/apache/hadoop/hive/ql/io/SymlinkTextInputFormat.html)
+                if (serde.equals(TEXTFILE.getSerde())) {
+                    inputFormatClass = getInputFormatClass(jobConf, TEXTFILE.getInputFormat());
+                    return ReflectionUtils.newInstance(inputFormatClass, jobConf);
+                }
                 for (HiveStorageFormat format : HiveStorageFormat.values()) {
                     if (serde.equals(format.getSerde())) {
                         inputFormatClass = getInputFormatClass(jobConf, format.getInputFormat());

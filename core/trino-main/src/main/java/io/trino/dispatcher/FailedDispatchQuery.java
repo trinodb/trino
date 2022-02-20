@@ -36,7 +36,6 @@ import java.util.Optional;
 import java.util.concurrent.Executor;
 
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
-import static io.trino.memory.LocalMemoryManager.GENERAL_POOL;
 import static io.trino.server.DynamicFilterService.DynamicFiltersStats;
 import static io.trino.util.Failures.toFailure;
 import static java.util.Objects.requireNonNull;
@@ -214,7 +213,6 @@ public class FailedDispatchQuery
                 session.getQueryId(),
                 session.toSessionRepresentation(),
                 QueryState.FAILED,
-                GENERAL_POOL,
                 false,
                 self,
                 ImmutableList.of(),

@@ -36,9 +36,6 @@ import io.trino.execution.buffer.OutputBuffers;
 import io.trino.execution.buffer.OutputBuffers.OutputBufferId;
 import io.trino.execution.executor.TaskExecutor;
 import io.trino.memory.LocalMemoryManager;
-import io.trino.memory.MemoryPool;
-import io.trino.memory.MemoryPoolAssignment;
-import io.trino.memory.MemoryPoolAssignmentsRequest;
 import io.trino.memory.NodeMemoryConfig;
 import io.trino.memory.QueryContext;
 import io.trino.spi.QueryId;
@@ -57,7 +54,6 @@ import org.weakref.jmx.Nested;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
-import javax.annotation.concurrent.GuardedBy;
 import javax.inject.Inject;
 
 import java.io.Closeable;
@@ -79,8 +75,6 @@ import static io.trino.SystemSessionProperties.getQueryMaxTotalMemoryPerTask;
 import static io.trino.SystemSessionProperties.resourceOvercommit;
 import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.execution.SqlTask.createSqlTask;
-import static io.trino.memory.LocalMemoryManager.GENERAL_POOL;
-import static io.trino.memory.LocalMemoryManager.RESERVED_POOL;
 import static io.trino.spi.StandardErrorCode.ABANDONED_TASK;
 import static io.trino.spi.StandardErrorCode.SERVER_SHUTTING_DOWN;
 import static java.lang.Math.min;
@@ -104,7 +98,6 @@ public class SqlTaskManager
     private final Duration infoCacheTime;
     private final Duration clientTimeout;
 
-    private final LocalMemoryManager localMemoryManager;
     private final NonEvictableLoadingCache<QueryId, QueryContext> queryContexts;
     private final NonEvictableLoadingCache<TaskId, SqlTask> tasks;
 
@@ -113,11 +106,6 @@ public class SqlTaskManager
 
     private final long queryMaxMemoryPerNode;
     private final Optional<DataSize> queryMaxMemoryPerTask;
-
-    @GuardedBy("this")
-    private long currentMemoryPoolAssignmentVersion;
-    @GuardedBy("this")
-    private String coordinatorId;
 
     private final CounterStat failedTasks = new CounterStat();
 
@@ -155,7 +143,6 @@ public class SqlTaskManager
 
         SqlTaskExecutionFactory sqlTaskExecutionFactory = new SqlTaskExecutionFactory(taskNotificationExecutor, taskExecutor, planner, splitMonitor, config);
 
-        this.localMemoryManager = requireNonNull(localMemoryManager, "localMemoryManager is null");
         DataSize maxQueryMemoryPerNode = nodeMemoryConfig.getMaxQueryMemoryPerNode();
         queryMaxMemoryPerTask = nodeMemoryConfig.getMaxQueryMemoryPerTask();
         DataSize maxQuerySpillPerNode = nodeSpillConfig.getQueryMaxSpillPerNode();
@@ -193,39 +180,12 @@ public class SqlTaskManager
                 queryId,
                 maxQueryUserMemoryPerNode,
                 maxQueryMemoryPerTask,
-                localMemoryManager.getGeneralPool(),
+                localMemoryManager.getMemoryPool(),
                 gcMonitor,
                 taskNotificationExecutor,
                 driverYieldExecutor,
                 maxQuerySpillPerNode,
                 localSpillManager.getSpillSpaceTracker());
-    }
-
-    @Override
-    public synchronized void updateMemoryPoolAssignments(MemoryPoolAssignmentsRequest assignments)
-    {
-        if (coordinatorId != null && coordinatorId.equals(assignments.getCoordinatorId()) && assignments.getVersion() <= currentMemoryPoolAssignmentVersion) {
-            return;
-        }
-        currentMemoryPoolAssignmentVersion = assignments.getVersion();
-        if (coordinatorId != null && !coordinatorId.equals(assignments.getCoordinatorId())) {
-            log.warn("Switching coordinator affinity from %s to %s", coordinatorId, assignments.getCoordinatorId());
-        }
-        coordinatorId = assignments.getCoordinatorId();
-
-        for (MemoryPoolAssignment assignment : assignments.getAssignments()) {
-            if (assignment.getPoolId().equals(GENERAL_POOL)) {
-                queryContexts.getUnchecked(assignment.getQueryId()).setMemoryPool(localMemoryManager.getGeneralPool());
-            }
-            else if (assignment.getPoolId().equals(RESERVED_POOL)) {
-                MemoryPool reservedPool = localMemoryManager.getReservedPool()
-                        .orElseThrow(() -> new IllegalArgumentException(format("Cannot move %s to the reserved pool as the reserved pool is not enabled", assignment.getQueryId())));
-                queryContexts.getUnchecked(assignment.getQueryId()).setMemoryPool(reservedPool);
-            }
-            else {
-                throw new IllegalArgumentException(format("Cannot move %s to %s as the target memory pool id is invalid", assignment.getQueryId(), assignment.getPoolId()));
-            }
-        }
     }
 
     @PostConstruct

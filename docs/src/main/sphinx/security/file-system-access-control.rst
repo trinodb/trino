@@ -118,8 +118,8 @@ visible. Specifically:
   permissions on any nested table, or has permissions to set session properties
   in the catalog.
 * ``schema``: Visible if the user is the owner of the schema, or has permissions
-  on any nested table. * ``table``: Visible if the user has any permissions on
-  the table.
+  on any nested table.
+* ``table``: Visible if the user has any permissions on the table.
 
 Catalog rules
 ^^^^^^^^^^^^^
@@ -342,7 +342,8 @@ denied. System session property rules are composed of the following fields:
 * ``role`` (optional): regex to match against role names. Defaults to ``.*``.
 * ``group`` (optional): regex to match against group names. Defaults to ``.*``.
 * ``property`` (optional): regex to match against the property name. Defaults to
-  ``.*``. * ``allow`` (required): boolean indicating if the setting the session
+  ``.*``.
+* ``allow`` (required): boolean indicating if the setting the session
   property should be allowed.
 
 The catalog session property rules have the additional field:

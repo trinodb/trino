@@ -105,7 +105,7 @@ public final class DecimalCasts
                 .choice(choice -> choice
                         .implementation(methodsGroup -> methodsGroup
                                 .methods(methodNames)
-                                .withExtraParameters((context) -> {
+                                .withExtraParameters(context -> {
                                     long precision = context.getLiteral("precision");
                                     long scale = context.getLiteral("scale");
                                     Object tenToScale;
@@ -140,7 +140,7 @@ public final class DecimalCasts
                         .returnConvention(nullableResult ? NULLABLE_RETURN : FAIL_ON_NULL)
                         .implementation(methodsGroup -> methodsGroup
                                 .methods(methodNames)
-                                .withExtraParameters((context) -> {
+                                .withExtraParameters(context -> {
                                     DecimalType resultType = (DecimalType) context.getReturnType();
                                     Object tenToScale;
                                     if (isShortDecimal(resultType)) {
@@ -163,7 +163,7 @@ public final class DecimalCasts
             .choice(choice -> choice
                     .implementation(methodsGroup -> methodsGroup
                             .methods("shortDecimalToVarchar", "longDecimalToVarchar")
-                            .withExtraParameters((context) -> {
+                            .withExtraParameters(context -> {
                                 long scale = context.getLiteral("scale");
                                 VarcharType resultType = (VarcharType) context.getReturnType();
                                 long length;

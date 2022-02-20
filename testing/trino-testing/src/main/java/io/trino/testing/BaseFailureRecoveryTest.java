@@ -104,17 +104,22 @@ public abstract class BaseFailureRecoveryTest
                         .put("retry-initial-delay", "0s")
                         .put("retry-attempts", "1")
                         .put("failure-injection.request-timeout", new Duration(REQUEST_TIMEOUT.toMillis() * 2, MILLISECONDS).toString())
+                        // making http timeouts shorter so tests which simulate communication timeouts finish in reasonable amount of time
                         .put("exchange.http-client.idle-timeout", REQUEST_TIMEOUT.toString())
                         .put("query.initial-hash-partitions", "5")
                         // to trigger spilling
                         .put("exchange.deduplication-buffer-size", "1kB")
                         .buildOrThrow(),
                 ImmutableMap.<String, String>builder()
+                        // making http timeouts shorter so tests which simulate communication timeouts finish in reasonable amount of time
                         .put("scheduler.http-client.idle-timeout", REQUEST_TIMEOUT.toString())
                         .buildOrThrow());
     }
 
-    protected abstract QueryRunner createQueryRunner(List<TpchTable<?>> requiredTpchTables, Map<String, String> configProperties, Map<String, String> coordinatorProperties)
+    protected abstract QueryRunner createQueryRunner(
+            List<TpchTable<?>> requiredTpchTables,
+            Map<String, String> configProperties,
+            Map<String, String> coordinatorProperties)
             throws Exception;
 
     @BeforeClass
@@ -743,17 +748,17 @@ public abstract class BaseFailureRecoveryTest
 
     protected static Function<MaterializedResult, Integer> rootStage()
     {
-        return (result) -> parseInt(getRootStage(result).getStageId());
+        return result -> parseInt(getRootStage(result).getStageId());
     }
 
     protected static Function<MaterializedResult, Integer> boundaryCoordinatorStage()
     {
-        return (result) -> findStageId(result, stage -> stage.isCoordinatorOnly() && stage.getSubStages().stream().noneMatch(StageStats::isCoordinatorOnly));
+        return result -> findStageId(result, stage -> stage.isCoordinatorOnly() && stage.getSubStages().stream().noneMatch(StageStats::isCoordinatorOnly));
     }
 
     protected static Function<MaterializedResult, Integer> boundaryDistributedStage()
     {
-        return (result) -> {
+        return result -> {
             StageStats rootStage = getRootStage(result);
             if (!rootStage.isCoordinatorOnly()) {
                 return parseInt(rootStage.getStageId());
@@ -767,12 +772,12 @@ public abstract class BaseFailureRecoveryTest
 
     protected static Function<MaterializedResult, Integer> intermediateDistributedStage()
     {
-        return (result) -> findStageId(result, stage -> !stage.isCoordinatorOnly() && !stage.getSubStages().isEmpty());
+        return result -> findStageId(result, stage -> !stage.isCoordinatorOnly() && !stage.getSubStages().isEmpty());
     }
 
     protected static Function<MaterializedResult, Integer> leafStage()
     {
-        return (result) -> findStageId(result, stage -> stage.getSubStages().isEmpty());
+        return result -> findStageId(result, stage -> stage.getSubStages().isEmpty());
     }
 
     private static int findStageId(MaterializedResult result, Predicate<StageStats> predicate)

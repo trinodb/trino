@@ -286,7 +286,7 @@ public class TestFunctionRegistry
     {
         ImmutableSet<String> literalParameters = ImmutableSet.of("p", "s", "p1", "s1", "p2", "s2", "p3", "s3");
         List<TypeSignature> argumentSignatures = arguments.stream()
-                .map((signature) -> parseTypeSignature(signature, literalParameters))
+                .map(signature -> parseTypeSignature(signature, literalParameters))
                 .collect(toImmutableList());
         return new SignatureBuilder()
                 .returnType(parseTypeSignature(returnType, literalParameters))

@@ -14,7 +14,6 @@
 package io.trino.execution;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
 import io.airlift.log.Logger;
 import io.trino.FeaturesConfig;
@@ -26,7 +25,6 @@ import io.trino.memory.VoidTraversingQueryContextVisitor;
 import io.trino.operator.OperatorContext;
 import io.trino.operator.PipelineContext;
 import io.trino.operator.TaskContext;
-import io.trino.spi.memory.MemoryPoolId;
 
 import javax.annotation.Nullable;
 import javax.annotation.PostConstruct;
@@ -52,7 +50,7 @@ public class MemoryRevokingScheduler
     private static final Logger log = Logger.get(MemoryRevokingScheduler.class);
 
     private static final Ordering<SqlTask> ORDER_BY_CREATE_TIME = Ordering.natural().onResultOf(SqlTask::getTaskCreatedTime);
-    private final List<MemoryPool> memoryPools;
+    private final MemoryPool memoryPool;
     private final Supplier<? extends Collection<SqlTask>> currentTasksSupplier;
     private final ScheduledExecutorService taskManagementExecutor;
     private final double memoryRevokingThreshold;
@@ -73,7 +71,7 @@ public class MemoryRevokingScheduler
             FeaturesConfig config)
     {
         this(
-                ImmutableList.copyOf(getMemoryPools(localMemoryManager)),
+                localMemoryManager.getMemoryPool(),
                 requireNonNull(sqlTaskManager, "sqlTaskManager cannot be null")::getAllTasks,
                 requireNonNull(taskManagementExecutor, "taskManagementExecutor cannot be null").getExecutor(),
                 config.getMemoryRevokingThreshold(),
@@ -82,13 +80,13 @@ public class MemoryRevokingScheduler
 
     @VisibleForTesting
     MemoryRevokingScheduler(
-            List<MemoryPool> memoryPools,
+            MemoryPool memoryPool,
             Supplier<? extends Collection<SqlTask>> currentTasksSupplier,
             ScheduledExecutorService taskManagementExecutor,
             double memoryRevokingThreshold,
             double memoryRevokingTarget)
     {
-        this.memoryPools = ImmutableList.copyOf(requireNonNull(memoryPools, "memoryPools is null"));
+        this.memoryPool = requireNonNull(memoryPool, "memoryPool is null");
         this.currentTasksSupplier = requireNonNull(currentTasksSupplier, "currentTasksSupplier is null");
         this.taskManagementExecutor = requireNonNull(taskManagementExecutor, "taskManagementExecutor is null");
         this.memoryRevokingThreshold = checkFraction(memoryRevokingThreshold, "memoryRevokingThreshold");
@@ -104,15 +102,6 @@ public class MemoryRevokingScheduler
         requireNonNull(valueName, "valueName is null");
         checkArgument(0 <= value && value <= 1, "%s should be within [0, 1] range, got %s", valueName, value);
         return value;
-    }
-
-    private static List<MemoryPool> getMemoryPools(LocalMemoryManager localMemoryManager)
-    {
-        requireNonNull(localMemoryManager, "localMemoryManager cannot be null");
-        ImmutableList.Builder<MemoryPool> builder = new ImmutableList.Builder<>();
-        builder.add(localMemoryManager.getGeneralPool());
-        localMemoryManager.getReservedPool().ifPresent(builder::add);
-        return builder.build();
     }
 
     @PostConstruct
@@ -142,13 +131,13 @@ public class MemoryRevokingScheduler
             scheduledFuture = null;
         }
 
-        memoryPools.forEach(memoryPool -> memoryPool.removeListener(memoryPoolListener));
+        memoryPool.removeListener(memoryPoolListener);
     }
 
     @VisibleForTesting
     void registerPoolListeners()
     {
-        memoryPools.forEach(memoryPool -> memoryPool.addListener(memoryPoolListener));
+        memoryPool.addListener(memoryPoolListener);
     }
 
     private void onMemoryReserved(MemoryPool memoryPool)
@@ -191,18 +180,10 @@ public class MemoryRevokingScheduler
     private synchronized void runMemoryRevoking()
     {
         if (checkPending.getAndSet(false)) {
-            Collection<SqlTask> allTasks = null;
-            for (MemoryPool memoryPool : memoryPools) {
-                if (!memoryRevokingNeeded(memoryPool)) {
-                    continue;
-                }
-
-                if (allTasks == null) {
-                    allTasks = requireNonNull(currentTasksSupplier.get());
-                }
-
-                requestMemoryRevoking(memoryPool, allTasks);
+            if (!memoryRevokingNeeded(memoryPool)) {
+                return;
             }
+            requestMemoryRevoking(memoryPool, requireNonNull(currentTasksSupplier.get()));
         }
     }
 
@@ -212,7 +193,7 @@ public class MemoryRevokingScheduler
         List<SqlTask> runningTasksInPool = findRunningTasksInMemoryPool(allTasks, memoryPool);
         remainingBytesToRevoke -= getMemoryAlreadyBeingRevoked(runningTasksInPool, remainingBytesToRevoke);
         if (remainingBytesToRevoke > 0) {
-            requestRevoking(memoryPool.getId(), runningTasksInPool, remainingBytesToRevoke);
+            requestRevoking(runningTasksInPool, remainingBytesToRevoke);
         }
     }
 
@@ -257,7 +238,7 @@ public class MemoryRevokingScheduler
         return currentRevoking;
     }
 
-    private void requestRevoking(MemoryPoolId memoryPoolId, List<SqlTask> sqlTasks, long remainingBytesToRevoke)
+    private void requestRevoking(List<SqlTask> sqlTasks, long remainingBytesToRevoke)
     {
         VoidTraversingQueryContextVisitor<AtomicLong> visitor = new VoidTraversingQueryContextVisitor<>()
         {
@@ -278,7 +259,7 @@ public class MemoryRevokingScheduler
                     long revokedBytes = operatorContext.requestMemoryRevoking();
                     if (revokedBytes > 0) {
                         remainingBytesToRevoke.addAndGet(-revokedBytes);
-                        log.debug("memoryPool=%s: requested revoking %s; remaining %s", memoryPoolId, revokedBytes, remainingBytesToRevoke.get());
+                        log.debug("requested revoking %s; remaining %s", revokedBytes, remainingBytesToRevoke.get());
                     }
                 }
                 return null;

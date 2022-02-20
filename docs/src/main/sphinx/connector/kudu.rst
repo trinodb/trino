@@ -11,7 +11,7 @@ Requirements
 
 To connect to Kudu, you need:
 
-* Kudu version 1.10 or higher.
+* Kudu version 1.13.0 or higher.
 * Network access from the Trino coordinator and workers to Kudu. Port 7051 is
   the default port.
 
@@ -50,9 +50,6 @@ replacing the properties as appropriate:
 
    ## Default timeout used for user operations
    #kudu.client.default-operation-timeout = 30s
-
-   ## Default timeout to use when waiting on data from a socket
-   #kudu.client.default-socket-read-timeout = 10s
 
    ## Disable Kudu client's collection of statistics.
    #kudu.client.disable-statistics = false

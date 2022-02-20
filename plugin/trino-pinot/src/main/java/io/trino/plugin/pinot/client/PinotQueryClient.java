@@ -101,7 +101,7 @@ public class PinotQueryClient
         BrokerRequest offlineBrokerRequest = TableNameBuilder.isOfflineTableResource(tableName) ? brokerRequest : null;
         BrokerRequest realtimeBrokerRequest = TableNameBuilder.isRealtimeTableResource(tableName) ? brokerRequest : null;
         AsyncQueryResponse asyncQueryResponse =
-                doWithRetries(pinotRetryCount, (requestId) -> queryRouter.submitQuery(requestId, rawTableName, offlineBrokerRequest, offlineRoutingTable, realtimeBrokerRequest, realtimeRoutingTable, connectionTimeoutInMillis));
+                doWithRetries(pinotRetryCount, requestId -> queryRouter.submitQuery(requestId, rawTableName, offlineBrokerRequest, offlineRoutingTable, realtimeBrokerRequest, realtimeRoutingTable, connectionTimeoutInMillis));
         try {
             Map<ServerRoutingInstance, ServerResponse> response = asyncQueryResponse.getResponse();
             Map<ServerInstance, DataTable> dataTableMap = new HashMap<>();

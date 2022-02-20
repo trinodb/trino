@@ -13,10 +13,11 @@
  */
 package io.trino.collect.cache;
 
+import com.google.common.base.Strings;
 import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheStats;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 import org.testng.annotations.Test;
 
@@ -32,10 +33,13 @@ import java.util.stream.IntStream;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.collect.cache.CacheStatsAssertions.assertCacheStats;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotSame;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
@@ -48,17 +52,111 @@ public class TestEvictableCache
     public void testLoad()
             throws Exception
     {
-        Cache<Integer, String> cache = EvictableCache.buildWith(
-                CacheBuilder.newBuilder());
+        Cache<Integer, String> cache = EvictableCacheBuilder.newBuilder()
+                .maximumSize(10_000)
+                .build();
         assertEquals(cache.get(42, () -> "abc"), "abc");
+    }
+
+    @Test(timeOut = TEST_TIMEOUT_MILLIS)
+    public void testEvictBySize()
+            throws Exception
+    {
+        Cache<Integer, Integer> cache = EvictableCacheBuilder.newBuilder()
+                .maximumSize(10)
+                .build();
+
+        for (int i = 0; i < 10_000; i++) {
+            int value = i * 10;
+            assertEquals((Object) cache.get(i, () -> value), value);
+        }
+        cache.cleanUp();
+        assertEquals(cache.size(), 10);
+        assertEquals(((EvictableCache<?, ?>) cache).tokensCount(), 10);
+    }
+
+    @Test(timeOut = TEST_TIMEOUT_MILLIS)
+    public void testEvictByWeight()
+            throws Exception
+    {
+        Cache<Integer, String> cache = EvictableCacheBuilder.newBuilder()
+                .maximumWeight(20)
+                .weigher((Integer key, String value) -> value.length())
+                .build();
+
+        for (int i = 0; i < 10; i++) {
+            String value = Strings.repeat("a", i);
+            assertEquals((Object) cache.get(i, () -> value), value);
+        }
+        cache.cleanUp();
+        // It's not deterministic which entries get evicted
+        int cacheSize = toIntExact(cache.size());
+        assertThat(((EvictableCache<?, ?>) cache).tokensCount()).as("tokensCount").isEqualTo(cacheSize);
+        assertThat(cache.asMap().keySet()).as("keySet").hasSize(cacheSize);
+        assertThat(cache.asMap().keySet().stream().mapToInt(i -> i).sum()).as("key sum").isLessThanOrEqualTo(20);
+        assertThat(cache.asMap().values()).as("values").hasSize(cacheSize);
+        assertThat(cache.asMap().values().stream().mapToInt(String::length).sum()).as("values length sum").isLessThanOrEqualTo(20);
+    }
+
+    @Test(timeOut = TEST_TIMEOUT_MILLIS)
+    public void testReplace()
+            throws Exception
+    {
+        Cache<Integer, Integer> cache = EvictableCacheBuilder.newBuilder()
+                .maximumSize(10)
+                .build();
+
+        int key = 10;
+        int initialValue = 20;
+        int replacedValue = 21;
+        cache.get(key, () -> initialValue);
+        assertTrue(cache.asMap().replace(key, initialValue, replacedValue));
+        assertEquals((Object) cache.getIfPresent(key), replacedValue);
+
+        // already replaced, current value is different
+        assertFalse(cache.asMap().replace(key, initialValue, replacedValue));
+        assertEquals((Object) cache.getIfPresent(key), replacedValue);
+
+        // non-existent key
+        assertFalse(cache.asMap().replace(100000, replacedValue, 22));
+        assertEquals(cache.asMap().keySet(), ImmutableSet.of(key));
+        assertEquals((Object) cache.getIfPresent(key), replacedValue);
+
+        int anotherKey = 13;
+        int anotherInitialValue = 14;
+        cache.get(anotherKey, () -> anotherInitialValue);
+        cache.invalidate(anotherKey);
+        // after eviction
+        assertFalse(cache.asMap().replace(anotherKey, anotherInitialValue, 15));
+        assertEquals(cache.asMap().keySet(), ImmutableSet.of(key));
+    }
+
+    @Test(timeOut = TEST_TIMEOUT_MILLIS)
+    public void testDisabledCache()
+            throws Exception
+    {
+        Cache<Integer, Integer> cache = EvictableCacheBuilder.newBuilder()
+                .maximumSize(0)
+                .build();
+
+        for (int i = 0; i < 10; i++) {
+            int value = i * 10;
+            assertEquals((Object) cache.get(i, () -> value), value);
+        }
+        cache.cleanUp();
+        assertEquals(cache.size(), 0);
+        assertThat(cache.asMap().keySet()).as("keySet").isEmpty();
+        assertThat(cache.asMap().values()).as("values").isEmpty();
     }
 
     @Test(timeOut = TEST_TIMEOUT_MILLIS)
     public void testLoadStats()
             throws Exception
     {
-        Cache<Integer, String> cache = EvictableCache.buildWith(
-                CacheBuilder.newBuilder());
+        Cache<Integer, String> cache = EvictableCacheBuilder.newBuilder()
+                .maximumSize(10_000)
+                .recordStats()
+                .build();
 
         assertEquals(cache.stats(), new CacheStats(0, 0, 0, 0, 0, 0));
 
@@ -97,7 +195,9 @@ public class TestEvictableCache
     public void testInvalidateOngoingLoad(Invalidation invalidation)
             throws Exception
     {
-        Cache<Integer, String> cache = EvictableCache.buildWith(CacheBuilder.newBuilder());
+        Cache<Integer, String> cache = EvictableCacheBuilder.newBuilder()
+                .maximumSize(10_000)
+                .build();
         Integer key = 42;
 
         CountDownLatch loadOngoing = new CountDownLatch(1);
@@ -164,7 +264,9 @@ public class TestEvictableCache
         int[] primes = {2, 3, 5, 7};
         AtomicLong remoteState = new AtomicLong(1);
 
-        Cache<Integer, Long> cache = EvictableCache.buildWith(CacheBuilder.newBuilder());
+        Cache<Integer, Long> cache = EvictableCacheBuilder.newBuilder()
+                .maximumSize(10_000)
+                .build();
         Integer key = 42;
         int threads = 4;
 

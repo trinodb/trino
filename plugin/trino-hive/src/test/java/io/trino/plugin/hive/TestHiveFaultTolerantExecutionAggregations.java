@@ -13,23 +13,43 @@
  */
 package io.trino.plugin.hive;
 
+import io.trino.plugin.exchange.containers.MinioStorage;
 import io.trino.testing.AbstractTestFaultTolerantExecutionAggregations;
 import io.trino.testing.QueryRunner;
+import org.testng.annotations.AfterClass;
 
 import java.util.Map;
 
+import static io.trino.plugin.exchange.containers.MinioStorage.getExchangeManagerProperties;
+import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static io.trino.tpch.TpchTable.getTables;
 
 public class TestHiveFaultTolerantExecutionAggregations
         extends AbstractTestFaultTolerantExecutionAggregations
 {
+    private MinioStorage minioStorage;
+
     @Override
     protected QueryRunner createQueryRunner(Map<String, String> extraProperties)
             throws Exception
     {
+        this.minioStorage = new MinioStorage("test-exchange-spooling-" + randomTableSuffix());
+        minioStorage.start();
+
         return HiveQueryRunner.builder()
                 .setExtraProperties(extraProperties)
+                .setExchangeManagerProperties(getExchangeManagerProperties(minioStorage))
                 .setInitialTables(getTables())
                 .build();
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void destroy()
+            throws Exception
+    {
+        if (minioStorage != null) {
+            minioStorage.close();
+            minioStorage = null;
+        }
     }
 }

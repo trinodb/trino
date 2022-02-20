@@ -255,6 +255,18 @@ public abstract class BaseMySqlConnectorTest
     }
 
     @Override
+    protected String errorMessageForCreateTableAsSelectNegativeDate(String date)
+    {
+        return format("Failed to insert data: Data truncation: Incorrect date value: '%s' for column 'dt' at row 1", date);
+    }
+
+    @Override
+    protected String errorMessageForInsertNegativeDate(String date)
+    {
+        return format("Failed to insert data: Data truncation: Incorrect date value: '%s' for column 'dt' at row 1", date);
+    }
+
+    @Override
     protected String errorMessageForInsertIntoNotNullColumn(String columnName)
     {
         return format("Failed to insert data: Field '%s' doesn't have a default value", columnName);

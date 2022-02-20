@@ -186,6 +186,7 @@ public class SqlQueryScheduler
     private final SplitSourceFactory splitSourceFactory;
     private final ExchangeManagerRegistry exchangeManagerRegistry;
     private final TaskSourceFactory taskSourceFactory;
+    private final TaskDescriptorStorage taskDescriptorStorage;
 
     private final StageManager stageManager;
     private final CoordinatorStagesScheduler coordinatorStagesScheduler;
@@ -224,7 +225,8 @@ public class SqlQueryScheduler
             SplitSourceFactory splitSourceFactory,
             TaskManager coordinatorTaskManager,
             ExchangeManagerRegistry exchangeManagerRegistry,
-            TaskSourceFactory taskSourceFactory)
+            TaskSourceFactory taskSourceFactory,
+            TaskDescriptorStorage taskDescriptorStorage)
     {
         this.queryStateMachine = requireNonNull(queryStateMachine, "queryStateMachine is null");
         this.nodePartitioningManager = requireNonNull(nodePartitioningManager, "nodePartitioningManager is null");
@@ -240,6 +242,7 @@ public class SqlQueryScheduler
         this.splitSourceFactory = requireNonNull(splitSourceFactory, "splitSourceFactory is null");
         this.exchangeManagerRegistry = requireNonNull(exchangeManagerRegistry, "exchangeManagerRegistry is null");
         this.taskSourceFactory = requireNonNull(taskSourceFactory, "taskSourceFactory is null");
+        this.taskDescriptorStorage = requireNonNull(taskDescriptorStorage, "taskDescriptorStorage is null");
 
         stageManager = StageManager.create(
                 queryStateMachine,
@@ -332,6 +335,7 @@ public class SqlQueryScheduler
                         stageManager,
                         failureDetector,
                         taskSourceFactory,
+                        taskDescriptorStorage,
                         exchangeManager,
                         nodePartitioningManager,
                         coordinatorStagesScheduler.getTaskLifecycleListener(),
@@ -1702,6 +1706,7 @@ public class SqlQueryScheduler
                 StageManager stageManager,
                 FailureDetector failureDetector,
                 TaskSourceFactory taskSourceFactory,
+                TaskDescriptorStorage taskDescriptorStorage,
                 ExchangeManager exchangeManager,
                 NodePartitioningManager nodePartitioningManager,
                 TaskLifecycleListener coordinatorTaskLifecycleListener,
@@ -1710,6 +1715,13 @@ public class SqlQueryScheduler
                 SplitSchedulerStats schedulerStats,
                 NodeScheduler nodeScheduler)
         {
+            taskDescriptorStorage.initialize(queryStateMachine.getQueryId());
+            queryStateMachine.addStateChangeListener(state -> {
+                if (state.isDone()) {
+                    taskDescriptorStorage.destroy(queryStateMachine.getQueryId());
+                }
+            });
+
             DistributedStagesSchedulerStateMachine stateMachine = new DistributedStagesSchedulerStateMachine(queryStateMachine.getQueryId(), scheduledExecutorService);
 
             Session session = queryStateMachine.getSession();
@@ -1764,6 +1776,7 @@ public class SqlQueryScheduler
                             failureDetector,
                             taskSourceFactory,
                             nodeAllocator,
+                            taskDescriptorStorage,
                             taskLifecycleListener,
                             exchange,
                             bucketToPartitionCache.apply(fragment.getPartitioningScheme().getPartitioning().getHandle()).getBucketToPartitionMap(),

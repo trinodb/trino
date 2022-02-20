@@ -15,13 +15,12 @@ package io.trino.plugin.jdbc;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheStats;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.jmx.CacheStatsMBean;
 import io.airlift.units.Duration;
-import io.trino.collect.cache.EvictableCache;
+import io.trino.collect.cache.EvictableCacheBuilder;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.jdbc.IdentityCacheMapping.IdentityCacheKey;
 import io.trino.spi.TrinoException;
@@ -110,7 +109,7 @@ public class CachingJdbcClient
         this.cacheMissing = cacheMissing;
         this.identityMapping = requireNonNull(identityMapping, "identityMapping is null");
 
-        CacheBuilder<Object, Object> cacheBuilder = CacheBuilder.newBuilder()
+        EvictableCacheBuilder<Object, Object> cacheBuilder = EvictableCacheBuilder.newBuilder()
                 .expireAfterWrite(metadataCachingTtl.toMillis(), MILLISECONDS)
                 .recordStats();
 
@@ -122,11 +121,11 @@ public class CachingJdbcClient
             cacheBuilder.maximumSize(cacheMaximumSize);
         }
 
-        schemaNamesCache = EvictableCache.buildWith(cacheBuilder);
-        tableNamesCache = EvictableCache.buildWith(cacheBuilder);
-        tableHandleCache = EvictableCache.buildWith(cacheBuilder);
-        columnsCache = EvictableCache.buildWith(cacheBuilder);
-        statisticsCache = EvictableCache.buildWith(cacheBuilder);
+        schemaNamesCache = cacheBuilder.build();
+        tableNamesCache = cacheBuilder.build();
+        tableHandleCache = cacheBuilder.build();
+        columnsCache = cacheBuilder.build();
+        statisticsCache = cacheBuilder.build();
     }
 
     @Override
@@ -718,6 +717,15 @@ public class CachingJdbcClient
         public int hashCode()
         {
             return Objects.hash(tableHandle, tupleDomain);
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("tableHandle", tableHandle)
+                    .add("tupleDomain", tupleDomain)
+                    .toString();
         }
     }
 

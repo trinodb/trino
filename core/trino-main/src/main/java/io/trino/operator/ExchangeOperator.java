@@ -47,7 +47,6 @@ import java.util.function.Supplier;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
-import static io.airlift.concurrent.MoreFutures.asVoid;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -491,7 +490,7 @@ public class ExchangeOperator
         @Override
         public ListenableFuture<Void> isBlocked()
         {
-            return asVoid(toListenableFuture(exchangeSource.isBlocked()));
+            return toListenableFuture(exchangeSource.isBlocked());
         }
 
         @Override

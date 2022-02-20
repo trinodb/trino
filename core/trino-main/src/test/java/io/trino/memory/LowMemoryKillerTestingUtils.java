@@ -16,11 +16,9 @@ package io.trino.memory;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.units.DataSize;
 import io.trino.client.NodeVersion;
 import io.trino.metadata.InternalNode;
 import io.trino.spi.QueryId;
-import io.trino.spi.memory.MemoryPoolId;
 import io.trino.spi.memory.MemoryPoolInfo;
 
 import java.net.URI;
@@ -28,14 +26,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static io.trino.memory.LocalMemoryManager.GENERAL_POOL;
-import static io.trino.memory.LocalMemoryManager.RESERVED_POOL;
-
 public final class LowMemoryKillerTestingUtils
 {
     private LowMemoryKillerTestingUtils() {}
 
-    static List<MemoryInfo> toNodeMemoryInfoList(long maxReservedPoolBytes, long maxGeneralPoolBytes, String reservedQuery, Map<String, Map<String, Long>> queries)
+    static List<MemoryInfo> toNodeMemoryInfoList(long memoryPoolMaxBytes, Map<String, Map<String, Long>> queries)
     {
         Map<InternalNode, NodeReservation> nodeReservations = new HashMap<>();
 
@@ -49,47 +44,26 @@ public final class LowMemoryKillerTestingUtils
                 if (bytes == 0) {
                     continue;
                 }
-                if (reservedQuery.equals(entry.getKey())) {
-                    nodeReservations.computeIfAbsent(node, ignored -> new NodeReservation()).getReserved().add(queryId, bytes);
-                }
-                else {
-                    nodeReservations.computeIfAbsent(node, ignored -> new NodeReservation()).getGeneral().add(queryId, bytes);
-                }
+                nodeReservations.computeIfAbsent(node, ignored -> new NodeReservation()).add(queryId, bytes);
             }
         }
 
         ImmutableList.Builder<MemoryInfo> result = ImmutableList.builder();
         for (Map.Entry<InternalNode, NodeReservation> entry : nodeReservations.entrySet()) {
             NodeReservation nodeReservation = entry.getValue();
-            ImmutableMap.Builder<MemoryPoolId, MemoryPoolInfo> pools = ImmutableMap.builder();
-            if (nodeReservation.getGeneral().getTotalReservedBytes() > 0) {
-                pools.put(
-                        GENERAL_POOL,
-                        new MemoryPoolInfo(
-                                maxGeneralPoolBytes,
-                                nodeReservation.getGeneral().getTotalReservedBytes(),
-                                0,
-                                nodeReservation.getGeneral().getReservationByQuery(),
-                                ImmutableMap.of(),
-                                ImmutableMap.of()));
-            }
-            if (nodeReservation.getReserved().getTotalReservedBytes() > 0) {
-                pools.put(
-                        RESERVED_POOL,
-                        new MemoryPoolInfo(
-                                maxReservedPoolBytes,
-                                nodeReservation.getReserved().getTotalReservedBytes(),
-                                0,
-                                nodeReservation.getReserved().getReservationByQuery(),
-                                ImmutableMap.of(),
-                                ImmutableMap.of()));
-            }
-            result.add(new MemoryInfo(7, DataSize.ofBytes(maxReservedPoolBytes + maxGeneralPoolBytes), pools.buildOrThrow()));
+            MemoryPoolInfo memoryPoolInfo = new MemoryPoolInfo(
+                    memoryPoolMaxBytes,
+                    nodeReservation.getTotalReservedBytes(),
+                    0,
+                    nodeReservation.getReservationByQuery(),
+                    ImmutableMap.of(),
+                    ImmutableMap.of());
+            result.add(new MemoryInfo(7, memoryPoolInfo));
         }
         return result.build();
     }
 
-    static List<LowMemoryKiller.QueryMemoryInfo> toQueryMemoryInfoList(String reservedQuery, Map<String, Map<String, Long>> queries)
+    static List<LowMemoryKiller.QueryMemoryInfo> toQueryMemoryInfoList(Map<String, Map<String, Long>> queries)
     {
         ImmutableList.Builder<LowMemoryKiller.QueryMemoryInfo> result = ImmutableList.builder();
         for (Map.Entry<String, Map<String, Long>> entry : queries.entrySet()) {
@@ -97,28 +71,12 @@ public final class LowMemoryKillerTestingUtils
             long totalReservation = entry.getValue().values().stream()
                     .mapToLong(x -> x)
                     .sum();
-            result.add(new LowMemoryKiller.QueryMemoryInfo(new QueryId(queryId), queryId.equals(reservedQuery) ? RESERVED_POOL : GENERAL_POOL, totalReservation));
+            result.add(new LowMemoryKiller.QueryMemoryInfo(new QueryId(queryId), totalReservation));
         }
         return result.build();
     }
 
     private static class NodeReservation
-    {
-        private final PoolReservation general = new PoolReservation();
-        private final PoolReservation reserved = new PoolReservation();
-
-        public PoolReservation getGeneral()
-        {
-            return general;
-        }
-
-        public PoolReservation getReserved()
-        {
-            return reserved;
-        }
-    }
-
-    private static class PoolReservation
     {
         private long totalReservedBytes;
         private final Map<QueryId, Long> reservationByQuery = new HashMap<>();

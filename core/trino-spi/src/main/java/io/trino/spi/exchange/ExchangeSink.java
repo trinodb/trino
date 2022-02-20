@@ -22,26 +22,27 @@ import java.util.concurrent.CompletableFuture;
 @ThreadSafe
 public interface ExchangeSink
 {
-    CompletableFuture<?> NOT_BLOCKED = CompletableFuture.completedFuture(null);
+    CompletableFuture<Void> NOT_BLOCKED = CompletableFuture.completedFuture(null);
 
     /**
      * Returns a future that will be completed when the exchange sink becomes
      * unblocked.  If the exchange sink is not blocked, this method should return
      * {@code NOT_BLOCKED}
      */
-    CompletableFuture<?> isBlocked();
+    CompletableFuture<Void> isBlocked();
 
     /**
      * Appends arbitrary {@code data} to a partition specified by {@code partitionId}.
      * The engine is free to reuse the {@code data} buffer.
      * The implementation is expected to copy the buffer as it may be invalidated and recycled.
-     * If this method is invoked after {@link #finish()} or {@link #abort()} is initiated the
-     * invocation should be ignored.
+     * This method is guaranteed not to be invoked after {@link #finish()}.
+     * This method can be invoked after {@link #abort()}.
+     * If this method is invoked after {@link #abort()} the invocation should be ignored.
      */
     void add(int partitionId, Slice data);
 
     /**
-     * Get the total memory that needs to be reserved in the general memory pool.
+     * Get the total memory that needs to be reserved in the memory pool.
      * This memory should include any buffers, etc. that are used for writing data
      */
     long getMemoryUsage();
@@ -50,18 +51,23 @@ public interface ExchangeSink
      * Notifies the exchange sink that no more data will be appended.
      * This method is guaranteed not to be called after {@link #abort()}.
      * This method is guaranteed not be called more than once.
+     * The {@link #abort()} method will not be called if the finish operation fails.
+     * The finish implementation is responsible for safely releasing resources in
+     * case of a failure.
      *
      * @return future that will be resolved when the finish operation either succeeds or fails
      */
-    CompletableFuture<?> finish();
+    CompletableFuture<Void> finish();
 
     /**
      * Notifies the exchange that the write operation has been aborted.
      * This method may be called when {@link #finish()} is still running. In this situation the implementation
      * is free to either cancel the finish operation and abort or let the finish operation succeed.
+     * This method may also be called when {@link #finish()} is done. In this situation the implementation
+     * is free to either ignore the call or invalidate the sink.
      * This method is guaranteed not be called more than once.
      *
      * @return future that will be resolved when the abort operation either succeeds or fails
      */
-    CompletableFuture<?> abort();
+    CompletableFuture<Void> abort();
 }

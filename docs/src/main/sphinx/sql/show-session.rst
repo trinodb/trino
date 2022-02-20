@@ -12,7 +12,7 @@ Synopsis
 Description
 -----------
 
-List the current session properties.
+List the current :ref:`session properties <session-properties-definition>`.
 The ``LIKE`` clause can be used to restrict the list of session properties.
 
 See also

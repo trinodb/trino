@@ -1001,10 +1001,11 @@ public abstract class BaseConnectorTest
         assertQuery("SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = '" + schema + "' AND table_name = 'orders'", ordersTableWithColumns);
         assertQuery("SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = '" + schema + "' AND table_name LIKE '%rders'", ordersTableWithColumns);
         assertQuery("SELECT table_name, column_name FROM information_schema.columns WHERE table_schema LIKE '" + schemaPattern + "' AND table_name LIKE '_rder_'", ordersTableWithColumns);
-        assertQuery(
+        assertThat(query(
                 "SELECT table_name, column_name FROM information_schema.columns " +
-                        "WHERE table_catalog = '" + catalog + "' AND table_schema = '" + schema + "' AND table_name LIKE '%orders%'",
-                ordersTableWithColumns);
+                        "WHERE table_catalog = '" + catalog + "' AND table_schema = '" + schema + "' AND table_name LIKE '%orders%'"))
+                .skippingTypesCheck()
+                .containsAll(ordersTableWithColumns);
 
         assertQuerySucceeds("SELECT * FROM information_schema.columns");
         assertQuery("SELECT DISTINCT table_name, column_name FROM information_schema.columns WHERE table_name LIKE '_rders'", ordersTableWithColumns);
@@ -1194,19 +1195,63 @@ public abstract class BaseConnectorTest
     }
 
     @Test
+    public void testCreateTableAsSelectNegativeDate()
+    {
+        String tableName = "negative_date_" + randomTableSuffix();
+
+        if (!hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA)) {
+            assertQueryFails(format("CREATE TABLE %s AS SELECT DATE '-0001-01-01' AS dt", tableName), "This connector does not support creating tables with data");
+            return;
+        }
+        if (!hasBehavior(SUPPORTS_NEGATIVE_DATE)) {
+            assertQueryFails(format("CREATE TABLE %s AS SELECT DATE '-0001-01-01' AS dt", tableName), errorMessageForCreateTableAsSelectNegativeDate("-0001-01-01"));
+            return;
+        }
+
+        try {
+            assertUpdate(format("CREATE TABLE %s AS SELECT DATE '-0001-01-01' AS dt", tableName), 1);
+            assertQuery("SELECT * FROM " + tableName, "VALUES DATE '-0001-01-01'");
+            assertQuery(format("SELECT * FROM %s WHERE dt = DATE '-0001-01-01'", tableName), "VALUES DATE '-0001-01-01'");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    @Language("RegExp")
+    protected String errorMessageForCreateTableAsSelectNegativeDate(String date)
+    {
+        throw new UnsupportedOperationException("This method should be overridden");
+    }
+
+    @Test
     public void testInsertNegativeDate()
     {
-        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_INSERT));
+        if (!hasBehavior(SUPPORTS_INSERT)) {
+            assertQueryFails("INSERT INTO orders (orderdate) VALUES (DATE '-0001-01-01')", "This connector does not support inserts");
+            return;
+        }
+        if (!hasBehavior(SUPPORTS_CREATE_TABLE)) {
+            throw new AssertionError("Cannot test INSERT negative dates without CREATE TABLE, the test needs to be implemented in a connector-specific way");
+        }
+        if (!hasBehavior(SUPPORTS_NEGATIVE_DATE)) {
+            try (TestTable table = new TestTable(getQueryRunner()::execute, "insert_date", "(dt DATE)")) {
+                assertQueryFails(format("INSERT INTO %s VALUES (DATE '-0001-01-01')", table.getName()), errorMessageForInsertNegativeDate("-0001-01-01"));
+            }
+            return;
+        }
 
         try (TestTable table = new TestTable(getQueryRunner()::execute, "insert_date", "(dt DATE)")) {
-            if (hasBehavior(SUPPORTS_NEGATIVE_DATE)) {
-                assertUpdate(format("INSERT INTO %s VALUES (DATE '-2016-12-07')", table.getName()), 1);
-                assertQuery("SELECT * FROM " + table.getName(), "VALUES DATE '-2016-12-07'");
-            }
-            else {
-                assertQueryFails(format("INSERT INTO %s VALUES (DATE '-2016-12-07')", table.getName()), "(?s).*Failed to insert data.*");
-            }
+            assertUpdate(format("INSERT INTO %s VALUES (DATE '-0001-01-01')", table.getName()), 1);
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES DATE '-0001-01-01'");
+            assertQuery(format("SELECT * FROM %s WHERE dt = DATE '-0001-01-01'", table.getName()), "VALUES DATE '-0001-01-01'");
         }
+    }
+
+    @Language("RegExp")
+    protected String errorMessageForInsertNegativeDate(String date)
+    {
+        throw new UnsupportedOperationException("This method should be overridden");
     }
 
     @Test

@@ -40,7 +40,7 @@ public final class DecimalToDecimalCasts
             .choice(choice -> choice
                     .implementation(methodsGroup -> methodsGroup
                             .methods("shortToShortCast")
-                            .withExtraParameters((context) -> {
+                            .withExtraParameters(context -> {
                                 DecimalType argumentType = (DecimalType) context.getParameterTypes().get(0);
                                 DecimalType resultType = (DecimalType) context.getReturnType();
                                 long rescale = longTenToNth(Math.abs(resultType.getScale() - argumentType.getScale()));
@@ -51,7 +51,7 @@ public final class DecimalToDecimalCasts
                             }))
                     .implementation(methodsGroup -> methodsGroup
                             .methods("shortToLongCast", "longToShortCast", "longToLongCast")
-                            .withExtraParameters((context) -> {
+                            .withExtraParameters(context -> {
                                 DecimalType argumentType = (DecimalType) context.getParameterTypes().get(0);
                                 DecimalType resultType = (DecimalType) context.getReturnType();
                                 return ImmutableList.of(
