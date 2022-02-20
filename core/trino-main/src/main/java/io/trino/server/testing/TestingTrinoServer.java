@@ -56,7 +56,6 @@ import io.trino.execution.resourcegroups.InternalResourceGroupManager;
 import io.trino.memory.ClusterMemoryManager;
 import io.trino.memory.LocalMemoryManager;
 import io.trino.metadata.AllNodes;
-import io.trino.metadata.CatalogManager;
 import io.trino.metadata.FunctionBundle;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.GlobalFunctionCatalog;
@@ -150,7 +149,6 @@ public class TestingTrinoServer
     private final PluginManager pluginManager;
     private final ConnectorManager connectorManager;
     private final TestingHttpServer server;
-    private final CatalogManager catalogManager;
     private final TransactionManager transactionManager;
     private final Metadata metadata;
     private final TypeManager typeManager;
@@ -307,7 +305,6 @@ public class TestingTrinoServer
         connectorManager = injector.getInstance(ConnectorManager.class);
 
         server = injector.getInstance(TestingHttpServer.class);
-        catalogManager = injector.getInstance(CatalogManager.class);
         transactionManager = injector.getInstance(TransactionManager.class);
         globalFunctionCatalog = injector.getInstance(GlobalFunctionCatalog.class);
         metadata = injector.getInstance(Metadata.class);
@@ -459,11 +456,6 @@ public class TestingTrinoServer
     {
         URI httpsUri = server.getHttpServerInfo().getHttpsUri();
         return HostAndPort.fromParts(httpsUri.getHost(), httpsUri.getPort());
-    }
-
-    public CatalogManager getCatalogManager()
-    {
-        return catalogManager;
     }
 
     public TransactionManager getTransactionManager()
