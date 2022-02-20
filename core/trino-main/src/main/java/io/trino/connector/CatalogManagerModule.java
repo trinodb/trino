@@ -32,10 +32,9 @@ public class CatalogManagerModule
         binder.bind(CatalogFactory.class).to(LazyCatalogFactory.class).in(Scopes.SINGLETON);
         binder.bind(LazyRegister.class).asEagerSingleton();
 
-        binder.bind(ConnectorManager.class).in(Scopes.SINGLETON);
-        binder.bind(ConnectorServicesProvider.class).to(ConnectorManager.class).in(Scopes.SINGLETON);
-
-        binder.bind(CatalogManager.class).to(ConnectorManager.class).in(Scopes.SINGLETON);
+        binder.bind(StaticCatalogManager.class).in(Scopes.SINGLETON);
+        binder.bind(ConnectorServicesProvider.class).to(StaticCatalogManager.class).in(Scopes.SINGLETON);
+        binder.bind(CatalogManager.class).to(StaticCatalogManager.class).in(Scopes.SINGLETON);
 
         install(new CatalogServiceProviderModule());
     }
@@ -46,11 +45,11 @@ public class CatalogManagerModule
         public LazyRegister(
                 DefaultCatalogFactory defaultCatalogFactory,
                 LazyCatalogFactory lazyCatalogFactory,
-                ConnectorManager manager,
+                StaticCatalogManager catalogManager,
                 GlobalSystemConnector globalSystemConnector)
         {
             lazyCatalogFactory.setCatalogFactory(defaultCatalogFactory);
-            manager.createCatalog(GlobalSystemConnector.CATALOG_HANDLE, GlobalSystemConnector.NAME, globalSystemConnector);
+            catalogManager.createCatalog(GlobalSystemConnector.CATALOG_HANDLE, GlobalSystemConnector.NAME, globalSystemConnector);
         }
     }
 }

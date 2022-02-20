@@ -40,8 +40,8 @@ import io.airlift.node.testing.TestingNodeModule;
 import io.airlift.tracetoken.TraceTokenModule;
 import io.trino.connector.CatalogHandle;
 import io.trino.connector.CatalogManagerModule;
-import io.trino.connector.ConnectorManager;
 import io.trino.connector.ConnectorServicesProvider;
+import io.trino.connector.StaticCatalogManager;
 import io.trino.cost.StatsCalculator;
 import io.trino.dispatcher.DispatchManager;
 import io.trino.eventlistener.EventListenerConfig;
@@ -152,7 +152,7 @@ public class TestingTrinoServer
     private final boolean preserveData;
     private final LifeCycleManager lifeCycleManager;
     private final PluginManager pluginManager;
-    private final ConnectorManager connectorManager;
+    private final StaticCatalogManager catalogManager;
     private final TestingHttpServer server;
     private final TransactionManager transactionManager;
     private final Metadata metadata;
@@ -309,7 +309,7 @@ public class TestingTrinoServer
 
         pluginManager = injector.getInstance(PluginManager.class);
 
-        connectorManager = injector.getInstance(ConnectorManager.class);
+        catalogManager = injector.getInstance(StaticCatalogManager.class);
 
         server = injector.getInstance(TestingHttpServer.class);
         transactionManager = injector.getInstance(TransactionManager.class);
@@ -424,7 +424,7 @@ public class TestingTrinoServer
 
     public CatalogHandle createCatalog(String catalogName, String connectorName, Map<String, String> properties)
     {
-        CatalogHandle catalogHandle = connectorManager.createCatalog(catalogName, connectorName, properties);
+        CatalogHandle catalogHandle = catalogManager.createCatalog(catalogName, connectorName, properties);
         updateConnectorIdAnnouncement(announcer, catalogHandle, nodeManager);
         return catalogHandle;
     }

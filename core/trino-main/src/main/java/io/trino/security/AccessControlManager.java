@@ -124,7 +124,7 @@ public class AccessControlManager
     }
 
     /**
-     * Lazy registry for connector access controls due to circular dependency between access control and connector creation in ConnectorManager.
+     * Lazy registry for connector access controls due to circular dependency between access control and connector creation in CatalogManager.
      */
     public void setConnectorAccessControlProvider(CatalogServiceProvider<Optional<ConnectorAccessControl>> connectorAccessControlProvider)
     {

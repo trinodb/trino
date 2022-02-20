@@ -26,10 +26,10 @@ import io.trino.SystemSessionPropertiesProvider;
 import io.trino.connector.CatalogFactory;
 import io.trino.connector.CatalogHandle;
 import io.trino.connector.CatalogServiceProviderModule;
-import io.trino.connector.ConnectorManager;
 import io.trino.connector.ConnectorServicesProvider;
 import io.trino.connector.DefaultCatalogFactory;
 import io.trino.connector.LazyCatalogFactory;
+import io.trino.connector.StaticCatalogManager;
 import io.trino.connector.system.AnalyzePropertiesSystemTable;
 import io.trino.connector.system.CatalogSystemTable;
 import io.trino.connector.system.ColumnPropertiesSystemTable;
@@ -75,7 +75,6 @@ import io.trino.memory.MemoryManagerConfig;
 import io.trino.memory.NodeMemoryConfig;
 import io.trino.metadata.AnalyzePropertyManager;
 import io.trino.metadata.BlockEncodingManager;
-import io.trino.metadata.CatalogManager;
 import io.trino.metadata.ColumnPropertyManager;
 import io.trino.metadata.DisabledSystemSecurityMetadata;
 import io.trino.metadata.ExchangeHandleResolver;
@@ -291,7 +290,7 @@ public class LocalQueryRunner
     private final JoinFilterFunctionCompiler joinFilterFunctionCompiler;
     private final JoinCompiler joinCompiler;
     private final CatalogFactory catalogFactory;
-    private final ConnectorManager connectorManager;
+    private final StaticCatalogManager catalogManager;
     private final PluginManager pluginManager;
     private final ExchangeManagerRegistry exchangeManagerRegistry;
 
@@ -351,7 +350,7 @@ public class LocalQueryRunner
         this.optimizerConfig = new OptimizerConfig();
         LazyCatalogFactory catalogFactory = new LazyCatalogFactory();
         this.catalogFactory = catalogFactory;
-        CatalogManager catalogManager = new ConnectorManager(catalogFactory);
+        this.catalogManager = new StaticCatalogManager(catalogFactory);
         this.transactionManager = InMemoryTransactionManager.create(
                 new TransactionManagerConfig().setIdleTimeout(new Duration(1, TimeUnit.DAYS)),
                 yieldExecutor,
@@ -403,24 +402,23 @@ public class LocalQueryRunner
                 transactionManager,
                 typeManager,
                 nodeSchedulerConfig));
-        this.connectorManager = new ConnectorManager(catalogFactory);
-        this.splitManager = new SplitManager(createSplitManagerProvider(connectorManager), new QueryManagerConfig());
-        this.pageSourceManager = new PageSourceManager(createPageSourceProvider(connectorManager));
-        this.pageSinkManager = new PageSinkManager(createPageSinkProvider(connectorManager));
-        this.indexManager = new IndexManager(createIndexProvider(connectorManager));
+        this.splitManager = new SplitManager(createSplitManagerProvider(catalogManager), new QueryManagerConfig());
+        this.pageSourceManager = new PageSourceManager(createPageSourceProvider(catalogManager));
+        this.pageSinkManager = new PageSinkManager(createPageSinkProvider(catalogManager));
+        this.indexManager = new IndexManager(createIndexProvider(catalogManager));
         NodeScheduler nodeScheduler = new NodeScheduler(new UniformNodeSelectorFactory(nodeManager, nodeSchedulerConfig, new NodeTaskMap(finalizerService)));
-        this.sessionPropertyManager = createSessionPropertyManager(connectorManager, extraSessionProperties, taskManagerConfig, featuresConfig, optimizerConfig);
-        this.nodePartitioningManager = new NodePartitioningManager(nodeScheduler, blockTypeOperators, createNodePartitioningProvider(connectorManager));
-        TableProceduresRegistry tableProceduresRegistry = new TableProceduresRegistry(createTableProceduresProvider(connectorManager));
-        TableFunctionRegistry tableFunctionRegistry = new TableFunctionRegistry(createTableFunctionProvider(connectorManager));
-        this.schemaPropertyManager = createSchemaPropertyManager(connectorManager);
-        this.columnPropertyManager = createColumnPropertyManager(connectorManager);
-        this.tablePropertyManager = createTablePropertyManager(connectorManager);
-        this.materializedViewPropertyManager = createMaterializedViewPropertyManager(connectorManager);
-        this.analyzePropertyManager = createAnalyzePropertyManager(connectorManager);
-        TableProceduresPropertyManager tableProceduresPropertyManager = createTableProceduresPropertyManager(connectorManager);
+        this.sessionPropertyManager = createSessionPropertyManager(catalogManager, extraSessionProperties, taskManagerConfig, featuresConfig, optimizerConfig);
+        this.nodePartitioningManager = new NodePartitioningManager(nodeScheduler, blockTypeOperators, createNodePartitioningProvider(catalogManager));
+        TableProceduresRegistry tableProceduresRegistry = new TableProceduresRegistry(createTableProceduresProvider(catalogManager));
+        TableFunctionRegistry tableFunctionRegistry = new TableFunctionRegistry(createTableFunctionProvider(catalogManager));
+        this.schemaPropertyManager = createSchemaPropertyManager(catalogManager);
+        this.columnPropertyManager = createColumnPropertyManager(catalogManager);
+        this.tablePropertyManager = createTablePropertyManager(catalogManager);
+        this.materializedViewPropertyManager = createMaterializedViewPropertyManager(catalogManager);
+        this.analyzePropertyManager = createAnalyzePropertyManager(catalogManager);
+        TableProceduresPropertyManager tableProceduresPropertyManager = createTableProceduresPropertyManager(catalogManager);
 
-        accessControl.setConnectorAccessControlProvider(createAccessControlProvider(connectorManager));
+        accessControl.setConnectorAccessControlProvider(createAccessControlProvider(catalogManager));
 
         this.statementAnalyzerFactory = new StatementAnalyzerFactory(
                 plannerContext,
@@ -474,7 +472,7 @@ public class LocalQueryRunner
                 handleResolver,
                 exchangeManagerRegistry);
 
-        connectorManager.createCatalog(GlobalSystemConnector.CATALOG_HANDLE, GlobalSystemConnector.NAME, globalSystemConnector);
+        catalogManager.createCatalog(GlobalSystemConnector.CATALOG_HANDLE, GlobalSystemConnector.NAME, globalSystemConnector);
 
         // rewrite session to use managed SessionPropertyMetadata
         Optional<TransactionId> transactionId = withInitialTransaction ? Optional.of(transactionManager.beginTransaction(true)) : defaultSession.getTransactionId();
@@ -545,7 +543,7 @@ public class LocalQueryRunner
     {
         notificationExecutor.shutdownNow();
         yieldExecutor.shutdownNow();
-        connectorManager.stop();
+        catalogManager.stop();
         finalizerService.destroy();
         singleStreamSpillerFactory.destroy();
     }
@@ -719,7 +717,7 @@ public class LocalQueryRunner
     public CatalogHandle createCatalog(String catalogName, ConnectorFactory connectorFactory, Map<String, String> properties)
     {
         catalogFactory.addConnectorFactory(connectorFactory, ignored -> connectorFactory.getClass().getClassLoader());
-        CatalogHandle catalogHandle = connectorManager.createCatalog(catalogName, connectorFactory.getName(), properties);
+        CatalogHandle catalogHandle = catalogManager.createCatalog(catalogName, connectorFactory.getName(), properties);
         nodeManager.addCurrentNodeCatalog(catalogHandle);
         return catalogHandle;
     }
@@ -739,7 +737,7 @@ public class LocalQueryRunner
     @Override
     public void createCatalog(String catalogName, String connectorName, Map<String, String> properties)
     {
-        CatalogHandle catalogHandle = connectorManager.createCatalog(catalogName, connectorName, properties);
+        CatalogHandle catalogHandle = catalogManager.createCatalog(catalogName, connectorName, properties);
         nodeManager.addCurrentNodeCatalog(catalogHandle);
     }
 
