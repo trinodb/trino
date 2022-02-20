@@ -35,7 +35,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
-public class ConnectorManager
+public class StaticCatalogManager
         implements CatalogManager, ConnectorServicesProvider
 {
     private final CatalogFactory catalogFactory;
@@ -46,7 +46,7 @@ public class ConnectorManager
     private final AtomicBoolean stopped = new AtomicBoolean();
 
     @Inject
-    public ConnectorManager(CatalogFactory catalogFactory)
+    public StaticCatalogManager(CatalogFactory catalogFactory)
     {
         this.catalogFactory = requireNonNull(catalogFactory, "catalogFactory is null");
     }
@@ -91,7 +91,7 @@ public class ConnectorManager
         requireNonNull(connectorName, "connectorName is null");
         requireNonNull(properties, "properties is null");
 
-        checkState(!stopped.get(), "ConnectorManager is stopped");
+        checkState(!stopped.get(), "Catalog manager is stopped");
         checkArgument(!catalogs.containsKey(catalogName), "Catalog '%s' already exists", catalogName);
         CatalogConnector catalog = catalogFactory.createCatalog(catalogName, connectorName, properties);
         catalogs.put(catalogName, catalog);
@@ -104,7 +104,7 @@ public class ConnectorManager
         requireNonNull(connectorName, "connectorName is null");
         requireNonNull(connector, "connector is null");
 
-        checkState(!stopped.get(), "ConnectorManager is stopped");
+        checkState(!stopped.get(), "Catalog manager is stopped");
         String catalogName = catalogHandle.getCatalogName();
         checkArgument(!catalogs.containsKey(catalogName), "Catalog '%s' already exists", catalogName);
 
