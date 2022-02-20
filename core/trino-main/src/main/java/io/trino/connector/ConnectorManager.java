@@ -211,6 +211,7 @@ public class ConnectorManager
         for (MaterializedConnector connector : connectors.values()) {
             connector.shutdown();
         }
+        connectors.clear();
     }
 
     public synchronized void addConnectorFactory(ConnectorFactory connectorFactory, Function<CatalogName, ClassLoader> duplicatePluginClassLoaderFactory)
@@ -352,18 +353,6 @@ public class ConnectorManager
             tableProceduresPropertyManager.addProperties(catalogName, tableProcedure.getName(), tableProcedure.getProperties());
         }
         sessionPropertyManager.addConnectorSessionProperties(catalogName, connector.getSessionProperties());
-    }
-
-    public synchronized void dropConnection(String catalogName)
-    {
-        requireNonNull(catalogName, "catalogName is null");
-
-        catalogManager.removeCatalog(catalogName).ifPresent(catalog -> {
-            // todo wait for all running transactions using the connector to complete before removing the services
-            removeConnectorInternal(catalog);
-            removeConnectorInternal(createInformationSchemaCatalogName(catalog));
-            removeConnectorInternal(createSystemTablesCatalogName(catalog));
-        });
     }
 
     private synchronized void removeConnectorInternal(CatalogName catalogName)
