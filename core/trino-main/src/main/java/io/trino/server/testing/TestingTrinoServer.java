@@ -432,7 +432,7 @@ public class TestingTrinoServer
             // this is a worker so catalogs are dynamically registered
             return;
         }
-        catalogManager.get().createCatalog(catalogName, new ConnectorName(connectorName), properties);
+        catalogManager.get().createCatalog(catalogName, new ConnectorName(connectorName), properties, false);
     }
 
     public void loadExchangeManager(String name, Map<String, String> properties)

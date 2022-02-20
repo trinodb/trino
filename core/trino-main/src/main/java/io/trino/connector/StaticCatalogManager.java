@@ -214,8 +214,14 @@ public class StaticCatalogManager
     }
 
     @Override
-    public void createCatalog(String catalogName, ConnectorName connectorName, Map<String, String> properties)
+    public void createCatalog(String catalogName, ConnectorName connectorName, Map<String, String> properties, boolean notExists)
     {
-        throw new TrinoException(NOT_SUPPORTED, "Create catalog is not supported by the static catalog manager");
+        throw new TrinoException(NOT_SUPPORTED, "CREATE CATALOG is not supported by the static catalog store");
+    }
+
+    @Override
+    public void dropCatalog(String catalogName, boolean exists)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "DROP CATALOG is not supported by the static catalog store");
     }
 }
