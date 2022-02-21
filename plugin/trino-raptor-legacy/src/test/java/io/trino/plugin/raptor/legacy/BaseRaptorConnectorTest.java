@@ -15,15 +15,12 @@ package io.trino.plugin.raptor.legacy;
 
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.SetMultimap;
 import io.trino.spi.type.ArrayType;
 import io.trino.testing.AbstractTestIntegrationSmokeTest;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
-import io.trino.testing.QueryRunner;
 import io.trino.testng.services.Flaky;
-import io.trino.tpch.TpchTable;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
@@ -43,7 +40,6 @@ import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static io.airlift.testing.Assertions.assertLessThan;
 import static io.trino.plugin.raptor.legacy.RaptorColumnHandle.SHARD_UUID_COLUMN_TYPE;
-import static io.trino.plugin.raptor.legacy.RaptorQueryRunner.createRaptorQueryRunner;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
@@ -57,17 +53,10 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNotNull;
 
-public class TestRaptorConnectorTest
+public abstract class BaseRaptorConnectorTest
         // TODO extend BaseConnectorTest
         extends AbstractTestIntegrationSmokeTest
 {
-    @Override
-    protected QueryRunner createQueryRunner()
-            throws Exception
-    {
-        return createRaptorQueryRunner(ImmutableMap.of(), TpchTable.getTables(), false, ImmutableMap.of());
-    }
-
     @Test
     public void testCreateArrayTable()
     {
