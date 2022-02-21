@@ -306,15 +306,9 @@ public final class OkHttpUtil
         return trustStore;
     }
 
-    private static boolean isWindows(String osName)
-    {
-        return osName.contains("Windows");
-    }
+    private static boolean isWindows(String osName) { return osName.contains("Windows"); }
 
-    private static boolean isMacOs(String osName)
-    {
-        return osName.contains("Mac");
-    }
+    private static boolean isMacOs(String osName) { return osName.contains("Mac"); }
 
     public static void setupKerberos(
             OkHttpClient.Builder clientBuilder,

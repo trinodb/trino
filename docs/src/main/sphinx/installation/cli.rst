@@ -25,7 +25,7 @@ make it executable with ``chmod +x``, then run it:
 
 Run the CLI with the ``--help`` option to see the available options.
 
-The CLI uses the HTTP protocol and the
+The CLI uses the HTTP protocol and the|
 :doc:`Trino client REST API </develop/client-protocol>` to communicate
 with Trino.
 
@@ -45,6 +45,17 @@ Use the HTTPS URL to connect to the server:
 The recommended TLS implementation is to use a globally trusted certificate. In
 this case, no other options are necessary, since the JVM running the CLI
 recognizes these certificates.
+
+.. list-table:: CLI options for verifying the server certificate
+   :widths: 35 65
+   :header-rows: 1
+
+   * - Option
+     - Description
+   * - ``--use-system-truststore``
+     - Verify the server certificate using the system truststore of the operating system.
+       Windows and macOS are supported. For other operating systems, the default Java truststore is used.
+       The truststore type can be overridden using --truststore-type.
 
 Use ``--help`` to see information about specifying the keystore, truststore, and
 other authentication details as required.
@@ -122,20 +133,9 @@ Use the following CLI arguments to connect to a cluster that uses
    * - ``--keystore-password=<password>``
      - Only required if the keystore has a password.
 
-The four ``--truststore`` related options are independent of client certificate
+The truststore related options are independent of client certificate
 authentication with the CLI; instead, they control the client's trust of the
 server's certificate.
-
-.. list-table:: CLI options to check server certificate trust
-   :widths: 35 65
-   :header-rows: 1
-
-   * - Option
-     - Description
-   * - ``--truststore-use-system-store``
-     - Instruct the client to use the system TrustStore based on the operating system.
-       The supported OSes are Windows and MacOS, for other OSes the default Java TrustStore is loaded.
-       The TrustStore specification can be overridden using ``--truststore-type``.
 
 .. _cli-jwt-auth:
 
