@@ -37,7 +37,7 @@ public class TestStarburstSqlServerConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("sqlserver.impersonation.enabled", "true")
                 .put("sqlserver.override-catalog.enabled", "true")
                 .put("sqlserver.override-catalog.name", "catalog")

@@ -30,7 +30,7 @@ public class TestStarburstCommonSqlServerConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("sqlserver.bulk-copy-for-write.enabled", "true")
                 .build();
 

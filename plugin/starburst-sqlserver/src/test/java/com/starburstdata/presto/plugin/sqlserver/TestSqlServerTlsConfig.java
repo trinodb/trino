@@ -35,7 +35,7 @@ public class TestSqlServerTlsConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("sqlserver.tls.truststore-path", "/dev/null")
                 .put("sqlserver.tls.truststore-password", "password")
                 .put("sqlserver.tls.truststore-type", "PKCS12")
@@ -52,7 +52,7 @@ public class TestSqlServerTlsConfig
     @Test
     public void testExplicitPropertyMappingsFailsIfTruststoreDoesNotExist()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("sqlserver.tls.truststore-path", "/non/existent/file/path")
                 .put("sqlserver.tls.truststore-password", "password")
                 .put("sqlserver.tls.truststore-type", "JKS")
