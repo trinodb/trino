@@ -15,7 +15,7 @@ package io.trino.plugin.teradata.functions.dateformat;
 
 import io.trino.spi.StandardErrorCode;
 import io.trino.spi.TrinoException;
-import org.antlr.v4.runtime.ANTLRInputStream;
+import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.Token;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.DateTimeFormatterBuilder;
@@ -79,7 +79,7 @@ public final class DateFormatParser
 
     public static List<? extends Token> tokenize(String format)
     {
-        DateFormat lexer = new DateFormat(new ANTLRInputStream(format));
+        DateFormat lexer = new DateFormat(CharStreams.fromString(format));
         return lexer.getAllTokens();
     }
 }
