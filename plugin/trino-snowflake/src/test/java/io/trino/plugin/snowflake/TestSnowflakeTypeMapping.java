@@ -267,13 +267,11 @@ public class TestSnowflakeTypeMapping
 
         SqlDataTypeTest.create()
                 .addRoundTrip("date", "NULL", DATE, "CAST(NULL AS DATE)")
-                // TODO: Expanding the min and max value of a test case by using the input of String
-//                .addRoundTrip("date", "DATE '0000-01-01'", DATE, "DATE '0000-01-01'") // Min value for the input of string only.
-//                .addRoundTrip("date", "DATE '99999-12-31'", DATE, "DATE '99999-12-31'") // Max value for the input of string only.
+                .addRoundTrip("date", "'0000-01-01'", DATE, "DATE '0000-01-01'") // Min value for the input of string only.
                 .addRoundTrip("date", "DATE '0001-01-01'", DATE, "DATE '0001-01-01'") // Min value for the function Date.
                 .addRoundTrip("date", "DATE '1582-10-05'", DATE, "DATE '1582-10-05'")
                 .addRoundTrip("date", "DATE '1582-10-14'", DATE, "DATE '1582-10-14'")
-                .addRoundTrip("date", "DATE '9999-12-31'", DATE, "DATE '9999-12-31'") // Max value for the function Date.
+                .addRoundTrip("date", "DATE '99999-12-31'", DATE, "DATE '99999-12-31'") // Max value
                 .addRoundTrip("date", "DATE '1952-04-03'", DATE, "DATE '1952-04-03'")
                 .addRoundTrip("date", "DATE '1970-01-01'", DATE, "DATE '1970-01-01'")
                 .addRoundTrip("date", "DATE '1970-02-03'", DATE, "DATE '1970-02-03'")
