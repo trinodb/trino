@@ -54,7 +54,7 @@ public class TestIcebergTaskFailureRecoveryTest
                         .putAll(configProperties)
                         // currently not supported for fault tolerant execution mode
                         .put("enable-dynamic-filtering", "false")
-                        .build())
+                        .buildOrThrow())
                 .setExchangeManagerProperties(getExchangeManagerProperties(minioStorage))
                 .build();
     }

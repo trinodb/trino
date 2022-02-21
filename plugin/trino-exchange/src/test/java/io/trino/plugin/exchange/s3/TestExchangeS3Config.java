@@ -48,7 +48,7 @@ public class TestExchangeS3Config
                 .put("exchange.s3.endpoint", "https://s3.us-east-1.amazonaws.com")
                 .put("exchange.s3.max-error-retries", "8")
                 .put("exchange.s3.upload.part-size", "10MB")
-                .build();
+                .buildOrThrow();
 
         ExchangeS3Config expected = new ExchangeS3Config()
                 .setS3AwsAccessKey("access")

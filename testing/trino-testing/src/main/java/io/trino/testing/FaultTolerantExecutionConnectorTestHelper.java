@@ -33,6 +33,6 @@ public final class FaultTolerantExecutionConnectorTestHelper
                 // TODO: re-enable once failure recover supported for this functionality
                 .put("enable-dynamic-filtering", "false")
                 .put("distributed-sort", "false")
-                .build();
+                .buildOrThrow();
     }
 }

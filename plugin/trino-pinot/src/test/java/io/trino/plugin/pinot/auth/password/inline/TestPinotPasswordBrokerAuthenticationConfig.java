@@ -28,7 +28,7 @@ public class TestPinotPasswordBrokerAuthenticationConfig
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("pinot.broker.authentication.user", "query")
                 .put("pinot.broker.authentication.password", "secret")
-                .build();
+                .buildOrThrow();
 
         PinotPasswordBrokerAuthenticationConfig expected = new PinotPasswordBrokerAuthenticationConfig()
                 .setUser("query")
