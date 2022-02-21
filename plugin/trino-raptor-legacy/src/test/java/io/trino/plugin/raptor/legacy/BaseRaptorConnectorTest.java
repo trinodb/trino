@@ -17,17 +17,21 @@ import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.SetMultimap;
 import io.trino.spi.type.ArrayType;
-import io.trino.testing.AbstractTestIntegrationSmokeTest;
+import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
+import io.trino.testing.TestingConnectorBehavior;
+import io.trino.testing.sql.TestTable;
 import io.trino.testng.services.Flaky;
 import org.intellij.lang.annotations.Language;
+import org.testng.SkipException;
 import org.testng.annotations.Test;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.StringJoiner;
 import java.util.UUID;
@@ -45,18 +49,103 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toSet;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNotNull;
 
 public abstract class BaseRaptorConnectorTest
-        // TODO extend BaseConnectorTest
-        extends AbstractTestIntegrationSmokeTest
+        extends BaseConnectorTest
 {
+    @Override
+    protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
+    {
+        switch (connectorBehavior) {
+            case SUPPORTS_DELETE:
+            case SUPPORTS_CREATE_VIEW:
+                return true;
+            case SUPPORTS_CREATE_SCHEMA:
+            case SUPPORTS_RENAME_SCHEMA:
+            case SUPPORTS_COMMENT_ON_TABLE:
+            case SUPPORTS_COMMENT_ON_COLUMN:
+            case SUPPORTS_NOT_NULL_CONSTRAINT:
+            case SUPPORTS_TOPN_PUSHDOWN:
+                return false;
+            default:
+                return super.hasBehavior(connectorBehavior);
+        }
+    }
+
+    @Override
+    protected TestTable createTableWithDefaultColumns()
+    {
+        throw new SkipException("Raptor connector does not support column default values");
+    }
+
+    @Test
+    @Override
+    public void testCharVarcharComparison()
+    {
+        assertThatThrownBy(super::testCharVarcharComparison)
+                .hasMessage("No storage type for type: char(3)");
+    }
+
+    @Test
+    @Override
+    public void testRenameTableAcrossSchema()
+    {
+        // Raptor allows renaming to a schema it doesn't exist https://github.com/trinodb/trino/issues/11110
+        String tableName = "test_rename_old_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT 123 x", 1);
+
+        String schemaName = "test_schema_" + randomTableSuffix();
+
+        String renamedTable = schemaName + ".test_rename_new_" + randomTableSuffix();
+        assertUpdate("ALTER TABLE " + tableName + " RENAME TO " + renamedTable);
+
+        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+        assertQuery("SELECT x FROM " + renamedTable, "VALUES 123");
+
+        assertUpdate("DROP TABLE " + renamedTable);
+
+        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+        assertFalse(getQueryRunner().tableExists(getSession(), renamedTable));
+    }
+
+    @Override
+    protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
+    {
+        String typeName = dataMappingTestSetup.getTrinoTypeName();
+        if (typeName.equals("tinyint")
+                || typeName.equals("real")
+                || typeName.startsWith("decimal(")
+                || typeName.equals("time")
+                || typeName.equals("timestamp(3) with time zone")
+                || typeName.startsWith("char(")) {
+            //TODO this should either work or fail cleanly
+            return Optional.empty();
+        }
+
+        return Optional.of(dataMappingTestSetup);
+    }
+
+    @Override
+    protected Optional<DataMappingTestSetup> filterCaseSensitiveDataMappingTestData(DataMappingTestSetup dataMappingTestSetup)
+    {
+        String typeName = dataMappingTestSetup.getTrinoTypeName();
+        if (typeName.equals("char(1)")) {
+            //TODO this should either work or fail cleanly
+            return Optional.empty();
+        }
+        return Optional.of(dataMappingTestSetup);
+    }
+
     @Test
     public void testCreateArrayTable()
     {
@@ -294,12 +383,12 @@ public abstract class BaseRaptorConnectorTest
                         "SELECT table_schema, table_name, sum(row_count)\n" +
                         "FROM system.shards\n" +
                         "WHERE table_schema = 'tpch'\n" +
-                        "  AND table_name IN ('orders', 'lineitem')\n" +
+                        "  AND table_name IN ('orders', 'region')\n" +
                         "GROUP BY 1, 2",
                 "" +
                         "SELECT 'tpch', 'orders', (SELECT count(*) FROM orders)\n" +
                         "UNION ALL\n" +
-                        "SELECT 'tpch', 'lineitem', (SELECT count(*) FROM lineitem)");
+                        "SELECT 'tpch', 'region', (SELECT count(*) FROM region)");
     }
 
     @Test
@@ -660,12 +749,12 @@ public abstract class BaseRaptorConnectorTest
                         "SELECT table_schema, table_name, sum(row_count)\n" +
                         "FROM system.table_stats\n" +
                         "WHERE table_schema = 'tpch'\n" +
-                        "  AND table_name IN ('orders', 'lineitem')\n" +
+                        "  AND table_name IN ('orders', 'region')\n" +
                         "GROUP BY 1, 2",
                 "" +
                         "SELECT 'tpch', 'orders', (SELECT count(*) FROM orders)\n" +
                         "UNION ALL\n" +
-                        "SELECT 'tpch', 'lineitem', (SELECT count(*) FROM lineitem)");
+                        "SELECT 'tpch', 'region', (SELECT count(*) FROM region)");
 
         assertQuery("" +
                         "SELECT\n" +
