@@ -57,7 +57,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNotNull;
 
-public class TestRaptorIntegrationSmokeTest
+public class TestRaptorConnectorTest
         // TODO extend BaseConnectorTest
         extends AbstractTestIntegrationSmokeTest
 {

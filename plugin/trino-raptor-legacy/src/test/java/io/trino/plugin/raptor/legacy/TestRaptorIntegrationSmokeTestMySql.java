@@ -29,7 +29,7 @@ import static io.trino.plugin.raptor.legacy.RaptorQueryRunner.createSession;
 import static java.lang.String.format;
 
 public class TestRaptorIntegrationSmokeTestMySql
-        extends TestRaptorIntegrationSmokeTest
+        extends TestRaptorConnectorTest
 {
     private MySQLContainer<?> mysqlContainer;
 
