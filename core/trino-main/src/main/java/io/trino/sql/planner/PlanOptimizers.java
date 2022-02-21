@@ -247,6 +247,7 @@ import io.trino.sql.planner.optimizations.StatsRecordingPlanOptimizer;
 import io.trino.sql.planner.optimizations.TransformQuantifiedComparisonApplyToCorrelatedJoin;
 import io.trino.sql.planner.optimizations.UnaliasSymbolReferences;
 import io.trino.sql.planner.optimizations.WindowFilterPushDown;
+import io.trino.sql.planner.optimizations.CustomPlanOptimizer;
 
 import javax.inject.Inject;
 
@@ -374,7 +375,22 @@ public class PlanOptimizers
                 statsCalculator,
                 estimatedExchangesCostCalculator,
                 columnPruningRules);
-
+        //Inject the custom optimizer classes in the beginning of the the optimizer chain
+        List<PlanOptimizer> customPlanOptimizers = CustomPlanOptimizer.getCustomPlanOptimizers(plannerContext,
+                typeAnalyzer,
+                taskManagerConfig,
+                forceSingleNode,
+                splitManager,
+                pageSourceManager,
+                statsCalculator,
+                scalarStatsCalculator,
+                costCalculator,
+                estimatedExchangesCostCalculator,
+                costComparator,
+                taskCountEstimator,
+                nodePartitioningManager,
+                ruleStats);
+        builder.addAll(customPlanOptimizers);
         builder.add(
                 // Clean up all the sugar in expressions, e.g. AtTimeZone, must be run before all the other optimizers
                 new IterativeOptimizer(
