@@ -127,6 +127,12 @@ public final class TestingProcedures
         throw new RuntimeException("test error from procedure");
     }
 
+    @UsedByGeneratedCode
+    public void names(ConnectorSession session, String x, String y, String z, String v)
+    {
+        tester.recordCalled("names", x, y, z, v);
+    }
+
     public List<Procedure> getProcedures(String schema)
     {
         return ImmutableList.<Procedure>builder()
@@ -164,6 +170,11 @@ public final class TestingProcedures
                         new Argument("v", VARCHAR, false, "v default"))))
                 .add(procedure(schema, "test_exception", "exception", ImmutableList.of()))
                 .add(procedure(schema, "test_error", "error", ImmutableList.of()))
+                .add(procedure(schema, "test_argument_names", "names", ImmutableList.of(
+                        new Argument("lower", VARCHAR, false, "a"),
+                        new Argument("UPPER", VARCHAR, false, "b"),
+                        new Argument("MixeD", VARCHAR, false, "c"),
+                        new Argument("with space", VARCHAR, false, "d"))))
                 .build();
     }
 
