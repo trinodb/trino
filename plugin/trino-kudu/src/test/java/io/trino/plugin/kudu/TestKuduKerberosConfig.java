@@ -47,7 +47,7 @@ public class TestKuduKerberosConfig
         Path keytab = createTempFile(null, null);
         Path config = createTempFile(null, null);
 
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("kudu.authentication.client.principal", "principal")
                 .put("kudu.authentication.client.keytab", keytab.toString())
                 .put("kudu.authentication.config", config.toString())
@@ -66,7 +66,7 @@ public class TestKuduKerberosConfig
     @Test
     public void testExplicitPropertyMappingsWithNonExistentPathsThrowsErrors()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("kudu.authentication.client.principal", "principal")
                 .put("kudu.authentication.client.keytab", "/path/does/not/exist")
                 .put("kudu.authentication.config", "/path/does/not/exist")

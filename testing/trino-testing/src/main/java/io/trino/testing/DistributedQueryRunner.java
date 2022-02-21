@@ -256,7 +256,7 @@ public class DistributedQueryRunner
     public void addServers(int nodeCount)
             throws Exception
     {
-        ImmutableList.Builder<TestingTrinoServer> serverBuilder = new ImmutableList.Builder<TestingTrinoServer>()
+        ImmutableList.Builder<TestingTrinoServer> serverBuilder = ImmutableList.<TestingTrinoServer>builder()
                 .addAll(servers);
         for (int i = 0; i < nodeCount; i++) {
             TestingTrinoServer server = closer.register(createTestingTrinoServer(

@@ -52,7 +52,7 @@ public class TestMongoClientConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("mongodb.schema-collection", "_my_schema")
                 .put("mongodb.case-insensitive-name-matching", "true")
                 .put("mongodb.seeds", "")

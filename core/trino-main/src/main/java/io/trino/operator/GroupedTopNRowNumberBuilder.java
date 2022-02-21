@@ -128,7 +128,7 @@ public class GroupedTopNRowNumberBuilder
 
         ResultIterator()
         {
-            ImmutableList.Builder<Type> sourceTypesBuilders = new ImmutableList.Builder<Type>().addAll(sourceTypes);
+            ImmutableList.Builder<Type> sourceTypesBuilders = ImmutableList.<Type>builder().addAll(sourceTypes);
             if (produceRowNumber) {
                 sourceTypesBuilders.add(BIGINT);
             }

@@ -36,7 +36,7 @@ public class TestFileSystemExchangeConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("exchange.base-directory", "s3n://exchange-spooling-test/")
                 .put("exchange.encryption-enabled", "true")
                 .put("exchange.sink-buffer-pool-min-size", "10")

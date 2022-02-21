@@ -87,7 +87,7 @@ public class TestVerifierConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("suites", "my_suite")
                 .put("suite", "my_suite")
                 .put("control.query-types", Joiner.on(",").join(CREATE, MODIFY))

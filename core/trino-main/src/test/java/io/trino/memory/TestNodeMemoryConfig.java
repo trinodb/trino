@@ -40,7 +40,7 @@ public class TestNodeMemoryConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("query.max-memory-per-node", "1GB")
                 .put("query.max-memory-per-task", "200MB")
                 .put("memory.heap-headroom-per-node", "1GB")

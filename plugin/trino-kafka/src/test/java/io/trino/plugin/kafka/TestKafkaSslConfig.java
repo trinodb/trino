@@ -71,7 +71,7 @@ public class TestKafkaSslConfig
         writeToFile(keystorePath, secret);
         writeToFile(truststorePath, secret);
 
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("kafka.ssl.keystore.location", keystorePath.toString())
                 .put("kafka.ssl.keystore.password", "keystore-password")
                 .put("kafka.ssl.keystore.type", "PKCS12")

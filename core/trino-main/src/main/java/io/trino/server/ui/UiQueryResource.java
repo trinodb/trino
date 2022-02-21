@@ -78,7 +78,7 @@ public class UiQueryResource
         List<BasicQueryInfo> queries = dispatchManager.getQueries();
         queries = filterQueries(sessionContextFactory.extractAuthorizedIdentity(servletRequest, httpHeaders, alternateHeaderName), queries, accessControl);
 
-        ImmutableList.Builder<TrimmedBasicQueryInfo> builder = new ImmutableList.Builder<>();
+        ImmutableList.Builder<TrimmedBasicQueryInfo> builder = ImmutableList.builder();
         for (BasicQueryInfo queryInfo : queries) {
             if (stateFilter == null || queryInfo.getState() == expectedState) {
                 builder.add(new TrimmedBasicQueryInfo(queryInfo));

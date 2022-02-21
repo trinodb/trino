@@ -115,7 +115,7 @@ public class TestHiveConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("hive.single-statement-writes", "true")
                 .put("hive.max-split-size", "256MB")
                 .put("hive.max-partitions-per-scan", "123")

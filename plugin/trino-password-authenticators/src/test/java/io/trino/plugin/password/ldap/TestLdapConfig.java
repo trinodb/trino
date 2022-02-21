@@ -61,7 +61,7 @@ public class TestLdapConfig
     {
         Path trustCertificateFile = Files.createTempFile(null, null);
 
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("ldap.url", "ldaps://localhost:636")
                 .put("ldap.allow-insecure", "true")
                 .put("ldap.ssl-trust-certificate", trustCertificateFile.toString())

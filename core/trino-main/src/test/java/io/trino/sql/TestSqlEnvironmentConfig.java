@@ -39,7 +39,7 @@ public class TestSqlEnvironmentConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("sql.path", "a.b, c.d")
                 .put("sql.default-catalog", "some-catalog")
                 .put("sql.default-schema", "some-schema")

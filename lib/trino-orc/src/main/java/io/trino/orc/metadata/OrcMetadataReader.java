@@ -585,7 +585,7 @@ public class OrcMetadataReader
     // This method assumes type attributes have no duplicate key
     private static Map<String, String> toMap(List<OrcProto.StringPair> attributes)
     {
-        ImmutableMap.Builder<String, String> results = new ImmutableMap.Builder<>();
+        ImmutableMap.Builder<String, String> results = ImmutableMap.builder();
         if (attributes != null) {
             for (OrcProto.StringPair attribute : attributes) {
                 if (attribute.hasKey() && attribute.hasValue()) {

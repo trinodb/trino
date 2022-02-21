@@ -37,7 +37,7 @@ public class TestJdbcMetadataConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("join-pushdown.enabled", "true")
                 .put("aggregation-pushdown.enabled", "false")
                 .put("domain-compaction-threshold", "42")

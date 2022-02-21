@@ -120,7 +120,7 @@ public class TestFeaturesConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("cpu-cost-weight", "0.4")
                 .put("memory-cost-weight", "0.3")
                 .put("network-cost-weight", "0.2")

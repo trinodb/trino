@@ -51,7 +51,7 @@ public class TestDynamicFilterConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("enable-dynamic-filtering", "false")
                 .put("enable-coordinator-dynamic-filters-distribution", "false")
                 .put("enable-large-dynamic-filters", "true")

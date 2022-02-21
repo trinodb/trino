@@ -572,7 +572,7 @@ public class TestClickHouseConnectorTest
             preparedStatement.setString(2, tableName);
 
             ResultSet resultSet = preparedStatement.executeQuery();
-            ImmutableMap.Builder<String, String> properties = new ImmutableMap.Builder<>();
+            ImmutableMap.Builder<String, String> properties = ImmutableMap.builder();
             while (resultSet.next()) {
                 properties.put(ENGINE_PROPERTY, resultSet.getString("engine"));
                 properties.put(ORDER_BY_PROPERTY, resultSet.getString("sorting_key"));

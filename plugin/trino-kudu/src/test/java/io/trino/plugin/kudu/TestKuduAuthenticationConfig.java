@@ -34,7 +34,7 @@ public class TestKuduAuthenticationConfig
     @Test
     public void testExplicitPropertyMappingsKerberos()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("kudu.authentication.type", "KERBEROS")
                 .buildOrThrow();
 
