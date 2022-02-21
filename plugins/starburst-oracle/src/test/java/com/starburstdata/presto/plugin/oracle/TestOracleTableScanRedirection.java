@@ -26,7 +26,7 @@ public class TestOracleTableScanRedirection
                 .withConnectorProperties(ImmutableMap.<String, String>builder()
                         .putAll(TestingStarburstOracleServer.connectionProperties())
                         .putAll(getRedirectionProperties("oracle", USER))
-                        .build())
+                        .buildOrThrow())
                 .withTables(REQUIRED_TPCH_TABLES)
                 .withUnlockEnterpriseFeatures(true)
                 .build();

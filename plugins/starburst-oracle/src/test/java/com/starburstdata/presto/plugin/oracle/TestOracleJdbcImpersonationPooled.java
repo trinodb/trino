@@ -16,6 +16,6 @@ public class TestOracleJdbcImpersonationPooled
 {
     public TestOracleJdbcImpersonationPooled()
     {
-        super(ImmutableMap.<String, String>builder().build());
+        super(ImmutableMap.<String, String>builder().buildOrThrow());
     }
 }

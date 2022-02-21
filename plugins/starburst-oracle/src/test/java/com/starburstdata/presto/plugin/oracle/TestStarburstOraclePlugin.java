@@ -50,7 +50,7 @@ public class TestStarburstOraclePlugin
                         .put("kerberos.client.keytab", getResource("krb/client/test.keytab").getPath())
                         .put("kerberos.config", getResource("krb/krb5.conf").getPath())
                         .put("connection-user", "WHAT?!")
-                        .build(),
+                        .buildOrThrow(),
                 new TestingConnectorContext()))
                 .isInstanceOf(ApplicationConfigurationException.class)
                 .hasMessageContaining("Configuration property 'connection-user' was not used");
@@ -88,7 +88,7 @@ public class TestStarburstOraclePlugin
                         .put("kerberos.client.principal", "test@TESTING-KRB.STARBURSTDATA.COM")
                         .put("kerberos.client.keytab", getResource("krb/client/test.keytab").getPath())
                         .put("kerberos.config", getResource("krb/krb5.conf").getPath())
-                        .build(),
+                        .buildOrThrow(),
                 new TestingConnectorContext()))
                 .isInstanceOf(RuntimeException.class)
                 .hasStackTraceContaining("StarburstLicenseException: Valid license required to use the feature: jdbc-kerberos");
@@ -107,7 +107,7 @@ public class TestStarburstOraclePlugin
                         .put("connection-user", "test")
                         .put("connection-password", "password")
                         .put("aggregation-pushdown.enabled", "true")
-                        .build(),
+                        .buildOrThrow(),
                 new TestingConnectorContext()))
                 .isInstanceOf(RuntimeException.class)
                 .hasStackTraceContaining("StarburstLicenseException: Valid license required to use the feature: oracle-extensions");
@@ -126,7 +126,7 @@ public class TestStarburstOraclePlugin
                         .put("connection-url", "jdbc:oracle:thin:@test")
                         .put("connection-user", "test")
                         .put("connection-password", "password")
-                        .build(),
+                        .buildOrThrow(),
                 new TestingConnectorContext())
                 .shutdown();
 
@@ -138,7 +138,7 @@ public class TestStarburstOraclePlugin
                         .put("connection-user", "test")
                         .put("connection-password", "password")
                         .put("oracle.parallelism-type", "no_parallelism")
-                        .build(),
+                        .buildOrThrow(),
                 new TestingConnectorContext())
                 .shutdown();
 
@@ -151,7 +151,7 @@ public class TestStarburstOraclePlugin
                                 .put("connection-user", "test")
                                 .put("connection-password", "password")
                                 .put("oracle.parallelism-type", "partitions")
-                                .build(),
+                                .buildOrThrow(),
                         new TestingConnectorContext())
                         .shutdown())
                 .hasMessageContaining("Valid license required to use the feature: oracle-extensions");
@@ -170,7 +170,7 @@ public class TestStarburstOraclePlugin
                         .put("connection-password", "password")
                         .put("oracle.impersonation.enabled", "true")
                         .put("oracle.authentication.type", PASSWORD_PASS_THROUGH.name())
-                        .build(),
+                        .buildOrThrow(),
                 new TestingConnectorContext()))
                 .isInstanceOf(RuntimeException.class)
                 .hasStackTraceContaining("Impersonation is not allowed when using credentials pass-through");
@@ -187,7 +187,7 @@ public class TestStarburstOraclePlugin
                         .put("connection-url", "jdbc:greenplum:test")
                         .put("oracle.impersonation.enabled", "true")
                         .put("oracle.authentication.type", PASSWORD_PASS_THROUGH.name())
-                        .build(),
+                        .buildOrThrow(),
                 new TestingConnectorContext()))
                 .isInstanceOf(RuntimeException.class)
                 .hasStackTraceContaining("Impersonation is not allowed when using credentials pass-through");
@@ -207,7 +207,7 @@ public class TestStarburstOraclePlugin
                         .put("http.authentication.krb5.config", ".")
                         .put("http-server.authentication.krb5.service-name", "starburst")
                         .put("internal-communication.shared-secret", "I can't tell, it is a secret")
-                        .build(),
+                        .buildOrThrow(),
                 new TestingConnectorContext()))
                 .isInstanceOf(RuntimeException.class)
                 .hasStackTraceContaining("Impersonation is not allowed when using credentials pass-through");

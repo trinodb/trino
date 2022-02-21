@@ -23,7 +23,7 @@ public class TestStarburstOraclePoolConnectorSmokeTest
                 .withConnectorProperties(ImmutableMap.<String, String>builder()
                         .putAll(TestingStarburstOracleServer.connectionProperties())
                         .put("oracle.connection-pool.enabled", "true")
-                        .build())
+                        .buildOrThrow())
                 .withTables(REQUIRED_TPCH_TABLES)
                 .build();
     }

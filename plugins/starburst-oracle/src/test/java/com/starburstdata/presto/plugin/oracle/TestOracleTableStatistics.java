@@ -40,7 +40,7 @@ public class TestOracleTableStatistics
                 .withConnectorProperties(ImmutableMap.<String, String>builder()
                         .putAll(TestingStarburstOracleServer.connectionProperties())
                         .put("case-insensitive-name-matching", "true")
-                        .build())
+                        .buildOrThrow())
                 .withTables(ImmutableList.of(TpchTable.ORDERS))
                 .build();
     }
@@ -357,7 +357,7 @@ public class TestOracleTableStatistics
                         .put("long_decimals_big_fraction decimal(38,37)", List.of("-1.2345678901234567890123456789012345678", "1.2345678901234567890123456789012345678"))
                         .put("long_decimals_middle decimal(38,16)", List.of("-1234567890123456.7890123456789012345678", "1234567890123456.7890123456789012345678"))
                         .put("long_decimals_big_integral decimal(38,1)", List.of("-1234567890123456789012345678901234567.8", "1234567890123456789012345678901234567.8"))
-                        .build(),
+                        .buildOrThrow(),
                 "null")) {
             gatherStats(table.getName());
             assertQuery(

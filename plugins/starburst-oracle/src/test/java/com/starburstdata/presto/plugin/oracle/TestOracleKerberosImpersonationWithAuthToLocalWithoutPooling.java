@@ -18,6 +18,6 @@ public class TestOracleKerberosImpersonationWithAuthToLocalWithoutPooling
     {
         super(ImmutableMap.<String, String>builder()
                 .put("oracle.connection-pool.enabled", "false")
-                .build());
+                .buildOrThrow());
     }
 }

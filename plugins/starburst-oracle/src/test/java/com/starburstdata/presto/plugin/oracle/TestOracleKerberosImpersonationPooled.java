@@ -16,6 +16,6 @@ public class TestOracleKerberosImpersonationPooled
 {
     public TestOracleKerberosImpersonationPooled()
     {
-        super(ImmutableMap.<String, String>builder().build());
+        super(ImmutableMap.<String, String>builder().buildOrThrow());
     }
 }

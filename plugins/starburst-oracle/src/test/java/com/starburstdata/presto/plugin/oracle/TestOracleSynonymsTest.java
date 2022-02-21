@@ -33,7 +33,7 @@ public class TestOracleSynonymsTest
                 .withConnectorProperties(ImmutableMap.<String, String>builder()
                         .putAll(TestingStarburstOracleServer.connectionProperties())
                         .put("oracle.synonyms.enabled", "true")
-                        .build())
+                        .buildOrThrow())
                 .withTables(ImmutableList.of(TpchTable.ORDERS))
                 .build();
     }

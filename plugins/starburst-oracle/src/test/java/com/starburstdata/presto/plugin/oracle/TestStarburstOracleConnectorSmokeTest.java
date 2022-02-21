@@ -28,7 +28,7 @@ public class TestStarburstOracleConnectorSmokeTest
                 .withUnlockEnterpriseFeatures(false)
                 .withConnectorProperties(ImmutableMap.<String, String>builder()
                         .putAll(TestingStarburstOracleServer.connectionProperties())
-                        .build())
+                        .buildOrThrow())
                 .withTables(REQUIRED_TPCH_TABLES)
                 .build();
     }

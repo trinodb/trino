@@ -42,7 +42,7 @@ public class TestOracleParallelCaseInsensitiveMapping
                         .put("case-insensitive-name-matching", "true")
                         .put("oracle.parallelism-type", "PARTITIONS")
                         .put("oracle.parallel.max-splits-per-scan", "17")
-                        .build())
+                        .buildOrThrow())
                 .withTables(ImmutableList.of())
                 .build();
     }

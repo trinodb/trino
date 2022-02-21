@@ -16,6 +16,6 @@ public class TestOracleKerberosImpersonationWithAuthToLocalPooled
 {
     public TestOracleKerberosImpersonationWithAuthToLocalPooled()
     {
-        super(ImmutableMap.<String, String>builder().build());
+        super(ImmutableMap.<String, String>builder().buildOrThrow());
     }
 }

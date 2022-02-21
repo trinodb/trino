@@ -52,7 +52,7 @@ public class TestOracleParallelQueries
                 .withConnectorProperties(ImmutableMap.<String, String>builder()
                         .putAll(TestingStarburstOracleServer.connectionProperties())
                         .put("oracle.number.default-scale", "3")
-                        .build())
+                        .buildOrThrow())
                 .withTables(ImmutableList.of())
                 .withUnlockEnterpriseFeatures(true)
                 .build();

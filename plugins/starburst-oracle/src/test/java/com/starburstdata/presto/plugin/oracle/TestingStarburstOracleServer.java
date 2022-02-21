@@ -60,7 +60,7 @@ public final class TestingStarburstOracleServer
                 .put("connection-url", getJdbcUrl())
                 .put("connection-user", OracleTestUsers.USER)
                 .put("connection-password", OracleTestUsers.PASSWORD)
-                .build();
+                .buildOrThrow();
     }
 
     public static void executeInOracle(String sql)

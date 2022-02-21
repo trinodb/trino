@@ -38,7 +38,7 @@ public abstract class BaseOracleJdbcImpersonationTest
                 .put("oracle.impersonation.enabled", "true")
                 .put("oracle.synonyms.enabled", "true")
                 .putAll(additionalProperties)
-                .build();
+                .buildOrThrow();
 
         return OracleQueryRunner.builder()
                 .withUnlockEnterpriseFeatures(true)

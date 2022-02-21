@@ -42,7 +42,7 @@ public abstract class BaseOracleImpersonationWithAuthToLocalTest
                 .put("auth-to-local.config-file", getResource("auth-to-local.json").getPath())
                 .put("auth-to-local.refresh-period", "1s")
                 .putAll(additionalProperties)
-                .build();
+                .buildOrThrow();
 
         return OracleQueryRunner.builder()
                 .withUnlockEnterpriseFeatures(true)

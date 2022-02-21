@@ -40,7 +40,7 @@ public class TestStarburstOracleConfig
                 .put("oracle.authentication.type", "KERBEROS")
                 .put("oracle.parallelism-type", "PARTITIONS")
                 .put("oracle.parallel.max-splits-per-scan", "42")
-                .build();
+                .buildOrThrow();
 
         StarburstOracleConfig expected = new StarburstOracleConfig()
                 .setAuthenticationType(OracleAuthenticationType.KERBEROS)
@@ -59,7 +59,7 @@ public class TestStarburstOracleConfig
                 .put("oracle.authentication.type", "KERBEROS")
                 .put("oracle.parallelism-type", "PARTITIONS")
                 .put("oracle.parallel.max-splits-per-scan", "42")
-                .build();
+                .buildOrThrow();
 
         StarburstOracleConfig expected = new StarburstOracleConfig()
                 .setImpersonationEnabled(true)
@@ -78,14 +78,14 @@ public class TestStarburstOracleConfig
                 .put("oracle.authentication.type", "KERBEROS")
                 .put("oracle.concurrency-type", "PARTITIONS")
                 .put("oracle.concurrent.max-splits-per-scan", "42")
-                .build();
+                .buildOrThrow();
 
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("oracle.impersonation.enabled", "true")
                 .put("oracle.authentication.type", "KERBEROS")
                 .put("oracle.parallelism-type", "PARTITIONS")
                 .put("oracle.parallel.max-splits-per-scan", "42")
-                .build();
+                .buildOrThrow();
 
         assertDeprecatedEquivalence(StarburstOracleConfig.class, properties, oldProperties);
     }
@@ -98,14 +98,14 @@ public class TestStarburstOracleConfig
                 .put("oracle.authentication.type", "KERBEROS")
                 .put("oracle.concurrency-type", "NO_CONCURRENCY")
                 .put("oracle.concurrent.max-splits-per-scan", "42")
-                .build();
+                .buildOrThrow();
 
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("oracle.impersonation.enabled", "true")
                 .put("oracle.authentication.type", "KERBEROS")
                 .put("oracle.parallelism-type", "NO_PARALLELISM")
                 .put("oracle.parallel.max-splits-per-scan", "42")
-                .build();
+                .buildOrThrow();
 
         assertDeprecatedEquivalence(StarburstOracleConfig.class, properties, oldProperties);
     }

@@ -35,7 +35,7 @@ public class TestStarburstOracleParallelConnectorSmokeTest
                         .putAll(TestingStarburstOracleServer.connectionProperties())
                         .put("oracle.parallelism-type", "PARTITIONS")
                         .put("oracle.parallel.max-splits-per-scan", "17")
-                        .build())
+                        .buildOrThrow())
                 .withTables(REQUIRED_TPCH_TABLES)
                 .withSessionModifier(session -> createSession(PARTITIONED_USER, PARTITIONED_USER))
                 .withCreateUsers(TestStarburstOracleParallelConnectorSmokeTest::createUsers)

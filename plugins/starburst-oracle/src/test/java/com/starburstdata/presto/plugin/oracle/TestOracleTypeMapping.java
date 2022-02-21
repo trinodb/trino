@@ -27,7 +27,7 @@ public class TestOracleTypeMapping
                 .withConnectorProperties(ImmutableMap.<String, String>builder()
                         .putAll(TestingStarburstOracleServer.connectionProperties())
                         .put("case-insensitive-name-matching", "true")
-                        .build())
+                        .buildOrThrow())
                 .withTables(ImmutableList.of(TpchTable.ORDERS))
                 .build();
     }

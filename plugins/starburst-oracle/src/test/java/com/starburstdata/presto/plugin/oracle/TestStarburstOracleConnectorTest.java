@@ -50,7 +50,7 @@ public class TestStarburstOracleConnectorTest
                         .putAll(TestingStarburstOracleServer.connectionProperties())
                         .put("oracle.connection-pool.enabled", "true")
                         .put("oracle.connection-pool.max-size", "10")
-                        .build())
+                        .buildOrThrow())
                 .withTables(REQUIRED_TPCH_TABLES)
                 .build();
     }

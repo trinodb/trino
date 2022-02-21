@@ -43,7 +43,7 @@ public abstract class BaseOracleKerberosImpersonationTest
                 .put("kerberos.client.keytab", getResource("krb/client/test.keytab").getPath())
                 .put("kerberos.config", getResource("krb/krb5.conf").getPath())
                 .putAll(additionalProperties)
-                .build();
+                .buildOrThrow();
 
         return OracleQueryRunner.builder()
                 .withUnlockEnterpriseFeatures(true)
