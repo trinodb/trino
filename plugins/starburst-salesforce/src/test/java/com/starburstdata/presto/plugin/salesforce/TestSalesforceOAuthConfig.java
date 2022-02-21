@@ -48,7 +48,7 @@ public class TestSalesforceOAuthConfig
                 .put("salesforce.oauth.pkcs12-password", "pkcs12-password")
                 .put("salesforce.oauth.jwt-issuer", "jwt-issuer")
                 .put("salesforce.oauth.jwt-subject", "jwt-subject")
-                .build();
+                .buildOrThrow();
 
         SalesforceOAuthJwtConfig expected = new SalesforceOAuthJwtConfig()
                 .setPkcs12CertificateSubject("pkcs12-certificate-subject")

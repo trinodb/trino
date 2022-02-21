@@ -40,7 +40,7 @@ public class TestSalesforcePasswordConfig
                 .put("salesforce.user", "user")
                 .put("salesforce.password", "password")
                 .put("salesforce.security-token", "foobar")
-                .build();
+                .buildOrThrow();
 
         SalesforcePasswordConfig expected = new SalesforcePasswordConfig()
                 .setUser("user")

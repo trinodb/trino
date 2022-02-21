@@ -42,7 +42,7 @@ public class TestSalesforcePlugin
                         .put("salesforce.password", "password")
                         .put("salesforce.security-token", "token")
                         .put("salesforce.enable-sandbox", "true")
-                        .build(),
+                        .buildOrThrow(),
                 new TestingConnectorContext());
     }
 }

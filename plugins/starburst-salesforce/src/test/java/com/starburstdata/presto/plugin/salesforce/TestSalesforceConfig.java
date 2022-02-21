@@ -44,7 +44,7 @@ public class TestSalesforceConfig
                 .put("salesforce.driver-logging.location", "/tmp/foo")
                 .put("salesforce.driver-logging.verbosity", "5")
                 .put("salesforce.extra-jdbc-properties", "foo=bar;")
-                .build();
+                .buildOrThrow();
 
         SalesforceConfig expected = new SalesforceConfig()
                 .setAuthenticationType(OAUTH_JWT)

@@ -139,7 +139,7 @@ public class TestSalesforceConnectorTest
         TABLE_COLUMN_SUFFIX_REGEXES = ImmutableMap.<String, String>builder()
                 .putAll(tableRegexes)
                 .putAll(columnRegexes)
-                .build();
+                .buildOrThrow();
     }
 
     @Override

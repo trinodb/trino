@@ -251,7 +251,7 @@ public final class SalesforceQueryRunner
                     .put("salesforce.oauth.jwt-issuer", "3MVG9OI03ecbG2Vr3NBmmhtNrcBp3Ywy2y0XHbRN_uGz_zYWqKozppyAOX27EWcrOH5HAib9Cd2i8E8g.rYD.")
                     .put("salesforce.oauth.jwt-subject", requireNonNull(System.getProperty("salesforce.test.user1.jwt.subject"), "salesforce.test.user1.jwt.subject is not set"))
                     .put("salesforce.enable-sandbox", "true")
-                    .build();
+                    .buildOrThrow();
             extraProperties = ImmutableMap.of();
         }
 
@@ -300,7 +300,7 @@ public final class SalesforceQueryRunner
             return ImmutableMap.<String, String>builder()
                     .putAll(requireNonNull(properties, "properties is null"))
                     .putAll(requireNonNull(update, "update is null"))
-                    .build();
+                    .buildOrThrow();
         }
     }
 
