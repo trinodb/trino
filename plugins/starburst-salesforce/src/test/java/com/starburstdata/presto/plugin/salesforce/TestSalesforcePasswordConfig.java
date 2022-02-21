@@ -36,7 +36,7 @@ public class TestSalesforcePasswordConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("salesforce.user", "user")
                 .put("salesforce.password", "password")
                 .put("salesforce.security-token", "foobar")

@@ -37,7 +37,7 @@ public class TestSalesforceConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("salesforce.authentication.type", "OAUTH_JWT")
                 .put("salesforce.enable-sandbox", "true")
                 .put("salesforce.driver-logging.enabled", "true")

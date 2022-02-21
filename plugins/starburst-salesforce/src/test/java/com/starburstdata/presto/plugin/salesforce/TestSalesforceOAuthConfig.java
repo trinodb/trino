@@ -42,7 +42,7 @@ public class TestSalesforceOAuthConfig
         File file = Files.createTempFile("cert", ".p12").toFile();
         file.deleteOnExit();
 
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("salesforce.oauth.pkcs12-certificate-subject", "pkcs12-certificate-subject")
                 .put("salesforce.oauth.pkcs12-path", file.getAbsolutePath())
                 .put("salesforce.oauth.pkcs12-password", "pkcs12-password")
