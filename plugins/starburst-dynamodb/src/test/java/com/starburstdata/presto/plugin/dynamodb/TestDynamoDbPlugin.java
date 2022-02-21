@@ -41,7 +41,7 @@ public class TestDynamoDbPlugin
                         .put("dynamodb.aws-access-key", "access-key")
                         .put("dynamodb.aws-secret-key", "secret-key")
                         .put("dynamodb.aws-region", "us-east-2")
-                        .build(),
+                        .buildOrThrow(),
                 new TestingConnectorContext());
     }
 }

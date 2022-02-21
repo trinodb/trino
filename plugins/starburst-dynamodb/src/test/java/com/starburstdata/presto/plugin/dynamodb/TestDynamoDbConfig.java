@@ -86,7 +86,7 @@ public class TestDynamoDbConfig
                 .put("dynamodb.driver-logging.location", "/tmp/bar")
                 .put("dynamodb.driver-logging.verbosity", "5")
                 .put("dynamodb.extra-jdbc-properties", "foo=bar;")
-                .build();
+                .buildOrThrow();
 
         DynamoDbConfig expected = new DynamoDbConfig()
                 .setAwsAccessKey("access-key")

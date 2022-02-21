@@ -72,7 +72,7 @@ public class DynamoDbConnectionFactory
         builder.put("sa-east-1", "SAOPAULO");
         builder.put("us-gov-east-1", "GOVCLOUDEAST");
         builder.put("us-gov-west-1", "GOVCLOUDWEST");
-        AWS_REGION_TO_CDATA_REGION = builder.build();
+        AWS_REGION_TO_CDATA_REGION = builder.buildOrThrow();
     }
 
     public static String getConnectionUrl(DynamoDbConfig dynamoDbConfig)

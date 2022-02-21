@@ -54,7 +54,7 @@ public final class DynamoDbQueryRunner
                 .put(TpchTable.PART_SUPPLIER, new KeyDefinition("partkey", "suppkey"))
                 .put(TpchTable.REGION, new KeyDefinition("regionkey"))
                 .put(TpchTable.SUPPLIER, new KeyDefinition("suppkey"))
-                .build();
+                .buildOrThrow();
     }
 
     private DynamoDbQueryRunner()
@@ -177,7 +177,7 @@ public final class DynamoDbQueryRunner
                     .put("dynamodb.aws-region", "us-east-2")
                     .put("dynamodb.schema-directory", schemaDirectory.getAbsolutePath())
                     .put("dynamodb.endpoint-url", dynamoDbUrl)
-                    .build();
+                    .buildOrThrow();
             extraProperties = ImmutableMap.of();
         }
 
@@ -228,7 +228,7 @@ public final class DynamoDbQueryRunner
             return ImmutableMap.<String, String>builder()
                     .putAll(requireNonNull(properties, "properties is null"))
                     .putAll(requireNonNull(update, "update is null"))
-                    .build();
+                    .buildOrThrow();
         }
     }
 
