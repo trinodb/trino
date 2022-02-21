@@ -16,7 +16,6 @@ package io.trino.connector;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorFactory;
 
-import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 
@@ -40,9 +39,9 @@ public class LazyCatalogFactory
     }
 
     @Override
-    public CatalogConnector createCatalog(String catalogName, String connectorName, Map<String, String> properties)
+    public CatalogConnector createCatalog(CatalogProperties catalogProperties)
     {
-        return getDelegate().createCatalog(catalogName, connectorName, properties);
+        return getDelegate().createCatalog(catalogProperties);
     }
 
     @Override
