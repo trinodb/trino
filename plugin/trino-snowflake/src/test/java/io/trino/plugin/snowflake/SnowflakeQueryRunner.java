@@ -53,7 +53,6 @@ public final class SnowflakeQueryRunner
             connectorProperties.putIfAbsent("connection-user", server.getUser());
             connectorProperties.putIfAbsent("connection-password", server.getPassword());
             connectorProperties.putIfAbsent("snowflake.database", server.getDatabase());
-            connectorProperties.putIfAbsent("allow-drop-table", "true");
 
             queryRunner.installPlugin(new SnowflakePlugin());
             queryRunner.createCatalog("snowflake", "snowflake", connectorProperties);
