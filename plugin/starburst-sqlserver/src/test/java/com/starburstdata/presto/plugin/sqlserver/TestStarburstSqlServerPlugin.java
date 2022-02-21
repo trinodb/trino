@@ -108,7 +108,7 @@ public class TestStarburstSqlServerPlugin
                         .put("kerberos.client.principal", "principal")
                         .put("kerberos.client.keytab", keytab.toString())
                         .put("kerberos.config", config.toString())
-                        .build(),
+                        .buildOrThrow(),
                 new TestingConnectorContext()))
                 .hasMessageMatching("(?s)Unable to create injector, see the following errors:.*" +
                         "Cannot specify 'user' parameter in JDBC URL when using Kerberos authentication.*");
@@ -129,7 +129,7 @@ public class TestStarburstSqlServerPlugin
                         .put("internal-communication.shared-secret", "secret")
                         .put("http-server.authentication.krb5.service-name", "client")
                         .put("http-server.authentication.krb5.keytab", kdcServer.getServerKeytab().getPath())
-                        .build(),
+                        .buildOrThrow(),
                 new TestingConnectorContext()))
                 .hasMessageMatching("(?s)Unable to create injector, see the following errors:.*" +
                         "Cannot specify 'user' parameter in JDBC URL when using Kerberos authentication.*");
@@ -151,7 +151,7 @@ public class TestStarburstSqlServerPlugin
                         .put("http-server.authentication.krb5.service-name", "client")
                         .put("http-server.authentication.krb5.keytab", kdcServer.getServerKeytab().getPath())
                         .put("sqlserver.impersonation.enabled", "true")
-                        .build(),
+                        .buildOrThrow(),
                 new TestingConnectorContext()))
                 .hasMessageMatching("(?s).*Impersonation is not allowed when using credentials pass-through.*");
     }

@@ -32,7 +32,7 @@ public class TestStarburstCommonSqlServerConfig
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("sqlserver.bulk-copy-for-write.enabled", "true")
-                .build();
+                .buildOrThrow();
 
         StarburstCommonSqlServerConfig expected = new StarburstCommonSqlServerConfig()
                 .setBulkCopyForWrite(true);

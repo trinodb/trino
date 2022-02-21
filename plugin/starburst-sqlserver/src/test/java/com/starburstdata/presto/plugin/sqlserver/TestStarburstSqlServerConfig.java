@@ -43,7 +43,7 @@ public class TestStarburstSqlServerConfig
                 .put("sqlserver.override-catalog.name", "catalog")
                 .put("sqlserver.authentication.type", "PASSWORD_PASS_THROUGH")
                 .put("sqlserver.bulk-copy-for-write.lock-destination-table", "true")
-                .build();
+                .buildOrThrow();
 
         StarburstSqlServerConfig expected = new StarburstSqlServerConfig()
                 .setImpersonationEnabled(true)

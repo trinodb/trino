@@ -39,7 +39,7 @@ public class TestSqlServerTlsConfig
                 .put("sqlserver.tls.truststore-path", "/dev/null")
                 .put("sqlserver.tls.truststore-password", "password")
                 .put("sqlserver.tls.truststore-type", "PKCS12")
-                .build();
+                .buildOrThrow();
 
         SqlServerTlsConfig expected = new SqlServerTlsConfig()
                 .setTruststoreFile(new File("/dev/null"))
@@ -56,7 +56,7 @@ public class TestSqlServerTlsConfig
                 .put("sqlserver.tls.truststore-path", "/non/existent/file/path")
                 .put("sqlserver.tls.truststore-password", "password")
                 .put("sqlserver.tls.truststore-type", "JKS")
-                .build();
+                .buildOrThrow();
 
         SqlServerTlsConfig expected = new SqlServerTlsConfig();
 
