@@ -13,12 +13,12 @@
  */
 package io.trino.plugin.kudu;
 
-public class KuduLatestSmokeTests
+public class KuduLatestConnectorTests
 {
     private static final String KUDU_VERSION = "1.15.0";
 
-    public static class TestKuduSmokeTestWithDisabledInferSchema
-            extends AbstractKuduSmokeTestWithDisabledInferSchema
+    public static class TestKuduWithDisabledInferSchemaConnectorTest
+            extends AbstractKuduWithDisabledInferSchemaConnectorTest
     {
         @Override
         protected String getKuduServerVersion()
@@ -27,8 +27,8 @@ public class KuduLatestSmokeTests
         }
     }
 
-    public static class TestKuduSmokeTestWithEmptyInferSchema
-            extends AbstractKuduSmokeTestWithEmptyInferSchema
+    public static class TestKuduWithEmptyInferSchemaConnectorTest
+            extends AbstractKuduWithEmptyInferSchemaConnectorTest
     {
         @Override
         protected String getKuduServerVersion()
@@ -38,7 +38,7 @@ public class KuduLatestSmokeTests
     }
 
     public static class TestKuduSmokeTestWithStandardInferSchema
-            extends AbstractKuduSmokeTestWithStandardInferSchema
+            extends AbstractKuduWithStandardInferSchemaConnectorTest
     {
         @Override
         protected String getKuduServerVersion()

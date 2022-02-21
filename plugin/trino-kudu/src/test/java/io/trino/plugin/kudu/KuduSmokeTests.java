@@ -17,8 +17,8 @@ public class KuduSmokeTests
 {
     private static final String KUDU_VERSION = "1.13.0";
 
-    public static class TestKuduSmokeTestWithDisabledInferSchema
-            extends AbstractKuduSmokeTestWithDisabledInferSchema
+    public static class TestKuduWithDisabledInferSchemaConnectorTest
+            extends AbstractKuduWithDisabledInferSchemaConnectorTest
     {
         @Override
         protected String getKuduServerVersion()
@@ -27,8 +27,8 @@ public class KuduSmokeTests
         }
     }
 
-    public static class TestKuduSmokeTestWithEmptyInferSchema
-            extends AbstractKuduSmokeTestWithEmptyInferSchema
+    public static class TestKuduWithEmptyInferSchemaConnectorTest
+            extends AbstractKuduWithEmptyInferSchemaConnectorTest
     {
         @Override
         protected String getKuduServerVersion()
@@ -38,7 +38,7 @@ public class KuduSmokeTests
     }
 
     public static class TestKuduSmokeTestWithStandardInferSchema
-            extends AbstractKuduSmokeTestWithStandardInferSchema
+            extends AbstractKuduWithStandardInferSchemaConnectorTest
     {
         @Override
         protected String getKuduServerVersion()
