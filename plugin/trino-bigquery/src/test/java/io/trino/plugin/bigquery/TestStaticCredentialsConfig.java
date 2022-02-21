@@ -43,7 +43,7 @@ public class TestStaticCredentialsConfig
     @Test
     public void testExplicitPropertyMappingsWithCredentialsKey()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("bigquery.credentials-key", "key")
                 .buildOrThrow();
 
@@ -60,7 +60,7 @@ public class TestStaticCredentialsConfig
         try {
             Path file = Files.createTempFile("config", ".json");
 
-            Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+            Map<String, String> properties = ImmutableMap.<String, String>builder()
                     .put("bigquery.credentials-file", file.toString())
                     .buildOrThrow();
 
@@ -78,7 +78,7 @@ public class TestStaticCredentialsConfig
     @Test
     public void testExplicitPropertyMappingsValidation()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("bigquery.credentials-key", "key")
                 .put("bigquery.credentials-file", "file")
                 .buildOrThrow();

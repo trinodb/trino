@@ -88,7 +88,7 @@ public class TestS3TableConfigClient
         // MinimalTable.json in that folder.
 
         // Create dependent objects, including the minimal config needed for this test
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("kinesis.table-description-location", tableDescriptionS3)
                 .put("kinesis.default-schema", "kinesis")
                 .put("kinesis.hide-internal-columns", "false")

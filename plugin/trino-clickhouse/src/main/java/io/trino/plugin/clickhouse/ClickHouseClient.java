@@ -268,7 +268,7 @@ public class ClickHouseClient
             statement.setString(2, tableHandle.asPlainTable().getRemoteTableName().getTableName());
 
             try (ResultSet resultSet = statement.executeQuery()) {
-                ImmutableMap.Builder<String, Object> properties = new ImmutableMap.Builder<>();
+                ImmutableMap.Builder<String, Object> properties = ImmutableMap.builder();
                 while (resultSet.next()) {
                     String engine = resultSet.getString("engine");
                     if (!isNullOrEmpty(engine)) {

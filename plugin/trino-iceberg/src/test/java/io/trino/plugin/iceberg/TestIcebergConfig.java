@@ -50,7 +50,7 @@ public class TestIcebergConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("iceberg.file-format", "Parquet")
                 .put("iceberg.compression-codec", "NONE")
                 .put("iceberg.use-file-size-from-metadata", "false")

@@ -60,7 +60,7 @@ public class TestHdfsConfig
         Path resource1 = Files.createTempFile(null, null);
         Path resource2 = Files.createTempFile(null, null);
 
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("hive.config.resources", resource1.toString() + "," + resource2.toString())
                 .put("hive.fs.new-directory-permissions", "0700")
                 .put("hive.fs.new-file-inherit-ownership", "true")
@@ -99,7 +99,7 @@ public class TestHdfsConfig
     @Test
     public void testNewDirectoryPermissionsMapping()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("hive.fs.new-directory-permissions", "skip")
                 .buildOrThrow();
 

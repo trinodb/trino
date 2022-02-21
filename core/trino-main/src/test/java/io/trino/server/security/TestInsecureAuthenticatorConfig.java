@@ -41,7 +41,7 @@ public class TestInsecureAuthenticatorConfig
     {
         Path userMappingFile = Files.createTempFile(null, null);
 
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("http-server.authentication.insecure.user-mapping.pattern", "(.*)@something")
                 .put("http-server.authentication.insecure.user-mapping.file", userMappingFile.toString())
                 .buildOrThrow();

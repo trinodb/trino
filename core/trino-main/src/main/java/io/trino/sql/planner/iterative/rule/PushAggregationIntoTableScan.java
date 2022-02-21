@@ -162,10 +162,10 @@ public class PushAggregationIntoTableScan
         AggregationApplicationResult<TableHandle> result = aggregationPushdownResult.get();
 
         // The new scan outputs should be the symbols associated with grouping columns plus the symbols associated with aggregations.
-        ImmutableList.Builder<Symbol> newScanOutputs = new ImmutableList.Builder<>();
+        ImmutableList.Builder<Symbol> newScanOutputs = ImmutableList.builder();
         newScanOutputs.addAll(tableScan.getOutputSymbols());
 
-        ImmutableBiMap.Builder<Symbol, ColumnHandle> newScanAssignments = new ImmutableBiMap.Builder<>();
+        ImmutableBiMap.Builder<Symbol, ColumnHandle> newScanAssignments = ImmutableBiMap.builder();
         newScanAssignments.putAll(tableScan.getAssignments());
 
         Map<String, Symbol> variableMappings = new HashMap<>();
@@ -221,7 +221,7 @@ public class PushAggregationIntoTableScan
         String canonicalName = metadata.getFunctionMetadata(aggregation.getResolvedFunction()).getCanonicalName();
         BoundSignature signature = aggregation.getResolvedFunction().getSignature();
 
-        ImmutableList.Builder<ConnectorExpression> arguments = new ImmutableList.Builder<>();
+        ImmutableList.Builder<ConnectorExpression> arguments = ImmutableList.builder();
         for (int i = 0; i < aggregation.getArguments().size(); i++) {
             SymbolReference argument = (SymbolReference) aggregation.getArguments().get(i);
             arguments.add(new Variable(argument.getName(), signature.getArgumentTypes().get(i)));

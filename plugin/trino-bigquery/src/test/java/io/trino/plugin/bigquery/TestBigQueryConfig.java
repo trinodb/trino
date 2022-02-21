@@ -46,7 +46,7 @@ public class TestBigQueryConfig
     @Test
     public void testExplicitPropertyMappingsWithCredentialsKey()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("bigquery.project-id", "pid")
                 .put("bigquery.parent-project-id", "ppid")
                 .put("bigquery.parallelism", "20")

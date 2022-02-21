@@ -36,7 +36,7 @@ public class TestProtocolConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("protocol.v1.alternate-header-name", "taco")
                 .put("protocol.v1.prepared-statement-compression.length-threshold", "412")
                 .put("protocol.v1.prepared-statement-compression.min-gain", "0")

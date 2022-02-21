@@ -44,7 +44,7 @@ public class TestNodeSchedulerConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("node-scheduler.policy", "topology")
                 .put("node-scheduler.min-candidates", "11")
                 .put("node-scheduler.include-coordinator", "false")

@@ -50,7 +50,7 @@ public class TestRubixConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("hive.cache.read-mode", "read-through")
                 .put("hive.cache.location", "/some-directory")
                 .put("hive.cache.ttl", "5h")

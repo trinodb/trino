@@ -45,7 +45,7 @@ public class TestShardCleanerConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("raptor.max-transaction-age", "42m")
                 .put("raptor.transaction-cleaner-interval", "43m")
                 .put("raptor.local-cleaner-interval", "31m")
