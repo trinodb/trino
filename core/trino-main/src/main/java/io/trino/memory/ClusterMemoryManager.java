@@ -15,6 +15,7 @@ package io.trino.memory;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
@@ -27,6 +28,9 @@ import io.airlift.units.Duration;
 import io.trino.execution.LocationFactory;
 import io.trino.execution.QueryExecution;
 import io.trino.execution.QueryIdGenerator;
+import io.trino.execution.StageInfo;
+import io.trino.execution.TaskInfo;
+import io.trino.execution.TaskStatus;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
 import io.trino.memory.LowMemoryKiller.QueryMemoryInfo;
 import io.trino.metadata.InternalNode;
@@ -318,6 +322,30 @@ public class ClusterMemoryManager
     private QueryMemoryInfo createQueryMemoryInfo(QueryExecution query)
     {
         return new QueryMemoryInfo(query.getQueryId(), query.getTotalMemoryReservation().toBytes());
+    }
+
+    private List<TaskStatus> getRunningTasksForQuery(QueryExecution query)
+    {
+        Optional<StageInfo> outputStage = query.getQueryInfo().getOutputStage();
+        if (outputStage.isEmpty()) {
+            return ImmutableList.of();
+        }
+        ImmutableList.Builder<TaskStatus> builder = ImmutableList.builder();
+        collectRunningTasksForStage(outputStage.get(), builder);
+        return builder.build();
+    }
+
+    private void collectRunningTasksForStage(StageInfo stage, ImmutableList.Builder<TaskStatus> builder)
+    {
+        for (TaskInfo task : stage.getTasks()) {
+            TaskStatus taskStatus = task.getTaskStatus();
+            if (!taskStatus.getState().isDone()) {
+                builder.add(taskStatus);
+            }
+        }
+        for (StageInfo subStage : stage.getSubStages()) {
+            collectRunningTasksForStage(subStage, builder);
+        }
     }
 
     private long getQueryMemoryReservation(QueryExecution query)
