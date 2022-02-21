@@ -217,7 +217,7 @@ public class TestDeduplicatingDirectExchangeBuffer
                         .build(),
                 ImmutableMap.<TaskId, RuntimeException>builder()
                         .put(createTaskId(0, 0), new RuntimeException("error"))
-                        .build(),
+                        .buildOrThrow(),
                 DataSize.of(5, KILOBYTE),
                 0,
                 ImmutableList.of(
@@ -246,7 +246,7 @@ public class TestDeduplicatingDirectExchangeBuffer
                         .build(),
                 ImmutableMap.<TaskId, RuntimeException>builder()
                         .put(createTaskId(0, 0), new RuntimeException("error"))
-                        .build(),
+                        .buildOrThrow(),
                 DataSize.of(5, KILOBYTE),
                 2,
                 ImmutableList.of(
@@ -262,7 +262,7 @@ public class TestDeduplicatingDirectExchangeBuffer
                         .build(),
                 ImmutableMap.<TaskId, RuntimeException>builder()
                         .put(createTaskId(0, 0), new RuntimeException("error"))
-                        .build(),
+                        .buildOrThrow(),
                 DataSize.of(5, KILOBYTE),
                 2,
                 ImmutableList.of(
@@ -279,7 +279,7 @@ public class TestDeduplicatingDirectExchangeBuffer
                         .build(),
                 ImmutableMap.<TaskId, RuntimeException>builder()
                         .put(createTaskId(2, 0), new RuntimeException("error"))
-                        .build(),
+                        .buildOrThrow(),
                 DataSize.of(5, KILOBYTE),
                 0,
                 ImmutableList.of(
@@ -295,7 +295,7 @@ public class TestDeduplicatingDirectExchangeBuffer
                         .build(),
                 ImmutableMap.<TaskId, RuntimeException>builder()
                         .put(createTaskId(2, 0), new RuntimeException("error"))
-                        .build(),
+                        .buildOrThrow(),
                 DataSize.of(4, KILOBYTE),
                 3,
                 ImmutableList.of(
@@ -313,7 +313,7 @@ public class TestDeduplicatingDirectExchangeBuffer
                         .build(),
                 ImmutableMap.<TaskId, RuntimeException>builder()
                         .put(createTaskId(2, 2), error)
-                        .build(),
+                        .buildOrThrow(),
                 DataSize.of(4, KILOBYTE),
                 0,
                 error);
@@ -328,7 +328,7 @@ public class TestDeduplicatingDirectExchangeBuffer
                         .build(),
                 ImmutableMap.<TaskId, RuntimeException>builder()
                         .put(createTaskId(0, 1), error)
-                        .build(),
+                        .buildOrThrow(),
                 DataSize.of(4, KILOBYTE),
                 0,
                 error);
@@ -343,7 +343,7 @@ public class TestDeduplicatingDirectExchangeBuffer
                         .build(),
                 ImmutableMap.<TaskId, RuntimeException>builder()
                         .put(createTaskId(2, 2), error)
-                        .build(),
+                        .buildOrThrow(),
                 DataSize.of(3, KILOBYTE),
                 3,
                 error);
@@ -358,7 +358,7 @@ public class TestDeduplicatingDirectExchangeBuffer
                         .build(),
                 ImmutableMap.<TaskId, RuntimeException>builder()
                         .put(createTaskId(0, 1), error)
-                        .build(),
+                        .buildOrThrow(),
                 DataSize.of(3, KILOBYTE),
                 3,
                 error);
@@ -464,7 +464,7 @@ public class TestDeduplicatingDirectExchangeBuffer
                         .build(),
                 ImmutableMap.<TaskId, RuntimeException>builder()
                         .put(createTaskId(1, 0), new RuntimeException("error"))
-                        .build(),
+                        .buildOrThrow(),
                 DataSize.of(10, KILOBYTE),
                 0,
                 ImmutableList.of(
@@ -481,7 +481,7 @@ public class TestDeduplicatingDirectExchangeBuffer
                         .build(),
                 ImmutableMap.<TaskId, RuntimeException>builder()
                         .put(createTaskId(1, 0), new RuntimeException("error"))
-                        .build(),
+                        .buildOrThrow(),
                 DataSize.of(2, KILOBYTE),
                 3,
                 ImmutableList.of(
@@ -500,7 +500,7 @@ public class TestDeduplicatingDirectExchangeBuffer
                         .build(),
                 ImmutableMap.<TaskId, RuntimeException>builder()
                         .put(createTaskId(2, 2), error)
-                        .build(),
+                        .buildOrThrow(),
                 DataSize.of(5, KILOBYTE),
                 0,
                 error);
@@ -514,7 +514,7 @@ public class TestDeduplicatingDirectExchangeBuffer
                         .build(),
                 ImmutableMap.<TaskId, RuntimeException>builder()
                         .put(createTaskId(0, 1), error)
-                        .build(),
+                        .buildOrThrow(),
                 DataSize.of(5, KILOBYTE),
                 0,
                 error);
@@ -529,7 +529,7 @@ public class TestDeduplicatingDirectExchangeBuffer
                         .build(),
                 ImmutableMap.<TaskId, RuntimeException>builder()
                         .put(createTaskId(2, 2), error)
-                        .build(),
+                        .buildOrThrow(),
                 DataSize.of(2, KILOBYTE),
                 3,
                 error);
@@ -543,7 +543,7 @@ public class TestDeduplicatingDirectExchangeBuffer
                         .build(),
                 ImmutableMap.<TaskId, RuntimeException>builder()
                         .put(createTaskId(0, 1), error)
-                        .build(),
+                        .buildOrThrow(),
                 DataSize.of(1, KILOBYTE),
                 2,
                 error);

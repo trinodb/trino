@@ -153,7 +153,7 @@ public final class IcebergQueryRunner
                 Map<String, String> icebergProperties = new HashMap<>();
                 icebergProperties.put("iceberg.catalog.type", "TESTING_FILE_METASTORE");
                 icebergProperties.put("hive.metastore.catalog.dir", dataDir.toString());
-                icebergProperties.putAll(this.icebergProperties.build());
+                icebergProperties.putAll(this.icebergProperties.buildOrThrow());
 
                 queryRunner.createCatalog(ICEBERG_CATALOG, "iceberg", icebergProperties);
 

@@ -47,7 +47,7 @@ public class MinioStorage
                 .withEnvVars(ImmutableMap.<String, String>builder()
                         .put("MINIO_ACCESS_KEY", ACCESS_KEY)
                         .put("MINIO_SECRET_KEY", SECRET_KEY)
-                        .build())
+                        .buildOrThrow())
                 .build();
     }
 
@@ -92,6 +92,6 @@ public class MinioStorage
                 .put("exchange.s3.region", "us-east-1")
                 // TODO: enable exchange encryption after https is supported for Trino MinIO
                 .put("exchange.s3.endpoint", "http://" + minioStorage.getMinio().getMinioApiEndpoint())
-                .build();
+                .buildOrThrow();
     }
 }

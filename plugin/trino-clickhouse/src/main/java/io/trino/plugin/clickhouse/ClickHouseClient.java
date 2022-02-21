@@ -291,7 +291,7 @@ public class ClickHouseClient
                         properties.put(SAMPLE_BY_PROPERTY, samplingKey);
                     }
                 }
-                return properties.build();
+                return properties.buildOrThrow();
             }
         }
         catch (SQLException e) {
