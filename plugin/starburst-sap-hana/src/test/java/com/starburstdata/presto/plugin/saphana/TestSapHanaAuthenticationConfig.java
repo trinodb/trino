@@ -32,7 +32,7 @@ public class TestSapHanaAuthenticationConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("sap-hana.authentication.type", "PASSWORD_PASS_THROUGH")
                 .build();
 
