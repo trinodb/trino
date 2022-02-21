@@ -42,6 +42,6 @@ public class StargateImpersonatingCredentialPropertiesProvider
         });
 
         properties.put("sessionUser", authToLocal.translate(identity));
-        return properties.build();
+        return properties.buildOrThrow();
     }
 }

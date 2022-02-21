@@ -38,7 +38,7 @@ public class TestStargateConfig
                 .put("stargate.authentication.type", "PASSWORD_PASS_THROUGH")
                 .put("stargate.impersonation.enabled", "true")
                 .put("ssl.enabled", "true")
-                .build();
+                .buildOrThrow();
 
         StargateConfig expected = new StargateConfig()
                 .setAuthenticationType(PASSWORD_PASS_THROUGH)

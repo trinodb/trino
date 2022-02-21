@@ -146,7 +146,7 @@ public class TestStargatePlugin
                         .put("connection-url", "jdbc:trino://localhost:8080/test")
                         .put("stargate.impersonation.enabled", "true")
                         .put("stargate.authentication.type", PASSWORD_PASS_THROUGH.name())
-                        .build()))
+                        .buildOrThrow()))
                 .isInstanceOf(RuntimeException.class)
                 .hasStackTraceContaining("Impersonation is not allowed when using credentials pass-through");
     }
@@ -197,7 +197,7 @@ public class TestStargatePlugin
                 .put("kerberos.client.keytab", "/dev/null")
                 .put("kerberos.client.principal", "client@kerberos.com")
                 .put("kerberos.remote.service-name", "remote-service")
-                .build();
+                .buildOrThrow();
 
         assertThatThrownBy(() -> createTestingPlugin(kerberosProperties))
                 .hasMessageContaining("SSL must be enabled when using Kerberos authentication");
@@ -205,7 +205,7 @@ public class TestStargatePlugin
         Map<String, String> withSsl = ImmutableMap.<String, String>builder()
                 .putAll(kerberosProperties)
                 .put("ssl.enabled", "true")
-                .build();
+                .buildOrThrow();
 
         createTestingPlugin(withSsl);
 
@@ -225,7 +225,7 @@ public class TestStargatePlugin
                 .put("ssl.enabled", "true")
                 .put("stargate.impersonation.enabled", "true")
                 .put("auth-to-local.config-file", AUTH_TO_LOCAL_FILE)
-                .build();
+                .buildOrThrow();
 
         createTestingPlugin(kerberosProperties);
 
@@ -238,7 +238,7 @@ public class TestStargatePlugin
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .putAll(baseProperties)
                 .put(key, value)
-                .build();
+                .buildOrThrow();
 
         assertThatThrownBy(() -> createTestingPlugin(properties))
                 .hasMessageContaining(errorMessage);

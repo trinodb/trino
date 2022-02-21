@@ -49,7 +49,7 @@ public class TestStargateKerberosConfig
                 .put("kerberos.remote.service-name", "remote-service")
                 .put("kerberos.service-principal-pattern", "service@host")
                 .put("kerberos.service-use-canonical-hostname", "false")
-                .build();
+                .buildOrThrow();
 
         StargateKerberosConfig expected = new StargateKerberosConfig()
                 .setClientPrincipal("principal")

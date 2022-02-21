@@ -37,7 +37,7 @@ public class TestStargateSslConfig
                 .put("ssl.truststore.path", "/dev/null")
                 .put("ssl.truststore.password", "truststore-password")
                 .put("ssl.truststore.type", "truststore-type")
-                .build();
+                .buildOrThrow();
 
         StargateSslConfig expected = new StargateSslConfig()
                 .setTruststoreFile(new File("/dev/null"))
