@@ -20,7 +20,7 @@ import java.util.Optional;
 import static org.testng.Assert.assertEquals;
 
 public abstract class AbstractKuduSmokeTestWithStandardInferSchema
-        extends AbstractKuduIntegrationSmokeTest
+        extends AbstractKuduConnectorTest
 {
     @Override
     protected Optional<String> getKuduSchemaEmulationPrefix()
