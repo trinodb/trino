@@ -293,10 +293,10 @@ public final class OkHttpUtil
         String osName = Optional.ofNullable(StandardSystemProperty.OS_NAME.value()).orElse("");
         Optional<String> systemTrustStoreType = trustStoreType;
         if (!systemTrustStoreType.isPresent()) {
-            if (isWindows(osName)) {
+            if (osName.contains("Windows")) {
                 systemTrustStoreType = Optional.of("Windows-ROOT");
             }
-            else if (isMacOs(osName)) {
+            else if (osName.contains("Mac")) {
                 systemTrustStoreType = Optional.of("KeychainStore");
             }
         }
@@ -305,10 +305,6 @@ public final class OkHttpUtil
         trustStore.load(null, null);
         return trustStore;
     }
-
-    private static boolean isWindows(String osName) { return osName.contains("Windows"); }
-
-    private static boolean isMacOs(String osName) { return osName.contains("Mac"); }
 
     public static void setupKerberos(
             OkHttpClient.Builder clientBuilder,
