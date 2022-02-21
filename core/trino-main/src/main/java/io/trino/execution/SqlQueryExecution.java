@@ -545,6 +545,19 @@ public class SqlQueryExecution
     }
 
     @Override
+    public void failTask(TaskId taskId, Exception reason)
+    {
+        requireNonNull(taskId, "stageId is null");
+
+        try (SetThreadName ignored = new SetThreadName("Query-%s", stateMachine.getQueryId())) {
+            SqlQueryScheduler scheduler = queryScheduler.get();
+            if (scheduler != null) {
+                scheduler.failTask(taskId, reason);
+            }
+        }
+    }
+
+    @Override
     public void fail(Throwable cause)
     {
         requireNonNull(cause, "cause is null");

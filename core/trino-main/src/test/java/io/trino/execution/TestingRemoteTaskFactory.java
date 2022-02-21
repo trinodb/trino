@@ -279,6 +279,12 @@ public class TestingRemoteTaskFactory
         }
 
         @Override
+        public void failRemotely(Throwable cause)
+        {
+            taskStateMachine.failed(cause);
+        }
+
+        @Override
         public PartitionedSplitsInfo getQueuedPartitionedSplitsInfo()
         {
             return PartitionedSplitsInfo.forZeroSplits();
