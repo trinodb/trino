@@ -28,6 +28,7 @@ import org.bson.Document;
 import org.bson.types.ObjectId;
 import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.time.LocalDate;
@@ -256,23 +257,32 @@ public abstract class BaseMongoConnectorTest
         assertQueryReturnsEmptyResult("SHOW COLUMNS FROM test.tmp_guess_schema2");
     }
 
-    @Test
-    public void testDBRef()
+    @Test(dataProvider = "dbRefProvider")
+    public void testDBRef(Object objectId, String expectedValue, String expectedType)
     {
         Document document = Document.parse("{\"_id\":ObjectId(\"5126bbf64aed4daf9e2ab771\"),\"col1\":\"foo\"}");
 
-        ObjectId objectId = new ObjectId("5126bc054aed4daf9e2ab772");
         DBRef dbRef = new DBRef("test", "creators", objectId);
         document.append("creator", dbRef);
 
+        assertUpdate("DROP TABLE IF EXISTS test.test_dbref");
         client.getDatabase("test").getCollection("test_dbref").insertOne(document);
 
-        assertQuery(
-                "SELECT creator.databaseName, creator.collectionName, CAST(creator.id AS VARCHAR) FROM test.test_dbref",
-                "SELECT 'test', 'creators', '5126bc054aed4daf9e2ab772'");
+        assertThat(query("SELECT creator.databaseName, creator.collectionName, creator.id FROM test.test_dbref"))
+                .matches("SELECT varchar 'test', varchar 'creators', " + expectedValue);
         assertQuery(
                 "SELECT typeof(creator) FROM test.test_dbref",
-                "SELECT 'row(databaseName varchar, collectionName varchar, id ObjectId)'");
+                "SELECT 'row(databaseName varchar, collectionName varchar, id " + expectedType + ")'");
+
+        assertUpdate("DROP TABLE test.test_dbref");
+    }
+
+    @DataProvider
+    public Object[][] dbRefProvider()
+    {
+        return new Object[][] {
+                {new ObjectId("5126bc054aed4daf9e2ab772"), "ObjectId('5126bc054aed4daf9e2ab772')", "ObjectId"},
+        };
     }
 
     @Test
