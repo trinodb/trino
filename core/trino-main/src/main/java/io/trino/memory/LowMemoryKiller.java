@@ -14,6 +14,7 @@
 
 package io.trino.memory;
 
+import io.trino.execution.TaskId;
 import io.trino.spi.QueryId;
 
 import java.util.List;
@@ -54,6 +55,37 @@ public interface LowMemoryKiller
                     .add("queryId", queryId)
                     .add("memoryReservation", memoryReservation)
                     .toString();
+        }
+
+        public static class TaskMemoryInfo
+        {
+            private final TaskId taskId;
+            private final long memoryReservation;
+
+            public TaskMemoryInfo(TaskId taskId, long memoryReservation)
+            {
+                this.taskId = requireNonNull(taskId, "taskId is null");
+                this.memoryReservation = memoryReservation;
+            }
+
+            public TaskId getTaskId()
+            {
+                return taskId;
+            }
+
+            public long getMemoryReservation()
+            {
+                return memoryReservation;
+            }
+
+            @Override
+            public String toString()
+            {
+                return toStringHelper(this)
+                        .add("taskId", taskId)
+                        .add("memoryReservation", memoryReservation)
+                        .toString();
+            }
         }
     }
 }
