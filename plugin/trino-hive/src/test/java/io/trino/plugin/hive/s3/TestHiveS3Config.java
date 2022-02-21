@@ -77,7 +77,7 @@ public class TestHiveS3Config
     {
         Path stagingDirectory = Files.createTempDirectory(null);
 
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("hive.s3.aws-access-key", "abc123")
                 .put("hive.s3.aws-secret-key", "secret")
                 .put("hive.s3.endpoint", "endpoint.example.com")

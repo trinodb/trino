@@ -66,7 +66,7 @@ public class TestElasticsearchConfig
         Path keystoreFile = Files.createTempFile(null, null);
         Path truststoreFile = Files.createTempFile(null, null);
 
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("elasticsearch.host", "example.com")
                 .put("elasticsearch.port", "9999")
                 .put("elasticsearch.default-schema-name", "test")

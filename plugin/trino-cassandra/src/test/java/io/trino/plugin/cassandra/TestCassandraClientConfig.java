@@ -78,7 +78,7 @@ public class TestCassandraClientConfig
         Path keystoreFile = Files.createTempFile(null, null);
         Path truststoreFile = Files.createTempFile(null, null);
 
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("cassandra.contact-points", "host1,host2")
                 .put("cassandra.native-protocol-port", "9999")
                 .put("cassandra.fetch-size", "10000")

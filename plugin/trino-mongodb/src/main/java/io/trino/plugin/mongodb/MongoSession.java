@@ -703,7 +703,7 @@ public class MongoSession
 
     private boolean isView(String schemaName, String tableName)
     {
-        Document listCollectionsCommand = new Document(new ImmutableMap.Builder<String, Object>()
+        Document listCollectionsCommand = new Document(ImmutableMap.<String, Object>builder()
                 .put("listCollections", 1.0)
                 .put("filter", documentOf("name", tableName))
                 .put("nameOnly", true)

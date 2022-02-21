@@ -51,7 +51,7 @@ public class TestKinesisConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("kinesis.table-description-location", "/var/lib/kinesis")
                 .put("kinesis.default-schema", "kinesis")
                 .put("kinesis.hide-internal-columns", "false")

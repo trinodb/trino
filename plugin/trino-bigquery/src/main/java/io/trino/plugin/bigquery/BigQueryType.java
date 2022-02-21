@@ -263,7 +263,7 @@ public enum BigQueryType
 
     private static FieldList toFieldList(RowType rowType)
     {
-        ImmutableList.Builder<Field> fields = new ImmutableList.Builder<>();
+        ImmutableList.Builder<Field> fields = ImmutableList.builder();
         for (RowType.Field field : rowType.getFields()) {
             String fieldName = field.getName()
                     .orElseThrow(() -> new TrinoException(NOT_SUPPORTED, "ROW type does not have field names declared: " + rowType));

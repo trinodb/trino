@@ -71,7 +71,7 @@ public class TestStorageManagerConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("storage.data-directory", "/data")
                 .put("storage.min-available-space", "123GB")
                 .put("storage.orc.max-merge-distance", "16kB")

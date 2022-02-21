@@ -76,7 +76,7 @@ public class TestQueryManagerConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("query.client.timeout", "10s")
                 .put("query.min-expire-age", "30s")
                 .put("query.max-history", "10")

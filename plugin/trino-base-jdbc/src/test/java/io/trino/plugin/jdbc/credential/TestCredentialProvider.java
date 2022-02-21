@@ -57,7 +57,7 @@ public class TestCredentialProvider
     @Test
     public void testKeyStoreBasedCredentialProvider()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("connection-url", "jdbc:h2:mem:config")
                 .put("credential-provider.type", "KEYSTORE")
                 .put("keystore-file-path", getResourceFilePath("credentials.jceks"))

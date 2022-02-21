@@ -59,7 +59,7 @@ public class TestOAuth2Config
             throws IOException
     {
         Path userMappingFile = Files.createTempFile(null, null);
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("http-server.authentication.oauth2.state-key", "key-secret")
                 .put("http-server.authentication.oauth2.issuer", "http://127.0.0.1:9000/oauth2")
                 .put("http-server.authentication.oauth2.access-token-issuer", "http://127.0.0.1:9000/oauth2/access-token")

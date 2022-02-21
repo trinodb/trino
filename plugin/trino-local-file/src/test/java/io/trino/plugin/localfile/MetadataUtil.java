@@ -52,7 +52,7 @@ final class MetadataUtil
     public static final class TestingTypeDeserializer
             extends FromStringDeserializer<Type>
     {
-        private final Map<TypeId, Type> types = new ImmutableMap.Builder<TypeId, Type>()
+        private final Map<TypeId, Type> types = ImmutableMap.<TypeId, Type>builder()
                 .put(BOOLEAN.getTypeId(), BOOLEAN)
                 .put(BIGINT.getTypeId(), BIGINT)
                 .put(DOUBLE.getTypeId(), DOUBLE)

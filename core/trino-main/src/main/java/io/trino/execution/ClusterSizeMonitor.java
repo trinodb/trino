@@ -142,7 +142,7 @@ public class ClusterSizeMonitor
             currentCount = Sets.difference(allNodes.getActiveNodes(), allNodes.getActiveCoordinators()).size();
         }
 
-        ImmutableList.Builder<SettableFuture<Void>> listenersBuilder = new ImmutableList.Builder<>();
+        ImmutableList.Builder<SettableFuture<Void>> listenersBuilder = ImmutableList.builder();
         while (!futuresQueue.isEmpty()) {
             MinNodesFuture minNodesFuture = futuresQueue.peek();
             if (minNodesFuture == null || minNodesFuture.getExecutionMinCount() > currentCount) {

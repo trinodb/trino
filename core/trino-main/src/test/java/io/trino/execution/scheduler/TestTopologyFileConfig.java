@@ -41,7 +41,7 @@ public class TestTopologyFileConfig
     {
         Path networkTopologyFile = Files.createTempFile(null, null);
 
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("node-scheduler.network-topology.file", networkTopologyFile.toString())
                 .put("node-scheduler.network-topology.refresh-period", "27m")
                 .buildOrThrow();

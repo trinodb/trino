@@ -41,7 +41,7 @@ public class TestExchangeS3Config
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("exchange.s3.aws-access-key", "access")
                 .put("exchange.s3.aws-secret-key", "secret")
                 .put("exchange.s3.region", "us-west-1")

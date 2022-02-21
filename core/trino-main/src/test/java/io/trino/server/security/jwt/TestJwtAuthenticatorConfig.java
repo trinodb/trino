@@ -46,7 +46,7 @@ public class TestJwtAuthenticatorConfig
         Path jwtKeyFile = Files.createTempFile(null, null);
         Path userMappingFile = Files.createTempFile(null, null);
 
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("http-server.authentication.jwt.key-file", jwtKeyFile.toString())
                 .put("http-server.authentication.jwt.required-audience", "some-audience")
                 .put("http-server.authentication.jwt.required-issuer", "some-issuer")
