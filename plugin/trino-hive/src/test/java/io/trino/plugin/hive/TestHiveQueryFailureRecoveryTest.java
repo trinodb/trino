@@ -63,7 +63,7 @@ public class TestHiveQueryFailureRecoveryTest
                         // When streaming upload is enabled insert into a table with high number of buckets / partitions may cause
                         // the tests to run out of memory as the buffer space is eagerly allocated for each output file.
                         .put("hive.s3.streaming.enabled", "false")
-                        .build())
+                        .buildOrThrow())
                 .setExchangeManagerProperties(getExchangeManagerProperties(minioStorage))
                 .build();
     }

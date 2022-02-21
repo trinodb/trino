@@ -1780,7 +1780,7 @@ public class SqlQueryScheduler
                             taskLifecycleListener,
                             exchange,
                             bucketToPartitionCache.apply(fragment.getPartitioningScheme().getPartitioning().getHandle()).getBucketToPartitionMap(),
-                            sourceExchanges.build(),
+                            sourceExchanges.buildOrThrow(),
                             inputBucketToPartition.getBucketToPartitionMap(),
                             inputBucketToPartition.getBucketNodeMap(),
                             retryAttempts);

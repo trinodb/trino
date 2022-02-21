@@ -41,7 +41,7 @@ public class TestPinotAuthenticationTypeConfig
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("pinot.controller.authentication.type", "password")
                 .put("pinot.broker.authentication.type", "password")
-                .build();
+                .buildOrThrow();
 
         PinotAuthenticationTypeConfig expected = new PinotAuthenticationTypeConfig()
                 .setControllerAuthenticationType(PASSWORD)

@@ -121,7 +121,7 @@ public class TestRowFilter
                 .withName("mockmissingcolumns")
                 .withGetViews((s, prefix) -> ImmutableMap.<SchemaTableName, ConnectorViewDefinition>builder()
                         .put(new SchemaTableName("default", "nation_view"), view)
-                        .build())
+                        .buildOrThrow())
                 .withGetColumns(schemaTableName -> {
                     if (schemaTableName.equals(new SchemaTableName("tiny", "nation_with_optional_column"))) {
                         return TPCH_NATION_WITH_OPTIONAL_COLUMN;

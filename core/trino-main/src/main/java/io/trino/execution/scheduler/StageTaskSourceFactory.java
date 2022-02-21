@@ -730,7 +730,7 @@ public class StageTaskSourceFactory
                 result.put(sourceFragmentId, node.getId());
             }
         }
-        return result.build();
+        return result.buildOrThrow();
     }
 
     private static ListMultimap<PlanNodeId, ExchangeSourceHandle> getInputsForRemoteSources(

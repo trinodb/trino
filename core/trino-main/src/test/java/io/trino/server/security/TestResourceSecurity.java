@@ -677,7 +677,7 @@ public class TestResourceSecurity
                                 .put("http-server.authentication.type", "oauth2")
                                 .putAll(getOAuth2Properties(tokenServer))
                                 .put("http-server.authentication.oauth2.groups-field", GROUPS_CLAIM)
-                                .build())
+                                .buildOrThrow())
                         .setAdditionalModule(oauth2Module(tokenServer))
                         .build()) {
             server.getInstance(Key.get(AccessControlManager.class)).addSystemAccessControl(TestSystemAccessControl.NO_IMPERSONATION);
@@ -813,7 +813,7 @@ public class TestResourceSecurity
                 .put("http-server.authentication.oauth2.token-url", tokenServer.getIssuer())
                 .put("http-server.authentication.oauth2.client-id", tokenServer.getClientId())
                 .put("http-server.authentication.oauth2.client-secret", tokenServer.getClientSecret())
-                .build();
+                .buildOrThrow();
     }
 
     private static String getOauthToken(OkHttpClient client, String url)

@@ -28,7 +28,7 @@ public class TestPinotPasswordControllerAuthenticationConfig
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("pinot.controller.authentication.user", "admin")
                 .put("pinot.controller.authentication.password", "verysecret")
-                .build();
+                .buildOrThrow();
 
         PinotPasswordControllerAuthenticationConfig expected = new PinotPasswordControllerAuthenticationConfig()
                 .setUser("admin")

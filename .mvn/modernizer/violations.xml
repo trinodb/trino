@@ -44,6 +44,17 @@
     </violation>
 
     <violation>
+        <name>com/google/common/collect/ImmutableMap$Builder.build:()Lcom/google/common/collect/ImmutableMap;</name>
+        <version>1.8</version>
+        <comment>Use buildOrThrow() instead, as it makes it clear that it will throw on duplicated values</comment>
+    </violation>
+    <violation>
+        <name>com/google/common/collect/ImmutableTable$Builder.build:()Lcom/google/common/collect/ImmutableTable;</name>
+        <version>1.8</version>
+        <comment>Use buildOrThrow() instead, as it makes it clear that it will throw on duplicated values</comment>
+    </violation>
+
+    <violation>
         <name>com/google/common/cache/CacheBuilder.build:()Lcom/google/common/cache/Cache;</name>
         <version>1.8</version>
         <comment>Guava Cache has concurrency issues around invalidation and ongoing loads. Use EvictableCache, EvictableLoadingCache, or SafeCaches to build caches.
