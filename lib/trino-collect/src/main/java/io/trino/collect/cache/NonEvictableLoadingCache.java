@@ -20,7 +20,7 @@ public interface NonEvictableLoadingCache<K, V>
         extends NonKeyEvictableLoadingCache<K, V>
 {
     /**
-     * @deprecated Not supported. Use {@link EvictableLoadingCache} cache implementation instead.
+     * @deprecated Not supported. Use {@link EvictableCacheBuilder} to build a cache instead.
      */
     @Deprecated
     @Override

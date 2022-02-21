@@ -21,7 +21,7 @@ import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 /**
  * @see EvictableCache
- * @see EvictableLoadingCache
+ * @see EvictableCacheBuilder
  */
 public final class SafeCaches
 {
