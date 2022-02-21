@@ -62,13 +62,10 @@ import io.trino.plugin.jdbc.aggregation.ImplementStddevSamp;
 import io.trino.plugin.jdbc.aggregation.ImplementSum;
 import io.trino.plugin.jdbc.aggregation.ImplementVariancePop;
 import io.trino.plugin.jdbc.aggregation.ImplementVarianceSamp;
+import io.trino.plugin.jdbc.expression.JdbcConnectorExpressionRewriterBuilder;
 import io.trino.plugin.jdbc.expression.RewriteComparison;
-import io.trino.plugin.jdbc.expression.RewriteExactNumericConstant;
 import io.trino.plugin.jdbc.expression.RewriteLike;
 import io.trino.plugin.jdbc.expression.RewriteLikeWithEscape;
-import io.trino.plugin.jdbc.expression.RewriteOr;
-import io.trino.plugin.jdbc.expression.RewriteVarcharConstant;
-import io.trino.plugin.jdbc.expression.RewriteVariable;
 import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.plugin.postgresql.PostgreSqlConfig.ArrayMapping;
 import io.trino.spi.TrinoException;
@@ -308,15 +305,14 @@ public class PostgreSqlClient
                         .add(new ImplementRegrSlope())
                         .build());
 
-        connectorExpressionRewriter = new ConnectorExpressionRewriter<>(this::quoted, ImmutableSet.of(
-                new RewriteVariable(),
-                new RewriteVarcharConstant(),
-                new RewriteExactNumericConstant(),
-                new RewriteOr(),
+        connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder()
+                .withIdentifierQuote(this::quoted)
+                .addStandardRules()
                 // TODO allow all comparison operators for numeric types
-                new RewriteComparison(RewriteComparison.ComparisonOperator.EQUAL, RewriteComparison.ComparisonOperator.NOT_EQUAL),
-                new RewriteLike(),
-                new RewriteLikeWithEscape()));
+                .add(new RewriteComparison(RewriteComparison.ComparisonOperator.EQUAL, RewriteComparison.ComparisonOperator.NOT_EQUAL))
+                .add(new RewriteLike())
+                .add(new RewriteLikeWithEscape())
+                .build();
     }
 
     @Override
