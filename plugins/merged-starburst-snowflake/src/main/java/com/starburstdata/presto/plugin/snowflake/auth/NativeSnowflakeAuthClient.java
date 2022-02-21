@@ -91,7 +91,7 @@ public class NativeSnowflakeAuthClient
                                                     .put("redirectUri", config.getRedirectUri())
                                                     .put("responseType", "code")
                                                     .put("scope", "refresh_token " + scope)
-                                                    .build()))))
+                                                    .buildOrThrow()))))
                                     .build()));
             // contains encoded SAML request
             String oktaRedirectUrl = jsonPath(json, "$.data.redirectUrl");
@@ -118,7 +118,7 @@ public class NativeSnowflakeAuthClient
                                             .put("ACCOUNT_NAME", config.getClientId())
                                             .put("OAUTH_FEDERATED_CTX", samlResponse.getOauthSessionStorageData())
                                             .put("SAML_RESPONSE", samlResponse.getSamlAssertion())
-                                            .build()))))
+                                            .buildOrThrow()))))
                             .build()));
             String masterToken = jsonPath(sfAuthenticateResponseJson, "$.data.masterToken");
 

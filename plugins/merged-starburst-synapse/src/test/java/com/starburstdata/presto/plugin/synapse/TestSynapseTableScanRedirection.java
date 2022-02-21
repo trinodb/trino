@@ -31,7 +31,7 @@ public class TestSynapseTableScanRedirection
                         .putAll(getRedirectionProperties(DEFAULT_CATALOG_NAME, TEST_SCHEMA))
                         // Synapse tests are slow. Cache metadata to speed them up.
                         .put("metadata.cache-ttl", "60m")
-                        .build(),
+                        .buildOrThrow(),
                 REQUIRED_TPCH_TABLES);
     }
 }

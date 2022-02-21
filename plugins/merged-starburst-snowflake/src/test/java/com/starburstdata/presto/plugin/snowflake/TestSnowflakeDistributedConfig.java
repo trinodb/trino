@@ -55,7 +55,7 @@ public class TestSnowflakeDistributedConfig
                 .put("snowflake.export-file-max-size", "333MB")
                 .put("snowflake.max-export-retries", "42")
                 .put("snowflake.retry-canceled-queries", "true")
-                .build();
+                .buildOrThrow();
 
         SnowflakeDistributedConfig expected = new SnowflakeDistributedConfig()
                 .setStageSchema("test_schema_2")
@@ -84,7 +84,7 @@ public class TestSnowflakeDistributedConfig
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("snowflake.stage-schema", "test_schema_2")
                 .put("snowflake.export-file-max-size", size.toString())
-                .build();
+                .buildOrThrow();
         ConfigurationFactory configurationFactory = new ConfigurationFactory(properties);
         assertThatThrownBy(() -> configurationFactory.build(SnowflakeDistributedConfig.class))
                 .isInstanceOf(ConfigurationException.class)

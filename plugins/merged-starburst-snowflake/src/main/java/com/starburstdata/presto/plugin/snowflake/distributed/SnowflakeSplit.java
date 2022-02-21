@@ -164,7 +164,7 @@ public class SnowflakeSplit
                 .put("hosts", addresses)
                 .put("database", database)
                 .put("table", table)
-                .build();
+                .buildOrThrow();
     }
 
     @Override

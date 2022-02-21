@@ -202,7 +202,7 @@ public class SnowflakeClient
             .put(RealType.REAL, WriteMapping.longMapping("real", realWriteFunction()))
             .put(VARBINARY, WriteMapping.sliceMapping("varbinary", varbinaryWriteFunction()))
             .put(DateType.DATE, WriteMapping.longMapping("date", dateWriteFunctionUsingString()))
-            .build();
+            .buildOrThrow();
     private static final UtcTimeZoneCalendar UTC_TZ_PASSING_CALENDAR = UtcTimeZoneCalendar.getUtcTimeZoneCalendarInstance();
     private static final TimeZone UTC_TIME_ZONE = TimeZone.getTimeZone(ZoneId.of("UTC"));
 

@@ -55,7 +55,7 @@ public class TestSnowflakeOauthConfig
                 .put("snowflake.account-name", "LJ06752")
                 .put("snowflake.client-id", "U9AZUFx3G4kGZwTzKTBEzTkRBwQ=")
                 .put("snowflake.client-secret", "XXX")
-                .build();
+                .buildOrThrow();
 
         SnowflakeOauthConfig expected = new SnowflakeOauthConfig()
                 .setCredentialCacheSize(2000)

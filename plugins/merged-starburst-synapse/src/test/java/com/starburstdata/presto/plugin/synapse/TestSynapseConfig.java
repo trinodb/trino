@@ -36,7 +36,7 @@ public class TestSynapseConfig
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("synapse.impersonation.enabled", "true")
                 .put("synapse.authentication.type", "ACTIVE_DIRECTORY_PASSWORD")
-                .build();
+                .buildOrThrow();
 
         SynapseConfig expected = new SynapseConfig()
                 .setImpersonationEnabled(true)

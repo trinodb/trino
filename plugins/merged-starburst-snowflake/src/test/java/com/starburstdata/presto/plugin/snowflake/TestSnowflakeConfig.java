@@ -40,7 +40,7 @@ public class TestSnowflakeConfig
                 .put("snowflake.warehouse", "warehouse")
                 .put("snowflake.database", "database")
                 .put("snowflake.role", "role")
-                .build();
+                .buildOrThrow();
 
         SnowflakeConfig expected = new SnowflakeConfig()
                 .setImpersonationType(ROLE)

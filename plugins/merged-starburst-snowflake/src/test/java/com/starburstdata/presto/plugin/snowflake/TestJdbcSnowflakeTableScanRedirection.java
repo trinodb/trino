@@ -31,7 +31,7 @@ public class TestJdbcSnowflakeTableScanRedirection
                 .withConnectorProperties(ImmutableMap.<String, String>builder()
                         .putAll(impersonationDisabled())
                         .putAll(getRedirectionProperties("snowflake", TEST_SCHEMA))
-                        .build())
+                        .buildOrThrow())
                 .build();
     }
 

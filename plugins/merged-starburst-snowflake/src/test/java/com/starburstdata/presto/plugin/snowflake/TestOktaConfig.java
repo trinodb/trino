@@ -42,7 +42,7 @@ public class TestOktaConfig
                 .put("okta.http-read-timeout", "1m")
                 .put("okta.http-write-timeout", "1m")
                 .put("okta.account-url", "https://dev-966531.okta.com")
-                .build();
+                .buildOrThrow();
 
         OktaConfig expected = new OktaConfig()
                 .setHttpConnectTimeout(new Duration(1, MINUTES))

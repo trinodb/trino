@@ -37,6 +37,6 @@ public class SnowflakeOauthPropertiesProvider
         return ImmutableMap.<String, String>builder()
                 .put("authenticator", "oauth")
                 .put("token", cred.getAccessToken())
-                .build();
+                .buildOrThrow();
     }
 }

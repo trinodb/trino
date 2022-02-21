@@ -37,6 +37,6 @@ public class SnowflakeOAuth2TokenPassthroughProvider
         return ImmutableMap.<String, String>builder()
                 .put("authenticator", "oauth")
                 .put("token", getToken(identity, name))
-                .build();
+                .buildOrThrow();
     }
 }

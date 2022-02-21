@@ -39,7 +39,7 @@ public class TestSynapseActiveDirectoryPasswordAuth
                         .put("connection-user", ACTIVE_DIRECTORY_USERNAME)
                         .put("connection-password", ACTIVE_DIRECTORY_PASSWORD)
                         .put("synapse.authentication.type", "ACTIVE_DIRECTORY_PASSWORD")
-                        .build(),
+                        .buildOrThrow(),
                 List.of());
     }
 

@@ -83,7 +83,7 @@ class SnowflakeQueryRunner
         else {
             builder.put("snowflake.impersonation-type", "OKTA_LDAP_PASSTHROUGH");
         }
-        return builder.build();
+        return builder.buildOrThrow();
     }
 
     static Builder distributedBuilder()
@@ -134,7 +134,7 @@ class SnowflakeQueryRunner
             database.ifPresent(databaseName -> properties.put("snowflake.database", databaseName));
 
             queryRunner.installPlugin(new TestingSnowflakePlugin());
-            queryRunner.createCatalog(SNOWFLAKE_CATALOG, connectorName, properties.build());
+            queryRunner.createCatalog(SNOWFLAKE_CATALOG, connectorName, properties.buildOrThrow());
             queryRunner.installPlugin(new JmxPlugin());
             queryRunner.createCatalog("jmx", "jmx", ImmutableMap.of());
         }
@@ -234,7 +234,7 @@ class SnowflakeQueryRunner
         public DistributedQueryRunner build()
                 throws Exception
         {
-            return createSnowflakeQueryRunner(server, connectorName, warehouseName, databaseName, connectorProperties.build(), extraProperties.build(), nodeCount, useOktaCredentials);
+            return createSnowflakeQueryRunner(server, connectorName, warehouseName, databaseName, connectorProperties.buildOrThrow(), extraProperties.buildOrThrow(), nodeCount, useOktaCredentials);
         }
     }
 
