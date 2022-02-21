@@ -29,7 +29,7 @@ final class NonEvictableLoadingCacheImpl<K, V>
     public void invalidateAll()
     {
         throw new UnsupportedOperationException("invalidateAll does not invalidate ongoing loads, so a stale value may remain in the cache for ever. " +
-                "Use EvictableLoadingCache if you need invalidation, or use SafeCaches.buildNonEvictableCacheWithWeakInvalidateAll() " +
+                "Use EvictableCacheBuilder if you need invalidation, or use SafeCaches.buildNonEvictableCacheWithWeakInvalidateAll() " +
                 "if invalidateAll is not required for correctness");
     }
 }

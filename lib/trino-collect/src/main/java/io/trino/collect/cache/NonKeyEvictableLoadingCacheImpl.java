@@ -40,13 +40,13 @@ class NonKeyEvictableLoadingCacheImpl<K, V>
     public void invalidate(Object key)
     {
         throw new UnsupportedOperationException("invalidate(key) does not invalidate ongoing loads, so a stale value may remain in the cache for ever. " +
-                "Use EvictableLoadingCache if you need invalidation");
+                "Use EvictableCacheBuilder if you need invalidation");
     }
 
     @Override
     public void invalidateAll(Iterable<?> keys)
     {
         throw new UnsupportedOperationException("invalidateAll(keys) does not invalidate ongoing loads, so a stale value may remain in the cache for ever. " +
-                "Use EvictableLoadingCache if you need invalidation");
+                "Use EvictableCacheBuilder if you need invalidation");
     }
 }
