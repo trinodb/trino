@@ -15,20 +15,19 @@ package io.trino.plugin.raptor.legacy;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.testing.QueryRunner;
-import io.trino.tpch.TpchTable;
 import org.testng.annotations.Test;
 
 import static io.trino.plugin.raptor.legacy.RaptorQueryRunner.createRaptorQueryRunner;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestRaptorIntegrationSmokeTestBucketed
+public class TestRaptorBucketedConnectorTest
         extends BaseRaptorConnectorTest
 {
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createRaptorQueryRunner(ImmutableMap.of(), TpchTable.getTables(), true, ImmutableMap.of());
+        return createRaptorQueryRunner(ImmutableMap.of(), REQUIRED_TPCH_TABLES, true, ImmutableMap.of());
     }
 
     @Test
