@@ -96,7 +96,7 @@ public class SnowflakeClient
 {
     private final Type jsonType;
     private final AggregateFunctionRewriter<JdbcExpression> aggregateFunctionRewriter;
-    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("uuuu-MM-dd");
 
     @Inject
     public SnowflakeClient(
