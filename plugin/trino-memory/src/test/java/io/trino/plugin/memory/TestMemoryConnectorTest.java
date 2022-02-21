@@ -57,7 +57,6 @@ public class TestMemoryConnectorTest
     private static final int LINEITEM_COUNT = 60175;
     private static final int ORDERS_COUNT = 15000;
     private static final int PART_COUNT = 2000;
-    private static final int CUSTOMER_COUNT = 1500;
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -420,36 +419,6 @@ public class TestMemoryConnectorTest
         Session session = noJoinReordering(BROADCAST);
         assertDynamicFiltering("SELECT * FROM probe_nan p JOIN build_nan b ON p.v IS NOT DISTINCT FROM b.v", session, 3, 5, 3);
         assertDynamicFiltering("SELECT * FROM probe_nan p JOIN build_nan b ON p.v = b.v", session, 1, 1, 3);
-    }
-
-    @Test
-    public void testCrossJoinLargeBuildSideDynamicFiltering()
-    {
-        // Probe-side is fully scanned because the build-side is too large for dynamic filtering:
-        assertDynamicFiltering(
-                "SELECT * FROM orders o, customer c WHERE o.custkey < c.custkey AND c.name < 'Customer#000001000' AND o.custkey > 1000",
-                noJoinReordering(BROADCAST),
-                0,
-                ORDERS_COUNT, CUSTOMER_COUNT);
-    }
-
-    @Test(timeOut = 30_000, dataProvider = "joinDistributionTypes")
-    public void testJoinDynamicFilteringMultiJoin(JoinDistributionType joinDistributionType)
-    {
-        assertUpdate("DROP TABLE IF EXISTS t0");
-        assertUpdate("DROP TABLE IF EXISTS t1");
-        assertUpdate("DROP TABLE IF EXISTS t2");
-        assertUpdate("CREATE TABLE t0 (k0 integer, v0 real)");
-        assertUpdate("CREATE TABLE t1 (k1 integer, v1 real)");
-        assertUpdate("CREATE TABLE t2 (k2 integer, v2 real)");
-        assertUpdate("INSERT INTO t0 VALUES (1, 1.0)", 1);
-        assertUpdate("INSERT INTO t1 VALUES (1, 2.0)", 1);
-        assertUpdate("INSERT INTO t2 VALUES (1, 3.0)", 1);
-
-        assertQuery(
-                noJoinReordering(joinDistributionType),
-                "SELECT k0, k1, k2 FROM t0, t1, t2 WHERE (k0 = k1) AND (k0 = k2) AND (v0 + v1 = v2)",
-                "SELECT 1, 1, 1");
     }
 
     private void assertDynamicFiltering(@Language("SQL") String selectQuery, Session session, int expectedRowCount, int... expectedOperatorRowsRead)
