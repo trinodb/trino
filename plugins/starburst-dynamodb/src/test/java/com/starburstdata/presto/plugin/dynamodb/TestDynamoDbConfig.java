@@ -70,7 +70,7 @@ public class TestDynamoDbConfig
         // Create non-default temp directory which must exist
         File tempDirectory = Files.createTempDirectory("dynamodb").toFile();
 
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("dynamodb.aws-access-key", "access-key")
                 .put("dynamodb.aws-secret-key", "secret-key")
                 .put("dynamodb.aws-role-arn", "role-arn")
