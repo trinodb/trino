@@ -283,6 +283,7 @@ public abstract class BaseMongoConnectorTest
     {
         return new Object[][] {
                 {"String type", "varchar 'String type'", "varchar"},
+                {"BinData".getBytes(UTF_8), "to_utf8('BinData')", "varbinary"},
                 {1234567890, "bigint '1234567890'", "bigint"},
                 {true, "true", "boolean"},
                 {12.3f, "double '12.3'", "double"},
