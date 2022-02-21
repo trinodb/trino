@@ -37,7 +37,7 @@ public class TestOktaConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("okta.http-connect-timeout", "1m")
                 .put("okta.http-read-timeout", "1m")
                 .put("okta.http-write-timeout", "1m")

@@ -33,7 +33,7 @@ public class TestSynapseConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("synapse.impersonation.enabled", "true")
                 .put("synapse.authentication.type", "ACTIVE_DIRECTORY_PASSWORD")
                 .build();

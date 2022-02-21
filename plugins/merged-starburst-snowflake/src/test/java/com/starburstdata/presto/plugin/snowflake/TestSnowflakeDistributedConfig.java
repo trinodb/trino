@@ -46,7 +46,7 @@ public class TestSnowflakeDistributedConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("snowflake.stage-schema", "test_schema_2")
                 .put("snowflake.max-initial-split-size", "31MB")
                 .put("snowflake.max-split-size", "222MB")
@@ -81,7 +81,7 @@ public class TestSnowflakeDistributedConfig
     @Test(dataProvider = "invalidSizes")
     public void testInvalidExportFileSize(DataSize size)
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("snowflake.stage-schema", "test_schema_2")
                 .put("snowflake.export-file-max-size", size.toString())
                 .build();

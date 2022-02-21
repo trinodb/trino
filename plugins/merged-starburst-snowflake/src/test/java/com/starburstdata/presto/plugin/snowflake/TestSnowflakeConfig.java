@@ -35,7 +35,7 @@ public class TestSnowflakeConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("snowflake.impersonation-type", "ROLE")
                 .put("snowflake.warehouse", "warehouse")
                 .put("snowflake.database", "database")

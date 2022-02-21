@@ -44,7 +44,7 @@ public class TestSnowflakeOauthConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("snowflake.credential.cache-size", "2000")
                 .put("snowflake.credential.http-connect-timeout", "1m")
                 .put("snowflake.credential.http-read-timeout", "1m")
