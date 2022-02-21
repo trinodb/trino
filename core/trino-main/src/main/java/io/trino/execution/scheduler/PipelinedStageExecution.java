@@ -299,6 +299,14 @@ public class PipelinedStageExecution
     }
 
     @Override
+    public synchronized void failTaskRemotely(TaskId taskId, Throwable failureCause)
+    {
+        RemoteTask task = requireNonNull(tasks.get(taskId.getPartitionId()), () -> "task not found: " + taskId);
+        task.failRemotely(failureCause);
+        // not failing stage just yet; it will happen as a result of task failure
+    }
+
+    @Override
     public synchronized Optional<RemoteTask> scheduleTask(
             InternalNode node,
             int partition,

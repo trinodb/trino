@@ -65,6 +65,7 @@ public class HttpRemoteTaskFactory
     private final JsonCodec<VersionedDynamicFilterDomains> dynamicFilterDomainsCodec;
     private final JsonCodec<TaskInfo> taskInfoCodec;
     private final JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec;
+    private final JsonCodec<FailTaskRequest> failTaskRequestCoded;
     private final Duration maxErrorDuration;
     private final Duration taskStatusRefreshMaxWait;
     private final Duration taskInfoUpdateInterval;
@@ -86,6 +87,7 @@ public class HttpRemoteTaskFactory
             JsonCodec<VersionedDynamicFilterDomains> dynamicFilterDomainsCodec,
             JsonCodec<TaskInfo> taskInfoCodec,
             JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec,
+            JsonCodec<FailTaskRequest> failTaskRequestCoded,
             RemoteTaskStats stats,
             DynamicFilterService dynamicFilterService)
     {
@@ -95,6 +97,7 @@ public class HttpRemoteTaskFactory
         this.dynamicFilterDomainsCodec = dynamicFilterDomainsCodec;
         this.taskInfoCodec = taskInfoCodec;
         this.taskUpdateRequestCodec = taskUpdateRequestCodec;
+        this.failTaskRequestCoded = failTaskRequestCoded;
         this.maxErrorDuration = config.getRemoteTaskMaxErrorDuration();
         this.taskStatusRefreshMaxWait = taskConfig.getStatusRefreshMaxWait();
         this.taskInfoUpdateInterval = taskConfig.getInfoUpdateInterval();
@@ -154,6 +157,7 @@ public class HttpRemoteTaskFactory
                 dynamicFilterDomainsCodec,
                 taskInfoCodec,
                 taskUpdateRequestCodec,
+                failTaskRequestCoded,
                 partitionedSplitCountTracker,
                 stats,
                 dynamicFilterService,
