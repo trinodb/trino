@@ -34,6 +34,7 @@ import org.testng.annotations.Test;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Arrays;
+import java.util.Date;
 
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -281,6 +282,12 @@ public abstract class BaseMongoConnectorTest
     public Object[][] dbRefProvider()
     {
         return new Object[][] {
+                {"String type", "varchar 'String type'", "varchar"},
+                {1234567890, "bigint '1234567890'", "bigint"},
+                {true, "true", "boolean"},
+                {12.3f, "double '12.3'", "double"},
+                {new Date(0), "timestamp '1970-01-01 00:00:00.000'", "timestamp(3)"},
+                {ImmutableList.of(1), "array[bigint '1']", "array(bigint)"},
                 {new ObjectId("5126bc054aed4daf9e2ab772"), "ObjectId('5126bc054aed4daf9e2ab772')", "ObjectId"},
         };
     }
