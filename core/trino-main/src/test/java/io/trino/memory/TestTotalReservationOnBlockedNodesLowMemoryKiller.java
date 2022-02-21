@@ -15,6 +15,8 @@
 package io.trino.memory;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import io.trino.execution.TaskId;
 import io.trino.spi.QueryId;
 import org.testng.annotations.Test;
 
@@ -36,6 +38,7 @@ public class TestTotalReservationOnBlockedNodesLowMemoryKiller
         Map<String, Map<String, Long>> queries = ImmutableMap.<String, Map<String, Long>>builder()
                 .put("q_1", ImmutableMap.of("n1", 0L, "n2", 0L, "n3", 0L, "n4", 0L, "n5", 0L))
                 .buildOrThrow();
+
         assertEquals(
                 lowMemoryKiller.chooseQueryToKill(
                         toQueryMemoryInfoList(queries),
@@ -74,5 +77,59 @@ public class TestTotalReservationOnBlockedNodesLowMemoryKiller
                         toQueryMemoryInfoList(queries),
                         toNodeMemoryInfoList(memoryPool, queries)),
                 Optional.of(KillTarget.wholeQuery(new QueryId("q_1"))));
+    }
+
+    @Test
+    public void testPreferKillingTasks()
+    {
+        int memoryPool = 12;
+        Map<String, Map<String, Long>> queries = ImmutableMap.<String, Map<String, Long>>builder()
+                .put("q_1", ImmutableMap.of("n1", 0L, "n2", 8L, "n3", 0L, "n4", 0L, "n5", 0L))
+                .put("q_2", ImmutableMap.of("n1", 3L, "n2", 5L, "n3", 2L, "n4", 4L, "n5", 0L))
+                .put("q_3", ImmutableMap.of("n1", 0L, "n2", 0L, "n3", 11L, "n4", 0L, "n5", 0L))
+                .buildOrThrow();
+
+        Map<String, Map<String, Map<String, Long>>> tasks = ImmutableMap.<String, Map<String, Map<String, Long>>>builder()
+                .put("q_2", ImmutableMap.of(
+                        "n1", ImmutableMap.of("t1", 1L, "t2", 3L),
+                        "n2", ImmutableMap.of("t3", 3L, "t4", 1L, "t5", 1L),
+                        "n3", ImmutableMap.of("t6", 2L),
+                        "n4", ImmutableMap.of("t7", 2L, "t8", 2L),
+                        "n5", ImmutableMap.of())
+                ).buildOrThrow();
+
+        assertEquals(
+                lowMemoryKiller.chooseQueryToKill(
+                        toQueryMemoryInfoList(queries),
+                        toNodeMemoryInfoList(memoryPool, queries, tasks)),
+                Optional.of(KillTarget.selectedTasks(ImmutableSet.of(TaskId.valueOf("t3"), TaskId.valueOf("t6")))));
+    }
+
+    @Test
+    public void testKillsBiggestTasks()
+    {
+        int memoryPool = 12;
+        Map<String, Map<String, Long>> queries = ImmutableMap.<String, Map<String, Long>>builder()
+                .put("q_1", ImmutableMap.of("n1", 0L, "n2", 8L, "n3", 0L, "n4", 0L, "n5", 0L))
+                .put("q_2", ImmutableMap.of("n1", 3L, "n2", 5L, "n3", 2L, "n4", 4L, "n5", 0L))
+                .put("q_3", ImmutableMap.of("n1", 0L, "n2", 0L, "n3", 11L, "n4", 0L, "n5", 0L))
+                .buildOrThrow();
+
+        Map<String, Map<String, Map<String, Long>>> tasks = ImmutableMap.<String, Map<String, Map<String, Long>>>builder()
+                .put("q_1", ImmutableMap.of(
+                        "n2", ImmutableMap.of("t1_1", 8L)))
+                .put("q_2", ImmutableMap.of(
+                        "n1", ImmutableMap.of("t2_1", 1L, "t2_2", 3L),
+                        "n2", ImmutableMap.of("t2_3", 3L, "t2_4", 1L, "t2_5", 1L),
+                        "n3", ImmutableMap.of("t2_6", 2L),
+                        "n4", ImmutableMap.of("t2_7", 2L, "t2_8", 2L),
+                        "n5", ImmutableMap.of()))
+                .buildOrThrow();
+
+        assertEquals(
+                lowMemoryKiller.chooseQueryToKill(
+                        toQueryMemoryInfoList(queries),
+                        toNodeMemoryInfoList(memoryPool, queries, tasks)),
+                Optional.of(KillTarget.selectedTasks(ImmutableSet.of(TaskId.valueOf("t1_1"), TaskId.valueOf("t2_6")))));
     }
 }
