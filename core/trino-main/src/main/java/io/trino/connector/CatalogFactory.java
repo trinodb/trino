@@ -18,7 +18,6 @@ import io.trino.spi.connector.ConnectorFactory;
 
 import javax.annotation.concurrent.ThreadSafe;
 
-import java.util.Map;
 import java.util.function.Function;
 
 @ThreadSafe
@@ -26,7 +25,7 @@ public interface CatalogFactory
 {
     void addConnectorFactory(ConnectorFactory connectorFactory, Function<CatalogHandle, ClassLoader> duplicatePluginClassLoaderFactory);
 
-    CatalogConnector createCatalog(String catalogName, String connectorName, Map<String, String> properties);
+    CatalogConnector createCatalog(CatalogProperties catalogProperties);
 
     CatalogConnector createCatalog(CatalogHandle catalogHandle, String connectorName, Connector connector);
 }
