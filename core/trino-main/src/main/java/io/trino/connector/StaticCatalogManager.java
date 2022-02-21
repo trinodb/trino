@@ -40,11 +40,11 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.configuration.ConfigurationLoader.loadPropertiesFrom;
+import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
@@ -89,7 +89,7 @@ public class StaticCatalogManager
             String connectorName = properties.remove("connector.name");
             checkState(connectorName != null, "Catalog configuration %s does not contain connector.name", file.getAbsoluteFile());
 
-            catalogProperties.add(new CatalogProperties(catalogName, connectorName, ImmutableMap.copyOf(properties)));
+            catalogProperties.add(new CatalogProperties(createRootCatalogHandle(catalogName), connectorName, ImmutableMap.copyOf(properties)));
         }
         this.catalogProperties = catalogProperties.build();
     }
@@ -137,10 +137,11 @@ public class StaticCatalogManager
         state = State.INITIALIZED;
 
         for (CatalogProperties catalog : catalogProperties) {
-            log.info("-- Loading catalog %s --", catalog.getCatalogName());
-            CatalogConnector newCatalog = catalogFactory.createCatalog(catalog.getCatalogName(), catalog.getConnectorName(), catalog.getProperties());
-            catalogs.put(catalog.getCatalogName(), newCatalog);
-            log.info("-- Added catalog %s using connector %s --", catalog.getCatalogName(), catalog.getConnectorName());
+            String catalogName = catalog.getCatalogHandle().getCatalogName();
+            log.info("-- Loading catalog %s --", catalogName);
+            CatalogConnector newCatalog = catalogFactory.createCatalog(catalog);
+            catalogs.put(catalogName, newCatalog);
+            log.info("-- Added catalog %s using connector %s --", catalogName, catalog.getConnectorName());
         }
     }
 
@@ -174,7 +175,8 @@ public class StaticCatalogManager
         checkState(state != State.STOPPED, "Catalog manager is stopped");
 
         checkArgument(!catalogs.containsKey(catalogName), "Catalog '%s' already exists", catalogName);
-        CatalogConnector catalog = catalogFactory.createCatalog(catalogName, connectorName, properties);
+        CatalogProperties catalogProperties = new CatalogProperties(createRootCatalogHandle(catalogName), connectorName, properties);
+        CatalogConnector catalog = catalogFactory.createCatalog(catalogProperties);
         catalogs.put(catalogName, catalog);
         return catalog.getCatalogHandle();
     }
@@ -191,43 +193,5 @@ public class StaticCatalogManager
 
         CatalogConnector catalog = catalogFactory.createCatalog(catalogHandle, connectorName, connector);
         catalogs.put(catalogName, catalog);
-    }
-
-    private static class CatalogProperties
-    {
-        private final String catalogName;
-        private final String connectorName;
-        private final Map<String, String> properties;
-
-        public CatalogProperties(String catalogName, String connectorName, Map<String, String> properties)
-        {
-            this.catalogName = requireNonNull(catalogName, "catalogName is null");
-            this.connectorName = requireNonNull(connectorName, "connectorName is null");
-            this.properties = requireNonNull(properties, "properties is null");
-        }
-
-        public String getCatalogName()
-        {
-            return catalogName;
-        }
-
-        public String getConnectorName()
-        {
-            return connectorName;
-        }
-
-        public Map<String, String> getProperties()
-        {
-            return properties;
-        }
-
-        @Override
-        public String toString()
-        {
-            return toStringHelper(this)
-                    .add("catalogName", catalogName)
-                    .add("connectorName", connectorName)
-                    .toString();
-        }
     }
 }

@@ -40,6 +40,7 @@ import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.Function;
@@ -48,7 +49,6 @@ import java.util.function.Supplier;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.connector.CatalogHandle.createInformationSchemaCatalogHandle;
-import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
 import static io.trino.connector.CatalogHandle.createSystemTablesCatalogHandle;
 import static java.util.Objects.requireNonNull;
 
@@ -109,27 +109,38 @@ public class DefaultCatalogFactory
     }
 
     @Override
-    public CatalogConnector createCatalog(String catalogName, String connectorName, Map<String, String> properties)
+    public CatalogConnector createCatalog(CatalogProperties catalogProperties)
     {
-        requireNonNull(connectorName, "connectorName is null");
-        requireNonNull(properties, "properties is null");
+        requireNonNull(catalogProperties, "catalogProperties is null");
 
-        InternalConnectorFactory factory = connectorFactories.get(connectorName);
-        checkArgument(factory != null, "No factory for connector '%s'.  Available factories: %s", connectorName, connectorFactories.keySet());
+        InternalConnectorFactory factory = connectorFactories.get(catalogProperties.getConnectorName());
+        checkArgument(factory != null, "No factory for connector '%s'.  Available factories: %s", catalogProperties.getConnectorName(), connectorFactories.keySet());
 
-        CatalogHandle catalogHandle = createRootCatalogHandle(catalogName);
-        CatalogClassLoaderSupplier duplicatePluginClassLoaderFactory = new CatalogClassLoaderSupplier(catalogHandle, factory.getDuplicatePluginClassLoaderFactory(), handleResolver);
-        Connector connector = createConnector(catalogName, catalogHandle, factory.getConnectorFactory(), duplicatePluginClassLoaderFactory, properties);
-        return createCatalog(catalogHandle, factory.getConnectorFactory().getName(), connector, duplicatePluginClassLoaderFactory::destroy);
+        CatalogClassLoaderSupplier duplicatePluginClassLoaderFactory = new CatalogClassLoaderSupplier(
+                catalogProperties.getCatalogHandle(),
+                factory.getDuplicatePluginClassLoaderFactory(),
+                handleResolver);
+        Connector connector = createConnector(
+                catalogProperties.getCatalogHandle().getCatalogName(),
+                catalogProperties.getCatalogHandle(),
+                factory.getConnectorFactory(),
+                duplicatePluginClassLoaderFactory,
+                catalogProperties.getProperties());
+        return createCatalog(
+                catalogProperties.getCatalogHandle(),
+                factory.getConnectorFactory().getName(),
+                connector,
+                duplicatePluginClassLoaderFactory::destroy,
+                Optional.of(catalogProperties));
     }
 
     @Override
     public CatalogConnector createCatalog(CatalogHandle catalogHandle, String connectorName, Connector connector)
     {
-        return createCatalog(catalogHandle, connectorName, connector, () -> {});
+        return createCatalog(catalogHandle, connectorName, connector, () -> {}, Optional.empty());
     }
 
-    private CatalogConnector createCatalog(CatalogHandle catalogHandle, String connectorName, Connector connector, Runnable destroy)
+    private CatalogConnector createCatalog(CatalogHandle catalogHandle, String connectorName, Connector connector, Runnable destroy, Optional<CatalogProperties> catalogProperties)
     {
         ConnectorServices catalogConnector = new ConnectorServices(
                 catalogHandle,
@@ -166,7 +177,8 @@ public class DefaultCatalogFactory
                 connectorName,
                 catalogConnector,
                 informationSchemaConnector,
-                systemConnector);
+                systemConnector,
+                catalogProperties);
     }
 
     private Connector createConnector(
