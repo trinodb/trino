@@ -15,8 +15,12 @@
 package io.trino.memory;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ListMultimap;
+import io.trino.TaskMemoryInfo;
 import io.trino.client.NodeVersion;
+import io.trino.execution.TaskId;
 import io.trino.metadata.InternalNode;
 import io.trino.spi.QueryId;
 import io.trino.spi.memory.MemoryPoolInfo;
@@ -31,6 +35,11 @@ public final class LowMemoryKillerTestingUtils
     private LowMemoryKillerTestingUtils() {}
 
     static List<MemoryInfo> toNodeMemoryInfoList(long memoryPoolMaxBytes, Map<String, Map<String, Long>> queries)
+    {
+        return toNodeMemoryInfoList(memoryPoolMaxBytes, queries, ImmutableMap.of());
+    }
+
+    static List<MemoryInfo> toNodeMemoryInfoList(long memoryPoolMaxBytes, Map<String, Map<String, Long>> queries, Map<String, Map<String, Map<String, Long>>> tasks)
     {
         Map<InternalNode, NodeReservation> nodeReservations = new HashMap<>();
 
@@ -58,7 +67,27 @@ public final class LowMemoryKillerTestingUtils
                     nodeReservation.getReservationByQuery(),
                     ImmutableMap.of(),
                     ImmutableMap.of());
-            result.add(new MemoryInfo(7, memoryPoolInfo));
+            result.add(new MemoryInfo(7, memoryPoolInfo, tasksMemoryInfoForNode(entry.getKey().getNodeIdentifier(), tasks)));
+        }
+        return result.build();
+    }
+
+    private static ListMultimap<QueryId, TaskMemoryInfo> tasksMemoryInfoForNode(String nodeIdentifier, Map<String, Map<String, Map<String, Long>>> tasks)
+    {
+        ImmutableListMultimap.Builder<QueryId, TaskMemoryInfo> result = ImmutableListMultimap.builder();
+        for (Map.Entry<String, Map<String, Map<String, Long>>> queryNodesEntry : tasks.entrySet()) {
+            QueryId query = QueryId.valueOf(queryNodesEntry.getKey());
+            for (Map.Entry<String, Map<String, Long>> nodeTasksEntry : queryNodesEntry.getValue().entrySet()) {
+                if (!nodeIdentifier.equals(nodeTasksEntry.getKey())) {
+                    continue;
+                }
+
+                for (Map.Entry<String, Long> taskReservationEntry : nodeTasksEntry.getValue().entrySet()) {
+                    TaskId taskId = TaskId.valueOf(taskReservationEntry.getKey());
+                    long taskReservation = taskReservationEntry.getValue();
+                    result.put(query, new TaskMemoryInfo(taskId, taskReservation));
+                }
+            }
         }
         return result.build();
     }
