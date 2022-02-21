@@ -262,7 +262,7 @@ public class TestPostgreSqlClient
                                 Optional.empty()),
                         Map.of("c_varchar_symbol", VARCHAR_COLUMN.getColumnType())),
                 Map.of("c_varchar_symbol", VARCHAR_COLUMN)))
-                .hasValue("\"c_varchar\" LIKE '%pattern%'");
+                .hasValue("(\"c_varchar\") LIKE ('%pattern%')");
 
         // c_varchar LIKE '%pattern\%' ESCAPE '\'
         assertThat(JDBC_CLIENT.convertPredicate(SESSION,
@@ -273,7 +273,7 @@ public class TestPostgreSqlClient
                                 new StringLiteral("\\")),
                         Map.of("c_varchar", VARCHAR_COLUMN.getColumnType())),
                 Map.of(VARCHAR_COLUMN.getColumnName(), VARCHAR_COLUMN)))
-                .hasValue("\"c_varchar\" LIKE '%pattern\\%' ESCAPE '\\'");
+                .hasValue("(\"c_varchar\") LIKE ('%pattern\\%') ESCAPE ('\\')");
     }
 
     private ConnectorExpression translateToConnectorExpression(Expression expression, Map<String, Type> symbolTypes)

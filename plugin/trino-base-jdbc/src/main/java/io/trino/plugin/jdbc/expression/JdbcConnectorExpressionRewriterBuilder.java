@@ -55,8 +55,26 @@ public class JdbcConnectorExpressionRewriterBuilder
         return this;
     }
 
+    public ExpressionMapping<JdbcConnectorExpressionRewriterBuilder> map(String expressionPattern)
+    {
+        return new ExpressionMapping<>()
+        {
+            @Override
+            public JdbcConnectorExpressionRewriterBuilder to(String rewritePattern)
+            {
+                rules.add(new GenericRewrite(expressionPattern, rewritePattern));
+                return JdbcConnectorExpressionRewriterBuilder.this;
+            }
+        };
+    }
+
     public ConnectorExpressionRewriter<String> build()
     {
         return new ConnectorExpressionRewriter<>(this.identifierQuote, rules.build());
+    }
+
+    public interface ExpressionMapping<Continuation>
+    {
+        Continuation to(String rewritePattern);
     }
 }
