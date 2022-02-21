@@ -35,7 +35,7 @@ public class TestStarburstOracleConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("oracle.impersonation.enabled", "true")
                 .put("oracle.authentication.type", "KERBEROS")
                 .put("oracle.parallelism-type", "PARTITIONS")
@@ -54,7 +54,7 @@ public class TestStarburstOracleConfig
     @Test
     public void testExplicitPropertyMappingsForLegacyValues()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("oracle.impersonation.enabled", "true")
                 .put("oracle.authentication.type", "KERBEROS")
                 .put("oracle.parallelism-type", "PARTITIONS")
@@ -73,14 +73,14 @@ public class TestStarburstOracleConfig
     @Test
     public void testLegacyPropertyMappings()
     {
-        Map<String, String> oldProperties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> oldProperties = ImmutableMap.<String, String>builder()
                 .put("oracle.impersonation.enabled", "true")
                 .put("oracle.authentication.type", "KERBEROS")
                 .put("oracle.concurrency-type", "PARTITIONS")
                 .put("oracle.concurrent.max-splits-per-scan", "42")
                 .build();
 
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("oracle.impersonation.enabled", "true")
                 .put("oracle.authentication.type", "KERBEROS")
                 .put("oracle.parallelism-type", "PARTITIONS")
@@ -93,14 +93,14 @@ public class TestStarburstOracleConfig
     @Test
     public void testLegacyPropertyMappings2()
     {
-        Map<String, String> oldProperties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> oldProperties = ImmutableMap.<String, String>builder()
                 .put("oracle.impersonation.enabled", "true")
                 .put("oracle.authentication.type", "KERBEROS")
                 .put("oracle.concurrency-type", "NO_CONCURRENCY")
                 .put("oracle.concurrent.max-splits-per-scan", "42")
                 .build();
 
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("oracle.impersonation.enabled", "true")
                 .put("oracle.authentication.type", "KERBEROS")
                 .put("oracle.parallelism-type", "NO_PARALLELISM")
