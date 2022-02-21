@@ -102,7 +102,7 @@ public final class SapHanaQueryRunner
                 sapHanaServer,
                 ImmutableMap.<String, String>builder()
                         .put("connection-url", sapHanaServer.getJdbcUrl())
-                        .build(),
+                        .buildOrThrow(),
                 ImmutableMap.of("http-server.http.port", "8080"),
                 TpchTable.getTables());
 

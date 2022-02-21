@@ -34,7 +34,7 @@ public class TestSapHanaAuthenticationConfig
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("sap-hana.authentication.type", "PASSWORD_PASS_THROUGH")
-                .build();
+                .buildOrThrow();
 
         SapHanaAuthenticationConfig expected = new SapHanaAuthenticationConfig()
                 .setAuthenticationType(PASSWORD_PASS_THROUGH);

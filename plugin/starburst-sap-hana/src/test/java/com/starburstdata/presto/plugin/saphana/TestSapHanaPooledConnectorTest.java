@@ -27,7 +27,7 @@ public class TestSapHanaPooledConnectorTest
                 server,
                 ImmutableMap.<String, String>builder()
                         .put("connection-pool.enabled", "true")
-                        .build(),
+                        .buildOrThrow(),
                 ImmutableMap.of(),
                 TpchTable.getTables());
     }

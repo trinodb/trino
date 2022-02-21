@@ -28,7 +28,7 @@ public class TestSapHanaConnectorTest
                 ImmutableMap.<String, String>builder()
                         .put("metadata.cache-ttl", "0m")
                         .put("metadata.cache-missing", "false")
-                        .build(),
+                        .buildOrThrow(),
                 ImmutableMap.of(),
                 TpchTable.getTables());
     }

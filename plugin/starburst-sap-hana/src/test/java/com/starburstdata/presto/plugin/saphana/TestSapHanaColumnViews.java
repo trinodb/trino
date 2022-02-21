@@ -48,7 +48,7 @@ public class TestSapHanaColumnViews
                         .put("metadata.cache-missing", "false")
                         // SAP Hana creates mixed case names for column views by default
                         .put("case-insensitive-name-matching", "true")
-                        .build(),
+                        .buildOrThrow(),
                 ImmutableMap.of(),
                 ImmutableList.of(NATION));
     }
