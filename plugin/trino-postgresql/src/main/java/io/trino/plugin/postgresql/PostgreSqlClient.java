@@ -64,8 +64,6 @@ import io.trino.plugin.jdbc.aggregation.ImplementVariancePop;
 import io.trino.plugin.jdbc.aggregation.ImplementVarianceSamp;
 import io.trino.plugin.jdbc.expression.JdbcConnectorExpressionRewriterBuilder;
 import io.trino.plugin.jdbc.expression.RewriteComparison;
-import io.trino.plugin.jdbc.expression.RewriteLike;
-import io.trino.plugin.jdbc.expression.RewriteLikeWithEscape;
 import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.plugin.postgresql.PostgreSqlConfig.ArrayMapping;
 import io.trino.spi.TrinoException;
@@ -310,8 +308,8 @@ public class PostgreSqlClient
                 .addStandardRules()
                 // TODO allow all comparison operators for numeric types
                 .add(new RewriteComparison(RewriteComparison.ComparisonOperator.EQUAL, RewriteComparison.ComparisonOperator.NOT_EQUAL))
-                .add(new RewriteLike())
-                .add(new RewriteLikeWithEscape())
+                .map("$like_pattern(value: varchar, pattern: varchar): boolean").to("value LIKE pattern")
+                .map("$like_pattern(value: varchar, pattern: varchar, escape: varchar(1)): boolean").to("value LIKE pattern ESCAPE escape")
                 .build();
     }
 
