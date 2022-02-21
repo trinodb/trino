@@ -52,7 +52,7 @@ public abstract class CustomPlanOptimizer implements PlanOptimizer {
         List<PlanOptimizer> listOfPlanOptimizers = new ArrayList<>();
         try {
             //TODO: Read list of custom optimizer classes from config
-            List<String> customPlanOptimizerClassNames = Arrays.asList("io.trino.sql.planner.SamplePlanOptimizer");
+            List<String> customPlanOptimizerClassNames = Arrays.asList("io.trino.sql.planner.SampleCustomPlanOptimizer");
             for(String customPlanOptimizerClassName:customPlanOptimizerClassNames){
                 //Load the CustomPlanOptimizer instances from the classpath.
                 LOG.info("Creating custom optimizer instance %s",customPlanOptimizerClassName);
