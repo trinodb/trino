@@ -33,7 +33,7 @@ public class TestStargateSslConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("ssl.truststore.path", "/dev/null")
                 .put("ssl.truststore.password", "truststore-password")
                 .put("ssl.truststore.type", "truststore-type")

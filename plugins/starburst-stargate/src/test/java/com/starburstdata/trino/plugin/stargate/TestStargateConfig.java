@@ -34,7 +34,7 @@ public class TestStargateConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("stargate.authentication.type", "PASSWORD_PASS_THROUGH")
                 .put("stargate.impersonation.enabled", "true")
                 .put("ssl.enabled", "true")

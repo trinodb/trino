@@ -42,7 +42,7 @@ public class TestStargateKerberosConfig
         Path keytab = createTempFile(null, null);
         Path config = createTempFile(null, null);
 
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("kerberos.client.principal", "principal")
                 .put("kerberos.client.keytab", keytab.toString())
                 .put("kerberos.config", config.toString())

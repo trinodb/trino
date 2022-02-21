@@ -189,7 +189,7 @@ public class TestStargatePlugin
     @Test
     public void testKerberosValidations()
     {
-        Map<String, String> kerberosProperties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> kerberosProperties = ImmutableMap.<String, String>builder()
                 .put("connection-url", "jdbc:trino://localhost:8080/hive")
                 .put("connection-user", "user")
                 .put("stargate.authentication.type", "KERBEROS")
@@ -202,7 +202,7 @@ public class TestStargatePlugin
         assertThatThrownBy(() -> createTestingPlugin(kerberosProperties))
                 .hasMessageContaining("SSL must be enabled when using Kerberos authentication");
 
-        Map<String, String> withSsl = new ImmutableMap.Builder<String, String>()
+        Map<String, String> withSsl = ImmutableMap.<String, String>builder()
                 .putAll(kerberosProperties)
                 .put("ssl.enabled", "true")
                 .build();
@@ -215,7 +215,7 @@ public class TestStargatePlugin
     @Test
     public void testKerberosUserImpersonationValidations()
     {
-        Map<String, String> kerberosProperties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> kerberosProperties = ImmutableMap.<String, String>builder()
                 .put("connection-url", "jdbc:trino://localhost:8080/hive")
                 .put("stargate.authentication.type", "KERBEROS")
                 .put("kerberos.config", "/dev/null")
@@ -235,7 +235,7 @@ public class TestStargatePlugin
 
     private static void testPropertyNotUsed(Map<String, String> baseProperties, String key, String value, String errorMessage)
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .putAll(baseProperties)
                 .put(key, value)
                 .build();
