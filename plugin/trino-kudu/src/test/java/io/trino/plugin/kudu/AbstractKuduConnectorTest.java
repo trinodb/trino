@@ -34,7 +34,7 @@ import static io.trino.tpch.TpchTable.REGION;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertTrue;
 
-public abstract class AbstractKuduIntegrationSmokeTest
+public abstract class AbstractKuduConnectorTest
         // TODO extend BaseConnectorTest
         extends AbstractTestIntegrationSmokeTest
 {
