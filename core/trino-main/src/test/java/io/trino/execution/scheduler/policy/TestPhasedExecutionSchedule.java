@@ -355,6 +355,12 @@ public class TestPhasedExecutionSchedule
         }
 
         @Override
+        public void failTaskRemotely(TaskId taskId, Throwable failureCause)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
         public List<RemoteTask> getAllTasks()
         {
             throw new UnsupportedOperationException();

@@ -67,6 +67,8 @@ public interface QueryExecution
 
     void cancelStage(StageId stageId);
 
+    void failTask(TaskId taskId, Exception reason);
+
     void recordHeartbeat();
 
     boolean shouldWaitForMinWorkers();
