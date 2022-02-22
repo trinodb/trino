@@ -22,7 +22,6 @@ import com.google.common.collect.Multimap;
 import io.trino.metadata.Metadata;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.SymbolReference;
 import io.trino.util.DisjointSet;
 
 import java.util.ArrayList;
@@ -306,17 +305,6 @@ public class EqualityInference
         }
 
         Collection<Expression> equivalences = equalitySets.get(canonicalIndex);
-        if (expression instanceof SymbolReference) {
-            boolean inScope = equivalences.stream()
-                    .filter(SymbolReference.class::isInstance)
-                    .map(Symbol::from)
-                    .anyMatch(symbolScope);
-
-            if (!inScope) {
-                return null;
-            }
-        }
-
         return getCanonical(
                 equivalences.stream()
                         .filter(e -> isScoped(e, symbolScope)));
