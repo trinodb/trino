@@ -13,8 +13,10 @@
  */
 package io.trino.execution.buffer;
 
+import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.SqlDecimal;
+import io.trino.spi.type.Type;
 
 import java.math.BigInteger;
 import java.util.ArrayList;
@@ -23,7 +25,9 @@ import java.util.List;
 import java.util.Random;
 import java.util.function.Function;
 
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 
 public class BenchmarkDataGenerator
 {
@@ -92,5 +96,25 @@ public class BenchmarkDataGenerator
     public static byte randomByte(Random random)
     {
         return (byte) random.nextInt();
+    }
+
+    public static List<Object> randomRow(List<Type> fieldTypes, Random random)
+    {
+        List<Object> row = new ArrayList<>(fieldTypes.size());
+        for (Type type : fieldTypes) {
+            if (type == VARCHAR) {
+                row.add(randomAsciiString(random));
+            }
+            else if (type == BIGINT) {
+                row.add(random.nextLong());
+            }
+            else if (type instanceof DecimalType) {
+                row.add(randomLongDecimal(random));
+            }
+            else {
+                throw new UnsupportedOperationException(String.format("The %s is not supported", type));
+            }
+        }
+        return row;
     }
 }
