@@ -31,7 +31,6 @@ public class GlueMetastoreStats
     private final GlueMetastoreApiStats getDatabase = new GlueMetastoreApiStats();
     private final GlueMetastoreApiStats getTables = new GlueMetastoreApiStats();
     private final GlueMetastoreApiStats getTable = new GlueMetastoreApiStats();
-    private final GlueMetastoreApiStats getAllViews = new GlueMetastoreApiStats();
     private final GlueMetastoreApiStats createDatabase = new GlueMetastoreApiStats();
     private final GlueMetastoreApiStats deleteDatabase = new GlueMetastoreApiStats();
     private final GlueMetastoreApiStats updateDatabase = new GlueMetastoreApiStats();
@@ -91,13 +90,6 @@ public class GlueMetastoreStats
     public GlueMetastoreApiStats getGetTable()
     {
         return getTable;
-    }
-
-    @Managed
-    @Nested
-    public GlueMetastoreApiStats getGetAllViews()
-    {
-        return getAllViews;
     }
 
     @Managed
