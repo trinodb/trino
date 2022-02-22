@@ -276,9 +276,9 @@ public final class ExpressionUtils
     }
 
     /**
-     * Returns whether expression is effectively literal. An effectitvely literal expression is a simple constant value, or null,
+     * Returns whether expression is effectively literal. An effectively literal expression is a simple constant value, or null,
      * in either {@link Literal} form, or other form returned by {@link LiteralEncoder}. In particular, other constant expressions
-     * like a deterministic function call with constant arguments are not considered effectitvely literal.
+     * like a deterministic function call with constant arguments are not considered effectively literal.
      */
     public static boolean isEffectivelyLiteral(PlannerContext plannerContext, Session session, Expression expression)
     {
