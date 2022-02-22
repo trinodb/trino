@@ -26,6 +26,7 @@ import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.MetastoreConfig;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastore;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig;
+import io.trino.plugin.tpcds.TpcdsPlugin;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.PrincipalType;
@@ -110,6 +111,7 @@ public final class HiveQueryRunner
         };
         private Module module = EMPTY_MODULE;
         private Optional<CachingDirectoryLister> cachingDirectoryLister = Optional.empty();
+        private boolean tpcdsCatalogEnabled;
 
         protected Builder()
         {
@@ -182,6 +184,12 @@ public final class HiveQueryRunner
             return self();
         }
 
+        public SELF setTpcdsCatalogEnabled(boolean tpcdsCatalogEnabled)
+        {
+            this.tpcdsCatalogEnabled = tpcdsCatalogEnabled;
+            return self();
+        }
+
         @Override
         public DistributedQueryRunner build()
                 throws Exception
@@ -193,6 +201,11 @@ public final class HiveQueryRunner
             try {
                 queryRunner.installPlugin(new TpchPlugin());
                 queryRunner.createCatalog("tpch", "tpch");
+
+                if (tpcdsCatalogEnabled) {
+                    queryRunner.installPlugin(new TpcdsPlugin());
+                    queryRunner.createCatalog("tpcds", "tpcds");
+                }
 
                 HiveMetastore metastore = this.metastore.apply(queryRunner);
                 queryRunner.installPlugin(new TestingHivePlugin(metastore, module, cachingDirectoryLister));
@@ -358,6 +371,7 @@ public final class HiveQueryRunner
                 .setHiveProperties(ImmutableMap.of())
                 .setInitialTables(TpchTable.getTables())
                 .setBaseDataDir(baseDataDir)
+                .setTpcdsCatalogEnabled(true)
                 .build();
         Thread.sleep(10);
         log.info("======== SERVER STARTED ========");
