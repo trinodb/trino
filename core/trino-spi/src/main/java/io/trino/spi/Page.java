@@ -251,7 +251,7 @@ public final class Page
 
             try {
                 Block compactDictionary = dictionaryBlock.getDictionary().copyPositions(dictionaryPositionsToCopy, 0, numberOfIndexes);
-                outputDictionaryBlocks.add(new DictionaryBlock(positionCount, compactDictionary, newIds, true, newDictionaryId));
+                outputDictionaryBlocks.add(new DictionaryBlock(positionCount, compactDictionary, newIds, !(compactDictionary instanceof DictionaryBlock), newDictionaryId));
             }
             catch (UnsupportedOperationException e) {
                 // ignore if copy positions is not supported for the dictionary
