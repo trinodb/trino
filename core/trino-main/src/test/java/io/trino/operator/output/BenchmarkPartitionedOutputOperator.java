@@ -364,6 +364,12 @@ public class BenchmarkPartitionedOutputOperator
         @Setup
         public void setup(Blackhole blackhole)
         {
+            setupData(blackhole);
+            pollute();
+        }
+
+        private void setupData(Blackhole blackhole)
+        {
             // We don't check blackhole is not null, because blackhole has to be injected by jmh (should not be created manually)
             // and in case of unit test it will be null
             this.blackhole = blackhole;
@@ -493,7 +499,8 @@ public class BenchmarkPartitionedOutputOperator
                 new TypeOperators());
     }
 
-    static {
+    private static void pollute()
+    {
         try {
             List<TestType> types = List.of(
                     TestType.BIGINT,
@@ -510,7 +517,7 @@ public class BenchmarkPartitionedOutputOperator
             types.forEach(type -> {
                 BenchmarkData data = new BenchmarkData();
                 data.setType(type);
-                data.setup(null);
+                data.setupData(null);
                 data.setPageCount(1);
                 benchmark.addPage(data);
             });
