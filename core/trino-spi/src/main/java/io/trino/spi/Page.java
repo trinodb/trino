@@ -301,7 +301,7 @@ public final class Page
 
     public Page getLoadedPage(int column)
     {
-        return wrapBlocksWithoutCopy(positionCount, new Block[]{this.blocks[column].getLoadedBlock()});
+        return wrapBlocksWithoutCopy(positionCount, new Block[] {this.blocks[column].getLoadedBlock()});
     }
 
     public Page getLoadedPage(int... columns)
