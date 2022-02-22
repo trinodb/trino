@@ -50,6 +50,7 @@ import static com.google.inject.util.Modules.EMPTY_MODULE;
 import static io.airlift.log.Level.WARN;
 import static io.airlift.units.Duration.nanosSince;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
+import static io.trino.plugin.hive.security.HiveSecurityModule.ALLOW_ALL;
 import static io.trino.plugin.hive.security.HiveSecurityModule.SQL_STANDARD;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.spi.security.SelectedRole.Type.ROLE;
@@ -112,6 +113,7 @@ public final class HiveQueryRunner
         private Module module = EMPTY_MODULE;
         private Optional<CachingDirectoryLister> cachingDirectoryLister = Optional.empty();
         private boolean tpcdsCatalogEnabled;
+        private String security = SQL_STANDARD;
 
         protected Builder()
         {
@@ -190,6 +192,12 @@ public final class HiveQueryRunner
             return self();
         }
 
+        public SELF setSecurity(String security)
+        {
+            this.security = requireNonNull(security, "security is null");
+            return self();
+        }
+
         @Override
         public DistributedQueryRunner build()
                 throws Exception
@@ -222,7 +230,7 @@ public final class HiveQueryRunner
                     hiveProperties.put("hive.parquet.time-zone", TIME_ZONE.getID());
                 }
                 hiveProperties.put("hive.max-partitions-per-scan", "1000");
-                hiveProperties.put("hive.security", SQL_STANDARD);
+                hiveProperties.put("hive.security", security);
                 hiveProperties.putAll(this.hiveProperties.buildOrThrow());
 
                 Map<String, String> hiveBucketedProperties = ImmutableMap.<String, String>builder()
@@ -352,7 +360,6 @@ public final class HiveQueryRunner
     public static void main(String[] args)
             throws Exception
     {
-        // You need to add "--user admin" to your CLI and execute "SET ROLE admin IN hive" for queries to work
         Optional<Path> baseDataDir = Optional.empty();
         if (args.length > 0) {
             if (args.length != 1) {
@@ -372,6 +379,7 @@ public final class HiveQueryRunner
                 .setInitialTables(TpchTable.getTables())
                 .setBaseDataDir(baseDataDir)
                 .setTpcdsCatalogEnabled(true)
+                .setSecurity(ALLOW_ALL)
                 .build();
         Thread.sleep(10);
         log.info("======== SERVER STARTED ========");
