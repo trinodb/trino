@@ -690,6 +690,10 @@ public class PhoenixClient
                 }
             }
         }
+        catch (org.apache.phoenix.schema.TableNotFoundException e) {
+            // Rethrow as Trino TableNotFoundException to suppress the exception during listing information_schema
+            throw new io.trino.spi.connector.TableNotFoundException(new SchemaTableName(handle.getSchemaName(), handle.getTableName()));
+        }
         catch (IOException | SQLException e) {
             throw new TrinoException(PHOENIX_METADATA_ERROR, "Couldn't get Phoenix table properties", e);
         }
