@@ -493,7 +493,7 @@ public class GlueHiveMetastore
                             .withDatabaseName(databaseName),
                     GetTablesRequest::setNextToken,
                     GetTablesResult::getNextToken,
-                    stats.getGetAllViews())
+                    stats.getGetTables())
                     .map(GetTablesResult::getTableList)
                     .flatMap(List::stream)
                     .filter(table -> VIRTUAL_VIEW.name().equals(table.getTableType()))
@@ -921,10 +921,10 @@ public class GlueHiveMetastore
                 for (List<PartitionValueList> partitions : Lists.partition(pendingPartitions, BATCH_GET_PARTITION_MAX_PAGE_SIZE)) {
                     long startTimestamp = System.currentTimeMillis();
                     batchGetPartitionFutures.add(glueClient.batchGetPartitionAsync(new BatchGetPartitionRequest()
-                            .withCatalogId(catalogId)
-                            .withDatabaseName(table.getDatabaseName())
-                            .withTableName(table.getTableName())
-                            .withPartitionsToGet(partitions),
+                                    .withCatalogId(catalogId)
+                                    .withDatabaseName(table.getDatabaseName())
+                                    .withTableName(table.getTableName())
+                                    .withPartitionsToGet(partitions),
                             new StatsRecordingAsyncHandler(stats.getGetPartitions(), startTimestamp)));
                 }
                 pendingPartitions.clear();
