@@ -42,7 +42,6 @@ public class TestIcebergConnectorSmokeTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
-            case SUPPORTS_COMMENT_ON_COLUMN:
             case SUPPORTS_TOPN_PUSHDOWN:
                 return false;
 
