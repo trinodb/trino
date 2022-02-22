@@ -49,7 +49,8 @@ public class TestingPostgreSqlServer
 
     private final PostgreSQLContainer<?> dockerContainer;
 
-    public TestingPostgreSqlServer(DockerImageName dockerImageName) {
+    public TestingPostgreSqlServer(DockerImageName dockerImageName)
+    {
         dockerContainer = new PostgreSQLContainer<>(dockerImageName)
                 .withDatabaseName(DATABASE)
                 .withUsername(USER)

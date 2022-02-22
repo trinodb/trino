@@ -13,10 +13,10 @@
  */
 package io.trino.plugin.postgresql;
 
-import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
-public class TestingPostGisServer extends TestingPostgreSqlServer
+public class TestingPostGisServer
+        extends TestingPostgreSqlServer
 {
     public TestingPostGisServer()
     {
