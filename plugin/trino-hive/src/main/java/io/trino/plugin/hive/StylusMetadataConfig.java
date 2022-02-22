@@ -35,17 +35,17 @@ import java.util.Map;
 import static io.trino.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 
 /**
- * Singleton to store the connection details of the RDBMS containing tesseract's metadata
+ * Singleton to store the connection details of the RDBMS containing stylus's metadata
  */
-public class TesseractMetadataConfig {
+public class StylusMetadataConfig {
 
     private static final Gson gson = new Gson();
     private static volatile DBConfig.Properties properties = null;
 
-    public static void initializeTesseractMetadataConfig(HdfsEnvironment hdfsEnvironment, ConnectorSession session, String configLocation){
+    public static void initializeStylusMetadataConfig(HdfsEnvironment hdfsEnvironment, ConnectorSession session, String configLocation){
 
         if(properties == null) {
-            synchronized (TesseractMetadataConfig.class) {
+            synchronized (StylusMetadataConfig.class) {
                 if(properties == null) {
                     try (FileSystem fileSystem = hdfsEnvironment.getFileSystem(new HdfsEnvironment.HdfsContext(session), new Path(configLocation));
                          FSDataInputStream dataInputStream = fileSystem.open(new Path(configLocation));
@@ -64,10 +64,10 @@ public class TesseractMetadataConfig {
         }
     }
 
-    public static DBConfig.Properties getTesseractMetadataStoreConnectionDetails(){
+    public static DBConfig.Properties getStylusMetadataStoreConnectionDetails(){
         return properties;
     }
 
-    private TesseractMetadataConfig(){}
+    private StylusMetadataConfig(){}
 
 }

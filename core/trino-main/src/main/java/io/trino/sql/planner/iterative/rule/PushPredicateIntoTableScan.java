@@ -322,7 +322,7 @@ public class PushPredicateIntoTableScan
     }
 
     private static boolean containsTesseractColumnsInLeftOverPredicate(Set<ColumnHandle> columnsInLeftOverPredicate,TableScanNode tableScanNode){
-        return tableScanNode.getTable().getConnectorHandle().refersTesseractPartitionColumn(columnsInLeftOverPredicate);
+        return tableScanNode.getTable().getConnectorHandle().refreshTesseractPartitionColumn(columnsInLeftOverPredicate);
     }
 
     // PushPredicateIntoTableScan might be executed after AddExchanges and DetermineTableScanNodePartitioning.

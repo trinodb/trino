@@ -415,7 +415,7 @@ public class HiveTableHandle
                 this.projectedColumns.get().stream().map(col -> ((HiveColumnHandle) col).getBaseColumnName()).forEach(referencedColumns::add);
 
                 predicate = CubeMetadataCacheManager.getOptimalPredicateForTable(partitionColumnDetails, referencedColumns, String.join(".", this.schemaName, this.tableName),
-                        TesseractMetadataConfig.getTesseractMetadataStoreConnectionDetails());
+                        StylusMetadataConfig.getStylusMetadataStoreConnectionDetails());
             }
         }
         catch (Exception e) {
@@ -425,7 +425,7 @@ public class HiveTableHandle
     }
 
     @Override
-    public boolean refersTesseractPartitionColumn(Set<ColumnHandle> columns){
+    public boolean refreshTesseractPartitionColumn(Set<ColumnHandle> columns){
         return columns.stream().map(columnHandle -> ((HiveColumnHandle) columnHandle).getBaseColumnName()).anyMatch(col -> col.equalsIgnoreCase(TesseractImplicitColumns.BINTIME.getColName()) ||
                 col.equalsIgnoreCase(TesseractImplicitColumns.CUBOID.getColName()) ||
                 col.equalsIgnoreCase(TesseractImplicitColumns.GRANULARITY.getColName()));
