@@ -98,7 +98,7 @@ public abstract class BaseTestHiveOnDataLake
     @Test
     public void testInsertOverwriteInTransaction()
     {
-        String testTable = getTestTableName();
+        String testTable = getFullyQualifiedTestTableName();
         computeActual(getCreateTableStatement(testTable, "partitioned_by=ARRAY['regionkey']"));
         assertThatThrownBy(
                 () -> newTransaction()
@@ -112,7 +112,7 @@ public abstract class BaseTestHiveOnDataLake
     @Test
     public void testInsertOverwriteNonPartitionedTable()
     {
-        String testTable = getTestTableName();
+        String testTable = getFullyQualifiedTestTableName();
         computeActual(getCreateTableStatement(testTable));
         assertInsertFailure(
                 testTable,
@@ -123,7 +123,7 @@ public abstract class BaseTestHiveOnDataLake
     @Test
     public void testInsertOverwriteNonPartitionedBucketedTable()
     {
-        String testTable = getTestTableName();
+        String testTable = getFullyQualifiedTestTableName();
         computeActual(getCreateTableStatement(
                 testTable,
                 "bucketed_by = ARRAY['nationkey']",
@@ -137,7 +137,7 @@ public abstract class BaseTestHiveOnDataLake
     @Test
     public void testInsertOverwritePartitionedTable()
     {
-        String testTable = getTestTableName();
+        String testTable = getFullyQualifiedTestTableName();
         computeActual(getCreateTableStatement(
                 testTable,
                 "partitioned_by=ARRAY['regionkey']"));
@@ -148,7 +148,7 @@ public abstract class BaseTestHiveOnDataLake
     @Test
     public void testInsertOverwritePartitionedAndBucketedTable()
     {
-        String testTable = getTestTableName();
+        String testTable = getFullyQualifiedTestTableName();
         computeActual(getCreateTableStatement(
                 testTable,
                 "partitioned_by=ARRAY['regionkey']",
@@ -161,7 +161,7 @@ public abstract class BaseTestHiveOnDataLake
     @Test
     public void testInsertOverwritePartitionedAndBucketedExternalTable()
     {
-        String testTable = getTestTableName();
+        String testTable = getFullyQualifiedTestTableName();
         // Store table data in data lake bucket
         computeActual(getCreateTableStatement(
                 testTable,
@@ -186,7 +186,7 @@ public abstract class BaseTestHiveOnDataLake
     public void testFlushPartitionCache()
     {
         String tableName = "nation_" + randomTableSuffix();
-        String fullyQualifiedTestTableName = getTestTableName(tableName);
+        String fullyQualifiedTestTableName = getFullyQualifiedTestTableName(tableName);
         String partitionColumn = "regionkey";
 
         // Create table with partition on regionkey
@@ -234,7 +234,7 @@ public abstract class BaseTestHiveOnDataLake
     @Test
     public void testWriteDifferentSizes()
     {
-        String testTable = getTestTableName();
+        String testTable = getFullyQualifiedTestTableName();
         computeActual(format(
                 "CREATE TABLE %s (" +
                         "    col1 varchar, " +
@@ -338,12 +338,12 @@ public abstract class BaseTestHiveOnDataLake
         computeActual(format("DROP TABLE %s", testTable));
     }
 
-    protected String getTestTableName()
+    protected String getFullyQualifiedTestTableName()
     {
-        return getTestTableName("nation_" + randomTableSuffix());
+        return getFullyQualifiedTestTableName("nation_" + randomTableSuffix());
     }
 
-    protected String getTestTableName(String tableName)
+    protected String getFullyQualifiedTestTableName(String tableName)
     {
         return format("hive.%s.%s", HIVE_TEST_SCHEMA, tableName);
     }
