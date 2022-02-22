@@ -164,7 +164,7 @@ public class TestEventListenerWithSplits
         // Deterministic statistics
         assertEquals(statistics.getPhysicalInputBytes(), 0);
         assertEquals(statistics.getPhysicalInputRows(), expectedCompletedPositions);
-        assertEquals(statistics.getInternalNetworkBytes(), 405);
+        assertEquals(statistics.getInternalNetworkBytes(), 381);
         assertEquals(statistics.getInternalNetworkRows(), 3);
         assertEquals(statistics.getTotalBytes(), 0);
         assertEquals(statistics.getOutputBytes(), 9);
