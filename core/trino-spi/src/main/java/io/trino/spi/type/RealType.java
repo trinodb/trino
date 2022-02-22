@@ -14,6 +14,7 @@
 package io.trino.spi.type;
 
 import io.airlift.slice.XxHash64;
+import io.trino.spi.HashUtils;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -112,7 +113,7 @@ public final class RealType
         if (realValue == 0) {
             realValue = 0;
         }
-        return AbstractLongType.hash(floatToIntBits(realValue));
+        return HashUtils.hash(floatToIntBits(realValue));
     }
 
     @ScalarOperator(XX_HASH_64)

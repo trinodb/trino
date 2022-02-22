@@ -15,6 +15,7 @@ package io.trino.spi.type;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.XxHash64;
+import io.trino.spi.HashUtils;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -141,7 +142,7 @@ public abstract class AbstractIntType
     @ScalarOperator(HASH_CODE)
     private static long hashCodeOperator(long value)
     {
-        return AbstractLongType.hash((int) value);
+        return HashUtils.hash((int) value);
     }
 
     @ScalarOperator(XX_HASH_64)

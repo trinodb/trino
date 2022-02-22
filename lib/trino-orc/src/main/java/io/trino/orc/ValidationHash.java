@@ -13,9 +13,9 @@
  */
 package io.trino.orc;
 
+import io.trino.spi.HashUtils;
 import io.trino.spi.block.Block;
 import io.trino.spi.function.InvocationConvention;
-import io.trino.spi.type.AbstractLongType;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
@@ -160,6 +160,6 @@ class ValidationHash
         if (millis > -1000 && millis < 0) {
             millis += 1000;
         }
-        return AbstractLongType.hash(millis);
+        return HashUtils.hash(millis);
     }
 }

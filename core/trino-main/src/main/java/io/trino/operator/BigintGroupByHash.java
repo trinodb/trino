@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import io.trino.array.IntBigArray;
 import io.trino.array.LongBigArray;
+import io.trino.spi.HashUtils;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
@@ -24,8 +25,6 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
-import io.trino.spi.type.AbstractLongType;
-import io.trino.spi.type.BigintType;
 import io.trino.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -156,7 +155,7 @@ public class BigintGroupByHash
                 BIGINT.writeLong(hashBlockBuilder, NULL_HASH_CODE);
             }
             else {
-                BIGINT.writeLong(hashBlockBuilder, AbstractLongType.hash(valuesByGroupId.get(groupId)));
+                BIGINT.writeLong(hashBlockBuilder, HashUtils.hash(valuesByGroupId.get(groupId)));
             }
         }
     }
@@ -220,7 +219,7 @@ public class BigintGroupByHash
     @Override
     public long getRawHash(int groupId)
     {
-        return BigintType.hash(valuesByGroupId.get(groupId));
+        return HashUtils.hash(valuesByGroupId.get(groupId));
     }
 
     @VisibleForTesting

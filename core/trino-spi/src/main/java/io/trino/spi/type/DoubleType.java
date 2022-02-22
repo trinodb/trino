@@ -14,6 +14,7 @@
 package io.trino.spi.type;
 
 import io.airlift.slice.XxHash64;
+import io.trino.spi.HashUtils;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockBuilderStatus;
@@ -167,7 +168,7 @@ public final class DoubleType
         if (value == 0) {
             value = 0;
         }
-        return AbstractLongType.hash(doubleToLongBits(value));
+        return HashUtils.hash(doubleToLongBits(value));
     }
 
     @ScalarOperator(XX_HASH_64)

@@ -23,9 +23,9 @@ import io.trino.operator.aggregation.builder.HashAggregationBuilder;
 import io.trino.operator.aggregation.builder.InMemoryHashAggregationBuilder;
 import io.trino.operator.aggregation.builder.SpillableHashAggregationBuilder;
 import io.trino.operator.scalar.CombineHashFunction;
+import io.trino.spi.HashUtils;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
-import io.trino.spi.type.BigintType;
 import io.trino.spi.type.Type;
 import io.trino.spiller.SpillerFactory;
 import io.trino.sql.gen.JoinCompiler;
@@ -565,7 +565,7 @@ public class HashAggregationOperator
                 result = CombineHashFunction.getHash(result, NULL_HASH_CODE);
             }
             else {
-                result = CombineHashFunction.getHash(result, BigintType.hash(groupId));
+                result = CombineHashFunction.getHash(result, HashUtils.hash(groupId));
             }
         }
         return result;

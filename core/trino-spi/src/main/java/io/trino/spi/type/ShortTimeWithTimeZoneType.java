@@ -15,6 +15,7 @@ package io.trino.spi.type;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.XxHash64;
+import io.trino.spi.HashUtils;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockBuilderStatus;
@@ -142,7 +143,7 @@ class ShortTimeWithTimeZoneType
     @ScalarOperator(HASH_CODE)
     private static long hashCodeOperator(long packedTime)
     {
-        return AbstractLongType.hash(normalizePackedTime(packedTime));
+        return HashUtils.hash(normalizePackedTime(packedTime));
     }
 
     @ScalarOperator(XX_HASH_64)

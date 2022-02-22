@@ -14,6 +14,7 @@
 package io.trino.spi.type;
 
 import io.airlift.slice.XxHash64;
+import io.trino.spi.HashUtils;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorSession;
@@ -107,7 +108,7 @@ public final class TimeType
     @ScalarOperator(HASH_CODE)
     public static long hashCodeOperator(long value)
     {
-        return AbstractLongType.hash(value);
+        return HashUtils.hash(value);
     }
 
     @ScalarOperator(XX_HASH_64)

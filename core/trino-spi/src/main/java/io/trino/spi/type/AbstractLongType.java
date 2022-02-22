@@ -15,6 +15,7 @@ package io.trino.spi.type;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.XxHash64;
+import io.trino.spi.HashUtils;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockBuilderStatus;
@@ -29,7 +30,6 @@ import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.trino.spi.function.OperatorType.XX_HASH_64;
 import static io.trino.spi.type.TypeOperatorDeclaration.extractOperatorDeclaration;
-import static java.lang.Long.rotateLeft;
 import static java.lang.invoke.MethodHandles.lookup;
 
 public abstract class AbstractLongType
@@ -123,12 +123,6 @@ public abstract class AbstractLongType
         return new LongArrayBlockBuilder(null, positionCount);
     }
 
-    public static long hash(long value)
-    {
-        // xxHash64 mix
-        return rotateLeft(value * 0xC2B2AE3D27D4EB4FL, 31) * 0x9E3779B185EBCA87L;
-    }
-
     @ScalarOperator(EQUAL)
     private static boolean equalOperator(long left, long right)
     {
@@ -138,7 +132,7 @@ public abstract class AbstractLongType
     @ScalarOperator(HASH_CODE)
     private static long hashCodeOperator(long value)
     {
-        return hash(value);
+        return HashUtils.hash(value);
     }
 
     @ScalarOperator(XX_HASH_64)

@@ -19,13 +19,13 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.slice.XxHash64;
 import io.trino.array.LongBigArray;
+import io.trino.spi.HashUtils;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
-import io.trino.spi.type.AbstractLongType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.gen.JoinCompiler;
@@ -242,7 +242,7 @@ public class BenchmarkGroupByHash
                 BIGINT.writeLong(pageBuilder.getBlockBuilder(numChannel), rand);
             }
             if (hashEnabled) {
-                BIGINT.writeLong(pageBuilder.getBlockBuilder(channelCount), AbstractLongType.hash(rand));
+                BIGINT.writeLong(pageBuilder.getBlockBuilder(channelCount), HashUtils.hash(rand));
             }
             if (pageBuilder.isFull()) {
                 Page page = pageBuilder.build();
