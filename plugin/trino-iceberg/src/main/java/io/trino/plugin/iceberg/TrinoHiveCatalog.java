@@ -650,4 +650,13 @@ class TrinoHiveCatalog
         }
         return listNamespaces(session);
     }
+
+    @Override
+    public void updateColumnComment(ConnectorSession session, SchemaTableName schemaTableName, ColumnIdentity columnIdentity, Optional<String> comment)
+    {
+        metastore.commentColumn(schemaTableName.getSchemaName(), schemaTableName.getTableName(), columnIdentity.getName(), comment);
+
+        Table icebergTable = loadTable(session, schemaTableName);
+        icebergTable.updateSchema().updateColumnDoc(columnIdentity.getName(), comment.orElse(null)).commit();
+    }
 }

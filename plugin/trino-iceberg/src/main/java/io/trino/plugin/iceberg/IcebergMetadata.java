@@ -1341,6 +1341,12 @@ public class IcebergMetadata
         return new MaterializedViewFreshness(true);
     }
 
+    @Override
+    public void setColumnComment(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column, Optional<String> comment)
+    {
+        catalog.updateColumnComment(session, ((IcebergTableHandle) tableHandle).getSchemaTableName(), ((IcebergColumnHandle) column).getColumnIdentity(), comment);
+    }
+
     private Map<String, Optional<TableToken>> getMaterializedViewToken(ConnectorSession session, SchemaTableName name)
     {
         Map<String, Optional<TableToken>> viewToken = new HashMap<>();

@@ -115,4 +115,6 @@ public interface TrinoCatalog
     Optional<ConnectorMaterializedViewDefinition> getMaterializedView(ConnectorSession session, SchemaTableName schemaViewName);
 
     void renameMaterializedView(ConnectorSession session, SchemaTableName source, SchemaTableName target);
+
+    void updateColumnComment(ConnectorSession session, SchemaTableName schemaTableName, ColumnIdentity columnIdentity, Optional<String> comment);
 }
