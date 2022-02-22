@@ -14,6 +14,7 @@
 package io.trino.spi.type;
 
 import io.airlift.slice.XxHash64;
+import io.trino.spi.HashUtils;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockBuilderStatus;
@@ -152,7 +153,7 @@ final class LongDecimalType
 
     private static long xxHash64(long low, long high)
     {
-        return XxHash64.hash(low) ^ XxHash64.hash(high);
+        return HashUtils.mix(XxHash64.hash(low), XxHash64.hash(high));
     }
 
     @ScalarOperator(COMPARISON_UNORDERED_LAST)
