@@ -118,7 +118,7 @@ public class SqlQueryExecution
     private final DynamicFilterService dynamicFilterService;
     private final TableExecuteContextManager tableExecuteContextManager;
     private final TypeAnalyzer typeAnalyzer;
-    private final TaskManager coordinatorTaskManager;
+    private final SqlTaskManager coordinatorTaskManager;
     private final ExchangeManagerRegistry exchangeManagerRegistry;
     private final TaskSourceFactory taskSourceFactory;
     private final TaskDescriptorStorage taskDescriptorStorage;
@@ -148,7 +148,7 @@ public class SqlQueryExecution
             WarningCollector warningCollector,
             TableExecuteContextManager tableExecuteContextManager,
             TypeAnalyzer typeAnalyzer,
-            TaskManager coordinatorTaskManager,
+            SqlTaskManager coordinatorTaskManager,
             ExchangeManagerRegistry exchangeManagerRegistry,
             TaskSourceFactory taskSourceFactory,
             TaskDescriptorStorage taskDescriptorStorage)
@@ -698,7 +698,7 @@ public class SqlQueryExecution
         private final DynamicFilterService dynamicFilterService;
         private final TableExecuteContextManager tableExecuteContextManager;
         private final TypeAnalyzer typeAnalyzer;
-        private final TaskManager coordinatorTaskManager;
+        private final SqlTaskManager coordinatorTaskManager;
         private final ExchangeManagerRegistry exchangeManagerRegistry;
         private final TaskSourceFactory taskSourceFactory;
         private final TaskDescriptorStorage taskDescriptorStorage;
@@ -725,7 +725,7 @@ public class SqlQueryExecution
                 DynamicFilterService dynamicFilterService,
                 TableExecuteContextManager tableExecuteContextManager,
                 TypeAnalyzer typeAnalyzer,
-                TaskManager coordinatorTaskManager,
+                SqlTaskManager coordinatorTaskManager,
                 ExchangeManagerRegistry exchangeManagerRegistry,
                 TaskSourceFactory taskSourceFactory,
                 TaskDescriptorStorage taskDescriptorStorage)

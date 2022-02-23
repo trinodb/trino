@@ -15,7 +15,6 @@ package io.trino.server;
 
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Binder;
-import com.google.inject.Key;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import io.airlift.concurrent.BoundedExecutor;
@@ -47,7 +46,6 @@ import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.SqlTaskManager;
 import io.trino.execution.TableExecuteContextManager;
 import io.trino.execution.TaskManagementExecutor;
-import io.trino.execution.TaskManager;
 import io.trino.execution.TaskManagerConfig;
 import io.trino.execution.executor.MultilevelSplitQueue;
 import io.trino.execution.executor.TaskExecutor;
@@ -292,7 +290,6 @@ public class ServerMainModule
         newExporter(binder).export(TaskExecutorResource.class).withGeneratedName();
         binder.bind(TaskManagementExecutor.class).in(Scopes.SINGLETON);
         binder.bind(SqlTaskManager.class).in(Scopes.SINGLETON);
-        binder.bind(TaskManager.class).to(Key.get(SqlTaskManager.class));
         binder.bind(TableExecuteContextManager.class).in(Scopes.SINGLETON);
 
         // memory revoking scheduler
@@ -307,7 +304,7 @@ public class ServerMainModule
         binder.bind(LocalMemoryManager.class).in(Scopes.SINGLETON);
         binder.bind(LocalMemoryManagerExporter.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, VersionEmbedder.class).setDefault().to(EmbedVersion.class).in(Scopes.SINGLETON);
-        newExporter(binder).export(TaskManager.class).withGeneratedName();
+        newExporter(binder).export(SqlTaskManager.class).withGeneratedName();
         binder.bind(TaskExecutor.class).in(Scopes.SINGLETON);
         newExporter(binder).export(TaskExecutor.class).withGeneratedName();
         binder.bind(MultilevelSplitQueue.class).in(Scopes.SINGLETON);

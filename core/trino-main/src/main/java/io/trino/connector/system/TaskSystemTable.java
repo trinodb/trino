@@ -16,8 +16,8 @@ package io.trino.connector.system;
 import io.airlift.node.NodeInfo;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.trino.execution.SqlTaskManager;
 import io.trino.execution.TaskInfo;
-import io.trino.execution.TaskManager;
 import io.trino.execution.TaskStatus;
 import io.trino.operator.TaskStats;
 import io.trino.spi.connector.ConnectorSession;
@@ -81,11 +81,11 @@ public class TaskSystemTable
             .column("end", TIMESTAMP_TZ_MILLIS)
             .build();
 
-    private final TaskManager taskManager;
+    private final SqlTaskManager taskManager;
     private final String nodeId;
 
     @Inject
-    public TaskSystemTable(TaskManager taskManager, NodeInfo nodeInfo)
+    public TaskSystemTable(SqlTaskManager taskManager, NodeInfo nodeInfo)
     {
         this.taskManager = taskManager;
         this.nodeId = nodeInfo.getNodeId();

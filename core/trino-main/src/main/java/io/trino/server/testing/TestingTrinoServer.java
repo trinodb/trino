@@ -50,8 +50,8 @@ import io.trino.execution.FailureInjector.InjectedFailureType;
 import io.trino.execution.QueryInfo;
 import io.trino.execution.QueryManager;
 import io.trino.execution.SqlQueryManager;
+import io.trino.execution.SqlTaskManager;
 import io.trino.execution.StateMachine.StateChangeListener;
-import io.trino.execution.TaskManager;
 import io.trino.execution.resourcegroups.InternalResourceGroupManager;
 import io.trino.memory.ClusterMemoryManager;
 import io.trino.memory.LocalMemoryManager;
@@ -170,7 +170,7 @@ public class TestingTrinoServer
     private final Announcer announcer;
     private final DispatchManager dispatchManager;
     private final SqlQueryManager queryManager;
-    private final TaskManager taskManager;
+    private final SqlTaskManager taskManager;
     private final GracefulShutdownHandler gracefulShutdownHandler;
     private final ShutdownAction shutdownAction;
     private final MBeanServer mBeanServer;
@@ -339,7 +339,7 @@ public class TestingTrinoServer
         nodeManager = injector.getInstance(InternalNodeManager.class);
         serviceSelectorManager = injector.getInstance(ServiceSelectorManager.class);
         gracefulShutdownHandler = injector.getInstance(GracefulShutdownHandler.class);
-        taskManager = injector.getInstance(TaskManager.class);
+        taskManager = injector.getInstance(SqlTaskManager.class);
         shutdownAction = injector.getInstance(ShutdownAction.class);
         mBeanServer = injector.getInstance(MBeanServer.class);
         announcer = injector.getInstance(Announcer.class);
@@ -555,7 +555,7 @@ public class TestingTrinoServer
         return gracefulShutdownHandler;
     }
 
-    public TaskManager getTaskManager()
+    public SqlTaskManager getTaskManager()
     {
         return taskManager;
     }
