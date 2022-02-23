@@ -1923,8 +1923,8 @@ public class TestSqlParser
                         table,
                         procedure,
                         ImmutableList.of(
-                                new CallArgument("bah", new LongLiteral("1")),
-                                new CallArgument("wuh", new StringLiteral("clap"))),
+                                new CallArgument(identifier("bah"), new LongLiteral("1")),
+                                new CallArgument(identifier("wuh"), new StringLiteral("clap"))),
                         Optional.of(
                                 new ComparisonExpression(ComparisonExpression.Operator.GREATER_THAN,
                                         new Identifier("age"),
@@ -2591,8 +2591,8 @@ public class TestSqlParser
         assertStatement("CALL foo()", new Call(QualifiedName.of("foo"), ImmutableList.of()));
         assertStatement("CALL foo(123, a => 1, b => 'go', 456)", new Call(QualifiedName.of("foo"), ImmutableList.of(
                 new CallArgument(new LongLiteral("123")),
-                new CallArgument("a", new LongLiteral("1")),
-                new CallArgument("b", new StringLiteral("go")),
+                new CallArgument(identifier("a"), new LongLiteral("1")),
+                new CallArgument(identifier("b"), new StringLiteral("go")),
                 new CallArgument(new LongLiteral("456")))));
     }
 

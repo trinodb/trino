@@ -79,9 +79,9 @@ public class DropStatsProcedure
                 "system",
                 "drop_stats",
                 ImmutableList.of(
-                        new Argument("schema_name", VARCHAR),
-                        new Argument("table_name", VARCHAR),
-                        new Argument("partition_values", new ArrayType(new ArrayType(VARCHAR)), false, null)),
+                        new Argument("SCHEMA_NAME", VARCHAR),
+                        new Argument("TABLE_NAME", VARCHAR),
+                        new Argument("PARTITION_VALUES", new ArrayType(new ArrayType(VARCHAR)), false, null)),
                 DROP_STATS.bindTo(this));
     }
 

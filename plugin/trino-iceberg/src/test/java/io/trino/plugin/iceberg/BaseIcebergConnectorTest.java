@@ -3243,8 +3243,8 @@ public abstract class BaseIcebergConnectorTest
         assertQueryFails("ALTER TABLE " + tableName + " EXECUTE \"optimize\"", "Procedure optimize not registered for catalog iceberg");
         assertUpdate("ALTER TABLE " + tableName + " EXECUTE \"OPTIMIZE\"");
         // optimize with delimited parameter name (and procedure name)
-        assertQueryFails("ALTER TABLE " + tableName + " EXECUTE \"OPTIMIZE\" (\"file_size_threshold\" => '33B')", "Catalog 'iceberg' table procedure 'OPTIMIZE' property '\"file_size_threshold\"' does not exist");
-        assertQueryFails("ALTER TABLE " + tableName + " EXECUTE \"OPTIMIZE\" (\"FILE_SIZE_THRESHOLD\" => '33B')", "Catalog 'iceberg' table procedure 'OPTIMIZE' property '\"file_size_threshold\"' does not exist");
+        assertUpdate("ALTER TABLE " + tableName + " EXECUTE \"OPTIMIZE\" (\"file_size_threshold\" => '33B')"); // TODO (https://github.com/trinodb/trino/issues/11326) this should fail
+        assertUpdate("ALTER TABLE " + tableName + " EXECUTE \"OPTIMIZE\" (\"FILE_SIZE_THRESHOLD\" => '33B')");
 
         assertUpdate("DROP TABLE " + tableName);
     }

@@ -86,10 +86,10 @@ public class CreateEmptyPartitionProcedure
                 "system",
                 "create_empty_partition",
                 ImmutableList.of(
-                        new Argument("schema_name", VARCHAR),
-                        new Argument("table_name", VARCHAR),
-                        new Argument("partition_columns", new ArrayType(VARCHAR)),
-                        new Argument("partition_values", new ArrayType(VARCHAR))),
+                        new Argument("SCHEMA_NAME", VARCHAR),
+                        new Argument("TABLE_NAME", VARCHAR),
+                        new Argument("PARTITION_COLUMNS", new ArrayType(VARCHAR)),
+                        new Argument("PARTITION_VALUES", new ArrayType(VARCHAR))),
                 CREATE_EMPTY_PARTITION.bindTo(this));
     }
 

@@ -140,43 +140,43 @@ public final class TestingProcedures
                 .add(procedure(schema, "test_lowercase_name", "simple", ImmutableList.of()))
                 .add(procedure(schema, "TEST_UPPERCASE_NAME", "simple", ImmutableList.of()))
                 .add(procedure(schema, "test_args", "args", ImmutableList.of(
-                        new Argument("x", BIGINT),
-                        new Argument("y", DOUBLE),
-                        new Argument("z", VARCHAR),
-                        new Argument("q", BOOLEAN))))
+                        new Argument("X", BIGINT),
+                        new Argument("Y", DOUBLE),
+                        new Argument("Z", VARCHAR),
+                        new Argument("Q", BOOLEAN))))
                 .add(procedure(schema, "test_nulls", "nulls", ImmutableList.of(
-                        new Argument("x", BIGINT),
-                        new Argument("y", VARCHAR))))
+                        new Argument("X", BIGINT),
+                        new Argument("Y", VARCHAR))))
                 .add(procedure(schema, "test_arrays", "arrays", ImmutableList.of(
-                        new Argument("x", new ArrayType(BIGINT)),
-                        new Argument("y", new ArrayType(VARCHAR)))))
+                        new Argument("X", new ArrayType(BIGINT)),
+                        new Argument("Y", new ArrayType(VARCHAR)))))
                 .add(procedure(schema, "test_nested", "nested", ImmutableList.of(
-                        new Argument("x", new ArrayType(new ArrayType(BIGINT))))))
+                        new Argument("X", new ArrayType(new ArrayType(BIGINT))))))
                 .add(procedure(schema, "test_session_first", "sessionFirst", ImmutableList.of(
-                        new Argument("x", BIGINT))))
+                        new Argument("X", BIGINT))))
                 .add(procedure(schema, "test_session_last", "sessionLast", ImmutableList.of(
-                        new Argument("x", VARCHAR))))
+                        new Argument("X", VARCHAR))))
                 .add(procedure(schema, "test_optionals", "optionals", ImmutableList.of(
-                        new Argument("x", VARCHAR, false, "hello"))))
+                        new Argument("X", VARCHAR, false, "hello"))))
                 .add(procedure(schema, "test_optionals2", "optionals2", ImmutableList.of(
-                        new Argument("x", VARCHAR),
-                        new Argument("y", VARCHAR, false, "world"))))
+                        new Argument("X", VARCHAR),
+                        new Argument("Y", VARCHAR, false, "world"))))
                 .add(procedure(schema, "test_optionals3", "optionals3", ImmutableList.of(
-                        new Argument("x", VARCHAR, false, "this"),
-                        new Argument("y", VARCHAR, false, "is"),
-                        new Argument("z", VARCHAR, false, "default"))))
+                        new Argument("X", VARCHAR, false, "this"),
+                        new Argument("Y", VARCHAR, false, "is"),
+                        new Argument("Z", VARCHAR, false, "default"))))
                 .add(procedure(schema, "test_optionals4", "optionals4", ImmutableList.of(
-                        new Argument("x", VARCHAR),
-                        new Argument("y", VARCHAR),
-                        new Argument("z", VARCHAR, false, "z default"),
-                        new Argument("v", VARCHAR, false, "v default"))))
+                        new Argument("X", VARCHAR),
+                        new Argument("Y", VARCHAR),
+                        new Argument("Z", VARCHAR, false, "z default"),
+                        new Argument("V", VARCHAR, false, "v default"))))
                 .add(procedure(schema, "test_exception", "exception", ImmutableList.of()))
                 .add(procedure(schema, "test_error", "error", ImmutableList.of()))
                 .add(procedure(schema, "test_argument_names", "names", ImmutableList.of(
-                        new Argument("lower", VARCHAR, false, "a"),
-                        new Argument("UPPER", VARCHAR, false, "b"),
-                        new Argument("MixeD", VARCHAR, false, "c"),
-                        new Argument("with space", VARCHAR, false, "d"))))
+                        new Argument("lower", true, VARCHAR, false, "a"),
+                        new Argument("UPPER", true, VARCHAR, false, "b"),
+                        new Argument("MixeD", true, VARCHAR, false, "c"),
+                        new Argument("with space", true, VARCHAR, false, "d"))))
                 .build();
     }
 
