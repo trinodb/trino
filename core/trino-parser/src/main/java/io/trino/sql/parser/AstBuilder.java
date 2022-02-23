@@ -2698,7 +2698,7 @@ class AstBuilder
     @Override
     public Node visitNamedArgument(SqlBaseParser.NamedArgumentContext context)
     {
-        return new CallArgument(getLocation(context), context.identifier().getText(), (Expression) visit(context.expression()));
+        return new CallArgument(getLocation(context), (Identifier) visit(context.identifier()), (Expression) visit(context.expression()));
     }
 
     @Override
