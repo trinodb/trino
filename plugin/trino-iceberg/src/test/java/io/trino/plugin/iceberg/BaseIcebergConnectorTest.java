@@ -3241,41 +3241,6 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate("DROP TABLE " + tableName);
     }
 
-    private List<String> getActiveFiles(String tableName)
-    {
-        return computeActual(format("SELECT file_path FROM \"%s$files\"", tableName)).getOnlyColumn()
-                .map(String.class::cast)
-                .collect(toImmutableList());
-    }
-
-    private List<String> getAllDataFilesFromTableDirectory(String tableName)
-            throws IOException
-    {
-        String schema = getSession().getSchema().orElseThrow();
-        Path tableDataDir = getDistributedQueryRunner().getCoordinator().getBaseDataDir().resolve("iceberg_data").resolve(schema).resolve(tableName).resolve("data");
-        try (Stream<Path> walk = Files.walk(tableDataDir)) {
-            return walk
-                    .filter(Files::isRegularFile)
-                    .filter(path -> !path.getFileName().toString().matches("\\..*\\.crc"))
-                    .map(Path::toString)
-                    .collect(toImmutableList());
-        }
-    }
-
-    @Test
-    public void testOptimizeParameterValidation()
-    {
-        assertQueryFails(
-                "ALTER TABLE no_such_table_exists EXECUTE OPTIMIZE",
-                "\\Qline 1:1: Table 'iceberg.tpch.no_such_table_exists' does not exist");
-        assertQueryFails(
-                "ALTER TABLE nation EXECUTE OPTIMIZE (file_size_threshold => '33')",
-                "\\QUnable to set catalog 'iceberg' table procedure 'OPTIMIZE' property 'file_size_threshold' to ['33']: size is not a valid data size string: 33");
-        assertQueryFails(
-                "ALTER TABLE nation EXECUTE OPTIMIZE (file_size_threshold => '33s')",
-                "\\QUnable to set catalog 'iceberg' table procedure 'OPTIMIZE' property 'file_size_threshold' to ['33s']: Unknown unit: s");
-    }
-
     @Test
     public void testOptimizeForPartitionedTable()
             throws IOException
@@ -3316,6 +3281,41 @@ public abstract class BaseIcebergConnectorTest
         // as we force repartitioning there should be only 3 partitions
         assertThat(updatedFiles).hasSize(3);
         assertThat(getAllDataFilesFromTableDirectory(tableName)).containsExactlyInAnyOrderElementsOf(concat(initialFiles, updatedFiles));
+    }
+
+    private List<String> getActiveFiles(String tableName)
+    {
+        return computeActual(format("SELECT file_path FROM \"%s$files\"", tableName)).getOnlyColumn()
+                .map(String.class::cast)
+                .collect(toImmutableList());
+    }
+
+    private List<String> getAllDataFilesFromTableDirectory(String tableName)
+            throws IOException
+    {
+        String schema = getSession().getSchema().orElseThrow();
+        Path tableDataDir = getDistributedQueryRunner().getCoordinator().getBaseDataDir().resolve("iceberg_data").resolve(schema).resolve(tableName).resolve("data");
+        try (Stream<Path> walk = Files.walk(tableDataDir)) {
+            return walk
+                    .filter(Files::isRegularFile)
+                    .filter(path -> !path.getFileName().toString().matches("\\..*\\.crc"))
+                    .map(Path::toString)
+                    .collect(toImmutableList());
+        }
+    }
+
+    @Test
+    public void testOptimizeParameterValidation()
+    {
+        assertQueryFails(
+                "ALTER TABLE no_such_table_exists EXECUTE OPTIMIZE",
+                "\\Qline 1:1: Table 'iceberg.tpch.no_such_table_exists' does not exist");
+        assertQueryFails(
+                "ALTER TABLE nation EXECUTE OPTIMIZE (file_size_threshold => '33')",
+                "\\QUnable to set catalog 'iceberg' table procedure 'OPTIMIZE' property 'file_size_threshold' to ['33']: size is not a valid data size string: 33");
+        assertQueryFails(
+                "ALTER TABLE nation EXECUTE OPTIMIZE (file_size_threshold => '33s')",
+                "\\QUnable to set catalog 'iceberg' table procedure 'OPTIMIZE' property 'file_size_threshold' to ['33s']: Unknown unit: s");
     }
 
     @Test
