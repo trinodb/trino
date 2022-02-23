@@ -7889,8 +7889,9 @@ public abstract class BaseHiveConnectorTest
 
         // compact with low threshold; nothing should change
         assertUpdate(optimizeEnabledSession, "ALTER TABLE " + tableName + " EXECUTE optimize(file_size_threshold => '10B')");
-
         assertThat(getTableFiles(tableName)).hasSameElementsAs(compactedFiles);
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -7916,6 +7917,8 @@ public abstract class BaseHiveConnectorTest
         Set<String> compactedFiles = getTableFiles(tableName);
         assertThat(compactedFiles).hasSize(1);
         assertThat(intersection(initialFiles, compactedFiles)).isEmpty();
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -7973,6 +7976,8 @@ public abstract class BaseHiveConnectorTest
         Set<String> compactedFiles = getTableFiles(tableName);
         assertThat(compactedFiles).hasSize(partitionsCount);
         assertThat(intersection(initialFiles, compactedFiles)).isEmpty();
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -7997,6 +8002,8 @@ public abstract class BaseHiveConnectorTest
 
         assertThat(getTableFiles(tableName)).hasSameElementsAs(initialFiles);
         assertNationNTimes(tableName, insertCount);
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -8016,6 +8023,8 @@ public abstract class BaseHiveConnectorTest
 
         assertThatThrownBy(() -> computeActual(optimizeEnabledSession(), format("ALTER TABLE \"%s$partitions\" EXECUTE optimize(file_size_threshold => '10kB')", tableName)))
                 .hasMessage("This connector does not support table procedures");
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     private Session optimizeEnabledSession()
