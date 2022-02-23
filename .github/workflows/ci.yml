@@ -363,6 +363,7 @@ jobs:
           - ":trino-kudu"
           - ":trino-druid"
           - ":trino-iceberg"
+          - ":trino-iceberg -P test-failure-recovery"
           - ":trino-phoenix,:trino-phoenix5"
           - ":trino-jdbc,:trino-base-jdbc,:trino-thrift,:trino-memory"
     timeout-minutes: 60
