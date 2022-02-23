@@ -407,7 +407,7 @@ public final class StandardColumnMappings
             public long readLong(ResultSet resultSet, int columnIndex)
                     throws SQLException
             {
-                return resultSet.getObject(columnIndex, LocalDate.class).toEpochDay();
+                return requireNonNull(resultSet.getObject(columnIndex, LocalDate.class)).toEpochDay();
             }
         };
     }
