@@ -19,10 +19,11 @@ import com.google.common.io.Closer;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.slice.InputStreamSliceInput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
+import io.airlift.slice.Slices;
 import io.trino.plugin.exchange.ExchangeSourceFile;
+import io.trino.plugin.exchange.ExchangeStorageReader;
 import io.trino.plugin.exchange.ExchangeStorageWriter;
 import io.trino.plugin.exchange.FileStatus;
 import io.trino.plugin.exchange.FileSystemExchangeStorage;
@@ -34,7 +35,6 @@ import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.core.async.AsyncRequestBody;
 import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
 import software.amazon.awssdk.core.retry.RetryPolicy;
-import software.amazon.awssdk.core.sync.ResponseTransformer;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
 import software.amazon.awssdk.services.s3.S3AsyncClientBuilder;
@@ -53,6 +53,7 @@ import software.amazon.awssdk.services.s3.model.Delete;
 import software.amazon.awssdk.services.s3.model.DeleteObjectsRequest;
 import software.amazon.awssdk.services.s3.model.DeleteObjectsResponse;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
@@ -65,7 +66,9 @@ import software.amazon.awssdk.services.s3.paginators.ListObjectsV2Iterable;
 import software.amazon.awssdk.services.s3.paginators.ListObjectsV2Publisher;
 
 import javax.annotation.PreDestroy;
+import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.NotThreadSafe;
+import javax.annotation.concurrent.ThreadSafe;
 import javax.crypto.SecretKey;
 import javax.inject.Inject;
 
@@ -75,6 +78,7 @@ import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Queue;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -89,6 +93,7 @@ import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static io.trino.plugin.exchange.FileSystemExchangeManager.PATH_SEPARATOR;
 import static io.trino.plugin.exchange.s3.S3RequestUtil.configureEncryption;
+import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static java.util.Objects.requireNonNullElseGet;
@@ -136,23 +141,9 @@ public class S3FileSystemExchangeStorage
     }
 
     @Override
-    public SliceInput getSliceInput(ExchangeSourceFile exchangeSourceFile)
-            throws IOException
+    public ExchangeStorageReader createExchangeStorageReader(Queue<ExchangeSourceFile> sourceFiles, int maxPageStorageSize)
     {
-        URI file = exchangeSourceFile.getFileUri();
-        Optional<SecretKey> secretKey = exchangeSourceFile.getSecretKey();
-
-        GetObjectRequest.Builder getObjectRequestBuilder = GetObjectRequest.builder()
-                .bucket(getBucketName(file))
-                .key(keyFromUri(file));
-        configureEncryption(secretKey, getObjectRequestBuilder);
-
-        try {
-            return new InputStreamSliceInput(s3Client.getObject(getObjectRequestBuilder.build(), ResponseTransformer.toInputStream()));
-        }
-        catch (RuntimeException e) {
-            throw new IOException(e);
-        }
+        return new S3ExchangeStorageReader(s3AsyncClient, sourceFiles, multiUploadPartSize, maxPageStorageSize);
     }
 
     @Override
@@ -396,6 +387,180 @@ public class S3FileSystemExchangeStorage
         endpoint.ifPresent(s3Endpoint -> clientBuilder.endpointOverride(URI.create(s3Endpoint)));
 
         return clientBuilder.build();
+    }
+
+    @ThreadSafe
+    private static class S3ExchangeStorageReader
+            implements ExchangeStorageReader
+    {
+        private static final int INSTANCE_SIZE = ClassLayout.parseClass(S3ExchangeStorageReader.class).instanceSize();
+
+        private final S3AsyncClient s3AsyncClient;
+        private final Queue<ExchangeSourceFile> sourceFiles;
+        private final int partSize;
+        private final int bufferSize;
+
+        @GuardedBy("this")
+        private ExchangeSourceFile currentFile;
+        @GuardedBy("this")
+        private long fileOffset;
+        @GuardedBy("this")
+        private SliceInput sliceInput;
+        @GuardedBy("this")
+        private int sliceSize = -1;
+        private volatile boolean closed;
+        private volatile long bufferRetainedSize;
+        private volatile ListenableFuture<Void> inProgressReadFuture = immediateVoidFuture();
+
+        public S3ExchangeStorageReader(
+                S3AsyncClient s3AsyncClient,
+                Queue<ExchangeSourceFile> sourceFiles,
+                int partSize,
+                int maxPageStorageSize)
+        {
+            this.s3AsyncClient = requireNonNull(s3AsyncClient, "s3AsyncClient is null");
+            this.sourceFiles = requireNonNull(sourceFiles, "sourceFiles is null");
+            this.partSize = partSize;
+            // Make sure buffer can accommodate at least one complete Slice, and keep reads aligned to part boundaries
+            this.bufferSize = maxPageStorageSize + partSize;
+
+            // Safe publication of S3ExchangeStorageReader is required as it's a mutable class
+            fillBuffer();
+        }
+
+        @Override
+        public synchronized Slice read()
+                throws IOException
+        {
+            if (closed || !inProgressReadFuture.isDone()) {
+                return null;
+            }
+
+            try {
+                getFutureValue(inProgressReadFuture);
+            }
+            catch (RuntimeException e) {
+                throw new IOException(e);
+            }
+
+            if (sliceSize < 0) {
+                sliceSize = sliceInput.readInt();
+            }
+            Slice data = sliceInput.readSlice(sliceSize);
+
+            if (sliceInput.available() > Integer.BYTES) {
+                sliceSize = sliceInput.readInt();
+                if (sliceInput.available() < sliceSize) {
+                    fillBuffer();
+                }
+            }
+            else {
+                sliceSize = -1;
+                fillBuffer();
+            }
+
+            return data;
+        }
+
+        @Override
+        public ListenableFuture<Void> isBlocked()
+        {
+            // rely on FileSystemExchangeSource implementation to wrap with nonCancellationPropagating
+            return inProgressReadFuture;
+        }
+
+        @Override
+        public long getRetainedSize()
+        {
+            return INSTANCE_SIZE + bufferRetainedSize;
+        }
+
+        @Override
+        public boolean isFinished()
+        {
+            return closed;
+        }
+
+        @Override
+        public synchronized void close()
+        {
+            if (closed) {
+                return;
+            }
+            closed = true;
+
+            currentFile = null;
+            sliceInput = null;
+            bufferRetainedSize = 0;
+            inProgressReadFuture.cancel(true);
+            inProgressReadFuture = immediateVoidFuture(); // such that we don't retain reference to the buffer
+        }
+
+        private void fillBuffer()
+        {
+            if (currentFile == null || fileOffset == currentFile.getFileSize()) {
+                currentFile = sourceFiles.poll();
+                if (currentFile == null) {
+                    close();
+                    return;
+                }
+                fileOffset = 0;
+            }
+
+            byte[] buffer = new byte[bufferSize];
+            int bufferFill = 0;
+            if (sliceInput != null) {
+                int length = sliceInput.available();
+                sliceInput.readBytes(buffer, 0, length);
+                bufferFill += length;
+            }
+
+            ImmutableList.Builder<ListenableFuture<GetObjectResponse>> getObjectFutures = ImmutableList.builder();
+            while (true) {
+                long fileSize = currentFile.getFileSize();
+                // Make sure S3 read request byte ranges align with part sizes for best performance
+                int readableParts = (buffer.length - bufferFill) / partSize;
+                if (readableParts == 0) {
+                    if (buffer.length - bufferFill >= fileSize - fileOffset) {
+                        readableParts = 1;
+                    }
+                    else {
+                        break;
+                    }
+                }
+
+                String key = keyFromUri(currentFile.getFileUri());
+                String bucketName = getBucketName(currentFile.getFileUri());
+                Optional<SecretKey> secretKey = currentFile.getSecretKey();
+                for (int i = 0; i < readableParts && fileOffset < fileSize; ++i) {
+                    int length = (int) min(partSize, fileSize - fileOffset);
+                    int partNumber = (int) (fileOffset / partSize + 1);
+
+                    GetObjectRequest.Builder getObjectRequestBuilder = GetObjectRequest.builder()
+                            .key(key)
+                            .bucket(bucketName)
+                            .partNumber(partNumber);
+                    configureEncryption(secretKey, getObjectRequestBuilder);
+
+                    getObjectFutures.add(toListenableFuture(s3AsyncClient.getObject(getObjectRequestBuilder.build(),
+                            BufferWriteAsyncResponseTransformer.toBufferWrite(buffer, bufferFill))));
+                    bufferFill += length;
+                    fileOffset += length;
+                }
+
+                if (fileOffset == fileSize) {
+                    currentFile = sourceFiles.poll();
+                    if (currentFile == null) {
+                        break;
+                    }
+                    fileOffset = 0;
+                }
+            }
+
+            inProgressReadFuture = asVoid(Futures.allAsList(getObjectFutures.build()));
+            sliceInput = Slices.wrappedBuffer(buffer, 0, bufferFill).getInput();
+            bufferRetainedSize = sliceInput.getRetainedSize();
+        }
     }
 
     @NotThreadSafe
