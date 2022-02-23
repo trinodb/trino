@@ -68,7 +68,7 @@ public interface TrinoCatalog
             String location,
             Map<String, String> properties);
 
-    void dropTable(ConnectorSession session, SchemaTableName schemaTableName, boolean purgeData);
+    void dropTable(ConnectorSession session, SchemaTableName schemaTableName);
 
     void renameTable(ConnectorSession session, SchemaTableName from, SchemaTableName to);
 

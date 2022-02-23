@@ -295,7 +295,7 @@ class TrinoHiveCatalog
     }
 
     @Override
-    public void dropTable(ConnectorSession session, SchemaTableName schemaTableName, boolean purgeData)
+    public void dropTable(ConnectorSession session, SchemaTableName schemaTableName)
     {
         // TODO: support path override in Iceberg table creation: https://github.com/trinodb/trino/issues/8861
         Table table = loadTable(session, schemaTableName);
@@ -304,7 +304,7 @@ class TrinoHiveCatalog
                 table.properties().containsKey(WRITE_METADATA_LOCATION)) {
             throw new TrinoException(NOT_SUPPORTED, "Table " + schemaTableName + " contains Iceberg path override properties and cannot be dropped from Trino");
         }
-        metastore.dropTable(schemaTableName.getSchemaName(), schemaTableName.getTableName(), purgeData);
+        metastore.dropTable(schemaTableName.getSchemaName(), schemaTableName.getTableName(), true);
     }
 
     @Override
