@@ -28,7 +28,7 @@ public interface FileSystemExchangeStorage
 {
     void createDirectories(URI dir) throws IOException;
 
-    SliceInput getSliceInput(URI file, Optional<SecretKey> secretKey) throws IOException;
+    SliceInput getSliceInput(ExchangeSourceFile exchangeSourceFile) throws IOException;
 
     ExchangeStorageWriter createExchangeStorageWriter(URI file, Optional<SecretKey> secretKey) throws IOException;
 

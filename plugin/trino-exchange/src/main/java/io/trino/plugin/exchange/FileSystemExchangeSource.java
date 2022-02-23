@@ -20,18 +20,13 @@ import io.trino.spi.exchange.ExchangeSource;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
-import javax.crypto.SecretKey;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.net.URI;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class FileSystemExchangeSource
@@ -39,22 +34,17 @@ public class FileSystemExchangeSource
 {
     private final FileSystemExchangeStorage exchangeStorage;
     @GuardedBy("this")
-    private final Iterator<URI> files;
-    @GuardedBy("this")
-    private final Iterator<Optional<SecretKey>> secretKeys;
+    private final Iterator<ExchangeSourceFile> exchangeSourceFiles;
 
     @GuardedBy("this")
     private SliceInput sliceInput;
     @GuardedBy("this")
     private boolean closed;
 
-    public FileSystemExchangeSource(FileSystemExchangeStorage exchangeStorage, List<URI> files, List<Optional<SecretKey>> secretKeys)
+    public FileSystemExchangeSource(FileSystemExchangeStorage exchangeStorage, List<ExchangeSourceFile> exchangeSourceFiles)
     {
         this.exchangeStorage = requireNonNull(exchangeStorage, "exchangeStorage is null");
-        checkArgument(requireNonNull(files, "files is null").size() == requireNonNull(secretKeys, "secretKeys is null").size(),
-                format("number of files (%d) doesn't match number of secretKeys (%d)", files.size(), secretKeys.size()));
-        this.files = ImmutableList.copyOf(files).iterator();
-        this.secretKeys = ImmutableList.copyOf(secretKeys).iterator();
+        this.exchangeSourceFiles = ImmutableList.copyOf(exchangeSourceFiles).iterator();
     }
 
     @Override
@@ -66,7 +56,7 @@ public class FileSystemExchangeSource
     @Override
     public synchronized boolean isFinished()
     {
-        return closed || (!files.hasNext() && sliceInput == null);
+        return closed || (!exchangeSourceFiles.hasNext() && sliceInput == null);
     }
 
     @Nullable
@@ -83,12 +73,11 @@ public class FileSystemExchangeSource
         }
 
         if (sliceInput == null) {
-            if (files.hasNext()) {
+            if (exchangeSourceFiles.hasNext()) {
                 // TODO: implement parallel read
-                URI file = files.next();
-                Optional<SecretKey> secretKey = secretKeys.next();
+                ExchangeSourceFile exchangeSourceFile = exchangeSourceFiles.next();
                 try {
-                    sliceInput = exchangeStorage.getSliceInput(file, secretKey);
+                    sliceInput = exchangeStorage.getSliceInput(exchangeSourceFile);
                 }
                 catch (IOException e) {
                     throw new UncheckedIOException(e);
