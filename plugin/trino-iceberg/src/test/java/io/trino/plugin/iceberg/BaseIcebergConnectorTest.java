@@ -3239,6 +3239,13 @@ public abstract class BaseIcebergConnectorTest
         assertThat(getAllDataFilesFromTableDirectory(tableName))
                 .containsExactlyInAnyOrderElementsOf(concat(initialFiles, updatedFiles));
 
+        // optimize with delimited procedure name
+        assertQueryFails("ALTER TABLE " + tableName + " EXECUTE \"optimize\"", "Procedure optimize not registered for catalog iceberg");
+        assertUpdate("ALTER TABLE " + tableName + " EXECUTE \"OPTIMIZE\"");
+        // optimize with delimited parameter name (and procedure name)
+        assertQueryFails("ALTER TABLE " + tableName + " EXECUTE \"OPTIMIZE\" (\"file_size_threshold\" => '33B')", "Catalog 'iceberg' table procedure 'OPTIMIZE' property '\"file_size_threshold\"' does not exist");
+        assertQueryFails("ALTER TABLE " + tableName + " EXECUTE \"OPTIMIZE\" (\"FILE_SIZE_THRESHOLD\" => '33B')", "Catalog 'iceberg' table procedure 'OPTIMIZE' property '\"file_size_threshold\"' does not exist");
+
         assertUpdate("DROP TABLE " + tableName);
     }
 
