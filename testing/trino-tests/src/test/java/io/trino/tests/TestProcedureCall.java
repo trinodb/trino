@@ -156,6 +156,47 @@ public class TestProcedureCall
         assertCallFails("CALL test_optionals4(y => 'cd', v => 'value')", "line 1:1: Required procedure argument 'x' is missing");
     }
 
+    @Test
+    public void testProcedureName()
+    {
+        assertCall("CALL test_lowercase_name()", "simple");
+        assertCall("CALL TEST_LOWERCASE_NAME()", "simple");
+        assertCall("CALL Test_Lowercase_NAME()", "simple");
+        assertCall("CALL \"test_lowercase_name\"()", "simple");
+        assertCall("CALL \"TEST_LOWERCASE_NAME\"()", "simple");
+        assertCall("CALL \"Test_Lowercase_Name\"()", "simple");
+
+        assertCall("CALL test_uppercase_name()", "simple");
+        assertCall("CALL TEST_UPPERCASE_NAME()", "simple");
+        assertCall("CALL Test_Uppercase_NAME()", "simple");
+        assertCall("CALL \"test_uppercase_name\"()", "simple");
+        assertCall("CALL \"TEST_UPPERCASE_NAME\"()", "simple");
+        assertCall("CALL \"Test_Uppercase_NAME\"()", "simple");
+    }
+
+    @Test
+    public void testNamedArguments()
+    {
+        assertCall("CALL test_argument_names(lower => 'a')", "names", "a", "b", "c", "d");
+        assertCallFails("CALL test_argument_names(LOWER => 'a')", "line 1:26: Unknown argument name: LOWER");
+        assertCallFails("CALL test_argument_names(\"lower\" => 'a')", "line 1:26: Unknown argument name: \"lower\"");
+        assertCallFails("CALL test_argument_names(\"LOWER\" => 'a')", "line 1:26: Unknown argument name: \"LOWER\"");
+
+        assertCallFails("CALL test_argument_names(upper => 'b')", "line 1:26: Unknown argument name: upper");
+        assertCall("CALL test_argument_names(UPPER => 'b')", "names", "a", "b", "c", "d");
+        assertCallFails("CALL test_argument_names(\"upper\" => 'b')", "line 1:26: Unknown argument name: \"upper\"");
+        assertCallFails("CALL test_argument_names(\"UPPER\" => 'b')", "line 1:26: Unknown argument name: \"UPPER\"");
+
+        assertCallFails("CALL test_argument_names(mixed => 'c')", "line 1:26: Unknown argument name: mixed");
+        assertCall("CALL test_argument_names(MixeD => 'c')", "names", "a", "b", "c", "d");
+        assertCallFails("CALL test_argument_names(MIXED => 'c')", "line 1:26: Unknown argument name: MIXED");
+        assertCallFails("CALL test_argument_names(\"mixed\" => 'c')", "line 1:26: Unknown argument name: \"mixed\"");
+        assertCallFails("CALL test_argument_names(\"MixeD\" => 'c')", "line 1:26: Unknown argument name: \"MixeD\"");
+        assertCallFails("CALL test_argument_names(\"MIXED\" => 'c')", "line 1:26: Unknown argument name: \"MIXED\"");
+
+        assertCallFails("CALL test_argument_names(\"with space\" => 'd')", "line 1:26: Unknown argument name: \"with space\"");
+    }
+
     private void assertCall(@Language("SQL") String sql, String name, Object... arguments)
     {
         tester.reset();
