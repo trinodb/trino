@@ -62,7 +62,7 @@ Formatting
 Data size
 ---------
 
-The ``parse_data_size`` function supports the following units:
+The ``format_data_size`` and ``parse_data_size`` functions supports the following units:
 
 ======= ============= ==============
 Unit    Description   Value
@@ -78,6 +78,36 @@ Unit    Description   Value
 ``YB``  Yottabytes    1024\ :sup:`8`
 ======= ============= ==============
 
+The ``format_data_size_decimal`` and ``parse_data_size_decimal`` functions supports the following units:
+
+======= ============= ==============
+Unit    Description   Value
+======= ============= ==============
+``B``   Bytes         1
+``kB``  Kilobytes     1000
+``MB``  Megabytes     1000\ :sup:`2`
+``GB``  Gigabytes     1000\ :sup:`3`
+``TB``  Terabytes     1000\ :sup:`4`
+``PB``  Petabytes     1000\ :sup:`5`
+``EB``  Exabytes      1000\ :sup:`6`
+``ZB``  Zettabytes    1000\ :sup:`7`
+``YB``  Yottabytes    1000\ :sup:`8`
+======= ============= ==============
+
+.. function:: format_data_size(number) -> varchar
+
+    Returns a formatted string using a unit symbol::
+
+        SELECT format_data_size(123456); -- '121kB'
+        SELECT format_data_size(1048576); -- '1MB'
+
+.. function:: format_data_size_decimal(number) -> varchar
+
+    Returns a formatted string using a unit symbol::
+
+        SELECT format_data_size_decimal(123456); -- '123kB'
+        SELECT format_data_size_decimal(1048576); -- '1.05MB'
+
 .. function:: parse_data_size(string) -> decimal(38)
 
     Parses ``string`` of format ``value unit`` into a number, where
@@ -87,6 +117,16 @@ Unit    Description   Value
         SELECT parse_data_size('1kB'); -- 1024
         SELECT parse_data_size('1MB'); -- 1048576
         SELECT parse_data_size('2.3MB'); -- 2411724
+
+.. function:: parse_data_size_decimal(string) -> decimal(38)
+
+    Parses ``string`` of format ``value unit`` into a number, where
+    ``value`` is the fractional number of ``unit`` values::
+
+        SELECT parse_data_size_decimal('1B'); -- 1
+        SELECT parse_data_size_decimal('1kB'); -- 1000
+        SELECT parse_data_size_decimal('1MB'); -- 1000000
+        SELECT parse_data_size_decimal('2.3MB'); -- 2300000
 
 Miscellaneous
 -------------

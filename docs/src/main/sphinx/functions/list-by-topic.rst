@@ -177,7 +177,12 @@ Conversion
 For more details, see :doc:`conversion`
 
 * :func:`cast`
+* :func:`format_data_size`
+* :func:`format_data_size_decimal`
+* :func:`format_number`
 * :func:`format`
+* :func:`parse_data_size`
+* :func:`parse_data_size_decimal`
 * :func:`try_cast`
 * :func:`typeof`
 

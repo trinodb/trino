@@ -159,6 +159,8 @@ F
 - :func:`flatten`
 - :func:`floor`
 - :func:`format`
+- :func:`format_data_size`
+- :func:`format_data_size_decimal`
 - :func:`format_datetime`
 - :func:`format_number`
 - :func:`from_base`
@@ -333,6 +335,7 @@ P
 - :func:`parse_datetime`
 - :func:`parse_duration`
 - :func:`parse_data_size`
+- :func:`parse_data_size_decimal`
 - :func:`percent_rank`
 - :func:`pi`
 - :func:`position`
