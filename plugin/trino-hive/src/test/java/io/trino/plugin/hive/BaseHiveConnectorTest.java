@@ -7891,6 +7891,13 @@ public abstract class BaseHiveConnectorTest
         assertUpdate(optimizeEnabledSession, "ALTER TABLE " + tableName + " EXECUTE optimize(file_size_threshold => '10B')");
         assertThat(getTableFiles(tableName)).hasSameElementsAs(compactedFiles);
 
+        // optimize with delimited procedure name
+        assertQueryFails(optimizeEnabledSession, "ALTER TABLE " + tableName + " EXECUTE \"optimize\"", "Procedure optimize not registered for catalog hive");
+        assertUpdate(optimizeEnabledSession, "ALTER TABLE " + tableName + " EXECUTE \"OPTIMIZE\"");
+        // optimize with delimited parameter name (and procedure name)
+        assertQueryFails(optimizeEnabledSession, "ALTER TABLE " + tableName + " EXECUTE \"OPTIMIZE\" (\"file_size_threshold\" => '10B')", "Catalog 'hive' table procedure 'OPTIMIZE' property '\"file_size_threshold\"' does not exist");
+        assertQueryFails(optimizeEnabledSession, "ALTER TABLE " + tableName + " EXECUTE \"OPTIMIZE\" (\"FILE_SIZE_THRESHOLD\" => '10B')", "Catalog 'hive' table procedure 'OPTIMIZE' property '\"file_size_threshold\"' does not exist");
+
         assertUpdate("DROP TABLE " + tableName);
     }
 
