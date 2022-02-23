@@ -16,7 +16,6 @@ package io.trino.plugin.exchange;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.units.DataSize;
-import io.airlift.units.MinDataSize;
 
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
@@ -27,8 +26,12 @@ public class FileSystemExchangeConfig
 {
     private String baseDirectory;
     private boolean exchangeEncryptionEnabled;
+    // For S3, we make read requests aligned with part boundaries. Incomplete slice at the end of the buffer is
+    // possible and will be copied to the beginning of the new buffer, and we need to make room for that.
+    // Therefore, it's recommended to set `maxPageStorageSize` to be slightly larger than a multiple of part size.
     private DataSize maxPageStorageSize = DataSize.of(16, MEGABYTE);
-    private int exchangeSinkBufferPoolMinSize;
+    private int exchangeSinkBufferPoolMinSize = 10;
+    private int exchangeSourceConcurrentReaders = 4;
 
     @NotNull
     public String getBaseDirectory()
@@ -79,6 +82,19 @@ public class FileSystemExchangeConfig
     public FileSystemExchangeConfig setExchangeSinkBufferPoolMinSize(int exchangeSinkBufferPoolMinSize)
     {
         this.exchangeSinkBufferPoolMinSize = exchangeSinkBufferPoolMinSize;
+        return this;
+    }
+
+    @Min(1)
+    public int getExchangeSourceConcurrentReaders()
+    {
+        return exchangeSourceConcurrentReaders;
+    }
+
+    @Config("exchange.source-concurrent-readers")
+    public FileSystemExchangeConfig setExchangeSourceConcurrentReaders(int exchangeSourceConcurrentReaders)
+    {
+        this.exchangeSourceConcurrentReaders = exchangeSourceConcurrentReaders;
         return this;
     }
 }
