@@ -20,6 +20,7 @@ import io.airlift.slice.InputStreamSliceInput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.units.DataSize;
+import io.trino.plugin.exchange.ExchangeSourceFile;
 import io.trino.plugin.exchange.ExchangeStorageWriter;
 import io.trino.plugin.exchange.FileStatus;
 import io.trino.plugin.exchange.FileSystemExchangeStorage;
@@ -32,6 +33,7 @@ import javax.crypto.CipherOutputStream;
 import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKey;
 
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
@@ -69,21 +71,23 @@ public class LocalFileSystemExchangeStorage
     }
 
     @Override
-    public SliceInput getSliceInput(URI file, Optional<SecretKey> secretKey)
+    public SliceInput getSliceInput(ExchangeSourceFile exchangeSourceFile)
             throws IOException
     {
+        File file = Paths.get(exchangeSourceFile.getFileUri()).toFile();
+        Optional<SecretKey> secretKey = exchangeSourceFile.getSecretKey();
         if (secretKey.isPresent()) {
             try {
                 Cipher cipher = Cipher.getInstance("AES");
                 cipher.init(Cipher.DECRYPT_MODE, secretKey.get());
-                return new InputStreamSliceInput(new CipherInputStream(new FileInputStream(Paths.get(file.getPath()).toFile()), cipher), BUFFER_SIZE_IN_BYTES);
+                return new InputStreamSliceInput(new CipherInputStream(new FileInputStream(file), cipher), BUFFER_SIZE_IN_BYTES);
             }
             catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException e) {
                 throw new TrinoException(GENERIC_INTERNAL_ERROR, "Failed to create CipherInputStream: " + e.getMessage(), e);
             }
         }
         else {
-            return new InputStreamSliceInput(new FileInputStream(Paths.get(file.getPath()).toFile()), BUFFER_SIZE_IN_BYTES);
+            return new InputStreamSliceInput(new FileInputStream(file), BUFFER_SIZE_IN_BYTES);
         }
     }
 

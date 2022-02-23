@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.exchange;
 
-import com.google.common.collect.ImmutableList;
 import io.trino.spi.TrinoException;
 import io.trino.spi.exchange.Exchange;
 import io.trino.spi.exchange.ExchangeContext;
@@ -30,6 +29,7 @@ import javax.inject.Inject;
 
 import java.net.URI;
 import java.security.NoSuchAlgorithmException;
+import java.util.AbstractMap;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
@@ -38,7 +38,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.lang.Math.toIntExact;
-import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 
@@ -109,16 +108,18 @@ public class FileSystemExchangeManager
     @Override
     public ExchangeSource createSource(List<ExchangeSourceHandle> handles)
     {
-        List<URI> files = handles.stream()
+        List<ExchangeSourceFile> exchangeSourceFiles = handles.stream()
                 .map(FileSystemExchangeSourceHandle.class::cast)
-                .flatMap(handle -> handle.getFiles().stream())
-                .map(fileStatus -> URI.create(fileStatus.getFilePath()))
+                .map(handle -> {
+                    Optional<SecretKey> secretKey = handle.getSecretKey().map(key -> new SecretKeySpec(key, 0, key.length, "AES"));
+                    return new AbstractMap.SimpleEntry<>(handle, secretKey);
+                })
+                .flatMap(entry -> entry.getKey().getFiles().stream().map(fileStatus ->
+                        new ExchangeSourceFile(
+                                URI.create(fileStatus.getFilePath()),
+                                entry.getValue(),
+                                fileStatus.getFileSize())))
                 .collect(toImmutableList());
-        ImmutableList.Builder<Optional<SecretKey>> secretKeys = ImmutableList.builder();
-        for (ExchangeSourceHandle handle : handles) {
-            FileSystemExchangeSourceHandle sourceHandle = (FileSystemExchangeSourceHandle) handle;
-            secretKeys.addAll(nCopies(sourceHandle.getFiles().size(), sourceHandle.getSecretKey().map(key -> new SecretKeySpec(key, 0, key.length, "AES"))));
-        }
-        return new FileSystemExchangeSource(exchangeStorage, files, secretKeys.build());
+        return new FileSystemExchangeSource(exchangeStorage, exchangeSourceFiles);
     }
 }

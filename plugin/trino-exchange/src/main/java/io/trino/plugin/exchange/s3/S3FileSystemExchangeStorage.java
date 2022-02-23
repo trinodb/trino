@@ -22,6 +22,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.InputStreamSliceInput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
+import io.trino.plugin.exchange.ExchangeSourceFile;
 import io.trino.plugin.exchange.ExchangeStorageWriter;
 import io.trino.plugin.exchange.FileStatus;
 import io.trino.plugin.exchange.FileSystemExchangeStorage;
@@ -135,9 +136,12 @@ public class S3FileSystemExchangeStorage
     }
 
     @Override
-    public SliceInput getSliceInput(URI file, Optional<SecretKey> secretKey)
+    public SliceInput getSliceInput(ExchangeSourceFile exchangeSourceFile)
             throws IOException
     {
+        URI file = exchangeSourceFile.getFileUri();
+        Optional<SecretKey> secretKey = exchangeSourceFile.getSecretKey();
+
         GetObjectRequest.Builder getObjectRequestBuilder = GetObjectRequest.builder()
                 .bucket(getBucketName(file))
                 .key(keyFromUri(file));
