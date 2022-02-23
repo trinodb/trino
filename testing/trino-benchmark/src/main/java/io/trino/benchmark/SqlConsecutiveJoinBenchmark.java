@@ -16,9 +16,9 @@ package io.trino.benchmark;
 import com.google.common.collect.ImmutableMap;
 import io.trino.testing.LocalQueryRunner;
 
-import static io.trino.FeaturesConfig.JoinReorderingStrategy.NONE;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.trino.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
+import static io.trino.cost.OptimizerConfig.JoinReorderingStrategy.NONE;
 
 public class SqlConsecutiveJoinBenchmark
         extends AbstractSqlBenchmark

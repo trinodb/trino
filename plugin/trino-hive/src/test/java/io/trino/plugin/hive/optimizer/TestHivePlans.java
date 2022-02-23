@@ -15,9 +15,9 @@ package io.trino.plugin.hive.optimizer;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Files;
-import io.trino.FeaturesConfig.JoinDistributionType;
-import io.trino.FeaturesConfig.JoinReorderingStrategy;
 import io.trino.Session;
+import io.trino.cost.OptimizerConfig.JoinDistributionType;
+import io.trino.cost.OptimizerConfig.JoinReorderingStrategy;
 import io.trino.plugin.hive.HdfsConfig;
 import io.trino.plugin.hive.HdfsConfiguration;
 import io.trino.plugin.hive.HdfsConfigurationInitializer;
