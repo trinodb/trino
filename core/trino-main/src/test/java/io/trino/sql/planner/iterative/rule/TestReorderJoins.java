@@ -15,8 +15,8 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.FeaturesConfig.JoinDistributionType;
-import io.trino.FeaturesConfig.JoinReorderingStrategy;
+import io.trino.cost.OptimizerConfig.JoinDistributionType;
+import io.trino.cost.OptimizerConfig.JoinReorderingStrategy;
 import io.trino.cost.CostComparator;
 import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.cost.SymbolStatsEstimate;
@@ -39,11 +39,11 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 
 import static io.airlift.testing.Closeables.closeAllRuntimeException;
-import static io.trino.FeaturesConfig.JoinDistributionType.AUTOMATIC;
-import static io.trino.FeaturesConfig.JoinDistributionType.BROADCAST;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.JOIN_MAX_BROADCAST_TABLE_SIZE;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
+import static io.trino.cost.OptimizerConfig.JoinDistributionType.AUTOMATIC;
+import static io.trino.cost.OptimizerConfig.JoinDistributionType.BROADCAST;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;

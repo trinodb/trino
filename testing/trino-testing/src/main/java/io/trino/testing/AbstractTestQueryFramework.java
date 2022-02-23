@@ -17,9 +17,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.MoreCollectors;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.airlift.units.Duration;
-import io.trino.FeaturesConfig;
-import io.trino.FeaturesConfig.JoinDistributionType;
 import io.trino.Session;
+import io.trino.cost.OptimizerConfig.JoinDistributionType;
 import io.trino.execution.QueryStats;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.QualifiedObjectName;
@@ -61,6 +60,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
+import static io.trino.cost.OptimizerConfig.JoinReorderingStrategy;
 import static io.trino.sql.ParsingUtil.createParsingOptions;
 import static io.trino.sql.SqlFormatter.formatSql;
 import static io.trino.testing.assertions.Assert.assertEventually;
@@ -502,7 +502,7 @@ public abstract class AbstractTestQueryFramework
     protected Session noJoinReordering(JoinDistributionType distributionType)
     {
         return Session.builder(getSession())
-                .setSystemProperty(JOIN_REORDERING_STRATEGY, FeaturesConfig.JoinReorderingStrategy.NONE.name())
+                .setSystemProperty(JOIN_REORDERING_STRATEGY, JoinReorderingStrategy.NONE.name())
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, distributionType.name())
                 .build();
     }
