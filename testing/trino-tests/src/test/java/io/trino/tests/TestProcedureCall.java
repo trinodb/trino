@@ -111,16 +111,16 @@ public class TestProcedureCall
         assertCallThrows("CALL test_exception()", "exception", "test exception from procedure");
         assertCallThrows("CALL test_error()", "error", "test error from procedure");
 
-        assertCallFails("CALL test_args(null, 4.5, 'hello', true)", "Procedure argument cannot be null: x");
-        assertCallFails("CALL test_args(123, null, 'hello', true)", "Procedure argument cannot be null: y");
-        assertCallFails("CALL test_args(123, 4.5, 'hello', null)", "Procedure argument cannot be null: q");
+        assertCallFails("CALL test_args(null, 4.5, 'hello', true)", "Procedure argument cannot be null: X");
+        assertCallFails("CALL test_args(123, null, 'hello', true)", "Procedure argument cannot be null: Y");
+        assertCallFails("CALL test_args(123, 4.5, 'hello', null)", "Procedure argument cannot be null: Q");
 
         assertCallFails("CALL test_simple(123)", "line 1:1: Too many arguments for procedure");
-        assertCallFails("CALL test_args(123, 4.5, 'hello')", "line 1:1: Required procedure argument 'q' is missing");
-        assertCallFails("CALL test_args(x => 123, y => 4.5, q => true)", "line 1:1: Required procedure argument 'z' is missing");
+        assertCallFails("CALL test_args(123, 4.5, 'hello')", "line 1:1: Required procedure argument 'Q' is missing");
+        assertCallFails("CALL test_args(x => 123, y => 4.5, q => true)", "line 1:1: Required procedure argument 'Z' is missing");
         assertCallFails("CALL test_args(123, 4.5, 'hello', q => true)", "line 1:1: Named and positional arguments cannot be mixed");
-        assertCallFails("CALL test_args(x => 3, x => 4)", "line 1:24: Duplicate procedure argument: x");
-        assertCallFails("CALL test_args(t => 404)", "line 1:16: Unknown argument name: t");
+        assertCallFails("CALL test_args(x => 3, x => 4)", "line 1:24: Duplicate procedure argument: X");
+        assertCallFails("CALL test_args(t => 404)", "line 1:16: Unknown argument name: T");
         assertCallFails("CALL test_nulls('hello', null)", "line 1:17: Cannot cast type varchar(5) to bigint");
         assertCallFails("CALL test_nulls(null, 123)", "line 1:23: Cannot cast type integer to varchar");
     }
@@ -150,10 +150,10 @@ public class TestProcedureCall
         assertCall("CALL test_optionals4(z => 'z val', v => 'v val', x => 'x val', y => 'y val')", "optionals4", "x val", "y val", "z val", "v val");
         assertCall("CALL test_optionals4(v => 'v val', x => 'x val', y => 'y val', z => 'z val')", "optionals4", "x val", "y val", "z val", "v val");
 
-        assertCallFails("CALL test_optionals2()", "line 1:1: Required procedure argument 'x' is missing");
-        assertCallFails("CALL test_optionals4(z => 'cd')", "line 1:1: Required procedure argument 'x' is missing");
-        assertCallFails("CALL test_optionals4(z => 'cd', v => 'value')", "line 1:1: Required procedure argument 'x' is missing");
-        assertCallFails("CALL test_optionals4(y => 'cd', v => 'value')", "line 1:1: Required procedure argument 'x' is missing");
+        assertCallFails("CALL test_optionals2()", "line 1:1: Required procedure argument 'X' is missing");
+        assertCallFails("CALL test_optionals4(z => 'cd')", "line 1:1: Required procedure argument 'X' is missing");
+        assertCallFails("CALL test_optionals4(z => 'cd', v => 'value')", "line 1:1: Required procedure argument 'X' is missing");
+        assertCallFails("CALL test_optionals4(y => 'cd', v => 'value')", "line 1:1: Required procedure argument 'X' is missing");
     }
 
     @Test
@@ -177,24 +177,24 @@ public class TestProcedureCall
     @Test
     public void testNamedArguments()
     {
-        assertCall("CALL test_argument_names(lower => 'a')", "names", "a", "b", "c", "d");
+        assertCallFails("CALL test_argument_names(lower => 'a')", "line 1:26: Unknown argument name: LOWER");
         assertCallFails("CALL test_argument_names(LOWER => 'a')", "line 1:26: Unknown argument name: LOWER");
-        assertCallFails("CALL test_argument_names(\"lower\" => 'a')", "line 1:26: Unknown argument name: \"lower\"");
-        assertCallFails("CALL test_argument_names(\"LOWER\" => 'a')", "line 1:26: Unknown argument name: \"LOWER\"");
+        assertCall("CALL test_argument_names(\"lower\" => 'a')", "names", "a", "b", "c", "d");
+        assertCallFails("CALL test_argument_names(\"LOWER\" => 'a')", "line 1:26: Unknown argument name: LOWER");
 
-        assertCallFails("CALL test_argument_names(upper => 'b')", "line 1:26: Unknown argument name: upper");
+        assertCall("CALL test_argument_names(upper => 'b')", "names", "a", "b", "c", "d");
         assertCall("CALL test_argument_names(UPPER => 'b')", "names", "a", "b", "c", "d");
-        assertCallFails("CALL test_argument_names(\"upper\" => 'b')", "line 1:26: Unknown argument name: \"upper\"");
-        assertCallFails("CALL test_argument_names(\"UPPER\" => 'b')", "line 1:26: Unknown argument name: \"UPPER\"");
+        assertCallFails("CALL test_argument_names(\"upper\" => 'b')", "line 1:26: Unknown argument name: upper");
+        assertCall("CALL test_argument_names(\"UPPER\" => 'b')", "names", "a", "b", "c", "d");
 
-        assertCallFails("CALL test_argument_names(mixed => 'c')", "line 1:26: Unknown argument name: mixed");
-        assertCall("CALL test_argument_names(MixeD => 'c')", "names", "a", "b", "c", "d");
+        assertCallFails("CALL test_argument_names(mixed => 'c')", "line 1:26: Unknown argument name: MIXED");
+        assertCallFails("CALL test_argument_names(MixeD => 'c')", "line 1:26: Unknown argument name: MIXED");
         assertCallFails("CALL test_argument_names(MIXED => 'c')", "line 1:26: Unknown argument name: MIXED");
-        assertCallFails("CALL test_argument_names(\"mixed\" => 'c')", "line 1:26: Unknown argument name: \"mixed\"");
-        assertCallFails("CALL test_argument_names(\"MixeD\" => 'c')", "line 1:26: Unknown argument name: \"MixeD\"");
-        assertCallFails("CALL test_argument_names(\"MIXED\" => 'c')", "line 1:26: Unknown argument name: \"MIXED\"");
+        assertCallFails("CALL test_argument_names(\"mixed\" => 'c')", "line 1:26: Unknown argument name: mixed");
+        assertCall("CALL test_argument_names(\"MixeD\" => 'c')", "names", "a", "b", "c", "d");
+        assertCallFails("CALL test_argument_names(\"MIXED\" => 'c')", "line 1:26: Unknown argument name: MIXED");
 
-        assertCallFails("CALL test_argument_names(\"with space\" => 'd')", "line 1:26: Unknown argument name: \"with space\"");
+        assertCall("CALL test_argument_names(\"with space\" => 'd')", "names", "a", "b", "c", "d");
     }
 
     private void assertCall(@Language("SQL") String sql, String name, Object... arguments)
