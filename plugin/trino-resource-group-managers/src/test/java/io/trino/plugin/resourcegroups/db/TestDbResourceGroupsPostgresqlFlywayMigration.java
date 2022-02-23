@@ -24,7 +24,7 @@ public class TestDbResourceGroupsPostgresqlFlywayMigration
     @Override
     protected final JdbcDatabaseContainer<?> startContainer()
     {
-        JdbcDatabaseContainer<?> container = new PostgreSQLContainer<>("postgres:9.6");
+        JdbcDatabaseContainer<?> container = new PostgreSQLContainer<>("postgres:10.20");
         container.start();
         return container;
     }
