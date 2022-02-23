@@ -37,6 +37,7 @@ import java.util.concurrent.ExecutorService;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static java.lang.Math.toIntExact;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -51,6 +52,7 @@ public class FileSystemExchangeManager
     private final FileSystemExchangeStorage exchangeStorage;
     private final URI baseDirectory;
     private final boolean exchangeEncryptionEnabled;
+    private final int maxPageStorageSize;
     private final int exchangeSinkBufferPoolMinSize;
     private final ExecutorService executor;
 
@@ -67,6 +69,7 @@ public class FileSystemExchangeManager
         }
         this.baseDirectory = URI.create(baseDirectory);
         this.exchangeEncryptionEnabled = fileSystemExchangeConfig.isExchangeEncryptionEnabled();
+        this.maxPageStorageSize = toIntExact(fileSystemExchangeConfig.getMaxPageStorageSize().toBytes());
         this.exchangeSinkBufferPoolMinSize = fileSystemExchangeConfig.getExchangeSinkBufferPoolMinSize();
         this.executor = newCachedThreadPool(daemonThreadsNamed("exchange-source-handles-creation-%s"));
     }
@@ -99,6 +102,7 @@ public class FileSystemExchangeManager
                 instanceHandle.getOutputDirectory(),
                 instanceHandle.getOutputPartitionCount(),
                 instanceHandle.getSinkHandle().getSecretKey().map(key -> new SecretKeySpec(key, 0, key.length, "AES")),
+                maxPageStorageSize,
                 exchangeSinkBufferPoolMinSize);
     }
 

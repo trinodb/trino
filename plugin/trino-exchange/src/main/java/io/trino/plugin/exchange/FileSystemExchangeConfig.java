@@ -14,14 +14,20 @@
 package io.trino.plugin.exchange;
 
 import io.airlift.configuration.Config;
+import io.airlift.configuration.ConfigDescription;
+import io.airlift.units.DataSize;
+import io.airlift.units.MinDataSize;
 
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
+
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
 public class FileSystemExchangeConfig
 {
     private String baseDirectory;
     private boolean exchangeEncryptionEnabled;
+    private DataSize maxPageStorageSize = DataSize.of(16, MEGABYTE);
     private int exchangeSinkBufferPoolMinSize;
 
     @NotNull
@@ -46,6 +52,20 @@ public class FileSystemExchangeConfig
     public FileSystemExchangeConfig setExchangeEncryptionEnabled(boolean exchangeEncryptionEnabled)
     {
         this.exchangeEncryptionEnabled = exchangeEncryptionEnabled;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getMaxPageStorageSize()
+    {
+        return maxPageStorageSize;
+    }
+
+    @Config("exchange.max-page-storage-size")
+    @ConfigDescription("Max storage size of a page written to a sink, including the page itself and its size represented as an int")
+    public FileSystemExchangeConfig setMaxPageStorageSize(DataSize maxPageStorageSize)
+    {
+        this.maxPageStorageSize = maxPageStorageSize;
         return this;
     }
 
