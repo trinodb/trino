@@ -53,6 +53,7 @@ public class FileSystemExchangeManager
     private final boolean exchangeEncryptionEnabled;
     private final int maxPageStorageSize;
     private final int exchangeSinkBufferPoolMinSize;
+    private final int exchangeSourceConcurrentReaders;
     private final ExecutorService executor;
 
     @Inject
@@ -70,6 +71,7 @@ public class FileSystemExchangeManager
         this.exchangeEncryptionEnabled = fileSystemExchangeConfig.isExchangeEncryptionEnabled();
         this.maxPageStorageSize = toIntExact(fileSystemExchangeConfig.getMaxPageStorageSize().toBytes());
         this.exchangeSinkBufferPoolMinSize = fileSystemExchangeConfig.getExchangeSinkBufferPoolMinSize();
+        this.exchangeSourceConcurrentReaders = fileSystemExchangeConfig.getExchangeSourceConcurrentReaders();
         this.executor = newCachedThreadPool(daemonThreadsNamed("exchange-source-handles-creation-%s"));
     }
 
@@ -108,7 +110,7 @@ public class FileSystemExchangeManager
     @Override
     public ExchangeSource createSource(List<ExchangeSourceHandle> handles)
     {
-        List<ExchangeSourceFile> exchangeSourceFiles = handles.stream()
+        List<ExchangeSourceFile> sourceFiles = handles.stream()
                 .map(FileSystemExchangeSourceHandle.class::cast)
                 .map(handle -> {
                     Optional<SecretKey> secretKey = handle.getSecretKey().map(key -> new SecretKeySpec(key, 0, key.length, "AES"));
@@ -120,6 +122,6 @@ public class FileSystemExchangeManager
                                 entry.getValue(),
                                 fileStatus.getFileSize())))
                 .collect(toImmutableList());
-        return new FileSystemExchangeSource(exchangeStorage, exchangeSourceFiles);
+        return new FileSystemExchangeSource(exchangeStorage, sourceFiles, maxPageStorageSize, exchangeSourceConcurrentReaders);
     }
 }

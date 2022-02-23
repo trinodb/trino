@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.Multimap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.airlift.units.DataSize;
 import io.trino.spi.QueryId;
 import io.trino.spi.exchange.Exchange;
 import io.trino.spi.exchange.ExchangeContext;
@@ -37,11 +38,20 @@ import java.util.function.Function;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
+import static io.airlift.units.DataSize.Unit.BYTE;
+import static io.airlift.units.DataSize.Unit.KILOBYTE;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.spi.exchange.ExchangeId.createRandomExchangeId;
+import static java.lang.Math.toIntExact;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public abstract class AbstractTestExchangeManager
 {
+    private static final String SMALL_PAGE = "a".repeat(toIntExact(DataSize.of(123, BYTE).toBytes()));
+    private static final String MEDIUM_PAGE = "b".repeat(toIntExact(DataSize.of(66, KILOBYTE).toBytes()));
+    private static final String LARGE_PAGE = "c".repeat(toIntExact(DataSize.of(5, MEGABYTE).toBytes()) - Integer.BYTES);
+    private static final String MAX_PAGE = "d".repeat(toIntExact(DataSize.of(16, MEGABYTE).toBytes()) - Integer.BYTES);
+
     private ExchangeManager exchangeManager;
 
     @BeforeClass
@@ -150,6 +160,67 @@ public abstract class AbstractTestExchangeManager
 
         assertThat(readData(partitions.get(1)))
                 .containsExactlyInAnyOrder("0-1-0", "0-1-1", "1-1-0", "1-1-1", "2-1-0");
+
+        exchange.close();
+    }
+
+    @Test
+    public void testLargePages()
+            throws Exception
+    {
+        Exchange exchange = exchangeManager.createExchange(new ExchangeContext(new QueryId("query"), createRandomExchangeId()), 3);
+        ExchangeSinkHandle sinkHandle0 = exchange.addSink(0);
+        ExchangeSinkHandle sinkHandle1 = exchange.addSink(1);
+        ExchangeSinkHandle sinkHandle2 = exchange.addSink(2);
+        exchange.noMoreSinks();
+
+        ExchangeSinkInstanceHandle sinkInstanceHandle = exchange.instantiateSink(sinkHandle0, 0);
+        writeData(
+                sinkInstanceHandle,
+                new ImmutableListMultimap.Builder<Integer, String>()
+                        .putAll(0, ImmutableList.of(SMALL_PAGE))
+                        .putAll(1, ImmutableList.of(MAX_PAGE, MEDIUM_PAGE))
+                        .putAll(2, ImmutableList.of())
+                        .build(),
+                true);
+        exchange.sinkFinished(sinkInstanceHandle);
+
+        sinkInstanceHandle = exchange.instantiateSink(sinkHandle1, 0);
+        writeData(
+                sinkInstanceHandle,
+                new ImmutableListMultimap.Builder<Integer, String>()
+                        .putAll(0, ImmutableList.of(MEDIUM_PAGE))
+                        .putAll(1, ImmutableList.of(LARGE_PAGE))
+                        .putAll(2, ImmutableList.of(SMALL_PAGE))
+                        .build(),
+                true);
+        exchange.sinkFinished(sinkInstanceHandle);
+
+        sinkInstanceHandle = exchange.instantiateSink(sinkHandle2, 0);
+        writeData(
+                sinkInstanceHandle,
+                new ImmutableListMultimap.Builder<Integer, String>()
+                        .putAll(0, ImmutableList.of(LARGE_PAGE, MAX_PAGE))
+                        .putAll(1, ImmutableList.of(SMALL_PAGE))
+                        .putAll(2, ImmutableList.of(MAX_PAGE, LARGE_PAGE, MEDIUM_PAGE))
+                        .build(),
+                true);
+        exchange.sinkFinished(sinkInstanceHandle);
+
+        List<ExchangeSourceHandle> partitionHandles = exchange.getSourceHandles().get();
+        assertThat(partitionHandles).hasSize(3);
+
+        Map<Integer, ExchangeSourceHandle> partitions = partitionHandles.stream()
+                .collect(toImmutableMap(ExchangeSourceHandle::getPartitionId, Function.identity()));
+
+        assertThat(readData(partitions.get(0)))
+                .containsExactlyInAnyOrder(SMALL_PAGE, MEDIUM_PAGE, LARGE_PAGE, MAX_PAGE);
+
+        assertThat(readData(partitions.get(1)))
+                .containsExactlyInAnyOrder(SMALL_PAGE, MEDIUM_PAGE, LARGE_PAGE, MAX_PAGE);
+
+        assertThat(readData(partitions.get(2)))
+                .containsExactlyInAnyOrder(SMALL_PAGE, MEDIUM_PAGE, LARGE_PAGE, MAX_PAGE);
 
         exchange.close();
     }

@@ -18,15 +18,18 @@ import com.google.common.io.MoreFiles;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.InputStreamSliceInput;
 import io.airlift.slice.Slice;
-import io.airlift.slice.SliceInput;
 import io.airlift.units.DataSize;
 import io.trino.plugin.exchange.ExchangeSourceFile;
+import io.trino.plugin.exchange.ExchangeStorageReader;
 import io.trino.plugin.exchange.ExchangeStorageWriter;
 import io.trino.plugin.exchange.FileStatus;
 import io.trino.plugin.exchange.FileSystemExchangeStorage;
 import io.trino.spi.TrinoException;
 import org.openjdk.jol.info.ClassLayout;
 
+import javax.annotation.concurrent.GuardedBy;
+import javax.annotation.concurrent.NotThreadSafe;
+import javax.annotation.concurrent.ThreadSafe;
 import javax.crypto.Cipher;
 import javax.crypto.CipherInputStream;
 import javax.crypto.CipherOutputStream;
@@ -47,6 +50,7 @@ import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.util.List;
 import java.util.Optional;
+import java.util.Queue;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 
@@ -57,6 +61,7 @@ import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.lang.Math.toIntExact;
 import static java.nio.file.Files.createFile;
+import static java.util.Objects.requireNonNull;
 
 public class LocalFileSystemExchangeStorage
         implements FileSystemExchangeStorage
@@ -71,24 +76,9 @@ public class LocalFileSystemExchangeStorage
     }
 
     @Override
-    public SliceInput getSliceInput(ExchangeSourceFile exchangeSourceFile)
-            throws IOException
+    public ExchangeStorageReader createExchangeStorageReader(Queue<ExchangeSourceFile> sourceFiles, int maxPageStorageSize)
     {
-        File file = Paths.get(exchangeSourceFile.getFileUri()).toFile();
-        Optional<SecretKey> secretKey = exchangeSourceFile.getSecretKey();
-        if (secretKey.isPresent()) {
-            try {
-                Cipher cipher = Cipher.getInstance("AES");
-                cipher.init(Cipher.DECRYPT_MODE, secretKey.get());
-                return new InputStreamSliceInput(new CipherInputStream(new FileInputStream(file), cipher), BUFFER_SIZE_IN_BYTES);
-            }
-            catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException e) {
-                throw new TrinoException(GENERIC_INTERNAL_ERROR, "Failed to create CipherInputStream: " + e.getMessage(), e);
-            }
-        }
-        else {
-            return new InputStreamSliceInput(new FileInputStream(file), BUFFER_SIZE_IN_BYTES);
-        }
+        return new LocalExchangeStorageReader(sourceFiles);
     }
 
     @Override
@@ -171,6 +161,97 @@ public class LocalFileSystemExchangeStorage
         return builder.build();
     }
 
+    @ThreadSafe
+    private static class LocalExchangeStorageReader
+            implements ExchangeStorageReader
+    {
+        private static final int INSTANCE_SIZE = ClassLayout.parseClass(LocalExchangeStorageReader.class).instanceSize();
+
+        private final Queue<ExchangeSourceFile> sourceFiles;
+        @GuardedBy("this")
+        private InputStreamSliceInput sliceInput;
+        @GuardedBy("this")
+        private boolean closed;
+
+        public LocalExchangeStorageReader(Queue<ExchangeSourceFile> sourceFiles)
+        {
+            this.sourceFiles = requireNonNull(sourceFiles, "sourceFiles is null");
+        }
+
+        @Override
+        public synchronized Slice read()
+                throws IOException
+        {
+            if (closed) {
+                return null;
+            }
+            if (sliceInput != null && sliceInput.isReadable()) {
+                return sliceInput.readSlice(sliceInput.readInt());
+            }
+            ExchangeSourceFile sourceFile = sourceFiles.poll();
+            if (sourceFile != null) {
+                sliceInput = getSliceInput(sourceFile);
+                return sliceInput.readSlice(sliceInput.readInt());
+            }
+            else {
+                close();
+            }
+            return null;
+        }
+
+        @Override
+        public ListenableFuture<Void> isBlocked()
+        {
+            return immediateVoidFuture();
+        }
+
+        @Override
+        public synchronized long getRetainedSize()
+        {
+            return INSTANCE_SIZE + (sliceInput == null ? 0 : sliceInput.getRetainedSize());
+        }
+
+        @Override
+        public synchronized boolean isFinished()
+        {
+            return closed;
+        }
+
+        @Override
+        public synchronized void close()
+        {
+            if (closed) {
+                return;
+            }
+            closed = true;
+            if (sliceInput != null) {
+                sliceInput.close();
+                sliceInput = null;
+            }
+        }
+
+        private InputStreamSliceInput getSliceInput(ExchangeSourceFile sourceFile)
+                throws FileNotFoundException
+        {
+            File file = Paths.get(sourceFile.getFileUri()).toFile();
+            Optional<SecretKey> secretKey = sourceFile.getSecretKey();
+            if (secretKey.isPresent()) {
+                try {
+                    Cipher cipher = Cipher.getInstance("AES");
+                    cipher.init(Cipher.DECRYPT_MODE, secretKey.get());
+                    return new InputStreamSliceInput(new CipherInputStream(new FileInputStream(file), cipher), BUFFER_SIZE_IN_BYTES);
+                }
+                catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException e) {
+                    throw new TrinoException(GENERIC_INTERNAL_ERROR, "Failed to create CipherInputStream: " + e.getMessage(), e);
+                }
+            }
+            else {
+                return new InputStreamSliceInput(new FileInputStream(file), BUFFER_SIZE_IN_BYTES);
+            }
+        }
+    }
+
+    @NotThreadSafe
     private static class LocalExchangeStorageWriter
             implements ExchangeStorageWriter
     {

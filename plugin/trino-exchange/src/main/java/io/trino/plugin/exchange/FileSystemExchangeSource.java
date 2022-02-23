@@ -15,69 +15,91 @@ package io.trino.plugin.exchange;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
-import io.airlift.slice.SliceInput;
 import io.trino.spi.exchange.ExchangeSource;
 
 import javax.annotation.Nullable;
-import javax.annotation.concurrent.GuardedBy;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.util.Iterator;
 import java.util.List;
+import java.util.Queue;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CompletableFuture;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.util.concurrent.Futures.nonCancellationPropagating;
+import static io.airlift.concurrent.MoreFutures.toCompletableFuture;
+import static io.airlift.concurrent.MoreFutures.whenAnyComplete;
+import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 
 public class FileSystemExchangeSource
         implements ExchangeSource
 {
-    private final FileSystemExchangeStorage exchangeStorage;
-    @GuardedBy("this")
-    private final Iterator<ExchangeSourceFile> exchangeSourceFiles;
+    private final List<ExchangeStorageReader> readers;
+    private volatile boolean closed;
 
-    @GuardedBy("this")
-    private SliceInput sliceInput;
-    @GuardedBy("this")
-    private boolean closed;
-
-    public FileSystemExchangeSource(FileSystemExchangeStorage exchangeStorage, List<ExchangeSourceFile> exchangeSourceFiles)
+    public FileSystemExchangeSource(
+            FileSystemExchangeStorage exchangeStorage,
+            List<ExchangeSourceFile> sourceFiles,
+            int maxPageStorageSize,
+            int exchangeSourceConcurrentReaders)
     {
-        this.exchangeStorage = requireNonNull(exchangeStorage, "exchangeStorage is null");
-        this.exchangeSourceFiles = ImmutableList.copyOf(exchangeSourceFiles).iterator();
+        requireNonNull(exchangeStorage, "exchangeStorage is null");
+        Queue<ExchangeSourceFile> sourceFileQueue = new ArrayBlockingQueue<>(sourceFiles.size());
+        sourceFileQueue.addAll(sourceFiles);
+
+        int numReaders = min(sourceFiles.size(), exchangeSourceConcurrentReaders);
+
+        ImmutableList.Builder<ExchangeStorageReader> readers = ImmutableList.builder();
+        for (int i = 0; i < numReaders; ++i) {
+            readers.add(exchangeStorage.createExchangeStorageReader(sourceFileQueue, maxPageStorageSize));
+        }
+        this.readers = readers.build();
     }
 
     @Override
     public CompletableFuture<Void> isBlocked()
     {
-        return NOT_BLOCKED;
+        for (ExchangeStorageReader reader : readers) {
+            if (reader.isBlocked().isDone()) {
+                return NOT_BLOCKED;
+            }
+        }
+        return toCompletableFuture(
+                nonCancellationPropagating(
+                        whenAnyComplete(readers.stream()
+                                .map(ExchangeStorageReader::isBlocked)
+                                .collect(toImmutableList()))));
     }
 
     @Override
-    public synchronized boolean isFinished()
+    public boolean isFinished()
     {
-        return closed || (!exchangeSourceFiles.hasNext() && sliceInput == null);
+        if (closed) {
+            return true;
+        }
+
+        for (ExchangeStorageReader reader : readers) {
+            if (!reader.isFinished()) {
+                return false;
+            }
+        }
+        return true;
     }
 
     @Nullable
     @Override
-    public synchronized Slice read()
+    public Slice read()
     {
-        if (isFinished()) {
+        if (closed) {
             return null;
         }
 
-        if (sliceInput != null && !sliceInput.isReadable()) {
-            sliceInput.close();
-            sliceInput = null;
-        }
-
-        if (sliceInput == null) {
-            if (exchangeSourceFiles.hasNext()) {
-                // TODO: implement parallel read
-                ExchangeSourceFile exchangeSourceFile = exchangeSourceFiles.next();
+        for (ExchangeStorageReader reader : readers) {
+            if (reader.isBlocked().isDone() && !reader.isFinished()) {
                 try {
-                    sliceInput = exchangeStorage.getSliceInput(exchangeSourceFile);
+                    return reader.read();
                 }
                 catch (IOException e) {
                     throw new UncheckedIOException(e);
@@ -85,35 +107,30 @@ public class FileSystemExchangeSource
             }
         }
 
-        if (sliceInput == null) {
-            return null;
-        }
-
-        if (!sliceInput.isReadable()) {
-            sliceInput.close();
-            sliceInput = null;
-            return null;
-        }
-
-        int size = sliceInput.readInt();
-        return sliceInput.readSlice(size);
+        return null;
     }
 
     @Override
-    public synchronized long getMemoryUsage()
+    public long getMemoryUsage()
     {
-        return sliceInput != null ? sliceInput.getRetainedSize() : 0;
+        long memoryUsage = 0;
+        for (ExchangeStorageReader reader : readers) {
+            memoryUsage += reader.getRetainedSize();
+        }
+        return memoryUsage;
     }
 
     @Override
-    public synchronized void close()
+    public void close()
     {
-        if (!closed) {
-            closed = true;
-            if (sliceInput != null) {
-                sliceInput.close();
-                sliceInput = null;
+        // Make sure we will only close once
+        synchronized (this) {
+            if (closed) {
+                return;
             }
+            closed = true;
         }
+
+        readers.forEach(ExchangeStorageReader::close);
     }
 }

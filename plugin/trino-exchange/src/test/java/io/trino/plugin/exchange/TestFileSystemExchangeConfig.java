@@ -33,7 +33,8 @@ public class TestFileSystemExchangeConfig
                 .setBaseDirectory(null)
                 .setExchangeEncryptionEnabled(false)
                 .setMaxPageStorageSize(DataSize.of(16, MEGABYTE))
-                .setExchangeSinkBufferPoolMinSize(0));
+                .setExchangeSinkBufferPoolMinSize(10)
+                .setExchangeSourceConcurrentReaders(4));
     }
 
     @Test
@@ -43,14 +44,16 @@ public class TestFileSystemExchangeConfig
                 .put("exchange.base-directory", "s3n://exchange-spooling-test/")
                 .put("exchange.encryption-enabled", "true")
                 .put("exchange.max-page-storage-size", "32MB")
-                .put("exchange.sink-buffer-pool-min-size", "10")
+                .put("exchange.sink-buffer-pool-min-size", "20")
+                .put("exchange.source-concurrent-readers", "10")
                 .buildOrThrow();
 
         FileSystemExchangeConfig expected = new FileSystemExchangeConfig()
                 .setBaseDirectory("s3n://exchange-spooling-test/")
                 .setExchangeEncryptionEnabled(true)
                 .setMaxPageStorageSize(DataSize.of(32, MEGABYTE))
-                .setExchangeSinkBufferPoolMinSize(10);
+                .setExchangeSinkBufferPoolMinSize(20)
+                .setExchangeSourceConcurrentReaders(10);
 
         assertFullMapping(properties, expected);
     }
