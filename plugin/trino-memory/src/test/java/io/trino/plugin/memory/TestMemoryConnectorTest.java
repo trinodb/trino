@@ -40,9 +40,9 @@ import org.testng.annotations.Test;
 import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.FeaturesConfig.JoinDistributionType;
-import static io.trino.FeaturesConfig.JoinDistributionType.BROADCAST;
 import static io.trino.SystemSessionProperties.ENABLE_LARGE_DYNAMIC_FILTERS;
+import static io.trino.cost.OptimizerConfig.JoinDistributionType;
+import static io.trino.cost.OptimizerConfig.JoinDistributionType.BROADCAST;
 import static io.trino.plugin.memory.MemoryQueryRunner.createMemoryQueryRunner;
 import static io.trino.testing.assertions.Assert.assertEquals;
 import static java.lang.String.format;

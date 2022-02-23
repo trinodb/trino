@@ -33,6 +33,7 @@ import io.trino.block.BlockJsonSerde;
 import io.trino.client.NodeVersion;
 import io.trino.connector.ConnectorManager;
 import io.trino.connector.system.SystemConnectorModule;
+import io.trino.cost.OptimizerConfig;
 import io.trino.dispatcher.DispatchManager;
 import io.trino.event.SplitMonitor;
 import io.trino.execution.DynamicFilterConfig;
@@ -210,6 +211,7 @@ public class ServerMainModule
         install(new InternalCommunicationModule());
 
         configBinder(binder).bindConfig(FeaturesConfig.class);
+        configBinder(binder).bindConfig(OptimizerConfig.class);
         configBinder(binder).bindConfig(ProtocolConfig.class);
 
         binder.bind(SqlParser.class).in(Scopes.SINGLETON);
