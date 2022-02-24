@@ -27,7 +27,7 @@ import static io.trino.matching.Capture.newCapture;
 import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.basicAggregation;
 import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.expressionType;
 import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.functionName;
-import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.singleInput;
+import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.singleArgument;
 import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.variable;
 import static java.lang.String.format;
 
@@ -41,7 +41,7 @@ public class ImplementAvgDecimal
     {
         return basicAggregation()
                 .with(functionName().equalTo("avg"))
-                .with(singleInput().matching(
+                .with(singleArgument().matching(
                         variable()
                                 .with(expressionType().matching(DecimalType.class::isInstance))
                                 .capturedAs(INPUT)));
