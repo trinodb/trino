@@ -39,8 +39,8 @@ import static io.trino.cost.SymbolStatsEstimate.buildFrom;
 import static io.trino.sql.ExpressionUtils.extractConjuncts;
 import static io.trino.sql.planner.plan.Patterns.join;
 import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
+import static io.trino.util.MoreMath.firstNonNaN;
 import static java.lang.Double.NaN;
-import static java.lang.Double.isNaN;
 import static java.lang.Math.min;
 import static java.util.Comparator.comparingDouble;
 import static java.util.Objects.requireNonNull;
@@ -248,16 +248,6 @@ public class JoinStatsRule
                 .addSymbolStatistics(clause.getLeft(), newLeftStats)
                 .addSymbolStatistics(clause.getRight(), newRightStats);
         return normalizer.normalize(result.build(), types);
-    }
-
-    private static double firstNonNaN(double... values)
-    {
-        for (double value : values) {
-            if (!isNaN(value)) {
-                return value;
-            }
-        }
-        throw new IllegalArgumentException("All values are NaN");
     }
 
     /**
