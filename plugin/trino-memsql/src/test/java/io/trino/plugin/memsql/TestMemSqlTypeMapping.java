@@ -704,16 +704,17 @@ public class TestMemSqlTypeMapping
     @Test(dataProvider = "unsupportedTimeDataProvider")
     public void testUnsupportedTime(String unsupportedTime)
     {
+        // SingleStore stores incorrect results when the values are out of supported range. This test should be fixed when SingleStore changes the behavior
         try (TestTable table = new TestTable(memSqlServer::execute, "tpch.test_unsupported_time", "(col time)", ImmutableList.of(format("'%s'", unsupportedTime)))) {
             assertQueryFails(
                     "SELECT * FROM " + table.getName(),
-                    format("\\Q%s cannot be parse as LocalTime (format is \"HH:mm:ss[.S]\" for data type \"TIME\")", unsupportedTime));
+                    format("Supported Trino TIME type range is between 00:00:00 and 23:59:59.999999 but got %s", unsupportedTime));
         }
 
         try (TestTable table = new TestTable(memSqlServer::execute, "tpch.test_unsupported_time", "(col time(6))", ImmutableList.of(format("'%s'", unsupportedTime)))) {
             assertQueryFails(
                     "SELECT * FROM " + table.getName(),
-                    format("\\Q%s.000000 cannot be parse as LocalTime (format is \"HH:mm:ss[.S]\" for data type \"TIME\")", unsupportedTime));
+                    format("Supported Trino TIME type range is between 00:00:00 and 23:59:59.999999 but got %s.000000", unsupportedTime));
         }
     }
 

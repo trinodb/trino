@@ -18,6 +18,7 @@ import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
+import com.singlestore.jdbc.Driver;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.DecimalModule;
@@ -25,7 +26,6 @@ import io.trino.plugin.jdbc.DriverConnectionFactory;
 import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
-import org.mariadb.jdbc.Driver;
 
 import java.util.Properties;
 
