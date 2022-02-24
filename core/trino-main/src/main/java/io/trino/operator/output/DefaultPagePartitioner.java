@@ -50,7 +50,6 @@ import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class DefaultPagePartitioner
-        implements PagePartitioner
 {
     private final OutputBuffer outputBuffer;
     private final Type[] sourceTypes;
@@ -115,13 +114,11 @@ public class DefaultPagePartitioner
         }
     }
 
-    @Override
     public ListenableFuture<Void> isFull()
     {
         return outputBuffer.isFull();
     }
 
-    @Override
     public long getSizeInBytes()
     {
         // We use a foreach loop instead of streams
@@ -136,7 +133,6 @@ public class DefaultPagePartitioner
     /**
      * This method can be expensive for complex types.
      */
-    @Override
     public long getRetainedSizeInBytes()
     {
         long sizeInBytes = 0;
@@ -146,7 +142,6 @@ public class DefaultPagePartitioner
         return sizeInBytes;
     }
 
-    @Override
     public Supplier<PartitionedOutputInfo> getOperatorInfoSupplier()
     {
         return createPartitionedOutputOperatorInfoSupplier(rowsAdded, pagesAdded, outputBuffer);
@@ -161,7 +156,6 @@ public class DefaultPagePartitioner
         return () -> new PartitionedOutputInfo(rowsAdded.get(), pagesAdded.get(), outputBuffer.getPeakMemoryUsage());
     }
 
-    @Override
     public void partitionPage(Page page)
     {
         requireNonNull(page, "page is null");
@@ -238,7 +232,6 @@ public class DefaultPagePartitioner
         }
     }
 
-    @Override
     public void flush(boolean force)
     {
         try (PagesSerde.PagesSerdeContext context = serde.newContext()) {
