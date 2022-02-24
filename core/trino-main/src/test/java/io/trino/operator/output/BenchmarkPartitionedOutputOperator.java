@@ -16,7 +16,6 @@ package io.trino.operator.output;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
-import io.trino.Session;
 import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
 import io.trino.execution.buffer.OutputBufferStateMachine;
@@ -28,12 +27,9 @@ import io.trino.memory.context.LocalMemoryContext;
 import io.trino.memory.context.SimpleLocalMemoryContext;
 import io.trino.operator.BucketPartitionFunction;
 import io.trino.operator.DriverContext;
-import io.trino.operator.OperatorFactories;
-import io.trino.operator.OutputFactory;
 import io.trino.operator.PartitionFunction;
 import io.trino.operator.PrecomputedHashGenerator;
-import io.trino.operator.TaskContext;
-import io.trino.operator.TrinoOperatorFactories;
+import io.trino.operator.output.PartitionedOutputOperator.PartitionedOutputFactory;
 import io.trino.spi.Page;
 import io.trino.spi.QueryId;
 import io.trino.spi.block.Block;
@@ -82,6 +78,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.block.BlockAssertions.createLongDictionaryBlock;
 import static io.trino.block.BlockAssertions.createLongsBlock;
 import static io.trino.block.BlockAssertions.createRLEBlock;
@@ -97,7 +94,6 @@ import static io.trino.operator.output.BenchmarkPartitionedOutputOperator.Benchm
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.Decimals.MAX_SHORT_PRECISION;
-import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.Collections.nCopies;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
@@ -113,8 +109,6 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 @BenchmarkMode(Mode.AverageTime)
 public class BenchmarkPartitionedOutputOperator
 {
-    private static final OperatorFactories OPERATOR_FACTORIES = new TrinoOperatorFactories();
-
     @Benchmark
     public void addPage(BenchmarkData data)
     {
@@ -141,9 +135,6 @@ public class BenchmarkPartitionedOutputOperator
         private static final DataSize MAX_PARTITION_BUFFER_SIZE = DataSize.of(256, MEGABYTE);
         private static final ExecutorService EXECUTOR = newCachedThreadPool(daemonThreadsNamed("BenchmarkPartitionedOutputOperator-executor-%s"));
         private static final ScheduledExecutorService SCHEDULER = newScheduledThreadPool(1, daemonThreadsNamed("BenchmarkPartitionedOutputOperator-scheduledExecutor-%s"));
-
-        private final OperatorFactories operatorFactories;
-        private final Session session;
 
         @Param({"2", "16", "256"})
         private int partitionCount = 256;
@@ -350,17 +341,6 @@ public class BenchmarkPartitionedOutputOperator
             }
         }
 
-        public BenchmarkData()
-        {
-            this(OPERATOR_FACTORIES, testSessionBuilder().build());
-        }
-
-        protected BenchmarkData(OperatorFactories operatorFactories, Session session)
-        {
-            this.operatorFactories = requireNonNull(operatorFactories, "operatorFactories is null");
-            this.session = requireNonNull(session, "session is null");
-        }
-
         public int getPageCount()
         {
             return pageCount;
@@ -429,32 +409,26 @@ public class BenchmarkPartitionedOutputOperator
             PagesSerdeFactory serdeFactory = new PagesSerdeFactory(new TestingBlockEncodingSerde(), enableCompression);
 
             PartitionedOutputBuffer buffer = createPartitionedOutputBuffer();
-            TaskContext taskContext = createTaskContext();
 
-            OutputFactory operatorFactory = operatorFactories.partitionedOutput(
-                    taskContext,
+            PartitionedOutputFactory operatorFactory = new PartitionedOutputFactory(
                     partitionFunction,
                     ImmutableList.of(types.size() - 1), // hash block is at the last channel
                     ImmutableList.of(Optional.empty()),
                     false,
-                    nullChannel,
+                    OptionalInt.empty(),
                     buffer,
                     MAX_PARTITION_BUFFER_SIZE);
             return (PartitionedOutputOperator) operatorFactory
                     .createOutputOperator(0, new PlanNodeId("plan-node-0"), types, Function.identity(), serdeFactory)
-                    .createOperator(createDriverContext(taskContext));
+                    .createOperator(createDriverContext());
         }
 
-        private DriverContext createDriverContext(TaskContext taskContext)
+        private DriverContext createDriverContext()
         {
-            return taskContext
+            return TestingTaskContext.builder(EXECUTOR, SCHEDULER, TEST_SESSION)
+                    .build()
                     .addPipelineContext(0, true, true, false)
                     .addDriverContext();
-        }
-
-        private TaskContext createTaskContext()
-        {
-            return TestingTaskContext.builder(EXECUTOR, SCHEDULER, session).build();
         }
 
         private TestingPartitionedOutputBuffer createPartitionedBuffer(OutputBuffers buffers, DataSize dataSize)

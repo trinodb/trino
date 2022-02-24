@@ -54,7 +54,6 @@ public class PartitionedOutputOperator
         private final boolean replicatesAnyRow;
         private final OptionalInt nullChannel;
         private final DataSize maxMemory;
-        private final PagePartitionerFactory pagePartitionerFactory;
 
         public PartitionedOutputFactory(
                 PartitionFunction partitionFunction,
@@ -65,26 +64,6 @@ public class PartitionedOutputOperator
                 OutputBuffer outputBuffer,
                 DataSize maxMemory)
         {
-            this(partitionFunction,
-                    partitionChannels,
-                    partitionConstants,
-                    replicatesAnyRow,
-                    nullChannel,
-                    outputBuffer,
-                    maxMemory,
-                    DefaultPagePartitioner::new);
-        }
-
-        public PartitionedOutputFactory(
-                PartitionFunction partitionFunction,
-                List<Integer> partitionChannels,
-                List<Optional<NullableValue>> partitionConstants,
-                boolean replicatesAnyRow,
-                OptionalInt nullChannel,
-                OutputBuffer outputBuffer,
-                DataSize maxMemory,
-                PagePartitionerFactory pagePartitionerFactory)
-        {
             this.partitionFunction = requireNonNull(partitionFunction, "partitionFunction is null");
             this.partitionChannels = requireNonNull(partitionChannels, "partitionChannels is null");
             this.partitionConstants = requireNonNull(partitionConstants, "partitionConstants is null");
@@ -92,7 +71,6 @@ public class PartitionedOutputOperator
             this.nullChannel = requireNonNull(nullChannel, "nullChannel is null");
             this.outputBuffer = requireNonNull(outputBuffer, "outputBuffer is null");
             this.maxMemory = requireNonNull(maxMemory, "maxMemory is null");
-            this.pagePartitionerFactory = requireNonNull(pagePartitionerFactory, "pagePartitionerFactory is null");
         }
 
         @Override
@@ -115,8 +93,7 @@ public class PartitionedOutputOperator
                     nullChannel,
                     outputBuffer,
                     serdeFactory,
-                    maxMemory,
-                    pagePartitionerFactory);
+                    maxMemory);
         }
     }
 
@@ -135,7 +112,6 @@ public class PartitionedOutputOperator
         private final OutputBuffer outputBuffer;
         private final PagesSerdeFactory serdeFactory;
         private final DataSize maxMemory;
-        private final PagePartitionerFactory pagePartitionerFactory;
 
         public PartitionedOutputOperatorFactory(
                 int operatorId,
@@ -149,8 +125,7 @@ public class PartitionedOutputOperator
                 OptionalInt nullChannel,
                 OutputBuffer outputBuffer,
                 PagesSerdeFactory serdeFactory,
-                DataSize maxMemory,
-                PagePartitionerFactory pagePartitionerFactory)
+                DataSize maxMemory)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -164,7 +139,6 @@ public class PartitionedOutputOperator
             this.outputBuffer = requireNonNull(outputBuffer, "outputBuffer is null");
             this.serdeFactory = requireNonNull(serdeFactory, "serdeFactory is null");
             this.maxMemory = requireNonNull(maxMemory, "maxMemory is null");
-            this.pagePartitionerFactory = requireNonNull(pagePartitionerFactory, "pagePartitionerFactory is null");
         }
 
         @Override
@@ -182,8 +156,7 @@ public class PartitionedOutputOperator
                     nullChannel,
                     outputBuffer,
                     serdeFactory,
-                    maxMemory,
-                    pagePartitionerFactory);
+                    maxMemory);
         }
 
         @Override
@@ -206,14 +179,13 @@ public class PartitionedOutputOperator
                     nullChannel,
                     outputBuffer,
                     serdeFactory,
-                    maxMemory,
-                    pagePartitionerFactory);
+                    maxMemory);
         }
     }
 
     private final OperatorContext operatorContext;
     private final Function<Page, Page> pagePreprocessor;
-    private final PagePartitioner partitionFunction;
+    private final DefaultPagePartitioner partitionFunction;
     private final LocalMemoryContext memoryContext;
     private final long partitionsInitialRetainedSize;
     private ListenableFuture<Void> isBlocked = NOT_BLOCKED;
@@ -230,12 +202,11 @@ public class PartitionedOutputOperator
             OptionalInt nullChannel,
             OutputBuffer outputBuffer,
             PagesSerdeFactory serdeFactory,
-            DataSize maxMemory,
-            PagePartitionerFactory pagePartitionerFactory)
+            DataSize maxMemory)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.pagePreprocessor = requireNonNull(pagePreprocessor, "pagePreprocessor is null");
-        this.partitionFunction = pagePartitionerFactory.create(
+        this.partitionFunction = new DefaultPagePartitioner(
                 partitionFunction,
                 partitionChannels,
                 partitionConstants,
