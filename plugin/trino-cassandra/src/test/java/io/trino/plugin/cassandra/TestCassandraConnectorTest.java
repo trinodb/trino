@@ -322,17 +322,15 @@ public class TestCassandraConnectorTest
 
     @Test
     public void testPartitionPushdownsWithNotMatchingPredicate()
-            throws Exception
     {
-        String table = "partition_not_pushed_down_keys";
-        session.execute(format("DROP TABLE IF EXISTS %s.%s", KEYSPACE, table));
-        session.execute(format("CREATE TABLE %s.%s ( id varchar, trino_filter_col int, PRIMARY KEY (id))", KEYSPACE, table));
-        session.execute(format("INSERT INTO %s.%s(id, trino_filter_col) VALUES ('2', 0)", KEYSPACE, table));
-        server.refreshSizeEstimates(KEYSPACE, table);
+        try (TestCassandraTable testCassandraTable = testTable(
+                "partition_not_pushed_down_keys",
+                ImmutableList.of(partitionColumn("id", "varchar"), generalColumn("trino_filter_col", "int")),
+                ImmutableList.of("'2', 0"))) {
+            String sql = "SELECT 1 FROM " + testCassandraTable.getTableName() + " WHERE id = '1' AND trino_filter_col = 0";
 
-        String sql = "SELECT 1 FROM " + table + " WHERE id = '1' AND trino_filter_col = 0";
-
-        assertThat(execute(sql).getMaterializedRows().size()).isEqualTo(0);
+            assertThat(execute(sql).getMaterializedRows().size()).isEqualTo(0);
+        }
     }
 
     @Test
