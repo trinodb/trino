@@ -104,6 +104,39 @@ public abstract class BaseMongoConnectorTest
                 "TopNPartial\\[5 by \\(nationkey DESC");
     }
 
+    @Test(dataProvider = "guessFieldTypesProvider")
+    public void testGuessFieldTypes(String mongoValue, String trinoValue)
+    {
+        Document document = Document.parse(format("{\"test\":%s}", mongoValue));
+
+        assertUpdate("DROP TABLE IF EXISTS test.test_guess_field_type");
+        client.getDatabase("test").getCollection("test_guess_field_type").insertOne(document);
+
+        assertThat(query("SELECT test FROM test.test_guess_field_type"))
+                .matches("SELECT " + trinoValue);
+
+        assertUpdate("DROP TABLE test.test_guess_field_type");
+    }
+
+    @DataProvider
+    public Object[][] guessFieldTypesProvider()
+    {
+        return new Object[][] {
+                {"true", "true"}, // boolean -> boolean
+                {"2147483647", "bigint '2147483647'"}, // int32 -> bigint
+                {"{\"$numberLong\": \"9223372036854775807\"}", "9223372036854775807"}, // int64 -> bigint
+                {"1.23", "double '1.23'"}, // double -> double
+                {"{\"$date\": \"1970-01-01T00:00:00.000Z\"}", "timestamp '1970-01-01 00:00:00.000'"}, // date -> timestamp(3)
+                {"'String type'", "varchar 'String type'"}, // string -> varchar
+                {"{$binary: \"\",\"$type\": \"0\"}", "to_utf8('')"}, // binary -> varbinary
+                {"{\"$oid\": \"6216f0c6c432d45190f25e7c\"}", "ObjectId('6216f0c6c432d45190f25e7c')"}, // objectid -> objectid
+                {"[1]", "array[bigint '1']"}, // array with single type -> array
+                {"{\"field\": \"object\"}", "CAST(row('object') AS row(field varchar))"}, // object -> row
+                {"[9, \"test\"]", "CAST(row(9, 'test') AS row(_pos1 bigint, _pos2 varchar))"}, // array with multiple types -> row
+                {"{\"$ref\":\"test_ref\",\"$id\":ObjectId(\"4e3f33de6266b5845052c02c\"),\"$db\":\"test_db\"}", "CAST(row('test_db', 'test_ref', ObjectId('4e3f33de6266b5845052c02c')) AS row(databasename varchar, collectionname varchar, id ObjectId))"}, // dbref -> row
+        };
+    }
+
     @Test
     public void createTableWithEveryType()
     {
