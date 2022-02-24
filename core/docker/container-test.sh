@@ -20,7 +20,7 @@ function test_trino_starts {
 
     set +e
     I=0
-    until RESULT=$(docker exec "${CONTAINER_ID}" trino --execute "SELECT 'success'" 2>/dev/null); do
+    until docker inspect "${CONTAINER_ID}" --format "{{json .State.Health.Status }}" | grep -q '"healthy"'; do
         if [[ $((I++)) -ge ${QUERY_RETRIES} ]]; then
             echo "🚨 Too many retries waiting for Trino to start"
             echo "Logs from ${CONTAINER_ID} follow..."
@@ -29,6 +29,9 @@ function test_trino_starts {
         fi
         sleep ${QUERY_PERIOD}
     done
+    if ! RESULT=$(docker exec "${CONTAINER_ID}" trino --execute "SELECT 'success'" 2>/dev/null); then
+        echo "🚨 Failed to execute a query after Trino container started"
+    fi
     set -e
 
     cleanup
