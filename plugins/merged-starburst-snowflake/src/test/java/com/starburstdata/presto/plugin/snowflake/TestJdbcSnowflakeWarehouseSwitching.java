@@ -24,8 +24,6 @@ import static com.starburstdata.presto.plugin.snowflake.SnowflakeServer.TEST_DAT
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeServer.TEST_WAREHOUSE;
 import static java.lang.String.format;
 
-// TODO: Remove singleThreaded=true once https://github.com/trinodb/trino/issues/11067 gets fixed (https://starburstdata.atlassian.net/browse/SEP-8578)
-@Test(singleThreaded = true)
 public class TestJdbcSnowflakeWarehouseSwitching
         extends AbstractTestQueryFramework
 {

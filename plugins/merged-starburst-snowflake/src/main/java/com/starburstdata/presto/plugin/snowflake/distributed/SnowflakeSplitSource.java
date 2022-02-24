@@ -134,6 +134,7 @@ public class SnowflakeSplitSource
     private ConnectorSplitSource hiveSplitSource;
 
     private final Set<String> retryableErrorCodes;
+    private final CachingDirectoryLister directoryLister;
 
     SnowflakeSplitSource(
             ListeningExecutorService executorService,
@@ -166,6 +167,9 @@ public class SnowflakeSplitSource
         else {
             retryableErrorCodes = INTERMITTENT_SQL_STATES;
         }
+        // Exported tables are ephemeral, so directory listing cache would not be useful (and can only be harmful).
+        // Cache is disabled because the list of tables to cache is empty.
+        this.directoryLister = new CachingDirectoryLister(new Duration(1, SECONDS), 1, ImmutableList.of());
     }
 
     @Override
@@ -330,7 +334,7 @@ public class SnowflakeSplitSource
                 new HivePartitionManager(hiveConfig),
                 new NamenodeStats(),
                 hdfsEnvironment,
-                new CachingDirectoryLister(hiveConfig),
+                directoryLister,
                 executorService,
                 new CounterStat(),
                 hiveConfig.getMaxOutstandingSplits(),
@@ -372,7 +376,8 @@ public class SnowflakeSplitSource
                 hiveConfig.isSkipTargetCleanupOnRollback(),
                 hiveConfig.isDeleteSchemaLocationsFallback(),
                 Optional.of(new Duration(5, SECONDS)),
-                Executors.newScheduledThreadPool(1));
+                Executors.newScheduledThreadPool(1),
+                directoryLister);
     }
 
     private List<Column> getHiveColumns()
