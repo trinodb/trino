@@ -25,6 +25,7 @@ import io.trino.plugin.jdbc.JdbcJoinCondition;
 import io.trino.plugin.jdbc.JdbcSortItem;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
+import io.trino.plugin.jdbc.LongReadFunction;
 import io.trino.plugin.jdbc.LongWriteFunction;
 import io.trino.plugin.jdbc.PreparedQuery;
 import io.trino.plugin.jdbc.QueryBuilder;
@@ -61,7 +62,9 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -70,6 +73,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.BiFunction;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -101,7 +105,6 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.realWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.shortDecimalWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.smallintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.smallintWriteFunction;
-import static io.trino.plugin.jdbc.StandardColumnMappings.timeColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.timeWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.timestampColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.timestampWriteFunction;
@@ -125,6 +128,10 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeType.createTimeType;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
 import static io.trino.spi.type.TimestampType.createTimestampType;
+import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_DAY;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_DAY;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
+import static io.trino.spi.type.Timestamps.round;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.Float.floatToRawIntBits;
@@ -132,6 +139,7 @@ import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.sql.DatabaseMetaData.columnNoNulls;
+import static java.time.format.DateTimeFormatter.ISO_LOCAL_TIME;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
@@ -145,6 +153,7 @@ public class MemSqlClient
     static final int MEMSQL_TEXT_MAX_LENGTH = 65535;
     static final int MEMSQL_MEDIUMTEXT_MAX_LENGTH = 16777215;
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("uuuu-MM-dd");
+    private static final Pattern UNSIGNED_TYPE_REGEX = Pattern.compile("(?i).*unsigned$");
 
     private final Type jsonType;
 
@@ -273,7 +282,7 @@ public class MemSqlClient
     private static Map<String, Integer> getTimestampPrecisions(Connection connection, JdbcTableHandle tableHandle)
             throws SQLException
     {
-        // MariaDB JDBC driver doesn't expose timestamp precision when connecting to MemSQL cluster
+        // SingleStore JDBC driver doesn't expose timestamp precision when connecting to MemSQL cluster
         String sql = "" +
                 "SELECT column_name, column_type " +
                 "FROM information_schema.columns " +
@@ -365,7 +374,10 @@ public class MemSqlClient
                         dateWriteFunction()));
             case Types.TIME:
                 TimeType timeType = createTimeType(typeHandle.getRequiredDecimalDigits());
-                return Optional.of(timeColumnMapping(timeType));
+                return Optional.of(ColumnMapping.longMapping(
+                        timeType,
+                        memsqlTimeReadFunction(timeType),
+                        timeWriteFunction(timeType.getPrecision())));
             case Types.TIMESTAMP:
                 // TODO (https://github.com/trinodb/trino/issues/5450) Fix DST handling
                 TimestampType timestampType = createTimestampType(typeHandle.getRequiredDecimalDigits());
@@ -624,20 +636,49 @@ public class MemSqlClient
         }
 
         String typeName = typeHandle.getJdbcTypeName().get();
-        if (typeName.equalsIgnoreCase("tinyint unsigned")) {
-            return Optional.of(smallintColumnMapping());
-        }
-        if (typeName.equalsIgnoreCase("smallint unsigned")) {
-            return Optional.of(integerColumnMapping());
-        }
-        if (typeName.equalsIgnoreCase("int unsigned")) {
-            return Optional.of(bigintColumnMapping());
-        }
-        if (typeName.equalsIgnoreCase("bigint unsigned")) {
-            return Optional.of(decimalColumnMapping(createDecimalType(20)));
+        if (UNSIGNED_TYPE_REGEX.matcher(typeName).matches()) {
+            switch (typeHandle.getJdbcType()) {
+                case Types.BIT:
+                    return Optional.of(booleanColumnMapping());
+
+                case Types.TINYINT:
+                    return Optional.of(smallintColumnMapping());
+
+                case Types.SMALLINT:
+                    return Optional.of(integerColumnMapping());
+
+                case Types.INTEGER:
+                    return Optional.of(bigintColumnMapping());
+
+                case Types.BIGINT:
+                    return Optional.of(decimalColumnMapping(createDecimalType(20)));
+            }
         }
 
         return Optional.empty();
+    }
+
+    private static LongReadFunction memsqlTimeReadFunction(TimeType timeType)
+    {
+        requireNonNull(timeType, "timeType is null");
+        checkArgument(timeType.getPrecision() <= 9, "Unsupported type precision: %s", timeType);
+        return (resultSet, columnIndex) -> {
+            // SingleStore JDBC driver wraps time to be within LocalTime range, which results in values which differ from what is stored, so we verify them
+            String timeString = resultSet.getString(columnIndex);
+            try {
+                long nanosOfDay = LocalTime.from(ISO_LOCAL_TIME.parse(timeString)).toNanoOfDay();
+                verify(nanosOfDay < NANOSECONDS_PER_DAY, "Invalid value of nanosOfDay: %s", nanosOfDay);
+                long picosOfDay = nanosOfDay * PICOSECONDS_PER_NANOSECOND;
+                long rounded = round(picosOfDay, 12 - timeType.getPrecision());
+                if (rounded == PICOSECONDS_PER_DAY) {
+                    rounded = 0;
+                }
+                return rounded;
+            }
+            catch (DateTimeParseException e) {
+                throw new IllegalStateException(format("Supported Trino TIME type range is between 00:00:00 and 23:59:59.999999 but got %s", timeString), e);
+            }
+        };
     }
 
     private static LongWriteFunction dateWriteFunction()
