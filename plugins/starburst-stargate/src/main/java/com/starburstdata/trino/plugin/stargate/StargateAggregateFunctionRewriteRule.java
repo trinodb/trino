@@ -67,8 +67,8 @@ class StargateAggregateFunctionRewriteRule
             return Optional.empty();
         }
 
-        List<Optional<String>> mappedInputs = aggregateFunction.getInputs().stream()
-                .map(input -> toSql(context, input))
+        List<Optional<String>> mappedInputs = aggregateFunction.getArguments().stream()
+                .map(argument -> toSql(context, argument))
                 .collect(toImmutableList());
         if (mappedInputs.stream().anyMatch(Optional::isEmpty)) {
             // TODO support complex ConnectorExpressions
