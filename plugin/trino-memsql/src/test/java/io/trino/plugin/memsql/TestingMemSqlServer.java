@@ -71,7 +71,7 @@ public class TestingMemSqlServer
     @Override
     public String getDriverClassName()
     {
-        return "org.mariadb.jdbc.Driver";
+        return "com.singlestore.jdbc.Driver";
     }
 
     @Override
@@ -89,7 +89,7 @@ public class TestingMemSqlServer
     @Override
     public String getJdbcUrl()
     {
-        return "jdbc:mariadb://" + getContainerIpAddress() + ":" + getMappedPort(MEMSQL_PORT);
+        return "jdbc:singlestore://" + getContainerIpAddress() + ":" + getMappedPort(MEMSQL_PORT);
     }
 
     @Override

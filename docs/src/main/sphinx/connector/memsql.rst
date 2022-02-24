@@ -28,7 +28,7 @@ connection properties as appropriate for your setup:
 .. code-block:: text
 
     connector.name=memsql
-    connection-url=jdbc:mariadb://example.net:3306
+    connection-url=jdbc:singlestore://example.net:3306
     connection-user=root
     connection-password=secret
 
@@ -47,10 +47,10 @@ parameter to the ``connection-url`` configuration property:
 
 .. code-block:: properties
 
-  connection-url=jdbc:mariadb://example.net:3306/?useSsl=true
+  connection-url=jdbc:singlestore://example.net:3306/?useSsl=true
 
 For more information on TLS configuration options, see the `JDBC driver
-documentation <https://mariadb.com/kb/en/about-mariadb-connector-j/#tls-parameters>`_.
+documentation <https://docs.singlestore.com/db/v7.6/en/developer-resources/connect-with-application-development-tools/connect-with-java-jdbc/the-singlestore-jdbc-driver.html#tls-parameters>`_.
 
 Multiple SingleStore servers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
