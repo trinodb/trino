@@ -84,7 +84,27 @@ This property is required; there is no default. A connection url or seeds must b
 
 As MongoDB is a document database, there is no fixed schema information in the system. So a special collection in each MongoDB database should define the schema of all tables. Please refer the :ref:`table-definition-label` section for the details.
 
-At startup, this connector tries guessing fields' types, but it might not be correct for your collection. In that case, you need to modify it manually. ``CREATE TABLE`` and ``CREATE TABLE AS SELECT`` will create an entry for you.
+At startup, the connector tries to guess the data type of fields based on the mapping in the following table.
+
+================== ================ ================================================
+MongoDB            Trino            Notes
+================== ================ ================================================
+``Boolean``        ``BOOLEAN``
+``Int32``          ``BIGINT``
+``Int64``          ``BIGINT``
+``Double``         ``DOUBLE``
+``Date``           ``TIMESTAMP(3)``
+``String``         ``VARCHAR``
+``Binary``         ``VARBINARY``
+``ObjectId``       ``ObjectId``
+``Object``         ``ROW``
+``Array``          ``ARRAY``        Map to ``ROW`` if the element type is not unique
+``DBRef``          ``ROW``
+================== ================ ================================================
+
+The initial guess can be incorrect for your specific collection. In that case, you need to modify it manually. Please refer the :ref:`table-definition-label` section for the details.
+
+Creating new tables using ``CREATE TABLE`` and ``CREATE TABLE AS SELECT`` automatically create an entry for you.
 
 This property is optional; the default is ``_schema``.
 
