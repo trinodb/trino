@@ -54,7 +54,10 @@ public class TestCachingDirectoryLister
 
         return HiveQueryRunner.builder()
                 .setHiveProperties(ImmutableMap.of(
-                        "hive.allow-register-partition-procedure", "true"))
+                        "hive.allow-register-partition-procedure", "true",
+                        "hive.file-status-cache-expire-time", "5m",
+                        "hive.file-status-cache-size", "1000000",
+                        "hive.file-status-cache-tables", "tpch.*"))
                 .setMetastore(distributedQueryRunner -> fileHiveMetastore = createTestingFileHiveMetastore(temporaryMetastoreDirectory.toFile()))
                 .setCachingDirectoryLister(cachingDirectoryLister)
                 .build();

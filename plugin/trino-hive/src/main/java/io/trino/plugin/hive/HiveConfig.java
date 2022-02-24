@@ -746,6 +746,11 @@ public class HiveConfig
         return this;
     }
 
+    public boolean isFileStatusCacheTablesEnabled()
+    {
+        return fileStatusCacheTables != null && fileStatusCacheTables.size() > 0;
+    }
+
     public boolean isTranslateHiveViews()
     {
         return translateHiveViews;
