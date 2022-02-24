@@ -31,7 +31,7 @@ There are two types of session properties:
 * **System session properties** apply to the whole cluster. Most session
   properties are system session properties unless specified otherwise.
 * **Catalog session properties** are connector-defined session properties that
-  can be set on a per-catalog basis. These properties can be set separately for
+  can be set on a per-catalog basis. These properties must be set separately for
   each catalog by including the catalog name as a prefix, such as
   ``catalogname.property_name``.
 
