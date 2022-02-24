@@ -259,7 +259,7 @@ public class FileSystemExchangeSink
         private void flushIfNeeded(boolean finished)
         {
             SliceOutput buffer = currentBuffer;
-            if (!buffer.isWritable() || finished) {
+            if (buffer != null && (!buffer.isWritable() || finished)) {
                 if (!buffer.isWritable()) {
                     currentBuffer = null;
                 }
