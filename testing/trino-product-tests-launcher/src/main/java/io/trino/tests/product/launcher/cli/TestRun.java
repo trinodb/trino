@@ -283,13 +283,9 @@ public final class TestRun
                         .withCopyFileToContainer(forClasspathResource("docker/presto-product-tests/common/standard/set-trino-cli.sh"), "/etc/profile.d/set-trino-cli.sh")
                         .withEnv("JAVA_HOME", jdkVersion.getJavaHome())
                         .withCommand(ImmutableList.<String>builder()
+                                .add(jdkVersion.getJavaCommand())
+                                .addAll(jdkVersion.getJvmFlags())
                                 .add(
-                                        jdkVersion.getJavaCommand(),
-                                        "-Xmx1g",
-                                        // Force Parallel GC to ensure MaxHeapFreeRatio is respected
-                                        "-XX:+UseParallelGC",
-                                        "-XX:MinHeapFreeRatio=10",
-                                        "-XX:MaxHeapFreeRatio=10",
                                         "-Djava.util.logging.config.file=/docker/presto-product-tests/conf/tempto/logging.properties",
                                         "-Duser.timezone=Asia/Kathmandu",
                                         // Tempto has progress logging built in

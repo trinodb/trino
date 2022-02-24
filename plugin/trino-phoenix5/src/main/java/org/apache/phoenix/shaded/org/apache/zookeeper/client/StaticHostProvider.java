@@ -57,7 +57,7 @@ public final class StaticHostProvider
         implements HostProvider
 {
     private static final Logger LOG = LoggerFactory.getLogger(StaticHostProvider.class);
-    private final List<InetSocketAddress> serverAddresses = new ArrayList<InetSocketAddress>(5);
+    private final List<InetSocketAddress> serverAddresses = new ArrayList<>(5);
     private int lastIndex = -1;
     private int currentIndex = -1;
     private StaticHostProvider.Resolver resolver;
@@ -125,6 +125,8 @@ public final class StaticHostProvider
         if (addr == null) {
             return hostString;
         }
+
+        System.out.println("GET HOST STRING FOR " + addr);
 
         // Patched to work with JDK 17: https://bugs.java.com/bugdatabase/view_bug.do?bug_id=8232369
         return addr.getHostString();

@@ -13,6 +13,7 @@
  */
 package io.trino.tests.product.launcher.env.common;
 
+import com.google.common.base.Joiner;
 import io.airlift.log.Logger;
 import io.trino.tests.product.launcher.docker.DockerFiles;
 import io.trino.tests.product.launcher.env.Debug;
@@ -25,6 +26,7 @@ import io.trino.tests.product.launcher.env.SupportedTrinoJdk;
 import io.trino.tests.product.launcher.testcontainers.PortBinder;
 import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
 import org.testcontainers.containers.wait.strategy.WaitAllStrategy;
+import org.testcontainers.utility.MountableFile;
 
 import javax.inject.Inject;
 
@@ -45,9 +47,11 @@ import static io.trino.tests.product.launcher.env.EnvironmentContainers.TESTS;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.WORKER;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.WORKER_NTH;
 import static io.trino.tests.product.launcher.testcontainers.PortBinder.unsafelyExposePort;
+import static java.io.File.createTempFile;
 import static java.lang.Integer.parseInt;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.nio.file.StandardOpenOption.APPEND;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.containers.BindMode.READ_ONLY;
 import static org.testcontainers.containers.wait.strategy.Wait.forHealthcheck;
@@ -139,7 +143,7 @@ public final class Standard
                 .withNetworkAliases(logicalName + ".docker.cluster")
                 .withExposedLogPaths("/var/trino/var/log", "/var/log/container-health.log")
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath()), "/docker/presto-product-tests")
-                .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("conf/presto/etc/jvm.config")), CONTAINER_PRESTO_JVM_CONFIG)
+                .withCopyFileToContainer(generateJvmConfig(dockerFiles, jdkVersion), CONTAINER_PRESTO_JVM_CONFIG)
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("health-checks/trino-health-check.sh")), CONTAINER_HEALTH_D + "trino-health-check.sh")
                 // the server package is hundreds MB and file system bind is much more efficient
                 .withFileSystemBind(serverPackage.getPath(), "/docker/presto-server.tar.gz", READ_ONLY)
@@ -155,6 +159,29 @@ public final class Standard
             container.withHealthCheck(dockerFiles.getDockerFilesHostPath("health-checks/health.sh"));
         }
         return container;
+    }
+
+    private static MountableFile generateJvmConfig(DockerFiles dockerFiles, SupportedTrinoJdk jdkVersion)
+    {
+        Path originalConfig = dockerFiles.getDockerFilesHostPath("conf/presto/etc/jvm.config");
+        if (jdkVersion.getJvmFlags().isEmpty()) {
+            return forHostPath(originalConfig);
+        }
+
+        log.info("Adding additional JVM flags %s to the %s", jdkVersion.getJvmFlags(), originalConfig);
+
+        try {
+            File config = createTempFile("jvm", ".config");
+            config.deleteOnExit();
+
+            Files.writeString(config.toPath(), Files.readString(originalConfig), APPEND);
+            Files.writeString(config.toPath(), Joiner.on("\n").join(jdkVersion.getJvmFlags()), APPEND);
+
+            return forHostPath(config.toPath());
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 
     private static void enablePrestoJavaDebugger(DockerContainer dockerContainer)

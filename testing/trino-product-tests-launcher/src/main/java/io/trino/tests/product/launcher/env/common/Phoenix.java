@@ -53,6 +53,11 @@ public class Phoenix
         String dockerImageName = "ghcr.io/trinodb/testing/phoenix5:" + TestingProperties.getDockerImagesVersion();
         DockerContainer phoenix = new DockerContainer(dockerImageName, "phoenix")
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
+                .withCreateContainerCmdModifier(createContainerCmd -> createContainerCmd
+                        .withHostName("phoenix")
+                        .withDomainName("docker.cluster")
+                        .withAliases("phoenix", "phoenix.docker.cluster"))
+                .withNetworkAliases("phoenix.docker.cluster")
                 .waitingFor(forSelectedPorts(ZOOKEEPER_PORT))
                 .withStartupTimeout(Duration.ofMinutes(5));
 

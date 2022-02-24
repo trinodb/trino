@@ -13,17 +13,35 @@
  */
 package io.trino.tests.product.launcher.env;
 
+import java.util.List;
+
 public enum SupportedTrinoJdk
 {
-    ZULU_11("/usr/lib/jvm/zulu-11"),
-    ZULU_17("/usr/lib/jvm/zulu-17"),
+    ZULU_11("/usr/lib/jvm/zulu-11", List.of(
+        "-Xmx2G",
+        "-XX:+UseG1GC",
+        "-XX:-UseBiasedLocking",
+        "-XX:G1HeapRegionSize=32M",
+        // Force Parallel GC to ensure MaxHeapFreeRatio is respected
+        "-XX:+UseParallelGC",
+        "-XX:MinHeapFreeRatio=10",
+        "-XX:MaxHeapFreeRatio=10")),
+    ZULU_17("/usr/lib/jvm/zulu-17", List.of(
+        "-Xmx2304M",
+        "-XX:+UseZGC",
+        "-Dzookeeper.sasl.client.canonicalize.hostname=false",
+        "-Dzookeeper.sasl.client=false",
+        "--add-opens", "java.base/sun.nio.ch=ALL-UNNAMED",
+        "--add-opens", "java.base/java.nio=ALL-UNNAMED")),
     /**/;
 
     private final String javaHome;
+    private final List<String> jvmFlags;
 
-    SupportedTrinoJdk(String javaHome)
+    SupportedTrinoJdk(String javaHome, List<String> jvmFlags)
     {
         this.javaHome = javaHome;
+        this.jvmFlags = jvmFlags;
     }
 
     public String getJavaHome()
@@ -34,5 +52,10 @@ public enum SupportedTrinoJdk
     public String getJavaCommand()
     {
         return javaHome + "/bin/java";
+    }
+
+    public List<String> getJvmFlags()
+    {
+        return jvmFlags;
     }
 }
