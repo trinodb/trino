@@ -49,7 +49,7 @@ public class ProtocolConfig
     }
 
     @Config("protocol.v1.prepared-statement-compression.length-threshold")
-    @ConfigDescription("Prepared statements longer than the configured value will be compressed")
+    @ConfigDescription("Compression is applied to prepared statements longer than the configured value")
     public ProtocolConfig setPreparedStatementCompressionThreshold(int preparedStatementCompressionThreshold)
     {
         this.preparedStatementCompressionThreshold = preparedStatementCompressionThreshold;
@@ -63,7 +63,7 @@ public class ProtocolConfig
     }
 
     @Config("protocol.v1.prepared-statement-compression.min-gain")
-    @ConfigDescription("Prepared statement compression will not be applied if size gain is less than the configured value")
+    @ConfigDescription("Prepared statement compression is not applied if the size gain is less than the configured value")
     public ProtocolConfig setPreparedStatementCompressionMinimalGain(int preparedStatementCompressionMinimalGain)
     {
         this.preparedStatementCompressionMinimalGain = preparedStatementCompressionMinimalGain;
