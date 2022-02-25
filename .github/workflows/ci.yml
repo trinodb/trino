@@ -534,7 +534,36 @@ jobs:
           - suite-5
         jdk:
           - 11
+          - 17
         exclude:
+          # exclude JDK 17 on all combinations except hdp3 for suite-1 and suite-2 but only on master and with explicit labels
+          - config: default
+            jdk: 17
+          - config: hdp3
+            suite: suite-1
+            jdk: 17
+            ignore exclusion if: >-
+              ${{ github.event_name != 'pull_request'
+               || contains(github.event.pull_request.labels.*.name, 'tests:all')
+               || contains(github.event.pull_request.labels.*.name, 'tests:hive')
+               }}
+          - config: hdp3
+            suite: suite-2
+            jdk: 17
+            ignore exclusion if: >-
+              ${{ github.event_name != 'pull_request'
+               || contains(github.event.pull_request.labels.*.name, 'tests:all')
+               || contains(github.event.pull_request.labels.*.name, 'tests:hive')
+               }}
+          - config: hdp3
+            suite: suite-3
+            jdk: 17
+          - config: hdp3
+            suite: suite-5
+            jdk: 17
+          - config: cdh5
+            jdk: 17
+          # exclude cdh5 and default configs on all runs except master and with explicit labels
           - config: cdh5
             ignore exclusion if: >-
               ${{ github.event_name != 'pull_request'
@@ -593,14 +622,6 @@ jobs:
           - config: apache-hive3
             suite: suite-hms-only
             jdk: 11
-          # suite-1 does not contain Kerberos/encrypted Hive environments
-          - config: hdp3
-            suite: suite-1
-            jdk: 17
-          # suite-2 contains Kerberos/encrypted Hive environments
-          - config: hdp3
-            suite: suite-2
-            jdk: 17
     # PT Launcher's timeout defaults to 2h, account for preparation steps (compilation) and add some margin
     timeout-minutes: 140
     steps:
