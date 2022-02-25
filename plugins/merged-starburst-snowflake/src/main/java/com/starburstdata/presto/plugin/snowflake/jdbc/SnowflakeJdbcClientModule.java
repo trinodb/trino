@@ -50,6 +50,7 @@ import io.trino.plugin.jdbc.IdentityCacheMapping;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcMetadataFactory;
 import io.trino.plugin.jdbc.MaxDomainCompactionThreshold;
+import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
 import io.trino.plugin.jdbc.credential.CredentialProviderModule;
 import io.trino.plugin.jdbc.credential.DefaultCredentialPropertiesProvider;
@@ -141,9 +142,10 @@ public class SnowflakeJdbcClientModule
             JdbcStatisticsConfig statisticsConfig,
             TableScanRedirection tableScanRedirection,
             ConnectionFactory connectionFactory,
+            QueryBuilder queryBuilder,
             IdentifierMapping identifierMapping)
     {
-        return new SnowflakeClient(config, statisticsConfig, tableScanRedirection, connectionFactory, distributedConnector, identifierMapping);
+        return new SnowflakeClient(config, statisticsConfig, tableScanRedirection, connectionFactory, distributedConnector, queryBuilder, identifierMapping);
     }
 
     @Provides

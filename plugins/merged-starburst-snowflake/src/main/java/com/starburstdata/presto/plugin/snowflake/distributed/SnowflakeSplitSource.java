@@ -220,8 +220,9 @@ public class SnowflakeSplitSource
                     String stageName = "export_" + randomUUID().toString().replace("-", "_");
                     execute(connection, format("CREATE TEMPORARY STAGE %s.%s FILE_FORMAT = (TYPE = PARQUET)", snowflakeConfig.getStageSchema(), stageName));
 
-                    SnowflakeQueryBuilder queryBuilder = new SnowflakeQueryBuilder(client);
-                    PreparedQuery preparedQuery = queryBuilder.prepareQuery(
+                    SnowflakeQueryBuilder queryBuilder = new SnowflakeQueryBuilder();
+                    PreparedQuery preparedQuery = queryBuilder.prepareSelectQuery(
+                            client,
                             session,
                             connection,
                             jdbcTableHandle.getRelationHandle(),
@@ -232,7 +233,7 @@ public class SnowflakeSplitSource
                             Optional.empty());
                     preparedQuery = client.applyQueryTransformations(jdbcTableHandle, preparedQuery);
                     preparedQuery = preparedQuery.transformQuery(sql -> copyIntoStage(sql, stageName));
-                    try (PreparedStatement statement = queryBuilder.prepareStatement(session, connection, preparedQuery)) {
+                    try (PreparedStatement statement = queryBuilder.prepareStatement(client, session, connection, preparedQuery)) {
                         // TODO close ResultSet
                         statement.executeQuery();
                     }

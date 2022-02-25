@@ -17,6 +17,7 @@ import io.trino.plugin.jdbc.ColumnMapping;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.LongWriteFunction;
+import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.WriteMapping;
 import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.plugin.sqlserver.SqlServerConfig;
@@ -69,6 +70,7 @@ public class StarburstSynapseClient
             JdbcStatisticsConfig statisticsConfig,
             TableScanRedirection tableScanRedirection,
             ConnectionFactory connectionFactory,
+            QueryBuilder queryBuilder,
             IdentifierMapping identifierMapping)
     {
         super(
@@ -77,6 +79,7 @@ public class StarburstSynapseClient
                 statisticsConfig,
                 tableScanRedirection,
                 connectionFactory,
+                queryBuilder,
                 identifierMapping);
     }
 

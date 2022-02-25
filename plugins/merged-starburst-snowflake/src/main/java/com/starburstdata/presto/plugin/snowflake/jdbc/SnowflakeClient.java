@@ -32,6 +32,7 @@ import io.trino.plugin.jdbc.LongWriteFunction;
 import io.trino.plugin.jdbc.ObjectReadFunction;
 import io.trino.plugin.jdbc.ObjectWriteFunction;
 import io.trino.plugin.jdbc.PreparedQuery;
+import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.SliceReadFunction;
 import io.trino.plugin.jdbc.SliceWriteFunction;
 import io.trino.plugin.jdbc.WriteMapping;
@@ -216,9 +217,10 @@ public class SnowflakeClient
             TableScanRedirection tableScanRedirection,
             ConnectionFactory connectionFactory,
             boolean distributedConnector,
+            QueryBuilder queryBuilder,
             IdentifierMapping identifierMapping)
     {
-        super(config, IDENTIFIER_QUOTE, connectionFactory, identifierMapping);
+        super(config, IDENTIFIER_QUOTE, connectionFactory, queryBuilder, identifierMapping);
         this.statisticsEnabled = requireNonNull(statisticsConfig, "statisticsConfig is null").isEnabled();
         this.tableScanRedirection = requireNonNull(tableScanRedirection, "tableScanRedirection is null");
         this.distributedConnector = distributedConnector;
@@ -510,7 +512,7 @@ public class SnowflakeClient
     }
 
     @Override
-    protected boolean isSupportedJoinCondition(JdbcJoinCondition joinCondition)
+    protected boolean isSupportedJoinCondition(ConnectorSession session, JdbcJoinCondition joinCondition)
     {
         return true;
     }

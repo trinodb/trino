@@ -9,9 +9,9 @@
  */
 package com.starburstdata.presto.plugin.snowflake.distributed;
 
+import io.trino.plugin.jdbc.DefaultQueryBuilder;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
-import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
@@ -20,7 +20,6 @@ import java.util.List;
 import java.util.Map;
 
 import static java.lang.String.format;
-import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
 /**
@@ -36,23 +35,15 @@ import static java.util.stream.Collectors.joining;
  * have a different meaning there - they represent a timezone id, so a translation is necessary).
  */
 public class SnowflakeQueryBuilder
-        extends QueryBuilder
+        extends DefaultQueryBuilder
 {
     // Similar to io.trino.spi.type.DateTimeEncoding#MILLIS_SHIFT
     public static final int TIMESTAMP_WITH_TIME_ZONE_MILLIS_SHIFT = 12;
     public static final int TIMESTAMP_WITH_TIME_ZONE_ZONE_MASK = 0xFFF;
     public static final int ZONE_OFFSET_MINUTES_BIAS = 2048;
 
-    private final JdbcClient jdbcClient;
-
-    public SnowflakeQueryBuilder(JdbcClient jdbcClient)
-    {
-        super(jdbcClient);
-        this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
-    }
-
     @Override
-    protected String getProjection(List<JdbcColumnHandle> columns, Map<String, String> columnExpressions)
+    protected String getProjection(JdbcClient client, List<JdbcColumnHandle> columns, Map<String, String> columnExpressions)
     {
         if (columns.isEmpty()) {
             return "null";
@@ -69,30 +60,30 @@ public class SnowflakeQueryBuilder
                                 // using TO_DECIMAL to prevent Snowflake from losing precision on the shift result
                                 "TO_DECIMAL(BITSHIFTLEFT(EXTRACT('EPOCH_MILLISECOND', %1$s), %2$s), 38, 0), " +
                                 "%3$s + EXTRACT('TZH', %1$s) * 60 + EXTRACT('TZM', %1$s))",
-                                getColumnExpression(columnHandle, columnExpressions),
+                                getColumnExpression(client, columnHandle, columnExpressions),
                                 TIMESTAMP_WITH_TIME_ZONE_MILLIS_SHIFT,
                                 ZONE_OFFSET_MINUTES_BIAS);
                     }
                     else if (columnHandle.getColumnType() instanceof TimestampType) {
-                        expression = format("CAST(%s as TIMESTAMP(3))", getColumnExpression(columnHandle, columnExpressions));
+                        expression = format("CAST(%s as TIMESTAMP(3))", getColumnExpression(client, columnHandle, columnExpressions));
                     }
                     else if (columnHandle.getColumnType() instanceof TimeType) {
-                        expression = format("CAST(%s as TIME(3))", getColumnExpression(columnHandle, columnExpressions));
+                        expression = format("CAST(%s as TIME(3))", getColumnExpression(client, columnHandle, columnExpressions));
                     }
                     else {
-                        expression = getColumnExpression(columnHandle, columnExpressions);
+                        expression = getColumnExpression(client, columnHandle, columnExpressions);
                     }
 
-                    return format("%s AS %s", expression, jdbcClient.quoted(columnHandle.getColumnName()));
+                    return format("%s AS %s", expression, client.quoted(columnHandle.getColumnName()));
                 })
                 .collect(joining(", "));
     }
 
-    private String getColumnExpression(JdbcColumnHandle jdbcColumnHandle, Map<String, String> columnExpressions)
+    private String getColumnExpression(JdbcClient client, JdbcColumnHandle jdbcColumnHandle, Map<String, String> columnExpressions)
     {
         String expression = columnExpressions.get(jdbcColumnHandle.getColumnName());
         if (expression == null) {
-            return jdbcClient.quoted(jdbcColumnHandle.getColumnName());
+            return client.quoted(jdbcColumnHandle.getColumnName());
         }
         return expression;
     }
