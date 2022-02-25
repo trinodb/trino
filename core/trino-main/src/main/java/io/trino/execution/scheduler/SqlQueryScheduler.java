@@ -1924,6 +1924,8 @@ public class SqlQueryScheduler
                 return;
             }
 
+            stateMachine.transitionToRunning();
+
             try (SetThreadName ignored = new SetThreadName("Query-%s", queryStateMachine.getQueryId())) {
                 List<ListenableFuture<Void>> blockedStages = new ArrayList<>();
                 while (!isFinishingOrDone(queryStateMachine) && !stateMachine.getState().isDone()) {
