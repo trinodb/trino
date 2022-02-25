@@ -602,8 +602,8 @@ public class TestShowStats
                 sessionWith(getSession(), USE_PARTIAL_DISTINCT_LIMIT, "false"),
                 "SHOW STATS FOR (SELECT DISTINCT regionkey FROM nation LIMIT 3)",
                 "VALUES " +
-                        "   ('regionkey', null, null, null, null, null, null), " +
-                        "   (null, null, null, null, null, null, null)");
+                        "   ('regionkey', null, 3, 0, null, 0, 4), " +
+                        "   (null, null, null, null, 3, null, null)");
     }
 
     @Test
