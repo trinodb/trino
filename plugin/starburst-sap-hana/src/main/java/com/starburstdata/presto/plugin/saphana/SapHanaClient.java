@@ -35,6 +35,7 @@ import io.trino.plugin.jdbc.LongWriteFunction;
 import io.trino.plugin.jdbc.ObjectReadFunction;
 import io.trino.plugin.jdbc.ObjectWriteFunction;
 import io.trino.plugin.jdbc.PreparedQuery;
+import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.SliceWriteFunction;
 import io.trino.plugin.jdbc.WriteMapping;
 import io.trino.plugin.jdbc.aggregation.ImplementAvgFloatingPoint;
@@ -194,9 +195,10 @@ public class SapHanaClient
             JdbcStatisticsConfig statisticsConfig,
             TableScanRedirection tableScanRedirection,
             ConnectionFactory connectionFactory,
+            QueryBuilder queryBuilder,
             IdentifierMapping identifierMapping)
     {
-        super(baseJdbcConfig, "\"", connectionFactory, identifierMapping);
+        super(baseJdbcConfig, "\"", connectionFactory, queryBuilder, identifierMapping);
 
         JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.empty(), 0, 0, Optional.empty());
         this.aggregateFunctionRewriter = new AggregateFunctionRewriter<>(
@@ -340,7 +342,7 @@ public class SapHanaClient
     }
 
     @Override
-    protected boolean isSupportedJoinCondition(JdbcJoinCondition joinCondition)
+    protected boolean isSupportedJoinCondition(ConnectorSession session, JdbcJoinCondition joinCondition)
     {
         return joinCondition.getOperator() != JoinCondition.Operator.IS_DISTINCT_FROM;
     }
