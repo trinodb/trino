@@ -19,6 +19,7 @@ import io.trino.plugin.jdbc.JdbcOutputTableHandle;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.PredicatePushdownController;
+import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.RemoteTableName;
 import io.trino.plugin.jdbc.WriteFunction;
 import io.trino.plugin.jdbc.WriteMapping;
@@ -106,9 +107,10 @@ public class SalesforceJdbcClient
             ConnectionFactory connectionFactory,
             @EnableWrites boolean enableWrites,
             IdentifierMapping identifierMapping,
+            QueryBuilder queryBuilder,
             Set<SystemTableProvider> systemTables)
     {
-        super(baseJdbcConfig, "\"", connectionFactory, identifierMapping);
+        super(baseJdbcConfig, "\"", connectionFactory, queryBuilder, identifierMapping);
         this.tableScanRedirection = requireNonNull(tableScanRedirection, "tableScanRedirection is null");
         this.enableWrites = enableWrites;
         this.systemTables = requireNonNull(systemTables, "systemTables is null");
