@@ -318,8 +318,8 @@ public class TestHiveGlueMetastore
         double initialCallCount = stats.getGetDatabases().getTime().getAllTime().getCount();
         long initialFailureCount = stats.getGetDatabases().getTotalFailures().getTotalCount();
         getMetastoreClient().getAllDatabases();
-        assertEquals(stats.getGetDatabases().getTime().getAllTime().getCount(), initialCallCount + 1.0);
-        assertTrue(stats.getGetDatabases().getTime().getAllTime().getAvg() > 0.0);
+        assertThat(stats.getGetDatabases().getTime().getAllTime().getCount()).isGreaterThan(initialCallCount);
+        assertThat(stats.getGetDatabases().getTime().getAllTime().getAvg()).isGreaterThan(0.0);
         assertEquals(stats.getGetDatabases().getTotalFailures().getTotalCount(), initialFailureCount);
     }
 
