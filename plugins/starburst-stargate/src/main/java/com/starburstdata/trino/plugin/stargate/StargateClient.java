@@ -166,10 +166,11 @@ public class StargateClient
             TableScanRedirection tableScanRedirection,
             ConnectionFactory connectionFactory,
             TypeManager typeManager,
+            QueryBuilder queryBuilder,
             @EnableWrites boolean enableWrites,
             IdentifierMapping identifierMapping)
     {
-        super(config, "\"", connectionFactory, identifierMapping);
+        super(config, "\"", connectionFactory, queryBuilder, identifierMapping);
         this.enableWrites = enableWrites;
         this.jsonType = requireNonNull(typeManager, "typeManager is null").getType(new TypeSignature(JSON));
 
@@ -220,7 +221,7 @@ public class StargateClient
     }
 
     @Override
-    protected boolean isSupportedJoinCondition(JdbcJoinCondition joinCondition)
+    protected boolean isSupportedJoinCondition(ConnectorSession session, JdbcJoinCondition joinCondition)
     {
         return true;
     }
@@ -746,8 +747,8 @@ public class StargateClient
     private PreparedStatement getShowStatsStatement(ConnectorSession session, Connection connection, JdbcTableHandle table, List<JdbcColumnHandle> jdbcColumnHandles)
             throws SQLException
     {
-        QueryBuilder queryBuilder = new QueryBuilder(this);
-        PreparedQuery preparedQuery = queryBuilder.prepareQuery(
+        PreparedQuery preparedQuery = queryBuilder.prepareSelectQuery(
+                this,
                 session,
                 connection,
                 table.getRelationHandle(),
@@ -760,7 +761,7 @@ public class StargateClient
         preparedQuery = applyQueryTransformations(table, preparedQuery);
 
         preparedQuery = preparedQuery.transformQuery(sql -> "SHOW STATS FOR (" + sql + ")");
-        return queryBuilder.prepareStatement(session, connection, preparedQuery);
+        return queryBuilder.prepareStatement(this, session, connection, preparedQuery);
     }
 
     private static Estimate toEstimate(Optional<Double> value)
