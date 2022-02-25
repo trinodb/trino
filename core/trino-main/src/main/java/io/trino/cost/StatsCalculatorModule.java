@@ -70,6 +70,7 @@ public class StatsCalculatorModule
             rules.add(new FilterStatsRule(normalizer, filterStatsCalculator));
             rules.add(new ValuesStatsRule(plannerContext));
             rules.add(new LimitStatsRule(normalizer));
+            rules.add(new DistinctLimitStatsRule(normalizer));
             rules.add(new TopNStatsRule(normalizer));
             rules.add(new EnforceSingleRowStatsRule(normalizer));
             rules.add(new ProjectStatsRule(scalarStatsCalculator, normalizer));
