@@ -392,7 +392,7 @@ Property Name                                      Description                  
                                                    You can use the ``query_partition_filter_required`` catalog
                                                    session property for temporary, catalog specific use.
 
-``hive.statistics_enabled``                        Enables :doc:`/optimizer/statistics`. The equivalent          ``true``
+``hive.table-statistics-enabled``                  Enables :doc:`/optimizer/statistics`. The equivalent          ``true``
                                                    :doc:`catalog session property </sql/set-session>`
                                                    is ``statistics_enabled`` for session specific use.
                                                    Set to ``false`` to disable statistics. Disabling statistics
