@@ -87,7 +87,7 @@ public class TestQueryManagerConfig
                 .put("query.min-schedule-split-batch-size", "9")
                 .put("query.max-concurrent-queries", "10")
                 .put("query.max-queued-queries", "15")
-                .put("query.initial-hash-partitions", "16")
+                .put("query.hash-partition-count", "16")
                 .put("query.manager-executor-pool-size", "11")
                 .put("query.remote-task.min-error-duration", "30s")
                 .put("query.remote-task.max-error-duration", "60s")
