@@ -20,6 +20,7 @@ import io.trino.plugin.base.aggregation.AggregateFunctionRule;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ColumnMapping;
 import io.trino.plugin.jdbc.ConnectionFactory;
+import io.trino.plugin.jdbc.DefaultQueryBuilder;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
@@ -116,9 +117,10 @@ public class StarburstOracleClient
             TableScanRedirection tableScanRedirection,
             OracleConfig oracleConfig,
             ConnectionFactory connectionFactory,
+            QueryBuilder queryBuilder,
             IdentifierMapping identifierMapping)
     {
-        super(config, oracleConfig, connectionFactory, identifierMapping);
+        super(config, oracleConfig, connectionFactory, queryBuilder, identifierMapping);
         synonymsEnabled = oracleConfig.isSynonymsEnabled();
         this.licenseManager = requireNonNull(licenseManager, "licenseManager is null");
         JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(PRESTO_BIGINT_TYPE, Optional.of("NUMBER"), 0, 0, Optional.empty());
@@ -181,7 +183,8 @@ public class StarburstOracleClient
     public PreparedQuery prepareQuery(ConnectorSession session, JdbcTableHandle table, Optional<List<List<JdbcColumnHandle>>> groupingSets, List<JdbcColumnHandle> columns, Map<String, String> columnExpressions)
     {
         try (Connection connection = connectionFactory.openConnection(session)) {
-            PreparedQuery preparedQuery = new OracleQueryBuilder(this, Optional.empty()).prepareQuery(
+            PreparedQuery preparedQuery = queryBuilder.prepareSelectQuery(
+                    this,
                     session,
                     connection,
                     table.getRelationHandle(),
@@ -202,8 +205,9 @@ public class StarburstOracleClient
     public PreparedStatement buildSql(ConnectorSession session, Connection connection, JdbcSplit split, JdbcTableHandle table, List<JdbcColumnHandle> columns)
             throws SQLException
     {
-        OracleQueryBuilder queryBuilder = new OracleQueryBuilder(this, ((OracleSplit) split).getPartitionNames());
-        PreparedQuery preparedQuery = queryBuilder.prepareQuery(
+        OracleQueryBuilder queryBuilder = new OracleQueryBuilder(((OracleSplit) split).getPartitionNames());
+        PreparedQuery preparedQuery = queryBuilder.prepareSelectQuery(
+                this,
                 session,
                 connection,
                 table.getRelationHandle(),
@@ -213,7 +217,7 @@ public class StarburstOracleClient
                 table.getConstraint(),
                 split.getAdditionalPredicate());
         preparedQuery = applyQueryTransformations(table, preparedQuery);
-        return queryBuilder.prepareStatement(session, connection, preparedQuery);
+        return queryBuilder.prepareStatement(this, session, connection, preparedQuery);
     }
 
     @Override
@@ -535,20 +539,19 @@ public class StarburstOracleClient
     }
 
     private static class OracleQueryBuilder
-            extends QueryBuilder
+            extends DefaultQueryBuilder
     {
         private final Optional<List<String>> partitionNames;
 
-        public OracleQueryBuilder(JdbcClient jdbcClient, Optional<List<String>> partitionNames)
+        public OracleQueryBuilder(Optional<List<String>> partitionNames)
         {
-            super(jdbcClient);
             this.partitionNames = requireNonNull(partitionNames, "partitionNames is null");
         }
 
         @Override
-        protected String getRelation(RemoteTableName remoteTableName)
+        protected String getRelation(JdbcClient client, RemoteTableName remoteTableName)
         {
-            String tableName = super.getRelation(remoteTableName);
+            String tableName = super.getRelation(client, remoteTableName);
             return partitionNames
                     .map(batch -> batch.stream()
                             .map(partitionName -> format("SELECT * FROM %s PARTITION (%s)", tableName, partitionName))

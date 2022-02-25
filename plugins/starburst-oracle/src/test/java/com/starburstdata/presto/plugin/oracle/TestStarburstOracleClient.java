@@ -16,6 +16,7 @@ import com.starburstdata.presto.redirection.NoneRedirectionsProvider;
 import com.starburstdata.presto.redirection.RedirectionStats;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ColumnMapping;
+import io.trino.plugin.jdbc.DefaultQueryBuilder;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
@@ -74,6 +75,7 @@ public class TestStarburstOracleClient
             new TableScanRedirection(new NoneRedirectionsProvider(), NOOP_LICENSE_MANAGER, new RedirectionStats()),
             new OracleConfig(),
             session -> { throw new UnsupportedOperationException(); },
+            new DefaultQueryBuilder(),
             new DefaultIdentifierMapping());
 
     public static final ConnectorSession SESSION = TestingConnectorSession.builder()
