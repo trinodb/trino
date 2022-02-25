@@ -79,7 +79,7 @@ public abstract class BaseCassandraConnectorTest
 
     protected static final ZonedDateTime TIMESTAMP_VALUE = ZonedDateTime.of(1970, 1, 1, 3, 4, 5, 0, ZoneId.of("UTC"));
 
-    protected TestingCassandraServer server;
+    protected CassandraServer server;
     protected CassandraSession session;
 
     @Override

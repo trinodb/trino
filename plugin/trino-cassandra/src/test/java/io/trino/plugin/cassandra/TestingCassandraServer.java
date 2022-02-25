@@ -26,7 +26,6 @@ import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import org.testcontainers.containers.GenericContainer;
 
-import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -52,7 +51,7 @@ import static org.testcontainers.utility.MountableFile.forHostPath;
 import static org.testng.Assert.assertEquals;
 
 public class TestingCassandraServer
-        implements Closeable
+        implements CassandraServer
 {
     private static Logger log = Logger.get(TestingCassandraServer.class);
 
@@ -127,16 +126,19 @@ public class TestingCassandraServer
         return yamlFile.getAbsolutePath();
     }
 
+    @Override
     public CassandraSession getSession()
     {
         return requireNonNull(session, "session is null");
     }
 
+    @Override
     public String getHost()
     {
         return dockerContainer.getContainerIpAddress();
     }
 
+    @Override
     public int getPort()
     {
         return dockerContainer.getMappedPort(PORT);
@@ -151,6 +153,7 @@ public class TestingCassandraServer
         log.info("Cassandra version: %s", version);
     }
 
+    @Override
     public void refreshSizeEstimates(String keyspace, String table)
             throws Exception
     {
