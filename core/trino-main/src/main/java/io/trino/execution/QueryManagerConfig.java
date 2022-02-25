@@ -51,7 +51,7 @@ public class QueryManagerConfig
     private int maxConcurrentQueries = 1000;
     private int maxQueuedQueries = 5000;
 
-    private int initialHashPartitions = 100;
+    private int hashPartitionCount = 100;
     private Duration minQueryExpireAge = new Duration(15, TimeUnit.MINUTES);
     private int maxQueryHistory = 100;
     private int maxQueryLength = 1_000_000;
@@ -144,15 +144,17 @@ public class QueryManagerConfig
     }
 
     @Min(1)
-    public int getInitialHashPartitions()
+    public int getHashPartitionCount()
     {
-        return initialHashPartitions;
+        return hashPartitionCount;
     }
 
-    @Config("query.initial-hash-partitions")
-    public QueryManagerConfig setInitialHashPartitions(int initialHashPartitions)
+    @Config("query.hash-partition-count")
+    @LegacyConfig("query.initial-hash-partitions")
+    @ConfigDescription("Number of partitions for distributed joins and aggregations")
+    public QueryManagerConfig setHashPartitionCount(int hashPartitionCount)
     {
-        this.initialHashPartitions = initialHashPartitions;
+        this.hashPartitionCount = hashPartitionCount;
         return this;
     }
 
