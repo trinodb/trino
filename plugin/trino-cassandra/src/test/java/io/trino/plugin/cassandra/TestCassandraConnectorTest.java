@@ -28,7 +28,7 @@ public class TestCassandraConnectorTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        server = closeAfterClass(new CassandraServer());
+        server = closeAfterClass(new TestingCassandraServer());
         session = server.getSession();
         createTestTables(session, KEYSPACE, Timestamp.from(TIMESTAMP_VALUE.toInstant()));
         return createCassandraQueryRunner(server, ImmutableMap.of(), REQUIRED_TPCH_TABLES);

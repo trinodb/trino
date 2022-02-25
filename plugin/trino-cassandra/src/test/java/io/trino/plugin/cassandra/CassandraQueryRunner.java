@@ -33,14 +33,14 @@ public final class CassandraQueryRunner
 {
     private CassandraQueryRunner() {}
 
-    public static DistributedQueryRunner createCassandraQueryRunner(CassandraServer server, TpchTable<?>... tables)
+    public static DistributedQueryRunner createCassandraQueryRunner(TestingCassandraServer server, TpchTable<?>... tables)
             throws Exception
     {
         return createCassandraQueryRunner(server, ImmutableMap.of(), ImmutableMap.of(), ImmutableList.copyOf(tables));
     }
 
     public static DistributedQueryRunner createCassandraQueryRunner(
-            CassandraServer server,
+            TestingCassandraServer server,
             Map<String, String> extraProperties,
             Map<String, String> connectorProperties,
             Iterable<TpchTable<?>> tables)
@@ -84,7 +84,7 @@ public final class CassandraQueryRunner
             throws Exception
     {
         DistributedQueryRunner queryRunner = createCassandraQueryRunner(
-                new CassandraServer(),
+                new TestingCassandraServer(),
                 ImmutableMap.of("http-server.http.port", "8080"),
                 ImmutableMap.of(),
                 TpchTable.getTables());

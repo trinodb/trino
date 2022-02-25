@@ -97,7 +97,7 @@ public class TestCassandraConnector
     private static final ConnectorSession SESSION = TestingConnectorSession.builder()
             .setPropertyMetadata(new CassandraSessionProperties(new CassandraClientConfig()).getSessionProperties())
             .build();
-    private CassandraServer server;
+    private TestingCassandraServer server;
     protected String database;
     protected SchemaTableName table;
     protected SchemaTableName tableForDelete;
@@ -111,7 +111,7 @@ public class TestCassandraConnector
     public void setup()
             throws Exception
     {
-        this.server = new CassandraServer();
+        this.server = new TestingCassandraServer();
 
         String keyspace = "test_connector";
         createTestTables(server.getSession(), keyspace, DATE);

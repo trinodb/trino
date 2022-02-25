@@ -49,7 +49,7 @@ public class TestCassandraTable
 
     public TestCassandraTable(
             SqlExecutor sqlExecutor,
-            CassandraServer server,
+            TestingCassandraServer server,
             String keyspace,
             String namePrefix,
             List<ColumnDefinition> columnDefinitions,

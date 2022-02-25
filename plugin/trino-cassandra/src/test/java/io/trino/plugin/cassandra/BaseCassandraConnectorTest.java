@@ -79,7 +79,7 @@ public abstract class BaseCassandraConnectorTest
 
     protected static final ZonedDateTime TIMESTAMP_VALUE = ZonedDateTime.of(1970, 1, 1, 3, 4, 5, 0, ZoneId.of("UTC"));
 
-    protected CassandraServer server;
+    protected TestingCassandraServer server;
     protected CassandraSession session;
 
     @Override
@@ -133,7 +133,7 @@ public abstract class BaseCassandraConnectorTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        server = closeAfterClass(new CassandraServer());
+        server = closeAfterClass(new TestingCassandraServer());
         session = server.getSession();
         session.execute("CREATE KEYSPACE IF NOT EXISTS " + KEYSPACE + " WITH REPLICATION = {'class':'SimpleStrategy', 'replication_factor': 1}");
         return createCassandraQueryRunner(server, ImmutableMap.of(), ImmutableMap.of(), REQUIRED_TPCH_TABLES);

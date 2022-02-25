@@ -51,10 +51,10 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 import static org.testng.Assert.assertEquals;
 
-public class CassandraServer
+public class TestingCassandraServer
         implements Closeable
 {
-    private static Logger log = Logger.get(CassandraServer.class);
+    private static Logger log = Logger.get(TestingCassandraServer.class);
 
     private static final int PORT = 9142;
 
@@ -63,13 +63,13 @@ public class CassandraServer
     private final GenericContainer<?> dockerContainer;
     private final CassandraSession session;
 
-    public CassandraServer()
+    public TestingCassandraServer()
             throws Exception
     {
         this("2.2");
     }
 
-    public CassandraServer(String cassandraVersion)
+    public TestingCassandraServer(String cassandraVersion)
             throws Exception
     {
         log.info("Starting cassandra...");
