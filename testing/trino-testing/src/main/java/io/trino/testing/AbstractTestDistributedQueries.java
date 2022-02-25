@@ -1314,7 +1314,7 @@ public abstract class AbstractTestDistributedQueries
         testColumnName(columnName, true);
     }
 
-    private void testColumnName(String columnName, boolean delimited)
+    protected void testColumnName(String columnName, boolean delimited)
     {
         String nameInSql = columnName;
         if (delimited) {

@@ -189,17 +189,8 @@ public abstract class AbstractKuduConnectorTest
         assertUpdate("DROP TABLE test_row_delete");
     }
 
-    @Test(dataProvider = "testColumnNameDataProvider")
     @Override
-    public void testColumnName(String columnName)
-    {
-        if (!requiresDelimiting(columnName)) {
-            testColumnName(columnName, false);
-        }
-        testColumnName(columnName, true);
-    }
-
-    private void testColumnName(String columnName, boolean delimited)
+    protected void testColumnName(String columnName, boolean delimited)
     {
         String nameInSql = columnName;
         if (delimited) {
