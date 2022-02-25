@@ -347,6 +347,15 @@ class TrinoHiveCatalog
     }
 
     @Override
+    public void updateColumnComment(ConnectorSession session, SchemaTableName schemaTableName, ColumnIdentity columnIdentity, Optional<String> comment)
+    {
+        metastore.commentColumn(schemaTableName.getSchemaName(), schemaTableName.getTableName(), columnIdentity.getName(), comment);
+
+        Table icebergTable = loadTable(session, schemaTableName);
+        icebergTable.updateSchema().updateColumnDoc(columnIdentity.getName(), comment.orElse(null)).commit();
+    }
+
+    @Override
     public String defaultTableLocation(ConnectorSession session, SchemaTableName schemaTableName)
     {
         Database database = metastore.getDatabase(schemaTableName.getSchemaName())
@@ -692,15 +701,6 @@ class TrinoHiveCatalog
             return ImmutableList.of(namespace.get());
         }
         return listNamespaces(session);
-    }
-
-    @Override
-    public void updateColumnComment(ConnectorSession session, SchemaTableName schemaTableName, ColumnIdentity columnIdentity, Optional<String> comment)
-    {
-        metastore.commentColumn(schemaTableName.getSchemaName(), schemaTableName.getTableName(), columnIdentity.getName(), comment);
-
-        Table icebergTable = loadTable(session, schemaTableName);
-        icebergTable.updateSchema().updateColumnDoc(columnIdentity.getName(), comment.orElse(null)).commit();
     }
 
     private static class MaterializedViewMayBeBeingRemovedException
