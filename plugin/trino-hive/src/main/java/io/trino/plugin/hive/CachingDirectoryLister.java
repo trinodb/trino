@@ -65,6 +65,7 @@ public class CachingDirectoryLister
                 .maximumWeight(maxSize)
                 .weigher((Weigher<Path, ValueHolder>) (key, value) -> value.files.map(List::size).orElse(1))
                 .expireAfterWrite(expireAfterWrite.toMillis(), TimeUnit.MILLISECONDS)
+                .shareNothingWhenDisabled()
                 .recordStats()
                 .build();
         this.tablePrefixes = tables.stream()
