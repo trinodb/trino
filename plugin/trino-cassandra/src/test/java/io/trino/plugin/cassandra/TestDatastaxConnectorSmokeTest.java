@@ -29,7 +29,7 @@ public class TestDatastaxConnectorSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        CassandraServer server = closeAfterClass(new CassandraServer(
+        TestingCassandraServer server = closeAfterClass(new TestingCassandraServer(
                 "datastax/dse-server:6.8.25",
                 Map.of(
                         "DS_LICENSE", "accept",

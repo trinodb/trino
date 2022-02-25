@@ -138,7 +138,7 @@ public class TestCassandraTypeMapping
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        server = closeAfterClass(new CassandraServer());
+        server = closeAfterClass(new TestingCassandraServer());
         session = server.getSession();
         return createCassandraQueryRunner(
                 server,

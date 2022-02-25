@@ -85,7 +85,7 @@ public final class CassandraQueryRunner
             throws Exception
     {
         DistributedQueryRunner queryRunner = createCassandraQueryRunner(
-                new CassandraServer(),
+                new TestingCassandraServer(),
                 ImmutableMap.of("http-server.http.port", "8080"),
                 ImmutableMap.of(),
                 TpchTable.getTables());

@@ -28,7 +28,7 @@ public class TestCassandraLatestConnectorSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        CassandraServer server = closeAfterClass(new CassandraServer("cassandra:4.1", "cu-cassandra-latest.yaml"));
+        TestingCassandraServer server = closeAfterClass(new TestingCassandraServer("cassandra:4.1", "cu-cassandra-latest.yaml"));
         CassandraSession session = server.getSession();
         createTestTables(session, KEYSPACE, Timestamp.from(TIMESTAMP_VALUE.toInstant()));
         return createCassandraQueryRunner(server, ImmutableMap.of(), ImmutableMap.of(), REQUIRED_TPCH_TABLES);
