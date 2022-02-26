@@ -13,19 +13,17 @@
  */
 package io.trino.plugin.clickhouse;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.UuidType;
 import io.trino.testing.AbstractTestQueryFramework;
-import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingSession;
 import io.trino.testing.datatype.CreateAndInsertDataSetup;
 import io.trino.testing.datatype.CreateAndTrinoInsertDataSetup;
 import io.trino.testing.datatype.CreateAsSelectDataSetup;
 import io.trino.testing.datatype.DataSetup;
 import io.trino.testing.datatype.SqlDataTypeTest;
+import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TrinoSqlExecutor;
 import org.testng.annotations.BeforeClass;
@@ -39,7 +37,6 @@ import java.time.ZoneId;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.clickhouse.ClickHouseQueryRunner.TPCH_SCHEMA;
-import static io.trino.plugin.clickhouse.ClickHouseQueryRunner.createClickHouseQueryRunner;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
@@ -57,7 +54,7 @@ import static io.trino.type.IpAddressType.IPADDRESS;
 import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
 
-public class TestClickHouseTypeMapping
+public abstract class BaseClickHouseTypeMapping
         extends AbstractTestQueryFramework
 {
     private final ZoneId jvmZone = ZoneId.systemDefault();
@@ -68,7 +65,7 @@ public class TestClickHouseTypeMapping
     // minutes offset change since 1970-01-01, no DST
     private final ZoneId kathmandu = ZoneId.of("Asia/Kathmandu");
 
-    private TestingClickHouseServer clickhouseServer;
+    protected TestingClickHouseServer clickhouseServer;
 
     @BeforeClass
     public void setUp()
@@ -99,19 +96,6 @@ public class TestClickHouseTypeMapping
     private static void checkIsDoubled(ZoneId zone, LocalDateTime dateTime)
     {
         verify(zone.getRules().getValidOffsets(dateTime).size() == 2, "Expected %s to be doubled in %s", dateTime, zone);
-    }
-
-    @Override
-    protected QueryRunner createQueryRunner()
-            throws Exception
-    {
-        clickhouseServer = closeAfterClass(new TestingClickHouseServer());
-        return createClickHouseQueryRunner(clickhouseServer, ImmutableMap.of(),
-                ImmutableMap.<String, String>builder()
-                        .put("metadata.cache-ttl", "10m")
-                        .put("metadata.cache-missing", "true")
-                        .buildOrThrow(),
-                ImmutableList.of());
     }
 
     @Test
@@ -256,7 +240,7 @@ public class TestClickHouseTypeMapping
                 .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_unsupported_uint8"));
 
         // Prevent writing incorrect results in the connector
-        try (TestTable table = new TestTable(clickhouseServer::execute, "tpch.test_unsupported_uint8", "(value UInt8) ENGINE=Log")) {
+        try (TestTable table = new TestTable(onRemoteDatabase(), "tpch.test_unsupported_uint8", "(value UInt8) ENGINE=Log")) {
             assertQueryFails(
                     format("INSERT INTO %s VALUES (-1)", table.getName()),
                     "Value must be between 0 and 255 in ClickHouse: -1");
@@ -292,7 +276,7 @@ public class TestClickHouseTypeMapping
                 .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_unsupported_uint16"));
 
         // Prevent writing incorrect results in the connector
-        try (TestTable table = new TestTable(clickhouseServer::execute, "tpch.test_unsupported_uint16", "(value UInt16) ENGINE=Log")) {
+        try (TestTable table = new TestTable(onRemoteDatabase(), "tpch.test_unsupported_uint16", "(value UInt16) ENGINE=Log")) {
             assertQueryFails(
                     format("INSERT INTO %s VALUES (-1)", table.getName()),
                     "Value must be between 0 and 65535 in ClickHouse: -1");
@@ -328,7 +312,7 @@ public class TestClickHouseTypeMapping
                 .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_unsupported_uint32"));
 
         // Prevent writing incorrect results in the connector
-        try (TestTable table = new TestTable(clickhouseServer::execute, "tpch.test_unsupported_uint32", "(value UInt32) ENGINE=Log")) {
+        try (TestTable table = new TestTable(onRemoteDatabase(), "tpch.test_unsupported_uint32", "(value UInt32) ENGINE=Log")) {
             assertQueryFails(
                     format("INSERT INTO %s VALUES (CAST('-1' AS BIGINT))", table.getName()),
                     "Value must be between 0 and 4294967295 in ClickHouse: -1");
@@ -364,7 +348,7 @@ public class TestClickHouseTypeMapping
                 .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_unsupported_uint64"));
 
         // Prevent writing incorrect results in the connector
-        try (TestTable table = new TestTable(clickhouseServer::execute, "tpch.test_unsupported_uint64", "(value UInt64) ENGINE=Log")) {
+        try (TestTable table = new TestTable(onRemoteDatabase(), "tpch.test_unsupported_uint64", "(value UInt64) ENGINE=Log")) {
             assertQueryFails(
                     format("INSERT INTO %s VALUES (CAST('-1' AS decimal(20, 0)))", table.getName()),
                     "Value must be between 0 and 18446744073709551615 in ClickHouse: -1");
@@ -775,7 +759,7 @@ public class TestClickHouseTypeMapping
                 .execute(getQueryRunner(), clickhouseCreateAndTrinoInsert("tpch.test_ip"));
     }
 
-    private static Session mapStringAsVarcharSession()
+    protected static Session mapStringAsVarcharSession()
     {
         return testSessionBuilder()
                 .setCatalog("clickhouse")
@@ -784,33 +768,38 @@ public class TestClickHouseTypeMapping
                 .build();
     }
 
-    private DataSetup trinoCreateAsSelect(String tableNamePrefix)
+    protected DataSetup trinoCreateAsSelect(String tableNamePrefix)
     {
         return trinoCreateAsSelect(getSession(), tableNamePrefix);
     }
 
-    private DataSetup trinoCreateAsSelect(Session session, String tableNamePrefix)
+    protected DataSetup trinoCreateAsSelect(Session session, String tableNamePrefix)
     {
         return new CreateAsSelectDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
     }
 
-    private DataSetup trinoCreateAndInsert(String tableNamePrefix)
+    protected DataSetup trinoCreateAndInsert(String tableNamePrefix)
     {
         return trinoCreateAndInsert(getSession(), tableNamePrefix);
     }
 
-    private DataSetup trinoCreateAndInsert(Session session, String tableNamePrefix)
+    protected DataSetup trinoCreateAndInsert(Session session, String tableNamePrefix)
     {
         return new CreateAndInsertDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
     }
 
-    private DataSetup clickhouseCreateAndInsert(String tableNamePrefix)
+    protected DataSetup clickhouseCreateAndInsert(String tableNamePrefix)
     {
-        return new CreateAndInsertDataSetup(new ClickHouseSqlExecutor(clickhouseServer::execute), tableNamePrefix);
+        return new CreateAndInsertDataSetup(new ClickHouseSqlExecutor(onRemoteDatabase()), tableNamePrefix);
     }
 
-    private DataSetup clickhouseCreateAndTrinoInsert(String tableNamePrefix)
+    protected DataSetup clickhouseCreateAndTrinoInsert(String tableNamePrefix)
     {
-        return new CreateAndTrinoInsertDataSetup(new ClickHouseSqlExecutor(clickhouseServer::execute), new TrinoSqlExecutor(getQueryRunner()), tableNamePrefix);
+        return new CreateAndTrinoInsertDataSetup(new ClickHouseSqlExecutor(onRemoteDatabase()), new TrinoSqlExecutor(getQueryRunner()), tableNamePrefix);
+    }
+
+    protected SqlExecutor onRemoteDatabase()
+    {
+        return clickhouseServer::execute;
     }
 }
