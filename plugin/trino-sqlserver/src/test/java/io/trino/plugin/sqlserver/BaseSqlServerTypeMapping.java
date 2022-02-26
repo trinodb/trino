@@ -73,6 +73,8 @@ public abstract class BaseSqlServerTypeMapping
     private final ZoneId kathmandu = ZoneId.of("Asia/Kathmandu");
     private final LocalDateTime timeGapInKathmandu = LocalDateTime.of(1986, 1, 1, 0, 13, 7);
 
+    protected TestingSqlServer sqlServer;
+
     @BeforeClass
     public void setUp()
     {
@@ -756,5 +758,8 @@ public abstract class BaseSqlServerTypeMapping
         verify(isGap(zone, dateTime), "Expected %s to be a gap in %s", dateTime, zone);
     }
 
-    protected abstract SqlExecutor onRemoteDatabase();
+    protected SqlExecutor onRemoteDatabase()
+    {
+        return sqlServer::execute;
+    }
 }
