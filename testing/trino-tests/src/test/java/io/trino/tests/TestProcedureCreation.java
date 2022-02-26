@@ -24,7 +24,6 @@ import static io.trino.spi.block.MethodHandleUtil.methodHandle;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-@Test(singleThreaded = true)
 public class TestProcedureCreation
 {
     @Test
