@@ -15,6 +15,7 @@ package io.trino.util;
 
 import java.util.stream.DoubleStream;
 
+import static java.lang.Double.NaN;
 import static java.lang.Double.isNaN;
 
 public final class MoreMath
@@ -109,5 +110,16 @@ public final class MoreMath
             }
         }
         throw new IllegalArgumentException("All values are NaN");
+    }
+
+    public static double averageExcludingNaNs(double first, double second)
+    {
+        if (isNaN(first) && isNaN(second)) {
+            return NaN;
+        }
+        if (!isNaN(first) && !isNaN(second)) {
+            return (first + second) / 2;
+        }
+        return firstNonNaN(first, second);
     }
 }
