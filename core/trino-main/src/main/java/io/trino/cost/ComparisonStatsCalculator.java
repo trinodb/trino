@@ -20,7 +20,7 @@ import java.util.Optional;
 import java.util.OptionalDouble;
 
 import static io.trino.cost.SymbolStatsEstimate.buildFrom;
-import static io.trino.util.MoreMath.firstNonNaN;
+import static io.trino.util.MoreMath.averageExcludingNaNs;
 import static io.trino.util.MoreMath.max;
 import static io.trino.util.MoreMath.min;
 import static java.lang.Double.NEGATIVE_INFINITY;
@@ -238,16 +238,5 @@ public final class ComparisonStatsCalculator
         leftExpressionSymbol.ifPresent(symbol -> result.addSymbolStatistics(symbol, leftNullsFiltered));
         rightExpressionSymbol.ifPresent(symbol -> result.addSymbolStatistics(symbol, rightNullsFiltered));
         return result.build();
-    }
-
-    private static double averageExcludingNaNs(double first, double second)
-    {
-        if (isNaN(first) && isNaN(second)) {
-            return NaN;
-        }
-        if (!isNaN(first) && !isNaN(second)) {
-            return (first + second) / 2;
-        }
-        return firstNonNaN(first, second);
     }
 }
