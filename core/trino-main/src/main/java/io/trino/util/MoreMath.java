@@ -122,4 +122,26 @@ public final class MoreMath
         }
         return firstNonNaN(first, second);
     }
+
+    public static double minExcludeNaN(double v1, double v2)
+    {
+        if (isNaN(v1)) {
+            return v2;
+        }
+        if (isNaN(v2)) {
+            return v1;
+        }
+        return min(v1, v2);
+    }
+
+    public static double maxExcludeNaN(double v1, double v2)
+    {
+        if (isNaN(v1)) {
+            return v2;
+        }
+        if (isNaN(v2)) {
+            return v1;
+        }
+        return max(v1, v2);
+    }
 }
