@@ -15,17 +15,24 @@ package io.trino.plugin.iceberg;
 
 import io.trino.testing.BaseConnectorSmokeTest;
 import io.trino.testing.TestingConnectorBehavior;
+import org.apache.iceberg.FileFormat;
 import org.testng.annotations.Test;
 
-import java.io.File;
-
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public abstract class BaseIcebergConnectorSmokeTest
         extends BaseConnectorSmokeTest
 {
+    protected final FileFormat format;
+
+    public BaseIcebergConnectorSmokeTest(FileFormat format)
+    {
+        this.format = requireNonNull(format, "format is null");
+    }
+
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
@@ -59,17 +66,17 @@ public abstract class BaseIcebergConnectorSmokeTest
     @Override
     public void testShowCreateTable()
     {
-        File tempDir = getDistributedQueryRunner().getCoordinator().getBaseDataDir().toFile();
+        String schemaName = getSession().getSchema().orElseThrow();
         assertThat((String) computeScalar("SHOW CREATE TABLE region"))
-                .isEqualTo("" +
-                        "CREATE TABLE iceberg.tpch.region (\n" +
+                .matches("" +
+                        "CREATE TABLE iceberg." + schemaName + ".region \\(\n" +
                         "   regionkey bigint,\n" +
                         "   name varchar,\n" +
                         "   comment varchar\n" +
-                        ")\n" +
-                        "WITH (\n" +
-                        "   format = 'ORC',\n" +
-                        format("   location = '%s/iceberg_data/tpch/region'\n", tempDir) +
-                        ")");
+                        "\\)\n" +
+                        "WITH \\(\n" +
+                        "   format = '" + format.name() + "',\n" +
+                        format("   location = '.*/" + schemaName + "/region'\n") +
+                        "\\)");
     }
 }
