@@ -274,28 +274,8 @@ wrapper script.
     --user <LDAP user> \
     --password
 
-=============================== =========================================================================
-Option                          Description
-=============================== =========================================================================
-``--server``                    The address and port of the Trino coordinator.  The port must
-                                be set to the port the Trino coordinator is listening for HTTPS
-                                connections on. Trino CLI does not support using ``http`` scheme for
-                                the URL when using LDAP authentication.
-``--keystore-path``             The location of the Java Keystore file that will be used
-                                to secure TLS.
-``--keystore-password``         The password for the keystore. This must match the
-                                password you specified when creating the keystore.
-``--truststore-path``           The location of the Java truststore file that will be used
-                                to secure TLS.
-``--truststore-password``       The password for the truststore. This must match the
-                                password you specified when creating the truststore.
-``--user``                      The LDAP username. For Active Directory this should be your
-                                ``sAMAccountName`` and for OpenLDAP this should be the ``uid`` of
-                                the user. This is the username which is
-                                used to replace the ``${USER}`` placeholder pattern in the properties
-                                specified in ``config.properties``.
-``--password``                  Prompts for a password for the ``user``.
-=============================== =========================================================================
+Find details on the options used in :ref:`cli-tls` and
+:ref:`cli-username-password-auth`.
 
 Troubleshooting
 ---------------
