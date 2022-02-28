@@ -59,6 +59,7 @@ import io.trino.sql.tree.SimpleCaseExpression;
 import io.trino.sql.tree.SortItem;
 import io.trino.sql.tree.SubqueryExpression;
 import io.trino.sql.tree.SubscriptExpression;
+import io.trino.sql.tree.Trim;
 import io.trino.sql.tree.TryExpression;
 import io.trino.sql.tree.VariableDefinition;
 import io.trino.sql.tree.WhenClause;
@@ -326,6 +327,12 @@ class AggregationAnalyzer
         protected Boolean visitQuantifiedComparisonExpression(QuantifiedComparisonExpression node, Void context)
         {
             return process(node.getValue(), context) && process(node.getSubquery(), context);
+        }
+
+        @Override
+        protected Boolean visitTrim(Trim node, Void context)
+        {
+            return process(node.getTrimSource(), context) && (node.getTrimCharacter().isEmpty() || process(node.getTrimCharacter().get(), context));
         }
 
         @Override

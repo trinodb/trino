@@ -185,7 +185,7 @@ public class Analysis
     private final Map<NodeRef<Expression>, Type> sortKeyCoercionsForFrameBoundComparison = new LinkedHashMap<>();
     private final Map<NodeRef<Expression>, ResolvedFunction> frameBoundCalculations = new LinkedHashMap<>();
     private final Map<NodeRef<Relation>, List<Type>> relationCoercions = new LinkedHashMap<>();
-    private final Map<NodeRef<FunctionCall>, RoutineEntry> resolvedFunctions = new LinkedHashMap<>();
+    private final Map<NodeRef<Expression>, RoutineEntry> resolvedFunctions = new LinkedHashMap<>();
     private final Map<NodeRef<Identifier>, LambdaArgumentDeclaration> lambdaArgumentReferences = new LinkedHashMap<>();
 
     private final Map<Field, ColumnHandle> columns = new LinkedHashMap<>();
@@ -612,12 +612,12 @@ public class Analysis
                                 columnMaskScopes.isEmpty()));
     }
 
-    public ResolvedFunction getResolvedFunction(FunctionCall function)
+    public ResolvedFunction getResolvedFunction(Expression node)
     {
-        return resolvedFunctions.get(NodeRef.of(function)).getFunction();
+        return resolvedFunctions.get(NodeRef.of(node)).getFunction();
     }
 
-    public void addResolvedFunction(FunctionCall node, ResolvedFunction function, String authorization)
+    public void addResolvedFunction(Expression node, ResolvedFunction function, String authorization)
     {
         resolvedFunctions.put(NodeRef.of(node), new RoutineEntry(function, authorization));
     }
