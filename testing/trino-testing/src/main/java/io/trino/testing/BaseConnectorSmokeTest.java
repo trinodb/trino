@@ -54,6 +54,11 @@ public abstract class BaseConnectorSmokeTest
         return connectorBehavior.hasBehaviorByDefault(this::hasBehavior);
     }
 
+    protected String createSchemaSql(String schemaName)
+    {
+        return "CREATE SCHEMA " + schemaName;
+    }
+
     /**
      * Ensure the tests are run with {@link DistributedQueryRunner}. E.g. {@link LocalQueryRunner} takes some
      * shortcuts, not exercising certain aspects.
@@ -245,11 +250,11 @@ public abstract class BaseConnectorSmokeTest
     {
         String schemaName = "test_schema_create_" + randomTableSuffix();
         if (!hasBehavior(SUPPORTS_CREATE_SCHEMA)) {
-            assertQueryFails("CREATE SCHEMA " + schemaName, "This connector does not support creating schemas");
+            assertQueryFails(createSchemaSql(schemaName), "This connector does not support creating schemas");
             return;
         }
 
-        assertUpdate("CREATE SCHEMA " + schemaName);
+        assertUpdate(createSchemaSql(schemaName));
         assertThat(query("SHOW SCHEMAS"))
                 .skippingTypesCheck()
                 .containsAll(format("VALUES '%s', '%s'", getSession().getSchema().orElseThrow(), schemaName));
@@ -339,7 +344,7 @@ public abstract class BaseConnectorSmokeTest
         assertUpdate("CREATE TABLE " + oldTable + " (a bigint, b double)");
 
         String schemaName = "test_schema_" + randomTableSuffix();
-        assertUpdate("CREATE SCHEMA " + schemaName);
+        assertUpdate(createSchemaSql(schemaName));
 
         String newTable = schemaName + ".test_rename_new_" + randomTableSuffix();
         assertUpdate("ALTER TABLE " + oldTable + " RENAME TO " + newTable);
