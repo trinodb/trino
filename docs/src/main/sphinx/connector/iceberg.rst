@@ -124,9 +124,9 @@ supports the following features:
 * :doc:`/sql/insert`
 * :doc:`/sql/delete`, see also :ref:`iceberg-delete`
 * :ref:`sql-schema-table-management`, see also :ref:`iceberg-tables`
-* :ref:`sql-materialized-views-management`, see also
+* :ref:`sql-materialized-view-management`, see also
   :ref:`iceberg-materialized-views`
-* :ref:`sql-views-management`
+* :ref:`sql-view-management`
 
 .. include:: alter-mv-set-properties-unsupported.fragment
 
@@ -740,7 +740,7 @@ The output of the query has the following columns:
 Materialized views
 ------------------
 
-The Iceberg connector supports :ref:`sql-materialized-views-management`. In the
+The Iceberg connector supports :ref:`sql-materialized-view-management`. In the
 underlying system each materialized view consists of a view definition and an
 Iceberg storage table. The storage table name is stored as a materialized view
 property. The data is stored in that storage table.
