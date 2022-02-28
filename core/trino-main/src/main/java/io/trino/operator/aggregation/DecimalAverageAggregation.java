@@ -22,9 +22,12 @@ import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlAggregationFunction;
 import io.trino.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
-import io.trino.operator.aggregation.state.LongDecimalWithOverflowAndLongState;
-import io.trino.operator.aggregation.state.LongDecimalWithOverflowAndLongStateFactory;
-import io.trino.operator.aggregation.state.LongDecimalWithOverflowAndLongStateSerializer;
+import io.trino.operator.aggregation.state.Int128State;
+import io.trino.operator.aggregation.state.Int128StateFactory;
+import io.trino.operator.aggregation.state.Int128StateSerializer;
+import io.trino.operator.aggregation.state.LongState;
+import io.trino.operator.aggregation.state.NullableLongState;
+import io.trino.operator.aggregation.state.StateCompiler;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.DecimalType;
@@ -57,13 +60,13 @@ public class DecimalAverageAggregation
     public static final DecimalAverageAggregation DECIMAL_AVERAGE_AGGREGATION = new DecimalAverageAggregation();
 
     private static final String NAME = "avg";
-    private static final MethodHandle SHORT_DECIMAL_INPUT_FUNCTION = methodHandle(DecimalAverageAggregation.class, "inputShortDecimal", LongDecimalWithOverflowAndLongState.class, Block.class, int.class);
-    private static final MethodHandle LONG_DECIMAL_INPUT_FUNCTION = methodHandle(DecimalAverageAggregation.class, "inputLongDecimal", LongDecimalWithOverflowAndLongState.class, Block.class, int.class);
+    private static final MethodHandle SHORT_DECIMAL_INPUT_FUNCTION = methodHandle(DecimalAverageAggregation.class, "inputShortDecimal", Int128State.class, LongState.class, NullableLongState.class, Block.class, int.class);
+    private static final MethodHandle LONG_DECIMAL_INPUT_FUNCTION = methodHandle(DecimalAverageAggregation.class, "inputLongDecimal", Int128State.class, LongState.class, NullableLongState.class, Block.class, int.class);
 
-    private static final MethodHandle SHORT_DECIMAL_OUTPUT_FUNCTION = methodHandle(DecimalAverageAggregation.class, "outputShortDecimal", DecimalType.class, LongDecimalWithOverflowAndLongState.class, BlockBuilder.class);
-    private static final MethodHandle LONG_DECIMAL_OUTPUT_FUNCTION = methodHandle(DecimalAverageAggregation.class, "outputLongDecimal", DecimalType.class, LongDecimalWithOverflowAndLongState.class, BlockBuilder.class);
+    private static final MethodHandle SHORT_DECIMAL_OUTPUT_FUNCTION = methodHandle(DecimalAverageAggregation.class, "outputShortDecimal", DecimalType.class, Int128State.class, LongState.class, NullableLongState.class, BlockBuilder.class);
+    private static final MethodHandle LONG_DECIMAL_OUTPUT_FUNCTION = methodHandle(DecimalAverageAggregation.class, "outputLongDecimal", DecimalType.class, Int128State.class, LongState.class, NullableLongState.class, BlockBuilder.class);
 
-    private static final MethodHandle COMBINE_FUNCTION = methodHandle(DecimalAverageAggregation.class, "combine", LongDecimalWithOverflowAndLongState.class, LongDecimalWithOverflowAndLongState.class);
+    private static final MethodHandle COMBINE_FUNCTION = methodHandle(DecimalAverageAggregation.class, "combine", Int128State.class, LongState.class, NullableLongState.class, Int128State.class, LongState.class, NullableLongState.class);
 
     private static final BigInteger TWO = new BigInteger("2");
     private static final BigInteger OVERFLOW_MULTIPLIER = TWO.pow(128);
@@ -93,8 +96,8 @@ public class DecimalAverageAggregation
         checkArgument(type instanceof DecimalType, "type must be Decimal");
         MethodHandle inputFunction;
         MethodHandle outputFunction;
-        Class<LongDecimalWithOverflowAndLongState> stateInterface = LongDecimalWithOverflowAndLongState.class;
-        LongDecimalWithOverflowAndLongStateSerializer stateSerializer = new LongDecimalWithOverflowAndLongStateSerializer();
+        Class<Int128State> stateInterface = Int128State.class;
+        Int128StateSerializer stateSerializer = new Int128StateSerializer();
 
         if (((DecimalType) type).isShort()) {
             inputFunction = SHORT_DECIMAL_INPUT_FUNCTION;
@@ -114,119 +117,138 @@ public class DecimalAverageAggregation
                 ImmutableList.of(new AccumulatorStateDescriptor<>(
                         stateInterface,
                         stateSerializer,
-                        new LongDecimalWithOverflowAndLongStateFactory())));
+                        new Int128StateFactory()),
+                        new AccumulatorStateDescriptor<>(
+                                LongState.class,
+                                StateCompiler.generateStateSerializer(LongState.class),
+                                StateCompiler.generateStateFactory(LongState.class)),
+                        new AccumulatorStateDescriptor<>(
+                                NullableLongState.class,
+                                StateCompiler.generateStateSerializer(NullableLongState.class),
+                                StateCompiler.generateStateFactory(NullableLongState.class))));
     }
 
-    public static void inputShortDecimal(LongDecimalWithOverflowAndLongState state, Block block, int position)
+    public static void inputShortDecimal(Int128State decimalState, LongState counterState, NullableLongState overflowState, Block block, int position)
     {
-        state.addLong(1); // row counter
+        long[] decimal = decimalState.getArray();
+        int decimalOffset = decimalState.getArrayOffset();
 
-        state.setNotNull();
-
-        long[] decimal = state.getDecimalArray();
-        int offset = state.getDecimalArrayOffset();
+        decimalState.setNotNull();
+        counterState.setValue(counterState.getValue() + 1);
 
         long rightLow = block.getLong(position, 0);
         long rightHigh = rightLow >> 63;
 
         long overflow = addWithOverflow(
-                decimal[offset],
-                decimal[offset + 1],
+                decimal[decimalOffset],
+                decimal[decimalOffset + 1],
                 rightHigh,
                 rightLow,
                 decimal,
-                offset);
+                decimalOffset);
 
-        state.addOverflow(overflow);
+        if (overflow != 0) {
+            overflowState.setNull(false);
+            overflowState.setValue(overflowState.getValue() + overflow);
+        }
     }
 
-    public static void inputLongDecimal(LongDecimalWithOverflowAndLongState state, Block block, int position)
+    public static void inputLongDecimal(Int128State decimalState, LongState counterState, NullableLongState overflowState, Block block, int position)
     {
-        state.addLong(1); // row counter
+        long[] decimal = decimalState.getArray();
+        int decimalOffset = decimalState.getArrayOffset();
 
-        state.setNotNull();
-
-        long[] decimal = state.getDecimalArray();
-        int offset = state.getDecimalArrayOffset();
+        counterState.setValue(counterState.getValue() + 1);
+        decimalState.setNotNull();
 
         long rightHigh = block.getLong(position, 0);
         long rightLow = block.getLong(position, SIZE_OF_LONG);
 
         long overflow = addWithOverflow(
-                decimal[offset],
-                decimal[offset + 1],
+                decimal[decimalOffset],
+                decimal[decimalOffset + 1],
                 rightHigh,
                 rightLow,
                 decimal,
-                offset);
+                decimalOffset);
 
-        state.addOverflow(overflow);
+        if (overflow != 0) {
+            overflowState.setNull(false);
+            overflowState.setValue(overflowState.getValue() + overflow);
+        }
     }
 
-    public static void combine(LongDecimalWithOverflowAndLongState state, LongDecimalWithOverflowAndLongState otherState)
+    public static void combine(Int128State decimalState, LongState counterState, NullableLongState overflowState, Int128State otherDecimalState, LongState otherCounterState, NullableLongState otherOverflowState)
     {
-        state.addLong(otherState.getLong()); // row counter
+        // TODO: kiedy tak jest?
+        if (!decimalState.isNotNull() && !otherDecimalState.isNotNull()) {
+            return;
+        }
 
-        long[] decimal = state.getDecimalArray();
-        int offset = state.getDecimalArrayOffset();
+        long[] decimal = decimalState.getArray();
+        int decimalOffset = decimalState.getArrayOffset();
+        long[] otherDecimal = otherDecimalState.getArray();
+        int otherDecimalOffset = otherDecimalState.getArrayOffset();
 
-        long[] otherDecimal = otherState.getDecimalArray();
-        int otherOffset = otherState.getDecimalArrayOffset();
-
-        if (state.isNotNull()) {
+        if (decimalState.isNotNull()) {
             long overflow = addWithOverflow(
-                    decimal[offset],
-                    decimal[offset + 1],
-                    otherDecimal[otherOffset],
-                    otherDecimal[otherOffset + 1],
+                    decimal[decimalOffset],
+                    decimal[decimalOffset + 1],
+                    otherDecimal[otherDecimalOffset],
+                    otherDecimal[otherDecimalOffset + 1],
                     decimal,
-                    offset);
-            state.addOverflow(overflow + otherState.getOverflow());
+                    decimalOffset);
+            counterState.setValue(counterState.getValue() + otherCounterState.getValue());
+            if (overflow != 0 || !otherOverflowState.isNull()) {
+                overflowState.setNull(false);
+                overflowState.setValue(overflowState.getValue() + overflow + otherOverflowState.getValue());
+            }
         }
         else {
-            state.setNotNull();
-            decimal[offset] = otherDecimal[otherOffset];
-            decimal[offset + 1] = otherDecimal[otherOffset + 1];
-            state.setOverflow(otherState.getOverflow());
+            decimal[decimalOffset] = otherDecimal[otherDecimalOffset];
+            decimal[decimalOffset + 1] = otherDecimal[otherDecimalOffset + 1];
+            decimalState.setNotNull();
+            counterState.setValue(otherCounterState.getValue());
+            overflowState.set(otherOverflowState);
         }
     }
 
-    public static void outputShortDecimal(DecimalType type, LongDecimalWithOverflowAndLongState state, BlockBuilder out)
+    public static void outputShortDecimal(DecimalType type, Int128State decimalState, LongState counterState, NullableLongState overflowState, BlockBuilder out)
     {
-        if (state.getLong() == 0) {
+        if (counterState.getValue() == 0) {
             out.appendNull();
         }
         else {
-            writeShortDecimal(out, average(state, type).toLongExact());
+            writeShortDecimal(out, average(decimalState, counterState, overflowState, type).toLongExact());
         }
     }
 
-    public static void outputLongDecimal(DecimalType type, LongDecimalWithOverflowAndLongState state, BlockBuilder out)
+    public static void outputLongDecimal(DecimalType type, Int128State decimalState, LongState counterState, NullableLongState overflowState, BlockBuilder out)
     {
-        if (state.getLong() == 0) {
+        if (counterState.getValue() == 0) {
             out.appendNull();
         }
         else {
-            type.writeObject(out, average(state, type));
+            type.writeObject(out, average(decimalState, counterState, overflowState, type));
         }
     }
 
     @VisibleForTesting
-    public static Int128 average(LongDecimalWithOverflowAndLongState state, DecimalType type)
+    public static Int128 average(Int128State decimalState, LongState counterState, NullableLongState overflowState, DecimalType type)
     {
-        long[] decimal = state.getDecimalArray();
-        int offset = state.getDecimalArrayOffset();
+        long[] decimal = decimalState.getArray();
+        int decimalOffset = decimalState.getArrayOffset();
 
-        long overflow = state.getOverflow();
+        long overflow = overflowState.getValue();
         if (overflow != 0) {
-            BigDecimal sum = new BigDecimal(Int128.valueOf(decimal[offset], decimal[offset + 1]).toBigInteger(), type.getScale());
+            BigDecimal sum = new BigDecimal(Int128.valueOf(decimal[decimalOffset], decimal[decimalOffset + 1]).toBigInteger(), type.getScale());
             sum = sum.add(new BigDecimal(OVERFLOW_MULTIPLIER.multiply(BigInteger.valueOf(overflow))));
 
-            BigDecimal count = BigDecimal.valueOf(state.getLong());
+            BigDecimal count = BigDecimal.valueOf(counterState.getValue());
             return Decimals.encodeScaledValue(sum.divide(count, type.getScale(), ROUND_HALF_UP), type.getScale());
         }
 
-        Int128 result = divideRoundUp(decimal[offset], decimal[offset + 1], 0, 0, state.getLong(), 0);
+        Int128 result = divideRoundUp(decimal[decimalOffset], decimal[decimalOffset + 1], 0, 0, counterState.getValue(), 0);
         if (overflows(result)) {
             throw new ArithmeticException("Decimal overflow");
         }
