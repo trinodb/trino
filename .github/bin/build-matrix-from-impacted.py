@@ -58,7 +58,7 @@ def build(matrix_file, impacted_file, output_file):
         modules = item.get("modules", [])
         if isinstance(modules, str):
             modules = [modules]
-        if not any(module in impacted for module in modules):
+        if impacted and not any(module in impacted for module in modules):
             logging.info("Excluding matrix section: %s", item)
             continue
         include.append(
@@ -68,8 +68,7 @@ def build(matrix_file, impacted_file, output_file):
                 "profile": item.get("profile", ""),
             }
         )
-    if include:
-        matrix["include"] = include
+    matrix["include"] = include
     json.dump(matrix, output_file)
     output_file.write("\n")
 
