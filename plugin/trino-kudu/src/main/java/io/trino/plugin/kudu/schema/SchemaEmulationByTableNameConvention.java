@@ -23,7 +23,6 @@ import org.apache.kudu.Schema;
 import org.apache.kudu.Type;
 import org.apache.kudu.client.CreateTableOptions;
 import org.apache.kudu.client.Delete;
-import org.apache.kudu.client.Insert;
 import org.apache.kudu.client.KuduException;
 import org.apache.kudu.client.KuduScanner;
 import org.apache.kudu.client.KuduSession;
@@ -127,9 +126,7 @@ public class SchemaEmulationByTableNameConvention
     {
         try {
             if (rawSchemasTable == null) {
-                if (!client.tableExists(rawSchemasTableName)) {
-                    createAndFillSchemasTable(client);
-                }
+                createAndFillSchemasTable(client);
                 rawSchemasTable = getSchemasTable(client);
             }
 
@@ -167,17 +164,33 @@ public class SchemaEmulationByTableNameConvention
         Schema schema = new Schema(ImmutableList.of(schemaColumnSchema));
         CreateTableOptions options = new CreateTableOptions();
         options.addHashPartitions(ImmutableList.of(schemaColumnSchema.getName()), 2);
-        KuduTable schemasTable = client.createTable(rawSchemasTableName, schema, options);
+
+        KuduTable schemasTable = createTableIfNotExists(client, schema, rawSchemasTableName, options);
         KuduSession session = client.newSession();
         try {
             for (String schemaName : existingSchemaNames) {
-                Insert insert = schemasTable.newInsert();
-                insert.getRow().addString(0, schemaName);
-                applyOperationAndVerifySucceeded(session, insert);
+                Upsert upsert = schemasTable.newUpsert();
+                upsert.getRow().addString(0, schemaName);
+                applyOperationAndVerifySucceeded(session, upsert);
             }
         }
         finally {
             session.close();
+        }
+    }
+
+    private static KuduTable createTableIfNotExists(KuduClientWrapper client, Schema schema, String name, CreateTableOptions options)
+            throws KuduException
+    {
+        try {
+            return client.createTable(name, schema, options);
+        }
+        catch (KuduException e) {
+            if (e.getStatus().isAlreadyPresent()) {
+                // Table already exists
+                return client.openTable(name);
+            }
+            throw e;
         }
     }
 
