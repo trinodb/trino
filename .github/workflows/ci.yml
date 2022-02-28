@@ -370,6 +370,8 @@ jobs:
           $RETRY $MAVEN validate ${MAVEN_FAST_INSTALL} -P disable-check-spi-dependencies -pl '!:trino-docs,!:trino-server,!:trino-server-rpm'
       - id: set-matrix
         run: |
+          # GIB doesn't run on master, so make sure the file always exist
+          touch gib-impacted.log
           cat <<EOF > .github/test-matrix.yaml
           include:
             - { modules: core/trino-main }
@@ -401,7 +403,7 @@ jobs:
             - { modules: [ client/trino-jdbc, plugin/trino-base-jdbc, plugin/trino-thrift, plugin/trino-memory ] }
             - { modules: plugin/trino-bigquery }
           EOF
-          ./.github/bin/build-matrix-from-impacted.py -v -m .github/test-matrix.yaml -o matrix.json
+          ./.github/bin/build-matrix-from-impacted.py -v -i gib-impacted.log -m .github/test-matrix.yaml -o matrix.json
           echo "Matrix: $(jq '.' matrix.json)"
           echo "::set-output name=matrix::$(jq -c '.' matrix.json)"
 
