@@ -34,6 +34,7 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.metadata.SqlFunction;
+import io.trino.plugin.exchange.FileSystemExchangePlugin;
 import io.trino.server.BasicQueryInfo;
 import io.trino.server.SessionPropertyDefaults;
 import io.trino.server.testing.TestingTrinoServer;
@@ -625,6 +626,7 @@ public class DistributedQueryRunner
         private Map<String, String> extraProperties = new HashMap<>();
         private Map<String, String> coordinatorProperties = ImmutableMap.of();
         private Optional<Map<String, String>> backupCoordinatorProperties = Optional.empty();
+        private Map<String, String> exchangeManagerProperties = ImmutableMap.of();
         private String environment = ENVIRONMENT;
         private Module additionalModule = EMPTY_MODULE;
         private Optional<Path> baseDataDir = Optional.empty();
@@ -670,6 +672,12 @@ public class DistributedQueryRunner
         public SELF setBackupCoordinatorProperties(Map<String, String> backupCoordinatorProperties)
         {
             this.backupCoordinatorProperties = Optional.of(backupCoordinatorProperties);
+            return self();
+        }
+
+        public SELF setExchangeManagerProperties(Map<String, String> exchangeManagerProperties)
+        {
+            this.exchangeManagerProperties = ImmutableMap.copyOf(requireNonNull(exchangeManagerProperties, "exchangeManagerProperties is null"));
             return self();
         }
 
@@ -744,7 +752,7 @@ public class DistributedQueryRunner
         public DistributedQueryRunner build()
                 throws Exception
         {
-            return new DistributedQueryRunner(
+            DistributedQueryRunner queryRunner = new DistributedQueryRunner(
                     defaultSession,
                     nodeCount,
                     extraProperties,
@@ -755,6 +763,13 @@ public class DistributedQueryRunner
                     baseDataDir,
                     systemAccessControls,
                     eventListeners);
+
+            if (!exchangeManagerProperties.isEmpty()) {
+                queryRunner.installPlugin(new FileSystemExchangePlugin());
+                queryRunner.loadExchangeManager("filesystem", exchangeManagerProperties);
+            }
+
+            return queryRunner;
         }
     }
 }
