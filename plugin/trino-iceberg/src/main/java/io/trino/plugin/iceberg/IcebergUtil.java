@@ -105,7 +105,11 @@ import static org.apache.iceberg.BaseMetastoreTableOperations.TABLE_TYPE_PROP;
 import static org.apache.iceberg.LocationProviders.locationsFor;
 import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT;
 import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT_DEFAULT;
+import static org.apache.iceberg.TableProperties.OBJECT_STORE_PATH;
+import static org.apache.iceberg.TableProperties.WRITE_DATA_LOCATION;
 import static org.apache.iceberg.TableProperties.WRITE_LOCATION_PROVIDER_IMPL;
+import static org.apache.iceberg.TableProperties.WRITE_METADATA_LOCATION;
+import static org.apache.iceberg.TableProperties.WRITE_NEW_DATA_LOCATION;
 import static org.apache.iceberg.types.Type.TypeID.BINARY;
 import static org.apache.iceberg.types.Type.TypeID.FIXED;
 
@@ -402,5 +406,16 @@ public final class IcebergUtil
         }
 
         return catalog.newCreateTableTransaction(session, schemaTableName, schema, partitionSpec, targetPath, propertiesBuilder.buildOrThrow());
+    }
+
+    public static void validateTableCanBeDropped(Table table)
+    {
+        // TODO: support path override in Iceberg table creation: https://github.com/trinodb/trino/issues/8861
+        if (table.properties().containsKey(OBJECT_STORE_PATH) ||
+                table.properties().containsKey(WRITE_NEW_DATA_LOCATION) ||
+                table.properties().containsKey(WRITE_METADATA_LOCATION) ||
+                table.properties().containsKey(WRITE_DATA_LOCATION)) {
+            throw new TrinoException(NOT_SUPPORTED, "Table contains Iceberg path override properties and cannot be dropped from Trino: " + table.name());
+        }
     }
 }
