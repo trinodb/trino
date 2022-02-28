@@ -13,49 +13,23 @@
  */
 package io.trino.tests;
 
-import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
-import io.trino.connector.MockConnectorFactory;
-import io.trino.connector.MockConnectorPlugin;
-import io.trino.testing.DistributedQueryRunner;
-import io.trino.testing.QueryRunner;
-import io.trino.tpch.TpchTable;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import java.time.ZonedDateTime;
 import java.util.regex.Pattern;
 
-import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.FeaturesConfig.JoinDistributionType.BROADCAST;
 import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
-import static io.trino.plugin.memory.MemoryQueryRunner.createMemoryQueryRunner;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-public class TestDistributedEngineOnlyQueries
+public abstract class AbstractDistributedEngineOnlyQueries
         extends AbstractTestEngineOnlyQueries
 {
-    @Override
-    protected QueryRunner createQueryRunner()
-            throws Exception
-    {
-        DistributedQueryRunner queryRunner = createMemoryQueryRunner(ImmutableMap.of(), TpchTable.getTables());
-        queryRunner.getCoordinator().getSessionPropertyManager().addSystemSessionProperties(TEST_SYSTEM_PROPERTIES);
-        try {
-            queryRunner.installPlugin(new MockConnectorPlugin(MockConnectorFactory.builder()
-                    .withSessionProperties(TEST_CATALOG_PROPERTIES)
-                    .build()));
-            queryRunner.createCatalog(TESTING_CATALOG, "mock");
-        }
-        catch (RuntimeException e) {
-            throw closeAllSuppress(e, queryRunner);
-        }
-        return queryRunner;
-    }
-
     /**
      * Ensure the tests are run with {@link io.trino.testing.DistributedQueryRunner}. E.g. {@link io.trino.testing.LocalQueryRunner} takes some
      * shortcuts, not exercising certain aspects.
