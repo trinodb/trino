@@ -673,7 +673,7 @@ features:
 
   * :ref:`sql-data-management`, see also :ref:`hive-data-management`
   * :ref:`sql-schema-table-management`
-  * :ref:`sql-views-management`
+  * :ref:`sql-view-management`
 
 * :ref:`sql-security-operations`, see also :ref:`hive-sql-standard-based-authorization`
 * :ref:`sql-transactions`
