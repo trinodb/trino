@@ -16,6 +16,7 @@ package io.trino.tests;
 import com.google.common.collect.ImmutableMap;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorPlugin;
+import io.trino.testing.AbstractDistributedEngineOnlyQueries;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
