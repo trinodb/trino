@@ -13,6 +13,7 @@ from different data sources.
     Black Hole      <connector/blackhole>
     Cassandra       <connector/cassandra>
     ClickHouse      <connector/clickhouse>
+    Delta Lake      <connector/delta-lake>
     Druid           <connector/druid>
     Elasticsearch   <connector/elasticsearch>
     Google Sheets   <connector/googlesheets>
