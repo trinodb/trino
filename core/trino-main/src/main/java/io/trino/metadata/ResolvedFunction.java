@@ -16,6 +16,7 @@ package io.trino.metadata;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Splitter;
+import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.compress.zstd.ZstdCompressor;
@@ -23,6 +24,7 @@ import io.airlift.compress.zstd.ZstdDecompressor;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
+import io.trino.collect.cache.NonEvictableCache;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeId;
 import io.trino.spi.type.TypeSignature;
@@ -30,23 +32,29 @@ import io.trino.sql.tree.QualifiedName;
 import io.trino.type.TypeDeserializer;
 import io.trino.type.TypeSignatureDeserializer;
 import io.trino.type.TypeSignatureKeyDeserializer;
+import io.trino.util.ThreadSafeCompressorDecompressor;
 
+import java.nio.ByteBuffer;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.io.BaseEncoding.base32Hex;
+import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
+import static io.trino.metadata.ResolvedFunction.ResolvedFunctionDecoder.resolveQualifiedName;
 import static java.lang.Math.toIntExact;
+import static java.nio.ByteBuffer.allocate;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class ResolvedFunction
 {
-    private static final JsonCodec<ResolvedFunction> SERIALIZE_JSON_CODEC = new JsonCodecFactory().jsonCodec(ResolvedFunction.class);
     private static final String PREFIX = "@";
     private final BoundSignature signature;
     private final FunctionId functionId;
@@ -55,6 +63,7 @@ public class ResolvedFunction
     private final FunctionNullability functionNullability;
     private final Map<TypeSignature, Type> typeDependencies;
     private final Set<ResolvedFunction> functionDependencies;
+    private final QualifiedName qualifiedName;
 
     @JsonCreator
     public ResolvedFunction(
@@ -73,6 +82,7 @@ public class ResolvedFunction
         this.functionNullability = requireNonNull(functionNullability, "nullability is null");
         this.typeDependencies = ImmutableMap.copyOf(requireNonNull(typeDependencies, "typeDependencies is null"));
         this.functionDependencies = ImmutableSet.copyOf(requireNonNull(functionDependencies, "functionDependencies is null"));
+        this.qualifiedName = resolveQualifiedName(this);
         checkArgument(functionNullability.getArgumentNullable().size() == signature.getArgumentTypes().size(), "signature and functionNullability must have same argument count");
     }
 
@@ -125,17 +135,7 @@ public class ResolvedFunction
 
     public QualifiedName toQualifiedName()
     {
-        byte[] json = SERIALIZE_JSON_CODEC.toJsonBytes(this);
-
-        // json can be large so use zstd to compress
-        ZstdCompressor compressor = new ZstdCompressor();
-        byte[] compressed = new byte[compressor.maxCompressedLength(json.length)];
-        int outputSize = compressor.compress(json, 0, json.length, compressed, 0, compressed.length);
-
-        // names are case insensitive, so use base32 instead of base64
-        String base32 = base32Hex().encode(compressed, 0, outputSize);
-        // add name so expressions are still readable
-        return QualifiedName.of(PREFIX + signature.getName() + PREFIX + base32);
+        return qualifiedName;
     }
 
     public static String extractFunctionName(QualifiedName qualifiedName)
@@ -181,6 +181,11 @@ public class ResolvedFunction
 
     public static class ResolvedFunctionDecoder
     {
+        private static final JsonCodec<ResolvedFunction> SERIALIZE_JSON_CODEC = new JsonCodecFactory().jsonCodec(ResolvedFunction.class);
+        private static final ThreadSafeCompressorDecompressor COMPRESSOR_DECOMPRESSOR = new ThreadSafeCompressorDecompressor(ZstdCompressor::new, ZstdDecompressor::new);
+        private static final NonEvictableCache<QualifiedName, ResolvedFunction> resolvedFunctionsCache = buildNonEvictableCache(CacheBuilder.newBuilder().maximumSize(1024));
+        private static final NonEvictableCache<ResolvedFunction, QualifiedName> qualifiedFunctionsCache = buildNonEvictableCache(CacheBuilder.newBuilder().maximumSize(1024));
+
         private final JsonCodec<ResolvedFunction> jsonCodec;
 
         public ResolvedFunctionDecoder(Function<TypeId, Type> typeLoader)
@@ -196,26 +201,49 @@ public class ResolvedFunction
 
         public Optional<ResolvedFunction> fromQualifiedName(QualifiedName qualifiedName)
         {
-            String data = qualifiedName.getSuffix();
-            if (!data.startsWith(PREFIX)) {
+            if (!qualifiedName.getSuffix().startsWith(PREFIX)) {
                 return Optional.empty();
             }
-            List<String> parts = Splitter.on(PREFIX).splitToList(data.subSequence(1, data.length()));
-            checkArgument(parts.size() == 2, "Expected encoded resolved function to contain two parts: %s", qualifiedName);
-            String name = parts.get(0);
 
+            try {
+                return Optional.of(resolvedFunctionsCache.get(qualifiedName, () -> deserialize(qualifiedName)));
+            }
+            catch (ExecutionException e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        static QualifiedName resolveQualifiedName(ResolvedFunction function)
+        {
+            try {
+                return qualifiedFunctionsCache.get(function, () -> serialize(function));
+            }
+            catch (ExecutionException e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        private ResolvedFunction deserialize(QualifiedName qualifiedName)
+        {
+            String data = qualifiedName.getSuffix();
+            List<String> parts = Splitter.on(PREFIX).splitToList(data.substring(1));
+            checkArgument(parts.size() == 2, "Expected encoded resolved function to contain two parts: %s", qualifiedName);
             String base32 = parts.get(1);
             // name may have been lower cased, but base32 decoder requires upper case
             base32 = base32.toUpperCase(ENGLISH);
             byte[] compressed = base32Hex().decode(base32);
 
-            byte[] json = new byte[toIntExact(ZstdDecompressor.getDecompressedSize(compressed, 0, compressed.length))];
-            new ZstdDecompressor().decompress(compressed, 0, compressed.length, json, 0, json.length);
+            ByteBuffer decompressed = allocate(toIntExact(ZstdDecompressor.getDecompressedSize(compressed, 0, compressed.length)));
+            COMPRESSOR_DECOMPRESSOR.decompress(ByteBuffer.wrap(compressed), decompressed);
+            return jsonCodec.fromJson(Arrays.copyOf(decompressed.array(), decompressed.position()));
+        }
 
-            ResolvedFunction resolvedFunction = jsonCodec.fromJson(json);
-            checkArgument(resolvedFunction.getSignature().getName().equalsIgnoreCase(name),
-                    "Expected decoded function to have name %s, but name is %s", resolvedFunction.getSignature().getName(), name);
-            return Optional.of(resolvedFunction);
+        static QualifiedName serialize(ResolvedFunction function)
+        {
+            byte[] value = SERIALIZE_JSON_CODEC.toJsonBytes(function);
+            ByteBuffer compressed = allocate(COMPRESSOR_DECOMPRESSOR.maxCompressedLength(value.length));
+            COMPRESSOR_DECOMPRESSOR.compress(ByteBuffer.wrap(value), compressed);
+            return QualifiedName.of(PREFIX + function.signature.getName() + PREFIX + base32Hex().encode(compressed.array(), 0, compressed.position()));
         }
     }
 }
