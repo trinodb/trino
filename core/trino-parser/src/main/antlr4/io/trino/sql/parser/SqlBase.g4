@@ -328,6 +328,12 @@ sampleType
     | SYSTEM
     ;
 
+trimsSpecification
+    : LEADING
+    | TRAILING
+    | BOTH
+    ;
+
 listAggOverflowBehavior
     : ERROR
     | TRUNCATE string? listaggCountIndication
@@ -477,6 +483,9 @@ primaryExpression
     | name=CURRENT_CATALOG                                                                #currentCatalog
     | name=CURRENT_SCHEMA                                                                 #currentSchema
     | name=CURRENT_PATH                                                                   #currentPath
+    | TRIM '(' (trimsSpecification? trimChar=valueExpression? FROM)?
+        trimSource=valueExpression ')'                                                    #trim
+    | TRIM '(' trimSource=valueExpression ',' trimChar=valueExpression ')'                #trim
     | SUBSTRING '(' valueExpression FROM valueExpression (FOR valueExpression)? ')'       #substring
     | NORMALIZE '(' valueExpression (',' normalForm)? ')'                                 #normalize
     | EXTRACT '(' identifier FROM valueExpression ')'                                     #extract
@@ -707,7 +716,7 @@ number
 nonReserved
     // IMPORTANT: this rule must only contain tokens. Nested rules are not supported. See SqlParser.exitNonReserved
     : ADD | ADMIN | AFTER | ALL | ANALYZE | ANY | ARRAY | ASC | AT | AUTHORIZATION
-    | BERNOULLI
+    | BERNOULLI | BOTH
     | CALL | CASCADE | CATALOGS | COLUMN | COLUMNS | COMMENT | COMMIT | COMMITTED | COUNT | CURRENT
     | DATA | DATE | DAY | DEFAULT | DEFINE | DEFINER | DESC | DISTRIBUTED | DOUBLE
     | EMPTY | ERROR | EXCLUDING | EXPLAIN
@@ -716,7 +725,7 @@ nonReserved
     | HOUR
     | IF | IGNORE | INCLUDING | INITIAL | INPUT | INTERVAL | INVOKER | IO | ISOLATION
     | JSON
-    | LAST | LATERAL | LEVEL | LIMIT | LOCAL | LOGICAL
+    | LAST | LATERAL | LEADING | LEVEL | LIMIT | LOCAL | LOGICAL
     | MAP | MATCH | MATCHED | MATCHES | MATCH_RECOGNIZE | MATERIALIZED | MEASURES | MERGE | MINUTE | MONTH
     | NEXT | NFC | NFD | NFKC | NFKD | NO | NONE | NULLIF | NULLS
     | OF | OFFSET | OMIT | ONE | ONLY | OPTION | ORDINALITY | OUTPUT | OVER | OVERFLOW
@@ -724,7 +733,7 @@ nonReserved
     | RANGE | READ | REFRESH | RENAME | REPEATABLE | REPLACE | RESET | RESPECT | RESTRICT | REVOKE | ROLE | ROLES | ROLLBACK | ROW | ROWS | RUNNING
     | SCHEMA | SCHEMAS | SECOND | SECURITY | SEEK | SERIALIZABLE | SESSION | SET | SETS
     | SHOW | SOME | START | STATS | SUBSET | SUBSTRING | SYSTEM
-    | TABLES | TABLESAMPLE | TEXT | TIES | TIME | TIMESTAMP | TO | TRANSACTION | TRUNCATE | TRY_CAST | TYPE
+    | TABLES | TABLESAMPLE | TEXT | TIES | TIME | TIMESTAMP | TO | TRAILING | TRANSACTION | TRUNCATE | TRY_CAST | TYPE
     | UNBOUNDED | UNCOMMITTED | UNMATCHED | UPDATE | USE | USER
     | VALIDATE | VERBOSE | VERSION | VIEW
     | WINDOW | WITHIN | WITHOUT | WORK | WRITE
@@ -747,6 +756,7 @@ AT: 'AT';
 AUTHORIZATION: 'AUTHORIZATION';
 BERNOULLI: 'BERNOULLI';
 BETWEEN: 'BETWEEN';
+BOTH: 'BOTH';
 BY: 'BY';
 CALL: 'CALL';
 CASCADE: 'CASCADE';
@@ -837,6 +847,7 @@ JOIN: 'JOIN';
 JSON: 'JSON';
 LAST: 'LAST';
 LATERAL: 'LATERAL';
+LEADING: 'LEADING';
 LEFT: 'LEFT';
 LEVEL: 'LEVEL';
 LIKE: 'LIKE';
@@ -941,7 +952,9 @@ TIES: 'TIES';
 TIME: 'TIME';
 TIMESTAMP: 'TIMESTAMP';
 TO: 'TO';
+TRAILING: 'TRAILING';
 TRANSACTION: 'TRANSACTION';
+TRIM: 'TRIM';
 TRUE: 'TRUE';
 TRUNCATE: 'TRUNCATE';
 TRY_CAST: 'TRY_CAST';

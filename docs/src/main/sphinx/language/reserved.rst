@@ -75,6 +75,7 @@ Keyword                        SQL:2016      SQL-92
 ``SKIP``                       reserved
 ``TABLE``                      reserved      reserved
 ``THEN``                       reserved      reserved
+``TRIM``                       reserved      reserved
 ``TRUE``                       reserved      reserved
 ``UESCAPE``                    reserved
 ``UNION``                      reserved      reserved
