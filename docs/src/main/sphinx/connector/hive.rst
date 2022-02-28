@@ -484,6 +484,8 @@ Property Name                           Description
                                         metastore. Default is ``false``.
 ======================================= =============================================================
 
+.. _hive-thrift-metastore:
+
 Thrift metastore configuration properties
 -----------------------------------------
 
@@ -529,6 +531,8 @@ Property Name                                                   Description
 ``hive.metastore.client.keytab``                                Hive metastore client keytab location.
 
 =============================================================== =============================================================
+
+.. _hive-glue-metastore:
 
 AWS Glue catalog configuration properties
 -----------------------------------------
