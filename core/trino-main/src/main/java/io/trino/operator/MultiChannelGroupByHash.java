@@ -21,7 +21,6 @@ import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
@@ -777,7 +776,7 @@ public class MultiChannelGroupByHash
     class GetNonDictionaryGroupIdsWork
             implements Work<GroupByIdBlock>
     {
-        private final BlockBuilder blockBuilder;
+        private final long[] groupIds;
         private final Page page;
 
         private boolean finished;
@@ -787,7 +786,7 @@ public class MultiChannelGroupByHash
         {
             this.page = requireNonNull(page, "page is null");
             // we know the exact size required for the block
-            this.blockBuilder = BIGINT.createFixedSizeBlockBuilder(page.getPositionCount());
+            groupIds = new long[page.getPositionCount()];
         }
 
         @Override
@@ -807,7 +806,7 @@ public class MultiChannelGroupByHash
             // Therefore needRehash will not generally return true even if we have just crossed the capacity boundary.
             while (lastPosition < positionCount && !needRehash()) {
                 // output the group id for this row
-                BIGINT.writeLong(blockBuilder, putIfAbsent(lastPosition, page));
+                groupIds[lastPosition] = putIfAbsent(lastPosition, page);
                 lastPosition++;
             }
             return lastPosition == positionCount;
@@ -819,7 +818,7 @@ public class MultiChannelGroupByHash
             checkState(lastPosition == page.getPositionCount(), "process has not yet finished");
             checkState(!finished, "result has produced");
             finished = true;
-            return new GroupByIdBlock(nextGroupId, blockBuilder.build());
+            return new GroupByIdBlock(nextGroupId, new LongArrayBlock(groupIds.length, Optional.empty(), groupIds));
         }
     }
 
@@ -889,7 +888,7 @@ public class MultiChannelGroupByHash
     class GetDictionaryGroupIdsWork
             implements Work<GroupByIdBlock>
     {
-        private final BlockBuilder blockBuilder;
+        private final long[] groupIds;
         private final Page page;
         private final Page dictionaryPage;
         private final DictionaryBlock dictionaryBlock;
@@ -905,9 +904,7 @@ public class MultiChannelGroupByHash
             this.dictionaryBlock = (DictionaryBlock) page.getBlock(channels[0]);
             updateDictionaryLookBack(dictionaryBlock.getDictionary());
             this.dictionaryPage = createPageWithExtractedDictionary(page);
-
-            // we know the exact size required for the block
-            this.blockBuilder = BIGINT.createFixedSizeBlockBuilder(page.getPositionCount());
+            groupIds = new long[page.getPositionCount()];
         }
 
         @Override
@@ -927,8 +924,7 @@ public class MultiChannelGroupByHash
             // Therefore needRehash will not generally return true even if we have just crossed the capacity boundary.
             while (lastPosition < positionCount && !needRehash()) {
                 int positionInDictionary = dictionaryBlock.getId(lastPosition);
-                int groupId = registerGroupId(hashGenerator, dictionaryPage, positionInDictionary);
-                BIGINT.writeLong(blockBuilder, groupId);
+                groupIds[lastPosition] = registerGroupId(hashGenerator, dictionaryPage, positionInDictionary);
                 lastPosition++;
             }
             return lastPosition == positionCount;
@@ -940,7 +936,7 @@ public class MultiChannelGroupByHash
             checkState(lastPosition == page.getPositionCount(), "process has not yet finished");
             checkState(!finished, "result has produced");
             finished = true;
-            return new GroupByIdBlock(nextGroupId, blockBuilder.build());
+            return new GroupByIdBlock(nextGroupId, new LongArrayBlock(groupIds.length, Optional.empty(), groupIds));
         }
     }
 
