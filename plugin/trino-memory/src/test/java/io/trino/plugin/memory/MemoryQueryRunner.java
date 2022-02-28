@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.memory;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
@@ -21,12 +22,14 @@ import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.tpch.TpchTable;
 
+import java.util.List;
 import java.util.Map;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static java.util.Objects.requireNonNull;
 
 public final class MemoryQueryRunner
 {
@@ -39,29 +42,62 @@ public final class MemoryQueryRunner
             Iterable<TpchTable<?>> tables)
             throws Exception
     {
-        Session session = testSessionBuilder()
-                .setCatalog(CATALOG)
-                .setSchema("default")
-                .build();
-
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session)
+        return builder()
                 .setExtraProperties(extraProperties)
+                .setInitialTables(tables)
                 .build();
+    }
 
-        try {
-            queryRunner.installPlugin(new MemoryPlugin());
-            queryRunner.createCatalog(CATALOG, "memory", ImmutableMap.of());
+    public static Builder builder()
+    {
+        return new Builder();
+    }
 
-            queryRunner.installPlugin(new TpchPlugin());
-            queryRunner.createCatalog("tpch", "tpch", ImmutableMap.of());
+    public static class Builder
+            extends DistributedQueryRunner.Builder<Builder>
+    {
+        private List<TpchTable<?>> initialTables = ImmutableList.of();
 
-            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, session, tables);
-
-            return queryRunner;
+        protected Builder()
+        {
+            super(createSession());
         }
-        catch (Exception e) {
-            closeAllSuppress(e, queryRunner);
-            throw e;
+
+        public Builder setInitialTables(Iterable<TpchTable<?>> initialTables)
+        {
+            this.initialTables = ImmutableList.copyOf(requireNonNull(initialTables, "initialTables is null"));
+            return self();
+        }
+
+        @Override
+        public DistributedQueryRunner build()
+                throws Exception
+        {
+            DistributedQueryRunner queryRunner = super.build();
+
+            try {
+                queryRunner.installPlugin(new MemoryPlugin());
+                queryRunner.createCatalog(CATALOG, "memory", ImmutableMap.of());
+
+                queryRunner.installPlugin(new TpchPlugin());
+                queryRunner.createCatalog("tpch", "tpch", ImmutableMap.of());
+
+                copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), initialTables);
+
+                return queryRunner;
+            }
+            catch (Exception e) {
+                closeAllSuppress(e, queryRunner);
+                throw e;
+            }
+        }
+
+        private static Session createSession()
+        {
+            return testSessionBuilder()
+                    .setCatalog(CATALOG)
+                    .setSchema("default")
+                    .build();
         }
     }
 
