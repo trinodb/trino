@@ -91,6 +91,7 @@ import javax.inject.Inject;
 import java.io.IOException;
 import java.sql.Array;
 import java.sql.Connection;
+import java.sql.DatabaseMetaData;
 import java.sql.JDBCType;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -373,6 +374,20 @@ public class PhoenixClient
             throws SQLException
     {
         return firstNonNull(resultSet.getString("TABLE_SCHEM"), DEFAULT_SCHEMA);
+    }
+
+    @Override
+    protected ResultSet getColumns(JdbcTableHandle handle, DatabaseMetaData metadata)
+            throws SQLException
+    {
+        try {
+            return super.getColumns(handle, metadata);
+        }
+        catch (org.apache.phoenix.schema.TableNotFoundException e) {
+            // Most JDBC driver return an empty result when DatabaseMetaData.getColumns can't find objects, but Phoenix driver throws an exception
+            // Rethrow as Trino TableNotFoundException to suppress the exception during listing information_schema
+            throw new io.trino.spi.connector.TableNotFoundException(new SchemaTableName(handle.getSchemaName(), handle.getTableName()));
+        }
     }
 
     @Override
