@@ -123,6 +123,7 @@ import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.SymbolReference;
 import io.trino.sql.tree.TimeLiteral;
 import io.trino.sql.tree.TimestampLiteral;
+import io.trino.sql.tree.Trim;
 import io.trino.sql.tree.TryExpression;
 import io.trino.sql.tree.VariableDefinition;
 import io.trino.sql.tree.WhenClause;
@@ -251,7 +252,7 @@ public class ExpressionAnalyzer
     private final TypeProvider symbolTypes;
     private final boolean isDescribe;
 
-    private final Map<NodeRef<FunctionCall>, ResolvedFunction> resolvedFunctions = new LinkedHashMap<>();
+    private final Map<NodeRef<Expression>, ResolvedFunction> resolvedFunctions = new LinkedHashMap<>();
     private final Set<NodeRef<SubqueryExpression>> subqueries = new LinkedHashSet<>();
     private final Set<NodeRef<ExistsPredicate>> existsSubqueries = new LinkedHashSet<>();
     private final Map<NodeRef<Expression>, Type> expressionCoercions = new LinkedHashMap<>();
@@ -348,7 +349,7 @@ public class ExpressionAnalyzer
         this.getResolvedWindow = requireNonNull(getResolvedWindow, "getResolvedWindow is null");
     }
 
-    public Map<NodeRef<FunctionCall>, ResolvedFunction> getResolvedFunctions()
+    public Map<NodeRef<Expression>, ResolvedFunction> getResolvedFunctions()
     {
         return unmodifiableMap(resolvedFunctions);
     }
@@ -1960,6 +1961,38 @@ public class ExpressionAnalyzer
         protected Type visitCurrentPath(CurrentPath node, StackableAstVisitorContext<Context> context)
         {
             return setExpressionType(node, VARCHAR);
+        }
+
+        @Override
+        protected Type visitTrim(Trim node, StackableAstVisitorContext<Context> context)
+        {
+            ImmutableList.Builder<Type> argumentTypes = ImmutableList.builder();
+
+            argumentTypes.add(process(node.getTrimSource(), context));
+            node.getTrimCharacter().ifPresent(trimChar -> argumentTypes.add(process(trimChar, context)));
+            List<Type> actualTypes = argumentTypes.build();
+
+            String functionName = node.getSpecification().getFunctionName();
+            ResolvedFunction function = plannerContext.getMetadata().resolveFunction(session, QualifiedName.of(functionName), fromTypes(actualTypes));
+
+            List<Type> expectedTypes = function.getSignature().getArgumentTypes();
+            checkState(expectedTypes.size() == actualTypes.size(), "wrong argument number in the resolved signature");
+
+            Type actualTrimSourceType = actualTypes.get(0);
+            Type expectedTrimSourceType = expectedTypes.get(0);
+            coerceType(node.getTrimSource(), actualTrimSourceType, expectedTrimSourceType, "source argument of trim function");
+
+            if (node.getTrimCharacter().isPresent()) {
+                Type actualTrimCharType = actualTypes.get(1);
+                Type expectedTrimCharType = expectedTypes.get(1);
+                coerceType(node.getTrimCharacter().get(), actualTrimCharType, expectedTrimCharType, "trim character argument of trim function");
+            }
+
+            accessControl.checkCanExecuteFunction(SecurityContext.of(session), functionName);
+
+            resolvedFunctions.put(NodeRef.of(node), function);
+
+            return setExpressionType(node, function.getSignature().getReturnType());
         }
 
         @Override
