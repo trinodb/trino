@@ -128,8 +128,6 @@ supports the following features:
   :ref:`iceberg-materialized-views`
 * :ref:`sql-view-management`
 
-.. include:: alter-mv-set-properties-unsupported.fragment
-
 .. _iceberg-alter-table-execute:
 
 ALTER TABLE EXECUTE
