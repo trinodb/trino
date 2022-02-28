@@ -25,7 +25,6 @@ import io.trino.tpch.TpchTable;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestDistributedFaultTolerantEngineOnlyQueries
         extends AbstractDistributedEngineOnlyQueries
@@ -63,13 +62,5 @@ public class TestDistributedFaultTolerantEngineOnlyQueries
         // dynamic filters are disabled
         String result = (String) computeActual("EXPLAIN ANALYZE SELECT * FROM nation a, nation b WHERE a.nationkey = b.nationkey").getOnlyValue();
         assertThat(result).doesNotContainPattern("Dynamic filters:.*");
-    }
-
-    @Override
-    public void testAssignUniqueId()
-    {
-        // TODO(https://github.com/trinodb/trino/issues/11223)
-        assertThatThrownBy(super::testAssignUniqueId)
-                .hasStackTraceContaining("replicated exchanges are not expected in source distributed stage");
     }
 }

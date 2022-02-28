@@ -42,12 +42,12 @@ import io.trino.spi.exchange.ExchangeContext;
 import io.trino.spi.exchange.ExchangeManager;
 import io.trino.spi.exchange.ExchangeSourceHandle;
 import io.trino.split.SplitSource;
-import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNodeId;
 import org.openjdk.jol.info.ClassLayout;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -71,8 +71,6 @@ import static org.testng.Assert.assertTrue;
 
 public class TestStageTaskSourceFactory
 {
-    private static final PlanFragmentId FRAGMENT_ID_1 = new PlanFragmentId("1");
-    private static final PlanFragmentId FRAGMENT_ID_2 = new PlanFragmentId("2");
     private static final PlanNodeId PLAN_NODE_1 = new PlanNodeId("planNode1");
     private static final PlanNodeId PLAN_NODE_2 = new PlanNodeId("planNode2");
     private static final PlanNodeId PLAN_NODE_3 = new PlanNodeId("planNode3");
@@ -111,18 +109,27 @@ public class TestStageTaskSourceFactory
         ExchangeManager splittingExchangeManager = new TestingExchangeManager(true);
         ExchangeManager nonSplittingExchangeManager = new TestingExchangeManager(false);
 
-        TaskSource taskSource = new ArbitraryDistributionTaskSource(ImmutableMap.of(), ImmutableMap.of(), ImmutableListMultimap.of(), DataSize.of(3, BYTE));
+        TaskSource taskSource = new ArbitraryDistributionTaskSource(new IdentityHashMap<>(),
+                ImmutableListMultimap.of(),
+                ImmutableListMultimap.of(),
+                DataSize.of(3, BYTE));
         assertFalse(taskSource.isFinished());
         List<TaskDescriptor> tasks = taskSource.getMoreTasks();
         assertThat(tasks).isEmpty();
         assertTrue(taskSource.isFinished());
 
-        Multimap<PlanFragmentId, ExchangeSourceHandle> sources = ImmutableListMultimap.of(FRAGMENT_ID_1, new TestingExchangeSourceHandle(0, 3));
+        TestingExchangeSourceHandle sourceHandle1 = new TestingExchangeSourceHandle(0, 1);
+        TestingExchangeSourceHandle sourceHandle2 = new TestingExchangeSourceHandle(0, 2);
+        TestingExchangeSourceHandle sourceHandle3 = new TestingExchangeSourceHandle(0, 3);
+        TestingExchangeSourceHandle sourceHandle4 = new TestingExchangeSourceHandle(0, 4);
+        TestingExchangeSourceHandle sourceHandle123 = new TestingExchangeSourceHandle(0, 123);
+        TestingExchangeSourceHandle sourceHandle321 = new TestingExchangeSourceHandle(0, 321);
+        Multimap<PlanNodeId, ExchangeSourceHandle> nonReplicatedSources = ImmutableListMultimap.of(PLAN_NODE_1, sourceHandle3);
         Exchange exchange = splittingExchangeManager.createExchange(new ExchangeContext(new QueryId("query"), createRandomExchangeId()), 3);
         taskSource = new ArbitraryDistributionTaskSource(
-                ImmutableMap.of(FRAGMENT_ID_1, PLAN_NODE_1),
-                ImmutableMap.of(FRAGMENT_ID_1, exchange),
-                sources,
+                new IdentityHashMap<>(ImmutableMap.of(sourceHandle3, exchange)),
+                nonReplicatedSources,
+                ImmutableListMultimap.of(),
                 DataSize.of(3, BYTE));
         tasks = taskSource.getMoreTasks();
         assertTrue(taskSource.isFinished());
@@ -133,12 +140,12 @@ public class TestStageTaskSourceFactory
                 ImmutableListMultimap.of(PLAN_NODE_1, new TestingExchangeSourceHandle(0, 3)),
                 new NodeRequirements(Optional.empty(), ImmutableSet.of()))));
 
-        sources = ImmutableListMultimap.of(FRAGMENT_ID_1, new TestingExchangeSourceHandle(0, 123));
+        nonReplicatedSources = ImmutableListMultimap.of(PLAN_NODE_1, sourceHandle123);
         exchange = nonSplittingExchangeManager.createExchange(new ExchangeContext(new QueryId("query"), createRandomExchangeId()), 3);
         taskSource = new ArbitraryDistributionTaskSource(
-                ImmutableMap.of(FRAGMENT_ID_1, PLAN_NODE_1),
-                ImmutableMap.of(FRAGMENT_ID_1, exchange),
-                sources,
+                new IdentityHashMap<>(ImmutableMap.of(sourceHandle123, exchange)),
+                nonReplicatedSources,
+                ImmutableListMultimap.of(),
                 DataSize.of(3, BYTE));
         tasks = taskSource.getMoreTasks();
         assertEquals(tasks, ImmutableList.of(new TaskDescriptor(
@@ -147,14 +154,16 @@ public class TestStageTaskSourceFactory
                 ImmutableListMultimap.of(PLAN_NODE_1, new TestingExchangeSourceHandle(0, 123)),
                 new NodeRequirements(Optional.empty(), ImmutableSet.of()))));
 
-        sources = ImmutableListMultimap.of(
-                FRAGMENT_ID_1, new TestingExchangeSourceHandle(0, 123),
-                FRAGMENT_ID_2, new TestingExchangeSourceHandle(0, 321));
+        nonReplicatedSources = ImmutableListMultimap.of(
+                PLAN_NODE_1, sourceHandle123,
+                PLAN_NODE_2, sourceHandle321);
         exchange = nonSplittingExchangeManager.createExchange(new ExchangeContext(new QueryId("query"), createRandomExchangeId()), 3);
         taskSource = new ArbitraryDistributionTaskSource(
-                ImmutableMap.of(FRAGMENT_ID_1, PLAN_NODE_1, FRAGMENT_ID_2, PLAN_NODE_2),
-                ImmutableMap.of(FRAGMENT_ID_1, exchange, FRAGMENT_ID_2, exchange),
-                sources,
+                new IdentityHashMap<>(ImmutableMap.of(
+                        sourceHandle123, exchange,
+                        sourceHandle321, exchange)),
+                nonReplicatedSources,
+                ImmutableListMultimap.of(),
                 DataSize.of(3, BYTE));
         tasks = taskSource.getMoreTasks();
         assertEquals(tasks, ImmutableList.of(
@@ -169,22 +178,27 @@ public class TestStageTaskSourceFactory
                         ImmutableListMultimap.of(PLAN_NODE_2, new TestingExchangeSourceHandle(0, 321)),
                         new NodeRequirements(Optional.empty(), ImmutableSet.of()))));
 
-        sources = ImmutableListMultimap.of(
-                FRAGMENT_ID_1, new TestingExchangeSourceHandle(0, 1),
-                FRAGMENT_ID_1, new TestingExchangeSourceHandle(0, 2),
-                FRAGMENT_ID_2, new TestingExchangeSourceHandle(0, 4));
+        nonReplicatedSources = ImmutableListMultimap.of(
+                PLAN_NODE_1, sourceHandle1,
+                PLAN_NODE_1, sourceHandle2,
+                PLAN_NODE_2, sourceHandle4);
         exchange = splittingExchangeManager.createExchange(new ExchangeContext(new QueryId("query"), createRandomExchangeId()), 3);
         taskSource = new ArbitraryDistributionTaskSource(
-                ImmutableMap.of(FRAGMENT_ID_1, PLAN_NODE_1, FRAGMENT_ID_2, PLAN_NODE_2),
-                ImmutableMap.of(FRAGMENT_ID_1, exchange, FRAGMENT_ID_2, exchange),
-                sources,
+                new IdentityHashMap<>(ImmutableMap.of(
+                        sourceHandle1, exchange,
+                        sourceHandle2, exchange,
+                        sourceHandle4, exchange)),
+                nonReplicatedSources,
+                ImmutableListMultimap.of(),
                 DataSize.of(3, BYTE));
         tasks = taskSource.getMoreTasks();
         assertEquals(tasks, ImmutableList.of(
                 new TaskDescriptor(
                         0,
                         ImmutableListMultimap.of(),
-                        ImmutableListMultimap.of(PLAN_NODE_1, new TestingExchangeSourceHandle(0, 1), PLAN_NODE_1, new TestingExchangeSourceHandle(0, 2)),
+                        ImmutableListMultimap.of(
+                                PLAN_NODE_1, new TestingExchangeSourceHandle(0, 1),
+                                PLAN_NODE_1, new TestingExchangeSourceHandle(0, 2)),
                         new NodeRequirements(Optional.empty(), ImmutableSet.of())),
                 new TaskDescriptor(
                         1,
@@ -197,15 +211,18 @@ public class TestStageTaskSourceFactory
                         ImmutableListMultimap.of(PLAN_NODE_2, new TestingExchangeSourceHandle(0, 1)),
                         new NodeRequirements(Optional.empty(), ImmutableSet.of()))));
 
-        sources = ImmutableListMultimap.of(
-                FRAGMENT_ID_1, new TestingExchangeSourceHandle(0, 1),
-                FRAGMENT_ID_1, new TestingExchangeSourceHandle(0, 3),
-                FRAGMENT_ID_2, new TestingExchangeSourceHandle(0, 4));
+        nonReplicatedSources = ImmutableListMultimap.of(
+                PLAN_NODE_1, sourceHandle1,
+                PLAN_NODE_1, sourceHandle3,
+                PLAN_NODE_2, sourceHandle4);
         exchange = splittingExchangeManager.createExchange(new ExchangeContext(new QueryId("query"), createRandomExchangeId()), 3);
         taskSource = new ArbitraryDistributionTaskSource(
-                ImmutableMap.of(FRAGMENT_ID_1, PLAN_NODE_1, FRAGMENT_ID_2, PLAN_NODE_2),
-                ImmutableMap.of(FRAGMENT_ID_1, exchange, FRAGMENT_ID_2, exchange),
-                sources,
+                new IdentityHashMap<>(ImmutableMap.of(
+                        sourceHandle1, exchange,
+                        sourceHandle3, exchange,
+                        sourceHandle4, exchange)),
+                nonReplicatedSources,
+                ImmutableListMultimap.of(),
                 DataSize.of(3, BYTE));
         tasks = taskSource.getMoreTasks();
         assertEquals(tasks, ImmutableList.of(
@@ -228,6 +245,48 @@ public class TestStageTaskSourceFactory
                         3,
                         ImmutableListMultimap.of(),
                         ImmutableListMultimap.of(PLAN_NODE_2, new TestingExchangeSourceHandle(0, 1)),
+                        new NodeRequirements(Optional.empty(), ImmutableSet.of()))));
+
+        // with replicated sources
+        nonReplicatedSources = ImmutableListMultimap.of(
+                PLAN_NODE_1, sourceHandle1,
+                PLAN_NODE_1, sourceHandle2,
+                PLAN_NODE_1, sourceHandle4);
+        Multimap<PlanNodeId, ExchangeSourceHandle> replicatedSources = ImmutableListMultimap.of(
+                PLAN_NODE_2, sourceHandle321);
+        exchange = splittingExchangeManager.createExchange(new ExchangeContext(new QueryId("query"), createRandomExchangeId()), 3);
+        taskSource = new ArbitraryDistributionTaskSource(
+                new IdentityHashMap<>(ImmutableMap.of(
+                        sourceHandle1, exchange,
+                        sourceHandle2, exchange,
+                        sourceHandle4, exchange,
+                        sourceHandle321, exchange)),
+                nonReplicatedSources,
+                replicatedSources,
+                DataSize.of(3, BYTE));
+        tasks = taskSource.getMoreTasks();
+        assertEquals(tasks, ImmutableList.of(
+                new TaskDescriptor(
+                        0,
+                        ImmutableListMultimap.of(),
+                        ImmutableListMultimap.of(
+                                PLAN_NODE_1, new TestingExchangeSourceHandle(0, 1),
+                                PLAN_NODE_1, new TestingExchangeSourceHandle(0, 2),
+                                PLAN_NODE_2, new TestingExchangeSourceHandle(0, 321)),
+                        new NodeRequirements(Optional.empty(), ImmutableSet.of())),
+                new TaskDescriptor(
+                        1,
+                        ImmutableListMultimap.of(),
+                        ImmutableListMultimap.of(
+                                PLAN_NODE_1, new TestingExchangeSourceHandle(0, 3),
+                                PLAN_NODE_2, sourceHandle321),
+                        new NodeRequirements(Optional.empty(), ImmutableSet.of())),
+                new TaskDescriptor(
+                        2,
+                        ImmutableListMultimap.of(),
+                        ImmutableListMultimap.of(
+                                PLAN_NODE_1, new TestingExchangeSourceHandle(0, 1),
+                                PLAN_NODE_2, sourceHandle321),
                         new NodeRequirements(Optional.empty(), ImmutableSet.of()))));
     }
 
