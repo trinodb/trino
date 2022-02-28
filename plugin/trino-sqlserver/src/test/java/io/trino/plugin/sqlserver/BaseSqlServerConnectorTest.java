@@ -137,7 +137,6 @@ public abstract class BaseSqlServerConnectorTest
 
     @Test
     public void testColumnComment()
-            throws Exception
     {
         try (TestTable testTable = new TestTable(onRemoteDatabase(), "test_column_comment", "(col1 bigint, col2 bigint, col3 bigint)")) {
             onRemoteDatabase().execute("" +
@@ -156,7 +155,6 @@ public abstract class BaseSqlServerConnectorTest
 
     @Test
     public void testPredicatePushdown()
-            throws Exception
     {
         // varchar equality
         assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE name = 'ROMANIA'"))
