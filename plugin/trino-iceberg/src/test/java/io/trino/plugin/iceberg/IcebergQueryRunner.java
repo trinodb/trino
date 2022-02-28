@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
-import io.trino.plugin.exchange.FileSystemExchangePlugin;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.tpch.TpchTable;
@@ -91,7 +90,6 @@ public final class IcebergQueryRunner
     {
         private Optional<File> metastoreDirectory = Optional.empty();
         private ImmutableMap.Builder<String, String> icebergProperties = ImmutableMap.builder();
-        private Map<String, String> exchangeManagerProperties = ImmutableMap.of();
         private List<TpchTable<?>> initialTables = ImmutableList.of();
 
         protected Builder()
@@ -121,12 +119,6 @@ public final class IcebergQueryRunner
             return self();
         }
 
-        public Builder setExchangeManagerProperties(Map<String, String> exchangeManagerProperties)
-        {
-            this.exchangeManagerProperties = ImmutableMap.copyOf(requireNonNull(exchangeManagerProperties, "exchangeManagerProperties is null"));
-            return self();
-        }
-
         public Builder setInitialTables(Iterable<TpchTable<?>> initialTables)
         {
             this.initialTables = ImmutableList.copyOf(requireNonNull(initialTables, "initialTables is null"));
@@ -141,11 +133,6 @@ public final class IcebergQueryRunner
             try {
                 queryRunner.installPlugin(new TpchPlugin());
                 queryRunner.createCatalog("tpch", "tpch");
-
-                if (!exchangeManagerProperties.isEmpty()) {
-                    queryRunner.installPlugin(new FileSystemExchangePlugin());
-                    queryRunner.loadExchangeManager("filesystem", exchangeManagerProperties);
-                }
 
                 Path dataDir = metastoreDirectory.map(File::toPath).orElseGet(() -> queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data"));
 
