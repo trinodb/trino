@@ -167,11 +167,6 @@ public abstract class AbstractDistributedEngineOnlyQueries
                 "Right \\(build\\) Input avg\\.: .* rows, Input std\\.dev\\.: .*",
                 "Collisions avg\\.: .* \\(.* est\\.\\), Collisions std\\.dev\\.: .*");
 
-        // ExplainAnalyzeOperator may finish before dynamic filter stats are reported to QueryInfo
-        assertEventually(() -> assertExplainAnalyze(
-                "EXPLAIN ANALYZE SELECT * FROM nation a, nation b WHERE a.nationkey = b.nationkey",
-                "Dynamic filters: \n.*ranges=25, \\{\\[0], ..., \\[24]}.* collection time=\\d+.*"));
-
         assertExplainAnalyze(
                 "EXPLAIN ANALYZE SELECT nationkey FROM nation GROUP BY nationkey",
                 "Collisions avg\\.: .* \\(.* est\\.\\), Collisions std\\.dev\\.: .*");
@@ -179,6 +174,15 @@ public abstract class AbstractDistributedEngineOnlyQueries
         assertExplainAnalyze(
                 "EXPLAIN ANALYZE SELECT * FROM nation a, nation b WHERE a.nationkey = b.nationkey",
                 "Estimates: \\{rows: .* \\(.*\\), cpu: .*, memory: .*, network: .*}");
+    }
+
+    @Test
+    public void testExplainAnalyzeDynamicFilterInfo()
+    {
+        // ExplainAnalyzeOperator may finish before dynamic filter stats are reported to QueryInfo
+        assertEventually(() -> assertExplainAnalyze(
+                "EXPLAIN ANALYZE SELECT * FROM nation a, nation b WHERE a.nationkey = b.nationkey",
+                "Dynamic filters: \n.*ranges=25, \\{\\[0], ..., \\[24]}.* collection time=\\d+.*"));
     }
 
     @Test
