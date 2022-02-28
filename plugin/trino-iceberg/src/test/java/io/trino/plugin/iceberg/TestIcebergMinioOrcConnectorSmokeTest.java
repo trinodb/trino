@@ -13,25 +13,13 @@
  */
 package io.trino.plugin.iceberg;
 
-import io.trino.testing.QueryRunner;
-
-import static io.trino.plugin.iceberg.IcebergQueryRunner.createIcebergQueryRunner;
 import static org.apache.iceberg.FileFormat.ORC;
 
-// Redundant over TestIcebergOrcConnectorTest, but exists to exercise BaseConnectorSmokeTest
-// Some features like materialized views may be supported by Iceberg only.
-public class TestIcebergConnectorSmokeTest
-        extends BaseIcebergConnectorSmokeTest
+public class TestIcebergMinioOrcConnectorSmokeTest
+        extends BaseIcebergMinioConnectorSmokeTest
 {
-    public TestIcebergConnectorSmokeTest()
+    public TestIcebergMinioOrcConnectorSmokeTest()
     {
         super(ORC);
-    }
-
-    @Override
-    protected QueryRunner createQueryRunner()
-            throws Exception
-    {
-        return createIcebergQueryRunner(REQUIRED_TPCH_TABLES);
     }
 }
