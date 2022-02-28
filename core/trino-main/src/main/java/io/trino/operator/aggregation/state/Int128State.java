@@ -13,15 +13,18 @@
  */
 package io.trino.operator.aggregation.state;
 
+import io.trino.spi.function.AccumulatorState;
 import io.trino.spi.function.AccumulatorStateMetadata;
 
-@AccumulatorStateMetadata(stateFactoryClass = LongDecimalWithOverflowAndLongStateFactory.class, stateSerializerClass = LongDecimalWithOverflowAndLongStateSerializer.class)
-public interface LongDecimalWithOverflowAndLongState
-        extends LongDecimalWithOverflowState
+@AccumulatorStateMetadata(stateFactoryClass = Int128StateFactory.class, stateSerializerClass = Int128StateSerializer.class)
+public interface Int128State
+        extends AccumulatorState
 {
-    long getLong();
+    boolean isNotNull();
 
-    void setLong(long value);
+    void setNotNull();
 
-    void addLong(long value);
+    long[] getArray();
+
+    int getArrayOffset();
 }
