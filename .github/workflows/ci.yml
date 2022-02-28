@@ -428,7 +428,7 @@ jobs:
         run: echo "::add-matcher::.github/problem-matcher.json"
       - name: Cleanup node
         # This is required as a virtual environment update 20210219.1 left too little space for MemSQL to work
-        if: matrix.modules == ':trino-memsql'
+        if: matrix.modules == 'plugin/trino-memsql'
         run: .github/bin/cleanup-node.sh
       - name: Maven Install
         run: |
