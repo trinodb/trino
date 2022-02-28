@@ -90,6 +90,7 @@ import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.SymbolReference;
 import io.trino.sql.tree.TimeLiteral;
 import io.trino.sql.tree.TimestampLiteral;
+import io.trino.sql.tree.Trim;
 import io.trino.sql.tree.TryExpression;
 import io.trino.sql.tree.TypeParameter;
 import io.trino.sql.tree.WhenClause;
@@ -189,6 +190,16 @@ public final class ExpressionFormatter
         protected String visitCurrentPath(CurrentPath node, Void context)
         {
             return "CURRENT_PATH";
+        }
+
+        @Override
+        protected String visitTrim(Trim node, Void context)
+        {
+            if (!node.getTrimCharacter().isPresent()) {
+                return format("trim(%s FROM %s)", node.getSpecification(), process(node.getTrimSource(), context));
+            }
+
+            return format("trim(%s %s FROM %s)", node.getSpecification(), process(node.getTrimCharacter().get(), context), process(node.getTrimSource(), context));
         }
 
         @Override

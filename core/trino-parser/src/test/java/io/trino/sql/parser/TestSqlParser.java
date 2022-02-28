@@ -179,6 +179,7 @@ import io.trino.sql.tree.TableSubquery;
 import io.trino.sql.tree.TimeLiteral;
 import io.trino.sql.tree.TimestampLiteral;
 import io.trino.sql.tree.TransactionAccessMode;
+import io.trino.sql.tree.Trim;
 import io.trino.sql.tree.TruncateTable;
 import io.trino.sql.tree.Union;
 import io.trino.sql.tree.Unnest;
@@ -249,6 +250,9 @@ import static io.trino.sql.tree.SkipTo.skipToNextRow;
 import static io.trino.sql.tree.SortItem.NullOrdering.UNDEFINED;
 import static io.trino.sql.tree.SortItem.Ordering.ASCENDING;
 import static io.trino.sql.tree.SortItem.Ordering.DESCENDING;
+import static io.trino.sql.tree.Trim.Specification.BOTH;
+import static io.trino.sql.tree.Trim.Specification.LEADING;
+import static io.trino.sql.tree.Trim.Specification.TRAILING;
 import static io.trino.sql.tree.WindowFrame.Type.ROWS;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
@@ -946,6 +950,26 @@ public class TestSqlParser
     public void testCurrentTimestamp()
     {
         assertExpression("CURRENT_TIMESTAMP", new CurrentTime(CurrentTime.Function.TIMESTAMP));
+    }
+
+    @Test
+    public void testTrim()
+    {
+        assertThat(expression("trim(BOTH FROM ' abc ')"))
+                .isEqualTo(new Trim(location(1, 1), BOTH, new StringLiteral(location(1, 16), " abc "), Optional.empty()));
+        assertThat(expression("trim(LEADING FROM ' abc ')"))
+                .isEqualTo(new Trim(location(1, 1), LEADING, new StringLiteral(location(1, 19), " abc "), Optional.empty()));
+        assertThat(expression("trim(TRAILING FROM ' abc ')"))
+                .isEqualTo(new Trim(location(1, 1), TRAILING, new StringLiteral(location(1, 20), " abc "), Optional.empty()));
+
+        assertThat(expression("trim(BOTH ' ' FROM ' abc ')"))
+                .isEqualTo(new Trim(location(1, 1), BOTH, new StringLiteral(location(1, 20), " abc "), Optional.of(new StringLiteral(location(1, 11), " "))));
+        assertThat(expression("trim(LEADING ' ' FROM ' abc ')"))
+                .isEqualTo(new Trim(location(1, 1), LEADING, new StringLiteral(location(1, 23), " abc "), Optional.of(new StringLiteral(location(1, 14), " "))));
+        assertThat(expression("trim(TRAILING ' ' FROM ' abc ')"))
+                .isEqualTo(new Trim(location(1, 1), TRAILING, new StringLiteral(location(1, 24), " abc "), Optional.of(new StringLiteral(location(1, 15), " "))));
+
+        assertInvalidExpression("trim(FROM ' abc ')", "The 'trim' function must have specification, char or both arguments when it takes FROM");
     }
 
     @Test

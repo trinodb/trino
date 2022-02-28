@@ -97,6 +97,15 @@ public abstract class DefaultTraversalVisitor<C>
     }
 
     @Override
+    protected Void visitTrim(Trim node, C context)
+    {
+        process(node.getTrimSource(), context);
+        node.getTrimCharacter().ifPresent(trimChar -> process(trimChar, context));
+
+        return null;
+    }
+
+    @Override
     protected Void visitFormat(Format node, C context)
     {
         for (Expression argument : node.getArguments()) {
