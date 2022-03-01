@@ -375,6 +375,20 @@ public class TestHiveRedirectionToIceberg
     }
 
     @Test(groups = {HIVE_ICEBERG_REDIRECTIONS, PROFILE_SPECIFIC_TESTS})
+    public void testShowGrants()
+    {
+        String tableName = "iceberg_show_grants_" + randomTableSuffix();
+        String hiveTableName = "hive.default." + tableName;
+        String icebergTableName = "iceberg.default." + tableName;
+        createIcebergTable(icebergTableName, false);
+
+        assertQueryFailure(() -> onTrino().executeQuery(format("SHOW GRANTS ON %s", hiveTableName)))
+                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): line 1:1: Table " + hiveTableName + " is redirected to " + icebergTableName + " and SHOW GRANTS is not supported with table redirections");
+
+        onTrino().executeQuery("DROP TABLE " + icebergTableName);
+    }
+
+    @Test(groups = {HIVE_ICEBERG_REDIRECTIONS, PROFILE_SPECIFIC_TESTS})
     public void testInformationSchemaColumns()
     {
         // use dedicated schema so that we control the number and shape of tables
