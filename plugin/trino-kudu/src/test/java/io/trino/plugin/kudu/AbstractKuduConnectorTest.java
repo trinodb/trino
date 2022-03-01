@@ -57,7 +57,10 @@ public abstract class AbstractKuduConnectorTest
     @AfterClass(alwaysRun = true)
     public final void destroy()
     {
-        kuduServer.close();
+        if (kuduServer != null) {
+            kuduServer.close();
+            kuduServer = null;
+        }
     }
 
     @Override
