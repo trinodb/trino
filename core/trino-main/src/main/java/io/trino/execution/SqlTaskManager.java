@@ -521,7 +521,7 @@ public class SqlTaskManager
                 });
     }
 
-    public void failAbandonedTasks()
+    private void failAbandonedTasks()
     {
         DateTime now = DateTime.now();
         DateTime oldestAllowedHeartbeat = now.minus(clientTimeout.toMillis());
