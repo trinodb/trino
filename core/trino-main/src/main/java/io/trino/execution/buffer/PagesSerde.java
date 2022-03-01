@@ -27,10 +27,14 @@ import io.trino.spiller.SpillCipher;
 
 import javax.annotation.concurrent.NotThreadSafe;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.io.ByteStreams.readFully;
+import static io.airlift.slice.UnsafeSlice.getIntUnchecked;
 import static io.trino.execution.buffer.PageCodecMarker.COMPRESSED;
 import static io.trino.execution.buffer.PageCodecMarker.ENCRYPTED;
 import static io.trino.execution.buffer.PagesSerdeUtil.readRawPage;
@@ -42,14 +46,15 @@ import static java.util.Objects.requireNonNull;
 @NotThreadSafe
 public class PagesSerde
 {
-    private static final double MINIMUM_COMPRESSION_RATIO = 0.8;
-    private static final int SERIALIZED_PAGE_HEADER_SIZE = /*positionCount*/ Integer.BYTES +
+    static final int SERIALIZED_PAGE_HEADER_SIZE = /*positionCount*/ Integer.BYTES +
             // pageCodecMarkers
             Byte.BYTES +
             // uncompressedSizeInBytes
             Integer.BYTES +
             // sizeInBytes
             Integer.BYTES;
+    private static final int COMPRESSED_SIZE_OFFSET = SERIALIZED_PAGE_HEADER_SIZE - Integer.BYTES;
+    private static final double MINIMUM_COMPRESSION_RATIO = 0.8;
 
     private final BlockEncodingSerde blockEncodingSerde;
     private final Optional<Compressor> compressor;
@@ -214,23 +219,16 @@ public class PagesSerde
         return readRawPage(positionCount, slice.getInput(), blockEncodingSerde);
     }
 
-    public static Slice readSerializedPage(SliceInput input)
+    public static Slice readSerializedPage(Slice headerSlice, InputStream inputStream)
+            throws IOException
     {
-        int positionCount = input.readInt();
-        byte marker = input.readByte();
-        int uncompressedSize = input.readInt();
-        int compressedSize = input.readInt();
+        checkArgument(headerSlice.length() == SERIALIZED_PAGE_HEADER_SIZE, "headerSlice length should equal to %s", SERIALIZED_PAGE_HEADER_SIZE);
 
-        SliceOutput output = Slices.allocate(SERIALIZED_PAGE_HEADER_SIZE + compressedSize).getOutput();
-        output.writeInt(positionCount);
-        output.writeByte(marker);
-        output.writeInt(uncompressedSize);
-        output.writeInt(compressedSize);
-
-        Slice result = output.getUnderlyingSlice();
-        input.readBytes(result, SERIALIZED_PAGE_HEADER_SIZE, compressedSize);
-
-        return result;
+        int compressedSize = getIntUnchecked(headerSlice, COMPRESSED_SIZE_OFFSET);
+        byte[] outputBuffer = new byte[SERIALIZED_PAGE_HEADER_SIZE + compressedSize];
+        headerSlice.getBytes(0, outputBuffer, 0, SERIALIZED_PAGE_HEADER_SIZE);
+        readFully(inputStream, outputBuffer, SERIALIZED_PAGE_HEADER_SIZE, compressedSize);
+        return Slices.wrappedBuffer(outputBuffer);
     }
 
     public static final class PagesSerdeContext
