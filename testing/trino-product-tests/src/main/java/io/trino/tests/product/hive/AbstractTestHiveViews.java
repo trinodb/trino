@@ -664,6 +664,32 @@ public abstract class AbstractTestHiveViews
         onHive().executeQuery("DROP TABLE default.view_iceberg_table");
     }
 
+    @Test(groups = HIVE_VIEWS)
+    public void testViewWithColumnAliasesDifferingInCase()
+    {
+        onHive().executeQuery("DROP TABLE IF EXISTS test_hive_namesake_column_name_a");
+        onHive().executeQuery("DROP TABLE IF EXISTS test_hive_namesake_column_name_b");
+        onHive().executeQuery("CREATE TABLE test_hive_namesake_column_name_a(some_id string)");
+        onHive().executeQuery("CREATE TABLE test_hive_namesake_column_name_b(SOME_ID string)");
+        onHive().executeQuery("INSERT INTO TABLE test_hive_namesake_column_name_a VALUES ('hive')");
+        onHive().executeQuery("INSERT INTO TABLE test_hive_namesake_column_name_b VALUES (' hive ')");
+
+        onHive().executeQuery("DROP VIEW IF EXISTS test_namesake_column_names_view");
+        onHive().executeQuery("" +
+                "CREATE VIEW test_namesake_column_names_view AS \n" +
+                "    SELECT a.some_id FROM test_hive_namesake_column_name_a a \n" +
+                "    LEFT JOIN (SELECT trim(SOME_ID) AS SOME_ID FROM test_hive_namesake_column_name_b) b \n" +
+                "       ON a.some_id = b.some_id \n" +
+                "    WHERE a.some_id != ''");
+        assertViewQuery(
+                "SELECT * FROM test_namesake_column_names_view",
+                queryAssert -> queryAssert.containsOnly(row("hive")));
+
+        onHive().executeQuery("DROP TABLE test_hive_namesake_column_name_a");
+        onHive().executeQuery("DROP TABLE test_hive_namesake_column_name_b");
+        onHive().executeQuery("DROP VIEW test_namesake_column_names_view");
+    }
+
     protected static void assertViewQuery(String query, Consumer<QueryAssert> assertion)
     {
         // Ensure Hive and Presto view compatibility by comparing the results
