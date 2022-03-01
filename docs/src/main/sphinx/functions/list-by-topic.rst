@@ -84,6 +84,7 @@ For more details, see :doc:`array`
 * :func:`shuffle`
 * :func:`slice`
 * :func:`transform`
+* :func:`trim_array`
 * :func:`zip`
 * :func:`zip_with`
 

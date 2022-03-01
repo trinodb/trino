@@ -490,6 +490,7 @@ T
 - :func:`transform_values`
 - :func:`translate`
 - :func:`trim`
+- :func:`trim_array`
 - :func:`truncate`
 - :ref:`try <try_function>`
 - :func:`try_cast`
