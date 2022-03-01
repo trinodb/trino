@@ -150,6 +150,7 @@ import static java.net.HttpURLConnection.HTTP_FORBIDDEN;
 import static java.net.HttpURLConnection.HTTP_NOT_FOUND;
 import static java.nio.file.Files.createDirectories;
 import static java.nio.file.Files.createTempFile;
+import static java.util.Objects.nonNull;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -196,6 +197,13 @@ public class TrinoS3FileSystem
     public static final String S3_STREAMING_UPLOAD_PART_SIZE = "trino.s3.streaming.part-size";
     public static final String S3_STORAGE_CLASS = "trino.s3.storage-class";
     public static final String S3_ROLE_SESSION_NAME = "trino.s3.role-session-name";
+    public static final String S3_PROXY_HOST = "trino.s3.proxy.host";
+    public static final String S3_PROXY_PORT = "trino.s3.proxy.port";
+    public static final String S3_PROXY_PROTOCOL = "trino.s3.proxy.protocol";
+    public static final String S3_NON_PROXY_HOSTS = "trino.s3.proxy.non-proxy-hosts";
+    public static final String S3_PROXY_USERNAME = "trino.s3.proxy.username";
+    public static final String S3_PROXY_PASSWORD = "trino.s3.proxy.password";
+    public static final String S3_PREEMPTIVE_BASIC_PROXY_AUTH = "trino.s3.proxy.preemptive-basic-auth";
 
     private static final Logger log = Logger.get(TrinoS3FileSystem.class);
     private static final TrinoS3FileSystemStats STATS = new TrinoS3FileSystemStats();
@@ -293,6 +301,30 @@ public class TrinoS3FileSystem
                 .withMaxConnections(maxConnections)
                 .withUserAgentPrefix(userAgentPrefix)
                 .withUserAgentSuffix("Trino");
+
+        String proxyHost = conf.get(S3_PROXY_HOST);
+        if (nonNull(proxyHost)) {
+            configuration.setProxyHost(proxyHost);
+            configuration.setProxyPort(conf.getInt(S3_PROXY_PORT, defaults.getS3ProxyPort()));
+            String proxyProtocol = conf.get(S3_PROXY_PROTOCOL);
+            if (proxyProtocol != null) {
+                configuration.setProxyProtocol(TrinoS3Protocol.valueOf(proxyProtocol).getProtocol());
+            }
+            String nonProxyHosts = conf.get(S3_NON_PROXY_HOSTS);
+            if (nonProxyHosts != null) {
+                configuration.setNonProxyHosts(nonProxyHosts);
+            }
+            String proxyUsername = conf.get(S3_PROXY_USERNAME);
+            if (proxyUsername != null) {
+                configuration.setProxyUsername(proxyUsername);
+            }
+            String proxyPassword = conf.get(S3_PROXY_PASSWORD);
+            if (proxyPassword != null) {
+                configuration.setProxyPassword(proxyPassword);
+            }
+            configuration.setPreemptiveBasicProxyAuth(
+                    conf.getBoolean(S3_PREEMPTIVE_BASIC_PROXY_AUTH, defaults.getS3PreemptiveBasicProxyAuth()));
+        }
 
         this.credentialsProvider = createAwsCredentialsProvider(uri, conf);
         this.s3 = createAmazonS3Client(conf, configuration);
