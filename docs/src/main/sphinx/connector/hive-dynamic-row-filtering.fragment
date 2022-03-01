@@ -1,0 +1,36 @@
+Dynamic row filtering
+^^^^^^^^^^^^^^^^^^^^^
+
+:doc:`Dynamic filtering </admin/dynamic-filtering>`, and specifically also
+dynamic row filtering, is enabled by default. Row filtering improves the
+effectiveness of dynamic filtering for a connector by using dynamic filters to
+remove unnecessary rows during a table scan. It is especially powerful for
+selective filters on columns that are not used for partitioning, bucketing, or
+when the values do not appear in any clustered order naturally.
+
+As a result the amount of data read from storage and transferred across the
+network is further reduced. You get access to higher query performance and a
+reduced cost.
+
+You can use the following properties to configure dynamic row filtering:
+
+.. list-table:: Dynamic row filtering properties
+    :widths: 45, 55
+    :header-rows: 1
+
+    * - Property name
+      - Description
+    * - ``dynamic-row-filtering.enabled``
+      - Toggle dynamic row filtering. Defaults to ``true``. Catalog session
+        property name is ``dynamic_row_filtering_enabled``.
+    * - ``dynamic-row-filtering.selectivity-threshold``
+      - Control the threshold for the fraction of the selected rows from the
+        overall table above which dynamic row filters are not used. Defaults to
+        0.7. Catalog session property name is
+        ``dynamic_row_filtering_selectivity_threshold``.
+    * - ``dynamic-row-filtering.wait-timeout``
+      - Duration to wait for completion of dynamic row filtering. Defaults to 0.
+        The default causes query processing to proceed without waiting for the
+        dynamic row filter, it is collected asynchronously and used as soon as
+        it becomes available. Catalog session property name is
+        ``dynamic_row_filtering_wait_timeout``.
