@@ -14,6 +14,7 @@
 package io.trino.plugin.hive.s3;
 
 import com.google.common.base.StandardSystemProperty;
+import com.google.common.collect.ImmutableList;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
@@ -29,9 +30,12 @@ import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
 import java.io.File;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
 
 @DefunctConfig("hive.s3.use-instance-credentials")
 public class HiveS3Config
@@ -68,6 +72,13 @@ public class HiveS3Config
     private boolean requesterPaysEnabled;
     private boolean s3StreamingUploadEnabled = true;
     private DataSize s3StreamingPartSize = DataSize.of(16, MEGABYTE);
+    private String s3proxyHost;
+    private Integer s3proxyPort = -1;
+    private TrinoS3Protocol s3ProxyProtocol = TrinoS3Protocol.HTTPS;
+    private List<String> s3nonProxyHosts = ImmutableList.of();
+    private String s3proxyUsername;
+    private String s3proxyPassword;
+    private boolean s3preemptiveBasicProxyAuth;
 
     public String getS3AwsAccessKey()
     {
@@ -491,6 +502,92 @@ public class HiveS3Config
     public HiveS3Config setS3StreamingPartSize(DataSize s3StreamingPartSize)
     {
         this.s3StreamingPartSize = s3StreamingPartSize;
+        return this;
+    }
+
+    public String getS3ProxyHost()
+    {
+        return s3proxyHost;
+    }
+
+    @Config("hive.s3.proxy.host")
+    public HiveS3Config setS3ProxyHost(String s3proxyHost)
+    {
+        this.s3proxyHost = s3proxyHost;
+        return this;
+    }
+
+    public int getS3ProxyPort()
+    {
+        return s3proxyPort;
+    }
+
+    @Config("hive.s3.proxy.port")
+    public HiveS3Config setS3ProxyPort(int s3proxyPort)
+    {
+        this.s3proxyPort = s3proxyPort;
+        return this;
+    }
+
+    public TrinoS3Protocol getS3ProxyProtocol()
+    {
+        return s3ProxyProtocol;
+    }
+
+    @Config("hive.s3.proxy.protocol")
+    public HiveS3Config setS3ProxyProtocol(String s3ProxyProtocol)
+    {
+        this.s3ProxyProtocol = TrinoS3Protocol.valueOf(
+                requireNonNull(s3ProxyProtocol, "s3ProxyProtocol is null")
+                        .toUpperCase(ENGLISH));
+        return this;
+    }
+
+    public List<String> getS3NonProxyHosts()
+    {
+        return s3nonProxyHosts;
+    }
+
+    @Config("hive.s3.proxy.non-proxy-hosts")
+    public HiveS3Config setS3NonProxyHosts(List<String> s3nonProxyHosts)
+    {
+        this.s3nonProxyHosts = ImmutableList.copyOf(s3nonProxyHosts);
+        return this;
+    }
+
+    public String getS3ProxyUsername()
+    {
+        return s3proxyUsername;
+    }
+
+    @Config("hive.s3.proxy.username")
+    public HiveS3Config setS3ProxyUsername(String s3proxyUsername)
+    {
+        this.s3proxyUsername = s3proxyUsername;
+        return this;
+    }
+
+    public String getS3ProxyPassword()
+    {
+        return s3proxyPassword;
+    }
+
+    @Config("hive.s3.proxy.password")
+    public HiveS3Config setS3ProxyPassword(String s3proxyPassword)
+    {
+        this.s3proxyPassword = s3proxyPassword;
+        return this;
+    }
+
+    public boolean getS3PreemptiveBasicProxyAuth()
+    {
+        return s3preemptiveBasicProxyAuth;
+    }
+
+    @Config("hive.s3.proxy.preemptive-basic-auth")
+    public HiveS3Config setS3PreemptiveBasicProxyAuth(boolean s3preemptiveBasicProxyAuth)
+    {
+        this.s3preemptiveBasicProxyAuth = s3preemptiveBasicProxyAuth;
         return this;
     }
 }

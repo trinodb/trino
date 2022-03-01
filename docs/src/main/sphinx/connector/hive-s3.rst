@@ -92,6 +92,22 @@ Property Name                                Description
                                              without staging file to be created in the local file system.
 
 ``hive.s3.streaming.part-size``              The part size for S3 streaming upload. Defaults to ``16MB``.
+
+``hive.s3.proxy.host``                       Proxy host to use if connecting through a proxy
+
+``hive.s3.proxy.port``                       Proxy port to use if connecting through a proxy
+
+``hive.s3.proxy.protocol``                   Proxy protocol. HTTP or HTTPS , defaults to ``HTTPS``.
+
+``hive.s3.proxy.non-proxy-hosts``            Hosts list to access without going through the proxy.
+
+``hive.s3.proxy.username``                   Proxy user name to use if connecting through a proxy
+
+``hive.s3.proxy.password``                   Proxy password name to use if connecting through a proxy
+
+``hive.s3.proxy.preemptive-basic-auth``      Whether to attempt to authenticate preemptively against proxy
+                                             when using base authorization, defaults to ``false``.
+
 ============================================ =================================================================
 
 .. _hive-s3-credentials:
