@@ -11,38 +11,29 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.client.auth.external;
+package io.trino.server.security.oauth2;
 
-import java.net.URI;
 import java.time.Instant;
 import java.util.Optional;
 
-import static java.time.temporal.ChronoUnit.SECONDS;
 import static java.util.Objects.requireNonNull;
 
-class Token
+public class OAuth2TokenData
 {
-    private final String token;
+    private final String accessToken;
     private final Optional<String> refreshToken;
-    private final Optional<URI> refreshUri;
-    private final Instant issuedAt;
+    private final Instant validUntil;
 
-    Token(Token token, Optional<URI> refreshUri)
+    public OAuth2TokenData(String accessToken, Optional<String> refreshToken, Instant validUntil)
     {
-        this(token.token(), token.getRefreshToken(), refreshUri);
-    }
-
-    public Token(String token, Optional<String> refreshToken, Optional<URI> refreshUri)
-    {
-        this.token = requireNonNull(token, "token is null");
+        this.accessToken = requireNonNull(accessToken, "accessToken is null");
         this.refreshToken = requireNonNull(refreshToken, "refreshToken is null");
-        this.refreshUri = requireNonNull(refreshUri, "refreshUri is null");
-        this.issuedAt = Instant.now();
+        this.validUntil = requireNonNull(validUntil, "validUntil is null");
     }
 
-    public String token()
+    public String getAccessToken()
     {
-        return token;
+        return accessToken;
     }
 
     public Optional<String> getRefreshToken()
@@ -50,13 +41,8 @@ class Token
         return refreshToken;
     }
 
-    public Optional<URI> getRefreshUri()
+    public Instant getValidUntil()
     {
-        return refreshUri;
-    }
-
-    public boolean isExpired(int expiresAfter)
-    {
-        return Instant.now().isAfter(issuedAt.plus(expiresAfter, SECONDS));
+        return validUntil;
     }
 }

@@ -14,13 +14,13 @@
 package io.trino.client.auth.external;
 
 import java.util.Optional;
-import java.util.function.Supplier;
+import java.util.function.Function;
 
 public interface KnownToken
 {
     Optional<Token> getToken();
 
-    void setupToken(Supplier<Optional<Token>> tokenSource);
+    void setupToken(Function<Optional<Token>, Optional<Token>> tokenSource);
 
     static KnownToken local()
     {

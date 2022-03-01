@@ -15,17 +15,9 @@ package io.trino.server.security.oauth2;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
-import io.airlift.http.client.HttpClientConfig;
-import io.airlift.http.client.jetty.JettyHttpClient;
-import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.Jws;
-import io.trino.server.security.jwt.JwkService;
-import io.trino.server.security.jwt.JwkSigningKeyResolver;
 
-import java.net.URI;
-
-import static io.trino.server.security.jwt.JwtUtil.newJwtParserBuilder;
-import static org.assertj.core.api.Assertions.assertThat;
+import static io.trino.server.security.oauth2.OAuth2WebUiAccessTokenUtil.validateJwtAccessToken;
+import static io.trino.server.security.oauth2.TestingHydraIdentityProvider.createHydraIdp;
 
 public class TestOAuth2WebUiAuthenticationFilterWithJwt
         extends BaseOAuth2WebUiAuthenticationFilterTest
@@ -43,6 +35,7 @@ public class TestOAuth2WebUiAuthenticationFilterWithJwt
                 .put("http-server.authentication.oauth2.auth-url", idpUrl + "/oauth2/auth")
                 .put("http-server.authentication.oauth2.token-url", idpUrl + "/oauth2/token")
                 .put("http-server.authentication.oauth2.jwks-url", idpUrl + "/.well-known/jwks.json")
+                .put("http-server.authentication.oauth2.scopes", "openid")
                 .put("http-server.authentication.oauth2.client-id", TRINO_CLIENT_ID)
                 .put("http-server.authentication.oauth2.client-secret", TRINO_CLIENT_SECRET)
                 .put("http-server.authentication.oauth2.additional-audiences", TRUSTED_CLIENT_ID)
@@ -55,26 +48,12 @@ public class TestOAuth2WebUiAuthenticationFilterWithJwt
     protected TestingHydraIdentityProvider getHydraIdp()
             throws Exception
     {
-        TestingHydraIdentityProvider hydraIdP = new TestingHydraIdentityProvider(TTL_ACCESS_TOKEN_IN_SECONDS, true, false);
-        hydraIdP.start();
-
-        return hydraIdP;
+        return createHydraIdp(TTL_ACCESS_TOKEN_IN_SECONDS, true);
     }
 
     @Override
     protected void validateAccessToken(String cookieValue)
     {
-        assertThat(cookieValue).isNotBlank();
-        Jws<Claims> jwt = newJwtParserBuilder()
-                .setSigningKeyResolver(new JwkSigningKeyResolver(new JwkService(
-                        URI.create("https://localhost:" + hydraIdP.getAuthPort() + "/.well-known/jwks.json"),
-                        new JettyHttpClient(new HttpClientConfig()
-                                .setTrustStorePath(Resources.getResource("cert/localhost.pem").getPath())))))
-                .build()
-                .parseClaimsJws(cookieValue);
-        Claims claims = jwt.getBody();
-        assertThat(claims.getSubject()).isEqualTo("foo@bar.com");
-        assertThat(claims.get("client_id")).isEqualTo(TRINO_CLIENT_ID);
-        assertThat(claims.getIssuer()).isEqualTo("https://localhost:4444/");
+        validateJwtAccessToken(cookieValue, TRINO_CLIENT_ID, hydraIdP);
     }
 }

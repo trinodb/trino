@@ -30,6 +30,7 @@ import java.net.URISyntaxException;
 import java.time.Duration;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 import static com.google.common.net.HttpHeaders.AUTHORIZATION;
 import static java.lang.String.format;
@@ -39,49 +40,102 @@ public class ExternalAuthenticator
         implements Authenticator, Interceptor
 {
     public static final String TOKEN_URI_FIELD = "x_token_server";
+    public static final String TOKEN_REFRESH_URI_FIELD = "x_token_refresh_server";
     public static final String REDIRECT_URI_FIELD = "x_redirect_server";
 
     private final TokenPoller tokenPoller;
     private final RedirectHandler redirectHandler;
     private final Duration timeout;
     private final KnownToken knownToken;
+    private final int refreshAccessTokenInterval;
 
-    public ExternalAuthenticator(RedirectHandler redirect, TokenPoller tokenPoller, KnownToken knownToken, Duration timeout)
+    public ExternalAuthenticator(
+            RedirectHandler redirect,
+            TokenPoller tokenPoller,
+            KnownToken knownToken,
+            Duration timeout,
+            int refreshAccessTokenInterval)
     {
         this.tokenPoller = requireNonNull(tokenPoller, "tokenPoller is null");
         this.redirectHandler = requireNonNull(redirect, "redirect is null");
         this.knownToken = requireNonNull(knownToken, "knownToken is null");
         this.timeout = requireNonNull(timeout, "timeout is null");
+        this.refreshAccessTokenInterval = refreshAccessTokenInterval;
     }
 
     @Nullable
     @Override
     public Request authenticate(Route route, Response response)
     {
-        knownToken.setupToken(() -> {
-            Optional<ExternalAuthentication> authentication = toAuthentication(response);
-            if (!authentication.isPresent()) {
-                return Optional.empty();
+        knownToken.setupToken(previousToken -> {
+            Optional<Supplier<Optional<Token>>> refreshTokenSupplier = toRefreshedTokenSupplier(response, previousToken);
+            if (refreshTokenSupplier.isPresent()) {
+                // Token exists. Got expired and refresh challenge is in response.
+                return refreshTokenSupplier.get().get();
             }
 
-            return authentication.get().obtainToken(timeout, redirectHandler, tokenPoller);
+            Optional<ExternalAuthentication> authentication = toAuthentication(response);
+            if (authentication.isPresent()) {
+                // Authentication challenge in response
+                return authentication.get().obtainToken(timeout, redirectHandler, tokenPoller);
+            }
+
+            return Optional.empty();
         });
 
         return knownToken.getToken()
-                .map(token -> withBearerToken(response.request(), token))
+                .map(value -> withBearerToken(response.request(), value))
                 .orElse(null);
+    }
+
+    private Optional<Supplier<Optional<Token>>> toRefreshedTokenSupplier(Response response, Optional<Token> token)
+    {
+        if (refreshAccessTokenInterval < 0 || !token.isPresent()
+                || !isTokenRefreshPossible(token.get())) {
+            return Optional.empty();
+        }
+        Optional<String> refreshToken = token.get().getRefreshToken();
+        if (refreshToken.isPresent()) {
+            for (Challenge challenge : response.challenges()) {
+                if (challenge.scheme().equalsIgnoreCase("Bearer")) {
+                    return parseField(challenge.authParams(), TOKEN_REFRESH_URI_FIELD)
+                            .map(tokenRefreshUri -> () -> toRefreshedToken(refreshToken.get(), tokenRefreshUri, tokenPoller));
+                }
+            }
+        }
+        throw new ClientException(format("Failed to refresh access token. Refresh token missing."));
     }
 
     @Override
     public Response intercept(Chain chain)
             throws IOException
     {
-        Optional<Token> token = knownToken.getToken();
-        if (token.isPresent()) {
-            return chain.proceed(withBearerToken(chain.request(), token.get()));
+        Optional<Token> availableToken = knownToken.getToken();
+        if (availableToken.isPresent()) {
+            Token token = availableToken.get();
+            if (refreshAccessTokenInterval > 0 && token.isExpired(refreshAccessTokenInterval)
+                    && isTokenRefreshPossible(token)) {
+                knownToken.setupToken(ignored -> toRefreshedToken(
+                        token.getRefreshToken().get(),
+                        token.getRefreshUri().get(),
+                        tokenPoller));
+            }
+            return chain.proceed(withBearerToken(chain.request(), token));
         }
 
         return chain.proceed(chain.request());
+    }
+
+    private Optional<Token> toRefreshedToken(String refreshToken, URI tokenRefreshUri, TokenPoller tokenPoller)
+    {
+        return Optional.of(tokenPoller.pollForToken(
+                URI.create(tokenRefreshUri + "?refresh_token=" + refreshToken),
+                Duration.ofSeconds(3)).getToken());
+    }
+
+    private boolean isTokenRefreshPossible(Token token)
+    {
+        return token.getRefreshToken().isPresent() && token.getRefreshUri().isPresent();
     }
 
     private static Request withBearerToken(Request request, Token token)
@@ -97,9 +151,10 @@ public class ExternalAuthenticator
         for (Challenge challenge : response.challenges()) {
             if (challenge.scheme().equalsIgnoreCase("Bearer")) {
                 Optional<URI> tokenUri = parseField(challenge.authParams(), TOKEN_URI_FIELD);
-                Optional<URI> redirectUri = parseField(challenge.authParams(), REDIRECT_URI_FIELD);
                 if (tokenUri.isPresent()) {
-                    return Optional.of(new ExternalAuthentication(tokenUri.get(), redirectUri));
+                    Optional<URI> redirectUri = parseField(challenge.authParams(), REDIRECT_URI_FIELD);
+                    Optional<URI> refreshUri = parseField(challenge.authParams(), TOKEN_REFRESH_URI_FIELD);
+                    return Optional.of(new ExternalAuthentication(tokenUri.get(), redirectUri, refreshUri));
                 }
             }
         }

@@ -82,7 +82,8 @@ public class QueryRunner
             boolean kerberosUseCanonicalHostname,
             boolean delegatedKerberos,
             boolean externalAuthentication,
-            List<ExternalRedirectStrategy> externalRedirectHandlers)
+            List<ExternalRedirectStrategy> externalRedirectHandlers,
+            int externalAccessTokenRefreshInterval)
     {
         this.session = new AtomicReference<>(requireNonNull(session, "session is null"));
         this.debug = debug;
@@ -102,7 +103,7 @@ public class QueryRunner
         setupHttpProxy(builder, httpProxy);
         setupBasicAuth(builder, session, user, password);
         setupTokenAuth(builder, session, accessToken);
-        setupExternalAuth(builder, session, externalAuthentication, externalRedirectHandlers, sslSetup);
+        setupExternalAuth(builder, session, externalAuthentication, externalRedirectHandlers, externalAccessTokenRefreshInterval, sslSetup);
 
         builder.addNetworkInterceptor(new HttpLoggingInterceptor(System.err::println).setLevel(networkLogging));
 
@@ -183,6 +184,7 @@ public class QueryRunner
             ClientSession session,
             boolean enabled,
             List<ExternalRedirectStrategy> externalRedirectHandlers,
+            int externalAccessTokenRefreshInterval,
             Consumer<OkHttpClient.Builder> sslSetup)
     {
         if (!enabled) {
@@ -199,7 +201,8 @@ public class QueryRunner
                 redirectHandler,
                 poller,
                 KnownToken.local(),
-                Duration.ofMinutes(10));
+                Duration.ofMinutes(10),
+                externalAccessTokenRefreshInterval);
 
         builder.authenticator(authenticator);
         builder.addInterceptor(authenticator);

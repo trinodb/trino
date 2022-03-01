@@ -19,8 +19,8 @@ import com.google.common.io.Resources;
 import static io.trino.server.security.oauth2.OAuth2WebUiAccessTokenUtil.validateOpaqueAccessToken;
 import static io.trino.server.security.oauth2.TestingHydraIdentityProvider.createHydraIdp;
 
-public class TestOAuth2WebUiAuthenticationFilterWithOpaque
-        extends BaseOAuth2WebUiAuthenticationFilterTest
+public class TestOAuth2WebUiAuthenticationFilterWithOpaqueAndTokenRefresh
+        extends BaseOAuth2WebUiAuthenticationFilterWithTokenRefreshTest
 {
     @Override
     protected ImmutableMap<String, String> getOAuth2Config(String idpUrl)
@@ -35,6 +35,7 @@ public class TestOAuth2WebUiAuthenticationFilterWithOpaque
                 .put("http-server.authentication.oauth2.auth-url", idpUrl + "/oauth2/auth")
                 .put("http-server.authentication.oauth2.token-url", idpUrl + "/oauth2/token")
                 .put("http-server.authentication.oauth2.jwks-url", idpUrl + "/.well-known/jwks.json")
+                .put("http-server.authentication.oauth2.scopes", "openid,offline")
                 .put("http-server.authentication.oauth2.userinfo-url", idpUrl + "/userinfo")
                 .put("http-server.authentication.oauth2.client-id", TRINO_CLIENT_ID)
                 .put("http-server.authentication.oauth2.client-secret", TRINO_CLIENT_SECRET)

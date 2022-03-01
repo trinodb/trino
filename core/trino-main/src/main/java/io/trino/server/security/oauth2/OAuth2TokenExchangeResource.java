@@ -32,6 +32,7 @@ import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
+import javax.ws.rs.QueryParam;
 import javax.ws.rs.container.AsyncResponse;
 import javax.ws.rs.container.Suspended;
 import javax.ws.rs.core.Context;
@@ -50,11 +51,13 @@ import static io.trino.server.security.oauth2.OAuth2TokenExchange.MAX_POLL_TIME;
 import static io.trino.server.security.oauth2.OAuth2TokenExchange.hashAuthId;
 import static java.util.Objects.requireNonNull;
 import static javax.ws.rs.core.MediaType.APPLICATION_JSON_TYPE;
+import static javax.ws.rs.core.Response.Status.BAD_REQUEST;
 
 @Path(OAuth2TokenExchangeResource.TOKEN_ENDPOINT)
 public class OAuth2TokenExchangeResource
 {
     static final String TOKEN_ENDPOINT = "/oauth2/token/";
+    static final String TOKEN_REFRESH_ENDPOINT = "refresh";
 
     private static final JsonCodec<Map<String, Object>> MAP_CODEC = new JsonCodecFactory().mapJsonCodec(String.class, Object.class);
 
@@ -97,15 +100,39 @@ public class OAuth2TokenExchangeResource
                 .withTimeout(MAX_POLL_TIME, pendingResponse(request));
     }
 
+    @ResourceSecurity(PUBLIC)
+    @Path(TOKEN_REFRESH_ENDPOINT)
+    @GET
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response refreshAuthenticationToken(@QueryParam("refresh_token") String refreshToken)
+    {
+        Optional<OAuth2TokenData> oAuth2TokenData = service.refreshOAuth2AccessTokenOnRequest(refreshToken);
+        if (oAuth2TokenData.isPresent()) {
+            return getOAuthTokenResponse(oAuth2TokenData.get());
+        }
+        return Response.status(BAD_REQUEST)
+                .entity(service.getInternalFailureHtml("Access Token refresh failed"))
+                .build();
+    }
+
     private static Response toResponse(TokenPoll poll)
     {
         if (poll.getError().isPresent()) {
             return Response.ok(jsonMap("error", poll.getError().get()), APPLICATION_JSON_TYPE).build();
         }
         if (poll.getToken().isPresent()) {
-            return Response.ok(jsonMap("token", poll.getToken().get()), APPLICATION_JSON_TYPE).build();
+            return getOAuthTokenResponse(poll.getToken().get());
         }
         throw new VerifyException("invalid TokenPoll state");
+    }
+
+    public static Response getOAuthTokenResponse(OAuth2TokenData tokenData)
+    {
+        ImmutableMap.Builder<String, Object> builder = ImmutableMap.builder();
+        builder.put("token", tokenData.getAccessToken());
+        tokenData.getRefreshToken()
+                .ifPresent(refreshToken -> builder.put("refreshToken", refreshToken));
+        return Response.ok(jsonMap(builder.buildOrThrow()), APPLICATION_JSON_TYPE).build();
     }
 
     private static Response pendingResponse(HttpServletRequest request)
@@ -133,6 +160,11 @@ public class OAuth2TokenExchangeResource
         return TOKEN_ENDPOINT + authId;
     }
 
+    public static String getRefreshTokenUri()
+    {
+        return TOKEN_ENDPOINT + TOKEN_REFRESH_ENDPOINT;
+    }
+
     public static String getInitiateUri(UUID authId)
     {
         return TOKEN_ENDPOINT + "initiate/" + hashAuthId(authId);
@@ -140,6 +172,11 @@ public class OAuth2TokenExchangeResource
 
     private static String jsonMap(String key, Object value)
     {
-        return MAP_CODEC.toJson(ImmutableMap.of(key, value));
+        return jsonMap(ImmutableMap.of(key, value));
+    }
+
+    private static String jsonMap(ImmutableMap<String, Object> objectMap)
+    {
+        return MAP_CODEC.toJson(objectMap);
     }
 }

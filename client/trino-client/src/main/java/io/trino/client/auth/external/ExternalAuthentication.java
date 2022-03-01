@@ -26,11 +26,13 @@ class ExternalAuthentication
 {
     private final URI tokenUri;
     private final Optional<URI> redirectUri;
+    private final Optional<URI> refreshUri;
 
-    public ExternalAuthentication(URI tokenUri, Optional<URI> redirectUri)
+    public ExternalAuthentication(URI tokenUri, Optional<URI> redirectUri, Optional<URI> refreshUri)
     {
         this.tokenUri = requireNonNull(tokenUri, "tokenUri is null");
         this.redirectUri = requireNonNull(redirectUri, "redirectUri is null");
+        this.refreshUri = requireNonNull(refreshUri, "refreshUri is null");
     }
 
     public Optional<Token> obtainToken(Duration timeout, RedirectHandler handler, TokenPoller poller)
@@ -59,7 +61,7 @@ class ExternalAuthentication
                 continue;
             }
             poller.tokenReceived(currentUri);
-            return Optional.of(result.getToken());
+            return Optional.of(new Token(result.getToken(), this.refreshUri));
         }
     }
 

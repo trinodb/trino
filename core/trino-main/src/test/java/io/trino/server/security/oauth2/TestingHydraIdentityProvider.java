@@ -67,6 +67,14 @@ import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
 public class TestingHydraIdentityProvider
         implements AutoCloseable
 {
+    public static TestingHydraIdentityProvider createHydraIdp(Duration tokenTtl, boolean useJwt)
+            throws Exception
+    {
+        TestingHydraIdentityProvider hydraIdP = new TestingHydraIdentityProvider(tokenTtl, useJwt, false);
+        hydraIdP.start();
+        return hydraIdP;
+    }
+
     private static final String HYDRA_IMAGE = "oryd/hydra:v1.10.6";
     private static final String ISSUER = "https://localhost:4444/";
     private static final String DSN = "postgres://hydra:mysecretpassword@database:5432/hydra?sslmode=disable";
@@ -131,6 +139,7 @@ public class TestingHydraIdentityProvider
                 .withEnv("SERVE_TLS_KEY_PATH", "/tmp/certs/localhost.pem")
                 .withEnv("SERVE_TLS_CERT_PATH", "/tmp/certs/localhost.pem")
                 .withEnv("TTL_ACCESS_TOKEN", ttlAccessToken.getSeconds() + "s")
+                .withEnv("TTL_REFRESH_TOKEN", ttlAccessToken.getSeconds() + 10 + "s")
                 .withEnv("STRATEGIES_ACCESS_TOKEN", useJwt ? "jwt" : null)
                 .withEnv("LOG_LEAK_SENSITIVE_VALUES", "true")
                 .withCommand("serve", "all")

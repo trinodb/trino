@@ -15,7 +15,7 @@ package io.trino.server.security.oauth2;
 
 public interface OAuth2TokenHandler
 {
-    void setAccessToken(String hashedState, String accessToken);
+    void setToken(String hashedState, OAuth2TokenData tokenData);
 
     void setTokenExchangeError(String hashedState, String errorMessage);
 }

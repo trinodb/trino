@@ -16,7 +16,7 @@ package io.trino.client.auth.external;
 import javax.annotation.concurrent.NotThreadSafe;
 
 import java.util.Optional;
-import java.util.function.Supplier;
+import java.util.function.Function;
 
 import static java.util.Objects.requireNonNull;
 
@@ -37,10 +37,10 @@ class LocalKnownToken
     }
 
     @Override
-    public void setupToken(Supplier<Optional<Token>> tokenSource)
+    public void setupToken(Function<Optional<Token>, Optional<Token>> tokenSource)
     {
         requireNonNull(tokenSource, "tokenSource is null");
 
-        knownToken = tokenSource.get();
+        knownToken = tokenSource.apply(knownToken);
     }
 }

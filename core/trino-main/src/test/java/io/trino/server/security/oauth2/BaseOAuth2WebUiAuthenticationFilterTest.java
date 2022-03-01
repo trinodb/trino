@@ -15,6 +15,7 @@ package io.trino.server.security.oauth2;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.inject.Key;
 import io.airlift.log.Level;
 import io.airlift.log.Logging;
 import io.airlift.testing.Closeables;
@@ -46,7 +47,9 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import static io.trino.client.OkHttpUtil.setupInsecureSsl;
 import static io.trino.server.security.jwt.JwtUtil.newJwtBuilder;
@@ -80,7 +83,7 @@ public abstract class BaseOAuth2WebUiAuthenticationFilterTest
 
     private TestingTrinoServer server;
     private URI serverUri;
-    private URI uiUri;
+    protected URI uiUri;
 
     protected BaseOAuth2WebUiAuthenticationFilterTest()
     {
@@ -244,21 +247,24 @@ public abstract class BaseOAuth2WebUiAuthenticationFilterTest
 
         // access UI and follow redirects in order to get OAuth2 cookie
         Response response = httpClient.newCall(
-                new Request.Builder()
-                        .url(uiUri.toURL())
-                        .get()
-                        .build())
+                        new Request.Builder()
+                                .url(uiUri.toURL())
+                                .get()
+                                .build())
                 .execute();
 
         assertEquals(response.code(), SC_OK);
         assertEquals(response.request().url().toString(), uiUri.toString());
-        Optional<HttpCookie> oauth2Cookie = cookieStore.get(uiUri)
-                .stream()
-                .filter(cookie -> cookie.getName().equals(OAUTH2_COOKIE))
-                .findFirst();
-        assertThat(oauth2Cookie).isNotEmpty();
-        assertTrinoCookie(oauth2Cookie.get());
-        assertUICallWithCookie(oauth2Cookie.get().getValue());
+        assertWebUiCookies(cookieStore);
+    }
+
+    protected void assertWebUiCookies(CookieStore cookieStore)
+            throws IOException
+    {
+        HttpCookie oauth2Cookie = OAuthWebUiCookieTestUtils.getWebUiCookieRequired(cookieStore, OAUTH2_COOKIE);
+        OAuthWebUiCookieTestUtils.assertWebUiCookie(oauth2Cookie, Optional.empty(), Optional.of(TTL_ACCESS_TOKEN_IN_SECONDS.getSeconds()));
+        validateAccessToken(oauth2Cookie.getValue());
+        assertUICallWithCookie(oauth2Cookie.getValue());
     }
 
     @Test
@@ -287,17 +293,6 @@ public abstract class BaseOAuth2WebUiAuthenticationFilterTest
                 .get();
     }
 
-    private void assertTrinoCookie(HttpCookie cookie)
-    {
-        assertThat(cookie.getName()).isEqualTo(OAUTH2_COOKIE);
-        assertThat(cookie.getDomain()).isIn("127.0.0.1", "::1");
-        assertThat(cookie.getPath()).isEqualTo("/ui/");
-        assertThat(cookie.getSecure()).isTrue();
-        assertThat(cookie.isHttpOnly()).isTrue();
-        assertThat(cookie.getMaxAge()).isLessThanOrEqualTo(TTL_ACCESS_TOKEN_IN_SECONDS.getSeconds());
-        validateAccessToken(cookie.getValue());
-    }
-
     protected abstract void validateAccessToken(String accessToken);
 
     private void assertUICallWithCookie(String cookieValue)
@@ -311,8 +306,27 @@ public abstract class BaseOAuth2WebUiAuthenticationFilterTest
         }
     }
 
-    @SuppressWarnings("NullableProblems")
     private OkHttpClient httpClientWithOAuth2Cookie(String cookieValue, boolean followRedirects)
+    {
+        return httpClientWithOAuth2Cookie(
+                followRedirects,
+                createWebUiCookie(OAUTH2_COOKIE, cookieValue));
+    }
+
+    private Cookie createWebUiCookie(String name, String value)
+    {
+        return new Cookie.Builder()
+                .domain(serverUri.getHost())
+                .path("/ui/")
+                .name(name)
+                .value(value)
+                .httpOnly()
+                .secure()
+                .build();
+    }
+
+    @SuppressWarnings("NullableProblems")
+    private OkHttpClient httpClientWithOAuth2Cookie(boolean followRedirects, Cookie... cookies)
     {
         OkHttpClient.Builder httpClientBuilder = new OkHttpClient.Builder();
         setupInsecureSsl(httpClientBuilder);
@@ -328,14 +342,7 @@ public abstract class BaseOAuth2WebUiAuthenticationFilterTest
             public List<Cookie> loadForRequest(HttpUrl url)
             {
                 if (url.encodedPath().equals("/ui/")) {
-                    return ImmutableList.of(new Cookie.Builder()
-                            .domain(serverUri.getHost())
-                            .path("/ui/")
-                            .name(OAUTH2_COOKIE)
-                            .value(cookieValue)
-                            .httpOnly()
-                            .secure()
-                            .build());
+                    return ImmutableList.copyOf(cookies);
                 }
                 return ImmutableList.of();
             }
@@ -370,7 +377,11 @@ public abstract class BaseOAuth2WebUiAuthenticationFilterTest
         assertThat(location.getPort()).isEqualTo(hydraIdP.getAuthPort());
         assertThat(location.getPath()).isEqualTo("/oauth2/auth");
         assertThat(url.queryParameterValues("response_type")).isEqualTo(ImmutableList.of("code"));
-        assertThat(url.queryParameterValues("scope")).isEqualTo(ImmutableList.of("openid"));
+
+        Set<String> oauth2Scopes = server.getInstance(Key.get(OAuth2Config.class)).getScopes();
+        assertThat(url.queryParameterValues("scope")).isEqualTo(
+                ImmutableList.of(oauth2Scopes.stream().collect(Collectors.joining(" "))));
+
         assertThat(url.queryParameterValues("redirect_uri")).isEqualTo(ImmutableList.of(serverUri + "/oauth2/callback"));
         assertThat(url.queryParameterValues("client_id")).isEqualTo(ImmutableList.of(TRINO_CLIENT_ID));
         assertThat(url.queryParameterValues("state")).isNotNull();

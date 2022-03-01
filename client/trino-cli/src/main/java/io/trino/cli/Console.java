@@ -179,7 +179,8 @@ public class Console
                 !clientOptions.krb5DisableRemoteServiceHostnameCanonicalization,
                 false,
                 clientOptions.externalAuthentication,
-                clientOptions.externalAuthenticationRedirectHandler)) {
+                clientOptions.externalAuthenticationRedirectHandler,
+                clientOptions.externalAccessTokenRefreshInterval)) {
             if (hasQuery) {
                 return executeCommand(
                         queryRunner,

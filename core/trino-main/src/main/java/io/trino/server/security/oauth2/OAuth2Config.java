@@ -43,6 +43,7 @@ public class OAuth2Config
     private Optional<String> accessTokenIssuer = Optional.empty();
     private String authUrl;
     private String tokenUrl;
+    private String refreshTokenUrl;
     private String jwksUrl;
     private Optional<String> userinfoUrl = Optional.empty();
     private String clientId;
@@ -121,6 +122,19 @@ public class OAuth2Config
     public OAuth2Config setTokenUrl(String tokenUrl)
     {
         this.tokenUrl = tokenUrl;
+        return this;
+    }
+
+    public String getRefreshTokenUrl()
+    {
+        return refreshTokenUrl;
+    }
+
+    @Config("http-server.authentication.oauth2.refresh-token-url")
+    @ConfigDescription("URL of the authorization server's token endpoint")
+    public OAuth2Config setRefreshTokenUrl(String refreshTokenUrl)
+    {
+        this.refreshTokenUrl = refreshTokenUrl;
         return this;
     }
 

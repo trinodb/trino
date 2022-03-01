@@ -28,7 +28,6 @@ import java.io.IOException;
 
 import static io.trino.server.security.ResourceSecurity.AccessType.WEB_UI;
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.UI_LOGOUT;
-import static io.trino.server.ui.OAuthWebUiCookie.delete;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 @Path(UI_LOGOUT)
@@ -40,7 +39,8 @@ public class OAuth2WebUiLogoutResource
             throws IOException
     {
         return Response.ok(Resources.toString(Resources.getResource(getClass(), "/oauth2/logout.html"), UTF_8))
-                .cookie(delete())
+                .cookie(OAuthWebUiCookie.delete())
+                .cookie(OAuthRefreshWebUiCookie.delete())
                 .build();
     }
 }

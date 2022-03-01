@@ -13,6 +13,7 @@
  */
 package io.trino.server.security;
 
+import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
 import io.trino.spi.security.Identity;
 
@@ -39,6 +40,9 @@ public abstract class AbstractBearerAuthenticator
     {
         try {
             return createIdentity(token).orElseThrow(() -> needAuthentication(request, "Invalid credentials"));
+        }
+        catch (ExpiredJwtException e) {
+            throw needsTokenRefresh(request, e.getMessage());
         }
         catch (JwtException | UserMappingException e) {
             throw needAuthentication(request, e.getMessage());
@@ -75,4 +79,9 @@ public abstract class AbstractBearerAuthenticator
             throws UserMappingException;
 
     protected abstract AuthenticationException needAuthentication(ContainerRequestContext request, String message);
+
+    protected AuthenticationException needsTokenRefresh(ContainerRequestContext request, String message)
+    {
+        return needAuthentication(request, message);
+    }
 }

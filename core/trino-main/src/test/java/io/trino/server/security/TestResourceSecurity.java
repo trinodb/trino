@@ -35,6 +35,7 @@ import io.trino.server.HttpRequestSessionContextFactory;
 import io.trino.server.ProtocolConfig;
 import io.trino.server.protocol.PreparedStatementEncoder;
 import io.trino.server.security.oauth2.OAuth2Client;
+import io.trino.server.security.oauth2.OAuthWebUiCookieTestUtils;
 import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.BasicPrincipal;
@@ -65,6 +66,7 @@ import javax.ws.rs.core.HttpHeaders;
 import java.io.File;
 import java.io.IOException;
 import java.net.CookieManager;
+import java.net.CookieStore;
 import java.net.HttpCookie;
 import java.net.URI;
 import java.nio.file.Files;
@@ -72,6 +74,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.Principal;
 import java.security.PrivateKey;
+import java.time.Duration;
 import java.time.ZonedDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.Base64;
@@ -80,13 +83,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.net.HttpHeaders.AUTHORIZATION;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
@@ -100,6 +104,7 @@ import static io.trino.server.security.ResourceSecurity.AccessType.WEB_UI;
 import static io.trino.server.security.jwt.JwtUtil.newJwtBuilder;
 import static io.trino.server.security.oauth2.OAuth2Service.NONCE;
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.UI_LOCATION;
+import static io.trino.server.ui.OAuthRefreshWebUiCookie.OAUTH2_REFRESH_COOKIE;
 import static io.trino.server.ui.OAuthWebUiCookie.OAUTH2_COOKIE;
 import static io.trino.spi.security.AccessDeniedException.denyImpersonateUser;
 import static io.trino.spi.security.AccessDeniedException.denyReadSystemInformationAccess;
@@ -545,7 +550,8 @@ public class TestResourceSecurity
                 .cookieJar(new JavaNetCookieJar(cookieManager))
                 .build();
 
-        try (TokenServer tokenServer = new TokenServer(principalField);
+        Duration tokenExpiration = Duration.ofSeconds(20);
+        try (TokenServer tokenServer = new TokenServer(principalField, Optional.of(tokenExpiration));
                 TestingTrinoServer server = TestingTrinoServer.builder()
                         .setProperties(ImmutableMap.<String, String>builder()
                                 .putAll(SECURE_PROPERTIES)
@@ -579,26 +585,45 @@ public class TestResourceSecurity
             assertEquals(getOauthToken(client, bearer.getTokenServer()), tokenServer.getAccessToken());
 
             // if Web UI is using oauth so we should get a cookie
+            CookieStore cookieStore = cookieManager.getCookieStore();
+            List<HttpCookie> storedCookies = cookieStore.getCookies();
             if (webUiEnabled) {
-                HttpCookie cookie = getOnlyElement(cookieManager.getCookieStore().getCookies());
-                assertEquals(cookie.getValue(), tokenServer.getAccessToken());
-                assertEquals(cookie.getPath(), "/ui/");
-                assertEquals(cookie.getDomain(), baseUri.getHost());
-                assertTrue(cookie.getMaxAge() > 0 && cookie.getMaxAge() < MINUTES.toSeconds(5));
-                assertTrue(cookie.isHttpOnly());
-                cookieManager.getCookieStore().removeAll();
+                OAuthWebUiCookieTestUtils.assertWebUiCookie(cookieStore, OAUTH2_COOKIE, Optional.of(tokenServer.getAccessToken()), Optional.of(MINUTES.toSeconds(5)));
+                OAuthWebUiCookieTestUtils.assertWebUiCookie(cookieStore, OAUTH2_REFRESH_COOKIE, Optional.of(tokenServer.getRefreshToken()), Optional.empty());
+                cookieStore.removeAll();
             }
             else {
-                List<HttpCookie> cookies = cookieManager.getCookieStore().getCookies();
-                assertTrue(cookies.isEmpty(), "Expected no cookies when webUi is not enabled, but got: " + cookies);
+                assertTrue(storedCookies.isEmpty(), "Expected no cookies when webUi is not enabled, but got: " + storedCookies);
             }
 
-            OkHttpClient clientWithOAuthToken = client.newBuilder()
-                    .authenticator((route, response) -> response.request().newBuilder()
-                            .header(AUTHORIZATION, "Bearer " + tokenServer.getAccessToken())
-                            .build())
-                    .build();
-            assertAuthenticationAutomatic(httpServerInfo.getHttpsUri(), clientWithOAuthToken);
+            assertAuthenticationAutomatic(
+                    httpServerInfo.getHttpsUri(),
+                    client.newBuilder()
+                            .authenticator((route, response) -> response.request().newBuilder()
+                                    .header(AUTHORIZATION, "Bearer " + tokenServer.getAccessToken())
+                                    .build())
+                            .build());
+
+            // Wait for token to expire
+            Thread.sleep(tokenExpiration.toMillis());
+
+            // Fetch token refresh url
+            Response tokenExpiredChallengeResponse = executeRequest(client, getAuthorizedUserLocation(baseUri), Headers.of(AUTHORIZATION, "Bearer " + tokenServer.getAccessToken()));
+            String authenticateHeader = tokenExpiredChallengeResponse.header("WWW-Authenticate");
+            assertThat(authenticateHeader).contains("x_token_refresh_server=\"");
+
+            // Refresh Access Token
+            String refreshTokenUrl = authenticateHeader.split("x_token_refresh_server=")[1].replace("\"", "");
+            assertResponseCode(client, refreshTokenUrl + "?refresh_token=" + tokenServer.refreshToken, SC_OK);
+
+            // Verify access using new access token
+            assertAuthenticationAutomatic(
+                    httpServerInfo.getHttpsUri(),
+                    client.newBuilder()
+                            .authenticator((route, response) -> response.request().newBuilder()
+                                    .header(AUTHORIZATION, "Bearer " + tokenServer.getAccessToken())
+                                    .build())
+                            .build());
         }
     }
 
@@ -614,7 +639,7 @@ public class TestResourceSecurity
             assertEquals(response.code(), SC_UNAUTHORIZED, url);
             String authenticateHeader = response.header(WWW_AUTHENTICATE);
             assertNotNull(authenticateHeader);
-            Pattern oauth2BearerPattern = Pattern.compile("Bearer x_redirect_server=\"(https://127.0.0.1:[0-9]+/oauth2/token/initiate/.+)\", x_token_server=\"(https://127.0.0.1:[0-9]+/oauth2/token/.+)\"");
+            Pattern oauth2BearerPattern = Pattern.compile("Bearer x_redirect_server=\"([^\"]+)\", x_token_server=\"([^\"]+)\"(, x_token_refresh_server=\"([^\"]+)\")?");
             Matcher matcher = oauth2BearerPattern.matcher(authenticateHeader);
             assertTrue(matcher.matches(), format("Invalid authentication header.\nExpected: %s\nPattern: %s", authenticateHeader, oauth2BearerPattern));
             redirectTo = matcher.group(1);
@@ -835,18 +860,27 @@ public class TestResourceSecurity
     {
         private final String issuer = "http://example.com/";
         private final String clientId = "clientID";
-        private final Date tokenExpiration = Date.from(ZonedDateTime.now().plusMinutes(5).toInstant());
+        private final Duration tokenExpiration;
         private final Optional<String> principalField;
         private final TestingHttpServer jwkServer;
-        private final String accessToken;
+        private String accessToken;
+        private String refreshToken;
 
         public TokenServer(Optional<String> principalField)
                 throws Exception
         {
+            this(principalField, Optional.empty());
+        }
+
+        public TokenServer(Optional<String> principalField, Optional<Duration> tokenExpiration)
+                throws Exception
+        {
+            this.tokenExpiration = requireNonNull(tokenExpiration, "tokenExpiration is null").orElse(Duration.ofMinutes(5));
             this.principalField = requireNonNull(principalField, "principalField is null");
             jwkServer = createTestingJwkServer();
             jwkServer.start();
             accessToken = issueAccessToken(Optional.empty());
+            refreshToken = issueRefreshToken();
         }
 
         @Override
@@ -876,7 +910,21 @@ public class TestResourceSecurity
                     if (!"TEST_CODE".equals(code)) {
                         throw new IllegalArgumentException("Expected TEST_CODE");
                     }
-                    return new OAuth2Response(accessToken, Optional.of(now().plus(5, ChronoUnit.MINUTES)), Optional.of(issueIdToken(nonceHash.get())));
+                    return new OAuth2Response(accessToken, Optional.of(refreshToken), Optional.of(now().plus(5, ChronoUnit.MINUTES)), Optional.of(issueIdToken(nonceHash.get())));
+                }
+
+                @Override
+                public OAuth2Response getRefreshedOAuth2Response(String submittedRefreshToken)
+                {
+                    checkState(refreshToken.equals(submittedRefreshToken), "Invalid refresh token");
+                    //Refresh tokens
+                    accessToken = issueAccessToken(Optional.empty());
+                    refreshToken = issueRefreshToken();
+                    return new OAuth2Response(
+                            accessToken,
+                            Optional.of(refreshToken),
+                            Optional.of(now().plus(5, ChronoUnit.MINUTES)),
+                            Optional.of(issueIdToken(nonceHash.get())));
                 }
             };
         }
@@ -906,6 +954,11 @@ public class TestResourceSecurity
             return accessToken;
         }
 
+        public String getRefreshToken()
+        {
+            return refreshToken;
+        }
+
         public String issueAccessToken(Optional<Set<String>> groups)
         {
             JwtBuilder accessToken = newJwtBuilder()
@@ -913,7 +966,7 @@ public class TestResourceSecurity
                     .setHeaderParam(JwsHeader.KEY_ID, JWK_KEY_ID)
                     .setIssuer(issuer)
                     .setAudience(clientId)
-                    .setExpiration(tokenExpiration);
+                    .setExpiration(Date.from(ZonedDateTime.now().plus(tokenExpiration).toInstant()));
             if (principalField.isPresent()) {
                 accessToken.claim(principalField.get(), TEST_USER);
             }
@@ -931,7 +984,7 @@ public class TestResourceSecurity
                     .setHeaderParam(JwsHeader.KEY_ID, JWK_KEY_ID)
                     .setIssuer(issuer)
                     .setAudience(clientId)
-                    .setExpiration(tokenExpiration);
+                    .setExpiration(Date.from(ZonedDateTime.now().plus(tokenExpiration).toInstant()));
             if (principalField.isPresent()) {
                 idToken.claim(principalField.get(), TEST_USER);
             }
@@ -940,6 +993,11 @@ public class TestResourceSecurity
             }
             nonceHash.ifPresent(nonce -> idToken.claim(NONCE, nonce));
             return idToken.compact();
+        }
+
+        private String issueRefreshToken()
+        {
+            return UUID.randomUUID().toString().replaceAll("-", "");
         }
     }
 
@@ -1129,12 +1187,18 @@ public class TestResourceSecurity
             Headers headers)
             throws IOException
     {
+        assertEquals(executeRequest(client, url, headers).code(), expectedCode, url);
+    }
+
+    private static Response executeRequest(OkHttpClient client, String url, Headers headers)
+            throws IOException
+    {
         Request request = new Request.Builder()
                 .url(url)
                 .headers(headers)
                 .build();
         try (Response response = client.newCall(request).execute()) {
-            assertEquals(response.code(), expectedCode, url);
+            return response;
         }
     }
 
@@ -1235,5 +1299,8 @@ public class TestResourceSecurity
     {
         @JsonProperty
         String token;
+
+        @JsonProperty
+        String refreshToken;
     }
 }

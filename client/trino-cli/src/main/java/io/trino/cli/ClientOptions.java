@@ -110,6 +110,9 @@ public class ClientOptions
     @Option(names = "--external-authentication-redirect-handler", paramLabel = "<externalAuthenticationRedirectHandler>", description = "External authentication redirect handlers: ${COMPLETION-CANDIDATES} " + DEFAULT_VALUE, defaultValue = "ALL")
     public List<ExternalRedirectStrategy> externalAuthenticationRedirectHandler = new ArrayList<>();
 
+    @Option(names = "--external-access-token-refresh-interval", paramLabel = "<externalAccessTokenRefreshInterval>", description = "Access token refresh interval seconds. <0 - disabled, 0 - on expire, >0 - intervals")
+    public int externalAccessTokenRefreshInterval = -1;
+
     @Option(names = "--source", paramLabel = "<source>", defaultValue = "trino-cli", description = "Name of source making query " + DEFAULT_VALUE)
     public String source;
 

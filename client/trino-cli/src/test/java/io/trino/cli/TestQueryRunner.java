@@ -170,7 +170,8 @@ public class TestQueryRunner
                 false,
                 false,
                 false,
-                ImmutableList.of(PRINT));
+                ImmutableList.of(PRINT),
+                -1);
     }
 
     static PrintStream nullPrintStream()

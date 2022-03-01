@@ -33,7 +33,7 @@ import static org.testcontainers.utility.MountableFile.forHostPath;
 public class HydraIdentityProvider
         implements EnvironmentExtender
 {
-    private static final int TTL_ACCESS_TOKEN_IN_SECONDS = 5;
+    private static final int TTL_ACCESS_TOKEN_IN_SECONDS = 10;
     private static final String HYDRA_IMAGE = "oryd/hydra:v1.10.6";
     private static final String DSN = "postgres://hydra:mysecretpassword@hydra-db:5432/hydra?sslmode=disable";
     private final PortBinder binder;

@@ -13,9 +13,11 @@
  */
 package io.trino.server.security.oauth2;
 
+import java.io.IOException;
 import java.net.URI;
 import java.time.Instant;
 import java.util.Optional;
+import java.util.concurrent.ExecutionException;
 
 import static java.util.Objects.requireNonNull;
 
@@ -26,15 +28,20 @@ public interface OAuth2Client
     OAuth2Response getOAuth2Response(String code, URI callbackUri)
             throws ChallengeFailedException;
 
+    OAuth2Response getRefreshedOAuth2Response(String refreshToken)
+            throws IOException, InterruptedException, ExecutionException;
+
     class OAuth2Response
     {
         private final String accessToken;
+        private final Optional<String> refreshToken;
         private final Optional<Instant> validUntil;
         private final Optional<String> idToken;
 
-        public OAuth2Response(String accessToken, Optional<Instant> validUntil, Optional<String> idToken)
+        public OAuth2Response(String accessToken, Optional<String> refreshToken, Optional<Instant> validUntil, Optional<String> idToken)
         {
             this.accessToken = requireNonNull(accessToken, "accessToken is null");
+            this.refreshToken = requireNonNull(refreshToken, "refreshToken is null");
             this.validUntil = requireNonNull(validUntil, "validUntil is null");
             this.idToken = requireNonNull(idToken, "idToken is null");
         }
@@ -42,6 +49,11 @@ public interface OAuth2Client
         public String getAccessToken()
         {
             return accessToken;
+        }
+
+        public Optional<String> getRefreshToken()
+        {
+            return refreshToken;
         }
 
         public Optional<Instant> getValidUntil()

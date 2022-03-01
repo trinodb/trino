@@ -21,12 +21,15 @@ import io.trino.server.security.UserMappingException;
 import io.trino.server.security.oauth2.ChallengeFailedException;
 import io.trino.server.security.oauth2.OAuth2Config;
 import io.trino.server.security.oauth2.OAuth2Service;
+import io.trino.server.security.oauth2.OAuth2TokenData;
 import io.trino.spi.security.BasicPrincipal;
 import io.trino.spi.security.Identity;
 
 import javax.inject.Inject;
 import javax.ws.rs.container.ContainerRequestContext;
+import javax.ws.rs.core.Cookie;
 import javax.ws.rs.core.Response;
+import javax.ws.rs.core.Response.ResponseBuilder;
 
 import java.util.List;
 import java.util.Map;
@@ -40,6 +43,7 @@ import static io.trino.server.security.oauth2.OAuth2CallbackResource.CALLBACK_EN
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.DISABLED_LOCATION;
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.DISABLED_LOCATION_URI;
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.TRINO_FORM_LOGIN;
+import static io.trino.server.ui.OAuthRefreshWebUiCookie.OAUTH2_REFRESH_COOKIE;
 import static io.trino.server.ui.OAuthWebUiCookie.OAUTH2_COOKIE;
 import static java.util.Objects.requireNonNull;
 import static javax.ws.rs.core.Response.Status.UNAUTHORIZED;
@@ -87,6 +91,11 @@ public class OAuth2WebUiAuthenticationFilter
         try {
             claims = getAccessToken(request);
             if (claims.isEmpty()) {
+                Optional<Response> refreshResponse = prepareRefreshTokenResponse(request);
+                if (refreshResponse.isPresent()) {
+                    request.abortWith(refreshResponse.get());
+                    return;
+                }
                 needAuthentication(request);
                 return;
             }
@@ -114,6 +123,25 @@ public class OAuth2WebUiAuthenticationFilter
         catch (UserMappingException e) {
             sendErrorMessage(request, UNAUTHORIZED, firstNonNull(e.getMessage(), "Unauthorized"));
         }
+    }
+
+    private Optional<Response> prepareRefreshTokenResponse(ContainerRequestContext request)
+    {
+        Map<String, Cookie> cookies = request.getCookies();
+        if (!cookies.containsKey(OAUTH2_REFRESH_COOKIE)) {
+            return Optional.empty();
+        }
+        Optional<String> refreshToken = OAuthRefreshWebUiCookie.read(cookies.get(OAUTH2_REFRESH_COOKIE));
+        if (!refreshToken.isPresent()) {
+            return Optional.empty();
+        }
+        Optional<OAuth2TokenData> oauth2TokenData = service.refreshOAuth2AccessTokenOnRequest(refreshToken.get());
+        if (!oauth2TokenData.isPresent()) {
+            return Optional.empty();
+        }
+        ResponseBuilder refreshCookiesResponseBuilder = Response.seeOther(request.getUriInfo().getRequestUri());
+        service.appendOAuthWebUiCookies(refreshCookiesResponseBuilder, oauth2TokenData.get());
+        return Optional.of(refreshCookiesResponseBuilder.build());
     }
 
     private Optional<Map<String, Object>> getAccessToken(ContainerRequestContext request)

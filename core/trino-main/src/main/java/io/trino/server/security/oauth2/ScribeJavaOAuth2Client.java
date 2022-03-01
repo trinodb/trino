@@ -26,9 +26,11 @@ import io.airlift.http.client.HttpClient;
 
 import javax.inject.Inject;
 
+import java.io.IOException;
 import java.net.URI;
 import java.time.Instant;
 import java.util.Optional;
+import java.util.concurrent.ExecutionException;
 
 import static io.trino.server.security.oauth2.OAuth2Service.NONCE;
 import static io.trino.server.security.oauth2.OAuth2Service.REDIRECT_URI;
@@ -63,9 +65,23 @@ public class ScribeJavaOAuth2Client
             throws ChallengeFailedException
     {
         OpenIdOAuth2AccessToken accessToken = (OpenIdOAuth2AccessToken) service.getAccessToken(code, callbackUri.toString());
+        return convertToOAuth2Response(accessToken);
+    }
+
+    @Override
+    public OAuth2Response getRefreshedOAuth2Response(String refreshToken)
+            throws IOException, InterruptedException, ExecutionException
+    {
+        OpenIdOAuth2AccessToken accessToken = (OpenIdOAuth2AccessToken) service.refreshAccessToken(refreshToken);
+        return convertToOAuth2Response(accessToken);
+    }
+
+    private OAuth2Client.OAuth2Response convertToOAuth2Response(OpenIdOAuth2AccessToken accessToken)
+    {
         Optional<Instant> validUntil = Optional.ofNullable(accessToken.getExpiresIn()).map(expiresSeconds -> Instant.now().plusSeconds(expiresSeconds));
         Optional<String> idToken = Optional.ofNullable(accessToken.getOpenIdToken());
-        return new OAuth2Response(accessToken.getAccessToken(), validUntil, idToken);
+        Optional<String> refreshToken = Optional.ofNullable(accessToken.getRefreshToken());
+        return new OAuth2Response(accessToken.getAccessToken(), refreshToken, validUntil, idToken);
     }
 
     // Callback URI must be relative to client's view of the server.
@@ -76,7 +92,10 @@ public class ScribeJavaOAuth2Client
         public DynamicCallbackOAuth2Service(OAuth2Config config, HttpClient httpClient)
         {
             super(
-                    new OAuth2Api(config.getTokenUrl(), config.getAuthUrl()),
+                    new OAuth2Api(
+                            config.getTokenUrl(),
+                            Optional.ofNullable(config.getRefreshTokenUrl()),
+                            config.getAuthUrl()),
                     config.getClientId(),
                     config.getClientSecret(),
                     null,
@@ -109,11 +128,13 @@ public class ScribeJavaOAuth2Client
                 extends DefaultApi20
         {
             private final String accessTokenEndpoint;
+            private final Optional<String> refreshTokenEndpoint;
             private final String authorizationBaseUrl;
 
-            public OAuth2Api(String accessTokenEndpoint, String authorizationBaseUrl)
+            public OAuth2Api(String accessTokenEndpoint, Optional<String> refreshTokenEndpoint, String authorizationBaseUrl)
             {
                 this.accessTokenEndpoint = requireNonNull(accessTokenEndpoint, "accessTokenEndpoint is null");
+                this.refreshTokenEndpoint = requireNonNull(refreshTokenEndpoint, "refreshTokenEndpoint is null");
                 this.authorizationBaseUrl = requireNonNull(authorizationBaseUrl, "authorizationBaseUrl is null");
             }
 
@@ -127,6 +148,12 @@ public class ScribeJavaOAuth2Client
             protected String getAuthorizationBaseUrl()
             {
                 return authorizationBaseUrl;
+            }
+
+            @Override
+            public String getRefreshTokenEndpoint()
+            {
+                return refreshTokenEndpoint.orElse(getAccessTokenEndpoint());
             }
 
             @Override

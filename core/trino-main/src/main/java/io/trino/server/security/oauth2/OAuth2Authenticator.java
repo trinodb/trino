@@ -13,6 +13,7 @@
  */
 package io.trino.server.security.oauth2;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.server.security.AbstractBearerAuthenticator;
 import io.trino.server.security.AuthenticationException;
@@ -29,11 +30,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import static io.trino.server.security.UserMapping.createUserMapping;
 import static io.trino.server.security.oauth2.OAuth2TokenExchangeResource.getInitiateUri;
+import static io.trino.server.security.oauth2.OAuth2TokenExchangeResource.getRefreshTokenUri;
 import static io.trino.server.security.oauth2.OAuth2TokenExchangeResource.getTokenUri;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class OAuth2Authenticator
@@ -77,9 +79,35 @@ public class OAuth2Authenticator
     @Override
     protected AuthenticationException needAuthentication(ContainerRequestContext request, String message)
     {
+        return createAuthenticationException(request, message, Optional.empty());
+    }
+
+    @Override
+    protected AuthenticationException needsTokenRefresh(ContainerRequestContext request, String message)
+    {
+        return createAuthenticationException(request, message, Optional.of(resolveRefreshTokenUri(request)));
+    }
+
+    private AuthenticationException createAuthenticationException(ContainerRequestContext request, String message, Optional<URI> refreshTokenUri)
+    {
         UUID authId = UUID.randomUUID();
-        URI initiateUri = request.getUriInfo().getBaseUri().resolve(getInitiateUri(authId));
-        URI tokenUri = request.getUriInfo().getBaseUri().resolve(getTokenUri(authId));
-        return new AuthenticationException(message, format("Bearer x_redirect_server=\"%s\", x_token_server=\"%s\"", initiateUri, tokenUri));
+        ImmutableMap.Builder<String, URI> attributes = ImmutableMap.<String, URI>builder()
+                .put("x_redirect_server", resolveTokenUri(request, getInitiateUri(authId)))
+                .put("x_token_server", resolveTokenUri(request, getTokenUri(authId)));
+        refreshTokenUri.ifPresent(uri -> attributes.put("x_token_refresh_server", uri));
+        String authenticateHeader = attributes.buildOrThrow().entrySet().stream()
+                .map(e -> e.getKey() + "=\"" + e.getValue() + "\"")
+                .collect(Collectors.joining(", ", "Bearer ", ""));
+        return new AuthenticationException(message, authenticateHeader);
+    }
+
+    private URI resolveRefreshTokenUri(ContainerRequestContext request)
+    {
+        return resolveTokenUri(request, getRefreshTokenUri());
+    }
+
+    private URI resolveTokenUri(ContainerRequestContext request, String path)
+    {
+        return request.getUriInfo().getBaseUri().resolve(path);
     }
 }

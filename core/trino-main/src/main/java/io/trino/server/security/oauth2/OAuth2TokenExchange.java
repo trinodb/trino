@@ -83,9 +83,9 @@ public class OAuth2TokenExchange
     }
 
     @Override
-    public void setAccessToken(String authIdHash, String accessToken)
+    public void setToken(String authIdHash, OAuth2TokenData tokenData)
     {
-        cache.getUnchecked(authIdHash).set(TokenPoll.token(accessToken));
+        cache.getUnchecked(authIdHash).set(TokenPoll.token(tokenData));
     }
 
     @Override
@@ -113,30 +113,28 @@ public class OAuth2TokenExchange
 
     public static class TokenPoll
     {
-        private final Optional<String> token;
+        private final Optional<OAuth2TokenData> token;
         private final Optional<String> error;
 
-        private TokenPoll(String token, String error)
+        private TokenPoll(OAuth2TokenData token, String error)
         {
             this.token = Optional.ofNullable(token);
             this.error = Optional.ofNullable(error);
         }
 
-        static TokenPoll token(String token)
+        static TokenPoll token(OAuth2TokenData token)
         {
             requireNonNull(token, "token is null");
-
             return new TokenPoll(token, null);
         }
 
         static TokenPoll error(String error)
         {
             requireNonNull(error, "error is null");
-
             return new TokenPoll(null, error);
         }
 
-        public Optional<String> getToken()
+        public Optional<OAuth2TokenData> getToken()
         {
             return token;
         }

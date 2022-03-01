@@ -59,6 +59,7 @@ import static io.trino.jdbc.ConnectionProperties.CLIENT_TAGS;
 import static io.trino.jdbc.ConnectionProperties.DISABLE_COMPRESSION;
 import static io.trino.jdbc.ConnectionProperties.EXTERNAL_AUTHENTICATION;
 import static io.trino.jdbc.ConnectionProperties.EXTERNAL_AUTHENTICATION_REDIRECT_HANDLERS;
+import static io.trino.jdbc.ConnectionProperties.EXTERNAL_AUTHENTICATION_REFRESH_TOKEN_INTERVAL;
 import static io.trino.jdbc.ConnectionProperties.EXTERNAL_AUTHENTICATION_TIMEOUT;
 import static io.trino.jdbc.ConnectionProperties.EXTERNAL_AUTHENTICATION_TOKEN_CACHE;
 import static io.trino.jdbc.ConnectionProperties.EXTRA_CREDENTIALS;
@@ -328,7 +329,8 @@ public final class TrinoDriverUri
                 RedirectHandler redirectHandler = Optional.ofNullable(REDIRECT_HANDLER.get())
                         .orElseGet(() -> configuredHandler.orElseThrow(() -> new RuntimeException("External authentication redirect handler is not configured")));
 
-                ExternalAuthenticator authenticator = new ExternalAuthenticator(redirectHandler, poller, knownTokenCache.create(), timeout);
+                Integer refreshTokenInterval = EXTERNAL_AUTHENTICATION_REFRESH_TOKEN_INTERVAL.getValue(properties).get();
+                ExternalAuthenticator authenticator = new ExternalAuthenticator(redirectHandler, poller, knownTokenCache.create(), timeout, refreshTokenInterval);
 
                 builder.authenticator(authenticator);
                 builder.addInterceptor(authenticator);

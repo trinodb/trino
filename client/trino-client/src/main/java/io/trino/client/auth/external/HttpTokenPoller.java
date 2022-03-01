@@ -29,6 +29,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.URI;
 import java.time.Duration;
+import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
@@ -160,16 +161,19 @@ public class HttpTokenPoller
     public static class TokenPollRepresentation
     {
         private final String token;
+        private final String refreshToken;
         private final URI nextUri;
         private final String error;
 
         @JsonCreator
         public TokenPollRepresentation(
                 @JsonProperty("token") String token,
+                @JsonProperty("refreshToken") String refreshToken,
                 @JsonProperty("nextUri") URI nextUri,
                 @JsonProperty("error") String error)
         {
             this.token = token;
+            this.refreshToken = refreshToken;
             this.nextUri = nextUri;
             this.error = error;
         }
@@ -177,7 +181,7 @@ public class HttpTokenPoller
         TokenPollResult toResult()
         {
             if (token != null) {
-                return TokenPollResult.successful(new Token(token));
+                return TokenPollResult.successful(new Token(token, Optional.ofNullable(refreshToken), Optional.empty()));
             }
             if (error != null) {
                 return TokenPollResult.failed(error);

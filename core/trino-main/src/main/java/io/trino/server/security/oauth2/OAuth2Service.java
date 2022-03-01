@@ -28,10 +28,12 @@ import io.jsonwebtoken.SigningKeyResolver;
 import io.jsonwebtoken.impl.DefaultClaims;
 import io.trino.server.security.oauth2.OAuth2Client.OAuth2Response;
 import io.trino.server.ui.OAuth2WebUiInstalled;
+import io.trino.server.ui.OAuthRefreshWebUiCookie;
 import io.trino.server.ui.OAuthWebUiCookie;
 
 import javax.inject.Inject;
 import javax.ws.rs.core.Response;
+import javax.ws.rs.core.Response.ResponseBuilder;
 import javax.ws.rs.core.UriBuilder;
 
 import java.io.IOException;
@@ -62,6 +64,7 @@ import static io.trino.server.ui.FormWebUiAuthenticationFilter.UI_LOCATION;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.time.Instant.now;
+import static java.time.temporal.ChronoUnit.MINUTES;
 import static java.util.Objects.requireNonNull;
 import static javax.ws.rs.HttpMethod.GET;
 import static javax.ws.rs.core.Response.Status.BAD_REQUEST;
@@ -159,7 +162,7 @@ public class OAuth2Service
         else {
             nonce = Optional.empty();
         }
-        Response.ResponseBuilder response = Response.seeOther(
+        ResponseBuilder response = Response.seeOther(
                 client.getAuthorizationUri(
                         state,
                         callbackUri,
@@ -213,22 +216,22 @@ public class OAuth2Service
             // fetch access token
             OAuth2Response oauth2Response = client.getOAuth2Response(code, callbackUri);
             Claims parsedToken = validateAndParseOAuth2Response(oauth2Response, nonce).orElseThrow(() -> new ChallengeFailedException("invalid access token"));
-
             // determine expiration
             Instant validUntil = determineExpiration(oauth2Response.getValidUntil(), parsedToken.getExpiration());
+            OAuth2TokenData tokenData = new OAuth2TokenData(oauth2Response.getAccessToken(), oauth2Response.getRefreshToken(), validUntil);
 
             if (handlerState.isEmpty()) {
-                return Response
-                        .seeOther(URI.create(UI_LOCATION))
-                        .cookie(OAuthWebUiCookie.create(oauth2Response.getAccessToken(), validUntil), NonceCookie.delete())
-                        .build();
+                ResponseBuilder responseBuilder = Response.seeOther(URI.create(UI_LOCATION));
+                appendOAuthWebUiCookies(responseBuilder, tokenData);
+                responseBuilder.cookie(NonceCookie.delete());
+                return responseBuilder.build();
             }
 
-            tokenHandler.setAccessToken(handlerState.get(), oauth2Response.getAccessToken());
+            tokenHandler.setToken(handlerState.get(), tokenData);
 
-            Response.ResponseBuilder builder = Response.ok(getSuccessHtml());
+            ResponseBuilder builder = Response.ok(getSuccessHtml());
             if (webUiOAuthEnabled) {
-                builder.cookie(OAuthWebUiCookie.create(oauth2Response.getAccessToken(), validUntil));
+                appendOAuthWebUiCookies(builder, tokenData);
             }
             return builder.cookie(NonceCookie.delete()).build();
         }
@@ -240,6 +243,30 @@ public class OAuth2Service
                     .cookie(NonceCookie.delete())
                     .entity(getInternalFailureHtml("Authentication response could not be verified"))
                     .build();
+        }
+    }
+
+    public void appendOAuthWebUiCookies(ResponseBuilder builder, OAuth2TokenData oAuth2TokenData)
+    {
+        Instant validUntil = oAuth2TokenData.getValidUntil();
+        builder.cookie(OAuthWebUiCookie.create(oAuth2TokenData.getAccessToken(), validUntil));
+        oAuth2TokenData.getRefreshToken()
+                .ifPresent(refreshToken -> builder.cookie(OAuthRefreshWebUiCookie.create(
+                        refreshToken, validUntil.plus(5, MINUTES))));
+    }
+
+    public Optional<OAuth2TokenData> refreshOAuth2AccessTokenOnRequest(String refreshToken)
+    {
+        try {
+            OAuth2Response oauth2Response = client.getRefreshedOAuth2Response(refreshToken);
+            Claims parsedToken = internalConvertTokenToClaims(oauth2Response.getAccessToken())
+                    .orElseThrow(() -> new ChallengeFailedException("invalid access token"));
+            Instant validUntil = determineExpiration(oauth2Response.getValidUntil(), parsedToken.getExpiration());
+            return Optional.of(new OAuth2TokenData(oauth2Response.getAccessToken(), oauth2Response.getRefreshToken(), validUntil));
+        }
+        catch (Exception e) {
+            LOG.debug(e, "Access Token refresh failed");
+            return Optional.empty();
         }
     }
 

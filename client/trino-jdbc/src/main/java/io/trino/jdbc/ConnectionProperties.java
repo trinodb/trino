@@ -80,6 +80,7 @@ final class ConnectionProperties
     public static final ConnectionProperty<Duration> EXTERNAL_AUTHENTICATION_TIMEOUT = new ExternalAuthenticationTimeout();
     public static final ConnectionProperty<List<ExternalRedirectStrategy>> EXTERNAL_AUTHENTICATION_REDIRECT_HANDLERS = new ExternalAuthenticationRedirectHandlers();
     public static final ConnectionProperty<KnownTokenCache> EXTERNAL_AUTHENTICATION_TOKEN_CACHE = new ExternalAuthenticationTokenCache();
+    public static final ConnectionProperty<Integer> EXTERNAL_AUTHENTICATION_REFRESH_TOKEN_INTERVAL = new ExternalAuthenticationRefreshTokenInterval();
     public static final ConnectionProperty<Map<String, String>> EXTRA_CREDENTIALS = new ExtraCredentials();
     public static final ConnectionProperty<String> CLIENT_INFO = new ClientInfo();
     public static final ConnectionProperty<String> CLIENT_TAGS = new ClientTags();
@@ -123,6 +124,7 @@ final class ConnectionProperties
             .add(EXTERNAL_AUTHENTICATION)
             .add(EXTERNAL_AUTHENTICATION_TIMEOUT)
             .add(EXTERNAL_AUTHENTICATION_TOKEN_CACHE)
+            .add(EXTERNAL_AUTHENTICATION_REFRESH_TOKEN_INTERVAL)
             .add(EXTERNAL_AUTHENTICATION_REDIRECT_HANDLERS)
             .build();
 
@@ -519,6 +521,15 @@ final class ConnectionProperties
         public ExternalAuthenticationTokenCache()
         {
             super("externalAuthenticationTokenCache", Optional.of(KnownTokenCache.NONE.name()), NOT_REQUIRED, ALLOWED, KnownTokenCache::valueOf);
+        }
+    }
+
+    private static class ExternalAuthenticationRefreshTokenInterval
+            extends AbstractConnectionProperty<Integer>
+    {
+        public ExternalAuthenticationRefreshTokenInterval()
+        {
+            super("externalAuthenticationRefreshTokenInterval", Optional.of("0"), NOT_REQUIRED, ALLOWED, Integer::valueOf);
         }
     }
 

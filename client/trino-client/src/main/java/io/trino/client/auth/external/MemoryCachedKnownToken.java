@@ -19,7 +19,7 @@ import java.util.Optional;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
-import java.util.function.Supplier;
+import java.util.function.Function;
 
 /**
  * This KnownToken instance forces all Connections to reuse same token.
@@ -64,16 +64,17 @@ class MemoryCachedKnownToken
     }
 
     @Override
-    public void setupToken(Supplier<Optional<Token>> tokenSource)
+    public void setupToken(Function<Optional<Token>, Optional<Token>> tokenSource)
     {
         // Try to lock and generate new token. If some other thread (Connection) has
         // already obtained writeLock and is generating new token, then skipp this
         // to block on getToken()
         if (writeLock.tryLock()) {
             try {
+                Optional<Token> oldToken = knownToken;
                 // Clear knownToken before obtaining new token, as it might fail leaving old invalid token.
                 knownToken = Optional.empty();
-                knownToken = tokenSource.get();
+                knownToken = tokenSource.apply(oldToken);
             }
             finally {
                 writeLock.unlock();
