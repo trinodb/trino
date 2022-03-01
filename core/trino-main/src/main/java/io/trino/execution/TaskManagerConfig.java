@@ -13,6 +13,7 @@
  */
 package io.trino.execution;
 
+import com.google.common.annotations.VisibleForTesting;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
@@ -22,8 +23,10 @@ import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
 import io.airlift.units.MaxDuration;
 import io.airlift.units.MinDuration;
+import io.trino.CustomOptimizerConfig;
 import io.trino.util.PowerOfTwo;
 
+import javax.annotation.Nullable;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
@@ -80,6 +83,36 @@ public class TaskManagerConfig
     private int taskYieldThreads = 3;
 
     private BigDecimal levelTimeMultiplier = new BigDecimal(2.0);
+
+    @VisibleForTesting
+    private String additionalPlanOptimizerClasses;
+    private boolean allowCustomPlanOptimizers;
+
+    @Nullable
+    public String getAdditionalPlanOptimizerClasses()
+    {
+        return additionalPlanOptimizerClasses;
+    }
+
+    @ConfigDescription("List of extra CustomPlanOptimizer classes")
+    @Config("optimizer.custom-optimizer.list")
+    public TaskManagerConfig setAdditionalPlanOptimizerClasses(String classNames)
+    {
+        this.additionalPlanOptimizerClasses = classNames;
+        return this;
+    }
+    public boolean isAllowCustomPlanOptimizers()
+    {
+        return allowCustomPlanOptimizers;
+    }
+
+    @ConfigDescription("Whether custom plan optimizer support is enabled")
+    @Config("optimizer.custom-optimizer.allow")
+    public TaskManagerConfig setAllowCustomPlanOptimizers(boolean allowCustomPlanOptimizers)
+    {
+        this.allowCustomPlanOptimizers = allowCustomPlanOptimizers;
+        return this;
+    }
 
     @MinDuration("1ms")
     @MaxDuration("10s")
