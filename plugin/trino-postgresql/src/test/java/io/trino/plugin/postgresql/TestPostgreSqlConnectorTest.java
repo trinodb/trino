@@ -88,9 +88,8 @@ public class TestPostgreSqlConnectorTest
 
     @BeforeClass
     public void setExtensions()
-            throws SQLException
     {
-        execute("CREATE EXTENSION file_fdw");
+        onRemoteDatabase().execute("CREATE EXTENSION file_fdw");
     }
 
     @Override
@@ -167,34 +166,32 @@ public class TestPostgreSqlConnectorTest
 
     @Test
     public void testViews()
-            throws Exception
     {
-        execute("CREATE OR REPLACE VIEW test_view AS SELECT * FROM orders");
+        onRemoteDatabase().execute("CREATE OR REPLACE VIEW test_view AS SELECT * FROM orders");
         assertTrue(getQueryRunner().tableExists(getSession(), "test_view"));
         assertQuery("SELECT orderkey FROM test_view", "SELECT orderkey FROM orders");
-        execute("DROP VIEW IF EXISTS test_view");
+        onRemoteDatabase().execute("DROP VIEW IF EXISTS test_view");
     }
 
     @Test
     public void testPostgreSqlMaterializedView()
             throws Exception
     {
-        execute("CREATE MATERIALIZED VIEW test_mv as SELECT * FROM orders");
+        onRemoteDatabase().execute("CREATE MATERIALIZED VIEW test_mv as SELECT * FROM orders");
         assertTrue(getQueryRunner().tableExists(getSession(), "test_mv"));
         assertQuery("SELECT orderkey FROM test_mv", "SELECT orderkey FROM orders");
-        execute("DROP MATERIALIZED VIEW test_mv");
+        onRemoteDatabase().execute("DROP MATERIALIZED VIEW test_mv");
     }
 
     @Test
     public void testForeignTable()
-            throws Exception
     {
-        execute("CREATE SERVER devnull FOREIGN DATA WRAPPER file_fdw");
-        execute("CREATE FOREIGN TABLE test_ft (x bigint) SERVER devnull OPTIONS (filename '/dev/null')");
+        onRemoteDatabase().execute("CREATE SERVER devnull FOREIGN DATA WRAPPER file_fdw");
+        onRemoteDatabase().execute("CREATE FOREIGN TABLE test_ft (x bigint) SERVER devnull OPTIONS (filename '/dev/null')");
         assertTrue(getQueryRunner().tableExists(getSession(), "test_ft"));
         computeActual("SELECT * FROM test_ft");
-        execute("DROP FOREIGN TABLE test_ft");
-        execute("DROP SERVER devnull");
+        onRemoteDatabase().execute("DROP FOREIGN TABLE test_ft");
+        onRemoteDatabase().execute("DROP SERVER devnull");
     }
 
     @Test
@@ -212,7 +209,6 @@ public class TestPostgreSqlConnectorTest
 
     @Test
     public void testPartitionedTables()
-            throws Exception
     {
         try (TestTable testTable = new TestTable(
                 postgreSqlServer::execute,
@@ -220,9 +216,9 @@ public class TestPostgreSqlConnectorTest
                 "(id int NOT NULL, payload varchar, logdate date NOT NULL) PARTITION BY RANGE (logdate)")) {
             String values202111 = "(1, 'A', '2021-11-01'), (2, 'B', '2021-11-25')";
             String values202112 = "(3, 'C', '2021-12-01')";
-            execute(format("CREATE TABLE %s_2021_11 PARTITION OF %s FOR VALUES FROM ('2021-11-01') TO ('2021-12-01')", testTable.getName(), testTable.getName()));
-            execute(format("CREATE TABLE %s_2021_12 PARTITION OF %s FOR VALUES FROM ('2021-12-01') TO ('2022-01-01')", testTable.getName(), testTable.getName()));
-            execute(format("INSERT INTO %s VALUES %s ,%s", testTable.getName(), values202111, values202112));
+            onRemoteDatabase().execute(format("CREATE TABLE %s_2021_11 PARTITION OF %s FOR VALUES FROM ('2021-11-01') TO ('2021-12-01')", testTable.getName(), testTable.getName()));
+            onRemoteDatabase().execute(format("CREATE TABLE %s_2021_12 PARTITION OF %s FOR VALUES FROM ('2021-12-01') TO ('2022-01-01')", testTable.getName(), testTable.getName()));
+            onRemoteDatabase().execute(format("INSERT INTO %s VALUES %s ,%s", testTable.getName(), values202111, values202112));
             assertThat(computeActual("SHOW TABLES").getOnlyColumnAsSet())
                     .contains(testTable.getName(), testTable.getName() + "_2021_11", testTable.getName() + "_2021_12");
             assertQuery(format("SELECT * FROM %s", testTable.getName()), format("VALUES %s, %s", values202111, values202112));
@@ -235,8 +231,8 @@ public class TestPostgreSqlConnectorTest
                 "(id int NOT NULL, type varchar, logdate varchar) PARTITION BY LIST (type)")) {
             String valuesA = "(1, 'A', '2021-11-11'), (4, 'A', '2021-12-25')";
             String valuesB = "(3, 'B', '2021-12-12'), (2, 'B', '2021-12-28')";
-            execute(format("CREATE TABLE %s_a PARTITION OF %s FOR VALUES IN ('A')", testTable.getName(), testTable.getName()));
-            execute(format("CREATE TABLE %s_b PARTITION OF %s FOR VALUES IN ('B')", testTable.getName(), testTable.getName()));
+            onRemoteDatabase().execute(format("CREATE TABLE %s_a PARTITION OF %s FOR VALUES IN ('A')", testTable.getName(), testTable.getName()));
+            onRemoteDatabase().execute(format("CREATE TABLE %s_b PARTITION OF %s FOR VALUES IN ('B')", testTable.getName(), testTable.getName()));
             assertUpdate(format("INSERT INTO %s VALUES %s ,%s", testTable.getName(), valuesA, valuesB), 4);
             assertThat(computeActual("SHOW TABLES").getOnlyColumnAsSet())
                     .contains(testTable.getName(), testTable.getName() + "_a", testTable.getName() + "_b");
@@ -295,7 +291,7 @@ public class TestPostgreSqlConnectorTest
                 AutoCloseable table = withTable(format("%s.test_cleanup", schemaName), "(x INTEGER)")) {
             assertQuery(format("SELECT table_name FROM information_schema.tables WHERE table_schema = '%s'", schemaName), "VALUES 'test_cleanup'");
 
-            execute(format("ALTER TABLE %s.test_cleanup ADD CHECK (x > 0)", schemaName));
+            onRemoteDatabase().execute(format("ALTER TABLE %s.test_cleanup ADD CHECK (x > 0)", schemaName));
 
             assertQueryFails(format("INSERT INTO %s.test_cleanup (x) VALUES (0)", schemaName), "ERROR: new row .* violates check constraint [\\s\\S]*");
             assertQuery(format("SELECT table_name FROM information_schema.tables WHERE table_schema = '%s'", schemaName), "VALUES 'test_cleanup'");
@@ -631,7 +627,7 @@ public class TestPostgreSqlConnectorTest
     {
         try (AutoCloseable ignore = withTable("test_decimal_pushdown",
                 "(short_decimal decimal(9, 3), long_decimal decimal(30, 10))")) {
-            execute("INSERT INTO test_decimal_pushdown VALUES (123.321, 123456789.987654321)");
+            onRemoteDatabase().execute("INSERT INTO test_decimal_pushdown VALUES (123.321, 123456789.987654321)");
 
             assertThat(query("SELECT * FROM test_decimal_pushdown WHERE short_decimal <= 124"))
                     .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))")
@@ -663,7 +659,7 @@ public class TestPostgreSqlConnectorTest
     {
         try (AutoCloseable ignore = withTable("test_char_pushdown",
                 "(char_1 char(1), char_5 char(5), char_10 char(10))")) {
-            execute("INSERT INTO test_char_pushdown VALUES" +
+            onRemoteDatabase().execute("INSERT INTO test_char_pushdown VALUES" +
                     "('0', '0'    , '0'         )," +
                     "('1', '12345', '1234567890')");
 
@@ -681,9 +677,8 @@ public class TestPostgreSqlConnectorTest
 
     @Test
     public void testCharTrailingSpace()
-            throws Exception
     {
-        execute("CREATE TABLE char_trailing_space (x char(10))");
+        onRemoteDatabase().execute("CREATE TABLE char_trailing_space (x char(10))");
         assertUpdate("INSERT INTO char_trailing_space VALUES ('test')", 1);
 
         assertQuery("SELECT * FROM char_trailing_space WHERE x = char 'test'", "VALUES 'test'");
@@ -706,9 +701,9 @@ public class TestPostgreSqlConnectorTest
     {
         // Create an enum with non-lexicographically sorted entries
         String enumType = "test_enum_" + randomTableSuffix();
-        postgreSqlServer.execute("CREATE TYPE " + enumType + " AS ENUM ('A', 'b', 'B', 'a')");
+        onRemoteDatabase().execute("CREATE TYPE " + enumType + " AS ENUM ('A', 'b', 'B', 'a')");
         try (TestTable testTable = new TestTable(
-                postgreSqlServer::execute,
+                onRemoteDatabase(),
                 "test_case_sensitive_topn_pushdown_with_enums",
                 "(an_enum " + enumType + ", a_bigint bigint)",
                 List.of(
@@ -727,7 +722,7 @@ public class TestPostgreSqlConnectorTest
                     .isNotFullyPushedDown(TopNNode.class);
         }
         finally {
-            postgreSqlServer.execute("DROP TYPE " + enumType);
+            onRemoteDatabase().execute("DROP TYPE " + enumType);
         }
     }
 
@@ -736,9 +731,8 @@ public class TestPostgreSqlConnectorTest
      */
     @Test
     public void testNativeLargeIn()
-            throws SQLException
     {
-        execute("SELECT count(*) FROM orders WHERE " + getLongInClause(0, 500_000));
+        onRemoteDatabase().execute("SELECT count(*) FROM orders WHERE " + getLongInClause(0, 500_000));
     }
 
     /**
@@ -746,12 +740,11 @@ public class TestPostgreSqlConnectorTest
      */
     @Test
     public void testNativeMultipleInClauses()
-            throws SQLException
     {
         String longInClauses = range(0, 20)
                 .mapToObj(value -> getLongInClause(value * 10_000, 10_000))
                 .collect(joining(" OR "));
-        execute("SELECT count(*) FROM orders WHERE " + longInClauses);
+        onRemoteDatabase().execute("SELECT count(*) FROM orders WHERE " + longInClauses);
     }
 
     /**
@@ -763,7 +756,7 @@ public class TestPostgreSqlConnectorTest
     {
         String tableName = "test_timestamptz_unwrap_cast" + randomTableSuffix();
         try (AutoCloseable ignored = withTable(tableName, "(id integer, ts_col timestamp(6))")) {
-            execute("INSERT INTO " + tableName + " (id, ts_col) VALUES " +
+            onRemoteDatabase().execute("INSERT INTO " + tableName + " (id, ts_col) VALUES " +
                     "(1, timestamp '2020-01-01 01:01:01.000')," +
                     "(2, timestamp '2019-01-01 01:01:01.000')");
 
@@ -786,17 +779,9 @@ public class TestPostgreSqlConnectorTest
     }
 
     private AutoCloseable withSchema(String schema)
-            throws Exception
     {
-        execute(format("CREATE SCHEMA %s", schema));
-        return () -> {
-            try {
-                execute(format("DROP SCHEMA %s", schema));
-            }
-            catch (SQLException e) {
-                throw new RuntimeException(e);
-            }
-        };
+        onRemoteDatabase().execute(format("CREATE SCHEMA %s", schema));
+        return () -> onRemoteDatabase().execute(format("DROP SCHEMA %s", schema));
     }
 
     /**
@@ -804,17 +789,9 @@ public class TestPostgreSqlConnectorTest
      */
     @Deprecated
     private AutoCloseable withTable(String tableName, String tableDefinition)
-            throws Exception
     {
-        execute(format("CREATE TABLE %s%s", tableName, tableDefinition));
-        return () -> {
-            try {
-                execute(format("DROP TABLE %s", tableName));
-            }
-            catch (SQLException e) {
-                throw new RuntimeException(e);
-            }
-        };
+        onRemoteDatabase().execute(format("CREATE TABLE %s%s", tableName, tableDefinition));
+        return () -> onRemoteDatabase().execute(format("DROP TABLE %s", tableName));
     }
 
     @Override
@@ -822,21 +799,15 @@ public class TestPostgreSqlConnectorTest
     {
         return sql -> {
             try {
-                execute(sql);
+                try (Connection connection = DriverManager.getConnection(postgreSqlServer.getJdbcUrl(), postgreSqlServer.getProperties());
+                        Statement statement = connection.createStatement()) {
+                    statement.execute(sql);
+                }
             }
             catch (SQLException e) {
                 throw new RuntimeException(e);
             }
         };
-    }
-
-    private void execute(String sql)
-            throws SQLException
-    {
-        try (Connection connection = DriverManager.getConnection(postgreSqlServer.getJdbcUrl(), postgreSqlServer.getProperties());
-                Statement statement = connection.createStatement()) {
-            statement.execute(sql);
-        }
     }
 
     @Override
