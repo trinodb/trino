@@ -23,7 +23,6 @@ import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
 import io.airlift.units.MaxDuration;
 import io.airlift.units.MinDuration;
-import io.trino.CustomOptimizerConfig;
 import io.trino.util.PowerOfTwo;
 
 import javax.annotation.Nullable;
