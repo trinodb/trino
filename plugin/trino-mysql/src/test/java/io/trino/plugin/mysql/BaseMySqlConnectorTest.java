@@ -354,7 +354,7 @@ public abstract class BaseMySqlConnectorTest
         // Using IN list of size 140_000 as bigger list causes error:
         // "com.mysql.jdbc.PacketTooBigException: Packet for query is too large (XXX > 1048576).
         //  You can change this value on the server by setting the max_allowed_packet' variable."
-        mySqlServer.execute("SELECT count(*) FROM tpch.orders WHERE " + getLongInClause(0, 140_000));
+        onRemoteDatabase().execute("SELECT count(*) FROM tpch.orders WHERE " + getLongInClause(0, 140_000));
     }
 
     /**
@@ -366,7 +366,7 @@ public abstract class BaseMySqlConnectorTest
         String longInClauses = range(0, 14)
                 .mapToObj(value -> getLongInClause(value * 10_000, 10_000))
                 .collect(joining(" OR "));
-        mySqlServer.execute("SELECT count(*) FROM tpch.orders WHERE " + longInClauses);
+        onRemoteDatabase().execute("SELECT count(*) FROM tpch.orders WHERE " + longInClauses);
     }
 
     private String getLongInClause(int start, int length)

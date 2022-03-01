@@ -214,7 +214,7 @@ public class TestClickHouseConnectorTest
     protected TestTable createTableWithDefaultColumns()
     {
         return new TestTable(
-                clickhouseServer::execute,
+                onRemoteDatabase(),
                 "tpch.tbl",
                 "(col_required Int64," +
                         "col_nullable Nullable(Int64)," +
@@ -456,7 +456,7 @@ public class TestClickHouseConnectorTest
     protected TestTable createTableWithUnsupportedColumn()
     {
         return new TestTable(
-                clickhouseServer::execute,
+                onRemoteDatabase(),
                 "tpch.test_unsupported_column_present",
                 "(one bigint, two Array(UInt8), three String) ENGINE=Log");
     }
