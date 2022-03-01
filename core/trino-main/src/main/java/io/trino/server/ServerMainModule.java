@@ -105,6 +105,7 @@ import io.trino.spi.PageSorter;
 import io.trino.spi.VersionEmbedder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockEncodingSerde;
+import io.trino.spi.tracing.TracerProvider;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeOperators;
@@ -139,6 +140,9 @@ import io.trino.sql.planner.OptimizerConfig;
 import io.trino.sql.planner.RuleStatsRecorder;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.tree.Expression;
+import io.trino.tracing.NoopTracerProvider;
+import io.trino.tracing.SimpleTracerProvider;
+import io.trino.tracing.TracingConfig;
 import io.trino.transaction.TransactionManagerConfig;
 import io.trino.type.BlockTypeOperators;
 import io.trino.type.InternalTypeManager;
@@ -163,6 +167,7 @@ import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.configuration.ConditionalModule.conditionalModule;
+import static io.airlift.configuration.ConditionalModule.installModuleIf;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.discovery.client.DiscoveryBinder.discoveryBinder;
 import static io.airlift.http.client.HttpClientBinder.httpClientBinder;
@@ -172,6 +177,8 @@ import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.execution.scheduler.NodeSchedulerConfig.NodeSchedulerPolicy.TOPOLOGY;
 import static io.trino.execution.scheduler.NodeSchedulerConfig.NodeSchedulerPolicy.UNIFORM;
+import static io.trino.tracing.TracingConfig.TracerType.NOOP;
+import static io.trino.tracing.TracingConfig.TracerType.SIMPLE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -482,6 +489,17 @@ public class ServerMainModule
 
         // cleanup
         binder.bind(ExecutorCleanup.class).in(Scopes.SINGLETON);
+
+        // Distributed tracing
+        configBinder(binder).bindConfig(TracingConfig.class);
+        install(installModuleIf(
+                TracingConfig.class,
+                config -> !config.getEnableDistributedTracing() || NOOP.equalsIgnoreCase(config.getTracerType()),
+                moduleBinder -> moduleBinder.bind(TracerProvider.class).to(NoopTracerProvider.class).in(Scopes.SINGLETON)));
+        install(installModuleIf(
+                TracingConfig.class,
+                config -> config.getEnableDistributedTracing() && SIMPLE.equalsIgnoreCase(config.getTracerType()),
+                moduleBinder -> moduleBinder.bind(TracerProvider.class).to(SimpleTracerProvider.class).in(Scopes.SINGLETON)));
     }
 
     @Provides

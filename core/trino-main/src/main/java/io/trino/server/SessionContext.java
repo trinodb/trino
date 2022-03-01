@@ -19,6 +19,7 @@ import io.trino.client.ProtocolHeaders;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.SelectedRole;
 import io.trino.spi.session.ResourceEstimates;
+import io.trino.spi.tracing.Tracer;
 import io.trino.transaction.TransactionId;
 
 import java.util.Map;
@@ -59,6 +60,7 @@ public class SessionContext
     private final Optional<TransactionId> transactionId;
     private final boolean clientTransactionSupport;
     private final Optional<String> clientInfo;
+    private final Optional<Tracer> tracer;
 
     public SessionContext(
             ProtocolHeaders protocolHeaders,
@@ -82,7 +84,8 @@ public class SessionContext
             Map<String, String> preparedStatements,
             Optional<TransactionId> transactionId,
             boolean clientTransactionSupport,
-            Optional<String> clientInfo)
+            Optional<String> clientInfo,
+            Optional<Tracer> tracer)
     {
         this.protocolHeaders = requireNonNull(protocolHeaders, "protocolHeaders is null");
         this.catalog = requireNonNull(catalog, "catalog is null");
@@ -108,6 +111,7 @@ public class SessionContext
         this.transactionId = requireNonNull(transactionId, "transactionId is null");
         this.clientTransactionSupport = clientTransactionSupport;
         this.clientInfo = requireNonNull(clientInfo, "clientInfo is null");
+        this.tracer = requireNonNull(tracer, "tracer is null");
     }
 
     public ProtocolHeaders getProtocolHeaders()
@@ -188,6 +192,11 @@ public class SessionContext
     public Optional<String> getLanguage()
     {
         return language;
+    }
+
+    public Optional<Tracer> getTracer()
+    {
+        return tracer;
     }
 
     public Map<String, String> getSystemProperties()

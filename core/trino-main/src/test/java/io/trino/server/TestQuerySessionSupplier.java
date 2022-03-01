@@ -32,6 +32,7 @@ import io.trino.sql.SqlEnvironmentConfig;
 import io.trino.sql.SqlPath;
 import io.trino.sql.SqlPathElement;
 import io.trino.sql.tree.Identifier;
+import io.trino.tracing.NoopTracerProvider;
 import io.trino.transaction.TransactionManager;
 import org.testng.annotations.Test;
 
@@ -77,7 +78,7 @@ public class TestQuerySessionSupplier
     @Test
     public void testCreateSession()
     {
-        SessionContext context = SESSION_CONTEXT_FACTORY.createSessionContext(TEST_HEADERS, Optional.empty(), Optional.of("testRemote"), Optional.empty());
+        SessionContext context = SESSION_CONTEXT_FACTORY.createSessionContext(TEST_HEADERS, Optional.empty(), Optional.of("testRemote"), Optional.empty(), NoopTracerProvider.NOOP_TRACER_PROVIDER);
         QuerySessionSupplier sessionSupplier = createSessionSupplier(new SqlEnvironmentConfig());
         Session session = sessionSupplier.createSession(new QueryId("test_query_id"), context);
 
@@ -109,14 +110,14 @@ public class TestQuerySessionSupplier
         MultivaluedMap<String, String> headers1 = new GuavaMultivaluedMap<>(ImmutableListMultimap.<String, String>builder()
                 .put(TRINO_HEADERS.requestUser(), "testUser")
                 .build());
-        SessionContext context1 = SESSION_CONTEXT_FACTORY.createSessionContext(headers1, Optional.empty(), Optional.of("remoteAddress"), Optional.empty());
+        SessionContext context1 = SESSION_CONTEXT_FACTORY.createSessionContext(headers1, Optional.empty(), Optional.of("remoteAddress"), Optional.empty(), NoopTracerProvider.NOOP_TRACER_PROVIDER);
         assertEquals(context1.getClientTags(), ImmutableSet.of());
 
         MultivaluedMap<String, String> headers2 = new GuavaMultivaluedMap<>(ImmutableListMultimap.<String, String>builder()
                 .put(TRINO_HEADERS.requestUser(), "testUser")
                 .put(TRINO_HEADERS.requestClientTags(), "")
                 .build());
-        SessionContext context2 = SESSION_CONTEXT_FACTORY.createSessionContext(headers2, Optional.empty(), Optional.of("remoteAddress"), Optional.empty());
+        SessionContext context2 = SESSION_CONTEXT_FACTORY.createSessionContext(headers2, Optional.empty(), Optional.of("remoteAddress"), Optional.empty(), NoopTracerProvider.NOOP_TRACER_PROVIDER);
         assertEquals(context2.getClientTags(), ImmutableSet.of());
     }
 
@@ -127,13 +128,13 @@ public class TestQuerySessionSupplier
                 .put(TRINO_HEADERS.requestUser(), "testUser")
                 .put(TRINO_HEADERS.requestClientCapabilities(), "foo, bar")
                 .build());
-        SessionContext context1 = SESSION_CONTEXT_FACTORY.createSessionContext(headers1, Optional.empty(), Optional.of("remoteAddress"), Optional.empty());
+        SessionContext context1 = SESSION_CONTEXT_FACTORY.createSessionContext(headers1, Optional.empty(), Optional.of("remoteAddress"), Optional.empty(), NoopTracerProvider.NOOP_TRACER_PROVIDER);
         assertEquals(context1.getClientCapabilities(), ImmutableSet.of("foo", "bar"));
 
         MultivaluedMap<String, String> headers2 = new GuavaMultivaluedMap<>(ImmutableListMultimap.<String, String>builder()
                 .put(TRINO_HEADERS.requestUser(), "testUser")
                 .build());
-        SessionContext context2 = SESSION_CONTEXT_FACTORY.createSessionContext(headers2, Optional.empty(), Optional.of("remoteAddress"), Optional.empty());
+        SessionContext context2 = SESSION_CONTEXT_FACTORY.createSessionContext(headers2, Optional.empty(), Optional.of("remoteAddress"), Optional.empty(), NoopTracerProvider.NOOP_TRACER_PROVIDER);
         assertEquals(context2.getClientCapabilities(), ImmutableSet.of());
     }
 
@@ -144,7 +145,7 @@ public class TestQuerySessionSupplier
                 .put(TRINO_HEADERS.requestUser(), "testUser")
                 .put(TRINO_HEADERS.requestTimeZone(), "unknown_timezone")
                 .build());
-        SessionContext context = SESSION_CONTEXT_FACTORY.createSessionContext(headers, Optional.empty(), Optional.of("remoteAddress"), Optional.empty());
+        SessionContext context = SESSION_CONTEXT_FACTORY.createSessionContext(headers, Optional.empty(), Optional.of("remoteAddress"), Optional.empty(), NoopTracerProvider.NOOP_TRACER_PROVIDER);
         QuerySessionSupplier sessionSupplier = createSessionSupplier(new SqlEnvironmentConfig());
         assertThatThrownBy(() -> sessionSupplier.createSession(new QueryId("test_query_id"), context))
                 .isInstanceOf(TrinoException.class)
@@ -245,7 +246,7 @@ public class TestQuerySessionSupplier
     private static Session createSession(ListMultimap<String, String> headers, SqlEnvironmentConfig config)
     {
         MultivaluedMap<String, String> headerMap = new GuavaMultivaluedMap<>(headers);
-        SessionContext context = SESSION_CONTEXT_FACTORY.createSessionContext(headerMap, Optional.empty(), Optional.of("testRemote"), Optional.empty());
+        SessionContext context = SESSION_CONTEXT_FACTORY.createSessionContext(headerMap, Optional.empty(), Optional.of("testRemote"), Optional.empty(), NoopTracerProvider.NOOP_TRACER_PROVIDER);
         QuerySessionSupplier sessionSupplier = createSessionSupplier(config);
         return sessionSupplier.createSession(new QueryId("test_query_id"), context);
     }

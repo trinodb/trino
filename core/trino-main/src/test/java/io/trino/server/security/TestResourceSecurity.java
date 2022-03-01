@@ -758,12 +758,12 @@ public class TestResourceSecurity
                 TestingTrinoServer server = TestingTrinoServer.builder()
                         .setProperties(
                                 ImmutableMap.<String, String>builder()
-                                .putAll(SECURE_PROPERTIES)
-                                .put("http-server.authentication.type", "jwt,oauth2")
-                                .put("http-server.authentication.jwt.key-file", jwkServer.getBaseUrl().toString())
-                                .putAll(getOAuth2Properties(tokenServer))
-                                .put("web-ui.enabled", "true")
-                                .buildOrThrow())
+                                        .putAll(SECURE_PROPERTIES)
+                                        .put("http-server.authentication.type", "jwt,oauth2")
+                                        .put("http-server.authentication.jwt.key-file", jwkServer.getBaseUrl().toString())
+                                        .putAll(getOAuth2Properties(tokenServer))
+                                        .put("web-ui.enabled", "true")
+                                        .buildOrThrow())
                         .setAdditionalModule(oauth2Module(tokenServer))
                         .build()) {
             server.getInstance(Key.get(AccessControlManager.class)).addSystemAccessControl(TestSystemAccessControl.NO_IMPERSONATION);

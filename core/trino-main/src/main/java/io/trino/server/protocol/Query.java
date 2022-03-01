@@ -59,6 +59,7 @@ import io.trino.spi.WarningCode;
 import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.spi.exchange.ExchangeId;
 import io.trino.spi.security.SelectedRole;
+import io.trino.spi.tracing.Tracer;
 import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
@@ -282,6 +283,13 @@ class Query
     public boolean isSlugValid(String slug, long token)
     {
         return this.slug.isValid(EXECUTING_QUERY, slug, token);
+    }
+
+    public Tracer getTracer()
+    {
+        Optional<Tracer> tracer = session.getTracer();
+        checkArgument(tracer.isPresent(), "tracer is not present");
+        return tracer.get();
     }
 
     public QueryInfo getQueryInfo()

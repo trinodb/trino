@@ -480,7 +480,8 @@ public class LocalQueryRunner
                 defaultSession.getCatalogProperties(),
                 sessionPropertyManager,
                 defaultSession.getPreparedStatements(),
-                defaultSession.getProtocolHeaders());
+                defaultSession.getProtocolHeaders(),
+                defaultSession.getTracer());
 
         SpillerStats spillerStats = new SpillerStats();
         this.singleStreamSpillerFactory = new FileSingleStreamSpillerFactory(plannerContext.getBlockEncodingSerde(), spillerStats, featuresConfig, nodeSpillConfig);

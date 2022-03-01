@@ -23,6 +23,7 @@ import io.trino.spi.security.BasicPrincipal;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.SelectedRole;
 import io.trino.spi.session.ResourceEstimates;
+import io.trino.spi.tracing.Tracer;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.sql.SqlPath;
 import io.trino.transaction.TransactionId;
@@ -66,6 +67,7 @@ public final class SessionRepresentation
     private final Map<String, SelectedRole> catalogRoles;
     private final Map<String, String> preparedStatements;
     private final String protocolName;
+    private final Optional<Tracer> tracer;
 
     @JsonCreator
     public SessionRepresentation(
@@ -94,7 +96,8 @@ public final class SessionRepresentation
             @JsonProperty("catalogProperties") Map<String, Map<String, String>> catalogProperties,
             @JsonProperty("catalogRoles") Map<String, SelectedRole> catalogRoles,
             @JsonProperty("preparedStatements") Map<String, String> preparedStatements,
-            @JsonProperty("protocolName") String protocolName)
+            @JsonProperty("protocolName") String protocolName,
+            @JsonProperty("tracer") Optional<Tracer> tracer)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.transactionId = requireNonNull(transactionId, "transactionId is null");
@@ -121,6 +124,7 @@ public final class SessionRepresentation
         this.catalogRoles = ImmutableMap.copyOf(catalogRoles);
         this.preparedStatements = ImmutableMap.copyOf(preparedStatements);
         this.protocolName = requireNonNull(protocolName, "protocolName is null");
+        this.tracer = requireNonNull(tracer, "tracer is null");
 
         ImmutableMap.Builder<String, Map<String, String>> catalogPropertiesBuilder = ImmutableMap.builder();
         for (Entry<String, Map<String, String>> entry : catalogProperties.entrySet()) {
@@ -337,6 +341,7 @@ public final class SessionRepresentation
                 catalogProperties,
                 sessionPropertyManager,
                 preparedStatements,
-                createProtocolHeaders(protocolName));
+                createProtocolHeaders(protocolName),
+                tracer);
     }
 }

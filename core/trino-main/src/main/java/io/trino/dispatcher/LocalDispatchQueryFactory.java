@@ -33,6 +33,8 @@ import io.trino.server.protocol.Slug;
 import io.trino.spi.TrinoException;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.sql.tree.Statement;
+import io.trino.tracing.NoopTracerProvider;
+import io.trino.tracing.QueryStateTracingListener;
 import io.trino.transaction.TransactionId;
 import io.trino.transaction.TransactionManager;
 
@@ -116,6 +118,7 @@ public class LocalDispatchQueryFactory
                 warningCollector,
                 getQueryType(preparedQuery.getStatement()));
 
+        stateMachine.addStateChangeListener(new QueryStateTracingListener(stateMachine.getSession().getTracer().orElse(NoopTracerProvider.NOOP_TRACER)));
         // It is important that `queryCreatedEvent` is called here. Moving it past the `executor.submit` below
         // can result in delivering query-created event after query analysis has already started.
         // That can result in misbehaviour of plugins called during analysis phase (e.g. access control auditing)

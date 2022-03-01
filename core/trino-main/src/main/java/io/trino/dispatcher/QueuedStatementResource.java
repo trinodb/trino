@@ -36,6 +36,7 @@ import io.trino.server.security.ResourceSecurity;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.QueryId;
 import io.trino.spi.security.Identity;
+import io.trino.spi.tracing.TracerProvider;
 
 import javax.annotation.Nullable;
 import javax.annotation.PostConstruct;
@@ -115,6 +116,7 @@ public class QueuedStatementResource
     private final boolean compressionEnabled;
     private final Optional<String> alternateHeaderName;
     private final QueryManager queryManager;
+    private final TracerProvider tracerProvider;
 
     @Inject
     public QueuedStatementResource(
@@ -124,7 +126,8 @@ public class QueuedStatementResource
             QueryInfoUrlFactory queryInfoUrlTemplate,
             ServerConfig serverConfig,
             ProtocolConfig protocolConfig,
-            QueryManagerConfig queryManagerConfig)
+            QueryManagerConfig queryManagerConfig,
+            TracerProvider tracerProvider)
     {
         this.sessionContextFactory = requireNonNull(sessionContextFactory, "sessionContextFactory is null");
         this.dispatchManager = requireNonNull(dispatchManager, "dispatchManager is null");
@@ -136,6 +139,7 @@ public class QueuedStatementResource
 
         requireNonNull(queryManagerConfig, "queryManagerConfig is null");
         queryManager = new QueryManager(queryManagerConfig.getClientTimeout());
+        this.tracerProvider = requireNonNull(tracerProvider, "tracerProvider is null");
     }
 
     @PostConstruct
@@ -174,7 +178,7 @@ public class QueuedStatementResource
         Optional<Identity> identity = Optional.ofNullable((Identity) servletRequest.getAttribute(AUTHENTICATED_IDENTITY));
         MultivaluedMap<String, String> headers = httpHeaders.getRequestHeaders();
 
-        SessionContext sessionContext = sessionContextFactory.createSessionContext(headers, alternateHeaderName, remoteAddress, identity);
+        SessionContext sessionContext = sessionContextFactory.createSessionContext(headers, alternateHeaderName, remoteAddress, identity, tracerProvider);
         Query query = new Query(statement, sessionContext, dispatchManager, queryInfoUrlFactory);
         queryManager.registerQuery(query);
 

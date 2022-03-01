@@ -30,6 +30,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.SelectedRole;
 import io.trino.spi.session.ResourceEstimates;
+import io.trino.spi.tracing.Tracer;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.sql.SqlPath;
 import io.trino.sql.tree.Execute;
@@ -81,6 +82,7 @@ public final class Session
     private final SessionPropertyManager sessionPropertyManager;
     private final Map<String, String> preparedStatements;
     private final ProtocolHeaders protocolHeaders;
+    private final Optional<Tracer> tracer;
 
     public Session(
             QueryId queryId,
@@ -105,7 +107,8 @@ public final class Session
             Map<String, Map<String, String>> catalogProperties,
             SessionPropertyManager sessionPropertyManager,
             Map<String, String> preparedStatements,
-            ProtocolHeaders protocolHeaders)
+            ProtocolHeaders protocolHeaders,
+            Optional<Tracer> tracer)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.transactionId = requireNonNull(transactionId, "transactionId is null");
@@ -138,6 +141,7 @@ public final class Session
         this.catalogProperties = catalogPropertiesBuilder.buildOrThrow();
 
         checkArgument(catalog.isPresent() || schema.isEmpty(), "schema is set but catalog is not");
+        this.tracer = requireNonNull(tracer, "tracer is null");
     }
 
     public QueryId getQueryId()
@@ -283,6 +287,11 @@ public final class Session
         return protocolHeaders;
     }
 
+    public Optional<Tracer> getTracer()
+    {
+        return tracer;
+    }
+
     public Session beginTransactionId(TransactionId transactionId, TransactionManager transactionManager, AccessControl accessControl)
     {
         requireNonNull(transactionId, "transactionId is null");
@@ -345,7 +354,8 @@ public final class Session
                 connectorProperties.buildOrThrow(),
                 sessionPropertyManager,
                 preparedStatements,
-                protocolHeaders);
+                protocolHeaders,
+                tracer);
     }
 
     public Session withDefaultProperties(Map<String, String> systemPropertyDefaults, Map<String, Map<String, String>> catalogPropertyDefaults, AccessControl accessControl)
@@ -391,7 +401,8 @@ public final class Session
                 catalogProperties,
                 sessionPropertyManager,
                 preparedStatements,
-                protocolHeaders);
+                protocolHeaders,
+                tracer);
     }
 
     public ConnectorSession toConnectorSession()
@@ -445,7 +456,8 @@ public final class Session
                 catalogProperties,
                 identity.getCatalogRoles(),
                 preparedStatements,
-                protocolHeaders.getProtocolName());
+                protocolHeaders.getProtocolName(),
+                tracer);
     }
 
     @Override
@@ -533,6 +545,7 @@ public final class Session
         private Set<String> clientTags = ImmutableSet.of();
         private Set<String> clientCapabilities = ImmutableSet.of();
         private ResourceEstimates resourceEstimates;
+        private Optional<Tracer> tracer = Optional.empty();
         private Instant start = Instant.now();
         private final Map<String, String> systemProperties = new HashMap<>();
         private final Map<String, Map<String, String>> catalogSessionProperties = new HashMap<>();
@@ -571,6 +584,7 @@ public final class Session
                     .forEach((catalog, properties) -> catalogSessionProperties.put(catalog, new HashMap<>(properties)));
             this.preparedStatements.putAll(session.preparedStatements);
             this.protocolHeaders = session.protocolHeaders;
+            this.tracer = requireNonNull(session.tracer, "tracer is null");
         }
 
         public SessionBuilder setQueryId(QueryId queryId)
@@ -774,6 +788,12 @@ public final class Session
             return this;
         }
 
+        public SessionBuilder setTracer(Optional<Tracer> tracer)
+        {
+            this.tracer = tracer;
+            return this;
+        }
+
         public Session build()
         {
             return new Session(
@@ -799,7 +819,8 @@ public final class Session
                     catalogSessionProperties,
                     sessionPropertyManager,
                     preparedStatements,
-                    protocolHeaders);
+                    protocolHeaders,
+                    tracer);
         }
     }
 
