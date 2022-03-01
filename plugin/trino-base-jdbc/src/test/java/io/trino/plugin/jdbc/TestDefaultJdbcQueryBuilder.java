@@ -575,12 +575,11 @@ public class TestDefaultJdbcQueryBuilder
     {
         List<JdbcColumnHandle> projectedColumns = ImmutableList.of(
                 this.columns.get(2),
-                new JdbcColumnHandle(
-                        "s",
-                        JDBC_BIGINT,
-                        BIGINT,
-                        true,
-                        Optional.empty()));
+                JdbcColumnHandle.builder()
+                        .setColumnName("s")
+                        .setJdbcTypeHandle(JDBC_BIGINT)
+                        .setColumnType(BIGINT)
+                        .build());
 
         Connection connection = database.getConnection();
 
@@ -619,12 +618,11 @@ public class TestDefaultJdbcQueryBuilder
 
         List<JdbcColumnHandle> projectedColumns = ImmutableList.of(
                 this.columns.get(2),
-                new JdbcColumnHandle(
-                        "s",
-                        JDBC_BIGINT,
-                        BIGINT,
-                        true,
-                        Optional.empty()));
+                JdbcColumnHandle.builder()
+                        .setColumnName("s")
+                        .setJdbcTypeHandle(JDBC_BIGINT)
+                        .setColumnType(BIGINT)
+                        .build());
 
         Connection connection = database.getConnection();
 
