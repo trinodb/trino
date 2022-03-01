@@ -70,12 +70,9 @@ public abstract class CustomPlanOptimizer implements PlanOptimizer {
                                                         RuleStatsRecorder ruleStats
                                                         ){
 
-//        configBinder(binder).bindConfig(FeaturesConfig.class);
         List<PlanOptimizer> listOfPlanOptimizers = new ArrayList<>();
         try {
-            //TODO: Read list of custom optimizer classes from config
             String customOptimizer = taskManagerConfig.getAdditionalPlanOptimizerClasses();
-//            List<String> customPlanOptimizerClassNames = Arrays.asList("io.trino.sql.planner.SampleCustomPlanOptimizer");
             List<String> customPlanOptimizerClassNames = Arrays.asList(customOptimizer);
             for(String customPlanOptimizerClassName:customPlanOptimizerClassNames){
                 //Load the CustomPlanOptimizer instances from the classpath.

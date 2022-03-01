@@ -24,12 +24,12 @@ import io.trino.sql.planner.optimizations.CustomPlanOptimizer;
 import io.trino.sql.planner.optimizations.PlanOptimizer;
 import io.trino.sql.planner.plan.*;
 import static java.util.Objects.requireNonNull;
-
+/*
+This custom plan optimizer is just added for testing. It's designed to make a simple and easily assertable alteration to the query plan.
+It'll will just alter any limit expression from its original value to a new value of 7999.
+This will help us test the custom plan optimizer injection feature.
+ */
 public class SampleCustomPlanOptimizer extends CustomPlanOptimizer {
-    /*
-    This custom plan optimizer will just alter the limit expression from its original value 9999 to a new value of 7999.
-    This will help us test the custom plan optimizer injection feature.
-     */
     public SampleCustomPlanOptimizer(){
 
     }
