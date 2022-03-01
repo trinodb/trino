@@ -22,6 +22,16 @@ stages of a query. You can use the following execution policies:
 * ``legacy-phased`` has similar functionality to ``phased``, but can increase 
   the query wall time as it attempts to minimize the number of running stages.
 
+``query.hash-partition-count``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** :ref:`prop-type-integer`
+* **Default value:** ``100``
+* **Session property:** ``hash_partition_count``
+
+The number of partitions to use for processing distributed joins and
+aggregations.
+
 ``query.max-execution-time``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
