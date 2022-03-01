@@ -388,6 +388,8 @@ Property Name                                      Description                  
                                                    with a leading 0. If set to 'skip', permissions of newly
                                                    created directories will not be set by Trino.
 
+``hive.fs.cache.max-size``                         Maximum number of cached file system objects.                 1000
+
 ``hive.query-partition-filter-required``           Set to ``true`` to force a query to use a partition filter.   ``false``
                                                    You can use the ``query_partition_filter_required`` catalog
                                                    session property for temporary, catalog specific use.
