@@ -325,8 +325,8 @@ This example is for a MySQL database.
     -- use ID of 'admin' resource group for selector
     INSERT INTO selectors (resource_group_id, user_regex, priority) VALUES ((SELECT resource_group_id FROM resource_groups WHERE name = 'admin'), 'bob', 6);
 
-    -- user group based matching is not supported for Database Resource Group configuration
-    -- INSERT INTO selectors (resource_group_id, user_regex, priority) VALUES ((SELECT resource_group_id FROM resource_groups WHERE name = 'admin'), 'admin', 5);
+    -- use ID of 'admin' resource group for selector
+    INSERT INTO selectors (resource_group_id, user_group_regex, priority) VALUES ((SELECT resource_group_id FROM resource_groups WHERE name = 'admin'), 'admin', 5);
 
     -- use ID of 'global.data_definition' resource group for selector
     INSERT INTO selectors (resource_group_id, source_regex, query_type, priority) VALUES ((SELECT resource_group_id FROM resource_groups WHERE name = 'data_definition'), '.*pipeline.*', 'DATA_DEFINITION', 4);
