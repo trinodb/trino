@@ -27,7 +27,9 @@ import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.SqlDecimal.decimal;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampType.createTimestampType;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.type.JsonType.JSON;
 import static io.trino.type.UnknownType.UNKNOWN;
@@ -70,6 +72,9 @@ public class TestTryFunction
         assertFunction(createTryExpression("1/0"), INTEGER, null);
         assertFunction(createTryExpression("JSON_PARSE('INVALID')"), JSON, null);
         assertFunction(createTryExpression("CAST(NULL AS INTEGER)"), INTEGER, null);
+        assertFunction(createTryExpression("CAST('0000-00-01' AS TIMESTAMP)"), TIMESTAMP_MILLIS, null);
+        assertFunction(createTryExpression("CAST('0000-01-00' AS TIMESTAMP)"), TIMESTAMP_MILLIS, null);
+        assertFunction(createTryExpression("CAST('0000-01-01 ABC' AS TIMESTAMP WITH TIME ZONE)"), TIMESTAMP_TZ_MILLIS, null);
         assertFunction(createTryExpression("ABS(-9223372036854775807 - 1)"), BIGINT, null);
 
         // Exceptions that should not be suppressed
