@@ -356,6 +356,23 @@ public class TestIcebergRedirectionToHive
     }
 
     @Test(groups = {HIVE_ICEBERG_REDIRECTIONS, PROFILE_SPECIFIC_TESTS})
+    public void testShowGrants()
+    {
+        String tableName = "hive_show_grants_" + randomTableSuffix();
+        String hiveTableName = "hive.default." + tableName;
+        String icebergTableName = "iceberg.default." + tableName;
+
+        createHiveTable(hiveTableName, true);
+
+        // TODO: support redirects from Iceberg to Hive
+        assertQueryFailure(() -> onTrino().executeQuery("SHOW GRANTS ON " + icebergTableName))
+                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): Not an Iceberg table: default." + tableName);
+
+        onTrino().executeQuery("DROP TABLE " + hiveTableName);
+    }
+
+
+    @Test(groups = {HIVE_ICEBERG_REDIRECTIONS, PROFILE_SPECIFIC_TESTS})
     public void testInformationSchemaColumns()
     {
         // use dedicated schema so that we control the number and shape of tables
