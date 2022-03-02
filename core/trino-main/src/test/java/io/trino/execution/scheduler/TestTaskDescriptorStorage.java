@@ -26,6 +26,7 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.trino.spi.StandardErrorCode.EXCEEDED_TASK_DESCRIPTOR_STORAGE_CAPACITY;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -177,7 +178,7 @@ public class TestTaskDescriptorStorage
                 partitionId,
                 ImmutableListMultimap.of(),
                 ImmutableListMultimap.of(new PlanNodeId("1"), new TestingExchangeSourceHandle(retainedSize.toBytes())),
-                new NodeRequirements(catalog, ImmutableSet.of()));
+                new NodeRequirements(catalog, ImmutableSet.of(), DataSize.of(4, GIGABYTE)));
     }
 
     private static Optional<String> getCatalogName(TaskDescriptor descriptor)

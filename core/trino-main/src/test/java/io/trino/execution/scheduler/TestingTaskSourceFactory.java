@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimap;
+import io.airlift.units.DataSize;
 import io.trino.Session;
 import io.trino.connector.CatalogName;
 import io.trino.metadata.Split;
@@ -39,6 +40,7 @@ import java.util.function.LongConsumer;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPLICATE;
 import static java.util.Objects.requireNonNull;
 
@@ -133,7 +135,7 @@ public class TestingTaskSourceFactory
                         nextPartitionId.getAndIncrement(),
                         ImmutableListMultimap.of(tableScanPlanNodeId, split),
                         exchangeSourceHandles,
-                        new NodeRequirements(catalogRequirement, ImmutableSet.of()));
+                        new NodeRequirements(catalogRequirement, ImmutableSet.of(), DataSize.of(4, GIGABYTE)));
                 result.add(task);
             }
 
