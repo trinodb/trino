@@ -10,6 +10,7 @@ import io.trino.sql.planner.NodePartitioningManager;
 import io.trino.sql.planner.RuleStatsRecorder;
 import io.trino.sql.planner.TypeAnalyzer;
 
+import javax.inject.Inject;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -35,6 +36,7 @@ public abstract class CustomPlanOptimizer implements PlanOptimizer {
     /*
     Reads any injected PlanOptimizer class names from the config and returns a list of their instances
      */
+    @Inject
     public static final List<PlanOptimizer> getCustomPlanOptimizers(PlannerContext plannerContext,
                                                         TypeAnalyzer typeAnalyzer,
                                                         TaskManagerConfig taskManagerConfig,
@@ -48,11 +50,13 @@ public abstract class CustomPlanOptimizer implements PlanOptimizer {
                                                         CostComparator costComparator,
                                                         TaskCountEstimator taskCountEstimator,
                                                         NodePartitioningManager nodePartitioningManager,
-                                                        RuleStatsRecorder ruleStats){
+                                                        RuleStatsRecorder ruleStats
+                                                        ){
+
         List<PlanOptimizer> listOfPlanOptimizers = new ArrayList<>();
         try {
-            //TODO: Read list of custom optimizer classes from config
-            List<String> customPlanOptimizerClassNames = Arrays.asList("io.trino.sql.planner.SampleCustomPlanOptimizer");
+            String customOptimizer = taskManagerConfig.getAdditionalPlanOptimizerClasses();
+            List<String> customPlanOptimizerClassNames = Arrays.asList(customOptimizer);
             for(String customPlanOptimizerClassName:customPlanOptimizerClassNames){
                 //Load the CustomPlanOptimizer instances from the classpath.
                 LOG.info("Creating custom optimizer instance %s",customPlanOptimizerClassName);

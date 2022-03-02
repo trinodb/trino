@@ -1,5 +1,9 @@
 package io.trino.sql.planner;
 
+import com.google.common.collect.ImmutableList;
+import com.google.inject.Module;
+import io.airlift.bootstrap.Bootstrap;
+import io.trino.server.CustomServerMainModule;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.optimizations.PlanOptimizer;
@@ -10,11 +14,11 @@ import java.util.List;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.*;
 
 public class TestCustomPlanOptimizer extends BasePlanTest {
+
     @Test
     public void testCustomPlanOptimizer()
     {
         PlanMatchPattern planMatchPattern = anyTree(tableScan("orders"));
-        // use all optimizers, including the custom plan optimizer that we have externally injected.
         List<PlanOptimizer> allOptimizers = getQueryRunner().getPlanOptimizers(false);
         //This checks if the SampleCustomPlanOptimizer is not only is on the chain but is also doing what it's designed to do.
         //Which is update the limit count to 7999 (from original 9999)
@@ -28,4 +32,25 @@ public class TestCustomPlanOptimizer extends BasePlanTest {
         assert firstOptimizer instanceof SampleCustomPlanOptimizer;
     }
 
+    @Test
+    public void testCustomPlanOptimizerNotSet()
+    {
+        ImmutableList.Builder<Module> modules = ImmutableList.<Module>builder()
+                .add(new CustomServerMainModule("testing"));
+
+        Bootstrap app = new Bootstrap(modules.build());
+
+        app.initialize();
+
+        PlanMatchPattern planMatchPattern = anyTree(tableScan("orders"));
+        // use all optimizers, including the custom plan optimizer that we have externally injected.
+        List<PlanOptimizer> allOptimizers = getQueryRunner().getPlanOptimizers(false);
+
+
+        assertPlan(
+                "SELECT orderstatus FROM orders limit 9999",
+                // TODO this could be optimized to VALUES with values from partitions
+                anyTree(limit(9999,planMatchPattern)),
+                allOptimizers);
+    }
 }

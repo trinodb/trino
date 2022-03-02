@@ -1106,29 +1106,5 @@ public class FeaturesConfig
         this.allowSetViewAuthorization = allowSetViewAuthorization;
         return this;
     }
-    @Nullable
-    public String getAdditionalPlanOptimizerClasses()
-    {
-        return additionalPlanOptimizerClasses;
-    }
 
-    @ConfigDescription("List of extra CustomPlanOptimizer classes")
-    @Config("optimizer.custom-optimizer.list")
-    public FeaturesConfig setAdditionalPlanOptimizerClasses(String classNames)
-    {
-        this.additionalPlanOptimizerClasses = classNames;
-        return this;
-    }
-    public boolean isAllowCustomPlanOptimizers()
-    {
-        return allowCustomPlanOptimizers;
-    }
-
-    @ConfigDescription("Whether custom plan optimizer support is enabled")
-    @Config("optimizer.custom-optimizer.allow")
-    public FeaturesConfig setAllowCustomPlanOptimizers(boolean allowCustomPlanOptimizers)
-    {
-        this.allowCustomPlanOptimizers = allowCustomPlanOptimizers;
-        return this;
-    }
 }
