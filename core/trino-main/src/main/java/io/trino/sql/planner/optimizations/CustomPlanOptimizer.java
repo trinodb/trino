@@ -18,9 +18,6 @@ import java.util.List;
 
 public abstract class CustomPlanOptimizer implements PlanOptimizer {
 
-    @Inject
-    private static FeaturesConfig featuresConfig;
-
     private static final Logger LOG = Logger.get(CustomPlanOptimizer.class);
     public abstract PlanOptimizer getPlanOptimizerInstance(PlannerContext plannerContext,
                                            TypeAnalyzer typeAnalyzer,
