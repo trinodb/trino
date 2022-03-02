@@ -40,7 +40,6 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
@@ -94,7 +93,6 @@ public class TestMemoryPools
         SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(DataSize.of(1, GIGABYTE));
         QueryContext queryContext = new QueryContext(new QueryId("query"),
                 TEN_MEGABYTES,
-                Optional.empty(),
                 userPool,
                 new TestingGcMonitor(),
                 localQueryRunner.getExecutor(),
