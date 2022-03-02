@@ -19,6 +19,7 @@ import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
+import io.trino.metadata.RedirectionAwareTableHandle;
 import io.trino.metadata.TableHandle;
 import io.trino.security.AccessControl;
 import io.trino.spi.TrinoException;
@@ -29,7 +30,6 @@ import io.trino.sql.tree.RenameTable;
 import javax.inject.Inject;
 
 import java.util.List;
-import java.util.Optional;
 
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
@@ -91,27 +91,29 @@ public class RenameTableTask
             return immediateVoidFuture();
         }
 
-        Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
-        if (tableHandle.isEmpty()) {
+        RedirectionAwareTableHandle redirectionAwareTableHandle = metadata.getRedirectionAwareTableHandle(session, tableName);
+        if (redirectionAwareTableHandle.getTableHandle().isEmpty()) {
             if (!statement.isExists()) {
                 throw semanticException(TABLE_NOT_FOUND, statement, "Table '%s' does not exist", tableName);
             }
             return immediateVoidFuture();
         }
 
-        QualifiedObjectName target = createTargetQualifiedObjectName(tableName, statement.getTarget());
+        TableHandle tableHandle = redirectionAwareTableHandle.getTableHandle().get();
+        QualifiedObjectName source = redirectionAwareTableHandle.getRedirectedTableName().orElse(tableName);
+        QualifiedObjectName target = createTargetQualifiedObjectName(source, statement.getTarget());
         if (metadata.getCatalogHandle(session, target.getCatalogName()).isEmpty()) {
             throw semanticException(CATALOG_NOT_FOUND, statement, "Target catalog '%s' does not exist", target.getCatalogName());
         }
         if (metadata.getTableHandle(session, target).isPresent()) {
             throw semanticException(TABLE_ALREADY_EXISTS, statement, "Target table '%s' already exists", target);
         }
-        if (!tableName.getCatalogName().equals(target.getCatalogName())) {
+        if (!tableHandle.getCatalogName().getCatalogName().equals(target.getCatalogName())) {
             throw semanticException(NOT_SUPPORTED, statement, "Table rename across catalogs is not supported");
         }
-        accessControl.checkCanRenameTable(session.toSecurityContext(), tableName, target);
+        accessControl.checkCanRenameTable(session.toSecurityContext(), source, target);
 
-        metadata.renameTable(session, tableHandle.get(), target);
+        metadata.renameTable(session, tableHandle, target);
 
         return immediateVoidFuture();
     }
