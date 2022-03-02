@@ -15,6 +15,7 @@ package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
+import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.HdfsConfig;
 import io.trino.plugin.hive.HdfsConfiguration;
 import io.trino.plugin.hive.HdfsConfigurationInitializer;
@@ -27,9 +28,12 @@ import io.trino.plugin.hive.metastore.MetastoreConfig;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastore;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
+import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.catalog.file.FileMetastoreTableOperationsProvider;
+import io.trino.plugin.iceberg.catalog.hms.TrinoHiveCatalog;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.type.TestingTypeManager;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
@@ -48,6 +52,7 @@ import java.util.Optional;
 import static io.trino.SystemSessionProperties.MAX_DRIVERS_PER_TASK;
 import static io.trino.SystemSessionProperties.TASK_CONCURRENCY;
 import static io.trino.SystemSessionProperties.TASK_WRITER_COUNT;
+import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.memoizeMetastore;
 import static io.trino.plugin.iceberg.DataFileRecord.toDataFileRecord;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.testng.Assert.assertEquals;
@@ -56,8 +61,7 @@ import static org.testng.Assert.assertNull;
 public class TestIcebergOrcMetricsCollection
         extends AbstractTestQueryFramework
 {
-    private HiveMetastore metastore;
-    private HdfsEnvironment hdfsEnvironment;
+    private TrinoCatalog trinoCatalog;
     private IcebergTableOperationsProvider tableOperationsProvider;
 
     @Override
@@ -80,9 +84,9 @@ public class TestIcebergOrcMetricsCollection
 
         HdfsConfig hdfsConfig = new HdfsConfig();
         HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(hdfsConfig), ImmutableSet.of());
-        hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hdfsConfig, new NoHdfsAuthentication());
+        HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hdfsConfig, new NoHdfsAuthentication());
 
-        metastore = new FileHiveMetastore(
+        HiveMetastore metastore = new FileHiveMetastore(
                 new NodeVersion("test_version"),
                 hdfsEnvironment,
                 new MetastoreConfig(),
@@ -90,6 +94,16 @@ public class TestIcebergOrcMetricsCollection
                         .setCatalogDirectory(baseDir.toURI().toString())
                         .setMetastoreUser("test"));
         tableOperationsProvider = new FileMetastoreTableOperationsProvider(new HdfsFileIoProvider(hdfsEnvironment));
+        trinoCatalog = new TrinoHiveCatalog(
+                new CatalogName("catalog"),
+                memoizeMetastore(metastore, 1000),
+                hdfsEnvironment,
+                new TestingTypeManager(),
+                tableOperationsProvider,
+                "trino-version",
+                false,
+                false,
+                false);
 
         queryRunner.installPlugin(new TestingIcebergPlugin(Optional.of(metastore), Optional.empty()));
         queryRunner.createCatalog("iceberg", "iceberg");
@@ -106,7 +120,7 @@ public class TestIcebergOrcMetricsCollection
     public void testMetrics()
     {
         assertUpdate("create table no_metrics (c1 varchar, c2 varchar)");
-        Table table = IcebergUtil.loadIcebergTable(metastore, tableOperationsProvider, TestingConnectorSession.SESSION,
+        Table table = IcebergUtil.loadIcebergTable(trinoCatalog, tableOperationsProvider, TestingConnectorSession.SESSION,
                 new SchemaTableName("test_schema", "no_metrics"));
         // skip metrics for all columns
         table.updateProperties().set("write.metadata.metrics.default", "none").commit();
@@ -123,7 +137,7 @@ public class TestIcebergOrcMetricsCollection
 
         // keep c1 metrics
         assertUpdate("create table c1_metrics (c1 varchar, c2 varchar)");
-        table = IcebergUtil.loadIcebergTable(metastore, tableOperationsProvider, TestingConnectorSession.SESSION,
+        table = IcebergUtil.loadIcebergTable(trinoCatalog, tableOperationsProvider, TestingConnectorSession.SESSION,
                 new SchemaTableName("test_schema", "c1_metrics"));
         table.updateProperties()
                 .set("write.metadata.metrics.default", "none")
@@ -141,7 +155,7 @@ public class TestIcebergOrcMetricsCollection
 
         // set c1 metrics mode to count
         assertUpdate("create table c1_metrics_count (c1 varchar, c2 varchar)");
-        table = IcebergUtil.loadIcebergTable(metastore, tableOperationsProvider, TestingConnectorSession.SESSION,
+        table = IcebergUtil.loadIcebergTable(trinoCatalog, tableOperationsProvider, TestingConnectorSession.SESSION,
                 new SchemaTableName("test_schema", "c1_metrics_count"));
         table.updateProperties()
                 .set("write.metadata.metrics.default", "none")
@@ -159,7 +173,7 @@ public class TestIcebergOrcMetricsCollection
 
         // set c1 metrics mode to truncate(10)
         assertUpdate("create table c1_metrics_truncate (c1 varchar, c2 varchar)");
-        table = IcebergUtil.loadIcebergTable(metastore, tableOperationsProvider, TestingConnectorSession.SESSION,
+        table = IcebergUtil.loadIcebergTable(trinoCatalog, tableOperationsProvider, TestingConnectorSession.SESSION,
                 new SchemaTableName("test_schema", "c1_metrics_truncate"));
         table.updateProperties()
                 .set("write.metadata.metrics.default", "none")
@@ -179,7 +193,7 @@ public class TestIcebergOrcMetricsCollection
 
         // keep both c1 and c2 metrics
         assertUpdate("create table c_metrics (c1 varchar, c2 varchar)");
-        table = IcebergUtil.loadIcebergTable(metastore, tableOperationsProvider, TestingConnectorSession.SESSION,
+        table = IcebergUtil.loadIcebergTable(trinoCatalog, tableOperationsProvider, TestingConnectorSession.SESSION,
                 new SchemaTableName("test_schema", "c_metrics"));
         table.updateProperties()
                 .set("write.metadata.metrics.column.c1", "full")
@@ -196,7 +210,7 @@ public class TestIcebergOrcMetricsCollection
 
         // keep all metrics
         assertUpdate("create table metrics (c1 varchar, c2 varchar)");
-        table = IcebergUtil.loadIcebergTable(metastore, tableOperationsProvider, TestingConnectorSession.SESSION,
+        table = IcebergUtil.loadIcebergTable(trinoCatalog, tableOperationsProvider, TestingConnectorSession.SESSION,
                 new SchemaTableName("test_schema", "metrics"));
         table.updateProperties()
                 .set("write.metadata.metrics.default", "full")

@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg.catalog;
 
 import com.google.inject.Binder;
+import com.google.inject.Inject;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
@@ -26,13 +27,14 @@ import io.trino.plugin.iceberg.CatalogType;
 import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.catalog.file.FileMetastoreTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.file.IcebergFileMetastoreCatalogModule;
+import io.trino.plugin.iceberg.catalog.glue.IcebergGlueCatalogModule;
 import io.trino.plugin.iceberg.catalog.hms.IcebergHiveMetastoreCatalogModule;
-
-import javax.inject.Inject;
+import io.trino.plugin.iceberg.catalog.hms.TrinoHiveCatalogFactory;
 
 import java.util.Optional;
 
 import static io.airlift.configuration.ConditionalModule.conditionalModule;
+import static io.trino.plugin.iceberg.CatalogType.GLUE;
 import static io.trino.plugin.iceberg.CatalogType.HIVE_METASTORE;
 import static io.trino.plugin.iceberg.CatalogType.TESTING_FILE_METASTORE;
 import static java.util.Objects.requireNonNull;
@@ -52,16 +54,16 @@ public class IcebergCatalogModule
     {
         if (metastore.isPresent()) {
             binder.bind(HiveMetastoreFactory.class).annotatedWith(RawHiveMetastoreFactory.class).toInstance(HiveMetastoreFactory.ofInstance(metastore.get()));
+            binder.bind(MetastoreValidator.class).asEagerSingleton();
+            install(new DecoratedHiveMetastoreModule());
             binder.bind(IcebergTableOperationsProvider.class).to(FileMetastoreTableOperationsProvider.class).in(Scopes.SINGLETON);
+            binder.bind(TrinoCatalogFactory.class).to(TrinoHiveCatalogFactory.class).in(Scopes.SINGLETON);
         }
         else {
             bindCatalogModule(HIVE_METASTORE, new IcebergHiveMetastoreCatalogModule());
             bindCatalogModule(TESTING_FILE_METASTORE, new IcebergFileMetastoreCatalogModule());
-            // TODO add support for Glue metastore
+            bindCatalogModule(GLUE, new IcebergGlueCatalogModule());
         }
-
-        binder.bind(MetastoreValidator.class).asEagerSingleton();
-        install(new DecoratedHiveMetastoreModule());
     }
 
     public static class MetastoreValidator

@@ -11,31 +11,47 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.iceberg.catalog.file;
+package io.trino.plugin.iceberg.catalog.glue;
 
+import com.amazonaws.services.glue.AWSGlueAsync;
 import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
+import io.trino.plugin.hive.metastore.glue.GlueHiveMetastoreConfig;
+import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
 import io.trino.plugin.iceberg.FileIoProvider;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperations;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
-import io.trino.plugin.iceberg.catalog.hms.TrinoHiveCatalog;
 import io.trino.spi.connector.ConnectorSession;
+import org.weakref.jmx.Flatten;
+import org.weakref.jmx.Managed;
 
 import javax.inject.Inject;
 
 import java.util.Optional;
 
+import static io.trino.plugin.hive.metastore.glue.GlueHiveMetastore.createAsyncGlueClient;
 import static java.util.Objects.requireNonNull;
 
-public class FileMetastoreTableOperationsProvider
+public class GlueIcebergTableOperationsProvider
         implements IcebergTableOperationsProvider
 {
     private final FileIoProvider fileIoProvider;
+    private final AWSGlueAsync glueClient;
+    private final GlueMetastoreStats stats = new GlueMetastoreStats();
 
     @Inject
-    public FileMetastoreTableOperationsProvider(FileIoProvider fileIoProvider)
+    public GlueIcebergTableOperationsProvider(FileIoProvider fileIoProvider, GlueHiveMetastoreConfig glueConfig)
     {
         this.fileIoProvider = requireNonNull(fileIoProvider, "fileIoProvider is null");
+        requireNonNull(glueConfig, "glueConfig is null");
+        this.glueClient = createAsyncGlueClient(glueConfig, Optional.empty(), stats.newRequestMetricsCollector());
+    }
+
+    @Managed
+    @Flatten
+    public GlueMetastoreStats getStats()
+    {
+        return stats;
     }
 
     @Override
@@ -47,9 +63,10 @@ public class FileMetastoreTableOperationsProvider
             Optional<String> owner,
             Optional<String> location)
     {
-        return new FileMetastoreTableOperations(
+        return new GlueIcebergTableOperations(
+                glueClient,
+                stats,
                 fileIoProvider.createFileIo(new HdfsContext(session), session.getQueryId()),
-                ((TrinoHiveCatalog) catalog).getMetastore(),
                 session,
                 database,
                 table,
