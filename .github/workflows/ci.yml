@@ -459,6 +459,15 @@ jobs:
         if: matrix.modules == 'plugin/trino-bigquery' && env.BIGQUERY_CASE_INSENSITIVE_CREDENTIALS_KEY != ''
         run: |
           $MAVEN test ${MAVEN_TEST} -pl :trino-bigquery -Pcloud-tests-case-insensitive-mapping -Dbigquery.credentials-key="${BIGQUERY_CASE_INSENSITIVE_CREDENTIALS_KEY}"
+      - name: Iceberg Glue Catalog Tests
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESSKEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRETKEY }}
+          AWS_REGION: us-east-2
+          S3_BUCKET: presto-ci-test
+        if: contains(matrix.modules, 'plugin/trino-iceberg') && (env.AWS_ACCESS_KEY_ID != '' || env.AWS_SECRET_ACCESS_KEY != '')
+        run: |
+          $MAVEN test ${MAVEN_TEST} -pl :trino-iceberg -P test-glue-catalog -Ds3.bucket=${S3_BUCKET}
       - name: Sanitize artifact name
         if: always()
         run: |

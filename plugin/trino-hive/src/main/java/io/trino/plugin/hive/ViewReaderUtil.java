@@ -41,6 +41,7 @@ import org.apache.hadoop.hive.metastore.TableType;
 import java.util.Base64;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.function.BiFunction;
 
@@ -126,12 +127,22 @@ public final class ViewReaderUtil
 
     public static boolean isPrestoView(Table table)
     {
-        return "true".equals(table.getParameters().get(PRESTO_VIEW_FLAG));
+        return isPrestoView(table.getParameters());
+    }
+
+    public static boolean isPrestoView(Map<String, String> tableParameters)
+    {
+        return "true".equals(tableParameters.get(PRESTO_VIEW_FLAG));
     }
 
     public static boolean isHiveOrPrestoView(Table table)
     {
-        return table.getTableType().equals(TableType.VIRTUAL_VIEW.name());
+        return isHiveOrPrestoView(table.getTableType());
+    }
+
+    public static boolean isHiveOrPrestoView(String tableType)
+    {
+        return tableType.equals(TableType.VIRTUAL_VIEW.name());
     }
 
     public static boolean canDecodeView(Table table)

@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceUtf8;
 import io.airlift.slice.Slices;
-import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperations;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
@@ -125,10 +124,10 @@ public final class IcebergUtil
         return ICEBERG_TABLE_TYPE_VALUE.equalsIgnoreCase(table.getParameters().get(TABLE_TYPE_PROP));
     }
 
-    public static Table loadIcebergTable(HiveMetastore metastore, IcebergTableOperationsProvider tableOperationsProvider, ConnectorSession session, SchemaTableName table)
+    public static Table loadIcebergTable(TrinoCatalog catalog, IcebergTableOperationsProvider tableOperationsProvider, ConnectorSession session, SchemaTableName table)
     {
         TableOperations operations = tableOperationsProvider.createTableOperations(
-                metastore,
+                catalog,
                 session,
                 table.getSchemaName(),
                 table.getTableName(),
@@ -138,14 +137,14 @@ public final class IcebergUtil
     }
 
     public static Table getIcebergTableWithMetadata(
-            HiveMetastore metastore,
+            TrinoCatalog catalog,
             IcebergTableOperationsProvider tableOperationsProvider,
             ConnectorSession session,
             SchemaTableName table,
             TableMetadata tableMetadata)
     {
         IcebergTableOperations operations = tableOperationsProvider.createTableOperations(
-                metastore,
+                catalog,
                 session,
                 table.getSchemaName(),
                 table.getTableName(),
@@ -237,7 +236,7 @@ public final class IcebergUtil
         return Optional.ofNullable(table.properties().get(TABLE_COMMENT));
     }
 
-    private static String quotedTableName(SchemaTableName name)
+    public static String quotedTableName(SchemaTableName name)
     {
         return quotedName(name.getSchemaName()) + "." + quotedName(name.getTableName());
     }
