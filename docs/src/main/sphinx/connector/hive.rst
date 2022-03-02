@@ -536,6 +536,7 @@ AWS Glue catalog configuration properties
 In order to use a Glue catalog, ensure to configure the metastore with
 ``hive.metastore=glue`` and provide further details with the following
 properties:
+
 ===================================================== ============================================================
 Property Name                                         Description
 ===================================================== ============================================================
@@ -1021,8 +1022,8 @@ Table properties supply or set metadata for the underlying tables. This
 is key for :doc:`/sql/create-table-as` statements. Table properties are passed
 to the connector using a :doc:`WITH </sql/create-table-as>` clause::
 
-  CREATE TABLE tablename 
-  WITH (format='CSV', 
+  CREATE TABLE tablename
+  WITH (format='CSV',
         csv_escape = '"')
 
 See the :ref:`hive_examples` for more information.
@@ -1035,7 +1036,7 @@ See the :ref:`hive_examples` for more information.
     - Description
     - Default
   * - ``auto_purge``
-    - Indicates to the configured metastore to perform a purge when a table or 
+    - Indicates to the configured metastore to perform a purge when a table or
       partition is deleted instead of a soft deletion using the trash.
     -
   * - ``avro_schema_url``
@@ -1046,11 +1047,11 @@ See the :ref:`hive_examples` for more information.
       ``bucketed_by``.
     - 0
   * - ``bucketed_by``
-    - The bucketing column for the storage table. Only valid if used with 
+    - The bucketing column for the storage table. Only valid if used with
       ``bucket_count``.
     - ``[]``
   * - ``bucketing_version``
-    - Specifies which Hive bucketing version to use. Valid values are ``1`` 
+    - Specifies which Hive bucketing version to use. Valid values are ``1``
       or ``2``.
     -
   * - ``csv_escape``
@@ -1067,51 +1068,51 @@ See the :ref:`hive_examples` for more information.
       :ref:`hive_examples` for more information.
     -
   * - ``format``
-    - The table file format. Valid values include ``ORC``, ``PARQUET``, ``AVRO``, 
-      ``RCBINARY``, ``RCTEXT``, ``SEQUENCEFILE``, ``JSON``, ``TEXTFILE``, and 
-      ``CSV``. The catalog property ``hive.storage-format`` sets the default 
+    - The table file format. Valid values include ``ORC``, ``PARQUET``, ``AVRO``,
+      ``RCBINARY``, ``RCTEXT``, ``SEQUENCEFILE``, ``JSON``, ``TEXTFILE``, and
+      ``CSV``. The catalog property ``hive.storage-format`` sets the default
       value and can change it to a different default.
-    - 
+    -
   * - ``null_format``
-    - The serialization format for ``NULL`` value. Requires TextFile, RCText, 
+    - The serialization format for ``NULL`` value. Requires TextFile, RCText,
       or SequenceFile format.
     -
   * - ``orc_bloom_filter_columns``
-    - Comma separated list of columns to use for ORC bloom filter. It improves 
-      the performance of queries using range predicates when reading ORC files. 
+    - Comma separated list of columns to use for ORC bloom filter. It improves
+      the performance of queries using range predicates when reading ORC files.
       Requires ORC format.
     - ``[]``
   * - ``orc_bloom_filter_fpp``
     - The ORC bloom filters false positive probability. Requires ORC format.
     - 0.05
   * - ``partitioned_by``
-    - The partitioning column for the storage table. The columns listed in the 
-      ``partitioned_by`` clause must be the last columns as defined in the DDL. 
+    - The partitioning column for the storage table. The columns listed in the
+      ``partitioned_by`` clause must be the last columns as defined in the DDL.
     - ``[]``
   * - ``skip_footer_line_count``
-    - The number of footer lines to ignore when parsing the file for data.  
+    - The number of footer lines to ignore when parsing the file for data.
       Requires TextFile or CSV format tables.
-    - 
+    -
   * - ``skip_header_line_count``
-    - The number of header lines to ignore when parsing the file for data. 
+    - The number of header lines to ignore when parsing the file for data.
       Requires TextFile or CSV format tables.
     -
   * - ``sorted_by``
-    - The column to sort by to determine bucketing for row. Only valid if 
+    - The column to sort by to determine bucketing for row. Only valid if
       ``bucketed_by`` and ``bucket_count`` are specified as well.
     - ``[]``
   * - ``textfile_field_separator``
-    - Allows the use of custom field separators, such as '|', for TextFile 
+    - Allows the use of custom field separators, such as '|', for TextFile
       formatted tables.
-    - 
+    -
   * - ``textfile_field_separator_escape``
     - Allows the use of a custom escape character for TextFile formatted tables.
-    - 
+    -
   * - ``transactional``
-    - Set this property to ``true`` to create an ORC ACID transactional table. 
-      Requires ORC format. This property may be shown as true for insert-only 
+    - Set this property to ``true`` to create an ORC ACID transactional table.
+      Requires ORC format. This property may be shown as true for insert-only
       tables created using older versions of Hive.
-    - 
+    -
 
 .. _hive_special_columns:
 
