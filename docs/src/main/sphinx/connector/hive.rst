@@ -536,64 +536,66 @@ AWS Glue catalog configuration properties
 In order to use a Glue catalog, ensure to configure the metastore with
 ``hive.metastore=glue`` and provide further details with the following
 properties:
+===================================================== ============================================================
+Property Name                                         Description
+===================================================== ============================================================
+``hive.metastore.glue.region``                        AWS region of the Glue Catalog. This is required when not
+                                                      running in EC2, or when the catalog is in a different region.
+                                                      Example: ``us-east-1``
 
-==================================================== ============================================================
-Property Name                                        Description
-==================================================== ============================================================
-``hive.metastore.glue.region``                       AWS region of the Glue Catalog. This is required when not
-                                                     running in EC2, or when the catalog is in a different region.
-                                                     Example: ``us-east-1``
+``hive.metastore.glue.endpoint-url``                  Glue API endpoint URL (optional).
+                                                      Example: ``https://glue.us-east-1.amazonaws.com``
 
-``hive.metastore.glue.endpoint-url``                 Glue API endpoint URL (optional).
-                                                     Example: ``https://glue.us-east-1.amazonaws.com``
+``hive.metastore.glue.pin-client-to-current-region``  Pin Glue requests to the same region as the EC2 instance
+                                                      where Trino is running, defaults to ``false``.
 
-``hive.metastore.glue.pin-client-to-current-region`` Pin Glue requests to the same region as the EC2 instance
-                                                     where Trino is running, defaults to ``false``.
+``hive.metastore.glue.max-connections``               Max number of concurrent connections to Glue,
+                                                      defaults to ``5``.
 
-``hive.metastore.glue.max-connections``              Max number of concurrent connections to Glue,
-                                                     defaults to ``5``.
+``hive.metastore.glue.max-error-retries``             Maximum number of error retries for the Glue client,
+                                                      defaults to ``10``.
 
-``hive.metastore.glue.max-error-retries``            Maximum number of error retries for the Glue client,
-                                                     defaults to ``10``.
+``hive.metastore.glue.default-warehouse-dir``         Default warehouse directory for schemas created without an
+                                                      explicit ``location`` property.
 
-``hive.metastore.glue.default-warehouse-dir``        Default warehouse directory for schemas created without an
-                                                     explicit ``location`` property.
+``hive.metastore.glue.aws-credentials-provider``      Fully qualified name of the Java class to use for obtaining
+                                                      AWS credentials. Can be used to supply a custom credentials
+                                                      provider.
 
-``hive.metastore.glue.aws-credentials-provider``     Fully qualified name of the Java class to use for obtaining
-                                                     AWS credentials. Can be used to supply a custom credentials
-                                                     provider.
+``hive.metastore.glue.aws-credentials-provider-conf`` Configuration details/file accepted by custom AwsCredentialsProvider
+                                                      class.
 
-``hive.metastore.glue.aws-access-key``               AWS access key to use to connect to the Glue Catalog. If
-                                                     specified along with ``hive.metastore.glue.aws-secret-key``,
-                                                     this parameter takes precedence over
-                                                     ``hive.metastore.glue.iam-role``.
+``hive.metastore.glue.aws-access-key``                AWS access key to use to connect to the Glue Catalog. If
+                                                      specified along with ``hive.metastore.glue.aws-secret-key``,
+                                                      this parameter takes precedence over
+                                                      ``hive.metastore.glue.iam-role``.
 
-``hive.metastore.glue.aws-secret-key``               AWS secret key to use to connect to the Glue Catalog. If
-                                                     specified along with ``hive.metastore.glue.aws-access-key``,
-                                                     this parameter takes precedence over
-                                                     ``hive.metastore.glue.iam-role``.
+``hive.metastore.glue.aws-secret-key``                AWS secret key to use to connect to the Glue Catalog. If
+                                                      specified along with ``hive.metastore.glue.aws-access-key``,
+                                                      this parameter takes precedence over
+                                                      ``hive.metastore.glue.iam-role``.
 
-``hive.metastore.glue.catalogid``                    The ID of the Glue Catalog in which the metadata database
-                                                     resides.
+``hive.metastore.glue.catalogid``                     The ID of the Glue Catalog in which the metadata database
+                                                      resides.
 
-``hive.metastore.glue.iam-role``                     ARN of an IAM role to assume when connecting to the Glue
-                                                     Catalog.
+``hive.metastore.glue.iam-role``                      ARN of an IAM role to assume when connecting to the Glue
+                                                      Catalog.
 
-``hive.metastore.glue.external-id``                  External ID for the IAM role trust policy when connecting
-                                                     to the Glue Catalog.
+``hive.metastore.glue.external-id``                   External ID for the IAM role trust policy when connecting
+                                                      to the Glue Catalog.
 
-``hive.metastore.glue.partitions-segments``          Number of segments for partitioned Glue tables, defaults
-                                                     to ``5``.
+``hive.metastore.glue.partitions-segments``           Number of segments for partitioned Glue tables, defaults
+                                                      to ``5``.
 
-``hive.metastore.glue.get-partition-threads``        Number of threads for parallel partition fetches from Glue,
-                                                     defaults to ``20``.
+``hive.metastore.glue.get-partition-threads``         Number of threads for parallel partition fetches from Glue,
+                                                      defaults to ``20``.
 
-``hive.metastore.glue.read-statistics-threads``      Number of threads for parallel statistic fetches from Glue,
-                                                     defaults to ``5``.
+``hive.metastore.glue.read-statistics-threads``       Number of threads for parallel statistic fetches from Glue,
+                                                      defaults to ``5``.
 
-``hive.metastore.glue.write-statistics-threads``     Number of threads for parallel statistic writes to Glue,
-                                                     defaults to ``5``.
-==================================================== ============================================================
+``hive.metastore.glue.write-statistics-threads``      Number of threads for parallel statistic writes to Glue,
+                                                      defaults to ``5``.
+===================================================== ============================================================
 
 Google Cloud Storage configuration
 ----------------------------------
