@@ -1,7 +1,6 @@
 package io.trino.sql.planner.optimizations;
 
 import io.airlift.log.Logger;
-import io.trino.FeaturesConfig;
 import io.trino.cost.*;
 import io.trino.execution.TaskManagerConfig;
 import io.trino.split.PageSourceManager;
