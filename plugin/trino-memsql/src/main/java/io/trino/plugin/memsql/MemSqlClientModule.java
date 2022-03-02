@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.memsql;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
@@ -28,6 +29,7 @@ import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
 
 import java.util.Properties;
+import java.util.regex.Pattern;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
 
@@ -55,8 +57,14 @@ public class MemSqlClientModule
 
         return new DriverConnectionFactory(
                 new Driver(),
-                config.getConnectionUrl(),
+                ensureUrlBackwardCompatibility(config.getConnectionUrl()),
                 connectionProperties,
                 credentialProvider);
+    }
+
+    @VisibleForTesting
+    static String ensureUrlBackwardCompatibility(String connectionUrl) {
+        // including "jdbc:" portion in case-insensitive match in case other url parts also contain "mariadb" literal
+        return connectionUrl.replaceAll("(?i)" + Pattern.quote("jdbc:mariadb"), "jdbc:singlestore");
     }
 }
