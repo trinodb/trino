@@ -125,6 +125,7 @@ Trino supports the following SQL Server data types:
 SQL Server Type                     Trino Type
 ==================================  ===============================
 ``bigint``                          ``bigint``
+``tinyint``                         ``smallint``
 ``smallint``                        ``smallint``
 ``int``                             ``integer``
 ``float``                           ``double``
