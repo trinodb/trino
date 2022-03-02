@@ -38,7 +38,6 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
@@ -94,16 +93,10 @@ public class TestMemoryTracking
     @BeforeMethod
     public void setUpTest()
     {
-        setupTestWithLimits(queryMaxMemory, Optional.empty());
-    }
-
-    private void setupTestWithLimits(DataSize queryMaxMemory, Optional<DataSize> queryMaxTaskMemory)
-    {
         memoryPool = new MemoryPool(memoryPoolSize);
         queryContext = new QueryContext(
                 new QueryId("test_query"),
                 queryMaxMemory,
-                queryMaxTaskMemory,
                 memoryPool,
                 new TestingGcMonitor(),
                 notificationExecutor,
@@ -154,21 +147,6 @@ public class TestMemoryTracking
         assertThatThrownBy(() -> memoryContext.setBytes(queryMaxMemory.toBytes() + 1))
                 .isInstanceOf(ExceededMemoryLimitException.class)
                 .hasMessage("Query exceeded per-node memory limit of %1$s [Allocated: %1$s, Delta: 1B, Top Consumers: {test=%1$s}]", queryMaxMemory);
-    }
-
-    @Test
-    public void testTaskMemoryLimitExceeded()
-    {
-        DataSize taskMaxMemory = DataSize.of(1, GIGABYTE);
-        setupTestWithLimits(DataSize.of(2, GIGABYTE), Optional.of(taskMaxMemory));
-        LocalMemoryContext memoryContext = operatorContext.newLocalUserMemoryContext("test");
-        memoryContext.setBytes(100);
-        assertOperatorMemoryAllocations(operatorContext.getOperatorMemoryContext(), 100, 0);
-        memoryContext.setBytes(taskMaxMemory.toBytes());
-        assertOperatorMemoryAllocations(operatorContext.getOperatorMemoryContext(), taskMaxMemory.toBytes(), 0);
-        assertThatThrownBy(() -> memoryContext.setBytes(taskMaxMemory.toBytes() + 1))
-                .isInstanceOf(ExceededMemoryLimitException.class)
-                .hasMessage("Query exceeded per-task memory limit of %1$s [Allocated: %s, Delta: 1B, Top Consumers: {test=%s}]", taskMaxMemory, DataSize.succinctBytes(taskMaxMemory.toBytes() + 1));
     }
 
     @Test

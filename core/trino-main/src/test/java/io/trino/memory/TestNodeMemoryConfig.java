@@ -23,7 +23,6 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertFullMappin
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.memory.NodeMemoryConfig.AVAILABLE_HEAP_MEMORY;
 
 public class TestNodeMemoryConfig
@@ -33,7 +32,6 @@ public class TestNodeMemoryConfig
     {
         assertRecordedDefaults(recordDefaults(NodeMemoryConfig.class)
                 .setMaxQueryMemoryPerNode(DataSize.ofBytes(Math.round(AVAILABLE_HEAP_MEMORY * 0.3)))
-                .setMaxQueryMemoryPerTask(null)
                 .setHeapHeadroom(DataSize.ofBytes(Math.round(AVAILABLE_HEAP_MEMORY * 0.3))));
     }
 
@@ -42,13 +40,11 @@ public class TestNodeMemoryConfig
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("query.max-memory-per-node", "1GB")
-                .put("query.max-memory-per-task", "200MB")
                 .put("memory.heap-headroom-per-node", "1GB")
                 .buildOrThrow();
 
         NodeMemoryConfig expected = new NodeMemoryConfig()
                 .setMaxQueryMemoryPerNode(DataSize.of(1, GIGABYTE))
-                .setMaxQueryMemoryPerTask(DataSize.of(200, MEGABYTE))
                 .setHeapHeadroom(DataSize.of(1, GIGABYTE));
 
         assertFullMapping(properties, expected);

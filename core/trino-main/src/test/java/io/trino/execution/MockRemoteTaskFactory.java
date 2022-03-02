@@ -196,7 +196,6 @@ public class MockRemoteTaskFactory
             SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(DataSize.of(1, GIGABYTE));
             QueryContext queryContext = new QueryContext(taskId.getQueryId(),
                     DataSize.of(1, MEGABYTE),
-                    Optional.empty(),
                     memoryPool,
                     new TestingGcMonitor(),
                     executor,

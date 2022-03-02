@@ -48,16 +48,6 @@ including revocable memory. When the memory allocated by a query across all
 workers hits this limit it is killed. The value of ``query.max-total-memory``
 must be greater than ``query.max-memory``.
 
-``query.max-memory-per-task``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-* **Type:** :ref:`prop-type-data-size`
-* **Default value:** none, and therefore unrestricted
-* **Session property:** ``query_max_total_memory_per_task``
-
-This is the max amount of the memory a task can use on a node in the
-cluster. Support for using this property is experimental only.
-
 ``memory.heap-headroom-per-node``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

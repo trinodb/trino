@@ -72,7 +72,6 @@ public class MemoryLocalQueryRunner
         QueryContext queryContext = new QueryContext(
                 new QueryId("test"),
                 DataSize.of(1, GIGABYTE),
-                Optional.empty(),
                 memoryPool,
                 new TestingGcMonitor(),
                 localQueryRunner.getExecutor(),

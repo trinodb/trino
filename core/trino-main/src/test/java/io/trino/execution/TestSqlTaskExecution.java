@@ -596,7 +596,6 @@ public class TestSqlTaskExecution
         QueryContext queryContext = new QueryContext(
                 new QueryId("queryid"),
                 DataSize.of(1, MEGABYTE),
-                Optional.empty(),
                 new MemoryPool(DataSize.of(1, GIGABYTE)),
                 new TestingGcMonitor(),
                 taskNotificationExecutor,
