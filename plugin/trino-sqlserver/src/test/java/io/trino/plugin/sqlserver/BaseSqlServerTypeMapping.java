@@ -833,7 +833,7 @@ public abstract class BaseSqlServerTypeMapping
 
     protected DataSetup trinoCreateAndInsert(String tableNamePrefix)
     {
-        return new CreateAndInsertDataSetup(new TrinoSqlExecutor(getQueryRunner(), getSession()), tableNamePrefix);
+        return trinoCreateAndInsert(getSession(), tableNamePrefix);
     }
 
     protected DataSetup trinoCreateAndInsert(Session session, String tableNamePrefix)
