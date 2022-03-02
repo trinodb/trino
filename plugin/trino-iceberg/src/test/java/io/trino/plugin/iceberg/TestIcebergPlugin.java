@@ -70,11 +70,13 @@ public class TestIcebergPlugin
     {
         ConnectorFactory factory = getConnectorFactory();
 
-        assertThatThrownBy(() -> factory.create(
+        factory.create(
                 "test",
-                Map.of("iceberg.catalog.type", "glue"),
-                new TestingConnectorContext()))
-                .hasMessageMatching("(?s).*Explicit bindings are required and HiveMetastoreFactory .* is not explicitly bound.*");
+                Map.of(
+                        "iceberg.catalog.type", "glue",
+                        "hive.metastore.glue.region", "us-east-1"),
+                new TestingConnectorContext())
+                .shutdown();
 
         assertThatThrownBy(() -> factory.create(
                 "test",
@@ -83,6 +85,15 @@ public class TestIcebergPlugin
                         "hive.metastore.uri", "thrift://foo:1234"),
                 new TestingConnectorContext()))
                 .hasMessageContaining("Error: Configuration property 'hive.metastore.uri' was not used");
+
+        assertThatThrownBy(() -> factory.create(
+                "test",
+                Map.of(
+                        "iceberg.catalog.type", "glue",
+                        "hive.metastore.glue.catalogid", "123",
+                        "hive.metastore.glue.region", "us-east-1"),
+                new TestingConnectorContext()))
+                .hasMessageContaining("catalogId configuration is not supported");
     }
 
     @Test
@@ -99,6 +110,16 @@ public class TestIcebergPlugin
                         "hive.metastore-recording-path", "/tmp"),
                 new TestingConnectorContext())
                 .shutdown();
+
+        // recording with glue
+        assertThatThrownBy(() -> factory.create(
+                "test",
+                Map.of(
+                        "iceberg.catalog.type", "glue",
+                        "hive.metastore.glue.region", "us-east-2",
+                        "hive.metastore-recording-path", "/tmp"),
+                new TestingConnectorContext()))
+                .hasMessageContaining("Configuration property 'hive.metastore-recording-path' was not used");
     }
 
     @Test
