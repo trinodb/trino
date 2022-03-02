@@ -122,6 +122,7 @@ Property                                              Description               
 ``bigquery.views-enabled``                            Enables the connector to read from views and not only tables.  ``false``
                                                       Please read `this section <#reading-from-views>`_ before
                                                       enabling this feature.
+``bigquery.view-expire-duration``                     Expire duration for the materialized view.                     ``24h``
 ``bigquery.view-materialization-project``             The project where the materialized view is going to be created The view's project
 ``bigquery.view-materialization-dataset``             The dataset where the materialized view is going to be created The view's dataset
 ``bigquery.views-cache-ttl``                          Duration for which the materialization of a view will be       ``15m``
