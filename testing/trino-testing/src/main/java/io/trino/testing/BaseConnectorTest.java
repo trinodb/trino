@@ -2054,6 +2054,25 @@ public abstract class BaseConnectorTest
     }
 
     @Test
+    public void testRenameTableToUnqualifiedPreservesSchema()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_SCHEMA) && hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_RENAME_TABLE));
+
+        String sourceSchemaName = "test_source_schema_" + randomTableSuffix();
+        assertUpdate(createSchemaSql(sourceSchemaName));
+
+        String tableName = "test_rename_unqualified_name_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + sourceSchemaName + "." + tableName + " AS SELECT 123 x", 1);
+
+        String renamedTable = "test_rename_unqualified_name_new_" + randomTableSuffix();
+        assertUpdate("ALTER TABLE " + sourceSchemaName + "." + tableName + " RENAME TO " + renamedTable);
+        assertQuery("SELECT x FROM " + sourceSchemaName + "." + renamedTable, "VALUES 123");
+
+        assertUpdate("DROP TABLE " + sourceSchemaName + "." + renamedTable);
+        assertUpdate("DROP SCHEMA " + sourceSchemaName);
+    }
+
+    @Test
     public void testCommentTable()
     {
         if (!hasBehavior(SUPPORTS_COMMENT_ON_TABLE)) {
