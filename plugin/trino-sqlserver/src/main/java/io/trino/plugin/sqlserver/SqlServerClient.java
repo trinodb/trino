@@ -124,7 +124,6 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.smallintWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.timeReadFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.timestampColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.timestampWriteFunction;
-import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varcharReadFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
@@ -285,7 +284,10 @@ public class SqlServerClient
                 return Optional.of(booleanColumnMapping());
 
             case Types.TINYINT:
-                return Optional.of(tinyintColumnMapping());
+                // Map SQL Server TINYINT to Trino SMALLINT because SQL Server TINYINT is actually "unsigned tinyint"
+                // We don't check the range of values, because SQL Server will do it for us, and this behavior has already
+                // been tested in `BaseSqlServerTypeMapping#testUnsupportedTinyint`
+                return Optional.of(smallintColumnMapping());
 
             case Types.SMALLINT:
                 return Optional.of(smallintColumnMapping());
