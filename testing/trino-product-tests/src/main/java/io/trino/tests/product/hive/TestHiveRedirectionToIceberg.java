@@ -305,11 +305,21 @@ public class TestHiveRedirectionToIceberg
 
         createIcebergTable(icebergTableName, false);
 
-        //TODO restore test assertions after adding redirection awareness to the RenameTableTask
-        assertQueryFailure(() -> onTrino().executeQuery("ALTER TABLE " + hiveTableName + " RENAME TO " + tableName + "_new"))
-                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): Cannot query Iceberg table 'default." + tableName + "'");
+        assertQueryFailure(() -> onTrino().executeQuery("ALTER TABLE " + hiveTableName + " RENAME TO hive.default." + tableName + "_new"))
+                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): line 1:1: Table rename across catalogs is not supported");
 
-        onTrino().executeQuery("DROP TABLE " + icebergTableName);
+        String newTableNameWithoutCatalogWithoutSchema = tableName + "_new_without_catalog_without_schema";
+        onTrino().executeQuery("ALTER TABLE " + hiveTableName + " RENAME TO " + newTableNameWithoutCatalogWithoutSchema);
+        String newTableNameWithoutCatalogWithSchema = tableName + "_new_without_catalog_with_schema";
+        onTrino().executeQuery("ALTER TABLE hive.default." + newTableNameWithoutCatalogWithoutSchema + " RENAME TO default." + newTableNameWithoutCatalogWithSchema);
+        String newTableNameWithCatalogWithSchema = tableName + "_new_with_catalog_with_schema";
+        onTrino().executeQuery("ALTER TABLE hive.default." + newTableNameWithoutCatalogWithSchema + " RENAME TO iceberg.default." + newTableNameWithCatalogWithSchema);
+
+        assertResultsEqual(
+                onTrino().executeQuery("TABLE " + icebergTableName + "_new_with_catalog_with_schema"),
+                onTrino().executeQuery("TABLE " + hiveTableName + "_new_with_catalog_with_schema"));
+
+        onTrino().executeQuery("DROP TABLE " + icebergTableName + "_new_with_catalog_with_schema");
     }
 
     @Test(groups = {HIVE_ICEBERG_REDIRECTIONS, PROFILE_SPECIFIC_TESTS})
