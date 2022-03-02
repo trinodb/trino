@@ -19,6 +19,7 @@ import io.trino.spi.type.TimeZoneKey;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.TestingSession;
 import io.trino.testing.datatype.CreateAndInsertDataSetup;
+import io.trino.testing.datatype.CreateAndTrinoInsertDataSetup;
 import io.trino.testing.datatype.CreateAsSelectDataSetup;
 import io.trino.testing.datatype.DataSetup;
 import io.trino.testing.datatype.SqlDataTypeTest;
@@ -49,7 +50,6 @@ import static io.trino.spi.type.TimeType.createTimeType;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
-import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
@@ -114,13 +114,27 @@ public abstract class BaseSqlServerTypeMapping
     @Test
     public void testTinyint()
     {
-        // TODO: Add min/max/min-1/max+1 tests (https://github.com/trinodb/trino/issues/11209)
+        // Map SQL Server TINYINT to Trino SMALLINT because SQL Server TINYINT is actually "unsigned tinyint"
         SqlDataTypeTest.create()
-                .addRoundTrip("tinyint", "NULL", TINYINT, "CAST(NULL AS TINYINT)")
-                .addRoundTrip("tinyint", "5", TINYINT, "TINYINT '5'")
+                .addRoundTrip("tinyint", "NULL", SMALLINT, "CAST(NULL AS SMALLINT)")
+                .addRoundTrip("tinyint", "0", SMALLINT, "SMALLINT '0'") // min value in SQL Server
+                .addRoundTrip("tinyint", "5", SMALLINT, "SMALLINT '5'")
+                .addRoundTrip("tinyint", "255", SMALLINT, "SMALLINT '255'") // max value in SQL Server
                 .execute(getQueryRunner(), sqlServerCreateAndInsert("test_tinyint"))
-                .execute(getQueryRunner(), trinoCreateAsSelect("test_tinyint"))
-                .execute(getQueryRunner(), trinoCreateAndInsert("test_tinyint"));
+                .execute(getQueryRunner(), sqlServerCreateAndTrinoInsert("test_tinyint"));
+    }
+
+    @Test
+    public void testUnsupportedTinyint()
+    {
+        try (TestTable table = new TestTable(onRemoteDatabase(), "test_unsupported_tinyint", "(data tinyint)")) {
+            assertSqlServerQueryFails(
+                    format("INSERT INTO %s VALUES (-1)", table.getName()), // min - 1
+                    "Arithmetic overflow error for data type tinyint, value = -1");
+            assertSqlServerQueryFails(
+                    format("INSERT INTO %s VALUES (256)", table.getName()), // max + 1
+                    "Arithmetic overflow error for data type tinyint, value = 256.");
+        }
     }
 
     @Test
@@ -844,6 +858,16 @@ public abstract class BaseSqlServerTypeMapping
     protected DataSetup sqlServerCreateAndInsert(String tableNamePrefix)
     {
         return new CreateAndInsertDataSetup(onRemoteDatabase(), tableNamePrefix);
+    }
+
+    protected DataSetup sqlServerCreateAndTrinoInsert(String tableNamePrefix)
+    {
+        return sqlServerCreateAndTrinoInsert(getSession(), tableNamePrefix);
+    }
+
+    protected DataSetup sqlServerCreateAndTrinoInsert(Session session, String tableNamePrefix)
+    {
+        return new CreateAndTrinoInsertDataSetup(onRemoteDatabase(), new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
     }
 
     private static void checkIsDoubled(ZoneId zone, LocalDateTime dateTime)
