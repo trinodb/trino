@@ -1785,6 +1785,7 @@ public abstract class BaseConnectorTest
         String renamedTable = "test_rename_new_" + randomTableSuffix();
         if (!hasBehavior(SUPPORTS_RENAME_TABLE)) {
             assertQueryFails("ALTER TABLE " + tableName + " RENAME TO " + renamedTable, "This connector does not support renaming tables");
+            assertUpdate("DROP TABLE " + tableName);
             return;
         }
 
