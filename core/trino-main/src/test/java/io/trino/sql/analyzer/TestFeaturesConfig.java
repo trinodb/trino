@@ -193,8 +193,6 @@ public class TestFeaturesConfig
                 .put("incremental-hash-array-load-factor.enabled", "false")
                 .put("hide-inaccessible-columns", "true")
                 .put("legacy.allow-set-view-authorization", "true")
-                .put("optimizer.custom-optimizer.list", "io.trino.sql.test.TestCustomPlanOptimizer")
-                .put("optimizer.custom-optimizer.allow", "true")
                 .buildOrThrow();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -269,9 +267,7 @@ public class TestFeaturesConfig
                 .setLegacyCatalogRoles(true)
                 .setIncrementalHashArrayLoadFactorEnabled(false)
                 .setHideInaccessibleColumns(true)
-                .setAllowSetViewAuthorization(true)
-                .setAdditionalPlanOptimizerClasses("io.trino.sql.test.TestCustomPlanOptimizer")
-                .setAllowCustomPlanOptimizers(true);
+                .setAllowSetViewAuthorization(true);
         assertFullMapping(properties, expected);
     }
 }
