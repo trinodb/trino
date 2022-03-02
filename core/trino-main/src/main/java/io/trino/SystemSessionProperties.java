@@ -153,6 +153,7 @@ public final class SystemSessionProperties
     public static final String FAULT_TOLERANT_EXECUTION_MIN_TASK_SPLIT_COUNT = "fault_tolerant_execution_min_task_split_count";
     public static final String FAULT_TOLERANT_EXECUTION_TARGET_TASK_SPLIT_COUNT = "fault_tolerant_execution_target_task_split_count";
     public static final String FAULT_TOLERANT_EXECUTION_MAX_TASK_SPLIT_COUNT = "fault_tolerant_execution_max_task_split_count";
+    public static final String FAULT_TOLERANT_EXECUTION_TASK_MEMORY = "fault_tolerant_execution_task_memory";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -721,6 +722,11 @@ public final class SystemSessionProperties
                         FAULT_TOLERANT_EXECUTION_MAX_TASK_SPLIT_COUNT,
                         "Maximal number of splits for a single fault tolerant task (count based)",
                         queryManagerConfig.getFaultTolerantExecutionMaxTaskSplitCount(),
+                        false),
+                dataSizeProperty(
+                        FAULT_TOLERANT_EXECUTION_TASK_MEMORY,
+                        "Estimated amount of memory a single task will use when task level retries are used; value is used allocating nodes for tasks execution",
+                        memoryManagerConfig.getFaultTolerantTaskMemory(),
                         false));
     }
 
@@ -1296,5 +1302,10 @@ public final class SystemSessionProperties
     public static int getFaultTolerantExecutionMaxTaskSplitCount(Session session)
     {
         return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_MAX_TASK_SPLIT_COUNT, Integer.class);
+    }
+
+    public static DataSize getFaultTolerantExecutionDefaultTaskMemory(Session session)
+    {
+        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_TASK_MEMORY, DataSize.class);
     }
 }
