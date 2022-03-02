@@ -22,7 +22,6 @@ import io.trino.testing.LocalQueryRunner;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
-import java.util.Optional;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static io.airlift.concurrent.Threads.threadsNamed;
@@ -47,7 +46,6 @@ public class TestQueryContext
             QueryContext queryContext = new QueryContext(
                     new QueryId("query"),
                     DataSize.ofBytes(10),
-                    Optional.empty(),
                     new MemoryPool(DataSize.ofBytes(10)),
                     new TestingGcMonitor(),
                     localQueryRunner.getExecutor(),

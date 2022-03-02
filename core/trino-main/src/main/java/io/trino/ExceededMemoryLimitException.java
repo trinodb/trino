@@ -40,12 +40,6 @@ public class ExceededMemoryLimitException
                 format("Query exceeded per-node memory limit of %s [%s]", maxMemory, additionalFailureInfo));
     }
 
-    public static ExceededMemoryLimitException exceededTaskMemoryLimit(DataSize maxMemory, String additionalFailureInfo)
-    {
-        return new ExceededMemoryLimitException(EXCEEDED_LOCAL_MEMORY_LIMIT,
-                format("Query exceeded per-task memory limit of %s [%s]", maxMemory, additionalFailureInfo));
-    }
-
     private ExceededMemoryLimitException(StandardErrorCode errorCode, String message)
     {
         super(errorCode, message);

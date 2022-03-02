@@ -26,7 +26,6 @@ import io.trino.operator.TaskContext;
 import io.trino.spi.QueryId;
 import io.trino.spiller.SpillSpaceTracker;
 
-import java.util.Optional;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 
@@ -142,7 +141,6 @@ public final class TestingTaskContext
             QueryContext queryContext = new QueryContext(
                     queryId,
                     queryMaxMemory,
-                    Optional.empty(),
                     memoryPool,
                     0L,
                     GC_MONITOR,
