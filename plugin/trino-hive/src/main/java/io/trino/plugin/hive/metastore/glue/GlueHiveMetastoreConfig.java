@@ -37,6 +37,7 @@ public class GlueHiveMetastoreConfig
     private Optional<String> awsAccessKey = Optional.empty();
     private Optional<String> awsSecretKey = Optional.empty();
     private Optional<String> awsCredentialsProvider = Optional.empty();
+    private Optional<String> awsCredentialsProviderConf = Optional.empty();
     private Optional<String> catalogId = Optional.empty();
     private int partitionSegments = 5;
     private int getPartitionThreads = 20;
@@ -200,6 +201,19 @@ public class GlueHiveMetastoreConfig
     public GlueHiveMetastoreConfig setAwsCredentialsProvider(String awsCredentialsProvider)
     {
         this.awsCredentialsProvider = Optional.ofNullable(awsCredentialsProvider);
+        return this;
+    }
+
+    public Optional<String> getAwsCredentialsProviderConf()
+    {
+        return awsCredentialsProviderConf;
+    }
+
+    @Config("hive.metastore.glue.aws-credentials-provider-conf")
+    @ConfigDescription("Configuration details/file accepted by custom AwsCredentialsProvider class ")
+    public GlueHiveMetastoreConfig setAwsCredentialsProviderConf(String awsCredentialsProviderConf)
+    {
+        this.awsCredentialsProviderConf = Optional.ofNullable(awsCredentialsProviderConf);
         return this;
     }
 

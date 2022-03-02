@@ -537,63 +537,66 @@ In order to use a Glue catalog, ensure to configure the metastore with
 ``hive.metastore=glue`` and provide further details with the following
 properties:
 
-==================================================== ============================================================
-Property Name                                        Description
-==================================================== ============================================================
-``hive.metastore.glue.region``                       AWS region of the Glue Catalog. This is required when not
-                                                     running in EC2, or when the catalog is in a different region.
-                                                     Example: ``us-east-1``
+===================================================== ============================================================
+Property Name                                         Description
+===================================================== ============================================================
+``hive.metastore.glue.region``                        AWS region of the Glue Catalog. This is required when not
+                                                      running in EC2, or when the catalog is in a different region.
+                                                      Example: ``us-east-1``
 
-``hive.metastore.glue.endpoint-url``                 Glue API endpoint URL (optional).
-                                                     Example: ``https://glue.us-east-1.amazonaws.com``
+``hive.metastore.glue.endpoint-url``                  Glue API endpoint URL (optional).
+                                                      Example: ``https://glue.us-east-1.amazonaws.com``
 
-``hive.metastore.glue.pin-client-to-current-region`` Pin Glue requests to the same region as the EC2 instance
-                                                     where Trino is running, defaults to ``false``.
+``hive.metastore.glue.pin-client-to-current-region``  Pin Glue requests to the same region as the EC2 instance
+                                                      where Trino is running, defaults to ``false``.
 
-``hive.metastore.glue.max-connections``              Max number of concurrent connections to Glue,
-                                                     defaults to ``5``.
+``hive.metastore.glue.max-connections``               Max number of concurrent connections to Glue,
+                                                      defaults to ``5``.
 
-``hive.metastore.glue.max-error-retries``            Maximum number of error retries for the Glue client,
-                                                     defaults to ``10``.
+``hive.metastore.glue.max-error-retries``             Maximum number of error retries for the Glue client,
+                                                      defaults to ``10``.
 
-``hive.metastore.glue.default-warehouse-dir``        Default warehouse directory for schemas created without an
-                                                     explicit ``location`` property.
+``hive.metastore.glue.default-warehouse-dir``         Default warehouse directory for schemas created without an
+                                                      explicit ``location`` property.
 
-``hive.metastore.glue.aws-credentials-provider``     Fully qualified name of the Java class to use for obtaining
-                                                     AWS credentials. Can be used to supply a custom credentials
-                                                     provider.
+``hive.metastore.glue.aws-credentials-provider``      Fully qualified name of the Java class to use for obtaining
+                                                      AWS credentials. Can be used to supply a custom credentials
+                                                      provider.
 
-``hive.metastore.glue.aws-access-key``               AWS access key to use to connect to the Glue Catalog. If
-                                                     specified along with ``hive.metastore.glue.aws-secret-key``,
-                                                     this parameter takes precedence over
-                                                     ``hive.metastore.glue.iam-role``.
+``hive.metastore.glue.aws-credentials-provider-conf`` Configuration details/file accepted by custom AwsCredentialsProvider
+                                                      class.
 
-``hive.metastore.glue.aws-secret-key``               AWS secret key to use to connect to the Glue Catalog. If
-                                                     specified along with ``hive.metastore.glue.aws-access-key``,
-                                                     this parameter takes precedence over
-                                                     ``hive.metastore.glue.iam-role``.
+``hive.metastore.glue.aws-access-key``                AWS access key to use to connect to the Glue Catalog. If
+                                                      specified along with ``hive.metastore.glue.aws-secret-key``,
+                                                      this parameter takes precedence over
+                                                      ``hive.metastore.glue.iam-role``.
 
-``hive.metastore.glue.catalogid``                    The ID of the Glue Catalog in which the metadata database
-                                                     resides.
+``hive.metastore.glue.aws-secret-key``                AWS secret key to use to connect to the Glue Catalog. If
+                                                      specified along with ``hive.metastore.glue.aws-access-key``,
+                                                      this parameter takes precedence over
+                                                      ``hive.metastore.glue.iam-role``.
 
-``hive.metastore.glue.iam-role``                     ARN of an IAM role to assume when connecting to the Glue
-                                                     Catalog.
+``hive.metastore.glue.catalogid``                     The ID of the Glue Catalog in which the metadata database
+                                                      resides.
 
-``hive.metastore.glue.external-id``                  External ID for the IAM role trust policy when connecting
-                                                     to the Glue Catalog.
+``hive.metastore.glue.iam-role``                      ARN of an IAM role to assume when connecting to the Glue
+                                                      Catalog.
 
-``hive.metastore.glue.partitions-segments``          Number of segments for partitioned Glue tables, defaults
-                                                     to ``5``.
+``hive.metastore.glue.external-id``                   External ID for the IAM role trust policy when connecting
+                                                      to the Glue Catalog.
 
-``hive.metastore.glue.get-partition-threads``        Number of threads for parallel partition fetches from Glue,
-                                                     defaults to ``20``.
+``hive.metastore.glue.partitions-segments``           Number of segments for partitioned Glue tables, defaults
+                                                      to ``5``.
 
-``hive.metastore.glue.read-statistics-threads``      Number of threads for parallel statistic fetches from Glue,
-                                                     defaults to ``5``.
+``hive.metastore.glue.get-partition-threads``         Number of threads for parallel partition fetches from Glue,
+                                                      defaults to ``20``.
 
-``hive.metastore.glue.write-statistics-threads``     Number of threads for parallel statistic writes to Glue,
-                                                     defaults to ``5``.
-==================================================== ============================================================
+``hive.metastore.glue.read-statistics-threads``       Number of threads for parallel statistic fetches from Glue,
+                                                      defaults to ``5``.
+
+``hive.metastore.glue.write-statistics-threads``      Number of threads for parallel statistic writes to Glue,
+                                                      defaults to ``5``.
+===================================================== ============================================================
 
 Google Cloud Storage configuration
 ----------------------------------
@@ -1019,8 +1022,8 @@ Table properties supply or set metadata for the underlying tables. This
 is key for :doc:`/sql/create-table-as` statements. Table properties are passed
 to the connector using a :doc:`WITH </sql/create-table-as>` clause::
 
-  CREATE TABLE tablename 
-  WITH (format='CSV', 
+  CREATE TABLE tablename
+  WITH (format='CSV',
         csv_escape = '"')
 
 See the :ref:`hive_examples` for more information.
@@ -1033,7 +1036,7 @@ See the :ref:`hive_examples` for more information.
     - Description
     - Default
   * - ``auto_purge``
-    - Indicates to the configured metastore to perform a purge when a table or 
+    - Indicates to the configured metastore to perform a purge when a table or
       partition is deleted instead of a soft deletion using the trash.
     -
   * - ``avro_schema_url``
@@ -1044,11 +1047,11 @@ See the :ref:`hive_examples` for more information.
       ``bucketed_by``.
     - 0
   * - ``bucketed_by``
-    - The bucketing column for the storage table. Only valid if used with 
+    - The bucketing column for the storage table. Only valid if used with
       ``bucket_count``.
     - ``[]``
   * - ``bucketing_version``
-    - Specifies which Hive bucketing version to use. Valid values are ``1`` 
+    - Specifies which Hive bucketing version to use. Valid values are ``1``
       or ``2``.
     -
   * - ``csv_escape``
@@ -1065,51 +1068,51 @@ See the :ref:`hive_examples` for more information.
       :ref:`hive_examples` for more information.
     -
   * - ``format``
-    - The table file format. Valid values include ``ORC``, ``PARQUET``, ``AVRO``, 
-      ``RCBINARY``, ``RCTEXT``, ``SEQUENCEFILE``, ``JSON``, ``TEXTFILE``, and 
-      ``CSV``. The catalog property ``hive.storage-format`` sets the default 
+    - The table file format. Valid values include ``ORC``, ``PARQUET``, ``AVRO``,
+      ``RCBINARY``, ``RCTEXT``, ``SEQUENCEFILE``, ``JSON``, ``TEXTFILE``, and
+      ``CSV``. The catalog property ``hive.storage-format`` sets the default
       value and can change it to a different default.
-    - 
+    -
   * - ``null_format``
-    - The serialization format for ``NULL`` value. Requires TextFile, RCText, 
+    - The serialization format for ``NULL`` value. Requires TextFile, RCText,
       or SequenceFile format.
     -
   * - ``orc_bloom_filter_columns``
-    - Comma separated list of columns to use for ORC bloom filter. It improves 
-      the performance of queries using range predicates when reading ORC files. 
+    - Comma separated list of columns to use for ORC bloom filter. It improves
+      the performance of queries using range predicates when reading ORC files.
       Requires ORC format.
     - ``[]``
   * - ``orc_bloom_filter_fpp``
     - The ORC bloom filters false positive probability. Requires ORC format.
     - 0.05
   * - ``partitioned_by``
-    - The partitioning column for the storage table. The columns listed in the 
-      ``partitioned_by`` clause must be the last columns as defined in the DDL. 
+    - The partitioning column for the storage table. The columns listed in the
+      ``partitioned_by`` clause must be the last columns as defined in the DDL.
     - ``[]``
   * - ``skip_footer_line_count``
-    - The number of footer lines to ignore when parsing the file for data.  
+    - The number of footer lines to ignore when parsing the file for data.
       Requires TextFile or CSV format tables.
-    - 
+    -
   * - ``skip_header_line_count``
-    - The number of header lines to ignore when parsing the file for data. 
+    - The number of header lines to ignore when parsing the file for data.
       Requires TextFile or CSV format tables.
     -
   * - ``sorted_by``
-    - The column to sort by to determine bucketing for row. Only valid if 
+    - The column to sort by to determine bucketing for row. Only valid if
       ``bucketed_by`` and ``bucket_count`` are specified as well.
     - ``[]``
   * - ``textfile_field_separator``
-    - Allows the use of custom field separators, such as '|', for TextFile 
+    - Allows the use of custom field separators, such as '|', for TextFile
       formatted tables.
-    - 
+    -
   * - ``textfile_field_separator_escape``
     - Allows the use of a custom escape character for TextFile formatted tables.
-    - 
+    -
   * - ``transactional``
-    - Set this property to ``true`` to create an ORC ACID transactional table. 
-      Requires ORC format. This property may be shown as true for insert-only 
+    - Set this property to ``true`` to create an ORC ACID transactional table.
+      Requires ORC format. This property may be shown as true for insert-only
       tables created using older versions of Hive.
-    - 
+    -
 
 .. _hive_special_columns:
 

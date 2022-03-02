@@ -233,8 +233,8 @@ public class GlueHiveMetastore
 
     private static AWSCredentialsProvider getAwsCredentialsProvider(GlueHiveMetastoreConfig config)
     {
-        if (config.getAwsCredentialsProvider().isPresent()) {
-            return getCustomAWSCredentialsProvider(config.getAwsCredentialsProvider().get());
+        if (config.getAwsCredentialsProvider().isPresent() && config.getAwsCredentialsProviderConf().isPresent()) {
+            return getCustomAWSCredentialsProvider(config.getAwsCredentialsProvider().get(),config.getAwsCredentialsProviderConf().get());
         }
         AWSCredentialsProvider provider;
         if (config.getAwsAccessKey().isPresent() && config.getAwsSecretKey().isPresent()) {
@@ -254,10 +254,10 @@ public class GlueHiveMetastore
         return provider;
     }
 
-    private static AWSCredentialsProvider getCustomAWSCredentialsProvider(String providerClass)
+    private static AWSCredentialsProvider getCustomAWSCredentialsProvider(String providerClass, String awsCredentialsProviderConf)
     {
         try {
-            Object instance = Class.forName(providerClass).getConstructor().newInstance();
+            Object instance = Class.forName(providerClass).getConstructor(String.class).newInstance(awsCredentialsProviderConf);
             if (!(instance instanceof AWSCredentialsProvider)) {
                 throw new RuntimeException("Invalid credentials provider class: " + instance.getClass().getName());
             }
