@@ -16,9 +16,6 @@ package io.trino;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import io.trino.sql.planner.OptimizerConfig;
-import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
-import io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy;
 import io.trino.execution.DynamicFilterConfig;
 import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.TaskManagerConfig;
@@ -28,6 +25,9 @@ import io.trino.memory.NodeMemoryConfig;
 import io.trino.operator.RetryPolicy;
 import io.trino.spi.TrinoException;
 import io.trino.spi.session.PropertyMetadata;
+import io.trino.sql.planner.OptimizerConfig;
+import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
+import io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy;
 
 import javax.inject.Inject;
 
