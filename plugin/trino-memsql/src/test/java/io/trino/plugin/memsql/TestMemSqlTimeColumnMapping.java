@@ -19,9 +19,9 @@ import org.testng.annotations.Test;
 
 import static io.trino.plugin.memsql.MemSqlTimeColumnMapping.parseMemSqlLocalTime;
 
-public class TestMemSqlTimeColumnMapping {
-
-    @Test(dataProvider = "unsupportedTimeDataProvider", expectedExceptions = {IllegalStateException.class})
+public class TestMemSqlTimeColumnMapping
+{
+    @Test(dataProvider = "unsupportedTimeDataProvider", expectedExceptions = IllegalStateException.class)
     public void testUnsupportedTimeMapping(String localTime)
     {
         parseMemSqlLocalTime(localTime, 9);

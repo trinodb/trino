@@ -39,7 +39,6 @@ import static java.util.Objects.requireNonNull;
  */
 class MemSqlTimeColumnMapping
 {
-
     static ColumnMapping memSqlTimeColumnMapping(TimeType timeType)
     {
         return ColumnMapping.longMapping(
@@ -92,7 +91,8 @@ class MemSqlTimeColumnMapping
         };
     }
 
-    private MemSqlTimeColumnMapping() {
+    private MemSqlTimeColumnMapping()
+    {
         // prevent instantiation of utility class
     }
 }

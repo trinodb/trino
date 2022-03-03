@@ -53,6 +53,7 @@ import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.VarcharType;
 
 import javax.inject.Inject;
+
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
@@ -204,7 +205,7 @@ public class MemSqlClient
         RemoteTableName remoteTableName = tableHandle.getRequiredNamedRelation().getRemoteTableName();
 
         try (Connection connection = connectionFactory.openConnection(session);
-            ResultSet resultSet = getColumns(tableHandle, connection.getMetaData())) {
+                ResultSet resultSet = getColumns(tableHandle, connection.getMetaData())) {
             Map<String, Integer> timestampPrecisions = getTimestampPrecisions(connection, tableHandle);
             int allColumns = 0;
             List<JdbcColumnHandle> columns = new ArrayList<>();

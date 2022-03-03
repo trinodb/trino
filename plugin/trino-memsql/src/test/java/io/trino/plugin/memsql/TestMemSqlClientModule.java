@@ -19,8 +19,8 @@ import org.testng.annotations.Test;
 
 import static io.trino.testing.assertions.Assert.assertEquals;
 
-public class TestMemSqlClientModule {
-
+public class TestMemSqlClientModule
+{
     @Test(dataProvider = "connectionUrls")
     public void testMariaDbUrlCompatability(String[] mariaDbUrls)
     {
@@ -30,7 +30,7 @@ public class TestMemSqlClientModule {
     @DataProvider
     public Object[][] connectionUrls()
     {
-        return new Object[][]{
+        return new Object[][] {
                 // input / expected result
                 {"jdbc:mariadb://test_mariadb", "jdbc:singlestore://test_mariadb"},
                 {"JDBC:MARIADB://test_mariadb", "jdbc:singlestore://test_mariadb"},

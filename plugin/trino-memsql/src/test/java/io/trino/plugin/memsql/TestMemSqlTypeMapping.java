@@ -642,7 +642,6 @@ public class TestMemSqlTypeMapping
         };
     }
 
-
     @Test(dataProvider = "unsupportedDateTimePrecisions")
     public void testUnsupportedTimePrecision(int precision)
     {

@@ -63,7 +63,8 @@ public class MemSqlClientModule
     }
 
     @VisibleForTesting
-    static String ensureUrlBackwardCompatibility(String connectionUrl) {
+    static String ensureUrlBackwardCompatibility(String connectionUrl)
+    {
         // including "jdbc:" portion in case-insensitive match in case other url parts also contain "mariadb" literal
         return connectionUrl.replaceAll("(?i)" + Pattern.quote("jdbc:mariadb"), "jdbc:singlestore");
     }
