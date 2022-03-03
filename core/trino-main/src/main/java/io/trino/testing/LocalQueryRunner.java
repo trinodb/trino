@@ -37,7 +37,7 @@ import io.trino.connector.system.SchemaPropertiesSystemTable;
 import io.trino.connector.system.TableCommentSystemTable;
 import io.trino.connector.system.TablePropertiesSystemTable;
 import io.trino.connector.system.TransactionsSystemTable;
-import io.trino.cost.OptimizerConfig;
+import io.trino.sql.planner.OptimizerConfig;
 import io.trino.cost.ComposableStatsCalculator;
 import io.trino.cost.CostCalculator;
 import io.trino.cost.CostCalculatorUsingExchanges;

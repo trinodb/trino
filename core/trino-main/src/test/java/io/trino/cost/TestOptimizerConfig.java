@@ -16,8 +16,9 @@ package io.trino.cost;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import io.trino.cost.OptimizerConfig.JoinDistributionType;
-import io.trino.cost.OptimizerConfig.JoinReorderingStrategy;
+import io.trino.sql.planner.OptimizerConfig;
+import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
+import io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -27,8 +28,8 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDe
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
-import static io.trino.cost.OptimizerConfig.JoinDistributionType.BROADCAST;
-import static io.trino.cost.OptimizerConfig.JoinReorderingStrategy.NONE;
+import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.BROADCAST;
+import static io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy.NONE;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
 

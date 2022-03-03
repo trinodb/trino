@@ -16,7 +16,7 @@ package io.trino.sql.planner.optimizations;
 import com.google.common.collect.ImmutableMap;
 
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
-import static io.trino.cost.OptimizerConfig.JoinDistributionType.BROADCAST;
+import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.BROADCAST;
 
 public class TestUnionWithReplicatedJoin
         extends TestUnion

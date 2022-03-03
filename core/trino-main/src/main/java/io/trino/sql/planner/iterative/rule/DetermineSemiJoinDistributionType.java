@@ -15,7 +15,7 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.Ordering;
 import io.airlift.units.DataSize;
-import io.trino.cost.OptimizerConfig.JoinDistributionType;
+import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.cost.CostComparator;
 import io.trino.cost.LocalCostEstimate;
 import io.trino.cost.PlanNodeStatsEstimate;
