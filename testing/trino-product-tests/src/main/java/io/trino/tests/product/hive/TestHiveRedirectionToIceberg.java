@@ -515,6 +515,21 @@ public class TestHiveRedirectionToIceberg
         onTrino().executeQuery("DROP SCHEMA hive." + schemaName);
     }
 
+    @Test(groups = {HIVE_ICEBERG_REDIRECTIONS, PROFILE_SPECIFIC_TESTS})
+    public void testGrant()
+    {
+        String tableName = "iceberg_grant_" + randomTableSuffix();
+        String hiveTableName = "hive.default." + tableName;
+        String icebergTableName = "iceberg.default." + tableName;
+
+        createIcebergTable(icebergTableName, false);
+
+        assertQueryFailure(() -> onTrino().executeQuery("GRANT SELECT ON " + hiveTableName + " TO ROLE PUBLIC"))
+                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): line 1:1: Table " + hiveTableName + " is redirected to " + icebergTableName + " and GRANT is not supported with table redirections");
+
+        onTrino().executeQuery("DROP TABLE " + icebergTableName);
+    }
+
     private static void createIcebergTable(String tableName, boolean partitioned)
     {
         createIcebergTable(tableName, partitioned, true);
