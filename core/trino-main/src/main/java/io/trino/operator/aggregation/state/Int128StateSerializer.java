@@ -48,7 +48,7 @@ public class Int128StateSerializer
     public void deserialize(Block block, int index, Int128State state)
     {
         if (!block.isNull(index)) {
-            state.setNotNull();
+            state.setNotNull(true);
             long[] decimal = state.getArray();
             int offset = state.getArrayOffset();
             decimal[offset] = block.getLong(index, 0);

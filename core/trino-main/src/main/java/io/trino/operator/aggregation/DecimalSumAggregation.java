@@ -110,7 +110,7 @@ public class DecimalSumAggregation
         long[] decimal = decimalState.getArray();
         int decimalOffset = decimalState.getArrayOffset();
 
-        decimalState.setNotNull();
+        decimalState.setNotNull(true);
         long rightLow = block.getLong(position, 0);
         long rightHigh = rightLow >> 63;
 
@@ -130,7 +130,7 @@ public class DecimalSumAggregation
         long[] decimal = decimalState.getArray();
         int decimalOffset = decimalState.getArrayOffset();
 
-        decimalState.setNotNull();
+        decimalState.setNotNull(true);
         long rightHigh = block.getLong(position, 0);
         long rightLow = block.getLong(position, SIZE_OF_LONG);
 
@@ -170,11 +170,7 @@ public class DecimalSumAggregation
             overflowState.setNull(false);
         }
         else {
-            // TODO: Dlaczego tego teraz potrzebujemy a kiedys nie?
-            if (!otherDecimalState.isNotNull()) {
-                return;
-            }
-            decimalState.setNotNull();
+            decimalState.setNotNull(otherDecimalState.isNotNull());
             decimal[decimalOffset] = otherDecimal[otherDecimalOffset];
             decimal[decimalOffset + 1] = otherDecimal[otherDecimalOffset + 1];
             overflowState.set(otherOverflowState);
