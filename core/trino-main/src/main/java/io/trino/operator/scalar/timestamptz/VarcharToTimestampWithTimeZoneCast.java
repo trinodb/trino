@@ -26,7 +26,6 @@ import io.trino.type.DateTimes;
 import java.time.DateTimeException;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
-import java.time.zone.ZoneRulesException;
 import java.util.function.Function;
 import java.util.regex.Matcher;
 
