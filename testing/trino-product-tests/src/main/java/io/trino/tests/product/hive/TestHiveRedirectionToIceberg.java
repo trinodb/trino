@@ -333,6 +333,26 @@ public class TestHiveRedirectionToIceberg
     }
 
     @Test(groups = {HIVE_ICEBERG_REDIRECTIONS, PROFILE_SPECIFIC_TESTS})
+    public void testAlterTableDropColumn()
+    {
+        String tableName = "iceberg_alter_table_drop_column_" + randomTableSuffix();
+        String hiveTableName = "hive.default." + tableName;
+        String icebergTableName = "iceberg.default." + tableName;
+
+        createIcebergTable(icebergTableName, false);
+
+        onTrino().executeQuery("ALTER TABLE " + hiveTableName + " DROP COLUMN comment");
+
+        Assertions.assertThat(onTrino().executeQuery("DESCRIBE " + icebergTableName).column(1))
+                .containsOnly("nationkey", "name", "regionkey");
+
+        assertResultsEqual(
+                onTrino().executeQuery("TABLE " + icebergTableName),
+                onTrino().executeQuery("SELECT nationkey, name, regionkey FROM tpch.tiny.nation"));
+        onTrino().executeQuery("DROP TABLE " + icebergTableName);
+    }
+
+    @Test(groups = {HIVE_ICEBERG_REDIRECTIONS, PROFILE_SPECIFIC_TESTS})
     public void testCommentTable()
     {
         String tableName = "iceberg_comment_table_" + randomTableSuffix();

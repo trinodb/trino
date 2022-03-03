@@ -316,6 +316,22 @@ public class TestIcebergRedirectionToHive
     }
 
     @Test(groups = {HIVE_ICEBERG_REDIRECTIONS, PROFILE_SPECIFIC_TESTS})
+    public void testAlterTableDropColumn()
+    {
+        String tableName = "hive_alter_table_drop_column_" + randomTableSuffix();
+        String hiveTableName = "hive.default." + tableName;
+        String icebergTableName = "iceberg.default." + tableName;
+
+        createHiveTable(hiveTableName, false);
+
+        // TODO: support redirects from Iceberg to Hive
+        assertQueryFailure(() -> onTrino().executeQuery("ALTER TABLE " + icebergTableName + " DROP COLUMN comment"))
+                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): Not an Iceberg table: default." + tableName);
+
+        onTrino().executeQuery("DROP TABLE " + hiveTableName);
+    }
+
+    @Test(groups = {HIVE_ICEBERG_REDIRECTIONS, PROFILE_SPECIFIC_TESTS})
     public void testCommentTable()
     {
         String tableName = "hive_comment_table_" + randomTableSuffix();
