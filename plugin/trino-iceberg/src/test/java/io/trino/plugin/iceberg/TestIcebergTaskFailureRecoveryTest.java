@@ -15,6 +15,7 @@ package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.operator.RetryPolicy;
+import io.trino.plugin.exchange.FileSystemExchangePlugin;
 import io.trino.plugin.exchange.containers.MinioStorage;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
@@ -55,7 +56,10 @@ public class TestIcebergTaskFailureRecoveryTest
                         // currently not supported for fault tolerant execution mode
                         .put("enable-dynamic-filtering", "false")
                         .buildOrThrow())
-                .setExchangeManagerProperties(getExchangeManagerProperties(minioStorage))
+                .setAdditionalSetup(runner -> {
+                    runner.installPlugin(new FileSystemExchangePlugin());
+                    runner.loadExchangeManager("filesystem", getExchangeManagerProperties(minioStorage));
+                })
                 .build();
     }
 

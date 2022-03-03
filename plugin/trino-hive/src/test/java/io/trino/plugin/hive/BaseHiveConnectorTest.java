@@ -30,6 +30,7 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableMetadata;
+import io.trino.plugin.exchange.FileSystemExchangePlugin;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
@@ -188,6 +189,10 @@ public abstract class BaseHiveConnectorTest
     {
         DistributedQueryRunner queryRunner = HiveQueryRunner.builder()
                 .setExtraProperties(extraProperties)
+                .setAdditionalSetup(runner -> {
+                    runner.installPlugin(new FileSystemExchangePlugin());
+                    runner.loadExchangeManager("filesystem", exchangeManagerProperties);
+                })
                 .setHiveProperties(ImmutableMap.of(
                         "hive.allow-register-partition-procedure", "true",
                         // Reduce writer sort buffer size to ensure SortingFileWriter gets used
@@ -195,7 +200,6 @@ public abstract class BaseHiveConnectorTest
                         // Make weighted split scheduling more conservative to avoid OOMs in test
                         "hive.minimum-assigned-split-weight", "0.5"))
                 .addExtraProperty("legacy.allow-set-view-authorization", "true")
-                .setExchangeManagerProperties(exchangeManagerProperties)
                 .setInitialTables(REQUIRED_TPCH_TABLES)
                 .build();
 
