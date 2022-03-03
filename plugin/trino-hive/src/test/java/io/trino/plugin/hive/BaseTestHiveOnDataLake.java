@@ -32,6 +32,7 @@ import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreConfig;
 import io.trino.plugin.hive.s3.S3HiveQueryRunner;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
+import org.testcontainers.containers.Network;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -46,30 +47,34 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.testcontainers.containers.Network.newNetwork;
 
 public abstract class BaseTestHiveOnDataLake
         extends AbstractTestQueryFramework
 {
-    private static final String HIVE_TEST_SCHEMA = "hive_insert_overwrite";
+    protected final String bucketName;
+    protected final String schemaName;
+    protected final Network network;
 
-    private String bucketName;
-    private HiveMinioDataLake dockerizedS3DataLake;
-    private HiveMetastore metastoreClient;
+    protected HiveMinioDataLake dockerizedS3DataLake;
+    protected HiveMetastore metastoreClient;
 
     private final String hiveHadoopImage;
 
     public BaseTestHiveOnDataLake(String hiveHadoopImage)
     {
         this.hiveHadoopImage = requireNonNull(hiveHadoopImage, "hiveHadoopImage is null");
+        this.bucketName = "test-hive-data-lake-" + randomTableSuffix();
+        this.schemaName = "hive_data_lake_" + randomTableSuffix();
+        this.network = closeAfterClass(newNetwork());
     }
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        this.bucketName = "test-hive-insert-overwrite-" + randomTableSuffix();
         this.dockerizedS3DataLake = closeAfterClass(
-                new HiveMinioDataLake(bucketName, ImmutableMap.of(), hiveHadoopImage));
+                new HiveMinioDataLake(bucketName, ImmutableMap.of(), hiveHadoopImage, Optional.of(network)));
         this.dockerizedS3DataLake.start();
         this.metastoreClient = new BridgingHiveMetastore(new ThriftHiveMetastore(
                 new TestingMetastoreLocator(
@@ -87,16 +92,18 @@ public abstract class BaseTestHiveOnDataLake
                         new NoHdfsAuthentication()),
                 false),
                 HiveIdentity.none());
-        return S3HiveQueryRunner.create(
-                dockerizedS3DataLake,
-                ImmutableMap.<String, String>builder()
-                        // This is required when using MinIO which requires path style access
-                        .put("hive.insert-existing-partitions-behavior", "OVERWRITE")
-                        .put("hive.non-managed-table-writes-enabled", "true")
-                        // Below are required to enable caching on metastore
-                        .put("hive.metastore-cache-ttl", "1d")
-                        .put("hive.metastore-refresh-interval", "1d")
-                        .buildOrThrow());
+        return S3HiveQueryRunner.create(dockerizedS3DataLake, getAdditionalHivePropertiesBuilder().buildOrThrow());
+    }
+
+    protected ImmutableMap.Builder<String, String> getAdditionalHivePropertiesBuilder()
+    {
+        return ImmutableMap.<String, String>builder()
+                // This is required when using MinIO which requires path style access
+                .put("hive.insert-existing-partitions-behavior", "OVERWRITE")
+                .put("hive.non-managed-table-writes-enabled", "true")
+                // Below are required to enable caching on metastore
+                .put("hive.metastore-cache-ttl", "1d")
+                .put("hive.metastore-refresh-interval", "1d");
     }
 
     @BeforeClass
@@ -104,7 +111,7 @@ public abstract class BaseTestHiveOnDataLake
     {
         computeActual(format(
                 "CREATE SCHEMA hive.%1$s WITH (location='s3a://%2$s/%1$s')",
-                HIVE_TEST_SCHEMA,
+                schemaName,
                 bucketName));
     }
 
@@ -190,7 +197,7 @@ public abstract class BaseTestHiveOnDataLake
                 "partitioned_by=ARRAY['regionkey']",
                 "bucketed_by = ARRAY['nationkey']",
                 "bucket_count = 3",
-                format("external_location = 's3a://%s/%s/%s/'", this.bucketName, HIVE_TEST_SCHEMA, testTable)));
+                format("external_location = 's3a://%s/%s/%s/'", this.bucketName, schemaName, testTable)));
         copyTpchNationToTable(testTable);
         assertOverwritePartition(externalTableName);
     }
@@ -231,7 +238,7 @@ public abstract class BaseTestHiveOnDataLake
         // Refresh cache for schema_name => 'dummy_schema', table_name => 'dummy_table', partition_column =>
         getQueryRunner().execute(format(
                 "CALL system.flush_metadata_cache(schema_name => '%s', table_name => '%s', partition_column => ARRAY['%s'], partition_value => ARRAY['%s'])",
-                HIVE_TEST_SCHEMA,
+                schemaName,
                 tableName,
                 partitionColumn,
                 partitionValue1));
@@ -247,7 +254,7 @@ public abstract class BaseTestHiveOnDataLake
     private void renamePartitionResourcesOutsideTrino(String tableName, String partitionColumn, String regionKey)
     {
         String partitionName = format("%s=%s", partitionColumn, regionKey);
-        String partitionS3KeyPrefix = format("%s/%s/%s", HIVE_TEST_SCHEMA, tableName, partitionName);
+        String partitionS3KeyPrefix = format("%s/%s/%s", schemaName, tableName, partitionName);
         String renamedPartitionSuffix = "CP";
 
         // Copy whole partition to new location
@@ -264,13 +271,13 @@ public abstract class BaseTestHiveOnDataLake
                 });
 
         // Delete old partition and update metadata to point to location of new copy
-        Table hiveTable = metastoreClient.getTable(HIVE_TEST_SCHEMA, tableName).get();
+        Table hiveTable = metastoreClient.getTable(schemaName, tableName).get();
         Partition hivePartition = metastoreClient.getPartition(hiveTable, List.of(regionKey)).get();
         Map<String, PartitionStatistics> partitionStatistics =
                 metastoreClient.getPartitionStatistics(hiveTable, List.of(hivePartition));
 
-        metastoreClient.dropPartition(HIVE_TEST_SCHEMA, tableName, List.of(regionKey), true);
-        metastoreClient.addPartitions(HIVE_TEST_SCHEMA, tableName, List.of(
+        metastoreClient.dropPartition(schemaName, tableName, List.of(regionKey), true);
+        metastoreClient.addPartitions(schemaName, tableName, List.of(
                 new PartitionWithStatistics(
                         Partition.builder(hivePartition)
                                 .withStorage(builder -> builder.setLocation(
@@ -333,7 +340,7 @@ public abstract class BaseTestHiveOnDataLake
 
     protected String getTestTableName(String tableName)
     {
-        return format("hive.%s.%s", HIVE_TEST_SCHEMA, tableName);
+        return format("hive.%s.%s", schemaName, tableName);
     }
 
     protected String getCreateTableStatement(String tableName, String... propertiesEntries)
