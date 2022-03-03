@@ -25,7 +25,6 @@ import io.airlift.units.Duration;
 import io.airlift.units.MaxDataSize;
 import io.trino.sql.analyzer.RegexLibrary;
 
-import javax.annotation.Nullable;
 import javax.validation.constraints.DecimalMax;
 import javax.validation.constraints.DecimalMin;
 import javax.validation.constraints.Min;
@@ -150,9 +149,6 @@ public class FeaturesConfig
     private boolean allowSetViewAuthorization;
 
     private boolean hideInaccessibleColumns;
-
-    private String additionalPlanOptimizerClasses;
-    private boolean allowCustomPlanOptimizers;
 
     public enum JoinReorderingStrategy
     {
@@ -1106,5 +1102,4 @@ public class FeaturesConfig
         this.allowSetViewAuthorization = allowSetViewAuthorization;
         return this;
     }
-
 }
