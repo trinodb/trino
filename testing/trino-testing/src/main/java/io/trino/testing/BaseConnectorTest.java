@@ -19,7 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.UncheckedTimeoutException;
 import io.airlift.units.Duration;
 import io.trino.Session;
-import io.trino.cost.OptimizerConfig.JoinDistributionType;
+import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.cost.StatsAndCosts;
 import io.trino.dispatcher.DispatchManager;
 import io.trino.execution.QueryInfo;

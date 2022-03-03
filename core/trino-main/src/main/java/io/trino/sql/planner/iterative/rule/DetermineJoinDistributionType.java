@@ -17,7 +17,7 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Ordering;
 import io.airlift.units.DataSize;
-import io.trino.cost.OptimizerConfig.JoinDistributionType;
+import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.cost.CostComparator;
 import io.trino.cost.LocalCostEstimate;
 import io.trino.cost.PlanNodeStatsEstimate;
@@ -40,7 +40,7 @@ import java.util.List;
 
 import static io.trino.SystemSessionProperties.getJoinDistributionType;
 import static io.trino.SystemSessionProperties.getJoinMaxBroadcastTableSize;
-import static io.trino.cost.OptimizerConfig.JoinDistributionType.AUTOMATIC;
+import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.AUTOMATIC;
 import static io.trino.cost.CostCalculatorWithEstimatedExchanges.calculateJoinCostWithoutOutput;
 import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isAtMostScalar;
 import static io.trino.sql.planner.plan.JoinNode.DistributionType.PARTITIONED;
