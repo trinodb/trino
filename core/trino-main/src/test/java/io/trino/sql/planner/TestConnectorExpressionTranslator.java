@@ -100,6 +100,20 @@ public class TestConnectorExpressionTranslator
                         List.of(new Variable("varchar_symbol_1", VARCHAR_TYPE),
                                 new Constant(Slices.wrappedBuffer(pattern.getBytes(UTF_8)), createVarcharType(pattern.length()))))));
 
+        String escape = "\\";
+        assertTranslationToConnectorExpression(
+                TEST_SESSION,
+                new LikePredicate(
+                        new SymbolReference("varchar_symbol_1"),
+                        new StringLiteral(pattern),
+                        Optional.of(new StringLiteral(escape))),
+                Optional.of(new Call(BOOLEAN,
+                        LIKE_PATTERN_FUNCTION_NAME,
+                        List.of(
+                                new Variable("varchar_symbol_1", VARCHAR_TYPE),
+                                new Constant(Slices.wrappedBuffer(pattern.getBytes(UTF_8)), createVarcharType(pattern.length())),
+                                new Constant(Slices.wrappedBuffer(escape.getBytes(UTF_8)), createVarcharType(escape.length()))))));
+
         transaction(new TestingTransactionManager(), new AllowAllAccessControl())
                 .readOnly()
                 .execute(TEST_SESSION, transactionSession -> {

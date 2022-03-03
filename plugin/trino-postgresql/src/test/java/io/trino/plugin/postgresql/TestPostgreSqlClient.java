@@ -202,7 +202,7 @@ public class TestPostgreSqlClient
                 createTestingTypeAnalyzer(PLANNER_CONTEXT),
                 TypeProvider.viewOf(Map.of(new Symbol("c_varchar"), VARCHAR_COLUMN.getColumnType())),
                 PLANNER_CONTEXT))
-                // Currently, LIKE with ESCAPE isn't converted to ConnectorExpression. Update the test when it gets converted.
-                .isEmpty();
+                // TODO: Implement translation in the client
+                .isPresent();
     }
 }

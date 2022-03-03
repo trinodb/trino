@@ -1069,6 +1069,12 @@ public abstract class BaseElasticsearchConnectorTest
                 .put("text_column", "soome tex\\t")
                 .buildOrThrow());
 
+        // Add another document to make sure '%' can be escaped and not treated as any character
+        index(indexName, ImmutableMap.<String, Object>builder()
+                .put("keyword_column", "soome%text")
+                .put("text_column", "soome%text")
+                .buildOrThrow());
+
         assertThat(query("" +
                 "SELECT " +
                 "keyword_column " +
@@ -1083,6 +1089,14 @@ public abstract class BaseElasticsearchConnectorTest
                  "FROM " + indexName + " " +
                  "WHERE text_column LIKE 's_.m%ex\\t'"))
                 .matches("VALUES VARCHAR 'so.me tex\\t'");
+
+        assertThat(query("" +
+                "SELECT " +
+                "text_column " +
+                "FROM " + indexName + " " +
+                "WHERE keyword_column LIKE 'soome$%%' ESCAPE '$'"))
+                .matches("VALUES VARCHAR 'soome%text'")
+                .isFullyPushedDown();
     }
 
     @Test
