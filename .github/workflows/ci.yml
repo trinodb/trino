@@ -395,7 +395,8 @@ jobs:
             - { modules: plugin/trino-sqlserver }
             - { modules: plugin/trino-memsql }
             - { modules: plugin/trino-oracle }
-            - { modules: plugin/trino-kudu }
+            # TODO: re-enable kudu tests after this issue is resolved: https://github.com/trinodb/trino/issues/11203
+            # - { modules: plugin/trino-kudu }
             - { modules: plugin/trino-druid }
             - { modules: plugin/trino-iceberg }
             - { modules: plugin/trino-iceberg, profile: test-failure-recovery }
