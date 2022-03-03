@@ -24,6 +24,8 @@ public interface Int128State
 
     void setNotNull(boolean notNull);
 
+    void addNotNull(boolean isNotNull);
+
     long[] getArray();
 
     int getArrayOffset();
