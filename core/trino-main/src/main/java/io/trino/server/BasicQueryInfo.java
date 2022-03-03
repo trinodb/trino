@@ -50,6 +50,7 @@ public class BasicQueryInfo
     private final Optional<String> updateType;
     private final Optional<String> preparedQuery;
     private final BasicQueryStats queryStats;
+    private final BasicQueryStats queryStatsNoFailedTasks;
     private final ErrorType errorType;
     private final ErrorCode errorCode;
     private final Optional<QueryType> queryType;
@@ -66,6 +67,7 @@ public class BasicQueryInfo
             @JsonProperty("updateType") Optional<String> updateType,
             @JsonProperty("preparedQuery") Optional<String> preparedQuery,
             @JsonProperty("queryStats") BasicQueryStats queryStats,
+            @JsonProperty("queryStatsNoFailedTasks") BasicQueryStats queryStatsNoFailedTasks,
             @JsonProperty("errorType") ErrorType errorType,
             @JsonProperty("errorCode") ErrorCode errorCode,
             @JsonProperty("queryType") Optional<QueryType> queryType)
@@ -82,6 +84,7 @@ public class BasicQueryInfo
         this.updateType = requireNonNull(updateType, "updateType is null");
         this.preparedQuery = requireNonNull(preparedQuery, "preparedQuery is null");
         this.queryStats = requireNonNull(queryStats, "queryStats is null");
+        this.queryStatsNoFailedTasks = requireNonNull(queryStatsNoFailedTasks, "queryStatsNoFailedTasks is null");
         this.queryType = requireNonNull(queryType, "queryType is null");
     }
 
@@ -97,6 +100,7 @@ public class BasicQueryInfo
                 Optional.ofNullable(queryInfo.getUpdateType()),
                 queryInfo.getPreparedQuery(),
                 new BasicQueryStats(queryInfo.getQueryStats()),
+                new BasicQueryStats(queryInfo.getQueryStatsNoFailedTasks()),
                 queryInfo.getErrorType(),
                 queryInfo.getErrorCode(),
                 queryInfo.getQueryType());
@@ -160,6 +164,12 @@ public class BasicQueryInfo
     public BasicQueryStats getQueryStats()
     {
         return queryStats;
+    }
+
+    @JsonProperty
+    public BasicQueryStats getQueryStatsNoFailedTasks()
+    {
+        return queryStatsNoFailedTasks;
     }
 
     @Nullable

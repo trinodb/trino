@@ -348,6 +348,26 @@ public class StageStateMachine
 
         List<TaskInfo> taskInfos = ImmutableList.copyOf(taskInfosSupplier.get());
 
+        ExecutionFailureInfo failureInfo = null;
+        if (state == FAILED) {
+            failureInfo = failureCause.get();
+        }
+        return new StageInfo(
+                stageId,
+                state,
+                fragment,
+                fragment.getPartitioning().isCoordinatorOnly(),
+                fragment.getTypes(),
+                getStageStats(taskInfos, true),
+                getStageStats(taskInfos, false),
+                taskInfos,
+                ImmutableList.of(),
+                tables,
+                failureInfo);
+    }
+
+    private StageStats getStageStats(List<TaskInfo> taskInfos, boolean includeFailedTasks)
+    {
         int totalTasks = taskInfos.size();
         int runningTasks = 0;
         int completedTasks = 0;
@@ -400,6 +420,10 @@ public class StageStateMachine
 
         Map<String, OperatorStats> operatorToStats = new HashMap<>();
         for (TaskInfo taskInfo : taskInfos) {
+            if (!includeFailedTasks && taskInfo.getTaskStatus().getState() == TaskState.FAILED) {
+                continue;
+            }
+
             TaskState taskState = taskInfo.getTaskStatus().getState();
             if (taskState.isDone()) {
                 completedTasks++;
@@ -471,7 +495,7 @@ public class StageStateMachine
             }
         }
 
-        StageStats stageStats = new StageStats(
+        return new StageStats(
                 schedulingComplete.get(),
                 getSplitDistribution.snapshot(),
 
@@ -525,22 +549,6 @@ public class StageStateMachine
                         (int) (1.0 * totalFullGcSec / fullGcCount)),
 
                 ImmutableList.copyOf(operatorToStats.values()));
-
-        ExecutionFailureInfo failureInfo = null;
-        if (state == FAILED) {
-            failureInfo = failureCause.get();
-        }
-        return new StageInfo(
-                stageId,
-                state,
-                fragment,
-                fragment.getPartitioning().isCoordinatorOnly(),
-                fragment.getTypes(),
-                stageStats,
-                taskInfos,
-                ImmutableList.of(),
-                tables,
-                failureInfo);
     }
 
     public void recordGetSplitTime(long startNanos)

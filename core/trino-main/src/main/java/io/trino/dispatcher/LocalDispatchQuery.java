@@ -181,7 +181,7 @@ public class LocalDispatchQuery
     {
         // observe submitted before getting the state, to ensure a failed query stat is visible
         boolean dispatched = submitted.isDone();
-        BasicQueryInfo queryInfo = stateMachine.getBasicQueryInfo(Optional.empty());
+        BasicQueryInfo queryInfo = stateMachine.getBasicQueryInfo(Optional.empty(), Optional.empty());
 
         if (queryInfo.getState() == QueryState.FAILED) {
             ExecutionFailureInfo failureInfo = stateMachine.getFailureInfo()
@@ -259,7 +259,7 @@ public class LocalDispatchQuery
     {
         return tryGetQueryExecution()
                 .map(QueryExecution::getBasicQueryInfo)
-                .orElseGet(() -> stateMachine.getBasicQueryInfo(Optional.empty()));
+                .orElseGet(() -> stateMachine.getBasicQueryInfo(Optional.empty(), Optional.empty()));
     }
 
     @Override

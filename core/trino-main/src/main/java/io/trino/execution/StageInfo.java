@@ -40,6 +40,7 @@ public class StageInfo
     private final boolean coordinatorOnly;
     private final List<Type> types;
     private final StageStats stageStats;
+    private final StageStats stageStatsNoFailedTasks;
     private final List<TaskInfo> tasks;
     private final List<StageInfo> subStages;
     private final ExecutionFailureInfo failureCause;
@@ -53,6 +54,7 @@ public class StageInfo
             @JsonProperty("coordinatorOnly") boolean coordinatorOnly,
             @JsonProperty("types") List<Type> types,
             @JsonProperty("stageStats") StageStats stageStats,
+            @JsonProperty("stageStatsNoFailedTasks") StageStats stageStatsNoFailedTasks,
             @JsonProperty("tasks") List<TaskInfo> tasks,
             @JsonProperty("subStages") List<StageInfo> subStages,
             @JsonProperty("tables") Map<PlanNodeId, TableInfo> tables,
@@ -61,6 +63,7 @@ public class StageInfo
         requireNonNull(stageId, "stageId is null");
         requireNonNull(state, "state is null");
         requireNonNull(stageStats, "stageStats is null");
+        requireNonNull(stageStatsNoFailedTasks, "stageStatsNoFailedTasks is null");
         requireNonNull(tasks, "tasks is null");
         requireNonNull(subStages, "subStages is null");
         requireNonNull(tables, "tables is null");
@@ -71,6 +74,7 @@ public class StageInfo
         this.coordinatorOnly = coordinatorOnly;
         this.types = types;
         this.stageStats = stageStats;
+        this.stageStatsNoFailedTasks = stageStatsNoFailedTasks;
         this.tasks = ImmutableList.copyOf(tasks);
         this.subStages = subStages;
         this.failureCause = failureCause;
@@ -112,6 +116,12 @@ public class StageInfo
     public StageStats getStageStats()
     {
         return stageStats;
+    }
+
+    @JsonProperty
+    public StageStats getStageStatsNoFailedTasks()
+    {
+        return stageStatsNoFailedTasks;
     }
 
     @JsonProperty

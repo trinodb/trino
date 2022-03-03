@@ -123,7 +123,7 @@ public class LocalDispatchQueryFactory
         //
         // Note that for immediate and in-order delivery of query events we depend on synchronous nature of
         // QueryMonitor and EventListenerManager.
-        queryMonitor.queryCreatedEvent(stateMachine.getBasicQueryInfo(Optional.empty()));
+        queryMonitor.queryCreatedEvent(stateMachine.getBasicQueryInfo(Optional.empty(), Optional.empty()));
 
         ListenableFuture<QueryExecution> queryExecutionFuture = executor.submit(() -> {
             QueryExecutionFactory<?> queryExecutionFactory = executionFactories.get(preparedQuery.getStatement().getClass());

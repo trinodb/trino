@@ -348,7 +348,7 @@ public class QueryStateMachine
         peakTaskTotalMemory.accumulateAndGet(taskTotalMemoryInBytes, Math::max);
     }
 
-    public BasicQueryInfo getBasicQueryInfo(Optional<BasicStageStats> rootStage)
+    public BasicQueryInfo getBasicQueryInfo(Optional<BasicStageStats> rootStageStatsOptional, Optional<BasicStageStats> rootStageStatsNoFailedTasksOptional)
     {
         // Query state must be captured first in order to provide a
         // correct view of the query.  For example, building this
@@ -364,7 +364,30 @@ public class QueryStateMachine
             }
         }
 
-        BasicStageStats stageStats = rootStage.orElse(EMPTY_STAGE_STATS);
+        BasicStageStats rootStageStats = rootStageStatsOptional.orElse(EMPTY_STAGE_STATS);
+        BasicStageStats rootStageStatsNoFailedTasks = rootStageStatsNoFailedTasksOptional.orElse(EMPTY_STAGE_STATS);
+        BasicQueryStats queryStats = getBasicQueryStats(rootStageStats);
+        BasicQueryStats queryStatsNoFailedTasks = getBasicQueryStats(rootStageStatsNoFailedTasks);
+
+        return new BasicQueryInfo(
+                queryId,
+                session.toSessionRepresentation(),
+                Optional.of(resourceGroup),
+                state,
+                rootStageStats.isScheduled(),
+                self,
+                query,
+                Optional.ofNullable(updateType.get()),
+                preparedQuery,
+                queryStats,
+                queryStatsNoFailedTasks,
+                errorCode == null ? null : errorCode.getType(),
+                errorCode,
+                queryType);
+    }
+
+    private BasicQueryStats getBasicQueryStats(BasicStageStats stageStats)
+    {
         BasicQueryStats queryStats = new BasicQueryStats(
                 queryStateTimer.getCreateTime(),
                 getEndTime().orElse(null),
@@ -393,21 +416,7 @@ public class QueryStateMachine
                 stageStats.isFullyBlocked(),
                 stageStats.getBlockedReasons(),
                 stageStats.getProgressPercentage());
-
-        return new BasicQueryInfo(
-                queryId,
-                session.toSessionRepresentation(),
-                Optional.of(resourceGroup),
-                state,
-                stageStats.isScheduled(),
-                self,
-                query,
-                Optional.ofNullable(updateType.get()),
-                preparedQuery,
-                queryStats,
-                errorCode == null ? null : errorCode.getType(),
-                errorCode,
-                queryType);
+        return queryStats;
     }
 
     @VisibleForTesting
@@ -441,6 +450,7 @@ public class QueryStateMachine
                 query,
                 preparedQuery,
                 getQueryStats(rootStage),
+                getQueryStatsNoFailedTasks(rootStage),
                 Optional.ofNullable(setCatalog.get()),
                 Optional.ofNullable(setSchema.get()),
                 Optional.ofNullable(setPath.get()),
@@ -466,6 +476,16 @@ public class QueryStateMachine
     }
 
     private QueryStats getQueryStats(Optional<StageInfo> rootStage)
+    {
+        return getQueryStats(rootStage, true);
+    }
+
+    private QueryStats getQueryStatsNoFailedTasks(Optional<StageInfo> rootStage)
+    {
+        return getQueryStats(rootStage, false);
+    }
+
+    private QueryStats getQueryStats(Optional<StageInfo> rootStage, boolean includeFailedTasks)
     {
         int totalTasks = 0;
         int runningTasks = 0;
@@ -512,7 +532,7 @@ public class QueryStateMachine
         ImmutableList.Builder<OperatorStats> operatorStatsSummary = ImmutableList.builder();
         boolean completeInfo = true;
         for (StageInfo stageInfo : getAllStages(rootStage)) {
-            StageStats stageStats = stageInfo.getStageStats();
+            StageStats stageStats = includeFailedTasks ? stageInfo.getStageStats() : stageInfo.getStageStatsNoFailedTasks();
             totalTasks += stageStats.getTotalTasks();
             runningTasks += stageStats.getRunningTasks();
             completedTasks += stageStats.getCompletedTasks();
@@ -556,11 +576,11 @@ public class QueryStateMachine
             stageGcStatistics.add(stageStats.getGcInfo());
 
             completeInfo = completeInfo && stageInfo.isCompleteInfo();
-            operatorStatsSummary.addAll(stageInfo.getStageStats().getOperatorSummaries());
+            operatorStatsSummary.addAll(stageStats.getOperatorSummaries());
         }
 
         if (rootStage.isPresent()) {
-            StageStats outputStageStats = rootStage.get().getStageStats();
+            StageStats outputStageStats = includeFailedTasks ? rootStage.get().getStageStats() : rootStage.get().getStageStatsNoFailedTasks();
             outputDataSize += outputStageStats.getOutputDataSize().toBytes();
             outputPositions += outputStageStats.getOutputPositions();
         }
@@ -1080,6 +1100,7 @@ public class QueryStateMachine
                 outputStage.isCoordinatorOnly(),
                 outputStage.getTypes(),
                 outputStage.getStageStats(),
+                outputStage.getStageStatsNoFailedTasks(),
                 ImmutableList.of(), // Remove the tasks
                 ImmutableList.of(), // Remove the substages
                 ImmutableMap.of(), // Remove tables
@@ -1095,6 +1116,7 @@ public class QueryStateMachine
                 queryInfo.getQuery(),
                 queryInfo.getPreparedQuery(),
                 pruneQueryStats(queryInfo.getQueryStats()),
+                pruneQueryStats(queryInfo.getQueryStatsNoFailedTasks()),
                 queryInfo.getSetCatalog(),
                 queryInfo.getSetSchema(),
                 queryInfo.getSetPath(),

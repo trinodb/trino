@@ -480,6 +480,11 @@ public class SqlQueryScheduler
         return stageManager.getBasicStageStats();
     }
 
+    public BasicStageStats getBasicStageStatsNoFailedTasks()
+    {
+        return stageManager.getBasicStageStatsNoFailedTasks();
+    }
+
     public StageInfo getStageInfo()
     {
         return stageManager.getStageInfo();
@@ -676,8 +681,18 @@ public class SqlQueryScheduler
 
         public BasicStageStats getBasicStageStats()
         {
+            return getBasicStageStats(true);
+        }
+
+        public BasicStageStats getBasicStageStatsNoFailedTasks()
+        {
+            return getBasicStageStats(false);
+        }
+
+        private BasicStageStats getBasicStageStats(boolean includeFailedTasks)
+        {
             List<BasicStageStats> stageStats = stages.values().stream()
-                    .map(SqlStage::getBasicStageStats)
+                    .map(includeFailedTasks ? SqlStage::getBasicStageStats : SqlStage::getBasicStageStatsNoFailedTasks)
                     .collect(toImmutableList());
 
             return aggregateBasicStageStats(stageStats);
@@ -709,6 +724,7 @@ public class SqlQueryScheduler
                     parent.isCoordinatorOnly(),
                     parent.getTypes(),
                     parent.getStageStats(),
+                    parent.getStageStatsNoFailedTasks(),
                     parent.getTasks(),
                     childStages,
                     parent.getTables(),

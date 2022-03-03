@@ -193,6 +193,11 @@ public final class SqlStage
         return stateMachine.getBasicStageStats(this::getAllTaskInfo);
     }
 
+    public BasicStageStats getBasicStageStatsNoFailedTasks()
+    {
+        return stateMachine.getBasicStageStats(this::getNoFailedTaskInfo);
+    }
+
     public StageInfo getStageInfo()
     {
         return stateMachine.getStageInfo(this::getAllTaskInfo);
@@ -202,6 +207,14 @@ public final class SqlStage
     {
         return tasks.values().stream()
                 .map(RemoteTask::getTaskInfo)
+                .collect(toImmutableList());
+    }
+
+    private Iterable<TaskInfo> getNoFailedTaskInfo()
+    {
+        return tasks.values().stream()
+                .map(RemoteTask::getTaskInfo)
+                .filter(task -> task.getTaskStatus().getState() != TaskState.FAILED) // todo: should we filter out tasks which were cancelled as a reason of other tasks failing?
                 .collect(toImmutableList());
     }
 

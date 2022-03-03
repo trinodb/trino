@@ -358,7 +358,12 @@ public class SqlQueryExecution
     {
         return stateMachine.getFinalQueryInfo()
                 .map(BasicQueryInfo::new)
-                .orElseGet(() -> stateMachine.getBasicQueryInfo(Optional.ofNullable(queryScheduler.get()).map(SqlQueryScheduler::getBasicStageStats)));
+                .orElseGet(() -> {
+                    Optional<SqlQueryScheduler> sqlQueryScheduler = Optional.ofNullable(queryScheduler.get());
+                    Optional<BasicStageStats> basicStageStats = sqlQueryScheduler.map(SqlQueryScheduler::getBasicStageStats);
+                    Optional<BasicStageStats> basicStageStatsNoFailedTasks = sqlQueryScheduler.map(SqlQueryScheduler::getBasicStageStatsNoFailedTasks);
+                    return stateMachine.getBasicQueryInfo(basicStageStats, basicStageStatsNoFailedTasks);
+                });
     }
 
     @Override

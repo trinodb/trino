@@ -107,6 +107,29 @@ public class MockManagedQueryExecution
     @Override
     public BasicQueryInfo getBasicQueryInfo()
     {
+        BasicQueryStats queryStats = new BasicQueryStats(
+                new DateTime(1),
+                new DateTime(2),
+                new Duration(3, NANOSECONDS),
+                new Duration(4, NANOSECONDS),
+                new Duration(5, NANOSECONDS),
+                6,
+                7,
+                8,
+                9,
+                DataSize.ofBytes(14),
+                15,
+                DataSize.ofBytes(13),
+                16.0,
+                memoryUsage,
+                memoryUsage,
+                DataSize.ofBytes(19),
+                DataSize.ofBytes(20),
+                cpuUsage,
+                new Duration(22, NANOSECONDS),
+                false,
+                ImmutableSet.of(),
+                OptionalDouble.empty());
         return new BasicQueryInfo(
                 new QueryId("test"),
                 session.toSessionRepresentation(),
@@ -117,29 +140,8 @@ public class MockManagedQueryExecution
                 "SELECT 1",
                 Optional.empty(),
                 Optional.empty(),
-                new BasicQueryStats(
-                        new DateTime(1),
-                        new DateTime(2),
-                        new Duration(3, NANOSECONDS),
-                        new Duration(4, NANOSECONDS),
-                        new Duration(5, NANOSECONDS),
-                        6,
-                        7,
-                        8,
-                        9,
-                        DataSize.ofBytes(14),
-                        15,
-                        DataSize.ofBytes(13),
-                        16.0,
-                        memoryUsage,
-                        memoryUsage,
-                        DataSize.ofBytes(19),
-                        DataSize.ofBytes(20),
-                        cpuUsage,
-                        new Duration(22, NANOSECONDS),
-                        false,
-                        ImmutableSet.of(),
-                        OptionalDouble.empty()),
+                queryStats,
+                queryStats,
                 null,
                 null,
                 Optional.empty());
@@ -148,6 +150,70 @@ public class MockManagedQueryExecution
     @Override
     public QueryInfo getFullQueryInfo()
     {
+        QueryStats queryStats = new QueryStats(
+                new DateTime(1),
+                new DateTime(2),
+                new DateTime(3),
+                new DateTime(4),
+                new Duration(6, NANOSECONDS),
+                new Duration(5, NANOSECONDS),
+                new Duration(31, NANOSECONDS),
+                new Duration(41, NANOSECONDS),
+                new Duration(7, NANOSECONDS),
+                new Duration(8, NANOSECONDS),
+
+                new Duration(100, NANOSECONDS),
+                new Duration(200, NANOSECONDS),
+
+                9,
+                10,
+                11,
+
+                12,
+                13,
+                15,
+                30,
+                16,
+
+                17.0,
+                DataSize.ofBytes(18),
+                DataSize.ofBytes(19),
+                DataSize.ofBytes(20),
+                DataSize.ofBytes(21),
+                DataSize.ofBytes(22),
+                DataSize.ofBytes(23),
+                DataSize.ofBytes(24),
+                DataSize.ofBytes(25),
+                DataSize.ofBytes(26),
+
+                true,
+                new Duration(20, NANOSECONDS),
+                new Duration(21, NANOSECONDS),
+                new Duration(23, NANOSECONDS),
+                false,
+                ImmutableSet.of(),
+
+                DataSize.ofBytes(241),
+                251,
+                new Duration(24, NANOSECONDS),
+
+                DataSize.ofBytes(242),
+                252,
+
+                DataSize.ofBytes(25),
+                26,
+
+                DataSize.ofBytes(27),
+                28,
+
+                DataSize.ofBytes(29),
+                30,
+
+                DataSize.ofBytes(31),
+
+                ImmutableList.of(),
+                DynamicFiltersStats.EMPTY,
+                ImmutableList.of());
         return new QueryInfo(
                 new QueryId("test"),
                 session.toSessionRepresentation(),
@@ -157,70 +223,8 @@ public class MockManagedQueryExecution
                 ImmutableList.of(),
                 "SELECT 1",
                 Optional.empty(),
-                new QueryStats(
-                        new DateTime(1),
-                        new DateTime(2),
-                        new DateTime(3),
-                        new DateTime(4),
-                        new Duration(6, NANOSECONDS),
-                        new Duration(5, NANOSECONDS),
-                        new Duration(31, NANOSECONDS),
-                        new Duration(41, NANOSECONDS),
-                        new Duration(7, NANOSECONDS),
-                        new Duration(8, NANOSECONDS),
-
-                        new Duration(100, NANOSECONDS),
-                        new Duration(200, NANOSECONDS),
-
-                        9,
-                        10,
-                        11,
-
-                        12,
-                        13,
-                        15,
-                        30,
-                        16,
-
-                        17.0,
-                        DataSize.ofBytes(18),
-                        DataSize.ofBytes(19),
-                        DataSize.ofBytes(20),
-                        DataSize.ofBytes(21),
-                        DataSize.ofBytes(22),
-                        DataSize.ofBytes(23),
-                        DataSize.ofBytes(24),
-                        DataSize.ofBytes(25),
-                        DataSize.ofBytes(26),
-
-                        true,
-                        new Duration(20, NANOSECONDS),
-                        new Duration(21, NANOSECONDS),
-                        new Duration(23, NANOSECONDS),
-                        false,
-                        ImmutableSet.of(),
-
-                        DataSize.ofBytes(241),
-                        251,
-                        new Duration(24, NANOSECONDS),
-
-                        DataSize.ofBytes(242),
-                        252,
-
-                        DataSize.ofBytes(25),
-                        26,
-
-                        DataSize.ofBytes(27),
-                        28,
-
-                        DataSize.ofBytes(29),
-                        30,
-
-                        DataSize.ofBytes(31),
-
-                        ImmutableList.of(),
-                        DynamicFiltersStats.EMPTY,
-                        ImmutableList.of()),
+                queryStats,
+                queryStats,
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),

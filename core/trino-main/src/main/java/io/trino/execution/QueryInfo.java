@@ -56,6 +56,7 @@ public class QueryInfo
     private final String query;
     private final Optional<String> preparedQuery;
     private final QueryStats queryStats;
+    private final QueryStats queryStatsNoFailedTasks;
     private final Optional<String> setCatalog;
     private final Optional<String> setSchema;
     private final Optional<String> setPath;
@@ -91,6 +92,7 @@ public class QueryInfo
             @JsonProperty("query") String query,
             @JsonProperty("preparedQuery") Optional<String> preparedQuery,
             @JsonProperty("queryStats") QueryStats queryStats,
+            @JsonProperty("queryStatsNoFailedTasks") QueryStats queryStatsNoFailedTasks,
             @JsonProperty("setCatalog") Optional<String> setCatalog,
             @JsonProperty("setSchema") Optional<String> setSchema,
             @JsonProperty("setPath") Optional<String> setPath,
@@ -120,6 +122,7 @@ public class QueryInfo
         requireNonNull(self, "self is null");
         requireNonNull(fieldNames, "fieldNames is null");
         requireNonNull(queryStats, "queryStats is null");
+        requireNonNull(queryStatsNoFailedTasks, "queryStatsNoFailedTasks is null");
         requireNonNull(setCatalog, "setCatalog is null");
         requireNonNull(setSchema, "setSchema is null");
         requireNonNull(setPath, "setPath is null");
@@ -148,6 +151,7 @@ public class QueryInfo
         this.query = query;
         this.preparedQuery = preparedQuery;
         this.queryStats = queryStats;
+        this.queryStatsNoFailedTasks = queryStatsNoFailedTasks;
         this.setCatalog = setCatalog;
         this.setSchema = setSchema;
         this.setPath = setPath;
@@ -225,6 +229,12 @@ public class QueryInfo
     public QueryStats getQueryStats()
     {
         return queryStats;
+    }
+
+    @JsonProperty
+    public QueryStats getQueryStatsNoFailedTasks()
+    {
+        return queryStatsNoFailedTasks;
     }
 
     @JsonProperty

@@ -129,7 +129,7 @@ public class DataDefinitionExecution<T extends Statement>
     {
         return stateMachine.getFinalQueryInfo()
                 .map(BasicQueryInfo::new)
-                .orElseGet(() -> stateMachine.getBasicQueryInfo(Optional.empty()));
+                .orElseGet(() -> stateMachine.getBasicQueryInfo(Optional.empty(), Optional.empty()));
     }
 
     @Override

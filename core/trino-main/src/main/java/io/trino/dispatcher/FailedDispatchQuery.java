@@ -219,6 +219,7 @@ public class FailedDispatchQuery
                 query,
                 preparedQuery,
                 immediateFailureQueryStats(),
+                immediateFailureQueryStats(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
