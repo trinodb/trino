@@ -560,6 +560,21 @@ public class TestHiveRedirectionToIceberg
         onTrino().executeQuery("DROP TABLE " + icebergTableName);
     }
 
+    @Test(groups = {HIVE_ICEBERG_REDIRECTIONS, PROFILE_SPECIFIC_TESTS})
+    public void testDeny()
+    {
+        String tableName = "iceberg_deny_" + randomTableSuffix();
+        String hiveTableName = "hive.default." + tableName;
+        String icebergTableName = "iceberg.default." + tableName;
+
+        createIcebergTable(icebergTableName, false);
+
+        assertQueryFailure(() -> onTrino().executeQuery("DENY DELETE ON " + hiveTableName + " TO ROLE PUBLIC"))
+                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): line 1:1: Table " + hiveTableName + " is redirected to " + icebergTableName + " and DENY is not supported with table redirections");
+
+        onTrino().executeQuery("DROP TABLE " + icebergTableName);
+    }
+
     private static void createIcebergTable(String tableName, boolean partitioned)
     {
         createIcebergTable(tableName, partitioned, true);
