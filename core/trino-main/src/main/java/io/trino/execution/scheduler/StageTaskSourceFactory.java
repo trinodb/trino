@@ -130,14 +130,14 @@ public class StageTaskSourceFactory
         if (partitioning.equals(SINGLE_DISTRIBUTION)) {
             return SingleDistributionTaskSource.create(fragment, exchangeSourceHandles);
         }
-        else if (partitioning.equals(FIXED_ARBITRARY_DISTRIBUTION) || partitioning.equals(SCALED_WRITER_DISTRIBUTION)) {
+        if (partitioning.equals(FIXED_ARBITRARY_DISTRIBUTION) || partitioning.equals(SCALED_WRITER_DISTRIBUTION)) {
             return ArbitraryDistributionTaskSource.create(
                     fragment,
                     sourceExchanges,
                     exchangeSourceHandles,
                     getFaultTolerantExecutionTargetTaskInputSize(session));
         }
-        else if (partitioning.equals(FIXED_HASH_DISTRIBUTION) || partitioning.getConnectorId().isPresent()) {
+        if (partitioning.equals(FIXED_HASH_DISTRIBUTION) || partitioning.getConnectorId().isPresent()) {
             return HashDistributionTaskSource.create(
                     session,
                     fragment,
@@ -151,7 +151,7 @@ public class StageTaskSourceFactory
                     getFaultTolerantExecutionTargetTaskSplitCount(session) * SplitWeight.standard().getRawValue(),
                     getFaultTolerantExecutionTargetTaskInputSize(session));
         }
-        else if (partitioning.equals(SOURCE_DISTRIBUTION)) {
+        if (partitioning.equals(SOURCE_DISTRIBUTION)) {
             return SourceDistributionTaskSource.create(
                     session,
                     fragment,
