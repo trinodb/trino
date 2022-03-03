@@ -13,7 +13,10 @@
  */
 package io.trino.plugin.elasticsearch;
 
+import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
+
+import java.util.Optional;
 
 import static org.testng.Assert.assertEquals;
 
@@ -22,10 +25,19 @@ public class TestElasticsearchMetadata
     @Test
     public void testLikeToRegexp()
     {
-        assertEquals(ElasticsearchMetadata.likeToRegexp("a_b_c"), "a.b.c");
-        assertEquals(ElasticsearchMetadata.likeToRegexp("a%b%c"), "a.*b.*c");
-        assertEquals(ElasticsearchMetadata.likeToRegexp("a%b_c"), "a.*b.c");
-        assertEquals(ElasticsearchMetadata.likeToRegexp("a[b"), "a\\[b");
-        assertEquals(ElasticsearchMetadata.likeToRegexp("a_\\b"), "a.\\\\b");
+        assertEquals(likeToRegexp("a_b_c", Optional.empty()), "a.b.c");
+        assertEquals(likeToRegexp("a%b%c", Optional.empty()), "a.*b.*c");
+        assertEquals(likeToRegexp("a%b_c", Optional.empty()), "a.*b.c");
+        assertEquals(likeToRegexp("a[b", Optional.empty()), "a\\[b");
+        assertEquals(likeToRegexp("a_\\_b", Optional.of("\\")), "a._b");
+        assertEquals(likeToRegexp("a$_b", Optional.of("$")), "a_b");
+        assertEquals(likeToRegexp("s_.m%ex\\t", Optional.of("$")), "s.\\.m.*ex\\\\t");
+        assertEquals(likeToRegexp("\000%", Optional.empty()), "\000.*");
+        assertEquals(likeToRegexp("\000%", Optional.of("\000")), "%");
+    }
+
+    private static String likeToRegexp(String pattern, Optional<String> escapeChar)
+    {
+        return ElasticsearchMetadata.likeToRegexp(Slices.utf8Slice(pattern), escapeChar.map(Slices::utf8Slice));
     }
 }

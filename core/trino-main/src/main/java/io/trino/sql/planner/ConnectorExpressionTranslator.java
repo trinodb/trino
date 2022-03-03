@@ -26,7 +26,6 @@ import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Constant;
 import io.trino.spi.expression.FieldDereference;
 import io.trino.spi.expression.FunctionName;
-import io.trino.spi.expression.StandardFunctions;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.RowType;
@@ -62,6 +61,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.SliceUtf8.countCodePoints;
 import static io.trino.SystemSessionProperties.isComplexExpressionPushdown;
+import static io.trino.spi.expression.StandardFunctions.LIKE_PATTERN_FUNCTION_NAME;
 import static io.trino.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
 import static java.util.Objects.requireNonNull;
 
@@ -127,9 +127,15 @@ public final class ConnectorExpressionTranslator
                 return Optional.empty();
             }
 
-            // TODO Support ESCAPE character
-            if (StandardFunctions.LIKE_PATTERN_FUNCTION_NAME.equals(call.getFunctionName()) && call.getArguments().size() == 2) {
-                return translateLike(call.getArguments().get(0), call.getArguments().get(1));
+            if (LIKE_PATTERN_FUNCTION_NAME.equals(call.getFunctionName())) {
+                switch (call.getArguments().size()) {
+                    case 2:
+                        return translateLike(call.getArguments().get(0), call.getArguments().get(1), Optional.empty());
+                    case 3:
+                        return translateLike(call.getArguments().get(0), call.getArguments().get(1), Optional.of(call.getArguments().get(2)));
+                    default:
+                        return Optional.empty();
+                }
             }
 
             QualifiedName name = QualifiedName.of(call.getFunctionName().getName());
@@ -148,13 +154,24 @@ public final class ConnectorExpressionTranslator
             return Optional.of(builder.build());
         }
 
-        protected Optional<Expression> translateLike(ConnectorExpression value, ConnectorExpression pattern)
+        protected Optional<Expression> translateLike(ConnectorExpression value, ConnectorExpression pattern, Optional<ConnectorExpression> escape)
         {
             Optional<Expression> translatedValue = translate(session, value);
             Optional<Expression> translatedPattern = translate(session, pattern);
+
             if (translatedValue.isPresent() && translatedPattern.isPresent()) {
+                if (escape.isPresent()) {
+                    Optional<Expression> translatedEscape = translate(session, escape.get());
+                    if (translatedEscape.isEmpty()) {
+                        return Optional.empty();
+                    }
+
+                    return Optional.of(new LikePredicate(translatedValue.get(), translatedPattern.get(), translatedEscape));
+                }
+
                 return Optional.of(new LikePredicate(translatedValue.get(), translatedPattern.get(), Optional.empty()));
             }
+
             return Optional.empty();
         }
     }
@@ -271,12 +288,16 @@ public final class ConnectorExpressionTranslator
         @Override
         protected Optional<ConnectorExpression> visitLikePredicate(LikePredicate node, Void context)
         {
-            // TODO Support ESCAPE character
-            if (node.getEscape().isEmpty()) {
-                Optional<ConnectorExpression> value = process(node.getValue());
-                Optional<ConnectorExpression> pattern = process(node.getPattern());
-                if (value.isPresent() && pattern.isPresent()) {
-                    return Optional.of(new Call(typeOf(node), StandardFunctions.LIKE_PATTERN_FUNCTION_NAME, List.of(value.get(), pattern.get())));
+            Optional<ConnectorExpression> value = process(node.getValue());
+            Optional<ConnectorExpression> pattern = process(node.getPattern());
+            if (value.isPresent() && pattern.isPresent()) {
+                if (node.getEscape().isEmpty()) {
+                    return Optional.of(new Call(typeOf(node), LIKE_PATTERN_FUNCTION_NAME, List.of(value.get(), pattern.get())));
+                }
+
+                Optional<ConnectorExpression> escape = process(node.getEscape().get());
+                if (escape.isPresent()) {
+                    return Optional.of(new Call(typeOf(node), LIKE_PATTERN_FUNCTION_NAME, List.of(value.get(), pattern.get(), escape.get())));
                 }
             }
             return Optional.empty();

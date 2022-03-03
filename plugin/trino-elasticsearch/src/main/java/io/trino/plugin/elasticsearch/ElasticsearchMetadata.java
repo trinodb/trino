@@ -77,17 +77,19 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.airlift.slice.SliceUtf8.getCodePointAt;
 import static io.trino.plugin.elasticsearch.ElasticsearchTableHandle.Type.QUERY;
 import static io.trino.plugin.elasticsearch.ElasticsearchTableHandle.Type.SCAN;
 import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
+import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.expression.StandardFunctions.LIKE_PATTERN_FUNCTION_NAME;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -127,7 +129,9 @@ public class ElasticsearchMetadata
                     false));
 
     // See https://www.elastic.co/guide/en/elasticsearch/reference/current/regexp-syntax.html
-    private static final char[] REGEXP_RESERVED_CHARACTERS = new char[] {'.', '?', '+', '*', '|', '{', '}', '[', ']', '(', ')', '"', '#', '@', '&', '<', '>', '~'};
+    private static final Set<Integer> REGEXP_RESERVED_CHARACTERS = IntStream.of('.', '?', '+', '*', '|', '{', '}', '[', ']', '(', ')', '"', '#', '@', '&', '<', '>', '~')
+            .boxed()
+            .collect(toImmutableSet());
 
     private final Type ipAddressType;
     private final ElasticsearchClient client;
@@ -544,20 +548,24 @@ public class ElasticsearchMetadata
         for (ConnectorExpression expression : expressions) {
             if (expression instanceof Call) {
                 Call call = (Call) expression;
-                // TODO Support ESCAPE character when it's pushed down by the engine
-                if (LIKE_PATTERN_FUNCTION_NAME.equals(call.getFunctionName()) && call.getArguments().size() == 2 &&
-                        call.getArguments().get(0) instanceof Variable && call.getArguments().get(1) instanceof Constant) {
-                    String variableName = ((Variable) call.getArguments().get(0)).getName();
+                if (isSupportedLikeCall(call)) {
+                    List<ConnectorExpression> arguments = call.getArguments();
+                    String variableName = ((Variable) arguments.get(0)).getName();
                     ElasticsearchColumnHandle column = (ElasticsearchColumnHandle) constraint.getAssignments().get(variableName);
                     verifyNotNull(column, "No assignment for %s", variableName);
                     String columnName = column.getName();
-                    Object pattern = ((Constant) call.getArguments().get(1)).getValue();
+                    Object pattern = ((Constant) arguments.get(1)).getValue();
+                    Optional<Slice> escape = Optional.empty();
+                    if (arguments.size() == 3) {
+                        escape = Optional.of((Slice) (((Constant) arguments.get(2)).getValue()));
+                    }
+
                     if (!newRegexes.containsKey(columnName) && pattern instanceof Slice) {
                         IndexMetadata metadata = client.getIndexMetadata(handle.getIndex());
                         if (metadata.getSchema()
                                     .getFields().stream()
                                     .anyMatch(field -> columnName.equals(field.getName()) && field.getType() instanceof PrimitiveType && "keyword".equals(((PrimitiveType) field.getType()).getName()))) {
-                            newRegexes.put(columnName, likeToRegexp(((Slice) pattern).toStringUtf8()));
+                            newRegexes.put(columnName, likeToRegexp(((Slice) pattern), escape));
                             continue;
                         }
                     }
@@ -583,16 +591,84 @@ public class ElasticsearchMetadata
         return Optional.of(new ConstraintApplicationResult<>(handle, TupleDomain.withColumnDomains(unsupported), newExpression, false));
     }
 
-    protected static String likeToRegexp(String like)
+    protected static boolean isSupportedLikeCall(Call call)
     {
-        // TODO: This can be done more efficiently by using a state machine and iterating over characters (See io.trino.type.LikeFunctions.likePattern(String, char, boolean))
-        String regexp = like.replaceAll(Pattern.quote("\\"), Matcher.quoteReplacement("\\\\")); // first, escape regexp's escape character
-        for (char c : REGEXP_RESERVED_CHARACTERS) {
-            regexp = regexp.replaceAll(Pattern.quote(String.valueOf(c)), Matcher.quoteReplacement("\\" + c));
+        if (!LIKE_PATTERN_FUNCTION_NAME.equals(call.getFunctionName())) {
+            return false;
         }
-        return regexp
-                .replaceAll("%", ".*")
-                .replaceAll("_", ".");
+
+        List<ConnectorExpression> arguments = call.getArguments();
+        if (arguments.size() < 2 || arguments.size() > 3) {
+            return false;
+        }
+
+        if (!(arguments.get(0) instanceof Variable) || !(arguments.get(1) instanceof Constant)) {
+            return false;
+        }
+
+        if (arguments.size() == 3) {
+            return arguments.get(2) instanceof Constant;
+        }
+
+        return true;
+    }
+
+    protected static String likeToRegexp(Slice pattern, Optional<Slice> escape)
+    {
+        Optional<Character> escapeChar = escape.map(ElasticsearchMetadata::getEscapeChar);
+        StringBuilder regex = new StringBuilder();
+        boolean escaped = false;
+        int position = 0;
+        while (position < pattern.length()) {
+            int currentChar = getCodePointAt(pattern, position);
+            position += 1;
+            checkEscape(!escaped || currentChar == '%' || currentChar == '_' || currentChar == escapeChar.get());
+            if (!escaped && escapeChar.isPresent() && currentChar == escapeChar.get()) {
+                escaped = true;
+            }
+            else {
+                switch (currentChar) {
+                    case '%':
+                        regex.append(escaped ? "%" : ".*");
+                        escaped = false;
+                        break;
+                    case '_':
+                        regex.append(escaped ? "_" : ".");
+                        escaped = false;
+                        break;
+                    case '\\':
+                        regex.append("\\\\");
+                        break;
+                    default:
+                        // escape special regex characters
+                        if (REGEXP_RESERVED_CHARACTERS.contains(currentChar)) {
+                            regex.append('\\');
+                        }
+
+                        regex.appendCodePoint(currentChar);
+                        escaped = false;
+                }
+            }
+        }
+
+        checkEscape(!escaped);
+        return regex.toString();
+    }
+
+    private static void checkEscape(boolean condition)
+    {
+        if (!condition) {
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Escape character must be followed by '%', '_' or the escape character itself");
+        }
+    }
+
+    private static char getEscapeChar(Slice escape)
+    {
+        String escapeString = escape.toStringUtf8();
+        if (escapeString.length() == 1) {
+            return escapeString.charAt(0);
+        }
+        throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Escape string must be a single character");
     }
 
     private static boolean isPassthroughQuery(ElasticsearchTableHandle table)
