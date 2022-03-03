@@ -25,7 +25,6 @@ import io.trino.plugin.jdbc.JdbcJoinCondition;
 import io.trino.plugin.jdbc.JdbcSortItem;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
-import io.trino.plugin.jdbc.LongReadFunction;
 import io.trino.plugin.jdbc.LongWriteFunction;
 import io.trino.plugin.jdbc.PreparedQuery;
 import io.trino.plugin.jdbc.QueryBuilder;
@@ -61,7 +60,6 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.time.LocalDate;
-import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -71,6 +69,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.BiFunction;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -113,6 +112,7 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
 import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.getUnsupportedTypeHandling;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.IGNORE;
+import static io.trino.plugin.memsql.MemSqlTimeColumnMapping.memSqlTimeColumnMapping;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -125,10 +125,6 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeType.createTimeType;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
 import static io.trino.spi.type.TimestampType.createTimestampType;
-import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_DAY;
-import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_DAY;
-import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
-import static io.trino.spi.type.Timestamps.round;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.Float.floatToRawIntBits;
@@ -149,6 +145,7 @@ public class MemSqlClient
     static final int MEMSQL_TEXT_MAX_LENGTH = 65535;
     static final int MEMSQL_MEDIUMTEXT_MAX_LENGTH = 16777215;
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("uuuu-MM-dd");
+    private static final Pattern UNSIGNED_TYPE_REGEX = Pattern.compile("(?i)(?s).*unsigned$");
 
     private final Type jsonType;
 
@@ -369,7 +366,7 @@ public class MemSqlClient
                         dateWriteFunction()));
             case Types.TIME:
                 TimeType timeType = createTimeType(typeHandle.getRequiredDecimalDigits());
-                return Optional.of(memsqlTimeColumnMapping(timeType));
+                return Optional.of(memSqlTimeColumnMapping(timeType));
             case Types.TIMESTAMP:
                 // TODO (https://github.com/trinodb/trino/issues/5450) Fix DST handling
                 TimestampType timestampType = createTimestampType(typeHandle.getRequiredDecimalDigits());
@@ -380,46 +377,6 @@ public class MemSqlClient
             return mapToUnboundedVarchar(typeHandle);
         }
         return Optional.empty();
-    }
-
-    public static ColumnMapping memsqlTimeColumnMapping(TimeType timeType) {
-        return ColumnMapping.longMapping(
-                timeType,
-                timeReadFunction(timeType),
-                timeWriteFunction(timeType.getPrecision()));
-    }
-
-    public static LongReadFunction timeReadFunction(TimeType timeType) {
-        requireNonNull(timeType, "timeType is null");
-        checkArgument(timeType.getPrecision() <= 9, "Unsupported type precision: %s", timeType);
-        return (resultSet, columnIndex) -> {
-            LocalTime time = resultSet.getObject(columnIndex, LocalTime.class);
-            String timeString = resultSet.getString(columnIndex);
-            // TODO: proper verification on read and write
-            if (timeString != null) {
-                String[] parts = timeString.split(":");
-                if (parts != null) {
-                    String hh = parts[0];
-                    if (hh.startsWith("-")) {
-                        throw new IllegalArgumentException(timeString + " is negative");
-                    } else {
-                        int hours = Integer.parseInt(hh);
-                        if (hours >= 24) {
-                            throw new IllegalArgumentException(timeString + " is greater than 1 day");
-                        }
-                    }
-                }
-            }
-
-            long nanosOfDay = time.toNanoOfDay();
-            verify(nanosOfDay < NANOSECONDS_PER_DAY, "Invalid value of nanosOfDay: %s", nanosOfDay);
-            long picosOfDay = nanosOfDay * PICOSECONDS_PER_NANOSECOND;
-            long rounded = round(picosOfDay, 12 - timeType.getPrecision());
-            if (rounded == PICOSECONDS_PER_DAY) {
-                rounded = 0;
-            }
-            return rounded;
-        };
     }
 
     @Override
@@ -668,17 +625,25 @@ public class MemSqlClient
         }
 
         String typeName = typeHandle.getJdbcTypeName().get();
-        if (typeName.equalsIgnoreCase("tinyint(3) unsigned")) {
-            return Optional.of(smallintColumnMapping());
-        }
-        if (typeName.equalsIgnoreCase("smallint(5) unsigned")) {
-            return Optional.of(integerColumnMapping());
-        }
-        if (typeName.equalsIgnoreCase("int(10) unsigned")) {
-            return Optional.of(bigintColumnMapping());
-        }
-        if (typeName.equalsIgnoreCase("bigint(20) unsigned")) {
-            return Optional.of(decimalColumnMapping(createDecimalType(20)));
+        if (UNSIGNED_TYPE_REGEX.matcher(typeName).matches()) {
+            switch (typeHandle.getJdbcType()) {
+                case Types.BIT:
+                    return Optional.of(booleanColumnMapping());
+
+                case Types.TINYINT:
+                    return Optional.of(smallintColumnMapping());
+
+                case Types.SMALLINT:
+                    return Optional.of(integerColumnMapping());
+
+                case Types.INTEGER:
+                    return Optional.of(bigintColumnMapping());
+
+                case Types.BIGINT:
+                    return Optional.of(decimalColumnMapping(createDecimalType(20)));
+                default:
+                    throw new IllegalStateException("Cannot find mapping for " + typeHandle);
+            }
         }
 
         return Optional.empty();

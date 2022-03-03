@@ -621,13 +621,13 @@ public class TestMemSqlTypeMapping
         try (TestTable table = new TestTable(memSqlServer::execute, "tpch.test_unsupported_time", "(col time)", ImmutableList.of(format("'%s'", unsupportedTime)))) {
             assertQueryFails(
                     "SELECT * FROM " + table.getName(),
-                    format("\\Q%s cannot be parse as LocalTime (format is \"HH:mm:ss[.S]\" for data type \"TIME\")", unsupportedTime));
+                    format("Text '%s' could not be parsed.*", unsupportedTime));
         }
 
         try (TestTable table = new TestTable(memSqlServer::execute, "tpch.test_unsupported_time", "(col time(6))", ImmutableList.of(format("'%s'", unsupportedTime)))) {
             assertQueryFails(
                     "SELECT * FROM " + table.getName(),
-                    format("\\Q%s.000000 cannot be parse as LocalTime (format is \"HH:mm:ss[.S]\" for data type \"TIME\")", unsupportedTime));
+                    format("Text '%s.000000' could not be parsed.*", unsupportedTime));
         }
     }
 
