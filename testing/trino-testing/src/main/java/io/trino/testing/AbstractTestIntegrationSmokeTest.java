@@ -14,7 +14,7 @@
 package io.trino.testing;
 
 import io.trino.Session;
-import io.trino.cost.OptimizerConfig.JoinDistributionType;
+import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;

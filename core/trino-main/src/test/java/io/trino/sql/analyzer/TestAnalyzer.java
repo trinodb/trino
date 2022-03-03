@@ -23,7 +23,7 @@ import io.trino.Session;
 import io.trino.SystemSessionProperties;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.StaticConnectorFactory;
-import io.trino.cost.OptimizerConfig;
+import io.trino.sql.planner.OptimizerConfig;
 import io.trino.execution.DynamicFilterConfig;
 import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.TaskManagerConfig;

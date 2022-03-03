@@ -16,8 +16,8 @@ package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session.SessionBuilder;
-import io.trino.cost.OptimizerConfig.JoinDistributionType;
-import io.trino.cost.OptimizerConfig.JoinReorderingStrategy;
+import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
+import io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy;
 import io.trino.plugin.tpch.ColumnNaming;
 import io.trino.plugin.tpch.TpchConnectorFactory;
 import io.trino.testing.LocalQueryRunner;

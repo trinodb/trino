@@ -18,7 +18,7 @@ import io.trino.testing.LocalQueryRunner;
 
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.trino.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
-import static io.trino.cost.OptimizerConfig.JoinReorderingStrategy.NONE;
+import static io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy.NONE;
 
 public class SqlConsecutiveJoinBenchmark
         extends AbstractSqlBenchmark
