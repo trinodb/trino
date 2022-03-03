@@ -444,6 +444,22 @@ public class TestIcebergRedirectionToHive
         onTrino().executeQuery("DROP TABLE " + hiveTableName);
     }
 
+    @Test(groups = {HIVE_ICEBERG_REDIRECTIONS, PROFILE_SPECIFIC_TESTS})
+    public void testRevoke()
+    {
+        String tableName = "hive_revoke" + randomTableSuffix();
+        String hiveTableName = "hive.default." + tableName;
+        String icebergTableName = "iceberg.default." + tableName;
+
+        createHiveTable(hiveTableName, false);
+
+        // TODO: support redirects from Iceberg to Hive
+        assertQueryFailure(() -> onTrino().executeQuery("REVOKE SELECT ON " + icebergTableName + " FROM ROLE PUBLIC"))
+                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): Not an Iceberg table: default." + tableName);
+
+        onTrino().executeQuery("DROP TABLE " + hiveTableName);
+    }
+
     private static void createHiveTable(String tableName, boolean partitioned)
     {
         createHiveTable(tableName, partitioned, true);
