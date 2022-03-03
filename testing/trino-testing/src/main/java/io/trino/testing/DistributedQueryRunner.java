@@ -34,7 +34,6 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.metadata.SqlFunction;
-import io.trino.plugin.exchange.FileSystemExchangePlugin;
 import io.trino.server.BasicQueryInfo;
 import io.trino.server.SessionPropertyDefaults;
 import io.trino.server.testing.TestingTrinoServer;
@@ -65,12 +64,14 @@ import java.util.Set;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.function.Consumer;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.inject.util.Modules.EMPTY_MODULE;
+import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.airlift.units.Duration.nanosSince;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -626,7 +627,7 @@ public class DistributedQueryRunner
         private Map<String, String> extraProperties = new HashMap<>();
         private Map<String, String> coordinatorProperties = ImmutableMap.of();
         private Optional<Map<String, String>> backupCoordinatorProperties = Optional.empty();
-        private Map<String, String> exchangeManagerProperties = ImmutableMap.of();
+        private Consumer<QueryRunner> additionalSetup = querRunner -> {};
         private String environment = ENVIRONMENT;
         private Module additionalModule = EMPTY_MODULE;
         private Optional<Path> baseDataDir = Optional.empty();
@@ -675,9 +676,14 @@ public class DistributedQueryRunner
             return self();
         }
 
-        public SELF setExchangeManagerProperties(Map<String, String> exchangeManagerProperties)
+        /**
+         * Additional configuration to be applied on {@link QueryRunner} being built.
+         * Invoked after engine configuration is applied, but before connector-specific configurations
+         * (if any) are applied.
+         */
+        public SELF setAdditionalSetup(Consumer<QueryRunner> additionalSetup)
         {
-            this.exchangeManagerProperties = ImmutableMap.copyOf(requireNonNull(exchangeManagerProperties, "exchangeManagerProperties is null"));
+            this.additionalSetup = requireNonNull(additionalSetup, "additionalSetup is null");
             return self();
         }
 
@@ -764,9 +770,12 @@ public class DistributedQueryRunner
                     systemAccessControls,
                     eventListeners);
 
-            if (!exchangeManagerProperties.isEmpty()) {
-                queryRunner.installPlugin(new FileSystemExchangePlugin());
-                queryRunner.loadExchangeManager("filesystem", exchangeManagerProperties);
+            try {
+                additionalSetup.accept(queryRunner);
+            }
+            catch (Throwable e) {
+                closeAllSuppress(e, queryRunner);
+                throw e;
             }
 
             return queryRunner;
