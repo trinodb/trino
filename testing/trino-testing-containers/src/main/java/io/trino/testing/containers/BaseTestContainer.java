@@ -92,14 +92,18 @@ public abstract class BaseTestContainer
 
     protected void copyFileToContainer(String resourcePath, String dockerPath)
     {
-        container.withCopyFileToContainer(
-                forHostPath(
-                        forClasspathResource(resourcePath)
-                                // Container fails to mount jar:file:/<host_path>!<resource_path> resources
-                                // This assures that JAR resources are being copied out to tmp locations
-                                // and mounted from there.
-                                .getResolvedPath()),
+        copyHostFileToContainer(
+                forClasspathResource(resourcePath)
+                        // Container fails to mount jar:file:/<host_path>!<resource_path> resources
+                        // This assures that JAR resources are being copied out to tmp locations
+                        // and mounted from there.
+                        .getResolvedPath(),
                 dockerPath);
+    }
+
+    protected void copyHostFileToContainer(String hostPath, String dockerPath)
+    {
+        container.withCopyFileToContainer(forHostPath(hostPath), dockerPath);
     }
 
     protected HostAndPort getMappedHostAndPortForExposedPort(int exposedPort)
