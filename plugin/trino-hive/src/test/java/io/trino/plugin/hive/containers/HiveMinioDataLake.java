@@ -24,6 +24,7 @@ import io.trino.util.AutoCloseableCloser;
 import org.testcontainers.containers.Network;
 
 import java.util.Map;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -42,6 +43,7 @@ public class HiveMinioDataLake
     private final AutoCloseableCloser closer = AutoCloseableCloser.create();
 
     private State state = State.INITIAL;
+    private Optional<Network> network;
     private AmazonS3 s3Client;
 
     public HiveMinioDataLake(String bucketName, Map<String, String> hiveHadoopFilesToMount)
@@ -51,25 +53,33 @@ public class HiveMinioDataLake
 
     public HiveMinioDataLake(String bucketName, Map<String, String> hiveHadoopFilesToMount, String hiveHadoopImage)
     {
+        this(bucketName, hiveHadoopFilesToMount, hiveHadoopImage, Optional.of(newNetwork()));
+    }
+
+    public HiveMinioDataLake(String bucketName, Map<String, String> hiveHadoopFilesToMount, String hiveHadoopImage, Optional<Network> network)
+    {
+        Minio.Builder minioBuilder = Minio.builder()
+                .withEnvVars(ImmutableMap.<String, String>builder()
+                        .put("MINIO_ACCESS_KEY", ACCESS_KEY)
+                        .put("MINIO_SECRET_KEY", SECRET_KEY)
+                        .buildOrThrow());
+        HiveHadoop.Builder hiveHadoopBuilder = HiveHadoop.builder()
+                .withFilesToMount(ImmutableMap.<String, String>builder()
+                        .put("hive_minio_datalake/hive-core-site.xml", "/etc/hadoop/conf/core-site.xml")
+                        .putAll(hiveHadoopFilesToMount)
+                        .buildOrThrow())
+                .withImage(hiveHadoopImage);
+
+        this.network = network;
+        this.network.ifPresent(value -> {
+            closer.register(value);
+            minioBuilder.withNetwork(value);
+            hiveHadoopBuilder.withNetwork(value);
+        });
+
         this.bucketName = requireNonNull(bucketName, "bucketName is null");
-        Network network = closer.register(newNetwork());
-        this.minio = closer.register(
-                Minio.builder()
-                        .withNetwork(network)
-                        .withEnvVars(ImmutableMap.<String, String>builder()
-                                .put("MINIO_ACCESS_KEY", ACCESS_KEY)
-                                .put("MINIO_SECRET_KEY", SECRET_KEY)
-                                .buildOrThrow())
-                        .build());
-        this.hiveHadoop = closer.register(
-                HiveHadoop.builder()
-                        .withFilesToMount(ImmutableMap.<String, String>builder()
-                                .put("hive_minio_datalake/hive-core-site.xml", "/etc/hadoop/conf/core-site.xml")
-                                .putAll(hiveHadoopFilesToMount)
-                                .buildOrThrow())
-                        .withImage(hiveHadoopImage)
-                        .withNetwork(network)
-                        .build());
+        this.minio = closer.register(minioBuilder.build());
+        this.hiveHadoop = closer.register(hiveHadoopBuilder.build());
     }
 
     public void start()
@@ -90,6 +100,11 @@ public class HiveMinioDataLake
         s3Client.createBucket(this.bucketName);
         closer.register(() -> s3Client.shutdown());
         state = State.STARTED;
+    }
+
+    public Optional<Network> getNetwork()
+    {
+        return network;
     }
 
     public AmazonS3 getS3Client()
