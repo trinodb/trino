@@ -25,8 +25,8 @@ import org.testng.annotations.Test;
 
 import static com.google.common.base.Verify.verify;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
-import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.BROADCAST;
 import static io.trino.plugin.hive.HiveQueryRunner.HIVE_CATALOG;
+import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.BROADCAST;
 import static org.testng.Assert.assertEquals;
 
 /**

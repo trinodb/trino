@@ -28,8 +28,8 @@ import java.util.List;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
-import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.trino.tests.QueryTemplate.parameter;
