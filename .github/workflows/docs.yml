@@ -60,7 +60,7 @@ jobs:
 
   test-docs:
     needs: path-filters
-    if: ${{ needs.path-filters.outputs.docs == 'true' && needs.path-filters.outputs.other == 'false' }}
+    if: ${{ needs.path-filters.outputs.docs == 'true' && needs.path-filters.outputs.other == 'false' && !contains(github.event.pull_request.labels.*.name, 'release-notes') }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
