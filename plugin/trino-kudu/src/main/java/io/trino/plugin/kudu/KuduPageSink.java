@@ -27,7 +27,7 @@ import io.trino.spi.type.SqlDecimal;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import org.apache.kudu.client.KuduException;
-import org.apache.kudu.client.KuduSession;
+import org.apache.kudu.client.KuduOperationApplier;
 import org.apache.kudu.client.KuduTable;
 import org.apache.kudu.client.PartialRow;
 import org.apache.kudu.client.Upsert;
@@ -58,13 +58,12 @@ import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.kudu.client.KuduOperationApplier.applyOperationAndVerifySucceeded;
 
 public class KuduPageSink
         implements ConnectorPageSink
 {
     private final ConnectorSession connectorSession;
-    private final KuduSession session;
+    private final KuduClientSession session;
     private final KuduTable table;
     private final List<Type> columnTypes;
     private final List<Type> originalColumnTypes;
@@ -102,35 +101,35 @@ public class KuduPageSink
         this.generateUUID = mapping.isGenerateUUID();
 
         this.table = table;
-        this.session = clientSession.newSession();
+        this.session = clientSession;
         uuid = UUID.randomUUID().toString();
     }
 
     @Override
     public CompletableFuture<?> appendPage(Page page)
     {
-        for (int position = 0; position < page.getPositionCount(); position++) {
-            Upsert upsert = table.newUpsert();
-            PartialRow row = upsert.getRow();
-            int start = 0;
-            if (generateUUID) {
-                String id = format("%s-%08x", uuid, nextSubId++);
-                row.addString(0, id);
-                start = 1;
-            }
+        try (KuduOperationApplier operationApplier = KuduOperationApplier.fromKuduClientSession(session)) {
+            for (int position = 0; position < page.getPositionCount(); position++) {
+                Upsert upsert = table.newUpsert();
+                PartialRow row = upsert.getRow();
+                int start = 0;
+                if (generateUUID) {
+                    String id = format("%s-%08x", uuid, nextSubId++);
+                    row.addString(0, id);
+                    start = 1;
+                }
 
-            for (int channel = 0; channel < page.getChannelCount(); channel++) {
-                appendColumn(row, page, position, channel, channel + start);
-            }
+                for (int channel = 0; channel < page.getChannelCount(); channel++) {
+                    appendColumn(row, page, position, channel, channel + start);
+                }
 
-            try {
-                applyOperationAndVerifySucceeded(session, upsert);
+                operationApplier.applyOperationAsync(upsert);
             }
-            catch (KuduException e) {
-                throw new RuntimeException(e);
-            }
+            return NOT_BLOCKED;
         }
-        return NOT_BLOCKED;
+        catch (KuduException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private void appendColumn(PartialRow row, Page page, int position, int channel, int destChannel)
@@ -191,23 +190,11 @@ public class KuduPageSink
     @Override
     public CompletableFuture<Collection<Slice>> finish()
     {
-        closeSession();
         return completedFuture(ImmutableList.of());
     }
 
     @Override
     public void abort()
     {
-        closeSession();
-    }
-
-    private void closeSession()
-    {
-        try {
-            session.close();
-        }
-        catch (KuduException e) {
-            throw new RuntimeException(e);
-        }
     }
 }

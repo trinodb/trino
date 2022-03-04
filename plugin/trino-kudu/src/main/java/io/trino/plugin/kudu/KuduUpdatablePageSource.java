@@ -22,15 +22,13 @@ import org.apache.kudu.Schema;
 import org.apache.kudu.client.Delete;
 import org.apache.kudu.client.KeyEncoderAccessor;
 import org.apache.kudu.client.KuduException;
-import org.apache.kudu.client.KuduSession;
+import org.apache.kudu.client.KuduOperationApplier;
 import org.apache.kudu.client.KuduTable;
 import org.apache.kudu.client.PartialRow;
 
 import java.util.Collection;
 import java.util.Collections;
 import java.util.concurrent.CompletableFuture;
-
-import static org.apache.kudu.client.KuduOperationApplier.applyOperationAndVerifySucceeded;
 
 public class KuduUpdatablePageSource
         implements UpdatablePageSource
@@ -50,20 +48,14 @@ public class KuduUpdatablePageSource
     public void deleteRows(Block rowIds)
     {
         Schema schema = table.getSchema();
-        KuduSession session = clientSession.newSession();
-        try {
-            try {
-                for (int i = 0; i < rowIds.getPositionCount(); i++) {
-                    int len = rowIds.getSliceLength(i);
-                    Slice slice = rowIds.getSlice(i, 0, len);
-                    PartialRow row = KeyEncoderAccessor.decodePrimaryKey(schema, slice.getBytes());
-                    Delete delete = table.newDelete();
-                    RowHelper.copyPrimaryKey(schema, row, delete.getRow());
-                    applyOperationAndVerifySucceeded(session, delete);
-                }
-            }
-            finally {
-                session.close();
+        try (KuduOperationApplier operationApplier = KuduOperationApplier.fromKuduClientSession(clientSession)) {
+            for (int i = 0; i < rowIds.getPositionCount(); i++) {
+                int len = rowIds.getSliceLength(i);
+                Slice slice = rowIds.getSlice(i, 0, len);
+                PartialRow row = KeyEncoderAccessor.decodePrimaryKey(schema, slice.getBytes());
+                Delete delete = table.newDelete();
+                RowHelper.copyPrimaryKey(schema, row, delete.getRow());
+                operationApplier.applyOperationAsync(delete);
             }
         }
         catch (KuduException e) {
