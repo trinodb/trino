@@ -9,7 +9,7 @@
   property. ({issue}`11098`)
 * Improve performance of specific queries which compare table columns of type
   `timestamp` with `date` literals. ({issue}`11170`)
-* Add redirection awareness for `ADD COLUMN`, `DROP TABLE`, `COMMENT` tasks. ({issue} `11072`)
+* Add redirection awareness for `ADD COLUMN`, `DROP TABLE`, `COMMENT` tasks. ({issue}`11072`)
 * Remove support for reserved memory pool. Configuration property
   `experimental.reserved-pool-disabled` can no longer be used. ({issue}`6677`)
 * Ensure memory is released completely after query completion. ({issue}`11030`)
