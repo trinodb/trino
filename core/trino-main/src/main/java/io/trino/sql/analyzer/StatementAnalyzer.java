@@ -190,6 +190,7 @@ import io.trino.sql.tree.SubqueryExpression;
 import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.Table;
 import io.trino.sql.tree.TableExecute;
+import io.trino.sql.tree.TableFunctionInvocation;
 import io.trino.sql.tree.TableSubquery;
 import io.trino.sql.tree.TruncateTable;
 import io.trino.sql.tree.Union;
@@ -1435,6 +1436,12 @@ class StatementAnalyzer
             StatementAnalyzer analyzer = statementAnalyzerFactory.createStatementAnalyzer(analysis, session, warningCollector, CorrelationSupport.ALLOWED);
             Scope queryScope = analyzer.analyze(node.getQuery(), scope);
             return createAndAssignScope(node, scope, queryScope.getRelationType());
+        }
+
+        @Override
+        protected Scope visitTableFunctionInvocation(TableFunctionInvocation node, Optional<Scope> scope)
+        {
+            throw semanticException(NOT_SUPPORTED, node, "table functions are not yet supported");
         }
 
         private Optional<QualifiedName> getMaterializedViewStorageTableName(MaterializedViewDefinition viewDefinition)

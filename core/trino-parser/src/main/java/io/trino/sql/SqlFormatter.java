@@ -36,6 +36,7 @@ import io.trino.sql.tree.Delete;
 import io.trino.sql.tree.Deny;
 import io.trino.sql.tree.DescribeInput;
 import io.trino.sql.tree.DescribeOutput;
+import io.trino.sql.tree.DescriptorArgument;
 import io.trino.sql.tree.DropColumn;
 import io.trino.sql.tree.DropMaterializedView;
 import io.trino.sql.tree.DropRole;
@@ -120,7 +121,10 @@ import io.trino.sql.tree.ShowTables;
 import io.trino.sql.tree.SingleColumn;
 import io.trino.sql.tree.StartTransaction;
 import io.trino.sql.tree.Table;
+import io.trino.sql.tree.TableArgument;
 import io.trino.sql.tree.TableExecute;
+import io.trino.sql.tree.TableFunctionArgument;
+import io.trino.sql.tree.TableFunctionInvocation;
 import io.trino.sql.tree.TableSubquery;
 import io.trino.sql.tree.TransactionAccessMode;
 import io.trino.sql.tree.TransactionMode;
@@ -224,6 +228,114 @@ public final class SqlFormatter
             append(indent, "LATERAL (");
             process(node.getQuery(), indent + 1);
             append(indent, ")");
+            return null;
+        }
+
+        @Override
+        protected Void visitTableFunctionInvocation(TableFunctionInvocation node, Integer indent)
+        {
+            append(indent, "TABLE(");
+            appendTableFunctionInvocation(node, indent + 1);
+            builder.append(")");
+            return null;
+        }
+
+        private void appendTableFunctionInvocation(TableFunctionInvocation node, Integer indent)
+        {
+            builder.append(formatName(node.getName()))
+                    .append("(\n");
+            appendTableFunctionArguments(node.getArguments(), indent + 1);
+            if (!node.getCopartitioning().isEmpty()) {
+                builder.append("\n");
+                append(indent + 1, "COPARTITION ");
+                builder.append(node.getCopartitioning().stream()
+                        .map(tableList -> tableList.stream()
+                                .map(SqlFormatter::formatName)
+                                .collect(Collectors.joining(", ", "(", ")")))
+                        .collect(Collectors.joining(", ")));
+            }
+            builder.append(")");
+        }
+
+        private void appendTableFunctionArguments(List<TableFunctionArgument> arguments, int indent)
+        {
+            for (int i = 0; i < arguments.size(); i++) {
+                TableFunctionArgument argument = arguments.get(i);
+                if (argument.getName().isPresent()) {
+                    append(indent, formatExpression(argument.getName().get()));
+                    builder.append(" => ");
+                }
+                else {
+                    append(indent, "");
+                }
+                Node value = argument.getValue();
+                if (value instanceof Expression) {
+                    builder.append(formatExpression((Expression) value));
+                }
+                else {
+                    process(value, indent + 1);
+                }
+                if (i < arguments.size() - 1) {
+                    builder.append(",\n");
+                }
+            }
+        }
+
+        @Override
+        protected Void visitTableArgument(TableArgument node, Integer indent)
+        {
+            Relation relation = node.getTable();
+            Relation unaliased = relation instanceof AliasedRelation ? ((AliasedRelation) relation).getRelation() : relation;
+            builder.append("TABLE(");
+            process(unaliased, indent);
+            builder.append(")");
+            if (relation instanceof AliasedRelation) {
+                AliasedRelation aliasedRelation = (AliasedRelation) relation;
+                builder.append(" AS ")
+                        .append(formatExpression(aliasedRelation.getAlias()));
+                appendAliasColumns(builder, aliasedRelation.getColumnNames());
+            }
+            if (node.getPartitionBy().isPresent()) {
+                builder.append("\n");
+                append(indent, "PARTITION BY ")
+                        .append(node.getPartitionBy().get().stream()
+                                .map(ExpressionFormatter::formatExpression)
+                                .collect(joining(", ")));
+            }
+            if (node.isPruneWhenEmpty()) {
+                builder.append("\n");
+                append(indent, "PRUNE WHEN EMPTY");
+            }
+            else {
+                builder.append("\n");
+                append(indent, "KEEP WHEN EMPTY");
+            }
+            node.getOrderBy().ifPresent(orderBy -> {
+                builder.append("\n");
+                append(indent, formatOrderBy(orderBy));
+            });
+
+            return null;
+        }
+
+        @Override
+        protected Void visitDescriptorArgument(DescriptorArgument node, Integer indent)
+        {
+            if (node.getDescriptor().isPresent()) {
+                builder.append(node.getDescriptor().get().getFields().stream()
+                        .map(field -> {
+                            String formattedField = formatExpression(field.getName());
+                            if (field.getType().isPresent()) {
+                                formattedField = formattedField + " " + formatExpression(field.getType().get());
+                            }
+                            return formattedField;
+                        })
+                        .collect(Collectors.joining(", ", "DESCRIPTOR(", ")")));
+            }
+            else {
+                builder.append("CAST (NULL AS DESCRIPTOR)");
+            }
+
             return null;
         }
 
