@@ -44,6 +44,7 @@ import org.testng.annotations.Test;
 import java.io.File;
 import java.util.Optional;
 
+import static com.google.inject.util.Modules.EMPTY_MODULE;
 import static io.trino.spi.security.SelectedRole.Type.ROLE;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -79,7 +80,7 @@ public class TestIcebergMetadataListing
                         .setCatalogDirectory(baseDir.toURI().toString())
                         .setMetastoreUser("test"));
 
-        queryRunner.installPlugin(new TestingIcebergPlugin(Optional.of(metastore), Optional.empty()));
+        queryRunner.installPlugin(new TestingIcebergPlugin(Optional.of(metastore), Optional.empty(), EMPTY_MODULE));
         queryRunner.createCatalog("iceberg", "iceberg");
         queryRunner.installPlugin(new TestingHivePlugin(metastore));
         queryRunner.createCatalog("hive", "hive", ImmutableMap.of("hive.security", "sql-standard"));
