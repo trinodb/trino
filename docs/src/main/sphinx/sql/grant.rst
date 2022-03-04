@@ -57,4 +57,4 @@ See connector documentation for more details.
 See also
 --------
 
-:doc:`revoke`, :doc:`show-grants`
+:doc:`deny`, :doc:`revoke`, :doc:`show-grants`
