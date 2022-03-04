@@ -27,6 +27,7 @@ Trino also provides :doc:`numerous SQL functions and operators<functions>`.
     sql/create-view
     sql/deallocate-prepare
     sql/delete
+    sql/deny
     sql/describe
     sql/describe-input
     sql/describe-output
