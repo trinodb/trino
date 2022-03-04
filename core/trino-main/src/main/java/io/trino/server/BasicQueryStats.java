@@ -55,12 +55,15 @@ public class BasicQueryStats
     private final DataSize physicalInputDataSize;
 
     private final double cumulativeUserMemory;
+    private final double failedCumulativeUserMemory;
     private final DataSize userMemoryReservation;
     private final DataSize totalMemoryReservation;
     private final DataSize peakUserMemoryReservation;
     private final DataSize peakTotalMemoryReservation;
     private final Duration totalCpuTime;
+    private final Duration failedCpuTime;
     private final Duration totalScheduledTime;
+    private final Duration failedScheduledTime;
 
     private final boolean fullyBlocked;
     private final Set<BlockedReason> blockedReasons;
@@ -82,12 +85,15 @@ public class BasicQueryStats
             @JsonProperty("rawInputPositions") long rawInputPositions,
             @JsonProperty("physicalInputDataSize") DataSize physicalInputDataSize,
             @JsonProperty("cumulativeUserMemory") double cumulativeUserMemory,
+            @JsonProperty("failedCumulativeUserMemory") double failedCumulativeUserMemory,
             @JsonProperty("userMemoryReservation") DataSize userMemoryReservation,
             @JsonProperty("totalMemoryReservation") DataSize totalMemoryReservation,
             @JsonProperty("peakUserMemoryReservation") DataSize peakUserMemoryReservation,
             @JsonProperty("peakTotalMemoryReservation") DataSize peakTotalMemoryReservation,
             @JsonProperty("totalCpuTime") Duration totalCpuTime,
+            @JsonProperty("failedCpuTime") Duration failedCpuTime,
             @JsonProperty("totalScheduledTime") Duration totalScheduledTime,
+            @JsonProperty("failedScheduledTime") Duration failedScheduledTime,
             @JsonProperty("fullyBlocked") boolean fullyBlocked,
             @JsonProperty("blockedReasons") Set<BlockedReason> blockedReasons,
             @JsonProperty("progressPercentage") OptionalDouble progressPercentage)
@@ -113,12 +119,15 @@ public class BasicQueryStats
         this.physicalInputDataSize = physicalInputDataSize;
 
         this.cumulativeUserMemory = cumulativeUserMemory;
+        this.failedCumulativeUserMemory = failedCumulativeUserMemory;
         this.userMemoryReservation = userMemoryReservation;
         this.totalMemoryReservation = totalMemoryReservation;
         this.peakUserMemoryReservation = peakUserMemoryReservation;
         this.peakTotalMemoryReservation = peakTotalMemoryReservation;
         this.totalCpuTime = totalCpuTime;
+        this.failedCpuTime = failedCpuTime;
         this.totalScheduledTime = totalScheduledTime;
+        this.failedScheduledTime = failedScheduledTime;
 
         this.fullyBlocked = fullyBlocked;
         this.blockedReasons = ImmutableSet.copyOf(requireNonNull(blockedReasons, "blockedReasons is null"));
@@ -141,12 +150,15 @@ public class BasicQueryStats
                 queryStats.getRawInputPositions(),
                 queryStats.getPhysicalInputDataSize(),
                 queryStats.getCumulativeUserMemory(),
+                queryStats.getFailedCumulativeUserMemory(),
                 queryStats.getUserMemoryReservation(),
                 queryStats.getTotalMemoryReservation(),
                 queryStats.getPeakUserMemoryReservation(),
                 queryStats.getPeakTotalMemoryReservation(),
                 queryStats.getTotalCpuTime(),
+                queryStats.getFailedCpuTime(),
                 queryStats.getTotalScheduledTime(),
+                queryStats.getFailedScheduledTime(),
                 queryStats.isFullyBlocked(),
                 queryStats.getBlockedReasons(),
                 queryStats.getProgressPercentage());
@@ -169,10 +181,13 @@ public class BasicQueryStats
                 0,
                 DataSize.ofBytes(0),
                 0,
+                0,
                 DataSize.ofBytes(0),
                 DataSize.ofBytes(0),
                 DataSize.ofBytes(0),
                 DataSize.ofBytes(0),
+                new Duration(0, MILLISECONDS),
+                new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
                 false,
@@ -259,6 +274,12 @@ public class BasicQueryStats
     }
 
     @JsonProperty
+    public double getFailedCumulativeUserMemory()
+    {
+        return failedCumulativeUserMemory;
+    }
+
+    @JsonProperty
     public DataSize getUserMemoryReservation()
     {
         return userMemoryReservation;
@@ -289,9 +310,21 @@ public class BasicQueryStats
     }
 
     @JsonProperty
+    public Duration getFailedCpuTime()
+    {
+        return failedCpuTime;
+    }
+
+    @JsonProperty
     public Duration getTotalScheduledTime()
     {
         return totalScheduledTime;
+    }
+
+    @JsonProperty
+    public Duration getFailedScheduledTime()
+    {
+        return failedScheduledTime;
     }
 
     @JsonProperty
