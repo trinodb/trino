@@ -31,7 +31,8 @@ public class TestStaticCatalogStoreConfig
     {
         assertRecordedDefaults(recordDefaults(StaticCatalogStoreConfig.class)
                 .setCatalogConfigurationDir(new File("etc/catalog"))
-                .setDisabledCatalogs((String) null));
+                .setDisabledCatalogs((String) null)
+                .setSkipLoadError(false));
     }
 
     @Test
@@ -40,11 +41,13 @@ public class TestStaticCatalogStoreConfig
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("catalog.config-dir", "/foo")
                 .put("catalog.disabled-catalogs", "abc,xyz")
+                .put("catalog.skip-load-error", "true")
                 .buildOrThrow();
 
         StaticCatalogStoreConfig expected = new StaticCatalogStoreConfig()
                 .setCatalogConfigurationDir(new File("/foo"))
-                .setDisabledCatalogs(ImmutableList.of("abc", "xyz"));
+                .setDisabledCatalogs(ImmutableList.of("abc", "xyz"))
+                .setSkipLoadError(true);
 
         assertFullMapping(properties, expected);
     }

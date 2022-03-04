@@ -39,6 +39,7 @@ public class StaticCatalogStore
     private final ConnectorManager connectorManager;
     private final File catalogConfigurationDir;
     private final Set<String> disabledCatalogs;
+    private boolean skipLoadError;
     private final AtomicBoolean catalogsLoading = new AtomicBoolean();
 
     @Inject
@@ -46,14 +47,16 @@ public class StaticCatalogStore
     {
         this(connectorManager,
                 config.getCatalogConfigurationDir(),
-                firstNonNull(config.getDisabledCatalogs(), ImmutableList.of()));
+                firstNonNull(config.getDisabledCatalogs(), ImmutableList.of()),
+                config.getSkipLoadError());
     }
 
-    public StaticCatalogStore(ConnectorManager connectorManager, File catalogConfigurationDir, List<String> disabledCatalogs)
+    public StaticCatalogStore(ConnectorManager connectorManager, File catalogConfigurationDir, List<String> disabledCatalogs, boolean skipLoadError)
     {
         this.connectorManager = connectorManager;
         this.catalogConfigurationDir = catalogConfigurationDir;
         this.disabledCatalogs = ImmutableSet.copyOf(disabledCatalogs);
+        this.skipLoadError = skipLoadError;
     }
 
     public void loadCatalogs()
@@ -79,14 +82,24 @@ public class StaticCatalogStore
             return;
         }
 
-        log.info("-- Loading catalog %s --", file);
-        Map<String, String> properties = new HashMap<>(loadPropertiesFrom(file.getPath()));
+        try {
+            log.info("-- Loading catalog %s --", file);
+            Map<String, String> properties = new HashMap<>(loadPropertiesFrom(file.getPath()));
 
-        String connectorName = properties.remove("connector.name");
-        checkState(connectorName != null, "Catalog configuration %s does not contain connector.name", file.getAbsoluteFile());
+            String connectorName = properties.remove("connector.name");
+            checkState(connectorName != null, "Catalog configuration %s does not contain connector.name", file.getAbsoluteFile());
 
-        connectorManager.createCatalog(catalogName, connectorName, ImmutableMap.copyOf(properties));
-        log.info("-- Added catalog %s using connector %s --", catalogName, connectorName);
+            connectorManager.createCatalog(catalogName, connectorName, ImmutableMap.copyOf(properties));
+            log.info("-- Added catalog %s using connector %s --", catalogName, connectorName);
+        }
+        catch (Exception e) {
+            if (skipLoadError) {
+                log.warn("-- Skipping catalog %s, loading error: %s --", file, e.getMessage());
+            }
+            else {
+                throw e;
+            }
+        }
     }
 
     private static List<File> listFiles(File installedPluginsDir)

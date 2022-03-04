@@ -29,6 +29,7 @@ public class StaticCatalogStoreConfig
 
     private File catalogConfigurationDir = new File("etc/catalog/");
     private List<String> disabledCatalogs;
+    private boolean skipLoadError;
 
     @NotNull
     public File getCatalogConfigurationDir()
@@ -59,6 +60,18 @@ public class StaticCatalogStoreConfig
     public StaticCatalogStoreConfig setDisabledCatalogs(List<String> catalogs)
     {
         this.disabledCatalogs = (catalogs == null) ? null : ImmutableList.copyOf(catalogs);
+        return this;
+    }
+
+    public boolean getSkipLoadError()
+    {
+        return skipLoadError;
+    }
+
+    @Config("catalog.skip-load-error")
+    public StaticCatalogStoreConfig setSkipLoadError(boolean skipLoadError)
+    {
+        this.skipLoadError = skipLoadError;
         return this;
     }
 }
