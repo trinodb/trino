@@ -564,7 +564,7 @@ public final class SqlFormatter
 
             node.getPatternSearchMode().ifPresent(patternSearchMode ->
                     append(indent + 1, patternSearchMode.getMode().name())
-                    .append("\n"));
+                            .append("\n"));
 
             append(indent + 1, "PATTERN (")
                     .append(formatPattern(node.getPattern()))
@@ -1462,9 +1462,9 @@ public final class SqlFormatter
                     .append(formatName(node.getTarget()));
 
             node.getColumns().ifPresent(columns -> builder
-                        .append(" (")
-                        .append(Joiner.on(", ").join(columns))
-                        .append(")"));
+                    .append(" (")
+                    .append(Joiner.on(", ").join(columns))
+                    .append(")"));
 
             builder.append("\n");
 

@@ -2044,7 +2044,7 @@ class AstBuilder
 
     /**
      * Returns the corresponding {@link FunctionCall} for the `LISTAGG` primary expression.
-     *
+     * <p>
      * Although the syntax tree should represent the structure of the original parsed query
      * as closely as possible and any semantic interpretation should be part of the
      * analysis/planning phase, in case of `LISTAGG` aggregation function it is more pragmatic
