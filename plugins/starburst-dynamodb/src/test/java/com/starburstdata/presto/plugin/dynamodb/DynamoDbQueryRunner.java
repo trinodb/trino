@@ -237,15 +237,14 @@ public final class DynamoDbQueryRunner
     {
         Logging.initialize();
 
-        try (TestingDynamoDbServer server = new TestingDynamoDbServer()) {
-            DistributedQueryRunner queryRunner = DynamoDbQueryRunner.builder(server.getEndpointUrl(), server.getSchemaDirectory())
-                    .addExtraProperties(ImmutableMap.of("http-server.http.port", "8080"))
-                    .build();
+        TestingDynamoDbServer server = new TestingDynamoDbServer();
+        DistributedQueryRunner queryRunner = DynamoDbQueryRunner.builder(server.getEndpointUrl(), server.getSchemaDirectory())
+                .addExtraProperties(ImmutableMap.of("http-server.http.port", "8080"))
+                .build();
 
-            Logger log = Logger.get(DynamoDbQueryRunner.class);
-            log.info("======== SERVER STARTED ========");
-            log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
-        }
+        Logger log = Logger.get(DynamoDbQueryRunner.class);
+        log.info("======== SERVER STARTED ========");
+        log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
     }
 
     private static class KeyDefinition
