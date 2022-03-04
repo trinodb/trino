@@ -13,10 +13,16 @@
  */
 package io.trino.plugin.kudu;
 
+import io.trino.tpch.TpchTable;
 import org.testng.annotations.Test;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
+import static java.util.stream.Collectors.toUnmodifiableList;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public abstract class AbstractKuduWithDisabledInferSchemaConnectorTest
@@ -31,7 +37,16 @@ public abstract class AbstractKuduWithDisabledInferSchemaConnectorTest
     @Test
     public void testListingOfTableForDefaultSchema()
     {
-        assertQuery("SHOW TABLES FROM default", "VALUES ('customer'), ('nation'), ('orders'), ('region')");
+        // Test methods may run in parallel and create tables in the default schema
+        // Assert at least the TPCH tables exist but there may be more
+        List<String> rows = new ArrayList<>(computeActual("SHOW TABLES FROM default").getMaterializedRows())
+                .stream()
+                .map(row -> ((String) row.getField(0)))
+                .collect(toUnmodifiableList());
+        assertThat(rows).containsAll(
+                REQUIRED_TPCH_TABLES.stream()
+                        .map(TpchTable::getTableName)
+                        .collect(Collectors.toList()));
     }
 
     @Test
