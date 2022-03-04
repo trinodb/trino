@@ -1090,10 +1090,10 @@ class StatementAnalyzer
 
             TableExecuteHandle executeHandle =
                     metadata.getTableHandleForExecute(
-                                    session,
-                                    tableHandle,
-                                    procedureName,
-                                    tableProperties)
+                            session,
+                            tableHandle,
+                            procedureName,
+                            tableProperties)
                             .orElseThrow(() -> semanticException(NOT_SUPPORTED, node, "Procedure '%s' cannot be executed on table '%s'", procedureName, tableName));
 
             analysis.setTableExecuteHandle(executeHandle);
@@ -3250,8 +3250,8 @@ class StatementAnalyzer
             });
 
             return fields.stream()
-                .filter(field -> accessibleFields.contains(field))
-                .collect(toImmutableList());
+                    .filter(field -> accessibleFields.contains(field))
+                    .collect(toImmutableList());
         }
 
         private void analyzeAllColumnsFromTable(
