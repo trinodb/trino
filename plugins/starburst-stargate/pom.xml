@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.starburstdata.presto</groupId>
         <artifactId>starburst-enterprise-root</artifactId>
-        <version>371-e-SNAPSHOT</version>
+        <version>372-e-SNAPSHOT</version>
         <relativePath>../..</relativePath>
     </parent>
 
@@ -321,4 +321,23 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+
+    <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.basepom.maven</groupId>
+                    <artifactId>duplicate-finder-maven-plugin</artifactId>
+                    <configuration>
+                        <!-- TODO: Remove after https://github.com/trinodb/trino/pull/11309 is available in SEP -->
+                        <ignoredResourcePatterns>
+                            <!-- com.amazonaws:aws-java-sdk-s3 and software.amazon.awssdk:sdk-core MIME type file duplicate-->
+                            <ignoredResourcePattern>mime.types</ignoredResourcePattern>
+                            <ignoredResourcePattern>about.html</ignoredResourcePattern>
+                        </ignoredResourcePatterns>
+                    </configuration>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+    </build>
 </project>
