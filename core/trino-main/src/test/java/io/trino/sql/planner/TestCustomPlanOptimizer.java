@@ -1,9 +1,5 @@
 package io.trino.sql.planner;
 
-import com.google.common.collect.ImmutableList;
-import com.google.inject.Module;
-import io.airlift.bootstrap.Bootstrap;
-import io.trino.server.CustomServerMainModule;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.optimizations.PlanOptimizer;
@@ -35,18 +31,9 @@ public class TestCustomPlanOptimizer extends BasePlanTest {
     @Test
     public void testCustomPlanOptimizerNotSet()
     {
-        ImmutableList.Builder<Module> modules = ImmutableList.<Module>builder()
-                .add(new CustomServerMainModule("testing"));
-
-        Bootstrap app = new Bootstrap(modules.build());
-
-        app.initialize();
-
         PlanMatchPattern planMatchPattern = anyTree(tableScan("orders"));
         // use all optimizers, including the custom plan optimizer that we have externally injected.
         List<PlanOptimizer> allOptimizers = getQueryRunner().getPlanOptimizers(false);
-
-
         assertPlan(
                 "SELECT orderstatus FROM orders limit 9999",
                 // TODO this could be optimized to VALUES with values from partitions
