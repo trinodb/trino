@@ -24,8 +24,8 @@ import org.apache.kudu.Type;
 import org.apache.kudu.client.CreateTableOptions;
 import org.apache.kudu.client.Delete;
 import org.apache.kudu.client.KuduException;
+import org.apache.kudu.client.KuduOperationApplier;
 import org.apache.kudu.client.KuduScanner;
-import org.apache.kudu.client.KuduSession;
 import org.apache.kudu.client.KuduTable;
 import org.apache.kudu.client.RowResult;
 import org.apache.kudu.client.RowResultIterator;
@@ -39,7 +39,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.kudu.KuduClientSession.DEFAULT_SCHEMA;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
-import static org.apache.kudu.client.KuduOperationApplier.applyOperationAndVerifySucceeded;
 
 public class SchemaEmulationByTableNameConvention
         implements SchemaEmulation
@@ -61,17 +60,11 @@ public class SchemaEmulationByTableNameConvention
             throw new SchemaAlreadyExistsException(schemaName);
         }
         else {
-            try {
+            try (KuduOperationApplier operationApplier = KuduOperationApplier.fromKuduClientWrapper(client)) {
                 KuduTable schemasTable = getSchemasTable(client);
-                KuduSession session = client.newSession();
-                try {
-                    Upsert upsert = schemasTable.newUpsert();
-                    upsert.getRow().addString(0, schemaName);
-                    applyOperationAndVerifySucceeded(session, upsert);
-                }
-                finally {
-                    session.close();
-                }
+                Upsert upsert = schemasTable.newUpsert();
+                upsert.getRow().addString(0, schemaName);
+                operationApplier.applyOperationAsync(upsert);
             }
             catch (KuduException e) {
                 throw new TrinoException(GENERIC_INTERNAL_ERROR, e);
@@ -98,22 +91,16 @@ public class SchemaEmulationByTableNameConvention
             throw new TrinoException(GENERIC_USER_ERROR, "Deleting default schema not allowed.");
         }
         else {
-            try {
+            try (KuduOperationApplier operationApplier = KuduOperationApplier.fromKuduClientWrapper(client)) {
                 String prefix = getPrefixForTablesOfSchema(schemaName);
                 for (String name : client.getTablesList(prefix).getTablesList()) {
                     client.deleteTable(name);
                 }
 
                 KuduTable schemasTable = getSchemasTable(client);
-                KuduSession session = client.newSession();
-                try {
-                    Delete delete = schemasTable.newDelete();
-                    delete.getRow().addString(0, schemaName);
-                    applyOperationAndVerifySucceeded(session, delete);
-                }
-                finally {
-                    session.close();
-                }
+                Delete delete = schemasTable.newDelete();
+                delete.getRow().addString(0, schemaName);
+                operationApplier.applyOperationAsync(delete);
             }
             catch (KuduException e) {
                 throw new TrinoException(GENERIC_INTERNAL_ERROR, e);
@@ -166,16 +153,12 @@ public class SchemaEmulationByTableNameConvention
         options.addHashPartitions(ImmutableList.of(schemaColumnSchema.getName()), 2);
 
         KuduTable schemasTable = createTableIfNotExists(client, schema, rawSchemasTableName, options);
-        KuduSession session = client.newSession();
-        try {
+        try (KuduOperationApplier operationApplier = KuduOperationApplier.fromKuduClientWrapper(client)) {
             for (String schemaName : existingSchemaNames) {
                 Upsert upsert = schemasTable.newUpsert();
                 upsert.getRow().addString(0, schemaName);
-                applyOperationAndVerifySucceeded(session, upsert);
+                operationApplier.applyOperationAsync(upsert);
             }
-        }
-        finally {
-            session.close();
         }
     }
 
