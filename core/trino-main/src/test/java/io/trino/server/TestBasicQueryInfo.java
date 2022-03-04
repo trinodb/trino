@@ -73,11 +73,11 @@ public class TestBasicQueryInfo
                                 16,
                                 17,
                                 18,
-                                34,
                                 19,
-                                20.0,
-                                DataSize.valueOf("21GB"),
-                                DataSize.valueOf("22GB"),
+                                34,
+                                20,
+                                21.0,
+                                22.0,
                                 DataSize.valueOf("23GB"),
                                 DataSize.valueOf("24GB"),
                                 DataSize.valueOf("25GB"),
@@ -85,24 +85,40 @@ public class TestBasicQueryInfo
                                 DataSize.valueOf("27GB"),
                                 DataSize.valueOf("28GB"),
                                 DataSize.valueOf("29GB"),
+                                DataSize.valueOf("30GB"),
+                                DataSize.valueOf("31GB"),
                                 true,
-                                new Duration(23, MINUTES),
-                                new Duration(24, MINUTES),
-                                new Duration(26, MINUTES),
+                                new Duration(32, MINUTES),
+                                new Duration(33, MINUTES),
+                                new Duration(34, MINUTES),
+                                new Duration(35, MINUTES),
+                                new Duration(36, MINUTES),
                                 true,
                                 ImmutableSet.of(BlockedReason.WAITING_FOR_MEMORY),
                                 DataSize.valueOf("271GB"),
+                                DataSize.valueOf("271GB"),
                                 281,
-                                new Duration(20, MINUTES),
+                                281,
+                                new Duration(37, MINUTES),
+                                new Duration(38, MINUTES),
+                                DataSize.valueOf("272GB"),
                                 DataSize.valueOf("272GB"),
                                 282,
-                                DataSize.valueOf("27GB"),
-                                28,
-                                DataSize.valueOf("29GB"),
-                                30,
-                                DataSize.valueOf("31GB"),
-                                32,
-                                DataSize.valueOf("32GB"),
+                                282,
+                                DataSize.valueOf("39GB"),
+                                DataSize.valueOf("40GB"),
+                                41,
+                                42,
+                                DataSize.valueOf("43GB"),
+                                DataSize.valueOf("44GB"),
+                                45,
+                                46,
+                                DataSize.valueOf("47GB"),
+                                DataSize.valueOf("48GB"),
+                                49,
+                                50,
+                                DataSize.valueOf("51GB"),
+                                DataSize.valueOf("52GB"),
                                 ImmutableList.of(new StageGcStatistics(
                                         101,
                                         102,
@@ -147,16 +163,20 @@ public class TestBasicQueryInfo
         assertEquals(basicInfo.getQueryStats().getElapsedTime(), new Duration(8, MINUTES));
         assertEquals(basicInfo.getQueryStats().getExecutionTime(), new Duration(44, MINUTES));
 
-        assertEquals(basicInfo.getQueryStats().getTotalDrivers(), 16);
-        assertEquals(basicInfo.getQueryStats().getQueuedDrivers(), 17);
-        assertEquals(basicInfo.getQueryStats().getRunningDrivers(), 18);
-        assertEquals(basicInfo.getQueryStats().getCompletedDrivers(), 19);
+        assertEquals(basicInfo.getQueryStats().getTotalDrivers(), 17);
+        assertEquals(basicInfo.getQueryStats().getQueuedDrivers(), 18);
+        assertEquals(basicInfo.getQueryStats().getRunningDrivers(), 19);
+        assertEquals(basicInfo.getQueryStats().getCompletedDrivers(), 20);
 
-        assertEquals(basicInfo.getQueryStats().getCumulativeUserMemory(), 20.0);
-        assertEquals(basicInfo.getQueryStats().getUserMemoryReservation(), DataSize.valueOf("21GB"));
-        assertEquals(basicInfo.getQueryStats().getTotalMemoryReservation(), DataSize.valueOf("23GB"));
-        assertEquals(basicInfo.getQueryStats().getPeakUserMemoryReservation(), DataSize.valueOf("24GB"));
-        assertEquals(basicInfo.getQueryStats().getTotalCpuTime(), new Duration(24, MINUTES));
+        assertEquals(basicInfo.getQueryStats().getCumulativeUserMemory(), 21.0);
+        assertEquals(basicInfo.getQueryStats().getFailedCumulativeUserMemory(), 22.0);
+        assertEquals(basicInfo.getQueryStats().getUserMemoryReservation(), DataSize.valueOf("23GB"));
+        assertEquals(basicInfo.getQueryStats().getTotalMemoryReservation(), DataSize.valueOf("25GB"));
+        assertEquals(basicInfo.getQueryStats().getPeakUserMemoryReservation(), DataSize.valueOf("26GB"));
+        assertEquals(basicInfo.getQueryStats().getTotalScheduledTime(), new Duration(32, MINUTES));
+        assertEquals(basicInfo.getQueryStats().getFailedScheduledTime(), new Duration(33, MINUTES));
+        assertEquals(basicInfo.getQueryStats().getTotalCpuTime(), new Duration(34, MINUTES));
+        assertEquals(basicInfo.getQueryStats().getFailedCpuTime(), new Duration(35, MINUTES));
 
         assertEquals(basicInfo.getQueryStats().isFullyBlocked(), true);
         assertEquals(basicInfo.getQueryStats().getBlockedReasons(), ImmutableSet.of(BlockedReason.WAITING_FOR_MEMORY));
