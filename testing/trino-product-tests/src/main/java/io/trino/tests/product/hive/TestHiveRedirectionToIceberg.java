@@ -585,6 +585,36 @@ public class TestHiveRedirectionToIceberg
         onTrino().executeQuery("DROP TABLE " + icebergTableName);
     }
 
+    @Test(groups = {HIVE_ICEBERG_REDIRECTIONS, PROFILE_SPECIFIC_TESTS})
+    public void testExtractSpatialJoins()
+    {
+        String tableName = "iceberg_comment_table_" + randomTableSuffix();
+        String hiveTableName = "hive.default." + tableName;
+        String icebergTableName = "iceberg.default." + tableName;
+
+        onTrino().executeQuery("CREATE TABLE " + icebergTableName + " AS SELECT spatial_partitioning(ST_Point(x, y)) as v " +
+                "FROM (VALUES (0, 0, '0_0'), (1, 0, '1_0'), (3, 0, '3_0'), (10, 0, '10_0')) as a (x, y, name)");
+
+        onTrino().executeQuery("SET SESSION spatial_join = true");
+        onTrino().executeQuery(format("SET SESSION spatial_partitioning_table_name = '%s'", hiveTableName));
+
+        assertThat(onTrino().executeQuery("SELECT a.name, b.name " +
+                "FROM (VALUES (0, 0, '0_0'), (1, 0, '1_0'), (3, 0, '3_0'), (10, 0, '10_0')) as a (x, y, name), " +
+                "(VALUES (0, 1, '0_1'), (1, 1, '1_1'), (3, 1, '3_1'), (10, 1, '10_1')) as b (x, y, name) " +
+                "WHERE ST_Distance(ST_Point(a.x, a.y), ST_Point(b.x, b.y)) <= 1.5"))
+                .containsOnly(
+                        row("0_0", "0_1"),
+                        row("0_0", "1_1"),
+                        row("1_0", "0_1"),
+                        row("1_0", "1_1"),
+                        row("3_0", "3_1"),
+                        row("10_0", "10_1"));
+
+        onTrino().executeQuery("DROP TABLE " + icebergTableName);
+        onTrino().executeQuery("RESET SESSION spatial_join");
+        onTrino().executeQuery("RESET SESSION spatial_partitioning_table_name");
+    }
+
     private static void createIcebergTable(String tableName, boolean partitioned)
     {
         createIcebergTable(tableName, partitioned, true);
