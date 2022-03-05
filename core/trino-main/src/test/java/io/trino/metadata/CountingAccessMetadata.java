@@ -663,12 +663,6 @@ public class CountingAccessMetadata
     }
 
     @Override
-    public Set<RoleGrant> listAllRoleGrants(Session session, Optional<String> catalog, Optional<Set<String>> roles, Optional<Set<String>> grantees, OptionalLong limit)
-    {
-        return delegate.listAllRoleGrants(session, catalog, roles, grantees, limit);
-    }
-
-    @Override
     public Set<RoleGrant> listRoleGrants(Session session, Optional<String> catalog, TrinoPrincipal principal)
     {
         return delegate.listRoleGrants(session, catalog, principal);

@@ -712,14 +712,6 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
-    public Set<RoleGrant> listAllRoleGrants(ConnectorSession session, Optional<Set<String>> roles, Optional<Set<String>> grantees, OptionalLong limit)
-    {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.listAllRoleGrants(session, roles, grantees, limit);
-        }
-    }
-
-    @Override
     public Set<RoleGrant> listRoleGrants(ConnectorSession session, TrinoPrincipal principal)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
