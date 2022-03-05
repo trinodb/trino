@@ -707,12 +707,6 @@ public class MockConnector
         }
 
         @Override
-        public Set<RoleGrant> listAllRoleGrants(ConnectorSession session, Optional<Set<String>> roles, Optional<Set<String>> grantees, OptionalLong limit)
-        {
-            return roleGrants.apply(session, roles, grantees, limit);
-        }
-
-        @Override
         public Set<RoleGrant> listApplicableRoles(ConnectorSession session, TrinoPrincipal principal)
         {
             return listRoleGrants(session, principal);

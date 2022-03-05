@@ -35,13 +35,13 @@ public class TestInformationSchemaConnector
     public void testBasic()
     {
         assertQuery("SELECT count(*) FROM tpch.information_schema.schemata", "VALUES 10");
-        assertQuery("SELECT count(*) FROM tpch.information_schema.tables", "VALUES 81");
-        assertQuery("SELECT count(*) FROM tpch.information_schema.columns", "VALUES 589");
+        assertQuery("SELECT count(*) FROM tpch.information_schema.tables", "VALUES 80");
+        assertQuery("SELECT count(*) FROM tpch.information_schema.columns", "VALUES 583");
         assertQuery("SELECT * FROM tpch.information_schema.schemata ORDER BY 1 DESC, 2 DESC LIMIT 1", "VALUES ('tpch', 'tiny')");
         assertQuery("SELECT * FROM tpch.information_schema.tables ORDER BY 1 DESC, 2 DESC, 3 DESC, 4 DESC LIMIT 1", "VALUES ('tpch', 'tiny', 'supplier', 'BASE TABLE')");
         assertQuery("SELECT * FROM tpch.information_schema.columns ORDER BY 1 DESC, 2 DESC, 3 DESC, 4 DESC LIMIT 1", "VALUES ('tpch', 'tiny', 'supplier', 'suppkey', 1, NULL, 'NO', 'bigint')");
         assertQuery("SELECT * FROM test_catalog.information_schema.columns ORDER BY 1 DESC, 2 DESC, 3 DESC, 4 DESC LIMIT 1", "VALUES ('test_catalog', 'test_schema2', 'test_table999', 'column_99', 100, NULL, 'YES', 'varchar')");
-        assertQuery("SELECT count(*) FROM test_catalog.information_schema.columns", "VALUES 300040");
+        assertQuery("SELECT count(*) FROM test_catalog.information_schema.columns", "VALUES 300034");
     }
 
     @Test
@@ -50,14 +50,14 @@ public class TestInformationSchemaConnector
         assertQuery("SELECT count(*) FROM tpch.information_schema.schemata WHERE schema_name = 'sf1'", "VALUES 1");
         assertQuery("SELECT count(*) FROM tpch.information_schema.schemata WHERE schema_name IS NOT NULL", "VALUES 10");
         assertQuery("SELECT count(*) FROM tpch.information_schema.tables WHERE table_schema = 'sf1'", "VALUES 8");
-        assertQuery("SELECT count(*) FROM tpch.information_schema.tables WHERE table_schema IS NOT NULL", "VALUES 81");
+        assertQuery("SELECT count(*) FROM tpch.information_schema.tables WHERE table_schema IS NOT NULL", "VALUES 80");
         assertQuery("SELECT count(*) FROM tpch.information_schema.columns WHERE table_schema = 'sf1'", "VALUES 61");
-        assertQuery("SELECT count(*) FROM tpch.information_schema.columns WHERE table_schema = 'information_schema'", "VALUES 40");
+        assertQuery("SELECT count(*) FROM tpch.information_schema.columns WHERE table_schema = 'information_schema'", "VALUES 34");
         assertQuery("SELECT count(*) FROM tpch.information_schema.columns WHERE table_schema > 'sf100'", "VALUES 427");
-        assertQuery("SELECT count(*) FROM tpch.information_schema.columns WHERE table_schema != 'sf100'", "VALUES 528");
+        assertQuery("SELECT count(*) FROM tpch.information_schema.columns WHERE table_schema != 'sf100'", "VALUES 522");
         assertQuery("SELECT count(*) FROM tpch.information_schema.columns WHERE table_schema LIKE 'sf100'", "VALUES 61");
         assertQuery("SELECT count(*) FROM tpch.information_schema.columns WHERE table_schema LIKE 'sf%'", "VALUES 488");
-        assertQuery("SELECT count(*) FROM tpch.information_schema.columns WHERE table_schema IS NOT NULL", "VALUES 589");
+        assertQuery("SELECT count(*) FROM tpch.information_schema.columns WHERE table_schema IS NOT NULL", "VALUES 583");
     }
 
     @Test
@@ -69,13 +69,13 @@ public class TestInformationSchemaConnector
         assertQuery("SELECT count(*) FROM tpch.information_schema.tables WHERE table_name < 'orders'", "VALUES 30");
         assertQuery("SELECT count(*) FROM tpch.information_schema.tables WHERE table_name LIKE 'part'", "VALUES 9");
         assertQuery("SELECT count(*) FROM tpch.information_schema.tables WHERE table_name LIKE 'part%'", "VALUES 18");
-        assertQuery("SELECT count(*) FROM tpch.information_schema.tables WHERE table_name IS NOT NULL", "VALUES 81");
+        assertQuery("SELECT count(*) FROM tpch.information_schema.tables WHERE table_name IS NOT NULL", "VALUES 80");
         assertQuery("SELECT count(*) FROM tpch.information_schema.columns WHERE table_name = 'orders'", "VALUES 81");
         assertQuery("SELECT count(*) FROM tpch.information_schema.columns WHERE table_name LIKE 'orders'", "VALUES 81");
         assertQuery("SELECT count(*) FROM tpch.information_schema.columns WHERE table_name < 'orders'", "VALUES 265");
         assertQuery("SELECT count(*) FROM tpch.information_schema.columns WHERE table_name LIKE 'part'", "VALUES 81");
         assertQuery("SELECT count(*) FROM tpch.information_schema.columns WHERE table_name LIKE 'part%'", "VALUES 126");
-        assertQuery("SELECT count(*) FROM tpch.information_schema.columns WHERE table_name IS NOT NULL", "VALUES 589");
+        assertQuery("SELECT count(*) FROM tpch.information_schema.columns WHERE table_name IS NOT NULL", "VALUES 583");
     }
 
     @Test
@@ -122,7 +122,7 @@ public class TestInformationSchemaConnector
                         .withListSchemasCount(1));
         assertMetadataCalls(
                 "SELECT count(*) from test_catalog.information_schema.tables",
-                "VALUES 3009",
+                "VALUES 3008",
                 new MetadataCallsCount()
                         .withListSchemasCount(1)
                         .withListTablesCount(2));
