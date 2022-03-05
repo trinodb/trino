@@ -897,15 +897,6 @@ public interface ConnectorMetadata
     }
 
     /**
-     * List all role grants in the specified catalog,
-     * optionally filtered by passed role, grantee, and limit predicates.
-     */
-    default Set<RoleGrant> listAllRoleGrants(ConnectorSession session, Optional<Set<String>> roles, Optional<Set<String>> grantees, OptionalLong limit)
-    {
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support roles");
-    }
-
-    /**
      * Grants the specified roles to the specified grantees
      *
      * @param grantor represents the principal specified by GRANTED BY statement

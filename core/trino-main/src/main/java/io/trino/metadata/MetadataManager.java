@@ -1830,27 +1830,6 @@ public final class MetadataManager
     }
 
     @Override
-    public Set<RoleGrant> listAllRoleGrants(Session session, Optional<String> catalog, Optional<Set<String>> roles, Optional<Set<String>> grantees, OptionalLong limit)
-    {
-        if (catalog.isPresent()) {
-            Optional<CatalogMetadata> catalogMetadata = getOptionalCatalogMetadata(session, catalog.get());
-            if (catalogMetadata.isEmpty()) {
-                return ImmutableSet.of();
-            }
-            // If the connector is using system security management, we fall through to the system call
-            // instead of returning nothing, so information schema role tables will work properly
-            if (catalogMetadata.get().getSecurityManagement() == CONNECTOR) {
-                CatalogHandle catalogHandle = catalogMetadata.get().getCatalogHandle();
-                ConnectorSession connectorSession = session.toConnectorSession(catalogHandle);
-                ConnectorMetadata metadata = catalogMetadata.get().getMetadataFor(session, catalogHandle);
-                return metadata.listAllRoleGrants(connectorSession, roles, grantees, limit);
-            }
-        }
-
-        return systemSecurityMetadata.listAllRoleGrants(session, roles, grantees, limit);
-    }
-
-    @Override
     public Set<RoleGrant> listRoleGrants(Session session, Optional<String> catalog, TrinoPrincipal principal)
     {
         if (catalog.isPresent()) {

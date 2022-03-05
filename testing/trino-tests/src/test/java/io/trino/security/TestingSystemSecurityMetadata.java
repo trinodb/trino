@@ -29,7 +29,6 @@ import io.trino.spi.security.TrinoPrincipal;
 import java.util.ArrayDeque;
 import java.util.HashSet;
 import java.util.Optional;
-import java.util.OptionalLong;
 import java.util.Queue;
 import java.util.Set;
 
@@ -74,12 +73,6 @@ class TestingSystemSecurityMetadata
     public Set<String> listRoles(Session session)
     {
         return ImmutableSet.copyOf(roles);
-    }
-
-    @Override
-    public Set<RoleGrant> listAllRoleGrants(Session session, Optional<Set<String>> roles, Optional<Set<String>> grantees, OptionalLong limit)
-    {
-        return ImmutableSet.copyOf(roleGrants);
     }
 
     @Override
