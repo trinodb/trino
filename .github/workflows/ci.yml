@@ -526,7 +526,9 @@ jobs:
     steps:
       - uses: actions/checkout@v2
         with:
-          fetch-depth: 0 # checkout all commits, as the build result depends on `git describe` equivalent
+          fetch-depth: 0 # checkout all commits to be able to determine merge base for GIB
+      - name: Fetch base ref to find merge-base for GIB
+        run: .github/bin/git-fetch-base-ref.sh
       - uses: actions/setup-java@v2
         with:
           distribution: 'zulu'
@@ -537,12 +539,22 @@ jobs:
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
           # GIB needs to be explicitly disabled, because the gib profile enables it, but the trino-server module requires all of its dependencies to be built
           $RETRY $MAVEN clean install ${MAVEN_FAST_INSTALL} -Dgib.disable -pl '!:trino-docs,!:trino-server-rpm'
+      - name: Map impacted plugins to features
+        run: |
+          export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
+          $MAVEN validate ${MAVEN_FAST_INSTALL} -pl '!:trino-docs,!:trino-server-rpm'
+          # GIB doesn't run on master, so make sure the file always exist
+          touch gib-impacted.log
+          testing/trino-plugin-reader/target/trino-plugin-reader-*-executable.jar -i gib-impacted.log -p core/trino-server/target/trino-server-*-hardlinks/plugin > impacted-features.log
+          echo "Impacted plugin features:"
+          cat impacted-features.log
       - name: Product tests artifact
         uses: actions/upload-artifact@v2
         with:
           name: product tests and server tarball
           path: |
             core/trino-server/target/*.tar.gz
+            impacted-features.log
             testing/trino-product-tests-launcher/target/*-executable.jar
             testing/trino-product-tests/target/*-executable.jar
             client/trino-cli/target/*-executable.jar
@@ -656,7 +668,10 @@ jobs:
       - name: Product Tests
         run: |
           testing/bin/ptl suite run \
-            --suite ${{ matrix.suite }} --config config-${{ matrix.config }} --bind=off --logs-dir logs/ --timeout 2h \
+            --suite ${{ matrix.suite }} \
+            --config config-${{ matrix.config }} \
+            --impacted-features impacted-features.log \
+            --bind=off --logs-dir logs/ --timeout 2h \
             --trino-jdk-version zulu_${{ matrix.jdk }}
       - name: Upload test logs and results
         uses: actions/upload-artifact@v2
