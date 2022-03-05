@@ -107,55 +107,6 @@ public class TestInformationSchemaConnector
         assertQuery("SELECT count(*) FROM (SELECT * FROM test_catalog.information_schema.tables LIMIT 1000)", "VALUES 1000");
     }
 
-    @Test
-    public void testRoleAuthorizationDescriptor()
-    {
-        assertQuery("SELECT count(*) FROM test_catalog.information_schema.role_authorization_descriptors", "VALUES 100");
-        assertQuery("SELECT count(*) FROM test_catalog.information_schema.roles", "VALUES 50");
-        assertQuery("SELECT count(*) FROM test_catalog.information_schema.enabled_roles", "VALUES 50");
-        assertQuery("SELECT count(*) FROM test_catalog.information_schema.applicable_roles", "VALUES 1");
-        assertQuery("SELECT role_name FROM test_catalog.information_schema.role_authorization_descriptors WHERE grantee = 'user5'", "VALUES ('role2')");
-        assertQuery("SELECT grantee FROM test_catalog.information_schema.role_authorization_descriptors WHERE role_name = 'role2'", "VALUES ('user4'), ('user5')");
-
-        assertMetadataCalls(
-                "SELECT count(*) FROM test_catalog.information_schema.role_authorization_descriptors", "VALUES 100",
-                new MetadataCallsCount()
-                        .withListRoleGrantsCount(1));
-
-        assertMetadataCalls(
-                "SELECT role_name FROM test_catalog.information_schema.role_authorization_descriptors WHERE grantee = 'user5'", "VALUES ('role2')",
-                new MetadataCallsCount()
-                        .withListRoleGrantsCount(1)
-                        .withGranteesPushedCount(1));
-
-        assertMetadataCalls(
-                "SELECT grantee FROM test_catalog.information_schema.role_authorization_descriptors WHERE role_name = 'role2'", "VALUES ('user4'), ('user5')",
-                new MetadataCallsCount()
-                        .withListRoleGrantsCount(1)
-                        .withRolesPushedCount(1));
-
-        assertMetadataCalls(
-                "SELECT grantee FROM test_catalog.information_schema.role_authorization_descriptors WHERE role_name = 'role2' AND grantee = 'user4'", "VALUES 'user4'",
-                new MetadataCallsCount()
-                        .withListRoleGrantsCount(1)
-                        .withRolesPushedCount(1)
-                        .withGranteesPushedCount(1));
-
-        assertMetadataCalls(
-                "SELECT count(*) FROM (SELECT * FROM test_catalog.information_schema.role_authorization_descriptors LIMIT 1)", "VALUES 1",
-                new MetadataCallsCount()
-                        .withListRoleGrantsCount(1)
-                        .withLimitPushedCount(1));
-
-        // verify that predicate and LIMIT are not pushed down together
-        assertMetadataCalls(
-                "SELECT count(*) FROM (SELECT * FROM test_catalog.information_schema.role_authorization_descriptors WHERE grantee = 'user5' LIMIT 1)", "VALUES 1",
-                new MetadataCallsCount()
-                        .withListRoleGrantsCount(1)
-                        .withGranteesPushedCount(1)
-                        .withLimitPushedCount(0));
-    }
-
     @Test(timeOut = 60_000)
     public void testMetadataCalls()
     {
