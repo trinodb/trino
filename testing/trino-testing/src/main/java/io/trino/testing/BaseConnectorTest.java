@@ -1721,7 +1721,6 @@ public abstract class BaseConnectorTest
                         "('applicable_roles'), " +
                         "('columns'), " +
                         "('enabled_roles'), " +
-                        "('role_authorization_descriptors'), " +
                         "('roles'), " +
                         "('schemata'), " +
                         "('table_privileges'), " +
@@ -1772,7 +1771,6 @@ public abstract class BaseConnectorTest
                         "('applicable_roles'), " +
                         "('columns'), " +
                         "('enabled_roles'), " +
-                        "('role_authorization_descriptors'), " +
                         "('roles'), " +
                         "('schemata'), " +
                         "('table_privileges'), " +
