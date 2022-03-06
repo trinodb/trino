@@ -251,6 +251,10 @@ A schema collection consists of a MongoDB document for a table.
         }
     }
 
+The connector quotes the fields for a row type when auto-generating the schema.
+However, if the schema is being fixed manually in the collection then
+the fields need to be explicitly quoted. ``row("UpperCase" varchar)``
+
 =============== ========= ============== =============================
 Field           Required  Type           Description
 =============== ========= ============== =============================
