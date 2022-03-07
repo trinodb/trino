@@ -10,9 +10,9 @@
 package com.starburstdata.presto.plugin.snowflake;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.FeaturesConfig;
 import io.trino.Session;
 import io.trino.execution.QueryManager;
+import io.trino.sql.planner.OptimizerConfig;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
@@ -109,8 +109,8 @@ public class TestDistributedSnowflakeConnectorTest
     private Session fixedBroadcastJoinDistribution(boolean dynamicFilteringEnabled)
     {
         return Session.builder(getQueryRunner().getDefaultSession())
-                .setSystemProperty(JOIN_REORDERING_STRATEGY, FeaturesConfig.JoinReorderingStrategy.ELIMINATE_CROSS_JOINS.name())
-                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, FeaturesConfig.JoinDistributionType.BROADCAST.name())
+                .setSystemProperty(JOIN_REORDERING_STRATEGY, OptimizerConfig.JoinReorderingStrategy.ELIMINATE_CROSS_JOINS.name())
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, OptimizerConfig.JoinDistributionType.BROADCAST.name())
                 .setSystemProperty(ENABLE_DYNAMIC_FILTERING, Boolean.toString(dynamicFilteringEnabled))
                 .build();
     }
