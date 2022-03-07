@@ -44,8 +44,11 @@ public class TestIcebergHiveTablesCompatibility
         assertQueryFailure(() -> onTrino().executeQuery("SELECT * FROM iceberg.default." + tableName))
                 .hasMessageMatching("Query failed \\(#\\w+\\):\\Q Not an Iceberg table: default." + tableName);
 
-        assertQueryFailure(() -> onTrino().executeQuery("SELECT * FROM iceberg.default.\"" + tableName + "$files\""))
+        assertQueryFailure(() -> onTrino().executeQuery("SELECT * FROM iceberg.default.\"" + tableName + "$data\""))
                 .hasMessageMatching("Query failed \\(#\\w+\\):\\Q Not an Iceberg table: default." + tableName);
+
+        assertQueryFailure(() -> onTrino().executeQuery("SELECT * FROM iceberg.default.\"" + tableName + "$files\""))
+                .hasMessageMatching("Query failed \\(#\\w+\\):\\Q line 1:15: Table 'iceberg.default." + tableName + "$files' does not exist");
 
         onTrino().executeQuery("DROP TABLE hive.default." + tableName);
     }
