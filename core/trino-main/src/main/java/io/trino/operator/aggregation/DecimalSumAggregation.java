@@ -40,6 +40,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.trino.metadata.FunctionKind.AGGREGATE;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.Int128Math.addWithOverflow;
 import static io.trino.spi.type.TypeSignatureParameter.numericParameter;
 import static io.trino.spi.type.TypeSignatureParameter.typeVariable;
@@ -72,7 +73,8 @@ public class DecimalSumAggregation
                         AGGREGATE),
                 new AggregationFunctionMetadata(
                         false,
-                        VARBINARY.getTypeSignature()));
+                        DecimalType.createDecimalType(Decimals.MAX_SHORT_PRECISION + 1).getTypeSignature(),
+                        BIGINT.getTypeSignature()));
     }
 
     @Override
