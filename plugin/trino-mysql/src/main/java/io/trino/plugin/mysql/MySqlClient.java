@@ -28,6 +28,7 @@ import io.trino.plugin.jdbc.JdbcSortItem;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.PreparedQuery;
+import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.WriteMapping;
 import io.trino.plugin.jdbc.aggregation.ImplementAvgDecimal;
 import io.trino.plugin.jdbc.aggregation.ImplementAvgFloatingPoint;
@@ -139,6 +140,7 @@ import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static java.util.stream.Collectors.joining;
 
 public class MySqlClient
@@ -157,9 +159,9 @@ public class MySqlClient
     private final AggregateFunctionRewriter<JdbcExpression> aggregateFunctionRewriter;
 
     @Inject
-    public MySqlClient(BaseJdbcConfig config, ConnectionFactory connectionFactory, TypeManager typeManager, IdentifierMapping identifierMapping)
+    public MySqlClient(BaseJdbcConfig config, ConnectionFactory connectionFactory, QueryBuilder queryBuilder, TypeManager typeManager, IdentifierMapping identifierMapping)
     {
-        super(config, "`", connectionFactory, identifierMapping);
+        super(config, "`", connectionFactory, queryBuilder, identifierMapping);
         this.jsonType = typeManager.getType(new TypeSignature(StandardTypes.JSON));
 
         JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
@@ -282,13 +284,18 @@ public class MySqlClient
         if (mapping.isPresent()) {
             return mapping;
         }
-        Optional<ColumnMapping> unsignedMapping = getUnsignedMapping(typeHandle);
-        if (unsignedMapping.isPresent()) {
-            return unsignedMapping;
-        }
 
-        if (jdbcTypeName.equalsIgnoreCase("json")) {
-            return Optional.of(jsonColumnMapping());
+        switch (jdbcTypeName.toLowerCase(ENGLISH)) {
+            case "tinyint unsigned":
+                return Optional.of(smallintColumnMapping());
+            case "smallint unsigned":
+                return Optional.of(integerColumnMapping());
+            case "int unsigned":
+                return Optional.of(bigintColumnMapping());
+            case "bigint unsigned":
+                return Optional.of(decimalColumnMapping(createDecimalType(20)));
+            case "json":
+                return Optional.of(jsonColumnMapping());
         }
 
         switch (typeHandle.getJdbcType()) {
@@ -626,7 +633,7 @@ public class MySqlClient
     }
 
     @Override
-    protected boolean isSupportedJoinCondition(JdbcJoinCondition joinCondition)
+    protected boolean isSupportedJoinCondition(ConnectorSession session, JdbcJoinCondition joinCondition)
     {
         if (joinCondition.getOperator() == JoinCondition.Operator.IS_DISTINCT_FROM) {
             // Not supported in MySQL
@@ -661,28 +668,5 @@ public class MySqlClient
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, e);
         }
-    }
-
-    private static Optional<ColumnMapping> getUnsignedMapping(JdbcTypeHandle typeHandle)
-    {
-        if (typeHandle.getJdbcTypeName().isEmpty()) {
-            return Optional.empty();
-        }
-
-        String typeName = typeHandle.getJdbcTypeName().get();
-        if (typeName.equalsIgnoreCase("tinyint unsigned")) {
-            return Optional.of(smallintColumnMapping());
-        }
-        if (typeName.equalsIgnoreCase("smallint unsigned")) {
-            return Optional.of(integerColumnMapping());
-        }
-        if (typeName.equalsIgnoreCase("int unsigned")) {
-            return Optional.of(bigintColumnMapping());
-        }
-        if (typeName.equalsIgnoreCase("bigint unsigned")) {
-            return Optional.of(decimalColumnMapping(createDecimalType(20)));
-        }
-
-        return Optional.empty();
     }
 }

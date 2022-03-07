@@ -35,7 +35,7 @@ public class TestPasswordConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("elasticsearch.auth.user", "user")
                 .put("elasticsearch.auth.password", "password")
                 .buildOrThrow();

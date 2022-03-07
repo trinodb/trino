@@ -38,7 +38,7 @@ public class TestJdbcWriteConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("write.batch-size", "24")
                 .put("insert.non-transactional-insert.enabled", "true")
                 .buildOrThrow();

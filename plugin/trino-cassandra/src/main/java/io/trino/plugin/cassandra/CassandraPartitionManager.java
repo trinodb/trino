@@ -29,10 +29,13 @@ import javax.inject.Inject;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Predicates.in;
 import static com.google.common.base.Predicates.not;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -51,7 +54,6 @@ public class CassandraPartitionManager
     public CassandraPartitionResult getPartitions(CassandraTableHandle cassandraTableHandle, TupleDomain<ColumnHandle> tupleDomain)
     {
         CassandraTable table = cassandraSession.getTable(cassandraTableHandle.getSchemaTableName());
-        List<CassandraColumnHandle> partitionKeys = table.getPartitionKeyColumns();
 
         // fetch the partitions
         List<CassandraPartition> allPartitions = getCassandraPartitions(table, tupleDomain);
@@ -69,8 +71,14 @@ public class CassandraPartitionManager
                 remainingTupleDomain = tupleDomain;
             }
             else {
-                List<ColumnHandle> partitionColumns = ImmutableList.copyOf(partitionKeys);
-                remainingTupleDomain = tupleDomain.filter((column, domain) -> !partitionColumns.contains(column));
+                Set<ColumnHandle> usedPartitionColumns = partitions.stream()
+                        .flatMap(partition -> Optional.ofNullable(partition.getTupleDomain())
+                                .flatMap(partitionTupleDomain -> partitionTupleDomain.getDomains()
+                                        .map(Map::keySet)
+                                        .map(Set::stream))
+                                .orElse(Stream.empty()))
+                        .collect(toImmutableSet());
+                remainingTupleDomain = tupleDomain.filter((column, domain) -> !usedPartitionColumns.contains(column));
             }
         }
 

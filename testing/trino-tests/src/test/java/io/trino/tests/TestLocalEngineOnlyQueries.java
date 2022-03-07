@@ -15,6 +15,7 @@ package io.trino.tests;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.connector.MockConnectorFactory;
+import io.trino.testing.AbstractTestEngineOnlyQueries;
 import io.trino.testing.LocalQueryRunner;
 import io.trino.testing.QueryRunner;
 import org.testng.SkipException;

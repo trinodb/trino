@@ -1127,7 +1127,7 @@ class StatementAnalyzer
             if (anyNamed) {
                 // all properties named
                 for (CallArgument argument : arguments) {
-                    if (argumentsMap.put(argument.getName().get(), argument.getValue()) != null) {
+                    if (argumentsMap.put(argument.getName().get().getCanonicalValue(), argument.getValue()) != null) {
                         throw semanticException(DUPLICATE_PROPERTY, argument, "Duplicate named argument: %s", argument.getName());
                     }
                 }

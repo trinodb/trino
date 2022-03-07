@@ -25,8 +25,6 @@ import io.trino.testing.TestingSession;
 import io.trino.testing.datatype.CreateAndInsertDataSetup;
 import io.trino.testing.datatype.CreateAsSelectDataSetup;
 import io.trino.testing.datatype.DataSetup;
-import io.trino.testing.datatype.DataType;
-import io.trino.testing.datatype.DataTypeTest;
 import io.trino.testing.datatype.SqlDataTypeTest;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TrinoSqlExecutor;
@@ -39,8 +37,6 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
-import java.util.List;
-import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -66,13 +62,11 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
-import static io.trino.testing.datatype.DataType.dataType;
 import static java.lang.String.format;
 import static java.math.RoundingMode.HALF_UP;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.time.ZoneOffset.UTC;
 import static java.util.Arrays.asList;
-import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
@@ -617,11 +611,17 @@ public class TestPhoenixTypeMapping
                 .addRoundTrip("integer primary key", "1", INTEGER, "1")
                 .execute(getQueryRunner(), phoenixCreateAndInsert("tpch.test_array_decimal"));
 
-        // TODO (https://github.com/trinodb/trino/issues/10451) Migrate to SqlDataTypeTest after fixing predicate pushdown failure on array(char) type
-        arrayStringDataTypeTest(TestPhoenixTypeMapping::arrayDataType, DataType::charDataType)
+        SqlDataTypeTest.create()
+                .addRoundTrip("ARRAY(char(10))", "ARRAY['text_a']", new ArrayType(createCharType(10)), "ARRAY[CAST('text_a' AS char(10))]")
+                .addRoundTrip("ARRAY(char(255))", "ARRAY['text_b']", new ArrayType(createCharType(255)), "ARRAY[CAST('text_b' AS char(255))]")
+                .addRoundTrip("ARRAY(char(65535))", "ARRAY['text_d']", new ArrayType(createCharType(65535)), "ARRAY[CAST('text_d' AS char(65535))]")
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_array_char"));
-        arrayStringDataTypeTest(TestPhoenixTypeMapping::phoenixArrayDataType, DataType::charDataType)
-                .addRoundTrip(primaryKey(), 1)
+
+        SqlDataTypeTest.create()
+                .addRoundTrip("char(10) ARRAY", "ARRAY['text_a']", new ArrayType(createCharType(10)), "ARRAY[CAST('text_a' AS char(10))]")
+                .addRoundTrip("char(255) ARRAY", "ARRAY['text_b']", new ArrayType(createCharType(255)), "ARRAY[CAST('text_b' AS char(255))]")
+                .addRoundTrip("char(65535) ARRAY", "ARRAY['text_d']", new ArrayType(createCharType(65535)), "ARRAY[CAST('text_d' AS char(65535))]")
+                .addRoundTrip("integer primary key", "1", INTEGER, "1")
                 .execute(getQueryRunner(), phoenixCreateAndInsert("tpch.test_array_char"));
 
         SqlDataTypeTest.create()
@@ -653,33 +653,6 @@ public class TestPhoenixTypeMapping
         }
     }
 
-    private DataTypeTest arrayStringDataTypeTest(Function<DataType<String>, DataType<List<String>>> arrayTypeFactory, Function<Integer, DataType<String>> dataTypeFactory)
-    {
-        return DataTypeTest.create()
-                .addRoundTrip(arrayTypeFactory.apply(dataTypeFactory.apply(10)), asList("text_a"))
-                .addRoundTrip(arrayTypeFactory.apply(dataTypeFactory.apply(255)), asList("text_b"))
-                .addRoundTrip(arrayTypeFactory.apply(dataTypeFactory.apply(65535)), asList("text_d"));
-    }
-
-    private static <E> DataType<List<E>> arrayDataType(DataType<E> elementType)
-    {
-        return arrayDataType(elementType, format("ARRAY(%s)", elementType.getInsertType()));
-    }
-
-    private static <E> DataType<List<E>> phoenixArrayDataType(DataType<E> elementType)
-    {
-        return arrayDataType(elementType, elementType.getInsertType() + " ARRAY");
-    }
-
-    private static <E> DataType<List<E>> arrayDataType(DataType<E> elementType, String insertType)
-    {
-        return dataType(
-                insertType,
-                new ArrayType(elementType.getTrinoResultType()),
-                valuesList -> "ARRAY" + valuesList.stream().map(elementType::toLiteral).collect(toList()),
-                valuesList -> valuesList == null ? null : valuesList.stream().map(elementType::toTrinoQueryResult).collect(toList()));
-    }
-
     @DataProvider
     public Object[][] sessionZonesDataProvider()
     {
@@ -706,11 +679,6 @@ public class TestPhoenixTypeMapping
     private static void checkIsDoubled(ZoneId zone, LocalDateTime dateTime)
     {
         verify(zone.getRules().getValidOffsets(dateTime).size() == 2, "Expected %s to be doubled in %s", dateTime, zone);
-    }
-
-    private DataType<Integer> primaryKey()
-    {
-        return dataType("integer primary key", INTEGER, Object::toString);
     }
 
     private DataSetup trinoCreateAsSelect(String tableNamePrefix)

@@ -408,6 +408,10 @@ public class IcebergMetadata
             catch (UnknownTableTypeException e) {
                 // ignore table of unknown type
             }
+            catch (RuntimeException e) {
+                // Table can be being removed and this may cause all sorts of exceptions. Log, because we're catching broadly.
+                log.warn(e, "Failed to access metadata of table %s during column listing for %s", table, prefix);
+            }
         }
         return columns.buildOrThrow();
     }
@@ -829,7 +833,7 @@ public class IcebergMetadata
     @Override
     public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        catalog.dropTable(session, ((IcebergTableHandle) tableHandle).getSchemaTableName(), true);
+        catalog.dropTable(session, ((IcebergTableHandle) tableHandle).getSchemaTableName());
     }
 
     @Override
@@ -886,14 +890,13 @@ public class IcebergMetadata
     private List<ColumnMetadata> getColumnMetadatas(Table table)
     {
         return table.schema().columns().stream()
-                .map(column -> {
-                    return ColumnMetadata.builder()
-                            .setName(column.name())
-                            .setType(toTrinoType(column.type(), typeManager))
-                            .setNullable(column.isOptional())
-                            .setComment(Optional.ofNullable(column.doc()))
-                            .build();
-                })
+                .map(column ->
+                        ColumnMetadata.builder()
+                                .setName(column.name())
+                                .setType(toTrinoType(column.type(), typeManager))
+                                .setNullable(column.isOptional())
+                                .setComment(Optional.ofNullable(column.doc()))
+                                .build())
                 .collect(toImmutableList());
     }
 
@@ -1103,6 +1106,9 @@ public class IcebergMetadata
 
     private static IcebergColumnHandle createProjectedColumnHandle(IcebergColumnHandle column, List<Integer> indices, io.trino.spi.type.Type projectedColumnType)
     {
+        if (indices.isEmpty()) {
+            return column;
+        }
         ImmutableList.Builder<Integer> fullPath = ImmutableList.builder();
         fullPath.addAll(column.getPath());
 
@@ -1275,6 +1281,22 @@ public class IcebergMetadata
     }
 
     @Override
+    public Map<SchemaTableName, ConnectorMaterializedViewDefinition> getMaterializedViews(ConnectorSession session, Optional<String> schemaName)
+    {
+        Map<SchemaTableName, ConnectorMaterializedViewDefinition> materializedViews = new HashMap<>();
+        for (SchemaTableName name : listMaterializedViews(session, schemaName)) {
+            try {
+                getMaterializedView(session, name).ifPresent(view -> materializedViews.put(name, view));
+            }
+            catch (RuntimeException e) {
+                // Materialized view can be being removed and this may cause all sorts of exceptions. Log, because we're catching broadly.
+                log.warn(e, "Failed to access metadata of materialized view %s during listing", name);
+            }
+        }
+        return materializedViews;
+    }
+
+    @Override
     public Optional<ConnectorMaterializedViewDefinition> getMaterializedView(ConnectorSession session, SchemaTableName viewName)
     {
         return catalog.getMaterializedView(session, viewName);
@@ -1339,6 +1361,12 @@ public class IcebergMetadata
             }
         }
         return new MaterializedViewFreshness(true);
+    }
+
+    @Override
+    public void setColumnComment(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column, Optional<String> comment)
+    {
+        catalog.updateColumnComment(session, ((IcebergTableHandle) tableHandle).getSchemaTableName(), ((IcebergColumnHandle) column).getColumnIdentity(), comment);
     }
 
     private Map<String, Optional<TableToken>> getMaterializedViewToken(ConnectorSession session, SchemaTableName name)

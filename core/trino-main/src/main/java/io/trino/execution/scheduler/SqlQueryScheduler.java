@@ -38,6 +38,7 @@ import io.trino.execution.QueryStateMachine;
 import io.trino.execution.RemoteTask;
 import io.trino.execution.RemoteTaskFactory;
 import io.trino.execution.SqlStage;
+import io.trino.execution.SqlTaskManager;
 import io.trino.execution.StageId;
 import io.trino.execution.StageInfo;
 import io.trino.execution.StateMachine;
@@ -46,7 +47,6 @@ import io.trino.execution.TableExecuteContextManager;
 import io.trino.execution.TableInfo;
 import io.trino.execution.TaskFailureListener;
 import io.trino.execution.TaskId;
-import io.trino.execution.TaskManager;
 import io.trino.execution.TaskStatus;
 import io.trino.execution.scheduler.policy.ExecutionPolicy;
 import io.trino.execution.scheduler.policy.ExecutionSchedule;
@@ -223,7 +223,7 @@ public class SqlQueryScheduler
             TableExecuteContextManager tableExecuteContextManager,
             Metadata metadata,
             SplitSourceFactory splitSourceFactory,
-            TaskManager coordinatorTaskManager,
+            SqlTaskManager coordinatorTaskManager,
             ExchangeManagerRegistry exchangeManagerRegistry,
             TaskSourceFactory taskSourceFactory,
             TaskDescriptorStorage taskDescriptorStorage)
@@ -790,7 +790,7 @@ public class SqlQueryScheduler
         private final StageManager stageManager;
         private final List<StageExecution> stageExecutions;
         private final AtomicReference<DistributedStagesScheduler> distributedStagesScheduler;
-        private final TaskManager coordinatorTaskManager;
+        private final SqlTaskManager coordinatorTaskManager;
 
         private final AtomicBoolean scheduled = new AtomicBoolean();
 
@@ -801,7 +801,7 @@ public class SqlQueryScheduler
                 FailureDetector failureDetector,
                 Executor executor,
                 AtomicReference<DistributedStagesScheduler> distributedStagesScheduler,
-                TaskManager coordinatorTaskManager)
+                SqlTaskManager coordinatorTaskManager)
         {
             Map<PlanFragmentId, OutputBufferManager> outputBuffersForStagesConsumedByCoordinator = createOutputBuffersForStagesConsumedByCoordinator(stageManager);
             Map<PlanFragmentId, Optional<int[]>> bucketToPartitionForStagesConsumedByCoordinator = createBucketToPartitionForStagesConsumedByCoordinator(stageManager);
@@ -887,7 +887,7 @@ public class SqlQueryScheduler
                 StageManager stageManager,
                 List<StageExecution> stageExecutions,
                 AtomicReference<DistributedStagesScheduler> distributedStagesScheduler,
-                TaskManager coordinatorTaskManager)
+                SqlTaskManager coordinatorTaskManager)
         {
             this.queryStateMachine = requireNonNull(queryStateMachine, "queryStateMachine is null");
             this.nodeScheduler = requireNonNull(nodeScheduler, "nodeScheduler is null");
@@ -1780,7 +1780,7 @@ public class SqlQueryScheduler
                             taskLifecycleListener,
                             exchange,
                             bucketToPartitionCache.apply(fragment.getPartitioningScheme().getPartitioning().getHandle()).getBucketToPartitionMap(),
-                            sourceExchanges.build(),
+                            sourceExchanges.buildOrThrow(),
                             inputBucketToPartition.getBucketToPartitionMap(),
                             inputBucketToPartition.getBucketNodeMap(),
                             retryAttempts);
@@ -1923,6 +1923,8 @@ public class SqlQueryScheduler
                 stateMachine.transitionToFinished();
                 return;
             }
+
+            stateMachine.transitionToRunning();
 
             try (SetThreadName ignored = new SetThreadName("Query-%s", queryStateMachine.getQueryId())) {
                 List<ListenableFuture<Void>> blockedStages = new ArrayList<>();

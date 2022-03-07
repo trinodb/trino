@@ -21,14 +21,12 @@ import org.apache.iceberg.DataFile;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.types.Conversions;
-import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
 import java.lang.invoke.MethodHandle;
-import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -114,7 +112,6 @@ final class IcebergStatistics
 
     public static class Builder
     {
-        private final Map<Integer, Type.PrimitiveType> idToTypeMapping;
         private final List<Types.NestedField> columns;
         private final TypeManager typeManager;
         private final Map<Integer, Optional<Long>> nullCounts = new HashMap<>();
@@ -127,11 +124,9 @@ final class IcebergStatistics
         private long size;
 
         public Builder(
-                Map<Integer, Type.PrimitiveType> idToTypeMapping,
                 List<Types.NestedField> columns,
                 TypeManager typeManager)
         {
-            this.idToTypeMapping = ImmutableMap.copyOf(requireNonNull(idToTypeMapping, "idToTypeMapping is null"));
             this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
             this.typeManager = requireNonNull(typeManager, "typeManager is null");
 
@@ -161,8 +156,6 @@ final class IcebergStatistics
                     .map(PartitionField::sourceId)
                     .collect(toImmutableSet());
             Map<Integer, Optional<String>> partitionValues = getPartitionKeys(dataFile.partition(), partitionSpec);
-            Map<Integer, Object> lowerBounds = convertBounds(dataFile.lowerBounds());
-            Map<Integer, Object> upperBounds = convertBounds(dataFile.upperBounds());
             for (Types.NestedField column : partitionSpec.schema().columns()) {
                 int id = column.fieldId();
                 io.trino.spi.type.Type trinoType = fieldIdToTrinoType.get(id);
@@ -187,8 +180,10 @@ final class IcebergStatistics
                     }
                 }
                 else {
-                    Object lowerBound = convertIcebergValueToTrino(column.type(), lowerBounds.getOrDefault(id, null));
-                    Object upperBound = convertIcebergValueToTrino(column.type(), upperBounds.getOrDefault(id, null));
+                    Object lowerBound = convertIcebergValueToTrino(column.type(),
+                            Conversions.fromByteBuffer(column.type(), Optional.ofNullable(dataFile.lowerBounds()).map(a -> a.get(id)).orElse(null)));
+                    Object upperBound = convertIcebergValueToTrino(column.type(),
+                            Conversions.fromByteBuffer(column.type(), Optional.ofNullable(dataFile.upperBounds()).map(a -> a.get(id)).orElse(null)));
                     Optional<Long> nullCount = Optional.ofNullable(dataFile.nullValueCounts().get(id));
                     updateMinMaxStats(
                             id,
@@ -251,28 +246,6 @@ final class IcebergStatistics
                     return new ColumnStatistics(comparisonHandle, lowerBound, upperBound);
                 }).updateMinMax(lowerBound, upperBound);
             }
-        }
-
-        /**
-         * Converts a file's column bounds to a Map from field id to Iceberg Object representation
-         * @param idToMetricMap A Map from field id to Iceberg ByteBuffer representation
-         * @return A Map from field id to Iceberg Object representation
-         */
-        private Map<Integer, Object> convertBounds(@Nullable Map<Integer, ByteBuffer> idToMetricMap)
-        {
-            if (idToMetricMap == null) {
-                return ImmutableMap.of();
-            }
-            ImmutableMap.Builder<Integer, Object> map = ImmutableMap.builder();
-            idToMetricMap.forEach((id, value) -> {
-                Type.PrimitiveType type = idToTypeMapping.get(id);
-                verify(type != null, "No type for column id %s, known types: %s", id, idToTypeMapping);
-                Object icebergRepresentation = Conversions.fromByteBuffer(type, value);
-                if (icebergRepresentation != null) {
-                    map.put(id, icebergRepresentation);
-                }
-            });
-            return map.buildOrThrow();
         }
     }
 

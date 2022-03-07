@@ -19,12 +19,14 @@ import io.trino.spi.type.TimeZoneKey;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.TestingSession;
 import io.trino.testing.datatype.CreateAndInsertDataSetup;
+import io.trino.testing.datatype.CreateAndTrinoInsertDataSetup;
 import io.trino.testing.datatype.CreateAsSelectDataSetup;
 import io.trino.testing.datatype.DataSetup;
 import io.trino.testing.datatype.SqlDataTypeTest;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TrinoSqlExecutor;
+import org.intellij.lang.annotations.Language;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -48,13 +50,13 @@ import static io.trino.spi.type.TimeType.createTimeType;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
-import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public abstract class BaseSqlServerTypeMapping
         extends AbstractTestQueryFramework
@@ -73,6 +75,8 @@ public abstract class BaseSqlServerTypeMapping
     private final ZoneId kathmandu = ZoneId.of("Asia/Kathmandu");
     private final LocalDateTime timeGapInKathmandu = LocalDateTime.of(1986, 1, 1, 0, 13, 7);
 
+    protected TestingSqlServer sqlServer;
+
     @BeforeClass
     public void setUp()
     {
@@ -87,21 +91,128 @@ public abstract class BaseSqlServerTypeMapping
     }
 
     @Test
-    public void testBasicTypes()
+    public void testTrinoBoolean()
     {
         SqlDataTypeTest.create()
                 .addRoundTrip("boolean", "null", BOOLEAN, "CAST(NULL AS BOOLEAN)")
                 .addRoundTrip("boolean", "true", BOOLEAN)
                 .addRoundTrip("boolean", "false", BOOLEAN)
-                .addRoundTrip("bigint", "null", BIGINT, "CAST(NULL AS BIGINT)")
-                .addRoundTrip("bigint", "123456789012", BIGINT)
-                .addRoundTrip("integer", "null", INTEGER, "CAST(NULL AS INTEGER)")
-                .addRoundTrip("integer", "123456789", INTEGER)
-                .addRoundTrip("smallint", "null", SMALLINT, "CAST(NULL AS SMALLINT)")
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_boolean"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_boolean"));
+    }
+
+    @Test
+    public void testSqlServerBit()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("bit", "null", BOOLEAN, "CAST(NULL AS BOOLEAN)")
+                .addRoundTrip("bit", "1", BOOLEAN, "true")
+                .addRoundTrip("bit", "0", BOOLEAN, "false")
+                .execute(getQueryRunner(), sqlServerCreateAndInsert("test_bit"));
+    }
+
+    @Test
+    public void testTinyint()
+    {
+        // Map SQL Server TINYINT to Trino SMALLINT because SQL Server TINYINT is actually "unsigned tinyint"
+        SqlDataTypeTest.create()
+                .addRoundTrip("tinyint", "NULL", SMALLINT, "CAST(NULL AS SMALLINT)")
+                .addRoundTrip("tinyint", "0", SMALLINT, "SMALLINT '0'") // min value in SQL Server
+                .addRoundTrip("tinyint", "5", SMALLINT, "SMALLINT '5'")
+                .addRoundTrip("tinyint", "255", SMALLINT, "SMALLINT '255'") // max value in SQL Server
+                .execute(getQueryRunner(), sqlServerCreateAndInsert("test_tinyint"))
+                .execute(getQueryRunner(), sqlServerCreateAndTrinoInsert("test_tinyint"));
+    }
+
+    @Test
+    public void testUnsupportedTinyint()
+    {
+        try (TestTable table = new TestTable(onRemoteDatabase(), "test_unsupported_tinyint", "(data tinyint)")) {
+            assertSqlServerQueryFails(
+                    format("INSERT INTO %s VALUES (-1)", table.getName()), // min - 1
+                    "Arithmetic overflow error for data type tinyint, value = -1");
+            assertSqlServerQueryFails(
+                    format("INSERT INTO %s VALUES (256)", table.getName()), // max + 1
+                    "Arithmetic overflow error for data type tinyint, value = 256.");
+        }
+    }
+
+    @Test
+    public void testSmallint()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("smallint", "NULL", SMALLINT, "CAST(NULL AS SMALLINT)")
+                .addRoundTrip("smallint", "-32768", SMALLINT, "SMALLINT '-32768'") // min value in SQL Server and Trino
                 .addRoundTrip("smallint", "32456", SMALLINT, "SMALLINT '32456'")
-                .addRoundTrip("tinyint", "null", TINYINT, "CAST(NULL AS TINYINT)")
-                .addRoundTrip("tinyint", "5", TINYINT, "TINYINT '5'")
-                .execute(getQueryRunner(), trinoCreateAsSelect("test_basic_types"));
+                .addRoundTrip("smallint", "32767", SMALLINT, "SMALLINT '32767'") // max value in SQL Server and Trino
+                .execute(getQueryRunner(), sqlServerCreateAndInsert("test_smallint"))
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_smallint"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_smallint"));
+    }
+
+    @Test
+    public void testUnsupportedSmallint()
+    {
+        try (TestTable table = new TestTable(onRemoteDatabase(), "test_unsupported_smallint", "(data smallint)")) {
+            assertSqlServerQueryFails(
+                    format("INSERT INTO %s VALUES (-32769)", table.getName()), // min - 1
+                    "Arithmetic overflow error for data type smallint, value = -32769.");
+            assertSqlServerQueryFails(
+                    format("INSERT INTO %s VALUES (32768)", table.getName()), // max + 1
+                    "Arithmetic overflow error for data type smallint, value = 32768.");
+        }
+    }
+
+    @Test
+    public void testInteger()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("integer", "NULL", INTEGER, "CAST(NULL AS INTEGER)")
+                .addRoundTrip("integer", "-2147483648", INTEGER, "-2147483648") // min value in SQL Server and Trino
+                .addRoundTrip("integer", "1234567890", INTEGER, "1234567890")
+                .addRoundTrip("integer", "2147483647", INTEGER, "2147483647") // max value in SQL Server and Trino
+                .execute(getQueryRunner(), sqlServerCreateAndInsert("test_int"))
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_int"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_int"));
+    }
+
+    @Test
+    public void testUnsupportedInteger()
+    {
+        try (TestTable table = new TestTable(onRemoteDatabase(), "test_unsupported_integer", "(data integer)")) {
+            assertSqlServerQueryFails(
+                    format("INSERT INTO %s VALUES (-2147483649)", table.getName()), // min - 1
+                    "Arithmetic overflow error converting expression to data type int.");
+            assertSqlServerQueryFails(
+                    format("INSERT INTO %s VALUES (2147483648)", table.getName()), // max + 1
+                    "Arithmetic overflow error converting expression to data type int.");
+        }
+    }
+
+    @Test
+    public void testBigint()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("bigint", "NULL", BIGINT, "CAST(NULL AS BIGINT)")
+                .addRoundTrip("bigint", "-9223372036854775808", BIGINT, "-9223372036854775808") // min value in SQL Server and Trino
+                .addRoundTrip("bigint", "123456789012", BIGINT, "123456789012")
+                .addRoundTrip("bigint", "9223372036854775807", BIGINT, "9223372036854775807") // max value in SQL Server and Trino
+                .execute(getQueryRunner(), sqlServerCreateAndInsert("test_bigint"))
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_bigint"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_bigint"));
+    }
+
+    @Test
+    public void testUnsupportedBigint()
+    {
+        try (TestTable table = new TestTable(onRemoteDatabase(), "test_unsupported_bigint", "(data bigint)")) {
+            assertSqlServerQueryFails(
+                    format("INSERT INTO %s VALUES (-9223372036854775809)", table.getName()), // min - 1
+                    "Arithmetic overflow error converting expression to data type bigint.");
+            assertSqlServerQueryFails(
+                    format("INSERT INTO %s VALUES (9223372036854775808)", table.getName()), // max + 1
+                    "Arithmetic overflow error converting expression to data type bigint.");
+        }
     }
 
     @Test
@@ -118,7 +229,8 @@ public abstract class BaseSqlServerTypeMapping
                 .addRoundTrip("real", "NULL", REAL, "CAST(NULL AS real)")
                 .addRoundTrip("real", "3.14", REAL, "REAL '3.14'")
                 .addRoundTrip("real", "3.1415927", REAL, "REAL '3.1415927'")
-                .execute(getQueryRunner(), trinoCreateAsSelect("test_real"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_real"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_real"));
     }
 
     @Test
@@ -176,7 +288,8 @@ public abstract class BaseSqlServerTypeMapping
                 .addRoundTrip("decimal(30, 5)", "3141592653589793238462643.38327", createDecimalType(30, 5), "CAST('3141592653589793238462643.38327' AS decimal(30, 5))")
                 .addRoundTrip("decimal(30, 5)", "-3141592653589793238462643.38327", createDecimalType(30, 5), "CAST('-3141592653589793238462643.38327' AS decimal(30, 5))")
                 .execute(getQueryRunner(), sqlServerCreateAndInsert("test_decimal"))
-                .execute(getQueryRunner(), trinoCreateAsSelect("test_decimal"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_decimal"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_decimal"));
     }
 
     @Test
@@ -197,7 +310,7 @@ public abstract class BaseSqlServerTypeMapping
                 .addRoundTrip("char(32)", "CAST('攻殻機動隊' AS char(32))", createCharType(32), "CAST('攻殻機動隊' AS char(32))")
                 .addRoundTrip("char(20)", "CAST('😂' AS char(20))", createCharType(20), "CAST('😂' AS char(20))")
                 .addRoundTrip("char(77)", "CAST('Ну, погоди!' AS char(77))", createCharType(77), "CAST('Ну, погоди!' AS char(77))")
-                .execute(getQueryRunner(), trinoCreateAndInsert(getSession(), "test_char"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_char"))
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_char"));
     }
 
@@ -217,7 +330,7 @@ public abstract class BaseSqlServerTypeMapping
         // testing mapping char > 4000 -> varchar(max)
         SqlDataTypeTest.create()
                 .addRoundTrip("char(4001)", "'text_c'", createUnboundedVarcharType(), "VARCHAR 'text_c'")
-                .execute(getQueryRunner(), trinoCreateAndInsert(getSession(), "test_long_char"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_long_char"))
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_long_char"));
     }
 
@@ -237,7 +350,7 @@ public abstract class BaseSqlServerTypeMapping
                 .addRoundTrip("varchar(32)", "CAST('攻殻機動隊' AS varchar(32))", createVarcharType(32), "CAST('攻殻機動隊' AS varchar(32))")
                 .addRoundTrip("varchar(20)", "CAST('😂' AS varchar(20))", createVarcharType(20), "CAST('😂' AS varchar(20))")
                 .addRoundTrip("varchar(77)", "CAST('Ну, погоди!' AS varchar(77))", createVarcharType(77), "CAST('Ну, погоди!' AS varchar(77))")
-                .execute(getQueryRunner(), trinoCreateAndInsert(getSession(), "test_varchar"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_varchar"))
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_varchar"));
     }
 
@@ -260,7 +373,7 @@ public abstract class BaseSqlServerTypeMapping
         // testing mapping varchar > 4000 -> varchar(max)
         SqlDataTypeTest.create()
                 .addRoundTrip("varchar(4001)", "'text_c'", createUnboundedVarcharType(), "VARCHAR 'text_c'")
-                .execute(getQueryRunner(), trinoCreateAndInsert(getSession(), "test_long_varchar"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_long_varchar"))
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_long_varchar"));
     }
 
@@ -286,7 +399,7 @@ public abstract class BaseSqlServerTypeMapping
                 .addRoundTrip("varchar", "VARCHAR '😂'", createUnboundedVarcharType(), "VARCHAR '😂'")
                 .addRoundTrip("varchar", "VARCHAR 'Ну, погоди!'", createUnboundedVarcharType(), "VARCHAR 'Ну, погоди!'")
                 .addRoundTrip("varchar", "'text_f'", createUnboundedVarcharType(), "VARCHAR 'text_f'")
-                .execute(getQueryRunner(), trinoCreateAndInsert(getSession(), "test_unbounded_varchar"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_unbounded_varchar"))
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_unbounded_varchar"));
     }
 
@@ -301,7 +414,8 @@ public abstract class BaseSqlServerTypeMapping
                 .addRoundTrip("varbinary", "X'4261672066756C6C206F6620F09F92B0'", VARBINARY, "to_utf8('Bag full of 💰')")
                 .addRoundTrip("varbinary", "X'0001020304050607080DF9367AA7000000'", VARBINARY, "X'0001020304050607080DF9367AA7000000'") // non-text
                 .addRoundTrip("varbinary", "X'000000000000'", VARBINARY, "X'000000000000'")
-                .execute(getQueryRunner(), trinoCreateAsSelect("test_varbinary"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_varbinary"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_varbinary"));
 
         // Binary literals must be prefixed with 0x
         // https://docs.microsoft.com/en-us/sql/analytics-platform-system/load-with-insert?view=aps-pdw-2016-au7#InsertingLiteralsBinary
@@ -445,8 +559,8 @@ public abstract class BaseSqlServerTypeMapping
                 .addRoundTrip("TIME '23:59:59.999999'", "TIME '23:59:59.999999'")
                 .addRoundTrip("TIME '23:59:59.9999999'", "TIME '23:59:59.9999999'")
 
-                .execute(getQueryRunner(), trinoCreateAsSelect(getSession(), "test_time"))
-                .execute(getQueryRunner(), trinoCreateAndInsert(getSession(), "test_time"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_time"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_time"));
 
         SqlDataTypeTest.create()
                 // round down
@@ -477,8 +591,8 @@ public abstract class BaseSqlServerTypeMapping
                 // round down
                 .addRoundTrip("TIME '23:59:59.999999949999'", "TIME '23:59:59.9999999'")
 
-                .execute(getQueryRunner(), trinoCreateAndInsert(getSession(), "test_time"))
-                .execute(getQueryRunner(), trinoCreateAsSelect(getSession(), "test_time"));
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_time"))
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_time"));
     }
 
     @Test(dataProvider = "sessionZonesDataProvider")
@@ -581,7 +695,7 @@ public abstract class BaseSqlServerTypeMapping
                 .build();
 
         tests.execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_timestamp"));
-        tests.execute(getQueryRunner(), session, trinoCreateAsSelect(getSession(), "test_timestamp"));
+        tests.execute(getQueryRunner(), session, trinoCreateAsSelect("test_timestamp"));
         tests.execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_timestamp"));
     }
 
@@ -731,6 +845,11 @@ public abstract class BaseSqlServerTypeMapping
         return new CreateAsSelectDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
     }
 
+    protected DataSetup trinoCreateAndInsert(String tableNamePrefix)
+    {
+        return trinoCreateAndInsert(getSession(), tableNamePrefix);
+    }
+
     protected DataSetup trinoCreateAndInsert(Session session, String tableNamePrefix)
     {
         return new CreateAndInsertDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
@@ -739,6 +858,16 @@ public abstract class BaseSqlServerTypeMapping
     protected DataSetup sqlServerCreateAndInsert(String tableNamePrefix)
     {
         return new CreateAndInsertDataSetup(onRemoteDatabase(), tableNamePrefix);
+    }
+
+    protected DataSetup sqlServerCreateAndTrinoInsert(String tableNamePrefix)
+    {
+        return sqlServerCreateAndTrinoInsert(getSession(), tableNamePrefix);
+    }
+
+    protected DataSetup sqlServerCreateAndTrinoInsert(Session session, String tableNamePrefix)
+    {
+        return new CreateAndTrinoInsertDataSetup(onRemoteDatabase(), new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
     }
 
     private static void checkIsDoubled(ZoneId zone, LocalDateTime dateTime)
@@ -756,5 +885,15 @@ public abstract class BaseSqlServerTypeMapping
         verify(isGap(zone, dateTime), "Expected %s to be a gap in %s", dateTime, zone);
     }
 
-    protected abstract SqlExecutor onRemoteDatabase();
+    private void assertSqlServerQueryFails(@Language("SQL") String sql, String expectedMessage)
+    {
+        assertThatThrownBy(() -> onRemoteDatabase().execute(sql))
+                .getCause()
+                .hasMessageContaining(expectedMessage);
+    }
+
+    protected SqlExecutor onRemoteDatabase()
+    {
+        return sqlServer::execute;
+    }
 }

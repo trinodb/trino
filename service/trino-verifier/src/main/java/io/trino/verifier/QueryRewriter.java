@@ -178,7 +178,7 @@ public class QueryRewriter
             throws SQLException
     {
         ResultSet columns = connection.getMetaData().getColumns(catalog, escapeLikeExpression(connection, schema), escapeLikeExpression(connection, table), null);
-        ImmutableList.Builder<Column> columnBuilder = new ImmutableList.Builder<>();
+        ImmutableList.Builder<Column> columnBuilder = ImmutableList.builder();
         while (columns.next()) {
             String name = columns.getString("COLUMN_NAME");
             int type = columns.getInt("DATA_TYPE");

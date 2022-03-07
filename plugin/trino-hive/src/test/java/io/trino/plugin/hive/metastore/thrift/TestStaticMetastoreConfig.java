@@ -38,7 +38,7 @@ public class TestStaticMetastoreConfig
     @Test
     public void testExplicitPropertyMappingsSingleMetastore()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("hive.metastore.uri", "thrift://localhost:9083")
                 .put("hive.metastore.username", "trino")
                 .buildOrThrow();
@@ -55,7 +55,7 @@ public class TestStaticMetastoreConfig
     @Test
     public void testExplicitPropertyMappingsMultipleMetastores()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("hive.metastore.uri", "thrift://localhost:9083,thrift://192.0.2.3:8932")
                 .put("hive.metastore.username", "trino")
                 .buildOrThrow();

@@ -108,6 +108,7 @@ public class ProgressLoggingListener
 
     private String formatTestName(ITestResult testCase)
     {
+        // See LogTestDurationListener.getName
         return format("%s.%s%s", testCase.getTestClass().getName(), testCase.getName(), formatTestParameters(testCase));
     }
 

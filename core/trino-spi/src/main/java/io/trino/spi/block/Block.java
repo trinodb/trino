@@ -17,6 +17,7 @@ import io.airlift.slice.Slice;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.OptionalInt;
 import java.util.function.BiConsumer;
 
 import static io.trino.spi.block.BlockUtil.checkArrayRange;
@@ -188,21 +189,23 @@ public interface Block
     long getRegionSizeInBytes(int position, int length);
 
     /**
-     * Returns the size of all positions marked true in the positions array.
-     * This is equivalent to multiple calls of {@code block.getRegionSizeInBytes(position, length)}
-     * where you mark all positions for the regions first.
+     * Returns the number of bytes (in terms of {@link Block#getSizeInBytes()}) required per position
+     * that this block contains, assuming that the number of bytes required is a known static quantity
+     * and not dependent on any particular specific position. This allows for some complex block wrappings
+     * to potentially avoid having to call {@link Block#getPositionsSizeInBytes(boolean[], int)}  which
+     * would require computing the specific positions selected
+     * @return The size in bytes, per position, if this block type does not require specific position information to compute its size
      */
-    long getPositionsSizeInBytes(boolean[] positions);
+    OptionalInt fixedSizeInBytesPerPosition();
 
     /**
      * Returns the size of all positions marked true in the positions array.
+     * This is equivalent to multiple calls of {@code block.getRegionSizeInBytes(position, length)}
+     * where you mark all positions for the regions first.
      * The 'selectedPositionsCount' variable may be used to skip iterating through
      * the positions array in case this is a fixed-width block
      */
-    default long getPositionsSizeInBytes(boolean[] positions, int selectedPositionsCount)
-    {
-        return getPositionsSizeInBytes(positions);
-    }
+    long getPositionsSizeInBytes(boolean[] positions, int selectedPositionsCount);
 
     /**
      * Returns the retained size of this block in memory, including over-allocations.
@@ -289,7 +292,8 @@ public interface Block
     /**
      * Is the specified position null?
      *
-     * @throws IllegalArgumentException if this position is not valid
+     * @throws IllegalArgumentException if this position is not valid. The method may return false
+     * without throwing exception when there are no nulls in the block, even if the position is invalid
      */
     boolean isNull(int position);
 

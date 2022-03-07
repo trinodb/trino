@@ -17,8 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.MoreCollectors;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.airlift.units.Duration;
-import io.trino.FeaturesConfig;
-import io.trino.FeaturesConfig.JoinDistributionType;
 import io.trino.Session;
 import io.trino.execution.QueryStats;
 import io.trino.execution.warnings.WarningCollector;
@@ -27,10 +25,12 @@ import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableMetadata;
 import io.trino.operator.OperatorStats;
 import io.trino.server.DynamicFilterService.DynamicFiltersStats;
+import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spi.QueryId;
 import io.trino.spi.type.Type;
 import io.trino.sql.analyzer.QueryExplainer;
 import io.trino.sql.parser.SqlParser;
+import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.optimizations.PlanNodeSearcher;
 import io.trino.sql.planner.plan.FilterNode;
@@ -62,8 +62,12 @@ import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.trino.sql.ParsingUtil.createParsingOptions;
 import static io.trino.sql.SqlFormatter.formatSql;
+import static io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy;
+import static io.trino.testing.assertions.Assert.assertEventually;
 import static io.trino.transaction.TransactionBuilder.transaction;
+import static java.lang.String.format;
 import static java.util.Collections.emptyList;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
@@ -93,11 +97,43 @@ public abstract class AbstractTestQueryFramework
     public final void close()
             throws Exception
     {
-        afterClassCloser.close();
-        queryRunner = null;
-        h2QueryRunner = null;
-        sqlParser = null;
-        queryAssertions = null;
+        try (afterClassCloser) {
+            checkQueryMemoryReleased();
+        }
+        finally {
+            queryRunner = null;
+            h2QueryRunner = null;
+            sqlParser = null;
+            queryAssertions = null;
+        }
+    }
+
+    private void checkQueryMemoryReleased()
+    {
+        if (queryRunner == null) {
+            return;
+        }
+        if (!(queryRunner instanceof DistributedQueryRunner)) {
+            return;
+        }
+        DistributedQueryRunner distributedQueryRunner = (DistributedQueryRunner) queryRunner;
+        assertEventually(
+                new Duration(10, SECONDS),
+                new Duration(1, SECONDS),
+                () -> {
+                    List<TestingTrinoServer> servers = distributedQueryRunner.getServers();
+                    for (int serverId = 0; serverId < servers.size(); ++serverId) {
+                        TestingTrinoServer server = servers.get(serverId);
+                        String serverName = format("server_%d(%s)", serverId, server.isCoordinator() ? "coordinator" : "worker");
+                        assertThat(server.getLocalMemoryManager().getMemoryPool().getReservedBytes())
+                                .describedAs("memory reservation on " + serverName)
+                                .isZero();
+                    }
+
+                    assertThat(distributedQueryRunner.getCoordinator().getClusterMemoryManager().getClusterTotalMemoryReservation())
+                            .describedAs("cluster memory reservation")
+                            .isZero();
+                });
     }
 
     @Test
@@ -466,7 +502,7 @@ public abstract class AbstractTestQueryFramework
     protected Session noJoinReordering(JoinDistributionType distributionType)
     {
         return Session.builder(getSession())
-                .setSystemProperty(JOIN_REORDERING_STRATEGY, FeaturesConfig.JoinReorderingStrategy.NONE.name())
+                .setSystemProperty(JOIN_REORDERING_STRATEGY, JoinReorderingStrategy.NONE.name())
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, distributionType.name())
                 .build();
     }

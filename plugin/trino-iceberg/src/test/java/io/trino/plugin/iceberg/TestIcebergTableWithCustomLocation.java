@@ -15,10 +15,26 @@ package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import io.trino.plugin.hive.HdfsConfig;
+import io.trino.plugin.hive.HdfsConfiguration;
+import io.trino.plugin.hive.HdfsConfigurationInitializer;
+import io.trino.plugin.hive.HdfsEnvironment;
+import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
+import io.trino.plugin.hive.HiveHdfsConfiguration;
+import io.trino.plugin.hive.NodeVersion;
+import io.trino.plugin.hive.authentication.NoHdfsAuthentication;
+import io.trino.plugin.hive.metastore.MetastoreConfig;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastore;
+import io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig;
+import io.trino.spi.security.ConnectorIdentity;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.MaterializedResult;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hive.metastore.TableType;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -29,7 +45,7 @@ import java.util.Optional;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
-import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
+import static io.trino.plugin.iceberg.DataFileRecord.toDataFileRecord;
 import static io.trino.plugin.iceberg.IcebergQueryRunner.createIcebergQueryRunner;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -43,13 +59,26 @@ public class TestIcebergTableWithCustomLocation
 {
     private FileHiveMetastore metastore;
     private File metastoreDir;
+    private HdfsEnvironment hdfsEnvironment;
+    private HdfsContext hdfsContext;
 
     @Override
     protected DistributedQueryRunner createQueryRunner()
             throws Exception
     {
         metastoreDir = Files.createTempDirectory("test_iceberg").toFile();
-        metastore = createTestingFileHiveMetastore(metastoreDir);
+        HdfsConfig hdfsConfig = new HdfsConfig();
+        HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(hdfsConfig), ImmutableSet.of());
+        hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hdfsConfig, new NoHdfsAuthentication());
+        FileHiveMetastoreConfig config = new FileHiveMetastoreConfig()
+                .setCatalogDirectory(metastoreDir.toURI().toString())
+                .setMetastoreUser("test");
+        hdfsContext = new HdfsContext(ConnectorIdentity.ofUser(config.getMetastoreUser()));
+        metastore = new FileHiveMetastore(
+                new NodeVersion("testversion"),
+                hdfsEnvironment,
+                new MetastoreConfig(),
+                config);
 
         return createIcebergQueryRunner(
                 ImmutableMap.of(),
@@ -78,14 +107,24 @@ public class TestIcebergTableWithCustomLocation
 
     @Test
     public void testCreateAndDrop()
+            throws IOException
     {
         String tableName = "test_create_and_drop";
         assertQuerySucceeds(format("CREATE TABLE %s as select 1 as val", tableName));
-        Optional<Table> table = metastore.getTable("tpch", tableName);
-        assertTrue(table.isPresent(), "Table should exist");
+        Table table = metastore.getTable("tpch", tableName).orElseThrow();
+        assertThat(table.getTableType()).isEqualTo(TableType.EXTERNAL_TABLE.name());
 
+        Path tableLocation = new Path(table.getStorage().getLocation());
+        FileSystem fileSystem = hdfsEnvironment.getFileSystem(hdfsContext, tableLocation);
+        assertTrue(fileSystem.exists(tableLocation), "The directory corresponding to the table storage location should exist");
+        MaterializedResult materializedResult = computeActual("SELECT * FROM \"test_create_and_drop$files\"");
+        assertEquals(materializedResult.getRowCount(), 1);
+        DataFileRecord dataFile = toDataFileRecord(materializedResult.getMaterializedRows().get(0));
+        assertTrue(fileSystem.exists(new Path(dataFile.getFilePath())), "The data file should exist");
         assertQuerySucceeds(format("DROP TABLE %s", tableName));
         assertFalse(metastore.getTable("tpch", tableName).isPresent(), "Table should be dropped");
+        assertFalse(fileSystem.exists(new Path(dataFile.getFilePath())), "The data file should have been removed");
+        assertFalse(fileSystem.exists(tableLocation), "The directory corresponding to the dropped Iceberg table should not be removed because it may be shared with other tables");
     }
 
     @Test

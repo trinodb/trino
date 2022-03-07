@@ -236,7 +236,7 @@ public class FileSystemExchange
                 int partitionId = Integer.parseInt(matcher.group(1));
                 result.put(partitionId, partitionFile);
             }
-            return result.build();
+            return result.buildOrThrow();
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);

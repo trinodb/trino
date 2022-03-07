@@ -30,6 +30,7 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableMetadata;
+import io.trino.plugin.exchange.FileSystemExchangePlugin;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
@@ -95,7 +96,6 @@ import static com.google.common.collect.Sets.intersection;
 import static com.google.common.io.Files.asCharSink;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
-import static io.trino.FeaturesConfig.JoinDistributionType.BROADCAST;
 import static io.trino.SystemSessionProperties.COLOCATED_JOIN;
 import static io.trino.SystemSessionProperties.CONCURRENT_LIFESPANS_PER_NODE;
 import static io.trino.SystemSessionProperties.DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION;
@@ -131,6 +131,7 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.BROADCAST;
 import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static io.trino.sql.planner.planprinter.IoPlanPrinter.FormattedMarker.Bound.ABOVE;
 import static io.trino.sql.planner.planprinter.IoPlanPrinter.FormattedMarker.Bound.EXACTLY;
@@ -188,6 +189,12 @@ public abstract class BaseHiveConnectorTest
     {
         DistributedQueryRunner queryRunner = HiveQueryRunner.builder()
                 .setExtraProperties(extraProperties)
+                .setAdditionalSetup(runner -> {
+                    if (!exchangeManagerProperties.isEmpty()) {
+                        runner.installPlugin(new FileSystemExchangePlugin());
+                        runner.loadExchangeManager("filesystem", exchangeManagerProperties);
+                    }
+                })
                 .setHiveProperties(ImmutableMap.of(
                         "hive.allow-register-partition-procedure", "true",
                         // Reduce writer sort buffer size to ensure SortingFileWriter gets used
@@ -195,7 +202,6 @@ public abstract class BaseHiveConnectorTest
                         // Make weighted split scheduling more conservative to avoid OOMs in test
                         "hive.minimum-assigned-split-weight", "0.5"))
                 .addExtraProperty("legacy.allow-set-view-authorization", "true")
-                .setExchangeManagerProperties(exchangeManagerProperties)
                 .setInitialTables(REQUIRED_TPCH_TABLES)
                 .build();
 
@@ -3183,9 +3189,8 @@ public abstract class BaseHiveConnectorTest
                 .hasMessage("Query over table 'tpch.%s' can potentially read more than 1000 partitions", tableName);
 
         // verify we can query with a predicate that is not representable as a TupleDomain
-        // TODO this shouldn't fail
-        assertThatThrownBy(() -> query("SELECT * FROM " + tableName + " WHERE part1 % 400 = 3")) // may be translated to Domain.all
-                .hasMessage("Query over table 'tpch.%s' can potentially read more than 1000 partitions", tableName);
+        assertThat(query("SELECT * FROM " + tableName + " WHERE part1 % 400 = 3")) // may be translated to Domain.all
+                .matches("VALUES (VARCHAR 'bar', BIGINT '3', BIGINT '3')");
         assertThat(query("SELECT * FROM " + tableName + " WHERE part1 % 400 = 3 AND part1 IS NOT NULL"))  // may be translated to Domain.all except nulls
                 .matches("VALUES (VARCHAR 'bar', BIGINT '3', BIGINT '3')");
 
@@ -7889,8 +7894,16 @@ public abstract class BaseHiveConnectorTest
 
         // compact with low threshold; nothing should change
         assertUpdate(optimizeEnabledSession, "ALTER TABLE " + tableName + " EXECUTE optimize(file_size_threshold => '10B')");
-
         assertThat(getTableFiles(tableName)).hasSameElementsAs(compactedFiles);
+
+        // optimize with delimited procedure name
+        assertQueryFails(optimizeEnabledSession, "ALTER TABLE " + tableName + " EXECUTE \"optimize\"", "Procedure optimize not registered for catalog hive");
+        assertUpdate(optimizeEnabledSession, "ALTER TABLE " + tableName + " EXECUTE \"OPTIMIZE\"");
+        // optimize with delimited parameter name (and procedure name)
+        assertUpdate(optimizeEnabledSession, "ALTER TABLE " + tableName + " EXECUTE \"OPTIMIZE\" (\"file_size_threshold\" => '10B')"); // TODO (https://github.com/trinodb/trino/issues/11326) this should fail
+        assertUpdate(optimizeEnabledSession, "ALTER TABLE " + tableName + " EXECUTE \"OPTIMIZE\" (\"FILE_SIZE_THRESHOLD\" => '10B')");
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -7916,6 +7929,8 @@ public abstract class BaseHiveConnectorTest
         Set<String> compactedFiles = getTableFiles(tableName);
         assertThat(compactedFiles).hasSize(1);
         assertThat(intersection(initialFiles, compactedFiles)).isEmpty();
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -7973,6 +7988,8 @@ public abstract class BaseHiveConnectorTest
         Set<String> compactedFiles = getTableFiles(tableName);
         assertThat(compactedFiles).hasSize(partitionsCount);
         assertThat(intersection(initialFiles, compactedFiles)).isEmpty();
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -7997,6 +8014,8 @@ public abstract class BaseHiveConnectorTest
 
         assertThat(getTableFiles(tableName)).hasSameElementsAs(initialFiles);
         assertNationNTimes(tableName, insertCount);
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -8016,6 +8035,8 @@ public abstract class BaseHiveConnectorTest
 
         assertThatThrownBy(() -> computeActual(optimizeEnabledSession(), format("ALTER TABLE \"%s$partitions\" EXECUTE optimize(file_size_threshold => '10kB')", tableName)))
                 .hasMessage("This connector does not support table procedures");
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     private Session optimizeEnabledSession()

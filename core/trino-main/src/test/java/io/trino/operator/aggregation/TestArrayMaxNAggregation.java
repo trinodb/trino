@@ -104,7 +104,7 @@ public class TestArrayMaxNAggregation
     {
         PriorityQueue<Long> heap = new PriorityQueue<>(n);
         Arrays.stream(values).filter(Objects::nonNull).forEach(heap::add);
-        ImmutableList.Builder<List<Long>> expected = new ImmutableList.Builder<>();
+        ImmutableList.Builder<List<Long>> expected = ImmutableList.builder();
         for (int i = heap.size() - 1; i >= 0; i--) {
             expected.add(ImmutableList.of(heap.remove()));
         }

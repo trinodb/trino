@@ -25,9 +25,9 @@ properties in the file:
 .. code-block:: text
 
     connector.name=oracle
-    // The exact format of connection-url varies by Oracle version. Refer to
-    // the Oracle Database documentation for version-specific information on the
-    // JDBC Thin driver.
+    # The exact format of the connection-url varies by Oracle version. Refer to
+    # the Oracle Database documentation for version-specific information on the
+    # JDBC Thin driver.
     connection-url=jdbc:oracle:thin:@//example.net:1521/ORCLCDB
     connection-user=root
     connection-password=secret

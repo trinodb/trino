@@ -34,7 +34,7 @@ public class TestJmxNamingConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("jmx.base-name", "my.stuff")
                 .buildOrThrow();
 

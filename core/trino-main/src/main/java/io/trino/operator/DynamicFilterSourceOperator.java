@@ -361,7 +361,7 @@ public class DynamicFilterSourceOperator
             return;
         }
         finished = true;
-        ImmutableMap.Builder<DynamicFilterId, Domain> domainsBuilder = new ImmutableMap.Builder<>();
+        ImmutableMap.Builder<DynamicFilterId, Domain> domainsBuilder = ImmutableMap.builder();
         if (valueSets == null) {
             if (minValues == null) {
                 // there were too many rows to collect min/max range

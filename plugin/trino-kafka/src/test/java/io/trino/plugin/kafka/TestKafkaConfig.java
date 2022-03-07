@@ -41,7 +41,7 @@ public class TestKafkaConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("kafka.default-schema", "kafka")
                 .put("kafka.table-description-supplier", "test")
                 .put("kafka.nodes", "localhost:12345,localhost:23456")

@@ -96,10 +96,10 @@ public class SyncPartitionMetadataProcedure
                 "system",
                 "sync_partition_metadata",
                 ImmutableList.of(
-                        new Argument("schema_name", VARCHAR),
-                        new Argument("table_name", VARCHAR),
-                        new Argument("mode", VARCHAR),
-                        new Argument("case_sensitive", BOOLEAN, false, TRUE)),
+                        new Argument("SCHEMA_NAME", VARCHAR),
+                        new Argument("TABLE_NAME", VARCHAR),
+                        new Argument("MODE", VARCHAR),
+                        new Argument("CASE_SENSITIVE", BOOLEAN, false, TRUE)),
                 SYNC_PARTITION_METADATA.bindTo(this));
     }
 

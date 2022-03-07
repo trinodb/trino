@@ -1,18 +1,21 @@
 #!/usr/bin/env bash
 
 target="${BASH_SOURCE%/*/*}/target"
-launcher_jar=( "${target}"/trino-product-tests-launcher-*-executable.jar )
 
-if test "${#launcher_jar[@]}" -ne 1; then
-    echo "Found ${#launcher_jar[@]} launcher jars in ${target}: ${launcher_jar[*]}" >&2
-    echo "Run \`./mvnw clean install -pl :trino-product-tests-launcher\`" >&2
-    exit 3
+if command -v mvnd >/dev/null; then
+    # Using mvnd here can save more than 2 seconds compared to ./mvnw startup cost. This is especially important
+    # when invoking inspection commands like --help, env list, etc.
+    trino_version=$(mvnd -B help:evaluate -Dexpression=pom.version -q -DforceStdout --raw-streams)
+    mvn="mvnd"
+else
+    trino_version=$(./mvnw -B help:evaluate -Dexpression=pom.version -q -DforceStdout)
+    mvn="./mvnw"
 fi
+launcher_jar="${target}/trino-product-tests-launcher-${trino_version}-executable.jar"
 
-if ! test -x "${launcher_jar[0]}"; then
-    # Most likely `*` glob was not expanded, file does not exist
-    echo "Could not find launcher jar in ${target}." >&2
-    echo "Run \`./mvnw clean install -pl :trino-product-tests-launcher\`" >&2
+if ! test -x "${launcher_jar}"; then
+    echo "Could not find launcher jar ${launcher_jar}." >&2
+    echo "Run \`${mvn} clean install -pl :trino-product-tests-launcher -DskipTests\`" >&2
     exit 3
 fi
 

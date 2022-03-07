@@ -38,7 +38,7 @@ public class TestSecurityConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("http-server.authentication.type", "KERBEROS,PASSWORD")
                 .put("http-server.authentication.allow-insecure-over-http", "false")
                 .put("management.user", "management-user")

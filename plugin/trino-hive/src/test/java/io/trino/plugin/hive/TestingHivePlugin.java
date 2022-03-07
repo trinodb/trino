@@ -19,6 +19,8 @@ import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.spi.Plugin;
 import io.trino.spi.connector.ConnectorFactory;
 
+import java.util.Optional;
+
 import static com.google.inject.util.Modules.EMPTY_MODULE;
 import static java.util.Objects.requireNonNull;
 
@@ -27,21 +29,23 @@ public class TestingHivePlugin
 {
     private final HiveMetastore metastore;
     private final Module module;
+    private final Optional<CachingDirectoryLister> cachingDirectoryLister;
 
     public TestingHivePlugin(HiveMetastore metastore)
     {
-        this(metastore, EMPTY_MODULE);
+        this(metastore, EMPTY_MODULE, Optional.empty());
     }
 
-    public TestingHivePlugin(HiveMetastore metastore, Module module)
+    public TestingHivePlugin(HiveMetastore metastore, Module module, Optional<CachingDirectoryLister> cachingDirectoryLister)
     {
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.module = requireNonNull(module, "module is null");
+        this.cachingDirectoryLister = requireNonNull(cachingDirectoryLister, "cachingDirectoryLister is null");
     }
 
     @Override
     public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        return ImmutableList.of(new TestingHiveConnectorFactory(metastore, module));
+        return ImmutableList.of(new TestingHiveConnectorFactory(metastore, module, cachingDirectoryLister));
     }
 }

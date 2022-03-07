@@ -44,7 +44,7 @@ public class TestJwtHandlerConfig
     {
         Path keyFile = Files.createTempFile(null, null);
 
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("jwt.key-file", keyFile.toString())
                 .put("jwt.key-file-password", "password")
                 .put("jwt.key-id", "testkeyid")

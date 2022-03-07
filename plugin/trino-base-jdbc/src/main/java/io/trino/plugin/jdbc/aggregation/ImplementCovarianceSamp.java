@@ -27,10 +27,10 @@ import java.util.Optional;
 
 import static com.google.common.base.Verify.verify;
 import static io.trino.matching.Capture.newCapture;
+import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.arguments;
 import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.basicAggregation;
 import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.expressionTypes;
 import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.functionName;
-import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.inputs;
 import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.variables;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
@@ -39,27 +39,27 @@ import static java.lang.String.format;
 public class ImplementCovarianceSamp
         implements AggregateFunctionRule<JdbcExpression>
 {
-    private static final Capture<List<Variable>> INPUTS = newCapture();
+    private static final Capture<List<Variable>> ARGUMENTS = newCapture();
 
     @Override
     public Pattern<AggregateFunction> getPattern()
     {
         return basicAggregation()
                 .with(functionName().equalTo("covar_samp"))
-                .with(inputs().matching(
+                .with(arguments().matching(
                         variables()
                                 .matching(expressionTypes(REAL, REAL).or(expressionTypes(DOUBLE, DOUBLE)))
-                                .capturedAs(INPUTS)));
+                                .capturedAs(ARGUMENTS)));
     }
 
     @Override
     public Optional<JdbcExpression> rewrite(AggregateFunction aggregateFunction, Captures captures, RewriteContext context)
     {
-        List<Variable> inputs = captures.get(INPUTS);
-        verify(inputs.size() == 2);
+        List<Variable> arguments = captures.get(ARGUMENTS);
+        verify(arguments.size() == 2);
 
-        JdbcColumnHandle columnHandle1 = (JdbcColumnHandle) context.getAssignment(inputs.get(0).getName());
-        JdbcColumnHandle columnHandle2 = (JdbcColumnHandle) context.getAssignment(inputs.get(1).getName());
+        JdbcColumnHandle columnHandle1 = (JdbcColumnHandle) context.getAssignment(arguments.get(0).getName());
+        JdbcColumnHandle columnHandle2 = (JdbcColumnHandle) context.getAssignment(arguments.get(1).getName());
         verify(aggregateFunction.getOutputType().equals(columnHandle1.getColumnType()));
 
         return Optional.of(new JdbcExpression(

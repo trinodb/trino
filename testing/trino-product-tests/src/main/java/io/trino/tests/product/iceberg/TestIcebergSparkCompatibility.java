@@ -848,6 +848,34 @@ public class TestIcebergSparkCompatibility
         onSpark().executeQuery("DROP TABLE " + sparkTableName);
     }
 
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormatsWithSpecVersion")
+    public void testTrinoWritingDataWithWriterDataPathSet(StorageFormat storageFormat, int specVersion)
+    {
+        String baseTableName = "test_writer_data_path_" + storageFormat;
+        String sparkTableName = sparkTableName(baseTableName);
+        String trinoTableName = trinoTableName(baseTableName);
+        String dataPath = "hdfs://hadoop-master:9000/user/hive/warehouse/test_writer_data_path_/obj-data";
+
+        onSpark().executeQuery(format("CREATE TABLE %s (_string STRING, _bigint BIGINT) USING ICEBERG TBLPROPERTIES (" +
+                        "'write.data.path'='%s'," +
+                        "'write.format.default' = '%s'," +
+                        "'format-version' = %s)",
+                sparkTableName, dataPath, storageFormat, specVersion));
+        onTrino().executeQuery(format("INSERT INTO %s VALUES ('a_string', 1000000000000000)", trinoTableName));
+
+        Row result = row("a_string", 1000000000000000L);
+        assertThat(onSpark().executeQuery(format("SELECT _string, _bigint FROM %s", sparkTableName))).containsOnly(result);
+        assertThat(onTrino().executeQuery(format("SELECT _string, _bigint FROM %s", trinoTableName))).containsOnly(result);
+
+        QueryResult queryResult = onTrino().executeQuery(format("SELECT file_path FROM %s", trinoTableName("\"" + baseTableName + "$files\"")));
+        assertThat(queryResult).hasRowsCount(1).hasColumnsCount(1);
+        assertTrue(((String) queryResult.row(0).get(0)).contains(dataPath));
+
+        assertQueryFailure(() -> onTrino().executeQuery("DROP TABLE " + trinoTableName))
+                .hasMessageContaining("contains Iceberg path override properties and cannot be dropped from Trino");
+        onSpark().executeQuery("DROP TABLE " + sparkTableName);
+    }
+
     private static final List<String> SPECIAL_CHARACTER_VALUES = ImmutableList.of(
             "with-hyphen",
             "with.dot",

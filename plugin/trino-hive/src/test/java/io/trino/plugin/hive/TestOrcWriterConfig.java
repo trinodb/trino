@@ -50,7 +50,7 @@ public class TestOrcWriterConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("hive.orc.writer.stripe-min-size", "13MB")
                 .put("hive.orc.writer.stripe-max-size", "27MB")
                 .put("hive.orc.writer.stripe-max-rows", "44")

@@ -28,6 +28,7 @@ public class TestJdbcMetadataConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(JdbcMetadataConfig.class)
+                .setComplexExpressionPushdownEnabled(true)
                 .setJoinPushdownEnabled(false)
                 .setAggregationPushdownEnabled(true)
                 .setTopNPushdownEnabled(true)
@@ -37,7 +38,8 @@ public class TestJdbcMetadataConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
+                .put("complex-expression-pushdown.enabled", "false")
                 .put("join-pushdown.enabled", "true")
                 .put("aggregation-pushdown.enabled", "false")
                 .put("domain-compaction-threshold", "42")
@@ -45,6 +47,7 @@ public class TestJdbcMetadataConfig
                 .buildOrThrow();
 
         JdbcMetadataConfig expected = new JdbcMetadataConfig()
+                .setComplexExpressionPushdownEnabled(false)
                 .setJoinPushdownEnabled(true)
                 .setAggregationPushdownEnabled(false)
                 .setTopNPushdownEnabled(false)

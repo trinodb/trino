@@ -41,14 +41,14 @@ public class TestExchangeS3Config
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("exchange.s3.aws-access-key", "access")
                 .put("exchange.s3.aws-secret-key", "secret")
                 .put("exchange.s3.region", "us-west-1")
                 .put("exchange.s3.endpoint", "https://s3.us-east-1.amazonaws.com")
                 .put("exchange.s3.max-error-retries", "8")
                 .put("exchange.s3.upload.part-size", "10MB")
-                .build();
+                .buildOrThrow();
 
         ExchangeS3Config expected = new ExchangeS3Config()
                 .setS3AwsAccessKey("access")

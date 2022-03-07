@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.google.sheets;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
 import io.trino.spi.Plugin;
 import io.trino.spi.connector.Connector;
@@ -24,7 +25,6 @@ import java.io.File;
 import java.nio.file.Files;
 import java.util.Base64;
 
-import static com.google.common.collect.ImmutableMap.Builder;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.plugin.google.sheets.TestGoogleSheets.GOOGLE_SHEETS;
 import static java.io.File.createTempFile;
@@ -52,7 +52,7 @@ public class TestSheetsPlugin
     {
         Plugin plugin = new SheetsPlugin();
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
-        Builder<String, String> propertiesMap = new Builder<String, String>().put("credentials-path", getTestCredentialsPath()).put("metadata-sheet-id", TEST_METADATA_SHEET_ID);
+        ImmutableMap.Builder<String, String> propertiesMap = ImmutableMap.<String, String>builder().put("credentials-path", getTestCredentialsPath()).put("metadata-sheet-id", TEST_METADATA_SHEET_ID);
         Connector connector = factory.create(GOOGLE_SHEETS, propertiesMap.buildOrThrow(), new TestingConnectorContext());
         assertNotNull(connector);
         connector.shutdown();

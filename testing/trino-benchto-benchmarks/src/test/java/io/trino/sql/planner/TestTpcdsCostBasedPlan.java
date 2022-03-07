@@ -15,10 +15,10 @@
 package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableMap;
-import io.trino.FeaturesConfig.JoinDistributionType;
-import io.trino.FeaturesConfig.JoinReorderingStrategy;
 import io.trino.Session;
 import io.trino.plugin.tpcds.TpcdsConnectorFactory;
+import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
+import io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy;
 import io.trino.testing.LocalQueryRunner;
 
 import java.util.stream.IntStream;

@@ -46,17 +46,35 @@ The recommended TLS implementation is to use a globally trusted certificate. In
 this case, no other options are necessary, since the JVM running the CLI
 recognizes these certificates.
 
+Use ``--help`` to see information about specifying the keystore, truststore, and
+other authentication details as required.
+
 Authentication
 --------------
 
-You can override your username with the ``--user`` option. It defaults to your
-operating system username. If your Trino server requires password
-authentication, use the ``--password`` option to have the CLI prompt for a
-password. You can set the ``TRINO_PASSWORD`` environment variable with the
-password value to avoid the prompt.
+The Trino CLI supports many :doc:`/security/authentication-types` detailed in
+the following sections:
 
-Use ``--help`` to see information about specifying the keystore, truststore, and
-other authentication details as required. If using Kerberos, see :doc:`/security/cli`.
+Username and password authentication
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Username and password authentication is typically configured in a cluster with
+the ``PASSWORD`` authentication type.
+
+If your Trino server requires password authentication, use the ``--password``
+option to have the CLI prompt for a password. If your cluster uses a different
+username, you can override your username with the ``--user`` option. It defaults
+to your operating system username.
+
+The following code example connects to the server, establishes your user name,
+and prompts the CLI for your password:
+
+ .. code-block:: text
+
+  ./trino --server https://trino.example.com --user=myusername --password
+
+You can set the ``TRINO_PASSWORD`` environment variable with the password value
+to avoid the prompt.
 
 .. _cli-external-sso-auth:
 
@@ -115,6 +133,12 @@ JWT authentication
 
 To access a Trino cluster configured to use :doc:`/security/jwt`, use the
 ``--access-token=<token>`` option to pass a JWT to the server.
+
+Kerberos authentication
+^^^^^^^^^^^^^^^^^^^^^^^
+
+If your cluster is secured with Kerberos authentication, see
+:doc:`/security/cli`.
 
 Pagination
 ----------
@@ -262,3 +286,4 @@ To view debug information, including the stack trace for failures, use the
     ...
     at java.base/java.lang.Thread.run(Thread.java:834)
     select count(*) from tpch.tiny.nations
+

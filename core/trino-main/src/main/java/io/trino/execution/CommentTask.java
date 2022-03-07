@@ -18,6 +18,7 @@ import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
+import io.trino.metadata.RedirectionAwareTableHandle;
 import io.trino.metadata.TableHandle;
 import io.trino.security.AccessControl;
 import io.trino.spi.connector.ColumnHandle;
@@ -69,15 +70,15 @@ public class CommentTask
         Session session = stateMachine.getSession();
 
         if (statement.getType() == Comment.Type.TABLE) {
-            QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getName());
-            Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
-            if (tableHandle.isEmpty()) {
-                throw semanticException(TABLE_NOT_FOUND, statement, "Table does not exist: %s", tableName);
+            QualifiedObjectName originalTableName = createQualifiedObjectName(session, statement, statement.getName());
+            RedirectionAwareTableHandle redirectionAwareTableHandle = metadata.getRedirectionAwareTableHandle(session, originalTableName);
+            if (redirectionAwareTableHandle.getTableHandle().isEmpty()) {
+                throw semanticException(TABLE_NOT_FOUND, statement, "Table does not exist: %s", originalTableName);
             }
 
-            accessControl.checkCanSetTableComment(session.toSecurityContext(), tableName);
-
-            metadata.setTableComment(session, tableHandle.get(), statement.getComment());
+            accessControl.checkCanSetTableComment(session.toSecurityContext(), redirectionAwareTableHandle.getRedirectedTableName().orElse(originalTableName));
+            TableHandle tableHandle = redirectionAwareTableHandle.getTableHandle().get();
+            metadata.setTableComment(session, tableHandle, statement.getComment());
         }
         else if (statement.getType() == Comment.Type.COLUMN) {
             Optional<QualifiedName> prefix = statement.getName().getPrefix();
@@ -85,21 +86,22 @@ public class CommentTask
                 throw semanticException(MISSING_TABLE, statement, "Table must be specified");
             }
 
-            QualifiedObjectName tableName = createQualifiedObjectName(session, statement, prefix.get());
-            Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
-            if (tableHandle.isEmpty()) {
-                throw semanticException(TABLE_NOT_FOUND, statement, "Table does not exist: " + tableName);
+            QualifiedObjectName originalTableName = createQualifiedObjectName(session, statement, prefix.get());
+            RedirectionAwareTableHandle redirectionAwareTableHandle = metadata.getRedirectionAwareTableHandle(session, originalTableName);
+            if (redirectionAwareTableHandle.getTableHandle().isEmpty()) {
+                throw semanticException(TABLE_NOT_FOUND, statement, "Table does not exist: " + originalTableName);
             }
+            TableHandle tableHandle = redirectionAwareTableHandle.getTableHandle().get();
 
             String columnName = statement.getName().getSuffix();
-            Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle.get());
+            Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
             if (!columnHandles.containsKey(columnName)) {
                 throw semanticException(COLUMN_NOT_FOUND, statement, "Column does not exist: " + columnName);
             }
 
-            accessControl.checkCanSetColumnComment(session.toSecurityContext(), tableName);
+            accessControl.checkCanSetColumnComment(session.toSecurityContext(), redirectionAwareTableHandle.getRedirectedTableName().orElse(originalTableName));
 
-            metadata.setColumnComment(session, tableHandle.get(), columnHandles.get(columnName), statement.getComment());
+            metadata.setColumnComment(session, tableHandle, columnHandles.get(columnName), statement.getComment());
         }
         else {
             throw semanticException(NOT_SUPPORTED, statement, "Unsupported comment type: %s", statement.getType());

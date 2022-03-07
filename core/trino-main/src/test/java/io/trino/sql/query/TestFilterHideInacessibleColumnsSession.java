@@ -22,6 +22,7 @@ import io.trino.execution.scheduler.NodeSchedulerConfig;
 import io.trino.memory.MemoryManagerConfig;
 import io.trino.memory.NodeMemoryConfig;
 import io.trino.metadata.SessionPropertyManager;
+import io.trino.sql.planner.OptimizerConfig;
 import org.testng.annotations.Test;
 
 import static org.assertj.core.api.Assertions.assertThatNoException;
@@ -39,6 +40,7 @@ public class TestFilterHideInacessibleColumnsSession
                 new TaskManagerConfig(),
                 new MemoryManagerConfig(),
                 featuresConfig,
+                new OptimizerConfig(),
                 new NodeMemoryConfig(),
                 new DynamicFilterConfig(),
                 new NodeSchedulerConfig()));
@@ -56,6 +58,7 @@ public class TestFilterHideInacessibleColumnsSession
                 new TaskManagerConfig(),
                 new MemoryManagerConfig(),
                 featuresConfig,
+                new OptimizerConfig(),
                 new NodeMemoryConfig(),
                 new DynamicFilterConfig(),
                 new NodeSchedulerConfig()));
@@ -71,6 +74,7 @@ public class TestFilterHideInacessibleColumnsSession
                 new TaskManagerConfig(),
                 new MemoryManagerConfig(),
                 featuresConfig,
+                new OptimizerConfig(),
                 new NodeMemoryConfig(),
                 new DynamicFilterConfig(),
                 new NodeSchedulerConfig()));
@@ -86,6 +90,7 @@ public class TestFilterHideInacessibleColumnsSession
                 new TaskManagerConfig(),
                 new MemoryManagerConfig(),
                 featuresConfig,
+                new OptimizerConfig(),
                 new NodeMemoryConfig(),
                 new DynamicFilterConfig(),
                 new NodeSchedulerConfig()));

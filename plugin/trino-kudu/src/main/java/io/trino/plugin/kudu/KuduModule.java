@@ -13,33 +13,27 @@
  */
 package io.trino.plugin.kudu;
 
-import com.google.inject.AbstractModule;
-import com.google.inject.Provides;
+import com.google.inject.Binder;
 import com.google.inject.Scopes;
 import com.google.inject.multibindings.Multibinder;
 import com.google.inject.multibindings.ProvidesIntoSet;
+import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.base.classloader.ClassLoaderSafeNodePartitioningProvider;
 import io.trino.plugin.base.classloader.ForClassLoaderSafe;
 import io.trino.plugin.kudu.procedures.RangePartitionProcedures;
 import io.trino.plugin.kudu.properties.KuduTableProperties;
-import io.trino.plugin.kudu.schema.NoSchemaEmulation;
-import io.trino.plugin.kudu.schema.SchemaEmulation;
-import io.trino.plugin.kudu.schema.SchemaEmulationByTableNameConvention;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.procedure.Procedure;
 import io.trino.spi.type.TypeManager;
-import org.apache.kudu.client.KuduClient;
-
-import javax.inject.Singleton;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static java.util.Objects.requireNonNull;
 
 public class KuduModule
-        extends AbstractModule
+        extends AbstractConfigurationAwareModule
 {
     private final TypeManager typeManager;
 
@@ -49,25 +43,27 @@ public class KuduModule
     }
 
     @Override
-    protected void configure()
+    protected void setup(Binder binder)
     {
-        bind(TypeManager.class).toInstance(typeManager);
+        binder.bind(TypeManager.class).toInstance(typeManager);
 
-        bind(KuduConnector.class).in(Scopes.SINGLETON);
-        bind(KuduMetadata.class).in(Scopes.SINGLETON);
-        bind(KuduTableProperties.class).in(Scopes.SINGLETON);
-        bind(ConnectorSplitManager.class).to(KuduSplitManager.class).in(Scopes.SINGLETON);
-        bind(ConnectorPageSourceProvider.class).to(KuduPageSourceProvider.class)
+        binder.bind(KuduConnector.class).in(Scopes.SINGLETON);
+        binder.bind(KuduMetadata.class).in(Scopes.SINGLETON);
+        binder.bind(KuduTableProperties.class).in(Scopes.SINGLETON);
+        binder.bind(ConnectorSplitManager.class).to(KuduSplitManager.class).in(Scopes.SINGLETON);
+        binder.bind(ConnectorPageSourceProvider.class).to(KuduPageSourceProvider.class)
                 .in(Scopes.SINGLETON);
-        bind(ConnectorPageSinkProvider.class).to(KuduPageSinkProvider.class).in(Scopes.SINGLETON);
-        bind(KuduSessionProperties.class).in(Scopes.SINGLETON);
-        bind(ConnectorNodePartitioningProvider.class).annotatedWith(ForClassLoaderSafe.class).to(KuduNodePartitioningProvider.class).in(Scopes.SINGLETON);
-        bind(ConnectorNodePartitioningProvider.class).to(ClassLoaderSafeNodePartitioningProvider.class).in(Scopes.SINGLETON);
-        bind(KuduRecordSetProvider.class).in(Scopes.SINGLETON);
-        configBinder(binder()).bindConfig(KuduClientConfig.class);
+        binder.bind(ConnectorPageSinkProvider.class).to(KuduPageSinkProvider.class).in(Scopes.SINGLETON);
+        binder.bind(KuduSessionProperties.class).in(Scopes.SINGLETON);
+        binder.bind(ConnectorNodePartitioningProvider.class).annotatedWith(ForClassLoaderSafe.class).to(KuduNodePartitioningProvider.class).in(Scopes.SINGLETON);
+        binder.bind(ConnectorNodePartitioningProvider.class).to(ClassLoaderSafeNodePartitioningProvider.class).in(Scopes.SINGLETON);
+        binder.bind(KuduRecordSetProvider.class).in(Scopes.SINGLETON);
+        configBinder(binder).bindConfig(KuduClientConfig.class);
 
-        bind(RangePartitionProcedures.class).in(Scopes.SINGLETON);
-        Multibinder.newSetBinder(binder(), Procedure.class);
+        binder.bind(RangePartitionProcedures.class).in(Scopes.SINGLETON);
+        Multibinder.newSetBinder(binder, Procedure.class);
+
+        install(new KuduSecurityModule());
     }
 
     @ProvidesIntoSet
@@ -80,29 +76,5 @@ public class KuduModule
     Procedure getDropRangePartitionProcedure(RangePartitionProcedures procedures)
     {
         return procedures.getDropPartitionProcedure();
-    }
-
-    @Singleton
-    @Provides
-    KuduClientSession createKuduClientSession(KuduClientConfig config)
-    {
-        requireNonNull(config, "config is null");
-
-        KuduClient.KuduClientBuilder builder = new KuduClient.KuduClientBuilder(config.getMasterAddresses());
-        builder.defaultAdminOperationTimeoutMs(config.getDefaultAdminOperationTimeout().toMillis());
-        builder.defaultOperationTimeoutMs(config.getDefaultOperationTimeout().toMillis());
-        if (config.isDisableStatistics()) {
-            builder.disableStatistics();
-        }
-        KuduClient client = builder.build();
-
-        SchemaEmulation strategy;
-        if (config.isSchemaEmulationEnabled()) {
-            strategy = new SchemaEmulationByTableNameConvention(config.getSchemaEmulationPrefix());
-        }
-        else {
-            strategy = new NoSchemaEmulation();
-        }
-        return new KuduClientSession(client, strategy);
     }
 }

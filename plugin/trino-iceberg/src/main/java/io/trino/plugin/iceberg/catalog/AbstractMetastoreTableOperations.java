@@ -193,10 +193,12 @@ public abstract class AbstractMetastoreTableOperations
                 .setDatabaseName(database)
                 .setTableName(tableName)
                 .setOwner(owner)
+                // Table needs to be EXTERNAL, otherwise table rename in HMS would rename table directory and break table contents.
                 .setTableType(TableType.EXTERNAL_TABLE.name())
                 .setDataColumns(toHiveColumns(metadata.schema().columns()))
                 .withStorage(storage -> storage.setLocation(metadata.location()))
                 .withStorage(storage -> storage.setStorageFormat(STORAGE_FORMAT))
+                // This is a must-have property for the EXTERNAL_TABLE table type
                 .setParameter("EXTERNAL", "TRUE")
                 .setParameter(TABLE_TYPE_PROP, ICEBERG_TABLE_TYPE_VALUE)
                 .setParameter(METADATA_LOCATION_PROP, newMetadataLocation);
@@ -277,8 +279,9 @@ public abstract class AbstractMetastoreTableOperations
         Tasks.foreach(newLocation)
                 .retry(20)
                 .exponentialBackoff(100, 5000, 600000, 4.0)
+                .stopRetryOn(org.apache.iceberg.exceptions.NotFoundException.class) // qualified name, as this is NOT the io.trino.spi.connector.NotFoundException
                 .run(metadataLocation -> newMetadata.set(
-                        TableMetadataParser.read(this, io().newInputFile(metadataLocation))));
+                        TableMetadataParser.read(fileIo, io().newInputFile(metadataLocation))));
 
         String newUUID = newMetadata.get().uuid();
         if (currentMetadata != null) {

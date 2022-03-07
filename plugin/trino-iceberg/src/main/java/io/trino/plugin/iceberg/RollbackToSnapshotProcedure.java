@@ -55,9 +55,9 @@ public class RollbackToSnapshotProcedure
                 "system",
                 "rollback_to_snapshot",
                 ImmutableList.of(
-                        new Procedure.Argument("schema", VARCHAR),
-                        new Procedure.Argument("table", VARCHAR),
-                        new Procedure.Argument("snapshot_id", BIGINT)),
+                        new Procedure.Argument("SCHEMA", VARCHAR),
+                        new Procedure.Argument("TABLE", VARCHAR),
+                        new Procedure.Argument("SNAPSHOT_ID", BIGINT)),
                 ROLLBACK_TO_SNAPSHOT.bindTo(this));
     }
 

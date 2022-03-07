@@ -113,7 +113,7 @@ public class TableCommentSystemTable
             }
             catch (TrinoException e) {
                 // listTables throws an exception if cannot connect the database
-                LOG.debug(e, "Failed to get tables for catalog: %s", catalog);
+                LOG.warn(e, "Failed to get tables for catalog: %s", catalog);
             }
 
             for (SchemaTableName name : names) {
@@ -121,9 +121,9 @@ public class TableCommentSystemTable
                 try {
                     comment = getComment(session, prefix, name, views, materializedViews);
                 }
-                catch (TrinoException e) {
+                catch (RuntimeException e) {
                     // getTableHandle may throw an exception (e.g. Cassandra connector doesn't allow case insensitive column names)
-                    LOG.debug(e, "Failed to get metadata for table: %s", name);
+                    LOG.warn(e, "Failed to get metadata for table: %s", name);
                 }
                 table.addRow(prefix.getCatalogName(), name.getSchemaName(), name.getTableName(), comment.orElse(null));
             }
@@ -153,7 +153,7 @@ public class TableCommentSystemTable
                 .map(metadata -> metadata.getMetadata().getComment())
                 .orElseGet(() -> {
                     // A previously listed table might have been dropped concurrently
-                    LOG.debug("Failed to get metadata for table: %s", name);
+                    LOG.warn("Failed to get metadata for table: %s", name);
                     return Optional.empty();
                 });
     }

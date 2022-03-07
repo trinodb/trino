@@ -27,7 +27,7 @@ public class AggregateFunction
 {
     private final String functionName;
     private final Type outputType;
-    private final List<ConnectorExpression> inputs;
+    private final List<ConnectorExpression> arguments;
     private final List<SortItem> sortItems;
     private final boolean isDistinct;
     private final Optional<ConnectorExpression> filter;
@@ -35,20 +35,20 @@ public class AggregateFunction
     public AggregateFunction(
             String aggregateFunctionName,
             Type outputType,
-            List<ConnectorExpression> inputs,
+            List<ConnectorExpression> arguments,
             List<SortItem> sortItems,
             boolean isDistinct,
             Optional<ConnectorExpression> filter)
     {
-        if (isDistinct && inputs.isEmpty()) {
-            throw new IllegalArgumentException("DISTINCT requires inputs");
+        if (isDistinct && arguments.isEmpty()) {
+            throw new IllegalArgumentException("DISTINCT requires arguments");
         }
 
         this.functionName = requireNonNull(aggregateFunctionName, "aggregateFunctionName is null");
         this.outputType = requireNonNull(outputType, "outputType is null");
-        requireNonNull(inputs, "inputs is null");
+        requireNonNull(arguments, "arguments is null");
         requireNonNull(sortItems, "sortItems is null");
-        this.inputs = List.copyOf(inputs);
+        this.arguments = List.copyOf(arguments);
         this.sortItems = List.copyOf(sortItems);
         this.isDistinct = isDistinct;
         this.filter = requireNonNull(filter, "filter is null");
@@ -59,9 +59,9 @@ public class AggregateFunction
         return functionName;
     }
 
-    public List<ConnectorExpression> getInputs()
+    public List<ConnectorExpression> getArguments()
     {
-        return inputs;
+        return arguments;
     }
 
     public Type getOutputType()
@@ -89,7 +89,7 @@ public class AggregateFunction
     {
         return new StringJoiner(", ", AggregateFunction.class.getSimpleName() + "[", "]")
                 .add("aggregationName='" + functionName + "'")
-                .add("inputs=" + inputs)
+                .add("arguments=" + arguments)
                 .add("outputType=" + outputType)
                 .add("sortOrder=" + sortItems)
                 .add("isDistinct=" + isDistinct)
@@ -111,7 +111,7 @@ public class AggregateFunction
         AggregateFunction that = (AggregateFunction) o;
         return isDistinct == that.isDistinct &&
                 Objects.equals(functionName, that.functionName) &&
-                Objects.equals(inputs, that.inputs) &&
+                Objects.equals(arguments, that.arguments) &&
                 Objects.equals(outputType, that.outputType) &&
                 Objects.equals(sortItems, that.sortItems) &&
                 Objects.equals(filter, that.filter);
@@ -120,6 +120,6 @@ public class AggregateFunction
     @Override
     public int hashCode()
     {
-        return Objects.hash(functionName, inputs, outputType, sortItems, isDistinct, filter);
+        return Objects.hash(functionName, arguments, outputType, sortItems, isDistinct, filter);
     }
 }

@@ -68,6 +68,7 @@ public class HiveMetadataFactory
     private final Optional<Duration> hiveTransactionHeartbeatInterval;
     private final HiveTableRedirectionsProvider tableRedirectionsProvider;
     private final ScheduledExecutorService heartbeatService;
+    private final TableInvalidationCallback tableInvalidationCallback;
 
     @Inject
     public HiveMetadataFactory(
@@ -88,7 +89,8 @@ public class HiveMetadataFactory
             Set<SystemTableProvider> systemTableProviders,
             HiveMaterializedViewMetadataFactory hiveMaterializedViewMetadataFactory,
             AccessControlMetadataFactory accessControlMetadataFactory,
-            HiveTableRedirectionsProvider tableRedirectionsProvider)
+            HiveTableRedirectionsProvider tableRedirectionsProvider,
+            TableInvalidationCallback tableInvalidationCallback)
     {
         this(
                 catalogName,
@@ -118,7 +120,8 @@ public class HiveMetadataFactory
                 systemTableProviders,
                 hiveMaterializedViewMetadataFactory,
                 accessControlMetadataFactory,
-                tableRedirectionsProvider);
+                tableRedirectionsProvider,
+                tableInvalidationCallback);
     }
 
     public HiveMetadataFactory(
@@ -149,7 +152,8 @@ public class HiveMetadataFactory
             Set<SystemTableProvider> systemTableProviders,
             HiveMaterializedViewMetadataFactory hiveMaterializedViewMetadataFactory,
             AccessControlMetadataFactory accessControlMetadataFactory,
-            HiveTableRedirectionsProvider tableRedirectionsProvider)
+            HiveTableRedirectionsProvider tableRedirectionsProvider,
+            TableInvalidationCallback tableInvalidationCallback)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.skipDeletionForAlter = skipDeletionForAlter;
@@ -186,6 +190,7 @@ public class HiveMetadataFactory
             updateExecutor = new BoundedExecutor(executorService, maxConcurrentMetastoreUpdates);
         }
         this.heartbeatService = requireNonNull(heartbeatService, "heartbeatService is null");
+        this.tableInvalidationCallback = requireNonNull(tableInvalidationCallback, "tableInvalidationCallback is null");
     }
 
     @Override
@@ -204,7 +209,8 @@ public class HiveMetadataFactory
                 skipTargetCleanupOnRollback,
                 deleteSchemaLocationsFallback,
                 hiveTransactionHeartbeatInterval,
-                heartbeatService);
+                heartbeatService,
+                tableInvalidationCallback);
 
         return new HiveMetadata(
                 catalogName,

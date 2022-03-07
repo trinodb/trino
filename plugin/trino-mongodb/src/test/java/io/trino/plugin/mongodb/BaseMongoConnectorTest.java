@@ -28,11 +28,13 @@ import org.bson.Document;
 import org.bson.types.ObjectId;
 import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Arrays;
+import java.util.Date;
 
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -100,6 +102,39 @@ public abstract class BaseMongoConnectorTest
         assertExplain(
                 "EXPLAIN SELECT name FROM nation ORDER BY nationkey DESC NULLS LAST LIMIT 5",
                 "TopNPartial\\[5 by \\(nationkey DESC");
+    }
+
+    @Test(dataProvider = "guessFieldTypesProvider")
+    public void testGuessFieldTypes(String mongoValue, String trinoValue)
+    {
+        Document document = Document.parse(format("{\"test\":%s}", mongoValue));
+
+        assertUpdate("DROP TABLE IF EXISTS test.test_guess_field_type");
+        client.getDatabase("test").getCollection("test_guess_field_type").insertOne(document);
+
+        assertThat(query("SELECT test FROM test.test_guess_field_type"))
+                .matches("SELECT " + trinoValue);
+
+        assertUpdate("DROP TABLE test.test_guess_field_type");
+    }
+
+    @DataProvider
+    public Object[][] guessFieldTypesProvider()
+    {
+        return new Object[][] {
+                {"true", "true"}, // boolean -> boolean
+                {"2147483647", "bigint '2147483647'"}, // int32 -> bigint
+                {"{\"$numberLong\": \"9223372036854775807\"}", "9223372036854775807"}, // int64 -> bigint
+                {"1.23", "double '1.23'"}, // double -> double
+                {"{\"$date\": \"1970-01-01T00:00:00.000Z\"}", "timestamp '1970-01-01 00:00:00.000'"}, // date -> timestamp(3)
+                {"'String type'", "varchar 'String type'"}, // string -> varchar
+                {"{$binary: \"\",\"$type\": \"0\"}", "to_utf8('')"}, // binary -> varbinary
+                {"{\"$oid\": \"6216f0c6c432d45190f25e7c\"}", "ObjectId('6216f0c6c432d45190f25e7c')"}, // objectid -> objectid
+                {"[1]", "array[bigint '1']"}, // array with single type -> array
+                {"{\"field\": \"object\"}", "CAST(row('object') AS row(field varchar))"}, // object -> row
+                {"[9, \"test\"]", "CAST(row(9, 'test') AS row(_pos1 bigint, _pos2 varchar))"}, // array with multiple types -> row
+                {"{\"$ref\":\"test_ref\",\"$id\":ObjectId(\"4e3f33de6266b5845052c02c\"),\"$db\":\"test_db\"}", "CAST(row('test_db', 'test_ref', ObjectId('4e3f33de6266b5845052c02c')) AS row(databasename varchar, collectionname varchar, id ObjectId))"}, // dbref -> row
+        };
     }
 
     @Test
@@ -256,23 +291,39 @@ public abstract class BaseMongoConnectorTest
         assertQueryReturnsEmptyResult("SHOW COLUMNS FROM test.tmp_guess_schema2");
     }
 
-    @Test
-    public void testDBRef()
+    @Test(dataProvider = "dbRefProvider")
+    public void testDBRef(Object objectId, String expectedValue, String expectedType)
     {
         Document document = Document.parse("{\"_id\":ObjectId(\"5126bbf64aed4daf9e2ab771\"),\"col1\":\"foo\"}");
 
-        ObjectId objectId = new ObjectId("5126bc054aed4daf9e2ab772");
         DBRef dbRef = new DBRef("test", "creators", objectId);
         document.append("creator", dbRef);
 
+        assertUpdate("DROP TABLE IF EXISTS test.test_dbref");
         client.getDatabase("test").getCollection("test_dbref").insertOne(document);
 
-        assertQuery(
-                "SELECT creator.databaseName, creator.collectionName, CAST(creator.id AS VARCHAR) FROM test.test_dbref",
-                "SELECT 'test', 'creators', '5126bc054aed4daf9e2ab772'");
+        assertThat(query("SELECT creator.databaseName, creator.collectionName, creator.id FROM test.test_dbref"))
+                .matches("SELECT varchar 'test', varchar 'creators', " + expectedValue);
         assertQuery(
                 "SELECT typeof(creator) FROM test.test_dbref",
-                "SELECT 'row(databaseName varchar, collectionName varchar, id ObjectId)'");
+                "SELECT 'row(databaseName varchar, collectionName varchar, id " + expectedType + ")'");
+
+        assertUpdate("DROP TABLE test.test_dbref");
+    }
+
+    @DataProvider
+    public Object[][] dbRefProvider()
+    {
+        return new Object[][] {
+                {"String type", "varchar 'String type'", "varchar"},
+                {"BinData".getBytes(UTF_8), "to_utf8('BinData')", "varbinary"},
+                {1234567890, "bigint '1234567890'", "bigint"},
+                {true, "true", "boolean"},
+                {12.3f, "double '12.3'", "double"},
+                {new Date(0), "timestamp '1970-01-01 00:00:00.000'", "timestamp(3)"},
+                {ImmutableList.of(1), "array[bigint '1']", "array(bigint)"},
+                {new ObjectId("5126bc054aed4daf9e2ab772"), "ObjectId('5126bc054aed4daf9e2ab772')", "ObjectId"},
+        };
     }
 
     @Test

@@ -4,6 +4,8 @@ set -euo pipefail -x
 
 . "${BASH_SOURCE%/*}/common.sh"
 
+abort_if_not_gib_impacted
+
 check_vars S3_BUCKET S3_BUCKET_ENDPOINT \
     AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY
 
@@ -53,7 +55,7 @@ retry check_hadoop
 # run product tests
 pushd "${PROJECT_ROOT}"
 set +e
-./mvnw -B -pl :trino-hive-hadoop2 test -P test-hive-hadoop2-s3 \
+./mvnw ${MAVEN_TEST:--B} -pl :trino-hive-hadoop2 test -P test-hive-hadoop2-s3 \
     -DHADOOP_USER_NAME=hive \
     -Dhive.hadoop2.metastoreHost=localhost \
     -Dhive.hadoop2.metastorePort=9083 \

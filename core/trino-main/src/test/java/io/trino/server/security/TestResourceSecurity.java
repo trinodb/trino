@@ -32,6 +32,8 @@ import io.trino.plugin.base.security.AllowAllSystemAccessControl;
 import io.trino.security.AccessControl;
 import io.trino.security.AccessControlManager;
 import io.trino.server.HttpRequestSessionContextFactory;
+import io.trino.server.ProtocolConfig;
+import io.trino.server.protocol.PreparedStatementEncoder;
 import io.trino.server.security.oauth2.OAuth2Client;
 import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spi.security.AccessDeniedException;
@@ -677,7 +679,7 @@ public class TestResourceSecurity
                                 .put("http-server.authentication.type", "oauth2")
                                 .putAll(getOAuth2Properties(tokenServer))
                                 .put("http-server.authentication.oauth2.groups-field", GROUPS_CLAIM)
-                                .build())
+                                .buildOrThrow())
                         .setAdditionalModule(oauth2Module(tokenServer))
                         .build()) {
             server.getInstance(Key.get(AccessControlManager.class)).addSystemAccessControl(TestSystemAccessControl.NO_IMPERSONATION);
@@ -813,7 +815,7 @@ public class TestResourceSecurity
                 .put("http-server.authentication.oauth2.token-url", tokenServer.getIssuer())
                 .put("http-server.authentication.oauth2.client-id", tokenServer.getClientId())
                 .put("http-server.authentication.oauth2.client-secret", tokenServer.getClientSecret())
-                .build();
+                .buildOrThrow();
     }
 
     private static String getOauthToken(OkHttpClient client, String url)
@@ -949,7 +951,11 @@ public class TestResourceSecurity
         @Inject
         public TestResource(AccessControl accessControl)
         {
-            this.sessionContextFactory = new HttpRequestSessionContextFactory(createTestMetadataManager(), user -> ImmutableSet.of(), accessControl);
+            this.sessionContextFactory = new HttpRequestSessionContextFactory(
+                    new PreparedStatementEncoder(new ProtocolConfig()),
+                    createTestMetadataManager(),
+                    user -> ImmutableSet.of(),
+                    accessControl);
         }
 
         @ResourceSecurity(AUTHENTICATED_USER)

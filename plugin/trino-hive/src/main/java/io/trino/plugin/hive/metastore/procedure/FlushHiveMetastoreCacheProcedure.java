@@ -32,6 +32,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static io.trino.spi.block.MethodHandleUtil.methodHandle;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class FlushHiveMetastoreCacheProcedure
@@ -39,20 +40,21 @@ public class FlushHiveMetastoreCacheProcedure
 {
     private static final String PROCEDURE_NAME = "flush_metadata_cache";
 
-    private static final String PARAM_SCHEMA_NAME = "schema_name";
-    private static final String PARAM_TABLE_NAME = "table_name";
-    private static final String PARAM_PARTITION_COLUMN = "partition_column";
-    private static final String PARAM_PARTITION_VALUE = "partition_value";
+    private static final String PARAM_SCHEMA_NAME = "SCHEMA_NAME";
+    private static final String PARAM_TABLE_NAME = "TABLE_NAME";
+    private static final String PARAM_PARTITION_COLUMN = "PARTITION_COLUMN";
+    private static final String PARAM_PARTITION_VALUE = "PARTITION_VALUE";
 
     private static final String PROCEDURE_USAGE_EXAMPLES = format(
             "Valid usages:%n" +
                     " - '%1$s()'%n" +
                     " - %1$s(%2$s => ..., %3$s => ..., %4$s => ARRAY['...'], %5$s => ARRAY['...'])",
             PROCEDURE_NAME,
-            PARAM_SCHEMA_NAME,
-            PARAM_TABLE_NAME,
-            PARAM_PARTITION_COLUMN,
-            PARAM_PARTITION_VALUE);
+            // Use lowercase parameter names per convention. In the usage example the names are not delimited.
+            PARAM_SCHEMA_NAME.toLowerCase(ENGLISH),
+            PARAM_TABLE_NAME.toLowerCase(ENGLISH),
+            PARAM_PARTITION_COLUMN.toLowerCase(ENGLISH),
+            PARAM_PARTITION_VALUE.toLowerCase(ENGLISH));
 
     private static final MethodHandle FLUSH_HIVE_METASTORE_CACHE = methodHandle(
             FlushHiveMetastoreCacheProcedure.class,
@@ -79,7 +81,7 @@ public class FlushHiveMetastoreCacheProcedure
                 "system",
                 PROCEDURE_NAME,
                 ImmutableList.of(
-                        new Procedure.Argument("$fake_first_parameter", VARCHAR, false, FAKE_PARAM_DEFAULT_VALUE),
+                        new Procedure.Argument("$FAKE_FIRST_PARAMETER", VARCHAR, false, FAKE_PARAM_DEFAULT_VALUE),
                         new Procedure.Argument(PARAM_SCHEMA_NAME, VARCHAR, false, null),
                         new Procedure.Argument(PARAM_TABLE_NAME, VARCHAR, false, null),
                         new Procedure.Argument(PARAM_PARTITION_COLUMN, new ArrayType(VARCHAR), false, null),
