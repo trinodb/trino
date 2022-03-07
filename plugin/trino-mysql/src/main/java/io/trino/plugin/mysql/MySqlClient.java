@@ -274,6 +274,13 @@ public class MySqlClient
     }
 
     @Override
+    public Optional<String> getTableComment(ResultSet resultSet)
+    {
+        // Don't return a comment until the connector supports creating tables with comment
+        return Optional.empty();
+    }
+
+    @Override
     protected String getTableSchemaName(ResultSet resultSet)
             throws SQLException
     {

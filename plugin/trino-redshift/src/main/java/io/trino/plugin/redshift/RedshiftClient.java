@@ -36,6 +36,7 @@ import javax.inject.Inject;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.util.Optional;
@@ -92,6 +93,13 @@ public class RedshiftClient
     public RedshiftClient(BaseJdbcConfig config, ConnectionFactory connectionFactory, QueryBuilder queryBuilder, IdentifierMapping identifierMapping)
     {
         super(config, "\"", connectionFactory, queryBuilder, identifierMapping);
+    }
+
+    @Override
+    public Optional<String> getTableComment(ResultSet resultSet)
+    {
+        // Don't return a comment until the connector supports creating tables with comment
+        return Optional.empty();
     }
 
     @Override
