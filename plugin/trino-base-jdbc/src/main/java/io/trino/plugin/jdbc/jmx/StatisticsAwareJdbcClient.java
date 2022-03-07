@@ -198,6 +198,19 @@ public final class StatisticsAwareJdbcClient
     }
 
     @Override
+    public Optional<String> getTableComment(ResultSet resultSet)
+            throws SQLException
+    {
+        return stats.getGetTableComment().wrap(() -> delegate().getTableComment(resultSet));
+    }
+
+    @Override
+    public void setTableComment(ConnectorSession session, JdbcTableHandle handle, Optional<String> comment)
+    {
+        stats.getSetTableComment().wrap(() -> delegate().setTableComment(session, handle, comment));
+    }
+
+    @Override
     public void setColumnComment(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column, Optional<String> comment)
     {
         stats.getSetColumnComment().wrap(() -> delegate().setColumnComment(session, handle, column, comment));

@@ -93,7 +93,8 @@ public class TestDefaultJdbcQueryBuilder
 {
     private static final JdbcNamedRelationHandle TEST_TABLE = new JdbcNamedRelationHandle(new SchemaTableName(
             "some_test_schema", "test_table"),
-            new RemoteTableName(Optional.empty(), Optional.empty(), "test_table"));
+            new RemoteTableName(Optional.empty(), Optional.empty(), "test_table"),
+            Optional.empty());
     private static final ConnectorSession SESSION = TestingConnectorSession.builder()
             .setPropertyMetadata(new JdbcMetadataSessionProperties(new JdbcMetadataConfig(), Optional.empty()).getSessionProperties())
             .build();
