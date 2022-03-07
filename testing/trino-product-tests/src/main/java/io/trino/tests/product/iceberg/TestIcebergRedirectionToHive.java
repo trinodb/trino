@@ -59,9 +59,9 @@ public class TestIcebergRedirectionToHive
 
         createHiveTable(hiveTableName, false);
 
-        // TODO: support redirects from Iceberg to Hive
-        assertQueryFailure(() -> onTrino().executeQuery("TABLE " + icebergTableName))
-                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): Not an Iceberg table: default." + tableName);
+        assertResultsEqual(
+                onTrino().executeQuery("TABLE " + hiveTableName),
+                onTrino().executeQuery("TABLE " + icebergTableName));
 
         onTrino().executeQuery("DROP TABLE " + hiveTableName);
     }
@@ -75,9 +75,9 @@ public class TestIcebergRedirectionToHive
 
         createHiveTable(hiveTableName, false);
 
-        // TODO: support redirects from Iceberg to Hive
-        assertQueryFailure(() -> onTrino().executeQuery("TABLE " + icebergTableName))
-                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): Not an Iceberg table: nondefaultschema." + tableName);
+        assertResultsEqual(
+                onTrino().executeQuery("TABLE " + hiveTableName),
+                onTrino().executeQuery("TABLE " + icebergTableName));
 
         onTrino().executeQuery("DROP TABLE " + hiveTableName);
     }
@@ -91,12 +91,15 @@ public class TestIcebergRedirectionToHive
 
         createHiveTable(hiveTableName, false);
 
-        // TODO: support redirects from Iceberg to Hive
-        assertQueryFailure(() -> onTrino().executeQuery("SET SESSION iceberg.hive_catalog_name = 'someweirdcatalog'"))
-                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): line 1:1: Session property 'iceberg.hive_catalog_name' does not exist");
+        // sanity check
+        assertResultsEqual(
+                onTrino().executeQuery("TABLE " + hiveTableName),
+                onTrino().executeQuery("TABLE " + icebergTableName));
+
+        onTrino().executeQuery("SET SESSION iceberg.hive_catalog_name = 'someweirdcatalog'");
 
         assertQueryFailure(() -> onTrino().executeQuery("TABLE " + icebergTableName))
-                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): Not an Iceberg table: default." + tableName);
+                .hasMessageMatching(".*Table 'iceberg.default.redirect_to_nonexistent_hive_.*' redirected to 'someweirdcatalog.default.redirect_to_nonexistent_hive_.*', but the target catalog 'someweirdcatalog' does not exist");
 
         onTrino().executeQuery("DROP TABLE " + hiveTableName);
     }
@@ -112,20 +115,14 @@ public class TestIcebergRedirectionToHive
         createHiveTable(hiveTableName, false);
 
         onTrino().executeQuery("USE iceberg.default");
-        // TODO: support redirects from Iceberg to Hive
-        assertQueryFailure(() -> onTrino().executeQuery("TABLE " + tableName)) // unqualified
-                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): Not an Iceberg table: default." + tableName);
-//        assertResultsEqual(
-//                onTrino().executeQuery("TABLE " + tableName), // unqualified
-//                onTrino().executeQuery("TABLE " + hiveTableName));
+        assertResultsEqual(
+                onTrino().executeQuery("TABLE " + tableName), // unqualified
+                onTrino().executeQuery("TABLE " + hiveTableName));
 
         onTrino().executeQuery("USE hive.default");
-        // TODO: support redirects from Iceberg to Hive
-        assertQueryFailure(() -> onTrino().executeQuery("TABLE " + icebergTableName))
-                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): Not an Iceberg table: default." + tableName);
-//        assertResultsEqual(
-//                onTrino().executeQuery("TABLE " + icebergTableName),
-//                onTrino().executeQuery("TABLE " + tableName)); // unqualified
+        assertResultsEqual(
+                onTrino().executeQuery("TABLE " + icebergTableName),
+                onTrino().executeQuery("TABLE " + tableName)); // unqualified
 
         onTrino().executeQuery("DROP TABLE " + hiveTableName);
     }
@@ -135,12 +132,12 @@ public class TestIcebergRedirectionToHive
     {
         String tableName = "hive_unpartitioned_table_" + randomTableSuffix();
         String hiveTableName = "hive.default." + tableName;
+        String icebergTableName = "iceberg.default." + tableName;
 
         createHiveTable(hiveTableName, false);
 
-        // TODO: support redirects from Iceberg to Hive
         assertQueryFailure(() -> onTrino().executeQuery("TABLE iceberg.default.\"" + tableName + "$partitions\""))
-                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): Not an Iceberg table: default." + tableName);
+                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): Table '" + icebergTableName + "$partitions' redirected to '" + hiveTableName + "$partitions', but the target table '" + hiveTableName + "$partitions' does not exist");
 
         onTrino().executeQuery("DROP TABLE " + hiveTableName);
     }
@@ -153,9 +150,13 @@ public class TestIcebergRedirectionToHive
 
         createHiveTable(hiveTableName, true);
 
-        // TODO: support redirects from Iceberg to Hive
-        assertQueryFailure(() -> onTrino().executeQuery("TABLE iceberg.default.\"" + tableName + "$partitions\""))
-                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): Not an Iceberg table: default." + tableName);
+        assertThat(onTrino().executeQuery("TABLE iceberg.default.\"" + tableName + "$partitions\""))
+                .containsOnly(
+                        row(0),
+                        row(1),
+                        row(2),
+                        row(3),
+                        row(4));
 
         onTrino().executeQuery("DROP TABLE " + hiveTableName);
     }
@@ -169,9 +170,12 @@ public class TestIcebergRedirectionToHive
 
         createHiveTable(hiveTableName, partitioned, false);
 
-        // TODO: support redirects from Iceberg to Hive
-        assertQueryFailure(() -> onTrino().executeQuery("INSERT INTO " + icebergTableName + " VALUES (6, false, -17), (7, true, 1)"))
-                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): Not an Iceberg table: " + schema + "." + tableName);
+        onTrino().executeQuery("INSERT INTO " + icebergTableName + " VALUES (42, 'some name', 'some comment', 12)");
+
+        assertThat(onTrino().executeQuery("TABLE " + hiveTableName))
+                .containsOnly(row(42L, "some name", "some comment", 12L));
+        assertThat(onTrino().executeQuery("TABLE " + icebergTableName))
+                .containsOnly(row(42L, "some name", "some comment", 12L));
 
         onTrino().executeQuery("DROP TABLE " + hiveTableName);
     }
@@ -197,9 +201,11 @@ public class TestIcebergRedirectionToHive
 
         createHiveTable(hiveTableName, true);
 
-        // TODO: support redirects from Iceberg to Hive
-        assertQueryFailure(() -> onTrino().executeQuery("DELETE FROM " + icebergTableName + " WHERE regionkey = 1"))
-                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): Not an Iceberg table: default." + tableName);
+        onTrino().executeQuery("DELETE FROM " + icebergTableName + " WHERE regionkey = 1");
+
+        assertResultsEqual(
+                onTrino().executeQuery("TABLE " + icebergTableName),
+                onTrino().executeQuery("SELECT nationkey, name, comment, regionkey FROM tpch.tiny.nation WHERE regionkey != 1"));
 
         onTrino().executeQuery("DROP TABLE " + hiveTableName);
     }
@@ -213,9 +219,8 @@ public class TestIcebergRedirectionToHive
 
         createHiveTable(hiveTableName, true);
 
-        // TODO: support redirects from Iceberg to Hive
         assertQueryFailure(() -> onTrino().executeQuery("UPDATE " + icebergTableName + " SET nationkey = nationkey + 100 WHERE regionkey = 1"))
-                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): Not an Iceberg table: default." + tableName);
+                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): Hive update is only supported for ACID transactional tables");
 
         onTrino().executeQuery("DROP TABLE " + hiveTableName);
     }
@@ -228,11 +233,9 @@ public class TestIcebergRedirectionToHive
         String icebergTableName = "iceberg.default." + tableName;
 
         createHiveTable(hiveTableName, false);
-        // TODO: support redirects from Iceberg to Hive
-        assertQueryFailure(() -> onTrino().executeQuery("DROP TABLE " + icebergTableName))
-                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): Not an Iceberg table: default." + tableName);
-        // TODO should fail
-        onTrino().executeQuery("TABLE " + hiveTableName);
+        onTrino().executeQuery("DROP TABLE " + icebergTableName);
+        assertQueryFailure(() -> onTrino().executeQuery("TABLE " + hiveTableName))
+                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): line 1:1: Table '" + hiveTableName + "' does not exist");
     }
 
     @Test(groups = {HIVE_ICEBERG_REDIRECTIONS, PROFILE_SPECIFIC_TESTS})
@@ -244,9 +247,9 @@ public class TestIcebergRedirectionToHive
 
         createHiveTable(hiveTableName, true);
 
-        // TODO: support redirects from Iceberg to Hive
-        assertQueryFailure(() -> onTrino().executeQuery("DESCRIBE " + icebergTableName))
-                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): Not an Iceberg table: default." + tableName);
+        assertResultsEqual(
+                onTrino().executeQuery("DESCRIBE " + icebergTableName),
+                onTrino().executeQuery("DESCRIBE " + hiveTableName));
 
         onTrino().executeQuery("DROP TABLE " + hiveTableName);
     }
@@ -260,9 +263,17 @@ public class TestIcebergRedirectionToHive
 
         createHiveTable(hiveTableName, true);
 
-        // TODO: support redirects from Iceberg to Hive
-        assertQueryFailure(() -> onTrino().executeQuery("SHOW CREATE TABLE " + icebergTableName))
-                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): Not an Iceberg table: default." + tableName);
+        assertThat(onTrino().executeQuery("SHOW CREATE TABLE " + icebergTableName))
+                .containsOnly(row("CREATE TABLE " + hiveTableName + " (\n" +
+                        "   nationkey bigint,\n" +
+                        "   name varchar(25),\n" +
+                        "   comment varchar(152),\n" +
+                        "   regionkey bigint\n" +
+                        ")\n" +
+                        "WITH (\n" +
+                        "   format = 'ORC',\n" +
+                        "   partitioned_by = ARRAY['regionkey']\n" + // 'partitioned_by' comes from Hive
+                        ")"));
 
         onTrino().executeQuery("DROP TABLE " + hiveTableName);
     }
@@ -276,9 +287,13 @@ public class TestIcebergRedirectionToHive
 
         createHiveTable(hiveTableName, true);
 
-        // TODO: support redirects from Iceberg to Hive
-        assertQueryFailure(() -> onTrino().executeQuery("SHOW STATS FOR " + icebergTableName))
-                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): Not an Iceberg table: default." + tableName);
+        assertThat(onTrino().executeQuery("SHOW STATS FOR " + icebergTableName))
+                .containsOnly(
+                        row("nationkey", null, 5d, 0d, null, "0", "24"),
+                        row("name", 177d, 5d, 0d, null, null, null),
+                        row("comment", 1857d, 5d, 0d, null, null, null),
+                        row("regionkey", null, 5d, 0d, null, "0", "4"),
+                        row(null, null, null, null, 25d, null, null));
 
         onTrino().executeQuery("DROP TABLE " + hiveTableName);
     }
@@ -286,17 +301,27 @@ public class TestIcebergRedirectionToHive
     @Test(groups = {HIVE_ICEBERG_REDIRECTIONS, PROFILE_SPECIFIC_TESTS})
     public void testAlterTableRename()
     {
-        String tableName = "hive_rename_table_" + randomTableSuffix();
+        String tableName = "iceberg_rename_table_" + randomTableSuffix();
         String hiveTableName = "hive.default." + tableName;
         String icebergTableName = "iceberg.default." + tableName;
 
         createHiveTable(hiveTableName, false);
 
-        // TODO: support redirects from Iceberg to Hive
-        assertQueryFailure(() -> onTrino().executeQuery("ALTER TABLE " + icebergTableName + " RENAME TO a_new_name"))
-                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): Not an Iceberg table: default." + tableName);
+        assertQueryFailure(() -> onTrino().executeQuery("ALTER TABLE " + icebergTableName + " RENAME TO iceberg.default." + tableName + "_new"))
+                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): line 1:1: Table rename across catalogs is not supported");
 
-        onTrino().executeQuery("DROP TABLE " + hiveTableName);
+        String newTableNameWithoutCatalogWithoutSchema = tableName + "_new_without_catalog_without_schema";
+        onTrino().executeQuery("ALTER TABLE " + icebergTableName + " RENAME TO " + newTableNameWithoutCatalogWithoutSchema);
+        String newTableNameWithoutCatalogWithSchema = tableName + "_new_without_catalog_with_schema";
+        onTrino().executeQuery("ALTER TABLE iceberg.default." + newTableNameWithoutCatalogWithoutSchema + " RENAME TO default." + newTableNameWithoutCatalogWithSchema);
+        String newTableNameWithCatalogWithSchema = tableName + "_new_with_catalog_with_schema";
+        onTrino().executeQuery("ALTER TABLE iceberg.default." + newTableNameWithoutCatalogWithSchema + " RENAME TO hive.default." + newTableNameWithCatalogWithSchema);
+
+        assertResultsEqual(
+                onTrino().executeQuery("TABLE " + hiveTableName + "_new_with_catalog_with_schema"),
+                onTrino().executeQuery("TABLE " + icebergTableName + "_new_with_catalog_with_schema"));
+
+        onTrino().executeQuery("DROP TABLE " + hiveTableName + "_new_with_catalog_with_schema");
     }
 
     @Test(groups = {HIVE_ICEBERG_REDIRECTIONS, PROFILE_SPECIFIC_TESTS})
@@ -308,10 +333,14 @@ public class TestIcebergRedirectionToHive
 
         createHiveTable(hiveTableName, false);
 
-        // TODO: support redirects from Iceberg to Hive
-        assertQueryFailure(() -> onTrino().executeQuery("ALTER TABLE " + icebergTableName + " ADD COLUMN some_new_column double"))
-                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): Not an Iceberg table: default." + tableName);
+        onTrino().executeQuery("ALTER TABLE " + icebergTableName + " ADD COLUMN some_new_column double");
 
+        Assertions.assertThat(onTrino().executeQuery("DESCRIBE " + hiveTableName).column(1))
+                .containsOnly("nationkey", "name", "regionkey", "comment", "some_new_column");
+
+        assertResultsEqual(
+                onTrino().executeQuery("TABLE " + hiveTableName),
+                onTrino().executeQuery("SELECT nationkey, name, comment, regionkey, NULL FROM tpch.tiny.nation"));
         onTrino().executeQuery("DROP TABLE " + hiveTableName);
     }
 
@@ -324,9 +353,14 @@ public class TestIcebergRedirectionToHive
 
         createHiveTable(hiveTableName, false);
 
-        // TODO: support redirects from Iceberg to Hive
-        assertQueryFailure(() -> onTrino().executeQuery("ALTER TABLE " + icebergTableName + " RENAME COLUMN nationkey TO nation_key"))
-                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): Not an Iceberg table: default." + tableName);
+        onTrino().executeQuery("ALTER TABLE " + icebergTableName + " RENAME COLUMN nationkey TO nation_key");
+
+        Assertions.assertThat(onTrino().executeQuery("DESCRIBE " + icebergTableName).column(1))
+                .containsOnly("nation_key", "name", "regionkey", "comment");
+
+        assertResultsEqual(
+                onTrino().executeQuery("TABLE " + hiveTableName),
+                onTrino().executeQuery("SELECT nationkey as nation_key, name, comment, regionkey FROM tpch.tiny.nation"));
 
         onTrino().executeQuery("DROP TABLE " + hiveTableName);
     }
@@ -340,10 +374,17 @@ public class TestIcebergRedirectionToHive
 
         createHiveTable(hiveTableName, false);
 
-        // TODO: support redirects from Iceberg to Hive
-        assertQueryFailure(() -> onTrino().executeQuery("ALTER TABLE " + icebergTableName + " DROP COLUMN comment"))
-                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): Not an Iceberg table: default." + tableName);
+        onTrino().executeQuery("ALTER TABLE " + icebergTableName + " DROP COLUMN comment");
 
+        Assertions.assertThat(onTrino().executeQuery("DESCRIBE " + icebergTableName).column(1))
+                .containsOnly("nationkey", "name", "regionkey");
+
+        // After dropping the column from the Hive metastore, access ORC columns by name
+        // in order to avoid mismatches between column indexes
+        onTrino().executeQuery("SET SESSION hive.orc_use_column_names = true");
+        assertResultsEqual(
+                onTrino().executeQuery("TABLE " + hiveTableName),
+                onTrino().executeQuery("SELECT nationkey, name, regionkey FROM tpch.tiny.nation"));
         onTrino().executeQuery("DROP TABLE " + hiveTableName);
     }
 
@@ -359,12 +400,11 @@ public class TestIcebergRedirectionToHive
         assertTableComment("hive", "default", tableName).isNull();
         assertTableComment("iceberg", "default", tableName).isNull();
 
-        // TODO: support redirects from Iceberg to Hive
-        assertQueryFailure(() -> onTrino().executeQuery("COMMENT ON TABLE " + icebergTableName + " IS 'This is my table, there are many like it but this one is mine'"))
-                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): Not an Iceberg table: default." + tableName);
+        String tableComment = "This is my table, there are many like it but this one is mine";
+        onTrino().executeQuery(format("COMMENT ON TABLE " + icebergTableName + " IS '%s'", tableComment));
 
-        assertTableComment("hive", "default", tableName).isNull();
-        assertTableComment("iceberg", "default", tableName).isNull();
+        assertTableComment("hive", "default", tableName).isEqualTo(tableComment);
+        assertTableComment("iceberg", "default", tableName).isEqualTo(tableComment);
 
         onTrino().executeQuery("DROP TABLE " + hiveTableName);
     }
@@ -378,9 +418,8 @@ public class TestIcebergRedirectionToHive
 
         createHiveTable(hiveTableName, true);
 
-        // TODO: support redirects from Iceberg to Hive
-        assertQueryFailure(() -> onTrino().executeQuery("SHOW GRANTS ON " + icebergTableName))
-                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): Not an Iceberg table: default." + tableName);
+        assertQueryFailure(() -> onTrino().executeQuery(format("SHOW GRANTS ON %s", icebergTableName)))
+                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): line 1:1: Table " + icebergTableName + " is redirected to " + hiveTableName + " and SHOW GRANTS is not supported with table redirections");
 
         onTrino().executeQuery("DROP TABLE " + hiveTableName);
     }
@@ -398,21 +437,22 @@ public class TestIcebergRedirectionToHive
         createHiveTable(hiveTableName, false);
 
         // via redirection with table filter
-        // TODO: support redirects from Iceberg to Hive
-        assertQueryFailure(() -> onTrino().executeQuery(
+        assertThat(onTrino().executeQuery(
                 format("SELECT * FROM iceberg.information_schema.columns WHERE table_schema = '%s' AND table_name='%s'", schemaName, tableName)))
-                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): Not an Iceberg table: " + schemaName + "." + tableName);
+                .containsOnly(
+                        row("iceberg", schemaName, tableName, "nationkey", 1, null, "YES", "bigint"),
+                        row("iceberg", schemaName, tableName, "name", 2, null, "YES", "varchar(25)"),
+                        row("iceberg", schemaName, tableName, "comment", 3, null, "YES", "varchar(152)"),
+                        row("iceberg", schemaName, tableName, "regionkey", 4, null, "YES", "bigint"));
 
         // test via redirection with just schema filter
         assertThat(onTrino().executeQuery(
                 format("SELECT * FROM iceberg.information_schema.columns WHERE table_schema = '%s'", schemaName)))
                 .containsOnly(
-                        // TODO report table's columns via redirect to Hive
-//                        row("iceberg", schemaName, tableName, "nationkey", 1, null, "YES", "bigint"),
-//                        row("iceberg", schemaName, tableName, "name", 2, null, "YES", "varchar(25)"),
-//                        row("iceberg", schemaName, tableName, "comment", 3, null, "YES", "varchar(152)"),
-//                        row("iceberg", schemaName, tableName, "regionkey", 4, null, "YES", "bigint")
-                        /**/);
+                        row("iceberg", schemaName, tableName, "nationkey", 1, null, "YES", "bigint"),
+                        row("iceberg", schemaName, tableName, "name", 2, null, "YES", "varchar(25)"),
+                        row("iceberg", schemaName, tableName, "comment", 3, null, "YES", "varchar(152)"),
+                        row("iceberg", schemaName, tableName, "regionkey", 4, null, "YES", "bigint"));
 
         // sanity check that getting columns info without redirection produces matching result
         assertThat(onTrino().executeQuery(
@@ -443,23 +483,19 @@ public class TestIcebergRedirectionToHive
         assertThat(onTrino().executeQuery(
                 format("SELECT table_cat, table_schem, table_name, column_name FROM system.jdbc.columns WHERE table_cat = 'iceberg' AND table_schem = '%s' AND table_name = '%s'", schemaName, tableName)))
                 .containsOnly(
-                        // TODO report table's columns via redirect to Hive
-//                        row("iceberg", schemaName, tableName, "nationkey"),
-//                        row("iceberg", schemaName, tableName, "name"),
-//                        row("iceberg", schemaName, tableName, "comment"),
-//                        row("iceberg", schemaName, tableName, "regionkey")
-                        /**/);
+                        row("iceberg", schemaName, tableName, "nationkey"),
+                        row("iceberg", schemaName, tableName, "name"),
+                        row("iceberg", schemaName, tableName, "comment"),
+                        row("iceberg", schemaName, tableName, "regionkey"));
 
-        // test via redirection with just schema filter
+        // test via redirection with just schema filter - consistent with the functionality of the command `SHOW TABLES` command on the Iceberg connector
         assertThat(onTrino().executeQuery(
                 format("SELECT table_cat, table_schem, table_name, column_name FROM system.jdbc.columns WHERE table_cat = 'iceberg' AND table_schem = '%s'", schemaName)))
                 .containsOnly(
-                        // TODO report table's columns via redirect to Hive
-//                        row("iceberg", schemaName, tableName, "nationkey"),
-//                        row("iceberg", schemaName, tableName, "name"),
-//                        row("iceberg", schemaName, tableName, "comment"),
-//                        row("iceberg", schemaName, tableName, "regionkey")
-                        /**/);
+                        row("iceberg", schemaName, tableName, "nationkey"),
+                        row("iceberg", schemaName, tableName, "name"),
+                        row("iceberg", schemaName, tableName, "comment"),
+                        row("iceberg", schemaName, tableName, "regionkey"));
 
         // sanity check that getting columns info without redirection produces matching result
         assertThat(onTrino().executeQuery(
@@ -483,9 +519,8 @@ public class TestIcebergRedirectionToHive
 
         createHiveTable(hiveTableName, false);
 
-        // TODO: support redirects from Iceberg to Hive
         assertQueryFailure(() -> onTrino().executeQuery("GRANT SELECT ON " + icebergTableName + " TO ROLE PUBLIC"))
-                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): Not an Iceberg table: default." + tableName);
+                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): line 1:1: Table " + icebergTableName + " is redirected to " + hiveTableName + " and GRANT is not supported with table redirections");
 
         onTrino().executeQuery("DROP TABLE " + hiveTableName);
     }
@@ -499,9 +534,8 @@ public class TestIcebergRedirectionToHive
 
         createHiveTable(hiveTableName, false);
 
-        // TODO: support redirects from Iceberg to Hive
         assertQueryFailure(() -> onTrino().executeQuery("REVOKE SELECT ON " + icebergTableName + " FROM ROLE PUBLIC"))
-                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): Not an Iceberg table: default." + tableName);
+                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): line 1:1: Table " + icebergTableName + " is redirected to " + hiveTableName + " and REVOKE is not supported with table redirections");
 
         onTrino().executeQuery("DROP TABLE " + hiveTableName);
     }
@@ -515,9 +549,8 @@ public class TestIcebergRedirectionToHive
 
         createHiveTable(hiveTableName, false);
 
-        // TODO: support redirects from Iceberg to Hive
         assertQueryFailure(() -> onTrino().executeQuery("ALTER TABLE " + icebergTableName + " SET AUTHORIZATION ROLE PUBLIC"))
-                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): Not an Iceberg table: default." + tableName);
+                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): line 1:1: Table " + icebergTableName + " is redirected to " + hiveTableName + " and SET TABLE AUTHORIZATION is not supported with table redirections");
 
         onTrino().executeQuery("DROP TABLE " + hiveTableName);
     }
@@ -531,9 +564,8 @@ public class TestIcebergRedirectionToHive
 
         createHiveTable(hiveTableName, false);
 
-        // TODO: support redirects from Iceberg to Hive
-        assertQueryFailure(() -> onTrino().executeQuery("GRANT SELECT ON " + icebergTableName + " TO ROLE PUBLIC"))
-                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): Not an Iceberg table: default." + tableName);
+        assertQueryFailure(() -> onTrino().executeQuery("DENY DELETE ON " + icebergTableName + " TO ROLE PUBLIC"))
+                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): line 1:1: Table " + icebergTableName + " is redirected to " + hiveTableName + " and DENY is not supported with table redirections");
 
         onTrino().executeQuery("DROP TABLE " + hiveTableName);
     }

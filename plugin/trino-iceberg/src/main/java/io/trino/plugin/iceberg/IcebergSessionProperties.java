@@ -31,6 +31,7 @@ import io.trino.spi.session.PropertyMetadata;
 import javax.inject.Inject;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -41,6 +42,7 @@ import static io.trino.spi.session.PropertyMetadata.booleanProperty;
 import static io.trino.spi.session.PropertyMetadata.doubleProperty;
 import static io.trino.spi.session.PropertyMetadata.enumProperty;
 import static io.trino.spi.session.PropertyMetadata.integerProperty;
+import static io.trino.spi.session.PropertyMetadata.stringProperty;
 import static java.lang.String.format;
 
 public final class IcebergSessionProperties
@@ -71,6 +73,7 @@ public final class IcebergSessionProperties
     private static final String STATISTICS_ENABLED = "statistics_enabled";
     private static final String PROJECTION_PUSHDOWN_ENABLED = "projection_pushdown_enabled";
     private static final String TARGET_MAX_FILE_SIZE = "target_max_file_size";
+    private static final String HIVE_CATALOG_NAME = "hive_catalog_name";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -219,6 +222,13 @@ public final class IcebergSessionProperties
                         "Target maximum size of written files; the actual size may be larger",
                         hiveConfig.getTargetMaxFileSize(),
                         false))
+                .add(stringProperty(
+                        HIVE_CATALOG_NAME,
+                        "Catalog to redirect to when a Hive table is referenced",
+                        icebergConfig.getHiveCatalogName().orElse(null),
+                        // Session-level redirections configuration does not work well with views, as view body is analyzed in context
+                        // of a session with properties stripped off. Thus, this property is more of a test-only, or at most POC usefulness.
+                        true))
                 .build();
     }
 
@@ -358,5 +368,10 @@ public final class IcebergSessionProperties
     public static long getTargetMaxFileSize(ConnectorSession session)
     {
         return session.getProperty(TARGET_MAX_FILE_SIZE, DataSize.class).toBytes();
+    }
+
+    public static Optional<String> getHiveCatalogName(ConnectorSession session)
+    {
+        return Optional.ofNullable(session.getProperty(HIVE_CATALOG_NAME, String.class));
     }
 }
