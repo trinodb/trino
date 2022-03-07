@@ -82,6 +82,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.plugin.elasticsearch.ElasticsearchTableHandle.Type.QUERY;
@@ -546,7 +547,10 @@ public class ElasticsearchMetadata
                 // TODO Support ESCAPE character when it's pushed down by the engine
                 if (LIKE_PATTERN_FUNCTION_NAME.equals(call.getFunctionName()) && call.getArguments().size() == 2 &&
                         call.getArguments().get(0) instanceof Variable && call.getArguments().get(1) instanceof Constant) {
-                    String columnName = ((Variable) call.getArguments().get(0)).getName();
+                    String variableName = ((Variable) call.getArguments().get(0)).getName();
+                    ElasticsearchColumnHandle column = (ElasticsearchColumnHandle) constraint.getAssignments().get(variableName);
+                    verifyNotNull(column, "No assignment for %s", variableName);
+                    String columnName = column.getName();
                     Object pattern = ((Constant) call.getArguments().get(1)).getValue();
                     if (!newRegexes.containsKey(columnName) && pattern instanceof Slice) {
                         IndexMetadata metadata = client.getIndexMetadata(handle.getIndex());
