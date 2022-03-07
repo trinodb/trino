@@ -63,6 +63,7 @@ import io.trino.plugin.jdbc.aggregation.ImplementSum;
 import io.trino.plugin.jdbc.aggregation.ImplementVariancePop;
 import io.trino.plugin.jdbc.aggregation.ImplementVarianceSamp;
 import io.trino.plugin.jdbc.expression.RewriteLike;
+import io.trino.plugin.jdbc.expression.RewriteLikeWithEscape;
 import io.trino.plugin.jdbc.expression.RewriteVarcharConstant;
 import io.trino.plugin.jdbc.expression.RewriteVariable;
 import io.trino.plugin.jdbc.mapping.IdentifierMapping;
@@ -307,7 +308,8 @@ public class PostgreSqlClient
         connectorExpressionRewriter = new ConnectorExpressionRewriter<>(this::quoted, ImmutableSet.of(
                 new RewriteVariable(),
                 new RewriteVarcharConstant(),
-                new RewriteLike()));
+                new RewriteLike(),
+                new RewriteLikeWithEscape()));
     }
 
     @Override

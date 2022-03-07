@@ -193,16 +193,18 @@ public class TestPostgreSqlClient
                 .hasValue("\"c_varchar\" LIKE '%pattern%'");
 
         // c_varchar LIKE '%pattern\%' ESCAPE '\'
-        assertThat(ConnectorExpressionTranslator.translate(
-                TEST_SESSION,
-                new LikePredicate(
-                        new SymbolReference("c_varchar"),
-                        new StringLiteral("%pattern\\%"),
-                        new StringLiteral("\\")),
-                createTestingTypeAnalyzer(PLANNER_CONTEXT),
-                TypeProvider.viewOf(Map.of(new Symbol("c_varchar"), VARCHAR_COLUMN.getColumnType())),
-                PLANNER_CONTEXT))
-                // TODO: Implement translation in the client
-                .isPresent();
+        assertThat(JDBC_CLIENT.convertPredicate(SESSION,
+                ConnectorExpressionTranslator.translate(
+                        TEST_SESSION,
+                        new LikePredicate(
+                                new SymbolReference("c_varchar"),
+                                new StringLiteral("%pattern\\%"),
+                                new StringLiteral("\\")),
+                        createTestingTypeAnalyzer(PLANNER_CONTEXT),
+                        TypeProvider.viewOf(Map.of(new Symbol("c_varchar"), VARCHAR_COLUMN.getColumnType())),
+                        PLANNER_CONTEXT)
+                        .orElseThrow(),
+                Map.of(VARCHAR_COLUMN.getColumnName(), VARCHAR_COLUMN)))
+                .hasValue("\"c_varchar\" LIKE '%pattern\\%' ESCAPE '\\'");
     }
 }
