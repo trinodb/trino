@@ -15,6 +15,7 @@ package io.trino.plugin.iceberg.catalog;
 
 import io.trino.plugin.iceberg.ColumnIdentity;
 import io.trino.plugin.iceberg.UnknownTableTypeException;
+import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorViewDefinition;
@@ -119,4 +120,6 @@ public interface TrinoCatalog
     void renameMaterializedView(ConnectorSession session, SchemaTableName source, SchemaTableName target);
 
     void updateColumnComment(ConnectorSession session, SchemaTableName schemaTableName, ColumnIdentity columnIdentity, Optional<String> comment);
+
+    Optional<CatalogSchemaTableName> redirectTable(ConnectorSession session, SchemaTableName tableName);
 }

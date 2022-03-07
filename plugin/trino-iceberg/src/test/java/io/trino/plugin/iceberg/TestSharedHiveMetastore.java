@@ -11,56 +11,39 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.iceberg.catalog.glue;
+package io.trino.plugin.iceberg;
 
-import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.log.Logger;
 import io.trino.Session;
 import io.trino.plugin.hive.HdfsConfig;
 import io.trino.plugin.hive.HdfsConfigurationInitializer;
 import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.HiveHdfsConfiguration;
+import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.TestingHivePlugin;
 import io.trino.plugin.hive.authentication.NoHdfsAuthentication;
 import io.trino.plugin.hive.metastore.HiveMetastore;
-import io.trino.plugin.hive.metastore.glue.DefaultGlueColumnStatisticsProviderFactory;
-import io.trino.plugin.hive.metastore.glue.GlueHiveMetastore;
-import io.trino.plugin.hive.metastore.glue.GlueHiveMetastoreConfig;
-import io.trino.plugin.iceberg.BaseSharedMetastoreTest;
-import io.trino.plugin.iceberg.IcebergPlugin;
+import io.trino.plugin.hive.metastore.MetastoreConfig;
+import io.trino.plugin.hive.metastore.file.FileHiveMetastore;
+import io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
 import org.testng.annotations.AfterClass;
 
-import java.nio.file.Path;
-import java.util.Optional;
-
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 
-/**
- * Tests metadata operations on a schema which has a mix of Hive and Iceberg tables.
- * <p>
- * Requires AWS credentials, which can be provided any way supported by the DefaultProviderChain
- * See https://docs.aws.amazon.com/sdk-for-java/v1/developer-guide/credentials.html#credentials-default
- */
-public class TestSharedGlueMetastore
+public class TestSharedHiveMetastore
         extends BaseSharedMetastoreTest
 {
-    private static final Logger LOG = Logger.get(TestSharedGlueMetastore.class);
     private static final String HIVE_CATALOG = "hive";
-
-    private Path dataDirectory;
-    private HiveMetastore glueMetastore;
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -88,14 +71,14 @@ public class TestSharedGlueMetastore
                 ICEBERG_CATALOG,
                 "iceberg",
                 ImmutableMap.of(
-                        "iceberg.catalog.type", "glue",
-                        "hive.metastore.glue.default-warehouse-dir", dataDirectory.toString()));
+                        "iceberg.catalog.type", "TESTING_FILE_METASTORE",
+                        "hive.metastore.catalog.dir", dataDirectory.toString()));
         queryRunner.createCatalog(
                 "iceberg_with_redirections",
                 "iceberg",
                 ImmutableMap.of(
-                        "iceberg.catalog.type", "glue",
-                        "hive.metastore.glue.default-warehouse-dir", dataDirectory.toString(),
+                        "iceberg.catalog.type", "TESTING_FILE_METASTORE",
+                        "hive.metastore.catalog.dir", dataDirectory.toString(),
                         "iceberg.hive-catalog-name", "hive"));
 
         HdfsConfig hdfsConfig = new HdfsConfig();
@@ -103,22 +86,21 @@ public class TestSharedGlueMetastore
                 new HiveHdfsConfiguration(new HdfsConfigurationInitializer(hdfsConfig), ImmutableSet.of()),
                 hdfsConfig,
                 new NoHdfsAuthentication());
-        this.glueMetastore = new GlueHiveMetastore(
+        HiveMetastore metastore = new FileHiveMetastore(
+                new NodeVersion("testversion"),
                 hdfsEnvironment,
-                new GlueHiveMetastoreConfig(),
-                DefaultAWSCredentialsProviderChain.getInstance(),
-                directExecutor(),
-                new DefaultGlueColumnStatisticsProviderFactory(new GlueHiveMetastoreConfig(), directExecutor(), directExecutor()),
-                Optional.empty(),
-                table -> true);
-        queryRunner.installPlugin(new TestingHivePlugin(glueMetastore));
-        queryRunner.createCatalog(HIVE_CATALOG, "hive");
+                new MetastoreConfig(),
+                new FileHiveMetastoreConfig()
+                        .setCatalogDirectory(dataDirectory.toFile().toURI().toString())
+                        .setMetastoreUser("test"));
+        queryRunner.installPlugin(new TestingHivePlugin(metastore));
+        queryRunner.createCatalog(HIVE_CATALOG, "hive", ImmutableMap.of("hive.allow-drop-table", "true"));
         queryRunner.createCatalog(
                 "hive_with_redirections",
                 "hive",
                 ImmutableMap.of("hive.iceberg-catalog-name", "iceberg"));
 
-        queryRunner.execute("CREATE SCHEMA " + schema + " WITH (location = '" + dataDirectory.toString() + "')");
+        queryRunner.execute("CREATE SCHEMA " + schema);
         copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, icebergSession, ImmutableList.of(TpchTable.NATION));
         copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, hiveSession, ImmutableList.of(TpchTable.REGION));
 
@@ -128,35 +110,30 @@ public class TestSharedGlueMetastore
     @AfterClass(alwaysRun = true)
     public void cleanup()
     {
-        try {
-            if (glueMetastore != null) {
-                // Data is on the local disk and will be deleted by the deleteOnExit hook
-                glueMetastore.dropDatabase(schema, false);
-            }
-        }
-        catch (Exception e) {
-            LOG.error(e, "Failed to clean up Glue database: %s", schema);
-        }
+        assertQuerySucceeds("DROP TABLE IF EXISTS hive." + schema + ".region");
+        assertQuerySucceeds("DROP TABLE IF EXISTS iceberg." + schema + ".nation");
+        assertQuerySucceeds("DROP SCHEMA IF EXISTS hive." + schema);
     }
 
     @Override
     protected String getExpectedHiveCreateSchema(String catalogName)
     {
         String expectedHiveCreateSchema = "CREATE SCHEMA %s.%s\n" +
-                "AUTHORIZATION ROLE public\n" +
+                "AUTHORIZATION USER user\n" +
                 "WITH (\n" +
-                "   location = '%s'\n" +
+                "   location = 'file:%s/%s'\n" +
                 ")";
 
-        return format(expectedHiveCreateSchema, catalogName, schema, dataDirectory);
+        return format(expectedHiveCreateSchema, catalogName, schema, dataDirectory, schema);
     }
 
     @Override
     protected String getExpectedIcebergCreateSchema(String catalogName)
     {
         String expectedIcebergCreateSchema = "CREATE SCHEMA %s.%s\n" +
+                "AUTHORIZATION USER user\n" +
                 "WITH (\n" +
-                "   location = '%s'\n" +
+                "   location = '%s/%s'\n" +
                 ")";
         return format(expectedIcebergCreateSchema, catalogName, schema, dataDirectory, schema);
     }
