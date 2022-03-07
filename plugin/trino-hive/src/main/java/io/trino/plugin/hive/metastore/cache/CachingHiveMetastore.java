@@ -587,6 +587,7 @@ public class CachingHiveMetastore
                 .filter(userTableKey -> userTableKey.matches(databaseName, tableName))
                 .forEach(tablePrivilegesCache::invalidate);
         invalidateTableStatisticsCache(databaseName, tableName);
+        invalidateTablesWithParameterCache(databaseName, tableName);
         invalidatePartitionCache(databaseName, tableName);
     }
 
@@ -602,6 +603,17 @@ public class CachingHiveMetastore
         tableStatisticsCache.asMap().keySet().stream()
                 .filter(table -> table.getDatabaseName().equals(databaseName) && table.getTableName().equals(tableName))
                 .forEach(tableCache::invalidate);
+    }
+
+    private void invalidateTablesWithParameterCache(String databaseName, String tableName)
+    {
+        tablesWithParameterCache.asMap().keySet().stream()
+                .filter(cacheKey -> cacheKey.getDatabaseName().equals(databaseName))
+                .filter(cacheKey -> {
+                    List<String> cacheValue = tablesWithParameterCache.getIfPresent(cacheKey);
+                    return cacheValue != null && cacheValue.contains(tableName);
+                })
+                .forEach(tablesWithParameterCache::invalidate);
     }
 
     private Partition getExistingPartition(Table table, List<String> partitionValues)
