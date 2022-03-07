@@ -29,6 +29,8 @@ public final class JdbcClientStats
     private final JdbcApiStats commitCreateTable = new JdbcApiStats();
     private final JdbcApiStats createSchema = new JdbcApiStats();
     private final JdbcApiStats createTable = new JdbcApiStats();
+    private final JdbcApiStats getTableComment = new JdbcApiStats();
+    private final JdbcApiStats setTableComment = new JdbcApiStats();
     private final JdbcApiStats setColumnComment = new JdbcApiStats();
     private final JdbcApiStats dropColumn = new JdbcApiStats();
     private final JdbcApiStats dropSchema = new JdbcApiStats();
@@ -133,6 +135,20 @@ public final class JdbcClientStats
     public JdbcApiStats getCreateTable()
     {
         return createTable;
+    }
+
+    @Managed
+    @Nested
+    public JdbcApiStats getGetTableComment()
+    {
+        return getTableComment;
+    }
+
+    @Managed
+    @Nested
+    public JdbcApiStats getSetTableComment()
+    {
+        return setTableComment;
     }
 
     @Managed

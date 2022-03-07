@@ -265,6 +265,19 @@ public abstract class ForwardingJdbcClient
     }
 
     @Override
+    public Optional<String> getTableComment(ResultSet resultSet)
+            throws SQLException
+    {
+        return delegate().getTableComment(resultSet);
+    }
+
+    @Override
+    public void setTableComment(ConnectorSession session, JdbcTableHandle handle, Optional<String> comment)
+    {
+        delegate().setTableComment(session, handle, comment);
+    }
+
+    @Override
     public void setColumnComment(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column, Optional<String> comment)
     {
         delegate().setColumnComment(session, handle, column, comment);

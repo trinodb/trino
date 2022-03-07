@@ -179,6 +179,13 @@ public class DruidJdbcClient
     }
 
     @Override
+    public Optional<String> getTableComment(ResultSet resultSet)
+    {
+        // Don't return a comment until the connector supports creating tables with comment
+        return Optional.empty();
+    }
+
+    @Override
     public Optional<ColumnMapping> toColumnMapping(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
     {
         Optional<ColumnMapping> mapping = getForcedMappingToVarchar(typeHandle);
@@ -284,7 +291,8 @@ public class DruidJdbcClient
                             new RemoteTableName(
                                     Optional.empty(),
                                     table.getRequiredNamedRelation().getRemoteTableName().getSchemaName(),
-                                    table.getRequiredNamedRelation().getRemoteTableName().getTableName())),
+                                    table.getRequiredNamedRelation().getRemoteTableName().getTableName()),
+                            Optional.empty()),
                     table.getConstraint(),
                     table.getConstraintExpressions(),
                     table.getSortOrder(),

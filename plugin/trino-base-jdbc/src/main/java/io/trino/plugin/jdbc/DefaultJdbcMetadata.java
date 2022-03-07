@@ -592,7 +592,8 @@ public class DefaultJdbcMetadata
                 jdbcClient.getColumns(session, handle).stream()
                         .map(JdbcColumnHandle::getColumnMetadata)
                         .collect(toImmutableList()),
-                jdbcClient.getTableProperties(session, handle));
+                jdbcClient.getTableProperties(session, handle),
+                getTableComment(handle));
     }
 
     public static SchemaTableName getSchemaTableName(JdbcTableHandle handle)
@@ -601,6 +602,11 @@ public class DefaultJdbcMetadata
                 ? handle.getRequiredNamedRelation().getSchemaTableName()
                 // TODO (https://github.com/trinodb/trino/issues/6694) SchemaTableName should not be required for synthetic ConnectorTableHandle
                 : new SchemaTableName("_generated", "_generated_query");
+    }
+
+    public static Optional<String> getTableComment(JdbcTableHandle handle)
+    {
+        return handle.isNamedRelation() ? handle.getRequiredNamedRelation().getComment() : Optional.empty();
     }
 
     @Override
@@ -741,6 +747,14 @@ public class DefaultJdbcMetadata
     public void truncateTable(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         jdbcClient.truncateTable(session, (JdbcTableHandle) tableHandle);
+    }
+
+    @Override
+    public void setTableComment(ConnectorSession session, ConnectorTableHandle table, Optional<String> comment)
+    {
+        JdbcTableHandle tableHandle = (JdbcTableHandle) table;
+        verify(!tableHandle.isSynthetic(), "Not a table reference: %s", tableHandle);
+        jdbcClient.setTableComment(session, tableHandle, comment);
     }
 
     @Override

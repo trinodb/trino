@@ -63,13 +63,13 @@ public final class JdbcTableHandle
     @Deprecated
     public JdbcTableHandle(SchemaTableName schemaTableName, @Nullable String catalogName, @Nullable String schemaName, String tableName)
     {
-        this(schemaTableName, new RemoteTableName(Optional.ofNullable(catalogName), Optional.ofNullable(schemaName), tableName));
+        this(schemaTableName, new RemoteTableName(Optional.ofNullable(catalogName), Optional.ofNullable(schemaName), tableName), Optional.empty());
     }
 
-    public JdbcTableHandle(SchemaTableName schemaTableName, RemoteTableName remoteTableName)
+    public JdbcTableHandle(SchemaTableName schemaTableName, RemoteTableName remoteTableName, Optional<String> comment)
     {
         this(
-                new JdbcNamedRelationHandle(schemaTableName, remoteTableName),
+                new JdbcNamedRelationHandle(schemaTableName, remoteTableName, comment),
                 TupleDomain.all(),
                 ImmutableList.of(),
                 Optional.empty(),

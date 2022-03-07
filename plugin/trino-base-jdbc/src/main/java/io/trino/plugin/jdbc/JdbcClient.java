@@ -123,6 +123,17 @@ public interface JdbcClient
 
     boolean isLimitGuaranteed(ConnectorSession session);
 
+    default Optional<String> getTableComment(ResultSet resultSet)
+            throws SQLException
+    {
+        return Optional.ofNullable(resultSet.getString("REMARKS"));
+    }
+
+    default void setTableComment(ConnectorSession session, JdbcTableHandle handle, Optional<String> comment)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support setting table comments");
+    }
+
     default void setColumnComment(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column, Optional<String> comment)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support setting column comments");
