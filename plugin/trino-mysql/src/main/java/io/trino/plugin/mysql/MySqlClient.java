@@ -30,6 +30,7 @@ import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.PreparedQuery;
 import io.trino.plugin.jdbc.QueryBuilder;
+import io.trino.plugin.jdbc.RemoteTableName;
 import io.trino.plugin.jdbc.WriteMapping;
 import io.trino.plugin.jdbc.aggregation.ImplementAvgDecimal;
 import io.trino.plugin.jdbc.aggregation.ImplementAvgFloatingPoint;
@@ -78,6 +79,8 @@ import java.util.Optional;
 import java.util.function.BiFunction;
 import java.util.stream.Stream;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.mysql.cj.exceptions.MysqlErrorNumbers.SQL_STATE_ER_TABLE_EXISTS_ERROR;
@@ -142,6 +145,7 @@ import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.String.format;
+import static java.lang.String.join;
 import static java.util.Locale.ENGLISH;
 import static java.util.stream.Collectors.joining;
 
@@ -156,6 +160,9 @@ public class MySqlClient
     private static final int ZERO_PRECISION_TIMESTAMP_COLUMN_SIZE = 19;
     // MySQL driver returns width of time types instead of precision, same as the above timestamp type.
     private static final int ZERO_PRECISION_TIME_COLUMN_SIZE = 8;
+
+    // An empty character means that the table doesn't have a comment in MySQL
+    private static final String NO_COMMENT = "";
 
     private final Type jsonType;
     private final ConnectorExpressionRewriter<String> connectorExpressionRewriter;
@@ -275,9 +282,20 @@ public class MySqlClient
 
     @Override
     public Optional<String> getTableComment(ResultSet resultSet)
+            throws SQLException
     {
-        // Don't return a comment until the connector supports creating tables with comment
-        return Optional.empty();
+        // Empty remarks means that the table doesn't have a comment in MySQL
+        return Optional.ofNullable(emptyToNull(resultSet.getString("REMARKS")));
+    }
+
+    @Override
+    public void setTableComment(ConnectorSession session, JdbcTableHandle handle, Optional<String> comment)
+    {
+        String sql = format(
+                "ALTER TABLE %s COMMENT = '%s'",
+                quoted(handle.asPlainTable().getRemoteTableName()),
+                comment.orElse(NO_COMMENT)); // An empty character removes the existing comment in MySQL
+        execute(session, sql);
     }
 
     @Override
@@ -286,6 +304,13 @@ public class MySqlClient
     {
         // MySQL uses catalogs instead of schemas
         return resultSet.getString("TABLE_CAT");
+    }
+
+    @Override
+    protected String createTableSql(RemoteTableName remoteTableName, List<String> columns, ConnectorTableMetadata tableMetadata)
+    {
+        checkArgument(tableMetadata.getProperties().isEmpty(), "Unsupported table properties: %s", tableMetadata.getProperties());
+        return format("CREATE TABLE %s (%s) COMMENT '%s'", quoted(remoteTableName), join(", ", columns), tableMetadata.getComment().orElse(NO_COMMENT));
     }
 
     @Override
