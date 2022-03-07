@@ -72,7 +72,7 @@ public abstract class CustomPlanOptimizer implements PlanOptimizer {
                 listOfPlanOptimizers.add(planOptimizer);
             }
         } catch (Exception e) {
-            LOG.error(e);
+            throw new RuntimeException(e);
         }
         return listOfPlanOptimizers;
     }
