@@ -85,12 +85,12 @@ import org.apache.phoenix.schema.PName;
 import org.apache.phoenix.schema.PTable;
 import org.apache.phoenix.schema.TableProperty;
 import org.apache.phoenix.schema.types.PDataType;
+import org.apache.phoenix.schema.types.PhoenixArray;
 import org.apache.phoenix.util.SchemaUtil;
 
 import javax.inject.Inject;
 
 import java.io.IOException;
-import java.sql.Array;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.JDBCType;
@@ -769,8 +769,15 @@ public class PhoenixClient
     private static ObjectWriteFunction arrayWriteFunction(ConnectorSession session, Type elementType, String elementJdbcTypeName)
     {
         return ObjectWriteFunction.of(Block.class, (statement, index, block) -> {
-            Array jdbcArray = statement.getConnection().createArrayOf(elementJdbcTypeName, getJdbcObjectArray(session, elementType, block));
-            statement.setArray(index, jdbcArray);
+            Object[] jdbcObjectArray = getJdbcObjectArray(session, elementType, block);
+            PhoenixArray phoenixArray = (PhoenixArray) statement.getConnection().createArrayOf(elementJdbcTypeName, jdbcObjectArray);
+            for (int i = 0; i < jdbcObjectArray.length; i++) {
+                if (jdbcObjectArray[i] == null && phoenixArray.getElement(i) != null) {
+                    // TODO (https://github.com/trinodb/trino/issues/6421) Prevent writing incorrect results due to Phoenix JDBC driver bug
+                    throw new TrinoException(PHOENIX_QUERY_ERROR, format("Phoenix JDBC driver replaced 'null' with '%s' at index %s in %s", phoenixArray.getElement(i), i + 1, phoenixArray));
+                }
+            }
+            statement.setArray(index, phoenixArray);
         });
     }
 
