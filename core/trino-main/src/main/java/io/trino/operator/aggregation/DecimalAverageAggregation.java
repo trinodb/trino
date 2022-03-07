@@ -45,6 +45,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.trino.metadata.FunctionKind.AGGREGATE;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.Decimals.overflows;
 import static io.trino.spi.type.Decimals.writeShortDecimal;
 import static io.trino.spi.type.Int128Math.addWithOverflow;
@@ -86,7 +87,9 @@ public class DecimalAverageAggregation
                         AGGREGATE),
                 new AggregationFunctionMetadata(
                         false,
-                        VARBINARY.getTypeSignature()));
+                        DecimalType.createDecimalType(Decimals.MAX_SHORT_PRECISION + 1).getTypeSignature(),
+                        BIGINT.getTypeSignature(),
+                        BIGINT.getTypeSignature()));
     }
 
     @Override
