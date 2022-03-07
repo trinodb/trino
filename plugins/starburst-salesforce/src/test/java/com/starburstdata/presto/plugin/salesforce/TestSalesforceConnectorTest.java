@@ -15,7 +15,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.UncheckedTimeoutException;
 import io.airlift.units.Duration;
-import io.trino.FeaturesConfig;
 import io.trino.Session;
 import io.trino.dispatcher.DispatchManager;
 import io.trino.execution.QueryInfo;
@@ -25,6 +24,7 @@ import io.trino.server.BasicQueryInfo;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.JoinCondition;
 import io.trino.sql.parser.ParsingException;
+import io.trino.sql.planner.OptimizerConfig;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.JoinNode;
@@ -2145,7 +2145,7 @@ public class TestSalesforceConnectorTest
      * Test interactions between optimizer (including CBO), scheduling and connector metadata APIs.
      */
     @Test(timeOut = 300_000, dataProvider = "joinDistributionTypes")
-    public void testJoinWithEmptySides(FeaturesConfig.JoinDistributionType joinDistributionType)
+    public void testJoinWithEmptySides(OptimizerConfig.JoinDistributionType joinDistributionType)
     {
         Session session = noJoinReordering(joinDistributionType);
         // empty build side
@@ -2159,7 +2159,7 @@ public class TestSalesforceConnectorTest
     @DataProvider
     public Object[][] joinDistributionTypes()
     {
-        return Stream.of(FeaturesConfig.JoinDistributionType.values())
+        return Stream.of(OptimizerConfig.JoinDistributionType.values())
                 .collect(toDataProvider());
     }
 
