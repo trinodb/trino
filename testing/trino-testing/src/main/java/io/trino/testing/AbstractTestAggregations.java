@@ -16,10 +16,12 @@ package io.trino.testing;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.spi.type.TimeZoneKey;
+import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import java.util.List;
 
+import static io.trino.SystemSessionProperties.USE_MARK_DISTINCT;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static org.testng.Assert.assertEquals;
@@ -233,7 +235,17 @@ public abstract class AbstractTestAggregations
     @Test
     public void testDistinctGroupBy()
     {
-        assertQuery("SELECT COUNT(DISTINCT clerk) AS count, orderdate FROM orders GROUP BY orderdate ORDER BY count, orderdate");
+        @Language("SQL") String query = "" +
+                "SELECT COUNT(DISTINCT clerk) AS count_distinct, COUNT(clerk) AS count, orderdate " +
+                "FROM orders " +
+                "GROUP BY orderdate " +
+                "ORDER BY count_distinct, orderdate";
+        assertQuery(query);
+        assertQuery(
+                Session.builder(getSession())
+                        .setSystemProperty(USE_MARK_DISTINCT, "false")
+                        .build(),
+                query);
     }
 
     @Test
