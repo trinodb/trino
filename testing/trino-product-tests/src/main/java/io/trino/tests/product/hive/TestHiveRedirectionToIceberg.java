@@ -261,7 +261,7 @@ public class TestHiveRedirectionToIceberg
         createIcebergTable(icebergTableName, true);
 
         assertThat(onTrino().executeQuery("SHOW CREATE TABLE " + hiveTableName))
-                .containsOnly(row("CREATE TABLE " + hiveTableName + " (\n" +
+                .containsOnly(row("CREATE TABLE " + icebergTableName + " (\n" +
                         "   nationkey bigint,\n" +
                         "   name varchar,\n" +
                         "   regionkey bigint,\n" +

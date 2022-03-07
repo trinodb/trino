@@ -683,7 +683,7 @@ public final class ShowQueriesRewrite
                 List<Property> propertyNodes = buildProperties(targetTableName, Optional.empty(), INVALID_TABLE_PROPERTY, properties, allTableProperties);
 
                 CreateTable createTable = new CreateTable(
-                        QualifiedName.of(objectName.getCatalogName(), objectName.getSchemaName(), objectName.getObjectName()),
+                        QualifiedName.of(targetTableName.getCatalogName(), targetTableName.getSchemaName(), targetTableName.getObjectName()),
                         columns,
                         false,
                         propertyNodes,
