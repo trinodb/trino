@@ -62,7 +62,7 @@ public abstract class AbstractMetastoreTableOperations
     }
 
     @Override
-    protected String getRefreshedLocation()
+    protected final String getRefreshedLocation()
     {
         Table table = getTable();
 
@@ -83,7 +83,7 @@ public abstract class AbstractMetastoreTableOperations
     }
 
     @Override
-    protected void commitNewTable(TableMetadata metadata)
+    protected final void commitNewTable(TableMetadata metadata)
     {
         String newMetadataLocation = writeNewMetadata(metadata, version + 1);
 
