@@ -99,19 +99,6 @@ public class TestMemSqlTypeMapping
     }
 
     @Test
-    public void testBasicTypes()
-    {
-        SqlDataTypeTest.create()
-                .addRoundTrip("bigint", "123456789012", BIGINT, "123456789012")
-                .addRoundTrip("integer", "1234567890", INTEGER, "1234567890")
-                .addRoundTrip("smallint", "32456", SMALLINT, "SMALLINT '32456'")
-                .addRoundTrip("tinyint", "125", TINYINT, "TINYINT '125'")
-                .addRoundTrip("double", "123.45", DOUBLE, "DOUBLE '123.45'")
-                .addRoundTrip("real", "123.45", REAL, "REAL '123.45'")
-                .execute(getQueryRunner(), trinoCreateAsSelect("test_basic_types"));
-    }
-
-    @Test
     public void testBit()
     {
         SqlDataTypeTest.create()
@@ -129,7 +116,99 @@ public class TestMemSqlTypeMapping
                 .addRoundTrip("boolean", "false", TINYINT, "TINYINT '0'")
                 .addRoundTrip("boolean", "NULL", TINYINT, "CAST(NULL AS TINYINT)")
                 .execute(getQueryRunner(), memSqlCreateAndInsert("tpch.test_boolean"))
-                .execute(getQueryRunner(), trinoCreateAsSelect("tpch.test_boolean"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_boolean"));
+    }
+
+    @Test
+    public void testTinyint()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("tinyint", "NULL", TINYINT, "CAST(NULL AS TINYINT)")
+                .addRoundTrip("tinyint", "-128", TINYINT, "TINYINT '-128'") // min value in SingleStore and Trino
+                .addRoundTrip("tinyint", "5", TINYINT, "TINYINT '5'")
+                .addRoundTrip("tinyint", "127", TINYINT, "TINYINT '127'") // max value in SingleStore and Trino
+                .execute(getQueryRunner(), memSqlCreateAndInsert("tpch.test_tinyint"))
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_tinyint"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_tinyint"));
+    }
+
+    @Test
+    public void testUnsupportedTinyint()
+    {
+        // SingleStore stores incorrect results when the values are out of supported range. This test should be fixed when SingleStore changes the behavior.
+        SqlDataTypeTest.create()
+                .addRoundTrip("tinyint", "-129", TINYINT, "TINYINT '-128'")
+                .addRoundTrip("tinyint", "128", TINYINT, "TINYINT '127'")
+                .execute(getQueryRunner(), memSqlCreateAndInsert("tpch.test_unsupported_tinyint"));
+    }
+
+    @Test
+    public void testSmallint()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("smallint", "NULL", SMALLINT, "CAST(NULL AS SMALLINT)")
+                .addRoundTrip("smallint", "-32768", SMALLINT, "SMALLINT '-32768'") // min value in SingleStore and Trino
+                .addRoundTrip("smallint", "32456", SMALLINT, "SMALLINT '32456'")
+                .addRoundTrip("smallint", "32767", SMALLINT, "SMALLINT '32767'") // max value in SingleStore and Trino
+                .execute(getQueryRunner(), memSqlCreateAndInsert("tpch.test_smallint"))
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_smallint"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_smallint"));
+    }
+
+    @Test
+    public void testUnsupportedSmallint()
+    {
+        // SingleStore stores incorrect results when the values are out of supported range. This test should be fixed when SingleStore changes the behavior.
+        SqlDataTypeTest.create()
+                .addRoundTrip("smallint", "-32769", SMALLINT, "SMALLINT '-32768'")
+                .addRoundTrip("smallint", "32768", SMALLINT, "SMALLINT '32767'")
+                .execute(getQueryRunner(), memSqlCreateAndInsert("tpch.test_unsupported_smallint"));
+    }
+
+    @Test
+    public void testInteger()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("integer", "NULL", INTEGER, "CAST(NULL AS INTEGER)")
+                .addRoundTrip("integer", "-2147483648", INTEGER, "-2147483648") // min value in SingleStore and Trino
+                .addRoundTrip("integer", "1234567890", INTEGER, "1234567890")
+                .addRoundTrip("integer", "2147483647", INTEGER, "2147483647") // max value in SingleStore and Trino
+                .execute(getQueryRunner(), memSqlCreateAndInsert("tpch.test_int"))
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_int"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_int"));
+    }
+
+    @Test
+    public void testUnsupportedInteger()
+    {
+        // SingleStore stores incorrect results when the values are out of supported range. This test should be fixed when SingleStore changes the behavior.
+        SqlDataTypeTest.create()
+                .addRoundTrip("integer", "-2147483649", INTEGER, "INTEGER '-2147483648'")
+                .addRoundTrip("integer", "2147483648", INTEGER, "INTEGER '2147483647'")
+                .execute(getQueryRunner(), memSqlCreateAndInsert("tpch.test_unsupported_integer"));
+    }
+
+    @Test
+    public void testBigint()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("bigint", "NULL", BIGINT, "CAST(NULL AS BIGINT)")
+                .addRoundTrip("bigint", "-9223372036854775808", BIGINT, "-9223372036854775808") // min value in SingleStore and Trino
+                .addRoundTrip("bigint", "123456789012", BIGINT, "123456789012")
+                .addRoundTrip("bigint", "9223372036854775807", BIGINT, "9223372036854775807") // max value in SingleStore and Trino
+                .execute(getQueryRunner(), memSqlCreateAndInsert("tpch.test_bigint"))
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_bigint"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_bigint"));
+    }
+
+    @Test
+    public void testUnsupportedBigint()
+    {
+        // SingleStore stores incorrect results when the values are out of supported range. This test should be fixed when SingleStore changes the behavior.
+        SqlDataTypeTest.create()
+                .addRoundTrip("bigint", "-9223372036854775809", BIGINT, "BIGINT '-9223372036854775808'")
+                .addRoundTrip("bigint", "9223372036854775808", BIGINT, "BIGINT '9223372036854775807'")
+                .execute(getQueryRunner(), memSqlCreateAndInsert("tpch.test_unsupported_bigint"));
     }
 
     @Test
@@ -141,7 +220,8 @@ public class TestMemSqlTypeMapping
                 .addRoundTrip("real", "10.3e0", REAL, "REAL '10.3e0'")
                 .addRoundTrip("real", "NULL", REAL, "CAST(NULL AS REAL)")
                 // .addRoundTrip("real", "3.1415927", REAL, "REAL '3.1415927'") // Overeagerly rounded by MemSQL to 3.14159
-                .execute(getQueryRunner(), trinoCreateAsSelect("trino_test_float"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("trino_test_float"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("trino_test_float"));
 
         SqlDataTypeTest.create()
                 .addRoundTrip("float", "3.14", REAL, "REAL '3.14'")
@@ -160,6 +240,7 @@ public class TestMemSqlTypeMapping
                 .addRoundTrip("double", "123.456E10", DOUBLE, "DOUBLE '123.456E10'")
                 .addRoundTrip("double", "NULL", DOUBLE, "CAST(NULL AS double)")
                 .execute(getQueryRunner(), trinoCreateAsSelect("trino_test_double"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("trino_test_double"))
                 .execute(getQueryRunner(), memSqlCreateAndInsert("tpch.memsql_test_double"));
     }
 
@@ -186,7 +267,8 @@ public class TestMemSqlTypeMapping
     public void testTrinoCreatedDecimal()
     {
         decimalTests()
-                .execute(getQueryRunner(), trinoCreateAsSelect("test_decimal"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_decimal"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_decimal"));
     }
 
     private SqlDataTypeTest decimalTests()
@@ -385,7 +467,8 @@ public class TestMemSqlTypeMapping
     public void testTrinoCreatedParameterizedChar()
     {
         memSqlCharTypeTest()
-                .execute(getQueryRunner(), trinoCreateAsSelect("memsql_test_parameterized_char"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("memsql_test_parameterized_char"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("memsql_test_parameterized_char"));
     }
 
     @Test
@@ -433,7 +516,8 @@ public class TestMemSqlTypeMapping
                 .addRoundTrip("varchar(16777216)", "'text_g'", createUnboundedVarcharType(), "CAST('text_g' AS varchar)")
                 .addRoundTrip("varchar(" + VarcharType.MAX_LENGTH + ")", "'text_h'", createUnboundedVarcharType(), "CAST('text_h' AS varchar)")
                 .addRoundTrip("varchar", "'unbounded'", createUnboundedVarcharType(), "CAST('unbounded' AS varchar)")
-                .execute(getQueryRunner(), trinoCreateAsSelect("trino_test_parameterized_varchar"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("trino_test_parameterized_varchar"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("trino_test_parameterized_varchar"));
     }
 
     @Test
@@ -486,7 +570,8 @@ public class TestMemSqlTypeMapping
                 .execute(getQueryRunner(), memSqlCreateAndInsert("tpch.test_varbinary"));
 
         varbinaryTestCases("varbinary")
-                .execute(getQueryRunner(), trinoCreateAsSelect("test_varbinary"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_varbinary"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_varbinary"));
     }
 
     private SqlDataTypeTest varbinaryTestCases(String insertType)
@@ -558,8 +643,9 @@ public class TestMemSqlTypeMapping
                             DATE, "DATE '" + dateOfLocalTimeChangeBackwardAtMidnightInSomeZone.toString() + "'")
                     .execute(getQueryRunner(), session, memSqlCreateAndInsert("tpch.test_date"))
                     .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_date"))
-                    .execute(getQueryRunner(), session, trinoCreateAsSelect(getSession(), "test_date"))
-                    .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_date"));
+                    .execute(getQueryRunner(), session, trinoCreateAsSelect("test_date"))
+                    .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_date"))
+                    .execute(getQueryRunner(), session, trinoCreateAndInsert("test_date"));
         }
     }
 
@@ -590,8 +676,8 @@ public class TestMemSqlTypeMapping
                 .addRoundTrip("time(6)", "TIME '01:02:03.123456'", TIME_MICROS, "TIME '01:02:03.123456'")
                 .addRoundTrip("time(6)", "TIME '23:59:59.999999'", TIME_MICROS, "TIME '23:59:59.999999'")
                 .addRoundTrip("time(6)", "TIME '00:00:00.000000'", TIME_MICROS, "TIME '00:00:00.000000'") // round by engine
-                .execute(getQueryRunner(), session, trinoCreateAsSelect("tpch.test_time"))
-                .execute(getQueryRunner(), session, trinoCreateAndInsert(getSession(), "tpch.test_time"));
+                .execute(getQueryRunner(), session, trinoCreateAsSelect("test_time"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert("test_time"));
 
         SqlDataTypeTest.create()
                 .addRoundTrip("time", "NULL", TIME_SECONDS, "CAST(NULL AS time(0))") // default to second in MemSQL
@@ -810,8 +896,8 @@ public class TestMemSqlTypeMapping
                 .addRoundTrip("timestamp(0)", "NULL", createTimestampType(0), "CAST(NULL AS TIMESTAMP(0))")
                 .addRoundTrip("timestamp(6)", "NULL", createTimestampType(6), "CAST(NULL AS TIMESTAMP(6))")
 
-                .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "tpch.test_datetime"))
-                .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "tpch.test_datetime"));
+                .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_datetime"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_datetime"));
     }
 
     @DataProvider
@@ -907,6 +993,11 @@ public class TestMemSqlTypeMapping
     private DataSetup trinoCreateAsSelect(Session session, String tableNamePrefix)
     {
         return new CreateAsSelectDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
+    }
+
+    private DataSetup trinoCreateAndInsert(String tableNamePrefix)
+    {
+        return trinoCreateAndInsert(getSession(), tableNamePrefix);
     }
 
     private DataSetup trinoCreateAndInsert(Session session, String tableNamePrefix)
