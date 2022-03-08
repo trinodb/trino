@@ -70,43 +70,53 @@ public class CommentTask
         Session session = stateMachine.getSession();
 
         if (statement.getType() == Comment.Type.TABLE) {
-            QualifiedObjectName originalTableName = createQualifiedObjectName(session, statement, statement.getName());
-            RedirectionAwareTableHandle redirectionAwareTableHandle = metadata.getRedirectionAwareTableHandle(session, originalTableName);
-            if (redirectionAwareTableHandle.getTableHandle().isEmpty()) {
-                throw semanticException(TABLE_NOT_FOUND, statement, "Table does not exist: %s", originalTableName);
-            }
-
-            accessControl.checkCanSetTableComment(session.toSecurityContext(), redirectionAwareTableHandle.getRedirectedTableName().orElse(originalTableName));
-            TableHandle tableHandle = redirectionAwareTableHandle.getTableHandle().get();
-            metadata.setTableComment(session, tableHandle, statement.getComment());
+            commentOnTable(statement, session);
         }
         else if (statement.getType() == Comment.Type.COLUMN) {
-            Optional<QualifiedName> prefix = statement.getName().getPrefix();
-            if (prefix.isEmpty()) {
-                throw semanticException(MISSING_TABLE, statement, "Table must be specified");
-            }
-
-            QualifiedObjectName originalTableName = createQualifiedObjectName(session, statement, prefix.get());
-            RedirectionAwareTableHandle redirectionAwareTableHandle = metadata.getRedirectionAwareTableHandle(session, originalTableName);
-            if (redirectionAwareTableHandle.getTableHandle().isEmpty()) {
-                throw semanticException(TABLE_NOT_FOUND, statement, "Table does not exist: " + originalTableName);
-            }
-            TableHandle tableHandle = redirectionAwareTableHandle.getTableHandle().get();
-
-            String columnName = statement.getName().getSuffix();
-            Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
-            if (!columnHandles.containsKey(columnName)) {
-                throw semanticException(COLUMN_NOT_FOUND, statement, "Column does not exist: " + columnName);
-            }
-
-            accessControl.checkCanSetColumnComment(session.toSecurityContext(), redirectionAwareTableHandle.getRedirectedTableName().orElse(originalTableName));
-
-            metadata.setColumnComment(session, tableHandle, columnHandles.get(columnName), statement.getComment());
+            commentOnColumn(statement, session);
         }
         else {
             throw semanticException(NOT_SUPPORTED, statement, "Unsupported comment type: %s", statement.getType());
         }
 
         return immediateVoidFuture();
+    }
+
+    private void commentOnTable(Comment statement, Session session)
+    {
+        QualifiedObjectName originalTableName = createQualifiedObjectName(session, statement, statement.getName());
+        RedirectionAwareTableHandle redirectionAwareTableHandle = metadata.getRedirectionAwareTableHandle(session, originalTableName);
+        if (redirectionAwareTableHandle.getTableHandle().isEmpty()) {
+            throw semanticException(TABLE_NOT_FOUND, statement, "Table does not exist: %s", originalTableName);
+        }
+
+        accessControl.checkCanSetTableComment(session.toSecurityContext(), redirectionAwareTableHandle.getRedirectedTableName().orElse(originalTableName));
+        TableHandle tableHandle = redirectionAwareTableHandle.getTableHandle().get();
+        metadata.setTableComment(session, tableHandle, statement.getComment());
+    }
+
+    private void commentOnColumn(Comment statement, Session session)
+    {
+        Optional<QualifiedName> prefix = statement.getName().getPrefix();
+        if (prefix.isEmpty()) {
+            throw semanticException(MISSING_TABLE, statement, "Table must be specified");
+        }
+
+        QualifiedObjectName originalTableName = createQualifiedObjectName(session, statement, prefix.get());
+        RedirectionAwareTableHandle redirectionAwareTableHandle = metadata.getRedirectionAwareTableHandle(session, originalTableName);
+        if (redirectionAwareTableHandle.getTableHandle().isEmpty()) {
+            throw semanticException(TABLE_NOT_FOUND, statement, "Table does not exist: " + originalTableName);
+        }
+        TableHandle tableHandle = redirectionAwareTableHandle.getTableHandle().get();
+
+        String columnName = statement.getName().getSuffix();
+        Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
+        if (!columnHandles.containsKey(columnName)) {
+            throw semanticException(COLUMN_NOT_FOUND, statement, "Column does not exist: " + columnName);
+        }
+
+        accessControl.checkCanSetColumnComment(session.toSecurityContext(), redirectionAwareTableHandle.getRedirectedTableName().orElse(originalTableName));
+
+        metadata.setColumnComment(session, tableHandle, columnHandles.get(columnName), statement.getComment());
     }
 }
