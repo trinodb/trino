@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.math.LongMath;
+import com.google.common.net.InetAddresses;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.trino.plugin.base.aggregation.AggregateFunctionRewriter;
@@ -101,6 +102,9 @@ import org.postgresql.jdbc.PgConnection;
 import javax.inject.Inject;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.sql.Array;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -128,6 +132,7 @@ import java.util.stream.Stream;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.plugin.base.util.JsonTypeUtil.jsonParse;
 import static io.trino.plugin.base.util.JsonTypeUtil.toJsonValue;
 import static io.trino.plugin.jdbc.DecimalConfig.DecimalMapping.ALLOW_OVERFLOW;
@@ -176,6 +181,7 @@ import static io.trino.plugin.postgresql.TypeUtils.getArrayElementPgTypeName;
 import static io.trino.plugin.postgresql.TypeUtils.getJdbcObjectArray;
 import static io.trino.plugin.postgresql.TypeUtils.toPgTimestamp;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
+import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -214,6 +220,7 @@ import static java.lang.Math.floorMod;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.String.format;
+import static java.lang.System.arraycopy;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.sql.DatabaseMetaData.columnNoNulls;
 import static java.util.Objects.requireNonNull;
@@ -237,6 +244,7 @@ public class PostgreSqlClient
 
     private final Type jsonType;
     private final Type uuidType;
+    private final Type ipAddressType;
     private final MapType varcharMapType;
     private final List<String> tableTypes;
     private final AggregateFunctionRewriter<JdbcExpression> aggregateFunctionRewriter;
@@ -272,6 +280,7 @@ public class PostgreSqlClient
         super(config, "\"", connectionFactory, queryBuilder, identifierMapping);
         this.jsonType = typeManager.getType(new TypeSignature(JSON));
         this.uuidType = typeManager.getType(new TypeSignature(StandardTypes.UUID));
+        this.ipAddressType = typeManager.getType(new TypeSignature(StandardTypes.IPADDRESS));
         this.varcharMapType = (MapType) typeManager.getType(mapType(VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()));
 
         ImmutableList.Builder<String> tableTypes = ImmutableList.builder();
@@ -458,6 +467,8 @@ public class PostgreSqlClient
                 return Optional.of(moneyColumnMapping());
             case "uuid":
                 return Optional.of(uuidColumnMapping());
+            case "inet":
+                return Optional.of(inetColumnMapping());
             case "jsonb":
             case "json":
                 return Optional.of(jsonColumnMapping());
@@ -690,6 +701,9 @@ public class PostgreSqlClient
         }
         if (type.equals(uuidType)) {
             return WriteMapping.sliceMapping("uuid", uuidWriteFunction());
+        }
+        if (type.equals(ipAddressType)) {
+            return WriteMapping.sliceMapping("inet", ipAddressWriteFunction());
         }
         if (type instanceof ArrayType && getArrayMapping(session) == AS_ARRAY) {
             Type elementType = ((ArrayType) type).getElementType();
@@ -1252,5 +1266,44 @@ public class PostgreSqlClient
                 uuidType,
                 (resultSet, columnIndex) -> javaUuidToTrinoUuid((UUID) resultSet.getObject(columnIndex)),
                 uuidWriteFunction());
+    }
+
+    private ColumnMapping inetColumnMapping()
+    {
+        return ColumnMapping.sliceMapping(
+                ipAddressType,
+                (resultSet, columnIndex) -> {
+                    // copied from IpAddressOperators.castFromVarcharToIpAddress
+                    byte[] address = InetAddresses.forString(resultSet.getString(columnIndex)).getAddress();
+
+                    byte[] bytes;
+                    if (address.length == 4) {
+                        bytes = new byte[16];
+                        bytes[10] = (byte) 0xff;
+                        bytes[11] = (byte) 0xff;
+                        arraycopy(address, 0, bytes, 12, 4);
+                    }
+                    else if (address.length == 16) {
+                        bytes = address;
+                    }
+                    else {
+                        throw new TrinoException(GENERIC_INTERNAL_ERROR, "Invalid InetAddress length: " + address.length);
+                    }
+
+                    return wrappedBuffer(bytes);
+                },
+                ipAddressWriteFunction());
+    }
+
+    private static SliceWriteFunction ipAddressWriteFunction()
+    {
+        return (statement, index, value) -> {
+            try {
+                statement.setObject(index, InetAddresses.toAddrString(InetAddress.getByAddress(value.getBytes())), Types.OTHER);
+            }
+            catch (UnknownHostException e) {
+                throw new UncheckedIOException(e);
+            }
+        };
     }
 }

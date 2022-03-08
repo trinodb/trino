@@ -105,6 +105,7 @@ import static io.trino.testing.datatype.DataType.integerDataType;
 import static io.trino.testing.datatype.DataType.realDataType;
 import static io.trino.testing.datatype.DataType.timestampDataType;
 import static io.trino.testing.datatype.DataType.varcharDataType;
+import static io.trino.type.IpAddressType.IPADDRESS;
 import static io.trino.type.JsonType.JSON;
 import static java.lang.String.format;
 import static java.math.RoundingMode.HALF_UP;
@@ -154,7 +155,7 @@ public class TestPostgreSqlTypeMapping
         return createPostgreSqlQueryRunner(
                 postgreSqlServer,
                 ImmutableMap.of(),
-                ImmutableMap.of("jdbc-types-mapped-to-varchar", "Tsrange, Inet" /* make sure that types are compared case insensitively */),
+                ImmutableMap.of("jdbc-types-mapped-to-varchar", "Tsrange" /* make sure that types are compared case insensitively */),
                 ImmutableList.of());
     }
 
@@ -357,19 +358,19 @@ public class TestPostgreSqlTypeMapping
     public void testForcedMappingToVarchar()
     {
         JdbcSqlExecutor jdbcSqlExecutor = new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl(), postgreSqlServer.getProperties());
-        jdbcSqlExecutor.execute("CREATE TABLE test_forced_varchar_mapping(tsrange_col tsrange, inet_col inet, tsrange_arr_col tsrange[], unsupported_nonforced_column tstzrange)");
-        jdbcSqlExecutor.execute("INSERT INTO test_forced_varchar_mapping(tsrange_col, inet_col, tsrange_arr_col, unsupported_nonforced_column) " +
-                "VALUES ('[2010-01-01 14:30, 2010-01-01 15:30)'::tsrange, '172.0.0.1'::inet, array['[2010-01-01 14:30, 2010-01-01 15:30)'::tsrange], '[2010-01-01 14:30, 2010-01-01 15:30)'::tstzrange)");
+        jdbcSqlExecutor.execute("CREATE TABLE test_forced_varchar_mapping(tsrange_col tsrange, tsrange_arr_col tsrange[], unsupported_nonforced_column tstzrange)");
+        jdbcSqlExecutor.execute("INSERT INTO test_forced_varchar_mapping(tsrange_col, tsrange_arr_col, unsupported_nonforced_column) " +
+                "VALUES ('[2010-01-01 14:30, 2010-01-01 15:30)'::tsrange, array['[2010-01-01 14:30, 2010-01-01 15:30)'::tsrange], '[2010-01-01 14:30, 2010-01-01 15:30)'::tstzrange)");
         try {
             assertQuery(
                     sessionWithArrayAsArray(),
                     "SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_name = 'test_forced_varchar_mapping'",
-                    "VALUES ('tsrange_col','varchar'),('inet_col','varchar'),('tsrange_arr_col','array(varchar)')"); // no 'unsupported_nonforced_column'
+                    "VALUES ('tsrange_col','varchar'),('tsrange_arr_col','array(varchar)')"); // no 'unsupported_nonforced_column'
 
             assertQuery(
                     sessionWithArrayAsArray(),
                     "SELECT * FROM test_forced_varchar_mapping",
-                    "VALUES ('[\"2010-01-01 14:30:00\",\"2010-01-01 15:30:00\")','172.0.0.1',ARRAY['[\"2010-01-01 14:30:00\",\"2010-01-01 15:30:00\")'])");
+                    "VALUES ('[\"2010-01-01 14:30:00\",\"2010-01-01 15:30:00\")',ARRAY['[\"2010-01-01 14:30:00\",\"2010-01-01 15:30:00\")'])");
 
             // test predicate pushdown to column that has forced varchar mapping
             assertThat(query("SELECT 1 FROM test_forced_varchar_mapping WHERE tsrange_col = '[\"2010-01-01 14:30:00\",\"2010-01-01 15:30:00\")'"))
@@ -1564,6 +1565,31 @@ public class TestPostgreSqlTypeMapping
                 .addRoundTrip("uuid", "UUID '123e4567-e89b-12d3-a456-426655440000'", UUID, "UUID '123e4567-e89b-12d3-a456-426655440000'")
                 .execute(getQueryRunner(), postgresCreateAndInsert("postgresql_test_uuid"))
                 .execute(getQueryRunner(), trinoCreateAsSelect("trino_test_uuid"));
+    }
+
+    @Test
+    public void testInet()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("inet", "'0.0.0.0'", IPADDRESS, "IPADDRESS '0.0.0.0'")
+                .addRoundTrip("inet", "'116.253.40.133'", IPADDRESS, "IPADDRESS '116.253.40.133'")
+                .addRoundTrip("inet", "'255.255.255.255'", IPADDRESS, "IPADDRESS '255.255.255.255'")
+                .addRoundTrip("inet", "'::'", IPADDRESS, "IPADDRESS '::'")
+                .addRoundTrip("inet", "'2001:44c8:129:2632:33:0:252:2'", IPADDRESS, "IPADDRESS '2001:44c8:129:2632:33:0:252:2'")
+                .addRoundTrip("inet", "'ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff'", IPADDRESS, "IPADDRESS 'ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff'")
+                .addRoundTrip("inet", "NULL", IPADDRESS, "CAST(NULL AS IPADDRESS)")
+                .execute(getQueryRunner(), postgresCreateAndInsert("test_inet"));
+
+        SqlDataTypeTest.create()
+                .addRoundTrip("ipaddress", "IPADDRESS '0.0.0.0'", IPADDRESS, "IPADDRESS '0.0.0.0'")
+                .addRoundTrip("ipaddress", "IPADDRESS '116.253.40.133'", IPADDRESS, "IPADDRESS '116.253.40.133'")
+                .addRoundTrip("ipaddress", "IPADDRESS '255.255.255.255'", IPADDRESS, "IPADDRESS '255.255.255.255'")
+                .addRoundTrip("ipaddress", "IPADDRESS '::'", IPADDRESS, "IPADDRESS '::'")
+                .addRoundTrip("ipaddress", "IPADDRESS '2001:44c8:129:2632:33:0:252:2'", IPADDRESS, "IPADDRESS '2001:44c8:129:2632:33:0:252:2'")
+                .addRoundTrip("ipaddress", "IPADDRESS 'ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff'", IPADDRESS, "IPADDRESS 'ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff'")
+                .addRoundTrip("ipaddress", "NULL", IPADDRESS, "CAST(NULL AS IPADDRESS)")
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_inet"))
+                .execute(getQueryRunner(), trinoCreateAndInsert(getSession(), "test_inet"));
     }
 
     @Test
