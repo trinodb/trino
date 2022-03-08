@@ -39,11 +39,7 @@ public class BenchmarkAggregationFunction
         BoundSignature signature = resolvedFunction.getSignature();
         intermediateType = getOnlyElement(aggregationMetadata.getAccumulatorStateDescriptors()).getSerializer().getSerializedType();
         finalType = signature.getReturnType();
-        accumulatorFactory = generateAccumulatorFactory(
-                signature,
-                aggregationMetadata,
-                resolvedFunction.getFunctionNullability(),
-                ImmutableList.of());
+        accumulatorFactory = generateAccumulatorFactory(signature, aggregationMetadata, resolvedFunction.getFunctionNullability());
     }
 
     public AggregatorFactory bind(List<Integer> inputChannels)
@@ -55,6 +51,7 @@ public class BenchmarkAggregationFunction
                 finalType,
                 inputChannels,
                 OptionalInt.empty(),
-                true);
+                true,
+                ImmutableList.of());
     }
 }
