@@ -331,7 +331,7 @@ public class TestBigQueryConnectorTest
         return nullToEmpty(exception.getMessage()).matches(".*(Fields must contain only letters, numbers, and underscores, start with a letter or underscore, and be at most 300 characters long).*");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testSelectFromHourlyPartitionedTable()
     {
         try (TestTable table = new TestTable(
@@ -343,7 +343,7 @@ public class TestBigQueryConnectorTest
         }
     }
 
-    @Test(enabled = false)
+    @Test
     public void testSelectFromYearlyPartitionedTable()
     {
         try (TestTable table = new TestTable(
