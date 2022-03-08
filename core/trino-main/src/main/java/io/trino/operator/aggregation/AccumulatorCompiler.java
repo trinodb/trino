@@ -87,8 +87,7 @@ public final class AccumulatorCompiler
     public static AccumulatorFactory generateAccumulatorFactory(
             BoundSignature boundSignature,
             AggregationMetadata metadata,
-            FunctionNullability functionNullability,
-            List<Supplier<Object>> lambdaProviders)
+            FunctionNullability functionNullability)
     {
         // change types used in Aggregation methods to types used in the core Trino engine to simplify code generation
         metadata = normalizeAggregationMethods(metadata);
@@ -115,7 +114,7 @@ public final class AccumulatorCompiler
         return new CompiledAccumulatorFactory(
                 accumulatorConstructor,
                 groupedAccumulatorConstructor,
-                lambdaProviders);
+                metadata.getLambdaInterfaces());
     }
 
     private static <T> Constructor<? extends T> generateAccumulatorClass(
