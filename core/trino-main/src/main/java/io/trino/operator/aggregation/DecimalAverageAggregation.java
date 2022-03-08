@@ -150,8 +150,9 @@ public class DecimalAverageAggregation
                 decimal,
                 decimalOffset);
 
-        overflowState.setNull(overflow == 0);
-        overflowState.setValue(overflowState.getValue() + overflow);
+        overflow += overflowState.getValue();
+        overflowState.setNull(overflow == 0 & overflowState.isNull());
+        overflowState.setValue(overflow);
     }
 
     public static void inputLongDecimal(Int128State decimalState, LongState counterState, NullableLongState overflowState, Block block, int position)
@@ -173,8 +174,9 @@ public class DecimalAverageAggregation
                 decimal,
                 decimalOffset);
 
-        overflowState.setNull(overflow == 0);
-        overflowState.setValue(overflowState.getValue() + overflow);
+        overflow += overflowState.getValue();
+        overflowState.setNull(overflow == 0 & overflowState.isNull());
+        overflowState.setValue(overflow);
     }
 
     public static void combine(Int128State decimalState, LongState counterState, NullableLongState overflowState, Int128State otherDecimalState, LongState otherCounterState, NullableLongState otherOverflowState)

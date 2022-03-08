@@ -44,7 +44,6 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.Int128Math.addWithOverflow;
 import static io.trino.spi.type.TypeSignatureParameter.numericParameter;
 import static io.trino.spi.type.TypeSignatureParameter.typeVariable;
-import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.util.Reflection.methodHandle;
 
 public class DecimalSumAggregation
@@ -123,8 +122,9 @@ public class DecimalSumAggregation
                 rightLow,
                 decimal,
                 decimalOffset);
-        overflowState.setValue(Math.addExact(overflow, overflowState.getValue()));
-        overflowState.setNull(false);
+        overflow = Math.addExact(overflow, overflowState.getValue());
+        overflowState.setValue(overflow);
+        overflowState.setNull(overflow == 0 & overflowState.isNull());
     }
 
     public static void inputLongDecimal(Int128State decimalState, NullableLongState overflowState, Block block, int position)
@@ -143,40 +143,30 @@ public class DecimalSumAggregation
                 rightLow,
                 decimal,
                 decimalOffset);
-
-        overflowState.setValue(overflowState.getValue() + overflow);
-        overflowState.setNull(false);
+        overflow += overflowState.getValue();
+        overflowState.setValue(overflow);
+        overflowState.setNull(overflow == 0 & overflowState.isNull());
     }
 
     public static void combine(Int128State decimalState, NullableLongState overflowState, Int128State otherDecimalState, NullableLongState otherOverflowState)
     {
-        if (!decimalState.isNotNull() && !otherDecimalState.isNotNull()) {
-            return;
-        }
-
         long[] decimal = decimalState.getArray();
         int decimalOffset = decimalState.getArrayOffset();
 
         long[] otherDecimal = otherDecimalState.getArray();
         int otherDecimalOffset = otherDecimalState.getArrayOffset();
 
-        if (decimalState.isNotNull()) {
-            long overflow = addWithOverflow(
-                    decimal[decimalOffset],
-                    decimal[decimalOffset + 1],
-                    otherDecimal[otherDecimalOffset],
-                    otherDecimal[otherDecimalOffset + 1],
-                    decimal,
-                    decimalOffset);
-            overflowState.setValue(overflowState.getValue() + Math.addExact(overflow, otherOverflowState.getValue()));
-            overflowState.setNull(false);
-        }
-        else {
-            decimalState.setNotNull(otherDecimalState.isNotNull());
-            decimal[decimalOffset] = otherDecimal[otherDecimalOffset];
-            decimal[decimalOffset + 1] = otherDecimal[otherDecimalOffset + 1];
-            overflowState.set(otherOverflowState);
-        }
+        long overflow = addWithOverflow(
+                decimal[decimalOffset],
+                decimal[decimalOffset + 1],
+                otherDecimal[otherDecimalOffset],
+                otherDecimal[otherDecimalOffset + 1],
+                decimal,
+                decimalOffset);
+        overflow = overflowState.getValue() + Math.addExact(overflow, otherOverflowState.getValue());
+        overflowState.setValue(overflow);
+        overflowState.setNull(overflow == 0 & overflowState.isNull() & otherOverflowState.isNull());
+        decimalState.setNotNull(decimalState.isNotNull() | otherDecimalState.isNotNull());
     }
 
     public static void outputLongDecimal(Int128State decimalState, NullableLongState overflowState, BlockBuilder out)

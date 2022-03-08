@@ -286,7 +286,9 @@ public class TestDecimalAverageAggregation
 
         addToState(decimalState, counterState, overflowState, TWO.pow(126));
         addToState(decimalState, counterState, overflowState, TWO.pow(126));
+        addToState(decimalState, counterState, overflowState, TWO.pow(126));
 
+        addToState(otherDecimalState, otherCounterState, otherOverflowState, TWO.pow(126).negate());
         addToState(otherDecimalState, otherCounterState, otherOverflowState, TWO.pow(126).negate());
         addToState(otherDecimalState, otherCounterState, otherOverflowState, TWO.pow(126).negate());
 
@@ -296,14 +298,37 @@ public class TestDecimalAverageAggregation
 
         DecimalAverageAggregation.combine(decimalState, counterState, overflowState, otherDecimalState, otherCounterState, otherOverflowState);
 
-        assertEquals(counterState.getValue(), 4);
+        assertEquals(counterState.getValue(), 6);
         assertEquals(overflowState.getValue(), 0);
         assertFalse(overflowState.isNull());
         assertTrue(decimalState.isNotNull());
 
-        assertEquals(getDecimal(decimalState), Int128.valueOf(TWO.pow(126).add(TWO.pow(2)).add(TWO.pow(126).negate()).add(TWO.pow(126).negate())));
-
+        assertEquals(getDecimal(decimalState), Int128.valueOf(TWO.pow(126).add(TWO.pow(126)).add(TWO.pow(126).negate()).add(TWO.pow(126).negate())));
+        assertAverageEquals(ZERO);
         assertStatesEquals(otherDecimalState, otherCounterState, otherOverflowState, (Int128State) copyOtherDecimalState, (LongState) copyOtherCounterState, (NullableLongState) copyOtherOverflowState);
+    }
+
+    @Test
+    public void testCombineNonNullOverflowAndNull()
+    {
+        Int128State otherDecimalState = int128StateFactory.createSingleState();
+        LongState otherCounterState = longStateFactory.createSingleState();
+        NullableLongState otherOverflowState = nullableLongStateFactory.createSingleState();
+
+        addToState(decimalState, counterState, overflowState, TWO.pow(126));
+        addToState(decimalState, counterState, overflowState, TWO.pow(126));
+
+        assertEquals(counterState.getValue(), 2);
+        assertEquals(overflowState.getValue(), 1);
+        assertFalse(overflowState.isNull());
+        assertTrue(decimalState.isNotNull());
+
+        DecimalAverageAggregation.combine(decimalState, counterState, overflowState, otherDecimalState, otherCounterState, otherOverflowState);
+
+        assertEquals(counterState.getValue(), 2);
+        assertEquals(overflowState.getValue(), 1);
+        assertFalse(overflowState.isNull());
+        assertTrue(decimalState.isNotNull());
     }
 
     private void testNoOverflow(DecimalType type, List<BigInteger> numbers)
