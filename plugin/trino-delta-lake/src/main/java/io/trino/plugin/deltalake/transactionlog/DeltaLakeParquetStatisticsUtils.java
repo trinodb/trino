@@ -165,7 +165,7 @@ public class DeltaLakeParquetStatisticsUtils
             return Optional.empty();
         }
 
-        LOG.warn("Accumulating Parquet statistics with Presto type: %s and Parquet statistics of type: %s is not supported", type, statistics);
+        LOG.warn("Accumulating Parquet statistics with Trino type: %s and Parquet statistics of type: %s is not supported", type, statistics);
         return Optional.empty();
     }
 
@@ -245,7 +245,7 @@ public class DeltaLakeParquetStatisticsUtils
             return Optional.empty();
         }
 
-        LOG.warn("Accumulating Parquet statistics with Presto type: %s and Parquet statistics of type: %s is not supported", type, statistics);
+        LOG.warn("Accumulating Parquet statistics with Trino type: %s and Parquet statistics of type: %s is not supported", type, statistics);
         return Optional.empty();
     }
 }

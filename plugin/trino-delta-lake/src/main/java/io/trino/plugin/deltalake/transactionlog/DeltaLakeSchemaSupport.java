@@ -120,7 +120,7 @@ public final class DeltaLakeSchemaSupport
 
         fieldContents.put("metadata", ImmutableMap.of());
         fieldContents.put("name", name);
-        fieldContents.put("nullable", true); // TODO: Is column nullability configurable in Presto?
+        fieldContents.put("nullable", true); // TODO: Is column nullability configurable in Trino?
         fieldContents.put("type", serializeColumnType(type));
 
         return fieldContents.buildOrThrow();

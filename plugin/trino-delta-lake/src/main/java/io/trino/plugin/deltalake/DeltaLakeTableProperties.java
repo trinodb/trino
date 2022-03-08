@@ -43,7 +43,7 @@ public class DeltaLakeTableProperties
     //       to pass the column names to ConnectorMetadata#getStatisticsCollectionMetadata; we should consider passing
     //       ConnectorTableHandle instead of ConnectorTableMetadata as an argument since it makes more information
     //       available (including the names of the columns to be analyzed)
-    public static final String ANALYZE_COLUMNS_PROPERTY = "$sep.analyze_columns";
+    public static final String ANALYZE_COLUMNS_PROPERTY = "$trino.analyze_columns";
 
     private final List<PropertyMetadata<?>> tableProperties;
 

@@ -373,7 +373,7 @@ public class HiveMetastoreBackedDeltaLakeMetastore
 
     private boolean isValidInRange(Double d)
     {
-        // Delta considers NaN a valid min/max value but Presto does not
+        // Delta considers NaN a valid min/max value but Trino does not
         return d != null && !d.isNaN();
     }
 
