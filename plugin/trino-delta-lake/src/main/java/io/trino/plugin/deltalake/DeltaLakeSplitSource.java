@@ -73,7 +73,7 @@ public class DeltaLakeSplitSource
         this.dynamicFilter = requireNonNull(dynamicFilter, "dynamicFilter is null");
         queueSplits(splits, queue, executor)
                 .exceptionally(throwable -> {
-                    // set prestoException before finishing the queue to ensure failure is observed instead of successful completion
+                    // set trinoException before finishing the queue to ensure failure is observed instead of successful completion
                     // (the field is declared as volatile to make sure that the change is visible right away to other threads)
                     trinoException = new TrinoException(GENERIC_INTERNAL_ERROR, "Failed to generate splits for " + this.tableName, throwable);
                     try {
@@ -139,7 +139,7 @@ public class DeltaLakeSplitSource
     public boolean isFinished()
     {
         if (queue.isFinished()) {
-            // Note: queue and prestoException need to be checked in the appropriate order
+            // Note: queue and trinoException need to be checked in the appropriate order
             // When throwable is set, we want getNextBatch to be called, so that we can propagate the exception
             return trinoException == null;
         }

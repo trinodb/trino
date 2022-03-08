@@ -158,11 +158,11 @@ public class TestDeltaLakeReadTimestamps
         String actual = "SELECT col_0, " + projections + " FROM read_timestamps WHERE col_0 = '" + zone + "'";
         Session session = sessionBuilder.build();
         assertQuery(session, actual, expected);
-        actual = "SELECT col_0, " + projections + " FROM read_timestamps WHERE " + buildPrestoWhereClauses(zone, testCases);
+        actual = "SELECT col_0, " + projections + " FROM read_timestamps WHERE " + buildTrinoWhereClauses(zone, testCases);
         assertQuery(session, actual, expected);
     }
 
-    private String buildPrestoWhereClauses(String zone, List<Instant> testCases)
+    private String buildTrinoWhereClauses(String zone, List<Instant> testCases)
     {
         List<String> predicates = new ArrayList<>();
         // partition values

@@ -669,7 +669,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     public void testSelectOldDate()
     {
         // Due to calendar shifts the read value is different than the written value.
-        // This means that the Presto value falls outside of the Databricks min/max values from the file statistics
+        // This means that the Trino value falls outside of the Databricks min/max values from the file statistics
         assertQuery("SELECT * FROM old_dates", "VALUES (DATE '0099-12-30', 1), (DATE '1582-10-15', 2), (DATE '1960-01-01', 3), (DATE '2020-01-01', 4)");
         assertQuery("SELECT * FROM old_dates WHERE d = DATE '0099-12-30'", "VALUES (DATE '0099-12-30', 1)");
         assertQuery("SELECT * FROM old_dates WHERE d = DATE '1582-10-15'", "VALUES (DATE '1582-10-15', 2)");
@@ -1166,7 +1166,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         assertThat(listCheckpointFiles(transactionLogDirectory)).hasSize(1);
         testCountQuery(format("SELECT count(*) FROM %s WHERE l = 0", tableName), 3, 3);
 
-        // fill in with extra transaction to force one more checkpoint made by SEP
+        // fill in with extra transaction to force one more checkpoint made by Trino
         // the checkpoint will be based on DB checkpoint which includes only struct stats
         assertUpdate(format("INSERT INTO %s VALUES (NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL)", tableName), 1);
         assertUpdate(format("INSERT INTO %s VALUES (NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL)", tableName), 1);

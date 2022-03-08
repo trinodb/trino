@@ -81,7 +81,7 @@ public class TestDeltaLakePageSink
             List<LineItemColumn> columns = ImmutableList.copyOf(LineItemColumn.values());
             List<Type> columnTypes = columns.stream()
                     .map(LineItemColumn::getType)
-                    .map(TestDeltaLakePageSink::getPrestoType)
+                    .map(TestDeltaLakePageSink::getTrinoType)
                     .collect(toList());
 
             PageBuilder pageBuilder = new PageBuilder(columnTypes);
@@ -185,13 +185,13 @@ public class TestDeltaLakePageSink
         for (LineItemColumn column : columns) {
             handles.add(new DeltaLakeColumnHandle(
                     column.getColumnName(),
-                    getPrestoType(column.getType()),
+                    getTrinoType(column.getType()),
                     REGULAR));
         }
         return handles.build();
     }
 
-    private static Type getPrestoType(TpchColumnType type)
+    private static Type getTrinoType(TpchColumnType type)
     {
         switch (type.getBase()) {
             case IDENTIFIER:
