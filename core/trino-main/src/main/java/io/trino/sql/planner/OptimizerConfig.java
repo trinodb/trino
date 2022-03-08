@@ -46,6 +46,7 @@ public class OptimizerConfig
     private boolean ignoreStatsCalculatorFailures = true;
     private boolean defaultFilterFactorEnabled;
     private double filterConjunctionIndependenceFactor = 0.75;
+    private boolean nonEstimatablePredicateApproximationEnabled = true;
 
     private boolean colocatedJoinsEnabled;
     private boolean distributedIndexJoinsEnabled;
@@ -288,6 +289,19 @@ public class OptimizerConfig
     public OptimizerConfig setFilterConjunctionIndependenceFactor(double filterConjunctionIndependenceFactor)
     {
         this.filterConjunctionIndependenceFactor = filterConjunctionIndependenceFactor;
+        return this;
+    }
+
+    public boolean isNonEstimatablePredicateApproximationEnabled()
+    {
+        return nonEstimatablePredicateApproximationEnabled;
+    }
+
+    @Config("optimizer.non-estimatable-predicate-approximation.enabled")
+    @ConfigDescription("Approximate the cost of filters which cannot be accurately estimated even with complete statistics")
+    public OptimizerConfig setNonEstimatablePredicateApproximationEnabled(boolean nonEstimatablePredicateApproximationEnabled)
+    {
+        this.nonEstimatablePredicateApproximationEnabled = nonEstimatablePredicateApproximationEnabled;
         return this;
     }
 
