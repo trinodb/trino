@@ -9,12 +9,10 @@
  */
 package com.starburstdata.presto.plugin.oracle;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.oracle.AbstractTestOracleTypeMapping;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.SqlExecutor;
-import io.trino.tpch.TpchTable;
 
 public class TestOracleTypeMapping
         extends AbstractTestOracleTypeMapping
@@ -28,7 +26,6 @@ public class TestOracleTypeMapping
                         .putAll(TestingStarburstOracleServer.connectionProperties())
                         .put("case-insensitive-name-matching", "true")
                         .buildOrThrow())
-                .withTables(ImmutableList.of(TpchTable.ORDERS))
                 .build();
     }
 

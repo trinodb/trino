@@ -9,7 +9,6 @@
  */
 package com.starburstdata.presto.plugin.oracle;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.testing.QueryRunner;
 import org.testng.annotations.Test;
@@ -48,7 +47,6 @@ public abstract class BaseOracleImpersonationWithAuthToLocalTest
                 .withUnlockEnterpriseFeatures(true)
                 .withConnectorProperties(properties)
                 .withSessionModifier(session -> createSession(session.getIdentity().getUser() + "/admin@company.com"))
-                .withTables(ImmutableList.of())
                 .build();
     }
 

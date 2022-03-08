@@ -9,7 +9,6 @@
  */
 package com.starburstdata.presto.plugin.oracle;
 
-import com.google.common.collect.ImmutableList;
 import com.starburstdata.presto.plugin.jdbc.joinpushdown.BaseAutomaticJoinPushdownTest;
 import io.trino.testing.QueryRunner;
 
@@ -28,7 +27,6 @@ public class TestOracleAutomaticJoinPushdown
         return OracleQueryRunner.builder()
                 .withUnlockEnterpriseFeatures(true)
                 .withConnectorProperties(TestingStarburstOracleServer.connectionProperties())
-                .withTables(ImmutableList.of())
                 .build();
     }
 

@@ -9,8 +9,10 @@
  */
 package com.starburstdata.presto.plugin.oracle;
 
+import com.google.common.collect.ImmutableList;
 import com.starburstdata.presto.plugin.jdbc.dynamicfiltering.AbstractDynamicFilteringLicenseProtectionTest;
 import io.trino.testing.QueryRunner;
+import io.trino.tpch.TpchTable;
 
 import static com.starburstdata.presto.plugin.oracle.TestingStarburstOracleServer.connectionProperties;
 
@@ -24,6 +26,7 @@ public class TestOracleDynamicFilteringLicenseProtection
         return OracleQueryRunner.builder()
                 .withUnlockEnterpriseFeatures(false)
                 .withConnectorProperties(connectionProperties())
+                .withTables(ImmutableList.of(TpchTable.ORDERS))
                 .build();
     }
 }

@@ -9,6 +9,7 @@
  */
 package com.starburstdata.presto.plugin.oracle;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Streams;
 import com.google.common.util.concurrent.Runnables;
@@ -136,7 +137,7 @@ public final class OracleQueryRunner
         private boolean unlockEnterpriseFeatures;
         private Map<String, String> connectorProperties = emptyMap();
         private Function<Session, Session> sessionModifier = Function.identity();
-        private Iterable<TpchTable<?>> tables = TpchTable.getTables();
+        private Iterable<TpchTable<?>> tables = ImmutableList.of();
         private int nodesCount = 3;
         private Map<String, String> coordinatorProperties = emptyMap();
         private Runnable createUsers = OracleTestUsers::createStandardUsers;
@@ -211,6 +212,7 @@ public final class OracleQueryRunner
                 .withConnectorProperties(connectionProperties())
                 .withNodesCount(1)
                 .withCoordinatorProperties(ImmutableMap.of("http-server.http.port", "8080"))
+                .withTables(TpchTable.getTables())
                 .build();
 
         LOG.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());

@@ -9,7 +9,6 @@
  */
 package com.starburstdata.presto.plugin.oracle;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.testing.AbstractTestQueryFramework;
@@ -43,7 +42,6 @@ public class TestOracleParallelCaseInsensitiveMapping
                         .put("oracle.parallelism-type", "PARTITIONS")
                         .put("oracle.parallel.max-splits-per-scan", "17")
                         .buildOrThrow())
-                .withTables(ImmutableList.of())
                 .build();
     }
 
