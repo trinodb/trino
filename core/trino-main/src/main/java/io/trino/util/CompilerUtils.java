@@ -19,7 +19,6 @@ import io.airlift.bytecode.ParameterizedType;
 import io.airlift.log.Logger;
 
 import java.lang.invoke.MethodHandle;
-import java.nio.file.Path;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 import java.util.Map;
@@ -61,6 +60,6 @@ public final class CompilerUtils
     public static <T> Class<? extends T> defineClass(ClassDefinition classDefinition, Class<T> superType, DynamicClassLoader classLoader)
     {
         log.debug("Defining class: %s", classDefinition.getName());
-        return classGenerator(classLoader).dumpClassFilesTo(Path.of("/tmp/class")).defineClass(classDefinition, superType);
+        return classGenerator(classLoader).defineClass(classDefinition, superType);
     }
 }

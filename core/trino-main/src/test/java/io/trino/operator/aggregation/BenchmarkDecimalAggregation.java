@@ -35,16 +35,9 @@ import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
-import org.openjdk.jmh.profile.AsyncProfiler;
-import org.openjdk.jmh.profile.DTraceAsmProfiler;
 import org.openjdk.jmh.runner.options.WarmupMode;
 import org.testng.annotations.Test;
 
-import java.io.File;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.util.Comparator;
 import java.util.OptionalInt;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
@@ -59,9 +52,9 @@ import static org.testng.Assert.assertEquals;
 
 @State(Scope.Thread)
 @OutputTimeUnit(TimeUnit.NANOSECONDS)
-@Fork(1)
-@Warmup(iterations = 3)
-@Measurement(iterations = 6)
+@Fork(3)
+@Warmup(iterations = 10)
+@Measurement(iterations = 10)
 @BenchmarkMode(Mode.AverageTime)
 public class BenchmarkDecimalAggregation
 {
@@ -106,13 +99,13 @@ public class BenchmarkDecimalAggregation
     @State(Scope.Thread)
     public static class BenchmarkData
     {
-        @Param({"LONG"})
+        @Param({"SHORT", "LONG"})
         private String type = "SHORT";
 
-        @Param({"avg"})
+        @Param({"avg", "sum"})
         private String function = "avg";
 
-        @Param({"1000"})
+        @Param({"10", "1000"})
         private int groupCount = 10;
 
         private AggregatorFactory partialAggregatorFactory;
@@ -223,41 +216,6 @@ public class BenchmarkDecimalAggregation
         // ensure the benchmarks are valid before running
         new BenchmarkDecimalAggregation().verify();
 
-        String profilerOutputDir;
-        try {
-            String jmhDir = "jmh";
-            new File(jmhDir).mkdirs();
-            String outDir = jmhDir + "/";
-            String end = String.valueOf(Files.list(Paths.get(jmhDir))
-                    .map(path -> path.getFileName().toString())
-                    .filter(path -> path.matches("\\d+"))
-                    .map(path -> Integer.parseInt(path) + 1)
-                    .sorted(Comparator.reverseOrder())
-                    .findFirst().orElse(0));
-            outDir = outDir + System.getProperty("outputDirectory", end);
-            new File(outDir).mkdirs();
-            profilerOutputDir = outDir;
-        }
-        catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-        String finalProfilerOutputDir = profilerOutputDir;
-
-
-        Benchmarks.benchmark(BenchmarkDecimalAggregation.class)
-                .withOptions(options -> options
-                        .jvmArgs("-Xmx32g")
-                        .include("benchmarkEvaluateFinal")
-                        .addProfiler(AsyncProfiler.class, String.format("dir=%s;output=flamegraph;event=cpu", finalProfilerOutputDir))
-                        .addProfiler(DTraceAsmProfiler.class, String.format("hotThreshold=0.05;tooBigThreshold=3000;saveLog=true;saveLogTo=%s", profilerOutputDir))
-                        .output(String.format("%s/%s", finalProfilerOutputDir, "stdout.log"))
-                        .jvmArgsAppend(
-                                "-XX:+UnlockDiagnosticVMOptions",
-                                "-XX:+PrintAssembly",
-                                "-XX:+LogCompilation",
-                                "-XX:+TraceClassLoading")
-                                )
-
-                .run();
+        Benchmarks.benchmark(BenchmarkDecimalAggregation.class, WarmupMode.BULK).run();
     }
 }
