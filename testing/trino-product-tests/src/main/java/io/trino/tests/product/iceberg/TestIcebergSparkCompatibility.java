@@ -29,6 +29,7 @@ import org.testng.annotations.Test;
 import javax.inject.Inject;
 
 import java.math.BigDecimal;
+import java.net.URI;
 import java.sql.Date;
 import java.sql.SQLException;
 import java.sql.Timestamp;
@@ -1611,9 +1612,15 @@ public class TestIcebergSparkCompatibility
         onTrino().executeQuery(format("INSERT INTO %s VALUES ('c', 1008)", trinoTableName));
         onTrino().executeQuery(format("INSERT INTO %s VALUES ('c', 1009)", trinoTableName));
         onTrino().executeQuery((format("DELETE FROM %s WHERE _string = '%s'", trinoTableName, 'b')));
+        int initialNumberOfMetadataFiles = calculateMetadataFilesForPartitionedTable(baseTableName);
 
         onTrino().executeQuery("SET SESSION iceberg.expire_snapshots_min_retention = '0s'");
+        onTrino().executeQuery("SET SESSION iceberg.delete_orphan_files_min_retention = '0s'");
         onTrino().executeQuery(format("ALTER TABLE %s EXECUTE EXPIRE_SNAPSHOTS (retention_threshold => '0s')", trinoTableName));
+        onTrino().executeQuery(format("ALTER TABLE %s EXECUTE DELETE_ORPHAN_FILES (retention_threshold => '0s')", trinoTableName));
+
+        int updatedNumberOfMetadataFiles = calculateMetadataFilesForPartitionedTable(baseTableName);
+        Assertions.assertThat(updatedNumberOfMetadataFiles).isLessThan(initialNumberOfMetadataFiles);
 
         Row row = row(3006);
         String selectByString = "SELECT SUM(_bigint) FROM %s WHERE _string = 'a'";
@@ -1645,10 +1652,19 @@ public class TestIcebergSparkCompatibility
         onTrino().executeQuery(format("INSERT INTO %s VALUES ('c', 1008)", trinoTableName));
         onTrino().executeQuery(format("INSERT INTO %s VALUES ('c', 1009)", trinoTableName));
         onTrino().executeQuery((format("DELETE FROM %s WHERE _string = '%s'", trinoTableName, 'b')));
+        int initialNumberOfFiles = onTrino().executeQuery(format("SELECT * FROM iceberg.default.\"%s$files\"", baseTableName)).getRowsCount();
+        int initialNumberOfMetadataFiles = calculateMetadataFilesForPartitionedTable(baseTableName);
 
         onTrino().executeQuery(format("ALTER TABLE %s EXECUTE OPTIMIZE", trinoTableName));
         onTrino().executeQuery("SET SESSION iceberg.expire_snapshots_min_retention = '0s'");
+        onTrino().executeQuery("SET SESSION iceberg.delete_orphan_files_min_retention = '0s'");
         onTrino().executeQuery(format("ALTER TABLE %s EXECUTE EXPIRE_SNAPSHOTS (retention_threshold => '0s')", trinoTableName));
+        onTrino().executeQuery(format("ALTER TABLE %s EXECUTE DELETE_ORPHAN_FILES (retention_threshold => '0s')", trinoTableName));
+
+        int updatedNumberOfFiles = onTrino().executeQuery(format("SELECT * FROM iceberg.default.\"%s$files\"", baseTableName)).getRowsCount();
+        Assertions.assertThat(updatedNumberOfFiles).isLessThan(initialNumberOfFiles);
+        int updatedNumberOfMetadataFiles = calculateMetadataFilesForPartitionedTable(baseTableName);
+        Assertions.assertThat(updatedNumberOfMetadataFiles).isLessThan(initialNumberOfMetadataFiles);
 
         Row row = row(3006);
         String selectByString = "SELECT SUM(_bigint) FROM %s WHERE _string = 'a'";
@@ -1678,7 +1694,9 @@ public class TestIcebergSparkCompatibility
 
         onTrino().executeQuery(format("ALTER TABLE %s EXECUTE OPTIMIZE", trinoTableName));
         onTrino().executeQuery("SET SESSION iceberg.expire_snapshots_min_retention = '0s'");
+        onTrino().executeQuery("SET SESSION iceberg.delete_orphan_files_min_retention = '0s'");
         onTrino().executeQuery(format("ALTER TABLE %s EXECUTE EXPIRE_SNAPSHOTS (retention_threshold => '0s')", trinoTableName));
+        onTrino().executeQuery(format("ALTER TABLE %s EXECUTE DELETE_ORPHAN_FILES (retention_threshold => '0s')", trinoTableName));
 
         Row row = row(3008);
         String selectByString = "SELECT SUM(_bigint) FROM %s WHERE _string = 'a'";
@@ -1718,9 +1736,22 @@ public class TestIcebergSparkCompatibility
 
         onTrino().executeQuery("SET SESSION iceberg.expire_snapshots_min_retention = '0s'");
         onTrino().executeQuery(format("ALTER TABLE %s EXECUTE EXPIRE_SNAPSHOTS (retention_threshold => '0s')", trinoTableName));
+        onTrino().executeQuery("SET SESSION iceberg.delete_orphan_files_min_retention = '0s'");
+        onTrino().executeQuery(format("ALTER TABLE %s EXECUTE DELETE_ORPHAN_FILES (retention_threshold => '0s')", trinoTableName));
+
         assertThat(onTrino().executeQuery(format(selectByString, trinoTableName)))
                 .containsOnly(row);
         assertThat(onSpark().executeQuery(format(selectByString, sparkTableName)))
                 .containsOnly(row);
+    }
+
+    private int calculateMetadataFilesForPartitionedTable(String tableName)
+    {
+        String dataFilePath = onTrino().executeQuery(format("SELECT file_path FROM iceberg.default.\"%s$files\" limit 1", tableName)).row(0).get(0).toString();
+        String partitionPath = dataFilePath.substring(0, dataFilePath.lastIndexOf("/"));
+        String dataFolderPath = partitionPath.substring(0, partitionPath.lastIndexOf("/"));
+        String tableFolderPath = dataFolderPath.substring(0, dataFolderPath.lastIndexOf("/"));
+        String metadataFolderPath = tableFolderPath + "/metadata";
+        return hdfsClient.listDirectory(URI.create(metadataFolderPath).getPath()).size();
     }
 }
