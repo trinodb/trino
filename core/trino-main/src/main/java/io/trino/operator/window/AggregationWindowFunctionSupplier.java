@@ -54,7 +54,7 @@ public class AggregationWindowFunctionSupplier
         return new AggregateWindowFunction(() -> createWindowAccumulator(lambdaProviders), hasRemoveInput);
     }
 
-    private WindowAccumulator createWindowAccumulator(List<Supplier<Object>> lambdaProviders)
+    public WindowAccumulator createWindowAccumulator(List<Supplier<Object>> lambdaProviders)
     {
         try {
             return constructor.newInstance(lambdaProviders);
