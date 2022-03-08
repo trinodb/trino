@@ -21,4 +21,8 @@ public interface LongState
     long getValue();
 
     void setValue(long value);
+
+    default void addValue(long value) {
+        this.setValue(this.getValue() + value);
+    }
 }

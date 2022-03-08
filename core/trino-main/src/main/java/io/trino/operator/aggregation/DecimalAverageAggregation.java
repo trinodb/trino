@@ -191,7 +191,7 @@ public class DecimalAverageAggregation
                     otherDecimal[otherDecimalOffset + 1],
                     decimal,
                     decimalOffset);
-        decimalState.addNotNull(otherDecimalState.isNotNull());
+        decimalState.setNotNull(decimalState.isNotNull() | otherDecimalState.isNotNull());
         counterState.setValue(counterState.getValue() + otherCounterState.getValue());
         overflowState.setValue(overflowState.getValue() + overflow + otherOverflowState.getValue());
         overflowState.setNull(overflowState.isNull() & otherOverflowState.isNull() & overflow == 0);
