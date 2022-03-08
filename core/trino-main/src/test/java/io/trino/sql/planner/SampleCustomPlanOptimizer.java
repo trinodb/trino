@@ -14,7 +14,11 @@
 package io.trino.sql.planner;
 
 import io.trino.Session;
-import io.trino.cost.*;
+import io.trino.cost.CostCalculator;
+import io.trino.cost.CostComparator;
+import io.trino.cost.ScalarStatsCalculator;
+import io.trino.cost.StatsCalculator;
+import io.trino.cost.TaskCountEstimator;
 import io.trino.execution.TaskManagerConfig;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.split.PageSourceManager;
@@ -22,24 +26,34 @@ import io.trino.split.SplitManager;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.optimizations.CustomPlanOptimizer;
 import io.trino.sql.planner.optimizations.PlanOptimizer;
-import io.trino.sql.planner.plan.*;
+import io.trino.sql.planner.plan.LimitNode;
+import io.trino.sql.planner.plan.PlanNode;
+import io.trino.sql.planner.plan.SimplePlanRewriter;
+
 import static java.util.Objects.requireNonNull;
+
 /*
 This custom plan optimizer is just added for testing. It's designed to make a simple and easily assertable alteration to the query plan.
 It'll will just alter any limit expression from its original value to a new value of 7999.
 This will help us test the custom plan optimizer injection feature.
  */
-public class SampleCustomPlanOptimizer extends CustomPlanOptimizer {
-    public SampleCustomPlanOptimizer(){
 
+public class SampleCustomPlanOptimizer
+        extends CustomPlanOptimizer
+{
+    public SampleCustomPlanOptimizer()
+    {
     }
+
     @Override
-    public PlanOptimizer getPlanOptimizerInstance(PlannerContext plannerContext, TypeAnalyzer typeAnalyzer, TaskManagerConfig taskManagerConfig, boolean forceSingleNode, SplitManager splitManager, PageSourceManager pageSourceManager, StatsCalculator statsCalculator, ScalarStatsCalculator scalarStatsCalculator, CostCalculator costCalculator, CostCalculator estimatedExchangesCostCalculator, CostComparator costComparator, TaskCountEstimator taskCountEstimator, NodePartitioningManager nodePartitioningManager, RuleStatsRecorder ruleStats) {
+    public PlanOptimizer getPlanOptimizerInstance(PlannerContext plannerContext, TypeAnalyzer typeAnalyzer, TaskManagerConfig taskManagerConfig, boolean forceSingleNode, SplitManager splitManager, PageSourceManager pageSourceManager, StatsCalculator statsCalculator, ScalarStatsCalculator scalarStatsCalculator, CostCalculator costCalculator, CostCalculator estimatedExchangesCostCalculator, CostComparator costComparator, TaskCountEstimator taskCountEstimator, NodePartitioningManager nodePartitioningManager, RuleStatsRecorder ruleStats)
+    {
         return new SampleCustomPlanOptimizer();
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector) {
+    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
+    {
         return SimplePlanRewriter.rewriteWith(new SampleCustomPlanOptimizer.Rewriter(idAllocator), plan);
     }
 
@@ -54,7 +68,8 @@ public class SampleCustomPlanOptimizer extends CustomPlanOptimizer {
         }
 
         @Override
-        public PlanNode visitLimit(LimitNode node, RewriteContext<Void> context) {
+        public PlanNode visitLimit(LimitNode node, RewriteContext<Void> context)
+        {
             LimitNode changedLimitNode = new LimitNode(
                     idAllocator.getNextId(),
                     node.getSource(),

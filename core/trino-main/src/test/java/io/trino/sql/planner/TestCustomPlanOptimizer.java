@@ -24,31 +24,37 @@ import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
 
-import static io.trino.sql.planner.assertions.PlanMatchPattern.*;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.limit;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
+import static org.testng.Assert.assertTrue;
 
-public class TestCustomPlanOptimizer extends BasePlanTest {
-
+public class TestCustomPlanOptimizer
+        extends BasePlanTest
+{
     @Test
-    public void testSampleCustomPlanOptimizer() throws IOException {
-            List<String> customOptimizerProperties = Arrays.asList("optimizer.custom-optimizer.allow=true",
-                    "optimizer.custom-optimizer.list=io.trino.sql.planner.SampleCustomPlanOptimizer");
-            setConfig(customOptimizerProperties);
-            PlanMatchPattern planMatchPattern = anyTree(tableScan("orders"));
-            List<PlanOptimizer> allOptimizers = getQueryRunner().getPlanOptimizers(false);
-            //This checks if the SampleCustomPlanOptimizer is not only is on the chain but is also doing what it's designed to do.
-            //Which is update the limit count to 7999 (from original 9999)
-            assertPlan(
-                    "SELECT orderstatus FROM orders limit 9999",
+    public void testSampleCustomPlanOptimizer() throws IOException
+    {
+        List<String> customOptimizerProperties = Arrays.asList("optimizer.custom-optimizer.allow=true",
+                "optimizer.custom-optimizer.list=io.trino.sql.planner.SampleCustomPlanOptimizer");
+        setConfig(customOptimizerProperties);
+        PlanMatchPattern planMatchPattern = anyTree(tableScan("orders"));
+        List<PlanOptimizer> allOptimizers = getQueryRunner().getPlanOptimizers(false);
+        //This checks if the SampleCustomPlanOptimizer is not only is on the chain but is also doing what it's designed to do.
+        //Which is update the limit count to 7999 (from original 9999)
+        assertPlan(
+                "SELECT orderstatus FROM orders limit 9999",
 
-                    anyTree(limit(7999, planMatchPattern)),
-                    allOptimizers);
-            PlanOptimizer firstOptimizer = allOptimizers.get(0);
-            //This asserts is the SampleCustomPlanOptimizer is the first optimizer in the chain.
-            assert firstOptimizer instanceof SampleCustomPlanOptimizer;
+                anyTree(limit(7999, planMatchPattern)),
+                allOptimizers);
+        PlanOptimizer firstOptimizer = allOptimizers.get(0);
+        //This asserts is the SampleCustomPlanOptimizer is the first optimizer in the chain.
+        assertTrue(firstOptimizer instanceof SampleCustomPlanOptimizer);
     }
 
     @Test
-    public void testCustomPlanOptimizerNotAllowed() throws IOException {
+    public void testCustomPlanOptimizerNotAllowed() throws IOException
+    {
         List<String> customOptimizerProperties = Arrays.asList("optimizer.custom-optimizer.allow=false");
         setConfig(customOptimizerProperties);
         PlanMatchPattern planMatchPattern = anyTree(tableScan("orders"));
@@ -61,7 +67,8 @@ public class TestCustomPlanOptimizer extends BasePlanTest {
     }
 
     @Test
-    public void testCustomPlanOptimizerNotSet() throws IOException {
+    public void testCustomPlanOptimizerNotSet() throws IOException
+    {
         List<String> customOptimizerProperties = Arrays.asList("optimizer.custom-optimizer.allow=true");
         setConfig(customOptimizerProperties);
         PlanMatchPattern planMatchPattern = anyTree(tableScan("orders"));
@@ -74,7 +81,8 @@ public class TestCustomPlanOptimizer extends BasePlanTest {
     }
 
     @Test
-    public void testCustomPlanOptimizerAllowNotSet() throws IOException {
+    public void testCustomPlanOptimizerAllowNotSet() throws IOException
+    {
         List<String> customOptimizerProperties = Arrays.asList("optimizer.custom-optimizer.list=io.trino.sql.planner.SampleCustomPlanOptimizer");
         setConfig(customOptimizerProperties);
         PlanMatchPattern planMatchPattern = anyTree(tableScan("orders"));
@@ -87,7 +95,8 @@ public class TestCustomPlanOptimizer extends BasePlanTest {
     }
 
     @Test
-    public void testCustomPlanOptimizerCustomPropertiesNotSet() throws IOException {
+    public void testCustomPlanOptimizerCustomPropertiesNotSet() throws IOException
+    {
         List<String> customOptimizerProperties = Arrays.asList();
         setConfig(customOptimizerProperties);
         PlanMatchPattern planMatchPattern = anyTree(tableScan("orders"));
@@ -100,7 +109,8 @@ public class TestCustomPlanOptimizer extends BasePlanTest {
     }
 
     @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*ClassNotFoundException.*")
-    public void testCustomPlanOptimizerClassNotExist() throws IOException {
+    public void testCustomPlanOptimizerClassNotExist() throws IOException
+    {
         // Throw ClassNotFoundException as the registered custom optimizer class does not exist
         List<String> customOptimizerProperties = Arrays.asList("optimizer.custom-optimizer.allow=true",
                 "optimizer.custom-optimizer.list=io.trino.sql.planner.NotExistCustomPlanOptimizer");
@@ -110,7 +120,8 @@ public class TestCustomPlanOptimizer extends BasePlanTest {
     }
 
     // Creates and sets trino config file with custom optimizer related properties
-    private void setConfig(List<String> propertiesList) throws IOException {
+    private void setConfig(List<String> propertiesList) throws IOException
+    {
         Path customOptimizerConfig = Files.createTempFile("custom-optimizer-config", ".conf");
         customOptimizerConfig.toFile().deleteOnExit();
         Files.write(customOptimizerConfig, propertiesList);

@@ -18,7 +18,11 @@ import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.log.Logger;
-import io.trino.cost.*;
+import io.trino.cost.CostCalculator;
+import io.trino.cost.CostComparator;
+import io.trino.cost.ScalarStatsCalculator;
+import io.trino.cost.StatsCalculator;
+import io.trino.cost.TaskCountEstimator;
 import io.trino.execution.TaskManagerConfig;
 import io.trino.split.PageSourceManager;
 import io.trino.split.SplitManager;
@@ -28,13 +32,15 @@ import io.trino.sql.planner.RuleStatsRecorder;
 import io.trino.sql.planner.TypeAnalyzer;
 
 import javax.inject.Inject;
+
 import java.util.ArrayList;
 import java.util.List;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
 
-public abstract class CustomPlanOptimizer implements PlanOptimizer {
-
+public abstract class CustomPlanOptimizer
+        implements PlanOptimizer
+{
     private static final Logger LOG = Logger.get(CustomPlanOptimizer.class);
 
     /*
@@ -54,9 +60,8 @@ public abstract class CustomPlanOptimizer implements PlanOptimizer {
                                                                     CostComparator costComparator,
                                                                     TaskCountEstimator taskCountEstimator,
                                                                     NodePartitioningManager nodePartitioningManager,
-                                                                    RuleStatsRecorder ruleStats
-    ) {
-
+                                                                    RuleStatsRecorder ruleStats)
+    {
         List<PlanOptimizer> listOfPlanOptimizers = new ArrayList<>();
         CustomOptimizerConfig customOptimizerConfig = getConfig();
         if (!customOptimizerConfig.isAllowCustomPlanOptimizers()) {
@@ -84,13 +89,15 @@ public abstract class CustomPlanOptimizer implements PlanOptimizer {
                         ruleStats);
                 listOfPlanOptimizers.add(planOptimizer);
             }
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             throw new RuntimeException(e);
         }
         return listOfPlanOptimizers;
     }
 
-    private static CustomOptimizerConfig getConfig() {
+    private static CustomOptimizerConfig getConfig()
+    {
         Bootstrap app = new Bootstrap(new ConfigAccessModule());
         Injector injector = app.initialize();
         CustomOptimizerConfig customOptimizerConfig = injector.getInstance(CustomOptimizerConfig.class);
@@ -113,15 +120,16 @@ public abstract class CustomPlanOptimizer implements PlanOptimizer {
                                                            RuleStatsRecorder ruleStats);
 
     private static class ConfigAccessModule
-            extends AbstractConfigurationAwareModule {
-
-        public ConfigAccessModule() {
+            extends AbstractConfigurationAwareModule
+    {
+        public ConfigAccessModule()
+        {
         }
 
         @Override
-        protected void setup(Binder binder) {
+        protected void setup(Binder binder)
+        {
             configBinder(binder).bindConfig(CustomOptimizerConfig.class);
         }
     }
-
 }
