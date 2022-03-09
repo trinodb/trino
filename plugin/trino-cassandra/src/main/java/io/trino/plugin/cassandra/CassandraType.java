@@ -78,6 +78,7 @@ import static io.trino.spi.type.UuidType.trinoUuidToJavaUuid;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class CassandraType
@@ -681,5 +682,16 @@ public class CassandraType
     public int hashCode()
     {
         return Objects.hash(kind, trinoType, argumentTypes);
+    }
+
+    @Override
+    public String toString()
+    {
+        String string = format("%s(%s", kind, trinoType);
+        if (!argumentTypes.isEmpty()) {
+            string += "; " + argumentTypes;
+        }
+        string += ")";
+        return string;
     }
 }
