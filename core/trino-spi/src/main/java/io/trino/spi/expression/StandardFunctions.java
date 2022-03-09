@@ -82,4 +82,16 @@ public final class StandardFunctions
     public static final FunctionName NEGATE_FUNCTION_NAME = new FunctionName("$negate");
 
     public static final FunctionName LIKE_PATTERN_FUNCTION_NAME = new FunctionName("$like_pattern");
+
+    /**
+     * {@code $in(value, array)} returns {@code true} when value is equal to an element of the array,
+     * otherwise returns {@code NULL} when comparing value to an element of the array returns an
+     * indeterminate result, otherwise returns {@code false}
+     */
+    public static final FunctionName IN_PREDICATE_FUNCTION_NAME = new FunctionName("$in");
+
+    /**
+     * $array creates instance of {@link Array Type}
+     */
+    public static final FunctionName ARRAY_CONSTRUCTOR_FUNCTION_NAME = new FunctionName("$array");
 }
