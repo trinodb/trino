@@ -33,6 +33,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -53,6 +54,9 @@ public class CassandraPartitionManager
 
     public CassandraPartitionResult getPartitions(CassandraTableHandle cassandraTableHandle, TupleDomain<ColumnHandle> tupleDomain)
     {
+        // TODO support repeated applyFilter
+        checkArgument(cassandraTableHandle.getPartitions().isEmpty(), "getPartitions() currently does not take into account table handle's partitions");
+
         CassandraTable table = cassandraSession.getTable(cassandraTableHandle.getSchemaTableName());
 
         // fetch the partitions

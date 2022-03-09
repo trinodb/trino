@@ -202,6 +202,10 @@ public class CassandraMetadata
     public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle tableHandle, Constraint constraint)
     {
         CassandraTableHandle handle = (CassandraTableHandle) tableHandle;
+        if (handle.getPartitions().isPresent() || !handle.getClusteringKeyPredicates().isEmpty()) {
+            // TODO support repeated applyFilter
+            return Optional.empty();
+        }
 
         CassandraPartitionResult partitionResult = partitionManager.getPartitions(handle, constraint.getSummary());
 
@@ -232,6 +236,7 @@ public class CassandraMetadata
                         handle.getSchemaName(),
                         handle.getTableName(),
                         Optional.of(partitionResult.getPartitions()),
+                        // TODO this should probably be AND-ed with handle.getClusteringKeyPredicates()
                         clusteringKeyPredicates),
                         unenforcedConstraint,
                         false));
