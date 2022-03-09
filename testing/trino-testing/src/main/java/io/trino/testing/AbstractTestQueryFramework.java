@@ -14,16 +14,20 @@
 package io.trino.testing;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.MoreCollectors;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.execution.QueryStats;
 import io.trino.execution.warnings.WarningCollector;
+import io.trino.memory.LocalMemoryManager;
+import io.trino.memory.MemoryPool;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableMetadata;
 import io.trino.operator.OperatorStats;
+import io.trino.server.BasicQueryInfo;
 import io.trino.server.DynamicFilterService.DynamicFiltersStats;
 import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spi.QueryId;
@@ -50,6 +54,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.function.Consumer;
@@ -71,6 +76,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.fail;
 
 public abstract class AbstractTestQueryFramework
 {
@@ -124,16 +130,50 @@ public abstract class AbstractTestQueryFramework
                     List<TestingTrinoServer> servers = distributedQueryRunner.getServers();
                     for (int serverId = 0; serverId < servers.size(); ++serverId) {
                         TestingTrinoServer server = servers.get(serverId);
-                        String serverName = format("server_%d(%s)", serverId, server.isCoordinator() ? "coordinator" : "worker");
-                        assertThat(server.getLocalMemoryManager().getMemoryPool().getReservedBytes())
-                                .describedAs("memory reservation on " + serverName)
-                                .isZero();
+                        assertMemoryPoolReleased(distributedQueryRunner.getCoordinator(), server, serverId);
                     }
 
                     assertThat(distributedQueryRunner.getCoordinator().getClusterMemoryManager().getClusterTotalMemoryReservation())
                             .describedAs("cluster memory reservation")
                             .isZero();
                 });
+    }
+
+    private void assertMemoryPoolReleased(TestingTrinoServer coordinator, TestingTrinoServer server, long serverId)
+    {
+        String serverName = format("server_%d(%s)", serverId, server.isCoordinator() ? "coordinator" : "worker");
+        long reservedBytes = server.getLocalMemoryManager().getMemoryPool().getReservedBytes();
+
+        if (reservedBytes != 0) {
+            fail("Expected memory reservation on " + serverName + "to be 0 but was " + reservedBytes + "; detailed memory usage:\n" + describeMemoryPool(coordinator, server));
+        }
+    }
+
+    private String describeMemoryPool(TestingTrinoServer coordinator, TestingTrinoServer server)
+    {
+        LocalMemoryManager memoryManager = server.getLocalMemoryManager();
+        MemoryPool memoryPool = memoryManager.getMemoryPool();
+        Map<QueryId, Long> queryReservations = memoryPool.getQueryMemoryReservations();
+        Map<QueryId, Map<String, Long>> queryTaggedReservations = memoryPool.getTaggedMemoryAllocations();
+
+        List<BasicQueryInfo> queriesWithMemory = coordinator.getQueryManager().getQueries().stream()
+                .filter(query -> queryReservations.keySet().contains(query.getQueryId()))
+                .collect(toImmutableList());
+
+        StringBuilder result = new StringBuilder();
+        queriesWithMemory.forEach(queryInfo -> {
+            QueryId queryId = queryInfo.getQueryId();
+            String querySql = queryInfo.getQuery();
+            Long memoryReservation = queryReservations.getOrDefault(queryId, 0L);
+            Map<String, Long> taggedMemoryReservation = queryTaggedReservations.getOrDefault(queryId, ImmutableMap.of());
+
+            result.append(" " + queryId + ":\n");
+            result.append("   SQL: " + querySql + "\n");
+            result.append("   memoryReservation: " + memoryReservation + "\n");
+            result.append("   taggedMemoryReservaton: " + taggedMemoryReservation + "\n");
+        });
+
+        return result.toString();
     }
 
     @Test

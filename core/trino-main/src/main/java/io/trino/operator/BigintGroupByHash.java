@@ -289,7 +289,7 @@ public class BigintGroupByHash
 
         // An estimate of how much extra memory is needed before we can go ahead and expand the hash table.
         // This includes the new capacity for values, groupIds, and valuesByGroupId as well as the size of the current page
-        preallocatedMemoryInBytes = (newCapacity - hashCapacity) * (long) (Long.BYTES + Integer.BYTES) + (calculateMaxFill(newCapacity) - maxFill) * Long.BYTES + currentPageSizeInBytes;
+        preallocatedMemoryInBytes = (newCapacity - hashCapacity) * (long) (Long.BYTES + Integer.BYTES) + (long) (calculateMaxFill(newCapacity) - maxFill) * Long.BYTES + currentPageSizeInBytes;
         if (!updateMemory.update()) {
             // reserved memory but has exceeded the limit
             return false;
@@ -371,7 +371,8 @@ public class BigintGroupByHash
         return groupId;
     }
 
-    private class AddPageWork
+    @VisibleForTesting
+    class AddPageWork
             implements Work<Void>
     {
         private final Block block;
@@ -412,7 +413,8 @@ public class BigintGroupByHash
         }
     }
 
-    private class AddDictionaryPageWork
+    @VisibleForTesting
+    class AddDictionaryPageWork
             implements Work<Void>
     {
         private final Block dictionary;
@@ -456,7 +458,8 @@ public class BigintGroupByHash
         }
     }
 
-    private class AddRunLengthEncodedPageWork
+    @VisibleForTesting
+    class AddRunLengthEncodedPageWork
             implements Work<Void>
     {
         private final RunLengthEncodedBlock block;
@@ -497,7 +500,8 @@ public class BigintGroupByHash
         }
     }
 
-    private class GetGroupIdsWork
+    @VisibleForTesting
+    class GetGroupIdsWork
             implements Work<GroupByIdBlock>
     {
         private final BlockBuilder blockBuilder;
@@ -546,7 +550,8 @@ public class BigintGroupByHash
         }
     }
 
-    private class GetDictionaryGroupIdsWork
+    @VisibleForTesting
+    class GetDictionaryGroupIdsWork
             implements Work<GroupByIdBlock>
     {
         private final BlockBuilder blockBuilder;
@@ -600,7 +605,8 @@ public class BigintGroupByHash
         }
     }
 
-    private class GetRunLengthEncodedGroupIdsWork
+    @VisibleForTesting
+    class GetRunLengthEncodedGroupIdsWork
             implements Work<GroupByIdBlock>
     {
         private final RunLengthEncodedBlock block;

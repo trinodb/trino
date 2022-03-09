@@ -115,35 +115,119 @@ public class TestClickHouseTypeMapping
     }
 
     @Test
-    public void testBasicTypes()
+    public void testTinyint()
     {
         SqlDataTypeTest.create()
-                .addRoundTrip("bigint", "123456789012", BIGINT, "123456789012")
-                .addRoundTrip("integer", "1234567890", INTEGER, "1234567890")
-                .addRoundTrip("smallint", "32456", SMALLINT, "SMALLINT '32456'")
+                .addRoundTrip("tinyint", "-128", TINYINT, "TINYINT '-128'") // min value in ClickHouse and Trino
                 .addRoundTrip("tinyint", "5", TINYINT, "TINYINT '5'")
-                .addRoundTrip("double", "123.45", DOUBLE, "DOUBLE '123.45'")
-                .addRoundTrip("real", "123.45", REAL, "REAL '123.45'")
+                .addRoundTrip("tinyint", "127", TINYINT, "TINYINT '127'") // max value in ClickHouse and Trino
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_tinyint"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_tinyint"))
 
-                .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_basic_types"))
-
-                .addRoundTrip("bigint", "NULL", BIGINT, "CAST(NULL AS BIGINT)")
-                .addRoundTrip("integer", "NULL", INTEGER, "CAST(NULL AS INTEGER)")
-                .addRoundTrip("smallint", "NULL", SMALLINT, "CAST(NULL AS SMALLINT)")
-                .addRoundTrip("tinyint", "NULL", TINYINT, "CAST(NULL AS TINYINT)")
-                .addRoundTrip("double", "NULL", DOUBLE, "CAST(NULL AS DOUBLE)")
-                .addRoundTrip("real", "NULL", REAL, "CAST(NULL AS REAL)")
-
-                .execute(getQueryRunner(), trinoCreateAsSelect("test_basic_types"));
+                .addRoundTrip("Nullable(tinyint)", "NULL", TINYINT, "CAST(NULL AS TINYINT)")
+                .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_tinyint"));
 
         SqlDataTypeTest.create()
-                .addRoundTrip("Nullable(bigint)", "NULL", BIGINT, "CAST(NULL AS BIGINT)")
-                .addRoundTrip("Nullable(integer)", "NULL", INTEGER, "CAST(NULL AS INTEGER)")
+                .addRoundTrip("tinyint", "NULL", TINYINT, "CAST(NULL AS TINYINT)")
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_tinyint"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_tinyint"));
+    }
+
+    @Test
+    public void testUnsupportedTinyint()
+    {
+        // ClickHouse stores incorrect results when the values are out of supported range. This test should be fixed when ClickHouse changes the behavior.
+        SqlDataTypeTest.create()
+                .addRoundTrip("tinyint", "-129", TINYINT, "TINYINT '127'")
+                .addRoundTrip("tinyint", "128", TINYINT, "TINYINT '-128'")
+                .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_unsupported_tinyint"));
+    }
+
+    @Test
+    public void testSmallint()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("smallint", "-32768", SMALLINT, "SMALLINT '-32768'") // min value in ClickHouse and Trino
+                .addRoundTrip("smallint", "32456", SMALLINT, "SMALLINT '32456'")
+                .addRoundTrip("smallint", "32767", SMALLINT, "SMALLINT '32767'") // max value in ClickHouse and Trino
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_smallint"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_smallint"))
+
                 .addRoundTrip("Nullable(smallint)", "NULL", SMALLINT, "CAST(NULL AS SMALLINT)")
-                .addRoundTrip("Nullable(tinyint)", "NULL", TINYINT, "CAST(NULL AS TINYINT)")
-                .addRoundTrip("Nullable(double)", "NULL", DOUBLE, "CAST(NULL AS DOUBLE)")
-                .addRoundTrip("Nullable(real)", "NULL", REAL, "CAST(NULL AS REAL)")
-                .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_nullable_types"));
+                .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_smallint"));
+
+        SqlDataTypeTest.create()
+                .addRoundTrip("smallint", "NULL", SMALLINT, "CAST(NULL AS SMALLINT)")
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_smallint"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_smallint"));
+    }
+
+    @Test
+    public void testUnsupportedSmallint()
+    {
+        // ClickHouse stores incorrect results when the values are out of supported range. This test should be fixed when ClickHouse changes the behavior.
+        SqlDataTypeTest.create()
+                .addRoundTrip("smallint", "-32769", SMALLINT, "SMALLINT '32767'")
+                .addRoundTrip("smallint", "32768", SMALLINT, "SMALLINT '-32768'")
+                .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_unsupported_smallint"));
+    }
+
+    @Test
+    public void testInteger()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("integer", "-2147483648", INTEGER, "-2147483648") // min value in ClickHouse and Trino
+                .addRoundTrip("integer", "1234567890", INTEGER, "1234567890")
+                .addRoundTrip("integer", "2147483647", INTEGER, "2147483647") // max value in ClickHouse and Trino
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_int"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_int"))
+
+                .addRoundTrip("Nullable(integer)", "NULL", INTEGER, "CAST(NULL AS INTEGER)")
+                .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_int"));
+
+        SqlDataTypeTest.create()
+                .addRoundTrip("integer", "NULL", INTEGER, "CAST(NULL AS INTEGER)")
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_int"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_int"));
+    }
+
+    @Test
+    public void testUnsupportedInteger()
+    {
+        // ClickHouse stores incorrect results when the values are out of supported range. This test should be fixed when ClickHouse changes the behavior.
+        SqlDataTypeTest.create()
+                .addRoundTrip("integer", "-2147483649", INTEGER, "INTEGER '2147483647'")
+                .addRoundTrip("integer", "2147483648", INTEGER, "INTEGER '-2147483648'")
+                .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_unsupported_integer"));
+    }
+
+    @Test
+    public void testBigint()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("bigint", "-9223372036854775808", BIGINT, "-9223372036854775808") // min value in ClickHouse and Trino
+                .addRoundTrip("bigint", "123456789012", BIGINT, "123456789012")
+                .addRoundTrip("bigint", "9223372036854775807", BIGINT, "9223372036854775807") // max value in ClickHouse and Trino
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_bigint"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_bigint"))
+
+                .addRoundTrip("Nullable(bigint)", "NULL", BIGINT, "CAST(NULL AS BIGINT)")
+                .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_bigint"));
+
+        SqlDataTypeTest.create()
+                .addRoundTrip("bigint", "NULL", BIGINT, "CAST(NULL AS BIGINT)")
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_bigint"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_bigint"));
+    }
+
+    @Test
+    public void testUnsupportedBigint()
+    {
+        // ClickHouse stores incorrect results when the values are out of supported range. This test should be fixed when ClickHouse changes the behavior.
+        SqlDataTypeTest.create()
+                .addRoundTrip("bigint", "-9223372036854775809", BIGINT, "BIGINT '9223372036854775807'")
+                .addRoundTrip("bigint", "9223372036854775808", BIGINT, "BIGINT '-9223372036854775808'")
+                .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_unsupported_bigint"));
     }
 
     @Test
