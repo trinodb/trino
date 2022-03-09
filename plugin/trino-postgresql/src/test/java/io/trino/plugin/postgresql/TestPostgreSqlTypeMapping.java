@@ -39,6 +39,7 @@ import io.trino.testing.datatype.SqlDataTypeTest;
 import io.trino.testing.sql.JdbcSqlExecutor;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TrinoSqlExecutor;
+import org.intellij.lang.annotations.Language;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -116,6 +117,7 @@ import static java.util.Collections.singletonList;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestPostgreSqlTypeMapping
         extends AbstractTestQueryFramework
@@ -180,16 +182,105 @@ public class TestPostgreSqlTypeMapping
     }
 
     @Test
-    public void testBasicTypes()
+    public void testBoolean()
     {
         SqlDataTypeTest.create()
                 .addRoundTrip("boolean", "true", BOOLEAN)
                 .addRoundTrip("boolean", "false", BOOLEAN)
-                .addRoundTrip("bigint", "123456789012", BIGINT)
-                .addRoundTrip("integer", "123456789", INTEGER)
-                .addRoundTrip("smallint", "32456", SMALLINT, "SMALLINT '32456'")
+                .addRoundTrip("boolean", "NULL", BOOLEAN, "CAST(NULL AS BOOLEAN)")
+                .execute(getQueryRunner(), postgresCreateAndInsert("tpch.test_boolean"))
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_boolean"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_boolean"));
+    }
+
+    @Test
+    public void testTinyint()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("tinyint", "NULL", SMALLINT, "CAST(NULL AS SMALLINT)")
+                .addRoundTrip("tinyint", "-128", SMALLINT, "SMALLINT '-128'") // min value in PostgreSQL and Trino
                 .addRoundTrip("tinyint", "5", SMALLINT, "SMALLINT '5'")
-                .execute(getQueryRunner(), trinoCreateAsSelect("test_basic_types"));
+                .addRoundTrip("tinyint", "127", SMALLINT, "SMALLINT '127'") // max value in PostgreSQL and Trino
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_tinyint"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_tinyint"));
+    }
+
+    @Test
+    public void testSmallint()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("smallint", "NULL", SMALLINT, "CAST(NULL AS SMALLINT)")
+                .addRoundTrip("smallint", "-32768", SMALLINT, "SMALLINT '-32768'") // min value in PostgreSQL and Trino
+                .addRoundTrip("smallint", "32456", SMALLINT, "SMALLINT '32456'")
+                .addRoundTrip("smallint", "32767", SMALLINT, "SMALLINT '32767'") // max value in PostgreSQL and Trino
+                .execute(getQueryRunner(), postgresCreateAndInsert("tpch.test_smallint"))
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_smallint"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_smallint"));
+    }
+
+    @Test
+    public void testUnsupportedSmallint()
+    {
+        try (TestTable table = new TestTable(postgreSqlServer::execute, "tpch.test_unsupported_smallint", "(data smallint)")) {
+            assertPostgreSqlQueryFails(
+                    format("INSERT INTO %s VALUES (-32769)", table.getName()), // min - 1
+                    "ERROR: smallint out of range");
+            assertPostgreSqlQueryFails(
+                    format("INSERT INTO %s VALUES (32768)", table.getName()), // max + 1
+                    "ERROR: smallint out of range");
+        }
+    }
+
+    @Test
+    public void testInteger()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("integer", "NULL", INTEGER, "CAST(NULL AS INTEGER)")
+                .addRoundTrip("integer", "-2147483648", INTEGER, "-2147483648") // min value in PostgreSQL and Trino
+                .addRoundTrip("integer", "1234567890", INTEGER, "1234567890")
+                .addRoundTrip("integer", "2147483647", INTEGER, "2147483647") // max value in PostgreSQL and Trino
+                .execute(getQueryRunner(), postgresCreateAndInsert("tpch.test_int"))
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_int"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_int"));
+    }
+
+    @Test
+    public void testUnsupportedInteger()
+    {
+        try (TestTable table = new TestTable(postgreSqlServer::execute, "tpch.test_unsupported_integer", "(data integer)")) {
+            assertPostgreSqlQueryFails(
+                    format("INSERT INTO %s VALUES (-2147483649)", table.getName()), // min - 1
+                    "ERROR: integer out of range");
+            assertPostgreSqlQueryFails(
+                    format("INSERT INTO %s VALUES (2147483648)", table.getName()), // max + 1
+                    "ERROR: integer out of range");
+        }
+    }
+
+    @Test
+    public void testBigint()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("bigint", "NULL", BIGINT, "CAST(NULL AS BIGINT)")
+                .addRoundTrip("bigint", "-9223372036854775808", BIGINT, "-9223372036854775808") // min value in PostgreSQL and Trino
+                .addRoundTrip("bigint", "123456789012", BIGINT, "123456789012")
+                .addRoundTrip("bigint", "9223372036854775807", BIGINT, "9223372036854775807") // max value in PostgreSQL and Trino
+                .execute(getQueryRunner(), postgresCreateAndInsert("tpch.test_bigint"))
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_bigint"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_bigint"));
+    }
+
+    @Test
+    public void testUnsupportedBigint()
+    {
+        try (TestTable table = new TestTable(postgreSqlServer::execute, "tpch.test_unsupported_bigint", "(data bigint)")) {
+            assertPostgreSqlQueryFails(
+                    format("INSERT INTO %s VALUES (-9223372036854775809)", table.getName()), // min - 1
+                    "ERROR: bigint out of range");
+            assertPostgreSqlQueryFails(
+                    format("INSERT INTO %s VALUES (9223372036854775808)", table.getName()), // max + 1
+                    "ERROR: bigint out of range");
+        }
     }
 
     @Test
@@ -199,19 +290,22 @@ public class TestPostgreSqlTypeMapping
                 .addRoundTrip("real", "NULL", REAL, "CAST(NULL AS real)")
                 .addRoundTrip("real", "3.14", REAL, "REAL '3.14'")
                 .addRoundTrip("real", "3.1415927", REAL, "REAL '3.1415927'")
-                .addRoundTrip("real", "'NaN'::real", REAL, "CAST(nan() AS real)")
-                .addRoundTrip("real", "'-Infinity'::real", REAL, "CAST(-infinity() AS real)")
-                .addRoundTrip("real", "'+Infinity'::real", REAL, "CAST(+infinity() AS real)")
-                .execute(getQueryRunner(), postgresCreateAndInsert("postgresql_test_real"));
+                .execute(getQueryRunner(), postgresCreateAndInsert("postgresql_test_real"))
+                .execute(getQueryRunner(), trinoCreateAsSelect("trino_test_real"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("trino_test_real"));
 
         SqlDataTypeTest.create()
-                .addRoundTrip("real", "NULL", REAL, "CAST(NULL AS real)")
-                .addRoundTrip("real", "3.14", REAL, "REAL '3.14'")
-                .addRoundTrip("real", "3.1415927", REAL, "REAL '3.1415927'")
                 .addRoundTrip("real", "nan()", REAL, "CAST(nan() AS real)")
                 .addRoundTrip("real", "-infinity()", REAL, "CAST(-infinity() AS real)")
                 .addRoundTrip("real", "+infinity()", REAL, "CAST(+infinity() AS real)")
-                .execute(getQueryRunner(), trinoCreateAsSelect("trino_test_real"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("trino_test_special_real"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("trino_test_special_real"));
+
+        SqlDataTypeTest.create()
+                .addRoundTrip("real", "'NaN'::real", REAL, "CAST(nan() AS real)")
+                .addRoundTrip("real", "'-Infinity'::real", REAL, "CAST(-infinity() AS real)")
+                .addRoundTrip("real", "'+Infinity'::real", REAL, "CAST(+infinity() AS real)")
+                .execute(getQueryRunner(), postgresCreateAndInsert("postgresql_test_special_real"));
     }
 
     @Test
@@ -233,13 +327,15 @@ public class TestPostgreSqlTypeMapping
                 .addRoundTrip("double", "nan()", DOUBLE, "nan()")
                 .addRoundTrip("double", "+infinity()", DOUBLE, "+infinity()")
                 .addRoundTrip("double", "-infinity()", DOUBLE, "-infinity()")
-                .execute(getQueryRunner(), trinoCreateAsSelect("trino_test_double"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("trino_test_double"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("trino_test_double"));
     }
 
     @Test
     public void testDecimal()
     {
         SqlDataTypeTest.create()
+                .addRoundTrip("decimal(3, 0)", "CAST(NULL AS decimal(3, 0))", createDecimalType(3, 0), "CAST(NULL AS decimal(3, 0))")
                 .addRoundTrip("decimal(3, 0)", "CAST('193' AS decimal(3, 0))", createDecimalType(3, 0), "CAST('193' AS decimal(3, 0))")
                 .addRoundTrip("decimal(3, 0)", "CAST('19' AS decimal(3, 0))", createDecimalType(3, 0), "CAST('19' AS decimal(3, 0))")
                 .addRoundTrip("decimal(3, 0)", "CAST('-193' AS decimal(3, 0))", createDecimalType(3, 0), "CAST('-193' AS decimal(3, 0))")
@@ -254,11 +350,14 @@ public class TestPostgreSqlTypeMapping
                 .addRoundTrip("decimal(24, 4)", "CAST('12345678901234567890.31' AS decimal(24, 4))", createDecimalType(24, 4), "CAST('12345678901234567890.31' AS decimal(24, 4))")
                 .addRoundTrip("decimal(30, 5)", "CAST('3141592653589793238462643.38327' AS decimal(30, 5))", createDecimalType(30, 5), "CAST('3141592653589793238462643.38327' AS decimal(30, 5))")
                 .addRoundTrip("decimal(30, 5)", "CAST('-3141592653589793238462643.38327' AS decimal(30, 5))", createDecimalType(30, 5), "CAST('-3141592653589793238462643.38327' AS decimal(30, 5))")
+                .addRoundTrip("decimal(38, 0)", "CAST(NULL AS decimal(38, 0))", createDecimalType(38, 0), "CAST(NULL AS decimal(38, 0))")
                 .addRoundTrip("decimal(38, 0)", "CAST('27182818284590452353602874713526624977' AS decimal(38, 0))", createDecimalType(38, 0), "CAST('27182818284590452353602874713526624977' AS decimal(38, 0))")
                 .addRoundTrip("decimal(38, 0)", "CAST('-27182818284590452353602874713526624977' AS decimal(38, 0))", createDecimalType(38, 0), "CAST('-27182818284590452353602874713526624977' AS decimal(38, 0))")
                 .addRoundTrip("decimal(38, 38)", "CAST('0.27182818284590452353602874713526624977' AS decimal(38, 38))", createDecimalType(38, 38), "CAST('0.27182818284590452353602874713526624977' AS decimal(38, 38))")
                 .addRoundTrip("decimal(38, 38)", "CAST('-0.27182818284590452353602874713526624977' AS decimal(38, 38))", createDecimalType(38, 38), "CAST('-0.27182818284590452353602874713526624977' AS decimal(38, 38))").execute(getQueryRunner(), postgresCreateAndInsert("test_decimal"))
-                .execute(getQueryRunner(), trinoCreateAsSelect("test_decimal"));
+                .execute(getQueryRunner(), postgresCreateAndInsert("tpch.test_decimal"))
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_decimal"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_decimal"));
 
         SqlDataTypeTest.create()
                 .addRoundTrip("numeric", "1.1", createDecimalType(Decimals.MAX_PRECISION, 5), "CAST(1.1 AS DECIMAL(38, 5))")
@@ -269,6 +368,7 @@ public class TestPostgreSqlTypeMapping
     public void testChar()
     {
         SqlDataTypeTest.create()
+                .addRoundTrip("char(10)", "NULL", createCharType(10), "CAST(NULL AS char(10))")
                 .addRoundTrip("char(10)", "'text_a'", createCharType(10), "CAST('text_a' AS char(10))")
                 .addRoundTrip("char(255)", "'text_b'", createCharType(255), "CAST('text_b' AS char(255))")
                 .addRoundTrip("char(5)", "'攻殻機動隊'", createCharType(5), "CAST('攻殻機動隊' AS char(5))")
@@ -276,7 +376,8 @@ public class TestPostgreSqlTypeMapping
                 .addRoundTrip("char(1)", "'😂'", createCharType(1), "CAST('😂' AS char(1))")
                 .addRoundTrip("char(77)", "'Ну, погоди!'", createCharType(77), "CAST('Ну, погоди!' AS char(77))")
                 .execute(getQueryRunner(), postgresCreateAndInsert("test_char"))
-                .execute(getQueryRunner(), trinoCreateAsSelect("test_char"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_char"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_char"));
 
         // too long for a char in Trino
         int length = CharType.MAX_LENGTH + 1;
@@ -293,6 +394,7 @@ public class TestPostgreSqlTypeMapping
     public void testVarchar()
     {
         SqlDataTypeTest.create()
+                .addRoundTrip("varchar(10)", "NULL", createVarcharType(10), "CAST(NULL AS varchar(10))")
                 .addRoundTrip("varchar(10)", "'text_a'", createVarcharType(10), "CAST('text_a' AS varchar(10))")
                 .addRoundTrip("varchar(255)", "'text_b'", createVarcharType(255), "CAST('text_b' AS varchar(255))")
                 .addRoundTrip("varchar(65535)", "'text_d'", createVarcharType(65535), "CAST('text_d' AS varchar(65535))")
@@ -303,13 +405,15 @@ public class TestPostgreSqlTypeMapping
                 .addRoundTrip("varchar(77)", "'Ну, погоди!'", createVarcharType(77), "CAST('Ну, погоди!' AS varchar(77))")
                 .addRoundTrip("varchar(10485760)", "'text_f'", createVarcharType(10485760), "CAST('text_f' AS varchar(10485760))") // too long for a char in Trino
                 .execute(getQueryRunner(), postgresCreateAndInsert("test_varchar"))
-                .execute(getQueryRunner(), trinoCreateAsSelect("test_varchar"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_varchar"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_varchar"));
     }
 
     @Test
     public void testUnboundedVarchar()
     {
         SqlDataTypeTest.create()
+                .addRoundTrip("varchar", "NULL", createUnboundedVarcharType(), "CAST(NULL AS varchar)")
                 .addRoundTrip("varchar", "'text_a'", createUnboundedVarcharType(), "CAST('text_a' AS varchar)")
                 .addRoundTrip("varchar", "'text_b'", createUnboundedVarcharType(), "CAST('text_b' AS varchar)")
                 .addRoundTrip("varchar", "'text_d'", createUnboundedVarcharType(), "CAST('text_d' AS varchar)")
@@ -319,8 +423,9 @@ public class TestPostgreSqlTypeMapping
                 .addRoundTrip("varchar", "'😂'", createUnboundedVarcharType(), "CAST('😂' AS varchar)")
                 .addRoundTrip("varchar", "'Ну, погоди!'", createUnboundedVarcharType(), "CAST('Ну, погоди!' AS varchar)")
                 .addRoundTrip("varchar", "'text_f'", createUnboundedVarcharType(), "CAST('text_f' AS varchar)")
-                .execute(getQueryRunner(), postgresCreateAndInsert("test_varchar"))
-                .execute(getQueryRunner(), trinoCreateAsSelect("test_varchar"));
+                .execute(getQueryRunner(), postgresCreateAndInsert("test_unbounded_varchar"))
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_unbounded_varchar"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_unbounded_varchar"));
     }
 
     @Test
@@ -345,7 +450,8 @@ public class TestPostgreSqlTypeMapping
                 .addRoundTrip("varbinary", "X'4261672066756C6C206F6620F09F92B0'", VARBINARY, "to_utf8('Bag full of 💰')")
                 .addRoundTrip("varbinary", "X'0001020304050607080DF9367AA7000000'", VARBINARY, "X'0001020304050607080DF9367AA7000000'") // non-text
                 .addRoundTrip("varbinary", "X'000000000000'", VARBINARY, "X'000000000000'")
-                .execute(getQueryRunner(), trinoCreateAsSelect("test_varbinary"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_varbinary"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_varbinary"));
     }
 
     private static String utf8ByteaLiteral(String string)
@@ -674,20 +780,24 @@ public class TestPostgreSqlTypeMapping
                 .addRoundTrip("ARRAY(smallint)", "ARRAY[32456]", new ArrayType(SMALLINT), "ARRAY[SMALLINT '32456']")
                 .addRoundTrip("ARRAY(double)", "ARRAY[123.45]", new ArrayType(DOUBLE), "ARRAY[DOUBLE '123.45']")
                 .addRoundTrip("ARRAY(real)", "ARRAY[123.45]", new ArrayType(REAL), "ARRAY[REAL '123.45']")
-                .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_array_basic"));
+                .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_array_basic"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_array_basic"));
 
         arrayDateTest(TestPostgreSqlTypeMapping::arrayDataType)
-                .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_array_date"));
+                .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_array_date"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_array_date"));
         arrayDateTest(TestPostgreSqlTypeMapping::postgresArrayDataType)
                 .execute(getQueryRunner(), session, postgresCreateAndInsert("test_array_date"));
 
         arrayDecimalTest(TestPostgreSqlTypeMapping::arrayDataType)
-                .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_array_decimal"));
+                .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_array_decimal"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_array_decimal"));
         arrayDecimalTest(TestPostgreSqlTypeMapping::postgresArrayDataType)
                 .execute(getQueryRunner(), session, postgresCreateAndInsert("test_array_decimal"));
 
         arrayVarcharDataTypeTest(TestPostgreSqlTypeMapping::arrayDataType)
-                .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_array_varchar"));
+                .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_array_varchar"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_array_varchar"));
         arrayVarcharDataTypeTest(TestPostgreSqlTypeMapping::postgresArrayDataType)
                 .execute(getQueryRunner(), session, postgresCreateAndInsert("test_array_varchar"));
 
@@ -698,11 +808,13 @@ public class TestPostgreSqlTypeMapping
         testUnsupportedDataTypeConvertedToVarchar(session, "bytea[]", "_bytea", "ARRAY['binary value'::bytea]", "'{\"\\\\x62696e6172792076616c7565\"}'");
 
         arrayUnicodeDataTypeTest(TestPostgreSqlTypeMapping::arrayDataType, DataType::charDataType)
-                .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_array_parameterized_char_unicode"));
+                .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_array_parameterized_char_unicode"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_array_parameterized_char_unicode"));
         arrayUnicodeDataTypeTest(TestPostgreSqlTypeMapping::postgresArrayDataType, DataType::charDataType)
                 .execute(getQueryRunner(), session, postgresCreateAndInsert("test_array_parameterized_char_unicode"));
         arrayVarcharUnicodeDataTypeTest(TestPostgreSqlTypeMapping::arrayDataType)
-                .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_array_parameterized_varchar_unicode"));
+                .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_array_parameterized_varchar_unicode"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_array_parameterized_varchar_unicode"));
         arrayVarcharUnicodeDataTypeTest(TestPostgreSqlTypeMapping::postgresArrayDataType)
                 .execute(getQueryRunner(), session, postgresCreateAndInsert("test_array_parameterized_varchar_unicode"));
     }
@@ -728,7 +840,8 @@ public class TestPostgreSqlTypeMapping
                 .addRoundTrip(arrayDataType(timestampDataType(3)), singletonList(null))
                 .addRoundTrip(arrayDataType(trinoTimestampWithTimeZoneDataType(3)), asList())
                 .addRoundTrip(arrayDataType(trinoTimestampWithTimeZoneDataType(3)), singletonList(null))
-                .execute(getQueryRunner(), sessionWithArrayAsArray(), trinoCreateAsSelect(sessionWithArrayAsArray(), "test_array_empty_or_nulls"));
+                .execute(getQueryRunner(), sessionWithArrayAsArray(), trinoCreateAsSelect(sessionWithArrayAsArray(), "test_array_empty_or_nulls"))
+                .execute(getQueryRunner(), sessionWithArrayAsArray(), trinoCreateAndInsert(sessionWithArrayAsArray(), "test_array_empty_or_nulls"));
     }
 
     private DataTypeTest arrayDecimalTest(Function<DataType<BigDecimal>, DataType<List<BigDecimal>>> arrayTypeFactory)
@@ -810,7 +923,8 @@ public class TestPostgreSqlTypeMapping
                         asList(new BigDecimal("193")),
                         asList(new BigDecimal("19")),
                         asList(new BigDecimal("-193"))))
-                .execute(getQueryRunner(), sessionWithArrayAsArray(), trinoCreateAsSelect(sessionWithArrayAsArray(), "test_array_2d"));
+                .execute(getQueryRunner(), sessionWithArrayAsArray(), trinoCreateAsSelect(sessionWithArrayAsArray(), "test_array_2d"))
+                .execute(getQueryRunner(), sessionWithArrayAsArray(), trinoCreateAndInsert(sessionWithArrayAsArray(), "test_array_2d"));
 
         DataTypeTest.create()
                 .addRoundTrip(arrayDataType(arrayDataType(arrayDataType(doubleDataType()))), asList(
@@ -821,7 +935,8 @@ public class TestPostgreSqlTypeMapping
                         asList(asList(LocalDate.of(1952, 4, 3), LocalDate.of(1970, 1, 1))),
                         asList(asList(null, LocalDate.of(1970, 1, 1))),
                         asList(asList(LocalDate.of(1970, 2, 3), LocalDate.of(2017, 7, 1)))))
-                .execute(getQueryRunner(), sessionWithArrayAsArray(), trinoCreateAsSelect(sessionWithArrayAsArray(), "test_array_3d"));
+                .execute(getQueryRunner(), sessionWithArrayAsArray(), trinoCreateAsSelect(sessionWithArrayAsArray(), "test_array_3d"))
+                .execute(getQueryRunner(), sessionWithArrayAsArray(), trinoCreateAndInsert(sessionWithArrayAsArray(), "test_array_3d"));
     }
 
     @Test
@@ -970,7 +1085,7 @@ public class TestPostgreSqlTypeMapping
                 .addRoundTrip("date", "DATE '5874897-12-31'", DATE, "DATE '5874897-12-31'") // max value in Trino
                 .execute(getQueryRunner(), session, postgresCreateAndInsert("test_date"))
                 .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_date"))
-                .execute(getQueryRunner(), session, trinoCreateAsSelect(getSession(), "test_date"))
+                .execute(getQueryRunner(), session, trinoCreateAsSelect("test_date"))
                 .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_date"));
 
         // min value
@@ -980,7 +1095,7 @@ public class TestPostgreSqlTypeMapping
         SqlDataTypeTest.create()
                 .addRoundTrip("DATE", "DATE '-4712-01-01'", DATE, "DATE '-4712-01-01'")
                 .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_date_min"))
-                .execute(getQueryRunner(), session, trinoCreateAsSelect(getSession(), "test_date_min"))
+                .execute(getQueryRunner(), session, trinoCreateAsSelect("test_date_min"))
                 .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_date_min"));
     }
 
@@ -1037,7 +1152,7 @@ public class TestPostgreSqlTypeMapping
                 .addRoundTrip("time(3)", "TIME '00:00:00.000'", createTimeType(3), "TIME '00:00:00.000'")
                 .addRoundTrip("time(3)", "TIME '00:12:34.567'", createTimeType(3), "TIME '00:12:34.567'")
                 .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_time"))
-                .execute(getQueryRunner(), session, trinoCreateAsSelect(getSession(), "test_time"))
+                .execute(getQueryRunner(), session, trinoCreateAsSelect("test_time"))
                 .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_time"))
                 .execute(getQueryRunner(), session, postgresCreateAndInsert("test_time"));
     }
@@ -1124,9 +1239,9 @@ public class TestPostgreSqlTypeMapping
                 .addRoundTrip("TIME '23:59:59.999999999999'", "TIME '00:00:00.000000'")
 
                 // CTAS with Trino, where the coercion is done by the connector
-                .execute(getQueryRunner(), trinoCreateAsSelect(getSession(), "test_time_coercion"))
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_time_coercion"))
                 // INSERT with Trino, where the coercion is done by the engine
-                .execute(getQueryRunner(), trinoCreateAndInsert(getSession(), "test_time_coercion"));
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_time_coercion"));
     }
 
     @Test
@@ -1215,7 +1330,7 @@ public class TestPostgreSqlTypeMapping
                 .addRoundTrip("timestamp(6)", "TIMESTAMP '1969-12-31 23:59:59.123456'", createTimestampType(6), "TIMESTAMP '1969-12-31 23:59:59.123456'")
 
                 .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_timestamp"))
-                .execute(getQueryRunner(), session, trinoCreateAsSelect(getSession(), "test_timestamp"))
+                .execute(getQueryRunner(), session, trinoCreateAsSelect("test_timestamp"))
                 .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_timestamp"))
                 .execute(getQueryRunner(), session, postgresCreateAndInsert("test_timestamp"));
     }
@@ -1275,9 +1390,9 @@ public class TestPostgreSqlTypeMapping
                 .addRoundTrip("TIMESTAMP '1969-12-31 23:59:59.9999994'", "TIMESTAMP '1969-12-31 23:59:59.999999'")
 
                 // CTAS with Trino, where the coercion is done by the connector
-                .execute(getQueryRunner(), trinoCreateAsSelect(getSession(), "test_timestamp_coercion"))
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_timestamp_coercion"))
                 // INSERT with Trino, where the coercion is done by the engine
-                .execute(getQueryRunner(), trinoCreateAndInsert(getSession(), "test_timestamp_coercion"));
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_timestamp_coercion"));
     }
 
     @Test(dataProvider = "sessionZonesDataProvider")
@@ -1393,6 +1508,7 @@ public class TestPostgreSqlTypeMapping
 
         if (insertWithTrino) {
             tests.execute(getQueryRunner(), trinoCreateAsSelect("test_timestamp_with_time_zone"));
+            tests.execute(getQueryRunner(), trinoCreateAndInsert("test_timestamp_with_time_zone"));
         }
         else {
             tests.execute(getQueryRunner(), postgresCreateAndInsert("test_timestamp_with_time_zone"));
@@ -1453,9 +1569,9 @@ public class TestPostgreSqlTypeMapping
                 .addRoundTrip("TIMESTAMP '1969-12-31 23:59:59.9999994 UTC'", "TIMESTAMP '1969-12-31 23:59:59.999999 UTC'")
 
                 // CTAS with Trino, where the coercion is done by the connector
-                .execute(getQueryRunner(), trinoCreateAsSelect(getSession(), "test_timestamp_tz_coercion"))
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_timestamp_tz_coercion"))
                 // INSERT with Trino, where the coercion is done by the engine
-                .execute(getQueryRunner(), trinoCreateAndInsert(getSession(), "test_timestamp_tz_coercion"));
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_timestamp_tz_coercion"));
     }
 
     @Test(dataProvider = "trueFalse", dataProviderClass = DataProviders.class)
@@ -1495,6 +1611,7 @@ public class TestPostgreSqlTypeMapping
 
         if (insertWithTrino) {
             tests.execute(getQueryRunner(), sessionWithArrayAsArray(), trinoCreateAsSelect(sessionWithArrayAsArray(), "test_array_timestamp_with_time_zone"));
+            tests.execute(getQueryRunner(), sessionWithArrayAsArray(), trinoCreateAndInsert(sessionWithArrayAsArray(), "test_array_timestamp_with_time_zone"));
         }
         else {
             tests.execute(getQueryRunner(), sessionWithArrayAsArray(), postgresCreateAndInsert("test_array_timestamp_with_time_zone"));
@@ -1516,7 +1633,8 @@ public class TestPostgreSqlTypeMapping
                 .addRoundTrip("json", "JSON '{\"a\":[1,2,3],\"b\":{\"aa\":11,\"bb\":[{\"a\":1,\"b\":2},{\"a\":0}]}}'", JSON, "JSON '{\"a\":[1,2,3],\"b\":{\"aa\":11,\"bb\":[{\"a\":1,\"b\":2},{\"a\":0}]}}'")
                 .addRoundTrip("json", "JSON '[]'", JSON, "JSON '[]'")
                 .execute(getQueryRunner(), postgresCreateAndInsert("postgresql_test_json"))
-                .execute(getQueryRunner(), trinoCreateAsSelect("trino_test_json"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("trino_test_json"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("trino_test_json"));
     }
 
     @Test
@@ -1563,7 +1681,8 @@ public class TestPostgreSqlTypeMapping
                 .addRoundTrip("uuid", "UUID '00000000-0000-0000-0000-000000000000'", UUID, "UUID '00000000-0000-0000-0000-000000000000'")
                 .addRoundTrip("uuid", "UUID '123e4567-e89b-12d3-a456-426655440000'", UUID, "UUID '123e4567-e89b-12d3-a456-426655440000'")
                 .execute(getQueryRunner(), postgresCreateAndInsert("postgresql_test_uuid"))
-                .execute(getQueryRunner(), trinoCreateAsSelect("trino_test_uuid"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("trino_test_uuid"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("trino_test_uuid"));
     }
 
     @Test
@@ -1769,6 +1888,11 @@ public class TestPostgreSqlTypeMapping
         return new CreateAsSelectDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
     }
 
+    private DataSetup trinoCreateAndInsert(String tableNamePrefix)
+    {
+        return trinoCreateAndInsert(getSession(), tableNamePrefix);
+    }
+
     private DataSetup trinoCreateAndInsert(Session session, String tableNamePrefix)
     {
         return new CreateAndInsertDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
@@ -1797,5 +1921,12 @@ public class TestPostgreSqlTypeMapping
     private static void checkIsDoubled(ZoneId zone, LocalDateTime dateTime)
     {
         verify(zone.getRules().getValidOffsets(dateTime).size() == 2, "Expected %s to be doubled in %s", dateTime, zone);
+    }
+
+    private void assertPostgreSqlQueryFails(@Language("SQL") String sql, String expectedMessage)
+    {
+        assertThatThrownBy(() -> postgreSqlServer.execute(sql))
+                .getCause()
+                .hasMessageContaining(expectedMessage);
     }
 }
