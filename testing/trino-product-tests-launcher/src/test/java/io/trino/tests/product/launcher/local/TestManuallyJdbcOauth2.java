@@ -58,7 +58,6 @@ public class TestManuallyJdbcOauth2
             throws SQLException
     {
         Properties properties = new Properties();
-        properties.setProperty("user", "test");
         String jdbcUrl = format("jdbc:trino://presto-master:7778?"
                 + "SSL=true&"
                 + "SSLTrustStorePath=%s&"
