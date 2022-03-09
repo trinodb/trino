@@ -90,7 +90,7 @@ public final class ConnectorExpressionTranslator
     public static Expression translate(Session session, ConnectorExpression expression, PlannerContext plannerContext, Map<String, Symbol> variableMappings, LiteralEncoder literalEncoder)
     {
         return new ConnectorToSqlExpressionTranslator(session, plannerContext, literalEncoder, variableMappings)
-                .translate(session, expression)
+                .translate(expression)
                 .orElseThrow(() -> new UnsupportedOperationException("Expression is not supported: " + expression.toString()));
     }
 
@@ -137,7 +137,7 @@ public final class ConnectorExpressionTranslator
             this.variableMappings = requireNonNull(variableMappings, "variableMappings is null");
         }
 
-        public Optional<Expression> translate(Session session, ConnectorExpression expression)
+        public Optional<Expression> translate(ConnectorExpression expression)
         {
             if (expression instanceof Variable) {
                 String name = ((Variable) expression).getName();
@@ -150,7 +150,7 @@ public final class ConnectorExpressionTranslator
 
             if (expression instanceof FieldDereference) {
                 FieldDereference dereference = (FieldDereference) expression;
-                return translate(session, dereference.getTarget())
+                return translate(dereference.getTarget())
                         .map(base -> new SubscriptExpression(base, new LongLiteral(Long.toString(dereference.getField() + 1))));
             }
 
@@ -212,7 +212,7 @@ public final class ConnectorExpressionTranslator
         {
             ImmutableList.Builder<Expression> translatedArguments = ImmutableList.builderWithExpectedSize(arguments.size());
             for (ConnectorExpression argument : arguments) {
-                Optional<Expression> translated = translate(session, argument);
+                Optional<Expression> translated = translate(argument);
                 if (translated.isEmpty()) {
                     return Optional.empty();
                 }
@@ -223,8 +223,8 @@ public final class ConnectorExpressionTranslator
 
         private Optional<Expression> translateComparison(ComparisonExpression.Operator operator, ConnectorExpression left, ConnectorExpression right)
         {
-            return translate(session, left).flatMap(leftTranslated ->
-                    translate(session, right).map(rightTranslated ->
+            return translate(left).flatMap(leftTranslated ->
+                    translate(right).map(rightTranslated ->
                             new ComparisonExpression(operator, leftTranslated, rightTranslated)));
         }
 
@@ -256,12 +256,12 @@ public final class ConnectorExpressionTranslator
 
         protected Optional<Expression> translateLike(ConnectorExpression value, ConnectorExpression pattern, Optional<ConnectorExpression> escape)
         {
-            Optional<Expression> translatedValue = translate(session, value);
-            Optional<Expression> translatedPattern = translate(session, pattern);
+            Optional<Expression> translatedValue = translate(value);
+            Optional<Expression> translatedPattern = translate(pattern);
 
             if (translatedValue.isPresent() && translatedPattern.isPresent()) {
                 if (escape.isPresent()) {
-                    Optional<Expression> translatedEscape = translate(session, escape.get());
+                    Optional<Expression> translatedEscape = translate(escape.get());
                     if (translatedEscape.isEmpty()) {
                         return Optional.empty();
                     }
