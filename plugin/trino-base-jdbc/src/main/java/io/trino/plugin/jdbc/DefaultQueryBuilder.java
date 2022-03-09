@@ -40,6 +40,8 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.math.IntMath.ceilingPowerOfTwo;
+import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.getDomainCompactionThreshold;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
 import static java.util.stream.Collectors.joining;
@@ -357,11 +359,7 @@ public class DefaultQueryBuilder
             disjuncts.add(toPredicate(client, session, column, jdbcType, type, writeFunction, "=", getOnlyElement(singleValues), accumulator));
         }
         else if (singleValues.size() > 1) {
-            for (Object value : singleValues) {
-                accumulator.accept(new QueryParameter(jdbcType, type, Optional.of(value)));
-            }
-            String values = Joiner.on(",").join(nCopies(singleValues.size(), writeFunction.getBindExpression()));
-            disjuncts.add(client.quoted(column.getColumnName()) + " IN (" + values + ")");
+            disjuncts.add(toPredicate(client, session, column, jdbcType, type, writeFunction, singleValues, accumulator));
         }
 
         checkState(!disjuncts.isEmpty());
@@ -375,6 +373,32 @@ public class DefaultQueryBuilder
     {
         accumulator.accept(new QueryParameter(jdbcType, type, Optional.of(value)));
         return format("%s %s %s", client.quoted(column.getColumnName()), operator, writeFunction.getBindExpression());
+    }
+
+    protected String toPredicate(JdbcClient client, ConnectorSession session, JdbcColumnHandle column, JdbcTypeHandle jdbcType, Type type, WriteFunction writeFunction, List<Object> values, Consumer<QueryParameter> accumulator)
+    {
+        int normalizedLength = normalizedInListLength(session, values.size());
+        for (Object value : values) {
+            accumulator.accept(new QueryParameter(jdbcType, type, Optional.of(value)));
+        }
+
+        int repeatedLastValues = normalizedLength - values.size();
+        Object lastValue = values.get(values.size() - 1);
+        for (int i = 0; i < repeatedLastValues; i++) {
+            accumulator.accept(new QueryParameter(jdbcType, type, Optional.of(lastValue)));
+        }
+
+        String expression = Joiner.on(",").join(nCopies(normalizedLength, writeFunction.getBindExpression()));
+        return client.quoted(column.getColumnName()) + " IN (" + expression + ")";
+    }
+
+    protected int normalizedInListLength(ConnectorSession session, int elementsCount)
+    {
+        int normalizedLength = ceilingPowerOfTwo(elementsCount);
+        if (normalizedLength > getDomainCompactionThreshold(session)) {
+            return elementsCount;
+        }
+        return normalizedLength;
     }
 
     protected String getGroupBy(JdbcClient client, Optional<List<List<JdbcColumnHandle>>> groupingSets)

@@ -46,11 +46,13 @@ import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 import java.util.stream.LongStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -261,7 +263,7 @@ public class TestDefaultJdbcQueryBuilder
     {
         TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.<ColumnHandle, Domain>builder()
                 // complement of a Domain with null not allowed
-                .put(columns.get(0), Domain.create(ValueSet.of(BIGINT, 128L, 180L, 233L), false).complement())
+                .put(columns.get(0), Domain.create(ValueSet.of(BIGINT, 128L, 180L, 233L, 234L), false).complement())
                 // complement of a Domain with null allowed
                 .put(columns.get(1), Domain.create(ValueSet.of(DOUBLE, 200011.0, 200014.0, 200017.0), true).complement())
                 // this is here only to limit the list of results being read
@@ -284,8 +286,8 @@ public class TestDefaultJdbcQueryBuilder
             assertThat(preparedQuery.getQuery()).isEqualTo("" +
                     "SELECT \"col_0\", \"col_3\", \"col_9\" " +
                     "FROM \"test_table\" " +
-                    "WHERE (NOT (\"col_0\" IN (?,?,?)) OR \"col_0\" IS NULL) " +
-                    "AND NOT (\"col_1\" IN (?,?,?)) " +
+                    "WHERE (NOT (\"col_0\" IN (?,?,?,?)) OR \"col_0\" IS NULL) " +
+                    "AND NOT (\"col_1\" IN (?,?,?,?)) " +
                     "AND \"col_9\" >= ?");
             ImmutableSet.Builder<Long> builder = ImmutableSet.builder();
             try (ResultSet resultSet = preparedStatement.executeQuery()) {
@@ -294,6 +296,92 @@ public class TestDefaultJdbcQueryBuilder
                 }
             }
             assertEquals(builder.build(), LongStream.range(980, 1000).boxed().collect(toImmutableList()));
+        }
+    }
+
+    @Test
+    public void testBuildSqlWithNormalizedInExceedingDomainCompactionThreshold()
+            throws SQLException
+    {
+        TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.<ColumnHandle, Domain>builder()
+                // normalized domain size to next power of two exceeds compaction threshold
+                .put(columns.get(0), Domain.create(ValueSet.of(BIGINT, 0L, 1L, 2L, 3L, 4L, 5L), false))
+                .buildOrThrow());
+
+        TestingConnectorSession session = TestingConnectorSession.builder()
+                .setPropertyMetadata(new JdbcMetadataSessionProperties(new JdbcMetadataConfig().setDomainCompactionThreshold(6), Optional.empty()).getSessionProperties())
+                .build();
+
+        Connection connection = database.getConnection();
+        PreparedQuery preparedQuery = queryBuilder.prepareSelectQuery(
+                jdbcClient,
+                session,
+                connection,
+                TEST_TABLE,
+                Optional.empty(),
+                List.of(columns.get(0)),
+                Map.of(),
+                tupleDomain,
+                Optional.empty());
+
+        assertThat(preparedQuery.getParameters())
+                .hasSize(6)
+                .containsExactly(queryParameters(columns.get(0), 0L, 1L, 2L, 3L, 4L, 5L));
+
+        try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(jdbcClient, SESSION, connection, preparedQuery)) {
+            assertThat(preparedQuery.getQuery()).isEqualTo("" +
+                    "SELECT \"col_0\" FROM \"test_table\" " +
+                    "WHERE \"col_0\" IN " +
+                    "(?,?,?,?,?,?)");
+
+            ImmutableSet.Builder<Long> builder = ImmutableSet.builder();
+            try (ResultSet resultSet = preparedStatement.executeQuery()) {
+                while (resultSet.next()) {
+                    builder.add((Long) resultSet.getObject("col_0"));
+                }
+            }
+            assertEquals(builder.build(), LongStream.range(0, 6).boxed().collect(toImmutableList()));
+        }
+    }
+
+    @Test
+    public void testBuildSqlWithNormalizedIn()
+            throws SQLException
+    {
+        TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.<ColumnHandle, Domain>builder()
+                // normalized domain size to next power of two exceeds compaction threshold
+                .put(columns.get(0), Domain.create(ValueSet.of(BIGINT, 0L, 1L, 2L, 3L, 4L, 5L), false))
+                .buildOrThrow());
+
+        Connection connection = database.getConnection();
+        PreparedQuery preparedQuery = queryBuilder.prepareSelectQuery(
+                jdbcClient,
+                SESSION,
+                connection,
+                TEST_TABLE,
+                Optional.empty(),
+                List.of(columns.get(0)),
+                Map.of(),
+                tupleDomain,
+                Optional.empty());
+
+        assertThat(preparedQuery.getParameters())
+                .hasSize(8)
+                .containsExactly(queryParameters(columns.get(0), 0L, 1L, 2L, 3L, 4L, 5L, 5L, 5L));
+
+        try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(jdbcClient, SESSION, connection, preparedQuery)) {
+            assertThat(preparedQuery.getQuery()).isEqualTo("" +
+                    "SELECT \"col_0\" FROM \"test_table\" " +
+                    "WHERE \"col_0\" IN " +
+                    "(?,?,?,?,?,?,?,?)");
+
+            ImmutableSet.Builder<Long> builder = ImmutableSet.builder();
+            try (ResultSet resultSet = preparedStatement.executeQuery()) {
+                while (resultSet.next()) {
+                    builder.add((Long) resultSet.getObject("col_0"));
+                }
+            }
+            assertEquals(builder.build(), LongStream.range(0, 6).boxed().collect(toImmutableList()));
         }
     }
 
@@ -317,7 +405,7 @@ public class TestDefaultJdbcQueryBuilder
                     "SELECT \"col_0\", \"col_1\", \"col_2\", \"col_3\", \"col_4\", \"col_5\", " +
                     "\"col_6\", \"col_7\", \"col_8\", \"col_9\", \"col_10\", \"col_11\" " +
                     "FROM \"test_table\" " +
-                    "WHERE \"col_10\" IN (?,?,?)");
+                    "WHERE \"col_10\" IN (?,?,?,?)");
             ImmutableSet.Builder<Long> longBuilder = ImmutableSet.builder();
             ImmutableSet.Builder<Float> floatBuilder = ImmutableSet.builder();
             try (ResultSet resultSet = preparedStatement.executeQuery()) {
@@ -656,6 +744,13 @@ public class TestDefaultJdbcQueryBuilder
     private static long toPrestoTimestamp(int year, int month, int day, int hour, int minute, int second)
     {
         return sqlTimestampOf(3, year, month, day, hour, minute, second, 0).getMillis() * MICROSECONDS_PER_MILLISECOND;
+    }
+
+    private static QueryParameter[] queryParameters(JdbcColumnHandle handle, long... values)
+    {
+        return Arrays.stream(values).boxed().map(value -> new QueryParameter(handle.getJdbcTypeHandle(), handle.getColumnType(), Optional.of(value)))
+                .collect(Collectors.toList())
+                .toArray(QueryParameter[]::new);
     }
 
     private static Timestamp toTimestamp(int year, int month, int day, int hour, int minute, int second)
