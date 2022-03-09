@@ -149,7 +149,9 @@ public class ArrayBlock
     {
         consumer.accept(values, values.getRetainedSizeInBytes());
         consumer.accept(offsets, sizeOf(offsets));
-        consumer.accept(valueIsNull, sizeOf(valueIsNull));
+        if (valueIsNull != null) {
+            consumer.accept(valueIsNull, sizeOf(valueIsNull));
+        }
         consumer.accept(this, (long) INSTANCE_SIZE);
     }
 
