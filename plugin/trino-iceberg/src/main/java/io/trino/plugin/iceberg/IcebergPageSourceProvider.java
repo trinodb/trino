@@ -145,10 +145,8 @@ import static io.trino.plugin.iceberg.IcebergSessionProperties.isUseFileSizeFrom
 import static io.trino.plugin.iceberg.IcebergSplitManager.ICEBERG_DOMAIN_COMPACTION_THRESHOLD;
 import static io.trino.plugin.iceberg.IcebergUtil.deserializePartitionValue;
 import static io.trino.plugin.iceberg.IcebergUtil.getColumns;
-import static io.trino.plugin.iceberg.IcebergUtil.getFileFormat;
 import static io.trino.plugin.iceberg.TypeConverter.ICEBERG_BINARY_TYPE;
 import static io.trino.plugin.iceberg.TypeConverter.ORC_ICEBERG_ID_KEY;
-import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -243,10 +241,6 @@ public class IcebergPageSourceProvider
         for (int idx = 0; idx < queriedColumns.size(); idx++) {
             IcebergColumnHandle column = queriedColumns.get(idx);
             if (column.isTrinoRowIdColumn()) {
-                // TODO: it's a bit late to fail here, but failing earlier would cause metadata delete to also fail
-                if (IcebergFileFormat.ORC == getFileFormat(table.getTable())) {
-                    throw new TrinoException(GENERIC_USER_ERROR, "Row level delete and update are not supported for ORC type");
-                }
                 isDeleteOrUpdateQuery = true;
                 queriedColumnPrefillValues[idx] = null;
                 queriedColumnFileReadChannels[idx] = -2; // use -2 to indicate $rowid column
@@ -583,6 +577,9 @@ public class IcebergPageSourceProvider
                             predicateBuilder.addColumn(predicateOrcColumn.getColumnId(), domainEntry.getValue());
                         }
                     }
+                }
+                else if (column.getBaseColumnIdentity().getId() == ROW_POSITION.fieldId() && column.getBaseColumnIdentity().getName().equals(ROW_POSITION.name())) {
+                    columnAdaptations.add(ColumnAdaptation.positionColumn());
                 }
                 else {
                     columnAdaptations.add(ColumnAdaptation.nullColumn(column.getType()));
@@ -942,6 +939,7 @@ public class IcebergPageSourceProvider
 
     /**
      * Create a new NameMapping with the same names but converted to lowercase.
+     *
      * @param nameMapping The original NameMapping, potentially containing non-lowercase characters
      */
     private static NameMapping convertToLowercase(NameMapping nameMapping)

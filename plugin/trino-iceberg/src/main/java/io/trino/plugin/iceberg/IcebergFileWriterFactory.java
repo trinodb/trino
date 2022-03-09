@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableMap;
+import io.airlift.units.DataSize;
 import io.trino.orc.OrcDataSink;
 import io.trino.orc.OrcDataSource;
 import io.trino.orc.OrcDataSourceId;
@@ -115,12 +116,26 @@ public class IcebergFileWriterFactory
             MetricsConfig metricsConfig,
             FileContent fileContent)
     {
+        return createFileWriter(outputPath, icebergSchema, jobConf, session, hdfsContext, fileFormat, metricsConfig, fileContent, Optional.empty());
+    }
+
+    public IcebergFileWriter createFileWriter(
+            Path outputPath,
+            Schema icebergSchema,
+            JobConf jobConf,
+            ConnectorSession session,
+            HdfsContext hdfsContext,
+            IcebergFileFormat fileFormat,
+            MetricsConfig metricsConfig,
+            FileContent fileContent,
+            Optional<DataSize> maxStringStatisticsLimit)
+    {
         switch (fileFormat) {
             case PARQUET:
                 // TODO use metricsConfig
                 return createParquetWriter(outputPath, icebergSchema, jobConf, session, hdfsContext, fileContent);
             case ORC:
-                return createOrcWriter(metricsConfig, outputPath, icebergSchema, jobConf, session);
+                return createOrcWriter(metricsConfig, outputPath, icebergSchema, jobConf, session, maxStringStatisticsLimit);
             default:
                 throw new TrinoException(NOT_SUPPORTED, "File format not supported for Iceberg: " + fileFormat);
         }
@@ -180,7 +195,8 @@ public class IcebergFileWriterFactory
             Path outputPath,
             Schema icebergSchema,
             JobConf jobConf,
-            ConnectorSession session)
+            ConnectorSession session,
+            Optional<DataSize> maxStringStatisticsLimit)
     {
         try {
             FileSystem fileSystem = hdfsEnvironment.getFileSystem(session.getIdentity(), outputPath, jobConf);
@@ -230,7 +246,7 @@ public class IcebergFileWriterFactory
                             .withStripeMaxSize(getOrcWriterMaxStripeSize(session))
                             .withStripeMaxRowCount(getOrcWriterMaxStripeRows(session))
                             .withDictionaryMaxMemory(getOrcWriterMaxDictionaryMemory(session))
-                            .withMaxStringStatisticsLimit(getOrcStringStatisticsLimit(session)),
+                            .withMaxStringStatisticsLimit(maxStringStatisticsLimit.orElse(getOrcStringStatisticsLimit(session))),
                     IntStream.range(0, fileColumnNames.size()).toArray(),
                     ImmutableMap.<String, String>builder()
                             .put(PRESTO_VERSION_NAME, nodeVersion.toString())

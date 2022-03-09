@@ -16,6 +16,7 @@ package io.trino.plugin.iceberg.delete;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
+import io.airlift.units.DataSize;
 import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.trino.plugin.iceberg.CommitTaskData;
@@ -45,6 +46,7 @@ import static io.trino.plugin.hive.util.ConfigurationUtils.toJobConf;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.iceberg.TableProperties.DEFAULT_WRITE_METRICS_MODE;
 import static org.apache.iceberg.io.DeleteSchemaUtil.pathPosSchema;
 
 public class IcebergPositionDeletePageSink
@@ -86,8 +88,9 @@ public class IcebergPositionDeletePageSink
                 session,
                 hdfsContext,
                 fileFormat,
-                MetricsConfig.fromProperties(ImmutableMap.of()), // TODO: Need a real one?
-                FileContent.POSITION_DELETES);
+                MetricsConfig.fromProperties(ImmutableMap.of(DEFAULT_WRITE_METRICS_MODE, "full")), // TODO: Need a real one?
+                FileContent.POSITION_DELETES,
+                Optional.of(DataSize.of(512, DataSize.Unit.BYTE)));
     }
 
     @Override

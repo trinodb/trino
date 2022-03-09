@@ -65,6 +65,7 @@ public class TestIcebergParquetConnectorTest
     }
 
     @Override
+
     protected Session withSmallRowGroups(Session session)
     {
         return Session.builder(session)

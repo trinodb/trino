@@ -177,14 +177,14 @@ public class OrcPageSource
         MaskDeletedRowsFunction maskDeletedRowsFunction = deletedRows
                 .map(deletedRows -> deletedRows.getMaskDeletedRowsFunction(page, startRowId))
                 .orElseGet(() -> MaskDeletedRowsFunction.noMaskForPage(page));
-        return getColumnAdaptationsPage(page, maskDeletedRowsFunction, recordReader.getFilePosition());
+        return getColumnAdaptationsPage(page, maskDeletedRowsFunction, recordReader.getFilePosition(), startRowId);
     }
 
-    private Page getColumnAdaptationsPage(Page page, MaskDeletedRowsFunction maskDeletedRowsFunction, long filePosition)
+    private Page getColumnAdaptationsPage(Page page, MaskDeletedRowsFunction maskDeletedRowsFunction, long filePosition, OptionalLong startRowId)
     {
         Block[] blocks = new Block[columnAdaptations.size()];
         for (int i = 0; i < columnAdaptations.size(); i++) {
-            blocks[i] = columnAdaptations.get(i).block(page, maskDeletedRowsFunction, filePosition);
+            blocks[i] = columnAdaptations.get(i).block(page, maskDeletedRowsFunction, filePosition, startRowId);
         }
         return new Page(maskDeletedRowsFunction.getPositionCount(), blocks);
     }
@@ -247,7 +247,7 @@ public class OrcPageSource
 
     public interface ColumnAdaptation
     {
-        Block block(Page sourcePage, MaskDeletedRowsFunction maskDeletedRowsFunction, long filePosition);
+        Block block(Page sourcePage, MaskDeletedRowsFunction maskDeletedRowsFunction, long filePosition, OptionalLong startRowId);
 
         static ColumnAdaptation nullColumn(Type type)
         {
@@ -267,6 +267,11 @@ public class OrcPageSource
         static ColumnAdaptation originalFileRowIdColumn(long startingRowId, int bucketId)
         {
             return new OriginalFileRowIdAdaptation(startingRowId, bucketId);
+        }
+
+        static ColumnAdaptation positionColumn()
+        {
+            return new PositionAdaptation();
         }
 
         static ColumnAdaptation updatedRowColumnsWithOriginalFiles(long startingRowId, int bucketId, HiveUpdateProcessor updateProcessor, List<HiveColumnHandle> dependencyColumns)
@@ -295,7 +300,7 @@ public class OrcPageSource
         }
 
         @Override
-        public Block block(Page sourcePage, MaskDeletedRowsFunction maskDeletedRowsFunction, long filePosition)
+        public Block block(Page sourcePage, MaskDeletedRowsFunction maskDeletedRowsFunction, long filePosition, OptionalLong startRowId)
         {
             return new RunLengthEncodedBlock(nullBlock, maskDeletedRowsFunction.getPositionCount());
         }
@@ -321,7 +326,7 @@ public class OrcPageSource
         }
 
         @Override
-        public Block block(Page sourcePage, MaskDeletedRowsFunction maskDeletedRowsFunction, long filePosition)
+        public Block block(Page sourcePage, MaskDeletedRowsFunction maskDeletedRowsFunction, long filePosition, OptionalLong startRowId)
         {
             Block block = sourcePage.getBlock(index);
             return new LazyBlock(maskDeletedRowsFunction.getPositionCount(), new MaskingBlockLoader(maskDeletedRowsFunction, block));
@@ -366,7 +371,7 @@ public class OrcPageSource
             implements ColumnAdaptation
     {
         @Override
-        public Block block(Page sourcePage, MaskDeletedRowsFunction maskDeletedRowsFunction, long filePosition)
+        public Block block(Page sourcePage, MaskDeletedRowsFunction maskDeletedRowsFunction, long filePosition, OptionalLong startRowId)
         {
             Block rowBlock = maskDeletedRowsFunction.apply(fromFieldBlocks(
                     sourcePage.getPositionCount(),
@@ -398,7 +403,7 @@ public class OrcPageSource
         }
 
         @Override
-        public Block block(Page sourcePage, MaskDeletedRowsFunction maskDeletedRowsFunction, long filePosition)
+        public Block block(Page sourcePage, MaskDeletedRowsFunction maskDeletedRowsFunction, long filePosition, OptionalLong startRowId)
         {
             return updateProcessor.createUpdateRowBlock(sourcePage, nonUpdatedSourceChannels, maskDeletedRowsFunction);
         }
@@ -428,7 +433,7 @@ public class OrcPageSource
         }
 
         @Override
-        public Block block(Page sourcePage, MaskDeletedRowsFunction maskDeletedRowsFunction, long filePosition)
+        public Block block(Page sourcePage, MaskDeletedRowsFunction maskDeletedRowsFunction, long filePosition, OptionalLong startRowId)
         {
             int positionCount = sourcePage.getPositionCount();
             ImmutableList.Builder<Block> originalFilesBlockBuilder = ImmutableList.builder();
@@ -439,7 +444,7 @@ public class OrcPageSource
             for (int channel = 0; channel < sourcePage.getChannelCount(); channel++) {
                 originalFilesBlockBuilder.add(sourcePage.getBlock(channel));
             }
-            Page page = new Page(originalFilesBlockBuilder.build().toArray(new Block[]{}));
+            Page page = new Page(originalFilesBlockBuilder.build().toArray(new Block[] {}));
             return updateProcessor.createUpdateRowBlock(page, nonUpdatedSourceChannels, maskDeletedRowsFunction);
         }
     }
@@ -457,7 +462,7 @@ public class OrcPageSource
         }
 
         @Override
-        public Block block(Page sourcePage, MaskDeletedRowsFunction maskDeletedRowsFunction, long filePosition)
+        public Block block(Page sourcePage, MaskDeletedRowsFunction maskDeletedRowsFunction, long filePosition, OptionalLong startRowId)
         {
             int positionCount = sourcePage.getPositionCount();
             Block rowBlock = maskDeletedRowsFunction.apply(fromFieldBlocks(
@@ -468,6 +473,17 @@ public class OrcPageSource
                             new RunLengthEncodedBlock(bucketBlock, positionCount),
                             createOriginalFilesRowIdBlock(startingRowId, filePosition, positionCount)
                     }));
+            return rowBlock;
+        }
+    }
+
+    private static class PositionAdaptation
+            implements ColumnAdaptation
+    {
+        @Override
+        public Block block(Page sourcePage, MaskDeletedRowsFunction maskDeletedRowsFunction, long filePosition, OptionalLong startRowId)
+        {
+            Block rowBlock = createOriginalFilesRowIdBlock(startRowId.orElse(0), filePosition, sourcePage.getPositionCount());
             return rowBlock;
         }
     }

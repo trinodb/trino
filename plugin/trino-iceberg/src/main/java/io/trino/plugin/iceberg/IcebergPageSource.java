@@ -194,6 +194,7 @@ public class IcebergPageSource
             int[] positionsToKeep = StreamSupport.stream(filteredRows.spliterator(), false).mapToInt(TrinoRow::getPosition).toArray();
             return outputPage.getPositions(positionsToKeep, 0, positionsToKeep.length);
         }
+
         catch (RuntimeException e) {
             closeWithSuppression(e);
             throwIfInstanceOf(e, TrinoException.class);
