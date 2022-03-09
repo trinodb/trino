@@ -40,7 +40,6 @@ public class IntArrayBlock
     private final boolean[] valueIsNull;
     private final int[] values;
 
-    private final long sizeInBytes;
     private final long retainedSizeInBytes;
 
     public IntArrayBlock(int positionCount, Optional<boolean[]> valueIsNull, int[] values)
@@ -69,7 +68,6 @@ public class IntArrayBlock
         }
         this.valueIsNull = valueIsNull;
 
-        sizeInBytes = SIZE_IN_BYTES_PER_POSITION * (long) positionCount;
         retainedSizeInBytes = INSTANCE_SIZE + sizeOf(valueIsNull) + sizeOf(values);
     }
 
@@ -82,7 +80,7 @@ public class IntArrayBlock
     @Override
     public long getSizeInBytes()
     {
-        return sizeInBytes;
+        return SIZE_IN_BYTES_PER_POSITION * (long) positionCount;
     }
 
     @Override

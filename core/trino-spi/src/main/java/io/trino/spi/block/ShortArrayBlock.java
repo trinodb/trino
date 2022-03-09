@@ -40,7 +40,6 @@ public class ShortArrayBlock
     private final boolean[] valueIsNull;
     private final short[] values;
 
-    private final long sizeInBytes;
     private final long retainedSizeInBytes;
 
     public ShortArrayBlock(int positionCount, Optional<boolean[]> valueIsNull, short[] values)
@@ -69,7 +68,6 @@ public class ShortArrayBlock
         }
         this.valueIsNull = valueIsNull;
 
-        sizeInBytes = SIZE_IN_BYTES_PER_POSITION * (long) positionCount;
         retainedSizeInBytes = INSTANCE_SIZE + sizeOf(valueIsNull) + sizeOf(values);
     }
 
@@ -82,7 +80,7 @@ public class ShortArrayBlock
     @Override
     public long getSizeInBytes()
     {
-        return sizeInBytes;
+        return SIZE_IN_BYTES_PER_POSITION * (long) positionCount;
     }
 
     @Override
