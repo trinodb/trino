@@ -28,6 +28,7 @@ import io.trino.testing.datatype.SqlDataTypeTest;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TrinoSqlExecutor;
+import org.intellij.lang.annotations.Language;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -67,6 +68,7 @@ import static java.math.RoundingMode.HALF_UP;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.time.ZoneOffset.UTC;
 import static java.util.Arrays.asList;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestMySqlTypeMapping
         extends AbstractTestQueryFramework
@@ -99,19 +101,6 @@ public class TestMySqlTypeMapping
     }
 
     @Test
-    public void testBasicTypes()
-    {
-        SqlDataTypeTest.create()
-                .addRoundTrip("bigint", "123456789012", BIGINT, "123456789012")
-                .addRoundTrip("integer", "1234567890", INTEGER, "1234567890")
-                .addRoundTrip("smallint", "32456", SMALLINT, "SMALLINT '32456'")
-                .addRoundTrip("tinyint", "125", TINYINT, "TINYINT '125'")
-                .addRoundTrip("double", "123.45", DOUBLE, "DOUBLE '123.45'")
-                .addRoundTrip("real", "123.45", REAL, "REAL '123.45'")
-                .execute(getQueryRunner(), trinoCreateAsSelect("test_basic_types"));
-    }
-
-    @Test
     public void testBit()
     {
         SqlDataTypeTest.create()
@@ -129,7 +118,117 @@ public class TestMySqlTypeMapping
                 .addRoundTrip("boolean", "false", TINYINT, "TINYINT '0'")
                 .addRoundTrip("boolean", "NULL", TINYINT, "CAST(NULL AS TINYINT)")
                 .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.test_boolean"))
-                .execute(getQueryRunner(), trinoCreateAsSelect("tpch.test_boolean"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_boolean"));
+
+        SqlDataTypeTest.create()
+                .addRoundTrip("boolean", "1", TINYINT, "TINYINT '1'")
+                .addRoundTrip("boolean", "0", TINYINT, "TINYINT '0'")
+                .addRoundTrip("boolean", "NULL", TINYINT, "CAST(NULL AS TINYINT)")
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_boolean"));
+    }
+
+    @Test
+    public void testTinyint()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("tinyint", "NULL", TINYINT, "CAST(NULL AS TINYINT)")
+                .addRoundTrip("tinyint", "-128", TINYINT, "TINYINT '-128'") // min value in MySQL and Trino
+                .addRoundTrip("tinyint", "5", TINYINT, "TINYINT '5'")
+                .addRoundTrip("tinyint", "127", TINYINT, "TINYINT '127'") // max value in MySQL and Trino
+                .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.test_tinyint"))
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_tinyint"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_tinyint"));
+    }
+
+    @Test
+    public void testUnsupportedTinyint()
+    {
+        try (TestTable table = new TestTable(mySqlServer::execute, "tpch.test_unsupported_tinyint", "(data tinyint)")) {
+            assertMySqlQueryFails(
+                    format("INSERT INTO %s VALUES (-129)", table.getName()), // min - 1
+                    "Data truncation: Out of range value for column 'data' at row 1");
+            assertMySqlQueryFails(
+                    format("INSERT INTO %s VALUES (128)", table.getName()), // max + 1
+                    "Data truncation: Out of range value for column 'data' at row 1");
+        }
+    }
+
+    @Test
+    public void testSmallint()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("smallint", "NULL", SMALLINT, "CAST(NULL AS SMALLINT)")
+                .addRoundTrip("smallint", "-32768", SMALLINT, "SMALLINT '-32768'") // min value in MySQL and Trino
+                .addRoundTrip("smallint", "32456", SMALLINT, "SMALLINT '32456'")
+                .addRoundTrip("smallint", "32767", SMALLINT, "SMALLINT '32767'") // max value in MySQL and Trino
+                .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.test_smallint"))
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_smallint"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_smallint"));
+    }
+
+    @Test
+    public void testUnsupportedSmallint()
+    {
+        try (TestTable table = new TestTable(mySqlServer::execute, "tpch.test_unsupported_smallint", "(data smallint)")) {
+            assertMySqlQueryFails(
+                    format("INSERT INTO %s VALUES (-32769)", table.getName()), // min - 1
+                    "Data truncation: Out of range value for column 'data' at row 1");
+            assertMySqlQueryFails(
+                    format("INSERT INTO %s VALUES (32768)", table.getName()), // max + 1
+                    "Data truncation: Out of range value for column 'data' at row 1");
+        }
+    }
+
+    @Test
+    public void testInteger()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("integer", "NULL", INTEGER, "CAST(NULL AS INTEGER)")
+                .addRoundTrip("integer", "-2147483648", INTEGER, "-2147483648") // min value in MySQL and Trino
+                .addRoundTrip("integer", "1234567890", INTEGER, "1234567890")
+                .addRoundTrip("integer", "2147483647", INTEGER, "2147483647") // max value in MySQL and Trino
+                .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.test_int"))
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_int"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_int"));
+    }
+
+    @Test
+    public void testUnsupportedInteger()
+    {
+        try (TestTable table = new TestTable(mySqlServer::execute, "tpch.test_unsupported_integer", "(data integer)")) {
+            assertMySqlQueryFails(
+                    format("INSERT INTO %s VALUES (-2147483649)", table.getName()), // min - 1
+                    "Data truncation: Out of range value for column 'data' at row 1");
+            assertMySqlQueryFails(
+                    format("INSERT INTO %s VALUES (2147483648)", table.getName()), // max + 1
+                    "Data truncation: Out of range value for column 'data' at row 1");
+        }
+    }
+
+    @Test
+    public void testBigint()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("bigint", "NULL", BIGINT, "CAST(NULL AS BIGINT)")
+                .addRoundTrip("bigint", "-9223372036854775808", BIGINT, "-9223372036854775808") // min value in MySQL and Trino
+                .addRoundTrip("bigint", "123456789012", BIGINT, "123456789012")
+                .addRoundTrip("bigint", "9223372036854775807", BIGINT, "9223372036854775807") // max value in MySQL and Trino
+                .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.test_bigint"))
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_bigint"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_bigint"));
+    }
+
+    @Test
+    public void testUnsupportedBigint()
+    {
+        try (TestTable table = new TestTable(mySqlServer::execute, "tpch.test_unsupported_bigint", "(data bigint)")) {
+            assertMySqlQueryFails(
+                    format("INSERT INTO %s VALUES (-9223372036854775809)", table.getName()), // min - 1
+                    "Data truncation: Out of range value for column 'data' at row 1");
+            assertMySqlQueryFails(
+                    format("INSERT INTO %s VALUES (9223372036854775808)", table.getName()), // max + 1
+                    "Data truncation: Out of range value for column 'data' at row 1");
+        }
     }
 
     @Test
@@ -147,7 +246,8 @@ public class TestMySqlTypeMapping
                 .addRoundTrip("varchar", "'unbounded'", createUnboundedVarcharType(), "CAST('unbounded' AS varchar)")
                 .addRoundTrip("varchar(10)", "NULL", createVarcharType(255), "CAST(NULL AS varchar(255))")
                 .addRoundTrip("varchar", "NULL", createUnboundedVarcharType(), "CAST(NULL AS varchar)")
-                .execute(getQueryRunner(), trinoCreateAsSelect("trino__test_parameterized_varchar"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("trino_test_parameterized_varchar"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("trino_test_parameterized_varchar"));
     }
 
     @Test
@@ -191,6 +291,7 @@ public class TestMySqlTypeMapping
                 .addRoundTrip("char", "NULL", createCharType(1), "CAST(NULL AS char(1))")
                 .addRoundTrip("char(255)", "NULL", createCharType(255), "CAST(NULL AS char(255))")
                 .execute(getQueryRunner(), trinoCreateAsSelect("mysql_test_parameterized_char"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("mysql_test_parameterized_char"))
                 .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.mysql_test_parameterized_char"));
     }
 
@@ -227,7 +328,8 @@ public class TestMySqlTypeMapping
                 .addRoundTrip("decimal(3, 0)", "CAST(NULL AS decimal(3, 0))", createDecimalType(3, 0), "CAST(NULL AS decimal(3, 0))")
                 .addRoundTrip("decimal(38, 0)", "CAST(NULL AS decimal(38, 0))", createDecimalType(38, 0), "CAST(NULL AS decimal(38, 0))")
                 .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.test_decimal"))
-                .execute(getQueryRunner(), trinoCreateAsSelect("test_decimal"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_decimal"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_decimal"));
     }
 
     @Test
@@ -469,8 +571,9 @@ public class TestMySqlTypeMapping
                 .addRoundTrip("date", "NULL", DATE, "CAST(NULL AS DATE)")
                 .execute(getQueryRunner(), session, mysqlCreateAndInsert("tpch.test_date"))
                 .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_date"))
-                .execute(getQueryRunner(), session, trinoCreateAsSelect(getSession(), "test_date"))
-                .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_date"));
+                .execute(getQueryRunner(), session, trinoCreateAsSelect("test_date"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_date"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert("test_date"));
     }
 
     @Test(dataProvider = "sessionZonesDataProvider")
@@ -584,9 +687,9 @@ public class TestMySqlTypeMapping
                 .addRoundTrip("TIME(5)", "NULL", createTimeType(5), "CAST(NULL AS TIME(5))")
                 .addRoundTrip("TIME(6)", "NULL", createTimeType(6), "CAST(NULL AS TIME(6))")
 
-                .execute(getQueryRunner(), session, trinoCreateAsSelect("tpch.test_time"))
-                .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "tpch.test_time"))
-                .execute(getQueryRunner(), session, trinoCreateAndInsert(getSession(), "tpch.test_time"));
+                .execute(getQueryRunner(), session, trinoCreateAsSelect("test_time"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_time"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert("test_time"));
     }
 
     /**
@@ -747,8 +850,9 @@ public class TestMySqlTypeMapping
                 .addRoundTrip("timestamp(6)", "NULL", createTimestampType(6), "CAST(NULL AS TIMESTAMP(6))")
 
                 .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_timestamp"))
-                .execute(getQueryRunner(), session, trinoCreateAsSelect(getSession(), "test_timestamp"))
-                .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_timestamp"));
+                .execute(getQueryRunner(), session, trinoCreateAsSelect("test_timestamp"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_timestamp"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert("test_timestamp"));
     }
 
     /**
@@ -806,9 +910,9 @@ public class TestMySqlTypeMapping
                 .addRoundTrip("TIMESTAMP '1969-12-31 23:59:59.9999994'", "TIMESTAMP '1969-12-31 23:59:59.999999'")
 
                 // CTAS with Trino, where the coercion is done by the connector
-                .execute(getQueryRunner(), trinoCreateAsSelect(getSession(), "test_timestamp_coercion"))
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_timestamp_coercion"))
                 // INSERT with Trino, where the coercion is done by the engine
-                .execute(getQueryRunner(), trinoCreateAndInsert(getSession(), "test_timestamp_coercion"));
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_timestamp_coercion"));
     }
 
     @DataProvider
@@ -864,7 +968,8 @@ public class TestMySqlTypeMapping
                 .addRoundTrip("real", "10.3e0", REAL, "REAL '10.3e0'")
                 .addRoundTrip("real", "NULL", REAL, "CAST(NULL AS REAL)")
                 // .addRoundTrip("real", "3.1415927", REAL, "REAL '3.1415927'") // Overeagerly rounded by mysql to 3.14159
-                .execute(getQueryRunner(), trinoCreateAsSelect("trino_test_float"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("trino_test_float"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("trino_test_float"));
 
         SqlDataTypeTest.create()
                 .addRoundTrip("float", "3.14", REAL, "REAL '3.14'")
@@ -883,6 +988,7 @@ public class TestMySqlTypeMapping
                 .addRoundTrip("double", "1.23456E12", DOUBLE, "1.23456E12")
                 .addRoundTrip("double", "NULL", DOUBLE, "CAST(NULL AS DOUBLE)")
                 .execute(getQueryRunner(), trinoCreateAsSelect("trino_test_double"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("trino_test_double"))
                 .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.mysql_test_double"));
     }
 
@@ -922,6 +1028,11 @@ public class TestMySqlTypeMapping
         return new CreateAsSelectDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
     }
 
+    private DataSetup trinoCreateAndInsert(String tableNamePrefix)
+    {
+        return trinoCreateAndInsert(getSession(), tableNamePrefix);
+    }
+
     private DataSetup trinoCreateAndInsert(Session session, String tableNamePrefix)
     {
         return new CreateAndInsertDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
@@ -930,5 +1041,12 @@ public class TestMySqlTypeMapping
     private DataSetup mysqlCreateAndInsert(String tableNamePrefix)
     {
         return new CreateAndInsertDataSetup(mySqlServer::execute, tableNamePrefix);
+    }
+
+    private void assertMySqlQueryFails(@Language("SQL") String sql, String expectedMessage)
+    {
+        assertThatThrownBy(() -> mySqlServer.execute(sql))
+                .getCause()
+                .hasMessageContaining(expectedMessage);
     }
 }
