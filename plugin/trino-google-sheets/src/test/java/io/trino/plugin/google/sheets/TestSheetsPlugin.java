@@ -26,7 +26,7 @@ import java.nio.file.Files;
 import java.util.Base64;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.trino.plugin.google.sheets.TestGoogleSheets.GOOGLE_SHEETS;
+import static io.trino.plugin.google.sheets.SheetsQueryRunner.GOOGLE_SHEETS;
 import static java.io.File.createTempFile;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testng.Assert.assertNotNull;

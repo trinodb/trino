@@ -119,6 +119,13 @@
             <artifactId>validation-api</artifactId>
         </dependency>
 
+        <!-- used by tests but also needed transitively -->
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>log-manager</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
         <!-- Trino SPI -->
         <dependency>
             <groupId>io.trino</groupId>
