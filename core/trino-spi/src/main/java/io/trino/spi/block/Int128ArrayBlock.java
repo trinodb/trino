@@ -41,7 +41,6 @@ public class Int128ArrayBlock
     private final boolean[] valueIsNull;
     private final long[] values;
 
-    private final long sizeInBytes;
     private final long retainedSizeInBytes;
 
     public Int128ArrayBlock(int positionCount, Optional<boolean[]> valueIsNull, long[] values)
@@ -70,7 +69,6 @@ public class Int128ArrayBlock
         }
         this.valueIsNull = valueIsNull;
 
-        sizeInBytes = SIZE_IN_BYTES_PER_POSITION * (long) positionCount;
         retainedSizeInBytes = INSTANCE_SIZE + sizeOf(valueIsNull) + sizeOf(values);
     }
 
@@ -83,7 +81,7 @@ public class Int128ArrayBlock
     @Override
     public long getSizeInBytes()
     {
-        return sizeInBytes;
+        return SIZE_IN_BYTES_PER_POSITION * (long) positionCount;
     }
 
     @Override
