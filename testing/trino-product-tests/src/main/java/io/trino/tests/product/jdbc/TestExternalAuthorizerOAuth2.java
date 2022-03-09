@@ -40,7 +40,6 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.Properties;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
@@ -98,9 +97,7 @@ public class TestExternalAuthorizerOAuth2
             throws Exception
     {
         prepareHandler();
-        Properties properties = new Properties();
-        properties.setProperty("user", "test");
-        try (Connection connection = DriverManager.getConnection(jdbcUrl, properties);
+        try (Connection connection = DriverManager.getConnection(jdbcUrl);
                 PreparedStatement statement = connection.prepareStatement("SELECT * FROM tpch.tiny.nation");
                 ResultSet results = statement.executeQuery()) {
             assertThat(forResultSet(results)).matches(TpchTableResults.PRESTO_NATION_RESULT);
@@ -112,9 +109,7 @@ public class TestExternalAuthorizerOAuth2
             throws Exception
     {
         prepareHandler();
-        Properties properties = new Properties();
-        properties.setProperty("user", "test");
-        try (Connection connection = DriverManager.getConnection(jdbcUrl, properties);
+        try (Connection connection = DriverManager.getConnection(jdbcUrl);
                 PreparedStatement statement = connection.prepareStatement("SELECT * FROM tpch.tiny.nation");
                 ResultSet results = statement.executeQuery()) {
             assertThat(forResultSet(results)).matches(TpchTableResults.PRESTO_NATION_RESULT);
@@ -133,9 +128,7 @@ public class TestExternalAuthorizerOAuth2
             throws SQLException
     {
         prepareHandler();
-        Properties properties = new Properties();
-        properties.setProperty("user", "test");
-        try (Connection connection = DriverManager.getConnection(jdbcUrl, properties);
+        try (Connection connection = DriverManager.getConnection(jdbcUrl);
                 PreparedStatement statement = connection.prepareStatement("SELECT array_sort(current_groups())");
                 ResultSet rs = statement.executeQuery()) {
             assertThat(forResultSet(rs)).containsOnly(row(ImmutableList.of("admin", "public")));

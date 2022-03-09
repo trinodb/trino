@@ -43,6 +43,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Stream;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -84,7 +85,7 @@ class StatementClientV1
     private final AtomicBoolean clearTransactionId = new AtomicBoolean();
     private final ZoneId timeZone;
     private final Duration requestTimeoutNanos;
-    private final String user;
+    private final Optional<String> user;
     private final String clientCapabilities;
     private final boolean compressionDisabled;
 
@@ -100,7 +101,10 @@ class StatementClientV1
         this.timeZone = session.getTimeZone();
         this.query = query;
         this.requestTimeoutNanos = session.getClientRequestTimeout();
-        this.user = session.getUser().orElse(session.getPrincipal());
+        this.user = Stream.of(session.getUser(), session.getPrincipal())
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .findFirst();
         this.clientCapabilities = Joiner.on(",").join(ClientCapabilities.values());
         this.compressionDisabled = session.isCompressionDisabled();
 
@@ -310,9 +314,9 @@ class StatementClientV1
     private Request.Builder prepareRequest(HttpUrl url)
     {
         Request.Builder builder = new Request.Builder()
-                .addHeader(TRINO_HEADERS.requestUser(), user)
                 .addHeader(USER_AGENT, USER_AGENT_VALUE)
                 .url(url);
+        user.ifPresent(requestUser -> builder.addHeader(TRINO_HEADERS.requestUser(), requestUser));
         if (compressionDisabled) {
             builder.header(ACCEPT_ENCODING, "identity");
         }

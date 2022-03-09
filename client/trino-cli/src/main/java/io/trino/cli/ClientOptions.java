@@ -215,7 +215,7 @@ public class ClientOptions
     {
         return new ClientSession(
                 parseServer(server),
-                user.orElse(null),
+                user,
                 sessionUser,
                 source,
                 Optional.ofNullable(traceToken),

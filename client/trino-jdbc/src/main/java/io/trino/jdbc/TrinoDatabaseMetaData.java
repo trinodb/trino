@@ -83,7 +83,10 @@ public class TrinoDatabaseMetaData
     public String getUserName()
             throws SQLException
     {
-        return connection.getUser();
+        try (ResultSet rs = select("SELECT current_user")) {
+            rs.next();
+            return rs.getString(1);
+        }
     }
 
     @Override

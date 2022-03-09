@@ -263,6 +263,16 @@ public class TestTrinoDatabaseMetaData
     }
 
     @Test
+    public void testGetUserName()
+            throws Exception
+    {
+        try (Connection connection = createConnection()) {
+            DatabaseMetaData metaData = connection.getMetaData();
+            assertEquals(metaData.getUserName(), "admin");
+        }
+    }
+
+    @Test
     public void testGetCatalogs()
             throws Exception
     {

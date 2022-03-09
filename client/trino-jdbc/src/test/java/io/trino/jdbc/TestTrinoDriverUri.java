@@ -175,13 +175,6 @@ public class TestTrinoDriverUri
         assertInvalid("jdbc:presto://localhost:8080", "Invalid JDBC URL: jdbc:presto://localhost:8080");
     }
 
-    @Test(expectedExceptions = SQLException.class, expectedExceptionsMessageRegExp = "Connection property 'user' is required")
-    public void testRequireUser()
-            throws Exception
-    {
-        TrinoDriverUri.create("jdbc:trino://localhost:8080", new Properties());
-    }
-
     @Test(expectedExceptions = SQLException.class, expectedExceptionsMessageRegExp = "Connection property 'user' value is empty")
     public void testEmptyUser()
             throws Exception

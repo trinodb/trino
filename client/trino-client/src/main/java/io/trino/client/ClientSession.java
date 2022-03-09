@@ -34,7 +34,7 @@ import static java.util.Objects.requireNonNull;
 public class ClientSession
 {
     private final URI server;
-    private final String principal;
+    private final Optional<String> principal;
     private final Optional<String> user;
     private final String source;
     private final Optional<String> traceToken;
@@ -68,7 +68,7 @@ public class ClientSession
 
     public ClientSession(
             URI server,
-            String principal,
+            Optional<String> principal,
             Optional<String> user,
             String source,
             Optional<String> traceToken,
@@ -143,7 +143,7 @@ public class ClientSession
         return server;
     }
 
-    public String getPrincipal()
+    public Optional<String> getPrincipal()
     {
         return principal;
     }
@@ -270,7 +270,7 @@ public class ClientSession
     public static final class Builder
     {
         private URI server;
-        private String principal;
+        private Optional<String> principal;
         private Optional<String> user;
         private String source;
         private Optional<String> traceToken;

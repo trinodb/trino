@@ -86,7 +86,7 @@ public class TestUserImpersonationAccessControl
         try {
             ClientSession clientSession = new ClientSession(
                     getDistributedQueryRunner().getCoordinator().getBaseUrl(),
-                    "user",
+                    Optional.of("user"),
                     Optional.of(assumedUser),
                     "source",
                     Optional.empty(),
