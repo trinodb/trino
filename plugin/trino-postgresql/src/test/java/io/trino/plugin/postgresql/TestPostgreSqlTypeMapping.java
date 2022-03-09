@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.postgresql;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
@@ -52,15 +51,11 @@ import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.function.Function;
-import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.io.BaseEncoding.base16;
 import static io.trino.plugin.jdbc.DecimalConfig.DecimalMapping.ALLOW_OVERFLOW;
 import static io.trino.plugin.jdbc.DecimalConfig.DecimalMapping.STRICT;
@@ -97,7 +92,6 @@ import static io.trino.testing.datatype.DataType.dataType;
 import static io.trino.testing.datatype.DataType.dateDataType;
 import static io.trino.testing.datatype.DataType.decimalDataType;
 import static io.trino.testing.datatype.DataType.doubleDataType;
-import static io.trino.testing.datatype.DataType.formatStringLiteral;
 import static io.trino.testing.datatype.DataType.integerDataType;
 import static io.trino.testing.datatype.DataType.realDataType;
 import static io.trino.testing.datatype.DataType.timestampDataType;
@@ -109,7 +103,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.time.ZoneOffset.UTC;
 import static java.util.Arrays.asList;
 import static java.util.Collections.singletonList;
-import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -1674,21 +1667,25 @@ public class TestPostgreSqlTypeMapping
     @Test
     public void testHstore()
     {
-        hstoreTestCases(hstoreDataType())
-                .execute(getQueryRunner(), postgresCreateAndInsert("postgresql_test_hstore"));
-        hstoreTestCases(varcharMapDataType())
-                .execute(getQueryRunner(), postgresCreateTrinoInsert("postgresql_test_hstore"));
-    }
+        Type mapOfVarcharToVarchar = getQueryRunner().getTypeManager().getType(mapType(VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()));
 
-    private DataTypeTest hstoreTestCases(DataType<Map<String, String>> varcharMapDataType)
-    {
-        return DataTypeTest.create()
-                .addRoundTrip(varcharMapDataType, null)
-                .addRoundTrip(varcharMapDataType, ImmutableMap.of())
-                .addRoundTrip(varcharMapDataType, ImmutableMap.of("key1", "value1"))
-                .addRoundTrip(varcharMapDataType, ImmutableMap.of("key1", "value1", "key2", "value2", "key3", "value3"))
-                .addRoundTrip(varcharMapDataType, ImmutableMap.of("key1", " \" ", "key2", " ' ", "key3", " ]) "))
-                .addRoundTrip(varcharMapDataType, Collections.singletonMap("key1", null));
+        SqlDataTypeTest.create()
+                .addRoundTrip("hstore", "NULL", mapOfVarcharToVarchar, "CAST(NULL AS MAP(VARCHAR, VARCHAR))")
+                .addRoundTrip("hstore", "hstore(ARRAY[]::varchar[])", mapOfVarcharToVarchar, "CAST(MAP() AS MAP(VARCHAR, VARCHAR))")
+                .addRoundTrip("hstore", "hstore(ARRAY['key1','value1'])", mapOfVarcharToVarchar, "CAST(MAP(ARRAY['key1'], ARRAY['value1']) AS MAP(VARCHAR, VARCHAR))")
+                .addRoundTrip("hstore", "hstore(ARRAY['key1','value1','key2','value2','key3','value3'])", mapOfVarcharToVarchar, "CAST(MAP(ARRAY['key1','key2','key3'], ARRAY['value1','value2','value3']) AS MAP(VARCHAR, VARCHAR))")
+                .addRoundTrip("hstore", "hstore(ARRAY['key1',' \" ','key2',' '' ','key3',' ]) '])", mapOfVarcharToVarchar, "CAST(MAP(ARRAY['key1','key2','key3'], ARRAY[' \" ',' '' ',' ]) ']) AS MAP(VARCHAR, VARCHAR))")
+                .addRoundTrip("hstore", "hstore(ARRAY['key1',null])", mapOfVarcharToVarchar, "CAST(MAP(ARRAY['key1'], ARRAY[null]) AS MAP(VARCHAR, VARCHAR))")
+                .execute(getQueryRunner(), postgresCreateAndInsert("postgresql_test_hstore"));
+
+        SqlDataTypeTest.create()
+                .addRoundTrip("hstore", "NULL", mapOfVarcharToVarchar, "CAST(NULL AS MAP(VARCHAR, VARCHAR))")
+                .addRoundTrip("hstore", "MAP()", mapOfVarcharToVarchar, "CAST(MAP() AS MAP(VARCHAR, VARCHAR))")
+                .addRoundTrip("hstore", "MAP(ARRAY['key1'], ARRAY['value1'])", mapOfVarcharToVarchar, "CAST(MAP(ARRAY['key1'], ARRAY['value1']) AS MAP(VARCHAR, VARCHAR))")
+                .addRoundTrip("hstore", "MAP(ARRAY['key1','key2','key3'], ARRAY['value1','value2','value3'])", mapOfVarcharToVarchar, "CAST(MAP(ARRAY['key1','key2','key3'], ARRAY['value1','value2','value3']) AS MAP(VARCHAR, VARCHAR))")
+                .addRoundTrip("hstore", "MAP(ARRAY['key1','key2','key3'], ARRAY[' \" ',' '' ',' ]) '])", mapOfVarcharToVarchar, "CAST(MAP(ARRAY['key1','key2','key3'], ARRAY[' \" ',' '' ',' ]) ']) AS MAP(VARCHAR, VARCHAR))")
+                .addRoundTrip("hstore", "MAP(ARRAY['key1'], ARRAY[null])", mapOfVarcharToVarchar, "CAST(MAP(ARRAY['key1'], ARRAY[null]) AS MAP(VARCHAR, VARCHAR))")
+                .execute(getQueryRunner(), postgresCreateTrinoInsert("postgresql_test_hstore"));
     }
 
     @Test
@@ -1828,47 +1825,6 @@ public class TestPostgreSqlTypeMapping
         else {
             return arrayDataType(postgreSqlTimestampWithTimeZoneDataType(precision), format("timestamptz(%d)[]", precision));
         }
-    }
-
-    private DataType<Map<String, String>> hstoreDataType()
-    {
-        return dataType(
-                "hstore",
-                getQueryRunner().getTypeManager().getType(mapType(VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature())),
-                TestPostgreSqlTypeMapping::hstoreLiteral);
-    }
-
-    private static String hstoreLiteral(Map<String, String> value)
-    {
-        return value.entrySet().stream()
-                .flatMap(entry -> Stream.of(entry.getKey(), entry.getValue()))
-                .map(input -> (input == null) ? "null" : formatStringLiteral(input))
-                .collect(joining(",", "hstore(ARRAY[", "]::varchar[])"));
-    }
-
-    private DataType<Map<String, String>> varcharMapDataType()
-    {
-        return dataType(
-                "hstore",
-                getQueryRunner().getTypeManager().getType(mapType(VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature())),
-                value -> {
-                    List<String> formatted = value.entrySet().stream()
-                            .flatMap(entry -> Stream.of(entry.getKey(), entry.getValue()))
-                            .map(string -> {
-                                if (string == null) {
-                                    return "null";
-                                }
-                                return DataType.formatStringLiteral(string);
-                            })
-                            .collect(toImmutableList());
-                    ImmutableList.Builder<String> keys = ImmutableList.builder();
-                    ImmutableList.Builder<String> values = ImmutableList.builder();
-                    for (int i = 0; i < formatted.size(); i = i + 2) {
-                        keys.add(formatted.get(i));
-                        values.add(formatted.get(i + 1));
-                    }
-                    return format("MAP(ARRAY[%s], ARRAY[%s])", Joiner.on(',').join(keys.build()), Joiner.on(',').join(values.build()));
-                });
     }
 
     private Session sessionWithArrayAsArray()
