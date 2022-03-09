@@ -28,6 +28,7 @@ import io.trino.spi.expression.Constant;
 import io.trino.spi.expression.FieldDereference;
 import io.trino.spi.expression.FunctionName;
 import io.trino.spi.expression.Variable;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
@@ -50,6 +51,8 @@ import io.trino.sql.tree.DoubleLiteral;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.GenericLiteral;
+import io.trino.sql.tree.InListExpression;
+import io.trino.sql.tree.InPredicate;
 import io.trino.sql.tree.IsNotNullPredicate;
 import io.trino.sql.tree.IsNullPredicate;
 import io.trino.sql.tree.LikePredicate;
@@ -80,11 +83,13 @@ import static io.airlift.slice.SliceUtf8.countCodePoints;
 import static io.trino.SystemSessionProperties.isComplexExpressionPushdown;
 import static io.trino.spi.expression.StandardFunctions.ADD_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.AND_FUNCTION_NAME;
+import static io.trino.spi.expression.StandardFunctions.ARRAY_CONSTRUCTOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.CAST_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.DIVIDE_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.EQUAL_OPERATOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.GREATER_THAN_OPERATOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.GREATER_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME;
+import static io.trino.spi.expression.StandardFunctions.IN_PREDICATE_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.IS_DISTINCT_FROM_OPERATOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.IS_NULL_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.LESS_THAN_OPERATOR_FUNCTION_NAME;
@@ -272,6 +277,10 @@ public final class ConnectorExpressionTranslator
                 }
             }
 
+            if (IN_PREDICATE_FUNCTION_NAME.equals(call.getFunctionName()) && call.getArguments().size() == 2) {
+                return translateInPredicate(call.getArguments().get(0), call.getArguments().get(1));
+            }
+
             QualifiedName name = QualifiedName.of(call.getFunctionName().getName());
             List<TypeSignature> argumentTypes = call.getArguments().stream()
                     .map(argument -> argument.getType().getTypeSignature())
@@ -344,15 +353,8 @@ public final class ConnectorExpressionTranslator
 
         private Optional<Expression> translateLogicalExpression(LogicalExpression.Operator operator, List<ConnectorExpression> arguments)
         {
-            ImmutableList.Builder<Expression> translatedArguments = ImmutableList.builderWithExpectedSize(arguments.size());
-            for (ConnectorExpression argument : arguments) {
-                Optional<Expression> translated = translate(argument);
-                if (translated.isEmpty()) {
-                    return Optional.empty();
-                }
-                translatedArguments.add(translated.get());
-            }
-            return Optional.of(new LogicalExpression(operator, translatedArguments.build()));
+            Optional<List<Expression>> translatedArguments = translateExpressions(arguments);
+            return translatedArguments.map(expressions -> new LogicalExpression(operator, expressions));
         }
 
         private Optional<Expression> translateComparison(ComparisonExpression.Operator operator, ConnectorExpression left, ConnectorExpression right)
@@ -445,6 +447,46 @@ public final class ConnectorExpressionTranslator
             }
 
             return Optional.empty();
+        }
+
+        protected Optional<Expression> translateInPredicate(ConnectorExpression value, ConnectorExpression values)
+        {
+            Optional<Expression> translatedValue = translate(value);
+            Optional<List<Expression>> translatedValues = extractExpressionsFromArrayCall(values);
+
+            if (translatedValue.isPresent() && translatedValues.isPresent()) {
+                return Optional.of(new InPredicate(translatedValue.get(), new InListExpression(translatedValues.get())));
+            }
+
+            return Optional.empty();
+        }
+
+        protected Optional<List<Expression>> extractExpressionsFromArrayCall(ConnectorExpression expression)
+        {
+            if (!(expression instanceof Call)) {
+                return Optional.empty();
+            }
+
+            Call call = (Call) expression;
+            if (!call.getFunctionName().equals(ARRAY_CONSTRUCTOR_FUNCTION_NAME)) {
+                return Optional.empty();
+            }
+
+            return translateExpressions(call.getArguments());
+        }
+
+        protected Optional<List<Expression>> translateExpressions(List<ConnectorExpression> expressions)
+        {
+            ImmutableList.Builder<Expression> translatedExpressions = ImmutableList.builderWithExpectedSize(expressions.size());
+            for (ConnectorExpression expression : expressions) {
+                Optional<Expression> translated = translate(expression);
+                if (translated.isEmpty()) {
+                    return Optional.empty();
+                }
+                translatedExpressions.add(translated.get());
+            }
+
+            return Optional.of(translatedExpressions.build());
         }
     }
 
@@ -758,6 +800,36 @@ public final class ConnectorExpressionTranslator
             }
 
             return Optional.of(new FieldDereference(typeOf(node), translatedBase.get(), toIntExact(((LongLiteral) node.getIndex()).getValue() - 1)));
+        }
+
+        @Override
+        protected Optional<ConnectorExpression> visitInPredicate(InPredicate node, Void context)
+        {
+            InListExpression valueList = (InListExpression) node.getValueList();
+            Optional<ConnectorExpression> valueExpression = process(node.getValue());
+
+            if (valueExpression.isEmpty()) {
+                return Optional.empty();
+            }
+
+            ImmutableList.Builder<ConnectorExpression> values = ImmutableList.builderWithExpectedSize(valueList.getValues().size());
+            for (Expression value : valueList.getValues()) {
+                // TODO: NULL should be eliminated on the engine side (within a rule)
+                if (value == null || value instanceof NullLiteral) {
+                    return Optional.empty();
+                }
+
+                Optional<ConnectorExpression> processedValue = process(value);
+
+                if (processedValue.isEmpty()) {
+                    return Optional.empty();
+                }
+
+                values.add(processedValue.get());
+            }
+
+            ConnectorExpression arrayExpression = new Call(new ArrayType(typeOf(node.getValueList())), ARRAY_CONSTRUCTOR_FUNCTION_NAME, values.build());
+            return Optional.of(new Call(typeOf(node), IN_PREDICATE_FUNCTION_NAME, List.of(valueExpression.get(), arrayExpression)));
         }
 
         @Override
