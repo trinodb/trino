@@ -72,7 +72,10 @@ public class HydraIdentityProvider
         binder.exposePort(hydraConsent, 3000);
 
         DockerContainer hydra = new DockerContainer(HYDRA_IMAGE, "hydra")
+                .withEnv("LOG_LEVEL", "debug")
                 .withEnv("LOG_LEAK_SENSITIVE_VALUES", "true")
+                .withEnv("OAUTH2_EXPOSE_INTERNAL_ERRORS", "1")
+                .withEnv("GODEBUG", "http2debug=1")
                 .withEnv("DSN", DSN)
                 .withEnv("URLS_SELF_ISSUER", "https://hydra:4444/")
                 .withEnv("URLS_CONSENT", "http://hydra-consent:3000/consent")
