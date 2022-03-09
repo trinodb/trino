@@ -176,6 +176,8 @@ that statement. A query encompasses stages, tasks, splits, connectors,
 and other components and data sources working in concert to produce a
 result.
 
+.. _trino-concept-stage:
+
 Stage
 ^^^^^
 
@@ -192,6 +194,8 @@ the output from other stages. Stages are what the coordinator uses to
 model a distributed query plan, but stages themselves don't run on
 Trino workers.
 
+.. _trino-concept-task:
+
 Task
 ^^^^
 
@@ -207,6 +211,8 @@ translated to tasks, which then act upon or process splits. A Trino
 task has inputs and outputs, and just as a stage can be executed in
 parallel by a series of tasks, a task is executing in parallel with a
 series of drivers.
+
+.. _trino-concept-splits:
 
 Split
 ^^^^^

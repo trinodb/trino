@@ -56,3 +56,12 @@ must be greater than ``query.max-memory``.
 
 This is the amount of memory set aside as headroom/buffer in the JVM heap
 for allocations that are not tracked by Trino.
+
+``exchange.deduplication-buffer-size``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** :ref:`prop-type-data-size`
+* **Default value:** ``32MB``
+
+Size of the buffer used for spooled data during
+:doc:`/admin/fault-tolerant-execution`.

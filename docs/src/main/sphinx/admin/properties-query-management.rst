@@ -32,6 +32,20 @@ stages of a query. You can use the following execution policies:
 The number of partitions to use for processing distributed operations, such as
 joins, aggregations, partitioned window functions and others.
 
+``query.low-memory-killer.policy``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** :ref:`prop-type-string`
+* **Default value:** ``total-reservation-on-blocked-nodes``
+
+Configures the behavior to handle killing running queries in the event of low
+memory availability. Supports the following values:
+
+* ``none`` - Do not kill any queries in the event of low memory.
+* ``total-reservation`` - Kill the query currently using the most total memory.
+* ``total-reservation-on-blocked-nodes`` - Kill the query currently using the
+  most memory specifically on nodes that are now out of memory.
+
 ``query.max-execution-time``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -103,3 +117,17 @@ removed based on age.
 The minimal age of a query in the history before it is expired. An expired
 query is removed from the query history buffer and no longer available in
 the :doc:`/admin/web-interface`.
+
+``retry-policy``
+^^^^^^^^^^^^^^^^
+
+* **Type:** :ref:`prop-type-string`
+* **Default value:** ``NONE``
+
+The :ref:`retry policy <fte-retry-policy>` to use for
+:doc:`/admin/fault-tolerant-execution`. Supports the following values:
+
+* ``NONE`` - Disable fault-tolerant execution.
+* ``TASK`` - Retry individual tasks within a query in the event of failure.
+  Requires configuration of an :ref:`exchange manager <fte-exchange-manager>`.
+* ``QUERY`` - Retry the whole query in the event of failure.
