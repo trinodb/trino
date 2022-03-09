@@ -297,6 +297,7 @@ public class SnowflakeSplitSource
                 Optional.of(ImmutableMap.of()),
                 ImmutableList.of(),
                 getHiveColumnHandles(columns),
+                Optional.empty(),
                 Optional.of(ImmutableList.of(new HivePartition(schemaTableName))),
                 all(),
                 none(),
