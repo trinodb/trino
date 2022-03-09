@@ -219,6 +219,18 @@ public class TestPostgreSqlTypeMapping
     }
 
     @Test
+    public void testSmallserial()
+    {
+        // smallserial is an autoincrementing smallint and doesn't accept NULLs
+        SqlDataTypeTest.create()
+                .addRoundTrip("smallserial", "-32768", SMALLINT, "SMALLINT '-32768'") // min value in PostgreSQL and Trino
+                .addRoundTrip("smallserial", "32456", SMALLINT, "SMALLINT '32456'")
+                .addRoundTrip("smallserial", "32767", SMALLINT, "SMALLINT '32767'") // max value in PostgreSQL and Trino
+                .execute(getQueryRunner(), postgresCreateAndInsert("tpch.test_smallserial"))
+                .execute(getQueryRunner(), postgresCreateTrinoInsert("tpch.test_smallserial"));
+    }
+
+    @Test
     public void testUnsupportedSmallint()
     {
         try (TestTable table = new TestTable(postgreSqlServer::execute, "tpch.test_unsupported_smallint", "(data smallint)")) {
@@ -245,6 +257,18 @@ public class TestPostgreSqlTypeMapping
     }
 
     @Test
+    public void testSerial()
+    {
+        // serial is an autoincrementing int and doesn't accept NULLs
+        SqlDataTypeTest.create()
+                .addRoundTrip("serial", "-2147483648", INTEGER, "-2147483648") // min value in PostgreSQL and Trino
+                .addRoundTrip("serial", "1234567890", INTEGER, "1234567890")
+                .addRoundTrip("serial", "2147483647", INTEGER, "2147483647") // max value in PostgreSQL and Trino
+                .execute(getQueryRunner(), postgresCreateAndInsert("tpch.test_serial"))
+                .execute(getQueryRunner(), postgresCreateTrinoInsert("tpch.test_serial"));
+    }
+
+    @Test
     public void testUnsupportedInteger()
     {
         try (TestTable table = new TestTable(postgreSqlServer::execute, "tpch.test_unsupported_integer", "(data integer)")) {
@@ -268,6 +292,18 @@ public class TestPostgreSqlTypeMapping
                 .execute(getQueryRunner(), postgresCreateAndInsert("tpch.test_bigint"))
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_bigint"))
                 .execute(getQueryRunner(), trinoCreateAndInsert("test_bigint"));
+    }
+
+    @Test
+    public void testBigserial()
+    {
+        // bigserial is an autoincrementing bigint and doesn't accept NULLs
+        SqlDataTypeTest.create()
+                .addRoundTrip("bigserial", "-9223372036854775808", BIGINT, "-9223372036854775808") // min value in PostgreSQL and Trino
+                .addRoundTrip("bigserial", "123456789012", BIGINT, "123456789012")
+                .addRoundTrip("bigserial", "9223372036854775807", BIGINT, "9223372036854775807") // max value in PostgreSQL and Trino
+                .execute(getQueryRunner(), postgresCreateAndInsert("tpch.test_bigserial"))
+                .execute(getQueryRunner(), postgresCreateTrinoInsert("tpch.test_bigserial"));
     }
 
     @Test
