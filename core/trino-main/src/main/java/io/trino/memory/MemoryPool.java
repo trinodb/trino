@@ -320,7 +320,13 @@ public class MemoryPool
     }
 
     @VisibleForTesting
-    synchronized Map<QueryId, Map<String, Long>> getTaggedMemoryAllocations()
+    public synchronized Map<QueryId, Long> getQueryMemoryReservations()
+    {
+        return ImmutableMap.copyOf(queryMemoryReservations);
+    }
+
+    @VisibleForTesting
+    public synchronized Map<QueryId, Map<String, Long>> getTaggedMemoryAllocations()
     {
         return ImmutableMap.copyOf(taggedMemoryAllocations);
     }

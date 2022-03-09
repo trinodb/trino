@@ -290,6 +290,21 @@ public class TaskResource
     }
 
     @ResourceSecurity(INTERNAL_ONLY)
+    @POST
+    @Path("{taskId}/fail")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    public TaskInfo failTask(
+            @PathParam("taskId") TaskId taskId,
+            FailTaskRequest failTaskRequest,
+            @Context UriInfo uriInfo)
+    {
+        requireNonNull(taskId, "taskId is null");
+        requireNonNull(failTaskRequest, "failTaskRequest is null");
+        return taskManager.failTask(taskId, failTaskRequest.getFailureInfo().toException());
+    }
+
+    @ResourceSecurity(INTERNAL_ONLY)
     @GET
     @Path("{taskId}/results/{bufferId}/{token}")
     @Produces(TRINO_PAGES)

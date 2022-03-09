@@ -219,6 +219,12 @@ public class DataDefinitionExecution<T extends Statement>
     }
 
     @Override
+    public void failTask(TaskId taskId, Exception reason)
+    {
+        // no-op
+    }
+
+    @Override
     public void recordHeartbeat()
     {
         stateMachine.recordHeartbeat();

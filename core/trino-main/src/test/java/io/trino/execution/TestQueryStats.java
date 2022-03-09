@@ -175,15 +175,16 @@ public class TestQueryStats
             9,
             10,
             11,
-
             12,
+
             13,
+            14,
             15,
             30,
             16,
 
             17.0,
-            DataSize.ofBytes(18),
+            18.0,
             DataSize.ofBytes(19),
             DataSize.ofBytes(20),
             DataSize.ofBytes(21),
@@ -192,31 +193,46 @@ public class TestQueryStats
             DataSize.ofBytes(24),
             DataSize.ofBytes(25),
             DataSize.ofBytes(26),
+            DataSize.ofBytes(27),
 
             true,
-            new Duration(20, NANOSECONDS),
-            new Duration(21, NANOSECONDS),
-            new Duration(23, NANOSECONDS),
+            new Duration(28, NANOSECONDS),
+            new Duration(29, NANOSECONDS),
+            new Duration(30, NANOSECONDS),
+            new Duration(31, NANOSECONDS),
+            new Duration(32, NANOSECONDS),
             false,
             ImmutableSet.of(),
 
             DataSize.ofBytes(241),
+            DataSize.ofBytes(242),
             251,
-            new Duration(23, NANOSECONDS),
+            252,
+            new Duration(33, NANOSECONDS),
+            new Duration(34, NANOSECONDS),
 
             DataSize.ofBytes(242),
-            252,
+            DataSize.ofBytes(243),
+            253,
+            254,
 
-            DataSize.ofBytes(24),
-            25,
+            DataSize.ofBytes(35),
+            DataSize.ofBytes(36),
+            37,
+            38,
 
-            DataSize.ofBytes(26),
-            27,
+            DataSize.ofBytes(39),
+            DataSize.ofBytes(40),
+            41,
+            42,
 
-            DataSize.ofBytes(28),
-            29,
+            DataSize.ofBytes(43),
+            DataSize.ofBytes(44),
+            45,
+            46,
 
-            DataSize.ofBytes(30),
+            DataSize.ofBytes(47),
+            DataSize.ofBytes(48),
 
             ImmutableList.of(new StageGcStatistics(
                     101,
@@ -262,45 +278,62 @@ public class TestQueryStats
         assertEquals(actual.getTotalTasks(), 9);
         assertEquals(actual.getRunningTasks(), 10);
         assertEquals(actual.getCompletedTasks(), 11);
+        assertEquals(actual.getFailedTasks(), 12);
 
-        assertEquals(actual.getTotalDrivers(), 12);
-        assertEquals(actual.getQueuedDrivers(), 13);
+        assertEquals(actual.getTotalDrivers(), 13);
+        assertEquals(actual.getQueuedDrivers(), 14);
         assertEquals(actual.getRunningDrivers(), 15);
         assertEquals(actual.getBlockedDrivers(), 30);
         assertEquals(actual.getCompletedDrivers(), 16);
 
         assertEquals(actual.getCumulativeUserMemory(), 17.0);
-        assertEquals(actual.getUserMemoryReservation(), DataSize.ofBytes(18));
-        assertEquals(actual.getRevocableMemoryReservation(), DataSize.ofBytes(19));
-        assertEquals(actual.getTotalMemoryReservation(), DataSize.ofBytes(20));
-        assertEquals(actual.getPeakUserMemoryReservation(), DataSize.ofBytes(21));
-        assertEquals(actual.getPeakRevocableMemoryReservation(), DataSize.ofBytes(22));
-        assertEquals(actual.getPeakTotalMemoryReservation(), DataSize.ofBytes(23));
-        assertEquals(actual.getPeakTaskUserMemory(), DataSize.ofBytes(24));
-        assertEquals(actual.getPeakTaskRevocableMemory(), DataSize.ofBytes(25));
-        assertEquals(actual.getPeakTaskTotalMemory(), DataSize.ofBytes(26));
+        assertEquals(actual.getFailedCumulativeUserMemory(), 18.0);
+        assertEquals(actual.getUserMemoryReservation(), DataSize.ofBytes(19));
+        assertEquals(actual.getRevocableMemoryReservation(), DataSize.ofBytes(20));
+        assertEquals(actual.getTotalMemoryReservation(), DataSize.ofBytes(21));
+        assertEquals(actual.getPeakUserMemoryReservation(), DataSize.ofBytes(22));
+        assertEquals(actual.getPeakRevocableMemoryReservation(), DataSize.ofBytes(23));
+        assertEquals(actual.getPeakTotalMemoryReservation(), DataSize.ofBytes(24));
+        assertEquals(actual.getPeakTaskUserMemory(), DataSize.ofBytes(25));
+        assertEquals(actual.getPeakTaskRevocableMemory(), DataSize.ofBytes(26));
+        assertEquals(actual.getPeakTaskTotalMemory(), DataSize.ofBytes(27));
         assertEquals(actual.getSpilledDataSize(), DataSize.ofBytes(693));
 
-        assertEquals(actual.getTotalScheduledTime(), new Duration(20, NANOSECONDS));
-        assertEquals(actual.getTotalCpuTime(), new Duration(21, NANOSECONDS));
-        assertEquals(actual.getTotalBlockedTime(), new Duration(23, NANOSECONDS));
+        assertEquals(actual.getTotalScheduledTime(), new Duration(28, NANOSECONDS));
+        assertEquals(actual.getFailedScheduledTime(), new Duration(29, NANOSECONDS));
+        assertEquals(actual.getTotalCpuTime(), new Duration(30, NANOSECONDS));
+        assertEquals(actual.getFailedCpuTime(), new Duration(31, NANOSECONDS));
+        assertEquals(actual.getTotalBlockedTime(), new Duration(32, NANOSECONDS));
 
         assertEquals(actual.getPhysicalInputDataSize(), DataSize.ofBytes(241));
+        assertEquals(actual.getFailedPhysicalInputDataSize(), DataSize.ofBytes(242));
         assertEquals(actual.getPhysicalInputPositions(), 251);
+        assertEquals(actual.getFailedPhysicalInputPositions(), 252);
+        assertEquals(actual.getPhysicalInputReadTime(), new Duration(33, NANOSECONDS));
+        assertEquals(actual.getFailedPhysicalInputReadTime(), new Duration(34, NANOSECONDS));
 
         assertEquals(actual.getInternalNetworkInputDataSize(), DataSize.ofBytes(242));
-        assertEquals(actual.getInternalNetworkInputPositions(), 252);
+        assertEquals(actual.getFailedInternalNetworkInputDataSize(), DataSize.ofBytes(243));
+        assertEquals(actual.getInternalNetworkInputPositions(), 253);
+        assertEquals(actual.getFailedInternalNetworkInputPositions(), 254);
 
-        assertEquals(actual.getRawInputDataSize(), DataSize.ofBytes(24));
-        assertEquals(actual.getRawInputPositions(), 25);
+        assertEquals(actual.getRawInputDataSize(), DataSize.ofBytes(35));
+        assertEquals(actual.getFailedRawInputDataSize(), DataSize.ofBytes(36));
+        assertEquals(actual.getRawInputPositions(), 37);
+        assertEquals(actual.getFailedRawInputPositions(), 38);
 
-        assertEquals(actual.getProcessedInputDataSize(), DataSize.ofBytes(26));
-        assertEquals(actual.getProcessedInputPositions(), 27);
+        assertEquals(actual.getProcessedInputDataSize(), DataSize.ofBytes(39));
+        assertEquals(actual.getFailedProcessedInputDataSize(), DataSize.ofBytes(40));
+        assertEquals(actual.getProcessedInputPositions(), 41);
+        assertEquals(actual.getFailedProcessedInputPositions(), 42);
 
-        assertEquals(actual.getOutputDataSize(), DataSize.ofBytes(28));
-        assertEquals(actual.getOutputPositions(), 29);
+        assertEquals(actual.getOutputDataSize(), DataSize.ofBytes(43));
+        assertEquals(actual.getFailedOutputDataSize(), DataSize.ofBytes(44));
+        assertEquals(actual.getOutputPositions(), 45);
+        assertEquals(actual.getFailedOutputPositions(), 46);
 
-        assertEquals(actual.getPhysicalWrittenDataSize(), DataSize.ofBytes(30));
+        assertEquals(actual.getPhysicalWrittenDataSize(), DataSize.ofBytes(47));
+        assertEquals(actual.getFailedPhysicalWrittenDataSize(), DataSize.ofBytes(48));
 
         assertEquals(actual.getStageGcStatistics().size(), 1);
         StageGcStatistics gcStatistics = actual.getStageGcStatistics().get(0);

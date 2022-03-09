@@ -422,7 +422,7 @@ public class HashAggregationOperator
 
     private boolean isSpillable()
     {
-        return aggregatorFactories.stream().anyMatch(AggregatorFactory::isSpillable);
+        return aggregatorFactories.stream().allMatch(AggregatorFactory::isSpillable);
     }
 
     @Override

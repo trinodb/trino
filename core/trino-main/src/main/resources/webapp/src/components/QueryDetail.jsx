@@ -1338,10 +1338,26 @@ export class QueryDetail extends React.Component {
                                     </tr>
                                     <tr>
                                         <td className="info-title">
+                                            CPU Time (failed tasks)
+                                        </td>
+                                        <td className="info-text">
+                                            {query.queryStats.failedCpuTime}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="info-title">
                                             Scheduled Time
                                         </td>
                                         <td className="info-text">
                                             {query.queryStats.totalScheduledTime}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="info-title">
+                                            Scheduled Time (failed tasks)
+                                        </td>
+                                        <td className="info-text">
+                                            {query.queryStats.failedScheduledTime}
                                         </td>
                                     </tr>
                                     <tr>
@@ -1432,6 +1448,14 @@ export class QueryDetail extends React.Component {
                                         </td>
                                         <td className="info-text">
                                             {formatDataSizeBytes(query.queryStats.cumulativeUserMemory / 1000.0) + " seconds"}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="info-title">
+                                            Cumulative User Memory (failed tasks)
+                                        </td>
+                                        <td className="info-text">
+                                            {formatDataSizeBytes(query.queryStats.failedCumulativeUserMemory / 1000.0) + " seconds"}
                                         </td>
                                     </tr>
                                     <tr>

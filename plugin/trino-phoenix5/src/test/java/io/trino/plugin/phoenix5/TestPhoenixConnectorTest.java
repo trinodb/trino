@@ -24,7 +24,6 @@ import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
-import io.trino.testng.services.Flaky;
 import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
@@ -176,10 +175,7 @@ public class TestPhoenixConnectorTest
     {
         assertThatThrownBy(super::testInsertArray)
                 // TODO (https://github.com/trinodb/trino/issues/6421) array with double null stored as array with 0
-                .hasMessageContaining("Actual rows (up to 100 of 1 extra rows shown, 2 rows in total):\n" +
-                        "    [0.0, null]\n" +
-                        "Expected rows (up to 100 of 1 missing rows shown, 2 rows in total):\n" +
-                        "    [null, null]");
+                .hasMessage("Phoenix JDBC driver replaced 'null' with '0.0' at index 1 in [0.0]");
     }
 
     @Override
@@ -237,30 +233,6 @@ public class TestPhoenixConnectorTest
                         "   rowkeys = 'ROWKEY',\n" +
                         "   salt_buckets = 10\n" +
                         ")");
-    }
-
-    // TODO (https://github.com/trinodb/trino/issues/10904): Test is flaky because tests execute in parallel
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/10904", match = "\\QERROR 1012 (42M03): Table undefined. tableName=")
-    @Test
-    @Override
-    public void testSelectInformationSchemaColumns()
-    {
-        super.testSelectInformationSchemaColumns();
-    }
-
-    @Override
-    public void testReadMetadataWithRelationsConcurrentModifications()
-    {
-        try {
-            super.testReadMetadataWithRelationsConcurrentModifications();
-        }
-        catch (Exception expected) {
-            // The test failure is not guaranteed
-            // TODO (https://github.com/trinodb/trino/issues/10904): shouldn't fail
-            assertThat(expected)
-                    .hasMessageContaining("ERROR 1012 (42M03): Table undefined. tableName=");
-            throw new SkipException("to be fixed");
-        }
     }
 
     @Override
