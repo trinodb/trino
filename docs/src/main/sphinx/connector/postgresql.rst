@@ -93,6 +93,38 @@ catalog named ``sales`` using the configured connector.
 Type mapping
 ------------
 
+The data type mappings are as follows:
+
+=================== ================================ =======================================================================
+PostgreSQL          Trino                            Notes
+=================== ================================ =======================================================================
+``BIT``             ``BOOLEAN``
+``BOOLEAN``         ``BOOLEAN``
+``SMALLINT``        ``SMALLINT``
+``INTEGER``         ``INTEGER``
+``BIGINT``          ``BIGINT``
+``REAL``            ``DATE``
+``DOUBLE``          ``DOUBLE``
+``NUMERIC(p, s)``   ``DECIMAL(p, s)``                ``DECIMAL(p, s)`` is an alias of  ``NUMERIC(p, s)``.
+                                                     See :ref:`postgresql-decimal-type-handling` for more information.
+``CHAR(n)``         ``CHAR(n)``
+``VARCHAR(n)``      ``VARCHAR(n)``
+``ENUM``            ``VARCHAR``
+``BINARY``          ``VARBINARY``
+``DATE``            ``DATE``
+``TIME(n)``         ``TIME(n)``
+``TIMESTAMP(n)``    ``TIMESTAMP(n)``
+``TIMESTAMPTZ(n)``  ``TIMESTAMP(n) WITH TIME ZONE``
+``MONEY``           ``VARCHAR``
+``UUID``            ``UUID``
+``JSON``            ``JSON``
+``JSONB``           ``JSON``
+``HSTORE``          ``MAP(VARCHAR, VARCHAR)``
+``ARRAY``           Disabled, ``ARRAY`` or ``JSON``  See :ref:`postgresql-array-type-handling` for more information.
+=================== ================================ =======================================================================
+
+.. _postgresql-decimal-type-handling:
+
 Decimal type handling
 ^^^^^^^^^^^^^^^^^^^^^
 
@@ -106,6 +138,8 @@ is controlled via the ``decimal-rounding-mode`` configuration property or the ``
 property, which can be set to ``UNNECESSARY`` (the default),
 ``UP``, ``DOWN``, ``CEILING``, ``FLOOR``, ``HALF_UP``, ``HALF_DOWN``, or ``HALF_EVEN``
 (see `RoundingMode <https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/math/RoundingMode.html#enum.constant.summary>`_).
+
+.. _postgresql-array-type-handling:
 
 Array type handling
 ^^^^^^^^^^^^^^^^^^^
