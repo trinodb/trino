@@ -110,6 +110,25 @@ public class TestConnectorExpressionTranslator
         assertTranslationRoundTrips(LITERAL_ENCODER.toExpression(TEST_SESSION, nativeValue, type), new Constant(nativeValue, type));
     }
 
+    @Test
+    public void testTranslateSymbol()
+    {
+        assertTranslationRoundTrips(new SymbolReference("double_symbol_1"), new Variable("double_symbol_1", DOUBLE));
+    }
+
+    @Test
+    public void testTranslateRowSubscript()
+    {
+        assertTranslationRoundTrips(
+                new SubscriptExpression(
+                        new SymbolReference("row_symbol_1"),
+                        new LongLiteral("1")),
+                new FieldDereference(
+                        INTEGER,
+                        new Variable("row_symbol_1", ROW_TYPE),
+                        0));
+    }
+
     @Test(dataProvider = "testTranslateLogicalExpressionDataProvider")
     public void testTranslateLogicalExpression(LogicalExpression.Operator operator)
     {
@@ -159,101 +178,60 @@ public class TestConnectorExpressionTranslator
     }
 
     @Test
-    public void testTranslationToConnectorExpression()
+    public void testTranslateLike()
     {
-        assertTranslationToConnectorExpression(TEST_SESSION, new SymbolReference("double_symbol_1"), Optional.of(new Variable("double_symbol_1", DOUBLE)));
-
-        assertTranslationToConnectorExpression(
-                TEST_SESSION,
-                new SubscriptExpression(
-                        new SymbolReference("row_symbol_1"),
-                        new LongLiteral("1")),
-                Optional.of(
-                        new FieldDereference(
-                                INTEGER,
-                                new Variable("row_symbol_1", ROW_TYPE),
-                                0)));
-
         String pattern = "%pattern%";
-        assertTranslationToConnectorExpression(
-                TEST_SESSION,
+        assertTranslationRoundTrips(
                 new LikePredicate(
                         new SymbolReference("varchar_symbol_1"),
                         new StringLiteral(pattern),
                         Optional.empty()),
-                Optional.of(new Call(BOOLEAN,
+                new Call(BOOLEAN,
                         LIKE_PATTERN_FUNCTION_NAME,
                         List.of(new Variable("varchar_symbol_1", VARCHAR_TYPE),
-                                new Constant(Slices.wrappedBuffer(pattern.getBytes(UTF_8)), createVarcharType(pattern.length()))))));
+                                new Constant(Slices.wrappedBuffer(pattern.getBytes(UTF_8)), createVarcharType(pattern.length())))));
 
         String escape = "\\";
-        assertTranslationToConnectorExpression(
-                TEST_SESSION,
+        assertTranslationRoundTrips(
                 new LikePredicate(
                         new SymbolReference("varchar_symbol_1"),
                         new StringLiteral(pattern),
                         Optional.of(new StringLiteral(escape))),
-                Optional.of(new Call(BOOLEAN,
+                new Call(BOOLEAN,
                         LIKE_PATTERN_FUNCTION_NAME,
                         List.of(
                                 new Variable("varchar_symbol_1", VARCHAR_TYPE),
                                 new Constant(Slices.wrappedBuffer(pattern.getBytes(UTF_8)), createVarcharType(pattern.length())),
-                                new Constant(Slices.wrappedBuffer(escape.getBytes(UTF_8)), createVarcharType(escape.length()))))));
+                                new Constant(Slices.wrappedBuffer(escape.getBytes(UTF_8)), createVarcharType(escape.length())))));
+    }
 
+    @Test
+    public void testTranslateResolvedFunction()
+    {
         transaction(new TestingTransactionManager(), new AllowAllAccessControl())
                 .readOnly()
                 .execute(TEST_SESSION, transactionSession -> {
-                    assertTranslationToConnectorExpression(transactionSession,
+                    assertTranslationRoundTrips(
+                            transactionSession,
                             FunctionCallBuilder.resolve(TEST_SESSION, PLANNER_CONTEXT.getMetadata())
                                     .setName(QualifiedName.of(("lower")))
                                     .addArgument(VARCHAR_TYPE, new SymbolReference("varchar_symbol_1"))
                                     .build(),
-                            Optional.of(new Call(VARCHAR_TYPE,
+                            new Call(VARCHAR_TYPE,
                                     new FunctionName("lower"),
-                                    List.of(new Variable("varchar_symbol_1", VARCHAR_TYPE)))));
+                                    List.of(new Variable("varchar_symbol_1", VARCHAR_TYPE))));
                 });
-    }
-
-    @Test
-    public void testTranslationFromConnectorExpression()
-    {
-        // TODO convert to assertTranslationRoundTrips where possible
-
-        assertTranslationFromConnectorExpression(new Variable("double_symbol_1", DOUBLE), new SymbolReference("double_symbol_1"));
-
-        assertTranslationFromConnectorExpression(
-                new FieldDereference(
-                        INTEGER,
-                        new Variable("row_symbol_1", ROW_TYPE),
-                        0),
-                new SubscriptExpression(
-                        new SymbolReference("row_symbol_1"),
-                        new LongLiteral("1")));
-
-        String pattern = "%pattern%";
-        assertTranslationFromConnectorExpression(
-                new Call(VARCHAR_TYPE,
-                        LIKE_PATTERN_FUNCTION_NAME,
-                        List.of(new Variable("varchar_symbol_1", VARCHAR_TYPE),
-                                new Constant(Slices.wrappedBuffer(pattern.getBytes(UTF_8)), createVarcharType(pattern.length())))),
-                new LikePredicate(new SymbolReference("varchar_symbol_1"),
-                        new StringLiteral(pattern),
-                        Optional.empty()));
-
-        assertTranslationFromConnectorExpression(
-                new Call(VARCHAR_TYPE,
-                        new FunctionName("lower"),
-                        List.of(new Variable("varchar_symbol_1", VARCHAR_TYPE))),
-                FunctionCallBuilder.resolve(TEST_SESSION, PLANNER_CONTEXT.getMetadata())
-                        .setName(QualifiedName.of(("lower")))
-                        .addArgument(VARCHAR_TYPE, new SymbolReference("varchar_symbol_1"))
-                        .build());
     }
 
     private void assertTranslationRoundTrips(Expression expression, ConnectorExpression connectorExpression)
     {
-        assertTranslationToConnectorExpression(TEST_SESSION, expression, Optional.of(connectorExpression));
-        assertTranslationFromConnectorExpression(connectorExpression, expression);
+        assertTranslationRoundTrips(TEST_SESSION, expression, connectorExpression);
+    }
+
+    private void assertTranslationRoundTrips(Session session, Expression expression, ConnectorExpression connectorExpression)
+    {
+        assertTranslationToConnectorExpression(session, expression, Optional.of(connectorExpression));
+        assertTranslationFromConnectorExpression(session, connectorExpression, expression);
     }
 
     private void assertTranslationToConnectorExpression(Session session, Expression expression, Optional<ConnectorExpression> connectorExpression)
@@ -263,9 +241,9 @@ public class TestConnectorExpressionTranslator
         translation.ifPresent(value -> assertEquals(value, connectorExpression.get()));
     }
 
-    private void assertTranslationFromConnectorExpression(ConnectorExpression connectorExpression, Expression expected)
+    private void assertTranslationFromConnectorExpression(Session session, ConnectorExpression connectorExpression, Expression expected)
     {
-        Expression translation = ConnectorExpressionTranslator.translate(TEST_SESSION, connectorExpression, PLANNER_CONTEXT, variableMappings, LITERAL_ENCODER);
+        Expression translation = ConnectorExpressionTranslator.translate(session, connectorExpression, PLANNER_CONTEXT, variableMappings, LITERAL_ENCODER);
         assertEquals(translation, expected);
     }
 }
