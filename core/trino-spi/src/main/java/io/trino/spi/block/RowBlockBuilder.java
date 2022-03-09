@@ -21,7 +21,7 @@ import javax.annotation.Nullable;
 
 import java.util.Arrays;
 import java.util.List;
-import java.util.function.BiConsumer;
+import java.util.function.ObjLongConsumer;
 
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.spi.block.BlockUtil.calculateBlockResetSize;
@@ -141,7 +141,7 @@ public class RowBlockBuilder
     }
 
     @Override
-    public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
+    public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
     {
         for (int i = 0; i < numFields; i++) {
             consumer.accept(fieldBlockBuilders[i], fieldBlockBuilders[i].getRetainedSizeInBytes());

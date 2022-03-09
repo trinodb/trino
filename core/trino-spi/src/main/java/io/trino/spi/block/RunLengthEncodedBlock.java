@@ -22,7 +22,7 @@ import javax.annotation.Nullable;
 
 import java.util.List;
 import java.util.OptionalInt;
-import java.util.function.BiConsumer;
+import java.util.function.ObjLongConsumer;
 
 import static io.trino.spi.block.BlockUtil.checkArrayRange;
 import static io.trino.spi.block.BlockUtil.checkValidPosition;
@@ -117,7 +117,7 @@ public class RunLengthEncodedBlock
     }
 
     @Override
-    public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
+    public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
     {
         consumer.accept(value, value.getRetainedSizeInBytes());
         consumer.accept(this, (long) INSTANCE_SIZE);

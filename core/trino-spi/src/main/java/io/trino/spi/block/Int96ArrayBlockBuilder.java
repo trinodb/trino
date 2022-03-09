@@ -21,7 +21,7 @@ import javax.annotation.Nullable;
 
 import java.util.Arrays;
 import java.util.OptionalInt;
-import java.util.function.BiConsumer;
+import java.util.function.ObjLongConsumer;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.SizeOf.sizeOf;
@@ -211,7 +211,7 @@ public class Int96ArrayBlockBuilder
     }
 
     @Override
-    public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
+    public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
     {
         consumer.accept(high, sizeOf(high));
         consumer.accept(low, sizeOf(low));

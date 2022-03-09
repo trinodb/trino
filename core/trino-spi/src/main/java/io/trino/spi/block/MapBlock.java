@@ -20,7 +20,7 @@ import org.openjdk.jol.info.ClassLayout;
 import javax.annotation.Nullable;
 
 import java.util.Optional;
-import java.util.function.BiConsumer;
+import java.util.function.ObjLongConsumer;
 
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.spi.block.MapHashTables.HASH_MULTIPLIER;
@@ -233,7 +233,7 @@ public class MapBlock
     }
 
     @Override
-    public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
+    public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
     {
         consumer.accept(keyBlock, keyBlock.getRetainedSizeInBytes());
         consumer.accept(valueBlock, valueBlock.getRetainedSizeInBytes());

@@ -18,7 +18,7 @@ import io.airlift.slice.Slice;
 import java.util.Collections;
 import java.util.List;
 import java.util.OptionalInt;
-import java.util.function.BiConsumer;
+import java.util.function.ObjLongConsumer;
 
 import static io.trino.spi.block.BlockUtil.checkArrayRange;
 import static io.trino.spi.block.DictionaryId.randomDictionaryId;
@@ -227,7 +227,7 @@ public interface Block
      * {@code consumer} should be called at least once with the current block and
      * must include the instance size of the current block
      */
-    void retainedBytesForEachPart(BiConsumer<Object, Long> consumer);
+    void retainedBytesForEachPart(ObjLongConsumer<Object> consumer);
 
     /**
      * Get the encoding for this block.

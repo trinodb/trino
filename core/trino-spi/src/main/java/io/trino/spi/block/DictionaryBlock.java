@@ -20,7 +20,7 @@ import org.openjdk.jol.info.ClassLayout;
 import java.util.Arrays;
 import java.util.List;
 import java.util.OptionalInt;
-import java.util.function.BiConsumer;
+import java.util.function.ObjLongConsumer;
 
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.spi.block.BlockUtil.checkArrayRange;
@@ -373,7 +373,7 @@ public class DictionaryBlock
     }
 
     @Override
-    public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
+    public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
     {
         consumer.accept(dictionary, dictionary.getRetainedSizeInBytes());
         consumer.accept(ids, sizeOf(ids));
