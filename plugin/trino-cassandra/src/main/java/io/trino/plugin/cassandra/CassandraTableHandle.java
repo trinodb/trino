@@ -22,8 +22,11 @@ import io.trino.spi.connector.SchemaTableName;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.stream.Stream;
 
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 
 public class CassandraTableHandle
         implements ConnectorTableHandle
@@ -105,6 +108,21 @@ public class CassandraTableHandle
     @Override
     public String toString()
     {
-        return schemaName + ":" + tableName;
+        String string = format("%s:%s", schemaName, tableName);
+        if (this.partitions.isPresent()) {
+            List<CassandraPartition> partitions = this.partitions.get();
+            string += format(
+                    " %d partitions %s",
+                    partitions.size(),
+                    Stream.concat(
+                                    partitions.subList(0, Math.min(partitions.size(), 3)).stream(),
+                                    partitions.size() > 3 ? Stream.of("...") : Stream.of())
+                            .map(Object::toString)
+                            .collect(joining(", ", "[", "]")));
+        }
+        if (!clusteringKeyPredicates.isEmpty()) {
+            string += format(" constraint(%s)", clusteringKeyPredicates);
+        }
+        return string;
     }
 }
