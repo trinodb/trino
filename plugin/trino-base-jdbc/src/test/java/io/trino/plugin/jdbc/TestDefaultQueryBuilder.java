@@ -91,7 +91,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)
-public class TestDefaultJdbcQueryBuilder
+public class TestDefaultQueryBuilder
 {
     private static final JdbcNamedRelationHandle TEST_TABLE = new JdbcNamedRelationHandle(new SchemaTableName(
             "some_test_schema", "test_table"),
