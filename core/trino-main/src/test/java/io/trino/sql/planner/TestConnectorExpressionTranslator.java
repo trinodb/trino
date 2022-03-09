@@ -24,6 +24,7 @@ import io.trino.spi.expression.FieldDereference;
 import io.trino.spi.expression.FunctionName;
 import io.trino.spi.expression.StandardFunctions;
 import io.trino.spi.expression.Variable;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
@@ -34,6 +35,8 @@ import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.DoubleLiteral;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionCall;
+import io.trino.sql.tree.InListExpression;
+import io.trino.sql.tree.InPredicate;
 import io.trino.sql.tree.IsNotNullPredicate;
 import io.trino.sql.tree.IsNullPredicate;
 import io.trino.sql.tree.LikePredicate;
@@ -59,6 +62,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.operator.scalar.JoniRegexpCasts.joniRegexp;
 import static io.trino.spi.expression.StandardFunctions.AND_FUNCTION_NAME;
+import static io.trino.spi.expression.StandardFunctions.ARRAY_CONSTRUCTOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.CAST_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.GREATER_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.IS_NULL_FUNCTION_NAME;
@@ -94,6 +98,8 @@ public class TestConnectorExpressionTranslator
     private static final TypeAnalyzer TYPE_ANALYZER = createTestingTypeAnalyzer(PLANNER_CONTEXT);
     private static final Type ROW_TYPE = rowType(field("int_symbol_1", INTEGER), field("varchar_symbol_1", createVarcharType(5)));
     private static final VarcharType VARCHAR_TYPE = createVarcharType(25);
+    private static final ArrayType VARCHAR_ARRAY_TYPE = new ArrayType(VARCHAR_TYPE);
+
     private static final LiteralEncoder LITERAL_ENCODER = new LiteralEncoder(PLANNER_CONTEXT);
 
     private static final Map<Symbol, Type> symbols = ImmutableMap.<Symbol, Type>builder()
@@ -416,6 +422,22 @@ public class TestConnectorExpressionTranslator
                     assertTranslationToConnectorExpression(transactionSession, input, translated);
                     assertTranslationFromConnectorExpression(transactionSession, translated, translatedBack);
                 });
+    }
+
+    @Test
+    public void testTranslateIn()
+    {
+        String value = "value_1";
+        assertTranslationRoundTrips(
+                new InPredicate(
+                    new SymbolReference("varchar_symbol_1"),
+                    new InListExpression(List.of(new SymbolReference("varchar_symbol_1"), new StringLiteral(value)))),
+                new Call(
+                    BOOLEAN,
+                    StandardFunctions.IN_PREDICATE_FUNCTION_NAME,
+                    List.of(
+                            new Variable("varchar_symbol_1", VARCHAR_TYPE),
+                            new Call(VARCHAR_ARRAY_TYPE, ARRAY_CONSTRUCTOR_FUNCTION_NAME, List.of(new Variable("varchar_symbol_1", VARCHAR_TYPE), new Constant(Slices.wrappedBuffer(value.getBytes(UTF_8)), createVarcharType(value.length())))))));
     }
 
     private void assertTranslationRoundTrips(Expression expression, ConnectorExpression connectorExpression)
