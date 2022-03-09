@@ -16,7 +16,6 @@ package io.trino.plugin.postgresql;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.json.JsonCodec;
 import io.trino.Session;
 import io.trino.plugin.jdbc.UnsupportedTypeHandling;
 import io.trino.spi.type.ArrayType;
@@ -63,8 +62,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.io.BaseEncoding.base16;
-import static io.airlift.json.JsonCodec.listJsonCodec;
-import static io.airlift.json.JsonCodec.mapJsonCodec;
 import static io.trino.plugin.jdbc.DecimalConfig.DecimalMapping.ALLOW_OVERFLOW;
 import static io.trino.plugin.jdbc.DecimalConfig.DecimalMapping.STRICT;
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.DECIMAL_DEFAULT_SCALE;
@@ -95,7 +92,6 @@ import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
-import static io.trino.testing.datatype.DataType.bigintDataType;
 import static io.trino.testing.datatype.DataType.booleanDataType;
 import static io.trino.testing.datatype.DataType.dataType;
 import static io.trino.testing.datatype.DataType.dateDataType;
@@ -105,7 +101,6 @@ import static io.trino.testing.datatype.DataType.formatStringLiteral;
 import static io.trino.testing.datatype.DataType.integerDataType;
 import static io.trino.testing.datatype.DataType.realDataType;
 import static io.trino.testing.datatype.DataType.timestampDataType;
-import static io.trino.testing.datatype.DataType.varcharDataType;
 import static io.trino.type.JsonType.JSON;
 import static java.lang.String.format;
 import static java.math.RoundingMode.HALF_UP;
@@ -123,7 +118,6 @@ public class TestPostgreSqlTypeMapping
         extends AbstractTestQueryFramework
 {
     private static final LocalDate EPOCH_DAY = LocalDate.ofEpochDay(0);
-    private static final JsonCodec<List<Map<String, String>>> HSTORE_CODEC = listJsonCodec(mapJsonCodec(String.class, String.class));
 
     protected TestingPostgreSqlServer postgreSqlServer;
 
@@ -819,22 +813,22 @@ public class TestPostgreSqlTypeMapping
                 .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_array_basic"))
                 .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_array_basic"));
 
-        arrayDateTest(TestPostgreSqlTypeMapping::arrayDataType)
+        arrayDateTest(TestPostgreSqlTypeMapping::trinoArrayFactory)
                 .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_array_date"))
                 .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_array_date"));
-        arrayDateTest(TestPostgreSqlTypeMapping::postgresArrayDataType)
+        arrayDateTest(TestPostgreSqlTypeMapping::postgreSqlArrayFactory)
                 .execute(getQueryRunner(), session, postgresCreateAndInsert("test_array_date"));
 
-        arrayDecimalTest(TestPostgreSqlTypeMapping::arrayDataType)
+        arrayDecimalTest(TestPostgreSqlTypeMapping::trinoArrayFactory)
                 .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_array_decimal"))
                 .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_array_decimal"));
-        arrayDecimalTest(TestPostgreSqlTypeMapping::postgresArrayDataType)
+        arrayDecimalTest(TestPostgreSqlTypeMapping::postgreSqlArrayFactory)
                 .execute(getQueryRunner(), session, postgresCreateAndInsert("test_array_decimal"));
 
-        arrayVarcharDataTypeTest(TestPostgreSqlTypeMapping::arrayDataType)
+        arrayVarcharTest(TestPostgreSqlTypeMapping::trinoArrayFactory)
                 .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_array_varchar"))
                 .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_array_varchar"));
-        arrayVarcharDataTypeTest(TestPostgreSqlTypeMapping::postgresArrayDataType)
+        arrayVarcharTest(TestPostgreSqlTypeMapping::postgreSqlArrayFactory)
                 .execute(getQueryRunner(), session, postgresCreateAndInsert("test_array_varchar"));
 
         testUnsupportedDataTypeAsIgnored(session, "bytea[]", "ARRAY['binary value'::bytea]");
@@ -843,15 +837,15 @@ public class TestPostgreSqlTypeMapping
         testUnsupportedDataTypeAsIgnored(session, "_bytea", "ARRAY['binary value'::bytea]");
         testUnsupportedDataTypeConvertedToVarchar(session, "bytea[]", "_bytea", "ARRAY['binary value'::bytea]", "'{\"\\\\x62696e6172792076616c7565\"}'");
 
-        arrayUnicodeDataTypeTest(TestPostgreSqlTypeMapping::arrayDataType, DataType::charDataType)
+        arrayUnicodeDataTypeTest(TestPostgreSqlTypeMapping::trinoArrayFactory)
                 .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_array_parameterized_char_unicode"))
                 .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_array_parameterized_char_unicode"));
-        arrayUnicodeDataTypeTest(TestPostgreSqlTypeMapping::postgresArrayDataType, DataType::charDataType)
+        arrayUnicodeDataTypeTest(TestPostgreSqlTypeMapping::postgreSqlArrayFactory)
                 .execute(getQueryRunner(), session, postgresCreateAndInsert("test_array_parameterized_char_unicode"));
-        arrayVarcharUnicodeDataTypeTest(TestPostgreSqlTypeMapping::arrayDataType)
+        arrayVarcharUnicodeDataTypeTest(TestPostgreSqlTypeMapping::trinoArrayFactory)
                 .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_array_parameterized_varchar_unicode"))
                 .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_array_parameterized_varchar_unicode"));
-        arrayVarcharUnicodeDataTypeTest(TestPostgreSqlTypeMapping::postgresArrayDataType)
+        arrayVarcharUnicodeDataTypeTest(TestPostgreSqlTypeMapping::postgreSqlArrayFactory)
                 .execute(getQueryRunner(), session, postgresCreateAndInsert("test_array_parameterized_varchar_unicode"));
     }
 
@@ -867,62 +861,66 @@ public class TestPostgreSqlTypeMapping
     @Test
     public void testArrayEmptyOrNulls()
     {
+        SqlDataTypeTest.create()
+                .addRoundTrip("ARRAY(bigint)", "ARRAY[]", new ArrayType(BIGINT), "CAST(ARRAY[] AS ARRAY(BIGINT))")
+                .addRoundTrip("ARRAY(boolean)", "NULL", new ArrayType(BOOLEAN), "CAST(NULL AS ARRAY(BOOLEAN))")
+                .addRoundTrip("ARRAY(integer)", "ARRAY[1, 2, 3, 4]", new ArrayType(INTEGER), "ARRAY[1, 2, 3, 4]")
+                .addRoundTrip("ARRAY(timestamp(3))", "ARRAY[]", new ArrayType(createTimestampType(3)), "CAST(ARRAY[] AS ARRAY(TIMESTAMP(3)))")
+                .addRoundTrip("ARRAY(timestamp(3) with time zone)", "ARRAY[]", new ArrayType(createTimestampWithTimeZoneType(3)), "CAST(ARRAY[] AS ARRAY(TIMESTAMP(3) WITH TIME ZONE))")
+                .execute(getQueryRunner(), sessionWithArrayAsArray(), trinoCreateAsSelect(sessionWithArrayAsArray(), "test_array_empty_or_nulls"))
+                .execute(getQueryRunner(), sessionWithArrayAsArray(), trinoCreateAndInsert(sessionWithArrayAsArray(), "test_array_empty_or_nulls"));
+
+        // TODO: Migrate from DataTypeTest. SqlDataTypeTest fails when verifying predicates since we don't support comparing arrays containing NULLs, see https://github.com/trinodb/trino/issues/11397.
         DataTypeTest.create()
-                .addRoundTrip(arrayDataType(bigintDataType()), asList())
-                .addRoundTrip(arrayDataType(booleanDataType()), null)
                 .addRoundTrip(arrayDataType(realDataType()), singletonList(null))
                 .addRoundTrip(arrayDataType(integerDataType()), asList(1, null, 3, null))
-                .addRoundTrip(arrayDataType(timestampDataType(3)), asList())
                 .addRoundTrip(arrayDataType(timestampDataType(3)), singletonList(null))
-                .addRoundTrip(arrayDataType(trinoTimestampWithTimeZoneDataType(3)), asList())
                 .addRoundTrip(arrayDataType(trinoTimestampWithTimeZoneDataType(3)), singletonList(null))
                 .execute(getQueryRunner(), sessionWithArrayAsArray(), trinoCreateAsSelect(sessionWithArrayAsArray(), "test_array_empty_or_nulls"))
                 .execute(getQueryRunner(), sessionWithArrayAsArray(), trinoCreateAndInsert(sessionWithArrayAsArray(), "test_array_empty_or_nulls"));
     }
 
-    private DataTypeTest arrayDecimalTest(Function<DataType<BigDecimal>, DataType<List<BigDecimal>>> arrayTypeFactory)
+    private SqlDataTypeTest arrayDecimalTest(Function<String, String> arrayTypeFactory)
     {
-        return DataTypeTest.create()
-                .addRoundTrip(arrayTypeFactory.apply(decimalDataType(3, 0)), asList(new BigDecimal("193"), new BigDecimal("19"), new BigDecimal("-193")))
-                .addRoundTrip(arrayTypeFactory.apply(decimalDataType(3, 1)), asList(new BigDecimal("10.0"), new BigDecimal("10.1"), new BigDecimal("-10.1")))
-                .addRoundTrip(arrayTypeFactory.apply(decimalDataType(4, 2)), asList(new BigDecimal("2"), new BigDecimal("2.3")))
-                .addRoundTrip(arrayTypeFactory.apply(decimalDataType(24, 2)), asList(new BigDecimal("2"), new BigDecimal("2.3"), new BigDecimal("123456789.3")))
-                .addRoundTrip(arrayTypeFactory.apply(decimalDataType(24, 4)), asList(new BigDecimal("12345678901234567890.31")))
-                .addRoundTrip(arrayTypeFactory.apply(decimalDataType(30, 5)), asList(new BigDecimal("3141592653589793238462643.38327"), new BigDecimal("-3141592653589793238462643.38327")))
-                .addRoundTrip(arrayTypeFactory.apply(decimalDataType(38, 0)), asList(
-                        new BigDecimal("27182818284590452353602874713526624977"),
-                        new BigDecimal("-27182818284590452353602874713526624977")));
+        return SqlDataTypeTest.create()
+                .addRoundTrip(arrayTypeFactory.apply("decimal(3, 0)"), "ARRAY[193, 19, -193]", new ArrayType(createDecimalType(3, 0)), "ARRAY[CAST('193' AS decimal(3, 0)), CAST('19' AS decimal(3, 0)), CAST('-193' AS decimal(3, 0))]")
+                .addRoundTrip(arrayTypeFactory.apply("decimal(3, 1)"), "ARRAY[10.0, 10.1, -10.1]", new ArrayType(createDecimalType(3, 1)), "ARRAY[CAST('10.0' AS decimal(3, 1)), CAST('10.1' AS decimal(3, 1)), CAST('-10.1' AS decimal(3, 1))]")
+                .addRoundTrip(arrayTypeFactory.apply("decimal(4, 2)"), "ARRAY[2, 2.3]", new ArrayType(createDecimalType(4, 2)), "ARRAY[CAST('2' AS decimal(4, 2)), CAST('2.3' AS decimal(4, 2))]")
+                .addRoundTrip(arrayTypeFactory.apply("decimal(24, 2)"), "ARRAY[2, 2.3, 123456789.3]", new ArrayType(createDecimalType(24, 2)), "ARRAY[CAST('2' AS decimal(24, 2)), CAST('2.3' AS decimal(24, 2)), CAST('123456789.3' AS decimal(24, 2))]")
+                .addRoundTrip(arrayTypeFactory.apply("decimal(24, 4)"), "ARRAY[12345678901234567890.31]", new ArrayType(createDecimalType(24, 4)), "ARRAY[CAST('12345678901234567890.31' AS decimal(24, 4))]")
+                .addRoundTrip(arrayTypeFactory.apply("decimal(30, 5)"), "ARRAY[3141592653589793238462643.38327, -3141592653589793238462643.38327]", new ArrayType(createDecimalType(30, 5)), "ARRAY[CAST('3141592653589793238462643.38327' AS decimal(30, 5)), CAST('-3141592653589793238462643.38327' AS decimal(30, 5))]")
+                .addRoundTrip(arrayTypeFactory.apply("decimal(38, 0)"), "ARRAY[CAST('27182818284590452353602874713526624977' AS decimal(38, 0)), CAST('-27182818284590452353602874713526624977' AS decimal(38, 0))]", new ArrayType(createDecimalType(38, 0)), "ARRAY[CAST('27182818284590452353602874713526624977' AS decimal(38, 0)), CAST('-27182818284590452353602874713526624977' AS decimal(38, 0))]");
     }
 
-    private DataTypeTest arrayVarcharDataTypeTest(Function<DataType<String>, DataType<List<String>>> arrayTypeFactory)
+    private SqlDataTypeTest arrayVarcharTest(Function<String, String> arrayTypeFactory)
     {
-        return DataTypeTest.create()
-                .addRoundTrip(arrayTypeFactory.apply(varcharDataType(10)), asList("text_a"))
-                .addRoundTrip(arrayTypeFactory.apply(varcharDataType(255)), asList("text_b"))
-                .addRoundTrip(arrayTypeFactory.apply(varcharDataType(65535)), asList("text_d"))
-                .addRoundTrip(arrayTypeFactory.apply(varcharDataType(10485760)), asList("text_f"))
-                .addRoundTrip(arrayTypeFactory.apply(varcharDataType()), asList("unbounded"));
+        return SqlDataTypeTest.create()
+                .addRoundTrip(arrayTypeFactory.apply("varchar(10)"), "ARRAY['text_a']", new ArrayType(createVarcharType(10)), "ARRAY[CAST('text_a' AS varchar(10))]")
+                .addRoundTrip(arrayTypeFactory.apply("varchar(255)"), "ARRAY['text_b']", new ArrayType(createVarcharType(255)), "ARRAY[CAST('text_b' AS varchar(255))]")
+                .addRoundTrip(arrayTypeFactory.apply("varchar(65535)"), "ARRAY['text_d']", new ArrayType(createVarcharType(65535)), "ARRAY[CAST('text_d' AS varchar(65535))]")
+                .addRoundTrip(arrayTypeFactory.apply("varchar(10485760)"), "ARRAY['text_f']", new ArrayType(createVarcharType(10485760)), "ARRAY[CAST('text_f' AS varchar(10485760))]")
+                .addRoundTrip(arrayTypeFactory.apply("varchar"), "ARRAY['unbounded']", new ArrayType(createUnboundedVarcharType()), "ARRAY[CAST('unbounded' AS varchar)]");
     }
 
-    private DataTypeTest arrayVarcharUnicodeDataTypeTest(Function<DataType<String>, DataType<List<String>>> arrayTypeFactory)
+    private SqlDataTypeTest arrayVarcharUnicodeDataTypeTest(Function<String, String> arrayTypeFactory)
     {
-        return arrayUnicodeDataTypeTest(arrayTypeFactory, DataType::varcharDataType)
-                .addRoundTrip(arrayTypeFactory.apply(varcharDataType()), asList("\u041d\u0443, \u043f\u043e\u0433\u043e\u0434\u0438!"));
+        String sampleUnicodeText = "\u041d\u0443, \u043f\u043e\u0433\u043e\u0434\u0438!";
+        return arrayUnicodeDataTypeTest(arrayTypeFactory)
+                .addRoundTrip(arrayTypeFactory.apply("varchar"), format("ARRAY['%s']", sampleUnicodeText), new ArrayType(createUnboundedVarcharType()), format("ARRAY[CAST('%s' AS varchar)]", sampleUnicodeText));
     }
 
-    private DataTypeTest arrayUnicodeDataTypeTest(Function<DataType<String>, DataType<List<String>>> arrayTypeFactory, Function<Integer, DataType<String>> dataTypeFactory)
+    private SqlDataTypeTest arrayUnicodeDataTypeTest(Function<String, String> arrayTypeFactory)
     {
         String sampleUnicodeText = "\u653b\u6bbb\u6a5f\u52d5\u968a";
         String sampleFourByteUnicodeCharacter = "\uD83D\uDE02";
-
-        return DataTypeTest.create()
-                .addRoundTrip(arrayTypeFactory.apply(dataTypeFactory.apply(sampleUnicodeText.length())), asList(sampleUnicodeText))
-                .addRoundTrip(arrayTypeFactory.apply(dataTypeFactory.apply(32)), asList(sampleUnicodeText))
-                .addRoundTrip(arrayTypeFactory.apply(dataTypeFactory.apply(20000)), asList(sampleUnicodeText))
-                .addRoundTrip(arrayTypeFactory.apply(dataTypeFactory.apply(1)), asList(sampleFourByteUnicodeCharacter));
+        return SqlDataTypeTest.create()
+                .addRoundTrip(arrayTypeFactory.apply("char(5)"), format("ARRAY['%s']", sampleUnicodeText), new ArrayType(createCharType(5)), format("ARRAY[CAST('%s' AS char(5))]", sampleUnicodeText))
+                .addRoundTrip(arrayTypeFactory.apply("char(32)"), format("ARRAY['%s']", sampleUnicodeText), new ArrayType(createCharType(32)), format("ARRAY[CAST('%s' AS char(32))]", sampleUnicodeText))
+                .addRoundTrip(arrayTypeFactory.apply("char(20000)"), format("ARRAY['%s']", sampleUnicodeText), new ArrayType(createCharType(20000)), format("ARRAY[CAST('%s' AS char(20000))]", sampleUnicodeText))
+                .addRoundTrip(arrayTypeFactory.apply("char(1)"), format("ARRAY['%s']", sampleFourByteUnicodeCharacter), new ArrayType(createCharType(1)), format("ARRAY[CAST('%s' AS char(1))]", sampleFourByteUnicodeCharacter));
     }
 
-    private DataTypeTest arrayDateTest(Function<DataType<LocalDate>, DataType<List<LocalDate>>> arrayTypeFactory)
+    private SqlDataTypeTest arrayDateTest(Function<String, String> arrayTypeFactory)
     {
         ZoneId jvmZone = ZoneId.systemDefault();
         checkState(jvmZone.getId().equals("America/Bahia_Banderas"), "This test assumes certain JVM time zone");
@@ -935,20 +933,20 @@ public class TestPostgreSqlTypeMapping
         LocalDate dateOfLocalTimeChangeBackwardAtMidnightInSomeZone = LocalDate.of(1983, 10, 1);
         checkIsDoubled(someZone, dateOfLocalTimeChangeBackwardAtMidnightInSomeZone.atStartOfDay().minusMinutes(1));
 
-        return DataTypeTest.create()
-                .addRoundTrip(arrayTypeFactory.apply(dateDataType()), asList(LocalDate.of(1952, 4, 3))) // before epoch
-                .addRoundTrip(arrayTypeFactory.apply(dateDataType()), asList(LocalDate.of(1970, 1, 1)))
-                .addRoundTrip(arrayTypeFactory.apply(dateDataType()), asList(LocalDate.of(1970, 2, 3)))
-                .addRoundTrip(arrayTypeFactory.apply(dateDataType()), asList(LocalDate.of(2017, 7, 1))) // summer on northern hemisphere (possible DST)
-                .addRoundTrip(arrayTypeFactory.apply(dateDataType()), asList(LocalDate.of(2017, 1, 1))) // winter on northern hemisphere (possible DST on southern hemisphere)
-                .addRoundTrip(arrayTypeFactory.apply(dateDataType()), asList(dateOfLocalTimeChangeForwardAtMidnightInJvmZone))
-                .addRoundTrip(arrayTypeFactory.apply(dateDataType()), asList(dateOfLocalTimeChangeForwardAtMidnightInSomeZone))
-                .addRoundTrip(arrayTypeFactory.apply(dateDataType()), asList(dateOfLocalTimeChangeBackwardAtMidnightInSomeZone));
+        return SqlDataTypeTest.create()
+                .addRoundTrip(arrayTypeFactory.apply("date"), "ARRAY[DATE '1952-04-03']", new ArrayType(DATE), "ARRAY[DATE '1952-04-03']") // before epoch
+                .addRoundTrip(arrayTypeFactory.apply("date"), "ARRAY[DATE '1970-02-03']", new ArrayType(DATE), "ARRAY[DATE '1970-02-03']")
+                .addRoundTrip(arrayTypeFactory.apply("date"), "ARRAY[DATE '2017-07-01']", new ArrayType(DATE), "ARRAY[DATE '2017-07-01']") // summer on northern hemisphere (possible DST)
+                .addRoundTrip(arrayTypeFactory.apply("date"), "ARRAY[DATE '2017-01-01']", new ArrayType(DATE), "ARRAY[DATE '2017-01-01']") // winter on northern hemisphere (possible DST on southern hemisphere)
+                .addRoundTrip(arrayTypeFactory.apply("date"), "ARRAY[DATE '1970-01-01']", new ArrayType(DATE), "ARRAY[DATE '1970-01-01']") // change forward at midnight in JVM
+                .addRoundTrip(arrayTypeFactory.apply("date"), "ARRAY[DATE '1983-04-01']", new ArrayType(DATE), "ARRAY[DATE '1983-04-01']") // change forward at midnight in Vilnius
+                .addRoundTrip(arrayTypeFactory.apply("date"), "ARRAY[DATE '1983-10-01']", new ArrayType(DATE), "ARRAY[DATE '1983-10-01']"); // change backward at midnight in Vilnius
     }
 
     @Test
     public void testArrayMultidimensional()
     {
+        // TODO: Migrate from DataTypeTest. SqlDataTypeTest fails when verifying predicates since we don't support comparing arrays containing NULLs, see https://github.com/trinodb/trino/issues/11397.
         // for multidimensional arrays, PostgreSQL requires subarrays to have the same dimensions, including nulls
         // e.g. [[1], [1, 2]] and [null, [1, 2]] are not allowed, but [[null, null], [1, 2]] is allowed
         DataTypeTest.create()
@@ -982,52 +980,52 @@ public class TestPostgreSqlTypeMapping
                 .setSystemProperty("postgresql.array_mapping", AS_JSON.name())
                 .build();
 
-        DataTypeTest.create()
-                .addRoundTrip(arrayAsJsonDataType("boolean[]"), null)
-                .addRoundTrip(arrayAsJsonDataType("boolean[]"), "[[true,false],[false,true],[true,true]]")
-                .addRoundTrip(arrayAsJsonDataType("boolean[3][2]"), "[[true,false],[false,true],[true,true]]")
-                .addRoundTrip(arrayAsJsonDataType("boolean[100][100][100]"), "[true]")
-                .addRoundTrip(arrayAsJsonDataType("_bool"), "[[true,false],[null,null]]")
-                .addRoundTrip(arrayAsJsonDataType("_bool"), "[[[null]]]")
-                .addRoundTrip(arrayAsJsonDataType("_bool"), "[]")
+        SqlDataTypeTest.create()
+                .addRoundTrip("boolean[]", "NULL", JSON, "CAST(NULL AS JSON)")
+                .addRoundTrip("boolean[]", "ARRAY[ARRAY[true,false], ARRAY[false,true], ARRAY[true,true]]::boolean[]", JSON, "JSON '[[true,false], [false,true], [true,true]]'")
+                .addRoundTrip("boolean[3][2]", "ARRAY[ARRAY[true,false], ARRAY[false,true], ARRAY[true,true]]::boolean[3][2]", JSON, "JSON '[[true,false], [false,true], [true,true]]'")
+                .addRoundTrip("boolean[100][100][100]", "ARRAY[true]::boolean[100][100][100]", JSON, "JSON '[true]'")
+                .addRoundTrip("_bool", "ARRAY[ARRAY[true,false], ARRAY[null,null]]::_bool", JSON, "JSON '[[true,false], [null,null]]'")
+                .addRoundTrip("_bool", "ARRAY[ARRAY[ARRAY[null]]]::_bool", JSON, "JSON '[[[null]]]'")
+                .addRoundTrip("_bool", "ARRAY[]::_bool", JSON, "JSON '[]'")
                 .execute(getQueryRunner(), session, postgresCreateAndInsert("test_boolean_array_as_json"));
 
-        DataTypeTest.create()
-                .addRoundTrip(arrayAsJsonDataType("integer[]"), null)
-                .addRoundTrip(arrayAsJsonDataType("integer[]"), "[[[1,2,3],[4,5,6]],[[7,8,9],[10,11,12]]]")
-                .addRoundTrip(arrayAsJsonDataType("integer[100][100][100]"), "[0]")
-                .addRoundTrip(arrayAsJsonDataType("integer[]"), "[[[null,null]]]")
-                .addRoundTrip(arrayAsJsonDataType("integer[]"), "[]")
-                .addRoundTrip(arrayAsJsonDataType("_int4"), "[]")
-                .addRoundTrip(arrayAsJsonDataType("_int4"), "[[0],[1],[2],[3]]")
+        SqlDataTypeTest.create()
+                .addRoundTrip("integer[]", "NULL", JSON, "CAST(NULL AS JSON)")
+                .addRoundTrip("integer[]", "ARRAY[ARRAY[ARRAY[1,2,3], ARRAY[4,5,6]], ARRAY[ARRAY[7,8,9], ARRAY[10,11,12]]]::integer[]", JSON, "JSON '[[[1,2,3], [4,5,6]], [[7,8,9], [10,11,12]]]'")
+                .addRoundTrip("integer[100][100][100]", "ARRAY[0]::integer[100][100][100]", JSON, "JSON '[0]'")
+                .addRoundTrip("integer[]", "ARRAY[ARRAY[ARRAY[null,null]]]::integer[]", JSON, "JSON '[[[null,null]]]'")
+                .addRoundTrip("integer[]", "ARRAY[]::integer[]", JSON, "JSON '[]'")
+                .addRoundTrip("_int4", "ARRAY[]::_int4", JSON, "JSON '[]'")
+                .addRoundTrip("_int4", "ARRAY[ARRAY[0], ARRAY[1], ARRAY[2], ARRAY[3]]::_int4", JSON, "JSON '[[0], [1], [2], [3]]'")
                 .execute(getQueryRunner(), session, postgresCreateAndInsert("test_integer_array_as_json"));
 
-        DataTypeTest.create()
-                .addRoundTrip(arrayAsJsonDataType("double precision[]"), null)
-                .addRoundTrip(arrayAsJsonDataType("double precision[]"), "[[[1.1,2.2,3.3],[4.4,5.5,6.6]]]")
-                .addRoundTrip(arrayAsJsonDataType("double precision[100][100][100]"), "[42.3]")
-                .addRoundTrip(arrayAsJsonDataType("double precision[]"), "[[[null,null]]]")
-                .addRoundTrip(arrayAsJsonDataType("double precision[]"), "[]")
-                .addRoundTrip(arrayAsJsonDataType("_float8"), "[]")
-                .addRoundTrip(arrayAsJsonDataType("_float8"), "[[1.1],[2.2]]")
+        SqlDataTypeTest.create()
+                .addRoundTrip("double precision[]", "NULL", JSON, "CAST(NULL AS JSON)")
+                .addRoundTrip("double precision[]", "ARRAY[ARRAY[ARRAY[1.1,2.2,3.3], ARRAY[4.4,5.5,6.6]]]::double precision[]", JSON, "JSON '[[[1.1,2.2,3.3], [4.4,5.5,6.6]]]'")
+                .addRoundTrip("double precision[100][100][100]", "ARRAY[42.3]::double precision[100][100][100]", JSON, "JSON '[42.3]'")
+                .addRoundTrip("double precision[]", "ARRAY[ARRAY[ARRAY[null,null]]]::double precision[]", JSON, "JSON '[[[null,null]]]'")
+                .addRoundTrip("double precision[]", "ARRAY[]::double precision[]", JSON, "JSON '[]'")
+                .addRoundTrip("_float8", "ARRAY[]::_float8", JSON, "JSON '[]'")
+                .addRoundTrip("_float8", "ARRAY[ARRAY[1.1], ARRAY[2.2]]::_float8", JSON, "JSON '[[1.1], [2.2]]'")
                 .execute(getQueryRunner(), session, postgresCreateAndInsert("test_double_array_as_json"));
 
-        DataTypeTest.create()
-                .addRoundTrip(arrayAsJsonDataType("real[]"), null)
-                .addRoundTrip(arrayAsJsonDataType("real[]"), "[[[1.1,2.2,3.3],[4.4,5.5,6.6]]]")
-                .addRoundTrip(arrayAsJsonDataType("real[100][100][100]"), "[42.3]")
-                .addRoundTrip(arrayAsJsonDataType("real[]"), "[[[null,null]]]")
-                .addRoundTrip(arrayAsJsonDataType("real[]"), "[]")
-                .addRoundTrip(arrayAsJsonDataType("_float4"), "[]")
-                .addRoundTrip(arrayAsJsonDataType("_float4"), "[[1.1],[2.2]]")
+        SqlDataTypeTest.create()
+                .addRoundTrip("real[]", "NULL", JSON, "CAST(NULL AS JSON)")
+                .addRoundTrip("real[]", "ARRAY[ARRAY[ARRAY[1.1,2.2,3.3], ARRAY[4.4,5.5,6.6]]]::real[]", JSON, "JSON '[[[1.1,2.2,3.3], [4.4,5.5,6.6]]]'")
+                .addRoundTrip("real[100][100][100]", "ARRAY[42.3]::real[100][100][100]", JSON, "JSON '[42.3]'")
+                .addRoundTrip("real[]", "ARRAY[ARRAY[ARRAY[null,null]]]::real[]", JSON, "JSON '[[[null,null]]]'")
+                .addRoundTrip("real[]", "ARRAY[]::real[]", JSON, "JSON '[]'")
+                .addRoundTrip("_float4", "ARRAY[]::_float4", JSON, "JSON '[]'")
+                .addRoundTrip("_float4", "ARRAY[ARRAY[1.1], ARRAY[2.2]]::_float4", JSON, "JSON '[[1.1], [2.2]]'")
                 .execute(getQueryRunner(), session, postgresCreateAndInsert("test_real_array_as_json"));
 
-        DataTypeTest.create()
-                .addRoundTrip(arrayAsJsonDataType("varchar[]"), null)
-                .addRoundTrip(arrayAsJsonDataType("varchar[]"), "[\"text\"]")
-                .addRoundTrip(arrayAsJsonDataType("_text"), "[[\"one\",\"two\"],[\"three\",\"four\"]]")
-                .addRoundTrip(arrayAsJsonDataType("_text"), "[[\"one\",null]]")
-                .addRoundTrip(arrayAsJsonDataType("_text"), "[]")
+        SqlDataTypeTest.create()
+                .addRoundTrip("varchar[]", "NULL", JSON, "CAST(NULL AS JSON)")
+                .addRoundTrip("varchar[]", "ARRAY['text']::varchar[]", JSON, "JSON '[\"text\"]'")
+                .addRoundTrip("_text", "ARRAY[ARRAY['one','two'], ARRAY['three','four']]::_text", JSON, "JSON '[[\"one\",\"two\"], [\"three\",\"four\"]]'")
+                .addRoundTrip("_text", "ARRAY[ARRAY['one',null]]::_text", JSON, "JSON '[[\"one\",null]]'")
+                .addRoundTrip("_text", "ARRAY[]::_text", JSON, "JSON '[]'")
                 .execute(getQueryRunner(), session, postgresCreateAndInsert("test_varchar_array_as_json"));
 
         testUnsupportedDataTypeAsIgnored(session, "bytea[]", "ARRAY['binary value'::bytea]");
@@ -1036,35 +1034,40 @@ public class TestPostgreSqlTypeMapping
         testUnsupportedDataTypeAsIgnored(session, "_bytea", "ARRAY['binary value'::bytea]");
         testUnsupportedDataTypeConvertedToVarchar(session, "bytea[]", "_bytea", "ARRAY['binary value'::bytea]", " '{\"\\\\x62696e6172792076616c7565\"}' ");
 
-        DataTypeTest.create()
-                .addRoundTrip(arrayAsJsonDataType("date[]"), null)
-                .addRoundTrip(arrayAsJsonDataType("date[]"), "[\"2019-01-02\"]")
-                .addRoundTrip(arrayAsJsonDataType("date[]"), "[null,null]")
+        SqlDataTypeTest.create()
+                .addRoundTrip("date[]", "NULL", JSON, "CAST(NULL AS JSON)")
+                .addRoundTrip("date[]", "ARRAY['2019-01-02']::date[]", JSON, "JSON '[\"2019-01-02\"]'")
+                .addRoundTrip("date[]", "ARRAY[null,null]::date[]", JSON, "JSON '[null,null]'")
                 .execute(getQueryRunner(), session, postgresCreateAndInsert("test_timestamp_array_as_json"));
 
-        DataTypeTest.create()
-                .addRoundTrip(arrayAsJsonDataType("timestamp[]"), null)
-                .addRoundTrip(arrayAsJsonDataType("timestamp[]"), "[\"2019-01-02 03:04:05.789000\"]")
-                .addRoundTrip(arrayAsJsonDataType("timestamp[]"), "[null,null]")
+        SqlDataTypeTest.create()
+                .addRoundTrip("timestamp[]", "NULL", JSON, "CAST(NULL AS JSON)")
+                .addRoundTrip("timestamp[]", "ARRAY['2019-01-02 03:04:05.789000']::timestamp[]", JSON, "JSON '[\"2019-01-02 03:04:05.789000\"]'")
+                .addRoundTrip("timestamp[]", "ARRAY[null,null]::timestamp[]", JSON, "JSON '[null,null]'")
                 .execute(getQueryRunner(), session, postgresCreateAndInsert("test_timestamp_array_as_json"));
 
-        DataTypeTest.create()
-                .addRoundTrip(arrayAsJsonDataType("hstore[]"), null)
-                .addRoundTrip(arrayAsJsonDataType("hstore[]"), "[]")
-                .addRoundTrip(arrayAsJsonDataType("hstore[]"), "[null,null]")
-                .addRoundTrip(hstoreArrayAsJsonDataType(), "[{\"a\":\"1\",\"b\":\"2\"},{\"a\":\"3\",\"d\":\"4\"}]")
-                .addRoundTrip(hstoreArrayAsJsonDataType(), "[{\"a\":null,\"b\":\"2\"}]")
+        SqlDataTypeTest.create()
+                .addRoundTrip("hstore[]", "NULL", JSON, "CAST(NULL AS JSON)")
+                .addRoundTrip("hstore[]", "ARRAY[]::hstore[]", JSON, "JSON '[]'")
+                .addRoundTrip("hstore[]", "ARRAY[null,null]::hstore[]", JSON, "JSON '[null,null]'")
+                .addRoundTrip("hstore[]", "ARRAY[hstore(ARRAY['a','1','b','2']::varchar[]), hstore(ARRAY['a','3','d','4']::varchar[])]", JSON, "JSON '[{\"a\":\"1\",\"b\":\"2\"},{\"a\":\"3\",\"d\":\"4\"}]'")
+                .addRoundTrip("hstore[]", "ARRAY[hstore(ARRAY['a',null,'b','2']::varchar[])]", JSON, "JSON '[{\"a\":null,\"b\":\"2\"}]'")
                 .execute(getQueryRunner(), session, postgresCreateAndInsert("test_hstore_array_as_json"));
+    }
+
+    private static String trinoArrayFactory(String elementType)
+    {
+        return format("ARRAY(%s)", elementType);
+    }
+
+    private static String postgreSqlArrayFactory(String elementType)
+    {
+        return elementType + "[]";
     }
 
     private static <E> DataType<List<E>> arrayDataType(DataType<E> elementType)
     {
         return arrayDataType(elementType, format("ARRAY(%s)", elementType.getInsertType()));
-    }
-
-    private static <E> DataType<List<E>> postgresArrayDataType(DataType<E> elementType)
-    {
-        return arrayDataType(elementType, elementType.getInsertType() + "[]");
     }
 
     private static <E> DataType<List<E>> arrayDataType(DataType<E> elementType, String insertType)
@@ -1075,28 +1078,6 @@ public class TestPostgreSqlTypeMapping
                 valuesList -> "ARRAY" + valuesList.stream().map(elementType::toLiteral).collect(toList()),
                 valuesList -> "ARRAY" + valuesList.stream().map(elementType::toTrinoLiteral).collect(toList()),
                 valuesList -> valuesList == null ? null : valuesList.stream().map(elementType::toTrinoQueryResult).collect(toList()));
-    }
-
-    private static DataType<String> arrayAsJsonDataType(String insertType)
-    {
-        return dataType(
-                insertType,
-                JSON,
-                // naive conversion JSON array -> array literal, sufficient for tests
-                value -> value
-                        .replace("[", "ARRAY[")
-                        .replace("\"", "'")
-                        + "::" + insertType);
-    }
-
-    private static DataType<String> hstoreArrayAsJsonDataType()
-    {
-        return dataType(
-                "hstore[]",
-                JSON,
-                json -> HSTORE_CODEC.fromJson(json).stream()
-                        .map(TestPostgreSqlTypeMapping::hstoreLiteral)
-                        .collect(joining(",", "ARRAY[", "]")));
     }
 
     @Test(dataProvider = "sessionZonesDataProvider")
