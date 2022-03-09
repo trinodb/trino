@@ -86,11 +86,11 @@ public class ParquetFileWriter
     @Override
     public long getWrittenBytes()
     {
-        return parquetWriter.getWrittenBytes();
+        return parquetWriter.getWrittenBytes() + parquetWriter.getBufferedBytes();
     }
 
     @Override
-    public long getSystemMemoryUsage()
+    public long getMemoryUsage()
     {
         return INSTANCE_SIZE + parquetWriter.getRetainedBytes();
     }

@@ -13,20 +13,37 @@
  */
 package io.trino.operator.aggregation.state;
 
+import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AccumulatorStateSerializer;
 import io.trino.spi.type.Type;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static java.util.Objects.requireNonNull;
 
 public class NullableBooleanStateSerializer
         implements AccumulatorStateSerializer<NullableBooleanState>
 {
+    private final Type type;
+
+    @UsedByGeneratedCode
+    public NullableBooleanStateSerializer()
+    {
+        this(BOOLEAN);
+    }
+
+    public NullableBooleanStateSerializer(Type type)
+    {
+        this.type = requireNonNull(type, "type is null");
+        checkArgument(type.getJavaType() == boolean.class, "Type must use boolean stack type: " + type);
+    }
+
     @Override
     public Type getSerializedType()
     {
-        return BOOLEAN;
+        return type;
     }
 
     @Override

@@ -1338,10 +1338,26 @@ export class QueryDetail extends React.Component {
                                     </tr>
                                     <tr>
                                         <td className="info-title">
+                                            CPU Time (failed tasks)
+                                        </td>
+                                        <td className="info-text">
+                                            {query.queryStats.failedCpuTime}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="info-title">
                                             Scheduled Time
                                         </td>
                                         <td className="info-text">
                                             {query.queryStats.totalScheduledTime}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="info-title">
+                                            Scheduled Time (failed tasks)
+                                        </td>
+                                        <td className="info-text">
+                                            {query.queryStats.failedScheduledTime}
                                         </td>
                                     </tr>
                                     <tr>
@@ -1428,14 +1444,6 @@ export class QueryDetail extends React.Component {
                                     </tr>
                                     <tr>
                                         <td className="info-title">
-                                            Memory Pool
-                                        </td>
-                                        <td className="info-text">
-                                            {query.memoryPool}
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td className="info-title">
                                             Cumulative User Memory
                                         </td>
                                         <td className="info-text">
@@ -1444,10 +1452,10 @@ export class QueryDetail extends React.Component {
                                     </tr>
                                     <tr>
                                         <td className="info-title">
-                                            Cumulative System Memory
+                                            Cumulative User Memory (failed tasks)
                                         </td>
                                         <td className="info-text">
-                                            {formatDataSizeBytes(query.queryStats.cumulativeSystemMemory / 1000.0) + " seconds"}
+                                            {formatDataSizeBytes(query.queryStats.failedCumulativeUserMemory / 1000.0) + " seconds"}
                                         </td>
                                     </tr>
                                     <tr>

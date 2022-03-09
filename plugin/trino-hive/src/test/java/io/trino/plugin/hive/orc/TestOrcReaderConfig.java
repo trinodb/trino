@@ -44,7 +44,7 @@ public class TestOrcReaderConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("hive.orc.use-column-names", "true")
                 .put("hive.orc.bloom-filters.enabled", "true")
                 .put("hive.orc.max-merge-distance", "22kB")
@@ -54,7 +54,7 @@ public class TestOrcReaderConfig
                 .put("hive.orc.max-read-block-size", "66kB")
                 .put("hive.orc.lazy-read-small-ranges", "false")
                 .put("hive.orc.nested-lazy", "false")
-                .build();
+                .buildOrThrow();
 
         OrcReaderConfig expected = new OrcReaderConfig()
                 .setUseColumnNames(true)

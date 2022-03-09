@@ -14,9 +14,7 @@
 package io.trino.plugin.mongodb;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
+import com.google.common.cache.Cache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -34,6 +32,7 @@ import com.mongodb.client.model.IndexOptions;
 import com.mongodb.client.result.DeleteResult;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
+import io.trino.collect.cache.EvictableCacheBuilder;
 import io.trino.spi.HostAddress;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
@@ -54,6 +53,7 @@ import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.TypeSignatureParameter;
 import io.trino.spi.type.VarcharType;
 import org.bson.Document;
+import org.bson.types.Binary;
 import org.bson.types.ObjectId;
 
 import java.util.ArrayList;
@@ -64,6 +64,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -80,13 +81,13 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
@@ -123,7 +124,7 @@ public class MongoSession
     private final boolean caseInsensitiveNameMatching;
     private final int cursorBatchSize;
 
-    private final LoadingCache<SchemaTableName, MongoTable> tableCache;
+    private final Cache<SchemaTableName, MongoTable> tableCache;
     private final String implicitPrefix;
 
     public MongoSession(TypeManager typeManager, MongoClient client, MongoClientConfig config)
@@ -135,10 +136,9 @@ public class MongoSession
         this.cursorBatchSize = config.getCursorBatchSize();
         this.implicitPrefix = requireNonNull(config.getImplicitRowFieldPrefix(), "config.getImplicitRowFieldPrefix() is null");
 
-        this.tableCache = CacheBuilder.newBuilder()
-                .expireAfterWrite(1, HOURS)  // TODO: Configure
-                .refreshAfterWrite(1, MINUTES)
-                .build(CacheLoader.from(this::loadTableSchema));
+        this.tableCache = EvictableCacheBuilder.newBuilder()
+                .expireAfterWrite(1, MINUTES)  // TODO: Configure
+                .build();
     }
 
     public void shutdown()
@@ -179,11 +179,11 @@ public class MongoSession
             throws TableNotFoundException
     {
         try {
-            return tableCache.getUnchecked(tableName);
+            return tableCache.get(tableName, () -> loadTableSchema(tableName));
         }
-        catch (UncheckedExecutionException e) {
+        catch (ExecutionException | UncheckedExecutionException e) {
             throwIfInstanceOf(e.getCause(), TrinoException.class);
-            throw e;
+            throw new RuntimeException(e);
         }
     }
 
@@ -602,6 +602,9 @@ public class MongoSession
         if (value instanceof String) {
             typeSignature = createUnboundedVarcharType().getTypeSignature();
         }
+        if (value instanceof Binary) {
+            typeSignature = VARBINARY.getTypeSignature();
+        }
         else if (value instanceof Integer || value instanceof Long) {
             typeSignature = BIGINT.getTypeSignature();
         }
@@ -700,11 +703,11 @@ public class MongoSession
 
     private boolean isView(String schemaName, String tableName)
     {
-        Document listCollectionsCommand = new Document(new ImmutableMap.Builder<String, Object>()
+        Document listCollectionsCommand = new Document(ImmutableMap.<String, Object>builder()
                 .put("listCollections", 1.0)
                 .put("filter", documentOf("name", tableName))
                 .put("nameOnly", true)
-                .build());
+                .buildOrThrow());
         Document cursor = client.getDatabase(schemaName).runCommand(listCollectionsCommand).get("cursor", Document.class);
         List<Document> firstBatch = cursor.get("firstBatch", List.class);
         if (firstBatch.isEmpty()) {

@@ -50,7 +50,7 @@ public class TestRubixConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("hive.cache.read-mode", "read-through")
                 .put("hive.cache.location", "/some-directory")
                 .put("hive.cache.ttl", "5h")
@@ -58,7 +58,7 @@ public class TestRubixConfig
                 .put("hive.cache.bookkeeper-port", "1234")
                 .put("hive.cache.data-transfer-port", "1235")
                 .put("hive.cache.start-server-on-coordinator", "true")
-                .build();
+                .buildOrThrow();
 
         RubixConfig expected = new RubixConfig()
                 .setReadMode(RubixConfig.ReadMode.READ_THROUGH)

@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hive;
 
+import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
 import io.trino.plugin.hive.metastore.thrift.InMemoryThriftMetastore;
@@ -28,12 +29,12 @@ public class TestHiveInMemoryMetastore
         extends AbstractTestHiveLocal
 {
     @Override
-    protected HiveMetastore createMetastore(File tempDir)
+    protected HiveMetastore createMetastore(File tempDir, HiveIdentity identity)
     {
         File baseDir = new File(tempDir, "metastore");
         ThriftMetastoreConfig metastoreConfig = new ThriftMetastoreConfig();
         InMemoryThriftMetastore hiveMetastore = new InMemoryThriftMetastore(baseDir, metastoreConfig);
-        return new BridgingHiveMetastore(hiveMetastore);
+        return new BridgingHiveMetastore(hiveMetastore, identity);
     }
 
     @Test
@@ -58,6 +59,12 @@ public class TestHiveInMemoryMetastore
 
     @Override
     public void testHideDeltaLakeTables()
+    {
+        throw new SkipException("not supported");
+    }
+
+    @Override
+    public void testDisallowQueryingOfIcebergTables()
     {
         throw new SkipException("not supported");
     }

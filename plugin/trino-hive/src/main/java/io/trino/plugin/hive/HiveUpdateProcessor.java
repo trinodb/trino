@@ -268,7 +268,7 @@ public class HiveUpdateProcessor
                 nonUpdatedIndex++;
             }
         }
-        Map<HiveColumnHandle, Integer> nonUpdatedMap = nonUpdatedNumbersBuilder.build();
+        Map<HiveColumnHandle, Integer> nonUpdatedMap = nonUpdatedNumbersBuilder.buildOrThrow();
         return nonUpdatedColumns.stream().map(nonUpdatedMap::get).collect(toImmutableList());
     }
 }

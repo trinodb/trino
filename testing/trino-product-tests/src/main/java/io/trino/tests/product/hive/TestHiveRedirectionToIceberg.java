@@ -305,18 +305,11 @@ public class TestHiveRedirectionToIceberg
 
         createIcebergTable(icebergTableName, false);
 
-        onTrino().executeQuery("ALTER TABLE " + hiveTableName + " RENAME TO " + tableName + "_new");
+        //TODO restore test assertions after adding redirection awareness to the RenameTableTask
+        assertQueryFailure(() -> onTrino().executeQuery("ALTER TABLE " + hiveTableName + " RENAME TO " + tableName + "_new"))
+                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): Cannot query Iceberg table 'default." + tableName + "'");
 
-        assertQueryFailure(() -> onTrino().executeQuery("TABLE " + hiveTableName))
-                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): line 1:1: Table '" + hiveTableName + "' does not exist");
-        assertQueryFailure(() -> onTrino().executeQuery("TABLE " + icebergTableName))
-                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): line 1:1: Table '" + icebergTableName + "' does not exist");
-
-        assertResultsEqual(
-                onTrino().executeQuery("TABLE " + icebergTableName + "_new"),
-                onTrino().executeQuery("TABLE " + hiveTableName + "_new"));
-
-        onTrino().executeQuery("DROP TABLE " + icebergTableName + "_new");
+        onTrino().executeQuery("DROP TABLE " + icebergTableName);
     }
 
     @Test(groups = {HIVE_ICEBERG_REDIRECTIONS, PROFILE_SPECIFIC_TESTS})
@@ -330,14 +323,52 @@ public class TestHiveRedirectionToIceberg
 
         onTrino().executeQuery("ALTER TABLE " + hiveTableName + " ADD COLUMN some_new_column double");
 
-        // TODO: ALTER TABLE succeeded, but new column was not added
         Assertions.assertThat(onTrino().executeQuery("DESCRIBE " + icebergTableName).column(1))
-                .containsOnly("nationkey", "name", "regionkey", "comment");
+                .containsOnly("nationkey", "name", "regionkey", "comment", "some_new_column");
 
         assertResultsEqual(
                 onTrino().executeQuery("TABLE " + icebergTableName),
-                onTrino().executeQuery("SELECT * /*, NULL*/ FROM tpch.tiny.nation"));
+                onTrino().executeQuery("SELECT * , NULL FROM tpch.tiny.nation"));
+        onTrino().executeQuery("DROP TABLE " + icebergTableName);
+    }
 
+    @Test(groups = {HIVE_ICEBERG_REDIRECTIONS, PROFILE_SPECIFIC_TESTS})
+    public void testAlterTableDropColumn()
+    {
+        String tableName = "iceberg_alter_table_drop_column_" + randomTableSuffix();
+        String hiveTableName = "hive.default." + tableName;
+        String icebergTableName = "iceberg.default." + tableName;
+
+        createIcebergTable(icebergTableName, false);
+
+        onTrino().executeQuery("ALTER TABLE " + hiveTableName + " DROP COLUMN comment");
+
+        Assertions.assertThat(onTrino().executeQuery("DESCRIBE " + icebergTableName).column(1))
+                .containsOnly("nationkey", "name", "regionkey");
+
+        assertResultsEqual(
+                onTrino().executeQuery("TABLE " + icebergTableName),
+                onTrino().executeQuery("SELECT nationkey, name, regionkey FROM tpch.tiny.nation"));
+        onTrino().executeQuery("DROP TABLE " + icebergTableName);
+    }
+
+    @Test(groups = {HIVE_ICEBERG_REDIRECTIONS, PROFILE_SPECIFIC_TESTS})
+    public void testAlterTableRenameColumn()
+    {
+        String tableName = "iceberg_alter_table_" + randomTableSuffix();
+        String hiveTableName = "hive.default." + tableName;
+        String icebergTableName = "iceberg.default." + tableName;
+
+        createIcebergTable(icebergTableName, false);
+
+        onTrino().executeQuery("ALTER TABLE " + hiveTableName + " RENAME COLUMN nationkey TO nation_key");
+
+        Assertions.assertThat(onTrino().executeQuery("DESCRIBE " + icebergTableName).column(1))
+                .containsOnly("nation_key", "name", "regionkey", "comment");
+
+        assertResultsEqual(
+                onTrino().executeQuery("TABLE " + icebergTableName),
+                onTrino().executeQuery("SELECT nationkey as nation_key, name, regionkey, comment FROM tpch.tiny.nation"));
         onTrino().executeQuery("DROP TABLE " + icebergTableName);
     }
 
@@ -353,11 +384,46 @@ public class TestHiveRedirectionToIceberg
         assertTableComment("hive", "default", tableName).isNull();
         assertTableComment("iceberg", "default", tableName).isNull();
 
-        onTrino().executeQuery("COMMENT ON TABLE " + hiveTableName + " IS 'This is my table, there are many like it but this one is mine'");
+        String tableComment = "This is my table, there are many like it but this one is mine";
+        onTrino().executeQuery(format("COMMENT ON TABLE " + hiveTableName + " IS '%s'", tableComment));
 
-        // TODO: COMMENT ON TABLE succeeded, but comment was not preserved
-        assertTableComment("hive", "default", tableName).isNull();
-        assertTableComment("iceberg", "default", tableName).isNull();
+        assertTableComment("hive", "default", tableName).isEqualTo(tableComment);
+        assertTableComment("iceberg", "default", tableName).isEqualTo(tableComment);
+
+        onTrino().executeQuery("DROP TABLE " + icebergTableName);
+    }
+
+    @Test(groups = {HIVE_ICEBERG_REDIRECTIONS, PROFILE_SPECIFIC_TESTS})
+    public void testCommentColumn()
+    {
+        String tableName = "iceberg_comment_column_" + randomTableSuffix();
+        String hiveTableName = "hive.default." + tableName;
+        String icebergTableName = "iceberg.default." + tableName;
+        String columnName = "nationkey";
+        createIcebergTable(icebergTableName, false);
+
+        assertColumnComment("hive", "default", tableName, columnName).isNull();
+        assertColumnComment("iceberg", "default", tableName, columnName).isNull();
+
+        String columnComment = "Internal identifier for the nation";
+        onTrino().executeQuery(format("COMMENT ON COLUMN %s.%s IS '%s'", hiveTableName, columnName, columnComment));
+
+        assertColumnComment("hive", "default", tableName, columnName).isEqualTo(columnComment);
+        assertColumnComment("iceberg", "default", tableName, columnName).isEqualTo(columnComment);
+
+        onTrino().executeQuery("DROP TABLE " + icebergTableName);
+    }
+
+    @Test(groups = {HIVE_ICEBERG_REDIRECTIONS, PROFILE_SPECIFIC_TESTS})
+    public void testShowGrants()
+    {
+        String tableName = "iceberg_show_grants_" + randomTableSuffix();
+        String hiveTableName = "hive.default." + tableName;
+        String icebergTableName = "iceberg.default." + tableName;
+        createIcebergTable(icebergTableName, false);
+
+        assertQueryFailure(() -> onTrino().executeQuery(format("SHOW GRANTS ON %s", hiveTableName)))
+                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): line 1:1: Table " + hiveTableName + " is redirected to " + icebergTableName + " and SHOW GRANTS is not supported with table redirections");
 
         onTrino().executeQuery("DROP TABLE " + icebergTableName);
     }
@@ -477,6 +543,21 @@ public class TestHiveRedirectionToIceberg
                 param(VARCHAR, catalog),
                 param(VARCHAR, schema),
                 param(VARCHAR, tableName));
+    }
+
+    private static AbstractStringAssert<?> assertColumnComment(String catalog, String schema, String tableName, String columnName)
+    {
+        QueryResult queryResult = readColumnComment(catalog, schema, tableName, columnName);
+        return Assertions.assertThat((String) getOnlyElement(getOnlyElement(queryResult.rows())));
+    }
+
+    private static QueryResult readColumnComment(String catalog, String schema, String tableName, String columnName)
+    {
+        return onTrino().executeQuery(
+                format("SELECT comment FROM %s.information_schema.columns WHERE table_schema = ? AND table_name = ? AND column_name = ?", catalog),
+                param(VARCHAR, schema),
+                param(VARCHAR, tableName),
+                param(VARCHAR, columnName));
     }
 
     private static void assertResultsEqual(QueryResult first, QueryResult second)

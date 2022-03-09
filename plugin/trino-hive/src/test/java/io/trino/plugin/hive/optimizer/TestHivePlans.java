@@ -15,8 +15,6 @@ package io.trino.plugin.hive.optimizer;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Files;
-import io.trino.FeaturesConfig.JoinDistributionType;
-import io.trino.FeaturesConfig.JoinReorderingStrategy;
 import io.trino.Session;
 import io.trino.plugin.hive.HdfsConfig;
 import io.trino.plugin.hive.HdfsConfiguration;
@@ -25,14 +23,16 @@ import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.HiveHdfsConfiguration;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.TestingHiveConnectorFactory;
-import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.authentication.NoHdfsAuthentication;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.MetastoreConfig;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastore;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig;
+import io.trino.spi.TrinoException;
 import io.trino.spi.security.PrincipalType;
+import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
+import io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.testing.LocalQueryRunner;
 import io.trino.testing.QueryRunner;
@@ -60,8 +60,10 @@ import static io.trino.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.REMOTE;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.GATHER;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPARTITION;
+import static io.trino.sql.planner.plan.ExchangeNode.Type.REPLICATE;
 import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestHivePlans
         extends BasePlanTest
@@ -97,7 +99,7 @@ public class TestHivePlans
                 .setOwnerType(Optional.of(PrincipalType.ROLE))
                 .build();
 
-        metastore.createDatabase(new HiveIdentity(HIVE_SESSION.toConnectorSession()), database);
+        metastore.createDatabase(database);
 
         return createQueryRunner(HIVE_SESSION, metastore);
     }
@@ -105,7 +107,7 @@ public class TestHivePlans
     protected LocalQueryRunner createQueryRunner(Session session, HiveMetastore metastore)
     {
         LocalQueryRunner queryRunner = LocalQueryRunner.create(session);
-        queryRunner.createCatalog(HIVE_CATALOG_NAME, new TestingHiveConnectorFactory(metastore), Map.of());
+        queryRunner.createCatalog(HIVE_CATALOG_NAME, new TestingHiveConnectorFactory(metastore), Map.of("hive.max-partitions-per-scan", "5"));
         return queryRunner;
     }
 
@@ -122,6 +124,9 @@ public class TestHivePlans
 
         // partitioned on varchar
         queryRunner.execute("CREATE TABLE table_str_partitioned WITH (partitioned_by = ARRAY['str_part']) AS SELECT int_col, str_part FROM (" + values + ") t(str_part, int_col)");
+
+        // with too many partitions
+        queryRunner.execute("CREATE TABLE table_int_with_too_many_partitions WITH (partitioned_by = ARRAY['int_part']) AS SELECT str_col, int_part FROM (" + values + ", ('six', 6)) t(str_col, int_part)");
 
         // unpartitioned
         queryRunner.execute("CREATE TABLE table_unpartitioned AS SELECT str_col, int_col FROM (" + values + ") t(str_col, int_col)");
@@ -199,7 +204,7 @@ public class TestHivePlans
     @Test
     public void testSubsumePartitionPartOfAFilter()
     {
-        // Test that the partition filter is fully subsumed (TODO it's not) into the partitioned table, while also being propagated into the other Join side, in the presence
+        // Test that the partition filter is fully subsumed into the partitioned table, while also being propagated into the other Join side, in the presence
         // of other pushdown-able filter.
         // Join is important because it triggers PredicatePushDown logic (EffectivePredicateExtractor)
         assertDistributedPlan(
@@ -211,12 +216,12 @@ public class TestHivePlans
                                 join(INNER, List.of(equiJoinClause("L_INT_PART", "R_INT_COL")),
                                         exchange(REMOTE, REPARTITION,
                                                 project(
-                                                        filter("L_STR_COL != 'three' AND L_INT_PART IN (2, 3, 4)", // TODO the L_INT_PART filter is redundant
+                                                        filter("L_STR_COL != 'three'",
                                                                 tableScan("table_int_partitioned", Map.of("L_INT_PART", "int_part", "L_STR_COL", "str_col"))))),
                                         exchange(LOCAL,
                                                 exchange(REMOTE, REPARTITION,
                                                         project(
-                                                                filter("R_INT_COL IN (2, 3, 4)",
+                                                                filter("R_INT_COL IN (2, 3, 4) AND R_INT_COL BETWEEN 2 AND 4", // TODO: R_INT_COL BETWEEN 2 AND 4 is redundant
                                                                         tableScan("table_unpartitioned", Map.of("R_STR_COL", "str_col", "R_INT_COL", "int_col"))))))))));
     }
 
@@ -266,6 +271,50 @@ public class TestHivePlans
                                                         project(
                                                                 filter("R_INT_COL IN (2, 4) AND R_INT_COL % 2 = 0",
                                                                         tableScan("table_unpartitioned", Map.of("R_STR_COL", "str_col", "R_INT_COL", "int_col"))))))))));
+    }
+
+    @Test
+    public void testFilterDerivedFromTableProperties()
+    {
+        // Test that the filter is on build side table is derived from table properties
+        assertDistributedPlan(
+                "SELECT l.str_col, r.str_col FROM table_int_partitioned l JOIN table_unpartitioned r ON l.int_part = r.int_col",
+                noJoinReordering(),
+                output(
+                        exchange(REMOTE, GATHER,
+                                join(INNER, List.of(equiJoinClause("L_INT_PART", "R_INT_COL")),
+                                        exchange(REMOTE, REPARTITION,
+                                                project(
+                                                        filter("true", //dynamic filter
+                                                                tableScan("table_int_partitioned", Map.of("L_INT_PART", "int_part", "L_STR_COL", "str_col"))))),
+                                        exchange(LOCAL,
+                                                exchange(REMOTE, REPARTITION,
+                                                        project(
+                                                                filter("R_INT_COL IN (1, 2, 3, 4, 5)",
+                                                                        tableScan("table_unpartitioned", Map.of("R_STR_COL", "str_col", "R_INT_COL", "int_col"))))))))));
+    }
+
+    @Test
+    public void testQueryScanningForTooManyPartitions()
+    {
+        String query = "SELECT l.str_col, r.str_col FROM table_int_with_too_many_partitions l JOIN table_unpartitioned r ON l.int_part = r.int_col";
+        assertDistributedPlan(
+                query,
+                output(
+                        exchange(REMOTE, GATHER,
+                                join(INNER, List.of(equiJoinClause("L_INT_PART", "R_INT_COL")),
+                                        project(
+                                                filter("true", //dynamic filter
+                                                        tableScan("table_int_with_too_many_partitions", Map.of("L_INT_PART", "int_part", "L_STR_COL", "str_col")))),
+                                        exchange(LOCAL,
+                                                exchange(REMOTE, REPLICATE,
+                                                        project(
+                                                                tableScan("table_unpartitioned", Map.of("R_STR_COL", "str_col", "R_INT_COL", "int_col")))))))));
+
+        // The partitions will be loaded during split creation, so it fails during execution.
+        assertThatThrownBy(() -> getQueryRunner().execute(query))
+                .isInstanceOf(TrinoException.class)
+                .hasMessage("Query over table 'test_schema.table_int_with_too_many_partitions' can potentially read more than 5 partitions");
     }
 
     // Disable join ordering so that expected plans are well defined.

@@ -25,6 +25,7 @@ import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.security.AllowAllAccessControl;
+import io.trino.server.protocol.PreparedStatementEncoder;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
 import io.trino.sql.SqlEnvironmentConfig;
@@ -67,7 +68,11 @@ public class TestQuerySessionSupplier
             .put(TRINO_HEADERS.requestSession(), JOIN_DISTRIBUTION_TYPE + "=partitioned," + HASH_PARTITION_COUNT + " = 43")
             .put(TRINO_HEADERS.requestPreparedStatement(), "query1=select * from foo,query2=select * from bar")
             .build());
-    private static final HttpRequestSessionContextFactory SESSION_CONTEXT_FACTORY = new HttpRequestSessionContextFactory(createTestMetadataManager(), ImmutableSet::of, new AllowAllAccessControl());
+    private static final HttpRequestSessionContextFactory SESSION_CONTEXT_FACTORY = new HttpRequestSessionContextFactory(
+            new PreparedStatementEncoder(new ProtocolConfig()),
+            createTestMetadataManager(),
+            ImmutableSet::of,
+            new AllowAllAccessControl());
 
     @Test
     public void testCreateSession()
@@ -91,11 +96,11 @@ public class TestQuerySessionSupplier
                 .put(QUERY_MAX_MEMORY, "1GB")
                 .put(JOIN_DISTRIBUTION_TYPE, "partitioned")
                 .put(HASH_PARTITION_COUNT, "43")
-                .build());
+                .buildOrThrow());
         assertEquals(session.getPreparedStatements(), ImmutableMap.<String, String>builder()
                 .put("query1", "select * from foo")
                 .put("query2", "select * from bar")
-                .build());
+                .buildOrThrow());
     }
 
     @Test
@@ -250,7 +255,6 @@ public class TestQuerySessionSupplier
         TransactionManager transactionManager = createTestTransactionManager();
         Metadata metadata = createTestMetadataManager(transactionManager, new FeaturesConfig());
         return new QuerySessionSupplier(
-                transactionManager,
                 metadata,
                 new AllowAllAccessControl(),
                 new SessionPropertyManager(),

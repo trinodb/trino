@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
 import io.airlift.log.Logger;
-import io.trino.FeaturesConfig.JoinDistributionType;
 import io.trino.Session;
 import io.trino.cost.CostComparator;
 import io.trino.cost.CostProvider;
@@ -33,7 +32,9 @@ import io.trino.cost.StatsProvider;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.metadata.Metadata;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.EqualityInference;
+import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolsExtractor;
@@ -69,7 +70,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Sets.powerSet;
-import static io.trino.FeaturesConfig.JoinReorderingStrategy.AUTOMATIC;
 import static io.trino.SystemSessionProperties.getJoinDistributionType;
 import static io.trino.SystemSessionProperties.getJoinReorderingStrategy;
 import static io.trino.SystemSessionProperties.getMaxReorderedJoins;
@@ -78,6 +78,7 @@ import static io.trino.sql.ExpressionUtils.combineConjuncts;
 import static io.trino.sql.ExpressionUtils.extractConjuncts;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
 import static io.trino.sql.planner.EqualityInference.nonInferrableConjuncts;
+import static io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy.AUTOMATIC;
 import static io.trino.sql.planner.iterative.rule.DetermineJoinDistributionType.canReplicate;
 import static io.trino.sql.planner.iterative.rule.PushProjectionThroughJoin.pushProjectionThroughJoin;
 import static io.trino.sql.planner.iterative.rule.ReorderJoins.JoinEnumerationResult.INFINITE_COST_RESULT;
@@ -103,17 +104,17 @@ public class ReorderJoins
     private final Pattern<JoinNode> pattern;
     private final TypeAnalyzer typeAnalyzer;
 
-    private final Metadata metadata;
+    private final PlannerContext plannerContext;
     private final CostComparator costComparator;
 
-    public ReorderJoins(Metadata metadata, CostComparator costComparator, TypeAnalyzer typeAnalyzer)
+    public ReorderJoins(PlannerContext plannerContext, CostComparator costComparator, TypeAnalyzer typeAnalyzer)
     {
-        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.costComparator = requireNonNull(costComparator, "costComparator is null");
         this.pattern = join().matching(
                 joinNode -> joinNode.getDistributionType().isEmpty()
                         && joinNode.getType() == INNER
-                        && isDeterministic(joinNode.getFilter().orElse(TRUE_LITERAL), metadata));
+                        && isDeterministic(joinNode.getFilter().orElse(TRUE_LITERAL), plannerContext.getMetadata()));
         this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
     }
 
@@ -133,7 +134,7 @@ public class ReorderJoins
     public Result apply(JoinNode joinNode, Captures captures, Context context)
     {
         // try reorder joins with projection pushdown first
-        MultiJoinNode multiJoinNode = toMultiJoinNode(metadata, joinNode, context, true, typeAnalyzer);
+        MultiJoinNode multiJoinNode = toMultiJoinNode(plannerContext, joinNode, context, true, typeAnalyzer);
         JoinEnumerationResult resultWithProjectionPushdown = chooseJoinOrder(multiJoinNode, context);
         if (resultWithProjectionPushdown.getPlanNode().isEmpty()) {
             return Result.empty();
@@ -144,7 +145,7 @@ public class ReorderJoins
         }
 
         // try reorder joins without projection pushdown
-        multiJoinNode = toMultiJoinNode(metadata, joinNode, context, false, typeAnalyzer);
+        multiJoinNode = toMultiJoinNode(plannerContext, joinNode, context, false, typeAnalyzer);
         JoinEnumerationResult resultWithoutProjectionPushdown = chooseJoinOrder(multiJoinNode, context);
         if (resultWithoutProjectionPushdown.getPlanNode().isEmpty()
                 || costComparator.compare(context.getSession(), resultWithProjectionPushdown.cost, resultWithoutProjectionPushdown.cost) < 0) {
@@ -157,7 +158,7 @@ public class ReorderJoins
     private JoinEnumerationResult chooseJoinOrder(MultiJoinNode multiJoinNode, Context context)
     {
         JoinEnumerator joinEnumerator = new JoinEnumerator(
-                metadata,
+                plannerContext.getMetadata(),
                 costComparator,
                 multiJoinNode.getFilter(),
                 context);
@@ -227,7 +228,7 @@ public class ReorderJoins
                 memo.put(multiJoinKey, bestResult);
             }
 
-            bestResult.planNode.ifPresent((planNode) -> log.debug("Least cost join was: %s", planNode));
+            bestResult.planNode.ifPresent(planNode -> log.debug("Least cost join was: %s", planNode));
             return bestResult;
         }
 
@@ -445,7 +446,7 @@ public class ReorderJoins
 
         private List<JoinEnumerationResult> getPossibleJoinNodes(JoinNode joinNode, DistributionType distributionType)
         {
-            return getPossibleJoinNodes(joinNode, distributionType, (node) -> true);
+            return getPossibleJoinNodes(joinNode, distributionType, node -> true);
         }
 
         private List<JoinEnumerationResult> getPossibleJoinNodes(JoinNode joinNode, DistributionType distributionType, Predicate<JoinNode> isAllowed)
@@ -549,10 +550,10 @@ public class ReorderJoins
                     && this.pushedProjectionThroughJoin == other.pushedProjectionThroughJoin;
         }
 
-        static MultiJoinNode toMultiJoinNode(Metadata metadata, JoinNode joinNode, Context context, boolean pushProjectionsThroughJoin, TypeAnalyzer typeAnalyzer)
+        static MultiJoinNode toMultiJoinNode(PlannerContext plannerContext, JoinNode joinNode, Context context, boolean pushProjectionsThroughJoin, TypeAnalyzer typeAnalyzer)
         {
             return toMultiJoinNode(
-                    metadata,
+                    plannerContext,
                     joinNode,
                     context.getLookup(),
                     context.getIdAllocator(),
@@ -564,7 +565,7 @@ public class ReorderJoins
         }
 
         static MultiJoinNode toMultiJoinNode(
-                Metadata metadata,
+                PlannerContext plannerContext,
                 JoinNode joinNode,
                 Lookup lookup,
                 PlanNodeIdAllocator planNodeIdAllocator,
@@ -575,13 +576,13 @@ public class ReorderJoins
                 TypeProvider types)
         {
             // the number of sources is the number of joins + 1
-            return new JoinNodeFlattener(metadata, joinNode, lookup, planNodeIdAllocator, joinLimit + 1, pushProjectionsThroughJoin, session, typeAnalyzer, types)
+            return new JoinNodeFlattener(plannerContext, joinNode, lookup, planNodeIdAllocator, joinLimit + 1, pushProjectionsThroughJoin, session, typeAnalyzer, types)
                     .toMultiJoinNode();
         }
 
         private static class JoinNodeFlattener
         {
-            private final Metadata metadata;
+            private final PlannerContext plannerContext;
             private final Session session;
             private final TypeAnalyzer typeAnalyzer;
             private final TypeProvider types;
@@ -597,7 +598,7 @@ public class ReorderJoins
             private boolean pushedProjectionThroughJoin;
 
             JoinNodeFlattener(
-                    Metadata metadata,
+                    PlannerContext plannerContext,
                     JoinNode node,
                     Lookup lookup,
                     PlanNodeIdAllocator planNodeIdAllocator,
@@ -607,7 +608,7 @@ public class ReorderJoins
                     TypeAnalyzer typeAnalyzer,
                     TypeProvider types)
             {
-                this.metadata = requireNonNull(metadata, "metadata is null");
+                this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
                 requireNonNull(node, "node is null");
                 checkState(node.getType() == INNER, "join type must be INNER");
                 this.outputSymbols = node.getOutputSymbols();
@@ -631,7 +632,7 @@ public class ReorderJoins
                         return;
                     }
 
-                    Optional<PlanNode> rewrittenNode = pushProjectionThroughJoin(metadata, (ProjectNode) resolved, lookup, planNodeIdAllocator, session, typeAnalyzer, types);
+                    Optional<PlanNode> rewrittenNode = pushProjectionThroughJoin(plannerContext, (ProjectNode) resolved, lookup, planNodeIdAllocator, session, typeAnalyzer, types);
                     if (rewrittenNode.isEmpty()) {
                         sources.add(node);
                         return;
@@ -649,7 +650,7 @@ public class ReorderJoins
                 }
 
                 JoinNode joinNode = (JoinNode) resolved;
-                if (joinNode.getType() != INNER || !isDeterministic(joinNode.getFilter().orElse(TRUE_LITERAL), metadata) || joinNode.getDistributionType().isPresent()) {
+                if (joinNode.getType() != INNER || !isDeterministic(joinNode.getFilter().orElse(TRUE_LITERAL), plannerContext.getMetadata()) || joinNode.getDistributionType().isPresent()) {
                     sources.add(node);
                     return;
                 }

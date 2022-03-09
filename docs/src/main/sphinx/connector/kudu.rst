@@ -11,7 +11,7 @@ Requirements
 
 To connect to Kudu, you need:
 
-* Kudu version 1.10 or higher.
+* Kudu version 1.13.0 or higher.
 * Network access from the Trino coordinator and workers to Kudu. Port 7051 is
   the default port.
 
@@ -25,6 +25,9 @@ replacing the properties as appropriate:
 .. code-block:: properties
 
    connector.name=kudu
+
+   ## Defaults to NONE
+   kudu.authentication.type = NONE
 
    ## List of Kudu master addresses, at least one is needed (comma separated)
    ## Supported formats: example.com, example.com:7051, 192.0.2.1, 192.0.2.1:7051,
@@ -51,12 +54,32 @@ replacing the properties as appropriate:
    ## Default timeout used for user operations
    #kudu.client.default-operation-timeout = 30s
 
-   ## Default timeout to use when waiting on data from a socket
-   #kudu.client.default-socket-read-timeout = 10s
-
    ## Disable Kudu client's collection of statistics.
    #kudu.client.disable-statistics = false
 
+Kerberos support
+----------------
+
+In order to connect to a kudu cluster that uses ``kerberos``
+authentication, you need to configure the following kudu properties:
+
+.. code-block:: properties
+
+   kudu.authentication.type = KERBEROS
+
+   ## The kerberos client principal name
+   kudu.authentication.client.principal = clientprincipalname
+
+   ## The path to the kerberos keytab file
+   ## The configured client principal must exist in this keytab file
+   kudu.authentication.client.keytab = /path/to/keytab/file.keytab
+
+   ## The path to the krb5.conf kerberos config file
+   kudu.authentication.config = /path/to/kerberos/krb5.conf
+
+   ## Optional and defaults to "kudu"
+   ## If kudu is running with a custom SPN this needs to be configured
+   kudu.authentication.server.principal.primary = kudu
 
 Querying data
 -------------
@@ -591,4 +614,3 @@ Limitations
 -----------
 
 -  Only lower case table and column names in Kudu are supported.
--  Using a secured Kudu cluster has not been tested.

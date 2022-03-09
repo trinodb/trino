@@ -17,12 +17,14 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonValue;
 import com.google.common.collect.ImmutableMap;
+import io.trino.spi.exchange.ExchangeSinkInstanceHandle;
 import io.trino.sql.planner.PartitioningHandle;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -30,6 +32,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static io.trino.execution.buffer.OutputBuffers.BufferType.ARBITRARY;
 import static io.trino.execution.buffer.OutputBuffers.BufferType.BROADCAST;
 import static io.trino.execution.buffer.OutputBuffers.BufferType.PARTITIONED;
+import static io.trino.execution.buffer.OutputBuffers.BufferType.SPOOL;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
 import static java.lang.Integer.parseInt;
@@ -41,7 +44,7 @@ public final class OutputBuffers
 
     public static OutputBuffers createInitialEmptyOutputBuffers(BufferType type)
     {
-        return new OutputBuffers(type, 0, false, ImmutableMap.of());
+        return new OutputBuffers(type, 0, false, ImmutableMap.of(), Optional.empty());
     }
 
     public static OutputBuffers createInitialEmptyOutputBuffers(PartitioningHandle partitioningHandle)
@@ -56,7 +59,12 @@ public final class OutputBuffers
         else {
             type = PARTITIONED;
         }
-        return new OutputBuffers(type, 0, false, ImmutableMap.of());
+        return new OutputBuffers(type, 0, false, ImmutableMap.of(), Optional.empty());
+    }
+
+    public static OutputBuffers createSpoolingExchangeOutputBuffers(ExchangeSinkInstanceHandle exchangeSinkInstanceHandle)
+    {
+        return new OutputBuffers(SPOOL, 0, true, ImmutableMap.of(), Optional.of(exchangeSinkInstanceHandle));
     }
 
     public enum BufferType
@@ -64,12 +72,14 @@ public final class OutputBuffers
         PARTITIONED,
         BROADCAST,
         ARBITRARY,
+        SPOOL,
     }
 
     private final BufferType type;
     private final long version;
     private final boolean noMoreBufferIds;
     private final Map<OutputBufferId, Integer> buffers;
+    private final Optional<ExchangeSinkInstanceHandle> exchangeSinkInstanceHandle;
 
     // Visible only for Jackson... Use the "with" methods instead
     @JsonCreator
@@ -77,12 +87,14 @@ public final class OutputBuffers
             @JsonProperty("type") BufferType type,
             @JsonProperty("version") long version,
             @JsonProperty("noMoreBufferIds") boolean noMoreBufferIds,
-            @JsonProperty("buffers") Map<OutputBufferId, Integer> buffers)
+            @JsonProperty("buffers") Map<OutputBufferId, Integer> buffers,
+            @JsonProperty("exchangeSinkInstanceHandle") Optional<ExchangeSinkInstanceHandle> exchangeSinkInstanceHandle)
     {
         this.type = type;
         this.version = version;
         this.buffers = ImmutableMap.copyOf(requireNonNull(buffers, "buffers is null"));
         this.noMoreBufferIds = noMoreBufferIds;
+        this.exchangeSinkInstanceHandle = requireNonNull(exchangeSinkInstanceHandle, "exchangeSinkInstanceHandle is null");
     }
 
     @JsonProperty
@@ -107,6 +119,12 @@ public final class OutputBuffers
     public Map<OutputBufferId, Integer> getBuffers()
     {
         return buffers;
+    }
+
+    @JsonProperty
+    public Optional<ExchangeSinkInstanceHandle> getExchangeSinkInstanceHandle()
+    {
+        return exchangeSinkInstanceHandle;
     }
 
     public void checkValidTransition(OutputBuffers newOutputBuffers)
@@ -186,7 +204,8 @@ public final class OutputBuffers
                 ImmutableMap.<OutputBufferId, Integer>builder()
                         .putAll(buffers)
                         .put(bufferId, partition)
-                        .build());
+                        .buildOrThrow(),
+                exchangeSinkInstanceHandle);
     }
 
     public OutputBuffers withBuffers(Map<OutputBufferId, Integer> buffers)
@@ -218,7 +237,7 @@ public final class OutputBuffers
         // add the existing buffers
         newBuffers.putAll(this.buffers);
 
-        return new OutputBuffers(type, version + 1, false, newBuffers);
+        return new OutputBuffers(type, version + 1, false, newBuffers, exchangeSinkInstanceHandle);
     }
 
     public OutputBuffers withNoMoreBufferIds()
@@ -227,7 +246,7 @@ public final class OutputBuffers
             return this;
         }
 
-        return new OutputBuffers(type, version + 1, true, buffers);
+        return new OutputBuffers(type, version + 1, true, buffers, exchangeSinkInstanceHandle);
     }
 
     private void checkHasBuffer(OutputBufferId bufferId, int partition)

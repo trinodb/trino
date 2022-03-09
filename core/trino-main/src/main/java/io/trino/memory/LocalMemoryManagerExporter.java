@@ -18,52 +18,44 @@ import org.weakref.jmx.MBeanExporter;
 import org.weakref.jmx.ObjectNames;
 
 import javax.annotation.PreDestroy;
-import javax.annotation.concurrent.GuardedBy;
 import javax.inject.Inject;
-
-import java.util.ArrayList;
-import java.util.List;
 
 import static java.util.Objects.requireNonNull;
 
 public final class LocalMemoryManagerExporter
 {
+    public static final String EXPORTED_POOL_NAME = "general";
     private final MBeanExporter exporter;
-    @GuardedBy("this")
-    private final List<MemoryPool> pools = new ArrayList<>();
+    private final boolean poolExported;
 
     @Inject
     public LocalMemoryManagerExporter(LocalMemoryManager memoryManager, MBeanExporter exporter)
     {
         this.exporter = requireNonNull(exporter, "exporter is null");
-        for (MemoryPool pool : memoryManager.getPools()) {
-            addPool(pool);
-        }
-    }
-
-    private synchronized void addPool(MemoryPool pool)
-    {
+        boolean poolExportedLocal = false;
         try {
-            exporter.exportWithGeneratedName(pool, MemoryPool.class, pool.getId().toString());
-            pools.add(pool);
+            this.exporter.exportWithGeneratedName(memoryManager.getMemoryPool(), MemoryPool.class, EXPORTED_POOL_NAME);
+            poolExportedLocal = true;
         }
         catch (JmxException e) {
             // ignored
         }
+        this.poolExported = poolExportedLocal;
     }
 
     @PreDestroy
-    public synchronized void destroy()
+    public void destroy()
     {
-        for (MemoryPool pool : pools) {
-            String objectName = ObjectNames.builder(MemoryPool.class, pool.getId().toString()).build();
-            try {
-                exporter.unexport(objectName);
-            }
-            catch (JmxException e) {
-                // ignored
-            }
+        if (!poolExported) {
+            return;
         }
-        pools.clear();
+
+        String objectName = ObjectNames.builder(MemoryPool.class, EXPORTED_POOL_NAME).build();
+        try {
+            exporter.unexport(objectName);
+        }
+        catch (JmxException e) {
+            // ignored
+        }
     }
 }

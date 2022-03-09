@@ -18,7 +18,6 @@ import io.airlift.security.pem.PemReader;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jws;
 import io.jsonwebtoken.JwsHeader;
-import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SigningKeyResolver;
 import io.trino.server.security.jwt.JwkDecoder.JwkEcPublicKey;
 import io.trino.server.security.jwt.JwkDecoder.JwkRsaPublicKey;
@@ -37,6 +36,8 @@ import java.util.Map;
 import java.util.Optional;
 
 import static io.trino.server.security.jwt.JwkDecoder.decodeKeys;
+import static io.trino.server.security.jwt.JwtUtil.newJwtBuilder;
+import static io.trino.server.security.jwt.JwtUtil.newJwtParserBuilder;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
@@ -190,14 +191,14 @@ public class TestJwkDecoder
         assertEquals(publicKey.getModulus(), expectedPublicKey.getModulus());
 
         PrivateKey privateKey = PemReader.loadPrivateKey(new File(Resources.getResource("jwk/jwk-rsa-private.pem").getPath()), Optional.empty());
-        String jwt = Jwts.builder()
+        String jwt = newJwtBuilder()
                 .signWith(privateKey)
                 .setHeaderParam(JwsHeader.KEY_ID, "test-rsa")
                 .setSubject("test-user")
                 .setExpiration(Date.from(ZonedDateTime.now().plusMinutes(5).toInstant()))
                 .compact();
 
-        Jws<Claims> claimsJws = Jwts.parserBuilder()
+        Jws<Claims> claimsJws = newJwtParserBuilder()
                 .setSigningKeyResolver(new SigningKeyResolver()
                 {
                     @Override
@@ -326,14 +327,14 @@ public class TestJwkDecoder
         assertEquals(publicKey.getParams().getCofactor(), expectedPublicKey.getParams().getCofactor());
 
         PrivateKey privateKey = PemReader.loadPrivateKey(new File(Resources.getResource("jwk/" + keyName + "-private.pem").getPath()), Optional.empty());
-        String jwt = Jwts.builder()
+        String jwt = newJwtBuilder()
                 .signWith(privateKey)
                 .setHeaderParam(JwsHeader.KEY_ID, keyName)
                 .setSubject("test-user")
                 .setExpiration(Date.from(ZonedDateTime.now().plusMinutes(5).toInstant()))
                 .compact();
 
-        Jws<Claims> claimsJws = Jwts.parserBuilder()
+        Jws<Claims> claimsJws = newJwtParserBuilder()
                 .setSigningKeyResolver(new SigningKeyResolver()
                 {
                     @Override

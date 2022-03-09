@@ -135,6 +135,10 @@ public final class TestingSqlServer
         // enable case sensitive (see the CS below) collation for SQL identifiers
         container.addEnv("MSSQL_COLLATION", "Latin1_General_CS_AS");
 
+        // TLS and certificate validation are on by default, and need
+        // to be disabled for tests.
+        container.withUrlParam("encrypt", "false");
+
         Closeable cleanup = startOrReuse(container);
         try {
             setUpDatabase(sqlExecutorForContainer(container), databaseName, databaseSetUp);

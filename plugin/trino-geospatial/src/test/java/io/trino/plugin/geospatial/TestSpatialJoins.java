@@ -15,7 +15,6 @@ package io.trino.plugin.geospatial;
 
 import io.trino.Session;
 import io.trino.plugin.hive.TestingHivePlugin;
-import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.spi.security.PrincipalType;
@@ -28,7 +27,6 @@ import java.util.Optional;
 
 import static io.trino.SystemSessionProperties.SPATIAL_PARTITIONING_TABLE_NAME;
 import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
-import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 
@@ -79,7 +77,6 @@ public class TestSpatialJoins
         HiveMetastore metastore = createTestingFileHiveMetastore(baseDir);
 
         metastore.createDatabase(
-                new HiveIdentity(SESSION),
                 Database.builder()
                         .setDatabaseName("default")
                         .setOwnerName(Optional.of("public"))

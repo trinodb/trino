@@ -300,6 +300,9 @@ Property Name                                      Description                  
 
 ``hive.create-empty-bucket-files``                 Should empty files be created for buckets that have no data? ``false``
 
+``hive.partition-statistics-sample-size``          Specifies the number of partitions to analyze when           100
+                                                   computing table statistics.
+
 ``hive.max-partitions-per-writers``                Maximum number of partitions per writer.                     100
 
 ``hive.max-partitions-per-scan``                   Maximum number of partitions for a single table scan.        100,000
@@ -319,7 +322,7 @@ Property Name                                      Description                  
 ``hive.security``                                  See :doc:`hive-security`.
 
 ``security.config-file``                           Path of config file to use when ``hive.security=file``.
-                                                   See :ref:`hive-file-based-authorization` for details.
+                                                   See :ref:`catalog-file-based-access-control` for details.
 
 ``hive.non-managed-table-writes-enabled``          Enable writes to non-managed (external) Hive tables.         ``false``
 
@@ -388,6 +391,13 @@ Property Name                                      Description                  
 ``hive.query-partition-filter-required``           Set to ``true`` to force a query to use a partition filter.   ``false``
                                                    You can use the ``query_partition_filter_required`` catalog
                                                    session property for temporary, catalog specific use.
+
+``hive.table-statistics-enabled``                  Enables :doc:`/optimizer/statistics`. The equivalent          ``true``
+                                                   :doc:`catalog session property </sql/set-session>`
+                                                   is ``statistics_enabled`` for session specific use.
+                                                   Set to ``false`` to disable statistics. Disabling statistics
+                                                   means that :doc:`/optimizer/cost-based-optimizations` can
+                                                   not make smart decisions about the query plan.
 ================================================== ============================================================ ============
 
 ORC format configuration properties
@@ -663,7 +673,7 @@ features:
 
   * :ref:`sql-data-management`, see also :ref:`hive-data-management`
   * :ref:`sql-schema-table-management`
-  * :ref:`sql-views-management`
+  * :ref:`sql-view-management`
 
 * :ref:`sql-security-operations`, see also :ref:`hive-sql-standard-based-authorization`
 * :ref:`sql-transactions`
@@ -676,24 +686,46 @@ ALTER TABLE EXECUTE
 ^^^^^^^^^^^^^^^^^^^
 
 The connector supports the following commands for use with
-:ref:`ALTER TABLE EXECUTE <alter-table-execute>`:
+:ref:`ALTER TABLE EXECUTE <alter-table-execute>`.
 
-* ``optimize``: collapse files in a non-transactional table up to a threshold
-  defined in the ``file_size_threshold`` parameter. For example, the following
-  statement collapses files in a table that are under 10 megabytes in size:
+optimize
+~~~~~~~~
 
-  .. code-block:: sql
+The ``optimize`` command is used for rewriting the content
+of the specified non-transactional table so that it is merged
+into fewer but larger files.
+In case that the table is partitioned, the data compaction
+acts separately on each partition selected for optimization.
+This operation improves read performance.
+
+All files with a size below the optional ``file_size_threshold``
+parameter (default value for the threshold is ``100MB``) are
+merged:
+
+.. code-block:: sql
+
+    ALTER TABLE test_table EXECUTE optimize
+
+The following statement merges files in a table that are
+under 10 megabytes in size:
+
+.. code-block:: sql
 
     ALTER TABLE test_table EXECUTE optimize(file_size_threshold => '10MB')
 
-  You can use a ``WHERE`` clause with the columns used to partition the table,
-  to filter which partitions are optimized.
+You can use a ``WHERE`` clause with the columns used to partition the table,
+to filter which partitions are optimized:
 
-  The ``optimize`` procedure is disabled by default, and can be enabled for a
-  catalog with the ``<catalog-name>.non_transactional_optimize_enabled``
-  session property:
+.. code-block:: sql
 
-  .. code-block:: sql
+    ALTER TABLE test_partitioned_table EXECUTE optimize
+    WHERE partition_key = 1
+
+The ``optimize`` command is disabled by default, and can be enabled for a
+catalog with the ``<catalog-name>.non_transactional_optimize_enabled``
+session property:
+
+.. code-block:: sql
 
     SET SESSION <catalog_name>.non_transactional_optimize_enabled=true
 
@@ -855,6 +887,8 @@ as Hive. For example, converting the string ``'foo'`` to a number,
 or converting the string ``'1234'`` to a ``tinyint`` (which has a
 maximum value of ``127``).
 
+.. _hive_avro_schema:
+
 Avro schema evolution
 ---------------------
 
@@ -963,9 +997,119 @@ Procedures
   Unregisters given, existing partition in the metastore for the specified table.
   The partition data is not deleted.
 
+.. _hive_flush_metadata_cache:
+
 * ``system.flush_metadata_cache()``
 
-  Flush Hive metadata caches.
+  Flush all Hive metadata caches.
+
+* ``system.flush_metadata_cache(schema_name => ..., table_name => ..., partition_columns => ARRAY[...], partition_values => ARRAY[...])``
+
+  Flush Hive metadata cache entries connected with selected partition.
+  Procedure requires named parameters to be passed
+
+.. _hive_table_properties:
+
+Table properties
+----------------
+
+Table properties supply or set metadata for the underlying tables. This
+is key for :doc:`/sql/create-table-as` statements. Table properties are passed
+to the connector using a :doc:`WITH </sql/create-table-as>` clause::
+
+  CREATE TABLE tablename 
+  WITH (format='CSV', 
+        csv_escape = '"')
+
+See the :ref:`hive_examples` for more information.
+
+.. list-table:: Hive connector table properties
+  :widths: 20, 60, 20
+  :header-rows: 1
+
+  * - Property name
+    - Description
+    - Default
+  * - ``auto_purge``
+    - Indicates to the configured metastore to perform a purge when a table or 
+      partition is deleted instead of a soft deletion using the trash.
+    -
+  * - ``avro_schema_url``
+    - The URI pointing to :ref:`hive_avro_schema` for the table.
+    -
+  * - ``bucket_count``
+    - The number of buckets to group data into. Only valid if used with
+      ``bucketed_by``.
+    - 0
+  * - ``bucketed_by``
+    - The bucketing column for the storage table. Only valid if used with 
+      ``bucket_count``.
+    - ``[]``
+  * - ``bucketing_version``
+    - Specifies which Hive bucketing version to use. Valid values are ``1`` 
+      or ``2``.
+    -
+  * - ``csv_escape``
+    - The CSV escape character. Requires CSV format.
+    -
+  * - ``csv_quote``
+    - The CSV quote character. Requires CSV format.
+    -
+  * - ``csv_separator``
+    - The CSV separator character. Requires CSV format.
+    -
+  * - ``external_location``
+    - The URI for an external Hive table on S3, Azure Blob Storage, etc. See the
+      :ref:`hive_examples` for more information.
+    -
+  * - ``format``
+    - The table file format. Valid values include ``ORC``, ``PARQUET``, ``AVRO``, 
+      ``RCBINARY``, ``RCTEXT``, ``SEQUENCEFILE``, ``JSON``, ``TEXTFILE``, and 
+      ``CSV``. The catalog property ``hive.storage-format`` sets the default 
+      value and can change it to a different default.
+    - 
+  * - ``null_format``
+    - The serialization format for ``NULL`` value. Requires TextFile, RCText, 
+      or SequenceFile format.
+    -
+  * - ``orc_bloom_filter_columns``
+    - Comma separated list of columns to use for ORC bloom filter. It improves 
+      the performance of queries using range predicates when reading ORC files. 
+      Requires ORC format.
+    - ``[]``
+  * - ``orc_bloom_filter_fpp``
+    - The ORC bloom filters false positive probability. Requires ORC format.
+    - 0.05
+  * - ``partitioned_by``
+    - The partitioning column for the storage table. The columns listed in the 
+      ``partitioned_by`` clause must be the last columns as defined in the DDL. 
+    - ``[]``
+  * - ``skip_footer_line_count``
+    - The number of footer lines to ignore when parsing the file for data.  
+      Requires TextFile or CSV format tables.
+    - 
+  * - ``skip_header_line_count``
+    - The number of header lines to ignore when parsing the file for data. 
+      Requires TextFile or CSV format tables.
+    -
+  * - ``sorted_by``
+    - The column to sort by to determine bucketing for row. Only valid if 
+      ``bucketed_by`` and ``bucket_count`` are specified as well.
+    - ``[]``
+  * - ``textfile_field_separator``
+    - Allows the use of custom field separators, such as '|', for TextFile 
+      formatted tables.
+    - 
+  * - ``textfile_field_separator_escape``
+    - Allows the use of a custom escape character for TextFile formatted tables.
+    - 
+  * - ``transactional``
+    - Set this property to ``true`` to create an ORC ACID transactional table. 
+      Requires ORC format. This property may be shown as true for insert-only 
+      tables created using older versions of Hive.
+    - 
+
+.. _hive_special_columns:
 
 Special columns
 ---------------
@@ -997,11 +1141,10 @@ Retrieve all records that belong to files stored in the partition
     FROM hive.web.page_views
     WHERE "$partition" = 'ds=2016-08-09/country=US'
 
-Special tables
-----------------
+.. _hive_special_tables:
 
-Table properties
-^^^^^^^^^^^^^^^^
+Special tables
+--------------
 
 The raw Hive table properties are available as a hidden table, containing a
 separate column per table property, with a single row containing the property
@@ -1011,6 +1154,8 @@ values. The properties table name is the same as the table name with
 You can inspect the property names and values with a simple query::
 
     SELECT * FROM hive.web."page_views$properties";
+
+.. _hive_examples:
 
 Examples
 --------

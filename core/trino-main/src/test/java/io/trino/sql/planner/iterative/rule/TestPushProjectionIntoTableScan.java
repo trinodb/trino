@@ -32,9 +32,9 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTablePartitioning;
 import io.trino.spi.connector.ConnectorTableProperties;
-import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.expression.Call;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Constant;
 import io.trino.spi.expression.FieldDereference;
@@ -48,14 +48,21 @@ import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.iterative.rule.test.RuleTester;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.QualifiedName;
+import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.SymbolReference;
+import io.trino.testing.TestingTransactionHandle;
+import io.trino.transaction.TransactionId;
 import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -72,6 +79,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.iterative.rule.test.RuleTester.defaultRuleTester;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.Arrays.asList;
+import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestPushProjectionIntoTableScan
@@ -133,25 +141,31 @@ public class TestPushProjectionIntoTableScan
             Symbol identity = new Symbol("symbol_identity");
             Symbol dereference = new Symbol("symbol_dereference");
             Symbol constant = new Symbol("symbol_constant");
+            Symbol call = new Symbol("symbol_call");
             ImmutableMap<Symbol, Type> types = ImmutableMap.of(
                     baseColumn, ROW_TYPE,
                     identity, ROW_TYPE,
                     dereference, BIGINT,
-                    constant, BIGINT);
+                    constant, BIGINT,
+                    call, VARCHAR);
 
             // Prepare project node assignments
             ImmutableMap<Symbol, Expression> inputProjections = ImmutableMap.of(
                     identity, baseColumn.toSymbolReference(),
                     dereference, new SubscriptExpression(baseColumn.toSymbolReference(), new LongLiteral("1")),
-                    constant, new LongLiteral("5"));
+                    constant, new LongLiteral("5"),
+                    call, new FunctionCall(QualifiedName.of("STARTS_WITH"), ImmutableList.of(new StringLiteral("abc"), new StringLiteral("ab"))));
 
             // Compute expected symbols after applyProjection
+            TransactionId transactionId = ruleTester.getQueryRunner().getTransactionManager().beginTransaction(false);
+            Session session = MOCK_SESSION.beginTransactionId(transactionId, ruleTester.getQueryRunner().getTransactionManager(), ruleTester.getQueryRunner().getAccessControl());
             ImmutableMap<Symbol, String> connectorNames = inputProjections.entrySet().stream()
-                    .collect(toImmutableMap(Map.Entry::getKey, e -> translate(MOCK_SESSION, e.getValue(), typeAnalyzer, viewOf(types)).get().toString()));
+                    .collect(toImmutableMap(Map.Entry::getKey, e -> translate(session, e.getValue(), typeAnalyzer, viewOf(types), ruleTester.getPlannerContext()).get().toString()));
             ImmutableMap<Symbol, String> newNames = ImmutableMap.of(
                     identity, "projected_variable_" + connectorNames.get(identity),
                     dereference, "projected_dereference_" + connectorNames.get(dereference),
-                    constant, "projected_constant_" + connectorNames.get(constant));
+                    constant, "projected_constant_" + connectorNames.get(constant),
+                    call, "projected_call_" + connectorNames.get(call));
             Map<String, ColumnHandle> expectedColumns = newNames.entrySet().stream()
                     .collect(toImmutableMap(
                             Map.Entry::getValue,
@@ -160,20 +174,18 @@ public class TestPushProjectionIntoTableScan
             ruleTester.assertThat(createRule(ruleTester))
                     .on(p -> {
                         // Register symbols
-                        Symbol columnSymbol = p.symbol(columnName, columnType);
-                        p.symbol(identity.getName(), types.get(identity));
-                        p.symbol(dereference.getName(), types.get(dereference));
-                        p.symbol(constant.getName(), types.get(constant));
+                        types.forEach((symbol, type) -> p.symbol(symbol.getName(), type));
 
                         return p.project(
                                 new Assignments(inputProjections),
                                 p.tableScan(tableScan -> tableScan
                                         .setTableHandle(TEST_TABLE_HANDLE)
-                                        .setSymbols(ImmutableList.of(columnSymbol))
-                                        .setAssignments(ImmutableMap.of(columnSymbol, columnHandle))
+                                        .setSymbols(ImmutableList.copyOf(types.keySet()))
+                                        .setAssignments(types.keySet().stream()
+                                                .collect(Collectors.toMap(Function.identity(), v -> columnHandle)))
                                         .setStatistics(Optional.of(PlanNodeStatsEstimate.builder()
                                                 .setOutputRowCount(42)
-                                                .addSymbolStatistics(columnSymbol, SymbolStatsEstimate.builder().setNullsFraction(0).setDistinctValuesCount(33).build())
+                                                .addSymbolStatistics(baseColumn, SymbolStatsEstimate.builder().setNullsFraction(0).setDistinctValuesCount(33).build())
                                                 .build()))));
                     })
                     .withSession(MOCK_SESSION)
@@ -197,6 +209,10 @@ public class TestPushProjectionIntoTableScan
                                                     .setNullsFraction(0)
                                                     .setLowValue(5)
                                                     .setHighValue(5)
+                                                    .build())
+                                            .addSymbolStatistics(new Symbol(newNames.get(call).toLowerCase(ENGLISH)), SymbolStatsEstimate.builder()
+                                                    .setDistinctValuesCount(1)
+                                                    .setNullsFraction(0)
                                                     .build())
                                             .addSymbolStatistics(new Symbol(newNames.get(identity)), SymbolStatsEstimate.builder()
                                                     .setDistinctValuesCount(33)
@@ -292,6 +308,9 @@ public class TestPushProjectionIntoTableScan
             else if (projection instanceof Constant) {
                 variablePrefix = "projected_constant_";
             }
+            else if (projection instanceof Call) {
+                variablePrefix = "projected_call_";
+            }
             else {
                 throw new UnsupportedOperationException();
             }
@@ -326,8 +345,7 @@ public class TestPushProjectionIntoTableScan
         return new TableHandle(
                 new CatalogName(MOCK_CATALOG),
                 new MockConnectorTableHandle(new SchemaTableName(schemaName, tableName)),
-                new ConnectorTransactionHandle() {},
-                Optional.empty());
+                TestingTransactionHandle.create());
     }
 
     private static SymbolReference symbolReference(String name)

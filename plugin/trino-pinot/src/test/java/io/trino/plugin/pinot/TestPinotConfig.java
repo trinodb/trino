@@ -54,7 +54,7 @@ public class TestPinotConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("pinot.controller-urls", "host1:1111,host2:1111")
                 .put("pinot.idle-timeout", "1h")
                 .put("pinot.max-backlog-per-server", "15")
@@ -74,7 +74,7 @@ public class TestPinotConfig
                 .put("pinot.max-rows-for-broker-queries", "5000")
                 .put("pinot.aggregation-pushdown.enabled", "false")
                 .put("pinot.count-distinct-pushdown.enabled", "false")
-                .build();
+                .buildOrThrow();
 
         PinotConfig expected = new PinotConfig()
                 .setControllerUrls("host1:1111,host2:1111")

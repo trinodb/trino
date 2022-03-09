@@ -22,7 +22,6 @@ import org.apache.accumulo.core.data.Key;
 import org.apache.accumulo.core.data.Value;
 import org.apache.hadoop.io.Text;
 
-import java.sql.Date;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.util.HashMap;
@@ -45,8 +44,6 @@ import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.util.concurrent.TimeUnit.DAYS;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 /**
  * Implementation of {@link StringRowSerializer} that encodes and decodes Trino column values as human-readable String objects.
@@ -161,15 +158,15 @@ public class StringRowSerializer
     }
 
     @Override
-    public Date getDate(String name)
+    public long getDate(String name)
     {
-        return new Date(DAYS.toMillis(Long.parseLong(getFieldValue(name))));
+        return Long.parseLong(getFieldValue(name));
     }
 
     @Override
-    public void setDate(Text text, Date value)
+    public void setDate(Text text, long value)
     {
-        text.set(Long.toString(MILLISECONDS.toDays(value.getTime())).getBytes(UTF_8));
+        text.set(Long.toString(value).getBytes(UTF_8));
     }
 
     @Override
@@ -317,7 +314,7 @@ public class StringRowSerializer
             setBoolean(text, value.equals(Boolean.TRUE));
         }
         else if (type.equals(DATE)) {
-            setDate(text, (Date) value);
+            setDate(text, (long) value);
         }
         else if (type.equals(DOUBLE)) {
             setDouble(text, (Double) value);

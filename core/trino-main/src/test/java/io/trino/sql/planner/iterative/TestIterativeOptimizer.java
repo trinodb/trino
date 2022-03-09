@@ -66,7 +66,7 @@ public class TestIterativeOptimizer
         }
     }
 
-    @Test(timeOut = 1000)
+    @Test(timeOut = 10_000)
     public void optimizerTimeoutsOnNonConvergingPlan()
     {
         PlanOptimizer optimizer = new IterativeOptimizer(
@@ -78,7 +78,7 @@ public class TestIterativeOptimizer
 
         assertTrinoExceptionThrownBy(() -> queryRunner.inTransaction(transactionSession -> queryRunner.createPlan(transactionSession, "SELECT nationkey FROM nation", ImmutableList.of(optimizer), WarningCollector.NOOP)))
                 .hasErrorCode(OPTIMIZER_TIMEOUT)
-                .hasMessage("The optimizer exhausted the time limit of 1 ms");
+                .hasMessageMatching("The optimizer exhausted the time limit of 1 ms: (no rules invoked|(?s)Top rules:.*(RemoveRedundantIdentityProjections|AddIdentityOverTableScan).*)");
     }
 
     private static class AddIdentityOverTableScan

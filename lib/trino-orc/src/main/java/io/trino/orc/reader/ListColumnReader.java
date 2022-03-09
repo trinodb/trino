@@ -74,7 +74,7 @@ public class ListColumnReader
 
     private boolean rowGroupOpen;
 
-    public ListColumnReader(Type type, OrcColumn column, AggregatedMemoryContext systemMemoryContext, OrcBlockFactory blockFactory, FieldMapperFactory fieldMapperFactory)
+    public ListColumnReader(Type type, OrcColumn column, AggregatedMemoryContext memoryContext, OrcBlockFactory blockFactory, FieldMapperFactory fieldMapperFactory)
             throws OrcCorruptionException
     {
         requireNonNull(type, "type is null");
@@ -87,7 +87,7 @@ public class ListColumnReader
                 elementType,
                 column.getNestedColumns().get(0),
                 fullyProjectedLayout(),
-                systemMemoryContext,
+                memoryContext,
                 blockFactory,
                 fieldMapperFactory);
     }

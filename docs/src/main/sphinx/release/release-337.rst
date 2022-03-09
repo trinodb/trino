@@ -29,7 +29,9 @@ Security
 * Disable insecure authentication over HTTP by default when HTTPS with authentication is enabled. This
   can be overridden via the ``http-server.authentication.allow-insecure-over-http`` configuration property. (:issue:`4199`)
 * Add support for insecure authentication over HTTPS to the Web UI. (:issue:`4199`)
-* Add :ref:`system_information_rules` which control the ability of a user to access to read and write system management information. (:issue:`4199`)
+* Add :ref:`system-file-auth-system_information` which control the ability of a
+  user to access to read and write system management information.
+  (:issue:`4199`)
 * Disable user impersonation in default system security. (:issue:`4082`)
 
 Elasticsearch connector

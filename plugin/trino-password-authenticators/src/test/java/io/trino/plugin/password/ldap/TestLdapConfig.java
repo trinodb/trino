@@ -50,7 +50,9 @@ public class TestLdapConfig
                 .setBindDistingushedName(null)
                 .setBindPassword(null)
                 .setIgnoreReferrals(false)
-                .setLdapCacheTtl(new Duration(1, TimeUnit.HOURS)));
+                .setLdapCacheTtl(new Duration(1, TimeUnit.HOURS))
+                .setLdapConnectionTimeout(null)
+                .setLdapReadTimeout(null));
     }
 
     @Test
@@ -59,7 +61,7 @@ public class TestLdapConfig
     {
         Path trustCertificateFile = Files.createTempFile(null, null);
 
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("ldap.url", "ldaps://localhost:636")
                 .put("ldap.allow-insecure", "true")
                 .put("ldap.ssl-trust-certificate", trustCertificateFile.toString())
@@ -70,7 +72,9 @@ public class TestLdapConfig
                 .put("ldap.bind-password", "password1234")
                 .put("ldap.ignore-referrals", "true")
                 .put("ldap.cache-ttl", "2m")
-                .build();
+                .put("ldap.timeout.connect", "3m")
+                .put("ldap.timeout.read", "4m")
+                .buildOrThrow();
 
         LdapConfig expected = new LdapConfig()
                 .setLdapUrl("ldaps://localhost:636")
@@ -82,7 +86,9 @@ public class TestLdapConfig
                 .setBindDistingushedName("CN=User Name,OU=CITY_OU,OU=STATE_OU,DC=domain,DC=domain_root")
                 .setBindPassword("password1234")
                 .setIgnoreReferrals(true)
-                .setLdapCacheTtl(new Duration(2, TimeUnit.MINUTES));
+                .setLdapCacheTtl(new Duration(2, TimeUnit.MINUTES))
+                .setLdapConnectionTimeout(new Duration(3, TimeUnit.MINUTES))
+                .setLdapReadTimeout(new Duration(4, TimeUnit.MINUTES));
 
         assertFullMapping(properties, expected);
     }

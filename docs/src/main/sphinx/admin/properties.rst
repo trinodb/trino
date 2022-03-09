@@ -2,14 +2,21 @@
 Properties reference
 ====================
 
-This section describes the most important config properties, that
-may be used to tune Trino or alter its behavior when required.
+This section describes the most important config properties and (where
+applicable) their corresponding :ref:`session properties
+<session-properties-definition>`, that may be used to tune Trino or alter its
+behavior when required.
+
+The following pages are not a complete list of all configuration and
+session properties available in Trino, and do not include any connector-specific
+catalog configuration properties. For more information on catalog configuration
+properties, refer to the :doc:`connector documentation </connector/>`.
 
 .. toctree::
     :titlesonly:
 
     General <properties-general>
-    Memory management <properties-memory-management>
+    Resource management <properties-resource-management>
     Query management <properties-query-management>
     Spilling <properties-spilling>
     Exchange <properties-exchange>

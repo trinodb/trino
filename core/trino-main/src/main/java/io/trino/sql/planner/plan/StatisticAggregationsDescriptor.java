@@ -155,7 +155,7 @@ public class StatisticAggregationsDescriptor<T>
 
         public StatisticAggregationsDescriptor<T> build()
         {
-            return new StatisticAggregationsDescriptor<>(grouping.build(), tableStatistics.build(), columnStatistics.build());
+            return new StatisticAggregationsDescriptor<>(grouping.buildOrThrow(), tableStatistics.buildOrThrow(), columnStatistics.buildOrThrow());
         }
     }
 

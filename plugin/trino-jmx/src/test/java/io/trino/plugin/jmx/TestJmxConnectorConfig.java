@@ -40,11 +40,11 @@ public class TestJmxConnectorConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("jmx.dump-tables", "table1,table\\,with\\,commas")
                 .put("jmx.dump-period", "1s")
                 .put("jmx.max-entries", "100")
-                .build();
+                .buildOrThrow();
 
         JmxConnectorConfig expected = new JmxConnectorConfig()
                 .setDumpTables(ImmutableSet.of("table1", "table,with,commas"))

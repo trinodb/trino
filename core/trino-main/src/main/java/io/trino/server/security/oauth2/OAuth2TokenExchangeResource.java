@@ -40,10 +40,12 @@ import javax.ws.rs.core.Response;
 import javax.ws.rs.core.UriInfo;
 
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 import static io.airlift.jaxrs.AsyncResponseHandler.bindAsyncResponse;
 import static io.trino.server.security.ResourceSecurity.AccessType.PUBLIC;
+import static io.trino.server.security.oauth2.OAuth2CallbackResource.CALLBACK_ENDPOINT;
 import static io.trino.server.security.oauth2.OAuth2TokenExchange.MAX_POLL_TIME;
 import static io.trino.server.security.oauth2.OAuth2TokenExchange.hashAuthId;
 import static java.util.Objects.requireNonNull;
@@ -74,7 +76,7 @@ public class OAuth2TokenExchangeResource
     @Produces(MediaType.APPLICATION_JSON)
     public Response initiateTokenExchange(@PathParam("authIdHash") String authIdHash, @Context UriInfo uriInfo)
     {
-        return service.startOAuth2Challenge(uriInfo, authIdHash);
+        return service.startOAuth2Challenge(uriInfo.getBaseUri().resolve(CALLBACK_ENDPOINT), Optional.ofNullable(authIdHash));
     }
 
     @ResourceSecurity(PUBLIC)
@@ -114,13 +116,16 @@ public class OAuth2TokenExchangeResource
     @ResourceSecurity(PUBLIC)
     @DELETE
     @Path("{authId}")
-    public void deleteAuthenticationToken(@PathParam("authId") UUID authId)
+    public Response deleteAuthenticationToken(@PathParam("authId") UUID authId)
     {
         if (authId == null) {
             throw new BadRequestException();
         }
 
         tokenExchange.dropToken(authId);
+        return Response
+                .ok()
+                .build();
     }
 
     public static String getTokenUri(UUID authId)

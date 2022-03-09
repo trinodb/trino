@@ -26,8 +26,11 @@ import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Int128;
+import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
+import io.trino.spi.type.SqlTimestamp;
+import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 
 import java.math.BigDecimal;
@@ -68,6 +71,7 @@ import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.type.ColorType.COLOR;
+import static io.trino.type.IpAddressType.IPADDRESS;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Math.multiplyExact;
 import static java.lang.String.format;
@@ -174,8 +178,18 @@ public final class BlockAssertions
         if (type == UUID) {
             return createRandomUUIDsBlock(positionCount, nullRate);
         }
+        if (type == IPADDRESS) {
+            return createRandomIpAddressesBlock(positionCount, nullRate);
+        }
         if (type == VARBINARY) {
             return createRandomVarbinariesBlock(positionCount, nullRate);
+        }
+        if (type instanceof TimestampType) {
+            TimestampType timestampType = (TimestampType) type;
+            if (timestampType.isShort()) {
+                return createRandomShortTimestampBlock(timestampType, positionCount, nullRate);
+            }
+            return createRandomLongTimestampBlock(timestampType, positionCount, nullRate);
         }
 
         return createRandomBlockForNestedType(type, positionCount, nullRate);
@@ -248,6 +262,28 @@ public final class BlockAssertions
                 () -> String.valueOf(RANDOM.nextLong())));
     }
 
+    public static Block createRandomShortTimestampBlock(TimestampType type, int positionCount, float nullRate)
+    {
+        return createLongsBlock(
+                generateListWithNulls(
+                        positionCount,
+                        nullRate,
+                        () -> SqlTimestamp.fromMillis(type.getPrecision(), RANDOM.nextLong()).getEpochMicros()));
+    }
+
+    public static Block createRandomLongTimestampBlock(TimestampType type, int positionCount, float nullRate)
+    {
+        return createLongTimestampBlock(
+                type,
+                generateListWithNulls(
+                        positionCount,
+                        nullRate,
+                        () -> {
+                            SqlTimestamp sqlTimestamp = SqlTimestamp.fromMillis(type.getPrecision(), RANDOM.nextLong());
+                            return new LongTimestamp(sqlTimestamp.getEpochMicros(), sqlTimestamp.getPicosOfMicros());
+                        }));
+    }
+
     public static Block createRandomLongsBlock(int positionCount, int numberOfUniqueValues)
     {
         checkArgument(positionCount >= numberOfUniqueValues, "numberOfUniqueValues must be between 1 and positionCount: %s but was %s", positionCount, numberOfUniqueValues);
@@ -286,6 +322,11 @@ public final class BlockAssertions
     private static Block createRandomUUIDsBlock(int positionCount, float nullRate)
     {
         return createSlicesBlock(UUID, generateListWithNulls(positionCount, nullRate, () -> Slices.wrappedLongArray(RANDOM.nextLong(), RANDOM.nextLong())));
+    }
+
+    private static Block createRandomIpAddressesBlock(int positionCount, float nullRate)
+    {
+        return createSlicesBlock(IPADDRESS, generateListWithNulls(positionCount, nullRate, () -> Slices.wrappedLongArray(RANDOM.nextLong(), RANDOM.nextLong())));
     }
 
     private static Block createRandomTinyintsBlock(int positionCount, float nullRate)
@@ -473,6 +514,22 @@ public final class BlockAssertions
         return builder.build();
     }
 
+    public static Block createLongTimestampBlock(TimestampType type, Iterable<LongTimestamp> values)
+    {
+        BlockBuilder builder = type.createBlockBuilder(null, 100);
+
+        for (LongTimestamp value : values) {
+            if (value == null) {
+                builder.appendNull();
+            }
+            else {
+                type.writeObject(builder, value);
+            }
+        }
+
+        return builder.build();
+    }
+
     public static Block createCharsBlock(CharType charType, List<String> values)
     {
         return createBlock(charType, charType::writeString, values);
@@ -498,33 +555,36 @@ public final class BlockAssertions
                 rowBlockBuilder.appendNull();
                 continue;
             }
+            verify(row.length == fieldTypes.size());
             BlockBuilder singleRowBlockWriter = rowBlockBuilder.beginBlockEntry();
-            for (Object fieldValue : row) {
+            for (int fieldIndex = 0; fieldIndex < fieldTypes.size(); fieldIndex++) {
+                Type fieldType = fieldTypes.get(fieldIndex);
+                Object fieldValue = row[fieldIndex];
                 if (fieldValue == null) {
                     singleRowBlockWriter.appendNull();
                     continue;
                 }
 
                 if (fieldValue instanceof String) {
-                    VARCHAR.writeSlice(singleRowBlockWriter, utf8Slice((String) fieldValue));
+                    fieldType.writeSlice(singleRowBlockWriter, utf8Slice((String) fieldValue));
                 }
                 else if (fieldValue instanceof Slice) {
-                    VARBINARY.writeSlice(singleRowBlockWriter, (Slice) fieldValue);
+                    fieldType.writeSlice(singleRowBlockWriter, (Slice) fieldValue);
                 }
                 else if (fieldValue instanceof Double) {
-                    DOUBLE.writeDouble(singleRowBlockWriter, (Double) fieldValue);
+                    fieldType.writeDouble(singleRowBlockWriter, (Double) fieldValue);
                 }
                 else if (fieldValue instanceof Long) {
-                    BIGINT.writeLong(singleRowBlockWriter, (Long) fieldValue);
+                    fieldType.writeLong(singleRowBlockWriter, (Long) fieldValue);
                 }
                 else if (fieldValue instanceof Boolean) {
-                    BOOLEAN.writeBoolean(singleRowBlockWriter, (Boolean) fieldValue);
+                    fieldType.writeBoolean(singleRowBlockWriter, (Boolean) fieldValue);
                 }
                 else if (fieldValue instanceof Block) {
-                    singleRowBlockWriter.appendStructure((Block) fieldValue);
+                    fieldType.writeObject(singleRowBlockWriter, fieldValue);
                 }
                 else if (fieldValue instanceof Integer) {
-                    INTEGER.writeLong(singleRowBlockWriter, (Integer) fieldValue);
+                    fieldType.writeLong(singleRowBlockWriter, (Integer) fieldValue);
                 }
                 else {
                     throw new IllegalArgumentException();

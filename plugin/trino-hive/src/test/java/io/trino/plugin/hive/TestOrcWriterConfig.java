@@ -50,7 +50,7 @@ public class TestOrcWriterConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("hive.orc.writer.stripe-min-size", "13MB")
                 .put("hive.orc.writer.stripe-max-size", "27MB")
                 .put("hive.orc.writer.stripe-max-rows", "44")
@@ -62,7 +62,7 @@ public class TestOrcWriterConfig
                 .put("hive.orc.writer.writer-identification", "LEGACY_HIVE_COMPATIBLE")
                 .put("hive.orc.writer.validation-percentage", "0.16")
                 .put("hive.orc.writer.validation-mode", "DETAILED")
-                .build();
+                .buildOrThrow();
 
         OrcWriterConfig expected = new OrcWriterConfig()
                 .setStripeMinSize(DataSize.of(13, MEGABYTE))

@@ -200,7 +200,7 @@ public class SplitSourceFactory
             return ImmutableMap.<PlanNodeId, SplitSource>builder()
                     .putAll(leftSplits)
                     .putAll(rightSplits)
-                    .build();
+                    .buildOrThrow();
         }
 
         @Override
@@ -211,7 +211,7 @@ public class SplitSourceFactory
             return ImmutableMap.<PlanNodeId, SplitSource>builder()
                     .putAll(sourceSplits)
                     .putAll(filteringSourceSplits)
-                    .build();
+                    .buildOrThrow();
         }
 
         @Override
@@ -222,7 +222,7 @@ public class SplitSourceFactory
             return ImmutableMap.<PlanNodeId, SplitSource>builder()
                     .putAll(leftSplits)
                     .putAll(rightSplits)
-                    .build();
+                    .buildOrThrow();
         }
 
         @Override
@@ -441,7 +441,7 @@ public class SplitSourceFactory
                 result.putAll(child.accept(this, context));
             }
 
-            return result.build();
+            return result.buildOrThrow();
         }
 
         @Override

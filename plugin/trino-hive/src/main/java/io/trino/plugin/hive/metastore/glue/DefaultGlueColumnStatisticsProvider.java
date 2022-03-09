@@ -124,7 +124,7 @@ public class DefaultGlueColumnStatisticsProvider
                             fromGlueColumnStatistics(columnStatistics.getStatisticsData(), tableStatistics.getRowCount()));
                 }
             }
-            return columnStatsMapBuilder.build();
+            return columnStatsMapBuilder.buildOrThrow();
         }
         catch (RuntimeException ex) {
             throw new TrinoException(HIVE_METASTORE_ERROR, ex);
@@ -180,10 +180,10 @@ public class DefaultGlueColumnStatisticsProvider
                                     fromGlueColumnStatistics(columnStatistics.getStatisticsData(), tableStatistics.getRowCount())));
                 }
 
-                partitionStatistics.put(partition, columnStatsMapBuilder.build());
+                partitionStatistics.put(partition, columnStatsMapBuilder.buildOrThrow());
             });
 
-            return partitionStatistics.build();
+            return partitionStatistics.buildOrThrow();
         }
         catch (RuntimeException ex) {
             if (ex.getCause() != null && ex.getCause() instanceof EntityNotFoundException) {

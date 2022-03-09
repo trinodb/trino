@@ -25,6 +25,7 @@ import io.trino.plugin.jdbc.JdbcSplit;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.PreparedQuery;
+import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.RemoteTableName;
 import io.trino.plugin.jdbc.WriteFunction;
 import io.trino.plugin.jdbc.WriteMapping;
@@ -115,9 +116,9 @@ public class DruidJdbcClient
     public static final String DRUID_SCHEMA = "druid";
 
     @Inject
-    public DruidJdbcClient(BaseJdbcConfig config, ConnectionFactory connectionFactory, IdentifierMapping identifierMapping)
+    public DruidJdbcClient(BaseJdbcConfig config, ConnectionFactory connectionFactory, QueryBuilder queryBuilder, IdentifierMapping identifierMapping)
     {
-        super(config, "\"", connectionFactory, identifierMapping);
+        super(config, "\"", connectionFactory, queryBuilder, identifierMapping);
     }
 
     @Override
@@ -285,6 +286,7 @@ public class DruidJdbcClient
                                     table.getRequiredNamedRelation().getRemoteTableName().getSchemaName(),
                                     table.getRequiredNamedRelation().getRemoteTableName().getTableName())),
                     table.getConstraint(),
+                    table.getConstraintExpressions(),
                     table.getSortOrder(),
                     table.getLimit(),
                     table.getColumns(),
@@ -398,6 +400,12 @@ public class DruidJdbcClient
     public void dropSchema(ConnectorSession session, String schemaName)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping schemas");
+    }
+
+    @Override
+    public void renameSchema(ConnectorSession session, String schemaName, String newSchemaName)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming schemas");
     }
 
     private WriteMapping legacyToWriteMapping(Type type)

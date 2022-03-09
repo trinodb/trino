@@ -13,129 +13,199 @@
  */
 package io.trino.plugin.password.ldap;
 
-import com.google.common.collect.HashMultimap;
-import com.google.common.collect.ImmutableSet;
-import io.trino.plugin.password.Credential;
+import com.google.common.io.Closer;
+import io.trino.plugin.password.ldap.TestingOpenLdapServer.DisposableSubContext;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.BasicPrincipal;
+import org.testcontainers.containers.Network;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import javax.naming.NamingException;
-
-import java.util.HashSet;
-import java.util.Optional;
-import java.util.Set;
-
+import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 
 public class TestLdapAuthenticator
 {
-    private static final String BASE_DN = "base-dn";
-    private static final String PATTERN_PREFIX = "pattern::";
+    private final Closer closer = Closer.create();
+
+    private TestingOpenLdapServer openLdapServer;
+    private LdapAuthenticatorClient client;
+
+    @BeforeClass
+    public void setup()
+            throws Exception
+    {
+        Network network = Network.newNetwork();
+        closer.register(network::close);
+
+        openLdapServer = new TestingOpenLdapServer(network);
+        closer.register(openLdapServer);
+        openLdapServer.start();
+
+        client = new JdkLdapAuthenticatorClient(new LdapConfig()
+                .setLdapUrl(openLdapServer.getLdapUrl()));
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void close()
+            throws Exception
+    {
+        closer.close();
+    }
 
     @Test
     public void testSingleBindPattern()
+            throws Exception
     {
-        TestLdapAuthenticatorClient client = new TestLdapAuthenticatorClient();
-        client.addCredentials("alice@example.com", "alice-pass");
+        try (DisposableSubContext organization = openLdapServer.createOrganization();
+                DisposableSubContext ignored = openLdapServer.createUser(organization, "alice", "alice-pass")) {
+            LdapAuthenticator ldapAuthenticator = new LdapAuthenticator(
+                    client,
+                    new LdapConfig()
+                            .setUserBindSearchPatterns("uid=${USER}," + organization.getDistinguishedName()));
 
-        LdapAuthenticator ldapAuthenticator = new LdapAuthenticator(
-                client,
-                new LdapConfig()
-                        .setUserBindSearchPatterns("${USER}@example.com"));
-
-        assertThatThrownBy(() -> ldapAuthenticator.createAuthenticatedPrincipal("alice", "invalid"))
-                .isInstanceOf(RuntimeException.class);
-        assertThatThrownBy(() -> ldapAuthenticator.createAuthenticatedPrincipal("unknown", "alice-pass"))
-                .isInstanceOf(RuntimeException.class);
-        assertEquals(ldapAuthenticator.createAuthenticatedPrincipal("alice", "alice-pass"), new BasicPrincipal("alice"));
+            assertThatThrownBy(() -> ldapAuthenticator.createAuthenticatedPrincipal("alice", "invalid"))
+                    .isInstanceOf(AccessDeniedException.class)
+                    .hasMessageMatching("Access Denied: Invalid credentials");
+            assertThatThrownBy(() -> ldapAuthenticator.createAuthenticatedPrincipal("unknown", "alice-pass"))
+                    .isInstanceOf(RuntimeException.class)
+                    .hasMessageMatching("Access Denied: Invalid credentials");
+            assertEquals(ldapAuthenticator.createAuthenticatedPrincipal("alice", "alice-pass"), new BasicPrincipal("alice"));
+        }
     }
 
     @Test
     public void testMultipleBindPattern()
+            throws Exception
     {
-        TestLdapAuthenticatorClient client = new TestLdapAuthenticatorClient();
+        try (DisposableSubContext organization = openLdapServer.createOrganization();
+                DisposableSubContext alternativeOrganization = openLdapServer.createOrganization();
+                DisposableSubContext ignored = openLdapServer.createUser(organization, "alice", "alice-pass");
+                DisposableSubContext ignored1 = openLdapServer.createUser(alternativeOrganization, "bob", "bob-pass");
+                DisposableSubContext ignored2 = openLdapServer.createUser(alternativeOrganization, "alice", "alt-alice-pass")) {
+            LdapAuthenticator ldapAuthenticator = new LdapAuthenticator(
+                    client,
+                    new LdapConfig()
+                            .setUserBindSearchPatterns(format("uid=${USER},%s:uid=${USER},%s", organization.getDistinguishedName(), alternativeOrganization.getDistinguishedName())));
 
-        LdapAuthenticator ldapAuthenticator = new LdapAuthenticator(
-                client,
-                new LdapConfig()
-                        .setUserBindSearchPatterns("${USER}@example.com:${USER}@alt.example.com"));
+            assertEquals(ldapAuthenticator.createAuthenticatedPrincipal("alice", "alice-pass"), new BasicPrincipal("alice"));
+            ldapAuthenticator.invalidateCache();
 
-        client.addCredentials("alice@example.com", "alice-pass");
-        assertEquals(ldapAuthenticator.createAuthenticatedPrincipal("alice", "alice-pass"), new BasicPrincipal("alice"));
-        ldapAuthenticator.invalidateCache();
+            assertEquals(ldapAuthenticator.createAuthenticatedPrincipal("bob", "bob-pass"), new BasicPrincipal("bob"));
+            ldapAuthenticator.invalidateCache();
 
-        client.addCredentials("bob@alt.example.com", "bob-pass");
-        assertEquals(ldapAuthenticator.createAuthenticatedPrincipal("bob", "bob-pass"), new BasicPrincipal("bob"));
-        ldapAuthenticator.invalidateCache();
-
-        client.addCredentials("alice@alt.example.com", "alt-alice-pass");
-        assertEquals(ldapAuthenticator.createAuthenticatedPrincipal("alice", "alt-alice-pass"), new BasicPrincipal("alice"));
-        ldapAuthenticator.invalidateCache();
-        assertEquals(ldapAuthenticator.createAuthenticatedPrincipal("alice", "alice-pass"), new BasicPrincipal("alice"));
-        ldapAuthenticator.invalidateCache();
+            assertEquals(ldapAuthenticator.createAuthenticatedPrincipal("alice", "alt-alice-pass"), new BasicPrincipal("alice"));
+            ldapAuthenticator.invalidateCache();
+            assertEquals(ldapAuthenticator.createAuthenticatedPrincipal("alice", "alice-pass"), new BasicPrincipal("alice"));
+            ldapAuthenticator.invalidateCache();
+        }
     }
 
     @Test
     public void testGroupMembership()
+            throws Exception
     {
-        TestLdapAuthenticatorClient client = new TestLdapAuthenticatorClient();
-        client.addCredentials("alice@example.com", "alice-pass");
+        try (DisposableSubContext organization = openLdapServer.createOrganization();
+                DisposableSubContext group = openLdapServer.createGroup(organization);
+                DisposableSubContext alice = openLdapServer.createUser(organization, "alice", "alice-pass");
+                DisposableSubContext ignored = openLdapServer.createUser(organization, "bob", "bob-pass")) {
+            LdapAuthenticator ldapAuthenticator = new LdapAuthenticator(
+                    client,
+                    new LdapConfig()
+                            .setUserBindSearchPatterns("uid=${USER}," + organization.getDistinguishedName())
+                            .setUserBaseDistinguishedName(organization.getDistinguishedName())
+                            .setGroupAuthorizationSearchPattern(format("(&(objectClass=groupOfNames)(cn=group_*)(member=uid=${USER},%s))", organization.getDistinguishedName())));
 
-        LdapAuthenticator ldapAuthenticator = new LdapAuthenticator(
-                client,
-                new LdapConfig()
-                        .setUserBindSearchPatterns("${USER}@example.com")
-                        .setUserBaseDistinguishedName(BASE_DN)
-                        .setGroupAuthorizationSearchPattern(PATTERN_PREFIX + "${USER}"));
+            assertThatThrownBy(() -> ldapAuthenticator.createAuthenticatedPrincipal("alice", "invalid"))
+                    .isInstanceOf(AccessDeniedException.class)
+                    .hasMessageMatching("Access Denied: Invalid credentials");
 
-        assertThatThrownBy(() -> ldapAuthenticator.createAuthenticatedPrincipal("alice", "invalid"))
-                .isInstanceOf(RuntimeException.class);
-        assertThatThrownBy(() -> ldapAuthenticator.createAuthenticatedPrincipal("unknown", "alice-pass"))
-                .isInstanceOf(RuntimeException.class);
-        assertThatThrownBy(() -> ldapAuthenticator.createAuthenticatedPrincipal("alice", "alice-pass"))
-                .isInstanceOf(AccessDeniedException.class);
-        client.addGroupMember("alice");
-        assertEquals(ldapAuthenticator.createAuthenticatedPrincipal("alice", "alice-pass"), new BasicPrincipal("alice"));
+            assertThatThrownBy(() -> ldapAuthenticator.createAuthenticatedPrincipal("unknown", "alice-pass"))
+                    .isInstanceOf(AccessDeniedException.class)
+                    .hasMessageMatching("Access Denied: Invalid credentials");
+
+            assertThatThrownBy(() -> ldapAuthenticator.createAuthenticatedPrincipal("bob", "bob-pass"))
+                    .isInstanceOf(AccessDeniedException.class)
+                    .hasMessageMatching("Access Denied: User \\[bob] not a member of an authorized group");
+
+            openLdapServer.addUserToGroup(alice, group);
+            assertEquals(ldapAuthenticator.createAuthenticatedPrincipal("alice", "alice-pass"), new BasicPrincipal("alice"));
+        }
+    }
+
+    @Test
+    public void testInvalidBindPassword()
+            throws Exception
+    {
+        try (DisposableSubContext organization = openLdapServer.createOrganization()) {
+            LdapAuthenticator ldapAuthenticator = new LdapAuthenticator(
+                    client,
+                    new LdapConfig()
+                            .setUserBaseDistinguishedName(organization.getDistinguishedName())
+                            .setGroupAuthorizationSearchPattern("(&(objectClass=inetOrgPerson))")
+                            .setBindDistingushedName("cn=admin,dc=trino,dc=testldap,dc=com")
+                            .setBindPassword("invalid-password"));
+
+            assertThatThrownBy(() -> ldapAuthenticator.createAuthenticatedPrincipal("alice", "alice-pass"))
+                    .isInstanceOf(AccessDeniedException.class)
+                    .hasMessageMatching("Access Denied: Invalid credentials");
+        }
     }
 
     @Test
     public void testDistinguishedNameLookup()
+            throws Exception
     {
-        TestLdapAuthenticatorClient client = new TestLdapAuthenticatorClient();
-        client.addCredentials("alice@example.com", "alice-pass");
+        try (DisposableSubContext organization = openLdapServer.createOrganization();
+                DisposableSubContext group = openLdapServer.createGroup(organization);
+                DisposableSubContext alice = openLdapServer.createUser(organization, "alice", "alice-pass");
+                DisposableSubContext bob = openLdapServer.createUser(organization, "bob", "bob-pass")) {
+            LdapAuthenticator ldapAuthenticator = new LdapAuthenticator(
+                    client,
+                    new LdapConfig()
+                            .setUserBaseDistinguishedName(organization.getDistinguishedName())
+                            .setGroupAuthorizationSearchPattern(format("(&(objectClass=inetOrgPerson)(memberof=%s))", group.getDistinguishedName()))
+                            .setBindDistingushedName("cn=admin,dc=trino,dc=testldap,dc=com")
+                            .setBindPassword("admin"));
 
-        LdapAuthenticator ldapAuthenticator = new LdapAuthenticator(
-                client,
-                new LdapConfig()
-                        .setUserBaseDistinguishedName(BASE_DN)
-                        .setGroupAuthorizationSearchPattern(PATTERN_PREFIX + "${USER}")
-                        .setBindDistingushedName("server")
-                        .setBindPassword("server-pass"));
+            assertThatThrownBy(() -> ldapAuthenticator.createAuthenticatedPrincipal("unknown_user", "invalid"))
+                    .isInstanceOf(AccessDeniedException.class)
+                    .hasMessageMatching("Access Denied: User \\[unknown_user] not a member of an authorized group");
 
-        client.addCredentials("alice", "alice-pass");
-        client.addCredentials("alice@example.com", "alice-pass");
+            assertThatThrownBy(() -> ldapAuthenticator.createAuthenticatedPrincipal("alice", "invalid"))
+                    .isInstanceOf(AccessDeniedException.class)
+                    .hasMessageMatching("Access Denied: User \\[alice] not a member of an authorized group");
+            ldapAuthenticator.invalidateCache();
 
-        assertThatThrownBy(() -> ldapAuthenticator.createAuthenticatedPrincipal("alice", "alice-pass"))
-                .isInstanceOf(RuntimeException.class);
+            assertThatThrownBy(() -> ldapAuthenticator.createAuthenticatedPrincipal("alice", "alice-pass"))
+                    .isInstanceOf(AccessDeniedException.class)
+                    .hasMessageMatching("Access Denied: User \\[alice] not a member of an authorized group");
+            ldapAuthenticator.invalidateCache();
 
-        client.addCredentials("server", "server-pass");
-        assertThatThrownBy(() -> ldapAuthenticator.createAuthenticatedPrincipal("alice", "alice-pass"))
-                .isInstanceOf(RuntimeException.class);
+            assertThatThrownBy(() -> ldapAuthenticator.createAuthenticatedPrincipal("bob", "bob-pass"))
+                    .isInstanceOf(AccessDeniedException.class)
+                    .hasMessageMatching("Access Denied: User \\[bob] not a member of an authorized group");
+            ldapAuthenticator.invalidateCache();
 
-        client.addDistinguishedNameForUser("alice", "bob@example.com");
-        assertThatThrownBy(() -> ldapAuthenticator.createAuthenticatedPrincipal("alice", "alice-pass"))
-                .isInstanceOf(RuntimeException.class);
+            openLdapServer.addUserToGroup(alice, group);
+            assertEquals(ldapAuthenticator.createAuthenticatedPrincipal("alice", "alice-pass"), new BasicPrincipal("alice"));
+            ldapAuthenticator.invalidateCache();
 
-        client.addCredentials("bob@example.com", "alice-pass");
-        assertEquals(ldapAuthenticator.createAuthenticatedPrincipal("alice", "alice-pass"), new BasicPrincipal("alice"));
-        ldapAuthenticator.invalidateCache();
+            assertThatThrownBy(() -> ldapAuthenticator.createAuthenticatedPrincipal("alice", "invalid"))
+                    .isInstanceOf(AccessDeniedException.class)
+                    .hasMessageMatching("Access Denied: Invalid credentials");
+            ldapAuthenticator.invalidateCache();
 
-        client.addDistinguishedNameForUser("alice", "another-mapping");
-        assertThatThrownBy(() -> ldapAuthenticator.createAuthenticatedPrincipal("alice", "alice-pass"))
-                .isInstanceOf(AccessDeniedException.class);
+            // Now group authorization filter will return multiple entries
+            openLdapServer.addUserToGroup(bob, group);
+            assertThatThrownBy(() -> ldapAuthenticator.createAuthenticatedPrincipal("alice", "alice-pass"))
+                    .isInstanceOf(AccessDeniedException.class)
+                    .hasMessageMatching("Access Denied: Multiple group membership results for user \\[alice].*");
+            ldapAuthenticator.invalidateCache();
+        }
     }
 
     @Test
@@ -168,68 +238,5 @@ public class TestLdapAuthenticator
         assertThat(LdapAuthenticator.containsSpecialCharacters("John Doe <john.doe@company.com>"))
                 .as("Angle brackets")
                 .isEqualTo(true);
-    }
-
-    private static class TestLdapAuthenticatorClient
-            implements LdapAuthenticatorClient
-    {
-        private final Set<Credential> credentials = new HashSet<>();
-        private final Set<String> groupMembers = new HashSet<>();
-        private final HashMultimap<String, String> userDNs = HashMultimap.create();
-
-        public void addCredentials(String userDistinguishedName, String password)
-        {
-            credentials.add(new Credential(userDistinguishedName, password));
-        }
-
-        public void addGroupMember(String userName)
-        {
-            groupMembers.add(userName);
-        }
-
-        public void addDistinguishedNameForUser(String userName, String distinguishedName)
-        {
-            userDNs.put(userName, distinguishedName);
-        }
-
-        @Override
-        public void validatePassword(String userDistinguishedName, String password)
-                throws NamingException
-        {
-            if (!credentials.contains(new Credential(userDistinguishedName, password))) {
-                throw new NamingException();
-            }
-        }
-
-        @Override
-        public boolean isGroupMember(String searchBase, String groupSearch, String contextUserDistinguishedName, String contextPassword)
-                throws NamingException
-        {
-            validatePassword(contextUserDistinguishedName, contextPassword);
-            return getSearchUser(searchBase, groupSearch)
-                    .map(groupMembers::contains)
-                    .orElse(false);
-        }
-
-        @Override
-        public Set<String> lookupUserDistinguishedNames(String searchBase, String searchFilter, String contextUserDistinguishedName, String contextPassword)
-                throws NamingException
-        {
-            validatePassword(contextUserDistinguishedName, contextPassword);
-            return getSearchUser(searchBase, searchFilter)
-                    .map(userDNs::get)
-                    .orElse(ImmutableSet.of());
-        }
-
-        private static Optional<String> getSearchUser(String searchBase, String groupSearch)
-        {
-            if (!searchBase.equals(BASE_DN)) {
-                return Optional.empty();
-            }
-            if (!groupSearch.startsWith(PATTERN_PREFIX)) {
-                return Optional.empty();
-            }
-            return Optional.of(groupSearch.substring(PATTERN_PREFIX.length()));
-        }
     }
 }

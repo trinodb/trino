@@ -22,7 +22,6 @@ import com.google.inject.multibindings.Multibinder;
 import io.airlift.event.client.EventClient;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.metastore.MetastoreConfig;
-import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.trino.plugin.hive.orc.OrcFileWriterFactory;
 import io.trino.plugin.hive.orc.OrcPageSourceFactory;
 import io.trino.plugin.hive.orc.OrcReaderConfig;
@@ -43,7 +42,6 @@ import javax.inject.Singleton;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.function.Function;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
@@ -60,7 +58,6 @@ public class HiveModule
     @Override
     public void configure(Binder binder)
     {
-        binder.bind(DirectoryLister.class).to(CachingDirectoryLister.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(HiveConfig.class);
         configBinder(binder).bindConfig(MetastoreConfig.class);
 
@@ -142,12 +139,5 @@ public class HiveModule
         return newScheduledThreadPool(
                 hiveConfig.getHiveTransactionHeartbeatThreads(),
                 daemonThreadsNamed("hive-heartbeat-" + catalogName + "-%s"));
-    }
-
-    @Singleton
-    @Provides
-    public Function<HiveTransactionHandle, SemiTransactionalHiveMetastore> createMetastoreGetter(HiveTransactionManager transactionManager)
-    {
-        return transactionHandle -> transactionManager.get(transactionHandle).getMetastore();
     }
 }

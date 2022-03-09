@@ -123,7 +123,7 @@ public class CachingOrcDataSource
             Slice buffer = readFully(diskRange.getOffset(), diskRange.getLength());
             builder.put(entry.getKey(), new MemoryOrcDataReader(dataSource.getId(), buffer, buffer.length()));
         }
-        return builder.build();
+        return builder.buildOrThrow();
     }
 
     @Override

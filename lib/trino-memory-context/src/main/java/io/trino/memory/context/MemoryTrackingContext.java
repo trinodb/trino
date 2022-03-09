@@ -39,7 +39,7 @@ import static java.util.Objects.requireNonNull;
  * and there will be system allocations initiated by the exchange clients (local allocations). All these system
  * allocations will be visible in the systemAggregateMemoryContext.
  * <p>
- * To perform local allocations clients should use localUserMemoryContext()/localSystemMemoryContext()
+ * To perform local allocations clients should use localUserMemoryContext()
  * and get a reference to the local memory contexts. Clients can also use updateUserMemory()/tryReserveUserMemory()
  * to allocate memory (non-local allocations), which will be reflected to all ancestors of this context in the hierarchy.
  */
@@ -48,20 +48,16 @@ public final class MemoryTrackingContext
 {
     private final AggregatedMemoryContext userAggregateMemoryContext;
     private final AggregatedMemoryContext revocableAggregateMemoryContext;
-    private final AggregatedMemoryContext systemAggregateMemoryContext;
 
     private LocalMemoryContext userLocalMemoryContext;
     private LocalMemoryContext revocableLocalMemoryContext;
-    private LocalMemoryContext systemLocalMemoryContext;
 
     public MemoryTrackingContext(
             AggregatedMemoryContext userAggregateMemoryContext,
-            AggregatedMemoryContext revocableAggregateMemoryContext,
-            AggregatedMemoryContext systemAggregateMemoryContext)
+            AggregatedMemoryContext revocableAggregateMemoryContext)
     {
         this.userAggregateMemoryContext = requireNonNull(userAggregateMemoryContext, "userAggregateMemoryContext is null");
         this.revocableAggregateMemoryContext = requireNonNull(revocableAggregateMemoryContext, "revocableAggregateMemoryContext is null");
-        this.systemAggregateMemoryContext = requireNonNull(systemAggregateMemoryContext, "systemAggregateMemoryContext is null");
     }
 
     public void close()
@@ -69,10 +65,8 @@ public final class MemoryTrackingContext
         try (Closer closer = Closer.create()) {
             closer.register(userAggregateMemoryContext::close);
             closer.register(revocableAggregateMemoryContext::close);
-            closer.register(systemAggregateMemoryContext::close);
             closer.register(userLocalMemoryContext::close);
             closer.register(revocableLocalMemoryContext::close);
-            closer.register(systemLocalMemoryContext::close);
         }
         catch (IOException e) {
             throw new RuntimeException("Exception closing memory tracking context", e);
@@ -83,12 +77,6 @@ public final class MemoryTrackingContext
     {
         verifyNotNull(userLocalMemoryContext, "local memory contexts are not initialized");
         return userLocalMemoryContext;
-    }
-
-    public LocalMemoryContext localSystemMemoryContext()
-    {
-        verifyNotNull(systemLocalMemoryContext, "local memory contexts are not initialized");
-        return systemLocalMemoryContext;
     }
 
     public LocalMemoryContext localRevocableMemoryContext()
@@ -102,11 +90,6 @@ public final class MemoryTrackingContext
         return userAggregateMemoryContext.newLocalMemoryContext(allocationTag);
     }
 
-    public LocalMemoryContext newSystemMemoryContext(String allocationTag)
-    {
-        return systemAggregateMemoryContext.newLocalMemoryContext(allocationTag);
-    }
-
     public AggregatedMemoryContext aggregateUserMemoryContext()
     {
         return userAggregateMemoryContext;
@@ -115,11 +98,6 @@ public final class MemoryTrackingContext
     public AggregatedMemoryContext aggregateRevocableMemoryContext()
     {
         return revocableAggregateMemoryContext;
-    }
-
-    public AggregatedMemoryContext aggregateSystemMemoryContext()
-    {
-        return systemAggregateMemoryContext;
     }
 
     public AggregatedMemoryContext newAggregateUserMemoryContext()
@@ -132,11 +110,6 @@ public final class MemoryTrackingContext
         return revocableAggregateMemoryContext.newAggregatedMemoryContext();
     }
 
-    public AggregatedMemoryContext newAggregateSystemMemoryContext()
-    {
-        return systemAggregateMemoryContext.newAggregatedMemoryContext();
-    }
-
     public long getUserMemory()
     {
         return userAggregateMemoryContext.getBytes();
@@ -147,28 +120,21 @@ public final class MemoryTrackingContext
         return revocableAggregateMemoryContext.getBytes();
     }
 
-    public long getSystemMemory()
-    {
-        return systemAggregateMemoryContext.getBytes();
-    }
-
     public MemoryTrackingContext newMemoryTrackingContext()
     {
         return new MemoryTrackingContext(
                 userAggregateMemoryContext.newAggregatedMemoryContext(),
-                revocableAggregateMemoryContext.newAggregatedMemoryContext(),
-                systemAggregateMemoryContext.newAggregatedMemoryContext());
+                revocableAggregateMemoryContext.newAggregatedMemoryContext());
     }
 
     /**
      * This method has to be called to initialize the local memory contexts. Otherwise, calls to methods
-     * localUserMemoryContext(), localSystemMemoryContext(), etc. will fail.
+     * localUserMemoryContext(), etc. will fail.
      */
     public void initializeLocalMemoryContexts(String allocationTag)
     {
         this.userLocalMemoryContext = userAggregateMemoryContext.newLocalMemoryContext(allocationTag);
         this.revocableLocalMemoryContext = revocableAggregateMemoryContext.newLocalMemoryContext(allocationTag);
-        this.systemLocalMemoryContext = systemAggregateMemoryContext.newLocalMemoryContext(allocationTag);
     }
 
     @Override
@@ -177,10 +143,8 @@ public final class MemoryTrackingContext
         return toStringHelper(this)
                 .add("userAggregateMemoryContext", userAggregateMemoryContext)
                 .add("revocableAggregateMemoryContext", revocableAggregateMemoryContext)
-                .add("systemAggregateMemoryContext", systemAggregateMemoryContext)
                 .add("userLocalMemoryContext", userLocalMemoryContext)
                 .add("revocableLocalMemoryContext", revocableLocalMemoryContext)
-                .add("systemLocalMemoryContext", systemLocalMemoryContext)
                 .toString();
     }
 }

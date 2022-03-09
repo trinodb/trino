@@ -14,6 +14,8 @@
 package io.trino.plugin.iceberg;
 
 import io.airlift.json.JsonCodec;
+import io.trino.plugin.hive.HdfsEnvironment;
+import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.TypeManager;
 
 import javax.inject.Inject;
@@ -25,20 +27,23 @@ public class IcebergMetadataFactory
     private final TypeManager typeManager;
     private final JsonCodec<CommitTaskData> commitTaskCodec;
     private final TrinoCatalogFactory catalogFactory;
+    private final HdfsEnvironment hdfsEnvironment;
 
     @Inject
     public IcebergMetadataFactory(
             TypeManager typeManager,
             JsonCodec<CommitTaskData> commitTaskCodec,
-            TrinoCatalogFactory catalogFactory)
+            TrinoCatalogFactory catalogFactory,
+            HdfsEnvironment hdfsEnvironment)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.commitTaskCodec = requireNonNull(commitTaskCodec, "commitTaskCodec is null");
         this.catalogFactory = requireNonNull(catalogFactory, "catalogFactory is null");
+        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
     }
 
-    public IcebergMetadata create()
+    public IcebergMetadata create(ConnectorIdentity identity)
     {
-        return new IcebergMetadata(typeManager, commitTaskCodec, catalogFactory.create());
+        return new IcebergMetadata(typeManager, commitTaskCodec, catalogFactory.create(identity), hdfsEnvironment);
     }
 }

@@ -24,8 +24,8 @@ import io.trino.tests.product.launcher.env.common.HadoopKerberosKms;
 import io.trino.tests.product.launcher.env.common.HydraIdentityProvider;
 import io.trino.tests.product.launcher.env.common.Kafka;
 import io.trino.tests.product.launcher.env.common.KafkaSsl;
+import io.trino.tests.product.launcher.env.common.Kerberos;
 import io.trino.tests.product.launcher.env.common.Phoenix;
-import io.trino.tests.product.launcher.env.common.SeleniumChrome;
 import io.trino.tests.product.launcher.env.common.Standard;
 import io.trino.tests.product.launcher.env.common.StandardMultinode;
 import io.trino.tests.product.launcher.testcontainers.PortBinder;
@@ -69,10 +69,10 @@ public final class EnvironmentModule
         binder.bind(HydraIdentityProvider.class).in(SINGLETON);
         binder.bind(Kafka.class).in(SINGLETON);
         binder.bind(KafkaSsl.class).in(SINGLETON);
-        binder.bind(SeleniumChrome.class).in(SINGLETON);
         binder.bind(Standard.class).in(SINGLETON);
         binder.bind(StandardMultinode.class).in(SINGLETON);
         binder.bind(Phoenix.class).in(SINGLETON);
+        binder.bind(Kerberos.class).in(SINGLETON);
 
         MapBinder<String, EnvironmentProvider> environments = newMapBinder(binder, String.class, EnvironmentProvider.class);
         findEnvironmentsByBasePackage(ENVIRONMENT_PACKAGE).forEach(clazz -> environments.addBinding(nameForEnvironmentClass(clazz)).to(clazz).in(SINGLETON));

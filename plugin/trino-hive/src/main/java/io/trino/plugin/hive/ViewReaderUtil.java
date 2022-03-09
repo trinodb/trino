@@ -13,14 +13,13 @@
  */
 package io.trino.plugin.hive;
 
-import com.linkedin.coral.hive.hive2rel.HiveMetastoreClient;
+import com.linkedin.coral.common.HiveMetastoreClient;
 import com.linkedin.coral.hive.hive2rel.HiveToRelConverter;
 import com.linkedin.coral.trino.rel2trino.RelToTrinoConverter;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
 import io.trino.plugin.base.CatalogName;
-import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.CoralSemiTransactionalHiveMSCAdapter;
 import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
@@ -88,7 +87,7 @@ public final class ViewReaderUtil
         }
 
         return new HiveViewReader(
-                new CoralSemiTransactionalHiveMSCAdapter(metastore, new HiveIdentity(session), coralTableRedirectionResolver(session, tableRedirectionResolver, metadataProvider)),
+                new CoralSemiTransactionalHiveMSCAdapter(metastore, coralTableRedirectionResolver(session, tableRedirectionResolver, metadataProvider)),
                 typeManager);
     }
 
@@ -175,17 +174,17 @@ public final class ViewReaderUtil
         private final HiveMetastoreClient metastoreClient;
         private final TypeManager typeManager;
 
-        public HiveViewReader(HiveMetastoreClient hiveMetastoreClient, TypeManager typemanager)
+        public HiveViewReader(HiveMetastoreClient hiveMetastoreClient, TypeManager typeManager)
         {
             this.metastoreClient = requireNonNull(hiveMetastoreClient, "hiveMetastoreClient is null");
-            this.typeManager = requireNonNull(typemanager, "typeManager is null");
+            this.typeManager = requireNonNull(typeManager, "typeManager is null");
         }
 
         @Override
         public ConnectorViewDefinition decodeViewData(String viewSql, Table table, CatalogName catalogName)
         {
             try {
-                HiveToRelConverter hiveToRelConverter = HiveToRelConverter.create(metastoreClient);
+                HiveToRelConverter hiveToRelConverter = new HiveToRelConverter(metastoreClient);
                 RelNode rel = hiveToRelConverter.convertView(table.getDatabaseName(), table.getTableName());
                 RelToTrinoConverter relToTrino = new RelToTrinoConverter();
                 String trinoSql = relToTrino.convert(rel);

@@ -64,12 +64,14 @@ import java.util.Set;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.function.Consumer;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.inject.util.Modules.EMPTY_MODULE;
+import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.airlift.units.Duration.nanosSince;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -233,7 +235,7 @@ public class DistributedQueryRunner
             propertiesBuilder.put("scheduler.http-client.min-threads", "1"); // default 8
             propertiesBuilder.put("workerInfo.http-client.min-threads", "1"); // default 8
         }
-        HashMap<String, String> properties = new HashMap<>(propertiesBuilder.build());
+        HashMap<String, String> properties = new HashMap<>(propertiesBuilder.buildOrThrow());
         properties.putAll(extraProperties);
 
         TestingTrinoServer server = TestingTrinoServer.builder()
@@ -256,7 +258,7 @@ public class DistributedQueryRunner
     public void addServers(int nodeCount)
             throws Exception
     {
-        ImmutableList.Builder<TestingTrinoServer> serverBuilder = new ImmutableList.Builder<TestingTrinoServer>()
+        ImmutableList.Builder<TestingTrinoServer> serverBuilder = ImmutableList.<TestingTrinoServer>builder()
                 .addAll(servers);
         for (int i = 0; i < nodeCount; i++) {
             TestingTrinoServer server = closer.register(createTestingTrinoServer(
@@ -572,6 +574,14 @@ public class DistributedQueryRunner
     }
 
     @Override
+    public void loadExchangeManager(String name, Map<String, String> properties)
+    {
+        for (TestingTrinoServer server : servers) {
+            server.loadExchangeManager(name, properties);
+        }
+    }
+
+    @Override
     public final void close()
     {
         cancelAllQueries();
@@ -617,6 +627,7 @@ public class DistributedQueryRunner
         private Map<String, String> extraProperties = new HashMap<>();
         private Map<String, String> coordinatorProperties = ImmutableMap.of();
         private Optional<Map<String, String>> backupCoordinatorProperties = Optional.empty();
+        private Consumer<QueryRunner> additionalSetup = querRunner -> {};
         private String environment = ENVIRONMENT;
         private Module additionalModule = EMPTY_MODULE;
         private Optional<Path> baseDataDir = Optional.empty();
@@ -662,6 +673,17 @@ public class DistributedQueryRunner
         public SELF setBackupCoordinatorProperties(Map<String, String> backupCoordinatorProperties)
         {
             this.backupCoordinatorProperties = Optional.of(backupCoordinatorProperties);
+            return self();
+        }
+
+        /**
+         * Additional configuration to be applied on {@link QueryRunner} being built.
+         * Invoked after engine configuration is applied, but before connector-specific configurations
+         * (if any) are applied.
+         */
+        public SELF setAdditionalSetup(Consumer<QueryRunner> additionalSetup)
+        {
+            this.additionalSetup = requireNonNull(additionalSetup, "additionalSetup is null");
             return self();
         }
 
@@ -736,7 +758,7 @@ public class DistributedQueryRunner
         public DistributedQueryRunner build()
                 throws Exception
         {
-            return new DistributedQueryRunner(
+            DistributedQueryRunner queryRunner = new DistributedQueryRunner(
                     defaultSession,
                     nodeCount,
                     extraProperties,
@@ -747,6 +769,16 @@ public class DistributedQueryRunner
                     baseDataDir,
                     systemAccessControls,
                     eventListeners);
+
+            try {
+                additionalSetup.accept(queryRunner);
+            }
+            catch (Throwable e) {
+                closeAllSuppress(e, queryRunner);
+                throw e;
+            }
+
+            return queryRunner;
         }
     }
 }

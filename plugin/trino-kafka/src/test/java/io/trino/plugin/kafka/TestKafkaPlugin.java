@@ -45,7 +45,7 @@ public class TestKafkaPlugin
                 ImmutableMap.<String, String>builder()
                         .put("kafka.table-names", "test")
                         .put("kafka.nodes", "localhost:9092")
-                        .build(),
+                        .buildOrThrow(),
                 new TestingConnectorContext());
         assertNotNull(connector);
         connector.shutdown();
@@ -81,7 +81,7 @@ public class TestKafkaPlugin
                         .put("kafka.ssl.truststore.location", truststorePath.toString())
                         .put("kafka.ssl.truststore.password", "truststore-password")
                         .put("kafka.ssl.endpoint-identification-algorithm", "https")
-                        .build(),
+                        .buildOrThrow(),
                 new TestingConnectorContext());
         assertNotNull(connector);
         connector.shutdown();
@@ -112,7 +112,7 @@ public class TestKafkaPlugin
                         .put("kafka.ssl.truststore.location", truststorePath.toString())
                         .put("kafka.ssl.truststore.password", "truststore-password")
                         .put("kafka.ssl.endpoint-identification-algorithm", "https")
-                        .build(),
+                        .buildOrThrow(),
                 new TestingConnectorContext()))
                 .hasMessageContaining("Error: Invalid configuration property kafka.ssl.keystore.location: file does not exist: /not/a/real/path");
     }
@@ -142,7 +142,7 @@ public class TestKafkaPlugin
                         .put("kafka.ssl.truststore.location", "/not/a/real/path")
                         .put("kafka.ssl.truststore.password", "truststore-password")
                         .put("kafka.ssl.endpoint-identification-algorithm", "https")
-                        .build(),
+                        .buildOrThrow(),
                 new TestingConnectorContext()))
                 .hasMessageContaining("Error: Invalid configuration property kafka.ssl.truststore.location: file does not exist: /not/a/real/path");
     }

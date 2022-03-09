@@ -21,6 +21,7 @@ import javax.annotation.concurrent.NotThreadSafe;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.OptionalInt;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
@@ -118,12 +119,6 @@ public class LazyBlock
     }
 
     @Override
-    public void writePositionTo(int position, BlockBuilder blockBuilder)
-    {
-        getBlock().writePositionTo(position, blockBuilder);
-    }
-
-    @Override
     public boolean equals(int position, int offset, Block otherBlock, int otherPosition, int otherOffset, int length)
     {
         return getBlock().equals(
@@ -161,6 +156,15 @@ public class LazyBlock
     }
 
     @Override
+    public OptionalInt fixedSizeInBytesPerPosition()
+    {
+        if (!isLoaded()) {
+            return OptionalInt.empty();
+        }
+        return getBlock().fixedSizeInBytesPerPosition();
+    }
+
+    @Override
     public long getSizeInBytes()
     {
         if (!isLoaded()) {
@@ -179,12 +183,12 @@ public class LazyBlock
     }
 
     @Override
-    public long getPositionsSizeInBytes(boolean[] positions)
+    public long getPositionsSizeInBytes(boolean[] positions, int selectedPositionsCount)
     {
         if (!isLoaded()) {
             return 0;
         }
-        return getBlock().getPositionsSizeInBytes(positions);
+        return getBlock().getPositionsSizeInBytes(positions, selectedPositionsCount);
     }
 
     @Override

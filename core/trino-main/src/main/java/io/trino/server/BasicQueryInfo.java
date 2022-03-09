@@ -21,7 +21,6 @@ import io.trino.execution.QueryState;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.ErrorType;
 import io.trino.spi.QueryId;
-import io.trino.spi.memory.MemoryPoolId;
 import io.trino.spi.resourcegroups.QueryType;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 
@@ -45,7 +44,6 @@ public class BasicQueryInfo
     private final SessionRepresentation session;
     private final Optional<ResourceGroupId> resourceGroupId;
     private final QueryState state;
-    private final MemoryPoolId memoryPool;
     private final boolean scheduled;
     private final URI self;
     private final String query;
@@ -62,7 +60,6 @@ public class BasicQueryInfo
             @JsonProperty("session") SessionRepresentation session,
             @JsonProperty("resourceGroupId") Optional<ResourceGroupId> resourceGroupId,
             @JsonProperty("state") QueryState state,
-            @JsonProperty("memoryPool") MemoryPoolId memoryPool,
             @JsonProperty("scheduled") boolean scheduled,
             @JsonProperty("self") URI self,
             @JsonProperty("query") String query,
@@ -77,7 +74,6 @@ public class BasicQueryInfo
         this.session = requireNonNull(session, "session is null");
         this.resourceGroupId = requireNonNull(resourceGroupId, "resourceGroupId is null");
         this.state = requireNonNull(state, "state is null");
-        this.memoryPool = memoryPool;
         this.errorType = errorType;
         this.errorCode = errorCode;
         this.scheduled = scheduled;
@@ -95,7 +91,6 @@ public class BasicQueryInfo
                 queryInfo.getSession(),
                 queryInfo.getResourceGroupId(),
                 queryInfo.getState(),
-                queryInfo.getMemoryPool(),
                 queryInfo.isScheduled(),
                 queryInfo.getSelf(),
                 queryInfo.getQuery(),
@@ -129,12 +124,6 @@ public class BasicQueryInfo
     public QueryState getState()
     {
         return state;
-    }
-
-    @JsonProperty
-    public MemoryPoolId getMemoryPool()
-    {
-        return memoryPool;
     }
 
     @JsonProperty

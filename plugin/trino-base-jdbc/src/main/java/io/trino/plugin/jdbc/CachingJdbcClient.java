@@ -15,12 +15,12 @@ package io.trino.plugin.jdbc;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheStats;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.jmx.CacheStatsMBean;
 import io.airlift.units.Duration;
+import io.trino.collect.cache.EvictableCacheBuilder;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.jdbc.IdentityCacheMapping.IdentityCacheKey;
 import io.trino.spi.TrinoException;
@@ -35,6 +35,7 @@ import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
+import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.statistics.TableStatistics;
@@ -109,8 +110,9 @@ public class CachingJdbcClient
         this.cacheMissing = cacheMissing;
         this.identityMapping = requireNonNull(identityMapping, "identityMapping is null");
 
-        CacheBuilder<Object, Object> cacheBuilder = CacheBuilder.newBuilder()
+        EvictableCacheBuilder<Object, Object> cacheBuilder = EvictableCacheBuilder.newBuilder()
                 .expireAfterWrite(metadataCachingTtl.toMillis(), MILLISECONDS)
+                .shareNothingWhenDisabled()
                 .recordStats();
 
         if (metadataCachingTtl.equals(CACHING_DISABLED)) {
@@ -187,6 +189,12 @@ public class CachingJdbcClient
     public Optional<JdbcExpression> implementAggregation(ConnectorSession session, AggregateFunction aggregate, Map<String, ColumnHandle> assignments)
     {
         return delegate.implementAggregation(session, aggregate, assignments);
+    }
+
+    @Override
+    public Optional<String> convertPredicate(ConnectorSession session, ConnectorExpression expression, Map<String, ColumnHandle> assignments)
+    {
+        return delegate.convertPredicate(session, expression, assignments);
     }
 
     @Override
@@ -272,13 +280,12 @@ public class CachingJdbcClient
         Optional<JdbcTableHandle> cachedTableHandle = tableHandleCache.getIfPresent(key);
         //noinspection OptionalAssignedToNull
         if (cachedTableHandle != null) {
-            return cachedTableHandle;
+            if (cacheMissing || cachedTableHandle.isPresent()) {
+                return cachedTableHandle;
+            }
+            tableHandleCache.invalidate(key);
         }
-        Optional<JdbcTableHandle> tableHandle = delegate.getTableHandle(session, schemaTableName);
-        if (tableHandle.isPresent() || cacheMissing) {
-            tableHandleCache.put(key, tableHandle);
-        }
-        return tableHandle;
+        return get(tableHandleCache, key, () -> delegate.getTableHandle(session, schemaTableName));
     }
 
     @Override
@@ -341,14 +348,12 @@ public class CachingJdbcClient
 
         TableStatistics cachedStatistics = statisticsCache.getIfPresent(key);
         if (cachedStatistics != null) {
-            return cachedStatistics;
+            if (cacheMissing || !cachedStatistics.equals(TableStatistics.empty())) {
+                return cachedStatistics;
+            }
+            statisticsCache.invalidate(key);
         }
-
-        TableStatistics statistics = delegate.getTableStatistics(session, handle, tupleDomain);
-        if (!statistics.equals(TableStatistics.empty()) || cacheMissing) {
-            statisticsCache.put(key, statistics);
-        }
-        return statistics;
+        return get(statisticsCache, key, () -> delegate.getTableStatistics(session, handle, tupleDomain));
     }
 
     @Override
@@ -362,6 +367,13 @@ public class CachingJdbcClient
     public void dropSchema(ConnectorSession session, String schemaName)
     {
         delegate.dropSchema(session, schemaName);
+        invalidateSchemasCache();
+    }
+
+    @Override
+    public void renameSchema(ConnectorSession session, String schemaName, String newSchemaName)
+    {
+        delegate.renameSchema(session, schemaName, newSchemaName);
         invalidateSchemasCache();
     }
 
@@ -402,7 +414,7 @@ public class CachingJdbcClient
     }
 
     @Override
-    public void setTableProperties(ConnectorSession session, JdbcTableHandle handle, Map<String, Object> properties)
+    public void setTableProperties(ConnectorSession session, JdbcTableHandle handle, Map<String, Optional<Object>> properties)
     {
         delegate.setTableProperties(session, handle, properties);
         invalidateTableCaches(handle.asPlainTable().getSchemaTableName());
@@ -713,6 +725,15 @@ public class CachingJdbcClient
         public int hashCode()
         {
             return Objects.hash(tableHandle, tupleDomain);
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("tableHandle", tableHandle)
+                    .add("tupleDomain", tupleDomain)
+                    .toString();
         }
     }
 

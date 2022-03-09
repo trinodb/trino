@@ -17,6 +17,7 @@ import org.testng.annotations.Test;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.StandardErrorCode.INVALID_LITERAL;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -275,9 +276,14 @@ public class TestJsonFunctions
     @Test
     public void testInvalidJsonParse()
     {
-        assertInvalidFunction("JSON 'INVALID'", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("JSON 'INVALID'", INVALID_LITERAL);
         assertInvalidFunction("JSON_PARSE('INVALID')", INVALID_FUNCTION_ARGUMENT);
         assertInvalidFunction("JSON_PARSE('\"x\": 1')", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("JSON_PARSE('{}{')", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("JSON_PARSE('{} \"a\"')", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("JSON_PARSE('{}{abc')", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("JSON_PARSE('{}abc')", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("JSON_PARSE('')", INVALID_FUNCTION_ARGUMENT);
     }
 
     @Test

@@ -25,6 +25,7 @@ import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.DictionaryId;
 import io.trino.spi.block.MapHashTables;
+import io.trino.spi.block.SingleRowBlockWriter;
 import io.trino.spi.block.TestingBlockEncodingSerde;
 import org.openjdk.jol.info.ClassLayout;
 import org.testng.annotations.Test;
@@ -35,7 +36,6 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 import java.util.function.Supplier;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
@@ -69,23 +69,19 @@ public abstract class AbstractTestBlock
 
         assertBlockPositions(block, newBlockBuilder, expectedValues);
         assertBlockPositions(copyBlockViaBlockSerde(block), newBlockBuilder, expectedValues);
-        assertBlockPositions(copyBlockViaWritePositionTo(block, newBlockBuilder), newBlockBuilder, expectedValues);
-        if (expectedValues.getClass().getComponentType().isArray() ||
-                expectedValues.getClass().getComponentType() == List.class ||
-                expectedValues.getClass().getComponentType() == Map.class) {
-            assertBlockPositions(copyBlockViaWriteStructure(block, newBlockBuilder), newBlockBuilder, expectedValues);
-        }
 
         assertBlockSize(block);
         assertRetainedSize(block);
 
-        assertThatThrownBy(() -> block.isNull(-1))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageMatching(format("(position is not valid|Invalid position -1 in block with %d positions)", block.getPositionCount()));
+        if (block.mayHaveNull()) {
+            assertThatThrownBy(() -> block.isNull(-1))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageMatching(format("(position is not valid|Invalid position -1 in block with %d positions)", block.getPositionCount()));
 
-        assertThatThrownBy(() -> block.isNull(block.getPositionCount()))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageMatching(format("(position is not valid|Invalid position %d in block with %d positions)", block.getPositionCount(), block.getPositionCount()));
+            assertThatThrownBy(() -> block.isNull(block.getPositionCount()))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageMatching(format("(position is not valid|Invalid position %d in block with %d positions)", block.getPositionCount(), block.getPositionCount()));
+        }
     }
 
     private void assertRetainedSize(Block block)
@@ -127,6 +123,9 @@ public abstract class AbstractTestBlock
                 }
                 else if (type == SliceOutput.class) {
                     retainedSize += ((SliceOutput) field.get(block)).getRetainedSize();
+                }
+                else if (type == SingleRowBlockWriter.class) {
+                    retainedSize += SingleRowBlockWriter.INSTANCE_SIZE;
                 }
                 else if (type == int[].class) {
                     retainedSize += sizeOf((int[]) field.get(block));
@@ -224,11 +223,11 @@ public abstract class AbstractTestBlock
 
         boolean[] positions = new boolean[block.getPositionCount()];
         fill(positions, 0, firstHalf.getPositionCount(), true);
-        assertEquals(block.getPositionsSizeInBytes(positions), expectedFirstHalfSize);
+        assertEquals(block.getPositionsSizeInBytes(positions, firstHalf.getPositionCount()), expectedFirstHalfSize);
         fill(positions, true);
-        assertEquals(block.getPositionsSizeInBytes(positions), expectedBlockSize);
+        assertEquals(block.getPositionsSizeInBytes(positions, positions.length), expectedBlockSize);
         fill(positions, 0, firstHalf.getPositionCount(), false);
-        assertEquals(block.getPositionsSizeInBytes(positions), expectedSecondHalfSize);
+        assertEquals(block.getPositionsSizeInBytes(positions, positions.length - firstHalf.getPositionCount()), expectedSecondHalfSize);
     }
 
     // expectedValueType is required since otherwise the expected value type is unknown when expectedValue is null.
@@ -244,16 +243,6 @@ public abstract class AbstractTestBlock
         assertPositionValue(copyBlockViaBlockSerde(block.getRegion(position, 1)), 0, expectedValue);
         assertPositionValue(copyBlockViaBlockSerde(block.getRegion(0, position + 1)), position, expectedValue);
         assertPositionValue(copyBlockViaBlockSerde(block.getRegion(position, block.getPositionCount() - position)), 0, expectedValue);
-
-        assertPositionValue(copyBlockViaWritePositionTo(block.getRegion(position, 1), newBlockBuilder), 0, expectedValue);
-        assertPositionValue(copyBlockViaWritePositionTo(block.getRegion(0, position + 1), newBlockBuilder), position, expectedValue);
-        assertPositionValue(copyBlockViaWritePositionTo(block.getRegion(position, block.getPositionCount() - position), newBlockBuilder), 0, expectedValue);
-
-        if (expectedValueType.isArray() || expectedValueType == List.class || expectedValueType == Map.class) {
-            assertPositionValue(copyBlockViaWriteStructure(block.getRegion(position, 1), newBlockBuilder), 0, expectedValue);
-            assertPositionValue(copyBlockViaWriteStructure(block.getRegion(0, position + 1), newBlockBuilder), position, expectedValue);
-            assertPositionValue(copyBlockViaWriteStructure(block.getRegion(position, block.getPositionCount() - position), newBlockBuilder), 0, expectedValue);
-        }
 
         assertPositionValue(block.copyRegion(position, 1), 0, expectedValue);
         assertPositionValue(block.copyRegion(0, position + 1), position, expectedValue);
@@ -428,34 +417,6 @@ public abstract class AbstractTestBlock
         return BLOCK_ENCODING_SERDE.readBlock(sliceOutput.slice().getInput());
     }
 
-    private static Block copyBlockViaWritePositionTo(Block block, Supplier<BlockBuilder> newBlockBuilder)
-    {
-        BlockBuilder blockBuilder = newBlockBuilder.get();
-        for (int i = 0; i < block.getPositionCount(); i++) {
-            if (block.isNull(i)) {
-                blockBuilder.appendNull();
-            }
-            else {
-                block.writePositionTo(i, blockBuilder);
-            }
-        }
-        return blockBuilder.build();
-    }
-
-    private static Block copyBlockViaWriteStructure(Block block, Supplier<BlockBuilder> newBlockBuilder)
-    {
-        BlockBuilder blockBuilder = newBlockBuilder.get();
-        for (int i = 0; i < block.getPositionCount(); i++) {
-            if (block.isNull(i)) {
-                blockBuilder.appendNull();
-            }
-            else {
-                blockBuilder.appendStructure(block.getObject(i, Block.class));
-            }
-        }
-        return blockBuilder.build();
-    }
-
     private static Block toSingeValuedBlock(Slice expectedValue)
     {
         BlockBuilder blockBuilder = VARBINARY.createBlockBuilder(null, 1, expectedValue.length());
@@ -498,15 +459,6 @@ public abstract class AbstractTestBlock
         }
         objectsWithNulls[objectsWithNulls.length - 1] = null;
         return objectsWithNulls;
-    }
-
-    protected static Slice[] createExpectedUniqueValues(int positionCount)
-    {
-        Slice[] expectedValues = new Slice[positionCount];
-        for (int position = 0; position < positionCount; position++) {
-            expectedValues[position] = Slices.copyOf(createExpectedValue(position));
-        }
-        return expectedValues;
     }
 
     protected static void assertEstimatedDataSizeForStats(BlockBuilder blockBuilder, Slice[] expectedSliceValues)

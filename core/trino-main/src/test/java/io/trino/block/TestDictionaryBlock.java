@@ -19,9 +19,14 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.DictionaryId;
+import io.trino.spi.block.IntArrayBlock;
 import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.block.VariableWidthBlockBuilder;
 import org.testng.annotations.Test;
+
+import java.util.Arrays;
+import java.util.Optional;
+import java.util.stream.IntStream;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.testing.Assertions.assertInstanceOf;
@@ -252,12 +257,12 @@ public class TestDictionaryBlock
 
         assertEquals(
                 dictionary.getSizeInBytes(),
-                valuesBlock.getPositionsSizeInBytes(new boolean[] {true, false, true, false, false, false}) + 4 * Integer.BYTES);
+                valuesBlock.getPositionsSizeInBytes(new boolean[] {true, false, true, false, false, false}, 2) + 4 * Integer.BYTES);
         assertFalse(dictionary.isCompact());
 
         assertEquals(
                 dictionaryWithAllPositionsUsed.getSizeInBytes(),
-                valuesBlock.getPositionsSizeInBytes(new boolean[] {true, true, true, false, true, true}) + 6 * Integer.BYTES);
+                valuesBlock.getPositionsSizeInBytes(new boolean[] {true, true, true, false, true, true}, 5) + 6 * Integer.BYTES);
         // dictionary is not compact (even though all positions were used) because it's unnested
         assertFalse(dictionaryWithAllPositionsUsed.isCompact());
 
@@ -389,6 +394,114 @@ public class TestDictionaryBlock
         DictionaryBlock dictionaryBlock = createDictionaryBlock(expectedValues, dictionaryPositionCount);
         for (int position = 0; position < dictionaryPositionCount; position++) {
             assertEquals(dictionaryBlock.getEstimatedDataSizeForStats(position), expectedValues[position % positionCount].length());
+        }
+    }
+
+    @Test
+    public void testNestedDictionarySizes()
+    {
+        // fixed width block
+        Block fixedWidthBlock = new IntArrayBlock(100, Optional.empty(), IntStream.range(0, 100).toArray());
+        assertDictionarySizeMethods(fixedWidthBlock);
+        assertDictionarySizeMethods(new DictionaryBlock(fixedWidthBlock, IntStream.range(0, 50).toArray()));
+        assertDictionarySizeMethods(
+                new DictionaryBlock(
+                        new DictionaryBlock(fixedWidthBlock, IntStream.range(0, 50).toArray()),
+                        IntStream.range(0, 10).toArray()));
+
+        // variable width block
+        Block variableWidthBlock = createSlicesBlock(createExpectedValues(100));
+        assertDictionarySizeMethods(variableWidthBlock);
+        assertDictionarySizeMethods(new DictionaryBlock(variableWidthBlock, IntStream.range(0, 50).toArray()));
+        assertDictionarySizeMethods(
+                new DictionaryBlock(
+                        new DictionaryBlock(variableWidthBlock, IntStream.range(0, 50).toArray()),
+                        IntStream.range(0, 10).toArray()));
+    }
+
+    private static void assertDictionarySizeMethods(Block block)
+    {
+        int positions = block.getPositionCount();
+
+        int[] allIds = IntStream.range(0, positions).toArray();
+        if (block instanceof DictionaryBlock) {
+            assertEquals(
+                    new DictionaryBlock(block, allIds).getSizeInBytes(),
+                    block.getSizeInBytes(),
+                    "nested dictionary size should not be counted");
+        }
+        else {
+            assertEquals(new DictionaryBlock(block, allIds).getSizeInBytes(), block.getSizeInBytes() + (Integer.BYTES * (long) positions));
+        }
+
+        if (positions > 0) {
+            int firstHalfLength = positions / 2;
+            int secondHalfLength = positions - firstHalfLength;
+            int[] firstHalfIds = IntStream.range(0, firstHalfLength).toArray();
+            int[] secondHalfIds = IntStream.range(firstHalfLength, positions).toArray();
+
+            boolean[] selectedPositions = new boolean[positions];
+            selectedPositions[0] = true;
+            if (block instanceof DictionaryBlock) {
+                assertEquals(
+                        new DictionaryBlock(block, allIds).getPositionsSizeInBytes(selectedPositions, 1),
+                        block.getPositionsSizeInBytes(selectedPositions, 1),
+                        "nested dictionary blocks must not include nested id overhead");
+                assertEquals(
+                        new DictionaryBlock(block, new int[]{0}).getSizeInBytes(),
+                        block.getPositionsSizeInBytes(selectedPositions, 1),
+                        "nested dictionary blocks must not include nested id overhead");
+
+                Arrays.fill(selectedPositions, true);
+                assertEquals(
+                        new DictionaryBlock(block, allIds).getPositionsSizeInBytes(selectedPositions, positions),
+                        block.getSizeInBytes(),
+                        "nested dictionary blocks must not include nested id overhead");
+
+                assertEquals(
+                        new DictionaryBlock(block, firstHalfIds).getSizeInBytes(),
+                        block.getRegionSizeInBytes(0, firstHalfLength),
+                        "nested dictionary blocks must not include nested id overhead");
+                assertEquals(
+                        new DictionaryBlock(block, secondHalfIds).getSizeInBytes(),
+                        block.getRegionSizeInBytes(firstHalfLength, secondHalfLength),
+                        "nested dictionary blocks must not include nested id overhead");
+                assertEquals(
+                        new DictionaryBlock(block, allIds).getRegionSizeInBytes(0, firstHalfLength),
+                        block.getRegionSizeInBytes(0, firstHalfLength),
+                        "nested dictionary blocks must not include nested id overhead");
+                assertEquals(
+                        new DictionaryBlock(block, allIds).getRegionSizeInBytes(firstHalfLength, secondHalfLength),
+                        block.getRegionSizeInBytes(firstHalfLength, secondHalfLength),
+                        "nested dictionary blocks must not include nested id overhead");
+            }
+            else {
+                assertEquals(
+                        new DictionaryBlock(block, allIds).getPositionsSizeInBytes(selectedPositions, 1),
+                        block.getPositionsSizeInBytes(selectedPositions, 1) + Integer.BYTES);
+
+                assertEquals(
+                        new DictionaryBlock(block, new int[]{0}).getSizeInBytes(),
+                        block.getPositionsSizeInBytes(selectedPositions, 1) + Integer.BYTES);
+
+                Arrays.fill(selectedPositions, true);
+                assertEquals(
+                        new DictionaryBlock(block, allIds).getPositionsSizeInBytes(selectedPositions, positions),
+                        block.getSizeInBytes() + (Integer.BYTES * (long) positions));
+
+                assertEquals(
+                        new DictionaryBlock(block, firstHalfIds).getSizeInBytes(),
+                        block.getRegionSizeInBytes(0, firstHalfLength) + (Integer.BYTES * (long) firstHalfLength));
+                assertEquals(
+                        new DictionaryBlock(block, secondHalfIds).getSizeInBytes(),
+                        block.getRegionSizeInBytes(firstHalfLength, secondHalfLength) + (Integer.BYTES * (long) secondHalfLength));
+                assertEquals(
+                        new DictionaryBlock(block, allIds).getRegionSizeInBytes(0, firstHalfLength),
+                        block.getRegionSizeInBytes(0, firstHalfLength) + (Integer.BYTES * (long) firstHalfLength));
+                assertEquals(
+                        new DictionaryBlock(block, allIds).getRegionSizeInBytes(firstHalfLength, secondHalfLength),
+                        block.getRegionSizeInBytes(firstHalfLength, secondHalfLength) + (Integer.BYTES * (long) secondHalfLength));
+            }
         }
     }
 

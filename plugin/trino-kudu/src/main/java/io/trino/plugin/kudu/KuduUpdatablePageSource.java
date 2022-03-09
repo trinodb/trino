@@ -25,11 +25,12 @@ import org.apache.kudu.client.KuduException;
 import org.apache.kudu.client.KuduSession;
 import org.apache.kudu.client.KuduTable;
 import org.apache.kudu.client.PartialRow;
-import org.apache.kudu.client.SessionConfiguration.FlushMode;
 
 import java.util.Collection;
 import java.util.Collections;
 import java.util.concurrent.CompletableFuture;
+
+import static org.apache.kudu.client.KuduOperationApplier.applyOperationAndVerifySucceeded;
 
 public class KuduUpdatablePageSource
         implements UpdatablePageSource
@@ -50,7 +51,6 @@ public class KuduUpdatablePageSource
     {
         Schema schema = table.getSchema();
         KuduSession session = clientSession.newSession();
-        session.setFlushMode(FlushMode.AUTO_FLUSH_BACKGROUND);
         try {
             try {
                 for (int i = 0; i < rowIds.getPositionCount(); i++) {
@@ -59,7 +59,7 @@ public class KuduUpdatablePageSource
                     PartialRow row = KeyEncoderAccessor.decodePrimaryKey(schema, slice.getBytes());
                     Delete delete = table.newDelete();
                     RowHelper.copyPrimaryKey(schema, row, delete.getRow());
-                    session.apply(delete);
+                    applyOperationAndVerifySucceeded(session, delete);
                 }
             }
             finally {
@@ -104,9 +104,9 @@ public class KuduUpdatablePageSource
     }
 
     @Override
-    public long getSystemMemoryUsage()
+    public long getMemoryUsage()
     {
-        return inner.getSystemMemoryUsage();
+        return inner.getMemoryUsage();
     }
 
     @Override

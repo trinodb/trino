@@ -2973,10 +2973,9 @@ public abstract class BaseHiveConnectorTest
                 true);
     }
 
-    private void testInsertPartitionedTableOverwriteExistingPartition(Session session, HiveStorageFormat storageFormat, boolean useInsertOverwriteSyntax)
+    private void testInsertPartitionedTableOverwriteExistingPartition(Session session, HiveStorageFormat storageFormat)
     {
         String tableName = "test_insert_partitioned_table_overwrite_existing_partition";
-        String insertMode = useInsertOverwriteSyntax ? "OVERWRITE" : "INTO";
 
         @Language("SQL") String createTable = "" +
                 "CREATE TABLE " + tableName + " " +
@@ -3000,7 +2999,7 @@ public abstract class BaseHiveConnectorTest
             assertUpdate(
                     session,
                     format(
-                            "INSERT " + insertMode + " " + tableName + " " +
+                            "INSERT INTO " + tableName + " " +
                                     "SELECT orderkey, comment, orderstatus " +
                                     "FROM tpch.tiny.orders " +
                                     "WHERE orderkey %% 3 = %d",
@@ -7632,7 +7631,7 @@ public abstract class BaseHiveConnectorTest
                     QualifiedObjectName objectName = new QualifiedObjectName(catalog, TPCH_SCHEMA, tableName);
                     Optional<TableHandle> handle = metadata.getTableHandle(transactionSession, objectName);
                     List<ColumnHandle> columns = ImmutableList.copyOf(metadata.getColumnHandles(transactionSession, handle.get()).values());
-                    InsertTableHandle insertTableHandle = metadata.beginInsert(transactionSession, handle.get(), columns, Optional.empty());
+                    InsertTableHandle insertTableHandle = metadata.beginInsert(transactionSession, handle.get(), columns);
                     HiveInsertTableHandle hiveInsertTableHandle = (HiveInsertTableHandle) insertTableHandle.getConnectorHandle();
 
                     metadata.finishInsert(transactionSession, insertTableHandle, ImmutableList.of(), ImmutableList.of());

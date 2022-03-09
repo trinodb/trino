@@ -13,10 +13,17 @@
  */
 package io.trino.plugin.clickhouse;
 
+import com.clickhouse.client.ClickHouseColumn;
+import com.clickhouse.client.ClickHouseDataType;
+import com.google.common.base.Enums;
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.trino.plugin.base.expression.AggregateFunctionRewriter;
-import io.trino.plugin.base.expression.AggregateFunctionRule;
+import com.google.common.net.InetAddresses;
+import io.airlift.slice.Slice;
+import io.trino.plugin.base.aggregation.AggregateFunctionRewriter;
+import io.trino.plugin.base.aggregation.AggregateFunctionRule;
 import io.trino.plugin.jdbc.BaseJdbcClient;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ColumnMapping;
@@ -25,14 +32,16 @@ import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
+import io.trino.plugin.jdbc.LongWriteFunction;
+import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.RemoteTableName;
 import io.trino.plugin.jdbc.SliceWriteFunction;
 import io.trino.plugin.jdbc.WriteMapping;
-import io.trino.plugin.jdbc.expression.ImplementAvgFloatingPoint;
-import io.trino.plugin.jdbc.expression.ImplementCount;
-import io.trino.plugin.jdbc.expression.ImplementCountAll;
-import io.trino.plugin.jdbc.expression.ImplementMinMax;
-import io.trino.plugin.jdbc.expression.ImplementSum;
+import io.trino.plugin.jdbc.aggregation.ImplementAvgFloatingPoint;
+import io.trino.plugin.jdbc.aggregation.ImplementCount;
+import io.trino.plugin.jdbc.aggregation.ImplementCountAll;
+import io.trino.plugin.jdbc.aggregation.ImplementMinMax;
+import io.trino.plugin.jdbc.aggregation.ImplementSum;
 import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
@@ -54,13 +63,20 @@ import io.trino.spi.type.VarcharType;
 import javax.annotation.Nullable;
 import javax.inject.Inject;
 
+import java.io.UncheckedIOException;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.sql.Connection;
-import java.sql.DatabaseMetaData;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.UUID;
@@ -68,6 +84,14 @@ import java.util.function.BiFunction;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.airlift.slice.Slices.wrappedBuffer;
+import static io.trino.plugin.clickhouse.ClickHouseSessionProperties.isMapStringAsVarchar;
+import static io.trino.plugin.clickhouse.ClickHouseTableProperties.ENGINE_PROPERTY;
+import static io.trino.plugin.clickhouse.ClickHouseTableProperties.ORDER_BY_PROPERTY;
+import static io.trino.plugin.clickhouse.ClickHouseTableProperties.PARTITION_BY_PROPERTY;
+import static io.trino.plugin.clickhouse.ClickHouseTableProperties.PRIMARY_KEY_PROPERTY;
 import static io.trino.plugin.clickhouse.ClickHouseTableProperties.SAMPLE_BY_PROPERTY;
 import static io.trino.plugin.jdbc.DecimalConfig.DecimalMapping.ALLOW_OVERFLOW;
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalDefaultScale;
@@ -78,8 +102,7 @@ import static io.trino.plugin.jdbc.PredicatePushdownController.DISABLE_PUSHDOWN;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.booleanWriteFunction;
-import static io.trino.plugin.jdbc.StandardColumnMappings.dateColumnMappingUsingSqlDate;
-import static io.trino.plugin.jdbc.StandardColumnMappings.dateWriteFunctionUsingSqlDate;
+import static io.trino.plugin.jdbc.StandardColumnMappings.dateReadFunctionUsingLocalDate;
 import static io.trino.plugin.jdbc.StandardColumnMappings.decimalColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.doubleColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.doubleWriteFunction;
@@ -91,12 +114,15 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.shortDecimalWriteFunct
 import static io.trino.plugin.jdbc.StandardColumnMappings.smallintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.smallintWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.timestampColumnMappingUsingSqlTimestampWithRounding;
+import static io.trino.plugin.jdbc.StandardColumnMappings.timestampReadFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varbinaryColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varbinaryWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varcharReadFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
+import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -108,36 +134,51 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_SECONDS;
+import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
+import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.UuidType.javaUuidToTrinoUuid;
 import static io.trino.spi.type.UuidType.trinoUuidToJavaUuid;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.lang.Float.floatToRawIntBits;
+import static java.lang.Math.floorDiv;
+import static java.lang.Math.floorMod;
 import static java.lang.Math.max;
 import static java.lang.String.format;
 import static java.lang.String.join;
+import static java.lang.System.arraycopy;
+import static java.time.ZoneOffset.UTC;
+import static java.util.Locale.ENGLISH;
 
 public class ClickHouseClient
         extends BaseJdbcClient
 {
-    static final int CLICKHOUSE_MAX_DECIMAL_PRECISION = 76;
+    private static final Splitter TABLE_PROPERTY_SPLITTER = Splitter.on(',').omitEmptyStrings().trimResults();
 
-    private final boolean mapStringAsVarchar;
+    private static final long MIN_SUPPORTED_DATE_EPOCH = LocalDate.parse("1970-01-01").toEpochDay();
+    private static final long MAX_SUPPORTED_DATE_EPOCH = LocalDate.parse("2106-02-07").toEpochDay(); // The max date is '2148-12-31' in new ClickHouse version
+
+    private static final LocalDateTime MIN_SUPPORTED_TIMESTAMP = LocalDateTime.parse("1970-01-01T00:00:00");
+    private static final LocalDateTime MAX_SUPPORTED_TIMESTAMP = LocalDateTime.parse("2105-12-31T23:59:59");
+    private static final long MIN_SUPPORTED_TIMESTAMP_EPOCH = MIN_SUPPORTED_TIMESTAMP.toEpochSecond(UTC);
+    private static final long MAX_SUPPORTED_TIMESTAMP_EPOCH = MAX_SUPPORTED_TIMESTAMP.toEpochSecond(UTC);
+
     private final AggregateFunctionRewriter<JdbcExpression> aggregateFunctionRewriter;
     private final Type uuidType;
+    private final Type ipAddressType;
 
     @Inject
     public ClickHouseClient(
             BaseJdbcConfig config,
             ConnectionFactory connectionFactory,
+            QueryBuilder queryBuilder,
             TypeManager typeManager,
-            ClickHouseConfig clickHouseConfig,
             IdentifierMapping identifierMapping)
     {
-        super(config, "\"", connectionFactory, identifierMapping);
+        super(config, "\"", connectionFactory, queryBuilder, identifierMapping);
         this.uuidType = typeManager.getType(new TypeSignature(StandardTypes.UUID));
-        // TODO (https://github.com/trinodb/trino/issues/7102) define session property
-        this.mapStringAsVarchar = clickHouseConfig.isMapStringAsVarchar();
+        this.ipAddressType = typeManager.getType(new TypeSignature(StandardTypes.IPADDRESS));
         JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
         this.aggregateFunctionRewriter = new AggregateFunctionRewriter<>(
                 this::quoted,
@@ -147,7 +188,6 @@ public class ClickHouseClient
                         .add(new ImplementMinMax(false)) // TODO: Revisit once https://github.com/trinodb/trino/issues/7100 is resolved
                         .add(new ImplementSum(ClickHouseClient::toTypeHandle))
                         .add(new ImplementAvgFloatingPoint())
-                        .add(new ImplementAvgDecimal())
                         .add(new ImplementAvgBigint())
                         .build());
     }
@@ -217,10 +257,61 @@ public class ClickHouseClient
     }
 
     @Override
-    public void setTableProperties(ConnectorSession session, JdbcTableHandle handle, Map<String, Object> properties)
+    public Map<String, Object> getTableProperties(ConnectorSession session, JdbcTableHandle tableHandle)
+    {
+        try (Connection connection = connectionFactory.openConnection(session);
+                PreparedStatement statement = connection.prepareStatement("" +
+                        "SELECT engine, sorting_key, partition_key, primary_key, sampling_key " +
+                        "FROM system.tables " +
+                        "WHERE database = ? AND name = ?")) {
+            statement.setString(1, tableHandle.asPlainTable().getRemoteTableName().getSchemaName().orElse(null));
+            statement.setString(2, tableHandle.asPlainTable().getRemoteTableName().getTableName());
+
+            try (ResultSet resultSet = statement.executeQuery()) {
+                ImmutableMap.Builder<String, Object> properties = ImmutableMap.builder();
+                while (resultSet.next()) {
+                    String engine = resultSet.getString("engine");
+                    if (!isNullOrEmpty(engine)) {
+                        // Don't throw an exception because many table engines aren't supported in ClickHouseEngineType
+                        Optional<ClickHouseEngineType> engineType = Enums.getIfPresent(ClickHouseEngineType.class, engine.toUpperCase(ENGLISH)).toJavaUtil();
+                        engineType.ifPresent(type -> properties.put(ENGINE_PROPERTY, type));
+                    }
+                    String sortingKey = resultSet.getString("sorting_key");
+                    if (!isNullOrEmpty(sortingKey)) {
+                        properties.put(ORDER_BY_PROPERTY, TABLE_PROPERTY_SPLITTER.splitToList(sortingKey));
+                    }
+                    String partitionKey = resultSet.getString("partition_key");
+                    if (!isNullOrEmpty(partitionKey)) {
+                        properties.put(PARTITION_BY_PROPERTY, TABLE_PROPERTY_SPLITTER.splitToList(partitionKey));
+                    }
+                    String primaryKey = resultSet.getString("primary_key");
+                    if (!isNullOrEmpty(primaryKey)) {
+                        properties.put(PRIMARY_KEY_PROPERTY, TABLE_PROPERTY_SPLITTER.splitToList(primaryKey));
+                    }
+                    String samplingKey = resultSet.getString("sampling_key");
+                    if (!isNullOrEmpty(samplingKey)) {
+                        properties.put(SAMPLE_BY_PROPERTY, samplingKey);
+                    }
+                }
+                return properties.buildOrThrow();
+            }
+        }
+        catch (SQLException e) {
+            throw new TrinoException(JDBC_ERROR, e);
+        }
+    }
+
+    @Override
+    public void setTableProperties(ConnectorSession session, JdbcTableHandle handle, Map<String, Optional<Object>> nullableProperties)
     {
         // TODO: Support other table properties
-        checkArgument(properties.size() == 1 && properties.containsKey(SAMPLE_BY_PROPERTY), "Only support setting 'sample_by' property");
+        checkArgument(nullableProperties.size() == 1 && nullableProperties.containsKey(SAMPLE_BY_PROPERTY), "Only support setting 'sample_by' property");
+        // TODO: Support sampling key removal when we support a newer version of ClickHouse. See https://github.com/ClickHouse/ClickHouse/pull/30180.
+        checkArgument(nullableProperties.values().stream().noneMatch(Optional::isEmpty), "Setting a property to null is not supported");
+
+        Map<String, Object> properties = nullableProperties.entrySet().stream()
+                .filter(entry -> entry.getValue().isPresent())
+                .collect(toImmutableMap(Entry::getKey, entry -> entry.getValue().orElseThrow()));
 
         ImmutableList.Builder<String> tableOptions = ImmutableList.builder();
         ClickHouseTableProperties.getSampleBy(properties).ifPresent(value -> tableOptions.add("SAMPLE BY " + value));
@@ -267,6 +358,12 @@ public class ClickHouseClient
     }
 
     @Override
+    protected String renameSchemaSql(String remoteSchemaName, String newRemoteSchemaName)
+    {
+        return "RENAME DATABASE " + quoted(remoteSchemaName) + " TO " + quoted(newRemoteSchemaName);
+    }
+
+    @Override
     public void addColumn(ConnectorSession session, JdbcTableHandle handle, ColumnMetadata column)
     {
         try (Connection connection = connectionFactory.openConnection(session)) {
@@ -299,16 +396,20 @@ public class ClickHouseClient
     }
 
     @Override
-    public ResultSet getTables(Connection connection, Optional<String> schemaName, Optional<String> tableName)
-            throws SQLException
+    public void setColumnComment(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column, Optional<String> comment)
     {
-        // ClickHouse maps their "database" to SQL catalogs and does not have schemas
-        DatabaseMetaData metadata = connection.getMetaData();
-        return metadata.getTables(
-                null,
-                schemaName.orElse(null),
-                escapeNamePattern(tableName, metadata.getSearchStringEscape()).orElse(null),
-                new String[] {"TABLE", "VIEW"});
+        String sql = format(
+                "ALTER TABLE %s COMMENT COLUMN %s '%s'",
+                quoted(handle.asPlainTable().getRemoteTableName()),
+                quoted(column.getColumnName()),
+                comment.orElse(""));
+        execute(session, sql);
+    }
+
+    @Override
+    protected Optional<List<String>> getTableTypes()
+    {
+        return Optional.empty();
     }
 
     @Override
@@ -359,12 +460,15 @@ public class ClickHouseClient
             return mapping;
         }
 
-        switch (jdbcTypeName.replaceAll("\\(.*\\)$", "")) {
-            case "IPv4":
-            case "IPv6":
-                // TODO (https://github.com/trinodb/trino/issues/7098) map to Trino IPADDRESS
-            case "Enum8":
-            case "Enum16":
+        ClickHouseColumn column = ClickHouseColumn.of("", jdbcTypeName);
+        ClickHouseDataType columnDataType = column.getDataType();
+        switch (columnDataType) {
+            case IPv4:
+                return Optional.of(ipAddressColumnMapping("IPv4StringToNum(?)"));
+            case IPv6:
+                return Optional.of(ipAddressColumnMapping("IPv6StringToNum(?)"));
+            case Enum8:
+            case Enum16:
                 return Optional.of(ColumnMapping.sliceMapping(
                         createUnboundedVarcharType(),
                         varcharReadFunction(createUnboundedVarcharType()),
@@ -372,9 +476,9 @@ public class ClickHouseClient
                         // TODO (https://github.com/trinodb/trino/issues/7100) Currently pushdown would not work and may require a custom bind expression
                         DISABLE_PUSHDOWN));
 
-            case "FixedString": // FixedString(n)
-            case "String":
-                if (mapStringAsVarchar) {
+            case FixedString: // FixedString(n)
+            case String:
+                if (isMapStringAsVarchar(session)) {
                     return Optional.of(ColumnMapping.sliceMapping(
                             createUnboundedVarcharType(),
                             varcharReadFunction(createUnboundedVarcharType()),
@@ -383,8 +487,10 @@ public class ClickHouseClient
                 }
                 // TODO (https://github.com/trinodb/trino/issues/7100) test & enable predicate pushdown
                 return Optional.of(varbinaryColumnMapping());
-            case "UUID":
+            case UUID:
                 return Optional.of(uuidColumnMapping());
+            default:
+                // no-op
         }
 
         switch (typeHandle.getJdbcType()) {
@@ -431,11 +537,17 @@ public class ClickHouseClient
                         DISABLE_PUSHDOWN));
 
             case Types.DATE:
-                return Optional.of(dateColumnMappingUsingSqlDate());
+                return Optional.of(dateColumnMappingUsingLocalDate());
 
             case Types.TIMESTAMP:
-                // clickhouse not implemented for type=class java.time.LocalDateTime
-                // TODO replace it using timestamp relative function after clickhouse adds support for LocalDateTime, or use UTC Calendar
+                if (columnDataType == ClickHouseDataType.DateTime) {
+                    verify(typeHandle.getRequiredDecimalDigits() == 0, "Expected 0 as timestamp precision, but got %s", typeHandle.getRequiredDecimalDigits());
+                    return Optional.of(ColumnMapping.longMapping(
+                            TIMESTAMP_SECONDS,
+                            timestampReadFunction(TIMESTAMP_SECONDS),
+                            timestampSecondsWriteFunction()));
+                }
+                // TODO (https://github.com/trinodb/trino/issues/10537) Add support for Datetime64 type
                 return Optional.of(timestampColumnMappingUsingSqlTimestampWithRounding(TIMESTAMP_MILLIS));
         }
 
@@ -484,7 +596,11 @@ public class ClickHouseClient
             return WriteMapping.sliceMapping("String", varbinaryWriteFunction());
         }
         if (type == DATE) {
-            return WriteMapping.longMapping("Date", dateWriteFunctionUsingSqlDate());
+            // TODO (https://github.com/trinodb/trino/issues/10055) Deny unsupported dates to prevent inserting wrong values. 2106-02-07 is max value in version 20.8
+            return WriteMapping.longMapping("Date", dateWriteFunctionUsingLocalDate());
+        }
+        if (type == TIMESTAMP_SECONDS) {
+            return WriteMapping.longMapping("DateTime", timestampSecondsWriteFunction());
         }
         if (type.equals(uuidType)) {
             return WriteMapping.sliceMapping("UUID", uuidWriteFunction());
@@ -503,14 +619,105 @@ public class ClickHouseClient
         if (prop == null || prop.isEmpty()) {
             return Optional.empty();
         }
-        else if (prop.size() == 1) {
+        if (prop.size() == 1) {
             // only one column
             return Optional.of(prop.get(0));
         }
-        else {
-            // include more than one columns
-            return Optional.of("(" + String.join(",", prop) + ")");
+        // include more than one column
+        return Optional.of("(" + String.join(",", prop) + ")");
+    }
+
+    private static ColumnMapping dateColumnMappingUsingLocalDate()
+    {
+        return ColumnMapping.longMapping(
+                DATE,
+                dateReadFunctionUsingLocalDate(),
+                dateWriteFunctionUsingLocalDate());
+    }
+
+    private static LongWriteFunction dateWriteFunctionUsingLocalDate()
+    {
+        return (statement, index, value) -> {
+            verifySupportedDate(value);
+            statement.setObject(index, LocalDate.ofEpochDay(value));
+        };
+    }
+
+    private static void verifySupportedDate(long value)
+    {
+        // Deny unsupported dates eagerly to prevent unexpected results. ClickHouse stores '1970-01-01' when the date is out of supported range.
+        if (value < MIN_SUPPORTED_DATE_EPOCH || value > MAX_SUPPORTED_DATE_EPOCH) {
+            throw new TrinoException(INVALID_ARGUMENTS, format("Date must be between %s and %s in ClickHouse: %s", LocalDate.ofEpochDay(MIN_SUPPORTED_DATE_EPOCH), LocalDate.ofEpochDay(MAX_SUPPORTED_DATE_EPOCH), LocalDate.ofEpochDay(value)));
         }
+    }
+
+    private static LongWriteFunction timestampSecondsWriteFunction()
+    {
+        return (statement, index, value) -> {
+            long epochSecond = floorDiv(value, MICROSECONDS_PER_SECOND);
+            int nanoFraction = floorMod(value, MICROSECONDS_PER_SECOND) * NANOSECONDS_PER_MICROSECOND;
+            verify(nanoFraction == 0, "Nanos of second must be zero: '%s'", value);
+            verifySupportedTimestamp(epochSecond);
+            statement.setObject(index, LocalDateTime.ofEpochSecond(epochSecond, 0, UTC));
+        };
+    }
+
+    private static void verifySupportedTimestamp(long epochSecond)
+    {
+        if (epochSecond < MIN_SUPPORTED_TIMESTAMP_EPOCH || epochSecond > MAX_SUPPORTED_TIMESTAMP_EPOCH) {
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss");
+            throw new TrinoException(INVALID_ARGUMENTS, format("Timestamp must be between %s and %s in ClickHouse: %s", MIN_SUPPORTED_TIMESTAMP.format(formatter), MAX_SUPPORTED_TIMESTAMP.format(formatter), LocalDateTime.ofEpochSecond(epochSecond, 0, UTC).format(formatter)));
+        }
+    }
+
+    private ColumnMapping ipAddressColumnMapping(String writeBindExpression)
+    {
+        return ColumnMapping.sliceMapping(
+                ipAddressType,
+                (resultSet, columnIndex) -> {
+                    // copied from IpAddressOperators.castFromVarcharToIpAddress
+                    byte[] address = InetAddresses.forString(resultSet.getString(columnIndex)).getAddress();
+
+                    byte[] bytes;
+                    if (address.length == 4) {
+                        bytes = new byte[16];
+                        bytes[10] = (byte) 0xff;
+                        bytes[11] = (byte) 0xff;
+                        arraycopy(address, 0, bytes, 12, 4);
+                    }
+                    else if (address.length == 16) {
+                        bytes = address;
+                    }
+                    else {
+                        throw new TrinoException(GENERIC_INTERNAL_ERROR, "Invalid InetAddress length: " + address.length);
+                    }
+
+                    return wrappedBuffer(bytes);
+                },
+                ipAddressWriteFunction(writeBindExpression));
+    }
+
+    private static SliceWriteFunction ipAddressWriteFunction(String bindExpression)
+    {
+        return new SliceWriteFunction() {
+            @Override
+            public String getBindExpression()
+            {
+                return bindExpression;
+            }
+
+            @Override
+            public void set(PreparedStatement statement, int index, Slice value)
+                    throws SQLException
+            {
+                try {
+                    statement.setObject(index, InetAddresses.toAddrString(InetAddress.getByAddress(value.getBytes())), Types.OTHER);
+                }
+                catch (UnknownHostException e) {
+                    throw new UncheckedIOException(e);
+                }
+            }
+        };
     }
 
     private ColumnMapping uuidColumnMapping()

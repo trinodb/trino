@@ -22,6 +22,8 @@ import java.util.List;
 
 public interface SourceScheduler
 {
+    void start();
+
     ScheduleResult schedule();
 
     void close();

@@ -74,6 +74,7 @@ import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.UuidType.javaUuidToTrinoUuid;
+import static io.trino.spi.type.UuidType.trinoUuidToJavaUuid;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
@@ -240,7 +241,7 @@ public class CassandraType
     {
         UserType userType = (UserType) dataType;
         // Using ImmutableMap is important as we exploit the fact that entries iteration order matches the order of putting values via builder
-        ImmutableMap.Builder<String, CassandraType> argumentTypes = new ImmutableMap.Builder<>();
+        ImmutableMap.Builder<String, CassandraType> argumentTypes = ImmutableMap.builder();
         for (UserType.Field field : userType) {
             Optional<CassandraType> cassandraType = CassandraType.toCassandraType(field.getType());
             if (cassandraType.isEmpty()) {
@@ -251,11 +252,11 @@ public class CassandraType
         }
 
         RowType trinoType = RowType.from(
-                argumentTypes.build().entrySet().stream()
+                argumentTypes.buildOrThrow().entrySet().stream()
                         .map(field -> new RowType.Field(Optional.of(field.getKey()), field.getValue().getTrinoType()))
                         .collect(toImmutableList()));
 
-        return Optional.of(new CassandraType(Kind.UDT, trinoType, argumentTypes.build().values().stream().collect(toImmutableList())));
+        return Optional.of(new CassandraType(Kind.UDT, trinoType, argumentTypes.buildOrThrow().values().stream().collect(toImmutableList())));
     }
 
     public NullableValue getColumnValue(Row row, int position)
@@ -561,7 +562,7 @@ public class CassandraType
                 return LocalDate.fromDaysSinceEpoch(((Long) trinoNativeValue).intValue());
             case UUID:
             case TIMEUUID:
-                return java.util.UUID.fromString(((Slice) trinoNativeValue).toStringUtf8());
+                return trinoUuidToJavaUuid((Slice) trinoNativeValue);
             case BLOB:
             case CUSTOM:
             case TUPLE:

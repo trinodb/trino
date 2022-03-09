@@ -23,8 +23,9 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertFullMappin
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static java.util.concurrent.TimeUnit.DAYS;
+import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.concurrent.TimeUnit.MINUTES;
-import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestBigQueryConfig
 {
@@ -35,11 +36,11 @@ public class TestBigQueryConfig
                 .setProjectId(null)
                 .setParentProjectId(null)
                 .setParallelism(null)
+                .setViewExpireDuration(new Duration(24, HOURS))
                 .setViewMaterializationProject(null)
                 .setViewMaterializationDataset(null)
                 .setMaxReadRowsRetries(3)
                 .setCaseInsensitiveNameMatching(false)
-                .setCaseInsensitiveNameMatchingCacheTtl(new Duration(1, MINUTES))
                 .setViewsCacheTtl(new Duration(15, MINUTES))
                 .setServiceCacheTtl(new Duration(3, MINUTES))
                 .setViewsEnabled(false));
@@ -48,33 +49,44 @@ public class TestBigQueryConfig
     @Test
     public void testExplicitPropertyMappingsWithCredentialsKey()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("bigquery.project-id", "pid")
                 .put("bigquery.parent-project-id", "ppid")
                 .put("bigquery.parallelism", "20")
                 .put("bigquery.views-enabled", "true")
+                .put("bigquery.view-expire-duration", "30m")
                 .put("bigquery.view-materialization-project", "vmproject")
                 .put("bigquery.view-materialization-dataset", "vmdataset")
                 .put("bigquery.max-read-rows-retries", "10")
                 .put("bigquery.case-insensitive-name-matching", "true")
-                .put("bigquery.case-insensitive-name-matching.cache-ttl", "1s")
                 .put("bigquery.views-cache-ttl", "1m")
                 .put("bigquery.service-cache-ttl", "10d")
-                .build();
+                .buildOrThrow();
 
         BigQueryConfig expected = new BigQueryConfig()
                 .setProjectId("pid")
                 .setParentProjectId("ppid")
                 .setParallelism(20)
                 .setViewsEnabled(true)
+                .setViewExpireDuration(new Duration(30, MINUTES))
                 .setViewMaterializationProject("vmproject")
                 .setViewMaterializationDataset("vmdataset")
                 .setMaxReadRowsRetries(10)
                 .setCaseInsensitiveNameMatching(true)
-                .setCaseInsensitiveNameMatchingCacheTtl(new Duration(1, SECONDS))
                 .setViewsCacheTtl(new Duration(1, MINUTES))
                 .setServiceCacheTtl(new Duration(10, DAYS));
 
         assertFullMapping(properties, expected);
+    }
+
+    @Test
+    public void testInvalidViewSetting()
+    {
+        assertThatThrownBy(() -> new BigQueryConfig()
+                .setViewExpireDuration(new Duration(5, MINUTES))
+                .setViewsCacheTtl(new Duration(10, MINUTES))
+                .validate())
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("View expiration duration must be longer than view cache TTL");
     }
 }

@@ -437,7 +437,7 @@ public class ParquetPageSourceFactory
                 predicate.put(descriptor, entry.getValue());
             }
         }
-        return TupleDomain.withColumnDomains(predicate.build());
+        return TupleDomain.withColumnDomains(predicate.buildOrThrow());
     }
 
     private static org.apache.parquet.schema.Type getParquetType(HiveColumnHandle column, MessageType messageType, boolean useParquetColumnNames)

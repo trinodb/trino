@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.hive.security;
 
-import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSecurityContext;
@@ -111,11 +110,6 @@ public class LegacyAccessControl
     }
 
     @Override
-    public void checkCanCreateTable(ConnectorSecurityContext context, SchemaTableName tableName)
-    {
-    }
-
-    @Override
     public void checkCanCreateTable(ConnectorSecurityContext context, SchemaTableName tableName, Map<String, Object> properties)
     {
     }
@@ -127,7 +121,7 @@ public class LegacyAccessControl
             denyDropTable(tableName.toString());
         }
 
-        Optional<Table> target = accessControlMetastore.getTable(context, new HiveIdentity(context.getIdentity()), tableName.getSchemaName(), tableName.getTableName());
+        Optional<Table> target = accessControlMetastore.getTable(context, tableName.getSchemaName(), tableName.getTableName());
 
         if (target.isEmpty()) {
             denyDropTable(tableName.toString(), "Table not found");
@@ -153,7 +147,7 @@ public class LegacyAccessControl
     }
 
     @Override
-    public void checkCanSetTableProperties(ConnectorSecurityContext context, SchemaTableName tableName, Map<String, Object> properties)
+    public void checkCanSetTableProperties(ConnectorSecurityContext context, SchemaTableName tableName, Map<String, Optional<Object>> properties)
     {
     }
 
@@ -270,7 +264,7 @@ public class LegacyAccessControl
     }
 
     @Override
-    public void checkCanCreateMaterializedView(ConnectorSecurityContext context, SchemaTableName materializedViewName)
+    public void checkCanCreateMaterializedView(ConnectorSecurityContext context, SchemaTableName materializedViewName, Map<String, Object> properties)
     {
     }
 
@@ -286,6 +280,11 @@ public class LegacyAccessControl
 
     @Override
     public void checkCanRenameMaterializedView(ConnectorSecurityContext context, SchemaTableName viewName, SchemaTableName newViewName)
+    {
+    }
+
+    @Override
+    public void checkCanSetMaterializedViewProperties(ConnectorSecurityContext context, SchemaTableName materializedViewName, Map<String, Optional<Object>> properties)
     {
     }
 

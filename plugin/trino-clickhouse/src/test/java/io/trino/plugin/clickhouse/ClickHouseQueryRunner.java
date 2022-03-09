@@ -33,7 +33,7 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 
 public final class ClickHouseQueryRunner
 {
-    private static final String TPCH_SCHEMA = "tpch";
+    public static final String TPCH_SCHEMA = "tpch";
 
     private ClickHouseQueryRunner() {}
 
@@ -64,7 +64,7 @@ public final class ClickHouseQueryRunner
 
             queryRunner.installPlugin(new ClickHousePlugin());
             queryRunner.createCatalog("clickhouse", "clickhouse", connectorProperties);
-            server.execute("CREATE DATABASE " + TPCH_SCHEMA);
+            queryRunner.execute("CREATE SCHEMA " + TPCH_SCHEMA);
             copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), tables);
             return queryRunner;
         }

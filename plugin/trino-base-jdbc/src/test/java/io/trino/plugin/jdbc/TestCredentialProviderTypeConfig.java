@@ -37,9 +37,9 @@ public class TestCredentialProviderTypeConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("credential-provider.type", "FILE")
-                .build();
+                .buildOrThrow();
 
         CredentialProviderTypeConfig expected = new CredentialProviderTypeConfig()
                 .setCredentialProviderType(FILE);

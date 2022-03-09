@@ -19,6 +19,7 @@ import io.airlift.units.Duration;
 import io.trino.orc.OrcWriteValidation.OrcWriteValidationMode;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.hive.HiveCompressionCodec;
+import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.orc.OrcReaderConfig;
 import io.trino.plugin.hive.orc.OrcWriterConfig;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
@@ -69,6 +70,8 @@ public final class IcebergSessionProperties
     private static final String DYNAMIC_FILTERING_WAIT_TIMEOUT = "dynamic_filtering_wait_timeout";
     private static final String STATISTICS_ENABLED = "statistics_enabled";
     private static final String PROJECTION_PUSHDOWN_ENABLED = "projection_pushdown_enabled";
+    private static final String TARGET_MAX_FILE_SIZE = "target_max_file_size";
+
     private final List<PropertyMetadata<?>> sessionProperties;
 
     @Inject
@@ -77,7 +80,8 @@ public final class IcebergSessionProperties
             OrcReaderConfig orcReaderConfig,
             OrcWriterConfig orcWriterConfig,
             ParquetReaderConfig parquetReaderConfig,
-            ParquetWriterConfig parquetWriterConfig)
+            ParquetWriterConfig parquetWriterConfig,
+            HiveConfig hiveConfig)
     {
         sessionProperties = ImmutableList.<PropertyMetadata<?>>builder()
                 .add(enumProperty(
@@ -209,6 +213,11 @@ public final class IcebergSessionProperties
                         PROJECTION_PUSHDOWN_ENABLED,
                         "Read only required fields from a struct",
                         icebergConfig.isProjectionPushdownEnabled(),
+                        false))
+                .add(dataSizeProperty(
+                        TARGET_MAX_FILE_SIZE,
+                        "Target maximum size of written files; the actual size may be larger",
+                        hiveConfig.getTargetMaxFileSize(),
                         false))
                 .build();
     }
@@ -344,5 +353,10 @@ public final class IcebergSessionProperties
     public static boolean isProjectionPushdownEnabled(ConnectorSession session)
     {
         return session.getProperty(PROJECTION_PUSHDOWN_ENABLED, Boolean.class);
+    }
+
+    public static long getTargetMaxFileSize(ConnectorSession session)
+    {
+        return session.getProperty(TARGET_MAX_FILE_SIZE, DataSize.class).toBytes();
     }
 }

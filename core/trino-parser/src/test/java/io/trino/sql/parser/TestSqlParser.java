@@ -244,6 +244,7 @@ import static io.trino.sql.tree.FrameBound.Type.FOLLOWING;
 import static io.trino.sql.tree.PatternSearchMode.Mode.SEEK;
 import static io.trino.sql.tree.ProcessingMode.Mode.FINAL;
 import static io.trino.sql.tree.ProcessingMode.Mode.RUNNING;
+import static io.trino.sql.tree.SetProperties.Type.MATERIALIZED_VIEW;
 import static io.trino.sql.tree.SkipTo.skipToNextRow;
 import static io.trino.sql.tree.SortItem.NullOrdering.UNDEFINED;
 import static io.trino.sql.tree.SortItem.Ordering.ASCENDING;
@@ -363,7 +364,10 @@ public class TestSqlParser
     public void testNumbers()
     {
         assertExpression("9223372036854775807", new LongLiteral("9223372036854775807"));
+        assertInvalidExpression("9223372036854775808", "Invalid numeric literal: 9223372036854775808");
+
         assertExpression("-9223372036854775808", new LongLiteral("-9223372036854775808"));
+        assertInvalidExpression("-9223372036854775809", "Invalid numeric literal: -9223372036854775809");
 
         assertExpression("1E5", new DoubleLiteral("1E5"));
         assertExpression("1E-5", new DoubleLiteral("1E-5"));
@@ -1003,6 +1007,20 @@ public class TestSqlParser
     {
         assertStatement("RESET SESSION foo.bar", new ResetSession(QualifiedName.of("foo", "bar")));
         assertStatement("RESET SESSION foo", new ResetSession(QualifiedName.of("foo")));
+    }
+
+    @Test
+    public void testSessionIdentifiers()
+    {
+        assertStatement("SET SESSION \"foo-bar\".baz = 'x'",
+                new SetSession(QualifiedName.of("foo-bar", "baz"), new StringLiteral("x")));
+        assertStatementIsInvalid("SET SESSION foo-bar.name = 'value'")
+                .withMessage("line 1:16: mismatched input '-'. Expecting: '.', '='");
+
+        assertStatement("RESET SESSION \"foo-bar\".baz",
+                new ResetSession(QualifiedName.of("foo-bar", "baz")));
+        assertStatementIsInvalid("RESET SESSION foo-bar.name")
+                .withMessage("line 1:18: mismatched input '-'. Expecting: '.', <EOF>");
     }
 
     @Test
@@ -1833,6 +1851,7 @@ public class TestSqlParser
         assertStatement("ALTER TABLE a SET PROPERTIES foo=123", new SetProperties(SetProperties.Type.TABLE, QualifiedName.of("a"), ImmutableList.of(new Property(new Identifier("foo"), new LongLiteral("123")))));
         assertStatement("ALTER TABLE a SET PROPERTIES foo=123, bar=456", new SetProperties(SetProperties.Type.TABLE, QualifiedName.of("a"), ImmutableList.of(new Property(new Identifier("foo"), new LongLiteral("123")), new Property(new Identifier("bar"), new LongLiteral("456")))));
         assertStatement("ALTER TABLE a SET PROPERTIES \" s p a c e \"='bar'", new SetProperties(SetProperties.Type.TABLE, QualifiedName.of("a"), ImmutableList.of(new Property(new Identifier(" s p a c e "), new StringLiteral("bar")))));
+        assertStatement("ALTER TABLE a SET PROPERTIES foo=123, bar=DEFAULT", new SetProperties(SetProperties.Type.TABLE, QualifiedName.of("a"), ImmutableList.of(new Property(new Identifier("foo"), new LongLiteral("123")), new Property(new Identifier("bar")))));
 
         assertStatementIsInvalid("ALTER TABLE a SET PROPERTIES")
                 .withMessage("line 1:29: mismatched input '<EOF>'. Expecting: <identifier>");
@@ -1904,8 +1923,8 @@ public class TestSqlParser
                         table,
                         procedure,
                         ImmutableList.of(
-                                new CallArgument("bah", new LongLiteral("1")),
-                                new CallArgument("wuh", new StringLiteral("clap"))),
+                                new CallArgument(identifier("bah"), new LongLiteral("1")),
+                                new CallArgument(identifier("wuh"), new StringLiteral("clap"))),
                         Optional.of(
                                 new ComparisonExpression(ComparisonExpression.Operator.GREATER_THAN,
                                         new Identifier("age"),
@@ -2572,8 +2591,8 @@ public class TestSqlParser
         assertStatement("CALL foo()", new Call(QualifiedName.of("foo"), ImmutableList.of()));
         assertStatement("CALL foo(123, a => 1, b => 'go', 456)", new Call(QualifiedName.of("foo"), ImmutableList.of(
                 new CallArgument(new LongLiteral("123")),
-                new CallArgument("a", new LongLiteral("1")),
-                new CallArgument("b", new StringLiteral("go")),
+                new CallArgument(identifier("a"), new LongLiteral("1")),
+                new CallArgument(identifier("b"), new StringLiteral("go")),
                 new CallArgument(new LongLiteral("456")))));
     }
 
@@ -3289,6 +3308,58 @@ public class TestSqlParser
     {
         assertStatement("ALTER MATERIALIZED VIEW a RENAME TO b", new RenameMaterializedView(QualifiedName.of("a"), QualifiedName.of("b"), false));
         assertStatement("ALTER MATERIALIZED VIEW IF EXISTS a RENAME TO b", new RenameMaterializedView(QualifiedName.of("a"), QualifiedName.of("b"), true));
+    }
+
+    @Test
+    public void testSetMaterializedViewProperties()
+    {
+        assertStatement(
+                "ALTER MATERIALIZED VIEW a SET PROPERTIES foo='bar'",
+                new SetProperties(
+                        MATERIALIZED_VIEW,
+                        QualifiedName.of("a"),
+                        ImmutableList.of(new Property(new Identifier("foo"), new StringLiteral("bar")))));
+        assertStatement(
+                "ALTER MATERIALIZED VIEW a SET PROPERTIES foo=true",
+                new SetProperties(
+                        MATERIALIZED_VIEW,
+                        QualifiedName.of("a"),
+                        ImmutableList.of(new Property(new Identifier("foo"), new BooleanLiteral("true")))));
+        assertStatement(
+                "ALTER MATERIALIZED VIEW a SET PROPERTIES foo=123",
+                new SetProperties(
+                        MATERIALIZED_VIEW,
+                        QualifiedName.of("a"),
+                        ImmutableList.of(new Property(new Identifier("foo"), new LongLiteral("123")))));
+        assertStatement(
+                "ALTER MATERIALIZED VIEW a SET PROPERTIES foo=123, bar=456",
+                new SetProperties(
+                        MATERIALIZED_VIEW,
+                        QualifiedName.of("a"),
+                        ImmutableList.of(
+                                new Property(new Identifier("foo"), new LongLiteral("123")),
+                                new Property(new Identifier("bar"), new LongLiteral("456")))));
+        assertStatement(
+                "ALTER MATERIALIZED VIEW a SET PROPERTIES \" s p a c e \"='bar'",
+                new SetProperties(
+                        MATERIALIZED_VIEW,
+                        QualifiedName.of("a"),
+                        ImmutableList.of(new Property(new Identifier(" s p a c e "), new StringLiteral("bar")))));
+        assertStatement(
+                "ALTER MATERIALIZED VIEW a SET PROPERTIES foo=123, bar=DEFAULT",
+                new SetProperties(
+                        MATERIALIZED_VIEW,
+                        QualifiedName.of("a"),
+                        ImmutableList.of(
+                                new Property(new Identifier("foo"), new LongLiteral("123")),
+                                new Property(new Identifier("bar")))));
+
+        assertStatementIsInvalid("ALTER MATERIALIZED VIEW a SET PROPERTIES")
+                .withMessage("line 1:41: mismatched input '<EOF>'. Expecting: <identifier>");
+        assertStatementIsInvalid("ALTER MATERIALIZED VIEW a SET PROPERTIES ()")
+                .withMessage("line 1:42: mismatched input '('. Expecting: <identifier>");
+        assertStatementIsInvalid("ALTER MATERIALIZED VIEW a SET PROPERTIES (foo='bar')")
+                .withMessage("line 1:42: mismatched input '('. Expecting: <identifier>");
     }
 
     @Test

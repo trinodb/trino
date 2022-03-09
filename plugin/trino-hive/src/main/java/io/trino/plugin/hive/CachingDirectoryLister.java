@@ -13,12 +13,16 @@
  */
 package io.trino.plugin.hive;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.Weigher;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;
+import io.trino.collect.cache.EvictableCacheBuilder;
+import io.trino.plugin.hive.metastore.Partition;
+import io.trino.plugin.hive.metastore.Storage;
 import io.trino.plugin.hive.metastore.Table;
+import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.LocatedFileStatus;
@@ -32,15 +36,21 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Optional;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.util.Objects.requireNonNull;
+import static org.apache.commons.lang3.StringUtils.isNotEmpty;
 
 public class CachingDirectoryLister
-        implements DirectoryLister
+        implements DirectoryLister, TableInvalidationCallback
 {
-    private final Cache<Path, List<LocatedFileStatus>> cache;
+    //TODO use a cache key based on Path & SchemaTableName and iterate over the cache keys
+    // to deal more efficiently with cache invalidation scenarios for partitioned tables.
+    private final Cache<Path, ValueHolder> cache;
     private final List<SchemaTablePrefix> tablePrefixes;
 
     @Inject
@@ -51,10 +61,11 @@ public class CachingDirectoryLister
 
     public CachingDirectoryLister(Duration expireAfterWrite, long maxSize, List<String> tables)
     {
-        this.cache = CacheBuilder.newBuilder()
+        this.cache = EvictableCacheBuilder.newBuilder()
                 .maximumWeight(maxSize)
-                .weigher((Weigher<Path, List<LocatedFileStatus>>) (key, value) -> value.size())
+                .weigher((Weigher<Path, ValueHolder>) (key, value) -> value.files.map(List::size).orElse(1))
                 .expireAfterWrite(expireAfterWrite.toMillis(), TimeUnit.MILLISECONDS)
+                .shareNothingWhenDisabled()
                 .recordStats()
                 .build();
         this.tablePrefixes = tables.stream()
@@ -81,19 +92,46 @@ public class CachingDirectoryLister
     public RemoteIterator<LocatedFileStatus> list(FileSystem fs, Table table, Path path)
             throws IOException
     {
-        List<LocatedFileStatus> files = cache.getIfPresent(path);
-        if (files != null) {
-            return simpleRemoteIterator(files);
+        if (!isCacheEnabledFor(table.getSchemaTableName())) {
+            return fs.listLocatedStatus(path);
         }
-        RemoteIterator<LocatedFileStatus> iterator = fs.listLocatedStatus(path);
 
-        if (tablePrefixes.stream().noneMatch(prefix -> prefix.matches(table.getSchemaTableName()))) {
-            return iterator;
+        ValueHolder cachedValueHolder;
+        try {
+            cachedValueHolder = cache.get(path, ValueHolder::new);
         }
-        return cachingRemoteIterator(iterator, path);
+        catch (ExecutionException e) {
+            throw new RuntimeException(e); // cannot happen
+        }
+        if (cachedValueHolder.getFiles().isPresent()) {
+            return simpleRemoteIterator(cachedValueHolder.getFiles().get());
+        }
+        return cachingRemoteIterator(cachedValueHolder, fs.listLocatedStatus(path), path);
     }
 
-    private RemoteIterator<LocatedFileStatus> cachingRemoteIterator(RemoteIterator<LocatedFileStatus> iterator, Path path)
+    @Override
+    public void invalidate(Table table)
+    {
+        if (isCacheEnabledFor(table.getSchemaTableName()) && isLocationPresent(table.getStorage())) {
+            if (table.getPartitionColumns().isEmpty()) {
+                cache.invalidate(new Path(table.getStorage().getLocation()));
+            }
+            else {
+                // a partitioned table can have multiple paths in cache
+                cache.invalidateAll();
+            }
+        }
+    }
+
+    @Override
+    public void invalidate(Partition partition)
+    {
+        if (isCacheEnabledFor(partition.getSchemaTableName()) && isLocationPresent(partition.getStorage())) {
+            cache.invalidate(new Path(partition.getStorage().getLocation()));
+        }
+    }
+
+    private RemoteIterator<LocatedFileStatus> cachingRemoteIterator(ValueHolder cachedValueHolder, RemoteIterator<LocatedFileStatus> iterator, Path path)
     {
         return new RemoteIterator<>()
         {
@@ -105,7 +143,9 @@ public class CachingDirectoryLister
             {
                 boolean hasNext = iterator.hasNext();
                 if (!hasNext) {
-                    cache.put(path, ImmutableList.copyOf(files));
+                    // The cachedValueHolder acts as an invalidation guard. If a cache invalidation happens while this iterator goes over
+                    // the files from the specified path, the eventually outdated file listing will not be added anymore to the cache.
+                    cache.asMap().replace(path, cachedValueHolder, new ValueHolder(files));
                 }
                 return hasNext;
             }
@@ -175,5 +215,48 @@ public class CachingDirectoryLister
     public long getRequestCount()
     {
         return cache.stats().requestCount();
+    }
+
+    @VisibleForTesting
+    boolean isCached(Path path)
+    {
+        ValueHolder cached = cache.getIfPresent(path);
+        return cached != null && cached.getFiles().isPresent();
+    }
+
+    private boolean isCacheEnabledFor(SchemaTableName schemaTableName)
+    {
+        return tablePrefixes.stream().anyMatch(prefix -> prefix.matches(schemaTableName));
+    }
+
+    private static boolean isLocationPresent(Storage storage)
+    {
+        // Some Hive table types (e.g.: views) do not have a storage location
+        return storage.getOptionalLocation().isPresent() && isNotEmpty(storage.getLocation());
+    }
+
+    /**
+     * The class enforces intentionally object identity semantics for the value holder,
+     * not value-based class semantics to correctly act as an invalidation guard in the
+     * cache.
+     */
+    private static class ValueHolder
+    {
+        private final Optional<List<LocatedFileStatus>> files;
+
+        public ValueHolder()
+        {
+            files = Optional.empty();
+        }
+
+        public ValueHolder(List<LocatedFileStatus> files)
+        {
+            this.files = Optional.of(ImmutableList.copyOf(requireNonNull(files, "files is null")));
+        }
+
+        public Optional<List<LocatedFileStatus>> getFiles()
+        {
+            return files;
+        }
     }
 }

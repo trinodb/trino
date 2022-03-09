@@ -31,7 +31,6 @@ import io.trino.operator.TaskContext;
 import io.trino.plugin.tpch.TpchConnectorFactory;
 import io.trino.spi.Page;
 import io.trino.spi.QueryId;
-import io.trino.spi.memory.MemoryPoolId;
 import io.trino.spiller.SpillSpaceTracker;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.LocalQueryRunner;
@@ -58,7 +57,6 @@ import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
@@ -91,12 +89,11 @@ public class TestMemoryPools
         // add tpch
         localQueryRunner.createCatalog("tpch", new TpchConnectorFactory(1), ImmutableMap.of());
 
-        userPool = new MemoryPool(new MemoryPoolId("test"), TEN_MEGABYTES);
+        userPool = new MemoryPool(TEN_MEGABYTES);
         fakeQueryId = new QueryId("fake");
         SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(DataSize.of(1, GIGABYTE));
         QueryContext queryContext = new QueryContext(new QueryId("query"),
                 TEN_MEGABYTES,
-                DataSize.of(20, MEGABYTE),
                 Optional.empty(),
                 userPool,
                 new TestingGcMonitor(),
@@ -194,17 +191,17 @@ public class TestMemoryPools
         assertTrue(userPool.tryReserve(fakeQueryId, "test", TEN_MEGABYTES_WITHOUT_TWO_BYTES.toBytes()));
 
         // we expect 2 iterations as we have 2 bytes remaining in memory pool and we allocate 1 byte per page
-        assertEquals(runDriversUntilBlocked(waitingForRevocableSystemMemory()), 2);
+        assertEquals(runDriversUntilBlocked(waitingForRevocableMemory()), 2);
         assertTrue(userPool.getFreeBytes() <= 0, format("Expected empty pool but got [%d]", userPool.getFreeBytes()));
 
         // lets free 5 bytes
         userPool.free(fakeQueryId, "test", 5);
-        assertEquals(runDriversUntilBlocked(waitingForRevocableSystemMemory()), 5);
+        assertEquals(runDriversUntilBlocked(waitingForRevocableMemory()), 5);
         assertTrue(userPool.getFreeBytes() <= 0, format("Expected empty pool but got [%d]", userPool.getFreeBytes()));
 
         // 3 more bytes is enough for driver to finish
         userPool.free(fakeQueryId, "test", 3);
-        assertDriversProgress(waitingForRevocableSystemMemory());
+        assertDriversProgress(waitingForRevocableMemory());
         assertEquals(userPool.getFreeBytes(), 10);
     }
 
@@ -215,15 +212,15 @@ public class TestMemoryPools
         assertTrue(userPool.tryReserve(fakeQueryId, "test", TEN_MEGABYTES_WITHOUT_TWO_BYTES.toBytes()));
 
         // we expect 2 iterations as we have 2 bytes remaining in memory pool and we allocate 1 byte per page
-        assertEquals(runDriversUntilBlocked(waitingForRevocableSystemMemory()), 2);
+        assertEquals(runDriversUntilBlocked(waitingForRevocableMemory()), 2);
         revocableMemoryOperator.getOperatorContext().requestMemoryRevoking();
 
         // 2 more iterations
-        assertEquals(runDriversUntilBlocked(waitingForRevocableSystemMemory()), 2);
+        assertEquals(runDriversUntilBlocked(waitingForRevocableMemory()), 2);
         revocableMemoryOperator.getOperatorContext().requestMemoryRevoking();
 
         // 3 more bytes is enough for driver to finish
-        assertDriversProgress(waitingForRevocableSystemMemory());
+        assertDriversProgress(waitingForRevocableMemory());
         assertEquals(userPool.getFreeBytes(), 2);
     }
 
@@ -231,7 +228,7 @@ public class TestMemoryPools
     public void testTaggedAllocations()
     {
         QueryId testQuery = new QueryId("test_query");
-        MemoryPool testPool = new MemoryPool(new MemoryPoolId("test"), DataSize.ofBytes(1000));
+        MemoryPool testPool = new MemoryPool(DataSize.ofBytes(1000));
 
         testPool.reserve(testQuery, "test_tag", 10);
 
@@ -252,43 +249,6 @@ public class TestMemoryPools
         // free all for test_tag2
         testPool.free(testQuery, "test_tag2", 20);
         assertEquals(testPool.getTaggedMemoryAllocations().size(), 0);
-    }
-
-    @Test
-    public void testMoveQuery()
-    {
-        QueryId testQuery = new QueryId("test_query");
-        MemoryPool pool1 = new MemoryPool(new MemoryPoolId("test"), DataSize.ofBytes(1000));
-        MemoryPool pool2 = new MemoryPool(new MemoryPoolId("test"), DataSize.ofBytes(1000));
-        pool1.reserve(testQuery, "test_tag", 10);
-
-        Map<String, Long> allocations = pool1.getTaggedMemoryAllocations().get(testQuery);
-        assertEquals(allocations, ImmutableMap.of("test_tag", 10L));
-
-        pool1.moveQuery(testQuery, pool2);
-        assertNull(pool1.getTaggedMemoryAllocations().get(testQuery));
-        allocations = pool2.getTaggedMemoryAllocations().get(testQuery);
-        assertEquals(allocations, ImmutableMap.of("test_tag", 10L));
-
-        assertEquals(pool1.getFreeBytes(), 1000);
-        assertEquals(pool2.getFreeBytes(), 990);
-
-        pool2.free(testQuery, "test", 10);
-        assertEquals(pool2.getFreeBytes(), 1000);
-    }
-
-    @Test
-    public void testMoveUnknownQuery()
-    {
-        QueryId testQuery = new QueryId("test_query");
-        MemoryPool pool1 = new MemoryPool(new MemoryPoolId("test"), DataSize.ofBytes(1000));
-        MemoryPool pool2 = new MemoryPool(new MemoryPoolId("test"), DataSize.ofBytes(1000));
-
-        assertNull(pool1.getTaggedMemoryAllocations().get(testQuery));
-
-        pool1.moveQuery(testQuery, pool2);
-        assertNull(pool1.getTaggedMemoryAllocations().get(testQuery));
-        assertNull(pool2.getTaggedMemoryAllocations().get(testQuery));
     }
 
     private long runDriversUntilBlocked(Predicate<OperatorContext> reason)
@@ -330,7 +290,7 @@ public class TestMemoryPools
         return (OperatorContext operatorContext) -> !operatorContext.isWaitingForMemory().isDone();
     }
 
-    private Predicate<OperatorContext> waitingForRevocableSystemMemory()
+    private Predicate<OperatorContext> waitingForRevocableMemory()
     {
         return (OperatorContext operatorContext) ->
                 !operatorContext.isWaitingForRevocableMemory().isDone() &&

@@ -18,8 +18,6 @@ import io.jsonwebtoken.JwsHeader;
 import io.jsonwebtoken.SigningKeyResolver;
 import io.jsonwebtoken.security.SecurityException;
 
-import javax.inject.Inject;
-
 import java.security.Key;
 
 import static java.util.Objects.requireNonNull;
@@ -29,7 +27,6 @@ public class JwkSigningKeyResolver
 {
     private final JwkService keys;
 
-    @Inject
     public JwkSigningKeyResolver(JwkService keys)
     {
         this.keys = requireNonNull(keys, "keys is null");

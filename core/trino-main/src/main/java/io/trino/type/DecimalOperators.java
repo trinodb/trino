@@ -274,7 +274,13 @@ public final class DecimalOperators
     public static Int128 multiplyLongLongLong(Int128 a, Int128 b)
     {
         try {
-            return multiply(a, b);
+            Int128 result = multiply(a, b);
+
+            if (Decimals.overflows(result)) {
+                throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Decimal overflow");
+            }
+
+            return result;
         }
         catch (ArithmeticException e) {
             throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Decimal overflow", e);
@@ -291,7 +297,13 @@ public final class DecimalOperators
     public static Int128 multiplyLongShortLong(Int128 a, long b)
     {
         try {
-            return multiply(a, b);
+            Int128 result = multiply(a, b);
+
+            if (Decimals.overflows(result)) {
+                throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Decimal overflow");
+            }
+
+            return result;
         }
         catch (ArithmeticException e) {
             throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Decimal overflow", e);

@@ -13,26 +13,28 @@
  */
 package io.trino.memory;
 
-import io.trino.execution.TaskManager;
+import com.google.common.collect.ListMultimap;
+import io.trino.TaskMemoryInfo;
+import io.trino.execution.SqlTask;
+import io.trino.execution.SqlTaskManager;
 import io.trino.server.security.ResourceSecurity;
+import io.trino.spi.QueryId;
 import io.trino.spi.memory.MemoryPoolInfo;
 
 import javax.inject.Inject;
-import javax.ws.rs.Consumes;
 import javax.ws.rs.GET;
-import javax.ws.rs.POST;
 import javax.ws.rs.Path;
-import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
-import static io.trino.memory.LocalMemoryManager.GENERAL_POOL;
-import static io.trino.memory.LocalMemoryManager.RESERVED_POOL;
+import java.util.List;
+
+import static com.google.common.collect.ImmutableListMultimap.toImmutableListMultimap;
+import static io.trino.SystemSessionProperties.getRetryPolicy;
+import static io.trino.operator.RetryPolicy.TASK;
 import static io.trino.server.security.ResourceSecurity.AccessType.INTERNAL_ONLY;
-import static io.trino.server.security.ResourceSecurity.AccessType.MANAGEMENT_READ;
 import static java.util.Objects.requireNonNull;
-import static javax.ws.rs.core.Response.Status.NOT_FOUND;
 
 /**
  * Manages memory pools on this worker node
@@ -41,39 +43,40 @@ import static javax.ws.rs.core.Response.Status.NOT_FOUND;
 public class MemoryResource
 {
     private final LocalMemoryManager memoryManager;
-    private final TaskManager taskManager;
+    private final SqlTaskManager taskManager;
 
     @Inject
-    public MemoryResource(LocalMemoryManager memoryManager, TaskManager taskManager)
+    public MemoryResource(LocalMemoryManager memoryManager, SqlTaskManager taskManager)
     {
         this.memoryManager = requireNonNull(memoryManager, "memoryManager is null");
         this.taskManager = requireNonNull(taskManager, "taskManager is null");
     }
 
     @ResourceSecurity(INTERNAL_ONLY)
-    @POST
+    @GET
     @Produces(MediaType.APPLICATION_JSON)
-    @Consumes(MediaType.APPLICATION_JSON)
-    public MemoryInfo getMemoryInfo(MemoryPoolAssignmentsRequest request)
+    public MemoryInfo getMemoryInfo()
     {
-        taskManager.updateMemoryPoolAssignments(request);
-        return memoryManager.getInfo();
+        return memoryManager.getInfo().withTasksMemoryInfo(buildTasksMemoryInfo());
     }
 
-    @ResourceSecurity(MANAGEMENT_READ)
-    @GET
-    @Path("{poolId}")
-    public Response getMemoryInfo(@PathParam("poolId") String poolId)
+    private ListMultimap<QueryId, TaskMemoryInfo> buildTasksMemoryInfo()
     {
-        if (GENERAL_POOL.getId().equals(poolId)) {
-            return toSuccessfulResponse(memoryManager.getGeneralPool().getInfo());
-        }
-
-        if (RESERVED_POOL.getId().equals(poolId) && memoryManager.getReservedPool().isPresent()) {
-            return toSuccessfulResponse(memoryManager.getReservedPool().get().getInfo());
-        }
-
-        return Response.status(NOT_FOUND).build();
+        List<SqlTask> tasks = taskManager.getAllTasks();
+        return tasks.stream()
+                .filter(task -> !task.getTaskState().isDone())
+                // we are providing task memory information only for queries which are run with task-level retries.
+                // task memory information is consumed by low memory killer and it does not make sense to kill individual tasks
+                // for queries which does not allow task retries.
+                .filter(task -> task.getTaskContext().map(context -> getRetryPolicy(context.getSession()) == TASK).orElse(false))
+                .collect(toImmutableListMultimap(
+                        task -> task.getTaskId().getQueryId(),
+                        task -> new TaskMemoryInfo(
+                                task.getTaskId(),
+                                task.getTaskContext()
+                                        .map(taskContext -> taskContext.getMemoryReservation().toBytes())
+                                        // task context may no longer be available if task completes
+                                        .orElse(0L))));
     }
 
     private Response toSuccessfulResponse(MemoryPoolInfo memoryInfo)

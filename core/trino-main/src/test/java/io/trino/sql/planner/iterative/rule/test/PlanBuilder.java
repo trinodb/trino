@@ -99,7 +99,6 @@ import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.Row;
-import io.trino.testing.TestingHandle;
 import io.trino.testing.TestingMetadata.TestingColumnHandle;
 import io.trino.testing.TestingMetadata.TestingTableHandle;
 import io.trino.testing.TestingTableExecuteHandle;
@@ -587,7 +586,7 @@ public class PlanBuilder
     public static class TableScanBuilder
     {
         private final PlanNodeIdAllocator idAllocator;
-        private TableHandle tableHandle = new TableHandle(new CatalogName("testConnector"), new TestingTableHandle(), TestingTransactionHandle.create(), Optional.of(TestingHandle.INSTANCE));
+        private TableHandle tableHandle = new TableHandle(new CatalogName("testConnector"), new TestingTableHandle(), TestingTransactionHandle.create());
         private List<Symbol> symbols;
         private Map<Symbol, ColumnHandle> assignments;
         private TupleDomain<ColumnHandle> enforcedConstraint = TupleDomain.all();
@@ -714,8 +713,7 @@ public class PlanBuilder
                 Optional.of(new TableHandle(
                         new CatalogName("testConnector"),
                         new TestingTableHandle(),
-                        TestingTransactionHandle.create(),
-                        Optional.of(TestingHandle.INSTANCE))),
+                        TestingTransactionHandle.create())),
                 schemaTableName);
     }
 
@@ -753,8 +751,7 @@ public class PlanBuilder
                 Optional.of(new TableHandle(
                         new CatalogName("testConnector"),
                         new TestingTableHandle(),
-                        TestingTransactionHandle.create(),
-                        Optional.of(TestingHandle.INSTANCE))),
+                        TestingTransactionHandle.create())),
                 schemaTableName,
                 columnsToBeUpdated,
                 columnsToBeUpdated.stream()

@@ -16,6 +16,7 @@ package io.trino.spi.block;
 
 import org.openjdk.jol.info.ClassLayout;
 
+import java.util.OptionalInt;
 import java.util.function.BiConsumer;
 
 import static io.trino.spi.block.BlockUtil.ensureBlocksAreLoaded;
@@ -27,10 +28,11 @@ public class SingleRowBlock
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(SingleRowBlock.class).instanceSize();
 
     private final Block[] fieldBlocks;
+    private final int rowIndex;
 
     SingleRowBlock(int rowIndex, Block[] fieldBlocks)
     {
-        super(rowIndex);
+        this.rowIndex = rowIndex;
         this.fieldBlocks = fieldBlocks;
     }
 
@@ -58,11 +60,17 @@ public class SingleRowBlock
     }
 
     @Override
+    public OptionalInt fixedSizeInBytesPerPosition()
+    {
+        return OptionalInt.empty();
+    }
+
+    @Override
     public long getSizeInBytes()
     {
         long sizeInBytes = 0;
         for (int i = 0; i < fieldBlocks.length; i++) {
-            sizeInBytes += getRawFieldBlock(i).getRegionSizeInBytes(rowIndex, 1);
+            sizeInBytes += getRawFieldBlock(i).getRegionSizeInBytes(getRowIndex(), 1);
         }
         return sizeInBytes;
     }
@@ -92,6 +100,7 @@ public class SingleRowBlock
         return SingleRowBlockEncoding.NAME;
     }
 
+    @Override
     public int getRowIndex()
     {
         return rowIndex;
@@ -122,6 +131,6 @@ public class SingleRowBlock
             // All blocks are already loaded
             return this;
         }
-        return new SingleRowBlock(rowIndex, loadedFieldBlocks);
+        return new SingleRowBlock(getRowIndex(), loadedFieldBlocks);
     }
 }

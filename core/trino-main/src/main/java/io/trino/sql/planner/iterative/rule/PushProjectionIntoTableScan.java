@@ -106,7 +106,8 @@ public class PushProjectionIntoTableScan
                                 expression.getValue(),
                                 context.getSession(),
                                 typeAnalyzer,
-                                context.getSymbolAllocator().getTypes()).entrySet().stream())
+                                context.getSymbolAllocator().getTypes(),
+                                plannerContext).entrySet().stream())
                 // Avoid duplicates
                 .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue, (first, ignore) -> first));
 
@@ -143,7 +144,7 @@ public class PushProjectionIntoTableScan
 
         // Translate partial connector projections back to new partial projections
         List<Expression> newPartialProjections = newConnectorPartialProjections.stream()
-                .map(expression -> ConnectorExpressionTranslator.translate(context.getSession(), expression, variableMappings, new LiteralEncoder(plannerContext)))
+                .map(expression -> ConnectorExpressionTranslator.translate(context.getSession(), expression, plannerContext, variableMappings, new LiteralEncoder(plannerContext)))
                 .collect(toImmutableList());
 
         // Map internal node references to new partial projections
@@ -151,7 +152,7 @@ public class PushProjectionIntoTableScan
         for (int i = 0; i < nodesForPartialProjections.size(); i++) {
             nodesToNewPartialProjectionsBuilder.put(nodesForPartialProjections.get(i), newPartialProjections.get(i));
         }
-        Map<NodeRef<Expression>, Expression> nodesToNewPartialProjections = nodesToNewPartialProjectionsBuilder.build();
+        Map<NodeRef<Expression>, Expression> nodesToNewPartialProjections = nodesToNewPartialProjectionsBuilder.buildOrThrow();
 
         // Stitch partial translations to form new complete projections
         Assignments.Builder newProjectionAssignments = Assignments.builder();
@@ -170,7 +171,7 @@ public class PushProjectionIntoTableScan
                     continue;
                 }
                 String resultVariableName = ((Variable) resultConnectorExpression).getName();
-                Expression inputExpression = ConnectorExpressionTranslator.translate(context.getSession(), inputConnectorExpression, inputVariableMappings, new LiteralEncoder(plannerContext));
+                Expression inputExpression = ConnectorExpressionTranslator.translate(context.getSession(), inputConnectorExpression, plannerContext, inputVariableMappings, new LiteralEncoder(plannerContext));
                 SymbolStatsEstimate symbolStatistics = scalarStatsCalculator.calculate(inputExpression, statistics, context.getSession(), context.getSymbolAllocator().getTypes());
                 builder.addSymbolStatistics(variableMappings.get(resultVariableName), symbolStatistics);
             }

@@ -226,32 +226,6 @@ public class MapBlockBuilder
         hashTables.buildHashTableStrict(keyBlockBuilder, previousAggregatedEntryCount, entryCount);
     }
 
-    private void closeEntry(Optional<int[]> providedHashTable, int providedHashTableOffset)
-    {
-        if (!currentEntryOpened) {
-            throw new IllegalStateException("Expected entry to be opened but was closed");
-        }
-
-        entryAdded(false);
-        currentEntryOpened = false;
-
-        ensureHashTableSize();
-        int previousAggregatedEntryCount = offsets[positionCount - 1];
-        int aggregatedEntryCount = offsets[positionCount];
-
-        if (providedHashTable.isPresent()) {
-            int hashTableOffset = previousAggregatedEntryCount * HASH_MULTIPLIER;
-            int hashTableSize = (aggregatedEntryCount - previousAggregatedEntryCount) * HASH_MULTIPLIER;
-            int[] rawProvidedHashTable = providedHashTable.get();
-            int[] rawHashTables = hashTables.get();
-            System.arraycopy(rawProvidedHashTable, providedHashTableOffset, rawHashTables, hashTableOffset, hashTableSize);
-        }
-        else {
-            int entryCount = aggregatedEntryCount - previousAggregatedEntryCount;
-            hashTables.buildHashTable(keyBlockBuilder, previousAggregatedEntryCount, entryCount);
-        }
-    }
-
     @Override
     public BlockBuilder appendNull()
     {
@@ -318,70 +292,6 @@ public class MapBlockBuilder
         return "MapBlockBuilder{" +
                 "positionCount=" + getPositionCount() +
                 '}';
-    }
-
-    @Override
-    public BlockBuilder appendStructure(Block block)
-    {
-        if (!(block instanceof SingleMapBlock)) {
-            throw new IllegalArgumentException("Expected SingleMapBlock");
-        }
-        if (currentEntryOpened) {
-            throw new IllegalStateException("Expected current entry to be closed but was opened");
-        }
-        currentEntryOpened = true;
-
-        SingleMapBlock singleMapBlock = (SingleMapBlock) block;
-        int blockPositionCount = singleMapBlock.getPositionCount();
-        if (blockPositionCount % 2 != 0) {
-            throw new IllegalArgumentException(format("block position count is not even: %s", blockPositionCount));
-        }
-        for (int i = 0; i < blockPositionCount; i += 2) {
-            if (singleMapBlock.isNull(i)) {
-                throw new IllegalArgumentException("Map keys must not be null");
-            }
-            singleMapBlock.writePositionTo(i, keyBlockBuilder);
-            if (singleMapBlock.isNull(i + 1)) {
-                valueBlockBuilder.appendNull();
-            }
-            else {
-                singleMapBlock.writePositionTo(i + 1, valueBlockBuilder);
-            }
-        }
-
-        closeEntry(singleMapBlock.tryGetHashTable(), singleMapBlock.getOffset() / 2 * HASH_MULTIPLIER);
-        return this;
-    }
-
-    @Override
-    public BlockBuilder appendStructureInternal(Block block, int position)
-    {
-        if (!(block instanceof AbstractMapBlock)) {
-            throw new IllegalArgumentException("Expected AbstractMapBlock");
-        }
-        if (currentEntryOpened) {
-            throw new IllegalStateException("Expected current entry to be closed but was opened");
-        }
-        currentEntryOpened = true;
-
-        AbstractMapBlock mapBlock = (AbstractMapBlock) block;
-        int startValueOffset = mapBlock.getOffset(position);
-        int endValueOffset = mapBlock.getOffset(position + 1);
-        for (int i = startValueOffset; i < endValueOffset; i++) {
-            if (mapBlock.getRawKeyBlock().isNull(i)) {
-                throw new IllegalArgumentException("Map keys must not be null");
-            }
-            mapBlock.getRawKeyBlock().writePositionTo(i, keyBlockBuilder);
-            if (mapBlock.getRawValueBlock().isNull(i)) {
-                valueBlockBuilder.appendNull();
-            }
-            else {
-                mapBlock.getRawValueBlock().writePositionTo(i, valueBlockBuilder);
-            }
-        }
-
-        closeEntry(mapBlock.getHashTables().tryGet(), startValueOffset * HASH_MULTIPLIER);
-        return this;
     }
 
     @Override

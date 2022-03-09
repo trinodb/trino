@@ -111,7 +111,7 @@ public class ScanFilterAndProjectOperator
                         columns,
                         dynamicFilter,
                         types,
-                        requireNonNull(memoryTrackingContext, "memoryTrackingContext is null").aggregateSystemMemoryContext(),
+                        requireNonNull(memoryTrackingContext, "memoryTrackingContext is null").aggregateUserMemoryContext(),
                         minOutputPageSize,
                         minOutputPageRowCount,
                         avoidPageMaterialization));
@@ -283,7 +283,7 @@ public class ScanFilterAndProjectOperator
             return WorkProcessor
                     .create(new RecordCursorToPages(session, yieldSignal, cursorProcessor, types, pageSourceMemoryContext, outputMemoryContext))
                     .yielding(yieldSignal::isSet)
-                    .withProcessStateMonitor(state -> memoryContext.setBytes(localAggregatedMemoryContext.getBytes()));
+                    .blocking(() -> memoryContext.setBytes(localAggregatedMemoryContext.getBytes()));
         }
 
         WorkProcessor<Page> processPageSource()
@@ -299,7 +299,7 @@ public class ScanFilterAndProjectOperator
                             page,
                             avoidPageMaterialization))
                     .transformProcessor(processor -> mergePages(types, minOutputPageSize.toBytes(), minOutputPageRowCount, processor, localAggregatedMemoryContext))
-                    .withProcessStateMonitor(state -> memoryContext.setBytes(localAggregatedMemoryContext.getBytes()));
+                    .blocking(() -> memoryContext.setBytes(localAggregatedMemoryContext.getBytes()));
         }
     }
 
@@ -336,7 +336,7 @@ public class ScanFilterAndProjectOperator
         {
             if (!finished) {
                 CursorProcessorOutput output = cursorProcessor.process(session, yieldSignal, cursor, pageBuilder);
-                pageSourceMemoryContext.setBytes(cursor.getSystemMemoryUsage());
+                pageSourceMemoryContext.setBytes(cursor.getMemoryUsage());
 
                 processedPositions += output.getProcessedRows();
                 // TODO: derive better values for cursors
@@ -390,7 +390,7 @@ public class ScanFilterAndProjectOperator
             }
 
             Page page = pageSource.getNextPage();
-            pageSourceMemoryContext.setBytes(pageSource.getSystemMemoryUsage());
+            pageSourceMemoryContext.setBytes(pageSource.getMemoryUsage());
 
             if (page == null) {
                 if (pageSource.isFinished()) {

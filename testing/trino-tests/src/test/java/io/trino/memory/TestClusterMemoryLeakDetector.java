@@ -33,7 +33,6 @@ import java.util.OptionalDouble;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.execution.QueryState.FINISHED;
 import static io.trino.execution.QueryState.RUNNING;
-import static io.trino.memory.LocalMemoryManager.GENERAL_POOL;
 import static io.trino.operator.BlockedReason.WAITING_FOR_MEMORY;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.testng.Assert.assertEquals;
@@ -73,7 +72,6 @@ public class TestClusterMemoryLeakDetector
                 TEST_SESSION.toSessionRepresentation(),
                 Optional.of(new ResourceGroupId("global")),
                 state,
-                GENERAL_POOL,
                 true,
                 URI.create("1"),
                 "",
@@ -91,15 +89,17 @@ public class TestClusterMemoryLeakDetector
                         100,
                         DataSize.valueOf("21GB"),
                         22,
-                        DataSize.valueOf("20GB"),
-                        23,
-                        11,
                         DataSize.valueOf("23GB"),
-                        DataSize.valueOf("24GB"),
-                        DataSize.valueOf("25GB"),
+                        24,
+                        25,
                         DataSize.valueOf("26GB"),
-                        new Duration(23, MINUTES),
-                        new Duration(24, MINUTES),
+                        DataSize.valueOf("27GB"),
+                        DataSize.valueOf("28GB"),
+                        DataSize.valueOf("29GB"),
+                        new Duration(30, MINUTES),
+                        new Duration(31, MINUTES),
+                        new Duration(32, MINUTES),
+                        new Duration(33, MINUTES),
                         true,
                         ImmutableSet.of(WAITING_FOR_MEMORY),
                         OptionalDouble.of(20)),

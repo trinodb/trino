@@ -74,7 +74,7 @@ public class BigQuerySplitManager
         this.bigQueryReadClientFactory = requireNonNull(bigQueryReadClientFactory, "bigQueryReadClientFactory cannot be null");
         this.parallelism = config.getParallelism();
         this.viewEnabled = config.isViewsEnabled();
-        this.viewExpiration = config.getViewExpiration();
+        this.viewExpiration = config.getViewExpireDuration();
         this.nodeManager = requireNonNull(nodeManager, "nodeManager cannot be null");
     }
 

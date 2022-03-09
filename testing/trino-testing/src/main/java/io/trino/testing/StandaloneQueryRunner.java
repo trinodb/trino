@@ -294,6 +294,12 @@ public final class StandaloneQueryRunner
                 errorType);
     }
 
+    @Override
+    public void loadExchangeManager(String name, Map<String, String> properties)
+    {
+        server.loadExchangeManager(name, properties);
+    }
+
     private static TestingTrinoServer createTestingTrinoServer()
     {
         return TestingTrinoServer.builder()
@@ -301,7 +307,7 @@ public final class StandaloneQueryRunner
                         .put("query.client.timeout", "10m")
                         .put("exchange.http-client.idle-timeout", "1h")
                         .put("node-scheduler.min-candidates", "1")
-                        .build())
+                        .buildOrThrow())
                 .build();
     }
 }

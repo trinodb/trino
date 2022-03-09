@@ -123,7 +123,7 @@ public class TestCassandraConnector
                 "cassandra.native-protocol-port", Integer.toString(server.getPort())),
                 new TestingConnectorContext());
 
-        metadata = connector.getMetadata(CassandraTransactionHandle.INSTANCE);
+        metadata = connector.getMetadata(SESSION, CassandraTransactionHandle.INSTANCE);
         assertInstanceOf(metadata, CassandraMetadata.class);
 
         splitManager = connector.getSplitManager();
@@ -445,7 +445,7 @@ public class TestCassandraConnector
             index.put(name, i);
             i++;
         }
-        return index.build();
+        return index.buildOrThrow();
     }
 
     private CassandraTableHandle getTableHandle(Optional<List<CassandraPartition>> partitions, String clusteringKeyPredicates)

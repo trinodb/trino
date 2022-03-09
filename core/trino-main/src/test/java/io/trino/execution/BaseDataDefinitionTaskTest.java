@@ -17,13 +17,15 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.connector.CatalogName;
+import io.trino.connector.MockConnectorFactory;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.AbstractMockMetadata;
-import io.trino.metadata.Catalog;
-import io.trino.metadata.CatalogManager;
+import io.trino.metadata.FunctionInvoker;
 import io.trino.metadata.MaterializedViewDefinition;
+import io.trino.metadata.MaterializedViewPropertyManager;
 import io.trino.metadata.MetadataManager;
 import io.trino.metadata.QualifiedObjectName;
+import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableMetadata;
 import io.trino.metadata.TableSchema;
@@ -36,22 +38,30 @@ import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.MaterializedViewNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TestingColumnHandle;
+import io.trino.spi.function.InvocationConvention;
+import io.trino.spi.function.OperatorType;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.TrinoPrincipal;
+import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.TestingConnectorTransactionHandle;
 import io.trino.sql.tree.QualifiedName;
+import io.trino.testing.LocalQueryRunner;
 import io.trino.testing.TestingMetadata.TestingTableHandle;
 import io.trino.transaction.TransactionManager;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.net.URI;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -61,14 +71,15 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.DIVISION_BY_ZERO;
+import static io.trino.spi.session.PropertyMetadata.longProperty;
+import static io.trino.spi.session.PropertyMetadata.stringProperty;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
-import static io.trino.testing.TestingSession.createBogusTestingCatalog;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static java.util.Objects.requireNonNull;
 
 @Test
@@ -76,25 +87,46 @@ public abstract class BaseDataDefinitionTaskTest
 {
     protected static final String CATALOG_NAME = "catalog";
     public static final String SCHEMA = "schema";
+
+    protected static final String MATERIALIZED_VIEW_PROPERTY_1_NAME = "property1";
+    protected static final Long MATERIALIZED_VIEW_PROPERTY_1_DEFAULT_VALUE = null;
+
+    protected static final String MATERIALIZED_VIEW_PROPERTY_2_NAME = "property2";
+    protected static final String MATERIALIZED_VIEW_PROPERTY_2_DEFAULT_VALUE = "defaultProperty2Value";
+
+    private LocalQueryRunner queryRunner;
     protected Session testSession;
     protected MockMetadata metadata;
     protected PlannerContext plannerContext;
+    protected MaterializedViewPropertyManager materializedViewPropertyManager;
     protected TransactionManager transactionManager;
     protected QueryStateMachine queryStateMachine;
 
     @BeforeMethod
     public void setUp()
     {
-        CatalogManager catalogManager = new CatalogManager();
-        transactionManager = createTestTransactionManager(catalogManager);
-        Catalog testCatalog = createBogusTestingCatalog(CATALOG_NAME);
-        catalogManager.registerCatalog(testCatalog);
-        testSession = testSessionBuilder()
-                .setTransactionId(transactionManager.beginTransaction(false))
-                .build();
-        metadata = new MockMetadata(testCatalog.getConnectorCatalogName());
+        queryRunner = LocalQueryRunner.create(TEST_SESSION);
+        transactionManager = queryRunner.getTransactionManager();
+        queryRunner.createCatalog(CATALOG_NAME, MockConnectorFactory.create("initial"), ImmutableMap.of());
+
+        testSession = testSessionBuilder().build();
+        metadata = new MockMetadata(new CatalogName(CATALOG_NAME));
         plannerContext = plannerContextBuilder().withMetadata(metadata).build();
+        materializedViewPropertyManager = new MaterializedViewPropertyManager();
+        materializedViewPropertyManager.addProperties(
+                new CatalogName(CATALOG_NAME),
+                ImmutableList.of(
+                        longProperty(MATERIALIZED_VIEW_PROPERTY_1_NAME, "property 1", MATERIALIZED_VIEW_PROPERTY_1_DEFAULT_VALUE, false),
+                        stringProperty(MATERIALIZED_VIEW_PROPERTY_2_NAME, "property 2", MATERIALIZED_VIEW_PROPERTY_2_DEFAULT_VALUE, false)));
         queryStateMachine = stateMachine(transactionManager, createTestMetadataManager(), new AllowAllAccessControl(), testSession);
+    }
+
+    @AfterMethod
+    public void tearDown()
+    {
+        if (queryRunner != null) {
+            queryRunner.close();
+        }
     }
 
     protected static QualifiedObjectName qualifiedObjectName(String objectName)
@@ -132,7 +164,7 @@ public abstract class BaseDataDefinitionTaskTest
                 Optional.empty(),
                 Identity.ofUser("owner"),
                 Optional.empty(),
-                ImmutableMap.of());
+                ImmutableMap.of(MATERIALIZED_VIEW_PROPERTY_2_NAME, MATERIALIZED_VIEW_PROPERTY_2_DEFAULT_VALUE));
     }
 
     protected static ConnectorTableMetadata someTable(QualifiedObjectName tableName)
@@ -159,6 +191,7 @@ public abstract class BaseDataDefinitionTaskTest
     private static QueryStateMachine stateMachine(TransactionManager transactionManager, MetadataManager metadata, AccessControl accessControl, Session session)
     {
         return QueryStateMachine.begin(
+                Optional.empty(),
                 "test",
                 Optional.empty(),
                 session,
@@ -176,6 +209,7 @@ public abstract class BaseDataDefinitionTaskTest
     protected static class MockMetadata
             extends AbstractMockMetadata
     {
+        private final MetadataManager delegate;
         private final CatalogName catalogHandle;
         private final List<CatalogSchemaName> schemas = new CopyOnWriteArrayList<>();
         private final AtomicBoolean failCreateSchema = new AtomicBoolean();
@@ -185,6 +219,7 @@ public abstract class BaseDataDefinitionTaskTest
 
         public MockMetadata(CatalogName catalogHandle)
         {
+            delegate = createTestMetadataManager();
             this.catalogHandle = requireNonNull(catalogHandle, "catalogHandle is null");
         }
 
@@ -233,8 +268,7 @@ public abstract class BaseDataDefinitionTaskTest
                     .map(tableMetadata -> new TableHandle(
                             new CatalogName(CATALOG_NAME),
                             new TestingTableHandle(tableName.asSchemaTableName()),
-                            TestingConnectorTransactionHandle.INSTANCE,
-                            Optional.empty()));
+                            TestingConnectorTransactionHandle.INSTANCE));
         }
 
         @Override
@@ -297,6 +331,36 @@ public abstract class BaseDataDefinitionTaskTest
         }
 
         @Override
+        public synchronized void setMaterializedViewProperties(
+                Session session,
+                QualifiedObjectName viewName,
+                Map<String, Optional<Object>> properties)
+        {
+            MaterializedViewDefinition existingDefinition = getMaterializedView(session, viewName)
+                    .orElseThrow(() -> new MaterializedViewNotFoundException(viewName.asSchemaTableName()));
+            Map<String, Object> newProperties = new HashMap<>(existingDefinition.getProperties());
+            for (Entry<String, Optional<Object>> entry : properties.entrySet()) {
+                if (entry.getValue().isPresent()) {
+                    newProperties.put(entry.getKey(), entry.getValue().orElseThrow());
+                }
+                else {
+                    newProperties.remove(entry.getKey());
+                }
+            }
+            materializedViews.put(
+                    viewName.asSchemaTableName(),
+                    new MaterializedViewDefinition(
+                            existingDefinition.getOriginalSql(),
+                            existingDefinition.getCatalog(),
+                            existingDefinition.getSchema(),
+                            existingDefinition.getColumns(),
+                            existingDefinition.getComment(),
+                            existingDefinition.getRunAsIdentity().get(),
+                            existingDefinition.getStorageTable(),
+                            newProperties));
+        }
+
+        @Override
         public void dropMaterializedView(Session session, QualifiedObjectName viewName)
         {
             materializedViews.remove(viewName.asSchemaTableName());
@@ -335,6 +399,18 @@ public abstract class BaseDataDefinitionTaskTest
             SchemaTableName oldViewName = source.asSchemaTableName();
             materializedViews.put(target.asSchemaTableName(), verifyNotNull(materializedViews.get(oldViewName), "Materialized View not found %s", oldViewName));
             materializedViews.remove(oldViewName);
+        }
+
+        @Override
+        public ResolvedFunction getCoercion(Session session, OperatorType operatorType, Type fromType, Type toType)
+        {
+            return delegate.getCoercion(session, operatorType, fromType, toType);
+        }
+
+        @Override
+        public FunctionInvoker getScalarFunctionInvoker(ResolvedFunction resolvedFunction, InvocationConvention invocationConvention)
+        {
+            return delegate.getScalarFunctionInvoker(resolvedFunction, invocationConvention);
         }
     }
 }

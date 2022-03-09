@@ -50,10 +50,10 @@ import java.util.Set;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.plugin.iceberg.IcebergTypes.convertIcebergValueToTrino;
 import static io.trino.plugin.iceberg.IcebergUtil.getIdentityPartitions;
 import static io.trino.plugin.iceberg.IcebergUtil.primitiveFieldTypes;
-import static io.trino.plugin.iceberg.Partition.convertBounds;
 import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
@@ -179,52 +179,34 @@ public class PartitionTable
                 .useSnapshot(snapshotId.get())
                 .includeColumnStats();
         // TODO make the cursor lazy
-        return buildRecordCursor(getPartitions(tableScan), icebergTable.spec().fields());
+        return buildRecordCursor(getStatisticsByPartition(tableScan), icebergTable.spec().fields());
     }
 
-    private Map<StructLikeWrapper, Partition> getPartitions(TableScan tableScan)
+    private Map<StructLikeWrapper, IcebergStatistics> getStatisticsByPartition(TableScan tableScan)
     {
         try (CloseableIterable<FileScanTask> fileScanTasks = tableScan.planFiles()) {
-            Map<StructLikeWrapper, Partition> partitions = new HashMap<>();
-
+            Map<StructLikeWrapper, IcebergStatistics.Builder> partitions = new HashMap<>();
             for (FileScanTask fileScanTask : fileScanTasks) {
                 DataFile dataFile = fileScanTask.file();
                 Types.StructType structType = fileScanTask.spec().partitionType();
                 StructLike partitionStruct = dataFile.partition();
                 StructLikeWrapper partitionWrapper = StructLikeWrapper.forType(structType).set(partitionStruct);
 
-                if (!partitions.containsKey(partitionWrapper)) {
-                    Partition partition = new Partition(
-                            idToTypeMapping,
-                            nonPartitionPrimitiveColumns,
-                            partitionStruct,
-                            dataFile.recordCount(),
-                            dataFile.fileSizeInBytes(),
-                            convertBounds(idToTypeMapping, dataFile.lowerBounds()),
-                            convertBounds(idToTypeMapping, dataFile.upperBounds()),
-                            dataFile.nullValueCounts(),
-                            dataFile.columnSizes());
-                    partitions.put(partitionWrapper, partition);
-                    continue;
-                }
-
-                Partition partition = partitions.get(partitionWrapper);
-                partition.incrementFileCount();
-                partition.incrementRecordCount(dataFile.recordCount());
-                partition.incrementSize(dataFile.fileSizeInBytes());
-                partition.updateMin(convertBounds(idToTypeMapping, dataFile.lowerBounds()), dataFile.nullValueCounts(), dataFile.recordCount());
-                partition.updateMax(convertBounds(idToTypeMapping, dataFile.upperBounds()), dataFile.nullValueCounts(), dataFile.recordCount());
-                partition.updateNullCount(dataFile.nullValueCounts());
+                partitions.computeIfAbsent(
+                        partitionWrapper,
+                        ignored -> new IcebergStatistics.Builder(icebergTable.schema().columns(), typeManager))
+                        .acceptDataFile(dataFile, fileScanTask.spec());
             }
 
-            return partitions;
+            return partitions.entrySet().stream()
+                    .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().build()));
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
         }
     }
 
-    private RecordCursor buildRecordCursor(Map<StructLikeWrapper, Partition> partitions, List<PartitionField> partitionFields)
+    private RecordCursor buildRecordCursor(Map<StructLikeWrapper, IcebergStatistics> partitionStatistics, List<PartitionField> partitionFields)
     {
         List<Type> partitionTypes = partitionTypes(partitionFields);
         List<? extends Class<?>> partitionColumnClass = partitionTypes.stream()
@@ -233,7 +215,9 @@ public class PartitionTable
 
         ImmutableList.Builder<List<Object>> records = ImmutableList.builder();
 
-        for (Partition partition : partitions.values()) {
+        for (Map.Entry<StructLikeWrapper, IcebergStatistics> partitionEntry : partitionStatistics.entrySet()) {
+            StructLikeWrapper partitionStruct = partitionEntry.getKey();
+            IcebergStatistics icebergStatistics = partitionEntry.getValue();
             List<Object> row = new ArrayList<>();
 
             // add data for partition columns
@@ -242,7 +226,7 @@ public class PartitionTable
                 BlockBuilder partitionBlockBuilder = partitionRowBlockBuilder.beginBlockEntry();
                 for (int i = 0; i < partitionColumnTypes.size(); i++) {
                     io.trino.spi.type.Type trinoType = partitionColumnType.getFields().get(i).getType();
-                    Object value = convertIcebergValueToTrino(partitionTypes.get(i), partition.getValues().get(i, partitionColumnClass.get(i)));
+                    Object value = convertIcebergValueToTrino(partitionTypes.get(i), partitionStruct.get().get(i, partitionColumnClass.get(i)));
                     writeNativeValue(trinoType, partitionBlockBuilder, value);
                 }
                 partitionRowBlockBuilder.closeEntry();
@@ -250,26 +234,27 @@ public class PartitionTable
             });
 
             // add the top level metrics.
-            row.add(partition.getRecordCount());
-            row.add(partition.getFileCount());
-            row.add(partition.getSize());
+            row.add(icebergStatistics.getRecordCount());
+            row.add(icebergStatistics.getFileCount());
+            row.add(icebergStatistics.getSize());
 
             // add column level metrics
             dataColumnType.ifPresent(dataColumnType -> {
-                if (!partition.hasValidColumnMetrics()) {
-                    row.add(null);
-                    return;
-                }
                 BlockBuilder dataRowBlockBuilder = dataColumnType.createBlockBuilder(null, 1);
                 BlockBuilder dataBlockBuilder = dataRowBlockBuilder.beginBlockEntry();
 
                 for (int i = 0; i < columnMetricTypes.size(); i++) {
                     Integer fieldId = nonPartitionPrimitiveColumns.get(i).fieldId();
-                    Type.PrimitiveType type = idToTypeMapping.get(fieldId);
-                    Object min = convertIcebergValueToTrino(type, partition.getMinValues().get(fieldId));
-                    Object max = convertIcebergValueToTrino(type, partition.getMaxValues().get(fieldId));
-                    Long nullCount = partition.getNullCounts().get(fieldId);
-                    columnMetricTypes.get(i).writeObject(dataBlockBuilder, getColumnMetricBlock(columnMetricTypes.get(i), min, max, nullCount));
+                    Object min = icebergStatistics.getMinValues().get(fieldId);
+                    Object max = icebergStatistics.getMaxValues().get(fieldId);
+                    Long nullCount = icebergStatistics.getNullCounts().get(fieldId);
+                    if (min == null && max == null && nullCount == null) {
+                        row.add(null);
+                        return;
+                    }
+
+                    RowType columnMetricType = columnMetricTypes.get(i);
+                    columnMetricType.writeObject(dataBlockBuilder, getColumnMetricBlock(columnMetricType, min, max, nullCount));
                 }
                 dataRowBlockBuilder.closeEntry();
                 row.add(dataColumnType.getObject(dataRowBlockBuilder, 0));

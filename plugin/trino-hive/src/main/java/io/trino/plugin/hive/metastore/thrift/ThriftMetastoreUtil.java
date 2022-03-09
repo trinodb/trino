@@ -205,7 +205,7 @@ public final class ThriftMetastoreUtil
                     .collect(toImmutableList()));
         }
 
-        return new PrincipalPrivilegeSet(userPrivileges.build(), ImmutableMap.of(), rolePrivileges.build());
+        return new PrincipalPrivilegeSet(userPrivileges.buildOrThrow(), ImmutableMap.of(), rolePrivileges.buildOrThrow());
     }
 
     public static PrivilegeGrantInfo toMetastoreApiPrivilegeGrantInfo(HivePrivilegeInfo privilegeInfo)
@@ -417,12 +417,12 @@ public final class ThriftMetastoreUtil
         return serdeInfo.getSerializationLib() != null &&
                 (table.getParameters().get(AVRO_SCHEMA_URL_KEY) != null ||
                         (serdeInfo.getParameters() != null && serdeInfo.getParameters().get(AVRO_SCHEMA_URL_KEY) != null)) &&
-                serdeInfo.getSerializationLib().equals(AVRO.getSerDe());
+                serdeInfo.getSerializationLib().equals(AVRO.getSerde());
     }
 
     public static boolean isCsvTable(org.apache.hadoop.hive.metastore.api.Table table)
     {
-        return CSV.getSerDe().equals(getSerdeInfo(table).getSerializationLib());
+        return CSV.getSerde().equals(getSerdeInfo(table).getSerializationLib());
     }
 
     public static List<FieldSchema> csvSchemaFields(List<FieldSchema> schemas)
@@ -794,7 +794,7 @@ public final class ThriftMetastoreUtil
             result.put("STATS_GENERATED_VIA_STATS_TASK", "workaround for potential lack of HIVE-12730");
         }
 
-        return result.build();
+        return result.buildOrThrow();
     }
 
     public static ColumnStatisticsObj createMetastoreColumnStatistics(String columnName, HiveType columnType, HiveColumnStatistics statistics, OptionalLong rowCount)

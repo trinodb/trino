@@ -146,11 +146,11 @@ public class ApplyTableScanRedirection
 
         TupleDomain<String> requiredFilter = tableScanRedirectApplicationResult.get().getFilter();
         if (requiredFilter.isAll()) {
-            ImmutableMap<Symbol, ColumnHandle> newAssignments = newAssignmentsBuilder.build();
+            ImmutableMap<Symbol, ColumnHandle> newAssignments = newAssignmentsBuilder.buildOrThrow();
             return Result.ofPlanNode(applyProjection(
                     context.getIdAllocator(),
                     ImmutableSet.copyOf(scanNode.getOutputSymbols()),
-                    casts.build(),
+                    casts.buildOrThrow(),
                     new TableScanNode(
                             scanNode.getId(),
                             destinationTableHandle.get(),
@@ -207,7 +207,7 @@ public class ApplyTableScanRedirection
             return symbol;
         });
 
-        Map<Symbol, ColumnHandle> newAssignments = newAssignmentsBuilder.build();
+        Map<Symbol, ColumnHandle> newAssignments = newAssignmentsBuilder.buildOrThrow();
         TableScanNode newScanNode = new TableScanNode(
                 scanNode.getId(),
                 destinationTableHandle.get(),
@@ -224,7 +224,7 @@ public class ApplyTableScanRedirection
                 applyProjection(
                         context.getIdAllocator(),
                         newAssignments.keySet(),
-                        casts.build(),
+                        casts.buildOrThrow(),
                         newScanNode),
                 domainTranslator.toPredicate(context.getSession(), transformedConstraint));
 

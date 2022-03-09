@@ -76,8 +76,7 @@ public class TestPruneTableScanColumns
                                     new TableHandle(
                                             new CatalogName("local"),
                                             new TpchTableHandle(TINY_SCHEMA_NAME, "orders", TINY_SCALE_FACTOR),
-                                            TpchTransactionHandle.INSTANCE,
-                                            Optional.empty()),
+                                            TpchTransactionHandle.INSTANCE),
                                     ImmutableList.of(orderdate, totalprice),
                                     ImmutableMap.of(
                                             orderdate, new TpchColumnHandle(orderdate.getName(), DATE),
@@ -104,8 +103,7 @@ public class TestPruneTableScanColumns
                                     new TableHandle(
                                             new CatalogName("local"),
                                             new TpchTableHandle(TINY_SCHEMA_NAME, "orders", TINY_SCALE_FACTOR),
-                                            TpchTransactionHandle.INSTANCE,
-                                            Optional.empty()),
+                                            TpchTransactionHandle.INSTANCE),
                                     List.of(orderdate, totalprice),
                                     Map.of(
                                             orderdate, orderdateHandle,
@@ -172,8 +170,7 @@ public class TestPruneTableScanColumns
                                         new TableHandle(
                                                 new CatalogName(mockCatalog),
                                                 new MockConnectorTableHandle(testSchemaTable),
-                                                MockConnectorTransactionHandle.INSTANCE,
-                                                Optional.empty()),
+                                                MockConnectorTransactionHandle.INSTANCE),
                                         ImmutableList.of(symbolA, symbolB),
                                         ImmutableMap.of(
                                                 symbolA, columnHandleA,

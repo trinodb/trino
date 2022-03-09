@@ -52,7 +52,7 @@ public class TestMongoClientConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("mongodb.schema-collection", "_my_schema")
                 .put("mongodb.case-insensitive-name-matching", "true")
                 .put("mongodb.seeds", "")
@@ -70,7 +70,7 @@ public class TestMongoClientConfig
                 .put("mongodb.write-concern", "UNACKNOWLEDGED")
                 .put("mongodb.required-replica-set", "replica_set")
                 .put("mongodb.implicit-row-field-prefix", "_prefix")
-                .build();
+                .buildOrThrow();
 
         ConfigurationFactory configurationFactory = new ConfigurationFactory(properties);
         MongoClientConfig config = configurationFactory.build(MongoClientConfig.class);

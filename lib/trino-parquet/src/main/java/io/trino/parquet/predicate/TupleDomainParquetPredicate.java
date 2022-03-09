@@ -622,20 +622,20 @@ public class TupleDomainParquetPredicate
         {
             switch (primitiveType.getPrimitiveTypeName()) {
                 case BOOLEAN:
-                    return (buffer) -> buffer.get(0) != 0;
+                    return buffer -> buffer.get(0) != 0;
                 case INT32:
-                    return (buffer) -> buffer.order(LITTLE_ENDIAN).getInt(0);
+                    return buffer -> buffer.order(LITTLE_ENDIAN).getInt(0);
                 case INT64:
-                    return (buffer) -> buffer.order(LITTLE_ENDIAN).getLong(0);
+                    return buffer -> buffer.order(LITTLE_ENDIAN).getLong(0);
                 case FLOAT:
-                    return (buffer) -> buffer.order(LITTLE_ENDIAN).getFloat(0);
+                    return buffer -> buffer.order(LITTLE_ENDIAN).getFloat(0);
                 case DOUBLE:
-                    return (buffer) -> buffer.order(LITTLE_ENDIAN).getDouble(0);
+                    return buffer -> buffer.order(LITTLE_ENDIAN).getDouble(0);
                 case FIXED_LEN_BYTE_ARRAY:
                 case BINARY:
                 case INT96:
                 default:
-                    return (buffer) -> Binary.fromReusedByteBuffer(buffer);
+                    return buffer -> Binary.fromReusedByteBuffer(buffer);
             }
         }
     }

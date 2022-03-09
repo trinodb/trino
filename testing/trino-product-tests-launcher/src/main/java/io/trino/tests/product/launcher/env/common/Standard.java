@@ -186,6 +186,7 @@ public final class Standard
         try {
             FileAttribute<Set<PosixFilePermission>> rwx = PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rwxrwxrwx"));
             Path script = Files.createTempFile("enable-java-debugger", ".sh", rwx);
+            script.toFile().deleteOnExit();
             Files.writeString(
                     script,
                     format(

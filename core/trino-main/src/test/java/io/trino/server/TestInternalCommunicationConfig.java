@@ -48,7 +48,7 @@ public class TestInternalCommunicationConfig
         Path keystoreFile = Files.createTempFile(null, null);
         Path truststoreFile = Files.createTempFile(null, null);
 
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("internal-communication.shared-secret", "secret")
                 .put("internal-communication.http2.enabled", "true")
                 .put("internal-communication.https.required", "true")
@@ -57,7 +57,7 @@ public class TestInternalCommunicationConfig
                 .put("internal-communication.https.truststore.path", truststoreFile.toString())
                 .put("internal-communication.https.truststore.key", "trust-key")
                 .put("http-server.https.enabled", "true")
-                .build();
+                .buildOrThrow();
 
         InternalCommunicationConfig expected = new InternalCommunicationConfig()
                 .setSharedSecret("secret")

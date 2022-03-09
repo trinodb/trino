@@ -30,8 +30,6 @@ import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.SymbolReference;
 import org.testng.annotations.Test;
 
-import java.util.Optional;
-
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCALE_FACTOR;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -77,7 +75,7 @@ public class TestPruneCountAggregationOverScalar
                                 .globalGrouping()
                                 .step(AggregationNode.Step.SINGLE)
                                 .source(
-                                        p.aggregation((aggregationBuilder) -> aggregationBuilder
+                                        p.aggregation(aggregationBuilder -> aggregationBuilder
                                                 .source(p.tableScan(ImmutableList.of(), ImmutableMap.of()))
                                                 .globalGrouping()
                                                 .step(AggregationNode.Step.SINGLE)))))
@@ -164,8 +162,7 @@ public class TestPruneCountAggregationOverScalar
                                                     new TableHandle(
                                                             new CatalogName("local"),
                                                             new TpchTableHandle(TINY_SCHEMA_NAME, "orders", TINY_SCALE_FACTOR),
-                                                            TpchTransactionHandle.INSTANCE,
-                                                            Optional.empty()),
+                                                            TpchTransactionHandle.INSTANCE),
                                                     ImmutableList.of(totalPrice),
                                                     ImmutableMap.of(totalPrice, new TpchColumnHandle(totalPrice.getName(), DOUBLE))))));
 

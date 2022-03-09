@@ -14,7 +14,6 @@
 package io.trino.execution.scheduler;
 
 import com.google.common.base.Suppliers;
-import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
@@ -23,6 +22,7 @@ import com.google.common.collect.ImmutableSetMultimap;
 import io.airlift.log.Logger;
 import io.airlift.stats.CounterStat;
 import io.trino.Session;
+import io.trino.collect.cache.NonEvictableCache;
 import io.trino.connector.CatalogName;
 import io.trino.execution.NodeTaskMap;
 import io.trino.metadata.InternalNode;
@@ -38,12 +38,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.SystemSessionProperties.getMaxUnacknowledgedSplitsPerTask;
+import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.metadata.NodeState.ACTIVE;
 import static java.util.Objects.requireNonNull;
 
@@ -52,9 +54,9 @@ public class TopologyAwareNodeSelectorFactory
 {
     private static final Logger LOG = Logger.get(TopologyAwareNodeSelectorFactory.class);
 
-    private final Cache<InternalNode, Boolean> inaccessibleNodeLogCache = CacheBuilder.newBuilder()
-            .expireAfterWrite(30, TimeUnit.SECONDS)
-            .build();
+    private final NonEvictableCache<InternalNode, Object> inaccessibleNodeLogCache = buildNonEvictableCache(
+            CacheBuilder.newBuilder()
+                    .expireAfterWrite(30, TimeUnit.SECONDS));
 
     private final NetworkTopology networkTopology;
     private final InternalNodeManager nodeManager;
@@ -107,7 +109,7 @@ public class TopologyAwareNodeSelectorFactory
         }
 
         this.placementCounters = placementCounters.build();
-        this.placementCountersByName = placementCountersByName.build();
+        this.placementCountersByName = placementCountersByName.buildOrThrow();
     }
 
     public Map<String, CounterStat> getPlacementCountersByName()
@@ -164,13 +166,27 @@ public class TopologyAwareNodeSelectorFactory
                 byHost.put(node.getInternalAddress(), node);
             }
             catch (UnknownHostException e) {
-                if (inaccessibleNodeLogCache.getIfPresent(node) == null) {
-                    inaccessibleNodeLogCache.put(node, true);
+                if (markInaccessibleNode(node)) {
                     LOG.warn(e, "Unable to resolve host name for node: %s", node);
                 }
             }
         }
 
         return new NodeMap(byHostAndPort.build(), byHost.build(), workersByNetworkPath.build(), coordinatorNodeIds);
+    }
+
+    /**
+     * Returns true if node has been marked as inaccessible, or false if it was known to be inaccessible.
+     */
+    private boolean markInaccessibleNode(InternalNode node)
+    {
+        Object marker = new Object();
+        try {
+            return inaccessibleNodeLogCache.get(node, () -> marker) == marker;
+        }
+        catch (ExecutionException e) {
+            // impossible
+            throw new RuntimeException(e);
+        }
     }
 }

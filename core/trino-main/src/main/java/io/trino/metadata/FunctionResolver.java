@@ -144,10 +144,9 @@ public class FunctionResolver
 
         List<String> expectedParameters = new ArrayList<>();
         for (FunctionMetadata function : allCandidates) {
-            expectedParameters.add(format("%s(%s) %s",
-                    name,
-                    Joiner.on(", ").join(function.getSignature().getArgumentTypes()),
-                    Joiner.on(", ").join(function.getSignature().getTypeVariableConstraints())));
+            String arguments = Joiner.on(", ").join(function.getSignature().getArgumentTypes());
+            String constraints = Joiner.on(", ").join(function.getSignature().getTypeVariableConstraints());
+            expectedParameters.add(format("%s(%s) %s", name, arguments, constraints).stripTrailing());
         }
 
         String parameters = Joiner.on(", ").join(parameterTypes);
@@ -282,7 +281,7 @@ public class FunctionResolver
     private List<ApplicableFunction> getUnknownOnlyCastFunctions(List<ApplicableFunction> applicableFunction, List<Type> actualParameters)
     {
         return applicableFunction.stream()
-                .filter((function) -> onlyCastsUnknown(function, actualParameters))
+                .filter(function -> onlyCastsUnknown(function, actualParameters))
                 .collect(toImmutableList());
     }
 

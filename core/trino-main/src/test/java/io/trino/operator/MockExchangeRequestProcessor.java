@@ -43,6 +43,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static io.trino.TrinoMediaTypes.TRINO_PAGES;
+import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.execution.buffer.PagesSerdeUtil.calculateChecksum;
 import static io.trino.execution.buffer.TestingPagesSerdeFactory.testingPagesSerde;
 import static io.trino.server.InternalHeaders.TRINO_BUFFER_COMPLETE;
@@ -60,7 +61,7 @@ public class MockExchangeRequestProcessor
     private static final String TASK_INSTANCE_ID = "task-instance-id";
     private static final PagesSerde PAGES_SERDE = testingPagesSerde();
 
-    private final LoadingCache<URI, MockBuffer> buffers = CacheBuilder.newBuilder().build(CacheLoader.from(MockBuffer::new));
+    private final LoadingCache<URI, MockBuffer> buffers = buildNonEvictableCache(CacheBuilder.newBuilder(), CacheLoader.from(MockBuffer::new));
 
     private final DataSize expectedMaxSize;
 

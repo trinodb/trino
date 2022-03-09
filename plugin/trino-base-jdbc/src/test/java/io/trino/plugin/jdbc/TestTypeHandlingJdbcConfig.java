@@ -35,9 +35,9 @@ public class TestTypeHandlingJdbcConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("unsupported-type-handling", "CONVERT_TO_VARCHAR")
-                .build();
+                .buildOrThrow();
 
         TypeHandlingJdbcConfig expected = new TypeHandlingJdbcConfig()
                 .setUnsupportedTypeHandling(UnsupportedTypeHandling.CONVERT_TO_VARCHAR);

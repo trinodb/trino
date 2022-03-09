@@ -87,7 +87,7 @@ public class TestJmxSplitManager
     private final JmxColumnHandle columnHandle = new JmxColumnHandle("node", createUnboundedVarcharType());
 
     private final JmxSplitManager splitManager = jmxConnector.getSplitManager();
-    private final JmxMetadata metadata = jmxConnector.getMetadata(new ConnectorTransactionHandle() {});
+    private final JmxMetadata metadata = jmxConnector.getMetadata(SESSION, new ConnectorTransactionHandle() {});
     private final JmxRecordSetProvider recordSetProvider = jmxConnector.getRecordSetProvider();
 
     @AfterClass(alwaysRun = true)

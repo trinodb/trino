@@ -35,6 +35,12 @@ import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 import static java.sql.JDBCType.VARCHAR;
 
+/**
+ * Tests interactions between Iceberg and Hive connectors, when one tries to read a table created by the other
+ * with redirects enabled.
+ *
+ * @see TestIcebergHiveTablesCompatibility
+ */
 public class TestIcebergRedirectionToHive
         extends ProductTest
 {
@@ -310,6 +316,38 @@ public class TestIcebergRedirectionToHive
     }
 
     @Test(groups = {HIVE_ICEBERG_REDIRECTIONS, PROFILE_SPECIFIC_TESTS})
+    public void testAlterTableRenameColumn()
+    {
+        String tableName = "hive_rename_column_" + randomTableSuffix();
+        String hiveTableName = "hive.default." + tableName;
+        String icebergTableName = "iceberg.default." + tableName;
+
+        createHiveTable(hiveTableName, false);
+
+        // TODO: support redirects from Iceberg to Hive
+        assertQueryFailure(() -> onTrino().executeQuery("ALTER TABLE " + icebergTableName + " RENAME COLUMN nationkey TO nation_key"))
+                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): Not an Iceberg table: default." + tableName);
+
+        onTrino().executeQuery("DROP TABLE " + hiveTableName);
+    }
+
+    @Test(groups = {HIVE_ICEBERG_REDIRECTIONS, PROFILE_SPECIFIC_TESTS})
+    public void testAlterTableDropColumn()
+    {
+        String tableName = "hive_alter_table_drop_column_" + randomTableSuffix();
+        String hiveTableName = "hive.default." + tableName;
+        String icebergTableName = "iceberg.default." + tableName;
+
+        createHiveTable(hiveTableName, false);
+
+        // TODO: support redirects from Iceberg to Hive
+        assertQueryFailure(() -> onTrino().executeQuery("ALTER TABLE " + icebergTableName + " DROP COLUMN comment"))
+                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): Not an Iceberg table: default." + tableName);
+
+        onTrino().executeQuery("DROP TABLE " + hiveTableName);
+    }
+
+    @Test(groups = {HIVE_ICEBERG_REDIRECTIONS, PROFILE_SPECIFIC_TESTS})
     public void testCommentTable()
     {
         String tableName = "hive_comment_table_" + randomTableSuffix();
@@ -329,6 +367,22 @@ public class TestIcebergRedirectionToHive
         assertTableComment("hive", "default", tableName).isNull();
         // TODO: support redirects from Iceberg to Hive
         assertThat(readTableComment("iceberg", "default", tableName)).hasNoRows();
+
+        onTrino().executeQuery("DROP TABLE " + hiveTableName);
+    }
+
+    @Test(groups = {HIVE_ICEBERG_REDIRECTIONS, PROFILE_SPECIFIC_TESTS})
+    public void testShowGrants()
+    {
+        String tableName = "hive_show_grants_" + randomTableSuffix();
+        String hiveTableName = "hive.default." + tableName;
+        String icebergTableName = "iceberg.default." + tableName;
+
+        createHiveTable(hiveTableName, true);
+
+        // TODO: support redirects from Iceberg to Hive
+        assertQueryFailure(() -> onTrino().executeQuery("SHOW GRANTS ON " + icebergTableName))
+                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): Not an Iceberg table: default." + tableName);
 
         onTrino().executeQuery("DROP TABLE " + hiveTableName);
     }

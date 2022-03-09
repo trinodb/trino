@@ -859,10 +859,10 @@ public class TestBackgroundHiveSplitLoader
     public void testBuildManifestFileIterator()
             throws Exception
     {
-        CachingDirectoryLister directoryLister = new CachingDirectoryLister(new Duration(5, TimeUnit.MINUTES), 1000, ImmutableList.of());
+        CachingDirectoryLister directoryLister = new CachingDirectoryLister(new Duration(0, TimeUnit.MINUTES), 0, ImmutableList.of());
         Properties schema = new Properties();
         schema.setProperty(FILE_INPUT_FORMAT, SymlinkTextInputFormat.class.getName());
-        schema.setProperty(SERIALIZATION_LIB, AVRO.getSerDe());
+        schema.setProperty(SERIALIZATION_LIB, AVRO.getSerde());
 
         Path firstFilePath = new Path("hdfs://VOL1:9000/db_name/table_name/file1");
         Path secondFilePath = new Path("hdfs://VOL1:9000/db_name/table_name/file2");
@@ -900,7 +900,7 @@ public class TestBackgroundHiveSplitLoader
         CachingDirectoryLister directoryLister = new CachingDirectoryLister(new Duration(5, TimeUnit.MINUTES), 1000, ImmutableList.of());
         Properties schema = new Properties();
         schema.setProperty(FILE_INPUT_FORMAT, SymlinkTextInputFormat.class.getName());
-        schema.setProperty(SERIALIZATION_LIB, AVRO.getSerDe());
+        schema.setProperty(SERIALIZATION_LIB, AVRO.getSerde());
 
         Path filePath = new Path("hdfs://VOL1:9000/db_name/table_name/file1");
         Path directoryPath = new Path("hdfs://VOL1:9000/db_name/table_name/dir");

@@ -250,7 +250,7 @@ public class TransformCorrelatedGlobalAggregationWithoutProjection
         globalAggregation = new AggregationNode(
                 globalAggregation.getId(),
                 root,
-                rewriteWithMasks(globalAggregation.getAggregations(), masks.build()),
+                rewriteWithMasks(globalAggregation.getAggregations(), masks.buildOrThrow()),
                 singleGroupingSet(ImmutableList.<Symbol>builder()
                         .addAll(join.getLeftOutputSymbols())
                         .addAll(globalAggregation.getGroupingKeys())

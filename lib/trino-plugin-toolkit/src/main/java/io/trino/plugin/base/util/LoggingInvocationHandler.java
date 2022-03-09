@@ -131,7 +131,7 @@ public class LoggingInvocationHandler
                         .map(ImmutableList::copyOf)
                         .ifPresent(names -> parameterNames.put(interfaceMethod, names));
             }
-            this.parameterNames = parameterNames.build();
+            this.parameterNames = parameterNames.buildOrThrow();
         }
 
         private static Optional<List<String>> tryGetParameterNamesForMethod(Method interfaceMethod, Class<?> implementationClass)

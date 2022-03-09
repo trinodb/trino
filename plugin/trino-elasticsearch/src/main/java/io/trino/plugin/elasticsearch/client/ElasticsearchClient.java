@@ -528,7 +528,7 @@ public class ElasticsearchClient
                         result.put(element.getKey(), ImmutableList.copyOf(aliasNames));
                     }
                 }
-                return result.build();
+                return result.buildOrThrow();
             }
             catch (IOException e) {
                 throw new TrinoException(ELASTICSEARCH_INVALID_RESPONSE, e);

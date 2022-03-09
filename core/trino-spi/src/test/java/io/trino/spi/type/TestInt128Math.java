@@ -176,7 +176,7 @@ public class TestInt128Math
     @Test
     public void testRescaleOverflows()
     {
-        assertRescaleOverflows(Int128.valueOf(1), 38);
+        assertRescaleOverflows(Int128.valueOf(1), 39);
     }
 
     @Test

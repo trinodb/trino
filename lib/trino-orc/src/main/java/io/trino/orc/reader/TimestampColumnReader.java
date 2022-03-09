@@ -125,15 +125,15 @@ public class TimestampColumnReader
 
     private boolean rowGroupOpen;
 
-    private final LocalMemoryContext systemMemoryContext;
+    private final LocalMemoryContext memoryContext;
 
-    public TimestampColumnReader(Type type, OrcColumn column, LocalMemoryContext systemMemoryContext)
+    public TimestampColumnReader(Type type, OrcColumn column, LocalMemoryContext memoryContext)
             throws OrcCorruptionException
     {
         this.type = requireNonNull(type, "type is null");
         this.column = requireNonNull(column, "column is null");
         this.timestampKind = getTimestampKind(type, column);
-        this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
+        this.memoryContext = requireNonNull(memoryContext, "memoryContext is null");
     }
 
     private static TimestampKind getTimestampKind(Type type, OrcColumn column)
@@ -332,7 +332,7 @@ public class TimestampColumnReader
     @Override
     public void close()
     {
-        systemMemoryContext.close();
+        memoryContext.close();
     }
 
     @Override

@@ -18,7 +18,10 @@ import io.trino.spi.predicate.Utils;
 import io.trino.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
+import javax.annotation.Nullable;
+
 import java.util.List;
+import java.util.OptionalInt;
 import java.util.function.BiConsumer;
 
 import static io.trino.spi.block.BlockUtil.checkArrayRange;
@@ -81,6 +84,12 @@ public class RunLengthEncodedBlock
     public int getPositionCount()
     {
         return positionCount;
+    }
+
+    @Override
+    public OptionalInt fixedSizeInBytesPerPosition()
+    {
+        return OptionalInt.empty(); // size does not vary per position selected
     }
 
     @Override
@@ -154,7 +163,7 @@ public class RunLengthEncodedBlock
     }
 
     @Override
-    public long getPositionsSizeInBytes(boolean[] positions)
+    public long getPositionsSizeInBytes(@Nullable boolean[] positions, int selectedPositionCount)
     {
         return value.getSizeInBytes();
     }
@@ -234,13 +243,6 @@ public class RunLengthEncodedBlock
     {
         checkReadablePosition(position);
         value.writeBytesTo(0, offset, length, blockBuilder);
-    }
-
-    @Override
-    public void writePositionTo(int position, BlockBuilder blockBuilder)
-    {
-        checkReadablePosition(position);
-        value.writePositionTo(0, blockBuilder);
     }
 
     @Override

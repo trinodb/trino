@@ -51,7 +51,7 @@ public class TestDynamicFilterConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("enable-dynamic-filtering", "false")
                 .put("enable-coordinator-dynamic-filters-distribution", "false")
                 .put("enable-large-dynamic-filters", "true")
@@ -68,7 +68,7 @@ public class TestDynamicFilterConfig
                 .put("dynamic-filtering.large-partitioned.max-distinct-values-per-driver", "256")
                 .put("dynamic-filtering.large-partitioned.max-size-per-driver", "64kB")
                 .put("dynamic-filtering.large-partitioned.range-row-limit-per-driver", "100000")
-                .build();
+                .buildOrThrow();
 
         DynamicFilterConfig expected = new DynamicFilterConfig()
                 .setEnableDynamicFiltering(false)

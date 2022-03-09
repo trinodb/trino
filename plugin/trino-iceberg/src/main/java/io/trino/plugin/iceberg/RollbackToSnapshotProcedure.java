@@ -55,16 +55,16 @@ public class RollbackToSnapshotProcedure
                 "system",
                 "rollback_to_snapshot",
                 ImmutableList.of(
-                        new Procedure.Argument("schema", VARCHAR),
-                        new Procedure.Argument("table", VARCHAR),
-                        new Procedure.Argument("snapshot_id", BIGINT)),
+                        new Procedure.Argument("SCHEMA", VARCHAR),
+                        new Procedure.Argument("TABLE", VARCHAR),
+                        new Procedure.Argument("SNAPSHOT_ID", BIGINT)),
                 ROLLBACK_TO_SNAPSHOT.bindTo(this));
     }
 
     public void rollbackToSnapshot(ConnectorSession clientSession, String schema, String table, Long snapshotId)
     {
         SchemaTableName schemaTableName = new SchemaTableName(schema, table);
-        Table icebergTable = catalogFactory.create().loadTable(clientSession, schemaTableName);
+        Table icebergTable = catalogFactory.create(clientSession.getIdentity()).loadTable(clientSession, schemaTableName);
         icebergTable.rollback().toSnapshotId(snapshotId).commit();
     }
 }

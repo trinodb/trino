@@ -64,7 +64,7 @@ public class TestThriftMetastoreConfig
         Path keystoreFile = Files.createTempFile(null, null);
         Path truststoreFile = Files.createTempFile(null, null);
 
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("hive.metastore-timeout", "20s")
                 .put("hive.metastore.thrift.client.socks-proxy", "localhost:1234")
                 .put("hive.metastore.thrift.client.max-retries", "15")
@@ -83,7 +83,7 @@ public class TestThriftMetastoreConfig
                 .put("hive.metastore.thrift.delete-files-on-drop", "true")
                 .put("hive.metastore.thrift.txn-lock-max-wait", "5m")
                 .put("hive.metastore.thrift.assume-canonical-partition-keys", "true")
-                .build();
+                .buildOrThrow();
 
         ThriftMetastoreConfig expected = new ThriftMetastoreConfig()
                 .setMetastoreTimeout(new Duration(20, SECONDS))

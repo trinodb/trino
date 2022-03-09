@@ -2,6 +2,20 @@
 Release notes
 *************
 
+.. _releases_2022:
+
+2022
+====
+
+.. toctree::
+    :maxdepth: 1
+
+    release/release-372
+    release/release-371
+    release/release-370
+    release/release-369
+    release/release-368
+
 .. _releases_2021:
 
 2021

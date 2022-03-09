@@ -22,7 +22,6 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
-import io.trino.spi.connector.ConnectorHandleResolver;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorPageSource;
@@ -38,7 +37,6 @@ import io.trino.spi.transaction.IsolationLevel;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
-import io.trino.testing.TestingHandleResolver;
 import io.trino.testing.TestingMetadata;
 import io.trino.testing.TestingPageSinkProvider;
 import io.trino.testing.TestingSplitManager;
@@ -166,12 +164,6 @@ public class TestBeginQuery
                 }
 
                 @Override
-                public ConnectorHandleResolver getHandleResolver()
-                {
-                    return new TestingHandleResolver();
-                }
-
-                @Override
                 public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
                 {
                     return new TestConnector(metadata);
@@ -197,7 +189,7 @@ public class TestBeginQuery
         }
 
         @Override
-        public ConnectorMetadata getMetadata(ConnectorTransactionHandle transactionHandle)
+        public ConnectorMetadata getMetadata(ConnectorSession session, ConnectorTransactionHandle transactionHandle)
         {
             return metadata;
         }

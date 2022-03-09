@@ -61,7 +61,6 @@ public class TaskStatus
     private final boolean outputBufferOverutilized;
     private final DataSize physicalWrittenDataSize;
     private final DataSize memoryReservation;
-    private final DataSize systemMemoryReservation;
     private final DataSize revocableMemoryReservation;
 
     private final long fullGcCount;
@@ -86,7 +85,6 @@ public class TaskStatus
             @JsonProperty("outputBufferOverutilized") boolean outputBufferOverutilized,
             @JsonProperty("physicalWrittenDataSize") DataSize physicalWrittenDataSize,
             @JsonProperty("memoryReservation") DataSize memoryReservation,
-            @JsonProperty("systemMemoryReservation") DataSize systemMemoryReservation,
             @JsonProperty("revocableMemoryReservation") DataSize revocableMemoryReservation,
             @JsonProperty("fullGcCount") long fullGcCount,
             @JsonProperty("fullGcTime") Duration fullGcTime,
@@ -119,7 +117,6 @@ public class TaskStatus
         this.physicalWrittenDataSize = requireNonNull(physicalWrittenDataSize, "physicalWrittenDataSize is null");
 
         this.memoryReservation = requireNonNull(memoryReservation, "memoryReservation is null");
-        this.systemMemoryReservation = requireNonNull(systemMemoryReservation, "systemMemoryReservation is null");
         this.revocableMemoryReservation = requireNonNull(revocableMemoryReservation, "revocableMemoryReservation is null");
         this.failures = ImmutableList.copyOf(requireNonNull(failures, "failures is null"));
 
@@ -209,12 +206,6 @@ public class TaskStatus
     }
 
     @JsonProperty
-    public DataSize getSystemMemoryReservation()
-    {
-        return systemMemoryReservation;
-    }
-
-    @JsonProperty
     public DataSize getRevocableMemoryReservation()
     {
         return revocableMemoryReservation;
@@ -276,7 +267,6 @@ public class TaskStatus
                 DataSize.ofBytes(0),
                 DataSize.ofBytes(0),
                 DataSize.ofBytes(0),
-                DataSize.ofBytes(0),
                 0,
                 new Duration(0, MILLISECONDS),
                 INITIAL_DYNAMIC_FILTERS_VERSION,
@@ -300,7 +290,6 @@ public class TaskStatus
                 taskStatus.isOutputBufferOverutilized(),
                 taskStatus.getPhysicalWrittenDataSize(),
                 taskStatus.getMemoryReservation(),
-                taskStatus.getSystemMemoryReservation(),
                 taskStatus.getRevocableMemoryReservation(),
                 taskStatus.getFullGcCount(),
                 taskStatus.getFullGcTime(),

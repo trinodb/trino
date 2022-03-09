@@ -24,7 +24,7 @@ import com.google.errorprone.annotations.FormatMethod;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.execution.ScheduledSplit;
-import io.trino.execution.TaskSource;
+import io.trino.execution.SplitAssignment;
 import io.trino.metadata.Split;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
@@ -75,11 +75,11 @@ public class Driver
     private final Optional<DeleteOperator> deleteOperator;
     private final Optional<UpdateOperator> updateOperator;
 
-    // This variable acts as a staging area. When new splits (encapsulated in TaskSource) are
+    // This variable acts as a staging area. When new splits (encapsulated in SplitAssignment) are
     // provided to a Driver, the Driver will not process them right away. Instead, the splits are
     // added to this staging area. This staging area will be drained asynchronously. That's when
     // the new splits get processed.
-    private final AtomicReference<TaskSource> pendingTaskSourceUpdates = new AtomicReference<>();
+    private final AtomicReference<SplitAssignment> pendingSplitAssignmentUpdates = new AtomicReference<>();
     private final Map<Operator, ListenableFuture<Void>> revokingOperators = new HashMap<>();
 
     private final AtomicReference<State> state = new AtomicReference<>(State.ALIVE);
@@ -87,7 +87,7 @@ public class Driver
     private final DriverLock exclusiveLock = new DriverLock();
 
     @GuardedBy("exclusiveLock")
-    private TaskSource currentTaskSource;
+    private SplitAssignment currentSplitAssignment;
 
     private final AtomicReference<SettableFuture<Void>> driverBlockedFuture = new AtomicReference<>();
 
@@ -147,7 +147,7 @@ public class Driver
         this.deleteOperator = deleteOperator;
         this.updateOperator = updateOperator;
 
-        currentTaskSource = sourceOperator.map(operator -> new TaskSource(operator.getSourceId(), ImmutableSet.of(), false)).orElse(null);
+        currentSplitAssignment = sourceOperator.map(operator -> new SplitAssignment(operator.getSourceId(), ImmutableSet.of(), false)).orElse(null);
         // initially the driverBlockedFuture is not blocked (it is completed)
         SettableFuture<Void> future = SettableFuture.create();
         future.set(null);
@@ -185,7 +185,7 @@ public class Driver
         exclusiveLock.interruptCurrentOwner();
 
         // if we can get the lock, attempt a clean shutdown; otherwise someone else will shutdown
-        tryWithLock(() -> TRUE);
+        tryWithLockUninterruptibly(() -> TRUE);
     }
 
     public boolean isFinished()
@@ -193,7 +193,7 @@ public class Driver
         checkLockNotHeld("Cannot check finished status while holding the driver lock");
 
         // if we can get the lock, attempt a clean shutdown; otherwise someone else will shutdown
-        Optional<Boolean> result = tryWithLock(this::isFinishedInternal);
+        Optional<Boolean> result = tryWithLockUninterruptibly(this::isFinishedInternal);
         return result.orElseGet(() -> state.get() != State.ALIVE || driverContext.isDone());
     }
 
@@ -209,19 +209,19 @@ public class Driver
         return finished;
     }
 
-    public void updateSource(TaskSource sourceUpdate)
+    public void updateSplitAssignment(SplitAssignment splitAssignment)
     {
-        checkLockNotHeld("Cannot update sources while holding the driver lock");
+        checkLockNotHeld("Cannot update assignments while holding the driver lock");
         checkArgument(
-                sourceOperator.isPresent() && sourceOperator.get().getSourceId().equals(sourceUpdate.getPlanNodeId()),
-                "sourceUpdate is for a plan node that is different from this Driver's source node");
+                sourceOperator.isPresent() && sourceOperator.get().getSourceId().equals(splitAssignment.getPlanNodeId()),
+                "splitAssignment is for a plan node that is different from this Driver's source node");
 
         // stage the new updates
-        pendingTaskSourceUpdates.updateAndGet(current -> current == null ? sourceUpdate : current.update(sourceUpdate));
+        pendingSplitAssignmentUpdates.updateAndGet(current -> current == null ? splitAssignment : current.update(splitAssignment));
 
         // attempt to get the lock and process the updates we staged above
         // updates will be processed in close if and only if we got the lock
-        tryWithLock(() -> TRUE);
+        tryWithLockUninterruptibly(() -> TRUE);
     }
 
     @GuardedBy("exclusiveLock")
@@ -234,21 +234,21 @@ public class Driver
             return;
         }
 
-        TaskSource sourceUpdate = pendingTaskSourceUpdates.getAndSet(null);
-        if (sourceUpdate == null) {
+        SplitAssignment splitAssignment = pendingSplitAssignmentUpdates.getAndSet(null);
+        if (splitAssignment == null) {
             return;
         }
 
-        // merge the current source and the specified source update
-        TaskSource newSource = currentTaskSource.update(sourceUpdate);
+        // merge the current assignment and the specified assignment
+        SplitAssignment newAssignment = currentSplitAssignment.update(splitAssignment);
 
         // if the update contains no new data, just return
-        if (newSource == currentTaskSource) {
+        if (newAssignment == currentSplitAssignment) {
             return;
         }
 
         // determine new splits to add
-        Set<ScheduledSplit> newSplits = Sets.difference(newSource.getSplits(), currentTaskSource.getSplits());
+        Set<ScheduledSplit> newSplits = Sets.difference(newAssignment.getSplits(), currentSplitAssignment.getSplits());
 
         // add new splits
         SourceOperator sourceOperator = this.sourceOperator.orElseThrow(VerifyException::new);
@@ -261,11 +261,11 @@ public class Driver
         }
 
         // set no more splits
-        if (newSource.isNoMoreSplits()) {
+        if (newAssignment.isNoMoreSplits()) {
             sourceOperator.noMoreSplits();
         }
 
-        currentTaskSource = newSource;
+        currentSplitAssignment = newAssignment;
     }
 
     public ListenableFuture<Void> processFor(Duration duration)
@@ -282,7 +282,7 @@ public class Driver
 
         long maxRuntime = duration.roundTo(TimeUnit.NANOSECONDS);
 
-        Optional<ListenableFuture<Void>> result = tryWithLock(100, TimeUnit.MILLISECONDS, () -> {
+        Optional<ListenableFuture<Void>> result = tryWithLock(100, TimeUnit.MILLISECONDS, true, () -> {
             OperationTimer operationTimer = createTimer();
             driverContext.startProcessTimer();
             driverContext.getYieldSignal().setWithDelay(maxRuntime, driverContext.getYieldExecutor());
@@ -315,7 +315,7 @@ public class Driver
             return blockedFuture;
         }
 
-        Optional<ListenableFuture<Void>> result = tryWithLock(100, TimeUnit.MILLISECONDS, () -> {
+        Optional<ListenableFuture<Void>> result = tryWithLock(100, TimeUnit.MILLISECONDS, true, () -> {
             ListenableFuture<Void> future = processInternal(createTimer());
             return updateDriverBlockedFuture(future);
         });
@@ -519,9 +519,6 @@ public class Driver
             if (driverContext.getMemoryUsage() > 0) {
                 log.error("Driver still has memory reserved after freeing all operator memory.");
             }
-            if (driverContext.getSystemMemoryUsage() > 0) {
-                log.error("Driver still has system memory reserved after freeing all operator memory.");
-            }
             if (driverContext.getRevocableMemoryUsage() > 0) {
                 log.error("Driver still has revocable memory reserved after freeing all operator memory. Freeing it.");
             }
@@ -657,20 +654,31 @@ public class Driver
         return result;
     }
 
-    // Note: task cannot return null
-    private <T> Optional<T> tryWithLock(Supplier<T> task)
+    /**
+     * Try to acquire the {@code exclusiveLock} immediately and run a {@code task}
+     * The task will not be interrupted if the {@code Driver} is closed.
+     * <p>
+     * Note: task cannot return null
+     */
+    private <T> Optional<T> tryWithLockUninterruptibly(Supplier<T> task)
     {
-        return tryWithLock(0, TimeUnit.MILLISECONDS, task);
+        return tryWithLock(0, TimeUnit.MILLISECONDS, false, task);
     }
 
-    // Note: task cannot return null
-    private <T> Optional<T> tryWithLock(long timeout, TimeUnit unit, Supplier<T> task)
+    /**
+     * Try to acquire the {@code exclusiveLock} with {@code timeout} and run a {@code task}.
+     * If the {@code interruptOnClose} flag is set to {@code true} the {@code task} will be
+     * interrupted if the {@code Driver} is closed.
+     * <p>
+     * Note: task cannot return null
+     */
+    private <T> Optional<T> tryWithLock(long timeout, TimeUnit unit, boolean interruptOnClose, Supplier<T> task)
     {
         checkLockNotHeld("Lock cannot be reacquired");
 
         boolean acquired = false;
         try {
-            acquired = exclusiveLock.tryLock(timeout, unit);
+            acquired = exclusiveLock.tryLock(timeout, unit, interruptOnClose);
         }
         catch (InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -698,13 +706,13 @@ public class Driver
             }
         }
 
-        // If there are more source updates available, attempt to reacquire the lock and process them.
-        // This can happen if new sources are added while we're holding the lock here doing work.
+        // If there are more assignment updates available, attempt to reacquire the lock and process them.
+        // This can happen if new assignments are added while we're holding the lock here doing work.
         // NOTE: this is separate duplicate code to make debugging lock reacquisition easier
         // The first condition is for processing the pending updates if this driver is still ALIVE
         // The second condition is to destroy the driver if the state is NEED_DESTRUCTION
-        while (((pendingTaskSourceUpdates.get() != null && state.get() == State.ALIVE) || state.get() == State.NEED_DESTRUCTION)
-                && exclusiveLock.tryLock()) {
+        while (((pendingSplitAssignmentUpdates.get() != null && state.get() == State.ALIVE) || state.get() == State.NEED_DESTRUCTION)
+                && exclusiveLock.tryLock(interruptOnClose)) {
             try {
                 try {
                     processNewSources();
@@ -727,6 +735,8 @@ public class Driver
 
         @GuardedBy("this")
         private Thread currentOwner;
+        @GuardedBy("this")
+        private boolean currentOwnerInterruptionAllowed;
 
         @GuardedBy("this")
         private List<StackTraceElement> interrupterStack;
@@ -736,31 +746,32 @@ public class Driver
             return lock.isHeldByCurrentThread();
         }
 
-        public boolean tryLock()
+        public boolean tryLock(boolean currentThreadInterruptionAllowed)
         {
             checkState(!lock.isHeldByCurrentThread(), "Lock is not reentrant");
             boolean acquired = lock.tryLock();
             if (acquired) {
-                setOwner();
+                setOwner(currentThreadInterruptionAllowed);
             }
             return acquired;
         }
 
-        public boolean tryLock(long timeout, TimeUnit unit)
+        public boolean tryLock(long timeout, TimeUnit unit, boolean currentThreadInterruptionAllowed)
                 throws InterruptedException
         {
             checkState(!lock.isHeldByCurrentThread(), "Lock is not reentrant");
             boolean acquired = lock.tryLock(timeout, unit);
             if (acquired) {
-                setOwner();
+                setOwner(currentThreadInterruptionAllowed);
             }
             return acquired;
         }
 
-        private synchronized void setOwner()
+        private synchronized void setOwner(boolean interruptionAllowed)
         {
             checkState(lock.isHeldByCurrentThread(), "Current thread does not hold lock");
             currentOwner = Thread.currentThread();
+            currentOwnerInterruptionAllowed = interruptionAllowed;
             // NOTE: We do not use interrupted stack information to know that another
             // thread has attempted to interrupt the driver, and interrupt this new lock
             // owner.  The interrupted stack information is for debugging purposes only.
@@ -772,6 +783,7 @@ public class Driver
         {
             checkState(lock.isHeldByCurrentThread(), "Current thread does not hold lock");
             currentOwner = null;
+            currentOwnerInterruptionAllowed = false;
             lock.unlock();
         }
 
@@ -782,6 +794,9 @@ public class Driver
 
         public synchronized void interruptCurrentOwner()
         {
+            if (!currentOwnerInterruptionAllowed) {
+                return;
+            }
             // there is a benign race condition here were the lock holder
             // can be change between attempting to get lock and grabbing
             // the synchronized lock here, but in either case we want to

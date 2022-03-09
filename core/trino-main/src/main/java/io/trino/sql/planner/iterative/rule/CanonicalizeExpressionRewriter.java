@@ -23,6 +23,7 @@ import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.FunctionCallBuilder;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
@@ -39,7 +40,6 @@ import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.IfExpression;
 import io.trino.sql.tree.IsNotNullPredicate;
 import io.trino.sql.tree.IsNullPredicate;
-import io.trino.sql.tree.Literal;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.NotExpression;
 import io.trino.sql.tree.NullLiteral;
@@ -57,6 +57,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.metadata.ResolvedFunction.extractFunctionName;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.sql.ExpressionUtils.isEffectivelyLiteral;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.tree.ArithmeticBinaryExpression.Operator.ADD;
 import static io.trino.sql.tree.ArithmeticBinaryExpression.Operator.MULTIPLY;
@@ -64,16 +65,16 @@ import static java.util.Objects.requireNonNull;
 
 public final class CanonicalizeExpressionRewriter
 {
-    public static Expression canonicalizeExpression(Expression expression, Map<NodeRef<Expression>, Type> expressionTypes, Metadata metadata, Session session)
+    public static Expression canonicalizeExpression(Expression expression, Map<NodeRef<Expression>, Type> expressionTypes, PlannerContext plannerContext, Session session)
     {
-        return ExpressionTreeRewriter.rewriteWith(new Visitor(session, metadata, expressionTypes), expression);
+        return ExpressionTreeRewriter.rewriteWith(new Visitor(session, plannerContext, expressionTypes), expression);
     }
 
     private CanonicalizeExpressionRewriter() {}
 
-    public static Expression rewrite(Expression expression, Session session, Metadata metadata, TypeAnalyzer typeAnalyzer, TypeProvider types)
+    public static Expression rewrite(Expression expression, Session session, PlannerContext plannerContext, TypeAnalyzer typeAnalyzer, TypeProvider types)
     {
-        requireNonNull(metadata, "metadata is null");
+        requireNonNull(plannerContext, "plannerContext is null");
         requireNonNull(typeAnalyzer, "typeAnalyzer is null");
 
         if (expression instanceof SymbolReference) {
@@ -81,20 +82,22 @@ public final class CanonicalizeExpressionRewriter
         }
         Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(session, types, expression);
 
-        return ExpressionTreeRewriter.rewriteWith(new Visitor(session, metadata, expressionTypes), expression);
+        return ExpressionTreeRewriter.rewriteWith(new Visitor(session, plannerContext, expressionTypes), expression);
     }
 
     private static class Visitor
             extends ExpressionRewriter<Void>
     {
         private final Session session;
+        private final PlannerContext plannerContext;
         private final Metadata metadata;
         private final Map<NodeRef<Expression>, Type> expressionTypes;
 
-        public Visitor(Session session, Metadata metadata, Map<NodeRef<Expression>, Type> expressionTypes)
+        public Visitor(Session session, PlannerContext plannerContext, Map<NodeRef<Expression>, Type> expressionTypes)
         {
             this.session = session;
-            this.metadata = metadata;
+            this.plannerContext = plannerContext;
+            this.metadata = plannerContext.getMetadata();
             this.expressionTypes = expressionTypes;
         }
 
@@ -137,7 +140,7 @@ public final class CanonicalizeExpressionRewriter
             Expression condition = treeRewriter.rewrite(node.getCondition(), context);
             Expression trueValue = treeRewriter.rewrite(node.getTrueValue(), context);
 
-            Optional<Expression> falseValue = node.getFalseValue().map((value) -> treeRewriter.rewrite(value, context));
+            Optional<Expression> falseValue = node.getFalseValue().map(value -> treeRewriter.rewrite(value, context));
 
             return new SearchedCaseExpression(ImmutableList.of(new WhenClause(condition, trueValue)), falseValue);
         }
@@ -291,20 +294,16 @@ public final class CanonicalizeExpressionRewriter
                     .addArgument(RowType.anonymous(argumentTypes.subList(1, arguments.size())), new Row(arguments.subList(1, arguments.size())))
                     .build();
         }
-    }
 
-    private static boolean isConstant(Expression expression)
-    {
-        // Current IR has no way to represent typed constants. It encodes simple ones as Cast(Literal)
-        // This is the simplest possible check that
-        //   1) doesn't require ExpressionInterpreter.optimize(), which is not cheap
-        //   2) doesn't try to duplicate all the logic in LiteralEncoder
-        //   3) covers a sufficient portion of the use cases that occur in practice
-        // TODO: this should eventually be removed when IR includes types
-        if (expression instanceof Cast && ((Cast) expression).getExpression() instanceof Literal) {
-            return true;
+        private boolean isConstant(Expression expression)
+        {
+            // Current IR has no way to represent typed constants. It encodes simple ones as Cast(Literal)
+            // This is the simplest possible check that
+            //   1) doesn't require ExpressionInterpreter.optimize(), which is not cheap
+            //   2) doesn't try to duplicate all the logic in LiteralEncoder
+            //   3) covers a sufficient portion of the use cases that occur in practice
+            // TODO: this should eventually be removed when IR includes types
+            return isEffectivelyLiteral(plannerContext, session, expression);
         }
-
-        return expression instanceof Literal;
     }
 }

@@ -233,14 +233,16 @@ public final class MapTransformValuesFunction
                                         "Close builder before throwing to avoid subsequent calls finding it in an inconsistent state if we are in a TRY() call.",
                                         transformedValueElement.set(function.invoke("apply", Object.class, keyElement.cast(Object.class), valueElement.cast(Object.class))
                                                 .cast(transformedValueJavaType)),
-                                        new BytecodeBlock()
-                                                .append(mapBlockBuilder.invoke("closeEntry", BlockBuilder.class).pop())
-                                                .append(pageBuilder.invoke("declarePosition", void.class))
-                                                .putVariable(transformationException)
-                                                .append(invokeStatic(Throwables.class, "throwIfUnchecked", void.class, transformationException))
-                                                .append(newInstance(RuntimeException.class, transformationException))
-                                                .throwObject(),
-                                        type(Throwable.class)))
+                                        ImmutableList.of(
+                                                new TryCatch.CatchBlock(
+                                                        new BytecodeBlock()
+                                                                .append(mapBlockBuilder.invoke("closeEntry", BlockBuilder.class).pop())
+                                                                .append(pageBuilder.invoke("declarePosition", void.class))
+                                                                .putVariable(transformationException)
+                                                                .append(invokeStatic(Throwables.class, "throwIfUnchecked", void.class, transformationException))
+                                                                .append(newInstance(RuntimeException.class, transformationException))
+                                                                .throwObject(),
+                                                        ImmutableList.of(type(Throwable.class))))))
                         .append(keySqlType.invoke("appendTo", void.class, block, position, blockBuilder))
                         .append(writeTransformedValueElement)));
 

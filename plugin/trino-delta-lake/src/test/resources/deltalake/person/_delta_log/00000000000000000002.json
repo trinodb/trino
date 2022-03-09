@@ -1,0 +1,2 @@
+{"commitInfo":{"timestamp":1579266295677,"operation":"WRITE","operationParameters":{"mode":"Append","partitionBy":"[\"age\"]"},"readVersion":1,"isBlindAppend":true}}
+{"add":{"path":"age=42/part-00000-5488e09a-9998-4662-b5f4-e86e75cf68c6.c000.snappy.parquet","partitionValues":{"age":"42"},"size":2569,"modificationTime":1579266295000,"dataChange":true}}

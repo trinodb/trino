@@ -30,6 +30,7 @@ import java.util.concurrent.Future;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
+import static io.trino.execution.buffer.BufferState.FINISHED;
 import static io.trino.execution.buffer.TestingPagesSerdeFactory.testingPagesSerde;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -229,7 +230,7 @@ public final class BufferTestUtils
 
     static void assertFinished(OutputBuffer buffer)
     {
-        assertTrue(buffer.isFinished());
+        assertEquals(buffer.getState(), FINISHED);
         for (BufferInfo bufferInfo : buffer.getInfo().getBuffers()) {
             assertTrue(bufferInfo.isFinished());
             assertEquals(bufferInfo.getBufferedPages(), 0);

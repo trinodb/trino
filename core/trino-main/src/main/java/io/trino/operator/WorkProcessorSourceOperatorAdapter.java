@@ -78,8 +78,7 @@ public class WorkProcessorSourceOperatorAdapter
                         operatorContext.getSession(),
                         new MemoryTrackingContext(
                                 operatorContext.aggregateUserMemoryContext(),
-                                operatorContext.aggregateRevocableMemoryContext(),
-                                operatorContext.aggregateSystemMemoryContext()),
+                                operatorContext.aggregateRevocableMemoryContext()),
                         operatorContext.getDriverContext().getYieldSignal(),
                         WorkProcessor.create(splitBuffer));
         this.pages = sourceOperator.getOutputPages()

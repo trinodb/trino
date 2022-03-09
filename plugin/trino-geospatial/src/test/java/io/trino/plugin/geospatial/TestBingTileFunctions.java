@@ -25,6 +25,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
+import java.util.stream.Stream;
 
 import static com.google.common.io.Resources.getResource;
 import static io.trino.operator.scalar.ApplyFunction.APPLY_FUNCTION;
@@ -455,7 +456,10 @@ public class TestBingTileFunctions
 
         // Input polygon too complex
         String filePath = new File(getResource("too_large_polygon.txt").toURI()).getPath();
-        String largeWkt = Files.lines(Paths.get(filePath)).findFirst().get();
+        String largeWkt;
+        try (Stream<String> lines = Files.lines(Paths.get(filePath))) {
+            largeWkt = lines.findFirst().get();
+        }
         assertInvalidFunction("geometry_to_bing_tiles(ST_GeometryFromText('" + largeWkt + "'), 16)", "The zoom level is too high or the geometry is too complex to compute a set of covering Bing tiles. Please use a lower zoom level or convert the geometry to its bounding box using the ST_Envelope function.");
         assertFunction("cardinality(geometry_to_bing_tiles(ST_Envelope(ST_GeometryFromText('" + largeWkt + "')), 16))", BIGINT, 19939L);
 

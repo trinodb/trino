@@ -49,14 +49,15 @@ import io.trino.execution.TaskInfo;
 import io.trino.execution.buffer.PagesSerde;
 import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.memory.context.SimpleLocalMemoryContext;
-import io.trino.operator.ExchangeClient;
-import io.trino.operator.ExchangeClientSupplier;
+import io.trino.operator.DirectExchangeClient;
+import io.trino.operator.DirectExchangeClientSupplier;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.Page;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoWarning;
 import io.trino.spi.WarningCode;
 import io.trino.spi.block.BlockEncodingSerde;
+import io.trino.spi.exchange.ExchangeId;
 import io.trino.spi.security.SelectedRole;
 import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.Type;
@@ -130,7 +131,7 @@ class Query
     private final Optional<URI> queryInfoUrl;
 
     @GuardedBy("this")
-    private final ExchangeClient exchangeClient;
+    private final DirectExchangeClient exchangeClient;
 
     private final Executor resultsProcessorExecutor;
     private final ScheduledExecutorService timeoutExecutor;
@@ -194,12 +195,14 @@ class Query
             Slug slug,
             QueryManager queryManager,
             Optional<URI> queryInfoUrl,
-            ExchangeClientSupplier exchangeClientSupplier,
+            DirectExchangeClientSupplier directExchangeClientSupplier,
             Executor dataProcessorExecutor,
             ScheduledExecutorService timeoutExecutor,
             BlockEncodingSerde blockEncodingSerde)
     {
-        ExchangeClient exchangeClient = exchangeClientSupplier.get(
+        DirectExchangeClient exchangeClient = directExchangeClientSupplier.get(
+                session.getQueryId(),
+                new ExchangeId("direct-exchange-query-results"),
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), Query.class.getSimpleName()),
                 queryManager::outputTaskFailed,
                 getRetryPolicy(session));
@@ -223,7 +226,7 @@ class Query
             Slug slug,
             QueryManager queryManager,
             Optional<URI> queryInfoUrl,
-            ExchangeClient exchangeClient,
+            DirectExchangeClient exchangeClient,
             Executor resultsProcessorExecutor,
             ScheduledExecutorService timeoutExecutor,
             BlockEncodingSerde blockEncodingSerde)
@@ -447,6 +450,8 @@ class Query
         }
         else {
             nextToken = OptionalLong.empty();
+            // the client is not coming back, make sure the exchangeClient is closed
+            exchangeClient.close();
         }
 
         URI nextResultsUri = null;
@@ -531,6 +536,9 @@ class Query
                 Page page = serde.deserialize(context, serializedPage);
                 bytes += page.getLogicalSizeInBytes();
                 resultBuilder.addPage(page);
+            }
+            if (exchangeClient.isFinished()) {
+                exchangeClient.close();
             }
         }
         catch (Throwable cause) {

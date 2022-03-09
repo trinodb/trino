@@ -23,7 +23,7 @@ import org.testng.annotations.Test;
 
 import java.util.concurrent.TimeUnit;
 
-import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
+import static io.trino.spi.StandardErrorCode.INVALID_LITERAL;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
@@ -32,6 +32,7 @@ import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.joda.time.DateTimeZone.UTC;
@@ -260,8 +261,19 @@ public class TestDateTimeOperators
     public void testDateCastFromVarchar()
     {
         assertFunction("DATE '2013-02-02'", DATE, toDate(new DateTime(2013, 2, 2, 0, 0, 0, 0, UTC)));
-        assertInvalidFunction("DATE '5881580-07-12'", INVALID_CAST_ARGUMENT, "Value cannot be cast to date: 5881580-07-12");
-        assertInvalidFunction("DATE '392251590-07-12'", INVALID_CAST_ARGUMENT, "Value cannot be cast to date: 392251590-07-12");
+        assertInvalidFunction("DATE '5881580-07-12'", INVALID_LITERAL, "line 1:1: '5881580-07-12' is not a valid date literal");
+        assertInvalidFunction("DATE '392251590-07-12'", INVALID_LITERAL, "line 1:1: '392251590-07-12' is not a valid date literal");
+    }
+
+    @Test
+    public void testDateCastToVarchar()
+    {
+        assertFunction("cast(DATE '2013-02-02' AS varchar)", VARCHAR, "2013-02-02");
+        // according to the SQL standard, this literal is incorrect. The required format is 'YYYY-MM-DD'. https://github.com/trinodb/trino/issues/10677
+        assertFunction("cast(DATE '13-2-2' AS varchar)", VARCHAR, "0013-02-02");
+        assertFunction("cast(DATE '2013-02-02' AS varchar(50))", createVarcharType(50), "2013-02-02");
+        assertFunction("cast(DATE '2013-02-02' AS varchar(10))", createVarcharType(10), "2013-02-02");
+        assertInvalidCast("cast(DATE '2013-02-02' AS varchar(9))", "Value 2013-02-02 cannot be represented as varchar(9)");
     }
 
     private static SqlDate toDate(DateTime dateTime)

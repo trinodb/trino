@@ -44,12 +44,12 @@ public class TestMemoryManagerConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("query.low-memory-killer.policy", "none")
                 .put("query.low-memory-killer.delay", "20s")
                 .put("query.max-memory", "2GB")
                 .put("query.max-total-memory", "3GB")
-                .build();
+                .buildOrThrow();
 
         MemoryManagerConfig expected = new MemoryManagerConfig()
                 .setLowMemoryKillerPolicy(NONE)

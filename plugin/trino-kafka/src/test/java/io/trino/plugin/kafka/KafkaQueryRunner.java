@@ -119,8 +119,8 @@ public final class KafkaQueryRunner
             Map<SchemaTableName, KafkaTopicDescription> topicDescriptions = ImmutableMap.<SchemaTableName, KafkaTopicDescription>builder()
                     .putAll(extraTopicDescription)
                     .putAll(tpchTopicDescriptions)
-                    .putAll(testTopicDescriptions.build())
-                    .build();
+                    .putAll(testTopicDescriptions.buildOrThrow())
+                    .buildOrThrow();
             setExtension(combine(
                     extension,
                     conditionalModule(
@@ -196,7 +196,7 @@ public final class KafkaQueryRunner
 
             topicDescriptions.put(loadTpchTopicDescription(topicDescriptionJsonCodec, tpchTable.toString(), tpchTable));
         }
-        return topicDescriptions.build();
+        return topicDescriptions.buildOrThrow();
     }
 
     public static void main(String[] args)

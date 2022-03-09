@@ -391,7 +391,7 @@ public class PlanNodeDecorrelator
             if (nonConstantOrderBy.build().isEmpty()) {
                 return Optional.empty();
             }
-            return Optional.of(new OrderingScheme(nonConstantOrderBy.build(), nonConstantOrderings.build()));
+            return Optional.of(new OrderingScheme(nonConstantOrderBy.build(), nonConstantOrderings.buildOrThrow()));
         }
 
         @Override

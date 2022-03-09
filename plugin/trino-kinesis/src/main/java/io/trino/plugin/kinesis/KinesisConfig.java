@@ -15,6 +15,7 @@ package io.trino.plugin.kinesis;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.DefunctConfig;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 
@@ -24,6 +25,7 @@ import javax.validation.constraints.NotNull;
 
 import java.util.concurrent.TimeUnit;
 
+@DefunctConfig("kinesis.checkpoint-interval")
 public class KinesisConfig
 {
     private String defaultSchema = "default";
@@ -43,7 +45,6 @@ public class KinesisConfig
     private boolean checkpointEnabled;
     private long dynamoReadCapacity = 50L;
     private long dynamoWriteCapacity = 10L;
-    private Duration checkpointInterval = new Duration(60000, TimeUnit.MILLISECONDS);
     private String logicalProcessName = "process1";
     private int iteratorNumber;
 
@@ -274,19 +275,6 @@ public class KinesisConfig
     public KinesisConfig setDynamoWriteCapacity(long dynamoWriteCapacity)
     {
         this.dynamoWriteCapacity = dynamoWriteCapacity;
-        return this;
-    }
-
-    public Duration getCheckpointInterval()
-    {
-        return checkpointInterval;
-    }
-
-    @Config("kinesis.checkpoint-interval")
-    @ConfigDescription("Intervals at which to checkpoint shard iterator details")
-    public KinesisConfig setCheckpointInterval(Duration checkpointInterval)
-    {
-        this.checkpointInterval = checkpointInterval;
         return this;
     }
 

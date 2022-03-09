@@ -48,14 +48,14 @@ public class TestPrometheusConnectorConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("prometheus.uri", "file://test.json")
                 .put("prometheus.query.chunk.size.duration", "365d")
                 .put("prometheus.max.query.range.duration", "1095d")
                 .put("prometheus.cache.ttl", "60s")
                 .put("prometheus.bearer.token.file", "/tmp/bearer_token.txt")
                 .put("prometheus.read-timeout", "30s")
-                .build();
+                .buildOrThrow();
 
         URI uri = URI.create("file://test.json");
         PrometheusConnectorConfig expected = new PrometheusConnectorConfig();

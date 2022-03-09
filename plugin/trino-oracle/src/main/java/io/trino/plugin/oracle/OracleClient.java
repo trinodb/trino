@@ -25,7 +25,9 @@ import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcJoinCondition;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
+import io.trino.plugin.jdbc.LongReadFunction;
 import io.trino.plugin.jdbc.LongWriteFunction;
+import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.SliceWriteFunction;
 import io.trino.plugin.jdbc.WriteMapping;
 import io.trino.plugin.jdbc.mapping.IdentifierMapping;
@@ -44,6 +46,7 @@ import oracle.jdbc.OracleTypes;
 import javax.inject.Inject;
 
 import java.math.RoundingMode;
+import java.security.SecureRandom;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -60,6 +63,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
@@ -95,6 +99,7 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_SECONDS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
@@ -103,8 +108,10 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static java.lang.Character.MAX_RADIX;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
+import static java.lang.Math.abs;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
 import static java.lang.Math.max;
@@ -120,6 +127,10 @@ public class OracleClient
 {
     public static final int ORACLE_MAX_LIST_EXPRESSIONS = 1000;
 
+    // Oracle before 12.2 doesn't allow identifiers over 30 characters
+    private static final int ORACLE_MAX_IDENTIFIER_LENGTH = 30;
+    private static final SecureRandom RANDOM = new SecureRandom();
+
     private static final int MAX_BYTES_PER_CHAR = 4;
 
     private static final int ORACLE_VARCHAR2_MAX_BYTES = 4000;
@@ -131,7 +142,8 @@ public class OracleClient
     private static final int PRECISION_OF_UNSPECIFIED_NUMBER = 127;
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("uuuu-MM-dd");
-    private static final DateTimeFormatter TIMESTAMP_FORMATTER = DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss.SSS");
+    private static final DateTimeFormatter TIMESTAMP_SECONDS_FORMATTER = DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss");
+    private static final DateTimeFormatter TIMESTAMP_MILLIS_FORMATTER = DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss.SSS");
 
     private static final Set<String> INTERNAL_SCHEMAS = ImmutableSet.<String>builder()
             .add("ctxsys")
@@ -160,18 +172,19 @@ public class OracleClient
             .put(DOUBLE, WriteMapping.doubleMapping("binary_double", oracleDoubleWriteFunction()))
             .put(REAL, WriteMapping.longMapping("binary_float", oracleRealWriteFunction()))
             .put(VARBINARY, WriteMapping.sliceMapping("blob", varbinaryWriteFunction()))
-            .put(DATE, WriteMapping.longMapping("date", oracleDateWriteFunction()))
+            .put(DATE, WriteMapping.longMapping("date", trinoDateToOracleDateWriteFunction()))
             .put(TIMESTAMP_TZ_MILLIS, WriteMapping.longMapping("timestamp(3) with time zone", oracleTimestampWithTimeZoneWriteFunction()))
-            .build();
+            .buildOrThrow();
 
     @Inject
     public OracleClient(
             BaseJdbcConfig config,
             OracleConfig oracleConfig,
             ConnectionFactory connectionFactory,
+            QueryBuilder queryBuilder,
             IdentifierMapping identifierMapping)
     {
-        super(config, "\"", connectionFactory, identifierMapping);
+        super(config, "\"", connectionFactory, queryBuilder, identifierMapping);
 
         requireNonNull(oracleConfig, "oracleConfig is null");
         this.synonymsEnabled = oracleConfig.isSynonymsEnabled();
@@ -207,7 +220,8 @@ public class OracleClient
     @Override
     protected String generateTemporaryTableName()
     {
-        return "tmp_trino_" + System.nanoTime();
+        String tableName = "tmp_trino_" + System.nanoTime() + Long.toString(abs(RANDOM.nextLong()), MAX_RADIX);
+        return tableName.substring(0, min(ORACLE_MAX_IDENTIFIER_LENGTH, tableName.length()));
     }
 
     @Override
@@ -245,11 +259,28 @@ public class OracleClient
     }
 
     @Override
+    public void renameSchema(ConnectorSession session, String schemaName, String newSchemaName)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming schemas");
+    }
+
+    @Override
     public Optional<ColumnMapping> toColumnMapping(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
     {
+        String jdbcTypeName = typeHandle.getJdbcTypeName()
+                .orElseThrow(() -> new TrinoException(JDBC_ERROR, "Type name is missing: " + typeHandle));
+
         Optional<ColumnMapping> mappingToVarchar = getForcedMappingToVarchar(typeHandle);
         if (mappingToVarchar.isPresent()) {
             return mappingToVarchar;
+        }
+
+        if (jdbcTypeName.equalsIgnoreCase("date")) {
+            return Optional.of(ColumnMapping.longMapping(
+                    TIMESTAMP_SECONDS,
+                    oracleTimestampReadFunction(),
+                    trinoTimestampToOracleDateWriteFunction(),
+                    FULL_PUSHDOWN));
         }
 
         switch (typeHandle.getJdbcType()) {
@@ -343,9 +374,12 @@ public class OracleClient
                         varbinaryWriteFunction(),
                         DISABLE_PUSHDOWN));
 
-            // This mapping covers both DATE and TIMESTAMP, as Oracle's DATE has second precision.
             case OracleTypes.TIMESTAMP:
-                return Optional.of(oracleTimestampColumnMapping());
+                return Optional.of(ColumnMapping.longMapping(
+                        TIMESTAMP_MILLIS,
+                        oracleTimestampReadFunction(),
+                        trinoTimestampToOracleTimestampWriteFunction(),
+                        FULL_PUSHDOWN));
             case OracleTypes.TIMESTAMPTZ:
                 return Optional.of(oracleTimestampWithTimeZoneColumnMapping());
         }
@@ -356,12 +390,12 @@ public class OracleClient
     }
 
     @Override
-    protected boolean isSupportedJoinCondition(JdbcJoinCondition joinCondition)
+    protected boolean isSupportedJoinCondition(ConnectorSession session, JdbcJoinCondition joinCondition)
     {
         return joinCondition.getOperator() != JoinCondition.Operator.IS_DISTINCT_FROM;
     }
 
-    public static LongWriteFunction oracleDateWriteFunction()
+    public static LongWriteFunction trinoDateToOracleDateWriteFunction()
     {
         return new LongWriteFunction() {
             @Override
@@ -381,7 +415,30 @@ public class OracleClient
         };
     }
 
-    public static LongWriteFunction oracleTimestampWriteFunction()
+    private static LongWriteFunction trinoTimestampToOracleDateWriteFunction()
+    {
+        return new LongWriteFunction() {
+            @Override
+            public String getBindExpression()
+            {
+                // Oracle's DATE stores year, month, day, hour, minute, seconds, but not second fraction
+                return "TO_DATE(?, 'SYYYY-MM-DD HH24:MI:SS')";
+            }
+
+            @Override
+            public void set(PreparedStatement statement, int index, long value)
+                    throws SQLException
+            {
+                long epochSecond = floorDiv(value, MICROSECONDS_PER_SECOND);
+                int microsOfSecond = floorMod(value, MICROSECONDS_PER_SECOND);
+                verify(microsOfSecond == 0, "Micros of second must be zero: '%s'", value);
+                LocalDateTime localDateTime = LocalDateTime.ofEpochSecond(epochSecond, 0, ZoneOffset.UTC);
+                statement.setString(index, TIMESTAMP_SECONDS_FORMATTER.format(localDateTime));
+            }
+        };
+    }
+
+    public static LongWriteFunction trinoTimestampToOracleTimestampWriteFunction()
     {
         return new LongWriteFunction() {
             @Override
@@ -397,25 +454,21 @@ public class OracleClient
                 long epochSecond = floorDiv(utcMillis, MICROSECONDS_PER_SECOND);
                 int nanoFraction = floorMod(utcMillis, MICROSECONDS_PER_SECOND) * NANOSECONDS_PER_MICROSECOND;
                 LocalDateTime localDateTime = LocalDateTime.ofEpochSecond(epochSecond, nanoFraction, ZoneOffset.UTC);
-                statement.setString(index, TIMESTAMP_FORMATTER.format(localDateTime));
+                statement.setString(index, TIMESTAMP_MILLIS_FORMATTER.format(localDateTime));
             }
         };
     }
 
-    public static ColumnMapping oracleTimestampColumnMapping()
+    private static LongReadFunction oracleTimestampReadFunction()
     {
-        return ColumnMapping.longMapping(
-                TIMESTAMP_MILLIS,
-                (resultSet, columnIndex) -> {
-                    LocalDateTime timestamp = resultSet.getObject(columnIndex, LocalDateTime.class);
-                    // Adjust years when the value is B.C. dates because Oracle returns +1 year unless converting to string in their server side
-                    if (timestamp.getYear() <= 0) {
-                        timestamp = timestamp.minusYears(1);
-                    }
-                    return timestamp.toInstant(ZoneOffset.UTC).toEpochMilli() * MICROSECONDS_PER_MILLISECOND;
-                },
-                oracleTimestampWriteFunction(),
-                FULL_PUSHDOWN);
+        return (resultSet, columnIndex) -> {
+            LocalDateTime timestamp = resultSet.getObject(columnIndex, LocalDateTime.class);
+            // Adjust years when the value is B.C. dates because Oracle returns +1 year unless converting to string in their server side
+            if (timestamp.getYear() <= 0) {
+                timestamp = timestamp.minusYears(1);
+            }
+            return timestamp.toInstant(ZoneOffset.UTC).toEpochMilli() * MICROSECONDS_PER_MILLISECOND;
+        };
     }
 
     public static ColumnMapping oracleTimestampWithTimeZoneColumnMapping()
@@ -495,8 +548,13 @@ public class OracleClient
             }
             return WriteMapping.objectMapping(dataType, longDecimalWriteFunction((DecimalType) type));
         }
+        if (type.equals(TIMESTAMP_SECONDS)) {
+            // Specify 'date' instead of 'timestamp(0)' to propagate the type in case of CTAS from date columns
+            // Oracle date stores year, month, day, hour, minute, seconds, but not second fraction
+            return WriteMapping.longMapping("date", trinoTimestampToOracleDateWriteFunction());
+        }
         if (type.equals(TIMESTAMP_MILLIS)) {
-            return WriteMapping.longMapping("timestamp(3)", oracleTimestampWriteFunction());
+            return WriteMapping.longMapping("timestamp(3)", trinoTimestampToOracleTimestampWriteFunction());
         }
         WriteMapping writeMapping = WRITE_MAPPINGS.get(type);
         if (writeMapping != null) {

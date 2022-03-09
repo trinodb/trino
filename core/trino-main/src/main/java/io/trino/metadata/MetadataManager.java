@@ -1730,10 +1730,7 @@ public final class MetadataManager
 
         ConnectorSession connectorSession = session.toConnectorSession(catalogName);
         return metadata.applyFilter(connectorSession, table.getConnectorHandle(), constraint)
-                .map(result -> new ConstraintApplicationResult<>(
-                        new TableHandle(catalogName, result.getHandle(), table.getTransaction()),
-                        result.getRemainingFilter(),
-                        result.isPrecalculateStatistics()));
+                .map(result -> result.transform(handle -> new TableHandle(catalogName, handle, table.getTransaction())));
     }
 
     @Override

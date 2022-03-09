@@ -36,10 +36,10 @@ public class TestHdfsAuthenticationConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("hive.hdfs.authentication.type", "KERBEROS")
                 .put("hive.hdfs.impersonation.enabled", "true")
-                .build();
+                .buildOrThrow();
 
         HdfsAuthenticationConfig expected = new HdfsAuthenticationConfig()
                 .setHdfsAuthenticationType(HdfsAuthenticationType.KERBEROS)

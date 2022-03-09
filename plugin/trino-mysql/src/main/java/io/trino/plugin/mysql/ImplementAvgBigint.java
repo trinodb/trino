@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.mysql;
 
-import io.trino.plugin.jdbc.expression.BaseImplementAvgBigint;
+import io.trino.plugin.jdbc.aggregation.BaseImplementAvgBigint;
 
 public class ImplementAvgBigint
         extends BaseImplementAvgBigint

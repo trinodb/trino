@@ -31,6 +31,28 @@ connection properties as appropriate for your setup:
     connection-user=root
     connection-password=secret
 
+.. _redshift-tls:
+
+Connection security
+^^^^^^^^^^^^^^^^^^^
+
+If you have TLS configured with a globally-trusted certificate installed on your
+data source, you can enable TLS between your cluster and the data
+source by appending a parameter to the JDBC connection string set in the
+``connection-url`` catalog configuration property.
+
+For example, on version 2.1 of the Redshift JDBC driver, TLS/SSL is enabled by
+default with the ``SSL`` parameter. You can disable or further configure TLS
+by appending parameters to the ``connection-url`` configuration property:
+
+.. code-block:: properties
+
+  connection-url=jdbc:redshift://example.net:5439/database;SSL=TRUE;
+
+For more information on TLS configuration options, see the `Redshift JDBC driver
+documentation
+<https://docs.aws.amazon.com/redshift/latest/mgmt/jdbc20-configuration-options.html#jdbc20-ssl-option>`_.
+
 Multiple Redshift databases or clusters
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -98,11 +120,10 @@ statements, the connector supports the following features:
 * :doc:`/sql/insert`
 * :doc:`/sql/delete`
 * :doc:`/sql/truncate`
-* :doc:`/sql/create-table`
-* :doc:`/sql/create-table-as`
-* :doc:`/sql/drop-table`
-* :doc:`/sql/create-schema`
-* :doc:`/sql/drop-schema`
-* :doc:`/sql/comment`
+* :ref:`sql-schema-table-management`
 
 .. include:: sql-delete-limitation.fragment
+
+.. include:: alter-table-limitation.fragment
+
+.. include:: alter-schema-limitation.fragment

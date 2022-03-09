@@ -16,15 +16,15 @@ package io.trino.plugin.sqlserver;
 import com.google.common.base.Enums;
 import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
-import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.microsoft.sqlserver.jdbc.SQLServerException;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
-import io.trino.plugin.base.expression.AggregateFunctionRewriter;
-import io.trino.plugin.base.expression.AggregateFunctionRule;
+import io.trino.collect.cache.NonEvictableCache;
+import io.trino.plugin.base.aggregation.AggregateFunctionRewriter;
+import io.trino.plugin.base.aggregation.AggregateFunctionRule;
 import io.trino.plugin.jdbc.BaseJdbcClient;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ColumnMapping;
@@ -41,13 +41,14 @@ import io.trino.plugin.jdbc.LongReadFunction;
 import io.trino.plugin.jdbc.LongWriteFunction;
 import io.trino.plugin.jdbc.ObjectReadFunction;
 import io.trino.plugin.jdbc.ObjectWriteFunction;
+import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.RemoteTableName;
 import io.trino.plugin.jdbc.SliceWriteFunction;
 import io.trino.plugin.jdbc.WriteMapping;
-import io.trino.plugin.jdbc.expression.ImplementAvgDecimal;
-import io.trino.plugin.jdbc.expression.ImplementAvgFloatingPoint;
-import io.trino.plugin.jdbc.expression.ImplementMinMax;
-import io.trino.plugin.jdbc.expression.ImplementSum;
+import io.trino.plugin.jdbc.aggregation.ImplementAvgDecimal;
+import io.trino.plugin.jdbc.aggregation.ImplementAvgFloatingPoint;
+import io.trino.plugin.jdbc.aggregation.ImplementMinMax;
+import io.trino.plugin.jdbc.aggregation.ImplementSum;
 import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
@@ -97,6 +98,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.microsoft.sqlserver.jdbc.SQLServerConnection.TRANSACTION_SNAPSHOT;
 import static io.airlift.slice.Slices.wrappedBuffer;
+import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.trino.plugin.jdbc.PredicatePushdownController.DISABLE_PUSHDOWN;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
@@ -122,7 +124,6 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.smallintWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.timeReadFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.timestampColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.timestampWriteFunction;
-import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varcharReadFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
@@ -178,24 +179,24 @@ public class SqlServerClient
 
     public static final JdbcTypeHandle BIGINT_TYPE = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
 
-    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("uuuu-MM-dd");
 
     private static final Joiner DOT_JOINER = Joiner.on(".");
 
     private final boolean snapshotIsolationDisabled;
-    private final Cache<SnapshotIsolationEnabledCacheKey, Boolean> snapshotIsolationEnabled = CacheBuilder.newBuilder()
-            .maximumSize(1)
-            .expireAfterWrite(ofMinutes(5))
-            .build();
+    private final NonEvictableCache<SnapshotIsolationEnabledCacheKey, Boolean> snapshotIsolationEnabled = buildNonEvictableCache(
+            CacheBuilder.newBuilder()
+                    .maximumSize(1)
+                    .expireAfterWrite(ofMinutes(5)));
 
     private final AggregateFunctionRewriter<JdbcExpression> aggregateFunctionRewriter;
 
     private static final int MAX_SUPPORTED_TEMPORAL_PRECISION = 7;
 
     @Inject
-    public SqlServerClient(BaseJdbcConfig config, SqlServerConfig sqlServerConfig, ConnectionFactory connectionFactory, IdentifierMapping identifierMapping)
+    public SqlServerClient(BaseJdbcConfig config, SqlServerConfig sqlServerConfig, ConnectionFactory connectionFactory, QueryBuilder queryBuilder, IdentifierMapping identifierMapping)
     {
-        super(config, "\"", connectionFactory, identifierMapping);
+        super(config, "\"", connectionFactory, queryBuilder, identifierMapping);
 
         requireNonNull(sqlServerConfig, "sqlServerConfig is null");
         snapshotIsolationDisabled = sqlServerConfig.isSnapshotIsolationDisabled();
@@ -242,6 +243,12 @@ public class SqlServerClient
     }
 
     @Override
+    public void renameSchema(ConnectorSession session, String schemaName, String newSchemaName)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming schemas");
+    }
+
+    @Override
     protected void copyTableSchema(Connection connection, String catalogName, String schemaName, String tableName, String newTableName, List<String> columnNames)
     {
         String sql = format(
@@ -277,7 +284,10 @@ public class SqlServerClient
                 return Optional.of(booleanColumnMapping());
 
             case Types.TINYINT:
-                return Optional.of(tinyintColumnMapping());
+                // Map SQL Server TINYINT to Trino SMALLINT because SQL Server TINYINT is actually "unsigned tinyint"
+                // We don't check the range of values, because SQL Server will do it for us, and this behavior has already
+                // been tested in `BaseSqlServerTypeMapping#testUnsupportedTinyint`
+                return Optional.of(smallintColumnMapping());
 
             case Types.SMALLINT:
                 return Optional.of(smallintColumnMapping());
@@ -613,7 +623,7 @@ public class SqlServerClient
     }
 
     @Override
-    protected boolean isSupportedJoinCondition(JdbcJoinCondition joinCondition)
+    protected boolean isSupportedJoinCondition(ConnectorSession session, JdbcJoinCondition joinCondition)
     {
         if (joinCondition.getOperator() == JoinCondition.Operator.IS_DISTINCT_FROM) {
             // Not supported in SQL Server
@@ -774,14 +784,14 @@ public class SqlServerClient
     private static Optional<DataCompression> getTableDataCompression(Handle handle, JdbcTableHandle table)
     {
         return handle.createQuery("" +
-                "SELECT data_compression_desc FROM sys.partitions p " +
-                "INNER JOIN sys.tables t ON p.object_id = t.object_id " +
-                "INNER JOIN sys.schemas s ON t.schema_id = s.schema_id " +
-                "INNER JOIN sys.indexes i ON t.object_id = i.object_id " +
-                "WHERE s.name = :schema AND t.name = :table_name " +
-                "AND p.index_id = 0 " + // Heap
-                "AND i.type = 0 " + // Heap index type
-                "AND i.data_space_id NOT IN (SELECT data_space_id FROM sys.partition_schemes)")
+                        "SELECT data_compression_desc FROM sys.partitions p " +
+                        "INNER JOIN sys.tables t ON p.object_id = t.object_id " +
+                        "INNER JOIN sys.schemas s ON t.schema_id = s.schema_id " +
+                        "INNER JOIN sys.indexes i ON t.object_id = i.object_id " +
+                        "WHERE s.name = :schema AND t.name = :table_name " +
+                        "AND p.index_id = 0 " + // Heap
+                        "AND i.type = 0 " + // Heap index type
+                        "AND i.data_space_id NOT IN (SELECT data_space_id FROM sys.partition_schemes)")
                 .bind("schema", table.getSchemaName())
                 .bind("table_name", table.getTableName())
                 .mapTo(String.class)

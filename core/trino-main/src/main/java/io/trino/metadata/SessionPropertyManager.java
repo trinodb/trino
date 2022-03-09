@@ -164,7 +164,7 @@ public final class SessionPropertyManager
         for (Entry<String, CatalogName> entry : new TreeMap<>(catalogs).entrySet()) {
             String catalog = entry.getKey();
             CatalogName catalogName = entry.getValue();
-            Map<String, String> connectorProperties = session.getConnectorProperties(catalogName);
+            Map<String, String> connectorProperties = session.getCatalogProperties(catalog);
 
             for (PropertyMetadata<?> property : new TreeMap<>(connectorSessionProperties.get(catalogName)).values()) {
                 String defaultValue = firstNonNull(property.getDefaultValue(), "").toString();

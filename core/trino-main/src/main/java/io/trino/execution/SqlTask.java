@@ -23,6 +23,7 @@ import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
+import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
 import io.trino.execution.StateMachine.StateChangeListener;
 import io.trino.execution.buffer.BufferResult;
@@ -103,9 +104,10 @@ public class SqlTask
             Consumer<SqlTask> onDone,
             DataSize maxBufferSize,
             DataSize maxBroadcastBufferSize,
+            ExchangeManagerRegistry exchangeManagerRegistry,
             CounterStat failedTasks)
     {
-        SqlTask sqlTask = new SqlTask(taskId, location, nodeId, queryContext, sqlTaskExecutionFactory, taskNotificationExecutor, maxBufferSize, maxBroadcastBufferSize);
+        SqlTask sqlTask = new SqlTask(taskId, location, nodeId, queryContext, sqlTaskExecutionFactory, taskNotificationExecutor, maxBufferSize, maxBroadcastBufferSize, exchangeManagerRegistry);
         sqlTask.initialize(onDone, failedTasks);
         return sqlTask;
     }
@@ -118,7 +120,8 @@ public class SqlTask
             SqlTaskExecutionFactory sqlTaskExecutionFactory,
             ExecutorService taskNotificationExecutor,
             DataSize maxBufferSize,
-            DataSize maxBroadcastBufferSize)
+            DataSize maxBroadcastBufferSize,
+            ExchangeManagerRegistry exchangeManagerRegistry)
     {
         this.taskId = requireNonNull(taskId, "taskId is null");
         this.taskInstanceId = UUID.randomUUID().toString();
@@ -137,8 +140,9 @@ public class SqlTask
                 maxBroadcastBufferSize,
                 // Pass a memory context supplier instead of a memory context to the output buffer,
                 // because we haven't created the task context that holds the memory context yet.
-                () -> queryContext.getTaskContextByTaskId(taskId).localSystemMemoryContext(),
-                () -> notifyStatusChanged());
+                () -> queryContext.getTaskContextByTaskId(taskId).localMemoryContext(),
+                () -> notifyStatusChanged(),
+                exchangeManagerRegistry);
         taskStateMachine = new TaskStateMachine(taskId, taskNotificationExecutor);
     }
 
@@ -178,7 +182,7 @@ public class SqlTask
             if (newState == FAILED || newState == ABORTED) {
                 // don't close buffers for a failed query
                 // closed buffers signal to upstream tasks that everything finished cleanly
-                outputBuffer.fail();
+                outputBuffer.abort();
             }
             else {
                 outputBuffer.destroy();
@@ -286,7 +290,6 @@ public class SqlTask
         long runningPartitionedSplitsWeight = 0L;
         DataSize physicalWrittenDataSize = DataSize.ofBytes(0);
         DataSize userMemoryReservation = DataSize.ofBytes(0);
-        DataSize systemMemoryReservation = DataSize.ofBytes(0);
         DataSize revocableMemoryReservation = DataSize.ofBytes(0);
         // TODO: add a mechanism to avoid sending the whole completedDriverGroups set over the wire for every task status reply
         Set<Lifespan> completedDriverGroups = ImmutableSet.of();
@@ -302,7 +305,6 @@ public class SqlTask
             runningPartitionedSplitsWeight = taskStats.getRunningPartitionedSplitsWeight();
             physicalWrittenDataSize = taskStats.getPhysicalWrittenDataSize();
             userMemoryReservation = taskStats.getUserMemoryReservation();
-            systemMemoryReservation = taskStats.getSystemMemoryReservation();
             revocableMemoryReservation = taskStats.getRevocableMemoryReservation();
             fullGcCount = taskStats.getFullGcCount();
             fullGcTime = taskStats.getFullGcTime();
@@ -320,7 +322,6 @@ public class SqlTask
             }
             physicalWrittenDataSize = succinctBytes(physicalWrittenBytes);
             userMemoryReservation = taskContext.getMemoryReservation();
-            systemMemoryReservation = taskContext.getSystemMemoryReservation();
             revocableMemoryReservation = taskContext.getRevocableMemoryReservation();
             completedDriverGroups = taskContext.getCompletedDriverGroups();
             fullGcCount = taskContext.getFullGcCount();
@@ -341,7 +342,6 @@ public class SqlTask
                 isOutputBufferOverutilized(),
                 physicalWrittenDataSize,
                 userMemoryReservation,
-                systemMemoryReservation,
                 revocableMemoryReservation,
                 fullGcCount,
                 fullGcTime,
@@ -421,7 +421,7 @@ public class SqlTask
     public TaskInfo updateTask(
             Session session,
             Optional<PlanFragment> fragment,
-            List<TaskSource> sources,
+            List<SplitAssignment> splitAssignments,
             OutputBuffers outputBuffers,
             Map<DynamicFilterId, Domain> dynamicFilterDomains)
     {
@@ -458,7 +458,7 @@ public class SqlTask
             }
 
             if (taskExecution != null) {
-                taskExecution.addSources(sources);
+                taskExecution.addSplitAssignments(splitAssignments);
                 taskExecution.getTaskContext().addDynamicFilter(dynamicFilterDomains);
             }
         }
@@ -488,12 +488,12 @@ public class SqlTask
         outputBuffer.acknowledge(bufferId, sequenceId);
     }
 
-    public TaskInfo abortTaskResults(OutputBufferId bufferId)
+    public TaskInfo destroyTaskResults(OutputBufferId bufferId)
     {
         requireNonNull(bufferId, "bufferId is null");
 
         log.debug("Aborting task %s output %s", taskId, bufferId);
-        outputBuffer.abort(bufferId);
+        outputBuffer.destroy(bufferId);
 
         return getTaskInfo();
     }

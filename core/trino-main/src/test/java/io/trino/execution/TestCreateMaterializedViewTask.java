@@ -17,13 +17,13 @@ package io.trino.execution;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.trino.FeaturesConfig;
 import io.trino.Session;
 import io.trino.connector.CatalogName;
+import io.trino.connector.MockConnectorFactory;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.AbstractMockMetadata;
 import io.trino.metadata.AnalyzePropertyManager;
-import io.trino.metadata.Catalog;
-import io.trino.metadata.CatalogManager;
 import io.trino.metadata.MaterializedViewDefinition;
 import io.trino.metadata.MaterializedViewPropertyManager;
 import io.trino.metadata.MetadataManager;
@@ -44,6 +44,7 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TestingColumnHandle;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.security.AccessDeniedException;
+import io.trino.spi.session.PropertyMetadata;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.AnalyzerFactory;
 import io.trino.sql.analyzer.StatementAnalyzerFactory;
@@ -56,9 +57,11 @@ import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.Property;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.StringLiteral;
+import io.trino.testing.LocalQueryRunner;
 import io.trino.testing.TestingAccessControlManager;
 import io.trino.testing.TestingMetadata.TestingTableHandle;
 import io.trino.transaction.TransactionManager;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -71,9 +74,11 @@ import java.util.concurrent.ConcurrentHashMap;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
+import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.INVALID_MATERIALIZED_VIEW_PROPERTY;
+import static io.trino.spi.session.PropertyMetadata.integerProperty;
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.SmallintType.SMALLINT;
@@ -85,11 +90,10 @@ import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_MATERIALIZED_VIEW;
 import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.TestingEventListenerManager.emptyEventListenerManager;
-import static io.trino.testing.TestingSession.createBogusTestingCatalog;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
-import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static java.util.Objects.requireNonNull;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 
@@ -97,6 +101,9 @@ import static org.testng.Assert.assertEquals;
 public class TestCreateMaterializedViewTask
 {
     private static final String CATALOG_NAME = "catalog";
+    private static final String DEFAULT_MATERIALIZED_VIEW_FOO_PROPERTY_VALUE = null;
+    private static final Integer DEFAULT_MATERIALIZED_VIEW_BAR_PROPERTY_VALUE = 123;
+
     private static final ConnectorTableMetadata MOCK_TABLE = new ConnectorTableMetadata(
             new SchemaTableName("schema", "mock_table"),
             List.of(new ColumnMetadata("a", SMALLINT), new ColumnMetadata("b", BIGINT)),
@@ -110,26 +117,39 @@ public class TestCreateMaterializedViewTask
     private QueryStateMachine queryStateMachine;
     private AnalyzerFactory analyzerFactory;
     private MaterializedViewPropertyManager materializedViewPropertyManager;
+    private LocalQueryRunner queryRunner;
 
     @BeforeMethod
     public void setUp()
     {
-        CatalogManager catalogManager = new CatalogManager();
-        transactionManager = createTestTransactionManager(catalogManager);
-        materializedViewPropertyManager = new MaterializedViewPropertyManager();
-        Catalog testCatalog = createBogusTestingCatalog(CATALOG_NAME);
-        catalogManager.registerCatalog(testCatalog);
-        materializedViewPropertyManager.addProperties(
-                testCatalog.getConnectorCatalogName(),
-                ImmutableList.of(stringProperty("foo", "test materialized view property", null, false)));
-        testSession = testSessionBuilder()
-                .setTransactionId(transactionManager.beginTransaction(false))
-                .build();
-        metadata = new MockMetadata(testCatalog.getConnectorCatalogName());
+        queryRunner = LocalQueryRunner.create(TEST_SESSION);
+        transactionManager = queryRunner.getTransactionManager();
+        queryRunner.createCatalog(
+                CATALOG_NAME,
+                MockConnectorFactory.builder()
+                        .withGetMaterializedViewProperties(() -> ImmutableList.<PropertyMetadata<?>>builder()
+                                .add(stringProperty("foo", "test materialized view property", DEFAULT_MATERIALIZED_VIEW_FOO_PROPERTY_VALUE, false))
+                                .add(integerProperty("bar", "test materialized view property", DEFAULT_MATERIALIZED_VIEW_BAR_PROPERTY_VALUE, false))
+                                .build())
+                        .build(),
+                ImmutableMap.of());
+
+        materializedViewPropertyManager = queryRunner.getMaterializedViewPropertyManager();
+
+        testSession = testSessionBuilder().build();
+        metadata = new MockMetadata(new CatalogName(CATALOG_NAME));
         plannerContext = plannerContextBuilder().withMetadata(metadata).build();
-        parser = new SqlParser();
+        parser = queryRunner.getSqlParser();
         analyzerFactory = new AnalyzerFactory(createTestingStatementAnalyzerFactory(plannerContext, new AllowAllAccessControl(), new TablePropertyManager(), new AnalyzePropertyManager()), new StatementRewrite(ImmutableSet.of()));
         queryStateMachine = stateMachine(transactionManager, createTestMetadataManager(), new AllowAllAccessControl());
+    }
+
+    @AfterMethod(alwaysRun = true)
+    public void tearDown()
+    {
+        if (queryRunner != null) {
+            queryRunner.close();
+        }
     }
 
     @Test
@@ -144,7 +164,7 @@ public class TestCreateMaterializedViewTask
                 ImmutableList.of(),
                 Optional.empty());
 
-        getFutureValue(new CreateMaterializedViewTask(plannerContext, new AllowAllAccessControl(), parser, analyzerFactory, materializedViewPropertyManager)
+        getFutureValue(new CreateMaterializedViewTask(plannerContext, new AllowAllAccessControl(), parser, analyzerFactory, materializedViewPropertyManager, new FeaturesConfig())
                 .execute(statement, queryStateMachine, ImmutableList.of(), WarningCollector.NOOP));
         assertEquals(metadata.getCreateMaterializedViewCallCount(), 1);
     }
@@ -161,7 +181,7 @@ public class TestCreateMaterializedViewTask
                 ImmutableList.of(),
                 Optional.empty());
 
-        assertTrinoExceptionThrownBy(() -> getFutureValue(new CreateMaterializedViewTask(plannerContext, new AllowAllAccessControl(), parser, analyzerFactory, materializedViewPropertyManager)
+        assertTrinoExceptionThrownBy(() -> getFutureValue(new CreateMaterializedViewTask(plannerContext, new AllowAllAccessControl(), parser, analyzerFactory, materializedViewPropertyManager, new FeaturesConfig())
                 .execute(statement, queryStateMachine, ImmutableList.of(), WarningCollector.NOOP)))
                 .hasErrorCode(ALREADY_EXISTS)
                 .hasMessage("Materialized view already exists");
@@ -181,12 +201,37 @@ public class TestCreateMaterializedViewTask
                 ImmutableList.of(new Property(new Identifier("baz"), new StringLiteral("abc"))),
                 Optional.empty());
 
-        assertTrinoExceptionThrownBy(() -> getFutureValue(new CreateMaterializedViewTask(plannerContext, new AllowAllAccessControl(), parser, analyzerFactory, materializedViewPropertyManager)
+        assertTrinoExceptionThrownBy(() -> getFutureValue(new CreateMaterializedViewTask(plannerContext, new AllowAllAccessControl(), parser, analyzerFactory, materializedViewPropertyManager, new FeaturesConfig())
                 .execute(statement, queryStateMachine, ImmutableList.of(), WarningCollector.NOOP)))
                 .hasErrorCode(INVALID_MATERIALIZED_VIEW_PROPERTY)
-                .hasMessage("Catalog 'catalog' does not support materialized view property 'baz'");
+                .hasMessage("Catalog 'catalog' materialized view property 'baz' does not exist");
 
         assertEquals(metadata.getCreateMaterializedViewCallCount(), 0);
+    }
+
+    @Test
+    public void testCreateMaterializedViewWithDefaultProperties()
+    {
+        QualifiedName materializedViewName = QualifiedName.of("catalog", "schema", "mv");
+        CreateMaterializedView statement = new CreateMaterializedView(
+                Optional.empty(),
+                materializedViewName,
+                simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("catalog", "schema", "mock_table"))),
+                false,
+                true,
+                ImmutableList.of(
+                        new Property(new Identifier("foo")),    // set foo to DEFAULT
+                        new Property(new Identifier("bar"))),   // set bar to DEFAULT
+                Optional.empty());
+        getFutureValue(
+                new CreateMaterializedViewTask(plannerContext, new AllowAllAccessControl(), parser, analyzerFactory, materializedViewPropertyManager, new FeaturesConfig())
+                        .execute(statement, queryStateMachine, ImmutableList.of(), WarningCollector.NOOP));
+        Optional<MaterializedViewDefinition> definitionOptional =
+                metadata.getMaterializedView(testSession, QualifiedObjectName.valueOf(materializedViewName.toString()));
+        assertThat(definitionOptional).isPresent();
+        Map<String, Object> properties = definitionOptional.get().getProperties();
+        assertThat(properties.get("foo")).isEqualTo(DEFAULT_MATERIALIZED_VIEW_FOO_PROPERTY_VALUE);
+        assertThat(properties.get("bar")).isEqualTo(DEFAULT_MATERIALIZED_VIEW_BAR_PROPERTY_VALUE);
     }
 
     @Test
@@ -210,7 +255,7 @@ public class TestCreateMaterializedViewTask
                 new TablePropertyManager(),
                 new AnalyzePropertyManager());
         AnalyzerFactory analyzerFactory = new AnalyzerFactory(statementAnalyzerFactory, new StatementRewrite(ImmutableSet.of()));
-        assertThatThrownBy(() -> getFutureValue(new CreateMaterializedViewTask(plannerContext, accessControl, parser, analyzerFactory, materializedViewPropertyManager)
+        assertThatThrownBy(() -> getFutureValue(new CreateMaterializedViewTask(plannerContext, accessControl, parser, analyzerFactory, materializedViewPropertyManager, new FeaturesConfig())
                 .execute(statement, queryStateMachine, ImmutableList.of(), WarningCollector.NOOP)))
                 .isInstanceOf(AccessDeniedException.class)
                 .hasMessageContaining("Cannot create materialized view catalog.schema.test_mv");
@@ -219,6 +264,7 @@ public class TestCreateMaterializedViewTask
     private QueryStateMachine stateMachine(TransactionManager transactionManager, MetadataManager metadata, AccessControl accessControl)
     {
         return QueryStateMachine.begin(
+                Optional.empty(),
                 "test",
                 Optional.empty(),
                 testSession,
@@ -276,8 +322,7 @@ public class TestCreateMaterializedViewTask
                         new TableHandle(
                                 new CatalogName(CATALOG_NAME),
                                 new TestingTableHandle(tableName.asSchemaTableName()),
-                                TestingConnectorTransactionHandle.INSTANCE,
-                                Optional.empty()));
+                                TestingConnectorTransactionHandle.INSTANCE));
             }
             return Optional.empty();
         }

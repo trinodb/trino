@@ -35,7 +35,7 @@ import io.trino.spi.type.TypeManager;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.JobConf;
-import org.apache.iceberg.FileFormat;
+import org.apache.iceberg.MetricsConfig;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.types.Types;
 import org.weakref.jmx.Managed;
@@ -110,13 +110,15 @@ public class IcebergFileWriterFactory
             JobConf jobConf,
             ConnectorSession session,
             HdfsContext hdfsContext,
-            FileFormat fileFormat)
+            IcebergFileFormat fileFormat,
+            MetricsConfig metricsConfig)
     {
         switch (fileFormat) {
             case PARQUET:
+                // TODO use metricsConfig
                 return createParquetWriter(outputPath, icebergSchema, jobConf, session, hdfsContext);
             case ORC:
-                return createOrcWriter(outputPath, icebergSchema, jobConf, session);
+                return createOrcWriter(metricsConfig, outputPath, icebergSchema, jobConf, session);
             default:
                 throw new TrinoException(NOT_SUPPORTED, "File format not supported for Iceberg: " + fileFormat);
         }
@@ -170,6 +172,7 @@ public class IcebergFileWriterFactory
     }
 
     private IcebergFileWriter createOrcWriter(
+            MetricsConfig metricsConfig,
             Path outputPath,
             Schema icebergSchema,
             JobConf jobConf,
@@ -210,6 +213,7 @@ public class IcebergFileWriterFactory
             }
 
             return new IcebergOrcFileWriter(
+                    metricsConfig,
                     icebergSchema,
                     orcDataSink,
                     rollbackAction,
@@ -227,7 +231,7 @@ public class IcebergFileWriterFactory
                     ImmutableMap.<String, String>builder()
                             .put(PRESTO_VERSION_NAME, nodeVersion.toString())
                             .put(PRESTO_QUERY_ID_NAME, session.getQueryId())
-                            .build(),
+                            .buildOrThrow(),
                     validationInputFactory,
                     getOrcWriterValidateMode(session),
                     orcWriterStats);

@@ -302,7 +302,7 @@ public class BucketBalancer
             }
         }
 
-        return new ClusterState(activeNodes, assignedNodeSize, distributionAssignments.build(), distributionBucketSize.build());
+        return new ClusterState(activeNodes, assignedNodeSize, distributionAssignments.build(), distributionBucketSize.buildOrThrow());
     }
 
     @VisibleForTesting

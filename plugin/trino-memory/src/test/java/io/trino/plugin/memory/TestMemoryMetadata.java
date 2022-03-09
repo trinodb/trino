@@ -35,6 +35,7 @@ import java.util.Optional;
 
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
+import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static io.trino.spi.security.PrincipalType.USER;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
@@ -70,7 +71,8 @@ public class TestMemoryMetadata
         ConnectorOutputTableHandle table = metadata.beginCreateTable(
                 SESSION,
                 new ConnectorTableMetadata(schemaTableName, ImmutableList.of(), ImmutableMap.of()),
-                Optional.empty());
+                Optional.empty(),
+                NO_RETRIES);
 
         metadata.finishCreateTable(SESSION, table, ImmutableList.of(), ImmutableList.of());
 
@@ -111,7 +113,7 @@ public class TestMemoryMetadata
         MemoryTableHandle firstTableHandle = (MemoryTableHandle) metadata.getTableHandle(SESSION, firstTableName);
         long firstTableId = firstTableHandle.getId();
 
-        assertTrue(metadata.beginInsert(SESSION, firstTableHandle, ImmutableList.of()).getActiveTableIds().contains(firstTableId));
+        assertTrue(metadata.beginInsert(SESSION, firstTableHandle, ImmutableList.of(), NO_RETRIES).getActiveTableIds().contains(firstTableId));
 
         SchemaTableName secondTableName = new SchemaTableName("default", "second_table");
         metadata.createTable(SESSION, new ConnectorTableMetadata(secondTableName, ImmutableList.of(), ImmutableMap.of()), false);
@@ -120,8 +122,8 @@ public class TestMemoryMetadata
         long secondTableId = secondTableHandle.getId();
 
         assertNotEquals(firstTableId, secondTableId);
-        assertTrue(metadata.beginInsert(SESSION, secondTableHandle, ImmutableList.of()).getActiveTableIds().contains(firstTableId));
-        assertTrue(metadata.beginInsert(SESSION, secondTableHandle, ImmutableList.of()).getActiveTableIds().contains(secondTableId));
+        assertTrue(metadata.beginInsert(SESSION, secondTableHandle, ImmutableList.of(), NO_RETRIES).getActiveTableIds().contains(firstTableId));
+        assertTrue(metadata.beginInsert(SESSION, secondTableHandle, ImmutableList.of(), NO_RETRIES).getActiveTableIds().contains(secondTableId));
     }
 
     @Test
@@ -134,7 +136,8 @@ public class TestMemoryMetadata
         ConnectorOutputTableHandle table = metadata.beginCreateTable(
                 SESSION,
                 new ConnectorTableMetadata(tableName, ImmutableList.of(), ImmutableMap.of()),
-                Optional.empty());
+                Optional.empty(),
+                NO_RETRIES);
 
         List<SchemaTableName> tableNames = metadata.listTables(SESSION, Optional.empty());
         assertEquals(tableNames.size(), 1, "Expected exactly one table");
@@ -277,7 +280,11 @@ public class TestMemoryMetadata
         assertEquals(metadata.listSchemaNames(SESSION), ImmutableList.of("default"));
 
         SchemaTableName table1 = new SchemaTableName("test1", "test_schema_table1");
-        assertTrinoExceptionThrownBy(() -> metadata.beginCreateTable(SESSION, new ConnectorTableMetadata(table1, ImmutableList.of(), ImmutableMap.of()), Optional.empty()))
+        assertTrinoExceptionThrownBy(() -> metadata.beginCreateTable(
+                SESSION,
+                new ConnectorTableMetadata(table1, ImmutableList.of(), ImmutableMap.of()),
+                Optional.empty(),
+                NO_RETRIES))
                 .hasErrorCode(NOT_FOUND)
                 .hasMessage("Schema test1 not found");
         assertNull(metadata.getTableHandle(SESSION, table1));
@@ -305,7 +312,8 @@ public class TestMemoryMetadata
         ConnectorOutputTableHandle table = metadata.beginCreateTable(
                 SESSION,
                 new ConnectorTableMetadata(tableName, ImmutableList.of(), ImmutableMap.of()),
-                Optional.empty());
+                Optional.empty(),
+                NO_RETRIES);
         metadata.finishCreateTable(SESSION, table, ImmutableList.of(), ImmutableList.of());
 
         // rename table to schema which does not exist

@@ -14,8 +14,8 @@
 
 package io.trino.memory;
 
+import io.trino.execution.TaskId;
 import io.trino.spi.QueryId;
-import io.trino.spi.memory.MemoryPoolId;
 
 import java.util.List;
 import java.util.Optional;
@@ -25,29 +25,22 @@ import static java.util.Objects.requireNonNull;
 
 public interface LowMemoryKiller
 {
-    Optional<QueryId> chooseQueryToKill(List<QueryMemoryInfo> runningQueries, List<MemoryInfo> nodes);
+    Optional<KillTarget> chooseQueryToKill(List<QueryMemoryInfo> runningQueries, List<MemoryInfo> nodes);
 
     class QueryMemoryInfo
     {
         private final QueryId queryId;
-        private final MemoryPoolId memoryPoolId;
         private final long memoryReservation;
 
-        public QueryMemoryInfo(QueryId queryId, MemoryPoolId memoryPoolId, long memoryReservation)
+        public QueryMemoryInfo(QueryId queryId, long memoryReservation)
         {
             this.queryId = requireNonNull(queryId, "queryId is null");
-            this.memoryPoolId = requireNonNull(memoryPoolId, "memoryPoolId is null");
             this.memoryReservation = memoryReservation;
         }
 
         public QueryId getQueryId()
         {
             return queryId;
-        }
-
-        public MemoryPoolId getMemoryPoolId()
-        {
-            return memoryPoolId;
         }
 
         public long getMemoryReservation()
@@ -60,9 +53,39 @@ public interface LowMemoryKiller
         {
             return toStringHelper(this)
                     .add("queryId", queryId)
-                    .add("memoryPoolId", memoryPoolId)
                     .add("memoryReservation", memoryReservation)
                     .toString();
+        }
+
+        public static class TaskMemoryInfo
+        {
+            private final TaskId taskId;
+            private final long memoryReservation;
+
+            public TaskMemoryInfo(TaskId taskId, long memoryReservation)
+            {
+                this.taskId = requireNonNull(taskId, "taskId is null");
+                this.memoryReservation = memoryReservation;
+            }
+
+            public TaskId getTaskId()
+            {
+                return taskId;
+            }
+
+            public long getMemoryReservation()
+            {
+                return memoryReservation;
+            }
+
+            @Override
+            public String toString()
+            {
+                return toStringHelper(this)
+                        .add("taskId", taskId)
+                        .add("memoryReservation", memoryReservation)
+                        .toString();
+            }
         }
     }
 }

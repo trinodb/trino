@@ -45,11 +45,11 @@ public class TestFileConfig
     {
         Path passwordFile = Files.createTempFile(null, null);
 
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("file.password-file", passwordFile.toString())
                 .put("file.refresh-period", "42s")
                 .put("file.auth-token-cache.max-size", "1234")
-                .build();
+                .buildOrThrow();
 
         FileConfig expected = new FileConfig()
                 .setPasswordFile(passwordFile.toFile())

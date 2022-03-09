@@ -142,7 +142,7 @@ public final class ThriftQueryRunner
                 .put("trino.thrift.client.addresses", addresses)
                 .put("trino.thrift.client.connect-timeout", "30s")
                 .put("trino-thrift.lookup-requests-concurrency", "2")
-                .build();
+                .buildOrThrow();
         queryRunner.createCatalog("thrift", "trino-thrift", connectorProperties);
 
         queryRunner.installPlugin(new TpchPlugin());
@@ -332,6 +332,12 @@ public final class ThriftQueryRunner
                 Optional<ErrorType> errorType)
         {
             source.injectTaskFailure(traceToken, stageId, partitionId, attemptId, injectionType, errorType);
+        }
+
+        @Override
+        public void loadExchangeManager(String name, Map<String, String> properties)
+        {
+            source.loadExchangeManager(name, properties);
         }
     }
 }

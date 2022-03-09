@@ -38,6 +38,7 @@ import io.trino.metadata.InternalNode;
 import io.trino.metadata.Split;
 import io.trino.spi.TrinoException;
 import io.trino.split.RemoteSplit;
+import io.trino.split.RemoteSplit.DirectExchangeInput;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNodeId;
@@ -162,7 +163,7 @@ public class PipelinedStageExecution
                 failureDetector,
                 executor,
                 bucketToPartition,
-                exchangeSources.build(),
+                exchangeSources.buildOrThrow(),
                 attempt);
         execution.initialize();
         return execution;
@@ -295,6 +296,14 @@ public class PipelinedStageExecution
         RemoteTask task = requireNonNull(tasks.get(taskId.getPartitionId()), () -> "task not found: " + taskId);
         task.fail(failureCause);
         fail(failureCause);
+    }
+
+    @Override
+    public synchronized void failTaskRemotely(TaskId taskId, Throwable failureCause)
+    {
+        RemoteTask task = requireNonNull(tasks.get(taskId.getPartitionId()), () -> "task not found: " + taskId);
+        task.failRemotely(failureCause);
+        // not failing stage just yet; it will happen as a result of task failure
     }
 
     @Override
@@ -560,7 +569,7 @@ public class PipelinedStageExecution
         // Fetch the results from the buffer assigned to the task based on id
         URI exchangeLocation = sourceTask.getTaskStatus().getSelf();
         URI splitLocation = uriBuilderFrom(exchangeLocation).appendPath("results").appendPath(String.valueOf(destinationTask.getTaskId().getPartitionId())).build();
-        return new Split(REMOTE_CONNECTOR_ID, new RemoteSplit(sourceTask.getTaskId(), splitLocation.toString()), Lifespan.taskWide());
+        return new Split(REMOTE_CONNECTOR_ID, new RemoteSplit(new DirectExchangeInput(sourceTask.getTaskId(), splitLocation.toString())), Lifespan.taskWide());
     }
 
     private static class PipelinedStageStateMachine

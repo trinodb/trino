@@ -45,7 +45,7 @@ public class TestRedisConnectorConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("redis.table-description-dir", "/var/lib/redis")
                 .put("redis.table-names", "table1, table2, table3")
                 .put("redis.default-schema", "redis")
@@ -57,7 +57,7 @@ public class TestRedisConnectorConfig
                 .put("redis.connect-timeout", "10s")
                 .put("redis.database-index", "5")
                 .put("redis.password", "secret")
-                .build();
+                .buildOrThrow();
 
         RedisConnectorConfig expected = new RedisConnectorConfig()
                 .setTableDescriptionDir(new File("/var/lib/redis"))

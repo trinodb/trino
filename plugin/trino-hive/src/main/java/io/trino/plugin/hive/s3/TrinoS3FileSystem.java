@@ -150,6 +150,7 @@ import static java.net.HttpURLConnection.HTTP_FORBIDDEN;
 import static java.net.HttpURLConnection.HTTP_NOT_FOUND;
 import static java.nio.file.Files.createDirectories;
 import static java.nio.file.Files.createTempFile;
+import static java.util.Objects.nonNull;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -195,6 +196,14 @@ public class TrinoS3FileSystem
     public static final String S3_STREAMING_UPLOAD_ENABLED = "trino.s3.streaming.enabled";
     public static final String S3_STREAMING_UPLOAD_PART_SIZE = "trino.s3.streaming.part-size";
     public static final String S3_STORAGE_CLASS = "trino.s3.storage-class";
+    public static final String S3_ROLE_SESSION_NAME = "trino.s3.role-session-name";
+    public static final String S3_PROXY_HOST = "trino.s3.proxy.host";
+    public static final String S3_PROXY_PORT = "trino.s3.proxy.port";
+    public static final String S3_PROXY_PROTOCOL = "trino.s3.proxy.protocol";
+    public static final String S3_NON_PROXY_HOSTS = "trino.s3.proxy.non-proxy-hosts";
+    public static final String S3_PROXY_USERNAME = "trino.s3.proxy.username";
+    public static final String S3_PROXY_PASSWORD = "trino.s3.proxy.password";
+    public static final String S3_PREEMPTIVE_BASIC_PROXY_AUTH = "trino.s3.proxy.preemptive-basic-auth";
 
     private static final Logger log = Logger.get(TrinoS3FileSystem.class);
     private static final TrinoS3FileSystemStats STATS = new TrinoS3FileSystemStats();
@@ -208,6 +217,7 @@ public class TrinoS3FileSystem
     private static final String S3_CUSTOM_SIGNER = "TrinoS3CustomSigner";
     private static final Set<String> GLACIER_STORAGE_CLASSES = ImmutableSet.of(Glacier.toString(), DeepArchive.toString());
     private static final MediaType DIRECTORY_MEDIA_TYPE = MediaType.create("application", "x-directory");
+    private static final String S3_DEFAULT_ROLE_SESSION_NAME = "trino-session";
 
     private URI uri;
     private Path workingDirectory;
@@ -232,6 +242,7 @@ public class TrinoS3FileSystem
     private boolean streamingUploadEnabled;
     private int streamingUploadPartSize;
     private TrinoS3StorageClass s3StorageClass;
+    private String s3RoleSessionName;
 
     private final ExecutorService uploadExecutor = newCachedThreadPool(threadsNamed("s3-upload-%s"));
 
@@ -280,6 +291,7 @@ public class TrinoS3FileSystem
         this.streamingUploadEnabled = conf.getBoolean(S3_STREAMING_UPLOAD_ENABLED, defaults.isS3StreamingUploadEnabled());
         this.streamingUploadPartSize = toIntExact(conf.getLong(S3_STREAMING_UPLOAD_PART_SIZE, defaults.getS3StreamingPartSize().toBytes()));
         this.s3StorageClass = conf.getEnum(S3_STORAGE_CLASS, defaults.getS3StorageClass());
+        this.s3RoleSessionName = conf.get(S3_ROLE_SESSION_NAME, S3_DEFAULT_ROLE_SESSION_NAME);
 
         ClientConfiguration configuration = new ClientConfiguration()
                 .withMaxErrorRetry(maxErrorRetries)
@@ -289,6 +301,30 @@ public class TrinoS3FileSystem
                 .withMaxConnections(maxConnections)
                 .withUserAgentPrefix(userAgentPrefix)
                 .withUserAgentSuffix("Trino");
+
+        String proxyHost = conf.get(S3_PROXY_HOST);
+        if (nonNull(proxyHost)) {
+            configuration.setProxyHost(proxyHost);
+            configuration.setProxyPort(conf.getInt(S3_PROXY_PORT, defaults.getS3ProxyPort()));
+            String proxyProtocol = conf.get(S3_PROXY_PROTOCOL);
+            if (proxyProtocol != null) {
+                configuration.setProxyProtocol(TrinoS3Protocol.valueOf(proxyProtocol).getProtocol());
+            }
+            String nonProxyHosts = conf.get(S3_NON_PROXY_HOSTS);
+            if (nonProxyHosts != null) {
+                configuration.setNonProxyHosts(nonProxyHosts);
+            }
+            String proxyUsername = conf.get(S3_PROXY_USERNAME);
+            if (proxyUsername != null) {
+                configuration.setProxyUsername(proxyUsername);
+            }
+            String proxyPassword = conf.get(S3_PROXY_PASSWORD);
+            if (proxyPassword != null) {
+                configuration.setProxyPassword(proxyPassword);
+            }
+            configuration.setPreemptiveBasicProxyAuth(
+                    conf.getBoolean(S3_PREEMPTIVE_BASIC_PROXY_AUTH, defaults.getS3PreemptiveBasicProxyAuth()));
+        }
 
         this.credentialsProvider = createAwsCredentialsProvider(uri, conf);
         this.s3 = createAmazonS3Client(conf, configuration);
@@ -720,8 +756,7 @@ public class TrinoS3FileSystem
      * This exception is for stopping retries for S3 calls that shouldn't be retried.
      * For example, "Caused by: com.amazonaws.services.s3.model.AmazonS3Exception: Forbidden (Service: Amazon S3; Status Code: 403 ..."
      */
-    @VisibleForTesting
-    static class UnrecoverableS3OperationException
+    public static class UnrecoverableS3OperationException
             extends IOException
     {
         public UnrecoverableS3OperationException(Path path, Throwable cause)
@@ -938,7 +973,7 @@ public class TrinoS3FileSystem
                 .orElseGet(DefaultAWSCredentialsProviderChain::getInstance);
 
         if (iamRole != null) {
-            provider = new STSAssumeRoleSessionCredentialsProvider.Builder(iamRole, "trino-session")
+            provider = new STSAssumeRoleSessionCredentialsProvider.Builder(iamRole, s3RoleSessionName)
                     .withExternalId(externalId)
                     .withLongLivedCredentialsProvider(provider)
                     .build();
@@ -1478,7 +1513,12 @@ public class TrinoS3FileSystem
         private byte[] buffer;
         private int bufferSize;
 
+        private boolean closed;
         private boolean failed;
+        // Mutated and read by main thread; mutated just before scheduling upload to background thread (access does not need to be thread safe)
+        private boolean multipartUploadStarted;
+        // Mutated by background thread which does the multipart upload; read by both main thread and background thread;
+        // Visibility ensured by memory barrier via inProgressUploadFuture
         private Optional<String> uploadId = Optional.empty();
         private Future<UploadPartResult> inProgressUploadFuture;
         private final List<UploadPartResult> parts = new ArrayList<>();
@@ -1541,6 +1581,11 @@ public class TrinoS3FileSystem
         public void close()
                 throws IOException
         {
+            if (closed) {
+                return;
+            }
+            closed = true;
+
             if (failed) {
                 try {
                     abortUpload();
@@ -1572,8 +1617,8 @@ public class TrinoS3FileSystem
         private void flushBuffer(boolean finished)
                 throws IOException
         {
-            // skip multipart upload if there would only be one part
-            if (finished && uploadId.isEmpty()) {
+            // Skip multipart upload if there would only be one part
+            if (finished && !multipartUploadStarted) {
                 InputStream in = new ByteArrayInputStream(buffer, 0, bufferSize);
 
                 ObjectMetadata metadata = new ObjectMetadata();
@@ -1614,7 +1659,7 @@ public class TrinoS3FileSystem
                     abortUploadSuppressed(e);
                     throw e;
                 }
-
+                multipartUploadStarted = true;
                 inProgressUploadFuture = uploadExecutor.submit(() -> uploadPage(data, length));
             }
         }

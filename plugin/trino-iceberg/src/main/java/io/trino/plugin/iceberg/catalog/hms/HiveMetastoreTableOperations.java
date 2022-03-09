@@ -15,6 +15,7 @@ package io.trino.plugin.iceberg.catalog.hms;
 
 import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.plugin.hive.metastore.MetastoreUtil;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastore;
@@ -30,10 +31,11 @@ import javax.annotation.concurrent.NotThreadSafe;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.trino.plugin.hive.metastore.MetastoreUtil.buildInitialPrivilegeSet;
 import static io.trino.plugin.hive.metastore.PrincipalPrivileges.NO_PRIVILEGES;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.fromMetastoreApiTable;
 import static java.util.Objects.requireNonNull;
+import static org.apache.iceberg.BaseMetastoreTableOperations.METADATA_LOCATION_PROP;
+import static org.apache.iceberg.BaseMetastoreTableOperations.PREVIOUS_METADATA_LOCATION_PROP;
 
 @NotThreadSafe
 public class HiveMetastoreTableOperations
@@ -59,7 +61,7 @@ public class HiveMetastoreTableOperations
     protected void commitToExistingTable(TableMetadata base, TableMetadata metadata)
     {
         String newMetadataLocation = writeNewMetadata(metadata, version + 1);
-        HiveIdentity identity = new HiveIdentity(session);
+        HiveIdentity identity = new HiveIdentity(session.getIdentity());
 
         long lockId = thriftMetastore.acquireTableExclusiveLock(
                 identity,
@@ -73,7 +75,7 @@ public class HiveMetastoreTableOperations
                         .orElseThrow(() -> new TableNotFoundException(getSchemaTableName())));
 
                 checkState(currentMetadataLocation != null, "No current metadata location for existing table");
-                String metadataLocation = currentTable.getParameters().get(METADATA_LOCATION);
+                String metadataLocation = currentTable.getParameters().get(METADATA_LOCATION_PROP);
                 if (!currentMetadataLocation.equals(metadataLocation)) {
                     throw new CommitFailedException("Metadata location [%s] is not same as table metadata location [%s] for %s",
                             currentMetadataLocation, metadataLocation, getSchemaTableName());
@@ -82,8 +84,8 @@ public class HiveMetastoreTableOperations
                 table = Table.builder(currentTable)
                         .setDataColumns(toHiveColumns(metadata.schema().columns()))
                         .withStorage(storage -> storage.setLocation(metadata.location()))
-                        .setParameter(METADATA_LOCATION, newMetadataLocation)
-                        .setParameter(PREVIOUS_METADATA_LOCATION, currentMetadataLocation)
+                        .setParameter(METADATA_LOCATION_PROP, newMetadataLocation)
+                        .setParameter(PREVIOUS_METADATA_LOCATION_PROP, currentMetadataLocation)
                         .build();
             }
             catch (RuntimeException e) {
@@ -97,8 +99,8 @@ public class HiveMetastoreTableOperations
             }
 
             // todo privileges should not be replaced for an alter
-            PrincipalPrivileges privileges = owner.isEmpty() && table.getOwner().isPresent() ? NO_PRIVILEGES : buildInitialPrivilegeSet(table.getOwner().get());
-            metastore.replaceTable(identity, database, tableName, table, privileges);
+            PrincipalPrivileges privileges = table.getOwner().map(MetastoreUtil::buildInitialPrivilegeSet).orElse(NO_PRIVILEGES);
+            metastore.replaceTable(database, tableName, table, privileges);
         }
         finally {
             thriftMetastore.releaseTableLock(identity, lockId);

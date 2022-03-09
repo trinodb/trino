@@ -306,24 +306,4 @@ public class PrimitiveColumnWriter
                 definitionLevelWriter.getAllocatedSize() +
                 repetitionLevelWriter.getAllocatedSize();
     }
-
-    @Override
-    public void reset()
-    {
-        definitionLevelWriter.reset();
-        repetitionLevelWriter.reset();
-        primitiveValueWriter.reset();
-        pageBuffer.clear();
-        closed = false;
-
-        totalCompressedSize = 0;
-        totalUnCompressedSize = 0;
-        totalValues = 0;
-        encodings.clear();
-        dataPagesWithEncoding.clear();
-        dictionaryPagesWithEncoding.clear();
-        this.columnStatistics = Statistics.createStats(columnDescriptor.getPrimitiveType());
-
-        getDataStreamsCalled = false;
-    }
 }

@@ -36,7 +36,7 @@ public class TestJdbcDatabaseConfig
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("metadata.db.url", "jdbc:test://example.net/test")
-                .build();
+                .buildOrThrow();
 
         JdbcDatabaseConfig expected = new JdbcDatabaseConfig()
                 .setUrl("jdbc:test://example.net/test");

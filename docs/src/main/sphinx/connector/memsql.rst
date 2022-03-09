@@ -32,6 +32,26 @@ connection properties as appropriate for your setup:
     connection-user=root
     connection-password=secret
 
+.. _singlestore-tls:
+
+Connection security
+^^^^^^^^^^^^^^^^^^^
+
+If you have TLS configured with a globally-trusted certificate installed on your
+data source, you can enable TLS between your cluster and the data
+source by appending a parameter to the JDBC connection string set in the
+``connection-url`` catalog configuration property.
+
+Enable TLS between your cluster and SingleStore by appending the ``useSsl=true``
+parameter to the ``connection-url`` configuration property:
+
+.. code-block:: properties
+
+  connection-url=jdbc:mariadb://example.net:3306/?useSsl=true
+
+For more information on TLS configuration options, see the `JDBC driver
+documentation <https://mariadb.com/kb/en/about-mariadb-connector-j/#tls-parameters>`_.
+
 Multiple SingleStore servers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

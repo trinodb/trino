@@ -16,6 +16,7 @@ package io.trino.spi.block;
 import io.airlift.slice.Slice;
 import org.openjdk.jol.info.ClassLayout;
 
+import java.util.OptionalInt;
 import java.util.function.BiConsumer;
 
 import static java.lang.String.format;
@@ -66,6 +67,12 @@ public class SingleMapBlockWriter
     Block getRawValueBlock()
     {
         return valueBlockBuilder;
+    }
+
+    @Override
+    public OptionalInt fixedSizeInBytesPerPosition()
+    {
+        return OptionalInt.empty();
     }
 
     @Override
@@ -145,32 +152,6 @@ public class SingleMapBlockWriter
         else {
             keyBlockBuilder.writeBytes(source, sourceIndex, length);
         }
-        return this;
-    }
-
-    @Override
-    public BlockBuilder appendStructure(Block block)
-    {
-        if (writeToValueNext) {
-            valueBlockBuilder.appendStructure(block);
-        }
-        else {
-            keyBlockBuilder.appendStructure(block);
-        }
-        entryAdded();
-        return this;
-    }
-
-    @Override
-    public BlockBuilder appendStructureInternal(Block block, int position)
-    {
-        if (writeToValueNext) {
-            valueBlockBuilder.appendStructureInternal(block, position);
-        }
-        else {
-            keyBlockBuilder.appendStructureInternal(block, position);
-        }
-        entryAdded();
         return this;
     }
 

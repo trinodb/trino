@@ -19,7 +19,6 @@ import com.google.common.collect.Sets;
 import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.PartitionStatistics;
 import io.trino.plugin.hive.TransactionalMetadataFactory;
-import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
@@ -97,10 +96,10 @@ public class SyncPartitionMetadataProcedure
                 "system",
                 "sync_partition_metadata",
                 ImmutableList.of(
-                        new Argument("schema_name", VARCHAR),
-                        new Argument("table_name", VARCHAR),
-                        new Argument("mode", VARCHAR),
-                        new Argument("case_sensitive", BOOLEAN, false, TRUE)),
+                        new Argument("SCHEMA_NAME", VARCHAR),
+                        new Argument("TABLE_NAME", VARCHAR),
+                        new Argument("MODE", VARCHAR),
+                        new Argument("CASE_SENSITIVE", BOOLEAN, false, TRUE)),
                 SYNC_PARTITION_METADATA.bindTo(this));
     }
 
@@ -115,11 +114,10 @@ public class SyncPartitionMetadataProcedure
     {
         SyncMode syncMode = toSyncMode(mode);
         HdfsContext hdfsContext = new HdfsContext(session);
-        HiveIdentity identity = new HiveIdentity(session);
-        SemiTransactionalHiveMetastore metastore = hiveMetadataFactory.create(true).getMetastore();
+        SemiTransactionalHiveMetastore metastore = hiveMetadataFactory.create(session.getIdentity(), true).getMetastore();
         SchemaTableName schemaTableName = new SchemaTableName(schemaName, tableName);
 
-        Table table = metastore.getTable(identity, schemaName, tableName)
+        Table table = metastore.getTable(schemaName, tableName)
                 .orElseThrow(() -> new TableNotFoundException(schemaTableName));
         if (table.getPartitionColumns().isEmpty()) {
             throw new TrinoException(INVALID_PROCEDURE_ARGUMENT, "Table is not partitioned: " + schemaTableName);
@@ -139,7 +137,7 @@ public class SyncPartitionMetadataProcedure
 
         try {
             FileSystem fileSystem = hdfsEnvironment.getFileSystem(hdfsContext, tableLocation);
-            List<String> partitionsInMetastore = metastore.getPartitionNames(identity, schemaName, tableName)
+            List<String> partitionsInMetastore = metastore.getPartitionNames(schemaName, tableName)
                     .orElseThrow(() -> new TableNotFoundException(schemaTableName));
             List<String> partitionsInFileSystem = listDirectory(fileSystem, fileSystem.getFileStatus(tableLocation), table.getPartitionColumns(), table.getPartitionColumns().size(), caseSensitive).stream()
                     .map(fileStatus -> fileStatus.getPath().toUri())

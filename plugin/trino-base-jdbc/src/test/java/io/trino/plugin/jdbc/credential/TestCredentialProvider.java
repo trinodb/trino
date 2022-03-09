@@ -57,7 +57,7 @@ public class TestCredentialProvider
     @Test
     public void testKeyStoreBasedCredentialProvider()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("connection-url", "jdbc:h2:mem:config")
                 .put("credential-provider.type", "KEYSTORE")
                 .put("keystore-file-path", getResourceFilePath("credentials.jceks"))
@@ -67,7 +67,7 @@ public class TestCredentialProvider
                 .put("keystore-user-credential-password", "keystore_password_for_user_name")
                 .put("keystore-password-credential-name", "password")
                 .put("keystore-password-credential-password", "keystore_password_for_password")
-                .build();
+                .buildOrThrow();
 
         CredentialProvider credentialProvider = getCredentialProvider(properties);
         assertEquals(credentialProvider.getConnectionUser(Optional.empty()).get(), "user_from_keystore");

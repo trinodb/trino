@@ -28,6 +28,7 @@ import java.sql.ResultSet;
 import java.sql.RowIdLifetime;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
+import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -1488,7 +1489,24 @@ public class TrinoDatabaseMetaData
     private ResultSet select(String sql)
             throws SQLException
     {
-        return getConnection().createStatement().executeQuery(sql);
+        Statement statement = getConnection().createStatement();
+        TrinoResultSet resultSet;
+        try {
+            resultSet = (TrinoResultSet) statement.executeQuery(sql);
+            resultSet.setCloseStatementOnClose();
+        }
+        catch (Throwable e) {
+            try {
+                statement.close();
+            }
+            catch (Throwable closeException) {
+                if (closeException != e) {
+                    e.addSuppressed(closeException);
+                }
+            }
+            throw e;
+        }
+        return resultSet;
     }
 
     private static void buildFilters(StringBuilder out, List<String> filters)

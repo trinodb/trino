@@ -23,7 +23,7 @@ import io.airlift.http.client.JsonResponseHandler;
 import io.airlift.http.client.Request;
 import io.airlift.log.Logger;
 import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.JwtParser;
 import io.jsonwebtoken.SigningKeyResolver;
 import io.jsonwebtoken.impl.DefaultClaims;
 import io.trino.server.security.oauth2.OAuth2Client.OAuth2Response;
@@ -33,7 +33,6 @@ import io.trino.server.ui.OAuthWebUiCookie;
 import javax.inject.Inject;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.UriBuilder;
-import javax.ws.rs.core.UriInfo;
 
 import java.io.IOException;
 import java.net.URI;
@@ -57,7 +56,8 @@ import static io.airlift.http.client.JsonResponseHandler.createJsonResponseHandl
 import static io.airlift.json.JsonCodec.mapJsonCodec;
 import static io.jsonwebtoken.Claims.AUDIENCE;
 import static io.jsonwebtoken.security.Keys.hmacShaKeyFor;
-import static io.trino.server.security.oauth2.OAuth2CallbackResource.CALLBACK_ENDPOINT;
+import static io.trino.server.security.jwt.JwtUtil.newJwtBuilder;
+import static io.trino.server.security.jwt.JwtUtil.newJwtParserBuilder;
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.UI_LOCATION;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -90,6 +90,7 @@ public class OAuth2Service
     private final Set<String> scopes;
     private final TemporalAmount challengeTimeout;
     private final Key stateHmac;
+    private final JwtParser jwtParser;
 
     private final HttpClient httpClient;
     private final String issuer;
@@ -119,6 +120,10 @@ public class OAuth2Service
         this.stateHmac = hmacShaKeyFor(oauth2Config.getStateKey()
                 .map(key -> sha256().hashString(key, UTF_8).asBytes())
                 .orElseGet(() -> secureRandomBytes(32)));
+        this.jwtParser = newJwtParserBuilder()
+                .setSigningKey(stateHmac)
+                .requireAudience(STATE_AUDIENCE_UI)
+                .build();
 
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.issuer = oauth2Config.getIssuer();
@@ -135,29 +140,10 @@ public class OAuth2Service
         this.webUiOAuthEnabled = requireNonNull(webUiOAuthEnabled, "webUiOAuthEnabled is null").isPresent();
     }
 
-    public Response startOAuth2Challenge(UriInfo uriInfo)
-    {
-        return startOAuth2Challenge(
-                uriInfo.getBaseUri().resolve(CALLBACK_ENDPOINT),
-                Optional.empty());
-    }
-
-    public Response startOAuth2Challenge(UriInfo uriInfo, String handlerState)
-    {
-        return startOAuth2Challenge(
-                uriInfo.getBaseUri().resolve(CALLBACK_ENDPOINT),
-                Optional.of(handlerState));
-    }
-
-    public Response startOAuth2Challenge(URI callbackUri, String handlerState)
-    {
-        return startOAuth2Challenge(callbackUri, Optional.of(handlerState));
-    }
-
-    private Response startOAuth2Challenge(URI callbackUri, Optional<String> handlerState)
+    public Response startOAuth2Challenge(URI callbackUri, Optional<String> handlerState)
     {
         Instant challengeExpiration = now().plus(challengeTimeout);
-        String state = Jwts.builder()
+        String state = newJwtBuilder()
                 .signWith(stateHmac)
                 .setAudience(STATE_AUDIENCE_UI)
                 .claim(HANDLER_STATE_CLAIM, handlerState.orElse(null))
@@ -279,10 +265,7 @@ public class OAuth2Service
             throws ChallengeFailedException
     {
         try {
-            return Jwts.parserBuilder()
-                    .setSigningKey(stateHmac)
-                    .requireAudience(STATE_AUDIENCE_UI)
-                    .build()
+            return jwtParser
                     .parseClaimsJws(state)
                     .getBody();
         }
@@ -304,7 +287,7 @@ public class OAuth2Service
     {
         if (nonce.isPresent() && oauth2Response.getIdToken().isPresent()) {
             // validate ID token including nonce
-            Claims claims = Jwts.parserBuilder()
+            Claims claims = newJwtParserBuilder()
                     .setSigningKeyResolver(signingKeyResolver)
                     .requireIssuer(issuer)
                     .require(NONCE, hashNonce(nonce.get()))
@@ -350,7 +333,7 @@ public class OAuth2Service
         }
 
         // validate access token is trusted by this server
-        Claims claims = Jwts.parserBuilder()
+        Claims claims = newJwtParserBuilder()
                 .setSigningKeyResolver(signingKeyResolver)
                 .requireIssuer(accessTokenIssuer)
                 .build()

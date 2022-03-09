@@ -297,15 +297,6 @@ public class TestAccumuloConnectorTest
     protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
     {
         String typeName = dataMappingTestSetup.getTrinoTypeName();
-        if (typeName.equals("date")) {
-            // TODO (https://github.com/trinodb/trino/issues/10074) Investigate why this test case fails
-            if (dataMappingTestSetup.getSampleValueLiteral().equals("DATE '0001-01-01'")
-                    || dataMappingTestSetup.getSampleValueLiteral().equals("DATE '1582-10-04'")
-                    || dataMappingTestSetup.getSampleValueLiteral().equals("DATE '1582-10-05'")
-                    || dataMappingTestSetup.getSampleValueLiteral().equals("DATE '1582-10-14'")) {
-                return Optional.empty();
-            }
-        }
         if (typeName.startsWith("decimal(")
                 || typeName.equals("timestamp(3) with time zone")
                 || typeName.startsWith("char(")) {

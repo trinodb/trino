@@ -80,7 +80,7 @@ public class StructColumnReader
             Type type,
             OrcColumn column,
             OrcReader.ProjectedLayout readLayout,
-            AggregatedMemoryContext systemMemoryContext,
+            AggregatedMemoryContext memoryContext,
             OrcBlockFactory blockFactory,
             FieldMapperFactory fieldMapperFactory)
             throws OrcCorruptionException
@@ -112,14 +112,14 @@ public class StructColumnReader
                                     field.getType(),
                                     fieldStream,
                                     fieldLayout,
-                                    systemMemoryContext,
+                                    memoryContext,
                                     blockFactory,
                                     fieldMapperFactory));
                 }
             }
         }
         this.fieldNames = fieldNames.build();
-        this.structFields = structFields.build();
+        this.structFields = structFields.buildOrThrow();
     }
 
     @Override

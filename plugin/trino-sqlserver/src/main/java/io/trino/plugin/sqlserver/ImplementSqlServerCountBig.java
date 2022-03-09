@@ -16,7 +16,7 @@ package io.trino.plugin.sqlserver;
 import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
-import io.trino.plugin.base.expression.AggregateFunctionRule;
+import io.trino.plugin.base.aggregation.AggregateFunctionRule;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
 import io.trino.spi.connector.AggregateFunction;
@@ -26,10 +26,10 @@ import java.util.Optional;
 
 import static com.google.common.base.Verify.verify;
 import static io.trino.matching.Capture.newCapture;
-import static io.trino.plugin.base.expression.AggregateFunctionPatterns.basicAggregation;
-import static io.trino.plugin.base.expression.AggregateFunctionPatterns.functionName;
-import static io.trino.plugin.base.expression.AggregateFunctionPatterns.singleInput;
-import static io.trino.plugin.base.expression.AggregateFunctionPatterns.variable;
+import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.basicAggregation;
+import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.functionName;
+import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.singleArgument;
+import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.variable;
 import static io.trino.plugin.sqlserver.SqlServerClient.BIGINT_TYPE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.lang.String.format;
@@ -40,21 +40,21 @@ import static java.lang.String.format;
 public class ImplementSqlServerCountBig
         implements AggregateFunctionRule<JdbcExpression>
 {
-    private static final Capture<Variable> INPUT = newCapture();
+    private static final Capture<Variable> ARGUMENT = newCapture();
 
     @Override
     public Pattern<AggregateFunction> getPattern()
     {
         return basicAggregation()
                 .with(functionName().equalTo("count"))
-                .with(singleInput().matching(variable().capturedAs(INPUT)));
+                .with(singleArgument().matching(variable().capturedAs(ARGUMENT)));
     }
 
     @Override
     public Optional<JdbcExpression> rewrite(AggregateFunction aggregateFunction, Captures captures, RewriteContext context)
     {
-        Variable input = captures.get(INPUT);
-        JdbcColumnHandle columnHandle = (JdbcColumnHandle) context.getAssignment(input.getName());
+        Variable argument = captures.get(ARGUMENT);
+        JdbcColumnHandle columnHandle = (JdbcColumnHandle) context.getAssignment(argument.getName());
         verify(aggregateFunction.getOutputType() == BIGINT);
 
         return Optional.of(new JdbcExpression(

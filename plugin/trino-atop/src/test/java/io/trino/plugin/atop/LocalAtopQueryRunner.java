@@ -49,7 +49,7 @@ public final class LocalAtopQueryRunner
                     .putAll(catalogProperties)
                     .put("atop.max-history-days", "1");
 
-            queryRunner.createCatalog("atop", connectorFactory, properties.build());
+            queryRunner.createCatalog("atop", connectorFactory, properties.buildOrThrow());
 
             return queryRunner;
         }

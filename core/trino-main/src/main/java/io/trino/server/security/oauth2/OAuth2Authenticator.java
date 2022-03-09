@@ -13,15 +13,20 @@
  */
 package io.trino.server.security.oauth2;
 
+import com.google.common.collect.ImmutableSet;
 import io.trino.server.security.AbstractBearerAuthenticator;
 import io.trino.server.security.AuthenticationException;
+import io.trino.server.security.UserMapping;
+import io.trino.server.security.UserMappingException;
 import io.trino.spi.security.BasicPrincipal;
+import io.trino.spi.security.Identity;
 
 import javax.inject.Inject;
 import javax.ws.rs.container.ContainerRequestContext;
 
 import java.net.URI;
-import java.security.Principal;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -36,23 +41,33 @@ public class OAuth2Authenticator
 {
     private final OAuth2Service service;
     private final String principalField;
+    private final Optional<String> groupsField;
+    private final UserMapping userMapping;
 
     @Inject
     public OAuth2Authenticator(OAuth2Service service, OAuth2Config config)
     {
-        super(createUserMapping(config.getUserMappingPattern(), config.getUserMappingFile()));
         this.service = requireNonNull(service, "service is null");
         this.principalField = config.getPrincipalField();
+        groupsField = requireNonNull(config.getGroupsField(), "groupsField is null");
+        userMapping = createUserMapping(config.getUserMappingPattern(), config.getUserMappingFile());
     }
 
     @Override
-    protected Optional<Principal> extractPrincipalFromToken(String token)
+    protected Optional<Identity> createIdentity(String token)
+            throws UserMappingException
     {
         try {
-            return service.convertTokenToClaims(token)
-                    .map(claims -> claims.get(principalField))
-                    .map(String.class::cast)
-                    .map(BasicPrincipal::new);
+            Optional<Map<String, Object>> claims = service.convertTokenToClaims(token);
+            if (claims.isEmpty()) {
+                return Optional.empty();
+            }
+            String principal = (String) claims.get().get(principalField);
+            Identity.Builder builder = Identity.forUser(userMapping.mapUser(principal));
+            builder.withPrincipal(new BasicPrincipal(principal));
+            groupsField.flatMap(field -> Optional.ofNullable((List<String>) claims.get().get(field)))
+                    .ifPresent(groups -> builder.withGroups(ImmutableSet.copyOf(groups)));
+            return Optional.of(builder.build());
         }
         catch (ChallengeFailedException e) {
             return Optional.empty();

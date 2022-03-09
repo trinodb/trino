@@ -141,7 +141,7 @@ abstract class AbstractTrinoResultSet
             .put("interval day to second", TrinoIntervalDayTime.class)
             .put("map", Map.class)
             .put("row", Row.class)
-            .build();
+            .buildOrThrow();
 
     @VisibleForTesting
     static final TypeConversions TYPE_CONVERSIONS =
@@ -190,7 +190,6 @@ abstract class AbstractTrinoResultSet
     private final AtomicReference<List<Object>> row = new AtomicReference<>();
     private final AtomicLong currentRowNumber = new AtomicLong(); // Index into 'rows' of our current row (1-based)
     private final AtomicBoolean wasNull = new AtomicBoolean();
-    protected final AtomicBoolean closed = new AtomicBoolean();
     private final Optional<Statement> statement;
 
     AbstractTrinoResultSet(Optional<Statement> statement, List<Column> columns, Iterator<List<Object>> results)
@@ -1468,11 +1467,8 @@ abstract class AbstractTrinoResultSet
     }
 
     @Override
-    public boolean isClosed()
-            throws SQLException
-    {
-        return closed.get();
-    }
+    public abstract boolean isClosed()
+            throws SQLException;
 
     @Override
     public void updateNString(int columnIndex, String nString)
@@ -1980,9 +1976,8 @@ abstract class AbstractTrinoResultSet
         Optional<String> timezone = Optional.ofNullable(matcher.group("timezone"));
 
         long picosOfSecond = 0;
-        int precision = 0;
         if (fraction != null) {
-            precision = fraction.length();
+            int precision = fraction.length();
             verify(precision <= 12, "Unsupported timestamp precision %s: %s", precision, value);
             long fractionValue = Long.parseLong(fraction);
             picosOfSecond = rescale(fractionValue, precision, 12);

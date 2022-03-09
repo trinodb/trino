@@ -41,11 +41,11 @@ public class TestKinesisTableDescriptionSupplier
     public void start()
     {
         // Create dependent objects, including the minimal config needed for this test
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("kinesis.table-description-location", "etc/kinesis")
                 .put("kinesis.default-schema", "kinesis")
                 .put("kinesis.hide-internal-columns", "true")
-                .build();
+                .buildOrThrow();
 
         KinesisTestClientManager kinesisTestClientManager = new KinesisTestClientManager();
         MockKinesisClient mockClient = (MockKinesisClient) kinesisTestClientManager.getClient();
@@ -60,7 +60,7 @@ public class TestKinesisTableDescriptionSupplier
     @Test
     public void testTableDefinition()
     {
-        KinesisMetadata metadata = (KinesisMetadata) connector.getMetadata(new ConnectorTransactionHandle() {});
+        KinesisMetadata metadata = (KinesisMetadata) connector.getMetadata(SESSION, new ConnectorTransactionHandle() {});
         SchemaTableName tblName = new SchemaTableName("prod", "test_table");
         KinesisTableHandle tableHandle = metadata.getTableHandle(SESSION, tblName);
         assertNotNull(metadata);
@@ -77,7 +77,7 @@ public class TestKinesisTableDescriptionSupplier
     @Test
     public void testRelatedObjects()
     {
-        KinesisMetadata metadata = (KinesisMetadata) connector.getMetadata(new ConnectorTransactionHandle() {});
+        KinesisMetadata metadata = (KinesisMetadata) connector.getMetadata(SESSION, new ConnectorTransactionHandle() {});
         assertNotNull(metadata);
 
         SchemaTableName tblName = new SchemaTableName("prod", "test_table");

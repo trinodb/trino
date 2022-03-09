@@ -92,6 +92,22 @@ Property Name                                Description
                                              without staging file to be created in the local file system.
 
 ``hive.s3.streaming.part-size``              The part size for S3 streaming upload. Defaults to ``16MB``.
+
+``hive.s3.proxy.host``                       Proxy host to use if connecting through a proxy
+
+``hive.s3.proxy.port``                       Proxy port to use if connecting through a proxy
+
+``hive.s3.proxy.protocol``                   Proxy protocol. HTTP or HTTPS , defaults to ``HTTPS``.
+
+``hive.s3.proxy.non-proxy-hosts``            Hosts list to access without going through the proxy.
+
+``hive.s3.proxy.username``                   Proxy user name to use if connecting through a proxy
+
+``hive.s3.proxy.password``                   Proxy password name to use if connecting through a proxy
+
+``hive.s3.proxy.preemptive-basic-auth``      Whether to attempt to authenticate preemptively against proxy
+                                             when using base authorization, defaults to ``false``.
+
 ============================================ =================================================================
 
 .. _hive-s3-credentials:
@@ -159,6 +175,12 @@ The security mapping must provide one or more configuration settings:
   extra credential. This overrides any globally configured IAM role. This role
   is allowed to be specified as an extra credential, although specifying it
   explicitly has no effect, as it would be used anyway.
+
+* ``roleSessionName``: Optional role session name to use with ``iamRole``. This can only
+  be used when ``iamRole`` is specified. If ``roleSessionName`` includes the string
+  ``${USER}``, then the ``${USER}`` portion of the string will be replaced with the
+  current session's username. If ``roleSessionName`` is not specified, it defaults
+  to ``trino-session``.
 
 * ``allowedIamRoles``: IAM roles that are allowed to be specified as an extra
   credential. This is useful because a particular AWS account may have permissions

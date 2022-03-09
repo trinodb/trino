@@ -57,7 +57,6 @@ public final class SqlServerQueryRunner
             connectorProperties.putIfAbsent("connection-url", testingSqlServer.getJdbcUrl());
             connectorProperties.putIfAbsent("connection-user", testingSqlServer.getUsername());
             connectorProperties.putIfAbsent("connection-password", testingSqlServer.getPassword());
-            connectorProperties.putIfAbsent("allow-drop-table", "true");
 
             queryRunner.installPlugin(new SqlServerPlugin());
             queryRunner.createCatalog(CATALOG, "sqlserver", connectorProperties);

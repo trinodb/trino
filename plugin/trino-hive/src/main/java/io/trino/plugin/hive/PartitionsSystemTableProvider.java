@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.hive;
 
-import io.trino.plugin.hive.authentication.HiveIdentity;
+import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
@@ -22,6 +22,7 @@ import io.trino.spi.connector.InMemoryRecordSet;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeManager;
 
 import javax.inject.Inject;
 
@@ -33,7 +34,15 @@ import java.util.stream.IntStream;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Streams.stream;
+import static io.trino.plugin.hive.HiveSessionProperties.getTimestampPrecision;
 import static io.trino.plugin.hive.SystemTableHandler.PARTITIONS;
+import static io.trino.plugin.hive.metastore.MetastoreUtil.getProtectMode;
+import static io.trino.plugin.hive.metastore.MetastoreUtil.verifyOnline;
+import static io.trino.plugin.hive.util.HiveBucketing.getHiveBucketHandle;
+import static io.trino.plugin.hive.util.HiveUtil.getPartitionKeyColumnHandles;
+import static io.trino.plugin.hive.util.HiveUtil.getRegularColumnHandles;
+import static io.trino.plugin.hive.util.HiveUtil.isDeltaLakeTable;
+import static io.trino.plugin.hive.util.HiveUtil.isIcebergTable;
 import static io.trino.plugin.hive.util.SystemTables.createSystemTable;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
@@ -43,11 +52,13 @@ public class PartitionsSystemTableProvider
         implements SystemTableProvider
 {
     private final HivePartitionManager partitionManager;
+    private final TypeManager typeManager;
 
     @Inject
-    public PartitionsSystemTableProvider(HivePartitionManager partitionManager)
+    public PartitionsSystemTableProvider(HivePartitionManager partitionManager, TypeManager typeManager)
     {
         this.partitionManager = requireNonNull(partitionManager, "partitionManager is null");
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }
 
     @Override
@@ -68,11 +79,20 @@ public class PartitionsSystemTableProvider
         }
 
         SchemaTableName sourceTableName = PARTITIONS.getSourceTableName(tableName);
-        HiveTableHandle sourceTableHandle = metadata.getTableHandle(session, sourceTableName);
-
-        if (sourceTableHandle == null) {
+        Table sourceTable = metadata.getMetastore()
+                .getTable(sourceTableName.getSchemaName(), sourceTableName.getTableName())
+                .orElse(null);
+        if (sourceTable == null || isDeltaLakeTable(sourceTable) || isIcebergTable(sourceTable)) {
             return Optional.empty();
         }
+        verifyOnline(sourceTableName, Optional.empty(), getProtectMode(sourceTable), sourceTable.getParameters());
+        HiveTableHandle sourceTableHandle = new HiveTableHandle(
+                sourceTableName.getSchemaName(),
+                sourceTableName.getTableName(),
+                sourceTable.getParameters(),
+                getPartitionKeyColumnHandles(sourceTable, typeManager),
+                getRegularColumnHandles(sourceTable, typeManager, getTimestampPrecision(session)),
+                getHiveBucketHandle(session, sourceTable, typeManager));
 
         List<HiveColumnHandle> partitionColumns = sourceTableHandle.getPartitionColumns();
         if (partitionColumns.isEmpty()) {
@@ -102,7 +122,7 @@ public class PartitionsSystemTableProvider
                 constraint -> {
                     Constraint targetConstraint = new Constraint(constraint.transformKeys(fieldIdToColumnHandle::get));
                     Iterable<List<Object>> records = () ->
-                            stream(partitionManager.getPartitions(metadata.getMetastore(), new HiveIdentity(session), sourceTableHandle, targetConstraint).getPartitions())
+                            stream(partitionManager.getPartitions(metadata.getMetastore(), sourceTableHandle, targetConstraint).getPartitions())
                                     .map(hivePartition ->
                                             IntStream.range(0, partitionColumns.size())
                                                     .mapToObj(fieldIdToColumnHandle::get)

@@ -125,7 +125,7 @@ public final class GraphvizPrinter
             .put(NodeType.UNNEST, "crimson")
             .put(NodeType.SAMPLE, "goldenrod4")
             .put(NodeType.ANALYZE_FINISH, "plum")
-            .build());
+            .buildOrThrow());
 
     static {
         checkState(NODE_COLORS.size() == NodeType.values().length);

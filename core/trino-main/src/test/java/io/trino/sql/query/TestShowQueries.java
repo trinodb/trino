@@ -15,7 +15,6 @@ package io.trino.sql.query;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.connector.CatalogName;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.SchemaTableName;
@@ -25,10 +24,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
-import java.util.List;
-
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.testing.TestingSession.createBogusTestingCatalog;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -68,8 +64,7 @@ public class TestShowQueries
                         .withListTables((session, schemaName) -> ImmutableList.of(new SchemaTableName("mockSchema", "mockTable")))
                         .build(),
                 ImmutableMap.of());
-        queryRunner.getCatalogManager().registerCatalog(createBogusTestingCatalog("testing_catalog"));
-        queryRunner.getSessionPropertyManager().addConnectorSessionProperties(new CatalogName("testing_catalog"), List.of());
+        queryRunner.createCatalog("testing_catalog", "mock", ImmutableMap.of());
         assertions = new QueryAssertions(queryRunner);
     }
 

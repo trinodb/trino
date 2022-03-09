@@ -16,6 +16,7 @@ package io.trino.spi.block;
 import io.airlift.slice.Slice;
 import org.openjdk.jol.info.ClassLayout;
 
+import java.util.OptionalInt;
 import java.util.function.BiConsumer;
 
 import static java.lang.String.format;
@@ -41,6 +42,12 @@ public class SingleArrayBlockWriter
     protected Block getBlock()
     {
         return blockBuilder;
+    }
+
+    @Override
+    public OptionalInt fixedSizeInBytesPerPosition()
+    {
+        return OptionalInt.empty();
     }
 
     @Override
@@ -94,22 +101,6 @@ public class SingleArrayBlockWriter
     public BlockBuilder writeBytes(Slice source, int sourceIndex, int length)
     {
         blockBuilder.writeBytes(source, sourceIndex, length);
-        return this;
-    }
-
-    @Override
-    public BlockBuilder appendStructure(Block block)
-    {
-        blockBuilder.appendStructure(block);
-        entryAdded();
-        return this;
-    }
-
-    @Override
-    public BlockBuilder appendStructureInternal(Block block, int position)
-    {
-        blockBuilder.appendStructureInternal(block, position);
-        entryAdded();
         return this;
     }
 

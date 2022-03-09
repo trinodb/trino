@@ -24,7 +24,6 @@ import io.trino.memory.MemoryPool;
 import io.trino.memory.QueryContext;
 import io.trino.operator.TaskContext;
 import io.trino.spi.QueryId;
-import io.trino.spi.memory.MemoryPoolId;
 import io.trino.spiller.SpillSpaceTracker;
 
 import java.util.Optional;
@@ -88,7 +87,6 @@ public final class TestingTaskContext
         private QueryId queryId = new QueryId("test_query");
         private TaskStateMachine taskStateMachine;
         private DataSize queryMaxMemory = DataSize.of(256, MEGABYTE);
-        private final DataSize queryMaxTotalMemory = DataSize.of(512, MEGABYTE);
         private DataSize memoryPoolSize = DataSize.of(1, GIGABYTE);
         private DataSize maxSpillSize = DataSize.of(1, GIGABYTE);
         private DataSize queryMaxSpillSize = DataSize.of(1, GIGABYTE);
@@ -139,14 +137,14 @@ public final class TestingTaskContext
 
         public TaskContext build()
         {
-            MemoryPool memoryPool = new MemoryPool(new MemoryPoolId("test"), memoryPoolSize);
+            MemoryPool memoryPool = new MemoryPool(memoryPoolSize);
             SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(maxSpillSize);
             QueryContext queryContext = new QueryContext(
                     queryId,
                     queryMaxMemory,
-                    queryMaxTotalMemory,
                     Optional.empty(),
                     memoryPool,
+                    0L,
                     GC_MONITOR,
                     notificationExecutor,
                     yieldExecutor,

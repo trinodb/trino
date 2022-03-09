@@ -1,17 +1,35 @@
-==========================
-File system access control
-==========================
+=========================
+File-based access control
+=========================
 
-This access control plugin allows you to specify authorization rules in a JSON file.
+To secure access to data in your cluster, you can implement file-based access
+control where access to data and operations is defined by rules declared in
+manually-configured JSON files.
+
+There are two types of file-based access control:
+
+* **System-level access control** uses the access control plugin with a single
+  JSON file that specifies authorization rules for the whole cluster.
+* **Catalog-level access control** uses individual JSON files for each catalog
+  for granular control over the data in that catalog, including column-level
+  authorization.
+
+.. _system-file-based-access-control:
+
+System-level access control files
+=================================
+
+The access control plugin allows you to specify authorization rules for the
+cluster in a single JSON file.
 
 Configuration
 -------------
 
-To use this plugin, add an ``etc/access-control.properties`` file containing two
-required properties: ``access-control.name``, which must be equal to ``file``, and
-``security.config-file``, which must be equal to the location of the config file.
-For example, if a config file named ``rules.json``
-resides in ``etc``, add an ``etc/access-control.properties`` with the following
+To use the access control plugin, add an ``etc/access-control.properties`` file
+containing two required properties: ``access-control.name``, which must be set
+to ``file``, and ``security.config-file``, which must be set to the location
+of the config file. For example, if a config file named ``rules.json`` resides
+in ``etc``, add an ``etc/access-control.properties`` with the following
 contents:
 
 .. code-block:: text
@@ -19,16 +37,17 @@ contents:
    access-control.name=file
    security.config-file=etc/rules.json
 
-The config file is specified in JSON format. It contains rules that define
-which users have access to which resources. The rules are read from top to bottom
-and the first matching rule is applied. If no rule matches, access is denied.
+The config file is specified in JSON format. It contains rules that define which
+users have access to which resources. The rules are read from top to bottom and
+the first matching rule is applied. If no rule matches, access is denied.
 
 Refresh
 --------
 
-By default, when a change is made to the JSON rules file, Trino must be restarted
-to load the changes. There is an optional property to refresh the properties without requiring a
-Trino restart. The refresh period is specified in the ``etc/access-control.properties``:
+By default, when a change is made to the JSON rules file, Trino must be
+restarted to load the changes. There is an optional property to refresh the
+properties without requiring a Trino restart. The refresh period is specified in
+the ``etc/access-control.properties``:
 
 .. code-block:: text
 
@@ -37,18 +56,21 @@ Trino restart. The refresh period is specified in the ``etc/access-control.prope
 Catalog, schema, and table access
 ---------------------------------
 
-Access to catalogs, schemas, tables, and views is controlled by the catalog, schema, and table
-rules.  The catalog rules are course grained rules used to restrict all access or write
-access to catalogs. They do not explicitly grant any specific schema or table permissions.
-The table and schema rules are used to specify who can create, drop, alter, select, insert,
-delete, etc. for schemas and tables.
+Access to catalogs, schemas, tables, and views is controlled by the catalog,
+schema, and table rules. The catalog rules are coarse-grained rules used to
+restrict all access or write access to catalogs. They do not explicitly grant
+any specific schema or table permissions. The table and schema rules are used to
+specify who can create, drop, alter, select, insert, delete, etc. for schemas
+and tables.
 
 .. note::
 
-    These rules do not apply to system defined table in the ``information_schema`` schema.
+    These rules do not apply to system-defined tables in the
+    ``information_schema`` schema.
 
-For each rule set, permission is based on the first matching rule read from top to bottom.  If
-no rule matches, access is denied. If no rules are provided at all, then access is granted.
+For each rule set, permission is based on the first matching rule read from top
+to bottom.  If no rule matches, access is denied. If no rules are provided at
+all, then access is granted.
 
 The following table summarizes the permissions required for each SQL command:
 
@@ -56,8 +78,8 @@ The following table summarizes the permissions required for each SQL command:
 SQL Command                          Catalog    Schema  Table                Note
 ==================================== ========== ======= ==================== ===================================================
 SHOW CATALOGS                                                                Always allowed
-SHOW SCHEMAS                         read-only  any*    any*                 Allowed if catalog is :ref:`visible<visibility>`
-SHOW TABLES                          read-only  any*    any*                 Allowed if schema :ref:`visible<visibility>`
+SHOW SCHEMAS                         read-only  any*    any*                 Allowed if catalog is :ref:`visible<system-file-auth-visibility>`
+SHOW TABLES                          read-only  any*    any*                 Allowed if schema :ref:`visible<system-file-auth-visibility>`
 CREATE SCHEMA                        read-only  owner
 DROP SCHEMA                          all        owner
 SHOW CREATE SCHEMA                   all        owner
@@ -82,19 +104,22 @@ INSERT INTO                          all                insert
 DELETE FROM                          all                delete
 ==================================== ========== ======= ==================== ===================================================
 
-.. _visibility:
+.. _system-file-auth-visibility:
 
 Visibility
 ^^^^^^^^^^
 
-For a catalog, schema, or table to be visible in a ``SHOW`` command, the user must have
-at least one permission on the item or any nested item. The nested items do not
-need to already exist as any potential permission makes the item visible. Specifically:
+For a catalog, schema, or table to be visible in a ``SHOW`` command, the user
+must have at least one permission on the item or any nested item. The nested
+items do not need to already exist as any potential permission makes the item
+visible. Specifically:
 
-* catalog: Visible if user is the owner of any nested schema, has permissions on any nested
-  table, or has permissions to set session properties in the catalog.
-* schema: Visible if the user is the owner of the schema, or has permissions on any nested table.
-* table: Visible if the user has any permissions on the table.
+* ``catalog``: Visible if user is the owner of any nested schema, has
+  permissions on any nested table, or has permissions to set session properties
+  in the catalog.
+* ``schema``: Visible if the user is the owner of the schema, or has permissions
+  on any nested table.
+* ``table``: Visible if the user has any permissions on the table.
 
 Catalog rules
 ^^^^^^^^^^^^^
@@ -104,35 +129,37 @@ Each catalog rule is composed of the following fields:
 * ``user`` (optional): regex to match against user name. Defaults to ``.*``.
 * ``role`` (optional): regex to match against role names. Defaults to ``.*``.
 * ``group`` (optional): regex to match against group names. Defaults to ``.*``.
-* ``catalog`` (optional): regex to match against catalog name. Defaults to ``.*``.
-* ``allow`` (required): string indicating whether a user has access to the catalog.
-  This value can be ``all``, ``read-only`` or ``none``, and defaults to ``none``.
-  Setting this value to ``read-only`` has the same behavior as the ``read-only``
-  system access control plugin.
+* ``catalog`` (optional): regex to match against catalog name. Defaults to
+  ``.*``.
+* ``allow`` (required): string indicating whether a user has access to the
+  catalog. This value can be ``all``, ``read-only`` or ``none``, and defaults to
+  ``none``. Setting this value to ``read-only`` has the same behavior as the
+  ``read-only`` system access control plugin.
 
 In order for a rule to apply the user name must match the regular expression
 specified in ``user`` attribute.
 
-For role names, a rule can be applied if at least one of the currently enabled roles
-matches the ``role`` regular expression.
+For role names, a rule can be applied if at least one of the currently enabled
+roles matches the ``role`` regular expression.
 
 For group names, a rule can be applied if at least one group name of this user
 matches the ``group`` regular expression.
 
-The ``all`` value for ``allow`` means these rules do not restrict access in any way,
-but the schema and table rules can restrict access.
+The ``all`` value for ``allow`` means these rules do not restrict access in any
+way, but the schema and table rules can restrict access.
 
 .. note::
 
     By default, all users have access to the ``system`` catalog. You can
     override this behavior by adding a rule.
 
-    Boolean ``true`` and ``false`` are also supported as legacy values for ``allow``,
-    to support backwards compatibility.  ``true`` maps to ``all``, and ``false`` maps to ``none``.
+    Boolean ``true`` and ``false`` are also supported as legacy values for
+    ``allow``, to support backwards compatibility.  ``true`` maps to ``all``,
+    and ``false`` maps to ``none``.
 
 For example, if you want to allow only the role ``admin`` to access the
-``mysql`` and the ``system`` catalog, allow users from the ``finance``
-and ``human_resources`` groups access to ``postgres`` catalog, allow all users to
+``mysql`` and the ``system`` catalog, allow users from the ``finance`` and
+``human_resources`` groups access to ``postgres`` catalog, allow all users to
 access the ``hive`` catalog, and deny all other access, you can use the
 following rules:
 
@@ -177,14 +204,16 @@ Each schema rule is composed of the following fields:
 * ``user`` (optional): regex to match against user name. Defaults to ``.*``.
 * ``role`` (optional): regex to match against role names. Defaults to ``.*``.
 * ``group`` (optional): regex to match against group names. Defaults to ``.*``.
-* ``catalog`` (optional): regex to match against catalog name. Defaults to ``.*``.
-* ``schema`` (optional): regex to match against schema name. Defaults to ``.*``.
+* ``catalog`` (optional): regex to match against catalog name. Defaults to
+  ``.*``.
+* ``schema`` (optional): regex to match against schema name. Defaults to
+  ``.*``.
 * ``owner`` (required): boolean indicating whether the user is to be considered
   an owner of the schema. Defaults to ``false``.
 
 For example, to provide ownership of all schemas to role ``admin``, treat all
-users as owners of the ``default.default`` schema and prevent user ``guest`` from
-ownership of any schema, you can use the following rules:
+users as owners of the ``default.default`` schema and prevent user ``guest``
+from ownership of any schema, you can use the following rules:
 
 .. code-block:: json
 
@@ -215,7 +244,8 @@ Each table rule is composed of the following fields:
 * ``user`` (optional): regex to match against user name. Defaults to ``.*``.
 * ``role`` (optional): regex to match against role names. Defaults to ``.*``.
 * ``group`` (optional): regex to match against group names. Defaults to ``.*``.
-* ``catalog`` (optional): regex to match against catalog name. Defaults to ``.*``.
+* ``catalog`` (optional): regex to match against catalog name. Defaults to
+  ``.*``.
 * ``schema`` (optional): regex to match against schema name. Defaults to ``.*``.
 * ``table`` (optional): regex to match against table names. Defaults to ``.*``.
 * ``privileges`` (required): zero or more of ``SELECT``, ``INSERT``,
@@ -250,7 +280,8 @@ The example below defines the following table access policy:
 * All users have ``SELECT`` privileges on ``default.hr.employees``, but the
   table is filtered to only the row for the current user.
 * All users have ``SELECT`` privileges on all tables in the ``default.default``
-  schema, except for the ``address`` column which is blocked, and ``ssn`` which is masked.
+  schema, except for the ``address`` column which is blocked, and ``ssn`` which
+  is masked.
 
 .. code-block:: json
 
@@ -296,26 +327,29 @@ The example below defines the following table access policy:
       ]
     }
 
-.. _session_property_rules:
+.. _system-file-auth-session-property:
 
 Session property rules
 ----------------------
 
-These rules control the ability of a user to set system and catalog session properties. The
-user is granted or denied access, based on the first matching rule, read from top to bottom.
-If no rules are specified, all users are allowed set any session property. If no rule matches,
-setting the session property is denied. System session property rules are composed of the
-following fields:
+These rules control the ability of a user to set system and catalog session
+properties. The user is granted or denied access, based on the first matching
+rule, read from top to bottom. If no rules are specified, all users are allowed
+set any session property. If no rule matches, setting the session property is
+denied. System session property rules are composed of the following fields:
 
 * ``user`` (optional): regex to match against user name. Defaults to ``.*``.
 * ``role`` (optional): regex to match against role names. Defaults to ``.*``.
 * ``group`` (optional): regex to match against group names. Defaults to ``.*``.
-* ``property`` (optional): regex to match against the property name. Defaults to ``.*``.
-* ``allow`` (required): boolean indicating if the setting the session property should be allowed.
+* ``property`` (optional): regex to match against the property name. Defaults to
+  ``.*``.
+* ``allow`` (required): boolean indicating if the setting the session
+  property should be allowed.
 
 The catalog session property rules have the additional field:
 
-* ``catalog`` (optional): regex to match against catalog name. Defaults to ``.*``.
+* ``catalog`` (optional): regex to match against catalog name. Defaults to
+  ``.*``.
 
 The example below defines the following table access policy:
 
@@ -332,75 +366,85 @@ The example below defines the following table access policy:
 Query rules
 -----------
 
-These rules control the ability of a user to execute, view, or kill a query. The user is
-granted or denied access, based on the first matching rule read from top to bottom. If no
-rules are specified, all users are allowed to execute queries, and to view or kill queries
-owned by any user. If no rule matches, query management is denied. Each rule is composed
-of the following fields:
+These rules control the ability of a user to execute, view, or kill a query. The
+user is granted or denied access, based on the first matching rule read from top
+to bottom. If no rules are specified, all users are allowed to execute queries,
+and to view or kill queries owned by any user. If no rule matches, query
+management is denied. Each rule is composed of the following fields:
 
 * ``user`` (optional): regex to match against user name. Defaults to ``.*``.
 * ``role`` (optional): regex to match against role names. Defaults to ``.*``.
 * ``group`` (optional): regex to match against group names. Defaults to ``.*``.
-* ``queryOwner`` (optional): regex to match against the query owner name. Defaults to ``.*``.
-* ``allow`` (required): set of query permissions granted to user. Values: ``execute``, ``view``, ``kill``
+* ``queryOwner`` (optional): regex to match against the query owner name.
+  Defaults to ``.*``.
+* ``allow`` (required): set of query permissions granted to user. Values:
+  ``execute``, ``view``, ``kill``
 
 .. note::
 
     Users always have permission to view or kill their own queries.
 
-    A rule that includes ``owner`` may not include the ``execute`` access mode. Queries are only owned
-    by a user once their execution has begun.
+    A rule that includes ``owner`` may not include the ``execute`` access mode.
+    Queries are only owned by a user once their execution has begun.
 
-For example, if you want to allow the role ``admin`` full query access, allow the user ``alice``
-to execute and kill queries, allow members of the group ``contractors`` to view queries owned by
-users ``alice`` or ``dave``, allow any user to execute queries, and deny all other access, you can
-use the following rules:
+For example, if you want to allow the role ``admin`` full query access, allow
+the user ``alice`` to execute and kill queries, allow members of the group
+``contractors`` to view queries owned by users ``alice`` or ``dave``, allow any
+user to execute queries, and deny all other access, you can use the following
+rules:
 
 .. literalinclude:: query-access.json
     :language: json
 
-.. _impersonation_rules:
+.. _system-file-auth-impersonation-rules:
 
 Impersonation rules
 -------------------
 
-These rules control the ability of a user to impersonate another user.  In
+These rules control the ability of a user to impersonate another user. In
 some environments it is desirable for an administrator (or managed system) to
-run queries on behalf of other users.  In these cases, the administrator
+run queries on behalf of other users. In these cases, the administrator
 authenticates using their credentials, and then submits a query as a different
-user.  When the user context is changed, Trino will verify the administrator
+user. When the user context is changed, Trino verifies that the administrator
 is authorized to run queries as the target user.
 
-When these rules are present, the authorization is based on the first matching rule,
-processed from top to bottom. If no rules match, the authorization is denied.
-If impersonation rules are not present but the legacy principal rules are specified,
-it is assumed impersonation access control is being handled by the principal rules,
-so impersonation is allowed.  If neither impersonation nor principal rules are
-defined, impersonation is not allowed.
+When these rules are present, the authorization is based on the first matching
+rule, processed from top to bottom. If no rules match, the authorization is
+denied. If impersonation rules are not present but the legacy principal rules
+are specified, it is assumed impersonation access control is being handled by
+the principal rules, so impersonation is allowed. If neither impersonation nor
+principal rules are defined, impersonation is not allowed.
 
 Each impersonation rule is composed of the following fields:
 
-* ``original_user`` (optional): regex to match against the user requesting the impersonation. Defaults to ``.*``.
-* ``original_role`` (optional): regex to match against role names of the requesting impersonation. Defaults to ``.*``.
-* ``new_user`` (required): regex to match against the user that will be impersonated.
-* ``allow`` (optional): boolean indicating if the authentication should be allowed.
+* ``original_user`` (optional): regex to match against the user requesting the
+  impersonation. Defaults to ``.*``.
+* ``original_role`` (optional): regex to match against role names of the
+  requesting impersonation. Defaults to ``.*``.
+* ``new_user`` (required): regex to match against the user that will be
+  impersonated.
+* ``allow`` (optional): boolean indicating if the authentication should be
+  allowed. Defaults to ``true``.
+
+The impersonation rules are a bit different than the other rules: The attribute
+``new_user`` is required to not accidentally prevent more access than intended.
+Doing so it was possible to make the attribute ``allow`` optional.
 
 The following example allows the ``admin`` role, to impersonate any user, except
-for ``bob``.  It also allows any user to impersonate the ``test`` user:
+for ``bob``. It also allows any user to impersonate the ``test`` user:
 
 .. literalinclude:: user-impersonation.json
     :language: json
 
-.. _principal_rules:
+.. _system-file-auth-principal-rules:
 
 Principal rules
 ---------------
 
 .. warning::
 
-    Principal rules are deprecated and will be removed in a future release.
-    These rules have been replaced with :doc:`/security/user-mapping`, which
-    specifies how a complex authentication user name is mapped to a simple
+    Principal rules are deprecated. Instead, use :doc:`/security/user-mapping`
+    which specifies how a complex authentication user name is mapped to a simple
     user name for Trino, and impersonation rules defined above.
 
 These rules serve to enforce a specific matching between a principal and a
@@ -411,10 +455,10 @@ Each rule is composed of the following fields:
 
 * ``principal`` (required): regex to match and group against principal.
 * ``user`` (optional): regex to match against user name. If matched, it
-  will grant or deny the authorization based on the value of ``allow``.
+  grants or denies the authorization based on the value of ``allow``.
 * ``principal_to_user`` (optional): replacement string to substitute against
-  principal. If the result of the substitution is same as the user name, it will
-  grant or deny the authorization based on the value of ``allow``.
+  principal. If the result of the substitution is same as the user name, it
+  grants or denies the authorization based on the value of ``allow``.
 * ``allow`` (required): boolean indicating whether a principal can be authorized
   as a user.
 
@@ -444,9 +488,9 @@ and Kerberos authentication:
       ]
     }
 
-If you want to allow users to use the exact same name as their Kerberos principal
-name, and allow ``alice`` and ``bob`` to use a group principal named as
-``group@example.net``, you can use the following rules.
+If you want to allow users to use the exact same name as their Kerberos
+principal name, and allow ``alice`` and ``bob`` to use a group principal named
+as ``group@example.net``, you can use the following rules.
 
 .. code-block:: json
 
@@ -465,29 +509,203 @@ name, and allow ``alice`` and ``bob`` to use a group principal named as
       ]
     }
 
-.. _system_information_rules:
+.. _system-file-auth-system_information:
 
 System information rules
 ------------------------
 
-These rules specify which users can access the system information management interface.
-The user is granted or denied access, based on the first matching rule read from top to
-bottom. If no rules are specified, all access to system information is denied. If
-no rule matches, system access is denied. Each rule is composed of the following fields:
+These rules specify which users can access the system information management
+interface. The user is granted or denied access, based on the first matching
+rule read from top to bottom. If no rules are specified, all access to system
+information is denied. If no rule matches, system access is denied. Each rule is
+composed of the following fields:
 
 * ``user`` (optional): regex to match against user name. If matched, it
-  will grant or deny the authorization based on the value of ``allow``.
-* ``allow`` (required): set of access permissions granted to user. Values: ``read``, ``write``
+  grants or denies the authorization based on the value of ``allow``.
+* ``allow`` (required): set of access permissions granted to user. Values:
+  ``read``, ``write``
 
 For example, if you want to allow only the role ``admin`` to read and write
-system information, allow ``alice`` to read system information, and deny all other access, you
-can use the following rules:
+system information, allow ``alice`` to read system information, and deny all
+other access, you can use the following rules:
 
 .. literalinclude:: system-information-access.json
     :language: json
 
 A fixed user can be set for management interfaces using the ``management.user``
-configuration property.  When this is configured, system information rules must still be set
-to authorize this user to read or write to management information. The fixed management user
-only applies to HTTP by default. To enable the fixed user over HTTPS, set the
-``management.user.https-enabled`` configuration property.
+configuration property.  When this is configured, system information rules must
+still be set to authorize this user to read or write to management information.
+The fixed management user only applies to HTTP by default. To enable the fixed
+user over HTTPS, set the ``management.user.https-enabled`` configuration
+property.
+
+.. _catalog-file-based-access-control:
+
+Catalog-level access control files
+==================================
+
+You can create JSON files for individual catalogs that define authorization
+rules specific to that catalog. To enable catalog-level access control files,
+add a connector-specific catalog configuration property that sets the
+authorization type to ``FILE`` and the ``security.config-file`` catalog
+configuration property that specifies the JSON rules file.
+
+For example, the following Iceberg catalog configuration properties use the
+``rules.json`` file for catalog-level access control:
+
+.. code-block:: properties
+
+  iceberg.security=FILE
+  security.config-file=etc/catalog/rules.json
+
+
+Catalog-level access control files are supported on a per-connector basis, refer
+to the connector documentation for more information.
+
+.. note::
+
+    These rules do not apply to system-defined tables in the
+    ``information_schema`` schema.
+
+Configure a catalog rules file
+------------------------------
+
+The configuration file is specified in JSON format. This file is composed of
+the folowing sections, each of which is a list of rules that are processed in
+order from top to bottom:
+
+1. ``schemas``
+2. ``tables``
+3. ``session_properties``
+
+The user is granted the privileges from the first matching rule. All regexes
+default to ``.*`` if not specified.
+
+Schema rules
+^^^^^^^^^^^^
+
+These rules govern who is considered an owner of a schema.
+
+* ``user`` (optional): regex to match against user name.
+* ``group`` (optional): regex to match against every user group the user belongs
+  to.
+* ``schema`` (optional): regex to match against schema name.
+* ``owner`` (required): boolean indicating ownership.
+
+Table rules
+^^^^^^^^^^^
+
+These rules govern the privileges granted on specific tables.
+
+* ``user`` (optional): regex to match against user name.
+* ``group`` (optional): regex to match against every user group the user belongs
+  to.
+* ``schema`` (optional): regex to match against schema name.
+* ``table`` (optional): regex to match against table name.
+* ``privileges`` (required): zero or more of ``SELECT``, ``INSERT``,
+  ``DELETE``, ``OWNERSHIP``, ``GRANT_SELECT``.
+* ``columns`` (optional): list of column constraints.
+* ``filter`` (optional): boolean filter expression for the table.
+* ``filter_environment`` (optional): environment used during filter evaluation.
+
+Column constraints
+~~~~~~~~~~~~~~~~~~
+
+These constraints can be used to restrict access to column data.
+
+* ``name``: name of the column.
+* ``allow`` (optional): if false, column can not be accessed.
+* ``mask`` (optional): mask expression applied to column.
+* ``mask_environment`` (optional): environment use during mask evaluation.
+
+Filter environment and mask environment
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+These rules apply to ``filter_environment`` and ``mask_environment``.
+
+* ``user`` (optional): username for checking permission of subqueries in a mask.
+
+Session property rules
+^^^^^^^^^^^^^^^^^^^^^^
+
+These rules govern who may set session properties.
+
+* ``user`` (optional): regex to match against user name.
+* ``group`` (optional): regex to match against every user group the user belongs
+  to.
+* ``property`` (optional): regex to match against session property name.
+* ``allow`` (required): boolean indicating whether this session property may be
+  set.
+
+Example
+-------
+
+.. code-block:: json
+
+    {
+      "schemas": [
+        {
+          "user": "admin",
+          "schema": ".*",
+          "owner": true
+        },
+        {
+          "group": "finance|human_resources",
+          "schema": "employees",
+          "owner": true
+        },
+        {
+          "user": "guest",
+          "owner": false
+        },
+        {
+          "schema": "default",
+          "owner": true
+        }
+      ],
+      "tables": [
+        {
+          "user": "admin",
+          "privileges": ["SELECT", "INSERT", "DELETE", "OWNERSHIP"]
+        },
+        {
+          "user": "banned_user",
+          "privileges": []
+        },
+        {
+          "schema": "hr",
+          "table": "employee",
+          "privileges": ["SELECT"],
+          "filter": "user = current_user"
+        }
+        {
+          "schema": "default",
+          "table": ".*",
+          "privileges": ["SELECT"],
+          "columns" : [
+             {
+                "name": "address",
+                "allow": false
+             },
+             {
+                "name": "ssn",
+                "mask": "'XXX-XX-' + substring(credit_card, -4)",
+                "mask_environment": {
+                  "user": "admin"
+                }
+             }
+          ]
+        }
+      ],
+      "session_properties": [
+        {
+          "property": "force_local_scheduling",
+          "allow": true
+        },
+        {
+          "user": "admin",
+          "property": "max_split_size",
+          "allow": true
+        }
+      ]
+    }

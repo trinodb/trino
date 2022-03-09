@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.ToIntFunction;
 
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 // the bucket to node mapping is fixed and pre-assigned
@@ -45,6 +46,14 @@ public class FixedBucketNodeMap
     public int getBucketCount()
     {
         return bucketToNode.size();
+    }
+
+    @Override
+    public int getNodeCount()
+    {
+        return toIntExact(bucketToNode.stream()
+                .distinct()
+                .count());
     }
 
     @Override

@@ -86,7 +86,7 @@ public class TestNodeLocalDynamicSplitPruning
             throws IOException
     {
         HiveConfig config = new HiveConfig();
-        HiveTransactionHandle transaction = new HiveTransactionHandle();
+        HiveTransactionHandle transaction = new HiveTransactionHandle(false);
         try (TempFile tempFile = new TempFile()) {
             ConnectorPageSource emptyPageSource = createTestingPageSource(transaction, config, tempFile.file(), getDynamicFilter(getTupleDomainForBucketSplitPruning()));
             assertEquals(emptyPageSource.getClass(), EmptyPageSource.class);
@@ -101,7 +101,7 @@ public class TestNodeLocalDynamicSplitPruning
             throws IOException
     {
         HiveConfig config = new HiveConfig();
-        HiveTransactionHandle transaction = new HiveTransactionHandle();
+        HiveTransactionHandle transaction = new HiveTransactionHandle(false);
         try (TempFile tempFile = new TempFile()) {
             ConnectorPageSource emptyPageSource = createTestingPageSource(transaction, config, tempFile.file(), getDynamicFilter(getTupleDomainForPartitionSplitPruning()));
             assertEquals(emptyPageSource.getClass(), EmptyPageSource.class);
@@ -115,7 +115,7 @@ public class TestNodeLocalDynamicSplitPruning
     {
         Properties splitProperties = new Properties();
         splitProperties.setProperty(FILE_INPUT_FORMAT, hiveConfig.getHiveStorageFormat().getInputFormat());
-        splitProperties.setProperty(SERIALIZATION_LIB, hiveConfig.getHiveStorageFormat().getSerDe());
+        splitProperties.setProperty(SERIALIZATION_LIB, hiveConfig.getHiveStorageFormat().getSerde());
         HiveSplit split = new HiveSplit(
                 SCHEMA_NAME,
                 TABLE_NAME,
@@ -153,8 +153,7 @@ public class TestNodeLocalDynamicSplitPruning
                                 20,
                                 20,
                                 ImmutableList.of()))),
-                transaction,
-                Optional.empty());
+                transaction);
 
         HivePageSourceProvider provider = new HivePageSourceProvider(
                 TESTING_TYPE_MANAGER,

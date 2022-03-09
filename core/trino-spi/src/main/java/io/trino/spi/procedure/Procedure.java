@@ -112,7 +112,21 @@ public class Procedure
 
         public Argument(String name, Type type, boolean required, @Nullable Object defaultValue)
         {
+            this(name, false, type, required, defaultValue);
+        }
+
+        /**
+         * @deprecated Available for transition period only. After the transition period non-uppercase names will always be allowed.
+         */
+        @Deprecated
+        public Argument(String name, boolean allowNonUppercaseName, Type type, boolean required, @Nullable Object defaultValue)
+        {
             this.name = checkNotNullOrEmpty(name, "name");
+            if (!allowNonUppercaseName && !name.equals(name.toUpperCase(ENGLISH))) {
+                throw new IllegalArgumentException("Argument name not uppercase. Previously argument names were matched incorrectly. " +
+                        "This is now fixed and for backwards compatibility of CALL statements, the argument must be declared in uppercase. " +
+                        "You can pass allowNonUppercaseName boolean flag if you want to register non-uppercase argument name.");
+            }
             this.type = requireNonNull(type, "type is null");
             this.required = required;
             this.defaultValue = defaultValue;

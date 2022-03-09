@@ -241,7 +241,7 @@ public class SuiteRun
         private void printTestRunsSummary(List<TestRunResult> results)
         {
             ConsoleTable table = new ConsoleTable();
-            table.addHeader(HEADER);
+            table.addHeader(HEADER.toArray());
             results.forEach(result -> table.addRow(result.toRow()));
             table.addSeparator();
             log.info("Suite tests results:\n%s", table.render());
@@ -350,9 +350,7 @@ public class SuiteRun
 
     static class TestRunResult
     {
-        public static final Object[] HEADER = {
-                "id", "suite", "environment", "config", "options", "status", "elapsed", "error"
-        };
+        public static final List<String> HEADER = List.of("id", "suite", "environment", "config", "options", "status", "elapsed", "error");
 
         private final String runId;
         private final SuiteTestRun suiteRun;

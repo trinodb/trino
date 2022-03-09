@@ -19,6 +19,7 @@ import com.amazonaws.client.builder.AwsClientBuilder;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.google.common.collect.ImmutableMap;
+import io.trino.testing.containers.Minio;
 import io.trino.util.AutoCloseableCloser;
 import org.testcontainers.containers.Network;
 
@@ -41,6 +42,7 @@ public class HiveMinioDataLake
     private final AutoCloseableCloser closer = AutoCloseableCloser.create();
 
     private State state = State.INITIAL;
+    private AmazonS3 s3Client;
 
     public HiveMinioDataLake(String bucketName, Map<String, String> hiveHadoopFilesToMount)
     {
@@ -57,14 +59,14 @@ public class HiveMinioDataLake
                         .withEnvVars(ImmutableMap.<String, String>builder()
                                 .put("MINIO_ACCESS_KEY", ACCESS_KEY)
                                 .put("MINIO_SECRET_KEY", SECRET_KEY)
-                                .build())
+                                .buildOrThrow())
                         .build());
         this.hiveHadoop = closer.register(
                 HiveHadoop.builder()
                         .withFilesToMount(ImmutableMap.<String, String>builder()
-                                .put("hive_s3_insert_overwrite/hive-core-site.xml", "/etc/hadoop/conf/core-site.xml")
+                                .put("hive_minio_datalake/hive-core-site.xml", "/etc/hadoop/conf/core-site.xml")
                                 .putAll(hiveHadoopFilesToMount)
-                                .build())
+                                .buildOrThrow())
                         .withImage(hiveHadoopImage)
                         .withNetwork(network)
                         .build());
@@ -76,7 +78,7 @@ public class HiveMinioDataLake
         state = State.STARTING;
         minio.start();
         hiveHadoop.start();
-        AmazonS3 s3Client = AmazonS3ClientBuilder
+        s3Client = AmazonS3ClientBuilder
                 .standard()
                 .withEndpointConfiguration(new AwsClientBuilder.EndpointConfiguration(
                         "http://localhost:" + minio.getMinioApiEndpoint().getPort(),
@@ -86,7 +88,14 @@ public class HiveMinioDataLake
                         new BasicAWSCredentials(ACCESS_KEY, SECRET_KEY)))
                 .build();
         s3Client.createBucket(this.bucketName);
+        closer.register(() -> s3Client.shutdown());
         state = State.STARTED;
+    }
+
+    public AmazonS3 getS3Client()
+    {
+        checkState(state == State.STARTED, "Can't provide client when MinIO state is: %s", state);
+        return s3Client;
     }
 
     public void stop()

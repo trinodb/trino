@@ -22,19 +22,18 @@ import io.trino.spi.type.Int128;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 
-import java.math.BigDecimal;
-import java.math.BigInteger;
-
 import static io.trino.spi.function.OperatorType.SATURATED_FLOOR_CAST;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.spi.type.Decimals.bigIntegerTenToNth;
+import static io.trino.spi.type.Int128Math.floorDiv;
+import static io.trino.spi.type.Int128Math.multiply;
+import static io.trino.spi.type.Int128Math.negate;
+import static io.trino.spi.type.Int128Math.powerOfTen;
+import static io.trino.spi.type.Int128Math.subtract;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.TypeSignatureParameter.typeVariable;
 import static java.lang.Math.toIntExact;
-import static java.math.BigInteger.ONE;
-import static java.math.RoundingMode.FLOOR;
 
 public final class DecimalSaturatedFloorCasts
 {
@@ -50,7 +49,7 @@ public final class DecimalSaturatedFloorCasts
             .choice(choice -> choice
                     .implementation(methodsGroup -> methodsGroup
                             .methods("shortDecimalToShortDecimal", "shortDecimalToLongDecimal", "longDecimalToShortDecimal", "longDecimalToLongDecimal")
-                            .withExtraParameters((context) -> {
+                            .withExtraParameters(context -> {
                                 int sourcePrecision = toIntExact(context.getLiteral("source_precision"));
                                 int sourceScale = toIntExact(context.getLiteral("source_scale"));
                                 int resultPrecision = toIntExact(context.getLiteral("result_precision"));
@@ -62,45 +61,46 @@ public final class DecimalSaturatedFloorCasts
     @UsedByGeneratedCode
     public static long shortDecimalToShortDecimal(long value, int sourcePrecision, int sourceScale, int resultPrecision, int resultScale)
     {
-        return bigintToBigintFloorSaturatedCast(BigInteger.valueOf(value), sourceScale, resultPrecision, resultScale).longValueExact();
+        return saturatedCast(Int128.valueOf(value), sourceScale, resultPrecision, resultScale).toLongExact();
     }
 
     @UsedByGeneratedCode
     public static Int128 shortDecimalToLongDecimal(long value, int sourcePrecision, int sourceScale, int resultPrecision, int resultScale)
     {
-        return Int128.valueOf(bigintToBigintFloorSaturatedCast(BigInteger.valueOf(value), sourceScale, resultPrecision, resultScale));
+        return saturatedCast(Int128.valueOf(value), sourceScale, resultPrecision, resultScale);
     }
 
     @UsedByGeneratedCode
     public static long longDecimalToShortDecimal(Int128 value, int sourcePrecision, int sourceScale, int resultPrecision, int resultScale)
     {
-        return bigintToBigintFloorSaturatedCast(value.toBigInteger(), sourceScale, resultPrecision, resultScale).longValueExact();
+        return saturatedCast(value, sourceScale, resultPrecision, resultScale).toLongExact();
     }
 
     @UsedByGeneratedCode
     public static Int128 longDecimalToLongDecimal(Int128 value, int sourcePrecision, int sourceScale, int resultPrecision, int resultScale)
     {
-        return Int128.valueOf(bigintToBigintFloorSaturatedCast(value.toBigInteger(), sourceScale, resultPrecision, resultScale));
+        return saturatedCast(value, sourceScale, resultPrecision, resultScale);
     }
 
-    private static BigInteger bigintToBigintFloorSaturatedCast(BigInteger value, int sourceScale, int resultPrecision, int resultScale)
+    private static Int128 saturatedCast(Int128 value, int sourceScale, int resultPrecision, int resultScale)
     {
-        return bigDecimalToBigintFloorSaturatedCast(new BigDecimal(value, sourceScale), resultPrecision, resultScale);
-    }
+        int scale = resultScale - sourceScale;
+        if (scale > 0) {
+            value = multiply(value, powerOfTen(scale));
+        }
+        else if (scale < 0) {
+            value = floorDiv(value, powerOfTen(-scale));
+        }
 
-    private static BigInteger bigDecimalToBigintFloorSaturatedCast(BigDecimal bigDecimal, int resultPrecision, int resultScale)
-    {
-        BigDecimal rescaledValue = bigDecimal.setScale(resultScale, FLOOR);
-        BigInteger unscaledValue = rescaledValue.unscaledValue();
-        BigInteger maxUnscaledValue = bigIntegerTenToNth(resultPrecision).subtract(ONE);
-        if (unscaledValue.compareTo(maxUnscaledValue) > 0) {
+        Int128 maxUnscaledValue = subtract(powerOfTen(resultPrecision), Int128.ONE);
+        if (value.compareTo(maxUnscaledValue) > 0) {
             return maxUnscaledValue;
         }
-        BigInteger minUnscaledValue = maxUnscaledValue.negate();
-        if (unscaledValue.compareTo(minUnscaledValue) < 0) {
+        Int128 minUnscaledValue = negate(maxUnscaledValue);
+        if (value.compareTo(minUnscaledValue) < 0) {
             return minUnscaledValue;
         }
-        return unscaledValue;
+        return value;
     }
 
     public static final SqlScalarFunction DECIMAL_TO_BIGINT_SATURATED_FLOOR_CAST = decimalToGenericIntegerTypeSaturatedFloorCast(BIGINT, Long.MIN_VALUE, Long.MAX_VALUE);
@@ -120,7 +120,7 @@ public final class DecimalSaturatedFloorCasts
                 .choice(choice -> choice
                         .implementation(methodsGroup -> methodsGroup
                                 .methods("shortDecimalToGenericIntegerType", "longDecimalToGenericIntegerType")
-                                .withExtraParameters((context) -> {
+                                .withExtraParameters(context -> {
                                     int sourceScale = toIntExact(context.getLiteral("source_scale"));
                                     return ImmutableList.of(sourceScale, minValue, maxValue);
                                 })))
@@ -130,26 +130,28 @@ public final class DecimalSaturatedFloorCasts
     @UsedByGeneratedCode
     public static long shortDecimalToGenericIntegerType(long value, int sourceScale, long minValue, long maxValue)
     {
-        return bigIntegerDecimalToGenericIntegerType(BigInteger.valueOf(value), sourceScale, minValue, maxValue);
+        return saturatedCast(Int128.valueOf(value), sourceScale, minValue, maxValue);
     }
 
     @UsedByGeneratedCode
     public static long longDecimalToGenericIntegerType(Int128 value, int sourceScale, long minValue, long maxValue)
     {
-        return bigIntegerDecimalToGenericIntegerType(value.toBigInteger(), sourceScale, minValue, maxValue);
+        return saturatedCast(value, sourceScale, minValue, maxValue);
     }
 
-    private static long bigIntegerDecimalToGenericIntegerType(BigInteger bigInteger, int sourceScale, long minValue, long maxValue)
+    private static long saturatedCast(Int128 value, int sourceScale, long minValue, long maxValue)
     {
-        BigDecimal bigDecimal = new BigDecimal(bigInteger, sourceScale);
-        BigInteger unscaledValue = bigDecimal.setScale(0, FLOOR).unscaledValue();
-        if (unscaledValue.compareTo(BigInteger.valueOf(maxValue)) > 0) {
+        if (sourceScale > 0) {
+            value = floorDiv(value, powerOfTen(sourceScale));
+        }
+
+        if (value.compareTo(Int128.valueOf(maxValue)) > 0) {
             return maxValue;
         }
-        if (unscaledValue.compareTo(BigInteger.valueOf(minValue)) < 0) {
+        if (value.compareTo(Int128.valueOf(minValue)) < 0) {
             return minValue;
         }
-        return unscaledValue.longValueExact();
+        return value.toLongExact();
     }
 
     public static final SqlScalarFunction BIGINT_TO_DECIMAL_SATURATED_FLOOR_CAST = genericIntegerTypeToDecimalSaturatedFloorCast(BIGINT);
@@ -169,7 +171,7 @@ public final class DecimalSaturatedFloorCasts
                 .choice(choice -> choice
                         .implementation(methodsGroup -> methodsGroup
                                 .methods("genericIntegerTypeToShortDecimal", "genericIntegerTypeToLongDecimal")
-                                .withExtraParameters((context) -> {
+                                .withExtraParameters(context -> {
                                     int resultPrecision = toIntExact(context.getLiteral("result_precision"));
                                     int resultScale = toIntExact(context.getLiteral("result_scale"));
                                     return ImmutableList.of(resultPrecision, resultScale);
@@ -180,12 +182,12 @@ public final class DecimalSaturatedFloorCasts
     @UsedByGeneratedCode
     public static long genericIntegerTypeToShortDecimal(long value, int resultPrecision, int resultScale)
     {
-        return bigDecimalToBigintFloorSaturatedCast(BigDecimal.valueOf(value), resultPrecision, resultScale).longValueExact();
+        return saturatedCast(Int128.valueOf(value), 0, resultPrecision, resultScale).toLongExact();
     }
 
     @UsedByGeneratedCode
     public static Int128 genericIntegerTypeToLongDecimal(long value, int resultPrecision, int resultScale)
     {
-        return Int128.valueOf(bigDecimalToBigintFloorSaturatedCast(BigDecimal.valueOf(value), resultPrecision, resultScale));
+        return saturatedCast(Int128.valueOf(value), 0, resultPrecision, resultScale);
     }
 }

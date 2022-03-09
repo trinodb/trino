@@ -110,4 +110,32 @@ public class TestTablesample
                 .hasErrorCode(TYPE_MISMATCH)
                 .hasMessage("line 1:61: Sample percentage should be a numeric expression");
     }
+
+    @Test
+    public void testInSubquery()
+    {
+        // zero sample
+        assertThat(assertions.query("SELECT count(*) FROM tpch.tiny.orders WHERE orderkey IN (SELECT orderkey FROM tpch.tiny.orders TABLESAMPLE BERNOULLI (0))"))
+                .matches("VALUES BIGINT '0'");
+
+        // full sample
+        assertThat(assertions.query("SELECT count(*) FROM tpch.tiny.orders WHERE orderkey IN (SELECT orderkey FROM tpch.tiny.orders TABLESAMPLE BERNOULLI (100))"))
+                .matches("VALUES BIGINT '15000'");
+
+        // 1%
+        assertThat(assertions.query("SELECT count(*) FROM tpch.tiny.orders WHERE orderkey IN (SELECT orderkey FROM tpch.tiny.orders TABLESAMPLE BERNOULLI (1))"))
+                .satisfies(result -> assertThat((Long) result.getOnlyValue()).isBetween(50L, 450L));
+
+        // 0.1%
+        assertThat(assertions.query("SELECT count(*) FROM tpch.tiny.orders WHERE orderkey IN (SELECT orderkey FROM tpch.tiny.orders TABLESAMPLE BERNOULLI (1e-1))"))
+                .satisfies(result -> assertThat((Long) result.getOnlyValue()).isBetween(3L, 45L));
+
+        // 0.1% as decimal
+        assertThat(assertions.query("SELECT count(*) FROM tpch.tiny.orders WHERE orderkey IN (SELECT orderkey FROM tpch.tiny.orders TABLESAMPLE BERNOULLI (0.1))"))
+                .satisfies(result -> assertThat((Long) result.getOnlyValue()).isBetween(3L, 45L));
+
+        // fraction as long decimal
+        assertThat(assertions.query("SELECT count(*) FROM tpch.tiny.orders WHERE orderkey IN (SELECT orderkey FROM tpch.tiny.orders TABLESAMPLE BERNOULLI (0.000000000000000000001))"))
+                .satisfies(result -> assertThat((Long) result.getOnlyValue()).isBetween(0L, 5L));
+    }
 }

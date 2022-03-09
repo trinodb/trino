@@ -40,12 +40,12 @@ public class TestDbSessionPropertyManagerConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("session-property-manager.db.url", "foo")
                 .put("session-property-manager.db.username", "bar")
                 .put("session-property-manager.db.password", "pass")
                 .put("session-property-manager.db.refresh-period", "50s")
-                .build();
+                .buildOrThrow();
 
         DbSessionPropertyManagerConfig expected = new DbSessionPropertyManagerConfig()
                 .setConfigDbUrl("foo")

@@ -39,6 +39,11 @@ public final class MockConnectorEntities
             .add(ColumnMetadata.builder().setName("$hidden").setType(BigintType.BIGINT).setHidden(true).build())
             .build();
 
+    public static final List<ColumnMetadata> TPCH_NATION_WITH_OPTIONAL_COLUMN = ImmutableList.<ColumnMetadata>builder()
+            .addAll(TPCH_NATION_SCHEMA)
+            .add(ColumnMetadata.builder().setName("optional").setType(createUnboundedVarcharType()).setNullable(true).build())
+            .build();
+
     public static final List<List<?>> TPCH_NATION_DATA = ImmutableList.<List<?>>builder()
             .add(ImmutableList.of(0, "ALGERIA", 0, " haggle. carefully final deposits detect slyly agai"))
             .add(ImmutableList.of(1, "ARGENTINA", 1, "al foxes promise slyly according to the regular accounts. bold requests alon"))

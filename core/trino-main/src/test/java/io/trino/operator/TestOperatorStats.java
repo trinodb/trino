@@ -76,9 +76,7 @@ public class TestOperatorStats
 
             DataSize.ofBytes(19),
             DataSize.ofBytes(20),
-            DataSize.ofBytes(21),
             DataSize.ofBytes(22),
-            DataSize.ofBytes(23),
             DataSize.ofBytes(24),
             DataSize.ofBytes(25),
             DataSize.ofBytes(26),
@@ -125,9 +123,7 @@ public class TestOperatorStats
 
             DataSize.ofBytes(19),
             DataSize.ofBytes(20),
-            DataSize.ofBytes(21),
             DataSize.ofBytes(22),
-            DataSize.ofBytes(23),
             DataSize.ofBytes(24),
             DataSize.ofBytes(25),
             DataSize.ofBytes(26),
@@ -184,9 +180,7 @@ public class TestOperatorStats
 
         assertEquals(actual.getUserMemoryReservation(), DataSize.ofBytes(19));
         assertEquals(actual.getRevocableMemoryReservation(), DataSize.ofBytes(20));
-        assertEquals(actual.getSystemMemoryReservation(), DataSize.ofBytes(21));
         assertEquals(actual.getPeakUserMemoryReservation(), DataSize.ofBytes(22));
-        assertEquals(actual.getPeakSystemMemoryReservation(), DataSize.ofBytes(23));
         assertEquals(actual.getPeakRevocableMemoryReservation(), DataSize.ofBytes(24));
         assertEquals(actual.getPeakTotalMemoryReservation(), DataSize.ofBytes(25));
         assertEquals(actual.getSpilledDataSize(), DataSize.ofBytes(26));
@@ -235,9 +229,7 @@ public class TestOperatorStats
         assertEquals(actual.getFinishCpu(), new Duration(3 * 18, NANOSECONDS));
         assertEquals(actual.getUserMemoryReservation(), DataSize.ofBytes(3 * 19));
         assertEquals(actual.getRevocableMemoryReservation(), DataSize.ofBytes(3 * 20));
-        assertEquals(actual.getSystemMemoryReservation(), DataSize.ofBytes(3 * 21));
         assertEquals(actual.getPeakUserMemoryReservation(), DataSize.ofBytes(22));
-        assertEquals(actual.getPeakSystemMemoryReservation(), DataSize.ofBytes(23));
         assertEquals(actual.getPeakRevocableMemoryReservation(), DataSize.ofBytes(24));
         assertEquals(actual.getPeakTotalMemoryReservation(), DataSize.ofBytes(25));
         assertEquals(actual.getSpilledDataSize(), DataSize.ofBytes(3 * 26));
@@ -285,9 +277,7 @@ public class TestOperatorStats
         assertEquals(actual.getFinishCpu(), new Duration(3 * 18, NANOSECONDS));
         assertEquals(actual.getUserMemoryReservation(), DataSize.ofBytes(3 * 19));
         assertEquals(actual.getRevocableMemoryReservation(), DataSize.ofBytes(3 * 20));
-        assertEquals(actual.getSystemMemoryReservation(), DataSize.ofBytes(3 * 21));
         assertEquals(actual.getPeakUserMemoryReservation(), DataSize.ofBytes(22));
-        assertEquals(actual.getPeakSystemMemoryReservation(), DataSize.ofBytes(23));
         assertEquals(actual.getPeakRevocableMemoryReservation(), DataSize.ofBytes(24));
         assertEquals(actual.getPeakTotalMemoryReservation(), DataSize.ofBytes(25));
         assertEquals(actual.getSpilledDataSize(), DataSize.ofBytes(3 * 26));

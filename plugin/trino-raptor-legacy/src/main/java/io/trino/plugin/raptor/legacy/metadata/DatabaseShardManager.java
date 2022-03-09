@@ -17,7 +17,6 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Ticker;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -25,6 +24,7 @@ import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
+import io.trino.collect.cache.NonEvictableLoadingCache;
 import io.trino.plugin.raptor.legacy.NodeSupplier;
 import io.trino.plugin.raptor.legacy.RaptorColumnHandle;
 import io.trino.plugin.raptor.legacy.storage.organization.ShardOrganizerDao;
@@ -64,6 +64,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.partition;
+import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.plugin.raptor.legacy.RaptorErrorCode.RAPTOR_ERROR;
 import static io.trino.plugin.raptor.legacy.RaptorErrorCode.RAPTOR_EXTERNAL_BATCH_ALREADY_EXISTS;
 import static io.trino.plugin.raptor.legacy.storage.ColumnIndexStatsUtils.jdbcType;
@@ -111,13 +112,13 @@ public class DatabaseShardManager
     private final Duration startupGracePeriod;
     private final long startTime;
 
-    private final LoadingCache<String, Integer> nodeIdCache = CacheBuilder.newBuilder()
-            .maximumSize(10_000)
-            .build(CacheLoader.from(this::loadNodeId));
+    private final NonEvictableLoadingCache<String, Integer> nodeIdCache = buildNonEvictableCache(
+            CacheBuilder.newBuilder().maximumSize(10_000),
+            CacheLoader.from(this::loadNodeId));
 
-    private final LoadingCache<Long, List<String>> bucketAssignmentsCache = CacheBuilder.newBuilder()
-            .expireAfterWrite(1, SECONDS)
-            .build(CacheLoader.from(this::loadBucketAssignments));
+    private final NonEvictableLoadingCache<Long, List<String>> bucketAssignmentsCache = buildNonEvictableCache(
+            CacheBuilder.newBuilder().expireAfterWrite(1, SECONDS),
+            CacheLoader.from(this::loadBucketAssignments));
 
     @Inject
     public DatabaseShardManager(
@@ -293,7 +294,7 @@ public class DatabaseShardManager
 
         Map<String, Integer> nodeIds = toNodeIdMap(shards);
 
-        runCommit(transactionId, (handle) -> {
+        runCommit(transactionId, handle -> {
             externalBatchId.ifPresent(shardDaoSupplier.attach(handle)::insertExternalBatch);
             lockTable(handle, tableId);
             insertShardsAndIndex(tableId, columns, shards, nodeIds, handle);
@@ -310,7 +311,7 @@ public class DatabaseShardManager
     {
         Map<String, Integer> nodeIds = toNodeIdMap(newShards);
 
-        runCommit(transactionId, (handle) -> {
+        runCommit(transactionId, handle -> {
             lockTable(handle, tableId);
 
             if (updateTime.isEmpty() && handle.attach(MetadataDao.class).isMaintenanceBlockedLocked(tableId)) {

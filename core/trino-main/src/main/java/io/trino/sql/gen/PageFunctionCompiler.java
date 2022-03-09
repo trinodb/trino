@@ -16,7 +16,6 @@ package io.trino.sql.gen;
 import com.google.common.base.Throwables;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -32,6 +31,7 @@ import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.ForLoop;
 import io.airlift.bytecode.control.IfStatement;
 import io.airlift.jmx.CacheStatsMBean;
+import io.trino.collect.cache.NonEvictableLoadingCache;
 import io.trino.metadata.Metadata;
 import io.trino.operator.Work;
 import io.trino.operator.project.ConstantPageProjection;
@@ -87,6 +87,7 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.invokeStatic;
 import static io.airlift.bytecode.expression.BytecodeExpressions.lessThan;
 import static io.airlift.bytecode.expression.BytecodeExpressions.newArray;
 import static io.airlift.bytecode.expression.BytecodeExpressions.not;
+import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.operator.project.PageFieldsToInputParametersRewriter.rewritePageFieldsToInputParameters;
 import static io.trino.spi.StandardErrorCode.COMPILER_ERROR;
 import static io.trino.sql.gen.BytecodeUtils.generateWrite;
@@ -102,8 +103,8 @@ public class PageFunctionCompiler
 {
     private final Metadata metadata;
 
-    private final LoadingCache<RowExpression, Supplier<PageProjection>> projectionCache;
-    private final LoadingCache<RowExpression, Supplier<PageFilter>> filterCache;
+    private final NonEvictableLoadingCache<RowExpression, Supplier<PageProjection>> projectionCache;
+    private final NonEvictableLoadingCache<RowExpression, Supplier<PageFilter>> filterCache;
 
     private final CacheStatsMBean projectionCacheStats;
     private final CacheStatsMBean filterCacheStats;
@@ -119,10 +120,11 @@ public class PageFunctionCompiler
         this.metadata = requireNonNull(metadata, "metadata is null");
 
         if (expressionCacheSize > 0) {
-            projectionCache = CacheBuilder.newBuilder()
-                    .recordStats()
-                    .maximumSize(expressionCacheSize)
-                    .build(CacheLoader.from(projection -> compileProjectionInternal(projection, Optional.empty())));
+            projectionCache = buildNonEvictableCache(
+                    CacheBuilder.newBuilder()
+                            .recordStats()
+                            .maximumSize(expressionCacheSize),
+                    CacheLoader.from(projection -> compileProjectionInternal(projection, Optional.empty())));
             projectionCacheStats = new CacheStatsMBean(projectionCache);
         }
         else {
@@ -131,10 +133,11 @@ public class PageFunctionCompiler
         }
 
         if (expressionCacheSize > 0) {
-            filterCache = CacheBuilder.newBuilder()
-                    .recordStats()
-                    .maximumSize(expressionCacheSize)
-                    .build(CacheLoader.from(filter -> compileFilterInternal(filter, Optional.empty())));
+            filterCache = buildNonEvictableCache(
+                    CacheBuilder.newBuilder()
+                            .recordStats()
+                            .maximumSize(expressionCacheSize),
+                    CacheLoader.from(filter -> compileFilterInternal(filter, Optional.empty())));
             filterCacheStats = new CacheStatsMBean(filterCache);
         }
         else {
@@ -556,7 +559,7 @@ public class PageFunctionCompiler
                     lambdaExpression,
                     "lambda_" + counter,
                     containerClassDefinition,
-                    compiledLambdaMap.build(),
+                    compiledLambdaMap.buildOrThrow(),
                     callSiteBinder,
                     cachedInstanceBinder,
                     metadata);
@@ -564,7 +567,7 @@ public class PageFunctionCompiler
             counter++;
         }
 
-        return compiledLambdaMap.build();
+        return compiledLambdaMap.buildOrThrow();
     }
 
     private static void generateConstructor(

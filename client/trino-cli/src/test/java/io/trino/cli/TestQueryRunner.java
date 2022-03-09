@@ -44,6 +44,7 @@ import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.trino.cli.ClientOptions.OutputFormat.CSV;
 import static io.trino.cli.TerminalUtils.getTerminal;
 import static io.trino.client.ClientStandardTypes.BIGINT;
+import static io.trino.client.auth.external.ExternalRedirectStrategy.PRINT;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
@@ -168,7 +169,8 @@ public class TestQueryRunner
                 Optional.empty(),
                 false,
                 false,
-                false);
+                false,
+                ImmutableList.of(PRINT));
     }
 
     static PrintStream nullPrintStream()

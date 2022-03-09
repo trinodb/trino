@@ -13,9 +13,8 @@
  */
 package io.trino.plugin.hive.metastore;
 
-import com.linkedin.coral.hive.hive2rel.HiveMetastoreClient;
+import com.linkedin.coral.common.HiveMetastoreClient;
 import io.trino.plugin.hive.CoralTableRedirectionResolver;
-import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil;
 import io.trino.spi.connector.SchemaTableName;
 import org.apache.hadoop.hive.metastore.api.Database;
@@ -36,16 +35,13 @@ public class CoralSemiTransactionalHiveMSCAdapter
         implements HiveMetastoreClient
 {
     private final SemiTransactionalHiveMetastore delegate;
-    private final HiveIdentity identity;
     private final CoralTableRedirectionResolver tableRedirection;
 
     public CoralSemiTransactionalHiveMSCAdapter(
             SemiTransactionalHiveMetastore coralHiveMetastoreClient,
-            HiveIdentity identity,
             CoralTableRedirectionResolver tableRedirection)
     {
         this.delegate = requireNonNull(coralHiveMetastoreClient, "coralHiveMetastoreClient is null");
-        this.identity = requireNonNull(identity, "identity is null");
         this.tableRedirection = requireNonNull(tableRedirection, "tableRedirection is null");
     }
 
@@ -78,7 +74,7 @@ public class CoralSemiTransactionalHiveMSCAdapter
             }
         }
 
-        return delegate.getTable(identity, dbName, tableName)
+        return delegate.getTable(dbName, tableName)
                 .map(value -> ThriftMetastoreUtil.toMetastoreApiTable(value, NO_PRIVILEGES))
                 .orElse(null);
     }

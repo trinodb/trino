@@ -15,7 +15,6 @@ package io.trino.server;
 
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Binder;
-import com.google.inject.Key;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import io.airlift.concurrent.BoundedExecutor;
@@ -47,7 +46,6 @@ import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.SqlTaskManager;
 import io.trino.execution.TableExecuteContextManager;
 import io.trino.execution.TaskManagementExecutor;
-import io.trino.execution.TaskManager;
 import io.trino.execution.TaskManagerConfig;
 import io.trino.execution.executor.MultilevelSplitQueue;
 import io.trino.execution.executor.TaskExecutor;
@@ -60,7 +58,6 @@ import io.trino.memory.LocalMemoryManager;
 import io.trino.memory.LocalMemoryManagerExporter;
 import io.trino.memory.MemoryInfo;
 import io.trino.memory.MemoryManagerConfig;
-import io.trino.memory.MemoryPoolAssignmentsRequest;
 import io.trino.memory.MemoryResource;
 import io.trino.memory.NodeMemoryConfig;
 import io.trino.metadata.AnalyzePropertyManager;
@@ -86,9 +83,9 @@ import io.trino.metadata.TableProceduresPropertyManager;
 import io.trino.metadata.TableProceduresRegistry;
 import io.trino.metadata.TablePropertyManager;
 import io.trino.metadata.TypeRegistry;
-import io.trino.operator.ExchangeClientConfig;
-import io.trino.operator.ExchangeClientFactory;
-import io.trino.operator.ExchangeClientSupplier;
+import io.trino.operator.DirectExchangeClientConfig;
+import io.trino.operator.DirectExchangeClientFactory;
+import io.trino.operator.DirectExchangeClientSupplier;
 import io.trino.operator.ForExchange;
 import io.trino.operator.GroupByHashPageIndexerFactory;
 import io.trino.operator.OperatorFactories;
@@ -101,6 +98,7 @@ import io.trino.server.ExpressionSerialization.ExpressionSerializer;
 import io.trino.server.PluginManager.PluginsProvider;
 import io.trino.server.SliceSerialization.SliceDeserializer;
 import io.trino.server.SliceSerialization.SliceSerializer;
+import io.trino.server.protocol.PreparedStatementEncoder;
 import io.trino.server.remotetask.HttpLocationFactory;
 import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.PageSorter;
@@ -137,6 +135,7 @@ import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.CompilerConfig;
 import io.trino.sql.planner.LocalExecutionPlanner;
 import io.trino.sql.planner.NodePartitioningManager;
+import io.trino.sql.planner.OptimizerConfig;
 import io.trino.sql.planner.RuleStatsRecorder;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.tree.Expression;
@@ -207,10 +206,12 @@ public class ServerMainModule
             httpServerConfig.setAdminEnabled(false);
         });
 
+        binder.bind(PreparedStatementEncoder.class).in(Scopes.SINGLETON);
         binder.bind(HttpRequestSessionContextFactory.class).in(Scopes.SINGLETON);
         install(new InternalCommunicationModule());
 
         configBinder(binder).bindConfig(FeaturesConfig.class);
+        configBinder(binder).bindConfig(OptimizerConfig.class);
         configBinder(binder).bindConfig(ProtocolConfig.class);
 
         binder.bind(SqlParser.class).in(Scopes.SINGLETON);
@@ -291,7 +292,6 @@ public class ServerMainModule
         newExporter(binder).export(TaskExecutorResource.class).withGeneratedName();
         binder.bind(TaskManagementExecutor.class).in(Scopes.SINGLETON);
         binder.bind(SqlTaskManager.class).in(Scopes.SINGLETON);
-        binder.bind(TaskManager.class).to(Key.get(SqlTaskManager.class));
         binder.bind(TableExecuteContextManager.class).in(Scopes.SINGLETON);
 
         // memory revoking scheduler
@@ -306,7 +306,7 @@ public class ServerMainModule
         binder.bind(LocalMemoryManager.class).in(Scopes.SINGLETON);
         binder.bind(LocalMemoryManagerExporter.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, VersionEmbedder.class).setDefault().to(EmbedVersion.class).in(Scopes.SINGLETON);
-        newExporter(binder).export(TaskManager.class).withGeneratedName();
+        newExporter(binder).export(SqlTaskManager.class).withGeneratedName();
         binder.bind(TaskExecutor.class).in(Scopes.SINGLETON);
         newExporter(binder).export(TaskExecutor.class).withGeneratedName();
         binder.bind(MultilevelSplitQueue.class).in(Scopes.SINGLETON);
@@ -334,7 +334,7 @@ public class ServerMainModule
         jaxrsBinder(binder).bind(PagesResponseWriter.class);
 
         // exchange client
-        binder.bind(ExchangeClientSupplier.class).to(ExchangeClientFactory.class).in(Scopes.SINGLETON);
+        binder.bind(DirectExchangeClientSupplier.class).to(DirectExchangeClientFactory.class).in(Scopes.SINGLETON);
         httpClientBinder(binder).bindHttpClient("exchange", ForExchange.class)
                 .withTracing()
                 .withFilter(GenerateTraceTokenRequestFilter.class)
@@ -345,7 +345,7 @@ public class ServerMainModule
                     config.setMaxContentLength(DataSize.of(32, MEGABYTE));
                 });
 
-        configBinder(binder).bindConfig(ExchangeClientConfig.class);
+        configBinder(binder).bindConfig(DirectExchangeClientConfig.class);
         binder.bind(ExchangeExecutionMBean.class).in(Scopes.SINGLETON);
         newExporter(binder).export(ExchangeExecutionMBean.class).withGeneratedName();
 
@@ -355,7 +355,6 @@ public class ServerMainModule
         // memory manager
         jaxrsBinder(binder).bind(MemoryResource.class);
         jsonCodecBinder(binder).bindJsonCodec(MemoryInfo.class);
-        jsonCodecBinder(binder).bindJsonCodec(MemoryPoolAssignmentsRequest.class);
 
         // transaction manager
         configBinder(binder).bindConfig(TransactionManagerConfig.class);
@@ -508,7 +507,7 @@ public class ServerMainModule
     @Provides
     @Singleton
     @ForExchange
-    public static ScheduledExecutorService createExchangeExecutor(ExchangeClientConfig config)
+    public static ScheduledExecutorService createExchangeExecutor(DirectExchangeClientConfig config)
     {
         return newScheduledThreadPool(config.getClientThreads(), daemonThreadsNamed("exchange-client-%s"));
     }

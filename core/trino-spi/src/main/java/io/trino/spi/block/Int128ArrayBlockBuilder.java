@@ -20,6 +20,7 @@ import org.openjdk.jol.info.ClassLayout;
 import javax.annotation.Nullable;
 
 import java.util.Arrays;
+import java.util.OptionalInt;
 import java.util.function.BiConsumer;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
@@ -28,7 +29,6 @@ import static io.trino.spi.block.BlockUtil.calculateBlockResetSize;
 import static io.trino.spi.block.BlockUtil.checkArrayRange;
 import static io.trino.spi.block.BlockUtil.checkValidRegion;
 import static io.trino.spi.block.BlockUtil.compactArray;
-import static io.trino.spi.block.BlockUtil.countUsedPositions;
 import static io.trino.spi.block.Int128ArrayBlock.INT128_BYTES;
 import static java.lang.Math.max;
 
@@ -87,7 +87,7 @@ public class Int128ArrayBlockBuilder
         positionCount++;
         entryPositionCount = 0;
         if (blockBuilderStatus != null) {
-            blockBuilderStatus.addBytes(Byte.BYTES + INT128_BYTES);
+            blockBuilderStatus.addBytes(Int128ArrayBlock.SIZE_IN_BYTES_PER_POSITION);
         }
         return this;
     }
@@ -107,7 +107,7 @@ public class Int128ArrayBlockBuilder
         hasNullValue = true;
         positionCount++;
         if (blockBuilderStatus != null) {
-            blockBuilderStatus.addBytes(Byte.BYTES + INT128_BYTES);
+            blockBuilderStatus.addBytes(Int128ArrayBlock.SIZE_IN_BYTES_PER_POSITION);
         }
         return this;
     }
@@ -152,21 +152,27 @@ public class Int128ArrayBlockBuilder
     }
 
     @Override
+    public OptionalInt fixedSizeInBytesPerPosition()
+    {
+        return OptionalInt.of(Int128ArrayBlock.SIZE_IN_BYTES_PER_POSITION);
+    }
+
+    @Override
     public long getSizeInBytes()
     {
-        return (INT128_BYTES + Byte.BYTES) * (long) positionCount;
+        return Int128ArrayBlock.SIZE_IN_BYTES_PER_POSITION * (long) positionCount;
     }
 
     @Override
     public long getRegionSizeInBytes(int position, int length)
     {
-        return (INT128_BYTES + Byte.BYTES) * (long) length;
+        return Int128ArrayBlock.SIZE_IN_BYTES_PER_POSITION * (long) length;
     }
 
     @Override
-    public long getPositionsSizeInBytes(boolean[] positions)
+    public long getPositionsSizeInBytes(boolean[] positions, int selectedPositionsCount)
     {
-        return (INT128_BYTES + Byte.BYTES) * (long) countUsedPositions(positions);
+        return Int128ArrayBlock.SIZE_IN_BYTES_PER_POSITION * (long) selectedPositionsCount;
     }
 
     @Override
@@ -219,15 +225,6 @@ public class Int128ArrayBlockBuilder
     {
         checkReadablePosition(position);
         return valueIsNull[position];
-    }
-
-    @Override
-    public void writePositionTo(int position, BlockBuilder blockBuilder)
-    {
-        checkReadablePosition(position);
-        blockBuilder.writeLong(values[position * 2]);
-        blockBuilder.writeLong(values[(position * 2) + 1]);
-        blockBuilder.closeEntry();
     }
 
     @Override

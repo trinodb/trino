@@ -14,48 +14,21 @@
 package io.trino.plugin.google.sheets;
 
 import com.google.common.collect.ImmutableMap;
-import io.trino.Session;
 import io.trino.testing.AbstractTestQueryFramework;
-import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import org.testng.annotations.Test;
 
-import static io.trino.plugin.google.sheets.TestSheetsPlugin.TEST_METADATA_SHEET_ID;
-import static io.trino.plugin.google.sheets.TestSheetsPlugin.getTestCredentialsPath;
-import static io.trino.testing.TestingSession.testSessionBuilder;
+import static io.trino.plugin.google.sheets.SheetsQueryRunner.createSheetsQueryRunner;
 import static org.testng.Assert.assertEquals;
 
 public class TestGoogleSheets
         extends AbstractTestQueryFramework
 {
-    protected static final String GOOGLE_SHEETS = "gsheets";
-
-    private static Session createSession()
-    {
-        return testSessionBuilder()
-                .setCatalog(GOOGLE_SHEETS)
-                .setSchema("default")
-                .build();
-    }
-
     @Override
     protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        QueryRunner queryRunner;
-        try {
-            SheetsPlugin sheetsPlugin = new SheetsPlugin();
-            queryRunner = DistributedQueryRunner.builder(createSession()).build();
-            queryRunner.installPlugin(sheetsPlugin);
-            queryRunner.createCatalog(GOOGLE_SHEETS, GOOGLE_SHEETS, ImmutableMap.of(
-                    "credentials-path", getTestCredentialsPath(),
-                    "metadata-sheet-id", TEST_METADATA_SHEET_ID,
-                    "sheets-data-max-cache-size", "1000",
-                    "sheets-data-expire-after-write", "5m"));
-        }
-        catch (Exception e) {
-            throw new IllegalStateException(e.getMessage());
-        }
-        return queryRunner;
+        return createSheetsQueryRunner(ImmutableMap.of(), ImmutableMap.of());
     }
 
     @Test

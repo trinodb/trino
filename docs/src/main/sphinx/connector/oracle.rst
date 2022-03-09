@@ -25,9 +25,9 @@ properties in the file:
 .. code-block:: text
 
     connector.name=oracle
-    // The exact format of connection-url varies by Oracle version. Refer to
-    // the Oracle Database documentation for version-specific information on the
-    // JDBC Thin driver.
+    # The exact format of the connection-url varies by Oracle version. Refer to
+    # the Oracle Database documentation for version-specific information on the
+    # JDBC Thin driver.
     connection-url=jdbc:oracle:thin:@//example.net:1521/ORCLCDB
     connection-user=root
     connection-password=secret
@@ -183,7 +183,7 @@ Trino data type mapping:
     - ``VARBINARY``
     -
   * - ``DATE``
-    - ``TIMESTAMP``
+    - ``TIMESTAMP(0)``
     - See :ref:`datetime mapping`
   * - ``TIMESTAMP(p)``
     - ``TIMESTAMP``
@@ -282,8 +282,8 @@ Mapping datetime types
 Selecting a timestamp with fractional second precision (``p``) greater than 3
 truncates the fractional seconds to three digits instead of rounding it.
 
-Oracle ``DATE`` type may store hours, minutes, and seconds, so it is mapped
-to Trino ``TIMESTAMP``.
+Oracle ``DATE`` type stores hours, minutes, and seconds, so it is mapped
+to Trino ``TIMESTAMP(0)``.
 
 .. warning::
 
@@ -397,7 +397,7 @@ Predicate pushdown support
 
 The connector does not support pushdown of any predicates on columns that use
 the ``CLOB``, ``NCLOB``, ``BLOB``, or ``RAW(n)`` Oracle database types, or Trino
-data types that :ref:`map to these Oracle database types <oracle-type-mapping>`.
+data types that :ref:`map <oracle-type-mapping>` to these Oracle database types.
 
 In the following example, the predicate is not pushed down for either query
 since ``name`` is a column of type ``VARCHAR``, which maps to ``NCLOB`` in

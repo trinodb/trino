@@ -30,27 +30,24 @@ import io.trino.testing.sql.TestTable;
 import org.testng.SkipException;
 import org.testng.annotations.Test;
 
+import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.sql.Timestamp;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.ThreadLocalRandom;
 
+import static com.datastax.driver.core.utils.Bytes.toHexString;
 import static com.datastax.driver.core.utils.Bytes.toRawHexString;
 import static io.trino.plugin.cassandra.CassandraQueryRunner.createCassandraQueryRunner;
 import static io.trino.plugin.cassandra.CassandraQueryRunner.createCassandraSession;
-import static io.trino.plugin.cassandra.CassandraTestingUtils.TABLE_ALL_TYPES;
-import static io.trino.plugin.cassandra.CassandraTestingUtils.TABLE_ALL_TYPES_INSERT;
-import static io.trino.plugin.cassandra.CassandraTestingUtils.TABLE_ALL_TYPES_PARTITION_KEY;
-import static io.trino.plugin.cassandra.CassandraTestingUtils.TABLE_CLUSTERING_KEYS;
-import static io.trino.plugin.cassandra.CassandraTestingUtils.TABLE_CLUSTERING_KEYS_INEQUALITY;
-import static io.trino.plugin.cassandra.CassandraTestingUtils.TABLE_CLUSTERING_KEYS_LARGE;
-import static io.trino.plugin.cassandra.CassandraTestingUtils.TABLE_DELETE_DATA;
-import static io.trino.plugin.cassandra.CassandraTestingUtils.TABLE_MULTI_PARTITION_CLUSTERING_KEYS;
-import static io.trino.plugin.cassandra.CassandraTestingUtils.createTestTables;
+import static io.trino.plugin.cassandra.TestCassandraTable.clusterColumn;
+import static io.trino.plugin.cassandra.TestCassandraTable.columnsValue;
+import static io.trino.plugin.cassandra.TestCassandraTable.generalColumn;
+import static io.trino.plugin.cassandra.TestCassandraTable.partitionColumn;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -130,7 +127,7 @@ public class TestCassandraConnectorTest
     {
         server = closeAfterClass(new CassandraServer());
         session = server.getSession();
-        createTestTables(session, KEYSPACE, Timestamp.from(TIMESTAMP_VALUE.toInstant()));
+        session.execute("CREATE KEYSPACE IF NOT EXISTS " + KEYSPACE + " WITH REPLICATION = {'class':'SimpleStrategy', 'replication_factor': 1}");
         return createCassandraQueryRunner(server, ImmutableMap.of(), REQUIRED_TPCH_TABLES);
     }
 
@@ -238,65 +235,300 @@ public class TestCassandraConnectorTest
     }
 
     @Test
-    public void testPartitionKeyPredicate()
+    public void testPushdownUuidPartitionKeyPredicate()
     {
-        String sql = "SELECT *" +
-                " FROM " + TABLE_ALL_TYPES_PARTITION_KEY +
-                " WHERE key = 'key 7'" +
-                " AND typeuuid = UUID '00000000-0000-0000-0000-000000000007'" +
-                " AND typetinyint = 7" +
-                " AND typesmallint = 7" +
-                " AND typeinteger = 7" +
-                " AND typelong = 1007" +
-                " AND typebytes = from_hex('" + toRawHexString(ByteBuffer.wrap(Ints.toByteArray(7))) + "')" +
-                " AND typedate = DATE '1970-01-01'" +
-                " AND typetimestamp = TIMESTAMP '1970-01-01 03:04:05Z'" +
-                " AND typeansi = 'ansi 7'" +
-                " AND typeboolean = false" +
-                " AND typedecimal = 128.0" +
-                " AND typedouble = 16384.0" +
-                " AND typefloat = REAL '2097152.0'" +
-                " AND typeinet = '127.0.0.1'" +
-                " AND typevarchar = 'varchar 7'" +
-                " AND typevarint = '10000000'" +
-                " AND typetimeuuid = UUID 'd2177dd0-eaa2-11de-a572-001b779c76e7'" +
-                " AND typelist = '[\"list-value-17\",\"list-value-27\"]'" +
-                " AND typemap = '{7:8,9:10}'" +
-                " AND typeset = '[false,true]'" +
-                "";
-        MaterializedResult result = execute(sql);
-
-        assertEquals(result.getRowCount(), 1);
+        try (TestCassandraTable testCassandraTable = testTable(
+                "table_pushdown_uuid_partition_key",
+                ImmutableList.of(partitionColumn("col_uuid", "uuid"), generalColumn("col_text", "text")),
+                ImmutableList.of("00000000-0000-0000-0000-000000000001, 'Trino'"))) {
+            assertThat(query(format("SELECT col_text FROM %s WHERE col_uuid = UUID '00000000-0000-0000-0000-000000000001'", testCassandraTable.getTableName())))
+                    .matches("VALUES CAST('Trino' AS varchar)");
+        }
     }
 
     @Test
-    public void testTimestampPartitionKey()
-            throws Exception
+    public void testPushdownAllTypesPartitionKeyPredicate()
     {
-        String tableName = "test_timestamp_" + Math.abs(ThreadLocalRandom.current().nextLong());
-        session.execute(format("CREATE TABLE %s.%s (c1 timestamp primary key)", KEYSPACE, tableName));
-        session.execute(format("INSERT INTO %s.%s (c1) VALUES ('2017-04-01T11:21:59.001+0000')", KEYSPACE, tableName));
-        server.refreshSizeEstimates(KEYSPACE, tableName);
-
-        try {
-            String sql = format(
-                    "SELECT * " +
-                            "FROM %s " +
-                            "WHERE c1 = TIMESTAMP '2017-04-01 11:21:59.001 UTC'", tableName);
+        // TODO partition key predicate pushdown for decimal types does not work https://github.com/trinodb/trino/issues/10927
+        try (TestCassandraTable testCassandraTable = testTable(
+                "table_pushdown_all_types_partition_key",
+                ImmutableList.of(
+                        partitionColumn("key", "text"),
+                        partitionColumn("typeuuid", "uuid"),
+                        partitionColumn("typetinyint", "tinyint"),
+                        partitionColumn("typesmallint", "smallint"),
+                        partitionColumn("typeinteger", "int"),
+                        partitionColumn("typelong", "bigint"),
+                        generalColumn("typebytes", "blob"),
+                        partitionColumn("typedate", "date"),
+                        partitionColumn("typetimestamp", "timestamp"),
+                        partitionColumn("typeansi", "ascii"),
+                        partitionColumn("typeboolean", "boolean"),
+                        generalColumn("typedecimal", "decimal"),
+                        partitionColumn("typedouble", "double"),
+                        partitionColumn("typefloat", "float"),
+                        partitionColumn("typeinet", "inet"),
+                        partitionColumn("typevarchar", "varchar"),
+                        generalColumn("typevarint", "varint"),
+                        partitionColumn("typetimeuuid", "timeuuid"),
+                        generalColumn("typelist", "frozen <list<text>>"),
+                        generalColumn("typemap", "frozen <map<int, bigint>>"),
+                        generalColumn("typeset", "frozen <set<boolean>>")),
+                ImmutableList.of("" +
+                        "'key 7', " +
+                        "00000000-0000-0000-0000-000000000007, " +
+                        "7, " +
+                        "7, " +
+                        "7, " +
+                        "1007, " +
+                        "0x00000007, " +
+                        "'1970-01-01', " +
+                        "'1970-01-01 03:04:05.000+0000', " +
+                        "'ansi 7', " +
+                        "false, " +
+                        "128.0, " +
+                        "16384.0, " +
+                        "2097152.0, " +
+                        "'127.0.0.1', " +
+                        "'varchar 7', " +
+                        "10000000, " +
+                        "d2177dd0-eaa2-11de-a572-001b779c76e7, " +
+                        "['list-value-17', 'list-value-27'], " +
+                        "{7:8, 9:10}, " +
+                        "{false, true}"))) {
+            String sql = "SELECT *" +
+                    " FROM " + testCassandraTable.getTableName() +
+                    " WHERE key = 'key 7'" +
+                    " AND typeuuid = UUID '00000000-0000-0000-0000-000000000007'" +
+                    " AND typetinyint = 7" +
+                    " AND typesmallint = 7" +
+                    " AND typeinteger = 7" +
+                    " AND typelong = 1007" +
+                    " AND typedate = DATE '1970-01-01'" +
+                    " AND typetimestamp = TIMESTAMP '1970-01-01 03:04:05Z'" +
+                    " AND typeansi = 'ansi 7'" +
+                    " AND typeboolean = false" +
+                    " AND typedouble = 16384.0" +
+                    " AND typefloat = REAL '2097152.0'" +
+                    " AND typeinet = '127.0.0.1'" +
+                    " AND typevarchar = 'varchar 7'" +
+                    " AND typetimeuuid = UUID 'd2177dd0-eaa2-11de-a572-001b779c76e7'" +
+                    "";
             MaterializedResult result = execute(sql);
 
             assertEquals(result.getRowCount(), 1);
         }
-        finally {
-            session.execute(format("DROP TABLE %s.%s", KEYSPACE, tableName));
+    }
+
+    @Test
+    public void testPartitionPushdownsWithNotMatchingPredicate()
+    {
+        try (TestCassandraTable testCassandraTable = testTable(
+                "partition_not_pushed_down_keys",
+                ImmutableList.of(partitionColumn("id", "varchar"), generalColumn("trino_filter_col", "int")),
+                ImmutableList.of("'2', 0"))) {
+            String sql = "SELECT 1 FROM " + testCassandraTable.getTableName() + " WHERE id = '1' AND trino_filter_col = 0";
+
+            assertThat(execute(sql).getMaterializedRows().size()).isEqualTo(0);
+        }
+    }
+
+    @Test
+    public void testPartitionKeyPredicate()
+    {
+        try (TestCassandraTable testCassandraTable = testTable(
+                "table_all_types_partition_key",
+                ImmutableList.of(
+                        partitionColumn("key", "text"),
+                        partitionColumn("typeuuid", "uuid"),
+                        partitionColumn("typetinyint", "tinyint"),
+                        partitionColumn("typesmallint", "smallint"),
+                        partitionColumn("typeinteger", "int"),
+                        partitionColumn("typelong", "bigint"),
+                        partitionColumn("typebytes", "blob"),
+                        partitionColumn("typedate", "date"),
+                        partitionColumn("typetimestamp", "timestamp"),
+                        partitionColumn("typeansi", "ascii"),
+                        partitionColumn("typeboolean", "boolean"),
+                        partitionColumn("typedecimal", "decimal"),
+                        partitionColumn("typedouble", "double"),
+                        partitionColumn("typefloat", "float"),
+                        partitionColumn("typeinet", "inet"),
+                        partitionColumn("typevarchar", "varchar"),
+                        partitionColumn("typevarint", "varint"),
+                        partitionColumn("typetimeuuid", "timeuuid"),
+                        partitionColumn("typelist", "frozen <list<text>>"),
+                        partitionColumn("typemap", "frozen <map<int, bigint>>"),
+                        partitionColumn("typeset", "frozen <set<boolean>>")),
+                ImmutableList.of("" +
+                        "'key 7', " +
+                        "00000000-0000-0000-0000-000000000007, " +
+                        "7, " +
+                        "7, " +
+                        "7, " +
+                        "1007, " +
+                        "0x00000007, " +
+                        "'1970-01-01', " +
+                        "'1970-01-01 03:04:05.000+0000', " +
+                        "'ansi 7', " +
+                        "false, " +
+                        "128.0, " +
+                        "16384.0, " +
+                        "2097152.0, " +
+                        "'127.0.0.1', " +
+                        "'varchar 7', " +
+                        "10000000, " +
+                        "d2177dd0-eaa2-11de-a572-001b779c76e7, " +
+                        "['list-value-17', 'list-value-27'], " +
+                        "{7:8, 9:10}, " +
+                        "{false, true}"))) {
+            String sql = "SELECT *" +
+                    " FROM " + testCassandraTable.getTableName() +
+                    " WHERE key = 'key 7'" +
+                    " AND typeuuid = UUID '00000000-0000-0000-0000-000000000007'" +
+                    " AND typetinyint = 7" +
+                    " AND typesmallint = 7" +
+                    " AND typeinteger = 7" +
+                    " AND typelong = 1007" +
+                    " AND typebytes = from_hex('" + toRawHexString(ByteBuffer.wrap(Ints.toByteArray(7))) + "')" +
+                    " AND typedate = DATE '1970-01-01'" +
+                    " AND typetimestamp = TIMESTAMP '1970-01-01 03:04:05Z'" +
+                    " AND typeansi = 'ansi 7'" +
+                    " AND typeboolean = false" +
+                    " AND typedecimal = 128.0" +
+                    " AND typedouble = 16384.0" +
+                    " AND typefloat = REAL '2097152.0'" +
+                    " AND typeinet = '127.0.0.1'" +
+                    " AND typevarchar = 'varchar 7'" +
+                    " AND typevarint = '10000000'" +
+                    " AND typetimeuuid = UUID 'd2177dd0-eaa2-11de-a572-001b779c76e7'" +
+                    " AND typelist = '[\"list-value-17\",\"list-value-27\"]'" +
+                    " AND typemap = '{7:8,9:10}'" +
+                    " AND typeset = '[false,true]'" +
+                    "";
+            MaterializedResult result = execute(sql);
+
+            assertEquals(result.getRowCount(), 1);
+        }
+    }
+
+    @Test
+    public void testTimestampPartitionKey()
+    {
+        try (TestCassandraTable testCassandraTable = testTable(
+                "test_timestamp",
+                ImmutableList.of(partitionColumn("c1", "timestamp")),
+                ImmutableList.of("'2017-04-01T11:21:59.001+0000'"))) {
+            String sql = format(
+                    "SELECT * " +
+                            "FROM %s " +
+                            "WHERE c1 = TIMESTAMP '2017-04-01 11:21:59.001 UTC'", testCassandraTable.getTableName());
+            MaterializedResult result = execute(sql);
+
+            assertEquals(result.getRowCount(), 1);
         }
     }
 
     @Test
     public void testSelect()
     {
-        assertSelect(TABLE_ALL_TYPES, false);
-        assertSelect(TABLE_ALL_TYPES_PARTITION_KEY, false);
+        try (TestCassandraTable testCassandraTable = testTable(
+                "table_all_types",
+                ImmutableList.of(
+                        partitionColumn("key", "text"),
+                        generalColumn("typeuuid", "uuid"),
+                        generalColumn("typetinyint", "tinyint"),
+                        generalColumn("typesmallint", "smallint"),
+                        generalColumn("typeinteger", "int"),
+                        generalColumn("typelong", "bigint"),
+                        generalColumn("typebytes", "blob"),
+                        generalColumn("typedate", "date"),
+                        generalColumn("typetimestamp", "timestamp"),
+                        generalColumn("typeansi", "ascii"),
+                        generalColumn("typeboolean", "boolean"),
+                        generalColumn("typedecimal", "decimal"),
+                        generalColumn("typedouble", "double"),
+                        generalColumn("typefloat", "float"),
+                        generalColumn("typeinet", "inet"),
+                        generalColumn("typevarchar", "varchar"),
+                        generalColumn("typevarint", "varint"),
+                        generalColumn("typetimeuuid", "timeuuid"),
+                        generalColumn("typelist", "frozen <list<text>>"),
+                        generalColumn("typemap", "frozen <map<int, bigint>>"),
+                        generalColumn("typeset", "frozen <set<boolean>>")),
+                columnsValue(9, ImmutableList.of(
+                        rowNumber -> format("'key %d'", rowNumber),
+                        rowNumber -> format("00000000-0000-0000-0000-%012d", rowNumber),
+                        rowNumber -> String.valueOf(rowNumber),
+                        rowNumber -> String.valueOf(rowNumber),
+                        rowNumber -> String.valueOf(rowNumber),
+                        rowNumber -> String.valueOf(rowNumber + 1000),
+                        rowNumber -> toHexString(ByteBuffer.wrap(Ints.toByteArray(rowNumber))),
+                        rowNumber -> format("'%s'", DateTimeFormatter.ofPattern("uuuu-MM-dd").format(TIMESTAMP_VALUE)),
+                        rowNumber -> format("'%s'", DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss.SSSZ").format(TIMESTAMP_VALUE)),
+                        rowNumber -> format("'ansi %d'", rowNumber),
+                        rowNumber -> String.valueOf(rowNumber % 2 == 0),
+                        rowNumber -> new BigDecimal(Math.pow(2, rowNumber)).toString(),
+                        rowNumber -> String.valueOf(Math.pow(4, rowNumber)),
+                        rowNumber -> String.valueOf((float) Math.pow(8, rowNumber)),
+                        rowNumber -> format("'%s'", "127.0.0.1"),
+                        rowNumber -> format("'varchar %d'", rowNumber),
+                        rowNumber -> BigInteger.TEN.pow(rowNumber).toString(),
+                        rowNumber -> format("d2177dd0-eaa2-11de-a572-001b779c76e%d", rowNumber),
+                        rowNumber -> format("['list-value-1%d', 'list-value-2%d']", rowNumber, rowNumber),
+                        rowNumber -> format("{%d:%d, %d:%d}", rowNumber, rowNumber + 1, rowNumber + 2, rowNumber + 3),
+                        rowNumber -> format("{false, true}"))))) {
+            assertSelect(testCassandraTable.getTableName(), false);
+        }
+
+        try (TestCassandraTable testCassandraTable = testTable(
+                "table_all_types_partition_key",
+                ImmutableList.of(
+                        partitionColumn("key", "text"),
+                        partitionColumn("typeuuid", "uuid"),
+                        partitionColumn("typetinyint", "tinyint"),
+                        partitionColumn("typesmallint", "smallint"),
+                        partitionColumn("typeinteger", "int"),
+                        partitionColumn("typelong", "bigint"),
+                        partitionColumn("typebytes", "blob"),
+                        partitionColumn("typedate", "date"),
+                        partitionColumn("typetimestamp", "timestamp"),
+                        partitionColumn("typeansi", "ascii"),
+                        partitionColumn("typeboolean", "boolean"),
+                        partitionColumn("typedecimal", "decimal"),
+                        partitionColumn("typedouble", "double"),
+                        partitionColumn("typefloat", "float"),
+                        partitionColumn("typeinet", "inet"),
+                        partitionColumn("typevarchar", "varchar"),
+                        partitionColumn("typevarint", "varint"),
+                        partitionColumn("typetimeuuid", "timeuuid"),
+                        partitionColumn("typelist", "frozen <list<text>>"),
+                        partitionColumn("typemap", "frozen <map<int, bigint>>"),
+                        partitionColumn("typeset", "frozen <set<boolean>>")),
+                columnsValue(9, ImmutableList.of(
+                        rowNumber -> format("'key %d'", rowNumber),
+                        rowNumber -> format("00000000-0000-0000-0000-%012d", rowNumber),
+                        rowNumber -> String.valueOf(rowNumber),
+                        rowNumber -> String.valueOf(rowNumber),
+                        rowNumber -> String.valueOf(rowNumber),
+                        rowNumber -> String.valueOf(rowNumber + 1000),
+                        rowNumber -> toHexString(ByteBuffer.wrap(Ints.toByteArray(rowNumber))),
+                        rowNumber -> format("'%s'", DateTimeFormatter.ofPattern("uuuu-MM-dd").format(TIMESTAMP_VALUE)),
+                        rowNumber -> format("'%s'", DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss.SSSZ").format(TIMESTAMP_VALUE)),
+                        rowNumber -> format("'ansi %d'", rowNumber),
+                        rowNumber -> String.valueOf(rowNumber % 2 == 0),
+                        rowNumber -> new BigDecimal(Math.pow(2, rowNumber)).toString(),
+                        rowNumber -> String.valueOf(Math.pow(4, rowNumber)),
+                        rowNumber -> String.valueOf((float) Math.pow(8, rowNumber)),
+                        rowNumber -> format("'%s'", "127.0.0.1"),
+                        rowNumber -> format("'varchar %d'", rowNumber),
+                        rowNumber -> BigInteger.TEN.pow(rowNumber).toString(),
+                        rowNumber -> format("d2177dd0-eaa2-11de-a572-001b779c76e%d", rowNumber),
+                        rowNumber -> format("['list-value-1%d', 'list-value-2%d']", rowNumber, rowNumber),
+                        rowNumber -> format("{%d:%d, %d:%d}", rowNumber, rowNumber + 1, rowNumber + 2, rowNumber + 3),
+                        rowNumber -> format("{false, true}"))))) {
+            assertSelect(testCassandraTable.getTableName(), false);
+        }
     }
 
     @Test
@@ -312,10 +544,57 @@ public class TestCassandraConnectorTest
     @Test
     public void testCreateTableAs()
     {
-        execute("DROP TABLE IF EXISTS table_all_types_copy");
-        execute("CREATE TABLE table_all_types_copy AS SELECT * FROM " + TABLE_ALL_TYPES);
-        assertSelect("table_all_types_copy", true);
-        execute("DROP TABLE table_all_types_copy");
+        try (TestCassandraTable testCassandraTable = testTable(
+                "table_all_types",
+                ImmutableList.of(
+                        partitionColumn("key", "text"),
+                        generalColumn("typeuuid", "uuid"),
+                        generalColumn("typetinyint", "tinyint"),
+                        generalColumn("typesmallint", "smallint"),
+                        generalColumn("typeinteger", "int"),
+                        generalColumn("typelong", "bigint"),
+                        generalColumn("typebytes", "blob"),
+                        generalColumn("typedate", "date"),
+                        generalColumn("typetimestamp", "timestamp"),
+                        generalColumn("typeansi", "ascii"),
+                        generalColumn("typeboolean", "boolean"),
+                        generalColumn("typedecimal", "decimal"),
+                        generalColumn("typedouble", "double"),
+                        generalColumn("typefloat", "float"),
+                        generalColumn("typeinet", "inet"),
+                        generalColumn("typevarchar", "varchar"),
+                        generalColumn("typevarint", "varint"),
+                        generalColumn("typetimeuuid", "timeuuid"),
+                        generalColumn("typelist", "frozen <list<text>>"),
+                        generalColumn("typemap", "frozen <map<int, bigint>>"),
+                        generalColumn("typeset", "frozen <set<boolean>>")),
+                columnsValue(9, ImmutableList.of(
+                        rowNumber -> format("'key %d'", rowNumber),
+                        rowNumber -> format("00000000-0000-0000-0000-%012d", rowNumber),
+                        rowNumber -> String.valueOf(rowNumber),
+                        rowNumber -> String.valueOf(rowNumber),
+                        rowNumber -> String.valueOf(rowNumber),
+                        rowNumber -> String.valueOf(rowNumber + 1000),
+                        rowNumber -> toHexString(ByteBuffer.wrap(Ints.toByteArray(rowNumber))),
+                        rowNumber -> format("'%s'", DateTimeFormatter.ofPattern("uuuu-MM-dd").format(TIMESTAMP_VALUE)),
+                        rowNumber -> format("'%s'", DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss.SSSZ").format(TIMESTAMP_VALUE)),
+                        rowNumber -> format("'ansi %d'", rowNumber),
+                        rowNumber -> String.valueOf(rowNumber % 2 == 0),
+                        rowNumber -> new BigDecimal(Math.pow(2, rowNumber)).toString(),
+                        rowNumber -> String.valueOf(Math.pow(4, rowNumber)),
+                        rowNumber -> String.valueOf((float) Math.pow(8, rowNumber)),
+                        rowNumber -> format("'%s'", "127.0.0.1"),
+                        rowNumber -> format("'varchar %d'", rowNumber),
+                        rowNumber -> BigInteger.TEN.pow(rowNumber).toString(),
+                        rowNumber -> format("d2177dd0-eaa2-11de-a572-001b779c76e%d", rowNumber),
+                        rowNumber -> format("['list-value-1%d', 'list-value-2%d']", rowNumber, rowNumber),
+                        rowNumber -> format("{%d:%d, %d:%d}", rowNumber, rowNumber + 1, rowNumber + 2, rowNumber + 3),
+                        rowNumber -> format("{false, true}"))))) {
+            execute("DROP TABLE IF EXISTS table_all_types_copy");
+            execute("CREATE TABLE table_all_types_copy AS SELECT * FROM " + testCassandraTable.getTableName());
+            assertSelect("table_all_types_copy", true);
+            execute("DROP TABLE table_all_types_copy");
+        }
     }
 
     @Test
@@ -338,130 +617,222 @@ public class TestCassandraConnectorTest
     @Test
     public void testClusteringPredicates()
     {
-        String sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS + " WHERE key='key_1' AND clust_one='clust_one'";
-        assertEquals(execute(sql).getRowCount(), 1);
-        sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS + " WHERE key IN ('key_1','key_2') AND clust_one='clust_one'";
-        assertEquals(execute(sql).getRowCount(), 2);
-        sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS + " WHERE key='key_1' AND clust_one!='clust_one'";
-        assertEquals(execute(sql).getRowCount(), 0);
-        sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS + " WHERE key IN ('key_1','key_2','key_3','key_4') AND clust_one='clust_one' AND clust_two>'clust_two_1'";
-        assertEquals(execute(sql).getRowCount(), 3);
-        sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS + " WHERE key IN ('key_1','key_2') AND clust_one='clust_one' AND " +
-                "((clust_two='clust_two_1') OR (clust_two='clust_two_2'))";
-        assertEquals(execute(sql).getRowCount(), 2);
-        sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS + " WHERE key IN ('key_1','key_2') AND clust_one='clust_one' AND " +
-                "((clust_two='clust_two_1' AND clust_three='clust_three_1') OR (clust_two='clust_two_2' AND clust_three='clust_three_2'))";
-        assertEquals(execute(sql).getRowCount(), 2);
-        sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS + " WHERE key IN ('key_1','key_2') AND clust_one='clust_one' AND clust_three='clust_three_1'";
-        assertEquals(execute(sql).getRowCount(), 1);
-        sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS + " WHERE key IN ('key_1','key_2') AND clust_one='clust_one' AND clust_two IN ('clust_two_1','clust_two_2')";
-        assertEquals(execute(sql).getRowCount(), 2);
+        try (TestCassandraTable testCassandraTable = testTable(
+                "table_clustering_keys",
+                ImmutableList.of(
+                        partitionColumn("key", "text"),
+                        clusterColumn("clust_one", "text"),
+                        clusterColumn("clust_two", "text"),
+                        clusterColumn("clust_three", "text"),
+                        generalColumn("data", "text")),
+                columnsValue(9, ImmutableList.of(
+                        rowNumber -> format("'key_%d'", rowNumber),
+                        rowNumber -> "'clust_one'",
+                        rowNumber -> format("'clust_two_%d'", rowNumber),
+                        rowNumber -> format("'clust_three_%d'", rowNumber),
+                        rowNumber -> "null")))) {
+            String sql = "SELECT * FROM " + testCassandraTable.getTableName() + " WHERE key='key_1' AND clust_one='clust_one'";
+            assertEquals(execute(sql).getRowCount(), 1);
+            sql = "SELECT * FROM " + testCassandraTable.getTableName() + " WHERE key IN ('key_1','key_2') AND clust_one='clust_one'";
+            assertEquals(execute(sql).getRowCount(), 2);
+            sql = "SELECT * FROM " + testCassandraTable.getTableName() + " WHERE key='key_1' AND clust_one!='clust_one'";
+            assertEquals(execute(sql).getRowCount(), 0);
+            sql = "SELECT * FROM " + testCassandraTable.getTableName() + " WHERE key IN ('key_1','key_2','key_3','key_4') AND clust_one='clust_one' AND clust_two>'clust_two_1'";
+            assertEquals(execute(sql).getRowCount(), 3);
+            sql = "SELECT * FROM " + testCassandraTable.getTableName() + " WHERE key IN ('key_1','key_2') AND clust_one='clust_one' AND " +
+                    "((clust_two='clust_two_1') OR (clust_two='clust_two_2'))";
+            assertEquals(execute(sql).getRowCount(), 2);
+            sql = "SELECT * FROM " + testCassandraTable.getTableName() + " WHERE key IN ('key_1','key_2') AND clust_one='clust_one' AND " +
+                    "((clust_two='clust_two_1' AND clust_three='clust_three_1') OR (clust_two='clust_two_2' AND clust_three='clust_three_2'))";
+            assertEquals(execute(sql).getRowCount(), 2);
+            sql = "SELECT * FROM " + testCassandraTable.getTableName() + " WHERE key IN ('key_1','key_2') AND clust_one='clust_one' AND clust_three='clust_three_1'";
+            assertEquals(execute(sql).getRowCount(), 1);
+            sql = "SELECT * FROM " + testCassandraTable.getTableName() + " WHERE key IN ('key_1','key_2') AND clust_one='clust_one' AND clust_two IN ('clust_two_1','clust_two_2')";
+            assertEquals(execute(sql).getRowCount(), 2);
+        }
     }
 
     @Test
     public void testMultiplePartitionClusteringPredicates()
     {
-        String partitionInPredicates = " partition_one IN ('partition_one_1','partition_one_2') AND partition_two IN ('partition_two_1','partition_two_2') ";
-        String sql = "SELECT * FROM " + TABLE_MULTI_PARTITION_CLUSTERING_KEYS + " WHERE partition_one='partition_one_1' AND partition_two='partition_two_1' AND clust_one='clust_one'";
-        assertEquals(execute(sql).getRowCount(), 1);
-        sql = "SELECT * FROM " + TABLE_MULTI_PARTITION_CLUSTERING_KEYS + " WHERE " + partitionInPredicates + " AND clust_one='clust_one'";
-        assertEquals(execute(sql).getRowCount(), 2);
-        sql = "SELECT * FROM " + TABLE_MULTI_PARTITION_CLUSTERING_KEYS + " WHERE partition_one='partition_one_1' AND partition_two='partition_two_1' AND clust_one!='clust_one'";
-        assertEquals(execute(sql).getRowCount(), 0);
-        sql = "SELECT * FROM " + TABLE_MULTI_PARTITION_CLUSTERING_KEYS + " WHERE " +
-                "partition_one IN ('partition_one_1','partition_one_2','partition_one_3','partition_one_4') AND " +
-                "partition_two IN ('partition_two_1','partition_two_2','partition_two_3','partition_two_4') AND " +
-                "clust_one='clust_one' AND clust_two>'clust_two_1'";
-        assertEquals(execute(sql).getRowCount(), 3);
-        sql = "SELECT * FROM " + TABLE_MULTI_PARTITION_CLUSTERING_KEYS + " WHERE " + partitionInPredicates + " AND clust_one='clust_one' AND " +
-                "((clust_two='clust_two_1') OR (clust_two='clust_two_2'))";
-        assertEquals(execute(sql).getRowCount(), 2);
-        sql = "SELECT * FROM " + TABLE_MULTI_PARTITION_CLUSTERING_KEYS + " WHERE " + partitionInPredicates + " AND clust_one='clust_one' AND " +
-                "((clust_two='clust_two_1' AND clust_three='clust_three_1') OR (clust_two='clust_two_2' AND clust_three='clust_three_2'))";
-        assertEquals(execute(sql).getRowCount(), 2);
-        sql = "SELECT * FROM " + TABLE_MULTI_PARTITION_CLUSTERING_KEYS + " WHERE " + partitionInPredicates + " AND clust_one='clust_one' AND clust_three='clust_three_1'";
-        assertEquals(execute(sql).getRowCount(), 1);
-        sql = "SELECT * FROM " + TABLE_MULTI_PARTITION_CLUSTERING_KEYS + " WHERE " + partitionInPredicates + " AND clust_one='clust_one' AND clust_two IN ('clust_two_1','clust_two_2')";
-        assertEquals(execute(sql).getRowCount(), 2);
+        try (TestCassandraTable testCassandraTable = testTable(
+                "table_multi_partition_clustering_keys",
+                ImmutableList.of(
+                        partitionColumn("partition_one", "text"),
+                        partitionColumn("partition_two", "text"),
+                        clusterColumn("clust_one", "text"),
+                        clusterColumn("clust_two", "text"),
+                        clusterColumn("clust_three", "text"),
+                        generalColumn("data", "text")),
+                columnsValue(9, ImmutableList.of(
+                        rowNumber -> format("'partition_one_%d'", rowNumber),
+                        rowNumber -> format("'partition_two_%d'", rowNumber),
+                        rowNumber -> "'clust_one'",
+                        rowNumber -> format("'clust_two_%d'", rowNumber),
+                        rowNumber -> format("'clust_three_%d'", rowNumber),
+                        rowNumber -> "null")))) {
+            String partitionInPredicates = " partition_one IN ('partition_one_1','partition_one_2') AND partition_two IN ('partition_two_1','partition_two_2') ";
+            String sql = "SELECT * FROM " + testCassandraTable.getTableName() + " WHERE partition_one='partition_one_1' AND partition_two='partition_two_1' AND clust_one='clust_one'";
+            assertEquals(execute(sql).getRowCount(), 1);
+            sql = "SELECT * FROM " + testCassandraTable.getTableName() + " WHERE " + partitionInPredicates + " AND clust_one='clust_one'";
+            assertEquals(execute(sql).getRowCount(), 2);
+            sql = "SELECT * FROM " + testCassandraTable.getTableName() + " WHERE partition_one='partition_one_1' AND partition_two='partition_two_1' AND clust_one!='clust_one'";
+            assertEquals(execute(sql).getRowCount(), 0);
+            sql = "SELECT * FROM " + testCassandraTable.getTableName() + " WHERE " +
+                    "partition_one IN ('partition_one_1','partition_one_2','partition_one_3','partition_one_4') AND " +
+                    "partition_two IN ('partition_two_1','partition_two_2','partition_two_3','partition_two_4') AND " +
+                    "clust_one='clust_one' AND clust_two>'clust_two_1'";
+            assertEquals(execute(sql).getRowCount(), 3);
+            sql = "SELECT * FROM " + testCassandraTable.getTableName() + " WHERE " + partitionInPredicates + " AND clust_one='clust_one' AND " +
+                    "((clust_two='clust_two_1') OR (clust_two='clust_two_2'))";
+            assertEquals(execute(sql).getRowCount(), 2);
+            sql = "SELECT * FROM " + testCassandraTable.getTableName() + " WHERE " + partitionInPredicates + " AND clust_one='clust_one' AND " +
+                    "((clust_two='clust_two_1' AND clust_three='clust_three_1') OR (clust_two='clust_two_2' AND clust_three='clust_three_2'))";
+            assertEquals(execute(sql).getRowCount(), 2);
+            sql = "SELECT * FROM " + testCassandraTable.getTableName() + " WHERE " + partitionInPredicates + " AND clust_one='clust_one' AND clust_three='clust_three_1'";
+            assertEquals(execute(sql).getRowCount(), 1);
+            sql = "SELECT * FROM " + testCassandraTable.getTableName() + " WHERE " + partitionInPredicates + " AND clust_one='clust_one' AND clust_two IN ('clust_two_1','clust_two_2')";
+            assertEquals(execute(sql).getRowCount(), 2);
+        }
     }
 
     @Test
     public void testClusteringKeyOnlyPushdown()
     {
-        String sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS + " WHERE clust_one='clust_one'";
-        assertEquals(execute(sql).getRowCount(), 9);
-        sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS + " WHERE clust_one='clust_one' AND clust_two='clust_two_2'";
-        assertEquals(execute(sql).getRowCount(), 1);
-        sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS + " WHERE clust_one='clust_one' AND clust_two='clust_two_2' AND clust_three='clust_three_2'";
-        assertEquals(execute(sql).getRowCount(), 1);
+        try (TestCassandraTable testCassandraTable = testTable(
+                "table_clustering_keys",
+                ImmutableList.of(
+                        partitionColumn("key", "text"),
+                        clusterColumn("clust_one", "text"),
+                        clusterColumn("clust_two", "text"),
+                        clusterColumn("clust_three", "text"),
+                        generalColumn("data", "text")),
+                columnsValue(9, ImmutableList.of(
+                        rowNumber -> format("'key_%d'", rowNumber),
+                        rowNumber -> "'clust_one'",
+                        rowNumber -> format("'clust_two_%d'", rowNumber),
+                        rowNumber -> format("'clust_three_%d'", rowNumber),
+                        rowNumber -> "null")))) {
+            String sql = "SELECT * FROM " + testCassandraTable.getTableName() + " WHERE clust_one='clust_one'";
+            assertEquals(execute(sql).getRowCount(), 9);
+            sql = "SELECT * FROM " + testCassandraTable.getTableName() + " WHERE clust_one='clust_one' AND clust_two='clust_two_2'";
+            assertEquals(execute(sql).getRowCount(), 1);
+            sql = "SELECT * FROM " + testCassandraTable.getTableName() + " WHERE clust_one='clust_one' AND clust_two='clust_two_2' AND clust_three='clust_three_2'";
+            assertEquals(execute(sql).getRowCount(), 1);
+        }
 
-        // below test cases are needed to verify clustering key pushdown with unpartitioned table
-        // for the smaller table (<200 partitions by default) connector fetches all the partitions id
-        // and the partitioned patch is being followed
-        sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS_LARGE + " WHERE clust_one='clust_one' AND clust_two='clust_two_2'";
-        assertEquals(execute(sql).getRowCount(), 1);
-        sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS_LARGE + " WHERE clust_one='clust_one' AND clust_two='clust_two_2' AND clust_three='clust_three_2'";
-        assertEquals(execute(sql).getRowCount(), 1);
-        sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS_LARGE + " WHERE clust_one='clust_one' AND clust_two='clust_two_2' AND clust_three IN ('clust_three_1', 'clust_three_2', 'clust_three_3')";
-        assertEquals(execute(sql).getRowCount(), 1);
-        sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS_LARGE + " WHERE clust_one='clust_one' AND clust_two IN ('clust_two_1','clust_two_2') AND clust_three IN ('clust_three_1', 'clust_three_2', 'clust_three_3')";
-        assertEquals(execute(sql).getRowCount(), 2);
-        sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS_LARGE + " WHERE clust_one='clust_one' AND clust_two > 'clust_two_998'";
-        assertEquals(execute(sql).getRowCount(), 1);
-        sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS_LARGE + " WHERE clust_one='clust_one' AND clust_two > 'clust_two_997' AND clust_two < 'clust_two_999'";
-        assertEquals(execute(sql).getRowCount(), 1);
-        sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS_LARGE + " WHERE clust_one='clust_one' AND clust_two IN ('clust_two_1','clust_two_2') AND clust_three > 'clust_three_998'";
-        assertEquals(execute(sql).getRowCount(), 0);
-        sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS_LARGE + " WHERE clust_one='clust_one' AND clust_two IN ('clust_two_1','clust_two_2') AND clust_three < 'clust_three_3'";
-        assertEquals(execute(sql).getRowCount(), 2);
-        sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS_LARGE + " WHERE clust_one='clust_one' AND clust_two IN ('clust_two_1','clust_two_2') AND clust_three > 'clust_three_1' AND clust_three < 'clust_three_3'";
-        assertEquals(execute(sql).getRowCount(), 1);
-        sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS_LARGE + " WHERE clust_one='clust_one' AND clust_two IN ('clust_two_1','clust_two_2','clust_two_3') AND clust_two < 'clust_two_2'";
-        assertEquals(execute(sql).getRowCount(), 1);
-        sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS_LARGE + " WHERE clust_one='clust_one' AND clust_two IN ('clust_two_997','clust_two_998','clust_two_999') AND clust_two > 'clust_two_998'";
-        assertEquals(execute(sql).getRowCount(), 1);
-        sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS_LARGE + " WHERE clust_one='clust_one' AND clust_two IN ('clust_two_1','clust_two_2','clust_two_3') AND clust_two = 'clust_two_2'";
-        assertEquals(execute(sql).getRowCount(), 1);
+        try (TestCassandraTable testCassandraTable = testTable(
+                "table_clustering_keys",
+                ImmutableList.of(
+                        partitionColumn("key", "text"),
+                        clusterColumn("clust_one", "text"),
+                        clusterColumn("clust_two", "text"),
+                        clusterColumn("clust_three", "text"),
+                        generalColumn("data", "text")),
+                columnsValue(1000, ImmutableList.of(
+                        rowNumber -> format("'key_%d'", rowNumber),
+                        rowNumber -> "'clust_one'",
+                        rowNumber -> format("'clust_two_%d'", rowNumber),
+                        rowNumber -> format("'clust_three_%d'", rowNumber),
+                        rowNumber -> "null")))) {
+            // below test cases are needed to verify clustering key pushdown with unpartitioned table
+            // for the smaller table (<200 partitions by default) connector fetches all the partitions id
+            // and the partitioned patch is being followed
+            String sql = "SELECT * FROM " + testCassandraTable.getTableName() + " WHERE clust_one='clust_one' AND clust_two='clust_two_2'";
+            assertEquals(execute(sql).getRowCount(), 1);
+            sql = "SELECT * FROM " + testCassandraTable.getTableName() + " WHERE clust_one='clust_one' AND clust_two='clust_two_2' AND clust_three='clust_three_2'";
+            assertEquals(execute(sql).getRowCount(), 1);
+            sql = "SELECT * FROM " + testCassandraTable.getTableName() + " WHERE clust_one='clust_one' AND clust_two='clust_two_2' AND clust_three IN ('clust_three_1', 'clust_three_2', 'clust_three_3')";
+            assertEquals(execute(sql).getRowCount(), 1);
+            sql = "SELECT * FROM " + testCassandraTable.getTableName() + " WHERE clust_one='clust_one' AND clust_two IN ('clust_two_1','clust_two_2') AND clust_three IN ('clust_three_1', 'clust_three_2', 'clust_three_3')";
+            assertEquals(execute(sql).getRowCount(), 2);
+            sql = "SELECT * FROM " + testCassandraTable.getTableName() + " WHERE clust_one='clust_one' AND clust_two > 'clust_two_998'";
+            assertEquals(execute(sql).getRowCount(), 1);
+            sql = "SELECT * FROM " + testCassandraTable.getTableName() + " WHERE clust_one='clust_one' AND clust_two > 'clust_two_997' AND clust_two < 'clust_two_999'";
+            assertEquals(execute(sql).getRowCount(), 1);
+            sql = "SELECT * FROM " + testCassandraTable.getTableName() + " WHERE clust_one='clust_one' AND clust_two IN ('clust_two_1','clust_two_2') AND clust_three > 'clust_three_998'";
+            assertEquals(execute(sql).getRowCount(), 0);
+            sql = "SELECT * FROM " + testCassandraTable.getTableName() + " WHERE clust_one='clust_one' AND clust_two IN ('clust_two_1','clust_two_2') AND clust_three < 'clust_three_3'";
+            assertEquals(execute(sql).getRowCount(), 2);
+            sql = "SELECT * FROM " + testCassandraTable.getTableName() + " WHERE clust_one='clust_one' AND clust_two IN ('clust_two_1','clust_two_2') AND clust_three > 'clust_three_1' AND clust_three < 'clust_three_3'";
+            assertEquals(execute(sql).getRowCount(), 1);
+            sql = "SELECT * FROM " + testCassandraTable.getTableName() + " WHERE clust_one='clust_one' AND clust_two IN ('clust_two_1','clust_two_2','clust_two_3') AND clust_two < 'clust_two_2'";
+            assertEquals(execute(sql).getRowCount(), 1);
+            sql = "SELECT * FROM " + testCassandraTable.getTableName() + " WHERE clust_one='clust_one' AND clust_two IN ('clust_two_997','clust_two_998','clust_two_999') AND clust_two > 'clust_two_998'";
+            assertEquals(execute(sql).getRowCount(), 1);
+            sql = "SELECT * FROM " + testCassandraTable.getTableName() + " WHERE clust_one='clust_one' AND clust_two IN ('clust_two_1','clust_two_2','clust_two_3') AND clust_two = 'clust_two_2'";
+            assertEquals(execute(sql).getRowCount(), 1);
+        }
     }
 
     @Test
     public void testNotEqualPredicateOnClusteringColumn()
     {
-        String sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS_INEQUALITY + " WHERE key='key_1' AND clust_one != 'clust_one'";
-        assertEquals(execute(sql).getRowCount(), 0);
-        sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS_INEQUALITY + " WHERE key='key_1' AND clust_one='clust_one' AND clust_two != 2";
-        assertEquals(execute(sql).getRowCount(), 3);
-        sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS_INEQUALITY + " WHERE key='key_1' AND clust_one='clust_one' AND clust_two >= 2 AND clust_two != 3";
-        assertEquals(execute(sql).getRowCount(), 2);
-        sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS_INEQUALITY + " WHERE key='key_1' AND clust_one='clust_one' AND clust_two > 2 AND clust_two != 3";
-        assertEquals(execute(sql).getRowCount(), 1);
+        try (TestCassandraTable testCassandraTable = testTable(
+                "table_clustering_keys_inequality",
+                ImmutableList.of(
+                        partitionColumn("key", "text"),
+                        clusterColumn("clust_one", "text"),
+                        clusterColumn("clust_two", "int"),
+                        clusterColumn("clust_three", "timestamp"),
+                        generalColumn("data", "text")),
+                columnsValue(4, ImmutableList.of(
+                        rowNumber -> "'key_1'",
+                        rowNumber -> "'clust_one'",
+                        rowNumber -> format("%d", rowNumber),
+                        rowNumber -> format("%d", Timestamp.from(TIMESTAMP_VALUE.toInstant()).getTime() + rowNumber * 10),
+                        rowNumber -> "null")))) {
+            String sql = "SELECT * FROM " + testCassandraTable.getTableName() + " WHERE key='key_1' AND clust_one != 'clust_one'";
+            assertEquals(execute(sql).getRowCount(), 0);
+            sql = "SELECT * FROM " + testCassandraTable.getTableName() + " WHERE key='key_1' AND clust_one='clust_one' AND clust_two != 2";
+            assertEquals(execute(sql).getRowCount(), 3);
+            sql = "SELECT * FROM " + testCassandraTable.getTableName() + " WHERE key='key_1' AND clust_one='clust_one' AND clust_two >= 2 AND clust_two != 3";
+            assertEquals(execute(sql).getRowCount(), 2);
+            sql = "SELECT * FROM " + testCassandraTable.getTableName() + " WHERE key='key_1' AND clust_one='clust_one' AND clust_two > 2 AND clust_two != 3";
+            assertEquals(execute(sql).getRowCount(), 1);
+        }
     }
 
     @Test
     public void testClusteringKeyPushdownInequality()
     {
-        String sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS_INEQUALITY + " WHERE key='key_1' AND clust_one='clust_one'";
-        assertEquals(execute(sql).getRowCount(), 4);
-        sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS_INEQUALITY + " WHERE key='key_1' AND clust_one='clust_one' AND clust_two=2";
-        assertEquals(execute(sql).getRowCount(), 1);
-        sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS_INEQUALITY + " WHERE key='key_1' AND clust_one='clust_one' AND clust_two=2 AND clust_three = timestamp '1970-01-01 03:04:05.020Z'";
-        assertEquals(execute(sql).getRowCount(), 1);
-        sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS_INEQUALITY + " WHERE key='key_1' AND clust_one='clust_one' AND clust_two=2 AND clust_three = timestamp '1970-01-01 03:04:05.010Z'";
-        assertEquals(execute(sql).getRowCount(), 0);
-        sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS_INEQUALITY + " WHERE key='key_1' AND clust_one='clust_one' AND clust_two IN (1,2)";
-        assertEquals(execute(sql).getRowCount(), 2);
-        sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS_INEQUALITY + " WHERE key='key_1' AND clust_one='clust_one' AND clust_two > 1 AND clust_two < 3";
-        assertEquals(execute(sql).getRowCount(), 1);
-        sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS_INEQUALITY + " WHERE key='key_1' AND clust_one='clust_one' AND clust_two=2 AND clust_three >= timestamp '1970-01-01 03:04:05.010Z' AND clust_three <= timestamp '1970-01-01 03:04:05.020Z'";
-        assertEquals(execute(sql).getRowCount(), 1);
-        sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS_INEQUALITY + " WHERE key='key_1' AND clust_one='clust_one' AND clust_two IN (1,2) AND clust_three >= timestamp '1970-01-01 03:04:05.010Z' AND clust_three <= timestamp '1970-01-01 03:04:05.020Z'";
-        assertEquals(execute(sql).getRowCount(), 2);
-        sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS_INEQUALITY + " WHERE key='key_1' AND clust_one='clust_one' AND clust_two IN (1,2,3) AND clust_two < 2";
-        assertEquals(execute(sql).getRowCount(), 1);
-        sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS_INEQUALITY + " WHERE key='key_1' AND clust_one='clust_one' AND clust_two IN (1,2,3) AND clust_two > 2";
-        assertEquals(execute(sql).getRowCount(), 1);
-        sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS_INEQUALITY + " WHERE key='key_1' AND clust_one='clust_one' AND clust_two IN (1,2,3) AND clust_two = 2";
-        assertEquals(execute(sql).getRowCount(), 1);
+        try (TestCassandraTable testCassandraTable = testTable(
+                "table_clustering_keys_inequality",
+                ImmutableList.of(
+                        partitionColumn("key", "text"),
+                        clusterColumn("clust_one", "text"),
+                        clusterColumn("clust_two", "int"),
+                        clusterColumn("clust_three", "timestamp"),
+                        generalColumn("data", "text")),
+                columnsValue(4, ImmutableList.of(
+                        rowNumber -> "'key_1'",
+                        rowNumber -> "'clust_one'",
+                        rowNumber -> format("%d", rowNumber),
+                        rowNumber -> format("%d", Timestamp.from(TIMESTAMP_VALUE.toInstant()).getTime() + rowNumber * 10),
+                        rowNumber -> "null")))) {
+            String sql = "SELECT * FROM " + testCassandraTable.getTableName() + " WHERE key='key_1' AND clust_one='clust_one'";
+            assertEquals(execute(sql).getRowCount(), 4);
+            sql = "SELECT * FROM " + testCassandraTable.getTableName() + " WHERE key='key_1' AND clust_one='clust_one' AND clust_two=2";
+            assertEquals(execute(sql).getRowCount(), 1);
+            sql = "SELECT * FROM " + testCassandraTable.getTableName() + " WHERE key='key_1' AND clust_one='clust_one' AND clust_two=2 AND clust_three = timestamp '1970-01-01 03:04:05.020Z'";
+            assertEquals(execute(sql).getRowCount(), 1);
+            sql = "SELECT * FROM " + testCassandraTable.getTableName() + " WHERE key='key_1' AND clust_one='clust_one' AND clust_two=2 AND clust_three = timestamp '1970-01-01 03:04:05.010Z'";
+            assertEquals(execute(sql).getRowCount(), 0);
+            sql = "SELECT * FROM " + testCassandraTable.getTableName() + " WHERE key='key_1' AND clust_one='clust_one' AND clust_two IN (1,2)";
+            assertEquals(execute(sql).getRowCount(), 2);
+            sql = "SELECT * FROM " + testCassandraTable.getTableName() + " WHERE key='key_1' AND clust_one='clust_one' AND clust_two > 1 AND clust_two < 3";
+            assertEquals(execute(sql).getRowCount(), 1);
+            sql = "SELECT * FROM " + testCassandraTable.getTableName() + " WHERE key='key_1' AND clust_one='clust_one' AND clust_two=2 AND clust_three >= timestamp '1970-01-01 03:04:05.010Z' AND clust_three <= timestamp '1970-01-01 03:04:05.020Z'";
+            assertEquals(execute(sql).getRowCount(), 1);
+            sql = "SELECT * FROM " + testCassandraTable.getTableName() + " WHERE key='key_1' AND clust_one='clust_one' AND clust_two IN (1,2) AND clust_three >= timestamp '1970-01-01 03:04:05.010Z' AND clust_three <= timestamp '1970-01-01 03:04:05.020Z'";
+            assertEquals(execute(sql).getRowCount(), 2);
+            sql = "SELECT * FROM " + testCassandraTable.getTableName() + " WHERE key='key_1' AND clust_one='clust_one' AND clust_two IN (1,2,3) AND clust_two < 2";
+            assertEquals(execute(sql).getRowCount(), 1);
+            sql = "SELECT * FROM " + testCassandraTable.getTableName() + " WHERE key='key_1' AND clust_one='clust_one' AND clust_two IN (1,2,3) AND clust_two > 2";
+            assertEquals(execute(sql).getRowCount(), 1);
+            sql = "SELECT * FROM " + testCassandraTable.getTableName() + " WHERE key='key_1' AND clust_one='clust_one' AND clust_two IN (1,2,3) AND clust_two = 2";
+            assertEquals(execute(sql).getRowCount(), 1);
+        }
     }
 
     @Test
@@ -613,47 +984,44 @@ public class TestCassandraConnectorTest
     @Test
     public void testNullAndEmptyTimestamp()
     {
-        String tableName = "test_empty_timestamp";
+        try (TestCassandraTable testCassandraTable = testTable(
+                "test_empty_timestamp",
+                ImmutableList.of(
+                        partitionColumn("id", "int"),
+                        generalColumn("timestamp_column_with_null", "timestamp"),
+                        generalColumn("timestamp_column_with_empty", "timestamp")),
+                ImmutableList.of("1, NULL, ''"))) {
+            String tableName = testCassandraTable.getTableName();
 
-        session.execute(format("DROP TABLE IF EXISTS %s.%s", KEYSPACE, tableName));
-        session.execute(format("CREATE TABLE %s.%s (id int PRIMARY KEY, timestamp_column_with_null timestamp, timestamp_column_with_empty timestamp)", KEYSPACE, tableName));
-        session.execute(format("INSERT INTO %s.%s (id, timestamp_column_with_null, timestamp_column_with_empty) VALUES (1, NULL, '')", KEYSPACE, tableName));
-        assertContainsEventually(() -> execute(format("SHOW TABLES FROM cassandra.%s LIKE '%s'", KEYSPACE, tableName)), resultBuilder(getSession(), createUnboundedVarcharType())
-                .row(tableName)
-                .build(), new Duration(1, MINUTES));
+            assertThat(query(format("SELECT timestamp_column_with_null FROM %s", tableName)))
+                    .matches("VALUES CAST(NULL AS timestamp(3) with time zone)");
+            assertThat(query(format("SELECT timestamp_column_with_empty FROM %s", tableName)))
+                    .matches("VALUES CAST(NULL AS timestamp(3) with time zone)");
 
-        assertThat(query(format("SELECT timestamp_column_with_null FROM %s.%s", KEYSPACE, tableName)))
-                .matches("VALUES CAST(NULL AS timestamp(3) with time zone)");
-        assertThat(query(format("SELECT timestamp_column_with_empty FROM %s.%s", KEYSPACE, tableName)))
-                .matches("VALUES CAST(NULL AS timestamp(3) with time zone)");
-
-        assertThat(query(format("SELECT id FROM %s.%s WHERE timestamp_column_with_null IS NULL", KEYSPACE, tableName)))
-                .matches("VALUES 1");
-        assertThat(query(format("SELECT id FROM %s.%s WHERE timestamp_column_with_empty IS NULL", KEYSPACE, tableName)))
-                .matches("VALUES 1");
-
-        session.execute(format("DROP TABLE %s.%s", KEYSPACE, tableName));
+            assertThat(query(format("SELECT id FROM %s WHERE timestamp_column_with_null IS NULL", tableName)))
+                    .matches("VALUES 1");
+            assertThat(query(format("SELECT id FROM %s WHERE timestamp_column_with_empty IS NULL", tableName)))
+                    .matches("VALUES 1");
+        }
     }
 
     @Test
     public void testEmptyTimestampClusteringKey()
     {
-        String tableName = "test_empty_timestamp_clustering_key";
+        try (TestCassandraTable testCassandraTable = testTable(
+                "test_empty_timestamp",
+                ImmutableList.of(
+                        partitionColumn("id", "int"),
+                        partitionColumn("timestamp_column_with_empty", "timestamp")),
+                ImmutableList.of("1, ''"))) {
+            String tableName = testCassandraTable.getTableName();
 
-        session.execute(format("DROP TABLE IF EXISTS %s.%s", KEYSPACE, tableName));
-        session.execute(format("CREATE TABLE %s.%s (id int, timestamp_column_with_empty timestamp, PRIMARY KEY (id, timestamp_column_with_empty))", KEYSPACE, tableName));
-        session.execute(format("INSERT INTO %s.%s (id, timestamp_column_with_empty) VALUES (1, '')", KEYSPACE, tableName));
-        assertContainsEventually(() -> execute(format("SHOW TABLES FROM cassandra.%s LIKE '%s'", KEYSPACE, tableName)), resultBuilder(getSession(), createUnboundedVarcharType())
-                .row(tableName)
-                .build(), new Duration(1, MINUTES));
+            assertThat(query(format("SELECT timestamp_column_with_empty FROM %s", tableName)))
+                    .matches("VALUES CAST(NULL AS timestamp(3) with time zone)");
 
-        assertThat(query(format("SELECT timestamp_column_with_empty FROM %s.%s", KEYSPACE, tableName)))
-                .matches("VALUES CAST(NULL AS timestamp(3) with time zone)");
-
-        assertThat(query(format("SELECT id FROM %s.%s WHERE timestamp_column_with_empty IS NULL", KEYSPACE, tableName)))
-                .matches("VALUES 1");
-
-        session.execute(format("DROP TABLE %s.%s", KEYSPACE, tableName));
+            assertThat(query(format("SELECT id FROM %s WHERE timestamp_column_with_empty IS NULL", tableName)))
+                    .matches("VALUES 1");
+        }
     }
 
     @Test
@@ -692,146 +1060,196 @@ public class TestCassandraConnectorTest
     @Test
     public void testAllTypesInsert()
     {
-        String sql = "SELECT key, typeuuid, typeinteger, typelong, typebytes, typetimestamp, typeansi, typeboolean, typedecimal, " +
-                "typedouble, typefloat, typeinet, typevarchar, typevarint, typetimeuuid, typelist, typemap, typeset" +
-                " FROM " + TABLE_ALL_TYPES_INSERT;
-        assertEquals(execute(sql).getRowCount(), 0);
+        try (TestCassandraTable testCassandraTable = testTable(
+                "table_all_types_insert",
+                ImmutableList.of(
+                        partitionColumn("key", "text"),
+                        generalColumn("typeuuid", "uuid"),
+                        generalColumn("typetinyint", "tinyint"),
+                        generalColumn("typesmallint", "smallint"),
+                        generalColumn("typeinteger", "int"),
+                        generalColumn("typelong", "bigint"),
+                        generalColumn("typebytes", "blob"),
+                        generalColumn("typedate", "date"),
+                        generalColumn("typetimestamp", "timestamp"),
+                        generalColumn("typeansi", "ascii"),
+                        generalColumn("typeboolean", "boolean"),
+                        generalColumn("typedecimal", "decimal"),
+                        generalColumn("typedouble", "double"),
+                        generalColumn("typefloat", "float"),
+                        generalColumn("typeinet", "inet"),
+                        generalColumn("typevarchar", "varchar"),
+                        generalColumn("typevarint", "varint"),
+                        generalColumn("typetimeuuid", "timeuuid"),
+                        generalColumn("typelist", "frozen <list<text>>"),
+                        generalColumn("typemap", "frozen <map<int, bigint>>"),
+                        generalColumn("typeset", "frozen <set<boolean>>")),
+                ImmutableList.of())) {
+            String sql = "SELECT key, typeuuid, typeinteger, typelong, typebytes, typetimestamp, typeansi, typeboolean, typedecimal, " +
+                    "typedouble, typefloat, typeinet, typevarchar, typevarint, typetimeuuid, typelist, typemap, typeset" +
+                    " FROM " + testCassandraTable.getTableName();
+            assertEquals(execute(sql).getRowCount(), 0);
 
-        // TODO Following types are not supported now. We need to change null into the value after fixing it
-        // blob, frozen<set<type>>, inet, list<type>, map<type,type>, set<type>, decimal, varint
-        // timestamp can be inserted but the expected and actual values are not same
-        execute("INSERT INTO " + TABLE_ALL_TYPES_INSERT + " (" +
-                "key," +
-                "typeuuid," +
-                "typeinteger," +
-                "typelong," +
-                "typebytes," +
-                "typetimestamp," +
-                "typeansi," +
-                "typeboolean," +
-                "typedecimal," +
-                "typedouble," +
-                "typefloat," +
-                "typeinet," +
-                "typevarchar," +
-                "typevarint," +
-                "typetimeuuid," +
-                "typelist," +
-                "typemap," +
-                "typeset" +
-                ") VALUES (" +
-                "'key1', " +
-                "UUID '12151fd2-7586-11e9-8f9e-2a86e4085a59', " +
-                "1, " +
-                "1000, " +
-                "null, " +
-                "timestamp '1970-01-01 08:34:05.0Z', " +
-                "'ansi1', " +
-                "true, " +
-                "null, " +
-                "0.3, " +
-                "cast('0.4' as real), " +
-                "null, " +
-                "'varchar1', " +
-                "null, " +
-                "UUID '50554d6e-29bb-11e5-b345-feff819cdc9f', " +
-                "null, " +
-                "null, " +
-                "null " +
-                ")");
+            // TODO Following types are not supported now. We need to change null into the value after fixing it
+            // blob, frozen<set<type>>, inet, list<type>, map<type,type>, set<type>, decimal, varint
+            // timestamp can be inserted but the expected and actual values are not same
+            execute("INSERT INTO " + testCassandraTable.getTableName() + " (" +
+                    "key," +
+                    "typeuuid," +
+                    "typeinteger," +
+                    "typelong," +
+                    "typebytes," +
+                    "typetimestamp," +
+                    "typeansi," +
+                    "typeboolean," +
+                    "typedecimal," +
+                    "typedouble," +
+                    "typefloat," +
+                    "typeinet," +
+                    "typevarchar," +
+                    "typevarint," +
+                    "typetimeuuid," +
+                    "typelist," +
+                    "typemap," +
+                    "typeset" +
+                    ") VALUES (" +
+                    "'key1', " +
+                    "UUID '12151fd2-7586-11e9-8f9e-2a86e4085a59', " +
+                    "1, " +
+                    "1000, " +
+                    "null, " +
+                    "timestamp '1970-01-01 08:34:05.0Z', " +
+                    "'ansi1', " +
+                    "true, " +
+                    "null, " +
+                    "0.3, " +
+                    "cast('0.4' as real), " +
+                    "null, " +
+                    "'varchar1', " +
+                    "null, " +
+                    "UUID '50554d6e-29bb-11e5-b345-feff819cdc9f', " +
+                    "null, " +
+                    "null, " +
+                    "null " +
+                    ")");
 
-        MaterializedResult result = execute(sql);
-        int rowCount = result.getRowCount();
-        assertEquals(rowCount, 1);
-        assertEquals(result.getMaterializedRows().get(0), new MaterializedRow(DEFAULT_PRECISION,
-                "key1",
-                java.util.UUID.fromString("12151fd2-7586-11e9-8f9e-2a86e4085a59"),
-                1,
-                1000L,
-                null,
-                ZonedDateTime.of(1970, 1, 1, 8, 34, 5, 0, ZoneId.of("UTC")),
-                "ansi1",
-                true,
-                null,
-                0.3,
-                (float) 0.4,
-                null,
-                "varchar1",
-                null,
-                java.util.UUID.fromString("50554d6e-29bb-11e5-b345-feff819cdc9f"),
-                null,
-                null,
-                null));
+            MaterializedResult result = execute(sql);
+            int rowCount = result.getRowCount();
+            assertEquals(rowCount, 1);
+            assertEquals(result.getMaterializedRows().get(0), new MaterializedRow(DEFAULT_PRECISION,
+                    "key1",
+                    java.util.UUID.fromString("12151fd2-7586-11e9-8f9e-2a86e4085a59"),
+                    1,
+                    1000L,
+                    null,
+                    ZonedDateTime.of(1970, 1, 1, 8, 34, 5, 0, ZoneId.of("UTC")),
+                    "ansi1",
+                    true,
+                    null,
+                    0.3,
+                    (float) 0.4,
+                    null,
+                    "varchar1",
+                    null,
+                    java.util.UUID.fromString("50554d6e-29bb-11e5-b345-feff819cdc9f"),
+                    null,
+                    null,
+                    null));
 
-        // insert null for all datatypes
-        execute("INSERT INTO " + TABLE_ALL_TYPES_INSERT + " (" +
-                "key, typeuuid, typeinteger, typelong, typebytes, typetimestamp, typeansi, typeboolean, typedecimal," +
-                "typedouble, typefloat, typeinet, typevarchar, typevarint, typetimeuuid, typelist, typemap, typeset" +
-                ") VALUES (" +
-                "'key2', null, null, null, null, null, null, null, null," +
-                "null, null, null, null, null, null, null, null, null)");
-        sql = "SELECT key, typeuuid, typeinteger, typelong, typebytes, typetimestamp, typeansi, typeboolean, typedecimal, " +
-                "typedouble, typefloat, typeinet, typevarchar, typevarint, typetimeuuid, typelist, typemap, typeset" +
-                " FROM " + TABLE_ALL_TYPES_INSERT + " WHERE key = 'key2'";
-        result = execute(sql);
-        rowCount = result.getRowCount();
-        assertEquals(rowCount, 1);
-        assertEquals(result.getMaterializedRows().get(0), new MaterializedRow(DEFAULT_PRECISION,
-                "key2", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null));
+            // insert null for all datatypes
+            execute("INSERT INTO " + testCassandraTable.getTableName() + " (" +
+                    "key, typeuuid, typeinteger, typelong, typebytes, typetimestamp, typeansi, typeboolean, typedecimal," +
+                    "typedouble, typefloat, typeinet, typevarchar, typevarint, typetimeuuid, typelist, typemap, typeset" +
+                    ") VALUES (" +
+                    "'key2', null, null, null, null, null, null, null, null," +
+                    "null, null, null, null, null, null, null, null, null)");
+            sql = "SELECT key, typeuuid, typeinteger, typelong, typebytes, typetimestamp, typeansi, typeboolean, typedecimal, " +
+                    "typedouble, typefloat, typeinet, typevarchar, typevarint, typetimeuuid, typelist, typemap, typeset" +
+                    " FROM " + testCassandraTable.getTableName() + " WHERE key = 'key2'";
+            result = execute(sql);
+            rowCount = result.getRowCount();
+            assertEquals(rowCount, 1);
+            assertEquals(result.getMaterializedRows().get(0), new MaterializedRow(DEFAULT_PRECISION,
+                    "key2", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null));
 
-        // insert into only a subset of columns
-        execute("INSERT INTO " + TABLE_ALL_TYPES_INSERT + " (" +
-                "key, typeinteger, typeansi, typeboolean) VALUES (" +
-                "'key3', 999, 'ansi', false)");
-        sql = "SELECT key, typeuuid, typeinteger, typelong, typebytes, typetimestamp, typeansi, typeboolean, typedecimal, " +
-                "typedouble, typefloat, typeinet, typevarchar, typevarint, typetimeuuid, typelist, typemap, typeset" +
-                " FROM " + TABLE_ALL_TYPES_INSERT + " WHERE key = 'key3'";
-        result = execute(sql);
-        rowCount = result.getRowCount();
-        assertEquals(rowCount, 1);
-        assertEquals(result.getMaterializedRows().get(0), new MaterializedRow(DEFAULT_PRECISION,
-                "key3", null, 999, null, null, null, "ansi", false, null, null, null, null, null, null, null, null, null, null));
+            // insert into only a subset of columns
+            execute("INSERT INTO " + testCassandraTable.getTableName() + " (" +
+                    "key, typeinteger, typeansi, typeboolean) VALUES (" +
+                    "'key3', 999, 'ansi', false)");
+            sql = "SELECT key, typeuuid, typeinteger, typelong, typebytes, typetimestamp, typeansi, typeboolean, typedecimal, " +
+                    "typedouble, typefloat, typeinet, typevarchar, typevarint, typetimeuuid, typelist, typemap, typeset" +
+                    " FROM " + testCassandraTable.getTableName() + " WHERE key = 'key3'";
+            result = execute(sql);
+            rowCount = result.getRowCount();
+            assertEquals(rowCount, 1);
+            assertEquals(result.getMaterializedRows().get(0), new MaterializedRow(DEFAULT_PRECISION,
+                    "key3", null, 999, null, null, null, "ansi", false, null, null, null, null, null, null, null, null, null, null));
+        }
     }
 
     @Test
     @Override
     public void testDelete()
     {
-        String keyspaceAndTable = format("%s.%s", KEYSPACE, TABLE_DELETE_DATA);
-        assertEquals(execute("SELECT * FROM " + keyspaceAndTable).getRowCount(), 15);
+        try (TestCassandraTable testCassandraTable = testTable(
+                "table_delete_data",
+                ImmutableList.of(
+                        partitionColumn("partition_one", "bigint"),
+                        partitionColumn("partition_two", "int"),
+                        clusterColumn("clust_one", "text"),
+                        generalColumn("data", "text")),
+                ImmutableList.of(
+                        "1, 1, 'clust_one_1', null",
+                        "2, 2, 'clust_one_2', null",
+                        "3, 3, 'clust_one_3', null",
+                        "4, 4, 'clust_one_4', null",
+                        "5, 5, 'clust_one_5', null",
+                        "6, 6, 'clust_one_6', null",
+                        "7, 7, 'clust_one_7', null",
+                        "8, 8, 'clust_one_8', null",
+                        "9, 9, 'clust_one_9', null",
+                        "1, 1, 'clust_one_2', null",
+                        "1, 1, 'clust_one_3', null",
+                        "1, 2, 'clust_one_1', null",
+                        "1, 2, 'clust_one_2', null",
+                        "1, 2, 'clust_one_3', null",
+                        "2, 2, 'clust_one_1', null"))) {
+            String keyspaceAndTable = testCassandraTable.getTableName();
+            assertEquals(execute("SELECT * FROM " + keyspaceAndTable).getRowCount(), 15);
 
-        // error
-        assertThatThrownBy(() -> execute("DELETE FROM " + keyspaceAndTable))
-                .isInstanceOf(RuntimeException.class);
-        assertEquals(execute("SELECT * FROM " + keyspaceAndTable).getRowCount(), 15);
+            // error
+            assertThatThrownBy(() -> execute("DELETE FROM " + keyspaceAndTable))
+                    .isInstanceOf(RuntimeException.class);
+            assertEquals(execute("SELECT * FROM " + keyspaceAndTable).getRowCount(), 15);
 
-        String whereClusteringKeyOnly = " WHERE clust_one='clust_one_2'";
-        assertThatThrownBy(() -> execute("DELETE FROM " + keyspaceAndTable + whereClusteringKeyOnly))
-                .isInstanceOf(RuntimeException.class);
-        assertEquals(execute("SELECT * FROM " + keyspaceAndTable).getRowCount(), 15);
+            String whereClusteringKeyOnly = " WHERE clust_one='clust_one_2'";
+            assertThatThrownBy(() -> execute("DELETE FROM " + keyspaceAndTable + whereClusteringKeyOnly))
+                    .isInstanceOf(RuntimeException.class);
+            assertEquals(execute("SELECT * FROM " + keyspaceAndTable).getRowCount(), 15);
 
-        String whereMultiplePartitionKeyWithClusteringKey = " WHERE " +
-                " (partition_one=1 AND partition_two=1 AND clust_one='clust_one_1') OR " +
-                " (partition_one=1 AND partition_two=2 AND clust_one='clust_one_2') ";
-        assertThatThrownBy(() -> execute("DELETE FROM " + keyspaceAndTable + whereMultiplePartitionKeyWithClusteringKey))
-                .isInstanceOf(RuntimeException.class);
-        assertEquals(execute("SELECT * FROM " + keyspaceAndTable).getRowCount(), 15);
+            String whereMultiplePartitionKeyWithClusteringKey = " WHERE " +
+                    " (partition_one=1 AND partition_two=1 AND clust_one='clust_one_1') OR " +
+                    " (partition_one=1 AND partition_two=2 AND clust_one='clust_one_2') ";
+            assertThatThrownBy(() -> execute("DELETE FROM " + keyspaceAndTable + whereMultiplePartitionKeyWithClusteringKey))
+                    .isInstanceOf(RuntimeException.class);
+            assertEquals(execute("SELECT * FROM " + keyspaceAndTable).getRowCount(), 15);
 
-        // success
-        String wherePrimaryKey = " WHERE partition_one=3 AND partition_two=3 AND clust_one='clust_one_3'";
-        execute("DELETE FROM " + keyspaceAndTable + wherePrimaryKey);
-        assertEquals(execute("SELECT * FROM " + keyspaceAndTable).getRowCount(), 14);
-        assertEquals(execute("SELECT * FROM " + keyspaceAndTable + wherePrimaryKey).getRowCount(), 0);
+            // success
+            String wherePrimaryKey = " WHERE partition_one=3 AND partition_two=3 AND clust_one='clust_one_3'";
+            execute("DELETE FROM " + keyspaceAndTable + wherePrimaryKey);
+            assertEquals(execute("SELECT * FROM " + keyspaceAndTable).getRowCount(), 14);
+            assertEquals(execute("SELECT * FROM " + keyspaceAndTable + wherePrimaryKey).getRowCount(), 0);
 
-        String wherePartitionKey = " WHERE partition_one=2 AND partition_two=2";
-        execute("DELETE FROM " + keyspaceAndTable + wherePartitionKey);
-        assertEquals(execute("SELECT * FROM " + keyspaceAndTable).getRowCount(), 12);
-        assertEquals(execute("SELECT * FROM " + keyspaceAndTable + wherePartitionKey).getRowCount(), 0);
+            String wherePartitionKey = " WHERE partition_one=2 AND partition_two=2";
+            execute("DELETE FROM " + keyspaceAndTable + wherePartitionKey);
+            assertEquals(execute("SELECT * FROM " + keyspaceAndTable).getRowCount(), 12);
+            assertEquals(execute("SELECT * FROM " + keyspaceAndTable + wherePartitionKey).getRowCount(), 0);
 
-        String whereMultiplePartitionKey = " WHERE (partition_one=1 AND partition_two=1) OR (partition_one=1 AND partition_two=2)";
-        execute("DELETE FROM " + keyspaceAndTable + whereMultiplePartitionKey);
-        assertEquals(execute("SELECT * FROM " + keyspaceAndTable).getRowCount(), 6);
-        assertEquals(execute("SELECT * FROM " + keyspaceAndTable + whereMultiplePartitionKey).getRowCount(), 0);
+            String whereMultiplePartitionKey = " WHERE (partition_one=1 AND partition_two=1) OR (partition_one=1 AND partition_two=2)";
+            execute("DELETE FROM " + keyspaceAndTable + whereMultiplePartitionKey);
+            assertEquals(execute("SELECT * FROM " + keyspaceAndTable).getRowCount(), 6);
+            assertEquals(execute("SELECT * FROM " + keyspaceAndTable + whereMultiplePartitionKey).getRowCount(), 0);
+        }
     }
 
     @Override
@@ -962,5 +1380,10 @@ public class TestCassandraConnectorTest
     private MaterializedResult execute(String sql)
     {
         return getQueryRunner().execute(SESSION, sql);
+    }
+
+    private TestCassandraTable testTable(String namePrefix, List<TestCassandraTable.ColumnDefinition> columnDefinitions, List<String> rowsToInsert)
+    {
+        return new TestCassandraTable(session::execute, server, KEYSPACE, namePrefix, columnDefinitions, rowsToInsert);
     }
 }

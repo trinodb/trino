@@ -20,13 +20,13 @@ import org.openjdk.jol.info.ClassLayout;
 import javax.annotation.Nullable;
 
 import java.util.Arrays;
+import java.util.OptionalInt;
 import java.util.function.BiConsumer;
 
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.spi.block.BlockUtil.calculateBlockResetSize;
 import static io.trino.spi.block.BlockUtil.checkArrayRange;
 import static io.trino.spi.block.BlockUtil.checkValidRegion;
-import static io.trino.spi.block.BlockUtil.countUsedPositions;
 import static java.lang.Math.max;
 
 public class ShortArrayBlockBuilder
@@ -70,7 +70,7 @@ public class ShortArrayBlockBuilder
         hasNonNullValue = true;
         positionCount++;
         if (blockBuilderStatus != null) {
-            blockBuilderStatus.addBytes(Byte.BYTES + Short.BYTES);
+            blockBuilderStatus.addBytes(ShortArrayBlock.SIZE_IN_BYTES_PER_POSITION);
         }
         return this;
     }
@@ -93,7 +93,7 @@ public class ShortArrayBlockBuilder
         hasNullValue = true;
         positionCount++;
         if (blockBuilderStatus != null) {
-            blockBuilderStatus.addBytes(Byte.BYTES + Short.BYTES);
+            blockBuilderStatus.addBytes(ShortArrayBlock.SIZE_IN_BYTES_PER_POSITION);
         }
         return this;
     }
@@ -138,21 +138,27 @@ public class ShortArrayBlockBuilder
     }
 
     @Override
+    public OptionalInt fixedSizeInBytesPerPosition()
+    {
+        return OptionalInt.of(ShortArrayBlock.SIZE_IN_BYTES_PER_POSITION);
+    }
+
+    @Override
     public long getSizeInBytes()
     {
-        return (Short.BYTES + Byte.BYTES) * (long) positionCount;
+        return ShortArrayBlock.SIZE_IN_BYTES_PER_POSITION * (long) positionCount;
     }
 
     @Override
     public long getRegionSizeInBytes(int position, int length)
     {
-        return (Short.BYTES + Byte.BYTES) * (long) length;
+        return ShortArrayBlock.SIZE_IN_BYTES_PER_POSITION * (long) length;
     }
 
     @Override
-    public long getPositionsSizeInBytes(boolean[] positions)
+    public long getPositionsSizeInBytes(boolean[] positions, int selectedPositionCount)
     {
-        return (Short.BYTES + Byte.BYTES) * (long) countUsedPositions(positions);
+        return ShortArrayBlock.SIZE_IN_BYTES_PER_POSITION * (long) selectedPositionCount;
     }
 
     @Override
@@ -202,14 +208,6 @@ public class ShortArrayBlockBuilder
     {
         checkReadablePosition(position);
         return valueIsNull[position];
-    }
-
-    @Override
-    public void writePositionTo(int position, BlockBuilder blockBuilder)
-    {
-        checkReadablePosition(position);
-        blockBuilder.writeShort(values[position]);
-        blockBuilder.closeEntry();
     }
 
     @Override

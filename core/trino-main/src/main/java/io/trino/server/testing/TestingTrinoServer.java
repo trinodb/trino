@@ -44,13 +44,14 @@ import io.trino.cost.StatsCalculator;
 import io.trino.dispatcher.DispatchManager;
 import io.trino.eventlistener.EventListenerConfig;
 import io.trino.eventlistener.EventListenerManager;
+import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.FailureInjector;
 import io.trino.execution.FailureInjector.InjectedFailureType;
 import io.trino.execution.QueryInfo;
 import io.trino.execution.QueryManager;
 import io.trino.execution.SqlQueryManager;
+import io.trino.execution.SqlTaskManager;
 import io.trino.execution.StateMachine.StateChangeListener;
-import io.trino.execution.TaskManager;
 import io.trino.execution.resourcegroups.InternalResourceGroupManager;
 import io.trino.memory.ClusterMemoryManager;
 import io.trino.memory.LocalMemoryManager;
@@ -169,12 +170,13 @@ public class TestingTrinoServer
     private final Announcer announcer;
     private final DispatchManager dispatchManager;
     private final SqlQueryManager queryManager;
-    private final TaskManager taskManager;
+    private final SqlTaskManager taskManager;
     private final GracefulShutdownHandler gracefulShutdownHandler;
     private final ShutdownAction shutdownAction;
     private final MBeanServer mBeanServer;
     private final boolean coordinator;
     private final FailureInjector failureInjector;
+    private final ExchangeManagerRegistry exchangeManagerRegistry;
 
     public static class TestShutdownAction
             implements ShutdownAction
@@ -264,6 +266,7 @@ public class TestingTrinoServer
                     binder.bind(ShutdownAction.class).to(TestShutdownAction.class).in(Scopes.SINGLETON);
                     binder.bind(GracefulShutdownHandler.class).in(Scopes.SINGLETON);
                     binder.bind(ProcedureTester.class).in(Scopes.SINGLETON);
+                    binder.bind(ExchangeManagerRegistry.class).in(Scopes.SINGLETON);
                 });
 
         if (discoveryUri.isPresent()) {
@@ -284,7 +287,7 @@ public class TestingTrinoServer
 
         injector = app
                 .doNotInitializeLogging()
-                .setRequiredConfigurationProperties(serverProperties.build())
+                .setRequiredConfigurationProperties(serverProperties.buildOrThrow())
                 .setOptionalConfigurationProperties(optionalProperties)
                 .quiet()
                 .initialize();
@@ -336,11 +339,12 @@ public class TestingTrinoServer
         nodeManager = injector.getInstance(InternalNodeManager.class);
         serviceSelectorManager = injector.getInstance(ServiceSelectorManager.class);
         gracefulShutdownHandler = injector.getInstance(GracefulShutdownHandler.class);
-        taskManager = injector.getInstance(TaskManager.class);
+        taskManager = injector.getInstance(SqlTaskManager.class);
         shutdownAction = injector.getInstance(ShutdownAction.class);
         mBeanServer = injector.getInstance(MBeanServer.class);
         announcer = injector.getInstance(Announcer.class);
         failureInjector = injector.getInstance(FailureInjector.class);
+        exchangeManagerRegistry = injector.getInstance(ExchangeManagerRegistry.class);
 
         accessControl.setSystemAccessControls(systemAccessControls);
 
@@ -373,7 +377,7 @@ public class TestingTrinoServer
 
     public void installPlugin(Plugin plugin)
     {
-        pluginManager.installPlugin(plugin, plugin.getClass()::getClassLoader);
+        pluginManager.installPlugin(plugin, ignored -> plugin.getClass().getClassLoader());
     }
 
     public DispatchManager getDispatchManager()
@@ -411,6 +415,11 @@ public class TestingTrinoServer
         CatalogName catalog = connectorManager.createCatalog(catalogName, connectorName, properties);
         updateConnectorIdAnnouncement(announcer, catalog, nodeManager);
         return catalog;
+    }
+
+    public void loadExchangeManager(String name, Map<String, String> properties)
+    {
+        exchangeManagerRegistry.loadExchangeManager(name, properties);
     }
 
     public Path getBaseDataDir()
@@ -546,7 +555,7 @@ public class TestingTrinoServer
         return gracefulShutdownHandler;
     }
 
-    public TaskManager getTaskManager()
+    public SqlTaskManager getTaskManager()
     {
         return taskManager;
     }

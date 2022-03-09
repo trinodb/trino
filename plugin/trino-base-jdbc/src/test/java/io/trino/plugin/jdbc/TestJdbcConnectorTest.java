@@ -13,7 +13,9 @@
  */
 package io.trino.plugin.jdbc;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.Session;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.JdbcSqlExecutor;
@@ -26,8 +28,12 @@ import java.util.Optional;
 import java.util.Properties;
 
 import static io.trino.plugin.jdbc.H2QueryRunner.createH2QueryRunner;
+import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.UNSUPPORTED_TYPE_HANDLING;
+import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
+import static io.trino.plugin.jdbc.UnsupportedTypeHandling.IGNORE;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
+import static org.assertj.core.api.Assertions.assertThat;
 
 // Single-threaded because H2 DDL operations can sometimes take a global lock, leading to apparent deadlocks
 // like in https://github.com/trinodb/trino/issues/7209.
@@ -43,8 +49,7 @@ public class TestJdbcConnectorTest
     {
         properties = ImmutableMap.<String, String>builder()
                 .putAll(TestingH2JdbcModule.createProperties())
-                .put("allow-drop-table", "true")
-                .build();
+                .buildOrThrow();
         return createH2QueryRunner(REQUIRED_TPCH_TABLES, properties);
     }
 
@@ -58,7 +63,6 @@ public class TestJdbcConnectorTest
                 return false;
 
             case SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS:
-            case SUPPORTS_RENAME_SCHEMA:
                 return false;
 
             case SUPPORTS_COMMENT_ON_TABLE:
@@ -119,6 +123,122 @@ public class TestJdbcConnectorTest
         return Optional.of(dataMappingTestSetup);
     }
 
+    @Test
+    public void testUnknownTypeAsIgnored()
+    {
+        try (TestTable table = new TestTable(
+                onRemoteDatabase(),
+                "tpch.test_failure_on_unknown_type_as_ignored",
+                "(int_column int, geometry_column GEOMETRY)",
+                ImmutableList.of(
+                        "1, NULL",
+                        "2, 'POINT(7 52)'"))) {
+            Session ignoreUnsupportedType = unsupportedTypeHandling(IGNORE);
+            assertQuery(ignoreUnsupportedType, "SELECT int_column FROM " + table.getName(), "VALUES 1, 2");
+            assertQuery(ignoreUnsupportedType, "SELECT * FROM " + table.getName(), "VALUES 1, 2");
+            assertQuery(
+                    ignoreUnsupportedType,
+                    "SELECT column_name, data_type FROM information_schema.columns WHERE table_name LIKE 'test_failure_on_unknown_type_as_ignored%'",
+                    "VALUES ('int_column', 'integer')");
+            assertQuery(
+                    ignoreUnsupportedType,
+                    "DESCRIBE " + table.getName(),
+                    "VALUES ('int_column', 'integer', '', '')");
+
+            assertUpdate(ignoreUnsupportedType, format("INSERT INTO %s (int_column) VALUES (3)", table.getName()), 1);
+            assertQuery(ignoreUnsupportedType, "SELECT * FROM " + table.getName(), "VALUES 1, 2, 3");
+        }
+    }
+
+    @Test
+    public void testUnknownTypeAsVarchar()
+    {
+        try (TestTable table = new TestTable(
+                onRemoteDatabase(),
+                "tpch.test_failure_on_unknown_type_as_varchar",
+                "(int_column int, geometry_column GEOMETRY)",
+                ImmutableList.of(
+                        "1, NULL",
+                        "2, 'POINT(7 52)'"))) {
+            Session convertToVarcharUnsupportedTypes = unsupportedTypeHandling(CONVERT_TO_VARCHAR);
+            assertQuery(convertToVarcharUnsupportedTypes, "SELECT int_column FROM " + table.getName(), "VALUES 1, 2");
+            assertQuery(convertToVarcharUnsupportedTypes, "SELECT * FROM " + table.getName(), "VALUES (1, NULL), (2, 'POINT (7 52)')");
+
+            // predicate pushdown
+            assertQuery(
+                    convertToVarcharUnsupportedTypes,
+                    format("SELECT int_column FROM %s WHERE geometry_column = 'POINT (7 52)'", table.getName()),
+                    "VALUES 2");
+            assertQuery(
+                    convertToVarcharUnsupportedTypes,
+                    format("SELECT int_column FROM %s WHERE geometry_column = 'invalid data'", table.getName()),
+                    "SELECT 1 WHERE false");
+
+            assertQuery(
+                    convertToVarcharUnsupportedTypes,
+                    "SELECT column_name, data_type FROM information_schema.columns WHERE table_name LIKE 'test_failure_on_unknown_type_as_varchar%'",
+                    "VALUES ('int_column', 'integer'), ('geometry_column', 'varchar')");
+            assertQuery(
+                    convertToVarcharUnsupportedTypes,
+                    "DESCRIBE " + table.getName(),
+                    "VALUES ('int_column', 'integer', '', ''), ('geometry_column', 'varchar', '','')");
+
+            assertUpdate(
+                    convertToVarcharUnsupportedTypes,
+                    format("INSERT INTO %s (int_column) VALUES (3)", table.getName()),
+                    1);
+            assertQueryFails(
+                    convertToVarcharUnsupportedTypes,
+                    format("INSERT INTO %s (int_column, geometry_column) VALUES (3, 'POINT (7 52)')", table.getName()),
+                    "Underlying type that is mapped to VARCHAR is not supported for INSERT: GEOMETRY");
+
+            assertQuery(
+                    convertToVarcharUnsupportedTypes,
+                    "SELECT * FROM " + table.getName(),
+                    "VALUES (1, NULL), (2, 'POINT (7 52)'), (3, NULL)");
+        }
+    }
+
+    @Test
+    public void testTableWithOnlyUnsupportedColumns()
+    {
+        Session session = Session.builder(getSession())
+                .setSchema("public")
+                .build();
+        try (TestTable table = new TestTable(onRemoteDatabase(), "unsupported_table", "(geometry_column GEOMETRY)", ImmutableList.of("NULL", "'POINT(7 52)'"))) {
+            // SELECT all tables to avoid any optimizations that could skip the table listing
+            assertThat(getQueryRunner().execute("SELECT table_name FROM information_schema.tables").getOnlyColumn())
+                    .contains(table.getName());
+            assertQuery(
+                    format("SELECT count(*) FROM information_schema.tables WHERE table_name = '%s'", table.getName()),
+                    "SELECT 1");
+            assertQuery(
+                    format("SELECT count(*) FROM information_schema.columns WHERE table_name = '%s'", table.getName()),
+                    "SELECT 0");
+            assertQuery(
+                    session,
+                    format("SHOW TABLES LIKE '%s'", table.getName()),
+                    format("SELECT '%s'", table.getName()));
+            String unsupportedTableErrorMessage = "Table 'public.*' has no supported columns.*";
+            assertQueryFails(
+                    session,
+                    "SELECT * FROM " + table.getName(),
+                    unsupportedTableErrorMessage);
+            assertQueryFails(
+                    session,
+                    "SHOW CREATE TABLE " + table.getName(),
+                    unsupportedTableErrorMessage);
+            assertQueryFails(
+                    session,
+                    "SHOW COLUMNS FROM " + table.getName(),
+                    unsupportedTableErrorMessage);
+            assertQueryFails(
+                    session,
+                    "DESCRIBE " + table.getName(),
+                    unsupportedTableErrorMessage);
+        }
+    }
+
     @Override
     protected String errorMessageForInsertIntoNotNullColumn(String columnName)
     {
@@ -129,5 +249,12 @@ public class TestJdbcConnectorTest
     protected JdbcSqlExecutor onRemoteDatabase()
     {
         return new JdbcSqlExecutor(properties.get("connection-url"), new Properties());
+    }
+
+    private Session unsupportedTypeHandling(UnsupportedTypeHandling unsupportedTypeHandling)
+    {
+        return Session.builder(getSession())
+                .setCatalogSessionProperty("jdbc", UNSUPPORTED_TYPE_HANDLING, unsupportedTypeHandling.name())
+                .build();
     }
 }

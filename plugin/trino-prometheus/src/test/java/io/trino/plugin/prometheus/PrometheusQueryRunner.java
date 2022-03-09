@@ -33,12 +33,12 @@ public final class PrometheusQueryRunner
 {
     private PrometheusQueryRunner() {}
 
-    public static DistributedQueryRunner createPrometheusQueryRunner(PrometheusServer server)
+    public static DistributedQueryRunner createPrometheusQueryRunner(PrometheusServer server, Map<String, String> extraProperties)
             throws Exception
     {
         DistributedQueryRunner queryRunner = null;
         try {
-            queryRunner = DistributedQueryRunner.builder(createSession()).build();
+            queryRunner = DistributedQueryRunner.builder(createSession()).setExtraProperties(extraProperties).build();
 
             queryRunner.installPlugin(new PrometheusPlugin());
             Map<String, String> properties = ImmutableMap.of(
@@ -75,7 +75,7 @@ public final class PrometheusQueryRunner
             throws Exception
     {
         Logging.initialize();
-        DistributedQueryRunner queryRunner = createPrometheusQueryRunner(new PrometheusServer());
+        DistributedQueryRunner queryRunner = createPrometheusQueryRunner(new PrometheusServer(), ImmutableMap.of("http-server.http.port", "8080"));
         Thread.sleep(10);
         Logger log = Logger.get(PrometheusQueryRunner.class);
         log.info("======== SERVER STARTED ========");

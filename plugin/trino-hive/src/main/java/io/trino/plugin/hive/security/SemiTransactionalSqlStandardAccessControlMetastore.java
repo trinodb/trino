@@ -13,8 +13,7 @@
  */
 package io.trino.plugin.hive.security;
 
-import io.trino.plugin.hive.HiveTransactionHandle;
-import io.trino.plugin.hive.authentication.HiveIdentity;
+import io.trino.plugin.hive.HiveTransactionManager;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HivePrincipal;
 import io.trino.plugin.hive.metastore.HivePrivilegeInfo;
@@ -26,39 +25,38 @@ import javax.inject.Inject;
 
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Function;
 
 import static java.util.Objects.requireNonNull;
 
 public class SemiTransactionalSqlStandardAccessControlMetastore
         implements SqlStandardAccessControlMetastore
 {
-    private final Function<HiveTransactionHandle, SemiTransactionalHiveMetastore> metastoreProvider;
+    private final HiveTransactionManager transactionManager;
 
     @Inject
-    public SemiTransactionalSqlStandardAccessControlMetastore(Function<HiveTransactionHandle, SemiTransactionalHiveMetastore> metastoreProvider)
+    public SemiTransactionalSqlStandardAccessControlMetastore(HiveTransactionManager transactionManager)
     {
-        this.metastoreProvider = requireNonNull(metastoreProvider, "metastoreProvider is null");
+        this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
     }
 
     @Override
     public Set<RoleGrant> listRoleGrants(ConnectorSecurityContext context, HivePrincipal principal)
     {
-        SemiTransactionalHiveMetastore metastore = metastoreProvider.apply(((HiveTransactionHandle) context.getTransactionHandle()));
+        SemiTransactionalHiveMetastore metastore = transactionManager.get(context.getTransactionHandle(), context.getIdentity()).getMetastore();
         return metastore.listRoleGrants(principal);
     }
 
     @Override
-    public Set<HivePrivilegeInfo> listTablePrivileges(ConnectorSecurityContext context, HiveIdentity identity, String databaseName, String tableName, Optional<HivePrincipal> principal)
+    public Set<HivePrivilegeInfo> listTablePrivileges(ConnectorSecurityContext context, String databaseName, String tableName, Optional<HivePrincipal> principal)
     {
-        SemiTransactionalHiveMetastore metastore = metastoreProvider.apply(((HiveTransactionHandle) context.getTransactionHandle()));
-        return metastore.listTablePrivileges(identity, databaseName, tableName, principal);
+        SemiTransactionalHiveMetastore metastore = transactionManager.get(context.getTransactionHandle(), context.getIdentity()).getMetastore();
+        return metastore.listTablePrivileges(databaseName, tableName, principal);
     }
 
     @Override
     public Optional<Database> getDatabase(ConnectorSecurityContext context, String databaseName)
     {
-        SemiTransactionalHiveMetastore metastore = metastoreProvider.apply(((HiveTransactionHandle) context.getTransactionHandle()));
+        SemiTransactionalHiveMetastore metastore = transactionManager.get(context.getTransactionHandle(), context.getIdentity()).getMetastore();
         return metastore.getDatabase(databaseName);
     }
 }

@@ -87,7 +87,7 @@ public class TestVerifierConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("suites", "my_suite")
                 .put("suite", "my_suite")
                 .put("control.query-types", Joiner.on(",").join(CREATE, MODIFY))
@@ -135,7 +135,7 @@ public class TestVerifierConfig
                 .put("control.teardown-retries", "5")
                 .put("test.teardown-retries", "7")
                 .put("run-teardown-on-result-mismatch", "true")
-                .build();
+                .buildOrThrow();
 
         VerifierConfig expected = new VerifierConfig().setTestUsernameOverride("verifier-test")
                 .setSuites("my_suite")

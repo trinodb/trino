@@ -89,7 +89,7 @@ public final class TestingPhoenixServer
         this.conf.set("hbase.security.logger", "ERROR");
         this.conf.setInt(MASTER_INFO_PORT, -1);
         this.conf.setInt(REGIONSERVER_INFO_PORT, -1);
-        this.conf.setInt(HBASE_CLIENT_RETRIES_NUMBER, 1);
+        this.conf.setInt(HBASE_CLIENT_RETRIES_NUMBER, 15);
         this.conf.setBoolean("phoenix.schema.isNamespaceMappingEnabled", true);
         this.conf.set("hbase.regionserver.wal.codec", "org.apache.hadoop.hbase.regionserver.wal.IndexedWALEditCodec");
         this.hbaseTestingUtility = new HBaseTestingUtility(conf);

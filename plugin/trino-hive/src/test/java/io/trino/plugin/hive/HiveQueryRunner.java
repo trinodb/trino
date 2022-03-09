@@ -20,12 +20,14 @@ import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.trino.Session;
 import io.trino.metadata.QualifiedObjectName;
-import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.MetastoreConfig;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastore;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig;
+import io.trino.plugin.tpcds.TpcdsPlugin;
+import io.trino.plugin.tpch.ColumnNaming;
+import io.trino.plugin.tpch.DecimalTypeMapping;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.PrincipalType;
@@ -49,11 +51,13 @@ import static com.google.inject.util.Modules.EMPTY_MODULE;
 import static io.airlift.log.Level.WARN;
 import static io.airlift.units.Duration.nanosSince;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
+import static io.trino.plugin.hive.security.HiveSecurityModule.ALLOW_ALL;
 import static io.trino.plugin.hive.security.HiveSecurityModule.SQL_STANDARD;
+import static io.trino.plugin.tpch.ColumnNaming.SIMPLIFIED;
+import static io.trino.plugin.tpch.DecimalTypeMapping.DOUBLE;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.spi.security.SelectedRole.Type.ROLE;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
-import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static java.nio.file.Files.createDirectories;
@@ -85,6 +89,11 @@ public final class HiveQueryRunner
         return new Builder<>();
     }
 
+    public static Builder<Builder<?>> builder(Session defaultSession)
+    {
+        return new Builder<>(defaultSession);
+    }
+
     public static class Builder<SELF extends Builder<?>>
             extends DistributedQueryRunner.Builder<SELF>
     {
@@ -104,10 +113,20 @@ public final class HiveQueryRunner
                             .setMetastoreUser("test"));
         };
         private Module module = EMPTY_MODULE;
+        private Optional<CachingDirectoryLister> cachingDirectoryLister = Optional.empty();
+        private boolean tpcdsCatalogEnabled;
+        private String security = SQL_STANDARD;
+        private ColumnNaming tpchColumnNaming = SIMPLIFIED;
+        private DecimalTypeMapping tpchDecimalTypeMapping = DOUBLE;
 
         protected Builder()
         {
-            super(createSession(Optional.of(new SelectedRole(ROLE, Optional.of("admin")))));
+            this(createSession(Optional.of(new SelectedRole(ROLE, Optional.of("admin")))));
+        }
+
+        protected Builder(Session defaultSession)
+        {
+            super(defaultSession);
         }
 
         public SELF setSkipTimezoneSetup(boolean skipTimezoneSetup)
@@ -159,6 +178,36 @@ public final class HiveQueryRunner
             return self();
         }
 
+        public SELF setCachingDirectoryLister(CachingDirectoryLister cachingDirectoryLister)
+        {
+            this.cachingDirectoryLister = Optional.ofNullable(cachingDirectoryLister);
+            return self();
+        }
+
+        public SELF setTpcdsCatalogEnabled(boolean tpcdsCatalogEnabled)
+        {
+            this.tpcdsCatalogEnabled = tpcdsCatalogEnabled;
+            return self();
+        }
+
+        public SELF setSecurity(String security)
+        {
+            this.security = requireNonNull(security, "security is null");
+            return self();
+        }
+
+        public SELF setTpchColumnNaming(ColumnNaming tpchColumnNaming)
+        {
+            this.tpchColumnNaming = requireNonNull(tpchColumnNaming, "tpchColumnNaming is null");
+            return self();
+        }
+
+        public SELF setTpchDecimalTypeMapping(DecimalTypeMapping tpchDecimalTypeMapping)
+        {
+            this.tpchDecimalTypeMapping = requireNonNull(tpchDecimalTypeMapping, "tpchDecimalTypeMapping is null");
+            return self();
+        }
+
         @Override
         public DistributedQueryRunner build()
                 throws Exception
@@ -169,10 +218,19 @@ public final class HiveQueryRunner
 
             try {
                 queryRunner.installPlugin(new TpchPlugin());
-                queryRunner.createCatalog("tpch", "tpch");
+                Map<String, String> tpchCatalogProperties = ImmutableMap.<String, String>builder()
+                        .put("tpch.column-naming", tpchColumnNaming.name())
+                        .put("tpch.double-type-mapping", tpchDecimalTypeMapping.name())
+                        .buildOrThrow();
+                queryRunner.createCatalog("tpch", "tpch", tpchCatalogProperties);
+
+                if (tpcdsCatalogEnabled) {
+                    queryRunner.installPlugin(new TpcdsPlugin());
+                    queryRunner.createCatalog("tpcds", "tpcds");
+                }
 
                 HiveMetastore metastore = this.metastore.apply(queryRunner);
-                queryRunner.installPlugin(new TestingHivePlugin(metastore, module));
+                queryRunner.installPlugin(new TestingHivePlugin(metastore, module, cachingDirectoryLister));
 
                 Map<String, String> hiveProperties = new HashMap<>();
                 if (!skipTimezoneSetup) {
@@ -181,8 +239,8 @@ public final class HiveQueryRunner
                     hiveProperties.put("hive.parquet.time-zone", TIME_ZONE.getID());
                 }
                 hiveProperties.put("hive.max-partitions-per-scan", "1000");
-                hiveProperties.put("hive.security", SQL_STANDARD);
-                hiveProperties.putAll(this.hiveProperties.build());
+                hiveProperties.put("hive.security", security);
+                hiveProperties.putAll(this.hiveProperties.buildOrThrow());
 
                 Map<String, String> hiveBucketedProperties = ImmutableMap.<String, String>builder()
                         .putAll(hiveProperties)
@@ -190,7 +248,7 @@ public final class HiveQueryRunner
                         .put("hive.max-split-size", "10kB") // so that each bucket has multiple splits
                         .put("hive.storage-format", "TEXTFILE") // so that there's no minimum split size for the file
                         .put("hive.compression-codec", "NONE") // so that the file is splittable
-                        .build();
+                        .buildOrThrow();
                 queryRunner.createCatalog(HIVE_CATALOG, "hive", hiveProperties);
                 queryRunner.createCatalog(HIVE_BUCKETED_CATALOG, "hive", hiveBucketedProperties);
 
@@ -206,17 +264,16 @@ public final class HiveQueryRunner
 
         private void populateData(DistributedQueryRunner queryRunner, HiveMetastore metastore)
         {
-            HiveIdentity identity = new HiveIdentity(SESSION);
             if (metastore.getDatabase(TPCH_SCHEMA).isEmpty()) {
-                metastore.createDatabase(identity, createDatabaseMetastoreObject(TPCH_SCHEMA, initialSchemasLocationBase));
+                metastore.createDatabase(createDatabaseMetastoreObject(TPCH_SCHEMA, initialSchemasLocationBase));
                 Session session = initialTablesSessionMutator.apply(createSession(Optional.empty()));
                 copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, session, initialTables);
             }
 
             if (metastore.getDatabase(TPCH_BUCKETED_SCHEMA).isEmpty()) {
-                metastore.createDatabase(identity, createDatabaseMetastoreObject(TPCH_BUCKETED_SCHEMA, initialSchemasLocationBase));
+                metastore.createDatabase(createDatabaseMetastoreObject(TPCH_BUCKETED_SCHEMA, initialSchemasLocationBase));
                 Session session = initialTablesSessionMutator.apply(createBucketedSession(Optional.empty()));
-                copyTpchTablesBucketed(queryRunner, "tpch", TINY_SCHEMA_NAME, session, initialTables);
+                copyTpchTablesBucketed(queryRunner, "tpch", TINY_SCHEMA_NAME, session, initialTables, tpchColumnNaming);
             }
         }
     }
@@ -270,49 +327,55 @@ public final class HiveQueryRunner
             String sourceCatalog,
             String sourceSchema,
             Session session,
-            Iterable<TpchTable<?>> tables)
+            Iterable<TpchTable<?>> tables,
+            ColumnNaming columnNaming)
     {
         log.info("Loading data from %s.%s...", sourceCatalog, sourceSchema);
         long startTime = System.nanoTime();
         for (TpchTable<?> table : tables) {
-            copyTableBucketed(queryRunner, new QualifiedObjectName(sourceCatalog, sourceSchema, table.getTableName().toLowerCase(ENGLISH)), session);
+            copyTableBucketed(queryRunner, new QualifiedObjectName(sourceCatalog, sourceSchema, table.getTableName().toLowerCase(ENGLISH)), table, session, columnNaming);
         }
         log.info("Loading from %s.%s complete in %s", sourceCatalog, sourceSchema, nanosSince(startTime).toString(SECONDS));
     }
 
-    private static void copyTableBucketed(QueryRunner queryRunner, QualifiedObjectName table, Session session)
+    private static void copyTableBucketed(QueryRunner queryRunner, QualifiedObjectName tableName, TpchTable<?> table, Session session, ColumnNaming columnNaming)
     {
         long start = System.nanoTime();
-        log.info("Running import for %s", table.getObjectName());
+        log.info("Running import for %s", tableName.getObjectName());
         @Language("SQL") String sql;
-        switch (table.getObjectName()) {
+        switch (tableName.getObjectName()) {
             case "part":
             case "partsupp":
             case "supplier":
             case "nation":
             case "region":
-                sql = format("CREATE TABLE %s AS SELECT * FROM %s", table.getObjectName(), table);
+                sql = format("CREATE TABLE %s AS SELECT * FROM %s", tableName.getObjectName(), tableName);
                 break;
             case "lineitem":
-                sql = format("CREATE TABLE %s WITH (bucketed_by=array['orderkey'], bucket_count=11) AS SELECT * FROM %s", table.getObjectName(), table);
+                sql = format(
+                        "CREATE TABLE %s WITH (bucketed_by=array['%s'], bucket_count=11) AS SELECT * FROM %s",
+                        tableName.getObjectName(),
+                        columnNaming.getName(table.getColumn("orderkey")),
+                        tableName);
                 break;
             case "customer":
-                sql = format("CREATE TABLE %s WITH (bucketed_by=array['custkey'], bucket_count=11) AS SELECT * FROM %s", table.getObjectName(), table);
-                break;
             case "orders":
-                sql = format("CREATE TABLE %s WITH (bucketed_by=array['custkey'], bucket_count=11) AS SELECT * FROM %s", table.getObjectName(), table);
+                sql = format(
+                        "CREATE TABLE %s WITH (bucketed_by=array['%s'], bucket_count=11) AS SELECT * FROM %s",
+                        tableName.getObjectName(),
+                        columnNaming.getName(table.getColumn("custkey")),
+                        tableName);
                 break;
             default:
                 throw new UnsupportedOperationException();
         }
         long rows = (Long) queryRunner.execute(session, sql).getMaterializedRows().get(0).getField(0);
-        log.info("Imported %s rows for %s in %s", rows, table.getObjectName(), nanosSince(start).convertToMostSuccinctTimeUnit());
+        log.info("Imported %s rows for %s in %s", rows, tableName.getObjectName(), nanosSince(start).convertToMostSuccinctTimeUnit());
     }
 
     public static void main(String[] args)
             throws Exception
     {
-        // You need to add "--user admin" to your CLI and execute "SET ROLE admin IN hive" for queries to work
         Optional<Path> baseDataDir = Optional.empty();
         if (args.length > 0) {
             if (args.length != 1) {
@@ -331,6 +394,12 @@ public final class HiveQueryRunner
                 .setHiveProperties(ImmutableMap.of())
                 .setInitialTables(TpchTable.getTables())
                 .setBaseDataDir(baseDataDir)
+                .setTpcdsCatalogEnabled(true)
+                .setSecurity(ALLOW_ALL)
+                // Uncomment to enable standard column naming (column names to be prefixed with the first letter of the table name, e.g.: o_orderkey vs orderkey)
+                // and standard column types (decimals vs double for some columns). This will allow running unmodified tpch queries on the cluster.
+                // .setTpchColumnNaming(STANDARD)
+                // .setTpchDecimalTypeMapping(DECIMAL)
                 .build();
         Thread.sleep(10);
         log.info("======== SERVER STARTED ========");

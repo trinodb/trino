@@ -30,7 +30,7 @@ appropriate for your setup:
 .. code-block:: properties
 
     connector.name=sqlserver
-    connection-url=jdbc:sqlserver://<host>:<port>;database=<database>
+    connection-url=jdbc:sqlserver://<host>:<port>;database=<database>;encrypt=false
     connection-user=root
     connection-password=secret
 
@@ -43,6 +43,27 @@ The ``connection-user`` and ``connection-password`` are typically required and
 determine the user credentials for the connection, often a service user. You can
 use :doc:`secrets </security/secrets>` to avoid actual values in the catalog
 properties files.
+
+.. _sqlserver-tls:
+
+Connection security
+^^^^^^^^^^^^^^^^^^^
+
+The JDBC driver, and therefore the connector, automatically use Transport Layer
+Security (TLS) encryption and certificate validation. This requires a suitable
+TLS certificate configured on your SQL Server database host.
+
+If you do not have the necessary configuration established, you can disable
+encryption in the connection string with the ``encrypt`` property:
+
+.. code-block:: properties
+
+  connection-url=jdbc:sqlserver://<host>:<port>;database=<database>;encrypt=false
+
+Further parameters like ``trustServerCertificate``, ``hostNameInCertificate``,
+``trustStore``, and ``trustStorePassword`` are details in the `TLS section of
+SQL Server JDBC driver documentation
+<https://docs.microsoft.com/en-us/sql/connect/jdbc/using-ssl-encryption>`_.
 
 Multiple SQL Server databases or servers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -104,6 +125,7 @@ Trino supports the following SQL Server data types:
 SQL Server Type                     Trino Type
 ==================================  ===============================
 ``bigint``                          ``bigint``
+``tinyint``                         ``smallint``
 ``smallint``                        ``smallint``
 ``int``                             ``integer``
 ``float``                           ``double``

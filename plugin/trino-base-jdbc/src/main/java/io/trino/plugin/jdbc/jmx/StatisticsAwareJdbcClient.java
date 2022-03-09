@@ -38,6 +38,7 @@ import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
+import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.type.Type;
@@ -140,6 +141,12 @@ public final class StatisticsAwareJdbcClient
     }
 
     @Override
+    public Optional<String> convertPredicate(ConnectorSession session, ConnectorExpression expression, Map<String, ColumnHandle> assignments)
+    {
+        return stats.getConvertPredicate().wrap(() -> delegate().convertPredicate(session, expression, assignments));
+    }
+
+    @Override
     public ConnectorSplitSource getSplits(ConnectorSession session, JdbcTableHandle layoutHandle)
     {
         return stats.getGetSplits().wrap(() -> delegate().getSplits(session, layoutHandle));
@@ -221,7 +228,7 @@ public final class StatisticsAwareJdbcClient
     }
 
     @Override
-    public void setTableProperties(ConnectorSession session, JdbcTableHandle handle, Map<String, Object> properties)
+    public void setTableProperties(ConnectorSession session, JdbcTableHandle handle, Map<String, Optional<Object>> properties)
     {
         stats.getSetTableProperties().wrap(() -> delegate().setTableProperties(session, handle, properties));
     }
@@ -328,6 +335,12 @@ public final class StatisticsAwareJdbcClient
     public void dropSchema(ConnectorSession session, String schemaName)
     {
         stats.getDropSchema().wrap(() -> delegate().dropSchema(session, schemaName));
+    }
+
+    @Override
+    public void renameSchema(ConnectorSession session, String schemaName, String newSchemaName)
+    {
+        stats.getRenameSchema().wrap(() -> delegate().renameSchema(session, schemaName, newSchemaName));
     }
 
     @Override

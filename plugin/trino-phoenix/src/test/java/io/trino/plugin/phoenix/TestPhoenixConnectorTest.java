@@ -18,7 +18,6 @@ import com.google.common.collect.Streams;
 import io.trino.Session;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
 import io.trino.plugin.jdbc.UnsupportedTypeHandling;
-import io.trino.testing.AbstractTestDistributedQueries;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
@@ -32,6 +31,7 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -157,10 +157,7 @@ public class TestPhoenixConnectorTest
     {
         assertThatThrownBy(super::testInsertArray)
                 // TODO (https://github.com/trinodb/trino/issues/6421) array with double null stored as array with 0
-                .hasMessageContaining("Actual rows (up to 100 of 1 extra rows shown, 2 rows in total):\n" +
-                        "    [0.0, null]\n" +
-                        "Expected rows (up to 100 of 1 missing rows shown, 2 rows in total):\n" +
-                        "    [null, null]");
+                .hasMessage("Phoenix JDBC driver replaced 'null' with '0.0' at index 1 in [0.0]");
     }
 
     @Override
@@ -177,10 +174,25 @@ public class TestPhoenixConnectorTest
     }
 
     @Override
-    public void testDataMappingSmokeTest(AbstractTestDistributedQueries.DataMappingTestSetup dataMappingTestSetup)
+    protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
     {
-        // TODO enable the test
-        throw new SkipException("test fails on Phoenix");
+        String typeName = dataMappingTestSetup.getTrinoTypeName();
+        if (typeName.equals("timestamp")
+                || typeName.equals("timestamp(3) with time zone")) {
+            return Optional.of(dataMappingTestSetup.asUnsupported());
+        }
+
+        if (typeName.equals("time")) {
+            // TODO Enable when adding support reading time column
+            return Optional.empty();
+        }
+
+        if (typeName.equals("date") && dataMappingTestSetup.getSampleValueLiteral().equals("DATE '1582-10-05'")) {
+            // Phoenix connector returns +10 days during julian->gregorian switch. The test case exists in TestPhoenixTypeMapping.testDate().
+            return Optional.empty();
+        }
+
+        return Optional.of(dataMappingTestSetup);
     }
 
     @Override
@@ -299,9 +311,9 @@ public class TestPhoenixConnectorTest
     public void testUnsupportedType()
             throws Exception
     {
-        executeInPhoenix("CREATE TABLE tpch.test_timestamp (pk bigint primary key, val1 timestamp)");
-        executeInPhoenix("UPSERT INTO tpch.test_timestamp (pk, val1) VALUES (1, null)");
-        executeInPhoenix("UPSERT INTO tpch.test_timestamp (pk, val1) VALUES (2, '2002-05-30T09:30:10.5')");
+        onRemoteDatabase().execute("CREATE TABLE tpch.test_timestamp (pk bigint primary key, val1 timestamp)");
+        onRemoteDatabase().execute("UPSERT INTO tpch.test_timestamp (pk, val1) VALUES (1, null)");
+        onRemoteDatabase().execute("UPSERT INTO tpch.test_timestamp (pk, val1) VALUES (2, '2002-05-30T09:30:10.5')");
         assertUpdate("INSERT INTO test_timestamp VALUES (3)", 1);
         assertQuery("SELECT * FROM test_timestamp", "VALUES 1, 2, 3");
         assertQuery(
@@ -322,8 +334,8 @@ public class TestPhoenixConnectorTest
     public void testDefaultDecimalTable()
             throws Exception
     {
-        executeInPhoenix("CREATE TABLE tpch.test_null_decimal (pk bigint primary key, val1 decimal)");
-        executeInPhoenix("UPSERT INTO tpch.test_null_decimal (pk, val1) VALUES (1, 2)");
+        onRemoteDatabase().execute("CREATE TABLE tpch.test_null_decimal (pk bigint primary key, val1 decimal)");
+        onRemoteDatabase().execute("UPSERT INTO tpch.test_null_decimal (pk, val1) VALUES (1, 2)");
         assertQuery("SELECT * FROM tpch.test_null_decimal", "VALUES (1, 2) ");
     }
 
@@ -371,8 +383,8 @@ public class TestPhoenixConnectorTest
             throws Exception
     {
         assertUpdate("CREATE TABLE test_primary_table (pk bigint, val1 double, val2 double, val3 double) with(rowkeys = 'pk')");
-        executeInPhoenix("CREATE LOCAL INDEX test_local_index ON tpch.test_primary_table (val1)");
-        executeInPhoenix("CREATE INDEX test_global_index ON tpch.test_primary_table (val2)");
+        onRemoteDatabase().execute("CREATE LOCAL INDEX test_local_index ON tpch.test_primary_table (val1)");
+        onRemoteDatabase().execute("CREATE INDEX test_global_index ON tpch.test_primary_table (val2)");
         assertUpdate("INSERT INTO test_primary_table VALUES (1, 1.1, 1.2, 1.3)", 1);
         assertQuery("SELECT val1,val3 FROM test_primary_table where val1 < 1.2", "SELECT 1.1,1.3");
         assertQuery("SELECT val2,val3 FROM test_primary_table where val2 < 1.3", "SELECT 1.2,1.3");
@@ -383,16 +395,15 @@ public class TestPhoenixConnectorTest
     public void testCaseInsensitiveNameMatching()
             throws Exception
     {
-        executeInPhoenix("CREATE TABLE tpch.\"TestCaseInsensitive\" (\"pK\" bigint primary key, \"Val1\" double)");
+        onRemoteDatabase().execute("CREATE TABLE tpch.\"TestCaseInsensitive\" (\"pK\" bigint primary key, \"Val1\" double)");
         assertUpdate("INSERT INTO testcaseinsensitive VALUES (1, 1.1)", 1);
         assertQuery("SELECT Val1 FROM testcaseinsensitive where Val1 < 1.2", "SELECT 1.1");
     }
 
     @Test
     public void testMissingColumnsOnInsert()
-            throws Exception
     {
-        executeInPhoenix("CREATE TABLE tpch.test_col_insert(pk VARCHAR NOT NULL PRIMARY KEY, col1 VARCHAR, col2 VARCHAR)");
+        onRemoteDatabase().execute("CREATE TABLE tpch.test_col_insert(pk VARCHAR NOT NULL PRIMARY KEY, col1 VARCHAR, col2 VARCHAR)");
         assertUpdate("INSERT INTO test_col_insert(pk, col1) VALUES('1', 'val1')", 1);
         assertUpdate("INSERT INTO test_col_insert(pk, col2) VALUES('1', 'val2')", 1);
         assertQuery("SELECT * FROM test_col_insert", "SELECT 1, 'val1', 'val2'");
@@ -409,21 +420,15 @@ public class TestPhoenixConnectorTest
     {
         return sql -> {
             try {
-                executeInPhoenix(sql);
+                try (Connection connection = DriverManager.getConnection(testingPhoenixServer.getJdbcUrl());
+                        Statement statement = connection.createStatement()) {
+                    statement.execute(sql);
+                    connection.commit();
+                }
             }
             catch (SQLException e) {
                 throw new RuntimeException(e);
             }
         };
-    }
-
-    private void executeInPhoenix(String sql)
-            throws SQLException
-    {
-        try (Connection connection = DriverManager.getConnection(testingPhoenixServer.getJdbcUrl());
-                Statement statement = connection.createStatement()) {
-            statement.execute(sql);
-            connection.commit();
-        }
     }
 }

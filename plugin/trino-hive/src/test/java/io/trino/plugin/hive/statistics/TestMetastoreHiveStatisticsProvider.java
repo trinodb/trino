@@ -57,13 +57,14 @@ import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createDateColu
 import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createDecimalColumnStatistics;
 import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createDoubleColumnStatistics;
 import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createIntegerColumnStatistics;
-import static io.trino.plugin.hive.statistics.MetastoreHiveStatisticsProvider.calculateAverageRowsPerPartition;
+import static io.trino.plugin.hive.statistics.MetastoreHiveStatisticsProvider.PartitionsRowCount;
 import static io.trino.plugin.hive.statistics.MetastoreHiveStatisticsProvider.calculateDataSize;
 import static io.trino.plugin.hive.statistics.MetastoreHiveStatisticsProvider.calculateDataSizeForPartitioningKey;
 import static io.trino.plugin.hive.statistics.MetastoreHiveStatisticsProvider.calculateDistinctPartitionKeys;
 import static io.trino.plugin.hive.statistics.MetastoreHiveStatisticsProvider.calculateDistinctValuesCount;
 import static io.trino.plugin.hive.statistics.MetastoreHiveStatisticsProvider.calculateNullsFraction;
 import static io.trino.plugin.hive.statistics.MetastoreHiveStatisticsProvider.calculateNullsFractionForPartitioningKey;
+import static io.trino.plugin.hive.statistics.MetastoreHiveStatisticsProvider.calculatePartitionsRowCount;
 import static io.trino.plugin.hive.statistics.MetastoreHiveStatisticsProvider.calculateRange;
 import static io.trino.plugin.hive.statistics.MetastoreHiveStatisticsProvider.calculateRangeForPartitioningKey;
 import static io.trino.plugin.hive.statistics.MetastoreHiveStatisticsProvider.convertPartitionValueToDouble;
@@ -82,6 +83,7 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Double.NaN;
 import static java.lang.String.format;
+import static java.util.Collections.nCopies;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
@@ -238,15 +240,34 @@ public class TestMetastoreHiveStatisticsProvider
     }
 
     @Test
-    public void testCalculateAverageRowsPerPartition()
+    public void testCalculatePartitionsRowCount()
     {
-        assertThat(calculateAverageRowsPerPartition(ImmutableList.of())).isEmpty();
-        assertThat(calculateAverageRowsPerPartition(ImmutableList.of(PartitionStatistics.empty()))).isEmpty();
-        assertThat(calculateAverageRowsPerPartition(ImmutableList.of(PartitionStatistics.empty(), PartitionStatistics.empty()))).isEmpty();
-        assertEquals(calculateAverageRowsPerPartition(ImmutableList.of(rowsCount(10))), OptionalDouble.of(10));
-        assertEquals(calculateAverageRowsPerPartition(ImmutableList.of(rowsCount(10), PartitionStatistics.empty())), OptionalDouble.of(10));
-        assertEquals(calculateAverageRowsPerPartition(ImmutableList.of(rowsCount(10), rowsCount(20))), OptionalDouble.of(15));
-        assertEquals(calculateAverageRowsPerPartition(ImmutableList.of(rowsCount(10), rowsCount(20), PartitionStatistics.empty())), OptionalDouble.of(15));
+        assertThat(calculatePartitionsRowCount(ImmutableList.of(), 0)).isEmpty();
+        assertThat(calculatePartitionsRowCount(ImmutableList.of(PartitionStatistics.empty()), 1)).isEmpty();
+        assertThat(calculatePartitionsRowCount(ImmutableList.of(PartitionStatistics.empty(), PartitionStatistics.empty()), 2)).isEmpty();
+        assertThat(calculatePartitionsRowCount(ImmutableList.of(rowsCount(10)), 1))
+                .isEqualTo(Optional.of(new PartitionsRowCount(10, 10)));
+        assertThat(calculatePartitionsRowCount(ImmutableList.of(rowsCount(10)), 2))
+                .isEqualTo(Optional.of(new PartitionsRowCount(10, 20)));
+        assertThat(calculatePartitionsRowCount(ImmutableList.of(rowsCount(10), PartitionStatistics.empty()), 2))
+                .isEqualTo(Optional.of(new PartitionsRowCount(10, 20)));
+        assertThat(calculatePartitionsRowCount(ImmutableList.of(rowsCount(10), rowsCount(20)), 2))
+                .isEqualTo(Optional.of(new PartitionsRowCount(15, 30)));
+        assertThat(calculatePartitionsRowCount(ImmutableList.of(rowsCount(10), rowsCount(20)), 3))
+                .isEqualTo(Optional.of(new PartitionsRowCount(15, 45)));
+        assertThat(calculatePartitionsRowCount(ImmutableList.of(rowsCount(10), rowsCount(20), PartitionStatistics.empty()), 3))
+                .isEqualTo(Optional.of(new PartitionsRowCount(15, 45)));
+
+        assertThat(calculatePartitionsRowCount(ImmutableList.of(rowsCount(10), rowsCount(100), rowsCount(1000)), 3))
+                .isEqualTo(Optional.of(new PartitionsRowCount((10 + 100 + 1000) / 3.0, 10 + 100 + 1000)));
+        // Exclude outliers from average row count
+        assertThat(calculatePartitionsRowCount(ImmutableList.<PartitionStatistics>builder()
+                        .addAll(nCopies(10, rowsCount(100)))
+                        .add(rowsCount(1))
+                        .add(rowsCount(1000))
+                        .build(),
+                50))
+                .isEqualTo(Optional.of(new PartitionsRowCount(100, (100 * 48) + 1 + 1000)));
     }
 
     @Test

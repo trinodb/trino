@@ -38,6 +38,7 @@ import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
@@ -98,7 +99,7 @@ public class TestMemSqlConnectorTest
     protected TestTable createTableWithDefaultColumns()
     {
         return new TestTable(
-                this::execute,
+                onRemoteDatabase(),
                 "tpch.table",
                 "(col_required BIGINT NOT NULL," +
                         "col_nullable BIGINT," +
@@ -177,9 +178,9 @@ public class TestMemSqlConnectorTest
     @Test
     public void testReadFromView()
     {
-        execute("CREATE VIEW tpch.test_view AS SELECT * FROM tpch.orders");
+        onRemoteDatabase().execute("CREATE VIEW tpch.test_view AS SELECT * FROM tpch.orders");
         assertQuery("SELECT orderkey FROM test_view", "SELECT orderkey FROM orders");
-        execute("DROP VIEW IF EXISTS tpch.test_view");
+        onRemoteDatabase().execute("DROP VIEW IF EXISTS tpch.test_view");
     }
 
     @Test
@@ -199,7 +200,7 @@ public class TestMemSqlConnectorTest
     @Test
     public void testMemSqlTinyint()
     {
-        execute("CREATE TABLE tpch.mysql_test_tinyint1 (c_tinyint tinyint(1))");
+        onRemoteDatabase().execute("CREATE TABLE tpch.mysql_test_tinyint1 (c_tinyint tinyint(1))");
 
         MaterializedResult actual = computeActual("SHOW COLUMNS FROM mysql_test_tinyint1");
         MaterializedResult expected = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
@@ -208,7 +209,7 @@ public class TestMemSqlConnectorTest
 
         assertEquals(actual, expected);
 
-        execute("INSERT INTO tpch.mysql_test_tinyint1 VALUES (127), (-128)");
+        onRemoteDatabase().execute("INSERT INTO tpch.mysql_test_tinyint1 VALUES (127), (-128)");
         MaterializedResult materializedRows = computeActual("SELECT * FROM tpch.mysql_test_tinyint1 WHERE c_tinyint = 127");
         assertEquals(materializedRows.getRowCount(), 1);
         MaterializedRow row = getOnlyElement(materializedRows);
@@ -222,7 +223,7 @@ public class TestMemSqlConnectorTest
     @Test
     public void testCharTrailingSpace()
     {
-        execute("CREATE TABLE tpch.char_trailing_space (x char(10))");
+        onRemoteDatabase().execute("CREATE TABLE tpch.char_trailing_space (x char(10))");
         assertUpdate("INSERT INTO char_trailing_space VALUES ('test')", 1);
 
         assertQuery("SELECT * FROM char_trailing_space WHERE x = char 'test'", "VALUES 'test'");
@@ -243,9 +244,9 @@ public class TestMemSqlConnectorTest
     @Test
     public void testColumnComment()
     {
-        // TODO add support for setting comments on existing column and replace the test with io.trino.testing.AbstractTestDistributedQueries#testCommentColumn
+        // TODO add support for setting comments on existing column and replace the test with io.trino.testing.BaseConnectorTest#testCommentColumn
 
-        execute("CREATE TABLE tpch.test_column_comment (col1 bigint COMMENT 'test comment', col2 bigint COMMENT '', col3 bigint)");
+        onRemoteDatabase().execute("CREATE TABLE tpch.test_column_comment (col1 bigint COMMENT 'test comment', col2 bigint COMMENT '', col3 bigint)");
 
         assertQuery(
                 "SELECT column_name, comment FROM information_schema.columns WHERE table_schema = 'tpch' AND table_name = 'test_column_comment'",
@@ -298,13 +299,34 @@ public class TestMemSqlConnectorTest
                 .isNotFullyPushedDown(AggregationNode.class);
     }
 
+    @Override
+    public void testCreateTableAsSelectNegativeDate()
+    {
+        // TODO (https://github.com/trinodb/trino/issues/10320) MemSQL stores '0000-00-00' when inserted negative dates and it throws an exception during reading the row
+        assertThatThrownBy(super::testCreateTableAsSelectNegativeDate)
+                .hasCauseInstanceOf(RuntimeException.class)
+                .hasStackTraceContaining("JDBC_ERROR")
+                .hasStackTraceContaining("JdbcRecordCursor.getLong");
+    }
+
+    @Test
+    @Override
+    public void testInsertNegativeDate()
+    {
+        // TODO (https://github.com/trinodb/trino/issues/10320) MemSQL stores '0000-00-00' when inserted negative dates and it throws an exception during reading the row
+        assertThatThrownBy(super::testInsertNegativeDate)
+                .hasCauseInstanceOf(RuntimeException.class)
+                .hasStackTraceContaining("JDBC_ERROR")
+                .hasStackTraceContaining("JdbcRecordCursor.getLong");
+    }
+
     /**
      * This test helps to tune TupleDomain simplification threshold.
      */
     @Test
     public void testNativeLargeIn()
     {
-        memSqlServer.execute("SELECT count(*) FROM tpch.orders WHERE " + getLongInClause(0, 300_000));
+        onRemoteDatabase().execute("SELECT count(*) FROM tpch.orders WHERE " + getLongInClause(0, 300_000));
     }
 
     /**
@@ -316,7 +338,7 @@ public class TestMemSqlConnectorTest
         String longInClauses = range(0, 30)
                 .mapToObj(value -> getLongInClause(value * 10_000, 10_000))
                 .collect(joining(" OR "));
-        memSqlServer.execute("SELECT count(*) FROM tpch.orders WHERE " + longInClauses);
+        onRemoteDatabase().execute("SELECT count(*) FROM tpch.orders WHERE " + longInClauses);
     }
 
     private String getLongInClause(int start, int length)
@@ -325,11 +347,6 @@ public class TestMemSqlConnectorTest
                 .mapToObj(Integer::toString)
                 .collect(joining(", "));
         return "orderkey IN (" + longValues + ")";
-    }
-
-    private void execute(String sql)
-    {
-        memSqlServer.execute(sql);
     }
 
     @Override

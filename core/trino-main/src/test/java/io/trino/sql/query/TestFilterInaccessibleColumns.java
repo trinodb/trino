@@ -57,7 +57,7 @@ public class TestFilterInaccessibleColumns
     public void init()
     {
         LocalQueryRunner runner = LocalQueryRunner.builder(SESSION)
-                .withFeaturesConfig(new FeaturesConfig().setHideInaccesibleColumns(true))
+                .withFeaturesConfig(new FeaturesConfig().setHideInaccessibleColumns(true))
                 .build();
 
         runner.createCatalog(CATALOG, new TpchConnectorFactory(1), ImmutableMap.of());

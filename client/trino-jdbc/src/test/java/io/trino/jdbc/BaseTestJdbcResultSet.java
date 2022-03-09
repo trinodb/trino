@@ -349,11 +349,17 @@ public abstract class BaseTestJdbcResultSet
                         .hasMessage("Expected column to be a timestamp type but is time(3)");
             });
 
-            // TODO https://github.com/trinodb/trino/issues/37
-            // TODO line 1:8: '00:39:05' is not a valid time literal
-//        checkRepresentation(statementWrapper.getStatement(), "TIME '00:39:05'", Types.TIME, (rs, column) -> {
-//            ...
-//        });
+            checkRepresentation(connectedStatement.getStatement(), "TIME '00:39:05'", Types.TIME, (rs, column) -> {
+                assertEquals(rs.getObject(column), toSqlTime(LocalTime.of(0, 39, 5)));
+                assertEquals(rs.getObject(column, Time.class), toSqlTime(LocalTime.of(0, 39, 5)));
+                assertThatThrownBy(() -> rs.getDate(column))
+                        .isInstanceOf(SQLException.class)
+                        .hasMessage("Expected value to be a date but is: 00:39:05");
+                assertEquals(rs.getTime(column), Time.valueOf(LocalTime.of(0, 39, 5)));
+                assertThatThrownBy(() -> rs.getTimestamp(column))
+                        .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/trinodb/trino/issues/5315) SQLException
+                        .hasMessage("Expected column to be a timestamp type but is time(0)");
+            });
 
             // second fraction could be overflowing to next millisecond
             checkRepresentation(connectedStatement.getStatement(), "TIME '10:11:12.1235'", Types.TIME, (rs, column) -> {
@@ -573,11 +579,16 @@ public abstract class BaseTestJdbcResultSet
                 assertEquals(rs.getTimestamp(column), Timestamp.valueOf(LocalDateTime.of(1583, 1, 1, 0, 0, 0)));
             });
 
-            // TODO https://github.com/trinodb/trino/issues/37
-            // TODO line 1:8: '1970-01-01 00:14:15.123' is not a valid timestamp literal; the expected values will pro
-//        checkRepresentation(statementWrapper.getStatement(), "TIMESTAMP '1970-01-01 00:14:15.123'", Types.TIMESTAMP, (rs, column) -> {
-//            ...
-//        });
+            checkRepresentation(connectedStatement.getStatement(), "TIMESTAMP '1970-01-01 00:14:15.123'", Types.TIMESTAMP, (rs, column) -> {
+                assertEquals(rs.getObject(column), Timestamp.valueOf(LocalDateTime.of(1970, 1, 1, 0, 14, 15, 123_000_000)));
+                assertThatThrownBy(() -> rs.getDate(column))
+                        .isInstanceOf(SQLException.class)
+                        .hasMessage("Expected value to be a date but is: 1970-01-01 00:14:15.123");
+                assertThatThrownBy(() -> rs.getTime(column))
+                        .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/trinodb/trino/issues/5315) SQLException
+                        .hasMessage("Expected column to be a time type but is timestamp(3)");
+                assertEquals(rs.getTimestamp(column), Timestamp.valueOf(LocalDateTime.of(1970, 1, 1, 0, 14, 15, 123_000_000)));
+            });
 
             checkRepresentation(connectedStatement.getStatement(), "TIMESTAMP '123456-01-23 01:23:45.123456789'", Types.TIMESTAMP, (rs, column) -> {
                 assertEquals(rs.getObject(column), Timestamp.valueOf(LocalDateTime.of(123456, 1, 23, 1, 23, 45, 123_456_789)));

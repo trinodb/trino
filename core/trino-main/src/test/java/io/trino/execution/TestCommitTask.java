@@ -122,6 +122,7 @@ public class TestCommitTask
     private QueryStateMachine createQueryStateMachine(String query, Session session, TransactionManager transactionManager)
     {
         return QueryStateMachine.begin(
+                Optional.empty(),
                 query,
                 Optional.empty(),
                 session,

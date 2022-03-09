@@ -50,7 +50,7 @@ public class TestMinWorkerRequirement
                 .setCoordinatorProperties(ImmutableMap.<String, String>builder()
                         .put("query-manager.required-workers", "5")
                         .put("query-manager.required-workers-max-wait", "1ns")
-                        .build())
+                        .buildOrThrow())
                 .setNodeCount(4)
                 .build()) {
             queryRunner.execute("SELECT COUNT(*) from lineitem");
@@ -67,7 +67,7 @@ public class TestMinWorkerRequirement
                         .put("node-scheduler.include-coordinator", "false")
                         .put("query-manager.required-workers", "4")
                         .put("query-manager.required-workers-max-wait", "1ns")
-                        .build())
+                        .buildOrThrow())
                 .setNodeCount(4)
                 .build()) {
             queryRunner.execute("SELECT COUNT(*) from lineitem");
@@ -83,7 +83,7 @@ public class TestMinWorkerRequirement
                 .setCoordinatorProperties(ImmutableMap.<String, String>builder()
                         .put("query-manager.required-workers", "5")
                         .put("query-manager.required-workers-max-wait", "1ns")
-                        .build())
+                        .buildOrThrow())
                 .setNodeCount(4)
                 .build()) {
             queryRunner.execute("SELECT 1");
@@ -105,7 +105,7 @@ public class TestMinWorkerRequirement
                 .setCoordinatorProperties(ImmutableMap.<String, String>builder()
                         .put("query-manager.required-workers", "4")
                         .put("query-manager.required-workers-max-wait", "1ns")
-                        .build())
+                        .buildOrThrow())
                 .setNodeCount(4)
                 .build()) {
             queryRunner.execute("SELECT COUNT(*) from lineitem");
@@ -127,7 +127,7 @@ public class TestMinWorkerRequirement
                 .setCoordinatorProperties(ImmutableMap.<String, String>builder()
                         .put("query-manager.required-workers", "3")
                         .put("query-manager.required-workers-max-wait", "1ns")
-                        .build())
+                        .buildOrThrow())
                 .setNodeCount(2)
                 .build()) {
             Session session = testSessionBuilder()
@@ -149,7 +149,7 @@ public class TestMinWorkerRequirement
                 .setCoordinatorProperties(ImmutableMap.<String, String>builder()
                         .put("query-manager.required-workers", "5")
                         .put("query-manager.required-workers-max-wait", "1ns")
-                        .build())
+                        .buildOrThrow())
                 .setNodeCount(4)
                 .build()) {
             // Query should be allowed to run if session override allows it

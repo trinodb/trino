@@ -25,11 +25,11 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.Resources.toByteArray;
 import static io.trino.plugin.atop.AtopErrorCode.ATOP_READ_TIMEOUT;
 import static io.trino.plugin.atop.LocalAtopQueryRunner.createQueryRunner;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
+import static java.nio.file.Files.createTempDirectory;
 
 public class TestAtopHang
 {
@@ -39,8 +39,8 @@ public class TestAtopHang
     public void setUp()
             throws Exception
     {
-        File tempPath = createTempDir();
-        copyExecutable("hanging_atop.sh", tempPath);
+        Path tempPath = createTempDirectory(null);
+        copyExecutable("hanging_atop.sh", tempPath.toFile());
         queryRunner = createQueryRunner(ImmutableMap.of("atop.executable-path", tempPath + "/hanging_atop.sh", "atop.executable-read-timeout", "1s"), AtopProcessFactory.class);
     }
 

@@ -122,6 +122,7 @@ Property                                              Description               
 ``bigquery.views-enabled``                            Enables the connector to read from views and not only tables.  ``false``
                                                       Please read `this section <#reading-from-views>`_ before
                                                       enabling this feature.
+``bigquery.view-expire-duration``                     Expire duration for the materialized view.                     ``24h``
 ``bigquery.view-materialization-project``             The project where the materialized view is going to be created The view's project
 ``bigquery.view-materialization-dataset``             The dataset where the materialized view is going to be created The view's dataset
 ``bigquery.views-cache-ttl``                          Duration for which the materialization of a view will be       ``15m``
@@ -130,11 +131,6 @@ Property                                              Description               
 ``bigquery.credentials-key``                          The base64 encoded credentials key                             None. See the `requirements <#requirements>`_ section.
 ``bigquery.credentials-file``                         The path to the JSON credentials file                          None. See the `requirements <#requirements>`_ section.
 ``bigquery.case-insensitive-name-matching``           Match dataset and table names case-insensitively               ``false``
-``bigquery.case-insensitive-name-matching.cache-ttl`` Duration for which remote dataset and table names will be      ``1m``
-                                                      cached. Higher values reduce the number of API calls to
-                                                      BigQuery but can cause newly created dataset or tables to not
-                                                      be visible until the configured duration. Set to ``0ms`` to
-                                                      disable the cache.
 ===================================================== ============================================================== ======================================================
 
 Data types

@@ -106,7 +106,7 @@ public class TestJdbcExternalAuthentication
                         .put("http-server.https.keystore.path", new File(getResource("localhost.keystore").toURI()).getPath())
                         .put("http-server.https.keystore.key", "changeit")
                         .put("web-ui.enabled", "false")
-                        .build())
+                        .buildOrThrow())
                 .build();
         server.installPlugin(new TpchPlugin());
         server.createCatalog(TEST_CATALOG, "tpch");

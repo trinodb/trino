@@ -41,7 +41,7 @@ public class TestKafkaConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("kafka.default-schema", "kafka")
                 .put("kafka.table-description-supplier", "test")
                 .put("kafka.nodes", "localhost:12345,localhost:23456")
@@ -49,7 +49,7 @@ public class TestKafkaConfig
                 .put("kafka.hide-internal-columns", "false")
                 .put("kafka.messages-per-split", "1")
                 .put("kafka.timestamp-upper-bound-force-push-down-enabled", "true")
-                .build();
+                .buildOrThrow();
 
         KafkaConfig expected = new KafkaConfig()
                 .setDefaultSchema("kafka")

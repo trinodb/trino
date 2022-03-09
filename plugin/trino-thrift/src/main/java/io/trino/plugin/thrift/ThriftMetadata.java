@@ -15,12 +15,12 @@ package io.trino.plugin.thrift;
 
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.drift.TException;
 import io.airlift.drift.client.DriftClient;
 import io.airlift.units.Duration;
+import io.trino.collect.cache.NonEvictableLoadingCache;
 import io.trino.plugin.thrift.annotations.ForMetadataRefresh;
 import io.trino.plugin.thrift.api.TrinoThriftNullableSchemaName;
 import io.trino.plugin.thrift.api.TrinoThriftNullableTableMetadata;
@@ -59,6 +59,7 @@ import java.util.concurrent.Executor;
 import static com.google.common.cache.CacheLoader.asyncReloading;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.plugin.thrift.ThriftErrorCode.THRIFT_SERVICE_INVALID_RESPONSE;
 import static io.trino.plugin.thrift.util.ThriftExceptions.toTrinoException;
 import static java.util.Objects.requireNonNull;
@@ -75,7 +76,7 @@ public class ThriftMetadata
     private final DriftClient<TrinoThriftService> client;
     private final ThriftHeaderProvider thriftHeaderProvider;
     private final TypeManager typeManager;
-    private final LoadingCache<SchemaTableName, Optional<ThriftTableMetadata>> tableCache;
+    private final NonEvictableLoadingCache<SchemaTableName, Optional<ThriftTableMetadata>> tableCache;
 
     @Inject
     public ThriftMetadata(
@@ -87,10 +88,11 @@ public class ThriftMetadata
         this.client = requireNonNull(client, "client is null");
         this.thriftHeaderProvider = requireNonNull(thriftHeaderProvider, "thriftHeaderProvider is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
-        this.tableCache = CacheBuilder.newBuilder()
-                .expireAfterWrite(EXPIRE_AFTER_WRITE.toMillis(), MILLISECONDS)
-                .refreshAfterWrite(REFRESH_AFTER_WRITE.toMillis(), MILLISECONDS)
-                .build(asyncReloading(CacheLoader.from(this::getTableMetadataInternal), metadataRefreshExecutor));
+        this.tableCache = buildNonEvictableCache(
+                CacheBuilder.newBuilder()
+                        .expireAfterWrite(EXPIRE_AFTER_WRITE.toMillis(), MILLISECONDS)
+                        .refreshAfterWrite(REFRESH_AFTER_WRITE.toMillis(), MILLISECONDS),
+                asyncReloading(CacheLoader.from(this::getTableMetadataInternal), metadataRefreshExecutor));
     }
 
     @Override
@@ -213,12 +215,6 @@ public class ThriftMetadata
                 Optional.of(desiredColumns.build()));
 
         return Optional.of(new ProjectionApplicationResult<>(handle, projections, assignmentList.build(), false));
-    }
-
-    @Override
-    public boolean usesLegacyTableLayouts()
-    {
-        return false;
     }
 
     private ThriftTableMetadata getRequiredTableMetadata(SchemaTableName schemaTableName)

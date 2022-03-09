@@ -36,6 +36,7 @@ public class TestHiveConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(HiveConfig.class)
+                .setSingleStatementWritesOnly(false)
                 .setMaxSplitSize(DataSize.of(64, Unit.MEGABYTE))
                 .setMaxPartitionsPerScan(100_000)
                 .setMaxOutstandingSplits(1_000)
@@ -114,7 +115,8 @@ public class TestHiveConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
+                .put("hive.single-statement-writes", "true")
                 .put("hive.max-split-size", "256MB")
                 .put("hive.max-partitions-per-scan", "123")
                 .put("hive.max-outstanding-splits", "10")
@@ -188,9 +190,10 @@ public class TestHiveConfig
                 .put("hive.iceberg-catalog-name", "iceberg")
                 .put("hive.size-based-split-weights-enabled", "false")
                 .put("hive.minimum-assigned-split-weight", "1.0")
-                .build();
+                .buildOrThrow();
 
         HiveConfig expected = new HiveConfig()
+                .setSingleStatementWritesOnly(true)
                 .setMaxSplitSize(DataSize.of(256, Unit.MEGABYTE))
                 .setMaxPartitionsPerScan(123)
                 .setMaxOutstandingSplits(10)

@@ -40,7 +40,7 @@ public class TestLegacySecurityConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("hive.allow-add-column", "true")
                 .put("hive.allow-drop-column", "true")
                 .put("hive.allow-drop-table", "true")
@@ -48,7 +48,7 @@ public class TestLegacySecurityConfig
                 .put("hive.allow-comment-table", "true")
                 .put("hive.allow-comment-column", "true")
                 .put("hive.allow-rename-column", "true")
-                .build();
+                .buildOrThrow();
 
         LegacySecurityConfig expected = new LegacySecurityConfig()
                 .setAllowAddColumn(true)

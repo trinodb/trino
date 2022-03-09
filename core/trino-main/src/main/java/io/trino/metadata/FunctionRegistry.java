@@ -13,7 +13,6 @@
  */
 package io.trino.metadata;
 
-import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
@@ -22,6 +21,7 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.trino.FeaturesConfig;
+import io.trino.collect.cache.NonEvictableCache;
 import io.trino.operator.aggregation.AggregationMetadata;
 import io.trino.operator.aggregation.ApproximateCountDistinctAggregation;
 import io.trino.operator.aggregation.ApproximateDoublePercentileAggregations;
@@ -105,6 +105,7 @@ import io.trino.operator.scalar.ArraySliceFunction;
 import io.trino.operator.scalar.ArraySortComparatorFunction;
 import io.trino.operator.scalar.ArraySortFunction;
 import io.trino.operator.scalar.ArrayToArrayCast;
+import io.trino.operator.scalar.ArrayTrimFunction;
 import io.trino.operator.scalar.ArrayUnionFunction;
 import io.trino.operator.scalar.ArraysOverlapFunction;
 import io.trino.operator.scalar.BitwiseFunctions;
@@ -281,6 +282,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.metadata.FunctionKind.AGGREGATE;
 import static io.trino.metadata.Signature.isOperatorName;
 import static io.trino.metadata.Signature.unmangleOperator;
@@ -380,9 +382,9 @@ import static java.util.concurrent.TimeUnit.HOURS;
 @ThreadSafe
 public class FunctionRegistry
 {
-    private final Cache<FunctionKey, ScalarFunctionImplementation> specializedScalarCache;
-    private final Cache<FunctionKey, AggregationMetadata> specializedAggregationCache;
-    private final Cache<FunctionKey, WindowFunctionSupplier> specializedWindowCache;
+    private final NonEvictableCache<FunctionKey, ScalarFunctionImplementation> specializedScalarCache;
+    private final NonEvictableCache<FunctionKey, AggregationMetadata> specializedAggregationCache;
+    private final NonEvictableCache<FunctionKey, WindowFunctionSupplier> specializedWindowCache;
     private volatile FunctionMap functions = new FunctionMap();
 
     public FunctionRegistry(
@@ -398,20 +400,17 @@ public class FunctionRegistry
         // with generated classes and/or dynamically-created MethodHandles.
         // This might also mitigate problems like deoptimization storm or unintended interpreted execution.
 
-        specializedScalarCache = CacheBuilder.newBuilder()
+        specializedScalarCache = buildNonEvictableCache(CacheBuilder.newBuilder()
                 .maximumSize(1000)
-                .expireAfterWrite(1, HOURS)
-                .build();
+                .expireAfterWrite(1, HOURS));
 
-        specializedAggregationCache = CacheBuilder.newBuilder()
+        specializedAggregationCache = buildNonEvictableCache(CacheBuilder.newBuilder()
                 .maximumSize(1000)
-                .expireAfterWrite(1, HOURS)
-                .build();
+                .expireAfterWrite(1, HOURS));
 
-        specializedWindowCache = CacheBuilder.newBuilder()
+        specializedWindowCache = buildNonEvictableCache(CacheBuilder.newBuilder()
                 .maximumSize(1000)
-                .expireAfterWrite(1, HOURS)
-                .build();
+                .expireAfterWrite(1, HOURS));
 
         FunctionListBuilder builder = new FunctionListBuilder()
                 .window(RowNumberFunction.class)
@@ -550,6 +549,7 @@ public class FunctionRegistry
                 .scalar(ArrayUnionFunction.class)
                 .scalar(ArrayExceptFunction.class)
                 .scalar(ArraySliceFunction.class)
+                .scalar(ArrayTrimFunction.class)
                 .scalar(ArrayCombinationsFunction.class)
                 .scalar(ArrayNgramsFunction.class)
                 .scalar(ArrayAllMatchFunction.class)
@@ -912,7 +912,7 @@ public class FunctionRegistry
             this.functions = ImmutableMap.<FunctionId, SqlFunction>builder()
                     .putAll(map.functions)
                     .putAll(Maps.uniqueIndex(functions, function -> function.getFunctionMetadata().getFunctionId()))
-                    .build();
+                    .buildOrThrow();
 
             ImmutableListMultimap.Builder<QualifiedName, FunctionMetadata> functionsByName = ImmutableListMultimap.<QualifiedName, FunctionMetadata>builder()
                     .putAll(map.functionsByName);
