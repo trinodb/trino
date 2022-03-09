@@ -38,6 +38,10 @@ import java.util.List;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
 
+/**
+ * This abstract class must be implemented by any custom optimizer,
+ * implemented custom optimizer class need to have a default public constructor.
+ */
 public abstract class CustomPlanOptimizer
         implements PlanOptimizer
 {
@@ -65,7 +69,7 @@ public abstract class CustomPlanOptimizer
         List<PlanOptimizer> listOfPlanOptimizers = new ArrayList<>();
         CustomOptimizerConfig customOptimizerConfig = getConfig();
         if (!customOptimizerConfig.isAllowCustomPlanOptimizers()) {
-            LOG.debug("No registered custom optimizers found");
+            LOG.debug("Custom optimizers are disabled");
             return listOfPlanOptimizers;
         }
         try {
