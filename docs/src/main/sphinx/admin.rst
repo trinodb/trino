@@ -15,6 +15,7 @@ Administration
     admin/dist-sort
     admin/dynamic-filtering
     admin/graceful-shutdown
+    admin/fault-tolerant-execution
 
 ***************
 Event listeners
