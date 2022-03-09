@@ -30,7 +30,7 @@ import static org.testcontainers.containers.BindMode.READ_ONLY;
 public final class TestingStarburstOracleServer
 {
     private static final OracleContainer CONTAINER = new CustomOracleContainer(
-            DockerImageName.parse("harbor.starburstdata.net/testing/oracledb:12.2.0.1-ee").asCompatibleSubstituteFor("gvenzl/oracle-xe"))
+            DockerImageName.parse("843985043183.dkr.ecr.us-east-2.amazonaws.com/testing/oracledb:12.2.0.1-ee").asCompatibleSubstituteFor("gvenzl/oracle-xe"))
             .withUsername(OracleTestUsers.USER)
             .withPassword(OracleTestUsers.PASSWORD)
             .withEnv("ORACLE_SID", "testdbsid")
