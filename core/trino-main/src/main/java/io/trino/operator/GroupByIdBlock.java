@@ -20,7 +20,7 @@ import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 import java.util.OptionalInt;
-import java.util.function.BiConsumer;
+import java.util.function.ObjLongConsumer;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -203,7 +203,7 @@ public class GroupByIdBlock
     }
 
     @Override
-    public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
+    public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
     {
         consumer.accept(block, block.getRetainedSizeInBytes());
         consumer.accept(this, (long) INSTANCE_SIZE);
