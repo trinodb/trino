@@ -371,7 +371,6 @@ public class TestIcebergRedirectionToHive
         onTrino().executeQuery("DROP TABLE " + hiveTableName);
     }
 
-
     @Test(groups = {HIVE_ICEBERG_REDIRECTIONS, PROFILE_SPECIFIC_TESTS})
     public void testInformationSchemaColumns()
     {
