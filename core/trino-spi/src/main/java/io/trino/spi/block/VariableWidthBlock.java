@@ -22,7 +22,7 @@ import javax.annotation.Nullable;
 
 import java.util.Optional;
 import java.util.OptionalInt;
-import java.util.function.BiConsumer;
+import java.util.function.ObjLongConsumer;
 
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
@@ -156,7 +156,7 @@ public class VariableWidthBlock
     }
 
     @Override
-    public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
+    public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
     {
         consumer.accept(slice, slice.getRetainedSize());
         consumer.accept(offsets, sizeOf(offsets));
