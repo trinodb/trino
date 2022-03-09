@@ -212,8 +212,12 @@ public class RowBlock
         for (int i = 0; i < numFields; i++) {
             consumer.accept(fieldBlocks[i], fieldBlocks[i].getRetainedSizeInBytes());
         }
-        consumer.accept(fieldBlockOffsets, sizeOf(fieldBlockOffsets));
-        consumer.accept(rowIsNull, sizeOf(rowIsNull));
+        if (fieldBlockOffsets != null) {
+            consumer.accept(fieldBlockOffsets, sizeOf(fieldBlockOffsets));
+        }
+        if (rowIsNull != null) {
+            consumer.accept(rowIsNull, sizeOf(rowIsNull));
+        }
         consumer.accept(this, (long) INSTANCE_SIZE);
     }
 
