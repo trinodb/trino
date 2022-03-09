@@ -167,10 +167,16 @@ public final class TrinoDriverUri
         return buildHttpUri();
     }
 
-    public String getUser()
+    public String getRequiredUser()
             throws SQLException
     {
         return USER.getRequiredValue(properties);
+    }
+
+    public Optional<String> getUser()
+            throws SQLException
+    {
+        return USER.getValue(properties);
     }
 
     public Optional<String> getSessionUser()
@@ -258,7 +264,7 @@ public final class TrinoDriverUri
                 if (!useSecureConnection) {
                     throw new SQLException("Authentication using username/password requires SSL to be enabled");
                 }
-                builder.addInterceptor(basicAuth(getUser(), password));
+                builder.addInterceptor(basicAuth(getRequiredUser(), password));
             }
 
             if (useSecureConnection) {

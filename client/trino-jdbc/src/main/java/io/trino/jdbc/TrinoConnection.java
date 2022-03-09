@@ -93,7 +93,7 @@ public class TrinoConnection
 
     private final URI jdbcUri;
     private final URI httpUri;
-    private final String user;
+    private final Optional<String> user;
     private final Optional<String> sessionUser;
     private final boolean compressionDisabled;
     private final boolean assumeLiteralNamesInMetadataCallsForNonConformingClients;
@@ -678,11 +678,6 @@ public class TrinoConnection
     URI getURI()
     {
         return jdbcUri;
-    }
-
-    String getUser()
-    {
-        return user;
     }
 
     @VisibleForTesting

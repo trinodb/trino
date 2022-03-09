@@ -104,7 +104,7 @@ public class TestQueryRunner
     {
         return new ClientSession(
                 server.url("/").uri(),
-                "user",
+                Optional.of("user"),
                 Optional.empty(),
                 "source",
                 Optional.empty(),

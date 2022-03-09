@@ -328,7 +328,6 @@ public class TestTrinoDriverAuth
     {
         String url = format("jdbc:trino://localhost:%s", server.getHttpsAddress().getPort());
         Properties properties = new Properties();
-        properties.setProperty("user", "test");
         properties.setProperty("SSL", "true");
         properties.setProperty("SSLTrustStorePath", new File(getResource("localhost.truststore").toURI()).getPath());
         properties.setProperty("SSLTrustStorePassword", "changeit");
@@ -341,7 +340,6 @@ public class TestTrinoDriverAuth
     {
         String url = format("jdbc:trino://localhost:%s", server.getHttpsAddress().getPort());
         Properties properties = new Properties();
-        properties.setProperty("user", "test");
         additionalProperties.forEach(properties::setProperty);
         return DriverManager.getConnection(url, properties);
     }
