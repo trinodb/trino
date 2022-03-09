@@ -20,8 +20,8 @@ import com.google.common.io.Files;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slices;
 import io.trino.operator.GroupByHashPageIndexerFactory;
-import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.HivePageSinkMetadata;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
@@ -139,7 +139,7 @@ public class TestHivePageSink
 
     private static long writeTestFile(HiveConfig config, HiveMetastore metastore, String outputPath)
     {
-        HiveTransactionHandle transaction = new HiveTransactionHandle();
+        HiveTransactionHandle transaction = new HiveTransactionHandle(false);
         HiveWriterStats stats = new HiveWriterStats();
         ConnectorPageSink pageSink = createPageSink(transaction, config, metastore, new Path("file:///" + outputPath), stats);
         List<LineItemColumn> columns = getTestColumns();
@@ -220,7 +220,7 @@ public class TestHivePageSink
     {
         Properties splitProperties = new Properties();
         splitProperties.setProperty(FILE_INPUT_FORMAT, config.getHiveStorageFormat().getInputFormat());
-        splitProperties.setProperty(SERIALIZATION_LIB, config.getHiveStorageFormat().getSerDe());
+        splitProperties.setProperty(SERIALIZATION_LIB, config.getHiveStorageFormat().getSerde());
         splitProperties.setProperty("columns", Joiner.on(',').join(getColumnHandles().stream().map(HiveColumnHandle::getName).collect(toImmutableList())));
         splitProperties.setProperty("columns.types", Joiner.on(',').join(getColumnHandles().stream().map(HiveColumnHandle::getHiveType).map(hiveType -> hiveType.getHiveTypeName().toString()).collect(toImmutableList())));
         HiveSplit split = new HiveSplit(
@@ -259,14 +259,12 @@ public class TestHivePageSink
 
     private static ConnectorPageSink createPageSink(HiveTransactionHandle transaction, HiveConfig config, HiveMetastore metastore, Path outputPath, HiveWriterStats stats)
     {
-        ConnectorSession session = getHiveSession(config);
-        HiveIdentity identity = new HiveIdentity(session);
         LocationHandle locationHandle = new LocationHandle(outputPath, outputPath, false, DIRECT_TO_TARGET_NEW_DIRECTORY);
         HiveOutputTableHandle handle = new HiveOutputTableHandle(
                 SCHEMA_NAME,
                 TABLE_NAME,
                 getColumnHandles(),
-                new HivePageSinkMetadata(new SchemaTableName(SCHEMA_NAME, TABLE_NAME), metastore.getTable(identity, SCHEMA_NAME, TABLE_NAME), ImmutableMap.of()),
+                new HivePageSinkMetadata(new SchemaTableName(SCHEMA_NAME, TABLE_NAME), metastore.getTable(SCHEMA_NAME, TABLE_NAME), ImmutableMap.of()),
                 locationHandle,
                 config.getHiveStorageFormat(),
                 config.getHiveStorageFormat(),
@@ -276,7 +274,8 @@ public class TestHivePageSink
                 ImmutableMap.of(),
                 NO_ACID_TRANSACTION,
                 false,
-                false);
+                false,
+                Optional.empty());
         JsonCodec<PartitionUpdate> partitionUpdateCodec = JsonCodec.jsonCodec(PartitionUpdate.class);
         TypeOperators typeOperators = new TypeOperators();
         BlockTypeOperators blockTypeOperators = new BlockTypeOperators(typeOperators);
@@ -284,7 +283,7 @@ public class TestHivePageSink
                 getDefaultHiveFileWriterFactories(config, HDFS_ENVIRONMENT),
                 HDFS_ENVIRONMENT,
                 PAGE_SORTER,
-                metastore,
+                HiveMetastoreFactory.ofInstance(metastore),
                 new GroupByHashPageIndexerFactory(new JoinCompiler(typeOperators), blockTypeOperators),
                 TESTING_TYPE_MANAGER,
                 config,

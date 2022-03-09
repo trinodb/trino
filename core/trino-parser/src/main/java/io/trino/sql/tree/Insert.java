@@ -28,18 +28,25 @@ public final class Insert
     private final Table table;
     private final Query query;
     private final Optional<List<Identifier>> columns;
+    private final boolean isOverwrite;
 
     public Insert(Table table, Optional<List<Identifier>> columns, Query query)
     {
-        this(Optional.empty(), table, columns, query);
+        this(Optional.empty(), table, columns, query, false);
     }
 
-    private Insert(Optional<NodeLocation> location, Table table, Optional<List<Identifier>> columns, Query query)
+    public Insert(Table table, Optional<List<Identifier>> columns, Query query, boolean isOverwrite)
+    {
+        this(Optional.empty(), table, columns, query, isOverwrite);
+    }
+
+    private Insert(Optional<NodeLocation> location, Table table, Optional<List<Identifier>> columns, Query query, boolean isOverwrite)
     {
         super(location);
         this.table = requireNonNull(table, "target is null");
         this.columns = requireNonNull(columns, "columns is null");
         this.query = requireNonNull(query, "query is null");
+        this.isOverwrite = isOverwrite;
     }
 
     public Table getTable()
@@ -60,6 +67,11 @@ public final class Insert
     public Query getQuery()
     {
         return query;
+    }
+
+    public boolean isOverwrite()
+    {
+        return isOverwrite;
     }
 
     @Override
@@ -102,6 +114,7 @@ public final class Insert
                 .add("table", table)
                 .add("columns", columns)
                 .add("query", query)
+                .add("isOverwrite", isOverwrite)
                 .toString();
     }
 }

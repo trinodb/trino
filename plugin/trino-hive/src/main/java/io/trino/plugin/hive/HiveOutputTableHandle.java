@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.metastore.HivePageSinkMetadata;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
+import io.trino.spi.connector.InsertMode;
 
 import java.util.List;
 import java.util.Map;
@@ -51,7 +52,8 @@ public class HiveOutputTableHandle
             @JsonProperty("additionalTableParameters") Map<String, String> additionalTableParameters,
             @JsonProperty("transaction") AcidTransaction transaction,
             @JsonProperty("external") boolean external,
-            @JsonProperty("retriesEnabled") boolean retriesEnabled)
+            @JsonProperty("retriesEnabled") boolean retriesEnabled,
+            @JsonProperty("insertMode") Optional<InsertMode> insertMode)
     {
         super(
                 schemaName,
@@ -63,7 +65,8 @@ public class HiveOutputTableHandle
                 tableStorageFormat,
                 partitionStorageFormat,
                 transaction,
-                retriesEnabled);
+                retriesEnabled,
+                insertMode);
 
         this.partitionedBy = ImmutableList.copyOf(requireNonNull(partitionedBy, "partitionedBy is null"));
         this.tableOwner = requireNonNull(tableOwner, "tableOwner is null");

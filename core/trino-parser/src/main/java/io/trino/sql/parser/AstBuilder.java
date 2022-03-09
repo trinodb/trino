@@ -486,10 +486,13 @@ class AstBuilder
             columnAliases = Optional.of(visit(context.columnAliases().identifier(), Identifier.class));
         }
 
+        boolean isOverwrite = context.OVERWRITE() != null;
+
         return new Insert(
                 new Table(getQualifiedName(context.qualifiedName())),
                 columnAliases,
-                (Query) visit(context.query()));
+                (Query) visit(context.query()),
+                isOverwrite);
     }
 
     @Override
@@ -728,6 +731,16 @@ class AstBuilder
     }
 
     @Override
+    public Node visitSetMaterializedViewProperties(SqlBaseParser.SetMaterializedViewPropertiesContext context)
+    {
+        return new SetProperties(
+                getLocation(context),
+                SetProperties.Type.MATERIALIZED_VIEW,
+                getQualifiedName(context.qualifiedName()),
+                visit(context.propertyAssignments().property(), Property.class));
+    }
+
+    @Override
     public Node visitStartTransaction(SqlBaseParser.StartTransactionContext context)
     {
         return new StartTransaction(visit(context.transactionMode(), TransactionMode.class));
@@ -835,7 +848,14 @@ class AstBuilder
     @Override
     public Node visitProperty(SqlBaseParser.PropertyContext context)
     {
-        return new Property(getLocation(context), (Identifier) visit(context.identifier()), (Expression) visit(context.expression()));
+        NodeLocation location = getLocation(context);
+        Identifier name = (Identifier) visit(context.identifier());
+        SqlBaseParser.PropertyValueContext valueContext = context.propertyValue();
+        if (valueContext instanceof SqlBaseParser.DefaultPropertyValueContext) {
+            return new Property(location, name);
+        }
+        Expression value = (Expression) visit(((SqlBaseParser.NonDefaultPropertyValueContext) valueContext).expression());
+        return new Property(location, name, value);
     }
 
     // ********************** query expressions ********************
@@ -2681,7 +2701,7 @@ class AstBuilder
     @Override
     public Node visitNamedArgument(SqlBaseParser.NamedArgumentContext context)
     {
-        return new CallArgument(getLocation(context), context.identifier().getText(), (Expression) visit(context.expression()));
+        return new CallArgument(getLocation(context), (Identifier) visit(context.identifier()), (Expression) visit(context.expression()));
     }
 
     @Override

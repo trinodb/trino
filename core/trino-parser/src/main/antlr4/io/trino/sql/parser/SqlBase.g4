@@ -57,7 +57,7 @@ statement
          (COMMENT string)?
          (WITH properties)?                                            #createTable
     | DROP TABLE (IF EXISTS)? qualifiedName                            #dropTable
-    | INSERT INTO qualifiedName columnAliases? query                   #insertInto
+    | INSERT (INTO | OVERWRITE)  qualifiedName columnAliases? query    #insertInto
     | DELETE FROM qualifiedName (WHERE booleanExpression)?             #delete
     | TRUNCATE TABLE qualifiedName                                     #truncateTable
     | COMMENT ON TABLE qualifiedName IS (string | NULL)                #commentTable
@@ -89,6 +89,8 @@ statement
     | DROP MATERIALIZED VIEW (IF EXISTS)? qualifiedName                #dropMaterializedView
     | ALTER MATERIALIZED VIEW (IF EXISTS)? from=qualifiedName
         RENAME TO to=qualifiedName                                     #renameMaterializedView
+    | ALTER MATERIALIZED VIEW qualifiedName
+        SET PROPERTIES propertyAssignments                             #setMaterializedViewProperties
     | DROP VIEW (IF EXISTS)? qualifiedName                             #dropView
     | ALTER VIEW from=qualifiedName RENAME TO to=qualifiedName         #renameView
     | ALTER VIEW from=qualifiedName SET AUTHORIZATION principal        #setViewAuthorization
@@ -199,7 +201,12 @@ propertyAssignments
     ;
 
 property
-    : identifier EQ expression
+    : identifier EQ propertyValue
+    ;
+
+propertyValue
+    : DEFAULT       #defaultPropertyValue
+    | expression    #nonDefaultPropertyValue
     ;
 
 queryNoWith
@@ -702,7 +709,7 @@ nonReserved
     : ADD | ADMIN | AFTER | ALL | ANALYZE | ANY | ARRAY | ASC | AT | AUTHORIZATION
     | BERNOULLI
     | CALL | CASCADE | CATALOGS | COLUMN | COLUMNS | COMMENT | COMMIT | COMMITTED | COUNT | CURRENT
-    | DATA | DATE | DAY | DEFINE | DEFINER | DESC | DISTRIBUTED | DOUBLE
+    | DATA | DATE | DAY | DEFAULT | DEFINE | DEFINER | DESC | DISTRIBUTED | DOUBLE
     | EMPTY | ERROR | EXCLUDING | EXPLAIN
     | FETCH | FILTER | FINAL | FIRST | FOLLOWING | FORMAT | FUNCTIONS
     | GRANT | DENY | GRANTED | GRANTS | GRAPHVIZ | GROUPS
@@ -769,6 +776,7 @@ DATA: 'DATA';
 DATE: 'DATE';
 DAY: 'DAY';
 DEALLOCATE: 'DEALLOCATE';
+DEFAULT: 'DEFAULT';
 DEFINER: 'DEFINER';
 DELETE: 'DELETE';
 DENY: 'DENY';
@@ -875,6 +883,7 @@ OUTER: 'OUTER';
 OUTPUT: 'OUTPUT';
 OVER: 'OVER';
 OVERFLOW: 'OVERFLOW';
+OVERWRITE: 'OVERWRITE';
 PARTITION: 'PARTITION';
 PARTITIONS: 'PARTITIONS';
 PAST: 'PAST';

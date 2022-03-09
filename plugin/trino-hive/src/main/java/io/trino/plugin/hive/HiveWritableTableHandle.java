@@ -18,6 +18,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.metastore.HivePageSinkMetadata;
+import io.trino.spi.connector.InsertMode;
 import io.trino.spi.connector.SchemaTableName;
 
 import java.util.List;
@@ -37,6 +38,7 @@ public class HiveWritableTableHandle
     private final HiveStorageFormat partitionStorageFormat;
     private final AcidTransaction transaction;
     private final boolean retriesEnabled;
+    private final Optional<InsertMode> insertMode;
 
     public HiveWritableTableHandle(
             String schemaName,
@@ -48,7 +50,8 @@ public class HiveWritableTableHandle
             HiveStorageFormat tableStorageFormat,
             HiveStorageFormat partitionStorageFormat,
             AcidTransaction transaction,
-            boolean retriesEnabled)
+            boolean retriesEnabled,
+            Optional<InsertMode> insertMode)
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
@@ -60,6 +63,7 @@ public class HiveWritableTableHandle
         this.partitionStorageFormat = requireNonNull(partitionStorageFormat, "partitionStorageFormat is null");
         this.transaction = requireNonNull(transaction, "transaction is null");
         this.retriesEnabled = retriesEnabled;
+        this.insertMode = requireNonNull(insertMode, "insertMode is null");
     }
 
     @JsonProperty
@@ -132,6 +136,12 @@ public class HiveWritableTableHandle
     public boolean isRetriesEnabled()
     {
         return retriesEnabled;
+    }
+
+    @JsonProperty
+    public Optional<InsertMode> getInsertMode()
+    {
+        return insertMode;
     }
 
     @Override

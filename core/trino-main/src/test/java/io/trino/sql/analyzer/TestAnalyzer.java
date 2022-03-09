@@ -17,12 +17,12 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.io.Closer;
 import io.trino.FeaturesConfig;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
-import io.trino.connector.CatalogName;
-import io.trino.connector.informationschema.InformationSchemaConnector;
-import io.trino.connector.system.SystemConnector;
+import io.trino.connector.MockConnectorFactory;
+import io.trino.connector.StaticConnectorFactory;
 import io.trino.execution.DynamicFilterConfig;
 import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.TaskManagerConfig;
@@ -31,12 +31,7 @@ import io.trino.execution.warnings.WarningCollector;
 import io.trino.memory.MemoryManagerConfig;
 import io.trino.memory.NodeMemoryConfig;
 import io.trino.metadata.AnalyzePropertyManager;
-import io.trino.metadata.Catalog;
-import io.trino.metadata.Catalog.SecurityManagement;
-import io.trino.metadata.CatalogManager;
 import io.trino.metadata.ColumnPropertyManager;
-import io.trino.metadata.InMemoryNodeManager;
-import io.trino.metadata.InternalNodeManager;
 import io.trino.metadata.MaterializedViewDefinition;
 import io.trino.metadata.MaterializedViewPropertyManager;
 import io.trino.metadata.Metadata;
@@ -57,6 +52,7 @@ import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorMetadata;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.SchemaTableName;
@@ -69,15 +65,18 @@ import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.parser.ParsingOptions;
 import io.trino.sql.parser.SqlParser;
+import io.trino.sql.planner.OptimizerConfig;
 import io.trino.sql.rewrite.ShowQueriesRewrite;
 import io.trino.sql.rewrite.StatementRewrite;
 import io.trino.sql.tree.Statement;
+import io.trino.testing.LocalQueryRunner;
 import io.trino.testing.TestingAccessControlManager;
 import io.trino.testing.TestingMetadata;
 import io.trino.testing.TestingMetadata.TestingTableHandle;
 import io.trino.testing.assertions.TrinoExceptionAssert;
 import io.trino.transaction.TransactionManager;
 import org.intellij.lang.annotations.Language;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -86,9 +85,7 @@ import java.util.Optional;
 import java.util.function.Consumer;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.trino.connector.CatalogName.createInformationSchemaCatalogName;
-import static io.trino.connector.CatalogName.createSystemTablesCatalogName;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.operator.scalar.ApplyFunction.APPLY_FUNCTION;
 import static io.trino.spi.StandardErrorCode.AMBIGUOUS_NAME;
 import static io.trino.spi.StandardErrorCode.CATALOG_NOT_FOUND;
@@ -173,26 +170,22 @@ import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.TestingEventListenerManager.emptyEventListenerManager;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
-import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static io.trino.transaction.TransactionBuilder.transaction;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.nCopies;
+import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @Test(singleThreaded = true)
 public class TestAnalyzer
 {
     private static final String TPCH_CATALOG = "tpch";
-    private static final CatalogName TPCH_CATALOG_NAME = new CatalogName(TPCH_CATALOG);
     private static final String SECOND_CATALOG = "c2";
-    private static final CatalogName SECOND_CATALOG_NAME = new CatalogName(SECOND_CATALOG);
     private static final String THIRD_CATALOG = "c3";
-    private static final CatalogName THIRD_CATALOG_NAME = new CatalogName(THIRD_CATALOG);
     private static final String CATALOG_FOR_IDENTIFIER_CHAIN_TESTS = "cat";
-    private static final CatalogName CATALOG_FOR_IDENTIFIER_CHAIN_TESTS_NAME = new CatalogName(CATALOG_FOR_IDENTIFIER_CHAIN_TESTS);
     private static final Session SETUP_SESSION = testSessionBuilder()
             .setCatalog("c1")
             .setSchema("s1")
@@ -208,6 +201,7 @@ public class TestAnalyzer
 
     private static final SqlParser SQL_PARSER = new SqlParser();
 
+    private final Closer closer = Closer.create();
     private TransactionManager transactionManager;
     private AccessControl accessControl;
     private PlannerContext plannerContext;
@@ -877,6 +871,7 @@ public class TestAnalyzer
                 new TaskManagerConfig(),
                 new MemoryManagerConfig(),
                 new FeaturesConfig().setMaxGroupingSets(2048),
+                new OptimizerConfig(),
                 new NodeMemoryConfig(),
                 new DynamicFilterConfig(),
                 new NodeSchedulerConfig()))).build();
@@ -2059,96 +2054,108 @@ public class TestAnalyzer
     @Test
     public void testInsert()
     {
-        assertFails("INSERT INTO t6 (a) SELECT b from t6")
+        testInsert("INTO");
+        testInsert("OVERWRITE");
+    }
+
+    private void testInsert(String insertMethod)
+    {
+        assertFails("INSERT " + insertMethod + " t6 (a) SELECT b from t6")
                 .hasErrorCode(TYPE_MISMATCH);
-        analyze("INSERT INTO t1 SELECT * FROM t1");
-        analyze("INSERT INTO t3 SELECT * FROM t3");
-        analyze("INSERT INTO t3 SELECT a, b FROM t3");
-        assertFails("INSERT INTO t1 VALUES (1, 2)")
+        analyze("INSERT " + insertMethod + " t1 SELECT * FROM t1");
+        analyze("INSERT " + insertMethod + " t3 SELECT * FROM t3");
+        analyze("INSERT " + insertMethod + " t3 SELECT a, b FROM t3");
+        assertFails("INSERT " + insertMethod + " t1 VALUES (1, 2)")
                 .hasErrorCode(TYPE_MISMATCH);
-        analyze("INSERT INTO t5 (a) VALUES(null)");
+        analyze("INSERT " + insertMethod + " t5 (a) VALUES(null)");
 
         // ignore t5 hidden column
-        analyze("INSERT INTO t5 VALUES (1)");
+        analyze("INSERT " + insertMethod + " t5 VALUES (1)");
 
         // fail if hidden column provided
-        assertFails("INSERT INTO t5 VALUES (1, 2)")
+        assertFails("INSERT " + insertMethod + " t5 VALUES (1, 2)")
                 .hasErrorCode(TYPE_MISMATCH);
 
         // note b is VARCHAR, while a,c,d are BIGINT
-        analyze("INSERT INTO t6 (a) SELECT a from t6");
-        analyze("INSERT INTO t6 (a) SELECT c from t6");
-        analyze("INSERT INTO t6 (a,b,c,d) SELECT * from t6");
-        analyze("INSERT INTO t6 (A,B,C,D) SELECT * from t6");
-        analyze("INSERT INTO t6 (a,b,c,d) SELECT d,b,c,a from t6");
-        assertFails("INSERT INTO t6 (a) SELECT b from t6")
+        analyze("INSERT " + insertMethod + " t6 (a) SELECT a from t6");
+        analyze("INSERT " + insertMethod + " t6 (a) SELECT c from t6");
+        analyze("INSERT " + insertMethod + " t6 (a,b,c,d) SELECT * from t6");
+        analyze("INSERT " + insertMethod + " t6 (A,B,C,D) SELECT * from t6");
+        analyze("INSERT " + insertMethod + " t6 (a,b,c,d) SELECT d,b,c,a from t6");
+        assertFails("INSERT " + insertMethod + " t6 (a) SELECT b from t6")
                 .hasErrorCode(TYPE_MISMATCH);
-        assertFails("INSERT INTO t6 (unknown) SELECT * FROM t6")
+        assertFails("INSERT " + insertMethod + " t6 (unknown) SELECT * FROM t6")
                 .hasErrorCode(COLUMN_NOT_FOUND);
-        assertFails("INSERT INTO t6 (a, a) SELECT * FROM t6")
+        assertFails("INSERT " + insertMethod + " t6 (a, a) SELECT * FROM t6")
                 .hasErrorCode(DUPLICATE_COLUMN_NAME);
-        assertFails("INSERT INTO t6 (a, A) SELECT * FROM t6")
+        assertFails("INSERT " + insertMethod + " t6 (a, A) SELECT * FROM t6")
                 .hasErrorCode(DUPLICATE_COLUMN_NAME);
 
         // b is bigint, while a is double, coercion is possible either way
-        analyze("INSERT INTO t7 (b) SELECT (a) FROM t7 ");
-        analyze("INSERT INTO t7 (a) SELECT (b) FROM t7");
+        analyze("INSERT " + insertMethod + " t7 (b) SELECT (a) FROM t7 ");
+        analyze("INSERT " + insertMethod + " t7 (a) SELECT (b) FROM t7");
 
         // d is array of bigints, while c is array of doubles, coercion is possible either way
-        analyze("INSERT INTO t7 (d) SELECT (c) FROM t7 ");
-        analyze("INSERT INTO t7 (c) SELECT (d) FROM t7 ");
+        analyze("INSERT " + insertMethod + " t7 (d) SELECT (c) FROM t7 ");
+        analyze("INSERT " + insertMethod + " t7 (c) SELECT (d) FROM t7 ");
 
-        analyze("INSERT INTO t7 (d) VALUES (ARRAY[null])");
+        analyze("INSERT " + insertMethod + " t7 (d) VALUES (ARRAY[null])");
 
-        analyze("INSERT INTO t6 (d) VALUES (1), (2), (3)");
-        analyze("INSERT INTO t6 (a,b,c,d) VALUES (1, 'a', 1, 1), (2, 'b', 2, 2), (3, 'c', 3, 3), (4, 'd', 4, 4)");
+        analyze("INSERT " + insertMethod + " t6 (d) VALUES (1), (2), (3)");
+        analyze("INSERT " + insertMethod + " t6 (a,b,c,d) VALUES (1, 'a', 1, 1), (2, 'b', 2, 2), (3, 'c', 3, 3), (4, 'd', 4, 4)");
 
         // coercion is allowed between compatible types
-        analyze("INSERT INTO t8 (tinyint_column, integer_column, decimal_column, real_column) VALUES (1e0, 1e0, 1e0, 1e0)");
-        analyze("INSERT INTO t8 (char_column, bounded_varchar_column, unbounded_varchar_column) VALUES (VARCHAR 'aa     ', VARCHAR 'aa     ', VARCHAR 'aa     ')");
-        analyze("INSERT INTO t8 (tinyint_array_column) SELECT (bigint_array_column) FROM t8");
-        analyze("INSERT INTO t8 (row_column) VALUES (ROW(ROW(1e0, VARCHAR 'aa     ')))");
-        analyze("INSERT INTO t8 (date_column) VALUES (TIMESTAMP '2019-11-18 22:13:40')");
+        analyze("INSERT " + insertMethod + " t8 (tinyint_column, integer_column, decimal_column, real_column) VALUES (1e0, 1e0, 1e0, 1e0)");
+        analyze("INSERT " + insertMethod + " t8 (char_column, bounded_varchar_column, unbounded_varchar_column) VALUES (VARCHAR 'aa     ', VARCHAR 'aa     ', VARCHAR 'aa     ')");
+        analyze("INSERT " + insertMethod + " t8 (tinyint_array_column) SELECT (bigint_array_column) FROM t8");
+        analyze("INSERT " + insertMethod + " t8 (row_column) VALUES (ROW(ROW(1e0, VARCHAR 'aa     ')))");
+        analyze("INSERT " + insertMethod + " t8 (date_column) VALUES (TIMESTAMP '2019-11-18 22:13:40')");
 
         // coercion is not allowed between incompatible types
-        assertFails("INSERT INTO t8 (integer_column) VALUES ('text')")
+        assertFails("INSERT " + insertMethod + " t8 (integer_column) VALUES ('text')")
                 .hasErrorCode(TYPE_MISMATCH);
-        assertFails("INSERT INTO t8 (integer_column) VALUES (true)")
+        assertFails("INSERT " + insertMethod + " t8 (integer_column) VALUES (true)")
                 .hasErrorCode(TYPE_MISMATCH);
-        assertFails("INSERT INTO t8 (integer_column) VALUES (ROW(ROW(1e0)))")
+        assertFails("INSERT " + insertMethod + " t8 (integer_column) VALUES (ROW(ROW(1e0)))")
                 .hasErrorCode(TYPE_MISMATCH);
-        assertFails("INSERT INTO t8 (integer_column) VALUES (TIMESTAMP '2019-11-18 22:13:40')")
+        assertFails("INSERT " + insertMethod + " t8 (integer_column) VALUES (TIMESTAMP '2019-11-18 22:13:40')")
                 .hasErrorCode(TYPE_MISMATCH);
-        assertFails("INSERT INTO t8 (unbounded_varchar_column) VALUES (1)")
+        assertFails("INSERT " + insertMethod + " t8 (unbounded_varchar_column) VALUES (1)")
                 .hasErrorCode(TYPE_MISMATCH);
 
         // coercion with potential loss is not allowed for nested bounded character string types
-        assertFails("INSERT INTO t8 (nested_bounded_varchar_column) VALUES (ROW(ROW(CAST('aa' AS varchar(10)))))")
+        assertFails("INSERT " + insertMethod + " t8 (nested_bounded_varchar_column) VALUES (ROW(ROW(CAST('aa' AS varchar(10)))))")
                 .hasErrorCode(TYPE_MISMATCH);
     }
 
     @Test
     public void testInvalidInsert()
     {
-        assertFails("INSERT INTO foo VALUES (1)")
+        testInvalidInsert("INTO");
+        testInvalidInsert("OVERWRITE");
+    }
+
+    private void testInvalidInsert(String insertMethod)
+    {
+        assertFails("INSERT " + insertMethod + " foo VALUES (1)")
                 .hasErrorCode(TABLE_NOT_FOUND);
-        assertFails("INSERT INTO v1 VALUES (1)")
+        assertFails("INSERT " + insertMethod + " v1 VALUES (1)")
                 .hasErrorCode(NOT_SUPPORTED);
 
         // fail if inconsistent fields count
-        assertFails("INSERT INTO t1 (a) VALUES (1), (1, 2)")
+        assertFails("INSERT " + insertMethod + " t1 (a) VALUES (1), (1, 2)")
                 .hasErrorCode(TYPE_MISMATCH);
-        assertFails("INSERT INTO t1 (a, b) VALUES (1), (1, 2)")
+        assertFails("INSERT " + insertMethod + " t1 (a, b) VALUES (1), (1, 2)")
                 .hasErrorCode(TYPE_MISMATCH);
-        assertFails("INSERT INTO t1 (a, b) VALUES (1, 2), (1, 2), (1, 2, 3)")
+        assertFails("INSERT " + insertMethod + " t1 (a, b) VALUES (1, 2), (1, 2), (1, 2, 3)")
                 .hasErrorCode(TYPE_MISMATCH);
-        assertFails("INSERT INTO t1 (a, b) VALUES ('a', 'b'), ('a', 'b', 'c')")
+        assertFails("INSERT " + insertMethod + " t1 (a, b) VALUES ('a', 'b'), ('a', 'b', 'c')")
                 .hasErrorCode(TYPE_MISMATCH);
 
         // fail if mismatched column types
-        assertFails("INSERT INTO t1 (a, b) VALUES ('a', 'b'), (1, 'b')")
+        assertFails("INSERT " + insertMethod + " t1 (a, b) VALUES ('a', 'b'), (1, 'b')")
                 .hasErrorCode(TYPE_MISMATCH);
-        assertFails("INSERT INTO t1 (a, b) VALUES ('a', 'b'), ('a', 'b'), (1, 'b')")
+        assertFails("INSERT " + insertMethod + " t1 (a, b) VALUES ('a', 'b'), ('a', 'b'), (1, 'b')")
                 .hasErrorCode(TYPE_MISMATCH);
     }
 
@@ -3250,7 +3257,152 @@ public class TestAnalyzer
     @Test
     public void testLiteral()
     {
+        // boolean
+        assertFails("SELECT BOOLEAN '2'")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT BOOLEAN 'a'")
+                .hasErrorCode(INVALID_LITERAL);
+
+        // tinyint
+        assertFails("SELECT TINYINT ''")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT TINYINT '128'") // max value + 1
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT TINYINT '-129'") // min value - 1
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT TINYINT '12.1'")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT TINYINT 'a'")
+                .hasErrorCode(INVALID_LITERAL);
+
+        // smallint
+        assertFails("SELECT SMALLINT ''")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT SMALLINT '2147483648'") // max value + 1
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT SMALLINT '-2147483649'") // min value - 1
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT SMALLINT '12.1'")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT SMALLINT 'a'")
+                .hasErrorCode(INVALID_LITERAL);
+
+        // integer
+        assertFails("SELECT INTEGER ''")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT INTEGER '2147483648'") // max value + 1
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT INTEGER '-2147483649'") // min value - 1
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT INTEGER '12.1'")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT INTEGER 'a'")
+                .hasErrorCode(INVALID_LITERAL);
+
+        // bigint
+        assertFails("SELECT BIGINT ''")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT BIGINT '9223372036854775808'") // max value + 1
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT BIGINT '-9223372036854775809'") // min value - 1
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT BIGINT '12.1'")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT BIGINT 'a'")
+                .hasErrorCode(INVALID_LITERAL);
+
+        // real
+        assertFails("SELECT REAL ''")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT REAL '1.2.3'")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT REAL 'a'")
+                .hasErrorCode(INVALID_LITERAL);
+
+        // double
+        assertFails("SELECT DOUBLE ''")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT DOUBLE '1.2.3'")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT DOUBLE 'a'")
+                .hasErrorCode(INVALID_LITERAL);
+
+        // decimal
+        assertFails("SELECT 1234567890123456789012.34567890123456789") // 39 digits, decimal point
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT 0.123456789012345678901234567890123456789") // 39 digits after "0."
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT .123456789012345678901234567890123456789") // 39 digits after "."
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT DECIMAL ''")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT DECIMAL '123456789012345678901234567890123456789'") // 39 digits, no decimal point
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT DECIMAL '1234567890123456789012.34567890123456789'") // 39 digits, decimal point
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT DECIMAL '0.123456789012345678901234567890123456789'") // 39 digits after "0."
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT DECIMAL '.123456789012345678901234567890123456789'") // 39 digits after "."
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT DECIMAL 'a'")
+                .hasErrorCode(INVALID_LITERAL);
+
+        // date
+        assertFails("SELECT DATE '20220101'")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT DATE 'a'")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT DATE 'today'")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT DATE '2022-01-01 UTC'")
+                .hasErrorCode(INVALID_LITERAL);
+
+        // time
+        assertFails("SELECT TIME ''")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT TIME '12'")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT TIME '1234567'")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT TIME 'a'")
+                .hasErrorCode(INVALID_LITERAL);
+
+        // timestamp
+        assertFails("SELECT TIMESTAMP ''")
+                .hasErrorCode(INVALID_LITERAL);
         assertFails("SELECT TIMESTAMP '2012-10-31 01:00:00 PT'")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT TIMESTAMP 'a'")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT TIMESTAMP 'now'")
+                .hasErrorCode(INVALID_LITERAL);
+
+        // interval
+        assertFails("SELECT INTERVAL 'a' DAY TO SECOND")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT INTERVAL '12.1' DAY TO SECOND")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT INTERVAL '12' YEAR TO DAY")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT INTERVAL '12' SECOND TO MINUTE")
+                .hasErrorCode(INVALID_LITERAL);
+
+        // json
+        assertFails("SELECT JSON ''")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT JSON '{}{'")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT JSON '{} \"a\"'")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT JSON '{}{'")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT JSON '{} \"a\"'")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT JSON '{}{abc'")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT JSON '{}abc'")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT JSON ''")
                 .hasErrorCode(INVALID_LITERAL);
     }
 
@@ -5159,8 +5311,9 @@ public class TestAnalyzer
     @BeforeClass
     public void setup()
     {
-        CatalogManager catalogManager = new CatalogManager();
-        transactionManager = createTestTransactionManager(catalogManager);
+        LocalQueryRunner queryRunner = LocalQueryRunner.create(TEST_SESSION);
+        closer.register(queryRunner);
+        transactionManager = queryRunner.getTransactionManager();
 
         AccessControlManager accessControlManager = new AccessControlManager(
                 transactionManager,
@@ -5170,22 +5323,19 @@ public class TestAnalyzer
         accessControlManager.setSystemAccessControls(List.of(AllowAllSystemAccessControl.INSTANCE));
         this.accessControl = accessControlManager;
 
-        Metadata metadata = createTestMetadataManager(transactionManager, new FeaturesConfig());
+        Metadata metadata = queryRunner.getMetadata();
         metadata.addFunctions(ImmutableList.of(APPLY_FUNCTION));
         plannerContext = plannerContextBuilder().withMetadata(metadata).build();
 
-        Catalog tpchTestCatalog = createTestingCatalog(TPCH_CATALOG, TPCH_CATALOG_NAME);
-        TestingMetadata testingConnectorMetadata = (TestingMetadata) tpchTestCatalog.getConnector(TPCH_CATALOG_NAME).getMetadata(null);
-        catalogManager.registerCatalog(tpchTestCatalog);
+        TestingMetadata testingConnectorMetadata = new TestingMetadata();
+        TestingConnector connector = new TestingConnector(testingConnectorMetadata);
+        queryRunner.createCatalog(TPCH_CATALOG, new StaticConnectorFactory("main", connector), ImmutableMap.of());
 
-        tablePropertyManager = new TablePropertyManager();
-        tablePropertyManager.addProperties(TPCH_CATALOG_NAME, tpchTestCatalog.getConnector(TPCH_CATALOG_NAME).getTableProperties());
+        tablePropertyManager = queryRunner.getTablePropertyManager();
+        analyzePropertyManager = queryRunner.getAnalyzePropertyManager();
 
-        analyzePropertyManager = new AnalyzePropertyManager();
-        analyzePropertyManager.addProperties(TPCH_CATALOG_NAME, tpchTestCatalog.getConnector(TPCH_CATALOG_NAME).getAnalyzeProperties());
-
-        catalogManager.registerCatalog(createTestingCatalog(SECOND_CATALOG, SECOND_CATALOG_NAME));
-        catalogManager.registerCatalog(createTestingCatalog(THIRD_CATALOG, THIRD_CATALOG_NAME));
+        queryRunner.createCatalog(SECOND_CATALOG, MockConnectorFactory.create("second"), ImmutableMap.of());
+        queryRunner.createCatalog(THIRD_CATALOG, MockConnectorFactory.create("third"), ImmutableMap.of());
 
         SchemaTableName table1 = new SchemaTableName("s1", "t1");
         inSetupTransaction(session -> metadata.createTable(session, TPCH_CATALOG,
@@ -5327,7 +5477,7 @@ public class TestAnalyzer
                 false));
 
         // for identifier chain resolving tests
-        catalogManager.registerCatalog(createTestingCatalog(CATALOG_FOR_IDENTIFIER_CHAIN_TESTS, CATALOG_FOR_IDENTIFIER_CHAIN_TESTS_NAME));
+        queryRunner.createCatalog(CATALOG_FOR_IDENTIFIER_CHAIN_TESTS, new StaticConnectorFactory("chain", new TestingConnector(new TestingMetadata())), ImmutableMap.of());
         Type singleFieldRowType = TESTING_TYPE_MANAGER.fromSqlType("row(f1 bigint)");
         Type rowType = TESTING_TYPE_MANAGER.fromSqlType("row(f1 bigint, f2 bigint)");
         Type nestedRowType = TESTING_TYPE_MANAGER.fromSqlType("row(f1 row(f11 bigint, f12 bigint), f2 boolean)");
@@ -5490,6 +5640,13 @@ public class TestAnalyzer
         testingConnectorMetadata.markMaterializedViewIsFresh(freshMaterializedMismatchedColumnType.asSchemaTableName());
     }
 
+    @AfterClass(alwaysRun = true)
+    public void tearDown()
+            throws Exception
+    {
+        closer.close();
+    }
+
     private void inSetupTransaction(Consumer<Session> consumer)
     {
         transaction(transactionManager, accessControl)
@@ -5556,51 +5713,34 @@ public class TestAnalyzer
         return assertTrinoExceptionThrownBy(() -> analyze(session, query, accessControl));
     }
 
-    private Catalog createTestingCatalog(String catalogName, CatalogName catalog)
+    private static class TestingConnector
+            implements Connector
     {
-        CatalogName systemId = createSystemTablesCatalogName(catalog);
-        Connector connector = createTestingConnector();
-        InternalNodeManager nodeManager = new InMemoryNodeManager();
-        return new Catalog(
-                catalogName,
-                catalog,
-                "test",
-                connector,
-                SecurityManagement.CONNECTOR,
-                createInformationSchemaCatalogName(catalog),
-                new InformationSchemaConnector(catalogName, nodeManager, plannerContext.getMetadata(), accessControl),
-                systemId,
-                new SystemConnector(
-                        nodeManager,
-                        connector.getSystemTables(),
-                        transactionId -> transactionManager.getConnectorTransaction(transactionId, catalog)));
-    }
+        private final ConnectorMetadata metadata;
 
-    private static Connector createTestingConnector()
-    {
-        return new Connector()
+        public TestingConnector(ConnectorMetadata metadata)
         {
-            private final ConnectorMetadata metadata = new TestingMetadata();
+            this.metadata = requireNonNull(metadata, "metadata is null");
+        }
 
-            @Override
-            public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly, boolean autoCommit)
-            {
-                return new ConnectorTransactionHandle() {};
-            }
+        @Override
+        public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly, boolean autoCommit)
+        {
+            return new ConnectorTransactionHandle() {};
+        }
 
-            @Override
-            public ConnectorMetadata getMetadata(ConnectorTransactionHandle transaction)
-            {
-                return metadata;
-            }
+        @Override
+        public ConnectorMetadata getMetadata(ConnectorSession session, ConnectorTransactionHandle transaction)
+        {
+            return metadata;
+        }
 
-            @Override
-            public List<PropertyMetadata<?>> getAnalyzeProperties()
-            {
-                return ImmutableList.of(
-                        stringProperty("p1", "test string property", "", false),
-                        integerProperty("p2", "test integer property", 0, false));
-            }
-        };
+        @Override
+        public List<PropertyMetadata<?>> getAnalyzeProperties()
+        {
+            return ImmutableList.of(
+                    stringProperty("p1", "test string property", "", false),
+                    integerProperty("p2", "test integer property", 0, false));
+        }
     }
 }

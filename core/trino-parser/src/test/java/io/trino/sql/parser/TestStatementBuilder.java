@@ -172,6 +172,7 @@ public class TestStatementBuilder
         printStatement("drop table foo");
 
         printStatement("insert into foo select * from abc");
+        printStatement("insert overwrite foo select * from abc");
 
         printStatement("delete from foo");
         printStatement("delete from foo where a = b");
@@ -209,6 +210,7 @@ public class TestStatementBuilder
 
         printStatement("alter table foo set properties a='1'");
         printStatement("alter table a.b.c set properties a=true, b=123, c='x'");
+        printStatement("alter table a.b.c set properties a=DEFAULT, b=123");
 
         printStatement("alter table a.b.c add column x bigint");
 
@@ -217,6 +219,10 @@ public class TestStatementBuilder
         printStatement("alter table a.b.c add column x bigint comment 'xtra' with (compression = 'LZ4', special = true)");
 
         printStatement("alter table a.b.c drop column x");
+
+        printStatement("alter materialized view foo set properties a='1'");
+        printStatement("alter materialized view a.b.c set properties a=true, b=123, c='x'");
+        printStatement("alter materialized view a.b.c set properties a=default, b=123");
 
         printStatement("create schema test");
         printStatement("create schema test authorization alice");

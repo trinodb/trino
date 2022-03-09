@@ -1381,7 +1381,8 @@ public class HiveMetadata
                 tableProperties,
                 transaction,
                 externalLocation.isPresent(),
-                retryMode != NO_RETRIES);
+                retryMode != NO_RETRIES,
+                Optional.empty());
 
         WriteInfo writeInfo = locationService.getQueryWriteInfo(locationHandle);
         metastore.declareIntentionToWrite(session, writeInfo.getWriteMode(), writeInfo.getWritePath(), schemaTableName);
@@ -1702,6 +1703,12 @@ public class HiveMetadata
     @Override
     public HiveInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> columns, RetryMode retryMode)
     {
+        return beginInsert(session, tableHandle, columns, retryMode, Optional.empty());
+    }
+
+    @Override
+    public HiveInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> columns, RetryMode retryMode, Optional<InsertMode> insertMode)
+    {
         HiveIdentity identity = new HiveIdentity(session);
         SchemaTableName tableName = ((HiveTableHandle) tableHandle).getSchemaTableName();
         Table table = metastore.getTable(identity, tableName.getSchemaName(), tableName.getTableName())
@@ -1747,10 +1754,12 @@ public class HiveMetadata
                 tableStorageFormat,
                 isRespectTableFormat(session) ? tableStorageFormat : getHiveStorageFormat(session),
                 transaction,
-                retryMode != NO_RETRIES);
+                retryMode != NO_RETRIES,
+                insertMode);
 
         WriteInfo writeInfo = locationService.getQueryWriteInfo(locationHandle);
-        if (getInsertExistingPartitionsBehavior(session) == InsertExistingPartitionsBehavior.OVERWRITE
+        if ((insertMode.isPresent() && insertMode.get() == InsertMode.OVERWRITE
+                || getInsertExistingPartitionsBehavior(session) == InsertExistingPartitionsBehavior.OVERWRITE)
                 && writeInfo.getWriteMode() == DIRECT_TO_TARGET_EXISTING_DIRECTORY) {
             if (isTransactional) {
                 throw new TrinoException(NOT_SUPPORTED, "Overwriting existing partition in transactional tables doesn't support DIRECT_TO_TARGET_EXISTING_DIRECTORY write mode");
@@ -2078,7 +2087,8 @@ public class HiveMetadata
                 // TODO: test with multiple partitions using different storage format
                 tableStorageFormat,
                 NO_ACID_TRANSACTION,
-                retryMode != NO_RETRIES));
+                retryMode != NO_RETRIES,
+                Optional.empty()));
     }
 
     @Override

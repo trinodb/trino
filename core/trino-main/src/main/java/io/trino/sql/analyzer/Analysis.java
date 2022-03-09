@@ -23,17 +23,18 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Multiset;
 import com.google.common.collect.Streams;
-import io.trino.metadata.NewTableLayout;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TableExecuteHandle;
 import io.trino.metadata.TableHandle;
+import io.trino.metadata.TableLayout;
 import io.trino.security.AccessControl;
 import io.trino.security.SecurityContext;
 import io.trino.spi.QueryId;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnSchema;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.InsertMode;
 import io.trino.spi.eventlistener.ColumnDetail;
 import io.trino.spi.eventlistener.ColumnInfo;
 import io.trino.spi.eventlistener.RoutineInfo;
@@ -1187,14 +1188,14 @@ public class Analysis
     {
         private final Optional<QualifiedObjectName> destination;
         private final Optional<ConnectorTableMetadata> metadata;
-        private final Optional<NewTableLayout> layout;
+        private final Optional<TableLayout> layout;
         private final boolean createTableAsSelectWithData;
         private final boolean createTableAsSelectNoOp;
 
         public Create(
                 Optional<QualifiedObjectName> destination,
                 Optional<ConnectorTableMetadata> metadata,
-                Optional<NewTableLayout> layout,
+                Optional<TableLayout> layout,
                 boolean createTableAsSelectWithData,
                 boolean createTableAsSelectNoOp)
         {
@@ -1215,7 +1216,7 @@ public class Analysis
             return metadata;
         }
 
-        public Optional<NewTableLayout> getLayout()
+        public Optional<TableLayout> getLayout()
         {
             return layout;
         }
@@ -1237,15 +1238,17 @@ public class Analysis
         private final Table table;
         private final TableHandle target;
         private final List<ColumnHandle> columns;
-        private final Optional<NewTableLayout> newTableLayout;
+        private final Optional<TableLayout> newTableLayout;
+        private final Optional<InsertMode> insertMode;
 
-        public Insert(Table table, TableHandle target, List<ColumnHandle> columns, Optional<NewTableLayout> newTableLayout)
+        public Insert(Table table, TableHandle target, List<ColumnHandle> columns, Optional<TableLayout> newTableLayout, Optional<InsertMode> insertMode)
         {
             this.table = requireNonNull(table, "table is null");
             this.target = requireNonNull(target, "target is null");
             this.columns = requireNonNull(columns, "columns is null");
             checkArgument(columns.size() > 0, "No columns given to insert");
             this.newTableLayout = requireNonNull(newTableLayout, "newTableLayout is null");
+            this.insertMode = insertMode;
         }
 
         public Table getTable()
@@ -1263,9 +1266,14 @@ public class Analysis
             return target;
         }
 
-        public Optional<NewTableLayout> getNewTableLayout()
+        public Optional<TableLayout> getNewTableLayout()
         {
             return newTableLayout;
+        }
+
+        public Optional<InsertMode> getInsertMode()
+        {
+            return insertMode;
         }
     }
 

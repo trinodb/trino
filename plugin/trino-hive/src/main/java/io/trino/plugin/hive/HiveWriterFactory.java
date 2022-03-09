@@ -36,8 +36,10 @@ import io.trino.plugin.hive.util.HiveWriteUtils;
 import io.trino.spi.NodeManager;
 import io.trino.spi.Page;
 import io.trino.spi.PageSorter;
+import io.trino.spi.StandardErrorCode;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.InsertMode;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
@@ -168,6 +170,7 @@ public class HiveWriterFactory
             List<HiveColumnHandle> inputColumns,
             HiveStorageFormat tableStorageFormat,
             HiveStorageFormat partitionStorageFormat,
+            Optional<InsertMode> insertMode,
             Map<String, String> additionalTableParameters,
             OptionalInt bucketCount,
             List<SortingColumn> sortedBy,
@@ -208,7 +211,7 @@ public class HiveWriterFactory
         this.maxOpenSortFiles = maxOpenSortFiles;
         this.sortedWritingTempStagingPathEnabled = isTemporaryStagingDirectoryEnabled(session);
         this.sortedWritingTempStagingPath = getTemporaryStagingDirectoryPath(session);
-        this.insertExistingPartitionsBehavior = getInsertExistingPartitionsBehavior(session);
+        this.insertExistingPartitionsBehavior = insertMode.isPresent() ? convertToInsertExistingPartitionsBehavior(insertMode) : getInsertExistingPartitionsBehavior(session);
         this.parquetTimeZone = requireNonNull(parquetTimeZone, "parquetTimeZone is null");
 
         // divide input columns into partition and data columns
@@ -280,6 +283,17 @@ public class HiveWriterFactory
         }
 
         this.hiveWriterStats = requireNonNull(hiveWriterStats, "hiveWriterStats is null");
+    }
+
+    private InsertExistingPartitionsBehavior convertToInsertExistingPartitionsBehavior(Optional<InsertMode> insertMode)
+    {
+        checkArgument(insertMode.isPresent(), "Insert mode not provided.");
+        switch (insertMode.get()) {
+            case OVERWRITE:
+                return InsertExistingPartitionsBehavior.OVERWRITE;
+            default:
+                throw new TrinoException(StandardErrorCode.INVALID_FUNCTION_ARGUMENT, "Unsupported Hive insert mode " + insertMode.get());
+        }
     }
 
     public HiveWriter createWriter(Page partitionColumns, int position, OptionalInt bucketNumber)
@@ -493,7 +507,7 @@ public class HiveWriterFactory
                             .collect(toList()),
                     outputStorageFormat,
                     schema,
-                    partitionStorageFormat.getEstimatedWriterSystemMemoryUsage(),
+                    partitionStorageFormat.getEstimatedWriterMemoryUsage(),
                     conf,
                     typeManager,
                     parquetTimeZone,
