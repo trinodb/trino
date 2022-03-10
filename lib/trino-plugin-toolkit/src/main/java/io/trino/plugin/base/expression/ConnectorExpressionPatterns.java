@@ -79,6 +79,11 @@ public final class ConnectorExpressionPatterns
         return Property.property("argumentCount", call -> call.getArguments().size());
     }
 
+    public static Property<Call, ?, List<ConnectorExpression>> arguments()
+    {
+        return Property.property("arguments", Call::getArguments);
+    }
+
     public static Property<Call, ?, ConnectorExpression> argument(int argument)
     {
         checkArgument(0 <= argument, "Invalid argument index: %s", argument);
