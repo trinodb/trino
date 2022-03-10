@@ -11,6 +11,7 @@ Administration
     admin/properties
     admin/spill
     admin/resource-groups
+    admin/fault-tolerance
     admin/session-property-managers
     admin/dist-sort
     admin/dynamic-filtering
