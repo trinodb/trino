@@ -110,6 +110,7 @@ public abstract class BaseFailureRecoveryTest
                         .put("query.hash-partition-count", "5")
                         // to trigger spilling
                         .put("exchange.deduplication-buffer-size", "1kB")
+                        .put("fault-tolerant-execution-task-memory", "1GB")
                         .buildOrThrow(),
                 ImmutableMap.<String, String>builder()
                         // making http timeouts shorter so tests which simulate communication timeouts finish in reasonable amount of time
