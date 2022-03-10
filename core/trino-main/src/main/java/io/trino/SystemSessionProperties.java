@@ -763,7 +763,7 @@ public final class SystemSessionProperties
                 dataSizeProperty(
                         FAULT_TOLERANT_EXECUTION_TASK_MEMORY,
                         "Estimated amount of memory a single task will use when task level retries are used; value is used allocating nodes for tasks execution",
-                        memoryManagerConfig.getFaultTolerantTaskMemory(),
+                        memoryManagerConfig.getFaultTolerantExecutionTaskMemory(),
                         false),
                 booleanProperty(
                         ADAPTIVE_PARTIAL_AGGREGATION_ENABLED,

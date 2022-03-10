@@ -35,13 +35,13 @@ import static java.util.concurrent.TimeUnit.MINUTES;
         "resources.reserved-system-memory"})
 public class MemoryManagerConfig
 {
-    public static final String FAULT_TOLERANT_TASK_MEMORY_CONFIG = "fault-tolerant-task-memory";
+    public static final String FAULT_TOLERANT_TASK_MEMORY_CONFIG = "fault-tolerant-execution-task-memory";
 
     // enforced against user memory allocations
     private DataSize maxQueryMemory = DataSize.of(20, GIGABYTE);
     // enforced against user + system memory allocations (default is maxQueryMemory * 2)
     private DataSize maxQueryTotalMemory;
-    private DataSize faultTolerantTaskMemory = DataSize.of(1, GIGABYTE);
+    private DataSize faultTolerantExecutionTaskMemory = DataSize.of(1, GIGABYTE);
     private LowMemoryKillerPolicy lowMemoryKillerPolicy = LowMemoryKillerPolicy.TOTAL_RESERVATION_ON_BLOCKED_NODES;
     private Duration killOnOutOfMemoryDelay = new Duration(5, MINUTES);
 
@@ -102,16 +102,16 @@ public class MemoryManagerConfig
     }
 
     @NotNull
-    public DataSize getFaultTolerantTaskMemory()
+    public DataSize getFaultTolerantExecutionTaskMemory()
     {
-        return faultTolerantTaskMemory;
+        return faultTolerantExecutionTaskMemory;
     }
 
     @Config(FAULT_TOLERANT_TASK_MEMORY_CONFIG)
     @ConfigDescription("Estimated amount of memory a single task will use when task level retries are used; value is used allocating nodes for tasks execution")
-    public MemoryManagerConfig setFaultTolerantTaskMemory(DataSize faultTolerantTaskMemory)
+    public MemoryManagerConfig setFaultTolerantExecutionTaskMemory(DataSize faultTolerantExecutionTaskMemory)
     {
-        this.faultTolerantTaskMemory = faultTolerantTaskMemory;
+        this.faultTolerantExecutionTaskMemory = faultTolerantExecutionTaskMemory;
         return this;
     }
 
