@@ -53,6 +53,7 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -65,6 +66,7 @@ import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.execution.scheduler.FallbackToFullNodePartitionMemoryEstimator.FULL_NODE_MEMORY;
 import static io.trino.spi.StandardErrorCode.NO_NODES_AVAILABLE;
+import static java.lang.Math.max;
 import static java.lang.Thread.currentThread;
 import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
@@ -110,6 +112,7 @@ public class FullNodeCapableNodeAllocatorService
     private final AtomicBoolean stopped = new AtomicBoolean();
     private final Semaphore processSemaphore = new Semaphore(0);
     private final ConcurrentMap<String, Long> nodePoolSizes = new ConcurrentHashMap<>();
+    private final AtomicLong maxNodePoolSize = new AtomicLong(FULL_NODE_MEMORY.toBytes());
 
     @Inject
     public FullNodeCapableNodeAllocatorService(
@@ -142,13 +145,20 @@ public class FullNodeCapableNodeAllocatorService
             }
         }
 
+        long tmpMaxNodePoolSize = 0;
         for (Map.Entry<String, Optional<MemoryInfo>> entry : workerMemoryInfo.entrySet()) {
             Optional<MemoryInfo> memoryInfo = entry.getValue();
             if (memoryInfo.isEmpty()) {
                 continue;
             }
-            nodePoolSizes.put(entry.getKey(), memoryInfo.get().getPool().getMaxBytes());
+            long nodePoolSize = memoryInfo.get().getPool().getMaxBytes();
+            nodePoolSizes.put(entry.getKey(), nodePoolSize);
+            tmpMaxNodePoolSize = max(tmpMaxNodePoolSize, nodePoolSize);
         }
+        if (tmpMaxNodePoolSize == 0) {
+            tmpMaxNodePoolSize = FULL_NODE_MEMORY.toBytes();
+        }
+        maxNodePoolSize.set(tmpMaxNodePoolSize);
     }
 
     private Optional<Long> getNodePoolSize(InternalNode internalNode)
@@ -209,6 +219,13 @@ public class FullNodeCapableNodeAllocatorService
                     iterator.remove();
                     continue;
                 }
+                if (pendingAcquire.getNodeRequirements().getMemory().toBytes() > maxNodePoolSize.get()) {
+                    // nodes in the cluster shrank and what used to be a request for a shared node now is a request for full node
+                    iterator.remove();
+                    detachedFullNodePendingAcquires.add(pendingAcquire);
+                    continue;
+                }
+
                 try {
                     Candidates candidates = selectCandidates(pendingAcquire.getNodeRequirements(), pendingAcquire.getNodeSelector());
                     if (candidates.isEmpty()) {
@@ -659,6 +676,6 @@ public class FullNodeCapableNodeAllocatorService
 
     private boolean isFullNode(NodeRequirements requirements)
     {
-        return requirements.getMemory().compareTo(FULL_NODE_MEMORY) >= 0;
+        return requirements.getMemory().toBytes() >= maxNodePoolSize.get();
     }
 }
