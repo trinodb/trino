@@ -63,7 +63,7 @@ import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.time.Instant.now;
 import static java.util.Objects.requireNonNull;
-import static javax.ws.rs.HttpMethod.POST;
+import static javax.ws.rs.HttpMethod.GET;
 import static javax.ws.rs.core.Response.Status.BAD_REQUEST;
 
 public class OAuth2Service
@@ -316,7 +316,7 @@ public class OAuth2Service
         if (userinfoUri.isPresent()) {
             // validate access token is trusted by remote userinfo endpoint
             Request request = Request.builder()
-                    .setMethod(POST)
+                    .setMethod(GET)
                     .addHeader(AUTHORIZATION, "Bearer " + accessToken)
                     .setUri(userinfoUri.get())
                     .build();
