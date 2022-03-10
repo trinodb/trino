@@ -33,6 +33,7 @@ import java.util.Map;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.airlift.units.Duration.nanosSince;
+import static io.trino.plugin.elasticsearch.ElasticsearchServer.ELASTICSEARCH_7_IMAGE;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
@@ -127,13 +128,10 @@ public final class ElasticsearchQueryRunner
     public static void main(String[] args)
             throws Exception
     {
-        // To start Elasticsearch:
-        // docker run -p 9200:9200 -e "discovery.type=single-node" docker.elastic.co/elasticsearch/elasticsearch:7.6.2
-
         Logging.initialize();
 
         DistributedQueryRunner queryRunner = createElasticsearchQueryRunner(
-                HostAndPort.fromParts("localhost", 9200),
+                new ElasticsearchServer(ELASTICSEARCH_7_IMAGE, ImmutableMap.of()).getAddress(),
                 TpchTable.getTables(),
                 ImmutableMap.of("http-server.http.port", "8080"),
                 ImmutableMap.of(),
