@@ -198,21 +198,21 @@ The source name can be set as follows:
 
 * CLI: use the ``--source`` option.
 
-* JDBC: set the ``ApplicationName`` client info property on the ``Connection``
-  instance.
+* JDBC used in client apps: add the ``source`` tag when using a Java application
+  that uses the JDBC Driver.
 
-* Driver properties: add the ``source`` tag when using a Java application that
-  uses the JDBC Driver.
+* JDBC used in Java programs: set the ``ApplicationName`` client info property
+  on the ``Connection`` instance.
 
 Client tags can be set as follows:
 
 * CLI: use the ``--client-tags`` option.
 
-* JDBC: set the ``ClientTags`` client info property on the ``Connection``
-  instance.
+* JDBC used in client apps: add the ``client`` tag when using a Java application
+  that uses the JDBC Driver.
 
-* Driver properties: add the ``client`` tag when using a Java application that
-  uses the JDBC Driver.
+* JDBC used in Java programs: set the ``ClientTags`` client info property on the
+  ``Connection`` instance.
 
 Example
 -------
