@@ -160,6 +160,17 @@ public class MongoSession
                 .collect(toImmutableList());
     }
 
+    public void createSchema(String schemaName)
+    {
+        // Put an empty schema collection because MongoDB doesn't support a database without collections
+        client.getDatabase(schemaName).createCollection(schemaCollection);
+    }
+
+    public void dropSchema(String schemaName)
+    {
+        client.getDatabase(schemaName).drop();
+    }
+
     public Set<String> getAllTables(String schema)
             throws SchemaNotFoundException
     {
