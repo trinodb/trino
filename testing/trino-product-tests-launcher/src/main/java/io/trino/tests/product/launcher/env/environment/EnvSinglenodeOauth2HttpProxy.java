@@ -23,10 +23,12 @@ import io.trino.tests.product.launcher.env.common.HydraIdentityProvider;
 import io.trino.tests.product.launcher.env.common.Standard;
 import io.trino.tests.product.launcher.env.common.TestsEnvironment;
 import io.trino.tests.product.launcher.testcontainers.PortBinder;
+import org.testcontainers.containers.wait.strategy.HttpWaitStrategy;
 
 import javax.inject.Inject;
 
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
+import static io.trino.tests.product.launcher.env.common.HydraIdentityProvider.HYDRA;
 import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_CONFIG_PROPERTIES;
 import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
 import static java.util.Objects.requireNonNull;
@@ -76,9 +78,10 @@ public class EnvSinglenodeOauth2HttpProxy
 
         builder.containerDependsOn(COORDINATOR, hydraClientConfig.getLogicalName());
 
-        DockerContainer proxy = new DockerContainer("httpd:2.4.51", "proxy");
-        proxy.withCopyFileToContainer(forHostPath(configDir.getPath("httpd.conf")), "/usr/local/apache2/conf/httpd.conf");
-        builder.addContainer(proxy);
+        builder.addContainer(new DockerContainer("httpd:2.4.51", "proxy")
+                .withCopyFileToContainer(forHostPath(configDir.getPath("httpd.conf")), "/usr/local/apache2/conf/httpd.conf")
+                .waitingFor(new HttpWaitStrategy().forPath("/health/ready")));
+        builder.containerDependsOn("proxy", HYDRA);
         builder.containerDependsOn(COORDINATOR, "proxy");
     }
 }

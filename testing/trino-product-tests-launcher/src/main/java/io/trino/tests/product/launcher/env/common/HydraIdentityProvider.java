@@ -33,6 +33,7 @@ import static org.testcontainers.utility.MountableFile.forHostPath;
 public class HydraIdentityProvider
         implements EnvironmentExtender
 {
+    public static final String HYDRA = "hydra";
     private static final int TTL_ACCESS_TOKEN_IN_SECONDS = 5;
     private static final String HYDRA_IMAGE = "oryd/hydra:v1.10.6";
     private static final String DSN = "postgres://hydra:mysecretpassword@hydra-db:5432/hydra?sslmode=disable";
@@ -146,7 +147,7 @@ public class HydraIdentityProvider
 
         builder.addContainer(clientCreatingContainer);
 
-        builder.containerDependsOn(clientCreatingContainer.getLogicalName(), "hydra");
+        builder.containerDependsOn(clientCreatingContainer.getLogicalName(), HYDRA);
 
         return clientCreatingContainer;
     }
