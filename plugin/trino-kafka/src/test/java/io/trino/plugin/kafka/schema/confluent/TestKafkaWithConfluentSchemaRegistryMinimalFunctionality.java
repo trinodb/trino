@@ -186,13 +186,9 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
                         .put(VALUE_SERIALIZER_CLASS_CONFIG, KafkaJsonSchemaSerializer.class.getName())
                         .buildOrThrow());
 
-        String errorMessage = "Not supported schema: JSON";
-        assertEventually(
-                succinctDuration(10, SECONDS),
-                () -> assertThatThrownBy(() -> tableExists(topicName))
-                        .isInstanceOf(RuntimeException.class)
-                        .hasMessage(errorMessage));
+        assertTrue(tableExists(topicName));
 
+        String errorMessage = "Not supported schema: JSON";
         assertThatThrownBy(() -> getQueryRunner().execute("SHOW COLUMNS FROM " + toDoubleQuoted(topicName)))
                 .hasMessage(errorMessage);
         assertThatThrownBy(() -> getQueryRunner().execute("SELECT * FROM " + toDoubleQuoted(topicName)))
