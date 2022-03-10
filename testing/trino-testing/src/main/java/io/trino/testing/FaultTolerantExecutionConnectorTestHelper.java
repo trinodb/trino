@@ -33,6 +33,7 @@ public final class FaultTolerantExecutionConnectorTestHelper
                 // TODO: re-enable once failure recover supported for this functionality
                 .put("enable-dynamic-filtering", "false")
                 .put("distributed-sort", "false")
+                .put("fault-tolerant-execution-task-memory", "1GB")
                 .buildOrThrow();
     }
 }
