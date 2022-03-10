@@ -60,6 +60,11 @@
 
 * Prevent writing incorrect results when arrays contain `null` values. ({issue}`11351`)
 
+## PostgreSQL connector
+
+* Improve performance of queries involving `LIKE` by pushing predicate
+  computation to the underlying database. ({issue}`11045`)
+
 ## SQL Server connector
 
 * Fix incorrect results when querying SQL Server `tinyint` columns by mapping
