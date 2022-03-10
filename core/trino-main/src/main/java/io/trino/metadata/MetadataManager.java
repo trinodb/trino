@@ -499,10 +499,10 @@ public final class MetadataManager
 
         Optional<QualifiedObjectName> objectName = prefix.asQualifiedObjectName();
         if (objectName.isPresent()) {
-            if (isExistingRelation(session, objectName.get())) {
-                return ImmutableList.of(objectName.get());
+            Optional<Boolean> exists = isExistingRelationForListing(session, objectName.get());
+            if (exists.isPresent()) {
+                return exists.get() ? ImmutableList.of(objectName.get()) : ImmutableList.of();
             }
-            return ImmutableList.of();
         }
 
         Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, prefix.getCatalogName());
@@ -522,20 +522,27 @@ public final class MetadataManager
         return ImmutableList.copyOf(tables);
     }
 
-    private boolean isExistingRelation(Session session, QualifiedObjectName name)
+    private Optional<Boolean> isExistingRelationForListing(Session session, QualifiedObjectName name)
     {
         if (isMaterializedView(session, name)) {
-            return true;
+            return Optional.of(true);
         }
         if (isView(session, name)) {
-            return true;
+            return Optional.of(true);
         }
 
-        // If the table is not redirected, table handle existence is checked.
-        // If the table is redirected, the target table handle is retrieved. If it does not exist, an
-        // exception is thrown. This behavior is currently inconsistent with the unfiltered case of table listing.
-        // TODO: the behavior may change with a different way to resolve relation names. https://github.com/trinodb/trino/issues/9400
-        return getRedirectionAwareTableHandle(session, name).getTableHandle().isPresent();
+        // TODO: consider a better way to resolve relation names: https://github.com/trinodb/trino/issues/9400
+        try {
+            return Optional.of(getRedirectionAwareTableHandle(session, name).getTableHandle().isPresent());
+        }
+        catch (TrinoException e) {
+            // ignore redirection errors for consistency with listing
+            if (e.getErrorCode().equals(TABLE_REDIRECTION_ERROR.toErrorCode())) {
+                return Optional.of(true);
+            }
+            // we don't know if it exists or not
+            return Optional.empty();
+        }
     }
 
     @Override
