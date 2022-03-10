@@ -67,6 +67,7 @@ Keyword                        SQL:2016      SQL-92
 ``OR``                         reserved      reserved
 ``ORDER``                      reserved      reserved
 ``OUTER``                      reserved      reserved
+``OVERWRITE``
 ``PREPARE``                    reserved      reserved
 ``RECURSIVE``                  reserved
 ``RIGHT``                      reserved      reserved

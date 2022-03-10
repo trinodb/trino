@@ -2965,15 +2965,15 @@ public abstract class BaseHiveConnectorTest
                         .setCatalogSessionProperty(catalog, "insert_existing_partitions_behavior", "OVERWRITE")
                         .build(),
                 HiveStorageFormat.ORC,
-                false);
+                "INTO");
 
         testInsertPartitionedTableOverwriteExistingPartition(
                 Session.builder(getSession()).build(),
                 HiveStorageFormat.ORC,
-                true);
+                "OVERWRITE");
     }
 
-    private void testInsertPartitionedTableOverwriteExistingPartition(Session session, HiveStorageFormat storageFormat)
+    private void testInsertPartitionedTableOverwriteExistingPartition(Session session, HiveStorageFormat storageFormat, String insertMode)
     {
         String tableName = "test_insert_partitioned_table_overwrite_existing_partition";
 
@@ -2999,7 +2999,7 @@ public abstract class BaseHiveConnectorTest
             assertUpdate(
                     session,
                     format(
-                            "INSERT INTO " + tableName + " " +
+                            "INSERT " + insertMode + " " + tableName + " " +
                                     "SELECT orderkey, comment, orderstatus " +
                                     "FROM tpch.tiny.orders " +
                                     "WHERE orderkey %% 3 = %d",
@@ -7631,7 +7631,7 @@ public abstract class BaseHiveConnectorTest
                     QualifiedObjectName objectName = new QualifiedObjectName(catalog, TPCH_SCHEMA, tableName);
                     Optional<TableHandle> handle = metadata.getTableHandle(transactionSession, objectName);
                     List<ColumnHandle> columns = ImmutableList.copyOf(metadata.getColumnHandles(transactionSession, handle.get()).values());
-                    InsertTableHandle insertTableHandle = metadata.beginInsert(transactionSession, handle.get(), columns);
+                    InsertTableHandle insertTableHandle = metadata.beginInsert(transactionSession, handle.get(), columns, Optional.empty());
                     HiveInsertTableHandle hiveInsertTableHandle = (HiveInsertTableHandle) insertTableHandle.getConnectorHandle();
 
                     metadata.finishInsert(transactionSession, insertTableHandle, ImmutableList.of(), ImmutableList.of());

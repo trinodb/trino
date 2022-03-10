@@ -7,7 +7,7 @@ Synopsis
 
 .. code-block:: text
 
-    INSERT INTO table_name [ ( column [, ... ] ) ] query
+    INSERT ( INTO | OVERWRITE ) table_name [ ( column [, ... ] ) ] query
 
 Description
 -----------
@@ -47,6 +47,10 @@ That column will be ``null``::
 
     INSERT INTO nation (nationkey, name, regionkey)
     VALUES (26, 'POLAND', 3);
+
+Replace the rows in the ``cities`` table::
+
+    INSERT OVERWRITE cities VALUES (1, 'San Jose'), (2, 'Oakland');
 
 See also
 --------
