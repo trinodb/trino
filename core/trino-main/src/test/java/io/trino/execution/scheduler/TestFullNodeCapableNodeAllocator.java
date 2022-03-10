@@ -77,6 +77,8 @@ public class TestFullNodeCapableNodeAllocator
     private static final NodeRequirements FULL_NODE_3_REQUIREMENTS = new NodeRequirements(Optional.empty(), Set.of(NODE_3_ADDRESS), FULL_NODE_MEMORY);
     private static final NodeRequirements FULL_NODE_CATALOG_1_REQUIREMENTS = new NodeRequirements(Optional.of(CATALOG_1), Set.of(), FULL_NODE_MEMORY);
     private static final NodeRequirements FULL_NODE_CATALOG_2_REQUIREMENTS = new NodeRequirements(Optional.of(CATALOG_2), Set.of(), FULL_NODE_MEMORY);
+    // not using FULL_NODE_MEMORY marker but with memory requirements exceeding any node in cluster
+    private static final NodeRequirements EFFECTIVELY_FULL_NODE_REQUIREMENTS = new NodeRequirements(Optional.empty(), Set.of(), DataSize.of(65, GIGABYTE));
 
     // none of the tests should require periodic execution of routine which processes pending acquisitions
     private static final long TEST_TIMEOUT = FullNodeCapableNodeAllocatorService.PROCESS_PENDING_ACQUIRES_DELAY_SECONDS * 1000 / 2;
@@ -255,18 +257,31 @@ public class TestFullNodeCapableNodeAllocator
     public void testAllocateFullSimple()
             throws Exception
     {
+        testAllocateFullSimple(FULL_NODE_REQUIREMENTS);
+    }
+
+    @Test(timeOut = TEST_TIMEOUT)
+    public void testEffectivelyFullNodeSimple()
+            throws Exception
+    {
+        testAllocateFullSimple(EFFECTIVELY_FULL_NODE_REQUIREMENTS);
+    }
+
+    private void testAllocateFullSimple(NodeRequirements fullNodeRequirements)
+            throws Exception
+    {
         TestingNodeSupplier nodeSupplier = TestingNodeSupplier.create(basicNodesMap(NODE_1, NODE_2));
         setupNodeAllocatorService(nodeSupplier, 3);
 
         try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(Q1_SESSION)) {
             // allocate 2 full nodes should not block
-            NodeAllocator.NodeLease acquire1 = nodeAllocator.acquire(FULL_NODE_REQUIREMENTS);
+            NodeAllocator.NodeLease acquire1 = nodeAllocator.acquire(fullNodeRequirements);
             assertAcquired(acquire1);
-            NodeAllocator.NodeLease acquire2 = nodeAllocator.acquire(FULL_NODE_REQUIREMENTS);
+            NodeAllocator.NodeLease acquire2 = nodeAllocator.acquire(fullNodeRequirements);
             assertAcquired(acquire2);
 
             // trying to allocate third full node should block
-            NodeAllocator.NodeLease acquire3 = nodeAllocator.acquire(FULL_NODE_REQUIREMENTS);
+            NodeAllocator.NodeLease acquire3 = nodeAllocator.acquire(fullNodeRequirements);
             assertNotAcquired(acquire3);
 
             // third acquisition should unblock if one of old ones is released
@@ -288,7 +303,7 @@ public class TestFullNodeCapableNodeAllocator
             });
 
             // shared acquisition should block full acquisition
-            NodeAllocator.NodeLease acquire5 = nodeAllocator.acquire(FULL_NODE_REQUIREMENTS);
+            NodeAllocator.NodeLease acquire5 = nodeAllocator.acquire(fullNodeRequirements);
             assertNotAcquired(acquire5);
 
             // and when shared acquisition is gone full node should be acquired
