@@ -88,6 +88,8 @@ This example JDBC URL locates a Trino instance running on port ``8080`` on
   client. If it is not, use ``io.trino.jdbc.TrinoDriver`` wherever a driver
   classname is required.
 
+.. _jdbc-java-connection:
+
 Connection parameters
 ---------------------
 
