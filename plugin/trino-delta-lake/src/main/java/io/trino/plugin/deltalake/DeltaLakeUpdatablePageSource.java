@@ -239,9 +239,8 @@ public class DeltaLakeUpdatablePageSource
         checkArgument(rowIdColumnIndex.isPresent(), "RowId column was not provided during delete operation");
         this.rowIdColumnIndex = rowIdColumnIndex.getAsInt();
 
-        try {
-            Path fsPath = new Path(path);
-            ParquetFileReader parquetReader = ParquetFileReader.open(HadoopInputFile.fromPath(fsPath, hdfsEnvironment.getConfiguration(hdfsContext, fsPath)));
+        Path fsPath = new Path(path);
+        try (ParquetFileReader parquetReader = ParquetFileReader.open(HadoopInputFile.fromPath(fsPath, hdfsEnvironment.getConfiguration(hdfsContext, fsPath)))) {
             checkArgument(parquetReader.getRecordCount() <= Integer.MAX_VALUE, "Deletes from files with more than Integer.MAX_VALUE rows is not supported");
             this.totalRecordCount = toIntExact(parquetReader.getRecordCount());
             this.rowsToDelete = new BitSet(totalRecordCount);
