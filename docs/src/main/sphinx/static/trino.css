@@ -60,16 +60,6 @@ pre.literal-block {
     font-size: 0.8rem
 }
 
-@media only screen and (min-width: 88.25em) {
-    .md-grid {
-        max-width: 61rem;
-    }
-
-    .md-sidebar--secondary {
-        margin-left: 61rem;
-    }
-}
-
 .o-tooltip--left:after {
     font-size: 0.6rem;
 }
