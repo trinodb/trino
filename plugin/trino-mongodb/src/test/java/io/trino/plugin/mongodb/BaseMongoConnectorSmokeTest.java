@@ -23,7 +23,7 @@ public abstract class BaseMongoConnectorSmokeTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
-            case SUPPORTS_CREATE_SCHEMA:
+            case SUPPORTS_RENAME_SCHEMA:
                 return false;
 
             case SUPPORTS_RENAME_TABLE:
