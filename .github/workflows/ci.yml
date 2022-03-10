@@ -67,6 +67,45 @@ jobs:
           platforms: arm64
       - name: Test Docker Image
         run: core/docker/build-local.sh
+      - name: Save Docker Image
+        if: matrix.java-version == '11'
+        run: |
+          docker tag trino:$(./mvnw --quiet help:evaluate -Dexpression=project.version -DforceStdout)-amd64 trinodb/trino:latest
+          docker save trinodb/trino:latest -o docker-image.tar
+      - name: Upload Docker image artifact
+        if: matrix.java-version == '11'
+        uses: actions/upload-artifact@v3
+        with:
+          name: docker image
+          path: docker-image.tar
+          retention-days: 1
+
+  test-chart:
+    runs-on: ubuntu-latest
+    needs: maven-checks (11)
+    steps:
+      - name: Download Docker image artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: docker image
+      - name: Create kind cluster
+        uses: helm/kind-action@v1.2.0
+      - name: Load the Docker image
+        run: |
+          docker tag trino:$(./mvnw --quiet help:evaluate -Dexpression=project.version -DforceStdout)-amd64 trinodb/trino:latest
+          kind load docker-image trinodb/trino:latest
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          repository: trinodb/charts
+      - name: Set up Helm
+        uses: azure/setup-helm@v1
+        with:
+          version: v3.4.0
+      - name: Set up chart-testing
+        uses: helm/chart-testing-action@v2.0.1
+      - name: Install charts
+        run: ct install --charts=charts/charts/trino
 
   error-prone-checks:
     runs-on: ubuntu-latest
