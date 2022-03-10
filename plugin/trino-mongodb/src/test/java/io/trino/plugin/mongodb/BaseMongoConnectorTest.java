@@ -63,7 +63,6 @@ public abstract class BaseMongoConnectorTest
         switch (connectorBehavior) {
             case SUPPORTS_RENAME_SCHEMA:
             case SUPPORTS_NOT_NULL_CONSTRAINT:
-            case SUPPORTS_RENAME_TABLE:
             case SUPPORTS_RENAME_COLUMN:
                 return false;
             default:
@@ -468,6 +467,21 @@ public abstract class BaseMongoConnectorTest
 
         assertQuery("SELECT value FROM testcase.testinsensitive WHERE name = 'def'", "SELECT 2");
         assertUpdate("DROP TABLE testcase.testinsensitive");
+    }
+
+    @Test
+    public void testCaseInsensitiveRenameTable()
+    {
+        MongoCollection<Document> collection = client.getDatabase("testCase_RenameTable").getCollection("testInsensitive_RenameTable");
+        collection.insertOne(new Document(ImmutableMap.of("value", 1)));
+        assertQuery("SHOW TABLES IN testcase_renametable", "SELECT 'testinsensitive_renametable'");
+        assertQuery("SELECT value FROM testcase_renametable.testinsensitive_renametable", "SELECT 1");
+
+        assertUpdate("ALTER TABLE testcase_renametable.testinsensitive_renametable RENAME TO testcase_renametable.testinsensitive_renamed_table");
+
+        assertQuery("SHOW TABLES IN testcase_renametable", "SELECT 'testinsensitive_renamed_table'");
+        assertQuery("SELECT value FROM testcase_renametable.testinsensitive_renamed_table", "SELECT 1");
+        assertUpdate("DROP TABLE testcase_renametable.testinsensitive_renamed_table");
     }
 
     @Test
