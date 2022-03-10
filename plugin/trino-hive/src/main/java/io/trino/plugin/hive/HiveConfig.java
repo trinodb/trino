@@ -146,6 +146,8 @@ public class HiveConfig
 
     private boolean legacyHiveViewTranslation;
 
+    private String tesseractConfigLocation;
+
     public int getMaxInitialSplits()
     {
         return maxInitialSplits;
@@ -1032,6 +1034,17 @@ public class HiveConfig
     public HiveConfig setLegacyHiveViewTranslation(boolean legacyHiveViewTranslation)
     {
         this.legacyHiveViewTranslation = legacyHiveViewTranslation;
+        return this;
+    }
+
+    public String getTesseractConfigLocation() {
+        return tesseractConfigLocation;
+    }
+
+    @Config("tesseract.metadata-config-location")
+    @ConfigDescription("config location of database json containing connection details for rdbms tesseract needs to connect to fetch cube metadata")
+    public HiveConfig setTesseractConfigLocation(String tesseractConfigLocation) {
+        this.tesseractConfigLocation = tesseractConfigLocation;
         return this;
     }
 

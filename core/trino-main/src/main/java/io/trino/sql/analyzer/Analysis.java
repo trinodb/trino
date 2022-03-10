@@ -40,6 +40,7 @@ import io.trino.spi.eventlistener.TableInfo;
 import io.trino.spi.security.Identity;
 import io.trino.spi.type.Type;
 import io.trino.sql.analyzer.ExpressionAnalyzer.LabelPrefixedReference;
+import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.tree.AllColumns;
 import io.trino.sql.tree.DereferenceExpression;
 import io.trino.sql.tree.ExistsPredicate;
@@ -71,6 +72,7 @@ import io.trino.sql.tree.Unnest;
 import io.trino.sql.tree.WindowFrame;
 import io.trino.sql.tree.WindowOperation;
 import io.trino.transaction.TransactionId;
+import tesseract.pojos.TesseractAnalysisContext;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
@@ -213,11 +215,19 @@ public class Analysis
     private final Multimap<Field, SourceColumn> originColumnDetails = ArrayListMultimap.create();
     private final Multimap<NodeRef<Expression>, Field> fieldLineage = ArrayListMultimap.create();
 
+    // to create a binding between a planNodeId and AST
+    private final Map<PlanNodeId, TesseractAnalysisContext> tableScanNodesToLocationInfo = new LinkedHashMap<>();
+
     public Analysis(@Nullable Statement root, Map<NodeRef<Parameter>, Expression> parameters, boolean isDescribe)
     {
         this.root = root;
         this.parameters = ImmutableMap.copyOf(requireNonNull(parameters, "parameters is null"));
         this.isDescribe = isDescribe;
+    }
+
+    public Map<PlanNodeId, TesseractAnalysisContext> getTableScanNodesToLocationInfo()
+    {
+        return tableScanNodesToLocationInfo;
     }
 
     public Statement getStatement()

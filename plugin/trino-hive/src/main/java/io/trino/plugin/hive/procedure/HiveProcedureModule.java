@@ -33,5 +33,6 @@ public class HiveProcedureModule
         procedures.addBinding().toProvider(UnregisterPartitionProcedure.class).in(Scopes.SINGLETON);
         procedures.addBinding().toProvider(SyncPartitionMetadataProcedure.class).in(Scopes.SINGLETON);
         procedures.addBinding().toProvider(DropStatsProcedure.class).in(Scopes.SINGLETON);
+        procedures.addBinding().toProvider(TesseractCacheRefreshProcedure.class).in(Scopes.SINGLETON);
     }
 }

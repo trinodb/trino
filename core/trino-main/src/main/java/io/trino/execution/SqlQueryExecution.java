@@ -43,6 +43,14 @@ import io.trino.server.DynamicFilterService;
 import io.trino.server.protocol.Slug;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
+import io.trino.spi.tesseract.TesseractTableInfo;
+import io.trino.sql.planner.plan.PlanNode;
+import io.trino.sql.planner.plan.PlanNodeId;
+import io.trino.sql.tree.NodeLocation;
+import org.apache.commons.lang3.StringUtils;
+import tesseract.pojos.TesseractAnalysisTable;
+import tesseract.pojos.TesseractAstContext;
+import tesseract.pojos.TesseractAstTable;
 import io.trino.spi.security.GroupProvider;
 import io.trino.spi.type.TypeOperators;
 import io.trino.split.SplitManager;
@@ -60,26 +68,37 @@ import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.PlanFragmenter;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.PlanOptimizersFactory;
+import io.trino.sql.planner.SimplePlanVisitor;
 import io.trino.sql.planner.StageExecutionPlan;
 import io.trino.sql.planner.SubPlan;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.optimizations.PlanOptimizer;
+import io.trino.sql.planner.plan.TableScanNode;
+import io.trino.sql.planner.planprinter.TableInfoSupplier;
 import io.trino.sql.tree.ExplainAnalyze;
 import io.trino.sql.tree.Query;
 import io.trino.sql.tree.Statement;
 import org.joda.time.DateTime;
+import tesseract.pojos.TesseractViewContext;
+import tesseract.pojos.TesseractViewRewriteInfo;
+import tesseract.visitor.TesseractAstVisitor;
+import tesseract.visitor.TesseractViewUnfoldVisitor;
 
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
 import java.util.Collection;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.TreeMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -87,12 +106,14 @@ import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.trino.SystemSessionProperties.isEnableDynamicFiltering;
+import static io.trino.SystemSessionProperties.isOptimizeTesseractQueries;
 import static io.trino.execution.QueryState.FAILED;
 import static io.trino.execution.QueryState.PLANNING;
 import static io.trino.execution.buffer.OutputBuffers.BROADCAST_PARTITION_ID;
 import static io.trino.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
 import static io.trino.execution.scheduler.SqlQueryScheduler.createSqlQueryScheduler;
 import static io.trino.server.DynamicFilterService.DynamicFiltersStats;
+import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.sql.ParameterUtils.parameterExtractor;
 import static java.lang.Thread.currentThread;
@@ -104,6 +125,7 @@ public class SqlQueryExecution
         implements QueryExecution
 {
     private static final Logger log = Logger.get(SqlQueryExecution.class);
+    private static final String DISABLE_OPTIMIZE_TESSERACT_QUERIES = "disable-optimize-tesseract-queries";
 
     private static final OutputBufferId OUTPUT_BUFFER_ID = new OutputBufferId(0);
 
@@ -116,6 +138,7 @@ public class SqlQueryExecution
     private final NodePartitioningManager nodePartitioningManager;
     private final NodeScheduler nodeScheduler;
     private final List<PlanOptimizer> planOptimizers;
+    private final List<PlanOptimizer> prePlanOptimizers;
     private final PlanFragmenter planFragmenter;
     private final RemoteTaskFactory remoteTaskFactory;
     private final int scheduleSplitBatchSize;
@@ -128,10 +151,11 @@ public class SqlQueryExecution
     private final NodeTaskMap nodeTaskMap;
     private final ExecutionPolicy executionPolicy;
     private final SplitSchedulerStats schedulerStats;
-    private final Analysis analysis;
+    private Analysis analysis;
     private final StatsCalculator statsCalculator;
     private final CostCalculator costCalculator;
     private final DynamicFilterService dynamicFilterService;
+    private final QueryPreparer queryPreparer;
 
     private SqlQueryExecution(
             PreparedQuery preparedQuery,
@@ -146,6 +170,7 @@ public class SqlQueryExecution
             NodePartitioningManager nodePartitioningManager,
             NodeScheduler nodeScheduler,
             List<PlanOptimizer> planOptimizers,
+            List<PlanOptimizer> prePlanOptimizers,
             PlanFragmenter planFragmenter,
             RemoteTaskFactory remoteTaskFactory,
             int scheduleSplitBatchSize,
@@ -159,7 +184,8 @@ public class SqlQueryExecution
             StatsCalculator statsCalculator,
             CostCalculator costCalculator,
             DynamicFilterService dynamicFilterService,
-            WarningCollector warningCollector)
+            WarningCollector warningCollector,
+            QueryPreparer queryPreparer)
     {
         try (SetThreadName ignored = new SetThreadName("Query-%s", stateMachine.getQueryId())) {
             this.slug = requireNonNull(slug, "slug is null");
@@ -170,6 +196,7 @@ public class SqlQueryExecution
             this.nodePartitioningManager = requireNonNull(nodePartitioningManager, "nodePartitioningManager is null");
             this.nodeScheduler = requireNonNull(nodeScheduler, "nodeScheduler is null");
             this.planOptimizers = requireNonNull(planOptimizers, "planOptimizers is null");
+            this.prePlanOptimizers = requireNonNull(prePlanOptimizers, "planOptimizers is null");
             this.planFragmenter = requireNonNull(planFragmenter, "planFragmenter is null");
             this.queryExecutor = requireNonNull(queryExecutor, "queryExecutor is null");
             this.schedulerExecutor = requireNonNull(schedulerExecutor, "schedulerExecutor is null");
@@ -180,14 +207,35 @@ public class SqlQueryExecution
             this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
             this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
             this.dynamicFilterService = requireNonNull(dynamicFilterService, "dynamicFilterService is null");
+            this.queryPreparer = requireNonNull(queryPreparer, "queryPreparer is null");
 
             checkArgument(scheduleSplitBatchSize > 0, "scheduleSplitBatchSize must be greater than 0");
             this.scheduleSplitBatchSize = scheduleSplitBatchSize;
 
             this.stateMachine = requireNonNull(stateMachine, "stateMachine is null");
 
-            // analyze query
-            this.analysis = analyze(preparedQuery, stateMachine, metadata, groupProvider, accessControl, sqlParser, queryExplainer, warningCollector);
+            Analysis preAnalysis = analyze(preparedQuery, stateMachine, metadata, groupProvider, accessControl, sqlParser, queryExplainer, warningCollector);
+
+            if (isPrePlanningRequired(preAnalysis)) {
+
+                String unfoldedQuery = unfoldViewsIfPresent(preparedQuery);
+
+                if (StringUtils.isNotBlank(unfoldedQuery)) {
+                    stateMachine.setQuery(unfoldedQuery);
+                    preparedQuery = queryPreparer.prepareQuery(getSession(), unfoldedQuery);
+                    preAnalysis = analyze(preparedQuery, stateMachine, metadata, groupProvider, accessControl, sqlParser, queryExplainer, warningCollector);
+                }
+
+                String optimizedQuery = getOptimizedQueryFromPrePlanning(preAnalysis, preparedQuery);
+                this.stateMachine.setQuery(optimizedQuery);
+
+                log.info(String.format("Optimized query is : |%s|", optimizedQuery));
+                PreparedQuery preparedOptimizedQuery = queryPreparer.prepareQuery(getSession(), optimizedQuery);
+                this.analysis = analyze(preparedOptimizedQuery, stateMachine, metadata, groupProvider, accessControl, sqlParser, queryExplainer, warningCollector);
+            }
+            else {
+                this.analysis = preAnalysis;
+            }
 
             stateMachine.addStateChangeListener(state -> {
                 if (!state.isDone()) {
@@ -213,6 +261,276 @@ public class SqlQueryExecution
 
             this.remoteTaskFactory = new MemoryTrackingRemoteTaskFactory(requireNonNull(remoteTaskFactory, "remoteTaskFactory is null"), stateMachine);
         }
+    }
+
+    /**
+     * @param analysis : plan created after analysis of original query
+     * @return : pre plan stage is required to add appropriate predicates for tesseract cubes
+     */
+    private boolean isPrePlanningRequired(Analysis analysis)
+    {
+        return  // optimization is enabled for current session
+                isOptimizeTesseractQueries(getSession()) &&
+                        // optimization for current query is not turned off using comment
+                        !this.stateMachine.getQuery().contains(DISABLE_OPTIMIZE_TESSERACT_QUERIES) &&
+                        // query refers at least 1 tesseract cube
+                        analysis.getTables().stream().anyMatch(tableHandle ->
+                                tableHandle.getConnectorHandle().getTesseractTableInfo()
+                                        .filter(tableInfo -> Boolean.parseBoolean(tableInfo.getTableProperties()
+                                                .getOrDefault(TesseractTableInfo.TESSERACT_OPTIMIZED_TABLE, "false"))).isPresent()
+                        );
+    }
+
+    /**
+     * Unfold the views into the provided query , this is done so that optimal predicates
+     * can be pushed into view definitions at a later stage.
+     *
+     * @param preparedQuery
+     * @return
+     */
+    public String unfoldViewsIfPresent(PreparedQuery preparedQuery)
+    {
+        if (log.isDebugEnabled()) {
+            log.debug("started unfolding query" + System.currentTimeMillis());
+        }
+        TesseractViewContext viewContext = new TesseractViewContext();
+        preparedQuery.getStatement().accept(new TesseractViewUnfoldVisitor(metadata, getSession(), queryPreparer), viewContext);
+
+        String originalQuery = stateMachine.getQuery();
+        StringBuilder updatedQueryBuilder = new StringBuilder();
+
+        if (!viewContext.getViewLocationToRewriteInfo().isEmpty()) {
+            Iterator<TesseractViewRewriteInfo> iterator = viewContext.getViewLocationToRewriteInfo().iterator();
+            int marker = 0;
+            int currentMarker;
+            TesseractViewRewriteInfo currentViewDetail;
+            while (iterator.hasNext()) {
+                currentViewDetail = iterator.next();
+                currentMarker = StringUtils.ordinalIndexOf(originalQuery, StringUtils.LF, currentViewDetail.getStartOfViewIdentifier().getLineNumber() - 1);
+                currentMarker += currentViewDetail.getStartOfViewIdentifier().getColumnNumber();
+                updatedQueryBuilder.append(originalQuery, marker, currentMarker);
+                updatedQueryBuilder.append(StringUtils.LF);
+                updatedQueryBuilder.append("--view-definition-start-marker");
+                updatedQueryBuilder.append(StringUtils.LF);
+                updatedQueryBuilder.append("(");
+                updatedQueryBuilder.append(currentViewDetail.getViewDefinition());
+                updatedQueryBuilder.append(")");
+                updatedQueryBuilder.append(StringUtils.LF);
+                updatedQueryBuilder.append("--view-definition-end-marker");
+                updatedQueryBuilder.append(StringUtils.LF);
+
+                currentMarker = StringUtils.ordinalIndexOf(originalQuery, StringUtils.LF, currentViewDetail.getEndOfViewIdentifier().getLineNumber() - 1);
+                currentMarker += currentViewDetail.getEndOfViewIdentifier().getColumnNumber() + currentViewDetail.getEndOfIdentifierLength();
+                marker = currentMarker;
+            }
+            updatedQueryBuilder.append(originalQuery, marker, originalQuery.length());
+        }
+        if (log.isDebugEnabled()) {
+            log.debug( String.format("ended unfolding query to : |%s| at time : %s ",updatedQueryBuilder.toString(), System.currentTimeMillis()));
+        }
+        return updatedQueryBuilder.toString();
+    }
+
+    /**
+     * We create a Analysis tree and use it to create a mapping between every table node at its location in original sql query
+     * Then we apply certain optimizers on analysis plan to get a toned down table node which is then used to fetch optimal tesseract predicate
+     * <p>
+     * Respective predicate is then used to rewrite the original query
+     */
+    private String getOptimizedQueryFromPrePlanning(Analysis preAnalysis, PreparedQuery preparedQuery)
+    {
+
+        LogicalPlanner logicalPlanner = new LogicalPlanner(stateMachine.getSession(),
+                prePlanOptimizers,
+                new PlanNodeIdAllocator(),
+                metadata,
+                typeOperators,
+                new TypeAnalyzer(sqlParser, metadata),
+                statsCalculator,
+                costCalculator,
+                stateMachine.getWarningCollector());
+
+        log.warn(String.format("analysis to analysis plan : %s", System.currentTimeMillis()));
+        PlanNode preAnalysisPlanNode = logicalPlanner.planStatement(preAnalysis, preAnalysis.getStatement());
+        log.warn(String.format("analysis to analysis plan : %s", System.currentTimeMillis()));
+
+        Map<PlanNodeId, TesseractAstTable> planNodeIdToAstInfo = mappingOfPlanNodeIdToAstInfo(preAnalysis, preAnalysisPlanNode, preparedQuery);
+
+        log.warn(String.format("pre optimizing analysis plan  : %s", System.currentTimeMillis()));
+        Plan optimizedPlan = logicalPlanner.plan(preAnalysisPlanNode);
+        log.warn(String.format("pre optimizing analysis plan  : %s", System.currentTimeMillis()));
+
+        log.warn(String.format("fetching predicate for analysis plan  : %s", System.currentTimeMillis()));
+        optimizedPlan.getRoot().accept(new SimplePlanVisitor<>()
+        {
+            @Override
+            public Void visitTableScan(TableScanNode node, Map<PlanNodeId, TesseractAstTable> planNodeIdToAstInfo)
+            {
+                Optional<TesseractTableInfo> currentTableInfo = node.getTable().getConnectorHandle().getTesseractTableInfo();
+                if (currentTableInfo.isPresent() && currentTableInfo.get().isTesseractOptimizedTable()) {
+                    metadata.initializeTesseractMetadataConfig(getSession(), node.getTable());
+                    Optional<String> optimalPredicate = node.getTable().getConnectorHandle().getTesseractTableOptimalPredicate(
+                            new TableInfoSupplier(metadata, getSession()).apply(node).getPredicate().getDomains());
+                    optimalPredicate.ifPresent(predicate -> {
+                        if(planNodeIdToAstInfo.containsKey(node.getId())){
+                            planNodeIdToAstInfo.get(node.getId()).setOptimalPredicate(predicate);
+                        }
+                        else {
+                            throw new TrinoException(GENERIC_INTERNAL_ERROR, String.format("For query : %s , optimal predicate %s was calculated but " +
+                                            "corresponding AST node was not found , AST details : %s",
+                                    stateMachine.getQuery(),predicate,planNodeIdToAstInfo));
+                        }
+                    });
+                }
+                return null;
+            }
+        }, planNodeIdToAstInfo);
+        log.warn(String.format("fetching predicate for analysis plan  : %s", System.currentTimeMillis()));
+
+        return rewriteOriginalQuery(
+                /*
+                for rewriting only send the ast info of tables that have optimal predicates
+                 */
+                planNodeIdToAstInfo.values().stream().filter(tesseractAstTable -> StringUtils.isNotBlank(tesseractAstTable.getOptimalPredicate()))
+                        .collect(Collectors.toList())
+        );
+    }
+
+    /**
+     * Rewrites the original query into its final optimized form
+     *
+     * @param tesseractRewriteInfo : location info of each tesseract table node and its corresponding detail
+     * @return : optimized sql
+     */
+    private String rewriteOriginalQuery(List<TesseractAstTable> tesseractRewriteInfo)
+    {
+        log.warn(String.format("rewriting original query  : %s", System.currentTimeMillis()));
+        StringBuilder optimalQueryBuilder = new StringBuilder(stateMachine.getQuery());
+        int offset = 0;
+        int lastEditedLine = 0;
+        for (TesseractAstTable tesseractAstTable : tesseractRewriteInfo) {
+
+            // offset is only relevant if the previous edit was made in same line
+            if (tesseractAstTable.getNodeLocationForEdit().getLineNumber() != lastEditedLine) {
+                offset = 0;
+            }
+            lastEditedLine = tesseractAstTable.getNodeLocationForEdit().getLineNumber();
+            int finalIndex =
+                    // 0 based index of line start in complete query
+                    (StringUtils.ordinalIndexOf(optimalQueryBuilder, StringUtils.LF, tesseractAstTable.getNodeLocationForEdit().getLineNumber() - 1))
+                            // target index in current line
+                            + tesseractAstTable.getNodeLocationForEdit().getColumnNumber()
+                            // shift in location due edits made in previous iteration
+                            + offset;
+
+            if (tesseractAstTable.isWherePresent()) {
+                int whereIndex = StringUtils.indexOfIgnoreCase(optimalQueryBuilder.toString(), "where", finalIndex) + 5;
+                optimalQueryBuilder.insert(whereIndex, tesseractAstTable.getOptimalPredicate() + " and ");
+                offset += tesseractAstTable.getOptimalPredicate().length() + 5;
+            }
+            else {
+                optimalQueryBuilder.insert(finalIndex, " where " + tesseractAstTable.getOptimalPredicate());
+                offset += tesseractAstTable.getOptimalPredicate().length() + 7;
+            }
+        }
+        log.warn(String.format("rewriting original query  : %s", System.currentTimeMillis()));
+        return optimalQueryBuilder.toString();
+    }
+
+    /**
+     * While creating optimized plan using PrePlan Optimizers, the order of table present in sql AST tree can be shuffled/rearranged .
+     * So we need to create a linking between the plan node id's of Analysis tree and AST to track the table locations in sql string before said shuffling
+     * <p>
+     * This linking is created by using the NodeLocation of tablescannodes in optimized plan and captured NodeLocation of tablescannodes in the original AST
+     *
+     * @param preAnalysis : plan with scope details from logical planning of a query
+     * @param analysisPlanNode : plan with plan node id's , this ultimately becomes the input for optimization stage
+     * @param preparedQuery : the query from which we shall make the AST
+     * @return : PlanNode Id to its corresponding AST table (location info of the table in sql string)
+     */
+    private Map<PlanNodeId, TesseractAstTable> mappingOfPlanNodeIdToAstInfo(Analysis preAnalysis, PlanNode analysisPlanNode, PreparedQuery preparedQuery)
+    {
+
+        /*
+         this will create a linking between node location of a tesseract table and its corresponding plan node id in Analysis plan
+         */
+        Map<NodeLocation,TesseractAnalysisTable> astNodeLocationToPlanNodeIds = mappingOfAstNodeLocationToPlanNodeIds(preAnalysis, analysisPlanNode);
+
+        log.warn(String.format("traverse AST plan : %s", System.currentTimeMillis()));
+        /*
+        traverse ast tree and get query location info for each tesseract optimized table
+         */
+        TesseractAstContext astContext = new TesseractAstContext();
+        preparedQuery.getStatement().accept(new TesseractAstVisitor(metadata, getSession()), astContext);
+
+        log.warn(String.format("traverse AST plan : %s", System.currentTimeMillis()));
+
+        /*
+        combine both trees (AST and Analysis tree) : After this we shall have plan node id to its corresponding ast table info required
+        to insert the optimal predicate at appropriate location
+
+        This combination is done on the basis of node location of both the ast table and analysis table in the original query.
+         */
+        Map<PlanNodeId, TesseractAstTable> tesseractRewriteInfo = new LinkedHashMap<>();
+
+        astNodeLocationToPlanNodeIds.forEach((astNodeLocation, tesseractAnalysisTable) -> {
+            if (astContext.getNodeLocationToTesseractAstTables().containsKey(astNodeLocation)) {
+                tesseractRewriteInfo.put(tesseractAnalysisTable.getPlanNodeId(), astContext.getNodeLocationToTesseractAstTables().get(astNodeLocation));
+            }
+            else {
+                throw new TrinoException(GENERIC_INTERNAL_ERROR, String.format("For query : %s,  Error while merging Analysis plan and AST. Analysis plan contains " +
+                                "table |%s| for which no corresponding AST Table was found , analysis table nodes info : |%s| and ast tables info : |%s| ",
+                        stateMachine.getQuery(),
+                        tesseractAnalysisTable.getTesseractTableInfo().getTableName(),
+                        astNodeLocationToPlanNodeIds,
+                        astContext.getNodeLocationToTesseractAstTables()
+                ));
+            }
+        });
+
+        return tesseractRewriteInfo;
+    }
+
+    /**
+     *
+     * @param analysisDetails : analysis plan
+     * @param analysisPlanNode : plan node representation of the analysis plan
+     * @return
+     */
+    private Map<NodeLocation,TesseractAnalysisTable> mappingOfAstNodeLocationToPlanNodeIds(Analysis analysisDetails, PlanNode analysisPlanNode)
+    {
+
+        /*
+        traverse analysis tree and find the tesseract tables , their plan node id's and corresponding location info
+         */
+        log.warn(String.format("traverse analysis plan : %s", System.currentTimeMillis()));
+        Map<NodeLocation,TesseractAnalysisTable> tesseractAnalysisTables = new TreeMap<>(TesseractAnalysisTable.getNodeLocationComparator());
+        analysisPlanNode.accept(new SimplePlanVisitor<>()
+        {
+            @Override
+            public Void visitTableScan(TableScanNode node, Map<NodeLocation,TesseractAnalysisTable> tesseractAnalysisTables)
+            {
+                Optional<TesseractTableInfo> tableInfo = node.getTable().getConnectorHandle().getTesseractTableInfo();
+                if (tableInfo.isPresent() && tableInfo.get().isTesseractOptimizedTable()) {
+                    if (analysisDetails.getTableScanNodesToLocationInfo().containsKey(node.getId())
+                            && analysisDetails.getTableScanNodesToLocationInfo().get(node.getId()).getTableName().getObjectName()
+                            .equalsIgnoreCase(tableInfo.get().getTableName())) {
+                        tesseractAnalysisTables.put(analysisDetails.getTableScanNodesToLocationInfo().get(node.getId()).getNodeLocation(),
+                                new TesseractAnalysisTable(node.getId(), tableInfo.get(), analysisDetails.getTableScanNodesToLocationInfo().get(node.getId()).getNodeLocation()));
+                    }
+                    else {
+                        log.error("error for query : " + stateMachine.getQuery());
+                        throw new TrinoException(GENERIC_INTERNAL_ERROR, String.format("Analysis plan contains table %s for which " +
+                                        "no corresponding node location was captured while creating analysis object, analysis object : %s ",
+                                tableInfo.get().getTableName(), analysisDetails.getTableScanNodesToLocationInfo()));
+                    }
+                }
+                return super.visitTableScan(node, tesseractAnalysisTables);
+            }
+        }, tesseractAnalysisTables);
+        log.warn(String.format("traverse analysis plan : %s", System.currentTimeMillis()));
+
+        return tesseractAnalysisTables;
     }
 
     private synchronized void registerDynamicFilteringQuery(PlanRoot plan)
@@ -730,6 +1048,7 @@ public class SqlQueryExecution
         private final NodePartitioningManager nodePartitioningManager;
         private final NodeScheduler nodeScheduler;
         private final List<PlanOptimizer> planOptimizers;
+        private final List<PlanOptimizer> prePlanOptimizers;
         private final PlanFragmenter planFragmenter;
         private final RemoteTaskFactory remoteTaskFactory;
         private final QueryExplainer queryExplainer;
@@ -741,6 +1060,7 @@ public class SqlQueryExecution
         private final StatsCalculator statsCalculator;
         private final CostCalculator costCalculator;
         private final DynamicFilterService dynamicFilterService;
+        private final QueryPreparer queryPreparer;
 
         @Inject
         SqlQueryExecutionFactory(
@@ -765,7 +1085,8 @@ public class SqlQueryExecution
                 SplitSchedulerStats schedulerStats,
                 StatsCalculator statsCalculator,
                 CostCalculator costCalculator,
-                DynamicFilterService dynamicFilterService)
+                DynamicFilterService dynamicFilterService,
+                QueryPreparer queryPreparer)
         {
             requireNonNull(config, "config is null");
             this.schedulerStats = requireNonNull(schedulerStats, "schedulerStats is null");
@@ -787,9 +1108,11 @@ public class SqlQueryExecution
             this.queryExplainer = requireNonNull(queryExplainer, "queryExplainer is null");
             this.executionPolicies = requireNonNull(executionPolicies, "executionPolicies is null");
             this.planOptimizers = requireNonNull(planOptimizersFactory, "planOptimizersFactory is null").get();
+            this.prePlanOptimizers = requireNonNull(planOptimizersFactory, "planOptimizersFactory is null").getPrePlanningOptimizers();
             this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
             this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
             this.dynamicFilterService = requireNonNull(dynamicFilterService, "dynamicFilterService is null");
+            this.queryPreparer = requireNonNull(queryPreparer, "queryPreparer is null");
         }
 
         @Override
@@ -816,6 +1139,7 @@ public class SqlQueryExecution
                     nodePartitioningManager,
                     nodeScheduler,
                     planOptimizers,
+                    prePlanOptimizers,
                     planFragmenter,
                     remoteTaskFactory,
                     scheduleSplitBatchSize,
@@ -829,7 +1153,8 @@ public class SqlQueryExecution
                     statsCalculator,
                     costCalculator,
                     dynamicFilterService,
-                    warningCollector);
+                    warningCollector,
+                    queryPreparer);
         }
     }
 }

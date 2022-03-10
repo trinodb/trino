@@ -29,6 +29,7 @@ import io.trino.spi.session.PropertyMetadata;
 import javax.inject.Inject;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -99,6 +100,7 @@ public final class HiveSessionProperties
     private static final String DYNAMIC_FILTERING_PROBE_BLOCKING_TIMEOUT = "dynamic_filtering_probe_blocking_timeout";
     private static final String OPTIMIZE_SYMLINK_LISTING = "optimize_symlink_listing";
     private static final String LEGACY_HIVE_VIEW_TRANSLATION = "legacy_hive_view_translation";
+    private static final String TESSERACT_METADATA_CONFIG_LOCATION = "tesseract_metadata_config_location";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -410,6 +412,11 @@ public final class HiveSessionProperties
                         LEGACY_HIVE_VIEW_TRANSLATION,
                         "Use legacy Hive view translation mechanism",
                         hiveConfig.isLegacyHiveViewTranslation(),
+                        false),
+                stringProperty(
+                        TESSERACT_METADATA_CONFIG_LOCATION,
+                        "config location of database json containing connection details for rdbms tesseract needs to connect to fetch cube metadata",
+                        hiveConfig.getTesseractConfigLocation(),
                         false));
     }
 
@@ -689,4 +696,10 @@ public final class HiveSessionProperties
     {
         return session.getProperty(LEGACY_HIVE_VIEW_TRANSLATION, Boolean.class);
     }
+
+    public static Optional<String> getTesseractMetadataConfigLocation(ConnectorSession session)
+    {
+        return Optional.ofNullable(session.getProperty(TESSERACT_METADATA_CONFIG_LOCATION, String.class));
+    }
+
 }

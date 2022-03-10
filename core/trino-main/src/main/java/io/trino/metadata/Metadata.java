@@ -160,6 +160,11 @@ public interface Metadata
     ColumnMetadata getColumnMetadata(Session session, TableHandle tableHandle, ColumnHandle columnHandle);
 
     /**
+     * initializes the RDBMS connection properties required to fetch tesseract metadata
+     */
+    default void initializeTesseractMetadataConfig(Session session, TableHandle tableHandle){}
+
+    /**
      * Gets the columns metadata for all tables that match the specified prefix.
      * TODO: consider returning a stream for more efficient processing
      */

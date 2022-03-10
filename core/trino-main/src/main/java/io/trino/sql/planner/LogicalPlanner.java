@@ -240,6 +240,31 @@ public class LogicalPlanner
         return new Plan(root, types, statsAndCosts);
     }
 
+    public Plan plan(PlanNode root)
+    {
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("Initial plan:\n%s", PlanPrinter.textLogicalPlan(root, symbolAllocator.getTypes(), metadata, StatsAndCosts.empty(), session, 0, false));
+        }
+
+        planSanityChecker.validateIntermediatePlan(root, session, metadata, typeOperators, typeAnalyzer, symbolAllocator.getTypes(), warningCollector);
+
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("started prePlan optimizers" + System.currentTimeMillis());
+        }
+        for (PlanOptimizer optimizer : planOptimizers) {
+            root = optimizer.optimize(root, session, symbolAllocator.getTypes(), symbolAllocator, idAllocator, warningCollector);
+            requireNonNull(root, format("%s returned a null plan", optimizer.getClass().getName()));
+
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("%s:\n%s", optimizer.getClass().getName(), PlanPrinter.textLogicalPlan(root, symbolAllocator.getTypes(), metadata, StatsAndCosts.empty(), session, 0, false));
+            }
+        }
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("ended prePlan optimizers" + System.currentTimeMillis());
+        }
+        return new Plan(root, symbolAllocator.getTypes(), StatsAndCosts.empty());
+    }
+
     public PlanNode planStatement(Analysis analysis, Statement statement)
     {
         if ((statement instanceof CreateTableAsSelect && analysis.getCreate().get().isCreateTableAsSelectNoOp()) ||

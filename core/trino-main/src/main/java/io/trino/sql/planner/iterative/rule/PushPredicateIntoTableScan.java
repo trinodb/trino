@@ -84,6 +84,11 @@ public class PushPredicateIntoTableScan
     private final TypeOperators typeOperators;
     private final TypeAnalyzer typeAnalyzer;
     private final DomainTranslator domainTranslator;
+    /*
+    When this variable is set to true we get exact values of each partition col required in a query.
+    This is mandatory for calculating optimal gran and cuboid
+     */
+    private Boolean prePlanning = false;
 
     public PushPredicateIntoTableScan(Metadata metadata, TypeOperators typeOperators, TypeAnalyzer typeAnalyzer)
     {
@@ -91,6 +96,11 @@ public class PushPredicateIntoTableScan
         this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
         this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
         this.domainTranslator = new DomainTranslator(metadata);
+    }
+
+    public void setPrePlanning(Boolean prePlanning)
+    {
+        this.prePlanning = prePlanning;
     }
 
     @Override
@@ -120,7 +130,8 @@ public class PushPredicateIntoTableScan
                 typeOperators,
                 typeAnalyzer,
                 context.getStatsProvider(),
-                domainTranslator);
+                domainTranslator,
+                this.prePlanning);
 
         if (rewritten.isEmpty() || arePlansSame(filterNode, tableScan, rewritten.get())) {
             return Result.empty();
@@ -160,7 +171,8 @@ public class PushPredicateIntoTableScan
             TypeOperators typeOperators,
             TypeAnalyzer typeAnalyzer,
             StatsProvider statsProvider,
-            DomainTranslator domainTranslator)
+            DomainTranslator domainTranslator,
+            boolean isPrePlanning)
     {
         if (!isAllowPushdownIntoConnectors(session)) {
             return Optional.empty();
@@ -184,6 +196,18 @@ public class PushPredicateIntoTableScan
                 .intersect(node.getEnforcedConstraint());
 
         Map<ColumnHandle, Symbol> assignments = ImmutableBiMap.copyOf(node.getAssignments()).inverse();
+
+        if(isPrePlanning){
+            LayoutConstraintEvaluator evaluator = new LayoutConstraintEvaluator(
+                    metadata,
+                    typeAnalyzer,
+                    session,
+                    types,
+                    node.getAssignments(),
+                    decomposedPredicate.getRemainingExpression());
+            // no need to invoke the evaluator if there are no left over predicates for implicit partition columns of tesseract
+            pruneWithPredicateExpression = containsTesseractColumnsInLeftOverPredicate(evaluator.getArguments(),node);
+        }
 
         Constraint constraint;
         // use evaluator only when there is some predicate which could not be translated into tuple domain
@@ -295,6 +319,10 @@ public class PushPredicateIntoTableScan
         }
 
         return Optional.of(tableScan);
+    }
+
+    private static boolean containsTesseractColumnsInLeftOverPredicate(Set<ColumnHandle> columnsInLeftOverPredicate,TableScanNode tableScanNode){
+        return tableScanNode.getTable().getConnectorHandle().refersTesseractPartitionColumn(columnsInLeftOverPredicate);
     }
 
     // PushPredicateIntoTableScan might be executed after AddExchanges and DetermineTableScanNodePartitioning.

@@ -13,6 +13,8 @@
  */
 package io.trino.plugin.hive;
 
+import com.airtel.africa.canvas.common.tesseract.TesseractImplicitColumns;
+import com.airtel.africa.canvas.tesseract.querymanager.manager.CubeMetadataCacheManager;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -22,19 +24,26 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.util.HiveBucketing.HiveBucketFilter;
 import io.trino.plugin.hive.util.HiveUtil;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.tesseract.TesseractTableInfo;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeMap;
+import java.util.TreeSet;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
+import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
@@ -385,6 +394,41 @@ public class HiveTableHandle
     {
         checkState(transaction.isAcidTransactionRunning(), "The AcidTransaction is not running");
         return transaction.getWriteId();
+    }
+
+    @Override
+    public Optional<TesseractTableInfo> getTesseractTableInfo()
+    {
+        return Optional.of(new TesseractTableInfo(this.getSchemaName(), this.getTableName(), this.getTableParameters().orElse(new HashMap<>())));
+    }
+
+    @Override
+    public Optional<String> getTesseractTableOptimalPredicate(Optional<Map<ColumnHandle, Domain>> partitionColDomains)
+    {
+        Optional<String> predicate = Optional.empty();
+        try {
+            if (partitionColDomains.isPresent()) {
+
+                Map<String, Domain> partitionColumnDetails = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
+                partitionColDomains.get().forEach((key, value) -> partitionColumnDetails.put(((HiveColumnHandle) key).getBaseColumnName(), value));
+                Set<String> referencedColumns = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
+                this.projectedColumns.get().stream().map(col -> ((HiveColumnHandle) col).getBaseColumnName()).forEach(referencedColumns::add);
+
+                predicate = CubeMetadataCacheManager.getOptimalPredicateForTable(partitionColumnDetails, referencedColumns, String.join(".", this.schemaName, this.tableName),
+                        TesseractMetadataConfig.getTesseractMetadataStoreConnectionDetails());
+            }
+        }
+        catch (Exception e) {
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, e.getMessage(), e);
+        }
+        return predicate;
+    }
+
+    @Override
+    public boolean refersTesseractPartitionColumn(Set<ColumnHandle> columns){
+        return columns.stream().map(columnHandle -> ((HiveColumnHandle) columnHandle).getBaseColumnName()).anyMatch(col -> col.equalsIgnoreCase(TesseractImplicitColumns.BINTIME.getColName()) ||
+                col.equalsIgnoreCase(TesseractImplicitColumns.CUBOID.getColName()) ||
+                col.equalsIgnoreCase(TesseractImplicitColumns.GRANULARITY.getColName()));
     }
 
     @Override

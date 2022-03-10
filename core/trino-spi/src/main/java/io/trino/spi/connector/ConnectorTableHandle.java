@@ -13,10 +13,36 @@
  */
 package io.trino.spi.connector;
 
+import io.trino.spi.predicate.Domain;
+import io.trino.spi.tesseract.TesseractTableInfo;
+
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+
 /**
  * Represents a handle to a relation returned from the connector to the engine.
  * It will be used by the engine whenever given relation will be accessed.
  */
 public interface ConnectorTableHandle
 {
+
+    /**
+     *  To fetch table information like name, schema and properties etc . This is not a time consuming Op
+     */
+    default Optional<TesseractTableInfo> getTesseractTableInfo(){
+        return Optional.empty();
+    }
+
+    /**
+     *  Evaluates the optimal predicate for the partition column's required values , connects with tesseract metadata cache to do so
+     */
+    default Optional<String> getTesseractTableOptimalPredicate(Optional<Map<ColumnHandle, Domain>> partitionColDomains){
+        return Optional.empty();
+    }
+
+    default boolean refersTesseractPartitionColumn(Set<ColumnHandle> columns){
+        return false;
+    }
+
 }

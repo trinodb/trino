@@ -256,6 +256,7 @@ import static io.trino.plugin.hive.util.Statistics.reduce;
 import static io.trino.plugin.hive.util.SystemTables.getSourceTableNameFromSystemTable;
 import static io.trino.spi.StandardErrorCode.INVALID_ANALYZE_PROPERTY;
 import static io.trino.spi.StandardErrorCode.INVALID_SCHEMA_PROPERTY;
+import static io.trino.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
@@ -761,6 +762,16 @@ public class HiveMetadata
                 .build();
 
         metastore.createDatabase(new HiveIdentity(session), database);
+    }
+
+    @Override
+    public void initializeTesseractMetadataConfig(ConnectorSession session)
+    {
+        Optional<String> configLocation = HiveSessionProperties.getTesseractMetadataConfigLocation(session);
+        if (configLocation.isEmpty()){
+            throw new TrinoException(INVALID_SESSION_PROPERTY,"Tesseract metadata config location not specified in hive catalog");
+        }
+        TesseractMetadataConfig.initializeTesseractMetadataConfig(hdfsEnvironment,session,configLocation.get());
     }
 
     @Override

@@ -783,6 +783,14 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
+    public void initializeTesseractMetadataConfig(ConnectorSession session)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            delegate.initializeTesseractMetadataConfig(session);
+        }
+    }
+
+    @Override
     public Optional<LimitApplicationResult<ConnectorTableHandle>> applyLimit(ConnectorSession session, ConnectorTableHandle table, long limit)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {

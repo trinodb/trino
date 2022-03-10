@@ -135,6 +135,7 @@ public class FeaturesConfig
     private boolean useTableScanNodePartitioning = true;
     private double tableScanNodePartitioningMinBucketToTaskRatio = 0.5;
     private boolean mergeProjectWithValues = true;
+    private boolean optimizeTesseractQueries = true;
 
     private Duration iterativeOptimizerTimeout = new Duration(3, MINUTES); // by default let optimizer wait a long time in case it retrieves some data from ConnectorMetadata
     private DataSize filterAndProjectMinOutputPageSize = DataSize.of(500, KILOBYTE);
@@ -1086,6 +1087,18 @@ public class FeaturesConfig
     public FeaturesConfig setMergeProjectWithValues(boolean mergeProjectWithValues)
     {
         this.mergeProjectWithValues = mergeProjectWithValues;
+        return this;
+    }
+
+    public boolean isOptimizeTesseractQueries()
+    {
+        return optimizeTesseractQueries;
+    }
+
+    @Config("optimize-tesseract-queries")
+    public FeaturesConfig setOptimizeTesseractQueries(boolean optimizeTesseractQueries)
+    {
+        this.optimizeTesseractQueries = optimizeTesseractQueries;
         return this;
     }
 }

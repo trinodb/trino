@@ -90,6 +90,8 @@ import io.trino.sql.tree.Update;
 import io.trino.sql.tree.WindowFrame;
 import io.trino.sql.tree.WindowOperation;
 import io.trino.type.TypeCoercion;
+import tesseract.pojos.TesseractAnalysisContext;
+import tesseract.visitor.TesseractAnalysisVisitor;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -377,7 +379,7 @@ class QueryPlanner
     public RelationPlan plan(QuerySpecification node)
     {
         PlanBuilder builder = planFrom(node);
-
+        populateRelationDetailsForTableScanNode(builder);
         builder = filter(builder, analysis.getWhere(node), node);
         builder = aggregate(builder, node);
         builder = filter(builder, analysis.getHaving(node), node);
@@ -1828,4 +1830,20 @@ class QueryPlanner
             return frameOffsetSymbol;
         }
     }
+
+    /**
+     * While building analysis create a mapping between TableScanNode and its AST location
+     * @param planBuilder
+     */
+    private void populateRelationDetailsForTableScanNode(PlanBuilder planBuilder){
+        if(planBuilder.getRoot() instanceof TableScanNode){
+            Optional<Node> node = planBuilder.getTranslations().getScope().getRelationId().getSourceNode();
+            if(node.isPresent() && node.get() instanceof Relation){
+                TesseractAnalysisContext tesseractAnalysisContext = new TesseractAnalysisContext() ;
+                ((Relation)node.get()).accept(new TesseractAnalysisVisitor(session), tesseractAnalysisContext);
+                analysis.getTableScanNodesToLocationInfo().put(planBuilder.getRoot().getId(), tesseractAnalysisContext);
+            }
+        }
+    }
+
 }

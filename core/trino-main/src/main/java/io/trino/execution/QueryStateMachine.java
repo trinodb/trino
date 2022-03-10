@@ -102,7 +102,7 @@ public class QueryStateMachine
     private static final Logger QUERY_STATE_LOG = Logger.get(QueryStateMachine.class);
 
     private final QueryId queryId;
-    private final String query;
+    private String query;
     private final Optional<String> preparedQuery;
     private final Session session;
     private final URI self;
@@ -266,6 +266,14 @@ public class QueryStateMachine
         queryStateMachine.addStateChangeListener(newState -> QUERY_STATE_LOG.debug("Query %s is %s", queryStateMachine.getQueryId(), newState));
 
         return queryStateMachine;
+    }
+
+    public String getQuery() {
+        return query;
+    }
+
+    public void setQuery(String query) {
+        this.query = query;
     }
 
     public QueryId getQueryId()

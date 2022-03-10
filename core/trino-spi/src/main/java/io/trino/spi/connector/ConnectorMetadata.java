@@ -282,6 +282,11 @@ public interface ConnectorMetadata
     }
 
     /**
+     * initializes the RDBMS connection properties required to fetch tesseract metadata
+     */
+    default void initializeTesseractMetadataConfig(ConnectorSession session){}
+
+    /**
      * Renames the specified schema.
      */
     default void renameSchema(ConnectorSession session, String source, String target)

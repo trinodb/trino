@@ -297,6 +297,15 @@
             <scope>provided</scope>
         </dependency>
 
+        <!-- tesseract -->
+
+        <dependency>
+            <groupId>com.airtel.africa</groupId>
+            <artifactId>tesseract-querymanager</artifactId>
+            <version>2.0-SNAPSHOT</version>
+            <scope>provided</scope>
+        </dependency>
+
         <!-- for benchmark -->
         <dependency>
             <groupId>io.trino</groupId>

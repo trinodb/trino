@@ -24,6 +24,8 @@ public interface PlanOptimizersFactory
 {
     List<PlanOptimizer> get();
 
+    List<PlanOptimizer> getPrePlanningOptimizers();
+
     Map<Class<?>, OptimizerStats> getOptimizerStats();
 
     Map<Class<?>, RuleStats> getRuleStats();

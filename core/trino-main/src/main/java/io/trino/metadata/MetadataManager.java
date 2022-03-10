@@ -608,6 +608,14 @@ public final class MetadataManager
     }
 
     @Override
+    public void initializeTesseractMetadataConfig(Session session, TableHandle tableHandle)
+    {
+        CatalogName catalogName = tableHandle.getCatalogName();
+        ConnectorMetadata metadata = getMetadata(session, catalogName);
+        metadata.initializeTesseractMetadataConfig(session.toConnectorSession(catalogName));
+    }
+
+    @Override
     public List<QualifiedObjectName> listTables(Session session, QualifiedTablePrefix prefix)
     {
         requireNonNull(prefix, "prefix is null");
