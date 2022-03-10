@@ -199,6 +199,13 @@ public class MongoMetadata
     }
 
     @Override
+    public void renameTable(ConnectorSession session, ConnectorTableHandle tableHandle, SchemaTableName newTableName)
+    {
+        MongoTableHandle table = (MongoTableHandle) tableHandle;
+        mongoSession.renameTable(table.getSchemaTableName(), newTableName);
+    }
+
+    @Override
     public void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column)
     {
         mongoSession.addColumn(((MongoTableHandle) tableHandle).getSchemaTableName(), column);
