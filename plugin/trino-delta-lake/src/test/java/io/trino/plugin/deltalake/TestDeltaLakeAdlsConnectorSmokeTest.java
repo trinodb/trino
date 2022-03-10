@@ -55,8 +55,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.regex.Matcher.quoteReplacement;
 import static org.assertj.core.api.Assertions.assertThat;
 
-// TODO (https://github.com/trinodb/trino/issues/11325): removeTestData cleanup fails; enable the class by making it non-abstract
-public abstract class TestDeltaLakeAdlsConnectorSmokeTest
+public class TestDeltaLakeAdlsConnectorSmokeTest
         extends BaseDeltaLakeConnectorSmokeTest
 {
     private final String container;
