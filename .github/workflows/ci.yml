@@ -14,10 +14,10 @@ env:
   # allow overriding Maven command
   MAVEN: ./mvnw
   # maven.wagon.rto is in millis, defaults to 30m
-  MAVEN_OPTS: "-Xmx512M -XX:+ExitOnOutOfMemoryError -Dmaven.wagon.rto=60000"
-  MAVEN_INSTALL_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError -Dmaven.wagon.rto=60000"
+  MAVEN_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError -Dmaven.wagon.rto=60000"
   MAVEN_FAST_INSTALL: "-B --strict-checksums -V --quiet -T C1 -DskipTests -Dmaven.source.skip=true -Dair.check.skip-all -P gib -Dgib.referenceBranch=refs/remotes/origin/${{ github.event.pull_request.base.ref }}"
   MAVEN_TEST: "-B --strict-checksums -Dmaven.source.skip=true -Dair.check.skip-all --fail-at-end -P gib -Dgib.referenceBranch=refs/remotes/origin/${{ github.event.pull_request.base.ref }}"
+  MAVEN_SKIP_MODULES: "-pl '!:trino-docs,!:trino-server,!:trino-server-rpm'"
   RETRY: .github/bin/retry
   # Testcontainers kills image pulls if they don't make progress for > 30s and retries for 2m before failing. This means
   # that if an image doesn't download all it's layers within ~2m then any other concurrent pull will be killed because
@@ -53,13 +53,9 @@ jobs:
       - name: Configure Problem Matchers
         run: echo "::add-matcher::.github/problem-matcher.json"
       - name: Maven Checks
-        run: |
-          export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY $MAVEN install -B --strict-checksums -V -T C1 -DskipTests -P ci -pl '!:trino-server-rpm'
+        run: $RETRY $MAVEN install -B --strict-checksums -V -T C1 -DskipTests -P ci -pl '!:trino-server-rpm'
       - name: Test Server RPM
-        run: |
-          export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY bash -c "$MAVEN verify -B --strict-checksums -P ci -pl :trino-server-rpm || find core/trino-server-rpm/ -exec ls -ald {} +"
+        run: $RETRY bash -c "$MAVEN verify -B --strict-checksums -P ci -pl :trino-server-rpm || find core/trino-server-rpm/ -exec ls -ald {} +"
       - name: Clean Maven Output
         run: $MAVEN clean -pl '!:trino-server,!:trino-cli'
       - uses: docker/setup-qemu-action@v1
@@ -85,17 +81,12 @@ jobs:
       - name: Configure Problem Matchers
         run: echo "::add-matcher::.github/problem-matcher.json"
       - name: Maven Install
-        run: |
-          export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY $MAVEN install ${MAVEN_FAST_INSTALL} -pl '!:trino-docs,!:trino-server,!:trino-server-rpm'
+        run: $RETRY $MAVEN install ${MAVEN_FAST_INSTALL} ${MAVEN_SKIP_MODULES}
+      - name: Error Prone Checks Preflight
+        # Run Error Prone on one module with a retry to ensure all runtime dependencies are fetched
+        run: $RETRY $MAVEN ${MAVEN_TEST} -T C1 clean test-compile -P gib,errorprone-compiler -pl ':trino-spi'
       - name: Error Prone Checks
-        run: |
-          export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          # Run Error Prone on one module with a retry to ensure all runtime dependencies are fetched
-          $RETRY $MAVEN ${MAVEN_TEST} -T C1 clean test-compile -P gib,errorprone-compiler -pl ':trino-spi'
-          # The main Error Prone run
-          $MAVEN ${MAVEN_TEST} -T C1 clean test-compile -P gib,errorprone-compiler \
-            -pl '!:trino-docs,!:trino-server,!:trino-server-rpm'
+        run: $MAVEN ${MAVEN_TEST} -T C1 clean test-compile -P gib,errorprone-compiler ${MAVEN_SKIP_MODULES}
 
   web-ui-checks:
     runs-on: ubuntu-latest
@@ -122,9 +113,7 @@ jobs:
       - name: Configure Problem Matchers
         run: echo "::add-matcher::.github/problem-matcher.json"
       - name: Maven Install
-        run: |
-          export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY $MAVEN install ${MAVEN_FAST_INSTALL} -pl '!:trino-docs,!:trino-server,!:trino-server-rpm'
+        run: $RETRY $MAVEN install ${MAVEN_FAST_INSTALL} -pl ${MAVEN_SKIP_MODULES}
       - name: Test old JDBC vs current server
         run: |
           if [ ! -f gib-impacted.log ] || grep -q testing/trino-test-jdbc-compatibility-old-driver gib-impacted.log; then
@@ -182,9 +171,7 @@ jobs:
       - name: Configure Problem Matchers
         run: echo "::add-matcher::.github/problem-matcher.json"
       - name: Install Hive Module
-        run: |
-          export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY $MAVEN install ${MAVEN_FAST_INSTALL} -am -pl :trino-hive-hadoop2
+        run: $RETRY $MAVEN install ${MAVEN_FAST_INSTALL} -am -pl :trino-hive-hadoop2
       - name: Run Hive Tests
         run: |
           source plugin/trino-hive-hadoop2/conf/hive-tests-${{ matrix.config }}.sh &&
@@ -298,9 +285,7 @@ jobs:
       - name: Configure Problem Matchers
         run: echo "::add-matcher::.github/problem-matcher.json"
       - name: Maven Install
-        run: |
-          export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY $MAVEN install ${MAVEN_FAST_INSTALL} -pl '!:trino-docs,!:trino-server,!:trino-server-rpm'
+        run: $RETRY $MAVEN install ${MAVEN_FAST_INSTALL} -pl ${MAVEN_SKIP_MODULES}
       - name: Maven Tests
         run: |
           $MAVEN test ${MAVEN_TEST} -pl '
@@ -366,9 +351,7 @@ jobs:
           distribution: 'zulu'
           java-version: 11
       - name: Maven validate
-        run: |
-          export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY $MAVEN validate ${MAVEN_FAST_INSTALL} -P disable-check-spi-dependencies -pl '!:trino-docs,!:trino-server,!:trino-server-rpm'
+        run: $RETRY $MAVEN validate ${MAVEN_FAST_INSTALL} -P disable-check-spi-dependencies -pl ${MAVEN_SKIP_MODULES}
       - id: set-matrix
         run: |
           # GIB doesn't run on master, so make sure the file always exist
@@ -436,9 +419,7 @@ jobs:
         if: matrix.modules == 'plugin/trino-memsql'
         run: .github/bin/cleanup-node.sh
       - name: Maven Install
-        run: |
-          export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY $MAVEN install ${MAVEN_FAST_INSTALL} -am -pl "${{ matrix.modules }}"
+        run: $RETRY $MAVEN install ${MAVEN_FAST_INSTALL} -am -pl "${{ matrix.modules }}"
       - name: Maven Tests
         if: matrix.modules != 'plugin/trino-memsql'
         run: $MAVEN test ${MAVEN_TEST} -pl ${{ matrix.modules }} ${{ matrix.profile != '' && format('-P {0}', matrix.profile) || '' }}
@@ -517,10 +498,8 @@ jobs:
           java-version: 11
           cache: 'maven'
       - name: Maven Install
-        run: |
-          export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          # GIB needs to be explicitly disabled, because the gib profile enables it, but the trino-server module requires all of its dependencies to be built
-          $RETRY $MAVEN install ${MAVEN_FAST_INSTALL} -Dgib.disable -pl '!:trino-docs,!:trino-server-rpm'
+        # GIB needs to be explicitly disabled, because the gib profile enables it, but the trino-server module requires all of its dependencies to be built
+        run: $RETRY $MAVEN install ${MAVEN_FAST_INSTALL} -Dgib.disable -pl '!:trino-docs,!:trino-server-rpm'
       - name: Product tests artifact
         uses: actions/upload-artifact@v2
         with:
