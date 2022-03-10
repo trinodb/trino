@@ -55,7 +55,7 @@ jobs:
       - name: Maven Checks
         run: $RETRY $MAVEN install -B --strict-checksums -V -T C1 -DskipTests -P ci -pl '!:trino-server-rpm'
       - name: Test Server RPM
-        run: $RETRY bash -c "$MAVEN verify -B --strict-checksums -P ci -pl :trino-server-rpm || find core/trino-server-rpm/ -exec ls -ald {} +"
+        run: $RETRY $MAVEN verify -B --strict-checksums -P ci -pl :trino-server-rpm
       - name: Clean Maven Output
         run: $MAVEN clean -pl '!:trino-server,!:trino-cli'
       - uses: docker/setup-qemu-action@v1
