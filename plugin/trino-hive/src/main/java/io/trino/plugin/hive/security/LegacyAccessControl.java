@@ -165,6 +165,11 @@ public class LegacyAccessControl
     }
 
     @Override
+    public void checkCanSetViewComment(ConnectorSecurityContext context, SchemaTableName viewName)
+    {
+    }
+
+    @Override
     public void checkCanSetColumnComment(ConnectorSecurityContext context, SchemaTableName tableName)
     {
         if (!allowCommentColumn) {

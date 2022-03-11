@@ -1917,6 +1917,14 @@ public class TestSqlParser
     }
 
     @Test
+    public void testCommentView()
+    {
+        assertStatement("COMMENT ON VIEW a IS 'test'", new Comment(Comment.Type.VIEW, QualifiedName.of("a"), Optional.of("test")));
+        assertStatement("COMMENT ON VIEW a IS ''", new Comment(Comment.Type.VIEW, QualifiedName.of("a"), Optional.of("")));
+        assertStatement("COMMENT ON VIEW a IS NULL", new Comment(Comment.Type.VIEW, QualifiedName.of("a"), Optional.empty()));
+    }
+
+    @Test
     public void testCommentColumn()
     {
         assertStatement("COMMENT ON COLUMN a.b IS 'test'", new Comment(Comment.Type.COLUMN, QualifiedName.of("a", "b"), Optional.of("test")));

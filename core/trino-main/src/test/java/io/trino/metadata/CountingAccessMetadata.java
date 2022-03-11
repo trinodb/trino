@@ -278,6 +278,12 @@ public class CountingAccessMetadata
     }
 
     @Override
+    public void setViewComment(Session session, QualifiedObjectName viewName, Optional<String> comment)
+    {
+        delegate.setViewComment(session, viewName, comment);
+    }
+
+    @Override
     public void setColumnComment(Session session, TableHandle tableHandle, ColumnHandle column, Optional<String> comment)
     {
         delegate.setColumnComment(session, tableHandle, column, comment);

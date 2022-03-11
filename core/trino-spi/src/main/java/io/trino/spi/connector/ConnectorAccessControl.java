@@ -27,6 +27,7 @@ import java.util.Set;
 import static io.trino.spi.security.AccessDeniedException.denyAddColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCommentColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCommentTable;
+import static io.trino.spi.security.AccessDeniedException.denyCommentView;
 import static io.trino.spi.security.AccessDeniedException.denyCreateMaterializedView;
 import static io.trino.spi.security.AccessDeniedException.denyCreateRole;
 import static io.trino.spi.security.AccessDeniedException.denyCreateSchema;
@@ -212,6 +213,16 @@ public interface ConnectorAccessControl
     default void checkCanSetTableComment(ConnectorSecurityContext context, SchemaTableName tableName)
     {
         denyCommentTable(tableName.toString());
+    }
+
+    /**
+     * Check if identity is allowed to comment the specified view.
+     *
+     * @throws io.trino.spi.security.AccessDeniedException if not allowed
+     */
+    default void checkCanSetViewComment(ConnectorSecurityContext context, SchemaTableName viewName)
+    {
+        denyCommentView(viewName.toString());
     }
 
     /**

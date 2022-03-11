@@ -94,6 +94,11 @@ public class AllowAllAccessControl
     }
 
     @Override
+    public void checkCanSetViewComment(ConnectorSecurityContext context, SchemaTableName viewName)
+    {
+    }
+
+    @Override
     public void checkCanSetTableProperties(ConnectorSecurityContext context, SchemaTableName tableName, Map<String, Optional<Object>> properties)
     {
     }

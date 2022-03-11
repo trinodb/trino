@@ -34,6 +34,7 @@ import static io.trino.spi.security.AccessDeniedException.denyAddColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCatalogAccess;
 import static io.trino.spi.security.AccessDeniedException.denyCommentColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCommentTable;
+import static io.trino.spi.security.AccessDeniedException.denyCommentView;
 import static io.trino.spi.security.AccessDeniedException.denyCreateMaterializedView;
 import static io.trino.spi.security.AccessDeniedException.denyCreateRole;
 import static io.trino.spi.security.AccessDeniedException.denyCreateSchema;
@@ -382,6 +383,16 @@ public interface SystemAccessControl
     default void checkCanSetTableComment(SystemSecurityContext context, CatalogSchemaTableName table)
     {
         denyCommentTable(table.toString());
+    }
+
+    /**
+     * Check if identity is allowed to comment the specified view in a catalog.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanSetViewComment(SystemSecurityContext context, CatalogSchemaTableName view)
+    {
+        denyCommentView(view.toString());
     }
 
     /**
