@@ -23,11 +23,13 @@ import io.trino.orc.stream.InputStreamSource;
 import io.trino.orc.stream.InputStreamSources;
 import io.trino.orc.stream.LongInputStream;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.ByteArrayBlock;
 import io.trino.spi.block.IntArrayBlock;
 import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.block.ShortArrayBlock;
 import io.trino.spi.type.BigintType;
+import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.DateType;
 import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.SmallintType;
@@ -79,6 +81,8 @@ public class LongColumnReader
     private short[] shortNonNullValueTemp = new short[0];
     private int[] intNonNullValueTemp = new int[0];
     private long[] longNonNullValueTemp = new long[0];
+    private byte trueValue = 0x01;
+    private byte falseValue = 0x00;
 
     private final LocalMemoryContext memoryContext;
 
@@ -86,7 +90,7 @@ public class LongColumnReader
             throws OrcCorruptionException
     {
         requireNonNull(type, "type is null");
-        verifyStreamType(column, type, t -> t instanceof BigintType || t instanceof IntegerType || t instanceof SmallintType || t instanceof DateType || t instanceof TimeType);
+        verifyStreamType(column, type, t -> t instanceof BigintType || t instanceof IntegerType || t instanceof SmallintType || t instanceof DateType || t instanceof TimeType || t instanceof BooleanType);
         this.type = type;
 
         this.column = requireNonNull(column, "column is null");
@@ -178,6 +182,15 @@ public class LongColumnReader
             dataStream.next(values, nextBatchSize);
             return new ShortArrayBlock(nextBatchSize, Optional.empty(), values);
         }
+        if (type instanceof BooleanType){
+            int[] values = new int[nextBatchSize];
+            dataStream.next(values, nextBatchSize);
+            byte[] bValues = new byte[nextBatchSize];
+            for(int i = 0; i < nextBatchSize; i++) {
+                bValues[i] = values[i] == 1 ? trueValue : falseValue;
+            }
+            return new ByteArrayBlock(nextBatchSize, Optional.empty(), bValues);
+        }
         throw new VerifyError("Unsupported type " + type);
     }
 
@@ -194,6 +207,9 @@ public class LongColumnReader
         }
         if (type instanceof SmallintType) {
             return shortReadNullBlock(isNull, nonNullCount);
+        }
+        if (type instanceof BooleanType){
+            return booleanReadNullBlock(isNull, nonNullCount);
         }
         throw new VerifyError("Unsupported type " + type);
     }
@@ -247,6 +263,29 @@ public class LongColumnReader
         short[] result = unpackShortNulls(shortNonNullValueTemp, isNull);
 
         return new ShortArrayBlock(nextBatchSize, Optional.of(isNull), result);
+    }
+
+    private Block booleanReadNullBlock(boolean[] isNull, int nonNullCount)
+            throws IOException
+    {
+        verifyNotNull(dataStream);
+        int minNonNullValueSize = minNonNullValueSize(nonNullCount);
+        if (intNonNullValueTemp.length < minNonNullValueSize) {
+            intNonNullValueTemp = new int[minNonNullValueSize];
+            memoryContext.setBytes(sizeOf(intNonNullValueTemp));
+        }
+
+        dataStream.next(intNonNullValueTemp, nonNullCount);
+
+        byte[] result = new byte[isNull.length];
+        int position = 0;
+        for (int i = 0; i < isNull.length; i++) {
+            result[i] = intNonNullValueTemp[position] == 1 ? trueValue : falseValue;;
+            if (!isNull[i]) {
+                position++;
+            }
+        }
+        return new ByteArrayBlock(nextBatchSize, Optional.empty(), result);
     }
 
     private void openRowGroup()
