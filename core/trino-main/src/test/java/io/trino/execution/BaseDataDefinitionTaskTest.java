@@ -392,6 +392,21 @@ public abstract class BaseDataDefinitionTaskTest
         }
 
         @Override
+        public void setViewComment(Session session, QualifiedObjectName viewName, Optional<String> comment)
+        {
+            ViewDefinition view = views.get(viewName.asSchemaTableName());
+            views.put(
+                    viewName.asSchemaTableName(),
+                    new ViewDefinition(
+                            view.getOriginalSql(),
+                            view.getCatalog(),
+                            view.getSchema(),
+                            view.getColumns(),
+                            comment,
+                            view.getRunAsIdentity()));
+        }
+
+        @Override
         public void renameMaterializedView(Session session, QualifiedObjectName source, QualifiedObjectName target)
         {
             SchemaTableName oldViewName = source.asSchemaTableName();

@@ -1463,6 +1463,12 @@ public final class SqlFormatter
                             .append(" IS ")
                             .append(comment);
                     break;
+                case VIEW:
+                    builder.append("COMMENT ON VIEW ")
+                            .append(node.getName())
+                            .append(" IS ")
+                            .append(comment);
+                    break;
                 case COLUMN:
                     builder.append("COMMENT ON COLUMN ")
                             .append(node.getName())

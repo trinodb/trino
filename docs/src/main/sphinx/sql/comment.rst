@@ -7,7 +7,7 @@ Synopsis
 
 .. code-block:: text
 
-    COMMENT ON ( TABLE | COLUMN ) name IS 'comments'
+    COMMENT ON ( TABLE | VIEW | COLUMN ) name IS 'comments'
 
 Description
 -----------
@@ -20,6 +20,10 @@ Examples
 Change the comment for the ``users`` table to be ``master table``::
 
     COMMENT ON TABLE users IS 'master table';
+
+Change the comment for the ``users`` view to be ``master view``::
+
+    COMMENT ON VIEW users IS 'master view';
 
 Change the comment for the ``users.name`` column to be ``full name``::
 

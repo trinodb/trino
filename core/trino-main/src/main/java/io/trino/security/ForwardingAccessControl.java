@@ -192,6 +192,12 @@ public abstract class ForwardingAccessControl
     }
 
     @Override
+    public void checkCanSetViewComment(SecurityContext context, QualifiedObjectName viewName)
+    {
+        delegate().checkCanSetViewComment(context, viewName);
+    }
+
+    @Override
     public void checkCanSetColumnComment(SecurityContext context, QualifiedObjectName tableName)
     {
         delegate().checkCanSetColumnComment(context, tableName);

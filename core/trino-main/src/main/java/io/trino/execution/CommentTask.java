@@ -39,6 +39,7 @@ import static io.trino.spi.StandardErrorCode.MISSING_TABLE;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class CommentTask
@@ -72,6 +73,9 @@ public class CommentTask
         if (statement.getType() == Comment.Type.TABLE) {
             commentOnTable(statement, session);
         }
+        else if (statement.getType() == Comment.Type.VIEW) {
+            commentOnView(statement, session);
+        }
         else if (statement.getType() == Comment.Type.COLUMN) {
             commentOnColumn(statement, session);
         }
@@ -93,6 +97,24 @@ public class CommentTask
         accessControl.checkCanSetTableComment(session.toSecurityContext(), redirectionAwareTableHandle.getRedirectedTableName().orElse(originalTableName));
         TableHandle tableHandle = redirectionAwareTableHandle.getTableHandle().get();
         metadata.setTableComment(session, tableHandle, statement.getComment());
+    }
+
+    private void commentOnView(Comment statement, Session session)
+    {
+        QualifiedObjectName viewName = createQualifiedObjectName(session, statement, statement.getName());
+        if (metadata.getView(session, viewName).isEmpty()) {
+            String exceptionMessage = format("View '%s' does not exist", viewName);
+            if (metadata.getMaterializedView(session, viewName).isPresent()) {
+                exceptionMessage += ", but a materialized view with that name exists.";
+            }
+            else if (metadata.getTableHandle(session, viewName).isPresent()) {
+                exceptionMessage += ", but a table with that name exists. Did you mean COMMENT ON TABLE " + viewName + " IS ...?";
+            }
+            throw semanticException(TABLE_NOT_FOUND, statement, exceptionMessage);
+        }
+
+        accessControl.checkCanSetViewComment(session.toSecurityContext(), viewName);
+        metadata.setViewComment(session, viewName, statement.getComment());
     }
 
     private void commentOnColumn(Comment statement, Session session)
