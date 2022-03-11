@@ -14,7 +14,6 @@
 package io.trino.sql.tree;
 
 import com.google.common.collect.ImmutableList;
-import org.checkerframework.checker.units.qual.C;
 
 import java.util.List;
 import java.util.Objects;
