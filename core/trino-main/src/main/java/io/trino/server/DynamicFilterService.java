@@ -812,9 +812,9 @@ public class DynamicFilterService
                     // filter has been collected concurrently
                     return;
                 }
+                dynamicFilterCollectionTime.put(filter, System.nanoTime());
                 dynamicFilterSummaries.put(filter, union(domain));
                 Optional.ofNullable(lazyDynamicFilters.get(filter)).ifPresent(future -> future.set(null));
-                dynamicFilterCollectionTime.put(filter, System.nanoTime());
                 List<Consumer<Map<DynamicFilterId, Domain>>> consumers;
                 synchronized (dynamicFilterConsumers) {
                     // this section is executed only once due to the earlier null check on taskDynamicFilters.remove(filter)
