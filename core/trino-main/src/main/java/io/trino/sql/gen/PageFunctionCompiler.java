@@ -98,6 +98,7 @@ import static io.trino.util.CompilerUtils.defineClass;
 import static io.trino.util.CompilerUtils.makeClassName;
 import static io.trino.util.Reflection.constructorMethodHandle;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.HOURS;
 
 public class PageFunctionCompiler
 {
@@ -123,7 +124,8 @@ public class PageFunctionCompiler
             projectionCache = buildNonEvictableCache(
                     CacheBuilder.newBuilder()
                             .recordStats()
-                            .maximumSize(expressionCacheSize),
+                            .maximumSize(expressionCacheSize)
+                            .expireAfterWrite(1, HOURS),
                     CacheLoader.from(projection -> compileProjectionInternal(projection, Optional.empty())));
             projectionCacheStats = new CacheStatsMBean(projectionCache);
         }
@@ -136,7 +138,8 @@ public class PageFunctionCompiler
             filterCache = buildNonEvictableCache(
                     CacheBuilder.newBuilder()
                             .recordStats()
-                            .maximumSize(expressionCacheSize),
+                            .maximumSize(expressionCacheSize)
+                            .expireAfterWrite(1, HOURS),
                     CacheLoader.from(filter -> compileFilterInternal(filter, Optional.empty())));
             filterCacheStats = new CacheStatsMBean(filterCache);
         }

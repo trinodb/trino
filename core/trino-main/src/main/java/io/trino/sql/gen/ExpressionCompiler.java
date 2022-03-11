@@ -53,6 +53,7 @@ import static io.trino.sql.relational.Expressions.constant;
 import static io.trino.util.CompilerUtils.defineClass;
 import static io.trino.util.CompilerUtils.makeClassName;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.HOURS;
 
 public class ExpressionCompiler
 {
@@ -67,7 +68,8 @@ public class ExpressionCompiler
         this.pageFunctionCompiler = requireNonNull(pageFunctionCompiler, "pageFunctionCompiler is null");
         this.cursorProcessors = buildNonEvictableCache(CacheBuilder.newBuilder()
                         .recordStats()
-                        .maximumSize(1000),
+                        .maximumSize(1000)
+                        .expireAfterWrite(1, HOURS),
                 CacheLoader.from(key -> compile(key.getFilter(), key.getProjections(), new CursorProcessorCompiler(metadata), CursorProcessor.class)));
         this.cacheStatsMBean = new CacheStatsMBean(cursorProcessors);
     }
