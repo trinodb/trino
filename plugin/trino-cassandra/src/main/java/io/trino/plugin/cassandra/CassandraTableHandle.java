@@ -108,10 +108,10 @@ public class CassandraTableHandle
     @Override
     public String toString()
     {
-        String string = format("%s:%s", schemaName, tableName);
+        String result = format("%s:%s", schemaName, tableName);
         if (this.partitions.isPresent()) {
             List<CassandraPartition> partitions = this.partitions.get();
-            string += format(
+            result += format(
                     " %d partitions %s",
                     partitions.size(),
                     Stream.concat(
@@ -121,8 +121,8 @@ public class CassandraTableHandle
                             .collect(joining(", ", "[", "]")));
         }
         if (!clusteringKeyPredicates.isEmpty()) {
-            string += format(" constraint(%s)", clusteringKeyPredicates);
+            result += format(" constraint(%s)", clusteringKeyPredicates);
         }
-        return string;
+        return result;
     }
 }
