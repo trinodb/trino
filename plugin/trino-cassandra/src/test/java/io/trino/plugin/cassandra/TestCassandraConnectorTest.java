@@ -86,6 +86,9 @@ public class TestCassandraConnectorTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
+            case SUPPORTS_TRUNCATE:
+                return true;
+
             case SUPPORTS_CREATE_SCHEMA:
                 return false;
 
