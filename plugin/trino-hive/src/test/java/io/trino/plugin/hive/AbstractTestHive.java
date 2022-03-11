@@ -2746,7 +2746,7 @@ public abstract class AbstractTestHive
     public void testInsertOverwriteUnpartitionedViaInsertMode()
             throws Exception
     {
-        SchemaTableName table = temporaryTable("insert_overwrite");
+        SchemaTableName table = temporaryTable("insert_overwrite_insertmode");
         try {
             doInsertOverwriteUnpartitionedViaInsertMode(table);
         }
