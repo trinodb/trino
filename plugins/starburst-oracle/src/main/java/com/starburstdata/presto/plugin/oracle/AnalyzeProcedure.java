@@ -60,8 +60,8 @@ public class AnalyzeProcedure
                 "system",
                 "analyze",
                 ImmutableList.of(
-                        new Procedure.Argument("schema_name", VARCHAR),
-                        new Procedure.Argument("table_name", VARCHAR)),
+                        new Procedure.Argument("SCHEMA_NAME", VARCHAR),
+                        new Procedure.Argument("TABLE_NAME", VARCHAR)),
                 ANALYZE.bindTo(this));
     }
 
