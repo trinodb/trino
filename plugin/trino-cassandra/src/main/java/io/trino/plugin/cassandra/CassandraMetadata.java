@@ -50,6 +50,7 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.stream.Collectors;
 
+import static com.datastax.driver.core.querybuilder.QueryBuilder.truncate;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.MoreCollectors.toOptional;
@@ -322,6 +323,13 @@ public class CassandraMetadata
     public Optional<ConnectorOutputMetadata> finishCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
         return Optional.empty();
+    }
+
+    @Override
+    public void truncateTable(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        CassandraTableHandle table = (CassandraTableHandle) tableHandle;
+        cassandraSession.execute(truncate(table.getSchemaName(), table.getTableName()));
     }
 
     @Override
