@@ -105,6 +105,7 @@ public class TestMemoryConnectorTest
                 return false;
 
             case SUPPORTS_CREATE_VIEW:
+            case SUPPORTS_COMMENT_ON_VIEW:
                 return true;
 
             case SUPPORTS_NOT_NULL_CONSTRAINT:
