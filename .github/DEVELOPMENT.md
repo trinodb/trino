@@ -52,9 +52,7 @@ In addition to those you should also adhere to the following:
 ### Alphabetize
 
 Alphabetize sections in the documentation source files (both in the table of
-contents files and other regular documentation files).  In general, alphabetize
-methods/variables/sections if such ordering already exists in the surrounding
-code.
+contents files and other regular documentation files).
 
 ### Use streams
 
