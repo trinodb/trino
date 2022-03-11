@@ -48,11 +48,11 @@ import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.ExecutionException;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfUnchecked;
+import static io.trino.collect.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
@@ -177,9 +177,9 @@ public final class TypeRegistry
         Type type = types.get(signature);
         if (type == null) {
             try {
-                return parametricTypeCache.get(signature, () -> instantiateParametricType(signature));
+                return uncheckedCacheGet(parametricTypeCache, signature, () -> instantiateParametricType(signature));
             }
-            catch (ExecutionException | UncheckedExecutionException e) {
+            catch (UncheckedExecutionException e) {
                 throwIfUnchecked(e.getCause());
                 throw new RuntimeException(e.getCause());
             }
