@@ -40,6 +40,7 @@ import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTableProperties;
 import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.InMemoryRecordSet;
@@ -387,6 +388,69 @@ public class BigQueryMetadata
         BigQueryTableHandle bigQueryTable = (BigQueryTableHandle) tableHandle;
         TableId tableId = bigQueryTable.getRemoteTableName().toTableId();
         client.dropTable(tableId);
+    }
+
+    @Override
+    public List<SchemaTableName> listViews(ConnectorSession session, Optional<String> schemaName)
+    {
+        BigQueryClient client = bigQueryClientFactory.create(session);
+
+        String projectId = getProjectId(client);
+
+        Optional<String> remoteSchema = schemaName.flatMap(schema -> client.toRemoteDataset(projectId, schema)
+                .filter(dataset -> !dataset.isAmbiguous())
+                .map(RemoteDatabaseObject::getOnlyRemoteName));
+        Set<String> remoteSchemaNames = remoteSchema.map(ImmutableSet::of)
+                .orElseGet(() -> ImmutableSet.copyOf(listRemoteSchemaNames(session)));
+
+        ImmutableList.Builder<SchemaTableName> tableNames = ImmutableList.builder();
+        for (String remoteSchemaName : remoteSchemaNames) {
+            try {
+                Iterable<Table> tables = client.listViews(DatasetId.of(projectId, remoteSchemaName));
+                for (Table table : tables) {
+                    // filter ambiguous tables
+                    client.toRemoteTable(projectId, remoteSchemaName, table.getTableId().getTable().toLowerCase(ENGLISH), tables)
+                            .filter(RemoteDatabaseObject::isAmbiguous)
+                            .ifPresentOrElse(
+                                    remoteTable -> log.debug("Filtered out [%s.%s] from list of tables due to ambiguous name", remoteSchemaName, table.getTableId().getTable()),
+                                    () -> tableNames.add(new SchemaTableName(table.getTableId().getDataset(), table.getTableId().getTable())));
+                }
+            }
+            catch (BigQueryException e) {
+                if (e.getCode() == 404 && e.getMessage().contains("Not found: Dataset")) {
+                    // Dataset not found error is ignored because listTables is used for metadata queries (SELECT FROM information_schema)
+                    log.debug("Dataset disappeared during listing operation: %s", remoteSchemaName);
+                }
+                else {
+                    throw new TrinoException(BIGQUERY_LISTING_DATASET_ERROR, "Exception happened during listing BigQuery dataset: " + remoteSchemaName, e);
+                }
+            }
+        }
+        return tableNames.build();
+    }
+
+    @Override
+    public void createView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition definition, boolean replace)
+    {
+        BigQueryClient client = bigQueryClientFactory.create(session);
+        TableId tableId = TableId.of(getProjectId(client), viewName.getSchemaName(), viewName.getTableName());
+        client.createView(tableId, definition, replace);
+    }
+
+    @Override
+    public void dropView(ConnectorSession session, SchemaTableName viewName)
+    {
+        BigQueryClient client = bigQueryClientFactory.create(session);
+        TableId tableId = TableId.of(getProjectId(client), viewName.getSchemaName(), viewName.getTableName());
+        client.dropView(tableId);
+    }
+
+    @Override
+    public Optional<ConnectorViewDefinition> getView(ConnectorSession session, SchemaTableName viewName)
+    {
+        BigQueryClient client = bigQueryClientFactory.create(session);
+        TableId tableId = TableId.of(getProjectId(client), viewName.getSchemaName(), viewName.getTableName());
+        return client.getView(tableId);
     }
 
     @Override

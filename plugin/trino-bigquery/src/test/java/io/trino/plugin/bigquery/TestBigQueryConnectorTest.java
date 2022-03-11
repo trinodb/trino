@@ -64,6 +64,8 @@ public class TestBigQueryConnectorTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
+            case SUPPORTS_CREATE_VIEW:
+                return true;
             case SUPPORTS_TOPN_PUSHDOWN:
             case SUPPORTS_RENAME_SCHEMA:
             case SUPPORTS_RENAME_TABLE:

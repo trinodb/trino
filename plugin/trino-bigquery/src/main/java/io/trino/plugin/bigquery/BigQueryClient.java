@@ -32,6 +32,7 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.TableNotFoundException;
 
 import java.util.Collections;
@@ -49,6 +50,10 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Streams.stream;
 import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_AMBIGUOUS_OBJECT_NAME;
+import static io.trino.plugin.bigquery.ViewReaderUtil.TRINO_VIEW_DEFINITION;
+import static io.trino.plugin.bigquery.ViewReaderUtil.decodeViewData;
+import static io.trino.plugin.bigquery.ViewReaderUtil.encodeViewData;
+import static io.trino.plugin.bigquery.ViewReaderUtil.isTrinoView;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -176,6 +181,40 @@ public class BigQueryClient
         return stream(allTables)
                 .filter(table -> allowedTypes.contains(table.getDefinition().getType()))
                 .collect(toImmutableList());
+    }
+
+    public Iterable<Table> listViews(DatasetId remoteDatasetId)
+    {
+        return stream(bigQuery.listTables(remoteDatasetId).iterateAll())
+                .filter(table -> getView(table.getTableId()).isPresent()) // Table object returned by BigQuery.listTables doesn't contain description
+                .collect(toImmutableList());
+    }
+
+    public void createView(TableId viewId, ConnectorViewDefinition viewDefinition, boolean replace)
+    {
+        TableInfo tableInfo = TableInfo.newBuilder(viewId, TRINO_VIEW_DEFINITION)
+                .setDescription(encodeViewData(viewDefinition))
+                .build();
+        if (replace) {
+            update(tableInfo);
+        }
+        else {
+            createTable(tableInfo);
+        }
+    }
+
+    public void dropView(TableId viewId)
+    {
+        dropTable(viewId);
+    }
+
+    public Optional<ConnectorViewDefinition> getView(TableId viewId)
+    {
+        Table view = bigQuery.getTable(viewId);
+        if (view == null || !isTrinoView(view.getDescription())) {
+            return Optional.empty();
+        }
+        return Optional.of(decodeViewData(view.getDescription()));
     }
 
     Table update(TableInfo table)

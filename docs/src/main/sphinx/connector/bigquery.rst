@@ -179,6 +179,8 @@ statements, the connector supports the following features:
 * :doc:`/sql/drop-table`
 * :doc:`/sql/create-schema`
 * :doc:`/sql/drop-schema`
+* :doc:`/sql/create-view`
+* :doc:`/sql/drop-view`
 
 FAQ
 ---
