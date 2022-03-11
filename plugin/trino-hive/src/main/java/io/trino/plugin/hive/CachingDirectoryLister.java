@@ -37,11 +37,11 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.collect.cache.CacheUtils.uncheckedCacheGet;
 import static java.util.Objects.requireNonNull;
 import static org.apache.commons.lang3.StringUtils.isNotEmpty;
 
@@ -96,13 +96,7 @@ public class CachingDirectoryLister
             return fs.listLocatedStatus(path);
         }
 
-        ValueHolder cachedValueHolder;
-        try {
-            cachedValueHolder = cache.get(path, ValueHolder::new);
-        }
-        catch (ExecutionException e) {
-            throw new RuntimeException(e); // cannot happen
-        }
+        ValueHolder cachedValueHolder = uncheckedCacheGet(cache, path, ValueHolder::new);
         if (cachedValueHolder.getFiles().isPresent()) {
             return simpleRemoteIterator(cachedValueHolder.getFiles().get());
         }
