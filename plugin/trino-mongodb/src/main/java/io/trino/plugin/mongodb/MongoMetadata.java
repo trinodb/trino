@@ -172,7 +172,7 @@ public class MongoMetadata
     @Override
     public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
     {
-        mongoSession.createTable(tableMetadata.getTable(), buildColumnHandles(tableMetadata));
+        mongoSession.createTable(tableMetadata.getTable(), buildColumnHandles(tableMetadata), tableMetadata.getComment());
     }
 
     @Override
@@ -181,6 +181,13 @@ public class MongoMetadata
         MongoTableHandle table = (MongoTableHandle) tableHandle;
 
         mongoSession.dropTable(table.getSchemaTableName());
+    }
+
+    @Override
+    public void setTableComment(ConnectorSession session, ConnectorTableHandle tableHandle, Optional<String> comment)
+    {
+        MongoTableHandle table = (MongoTableHandle) tableHandle;
+        mongoSession.setTableComment(table.getSchemaTableName(), comment);
     }
 
     @Override
@@ -200,7 +207,7 @@ public class MongoMetadata
     {
         List<MongoColumnHandle> columns = buildColumnHandles(tableMetadata);
 
-        mongoSession.createTable(tableMetadata.getTable(), columns);
+        mongoSession.createTable(tableMetadata.getTable(), columns, tableMetadata.getComment());
 
         setRollback(() -> mongoSession.dropTable(tableMetadata.getTable()));
 
@@ -332,7 +339,8 @@ public class MongoMetadata
 
     private ConnectorTableMetadata getTableMetadata(ConnectorSession session, SchemaTableName tableName)
     {
-        MongoTableHandle tableHandle = mongoSession.getTable(tableName).getTableHandle();
+        MongoTable mongoTable = mongoSession.getTable(tableName);
+        MongoTableHandle tableHandle = mongoTable.getTableHandle();
 
         List<ColumnMetadata> columns = ImmutableList.copyOf(
                 getColumnHandles(session, tableHandle).values().stream()
@@ -340,7 +348,7 @@ public class MongoMetadata
                         .map(MongoColumnHandle::toColumnMetadata)
                         .collect(toList()));
 
-        return new ConnectorTableMetadata(tableName, columns);
+        return new ConnectorTableMetadata(tableName, columns, ImmutableMap.of(), mongoTable.getComment());
     }
 
     private static List<MongoColumnHandle> buildColumnHandles(ConnectorTableMetadata tableMetadata)

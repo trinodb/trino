@@ -369,6 +369,7 @@ statements, the connector supports the following features:
 * :doc:`/sql/alter-table`
 * :doc:`/sql/create-schema`
 * :doc:`/sql/drop-schema`
+* :doc:`/sql/comment` only supports ``COMMENT ON TABLE``
 
 ALTER TABLE
 ^^^^^^^^^^^

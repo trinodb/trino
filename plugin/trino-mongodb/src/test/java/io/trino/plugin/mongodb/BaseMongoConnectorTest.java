@@ -65,7 +65,6 @@ public abstract class BaseMongoConnectorTest
             case SUPPORTS_NOT_NULL_CONSTRAINT:
             case SUPPORTS_RENAME_TABLE:
             case SUPPORTS_RENAME_COLUMN:
-            case SUPPORTS_COMMENT_ON_TABLE:
             case SUPPORTS_COMMENT_ON_COLUMN:
                 return false;
             default:
