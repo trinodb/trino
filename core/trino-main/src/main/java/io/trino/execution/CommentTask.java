@@ -15,12 +15,15 @@ package io.trino.execution;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.Session;
+import io.trino.connector.CatalogName;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
+import io.trino.metadata.MetadataUtil;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.RedirectionAwareTableHandle;
 import io.trino.metadata.TableHandle;
 import io.trino.security.AccessControl;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.sql.tree.Comment;
 import io.trino.sql.tree.Expression;
@@ -38,6 +41,7 @@ import static io.trino.spi.StandardErrorCode.COLUMN_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.MISSING_TABLE;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
+import static io.trino.spi.connector.ConnectorCapabilities.COMMENT_ON_TABLE;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static java.util.Objects.requireNonNull;
 
@@ -74,6 +78,11 @@ public class CommentTask
             RedirectionAwareTableHandle redirectionAwareTableHandle = metadata.getRedirectionAwareTableHandle(session, originalTableName);
             if (redirectionAwareTableHandle.getTableHandle().isEmpty()) {
                 throw semanticException(TABLE_NOT_FOUND, statement, "Table does not exist: %s", originalTableName);
+            }
+
+            CatalogName catalogName = MetadataUtil.getRequiredCatalogHandle(metadata, session, statement, originalTableName.getCatalogName());
+            if (statement.getComment().isPresent() && !metadata.getConnectorCapabilities(session, catalogName).contains(COMMENT_ON_TABLE)) {
+                throw new TrinoException(NOT_SUPPORTED, "This connector does not support setting table comments");
             }
 
             accessControl.checkCanSetTableComment(session.toSecurityContext(), redirectionAwareTableHandle.getRedirectedTableName().orElse(originalTableName));

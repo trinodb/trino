@@ -2002,6 +2002,23 @@ public abstract class BaseConnectorTest
     }
 
     @Test
+    public void testCreateTableWithComment()
+    {
+        String tableName = "test_create_" + randomTableSuffix();
+        String createTable = "CREATE TABLE " + tableName + " (a bigint) COMMENT 'foo'";
+
+        if (!hasBehavior(SUPPORTS_COMMENT_ON_TABLE)) {
+            assertThatThrownBy(() ->
+                    assertUpdate(createTable))
+                    .hasMessage("This connector does not support setting table comments");
+        }
+        else {
+            assertUpdate(createTable);
+            assertThat(getTableComment(tableName)).isEqualTo("foo");
+        }
+    }
+
+    @Test
     public void testCommentTable()
     {
         if (!hasBehavior(SUPPORTS_COMMENT_ON_TABLE)) {

@@ -16,4 +16,5 @@ package io.trino.spi.connector;
 public enum ConnectorCapabilities
 {
     NOT_NULL_COLUMN_CONSTRAINT,
+    COMMENT_ON_TABLE,
 }
