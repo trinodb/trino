@@ -687,11 +687,11 @@ public class CassandraType
     @Override
     public String toString()
     {
-        String string = format("%s(%s", kind, trinoType);
+        String result = format("%s(%s", kind, trinoType);
         if (!argumentTypes.isEmpty()) {
-            string += "; " + argumentTypes;
+            result += "; " + argumentTypes;
         }
-        string += ")";
-        return string;
+        result += ")";
+        return result;
     }
 }
