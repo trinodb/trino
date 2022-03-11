@@ -16,20 +16,24 @@ package io.trino.plugin.mongodb;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.util.Objects.requireNonNull;
 
 public class MongoTable
 {
     private final MongoTableHandle tableHandle;
     private final List<MongoColumnHandle> columns;
     private final List<MongoIndex> indexes;
+    private final Optional<String> comment;
 
-    public MongoTable(MongoTableHandle tableHandle, List<MongoColumnHandle> columns, List<MongoIndex> indexes)
+    public MongoTable(MongoTableHandle tableHandle, List<MongoColumnHandle> columns, List<MongoIndex> indexes, Optional<String> comment)
     {
         this.tableHandle = tableHandle;
         this.columns = ImmutableList.copyOf(columns);
         this.indexes = ImmutableList.copyOf(indexes);
+        this.comment = requireNonNull(comment, "comment is null");
     }
 
     public MongoTableHandle getTableHandle()
@@ -45,6 +49,11 @@ public class MongoTable
     public List<MongoIndex> getIndexes()
     {
         return indexes;
+    }
+
+    public Optional<String> getComment()
+    {
+        return comment;
     }
 
     @Override

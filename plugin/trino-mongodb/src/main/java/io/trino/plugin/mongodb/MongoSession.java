@@ -98,6 +98,7 @@ public class MongoSession
     private static final List<String> SYSTEM_TABLES = Arrays.asList("system.indexes", "system.users", "system.version");
 
     private static final String TABLE_NAME_KEY = "table";
+    private static final String COMMENT_KEY = "comment";
     private static final String FIELDS_KEY = "fields";
     private static final String FIELDS_NAME_KEY = "name";
     private static final String FIELDS_TYPE_KEY = "type";
@@ -198,9 +199,9 @@ public class MongoSession
         }
     }
 
-    public void createTable(SchemaTableName name, List<MongoColumnHandle> columns)
+    public void createTable(SchemaTableName name, List<MongoColumnHandle> columns, Optional<String> comment)
     {
-        createTableMetadata(name, columns);
+        createTableMetadata(name, columns, comment);
         // collection is created implicitly
     }
 
@@ -210,6 +211,20 @@ public class MongoSession
         getCollection(tableName).drop();
 
         tableCache.invalidate(tableName);
+    }
+
+    public void setTableComment(SchemaTableName schemaTableName, Optional<String> comment)
+    {
+        String schemaName = toRemoteSchemaName(schemaTableName.getSchemaName());
+        String tableName = toRemoteTableName(schemaName, schemaTableName.getTableName());
+
+        Document metadata = getTableMetadata(schemaName, tableName);
+        metadata.append(COMMENT_KEY, comment.orElse(null));
+
+        client.getDatabase(schemaName).getCollection(schemaCollection)
+                .findOneAndReplace(new Document(TABLE_NAME_KEY, tableName), metadata);
+
+        tableCache.invalidate(schemaTableName);
     }
 
     public void addColumn(SchemaTableName schemaTableName, ColumnMetadata columnMetadata)
@@ -272,7 +287,7 @@ public class MongoSession
         }
 
         MongoTableHandle tableHandle = new MongoTableHandle(schemaTableName);
-        return new MongoTable(tableHandle, columnHandles.build(), getIndexes(schemaName, tableName));
+        return new MongoTable(tableHandle, columnHandles.build(), getIndexes(schemaName, tableName), getComment(tableMeta));
     }
 
     private MongoColumnHandle buildColumnHandle(Document columnMeta)
@@ -293,6 +308,11 @@ public class MongoSession
         }
 
         return (List<Document>) doc.get(FIELDS_KEY);
+    }
+
+    private static Optional<String> getComment(Document doc)
+    {
+        return Optional.ofNullable(doc.getString(COMMENT_KEY));
     }
 
     public MongoCollection<Document> getCollection(SchemaTableName tableName)
@@ -528,7 +548,7 @@ public class MongoSession
         return names;
     }
 
-    private void createTableMetadata(SchemaTableName schemaTableName, List<MongoColumnHandle> columns)
+    private void createTableMetadata(SchemaTableName schemaTableName, List<MongoColumnHandle> columns, Optional<String> tableComment)
     {
         String schemaName = schemaTableName.getSchemaName();
         String tableName = schemaTableName.getTableName();
@@ -546,6 +566,7 @@ public class MongoSession
                 .collect(toList()));
 
         metadata.append(FIELDS_KEY, fields);
+        tableComment.ifPresent(comment -> metadata.append(COMMENT_KEY, comment));
 
         MongoCollection<Document> schema = db.getCollection(schemaCollection);
         if (!indexExists(schema)) {
