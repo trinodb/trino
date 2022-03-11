@@ -1064,7 +1064,23 @@ public class TrinoDatabaseMetaData
     public ResultSet getImportedKeys(String catalog, String schema, String table)
             throws SQLException
     {
-        throw new SQLFeatureNotSupportedException("imported keys not supported");
+        String query = "SELECT " +
+                " CAST(NULL AS varchar) PKTABLE_CAT, " +
+                " CAST(NULL AS varchar) PKTABLE_SCHEM, " +
+                " CAST(NULL AS varchar) PKTABLE_NAME, " +
+                " CAST(NULL AS varchar) PKCOLUMN_NAME, " +
+                " CAST(NULL AS varchar) FKTABLE_CAT, " +
+                " CAST(NULL AS varchar) FKTABLE_SCHEM, " +
+                " CAST(NULL AS varchar) FKTABLE_NAME, " +
+                " CAST(NULL AS varchar) FKCOLUMN_NAME, " +
+                " CAST(NULL AS smallint) KEY_SEQ, " +
+                " CAST(NULL AS smallint) UPDATE_RULE, " +
+                " CAST(NULL AS smallint) DELETE_RULE, " +
+                " CAST(NULL AS varchar) FK_NAME, " +
+                " CAST(NULL AS varchar) PK_NAME, " +
+                " CAST(NULL AS smallint) DEFERRABILITY " +
+                "WHERE false";
+        return select(query);
     }
 
     @Override
