@@ -483,6 +483,19 @@ public class AccessControlManager
     }
 
     @Override
+    public void checkCanSetViewComment(SecurityContext securityContext, QualifiedObjectName viewName)
+    {
+        requireNonNull(securityContext, "securityContext is null");
+        requireNonNull(viewName, "viewName is null");
+
+        checkCanAccessCatalog(securityContext, viewName.getCatalogName());
+
+        systemAuthorizationCheck(control -> control.checkCanSetViewComment(securityContext.toSystemSecurityContext(), viewName.asCatalogSchemaTableName()));
+
+        catalogAuthorizationCheck(viewName.getCatalogName(), securityContext, (control, context) -> control.checkCanSetViewComment(context, viewName.asSchemaTableName()));
+    }
+
+    @Override
     public void checkCanSetColumnComment(SecurityContext securityContext, QualifiedObjectName tableName)
     {
         requireNonNull(securityContext, "securityContext is null");

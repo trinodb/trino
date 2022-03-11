@@ -109,6 +109,9 @@ public class AllowAllAccessControlManager
     public void checkCanSetTableComment(SecurityContext context, QualifiedObjectName tableName) {}
 
     @Override
+    public void checkCanSetViewComment(SecurityContext context, QualifiedObjectName viewName) {}
+
+    @Override
     public void checkCanSetColumnComment(SecurityContext context, QualifiedObjectName tableName) {}
 
     @Override
