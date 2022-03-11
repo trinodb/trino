@@ -218,6 +218,12 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
+    public void checkCanSetViewComment(SystemSecurityContext context, CatalogSchemaTableName view)
+    {
+        delegate().checkCanSetViewComment(context, view);
+    }
+
+    @Override
     public void checkCanSetColumnComment(SystemSecurityContext context, CatalogSchemaTableName table)
     {
         delegate().checkCanSetColumnComment(context, table);

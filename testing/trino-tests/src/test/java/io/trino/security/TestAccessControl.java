@@ -42,6 +42,7 @@ import static io.trino.spi.security.PrincipalType.USER;
 import static io.trino.spi.security.SelectedRole.Type.ROLE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.ADD_COLUMN;
+import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.COMMENT_VIEW;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_MATERIALIZED_VIEW;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_TABLE;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_VIEW;
@@ -341,6 +342,16 @@ public class TestAccessControl
         assertAccessDenied("ANALYZE nation", "Cannot ANALYZE \\(missing insert privilege\\) table .*.nation.*", privilege("nation", INSERT_TABLE));
         assertAccessDenied("ANALYZE nation", "Cannot select from columns \\[.*] in table or view .*.nation", privilege("nation", SELECT_COLUMN));
         assertAccessDenied("ANALYZE nation", "Cannot select from columns \\[.*nationkey.*] in table or view .*.nation", privilege("nation.nationkey", SELECT_COLUMN));
+    }
+
+    @Test
+    public void testCommentView()
+    {
+        String viewName = "comment_view" + randomTableSuffix();
+        assertUpdate("CREATE VIEW " + viewName + " COMMENT 'old comment' AS SELECT * FROM orders");
+        assertAccessDenied("COMMENT ON VIEW " + viewName + " IS 'new comment'", "Cannot comment view to .*", privilege(viewName, COMMENT_VIEW));
+        assertThatThrownBy(() -> getQueryRunner().execute(getSession(), "COMMENT ON VIEW " + viewName + " IS 'new comment'"))
+                .hasMessageContaining("This connector does not support setting view comments");
     }
 
     @Test

@@ -66,6 +66,7 @@ import static io.trino.spi.security.AccessDeniedException.denyAddColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCatalogAccess;
 import static io.trino.spi.security.AccessDeniedException.denyCommentColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCommentTable;
+import static io.trino.spi.security.AccessDeniedException.denyCommentView;
 import static io.trino.spi.security.AccessDeniedException.denyCreateMaterializedView;
 import static io.trino.spi.security.AccessDeniedException.denyCreateRole;
 import static io.trino.spi.security.AccessDeniedException.denyCreateSchema;
@@ -553,6 +554,14 @@ public class FileBasedSystemAccessControl
     {
         if (!checkTablePermission(context, table, OWNERSHIP)) {
             denyCommentTable(table.toString());
+        }
+    }
+
+    @Override
+    public void checkCanSetViewComment(SystemSecurityContext context, CatalogSchemaTableName view)
+    {
+        if (!checkTablePermission(context, view, OWNERSHIP)) {
+            denyCommentView(view.toString());
         }
     }
 

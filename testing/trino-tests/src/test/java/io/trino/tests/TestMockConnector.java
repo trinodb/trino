@@ -27,6 +27,8 @@ import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition.Column;
+import io.trino.spi.connector.ConnectorViewDefinition;
+import io.trino.spi.connector.ConnectorViewDefinition.ViewColumn;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.metrics.Metrics;
 import io.trino.spi.session.PropertyMetadata;
@@ -73,6 +75,16 @@ public class TestMockConnector
                                     }
                                     return new MockConnectorTableHandle(tableName);
                                 })
+                                .withGetViews((session, schemaTablePrefix) -> ImmutableMap.of(
+                                        new SchemaTableName("default", "test_view"),
+                                        new ConnectorViewDefinition(
+                                                "SELECT nationkey FROM mock.default.test_table",
+                                                Optional.of("mock"),
+                                                Optional.of("default"),
+                                                ImmutableList.of(new ViewColumn("nationkey", BIGINT.getTypeId())),
+                                                Optional.empty(),
+                                                Optional.of("alice"),
+                                                false)))
                                 .withGetMaterializedViewProperties(() -> ImmutableList.of(
                                         durationProperty(
                                                 "refresh_interval",
@@ -125,6 +137,12 @@ public class TestMockConnector
     public void testRenameSchema()
     {
         assertUpdate("ALTER SCHEMA mock.default RENAME to renamed");
+    }
+
+    @Test
+    public void testViewComment()
+    {
+        assertUpdate("COMMENT ON VIEW mock.default.test_view IS 'new comment'");
     }
 
     @Test

@@ -198,6 +198,13 @@ public interface AccessControl
     void checkCanSetTableComment(SecurityContext context, QualifiedObjectName tableName);
 
     /**
+     * Check if identity is allowed to comment the specified view.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanSetViewComment(SecurityContext context, QualifiedObjectName viewName);
+
+    /**
      * Check if identity is allowed to comment the specified column.
      *
      * @throws io.trino.spi.security.AccessDeniedException if not allowed
