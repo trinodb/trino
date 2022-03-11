@@ -31,11 +31,11 @@ import java.lang.invoke.MethodHandle;
 import java.util.Collection;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.base.Verify.verifyNotNull;
+import static io.trino.collect.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.util.SingleAccessMethodCompiler.compileSingleAccessMethod;
 import static java.lang.Boolean.TRUE;
@@ -248,12 +248,13 @@ public final class FastutilSetHelper
         {
             try {
                 @SuppressWarnings("unchecked")
-                GeneratedMethod<T> generatedMethod = (GeneratedMethod<T>) generatedMethodCache.get(
+                GeneratedMethod<T> generatedMethod = (GeneratedMethod<T>) uncheckedCacheGet(
+                        generatedMethodCache,
                         new MethodKey<>(type, operatorInterface),
                         () -> new GeneratedMethod<>(type, operatorInterface, methodHandle));
                 return generatedMethod.get();
             }
-            catch (ExecutionException | UncheckedExecutionException e) {
+            catch (UncheckedExecutionException e) {
                 throwIfUnchecked(e.getCause());
                 throw new RuntimeException(e.getCause());
             }

@@ -26,9 +26,9 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 import java.time.Duration;
 import java.util.Optional;
-import java.util.concurrent.ExecutionException;
 
 import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static io.trino.collect.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.lang.annotation.ElementType.FIELD;
 import static java.lang.annotation.ElementType.METHOD;
@@ -59,9 +59,9 @@ public class CachingDeltaLakeStatisticsAccess
     public Optional<DeltaLakeStatistics> readDeltaLakeStatistics(ConnectorSession session, String tableLocation)
     {
         try {
-            return cache.get(tableLocation, () -> delegate.readDeltaLakeStatistics(session, tableLocation));
+            return uncheckedCacheGet(cache, tableLocation, () -> delegate.readDeltaLakeStatistics(session, tableLocation));
         }
-        catch (ExecutionException | UncheckedExecutionException e) {
+        catch (UncheckedExecutionException e) {
             throwIfInstanceOf(e.getCause(), TrinoException.class);
             throw new TrinoException(GENERIC_INTERNAL_ERROR, "Error reading statistics from cache", e.getCause());
         }
