@@ -331,7 +331,7 @@ public class PostgreSqlClient
         for (Map.Entry<String, String> entry : supposedColumnExpressions.entrySet()) {
             builder.put(entry.getKey(), entry.getValue());
         }
-        Map<String, String> columnExpressions = builder.build();
+        Map<String, String> columnExpressions = builder.buildOrThrow();
 
         PreparedQuery preparedQuery = prepareQuery(session, connection, table, Optional.empty(), columns, columnExpressions, Optional.of(split));
         return new QueryBuilder(this).prepareStatement(session, connection, preparedQuery);
