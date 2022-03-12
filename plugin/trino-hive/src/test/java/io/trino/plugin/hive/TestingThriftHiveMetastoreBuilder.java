@@ -24,8 +24,10 @@ import io.trino.plugin.hive.metastore.HiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.thrift.MetastoreLocator;
 import io.trino.plugin.hive.metastore.thrift.TestingMetastoreLocator;
 import io.trino.plugin.hive.metastore.thrift.ThriftHiveMetastore;
+import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreAuthenticationConfig;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreClient;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreConfig;
+import io.trino.plugin.hive.metastore.thrift.TokenDelegationThriftMetastoreFactory;
 import io.trino.plugin.hive.s3.HiveS3Config;
 import io.trino.plugin.hive.s3.TrinoS3ConfigurationInitializer;
 
@@ -90,11 +92,14 @@ public final class TestingThriftHiveMetastoreBuilder
     {
         checkState(metastoreLocator != null, "metastore client not set");
         return new ThriftHiveMetastore(
-                metastoreLocator,
+                new TokenDelegationThriftMetastoreFactory(
+                        metastoreLocator,
+                        new ThriftMetastoreConfig(),
+                        new ThriftMetastoreAuthenticationConfig(),
+                        hdfsEnvironment),
                 new HiveMetastoreConfig().isHideDeltaLakeTables(),
                 hiveConfig.isTranslateHiveViews(),
                 new ThriftMetastoreConfig(),
-                hdfsEnvironment,
-                false);
+                hdfsEnvironment);
     }
 }
