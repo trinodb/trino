@@ -37,6 +37,7 @@ import io.trino.plugin.elasticsearch.AwsSecurityConfig;
 import io.trino.plugin.elasticsearch.ElasticsearchConfig;
 import io.trino.plugin.elasticsearch.PasswordConfig;
 import io.trino.spi.TrinoException;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpHost;
 import org.apache.http.auth.AuthScope;
@@ -549,6 +550,12 @@ public class ElasticsearchClient
                 if (!mappings.elements().hasNext()) {
                     return new IndexMetadata(new IndexMetadata.ObjectType(ImmutableList.of()));
                 }
+
+                // The connector doesn't support indexes with multiple mappings -- it wouldn't know how to pick between them.
+                if(mappings.size() > 1){
+                    throw new TrinoException(NOT_SUPPORTED, "This connector does not support multiple mappings");
+                }
+
                 if (!mappings.has("properties")) {
                     // Older versions of ElasticSearch supported multiple "type" mappings
                     // for a given index. Newer versions support only one and don't
