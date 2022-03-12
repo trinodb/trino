@@ -15,6 +15,7 @@ package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.net.HostAndPort;
 import io.airlift.units.DataSize;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.PagesIndexPageSorter;
@@ -57,6 +58,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -72,7 +74,23 @@ public final class HiveTestUtils
 
     public static final ConnectorSession SESSION = getHiveSession(new HiveConfig());
 
-    public static final HdfsEnvironment HDFS_ENVIRONMENT = createTestHdfsEnvironment();
+    public static final Optional<HostAndPort> SOCKS_PROXY = Optional.ofNullable(System.getProperty("hive.metastore.thrift.client.socks-proxy"))
+            .map(HostAndPort::fromString);
+
+    public static final HiveHdfsConfiguration HDFS_CONFIGURATION = new HiveHdfsConfiguration(
+            new HdfsConfigurationInitializer(
+                    new HdfsConfig()
+                            .setSocksProxy(SOCKS_PROXY.orElse(null)),
+                    ImmutableSet.of(
+                            new TrinoS3ConfigurationInitializer(new HiveS3Config()),
+                            new GoogleGcsConfigurationInitializer(new HiveGcsConfig()),
+                            new TrinoAzureConfigurationInitializer(new HiveAzureConfig()))),
+            ImmutableSet.of());
+
+    public static final HdfsEnvironment HDFS_ENVIRONMENT = new HdfsEnvironment(
+            HDFS_CONFIGURATION,
+            new HdfsConfig(),
+            new NoHdfsAuthentication());
 
     public static final PageSorter PAGE_SORTER = new PagesIndexPageSorter(new PagesIndex.TestingFactory(false));
 
@@ -172,19 +190,6 @@ public final class HiveTestUtils
     public static HiveRecordCursorProvider createGenericHiveRecordCursorProvider(HdfsEnvironment hdfsEnvironment)
     {
         return new GenericHiveRecordCursorProvider(hdfsEnvironment, DataSize.of(100, MEGABYTE));
-    }
-
-    private static HdfsEnvironment createTestHdfsEnvironment()
-    {
-        HdfsConfiguration hdfsConfig = new HiveHdfsConfiguration(
-                new HdfsConfigurationInitializer(
-                        new HdfsConfig(),
-                        ImmutableSet.of(
-                                new TrinoS3ConfigurationInitializer(new HiveS3Config()),
-                                new GoogleGcsConfigurationInitializer(new HiveGcsConfig()),
-                                new TrinoAzureConfigurationInitializer(new HiveAzureConfig()))),
-                ImmutableSet.of());
-        return new HdfsEnvironment(hdfsConfig, new HdfsConfig(), new NoHdfsAuthentication());
     }
 
     public static MapType mapType(Type keyType, Type valueType)

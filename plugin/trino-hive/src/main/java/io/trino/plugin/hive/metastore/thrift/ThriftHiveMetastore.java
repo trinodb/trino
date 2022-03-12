@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hive.metastore.thrift;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.collect.ImmutableList;
@@ -211,6 +212,7 @@ public class ThriftHiveMetastore
                 authenticationConfig.getAuthenticationType() != ThriftMetastoreAuthenticationType.NONE);
     }
 
+    @VisibleForTesting
     public ThriftHiveMetastore(
             MetastoreLocator metastoreLocator,
             boolean hideDeltaLakeTables,
