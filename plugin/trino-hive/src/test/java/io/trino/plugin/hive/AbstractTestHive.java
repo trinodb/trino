@@ -3964,7 +3964,7 @@ public abstract class AbstractTestHive
     {
         // create table with data
         doCreateEmptyTable(tableName, ORC, CREATE_TABLE_COLUMNS);
-        insertData(tableName, CREATE_TABLE_DATA);
+        insertData(tableName, CREATE_TABLE_DATA, new HashMap<>(), insertMode);
 
         // overwrite table with new data
         MaterializedResult.Builder overwriteDataBuilder = MaterializedResult.resultBuilder(SESSION, CREATE_TABLE_DATA.getTypes());
