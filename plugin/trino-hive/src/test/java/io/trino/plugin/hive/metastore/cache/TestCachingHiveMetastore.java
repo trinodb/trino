@@ -20,23 +20,19 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.plugin.hive.HiveColumnHandle;
-import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HiveMetastoreClosure;
 import io.trino.plugin.hive.PartitionStatistics;
 import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.HiveMetastore;
-import io.trino.plugin.hive.metastore.HiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.HivePrincipal;
 import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.hive.metastore.UnimplementedHiveMetastore;
 import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
-import io.trino.plugin.hive.metastore.thrift.MetastoreLocator;
 import io.trino.plugin.hive.metastore.thrift.MockThriftMetastoreClient;
 import io.trino.plugin.hive.metastore.thrift.ThriftHiveMetastore;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreClient;
-import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreConfig;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreStats;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
@@ -72,9 +68,9 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static io.trino.plugin.hive.HiveColumnHandle.createBaseColumn;
 import static io.trino.plugin.hive.HiveStorageFormat.TEXTFILE;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveType.HIVE_STRING;
 import static io.trino.plugin.hive.HiveType.toHiveType;
+import static io.trino.plugin.hive.TestingThriftHiveMetastoreBuilder.testingThriftHiveMetastoreBuilder;
 import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createIntegerColumnStatistics;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.computePartitionKeyFilter;
 import static io.trino.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
@@ -153,8 +149,9 @@ public class TestCachingHiveMetastore
 
     private static ThriftHiveMetastore createThriftHiveMetastore(ThriftMetastoreClient client)
     {
-        MetastoreLocator metastoreLocator = new MockMetastoreLocator(client);
-        return new ThriftHiveMetastore(metastoreLocator, new HiveMetastoreConfig().isHideDeltaLakeTables(), new HiveConfig().isTranslateHiveViews(), new ThriftMetastoreConfig(), HDFS_ENVIRONMENT, false);
+        return testingThriftHiveMetastoreBuilder()
+                .metastoreClient(client)
+                .build();
     }
 
     @Test
@@ -841,22 +838,5 @@ public class TestCachingHiveMetastore
                 config.getMetastoreRefreshInterval(),
                 config.getMetastoreCacheMaximumSize(),
                 config.isPartitionCacheEnabled());
-    }
-
-    private static class MockMetastoreLocator
-            implements MetastoreLocator
-    {
-        private final ThriftMetastoreClient client;
-
-        private MockMetastoreLocator(ThriftMetastoreClient client)
-        {
-            this.client = client;
-        }
-
-        @Override
-        public ThriftMetastoreClient createMetastoreClient(Optional<String> delegationToken)
-        {
-            return client;
-        }
     }
 }
