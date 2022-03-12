@@ -95,6 +95,7 @@ For more details, see :doc:`binary`
 
 * ``concat()``
 * :func:`crc32`
+* :func:`from_base32`
 * :func:`from_base64`
 * :func:`from_base64url`
 * :func:`from_big_endian_32`
@@ -118,6 +119,7 @@ For more details, see :doc:`binary`
 * :func:`spooky_hash_v2_32`
 * :func:`spooky_hash_v2_64`
 * ``substr()``
+* :func:`to_base32`
 * :func:`to_base64`
 * :func:`to_base64url`
 * :func:`to_big_endian_32`

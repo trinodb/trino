@@ -81,6 +81,14 @@ The Base64 functions implement the encoding specified in :rfc:`4648`.
 
     Encodes ``binary`` into a base64 string representation using the URL safe alphabet.
 
+.. function:: from_base32(string) -> varbinary
+
+    Decodes binary data from the base32 encoded ``string``.
+
+.. function:: to_base32(binary) -> varchar
+
+    Encodes ``binary`` into a base32 string representation.
+
 Hex encoding functions
 ----------------------
 

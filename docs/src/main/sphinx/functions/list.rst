@@ -162,6 +162,7 @@ F
 - :func:`format_datetime`
 - :func:`format_number`
 - :func:`from_base`
+- :func:`from_base32`
 - :func:`from_base64`
 - :func:`from_base64url`
 - :func:`from_big_endian_32`
@@ -467,6 +468,7 @@ T
 - :func:`timezone_hour`
 - :func:`timezone_minute`
 - :func:`to_base`
+- :func:`to_base32`
 - :func:`to_base64`
 - :func:`to_base64url`
 - :func:`to_big_endian_32`
