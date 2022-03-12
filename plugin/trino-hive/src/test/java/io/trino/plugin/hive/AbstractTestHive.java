@@ -3964,7 +3964,7 @@ public abstract class AbstractTestHive
     {
         // create table with data
         doCreateEmptyTable(tableName, ORC, CREATE_TABLE_COLUMNS);
-        insertData(tableName, CREATE_TABLE_DATA, new HashMap<>(), insertMode);
+        insertData(tableName, CREATE_TABLE_DATA);
 
         // overwrite table with new data
         MaterializedResult.Builder overwriteDataBuilder = MaterializedResult.resultBuilder(SESSION, CREATE_TABLE_DATA.getTypes());
@@ -4018,7 +4018,7 @@ public abstract class AbstractTestHive
             ConnectorTableHandle tableHandle = getTableHandle(metadata, tableName);
 
             // "stage" insert data
-            ConnectorInsertTableHandle insertTableHandle = metadata.beginInsert(session, tableHandle, ImmutableList.of(), NO_RETRIES);
+            ConnectorInsertTableHandle insertTableHandle = metadata.beginInsert(session, tableHandle, ImmutableList.of(), NO_RETRIES, insertMode);
             ConnectorPageSink sink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, insertTableHandle);
             for (int i = 0; i < 4; i++) {
                 sink.appendPage(overwriteData.toPage());
