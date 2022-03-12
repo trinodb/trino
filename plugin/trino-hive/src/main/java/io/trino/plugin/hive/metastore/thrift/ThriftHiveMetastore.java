@@ -13,16 +13,11 @@
  */
 package io.trino.plugin.hive.metastore.thrift;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
-import io.trino.collect.cache.NonEvictableLoadingCache;
 import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.trino.plugin.hive.HideDeltaLakeTables;
@@ -43,7 +38,6 @@ import io.trino.plugin.hive.metastore.HivePrincipal;
 import io.trino.plugin.hive.metastore.HivePrivilegeInfo;
 import io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege;
 import io.trino.plugin.hive.metastore.PartitionWithStatistics;
-import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreAuthenticationConfig.ThriftMetastoreAuthenticationType;
 import io.trino.plugin.hive.util.RetryDriver;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SchemaNotFoundException;
@@ -97,7 +91,6 @@ import org.weakref.jmx.Managed;
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
-import java.io.Closeable;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.HashSet;
@@ -117,7 +110,6 @@ import java.util.stream.Stream;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Throwables.propagateIfPossible;
-import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.base.Verify.verifyNotNull;
@@ -126,7 +118,6 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Sets.difference;
-import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_TABLE_LOCK_NOT_ACQUIRED;
 import static io.trino.plugin.hive.ViewReaderUtil.PRESTO_VIEW_FLAG;
@@ -150,7 +141,6 @@ import static java.lang.Boolean.TRUE;
 import static java.lang.String.format;
 import static java.lang.System.nanoTime;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.hadoop.hive.common.FileUtils.makePartName;
 import static org.apache.hadoop.hive.metastore.TableType.MANAGED_TABLE;
@@ -170,7 +160,7 @@ public class ThriftHiveMetastore
     private final ThriftMetastoreStats stats = new ThriftMetastoreStats();
     private final HdfsEnvironment hdfsEnvironment;
     private final HdfsContext hdfsContext;
-    private final MetastoreLocator clientProvider;
+    private final TokenDelegationThriftMetastoreFactory metastoreFactory;
     private final double backoffScaleFactor;
     private final Duration minBackoffDelay;
     private final Duration maxBackoffDelay;
@@ -178,8 +168,6 @@ public class ThriftHiveMetastore
     private final Duration maxWaitForLock;
     private final int maxRetries;
     private final boolean impersonationEnabled;
-    private final boolean authenticationEnabled;
-    private final NonEvictableLoadingCache<String, String> delegationTokenCache;
     private final boolean deleteFilesOnDrop;
     private final boolean translateHiveViews;
 
@@ -196,33 +184,14 @@ public class ThriftHiveMetastore
 
     @Inject
     public ThriftHiveMetastore(
-            MetastoreLocator metastoreLocator,
+            TokenDelegationThriftMetastoreFactory metastoreFactory,
             @HideDeltaLakeTables boolean hideDeltaLakeTables,
             @TranslateHiveViews boolean translateHiveViews,
             ThriftMetastoreConfig thriftConfig,
-            ThriftMetastoreAuthenticationConfig authenticationConfig,
             HdfsEnvironment hdfsEnvironment)
     {
-        this(
-                metastoreLocator,
-                hideDeltaLakeTables,
-                translateHiveViews,
-                thriftConfig,
-                hdfsEnvironment,
-                authenticationConfig.getAuthenticationType() != ThriftMetastoreAuthenticationType.NONE);
-    }
-
-    @VisibleForTesting
-    public ThriftHiveMetastore(
-            MetastoreLocator metastoreLocator,
-            boolean hideDeltaLakeTables,
-            boolean translateHiveViews,
-            ThriftMetastoreConfig thriftConfig,
-            HdfsEnvironment hdfsEnvironment,
-            boolean authenticationEnabled)
-    {
         this.hdfsContext = new HdfsContext(ConnectorIdentity.ofUser(DEFAULT_METASTORE_USER));
-        this.clientProvider = requireNonNull(metastoreLocator, "metastoreLocator is null");
+        this.metastoreFactory = requireNonNull(metastoreFactory, "metastoreFactory is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.backoffScaleFactor = thriftConfig.getBackoffScaleFactor();
         this.minBackoffDelay = thriftConfig.getMinBackoffDelay();
@@ -234,13 +203,7 @@ public class ThriftHiveMetastore
         this.translateHiveViews = translateHiveViews;
         checkArgument(!hideDeltaLakeTables, "Hiding Delta Lake tables is not supported"); // TODO
         this.maxWaitForLock = thriftConfig.getMaxWaitForTransactionLock();
-        this.authenticationEnabled = authenticationEnabled;
 
-        this.delegationTokenCache = buildNonEvictableCache(
-                CacheBuilder.newBuilder()
-                        .expireAfterWrite(thriftConfig.getDelegationTokenCacheTtl().toMillis(), MILLISECONDS)
-                        .maximumSize(thriftConfig.getDelegationTokenCacheMaximumSize()),
-                CacheLoader.from(this::loadDelegationToken));
         this.assumeCanonicalPartitionKeys = thriftConfig.isAssumeCanonicalPartitionKeys();
     }
 
@@ -2075,62 +2038,10 @@ public class ThriftHiveMetastore
         return applicationException.getType() == UNKNOWN_METHOD;
     }
 
-    private ThriftMetastoreClient createMetastoreClient()
-            throws TException
-    {
-        return clientProvider.createMetastoreClient(Optional.empty());
-    }
-
     private ThriftMetastoreClient createMetastoreClient(HiveIdentity identity)
             throws TException
     {
-        if (!impersonationEnabled) {
-            return createMetastoreClient();
-        }
-
-        String username = identity.getUsername().orElseThrow(() -> new IllegalStateException("End-user name should exist when metastore impersonation is enabled"));
-        if (authenticationEnabled) {
-            String delegationToken;
-            try {
-                delegationToken = delegationTokenCache.getUnchecked(username);
-            }
-            catch (UncheckedExecutionException e) {
-                throwIfInstanceOf(e.getCause(), TrinoException.class);
-                throw e;
-            }
-            return clientProvider.createMetastoreClient(Optional.of(delegationToken));
-        }
-
-        ThriftMetastoreClient client = createMetastoreClient();
-        setMetastoreUserOrClose(client, username);
-        return client;
-    }
-
-    private String loadDelegationToken(String username)
-    {
-        try (ThriftMetastoreClient client = createMetastoreClient()) {
-            return client.getDelegationToken(username);
-        }
-        catch (TException e) {
-            throw new TrinoException(HIVE_METASTORE_ERROR, e);
-        }
-    }
-
-    private static void setMetastoreUserOrClose(ThriftMetastoreClient client, String username)
-            throws TException
-    {
-        try {
-            client.setUGI(username);
-        }
-        catch (Throwable t) {
-            // close client and suppress any error from close
-            try (Closeable ignored = client) {
-                throw t;
-            }
-            catch (IOException e) {
-                // impossible; will be suppressed
-            }
-        }
+        return metastoreFactory.createMetastoreClient(identity);
     }
 
     private RetryDriver retry()

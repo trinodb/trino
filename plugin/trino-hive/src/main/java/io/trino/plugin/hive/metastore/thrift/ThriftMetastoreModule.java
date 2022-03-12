@@ -32,6 +32,7 @@ public class ThriftMetastoreModule
         OptionalBinder.newOptionalBinder(binder, ThriftMetastoreClientFactory.class)
                 .setDefault().to(DefaultThriftMetastoreClientFactory.class).in(Scopes.SINGLETON);
         binder.bind(MetastoreLocator.class).to(StaticMetastoreLocator.class).in(Scopes.SINGLETON);
+        binder.bind(TokenDelegationThriftMetastoreFactory.class);
         configBinder(binder).bindConfig(StaticMetastoreConfig.class);
         configBinder(binder).bindConfig(ThriftMetastoreConfig.class);
 
