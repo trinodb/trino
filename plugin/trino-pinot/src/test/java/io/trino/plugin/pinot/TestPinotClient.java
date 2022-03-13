@@ -30,6 +30,9 @@ import org.testng.annotations.Test;
 
 import java.util.concurrent.TimeUnit;
 
+import static io.airlift.concurrent.Threads.threadsNamed;
+import static java.util.concurrent.Executors.newCachedThreadPool;
+
 public class TestPinotClient
 {
     @Test
@@ -75,12 +78,13 @@ public class TestPinotClient
                 "  ]\n" +
                 "}"));
         PinotConfig pinotConfig = new PinotConfig()
-                .setMetadataCacheExpiry(new Duration(0, TimeUnit.MILLISECONDS))
+                .setMetadataCacheExpiry(new Duration(1, TimeUnit.MILLISECONDS))
                 .setControllerUrls("localhost:7900");
         PinotClient pinotClient = new PinotClient(
                 pinotConfig,
                 new IdentityPinotHostMapper(),
                 httpClient,
+                newCachedThreadPool(threadsNamed("pinot-metadata-fetcher-testing")),
                 MetadataUtil.TABLES_JSON_CODEC,
                 MetadataUtil.BROKERS_FOR_TABLE_JSON_CODEC,
                 MetadataUtil.TIME_BOUNDARY_JSON_CODEC,

@@ -20,8 +20,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimap;
@@ -46,6 +48,8 @@ import io.trino.plugin.pinot.auth.PinotBrokerAuthenticationProvider;
 import io.trino.plugin.pinot.auth.PinotControllerAuthenticationProvider;
 import io.trino.plugin.pinot.query.PinotQueryInfo;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.TableNotFoundException;
 import org.apache.pinot.common.response.broker.BrokerResponseNative;
 import org.apache.pinot.common.response.broker.ResultTable;
 import org.apache.pinot.spi.data.Schema;
@@ -55,12 +59,14 @@ import javax.inject.Inject;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
@@ -70,6 +76,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.cache.CacheLoader.asyncReloading;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.net.HttpHeaders.ACCEPT;
@@ -81,13 +88,16 @@ import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.json.JsonCodec.listJsonCodec;
 import static io.airlift.json.JsonCodec.mapJsonCodec;
 import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
+import static io.trino.plugin.pinot.PinotErrorCode.PINOT_AMBIGUOUS_TABLE_NAME;
 import static io.trino.plugin.pinot.PinotErrorCode.PINOT_EXCEPTION;
 import static io.trino.plugin.pinot.PinotErrorCode.PINOT_INVALID_CONFIGURATION;
 import static io.trino.plugin.pinot.PinotErrorCode.PINOT_UNABLE_TO_FIND_BROKER;
+import static io.trino.plugin.pinot.PinotMetadata.SCHEMA_NAME;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.UnaryOperator.identity;
+import static java.util.stream.Collectors.joining;
 import static org.apache.pinot.spi.utils.builder.TableNameBuilder.extractRawTableName;
 
 public class PinotClient
@@ -97,6 +107,7 @@ public class PinotClient
     private static final Pattern BROKER_PATTERN = Pattern.compile("Broker_(.*)_(\\d+)");
     private static final String TIME_BOUNDARY_NOT_FOUND_ERROR_CODE = "404";
     private static final JsonCodec<Map<String, Map<String, List<String>>>> ROUTING_TABLE_CODEC = mapJsonCodec(String.class, mapJsonCodec(String.class, listJsonCodec(String.class)));
+    private static final Object ALL_TABLES_CACHE_KEY = new Object();
     private static final JsonCodec<QueryRequest> QUERY_REQUEST_JSON_CODEC = jsonCodec(QueryRequest.class);
 
     private static final String GET_ALL_TABLES_API_TEMPLATE = "tables";
@@ -111,6 +122,7 @@ public class PinotClient
     private final PinotHostMapper pinotHostMapper;
 
     private final NonEvictableLoadingCache<String, List<String>> brokersForTableCache;
+    private final NonEvictableLoadingCache<Object, Multimap<String, String>> allTablesCache;
 
     private final JsonCodec<GetTables> tablesJsonCodec;
     private final JsonCodec<BrokersForTable> brokersForTableJsonCodec;
@@ -125,6 +137,7 @@ public class PinotClient
             PinotConfig config,
             PinotHostMapper pinotHostMapper,
             @ForPinot HttpClient httpClient,
+            @ForPinot ExecutorService executor,
             JsonCodec<GetTables> tablesJsonCodec,
             JsonCodec<BrokersForTable> brokersForTableJsonCodec,
             JsonCodec<TimeBoundary> timeBoundaryJsonCodec,
@@ -150,6 +163,10 @@ public class PinotClient
                 CacheBuilder.newBuilder()
                         .expireAfterWrite(config.getMetadataCacheExpiry().roundTo(TimeUnit.MILLISECONDS), TimeUnit.MILLISECONDS),
                 CacheLoader.from(this::getAllBrokersForTable));
+        this.allTablesCache = buildNonEvictableCache(
+                CacheBuilder.newBuilder()
+                        .refreshAfterWrite(config.getMetadataCacheExpiry().roundTo(TimeUnit.MILLISECONDS), TimeUnit.MILLISECONDS),
+                asyncReloading(CacheLoader.from(this::getAllTables), executor));
         this.controllerAuthenticationProvider = controllerAuthenticationProvider;
         this.brokerAuthenticationProvider = brokerAuthenticationProvider;
     }
@@ -239,15 +256,60 @@ public class PinotClient
         }
     }
 
-    public List<String> getAllTables()
+    protected Multimap<String, String> getAllTables()
     {
-        return sendHttpGetToControllerJson(GET_ALL_TABLES_API_TEMPLATE, tablesJsonCodec).getTables();
+        List<String> allTables = sendHttpGetToControllerJson(GET_ALL_TABLES_API_TEMPLATE, tablesJsonCodec).getTables();
+        ImmutableListMultimap.Builder<String, String> builder = ImmutableListMultimap.builder();
+        for (String table : allTables) {
+            builder.put(table.toLowerCase(ENGLISH), table);
+        }
+        return builder.build();
     }
 
     public Schema getTableSchema(String table)
             throws Exception
     {
         return sendHttpGetToControllerJson(format(TABLE_SCHEMA_API_TEMPLATE, table), schemaJsonCodec);
+    }
+
+    public List<String> getPinotTableNames()
+    {
+        return ImmutableList.copyOf(getFromCache(allTablesCache, ALL_TABLES_CACHE_KEY).keySet());
+    }
+
+    public static <K, V> V getFromCache(LoadingCache<K, V> cache, K key)
+    {
+        V value = cache.getIfPresent(key);
+        if (value != null) {
+            return value;
+        }
+        try {
+            return cache.get(key);
+        }
+        catch (ExecutionException e) {
+            throw new PinotException(PinotErrorCode.PINOT_UNCLASSIFIED_ERROR, Optional.empty(), "Cannot fetch from cache " + key, e.getCause());
+        }
+    }
+
+    public String getPinotTableNameFromTrinoTableNameIfExists(String trinoTableName)
+    {
+        Collection<String> candidates = getFromCache(allTablesCache, ALL_TABLES_CACHE_KEY).get(trinoTableName.toLowerCase(ENGLISH));
+        if (candidates.isEmpty()) {
+            return null;
+        }
+        if (candidates.size() == 1) {
+            return getOnlyElement(candidates);
+        }
+        throw new PinotException(PINOT_AMBIGUOUS_TABLE_NAME, Optional.empty(), format("Ambiguous table names: %s", candidates.stream().collect(joining(", "))));
+    }
+
+    public String getPinotTableNameFromTrinoTableName(String trinoTableName)
+    {
+        String pinotTableName = getPinotTableNameFromTrinoTableNameIfExists(trinoTableName);
+        if (pinotTableName == null) {
+            throw new TableNotFoundException(new SchemaTableName(SCHEMA_NAME, trinoTableName));
+        }
+        return pinotTableName;
     }
 
     public static class BrokersForTable

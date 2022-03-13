@@ -35,7 +35,7 @@ import org.apache.pinot.common.utils.DataSchema;
 import javax.management.MBeanServer;
 
 import java.io.IOException;
-import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.concurrent.Threads.threadsNamed;
@@ -72,7 +72,7 @@ public class PinotModule
         binder.bind(PinotPageSourceProvider.class).in(Scopes.SINGLETON);
         binder.bind(PinotClient.class).in(Scopes.SINGLETON);
         binder.bind(PinotQueryClient.class).in(Scopes.SINGLETON);
-        binder.bind(Executor.class).annotatedWith(ForPinot.class)
+        binder.bind(ExecutorService.class).annotatedWith(ForPinot.class)
                 .toInstance(newCachedThreadPool(threadsNamed("pinot-metadata-fetcher-" + catalogName)));
 
         binder.bind(PinotSessionProperties.class).in(Scopes.SINGLETON);
