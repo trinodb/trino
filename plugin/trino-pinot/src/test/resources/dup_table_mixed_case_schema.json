@@ -1,0 +1,19 @@
+{
+    "schemaName": "dup_Table",
+    "dimensionFieldSpecs": [
+        {
+            "name": "string_col",
+            "dataType": "STRING"
+        }
+    ],
+    "dateTimeFieldSpecs": [
+        {
+            "name": "updated_at_seconds",
+            "dataType": "LONG",
+            "defaultNullValue" : 0,
+            "format": "1:SECONDS:EPOCH",
+            "transformFunction": "toEpochSeconds(updatedAt)",
+            "granularity" : "1:SECONDS"
+        }
+    ]
+}
