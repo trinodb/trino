@@ -759,6 +759,16 @@ public abstract class DefaultTraversalVisitor<C>
     }
 
     @Override
+    protected Void visitCreateSchema(CreateSchema node, C context)
+    {
+        for (Property property : node.getProperties()) {
+            process(property, context);
+        }
+
+        return null;
+    }
+
+    @Override
     protected Void visitCreateTable(CreateTable node, C context)
     {
         for (TableElement tableElement : node.getElements()) {
