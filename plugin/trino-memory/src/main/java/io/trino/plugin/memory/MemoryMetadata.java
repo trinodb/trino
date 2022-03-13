@@ -68,6 +68,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
+import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static io.trino.spi.connector.SampleType.SYSTEM;
 import static java.lang.String.format;
@@ -115,7 +116,27 @@ public class MemoryMetadata
             throw new TrinoException(NOT_FOUND, format("Schema [%s] does not exist", schemaName));
         }
 
+        // DropSchemaTask has the same logic, but needs to check in connector side considering concurrent operations
+        if (!isSchemaEmpty(schemaName)) {
+            throw new TrinoException(SCHEMA_NOT_EMPTY, "Schema not empty: " + schemaName);
+        }
+
         verify(schemas.remove(schemaName));
+    }
+
+    private boolean isSchemaEmpty(String schemaName)
+    {
+        if (tables.values().stream()
+                .anyMatch(table -> table.getSchemaName().equals(schemaName))) {
+            return false;
+        }
+
+        if (views.keySet().stream()
+                .anyMatch(view -> view.getSchemaName().equals(schemaName))) {
+            return false;
+        }
+
+        return true;
     }
 
     @Override
