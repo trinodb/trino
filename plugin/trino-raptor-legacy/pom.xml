@@ -147,8 +147,6 @@
         <dependency>
             <groupId>mysql</groupId>
             <artifactId>mysql-connector-java</artifactId>
-            <!-- TODO (https://github.com/trinodb/trino/issues/8302) update MySQL driver to version used everywhere else -->
-            <version>5.1.48</version>
         </dependency>
 
         <dependency>
