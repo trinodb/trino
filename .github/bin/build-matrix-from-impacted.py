@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 
 import argparse
-import yaml
+import itertools
 import json
 import logging
 import sys
+
+import yaml
 
 
 def main():
@@ -53,24 +55,39 @@ def build(matrix_file, impacted_file, output_file):
     impacted = list(filter(None, [line.strip() for line in impacted_file.readlines()]))
     logging.info("Read matrix: %s", matrix)
     logging.info("Read impacted: %s", impacted)
-    include = []
-    for item in matrix.get("include", []):
-        modules = item.get("modules", [])
-        if isinstance(modules, str):
-            modules = [modules]
-        if impacted and not any(module in impacted for module in modules):
+
+    modules = []
+    for item in matrix.get("modules", []):
+        module = check_modules(item, impacted)
+        if module is None:
             logging.info("Excluding matrix section: %s", item)
             continue
-        include.append(
-            {
-                # concatenate because matrix values should be primitives
-                "modules": ",".join(modules),
-                "profile": item.get("profile", ""),
-            }
-        )
-    matrix["include"] = include
+        modules.append(module)
+    if "modules" in matrix:
+        matrix["modules"] = modules
+
+    include = []
+    for item in matrix.get("include", []):
+        modules = check_modules(item.get("modules", []), impacted)
+        if modules is None:
+            logging.info("Excluding matrix section: %s", item)
+            continue
+        item["modules"] = modules
+        include.append(item)
+    if "include" in matrix:
+        matrix["include"] = include
+
     json.dump(matrix, output_file)
     output_file.write("\n")
+
+
+def check_modules(modules, impacted):
+    if isinstance(modules, str):
+        modules = [modules]
+    if impacted and not any(module in impacted for module in modules):
+        return None
+    # concatenate because matrix values should be primitives
+    return ",".join(modules)
 
 
 if __name__ == "__main__":
