@@ -444,8 +444,10 @@ class Query
         // only return a next if
         // (1) the query is not done AND the query state is not FAILED
         //   OR
-        // (2)there is more data to send (due to buffering)
-        if (queryInfo.getState() != FAILED && (!queryInfo.isFinalQueryInfo() || !exchangeClient.isFinished() || (lastResult != null && lastResult.getData() != null))) {
+        // (2) there is more data to send (due to buffering)
+        //   OR
+        // (3) cached query result needs client acknowledgement to discard
+        if (queryInfo.getState() != FAILED && (!queryInfo.isFinalQueryInfo() || !exchangeClient.isFinished() || (queryInfo.getOutputStage().isPresent() && !resultRows.isEmpty()))) {
             nextToken = OptionalLong.of(token + 1);
         }
         else {
