@@ -13,6 +13,9 @@
  */
 package io.trino.spi.expression;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 
@@ -29,7 +32,11 @@ public class FieldDereference
     private final ConnectorExpression target;
     private final int field;
 
-    public FieldDereference(Type type, ConnectorExpression target, int field)
+    @JsonCreator
+    public FieldDereference(
+            @JsonProperty("type") Type type,
+            @JsonProperty("target") ConnectorExpression target,
+            @JsonProperty("field") int field)
     {
         super(type);
         this.target = requireNonNull(target, "target is null");
@@ -41,17 +48,20 @@ public class FieldDereference
         }
     }
 
+    @JsonProperty
     public ConnectorExpression getTarget()
     {
         return target;
     }
 
+    @JsonProperty
     public int getField()
     {
         return field;
     }
 
     @Override
+    @JsonIgnore
     public List<? extends ConnectorExpression> getChildren()
     {
         return singletonList(target);

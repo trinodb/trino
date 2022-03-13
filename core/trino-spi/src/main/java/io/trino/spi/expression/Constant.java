@@ -13,6 +13,9 @@
  */
 package io.trino.spi.expression;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.Type;
 
@@ -27,23 +30,29 @@ public class Constant
     public static final Constant TRUE = new Constant(true, BooleanType.BOOLEAN);
     public static final Constant FALSE = new Constant(false, BooleanType.BOOLEAN);
 
+    @JsonProperty
     private final Object value;
 
     /**
      * @param value the value encoded using the native "stack" representation for the given type.
      */
-    public Constant(Object value, Type type)
+    @JsonCreator
+    public Constant(
+            @JsonProperty("value") Object value,
+            @JsonProperty("type") Type type)
     {
         super(type);
         this.value = value;
     }
 
+    @JsonProperty
     public Object getValue()
     {
         return value;
     }
 
     @Override
+    @JsonIgnore
     public List<? extends ConnectorExpression> getChildren()
     {
         return emptyList();
