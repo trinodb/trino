@@ -21,7 +21,7 @@ import com.airtel.africa.canvas.tesseract.querymanager.manager.CubeMetadataCache
 import com.google.common.collect.ImmutableList;
 import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.HiveSessionProperties;
-import io.trino.plugin.hive.TesseractMetadataConfig;
+import io.trino.plugin.hive.StylusMetadataConfig;
 import io.trino.spi.TrinoException;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.ConnectorSession;
@@ -36,7 +36,6 @@ import java.util.Optional;
 import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static io.trino.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static io.trino.spi.block.MethodHandleUtil.methodHandle;
-import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 
@@ -87,7 +86,7 @@ public class TesseractCacheRefreshProcedure
         try {
             CubeMetadataCacheManager.refreshTesseractCubeMetadata(String.join(".", schemaName, tableName),
                     action,
-                    TesseractMetadataConfig.getTesseractMetadataStoreConnectionDetails());
+                    StylusMetadataConfig.getStylusMetadataStoreConnectionDetails());
         }
         catch (Exception e) {
             throw new TrinoException(GENERIC_USER_ERROR, String.format("Error while refreshing tesseract table : %s for action : %s", String.join(".", schemaName, tableName), action));
@@ -96,10 +95,10 @@ public class TesseractCacheRefreshProcedure
 
     public void initializeTesseractMetadataConfig(ConnectorSession session)
     {
-        Optional<String> configLocation = HiveSessionProperties.getTesseractMetadataConfigLocation(session);
+        Optional<String> configLocation = HiveSessionProperties.getStylusMetadataConfigLocation(session);
         if (configLocation.isEmpty()) {
             throw new TrinoException(INVALID_SESSION_PROPERTY, "Tesseract metadata config location not specified in hive catalog");
         }
-        TesseractMetadataConfig.initializeTesseractMetadataConfig(hdfsEnvironment, session, configLocation.get());
+        StylusMetadataConfig.initializeStylusMetadataConfig(hdfsEnvironment, session, configLocation.get());
     }
 }

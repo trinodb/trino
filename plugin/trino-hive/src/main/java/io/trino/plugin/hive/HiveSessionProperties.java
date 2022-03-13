@@ -100,7 +100,7 @@ public final class HiveSessionProperties
     private static final String DYNAMIC_FILTERING_PROBE_BLOCKING_TIMEOUT = "dynamic_filtering_probe_blocking_timeout";
     private static final String OPTIMIZE_SYMLINK_LISTING = "optimize_symlink_listing";
     private static final String LEGACY_HIVE_VIEW_TRANSLATION = "legacy_hive_view_translation";
-    private static final String TESSERACT_METADATA_CONFIG_LOCATION = "tesseract_metadata_config_location";
+    private static final String STYLUS_METADATA_CONFIG_LOCATION = "stylus_metadata_config_location";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -414,9 +414,10 @@ public final class HiveSessionProperties
                         hiveConfig.isLegacyHiveViewTranslation(),
                         false),
                 stringProperty(
-                        TESSERACT_METADATA_CONFIG_LOCATION,
-                        "config location of database json containing connection details for rdbms tesseract needs to connect to fetch cube metadata",
-                        hiveConfig.getTesseractConfigLocation(),
+                        STYLUS_METADATA_CONFIG_LOCATION,
+                        "config location of database json containing connection details for rdbms " +
+                                "(for tesseract to connect to fetch cube metadata or for canvas to connect to update datasetconfigs)",
+                        hiveConfig.getStylusConfigLocation(),
                         false));
     }
 
@@ -697,9 +698,9 @@ public final class HiveSessionProperties
         return session.getProperty(LEGACY_HIVE_VIEW_TRANSLATION, Boolean.class);
     }
 
-    public static Optional<String> getTesseractMetadataConfigLocation(ConnectorSession session)
+    public static Optional<String> getStylusMetadataConfigLocation(ConnectorSession session)
     {
-        return Optional.ofNullable(session.getProperty(TESSERACT_METADATA_CONFIG_LOCATION, String.class));
+        return Optional.ofNullable(session.getProperty(STYLUS_METADATA_CONFIG_LOCATION, String.class));
     }
 
 }

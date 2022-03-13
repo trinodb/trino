@@ -41,7 +41,7 @@ public interface ConnectorTableHandle
         return Optional.empty();
     }
 
-    default boolean refersTesseractPartitionColumn(Set<ColumnHandle> columns){
+    default boolean refreshTesseractPartitionColumn(Set<ColumnHandle> columns){
         return false;
     }
 

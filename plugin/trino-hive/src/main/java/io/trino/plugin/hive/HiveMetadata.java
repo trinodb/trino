@@ -767,11 +767,11 @@ public class HiveMetadata
     @Override
     public void initializeTesseractMetadataConfig(ConnectorSession session)
     {
-        Optional<String> configLocation = HiveSessionProperties.getTesseractMetadataConfigLocation(session);
+        Optional<String> configLocation = HiveSessionProperties.getStylusMetadataConfigLocation(session);
         if (configLocation.isEmpty()){
             throw new TrinoException(INVALID_SESSION_PROPERTY,"Tesseract metadata config location not specified in hive catalog");
         }
-        TesseractMetadataConfig.initializeTesseractMetadataConfig(hdfsEnvironment,session,configLocation.get());
+        StylusMetadataConfig.initializeStylusMetadataConfig(hdfsEnvironment,session,configLocation.get());
     }
 
     @Override

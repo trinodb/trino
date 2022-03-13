@@ -146,7 +146,7 @@ public class HiveConfig
 
     private boolean legacyHiveViewTranslation;
 
-    private String tesseractConfigLocation;
+    private String stylusConfigLocation;
 
     public int getMaxInitialSplits()
     {
@@ -1037,14 +1037,14 @@ public class HiveConfig
         return this;
     }
 
-    public String getTesseractConfigLocation() {
-        return tesseractConfigLocation;
+    public String getStylusConfigLocation() {
+        return stylusConfigLocation;
     }
 
-    @Config("tesseract.metadata-config-location")
+    @Config("stylus.metadata-config-location")
     @ConfigDescription("config location of database json containing connection details for rdbms tesseract needs to connect to fetch cube metadata")
-    public HiveConfig setTesseractConfigLocation(String tesseractConfigLocation) {
-        this.tesseractConfigLocation = tesseractConfigLocation;
+    public HiveConfig setStylusConfigLocation(String stylusConfigLocation) {
+        this.stylusConfigLocation = stylusConfigLocation;
         return this;
     }
 
