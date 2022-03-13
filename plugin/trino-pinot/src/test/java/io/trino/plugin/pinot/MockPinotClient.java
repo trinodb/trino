@@ -14,6 +14,7 @@
 package io.trino.plugin.pinot;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Multimap;
 import io.airlift.http.client.Request;
@@ -26,15 +27,20 @@ import io.trino.plugin.pinot.client.IdentityPinotHostMapper;
 import io.trino.plugin.pinot.client.PinotClient;
 import org.apache.pinot.spi.data.Schema;
 
+import java.util.AbstractMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.trino.plugin.pinot.MetadataUtil.BROKERS_FOR_TABLE_JSON_CODEC;
 import static io.trino.plugin.pinot.MetadataUtil.BROKER_RESPONSE_NATIVE_JSON_CODEC;
 import static io.trino.plugin.pinot.MetadataUtil.TABLES_JSON_CODEC;
 import static io.trino.plugin.pinot.MetadataUtil.TEST_TABLE;
 import static io.trino.plugin.pinot.MetadataUtil.TIME_BOUNDARY_JSON_CODEC;
+import static java.util.Locale.ENGLISH;
+import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.stream.Collectors.toList;
 
 public class MockPinotClient
         extends PinotClient
@@ -58,6 +64,7 @@ public class MockPinotClient
                 pinotConfig,
                 new IdentityPinotHostMapper(),
                 new TestingHttpClient(request -> null),
+                newCachedThreadPool(threadsNamed("pinot-metadata-fetcher-testing")),
                 TABLES_JSON_CODEC,
                 BROKERS_FOR_TABLE_JSON_CODEC,
                 TIME_BOUNDARY_JSON_CODEC,
@@ -85,13 +92,15 @@ public class MockPinotClient
     }
 
     @Override
-    public List<String> getAllTables()
+    public Multimap<String, String> getAllTables()
     {
-        return ImmutableList.<String>builder()
-                .add(TestPinotSplitManager.realtimeOnlyTable.getTableName())
-                .add(TestPinotSplitManager.hybridTable.getTableName())
-                .add(TEST_TABLE)
-                .addAll(metadata.keySet())
+        return ImmutableListMultimap.<String, String>builder()
+                .put(TestPinotSplitManager.realtimeOnlyTable.getTableName().toLowerCase(ENGLISH), TestPinotSplitManager.realtimeOnlyTable.getTableName())
+                .put(TestPinotSplitManager.hybridTable.getTableName().toLowerCase(ENGLISH), TestPinotSplitManager.hybridTable.getTableName())
+                .put(TEST_TABLE.toLowerCase(ENGLISH), TEST_TABLE)
+                .putAll(metadata.keySet().stream()
+                        .map(key -> new AbstractMap.SimpleEntry<>(key.toLowerCase(ENGLISH), key))
+                        .collect(toList()))
                 .build();
     }
 
