@@ -2730,6 +2730,19 @@ public abstract class AbstractTestHive
     }
 
     @Test
+    public void testInsertOverwriteUnpartitioned()
+            throws Exception
+    {
+        SchemaTableName table = temporaryTable("insert_overwrite");
+        try {
+            doInsertOverwriteUnpartitioned(table);
+        }
+        finally {
+            dropTable(table);
+        }
+    }
+
+    @Test
     public void testInsertOverwriteUnpartitionedViaInsertMode()
             throws Exception
     {
