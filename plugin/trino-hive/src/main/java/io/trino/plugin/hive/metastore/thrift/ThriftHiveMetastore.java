@@ -18,7 +18,6 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
@@ -511,7 +510,7 @@ public class ThriftHiveMetastore
         }
     }
 
-    private Map<String, HiveColumnStatistics> groupStatisticsByColumn(List<ColumnStatisticsObj> statistics, OptionalLong rowCount)
+    private static Map<String, HiveColumnStatistics> groupStatisticsByColumn(List<ColumnStatisticsObj> statistics, OptionalLong rowCount)
     {
         return statistics.stream()
                 .collect(toImmutableMap(ColumnStatisticsObj::getColName, statisticsObj -> ThriftMetastoreUtil.fromMetastoreApiColumnStatistics(statisticsObj, rowCount)));
@@ -1868,7 +1867,7 @@ public class ThriftHiveMetastore
                     .run("allocateWriteId", stats.getAllocateWriteId().wrap(() -> {
                         try (ThriftMetastoreClient metastoreClient = createMetastoreClient(identity)) {
                             List<TxnToWriteId> list = metastoreClient.allocateTableWriteIds(dbName, tableName, ImmutableList.of(transactionId));
-                            return Iterables.getOnlyElement(list).getWriteId();
+                            return getOnlyElement(list).getWriteId();
                         }
                     }));
         }
@@ -1957,7 +1956,7 @@ public class ThriftHiveMetastore
         return impersonationEnabled;
     }
 
-    private PrivilegeBag buildPrivilegeBag(
+    private static PrivilegeBag buildPrivilegeBag(
             String databaseName,
             String tableName,
             HivePrincipal grantee,
@@ -1976,14 +1975,14 @@ public class ThriftHiveMetastore
         return new PrivilegeBag(privilegeBagBuilder.build());
     }
 
-    private boolean containsAllPrivilege(Set<PrivilegeGrantInfo> requestedPrivileges)
+    private static boolean containsAllPrivilege(Set<PrivilegeGrantInfo> requestedPrivileges)
     {
         return requestedPrivileges.stream()
                 .anyMatch(privilege -> privilege.getPrivilege().equalsIgnoreCase("all"));
     }
 
     @SafeVarargs
-    private final <T> T alternativeCall(
+    private static <T> T alternativeCall(
             ClientSupplier clientSupplier,
             Predicate<Exception> isValidExceptionalResponse,
             AtomicInteger chosenAlternative,
