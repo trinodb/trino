@@ -26,8 +26,6 @@ import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.collect.cache.NonEvictableCache;
 import io.trino.spi.TrinoException;
-import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.connector.TableNotFoundException;
 
 import javax.inject.Inject;
 
@@ -120,8 +118,7 @@ public class ViewMaterializationCache
                 throw convertToBigQueryException(job.getStatus().getError());
             }
             // add expiration time to the table
-            TableInfo createdTable = bigQueryClient.getTable(destinationTable)
-                    .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(destinationTable.getDataset(), destinationTable.getTable())));
+            TableInfo createdTable = bigQueryClient.getRequiredTable(destinationTable);
             long expirationTimeMillis = createdTable.getCreationTime() + viewExpiration.toMillis();
             Table updatedTable = bigQueryClient.update(createdTable.toBuilder()
                     .setExpirationTime(expirationTimeMillis)

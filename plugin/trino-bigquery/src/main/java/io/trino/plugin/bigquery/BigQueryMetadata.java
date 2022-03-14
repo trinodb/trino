@@ -269,8 +269,7 @@ public class BigQueryMetadata
         String remoteTableName = client.toRemoteTable(projectId, remoteSchemaName, sourceTableName.getTableName())
                 .map(RemoteDatabaseObject::getOnlyRemoteName)
                 .orElseThrow(() -> new TableNotFoundException(viewDefinitionTableName));
-        TableInfo tableInfo = client.getTable(TableId.of(projectId, remoteSchemaName, remoteTableName))
-                .orElseThrow(() -> new TableNotFoundException(viewDefinitionTableName));
+        TableInfo tableInfo = client.getRequiredTable(TableId.of(projectId, remoteSchemaName, remoteTableName));
         if (!(tableInfo.getDefinition() instanceof ViewDefinition)) {
             throw new TableNotFoundException(viewDefinitionTableName);
         }

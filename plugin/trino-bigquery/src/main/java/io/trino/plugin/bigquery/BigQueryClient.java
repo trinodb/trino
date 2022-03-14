@@ -32,6 +32,7 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 
 import java.util.Collections;
@@ -152,6 +153,15 @@ public class BigQueryClient
         return Optional.ofNullable(bigQuery.getTable(remoteTableId));
     }
 
+    public TableInfo getRequiredTable(TableId remoteTableId)
+    {
+        TableInfo tableInfo = bigQuery.getTable(remoteTableId);
+        if (tableInfo == null) {
+            throw new TableNotFoundException(new SchemaTableName(remoteTableId.getDataset(), remoteTableId.getTable()));
+        }
+        return tableInfo;
+    }
+
     public TableInfo getCachedTable(Duration viewExpiration, TableInfo remoteTableId, List<String> requiredColumns)
     {
         String query = selectSql(remoteTableId, requiredColumns);
@@ -244,8 +254,7 @@ public class BigQueryClient
 
     public List<BigQueryColumnHandle> getColumns(BigQueryTableHandle tableHandle)
     {
-        TableInfo tableInfo = getTable(tableHandle.getRemoteTableName().toTableId())
-                .orElseThrow(() -> new TableNotFoundException(tableHandle.getSchemaTableName()));
+        TableInfo tableInfo = getRequiredTable(tableHandle.getRemoteTableName().toTableId());
         Schema schema = tableInfo.getDefinition().getSchema();
         if (schema == null) {
             throw new TableNotFoundException(
