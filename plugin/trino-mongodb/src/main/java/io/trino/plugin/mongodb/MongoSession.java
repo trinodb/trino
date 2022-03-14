@@ -227,6 +227,29 @@ public class MongoSession
         tableCache.invalidate(schemaTableName);
     }
 
+    public void setColumnComment(SchemaTableName schemaTableName, String columnName, Optional<String> comment)
+    {
+        String remoteSchemaName = toRemoteSchemaName(schemaTableName.getSchemaName());
+        String remoteTableName = toRemoteTableName(remoteSchemaName, schemaTableName.getTableName());
+
+        Document metadata = getTableMetadata(remoteSchemaName, remoteTableName);
+
+        ImmutableList.Builder<Document> columns = ImmutableList.builder();
+        for (Document column : getColumnMetadata(metadata)) {
+            if (column.getString(FIELDS_NAME_KEY).equals(columnName)) {
+                column.append(COMMENT_KEY, comment.orElse(null));
+            }
+            columns.add(column);
+        }
+
+        metadata.append(FIELDS_KEY, columns.build());
+
+        client.getDatabase(remoteSchemaName).getCollection(schemaCollection)
+                .findOneAndReplace(new Document(TABLE_NAME_KEY, remoteTableName), metadata);
+
+        tableCache.invalidate(schemaTableName);
+    }
+
     public void addColumn(SchemaTableName schemaTableName, ColumnMetadata columnMetadata)
     {
         String schemaName = toRemoteSchemaName(schemaTableName.getSchemaName());
@@ -295,10 +318,11 @@ public class MongoSession
         String name = columnMeta.getString(FIELDS_NAME_KEY);
         String typeString = columnMeta.getString(FIELDS_TYPE_KEY);
         boolean hidden = columnMeta.getBoolean(FIELDS_HIDDEN_KEY, false);
+        String comment = columnMeta.getString(COMMENT_KEY);
 
         Type type = typeManager.fromSqlType(typeString);
 
-        return new MongoColumnHandle(name, type, hidden);
+        return new MongoColumnHandle(name, type, hidden, Optional.ofNullable(comment));
     }
 
     private List<Document> getColumnMetadata(Document doc)
@@ -558,7 +582,7 @@ public class MongoSession
 
         ArrayList<Document> fields = new ArrayList<>();
         if (!columns.stream().anyMatch(c -> c.getName().equals("_id"))) {
-            fields.add(new MongoColumnHandle("_id", OBJECT_ID, true).getDocument());
+            fields.add(new MongoColumnHandle("_id", OBJECT_ID, true, Optional.empty()).getDocument());
         }
 
         fields.addAll(columns.stream()

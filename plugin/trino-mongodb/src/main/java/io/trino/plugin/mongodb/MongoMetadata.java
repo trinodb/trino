@@ -191,6 +191,14 @@ public class MongoMetadata
     }
 
     @Override
+    public void setColumnComment(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle, Optional<String> comment)
+    {
+        MongoTableHandle table = (MongoTableHandle) tableHandle;
+        MongoColumnHandle column = (MongoColumnHandle) columnHandle;
+        mongoSession.setColumnComment(table.getSchemaTableName(), column.getName(), comment);
+    }
+
+    @Override
     public void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column)
     {
         mongoSession.addColumn(((MongoTableHandle) tableHandle).getSchemaTableName(), column);
@@ -354,7 +362,7 @@ public class MongoMetadata
     private static List<MongoColumnHandle> buildColumnHandles(ConnectorTableMetadata tableMetadata)
     {
         return tableMetadata.getColumns().stream()
-                .map(m -> new MongoColumnHandle(m.getName(), m.getType(), m.isHidden()))
+                .map(m -> new MongoColumnHandle(m.getName(), m.getType(), m.isHidden(), Optional.ofNullable(m.getComment())))
                 .collect(toList());
     }
 
