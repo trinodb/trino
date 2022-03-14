@@ -40,11 +40,6 @@
 
         <dependency>
             <groupId>io.trino</groupId>
-            <artifactId>trino-hive-hadoop2</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.trino</groupId>
             <artifactId>trino-parquet</artifactId>
         </dependency>
 

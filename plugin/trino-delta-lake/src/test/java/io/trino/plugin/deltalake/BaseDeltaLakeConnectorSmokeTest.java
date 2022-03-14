@@ -23,7 +23,7 @@ import io.trino.Session;
 import io.trino.execution.QueryManager;
 import io.trino.operator.OperatorStats;
 import io.trino.plugin.deltalake.util.DockerizedDataLake;
-import io.trino.plugin.hive.HivePlugin;
+import io.trino.plugin.hive.TestingHivePlugin;
 import io.trino.spi.QueryId;
 import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.testing.BaseConnectorSmokeTest;
@@ -278,7 +278,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     {
         DistributedQueryRunner queryRunner = (DistributedQueryRunner) getQueryRunner();
 
-        queryRunner.installPlugin(new HivePlugin());
+        queryRunner.installPlugin(new TestingHivePlugin());
         queryRunner.createCatalog(
                 "hive",
                 "hive",
