@@ -267,11 +267,13 @@ public class TestSnowflakeTypeMapping
 
         SqlDataTypeTest.create()
                 .addRoundTrip("date", "NULL", DATE, "CAST(NULL AS DATE)")
-                .addRoundTrip("date", "'0000-01-01'", DATE, "DATE '0000-01-01'") // Min value for the input of string only.
+                .addRoundTrip("date", "'-5877641-06-23'", DATE, "DATE '-5877641-06-23'") // min value in Trino
+                .addRoundTrip("date", "'5881580-07-11'", DATE, "DATE '5881580-07-11'") // max value in Trino
+                .addRoundTrip("date", "'0000-01-01'", DATE, "DATE '0000-01-01'")
                 .addRoundTrip("date", "DATE '0001-01-01'", DATE, "DATE '0001-01-01'") // Min value for the function Date.
                 .addRoundTrip("date", "DATE '1582-10-05'", DATE, "DATE '1582-10-05'")
                 .addRoundTrip("date", "DATE '1582-10-14'", DATE, "DATE '1582-10-14'")
-                .addRoundTrip("date", "DATE '99999-12-31'", DATE, "DATE '99999-12-31'") // Max value
+                .addRoundTrip("date", "DATE '99999-12-31'", DATE, "DATE '99999-12-31'")
                 .addRoundTrip("date", "DATE '1952-04-03'", DATE, "DATE '1952-04-03'")
                 .addRoundTrip("date", "DATE '1970-01-01'", DATE, "DATE '1970-01-01'")
                 .addRoundTrip("date", "DATE '1970-02-03'", DATE, "DATE '1970-02-03'")
