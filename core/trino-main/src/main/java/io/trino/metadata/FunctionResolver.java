@@ -188,7 +188,7 @@ public class FunctionResolver
         throw new TrinoException(FUNCTION_NOT_FOUND, message);
     }
 
-    private static List<CatalogSchemaFunctionName> toPath(Session session, QualifiedName name)
+    public static List<CatalogSchemaFunctionName> toPath(Session session, QualifiedName name)
     {
         List<String> parts = name.getParts();
         checkArgument(parts.size() <= 3, "Function name can only have 3 parts: " + name);
