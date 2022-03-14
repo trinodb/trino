@@ -19,8 +19,8 @@ import com.google.inject.Module;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.trino.Session;
+import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
-import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.MetastoreConfig;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastore;
@@ -29,9 +29,11 @@ import io.trino.plugin.tpcds.TpcdsPlugin;
 import io.trino.plugin.tpch.ColumnNaming;
 import io.trino.plugin.tpch.DecimalTypeMapping;
 import io.trino.plugin.tpch.TpchPlugin;
+import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.SelectedRole;
+import io.trino.spi.security.TrinoPrincipal;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
@@ -50,6 +52,7 @@ import java.util.function.Function;
 import static com.google.inject.util.Modules.EMPTY_MODULE;
 import static io.airlift.log.Level.WARN;
 import static io.airlift.units.Duration.nanosSince;
+import static io.trino.plugin.hive.HiveSchemaProperties.LOCATION_PROPERTY;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.security.HiveSecurityModule.ALLOW_ALL;
 import static io.trino.plugin.hive.security.HiveSecurityModule.SQL_STANDARD;
@@ -230,7 +233,7 @@ public final class HiveQueryRunner
                 }
 
                 HiveMetastore metastore = this.metastore.apply(queryRunner);
-                queryRunner.installPlugin(new TestingHivePlugin(metastore, module, cachingDirectoryLister));
+                queryRunner.installPlugin(new TestingHivePlugin(Optional.ofNullable(metastore), module, cachingDirectoryLister));
 
                 Map<String, String> hiveProperties = new HashMap<>();
                 if (!skipTimezoneSetup) {
@@ -252,7 +255,7 @@ public final class HiveQueryRunner
                 queryRunner.createCatalog(HIVE_CATALOG, "hive", hiveProperties);
                 queryRunner.createCatalog(HIVE_BUCKETED_CATALOG, "hive", hiveBucketedProperties);
 
-                populateData(queryRunner, metastore);
+                populateData(queryRunner);
 
                 return queryRunner;
             }
@@ -262,16 +265,19 @@ public final class HiveQueryRunner
             }
         }
 
-        private void populateData(DistributedQueryRunner queryRunner, HiveMetastore metastore)
+        private void populateData(DistributedQueryRunner queryRunner)
         {
-            if (metastore.getDatabase(TPCH_SCHEMA).isEmpty()) {
-                metastore.createDatabase(createDatabaseMetastoreObject(TPCH_SCHEMA, initialSchemasLocationBase));
+            Metadata metadata = queryRunner.getMetadata();
+            CatalogSchemaName tpchSchema = new CatalogSchemaName(HIVE_CATALOG, TPCH_SCHEMA);
+            if (metadata.schemaExists(queryRunner.getDefaultSession(), tpchSchema)) {
+                createDatabase(metadata, tpchSchema, initialSchemasLocationBase);
                 Session session = initialTablesSessionMutator.apply(createSession(Optional.empty()));
                 copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, session, initialTables);
             }
 
-            if (metastore.getDatabase(TPCH_BUCKETED_SCHEMA).isEmpty()) {
-                metastore.createDatabase(createDatabaseMetastoreObject(TPCH_BUCKETED_SCHEMA, initialSchemasLocationBase));
+            CatalogSchemaName tpchBucketedSchema = new CatalogSchemaName(HIVE_CATALOG, TPCH_SCHEMA);
+            if (metadata.schemaExists(queryRunner.getDefaultSession(), tpchBucketedSchema)) {
+                createDatabase(metadata, tpchBucketedSchema, initialSchemasLocationBase);
                 Session session = initialTablesSessionMutator.apply(createBucketedSession(Optional.empty()));
                 copyTpchTablesBucketed(queryRunner, "tpch", TINY_SCHEMA_NAME, session, initialTables, tpchColumnNaming);
             }
@@ -284,14 +290,17 @@ public final class HiveQueryRunner
         logging.setLevel("org.apache.parquet.hadoop", WARN);
     }
 
-    private static Database createDatabaseMetastoreObject(String name, Optional<String> locationBase)
+    private static void createDatabase(Metadata metadata, CatalogSchemaName schemaName, Optional<String> locationBase)
     {
-        return Database.builder()
-                .setLocation(locationBase.map(base -> base + "/" + name))
-                .setDatabaseName(name)
-                .setOwnerName(Optional.of("public"))
-                .setOwnerType(Optional.of(PrincipalType.ROLE))
-                .build();
+        Session sessionForSchema = createSession(Optional.of(new SelectedRole(ROLE, Optional.of("public"))));
+        metadata.createSchema(
+                sessionForSchema,
+                schemaName,
+                locationBase
+                        .map(Object.class::cast)
+                        .map(location -> ImmutableMap.of(LOCATION_PROPERTY, location))
+                        .orElseGet(ImmutableMap::of),
+                new TrinoPrincipal(PrincipalType.ROLE, sessionForSchema.getUser()));
     }
 
     private static Session createSession(Optional<SelectedRole> role)
