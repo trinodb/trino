@@ -213,6 +213,13 @@ public class BigQueryClient
         bigQuery.delete(tableId);
     }
 
+    public void setTableComment(TableId tableId, Optional<String> comment)
+    {
+        update(getRequiredTable(tableId).toBuilder()
+                .setDescription(comment.orElse(null))
+                .build());
+    }
+
     Job create(JobInfo jobInfo)
     {
         return bigQuery.create(jobInfo);

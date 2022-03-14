@@ -179,6 +179,7 @@ statements, the connector supports the following features:
 * :doc:`/sql/drop-table`
 * :doc:`/sql/create-schema`
 * :doc:`/sql/drop-schema`
+* :doc:`/sql/comment` only supports ``COMMENT ON TABLE``
 
 FAQ
 ---

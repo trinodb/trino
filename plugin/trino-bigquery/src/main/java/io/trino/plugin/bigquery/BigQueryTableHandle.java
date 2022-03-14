@@ -36,6 +36,7 @@ public class BigQueryTableHandle
     private final String type;
     private final TupleDomain<ColumnHandle> constraint;
     private final Optional<List<ColumnHandle>> projectedColumns;
+    private final Optional<String> comment;
 
     @JsonCreator
     public BigQueryTableHandle(
@@ -43,13 +44,15 @@ public class BigQueryTableHandle
             @JsonProperty("remoteTableName") RemoteTableName remoteTableName,
             @JsonProperty("type") String type,
             @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint,
-            @JsonProperty("projectedColumns") Optional<List<ColumnHandle>> projectedColumns)
+            @JsonProperty("projectedColumns") Optional<List<ColumnHandle>> projectedColumns,
+            @JsonProperty("comment") Optional<String> comment)
     {
         this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
         this.remoteTableName = requireNonNull(remoteTableName, "remoteTableName is null");
         this.type = requireNonNull(type, "type is null");
         this.constraint = requireNonNull(constraint, "constraint is null");
         this.projectedColumns = requireNonNull(projectedColumns, "projectedColumns is null");
+        this.comment = requireNonNull(comment, "comment is null");
     }
 
     public BigQueryTableHandle(SchemaTableName schemaTableName, RemoteTableName remoteTableName, TableInfo tableInfo)
@@ -59,7 +62,8 @@ public class BigQueryTableHandle
                 remoteTableName,
                 tableInfo.getDefinition().getType().toString(),
                 TupleDomain.all(),
-                Optional.empty());
+                Optional.empty(),
+                Optional.ofNullable(tableInfo.getDescription()));
     }
 
     @JsonProperty
@@ -92,6 +96,12 @@ public class BigQueryTableHandle
         return projectedColumns;
     }
 
+    @JsonProperty
+    public Optional<String> getComment()
+    {
+        return comment;
+    }
+
     @Override
     public boolean equals(Object o)
     {
@@ -107,7 +117,8 @@ public class BigQueryTableHandle
         return Objects.equals(schemaTableName, that.schemaTableName) &&
                 Objects.equals(type, that.type) &&
                 Objects.equals(constraint, that.constraint) &&
-                Objects.equals(projectedColumns, that.projectedColumns);
+                Objects.equals(projectedColumns, that.projectedColumns) &&
+                Objects.equals(comment, that.comment);
     }
 
     @Override
@@ -125,16 +136,17 @@ public class BigQueryTableHandle
                 .add("type", type)
                 .add("constraint", constraint)
                 .add("projectedColumns", projectedColumns)
+                .add("comment", comment)
                 .toString();
     }
 
     BigQueryTableHandle withConstraint(TupleDomain<ColumnHandle> newConstraint)
     {
-        return new BigQueryTableHandle(schemaTableName, remoteTableName, type, newConstraint, projectedColumns);
+        return new BigQueryTableHandle(schemaTableName, remoteTableName, type, newConstraint, projectedColumns, comment);
     }
 
     BigQueryTableHandle withProjectedColumns(List<ColumnHandle> newProjectedColumns)
     {
-        return new BigQueryTableHandle(schemaTableName, remoteTableName, type, constraint, Optional.of(newProjectedColumns));
+        return new BigQueryTableHandle(schemaTableName, remoteTableName, type, constraint, Optional.of(newProjectedColumns), comment);
     }
 }

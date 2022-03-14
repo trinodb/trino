@@ -247,7 +247,15 @@ public class BigQueryMetadata
         for (BigQueryColumnHandle column : client.getColumns(handle)) {
             columnMetadata.add(column.getColumnMetadata());
         }
-        return new ConnectorTableMetadata(handle.getSchemaTableName(), columnMetadata.build());
+        return new ConnectorTableMetadata(handle.getSchemaTableName(), columnMetadata.build(), ImmutableMap.of(), handle.getComment());
+    }
+
+    @Override
+    public void setTableComment(ConnectorSession session, ConnectorTableHandle tableHandle, Optional<String> comment)
+    {
+        BigQueryClient client = bigQueryClientFactory.create(session);
+        BigQueryTableHandle table = (BigQueryTableHandle) tableHandle;
+        client.setTableComment(table.getRemoteTableName().toTableId(), comment);
     }
 
     @Override
@@ -374,7 +382,9 @@ public class BigQueryMetadata
 
         TableId tableId = TableId.of(schemaName, tableName);
         TableDefinition tableDefinition = StandardTableDefinition.of(Schema.of(fields));
-        TableInfo tableInfo = TableInfo.newBuilder(tableId, tableDefinition).build();
+        TableInfo tableInfo = TableInfo.newBuilder(tableId, tableDefinition)
+                .setDescription(tableMetadata.getComment().orElse(null))
+                .build();
 
         bigQueryClientFactory.create(session).createTable(tableInfo);
     }
