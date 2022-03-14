@@ -78,7 +78,7 @@ public class HydraIdentityProvider
                 .withEnv("OAUTH2_EXPOSE_INTERNAL_ERRORS", "1")
                 .withEnv("GODEBUG", "http2debug=2")
                 .withEnv("DSN", DSN)
-                .withEnv("URLS_SELF_ISSUER", "https://hydra:4444/")
+                .withEnv("URLS_SELF_ISSUER", "http://hydra:4444/")
                 .withEnv("URLS_CONSENT", "http://hydra-consent:3000/consent")
                 .withEnv("URLS_LOGIN", "http://hydra-consent:3000/login")
                 .withEnv("SERVE_TLS_KEY_PATH", "/tmp/certs/hydra.pem")
@@ -86,7 +86,7 @@ public class HydraIdentityProvider
                 .withEnv("STRATEGIES_ACCESS_TOKEN", "jwt")
                 .withEnv("TTL_ACCESS_TOKEN", TTL_ACCESS_TOKEN_IN_SECONDS + "s")
                 .withEnv("OAUTH2_ALLOWED_TOP_LEVEL_CLAIMS", "groups")
-                .withCommand("serve", "all")
+                .withCommand("serve", "all", "--dangerous-force-http")
                 .withCopyFileToContainer(forHostPath(configDir.getPath("cert/hydra.pem")), "/tmp/certs/hydra.pem")
                 .waitingFor(new WaitAllStrategy()
                         .withStrategy(Wait.forLogMessage(".*Setting up http server on :4444.*", 1))
@@ -133,7 +133,7 @@ public class HydraIdentityProvider
     {
         DockerContainer clientCreatingContainer = new DockerContainer(HYDRA_IMAGE, "hydra-client-preparation")
                 .withCommand("clients", "create",
-                        "--endpoint", "https://hydra:4445",
+                        "--endpoint", "http://hydra:4445",
                         "--skip-tls-verify",
                         "--id", clientId,
                         "--secret", clientSecret,
