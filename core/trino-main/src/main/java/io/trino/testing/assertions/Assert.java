@@ -56,17 +56,20 @@ public class Assert
         }
     }
 
-    public static void assertEventually(Runnable assertion)
+    public static <E extends Exception> void assertEventually(CheckedRunnable<E> assertion)
+            throws E
     {
         assertEventually(new Duration(30, SECONDS), assertion);
     }
 
-    public static void assertEventually(Duration timeout, Runnable assertion)
+    public static <E extends Exception> void assertEventually(Duration timeout, CheckedRunnable<E> assertion)
+            throws E
     {
         assertEventually(timeout, new Duration(50, MILLISECONDS), assertion);
     }
 
-    public static void assertEventually(Duration timeout, Duration retryFrequency, Runnable assertion)
+    public static <E extends Exception> void assertEventually(Duration timeout, Duration retryFrequency, CheckedRunnable<E> assertion)
+            throws E
     {
         long start = System.nanoTime();
         while (!Thread.currentThread().isInterrupted()) {
@@ -87,5 +90,11 @@ public class Assert
                 throw new RuntimeException(e);
             }
         }
+    }
+
+    public interface CheckedRunnable<E extends Exception>
+    {
+        void run()
+                throws E;
     }
 }
