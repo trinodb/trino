@@ -26,7 +26,6 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.function.Function;
 
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -51,12 +50,6 @@ public class TestGenericRewrite
         {
             @Override
             public Map<String, ColumnHandle> getAssignments()
-            {
-                throw new UnsupportedOperationException();
-            }
-
-            @Override
-            public Function<String, String> getIdentifierQuote()
             {
                 throw new UnsupportedOperationException();
             }

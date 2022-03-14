@@ -26,7 +26,6 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Function;
 
 import static com.google.common.base.Verify.verify;
 import static io.trino.matching.Capture.newCapture;
@@ -34,12 +33,10 @@ import static java.util.Objects.requireNonNull;
 
 public final class ConnectorExpressionRewriter<Result>
 {
-    private final Function<String, String> identifierQuote;
     private final Set<ConnectorExpressionRule<?, Result>> rules;
 
-    public ConnectorExpressionRewriter(Function<String, String> identifierQuote, Set<ConnectorExpressionRule<?, Result>> rules)
+    public ConnectorExpressionRewriter(Set<ConnectorExpressionRule<?, Result>> rules)
     {
-        this.identifierQuote = requireNonNull(identifierQuote, "identifierQuote is null");
         this.rules = ImmutableSet.copyOf(requireNonNull(rules, "rules is null"));
     }
 
@@ -55,12 +52,6 @@ public final class ConnectorExpressionRewriter<Result>
             public Map<String, ColumnHandle> getAssignments()
             {
                 return assignments;
-            }
-
-            @Override
-            public Function<String, String> getIdentifierQuote()
-            {
-                return identifierQuote;
             }
 
             @Override

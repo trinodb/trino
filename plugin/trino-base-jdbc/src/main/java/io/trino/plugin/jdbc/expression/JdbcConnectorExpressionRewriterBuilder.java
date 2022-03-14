@@ -19,8 +19,6 @@ import io.trino.plugin.base.expression.ConnectorExpressionRule;
 
 import java.util.function.Function;
 
-import static java.util.Objects.requireNonNull;
-
 public class JdbcConnectorExpressionRewriterBuilder
 {
     public static JdbcConnectorExpressionRewriterBuilder newBuilder()
@@ -28,20 +26,13 @@ public class JdbcConnectorExpressionRewriterBuilder
         return new JdbcConnectorExpressionRewriterBuilder();
     }
 
-    private Function<String, String> identifierQuote;
     private ImmutableSet.Builder<ConnectorExpressionRule<?, String>> rules = ImmutableSet.builder();
 
     private JdbcConnectorExpressionRewriterBuilder() {}
 
-    public JdbcConnectorExpressionRewriterBuilder withIdentifierQuote(Function<String, String> identifierQuote)
+    public JdbcConnectorExpressionRewriterBuilder addStandardRules(Function<String, String> identifierQuote)
     {
-        this.identifierQuote = requireNonNull(identifierQuote, "identifierQuote is null");
-        return this;
-    }
-
-    public JdbcConnectorExpressionRewriterBuilder addStandardRules()
-    {
-        add(new RewriteVariable());
+        add(new RewriteVariable(identifierQuote));
         add(new RewriteVarcharConstant());
         add(new RewriteExactNumericConstant());
         add(new RewriteOr());
@@ -70,7 +61,7 @@ public class JdbcConnectorExpressionRewriterBuilder
 
     public ConnectorExpressionRewriter<String> build()
     {
-        return new ConnectorExpressionRewriter<>(this.identifierQuote, rules.build());
+        return new ConnectorExpressionRewriter<>(rules.build());
     }
 
     public interface ExpressionMapping<Continuation>
