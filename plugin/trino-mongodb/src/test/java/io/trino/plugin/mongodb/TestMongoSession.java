@@ -22,6 +22,8 @@ import io.trino.spi.predicate.ValueSet;
 import org.bson.Document;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
+
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.predicate.Range.equal;
 import static io.trino.spi.predicate.Range.greaterThan;
@@ -35,9 +37,9 @@ import static org.testng.Assert.assertEquals;
 
 public class TestMongoSession
 {
-    private static final MongoColumnHandle COL1 = new MongoColumnHandle("col1", BIGINT, false);
-    private static final MongoColumnHandle COL2 = new MongoColumnHandle("col2", createUnboundedVarcharType(), false);
-    private static final MongoColumnHandle COL3 = new MongoColumnHandle("col3", createUnboundedVarcharType(), false);
+    private static final MongoColumnHandle COL1 = new MongoColumnHandle("col1", BIGINT, false, Optional.empty());
+    private static final MongoColumnHandle COL2 = new MongoColumnHandle("col2", createUnboundedVarcharType(), false, Optional.empty());
+    private static final MongoColumnHandle COL3 = new MongoColumnHandle("col3", createUnboundedVarcharType(), false, Optional.empty());
 
     @Test
     public void testBuildQuery()
