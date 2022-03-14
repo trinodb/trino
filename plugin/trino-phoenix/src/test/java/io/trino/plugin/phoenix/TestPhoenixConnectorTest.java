@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.phoenix;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Streams;
 import io.trino.Session;
@@ -39,8 +40,10 @@ import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.UNSUPPORTED
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.trino.plugin.phoenix.PhoenixQueryRunner.createPhoenixQueryRunner;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 public class TestPhoenixConnectorTest
@@ -431,6 +434,79 @@ public class TestPhoenixConnectorTest
         assertUpdate("INSERT INTO test_col_insert(pk, col1) VALUES('1', 'val1')", 1);
         assertUpdate("INSERT INTO test_col_insert(pk, col2) VALUES('1', 'val2')", 1);
         assertQuery("SELECT * FROM test_col_insert", "SELECT 1, 'val1', 'val2'");
+    }
+
+    @Override
+    public void testNativeQuerySimple()
+    {
+        // not implemented
+        assertQueryFails("SELECT * FROM TABLE(system.query(query => 'SELECT 1'))", "line 1:21: Table function system.query not registered");
+    }
+
+    @Override
+    public void testNativeQuerySelectFromNation()
+    {
+        // not implemented
+        assertQueryFails(
+                format("SELECT * FROM TABLE(system.query(query => 'SELECT name FROM %s.nation WHERE nationkey = 0'))", getSession().getSchema().orElseThrow()),
+                "line 1:21: Table function system.query not registered");
+    }
+
+    @Override
+    public void testNativeQuerySelectFromTestTable()
+    {
+        // not implemented
+        try (TestTable testTable = simpleTable()) {
+            assertQueryFails(
+                    format("SELECT * FROM TABLE(system.query(query => 'SELECT * FROM %s'))", testTable.getName()),
+                    "line 1:21: Table function system.query not registered");
+        }
+    }
+
+    @Override
+    public void testNativeQueryCreateStatement()
+    {
+        // not implemented
+        assertFalse(getQueryRunner().tableExists(getSession(), "numbers"));
+        assertThatThrownBy(() -> query("SELECT * FROM TABLE(system.query(query => 'CREATE TABLE numbers(n INTEGER)'))"))
+                .hasMessage("line 1:21: Table function system.query not registered");
+        assertFalse(getQueryRunner().tableExists(getSession(), "numbers"));
+    }
+
+    @Override
+    public void testNativeQueryInsertStatementTableDoesNotExist()
+    {
+        // not implemented
+        assertFalse(getQueryRunner().tableExists(getSession(), "non_existent_table"));
+        assertThatThrownBy(() -> query("SELECT * FROM TABLE(system.query(query => 'INSERT INTO non_existent_table VALUES (1)'))"))
+                .hasMessage("line 1:21: Table function system.query not registered");
+    }
+
+    @Override
+    public void testNativeQueryInsertStatementTableExists()
+    {
+        // not implemented
+        try (TestTable testTable = simpleTable()) {
+            assertThatThrownBy(() -> query(format("SELECT * FROM TABLE(system.query(query => 'INSERT INTO %s VALUES (3)'))", testTable.getName())))
+                    .hasMessage("line 1:21: Table function system.query not registered");
+            assertThat(query("SELECT * FROM " + testTable.getName()))
+                    .matches("VALUES BIGINT '1', BIGINT '2'");
+        }
+    }
+
+    @Override
+    public void testNativeQueryIncorrectSyntax()
+    {
+        // not implemented
+        assertThatThrownBy(() -> query("SELECT * FROM TABLE(system.query(query => 'some wrong syntax'))"))
+                .hasMessage("line 1:21: Table function system.query not registered");
+    }
+
+    @Override
+    protected TestTable simpleTable()
+    {
+        // override because Phoenix requires primary key specification
+        return new PhoenixTestTable(onRemoteDatabase(), "tpch.simple_table", "(col BIGINT PRIMARY KEY)", ImmutableList.of("1", "2"));
     }
 
     @Override

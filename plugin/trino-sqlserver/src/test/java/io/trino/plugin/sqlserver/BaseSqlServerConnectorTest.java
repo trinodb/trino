@@ -520,6 +520,13 @@ public abstract class BaseSqlServerConnectorTest
     }
 
     @Override
+    public void testNativeQuerySimple()
+    {
+        // override because SQL Server provides an empty string as the name for unnamed column
+        assertQuery("SELECT * FROM TABLE(system.query(query => 'SELECT 1 a'))", "VALUES 1");
+    }
+
+    @Override
     protected String errorMessageForCreateTableAsSelectNegativeDate(String date)
     {
         return "Failed to insert data: Conversion failed when converting date and/or time from character string.";

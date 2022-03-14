@@ -28,6 +28,7 @@ import io.trino.spi.connector.RecordSet;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.eventlistener.EventListener;
+import io.trino.spi.ptf.ConnectorTableFunction;
 import io.trino.spi.type.Type;
 import org.testng.annotations.Test;
 
@@ -53,5 +54,6 @@ public class TestClassLoaderSafeWrappers
         assertAllMethodsOverridden(ConnectorRecordSetProvider.class, ClassLoaderSafeConnectorRecordSetProvider.class);
         assertAllMethodsOverridden(RecordSet.class, ClassLoaderSafeRecordSet.class);
         assertAllMethodsOverridden(EventListener.class, ClassLoaderSafeEventListener.class);
+        assertAllMethodsOverridden(ConnectorTableFunction.class, ClassLoaderSafeConnectorTableFunction.class);
     }
 }

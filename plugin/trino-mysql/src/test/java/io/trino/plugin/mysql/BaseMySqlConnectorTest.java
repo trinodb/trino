@@ -357,6 +357,23 @@ public abstract class BaseMySqlConnectorTest
         onRemoteDatabase().execute("SELECT count(*) FROM tpch.orders WHERE " + longInClauses);
     }
 
+    @Override
+    public void testNativeQueryInsertStatementTableDoesNotExist()
+    {
+        // override because MySQL succeeds in preparing query, and then fails because of no metadata available
+        assertFalse(getQueryRunner().tableExists(getSession(), "non_existent_table"));
+        assertThatThrownBy(() -> query("SELECT * FROM TABLE(system.query(query => 'INSERT INTO non_existent_table VALUES (1)'))"))
+                .hasMessageContaining("Query not supported: ResultSetMetaData not available for query: INSERT INTO non_existent_table VALUES (1)");
+    }
+
+    @Override
+    public void testNativeQueryIncorrectSyntax()
+    {
+        // override because MySQL succeeds in preparing query, and then fails because of no metadata available
+        assertThatThrownBy(() -> query("SELECT * FROM TABLE(system.query(query => 'some wrong syntax'))"))
+                .hasMessageContaining("Query not supported: ResultSetMetaData not available for query: some wrong syntax");
+    }
+
     private String getLongInClause(int start, int length)
     {
         String longValues = range(start, start + length)
