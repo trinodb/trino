@@ -12,3 +12,7 @@ jdbc:
 
 docs:
   - docs/**
+
+release-notes:
+  - docs/src/main/sphinx/release/**
+  - docs/src/main/sphinx/release.rst
