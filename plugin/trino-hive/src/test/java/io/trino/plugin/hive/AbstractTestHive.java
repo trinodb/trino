@@ -2740,6 +2740,14 @@ public abstract class AbstractTestHive
         finally {
             dropTable(table);
         }
+
+        SchemaTableName tableInsertMode = temporaryTable("insert_overwrite_insertmode");
+        try {
+            doInsertOverwriteUnpartitionedViaInsertMode(tableInsertMode);
+        }
+        finally {
+            dropTable(tableInsertMode);
+        }
     }
 
     @Test
