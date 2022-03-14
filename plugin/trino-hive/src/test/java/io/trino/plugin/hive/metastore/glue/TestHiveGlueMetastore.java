@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hive.metastore.glue;
 
+import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import com.amazonaws.services.glue.AWSGlueAsync;
 import com.amazonaws.services.glue.AWSGlueAsyncClientBuilder;
 import com.amazonaws.services.glue.model.CreateTableRequest;
@@ -217,6 +218,7 @@ public class TestHiveGlueMetastore
         return new GlueHiveMetastore(
                 HDFS_ENVIRONMENT,
                 glueConfig,
+                DefaultAWSCredentialsProviderChain.getInstance(),
                 executor,
                 new DefaultGlueColumnStatisticsProviderFactory(glueConfig, executor, executor),
                 Optional.empty(),
