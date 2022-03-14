@@ -36,7 +36,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static java.lang.String.format;
 
 public class ImplementSqlServerStdev
-        implements AggregateFunctionRule<JdbcExpression>
+        implements AggregateFunctionRule<JdbcExpression, String>
 {
     private static final Capture<Variable> ARGUMENT = newCapture();
 
@@ -52,7 +52,7 @@ public class ImplementSqlServerStdev
     }
 
     @Override
-    public Optional<JdbcExpression> rewrite(AggregateFunction aggregateFunction, Captures captures, RewriteContext context)
+    public Optional<JdbcExpression> rewrite(AggregateFunction aggregateFunction, Captures captures, RewriteContext<String> context)
     {
         Variable argument = captures.get(ARGUMENT);
         JdbcColumnHandle columnHandle = (JdbcColumnHandle) context.getAssignment(argument.getName());
@@ -60,7 +60,7 @@ public class ImplementSqlServerStdev
         verify(aggregateFunction.getOutputType().equals(DOUBLE));
 
         return Optional.of(new JdbcExpression(
-                format("STDEV(%s)", context.getIdentifierQuote().apply(columnHandle.getColumnName())),
+                format("STDEV(%s)", context.rewriteExpression(argument).orElseThrow()),
                 columnHandle.getJdbcTypeHandle()));
     }
 }

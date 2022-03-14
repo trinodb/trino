@@ -38,7 +38,7 @@ import static java.lang.String.format;
  * Implements {@code avg(decimal(p, s)}
  */
 public class ImplementAvgDecimal
-        implements AggregateFunctionRule<JdbcExpression>
+        implements AggregateFunctionRule<JdbcExpression, String>
 {
     private static final Capture<Variable> ARGUMENT = newCapture();
 
@@ -54,7 +54,7 @@ public class ImplementAvgDecimal
     }
 
     @Override
-    public Optional<JdbcExpression> rewrite(AggregateFunction aggregateFunction, Captures captures, RewriteContext context)
+    public Optional<JdbcExpression> rewrite(AggregateFunction aggregateFunction, Captures captures, RewriteContext<String> context)
     {
         Variable argument = captures.get(ARGUMENT);
         JdbcColumnHandle columnHandle = (JdbcColumnHandle) context.getAssignment(argument.getName());
@@ -62,7 +62,7 @@ public class ImplementAvgDecimal
         verify(aggregateFunction.getOutputType().equals(type));
 
         return Optional.of(new JdbcExpression(
-                format("CAST(avg(%s) AS decimal(%s, %s))", context.getIdentifierQuote().apply(columnHandle.getColumnName()), type.getPrecision(), type.getScale()),
+                format("CAST(avg(%s) AS decimal(%s, %s))", context.rewriteExpression(argument).orElseThrow(), type.getPrecision(), type.getScale()),
                 columnHandle.getJdbcTypeHandle()));
     }
 }

@@ -24,6 +24,7 @@ import io.airlift.log.Logger;
 import io.trino.collect.cache.NonEvictableLoadingCache;
 import io.trino.plugin.base.aggregation.AggregateFunctionRewriter;
 import io.trino.plugin.base.aggregation.AggregateFunctionRule;
+import io.trino.plugin.base.expression.ConnectorExpressionRewriter;
 import io.trino.plugin.pinot.client.PinotClient;
 import io.trino.plugin.pinot.query.AggregateExpression;
 import io.trino.plugin.pinot.query.DynamicTable;
@@ -95,7 +96,7 @@ public class PinotMetadata
     private final NonEvictableLoadingCache<String, List<PinotColumnHandle>> pinotTableColumnCache;
     private final NonEvictableLoadingCache<Object, List<String>> allTablesCache;
     private final int maxRowsPerBrokerQuery;
-    private final AggregateFunctionRewriter<AggregateExpression> aggregateFunctionRewriter;
+    private final AggregateFunctionRewriter<AggregateExpression, Void> aggregateFunctionRewriter;
     private final ImplementCountDistinct implementCountDistinct;
     private final PinotClient pinotClient;
 
@@ -128,15 +129,18 @@ public class PinotMetadata
 
         executor.execute(() -> this.allTablesCache.refresh(ALL_TABLES_CACHE_KEY));
         this.maxRowsPerBrokerQuery = pinotConfig.getMaxRowsForBrokerQueries();
-        this.implementCountDistinct = new ImplementCountDistinct();
-        this.aggregateFunctionRewriter = new AggregateFunctionRewriter<>(identity(), ImmutableSet.<AggregateFunctionRule<AggregateExpression>>builder()
-                .add(new ImplementCountAll())
-                .add(new ImplementAvg())
-                .add(new ImplementMinMax())
-                .add(new ImplementSum())
-                .add(new ImplementApproxDistinct())
-                .add(implementCountDistinct)
-                .build());
+        Function<String, String> identifierQuote = identity(); // TODO identifier quoting not needed here?
+        this.implementCountDistinct = new ImplementCountDistinct(identifierQuote);
+        this.aggregateFunctionRewriter = new AggregateFunctionRewriter<>(
+                new ConnectorExpressionRewriter<>(ImmutableSet.of()),
+                ImmutableSet.<AggregateFunctionRule<AggregateExpression, Void>>builder()
+                        .add(new ImplementCountAll())
+                        .add(new ImplementAvg(identifierQuote))
+                        .add(new ImplementMinMax(identifierQuote))
+                        .add(new ImplementSum(identifierQuote))
+                        .add(new ImplementApproxDistinct(identifierQuote))
+                        .add(implementCountDistinct)
+                        .build());
     }
 
     @Override
@@ -425,7 +429,7 @@ public class PinotMetadata
 
     private Optional<AggregateExpression> applyCountDistinct(ConnectorSession session, AggregateFunction aggregate, Map<String, ColumnHandle> assignments, PinotTableHandle tableHandle, Optional<AggregateExpression> rewriteResult)
     {
-        AggregateFunctionRule.RewriteContext context = new AggregateFunctionRule.RewriteContext()
+        AggregateFunctionRule.RewriteContext<Void> context = new AggregateFunctionRule.RewriteContext<>()
         {
             @Override
             public Map<String, ColumnHandle> getAssignments()
@@ -434,15 +438,15 @@ public class PinotMetadata
             }
 
             @Override
-            public Function<String, String> getIdentifierQuote()
-            {
-                return identity();
-            }
-
-            @Override
             public ConnectorSession getSession()
             {
                 return session;
+            }
+
+            @Override
+            public Optional<Void> rewriteExpression(ConnectorExpression expression)
+            {
+                throw new UnsupportedOperationException();
             }
         };
 

@@ -39,7 +39,7 @@ import static java.util.Objects.requireNonNull;
  * Implements {@code sum(x)}
  */
 public class ImplementSum
-        implements AggregateFunctionRule<JdbcExpression>
+        implements AggregateFunctionRule<JdbcExpression, String>
 {
     private static final Capture<Variable> ARGUMENT = newCapture();
 
@@ -59,7 +59,7 @@ public class ImplementSum
     }
 
     @Override
-    public Optional<JdbcExpression> rewrite(AggregateFunction aggregateFunction, Captures captures, RewriteContext context)
+    public Optional<JdbcExpression> rewrite(AggregateFunction aggregateFunction, Captures captures, RewriteContext<String> context)
     {
         Variable argument = captures.get(ARGUMENT);
         JdbcColumnHandle columnHandle = (JdbcColumnHandle) context.getAssignment(argument.getName());
@@ -80,7 +80,7 @@ public class ImplementSum
         }
 
         return Optional.of(new JdbcExpression(
-                format("sum(%s)", context.getIdentifierQuote().apply(columnHandle.getColumnName())),
+                format("sum(%s)", context.rewriteExpression(argument).orElseThrow()),
                 resultTypeHandle));
     }
 }

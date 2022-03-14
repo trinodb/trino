@@ -44,7 +44,7 @@ import static java.util.Objects.requireNonNull;
  * Implements {@code count(DISTINCT x)}.
  */
 public class ImplementCountDistinct
-        implements AggregateFunctionRule<JdbcExpression>
+        implements AggregateFunctionRule<JdbcExpression, String>
 {
     private static final Capture<Variable> ARGUMENT = newCapture();
 
@@ -71,7 +71,7 @@ public class ImplementCountDistinct
     }
 
     @Override
-    public Optional<JdbcExpression> rewrite(AggregateFunction aggregateFunction, Captures captures, RewriteContext context)
+    public Optional<JdbcExpression> rewrite(AggregateFunction aggregateFunction, Captures captures, RewriteContext<String> context)
     {
         Variable argument = captures.get(ARGUMENT);
         JdbcColumnHandle columnHandle = (JdbcColumnHandle) context.getAssignment(argument.getName());
@@ -84,7 +84,7 @@ public class ImplementCountDistinct
         }
 
         return Optional.of(new JdbcExpression(
-                format("count(DISTINCT %s)", context.getIdentifierQuote().apply(columnHandle.getColumnName())),
+                format("count(DISTINCT %s)", context.rewriteExpression(argument).orElseThrow()),
                 bigintTypeHandle));
     }
 }

@@ -17,6 +17,8 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
 import io.trino.plugin.base.aggregation.AggregateFunctionRewriter;
 import io.trino.plugin.jdbc.aggregation.ImplementCountAll;
+import io.trino.plugin.jdbc.expression.JdbcConnectorExpressionRewriterBuilder;
+import io.trino.plugin.jdbc.expression.RewriteVariable;
 import io.trino.plugin.jdbc.mapping.DefaultIdentifierMapping;
 import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.spi.TrinoException;
@@ -109,7 +111,11 @@ class TestingH2JdbcClient
     @Override
     public Optional<JdbcExpression> implementAggregation(ConnectorSession session, AggregateFunction aggregate, Map<String, ColumnHandle> assignments)
     {
-        return new AggregateFunctionRewriter<>(this::quoted, ImmutableSet.of(new ImplementCountAll(BIGINT_TYPE_HANDLE)))
+        return new AggregateFunctionRewriter<>(
+                JdbcConnectorExpressionRewriterBuilder.newBuilder()
+                        .add(new RewriteVariable(this::quoted))
+                        .build(),
+                ImmutableSet.of(new ImplementCountAll(BIGINT_TYPE_HANDLE)))
                 .rewrite(session, aggregate, assignments);
     }
 

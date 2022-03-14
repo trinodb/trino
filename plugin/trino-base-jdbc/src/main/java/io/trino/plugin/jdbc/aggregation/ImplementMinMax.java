@@ -39,7 +39,7 @@ import static java.lang.String.format;
  * Implements {@code min(x)}, {@code max(x)}.
  */
 public class ImplementMinMax
-        implements AggregateFunctionRule<JdbcExpression>
+        implements AggregateFunctionRule<JdbcExpression, String>
 {
     private static final Capture<Variable> ARGUMENT = newCapture();
 
@@ -59,7 +59,7 @@ public class ImplementMinMax
     }
 
     @Override
-    public Optional<JdbcExpression> rewrite(AggregateFunction aggregateFunction, Captures captures, RewriteContext context)
+    public Optional<JdbcExpression> rewrite(AggregateFunction aggregateFunction, Captures captures, RewriteContext<String> context)
     {
         Variable argument = captures.get(ARGUMENT);
         JdbcColumnHandle columnHandle = (JdbcColumnHandle) context.getAssignment(argument.getName());
@@ -71,7 +71,7 @@ public class ImplementMinMax
         }
 
         return Optional.of(new JdbcExpression(
-                format("%s(%s)", aggregateFunction.getFunctionName(), context.getIdentifierQuote().apply(columnHandle.getColumnName())),
+                format("%s(%s)", aggregateFunction.getFunctionName(), context.rewriteExpression(argument).orElseThrow()),
                 columnHandle.getJdbcTypeHandle()));
     }
 }

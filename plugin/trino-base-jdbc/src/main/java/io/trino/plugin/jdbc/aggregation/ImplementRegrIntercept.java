@@ -37,7 +37,7 @@ import static io.trino.spi.type.RealType.REAL;
 import static java.lang.String.format;
 
 public class ImplementRegrIntercept
-        implements AggregateFunctionRule<JdbcExpression>
+        implements AggregateFunctionRule<JdbcExpression, String>
 {
     private static final Capture<List<Variable>> ARGUMENTS = newCapture();
 
@@ -53,17 +53,18 @@ public class ImplementRegrIntercept
     }
 
     @Override
-    public Optional<JdbcExpression> rewrite(AggregateFunction aggregateFunction, Captures captures, RewriteContext context)
+    public Optional<JdbcExpression> rewrite(AggregateFunction aggregateFunction, Captures captures, RewriteContext<String> context)
     {
         List<Variable> arguments = captures.get(ARGUMENTS);
         verify(arguments.size() == 2);
 
-        JdbcColumnHandle columnHandle1 = (JdbcColumnHandle) context.getAssignment(arguments.get(0).getName());
-        JdbcColumnHandle columnHandle2 = (JdbcColumnHandle) context.getAssignment(arguments.get(1).getName());
+        Variable argument1 = arguments.get(0);
+        Variable argument2 = arguments.get(1);
+        JdbcColumnHandle columnHandle1 = (JdbcColumnHandle) context.getAssignment(argument1.getName());
         verify(aggregateFunction.getOutputType().equals(columnHandle1.getColumnType()));
 
         return Optional.of(new JdbcExpression(
-                format("regr_intercept(%s, %s)", context.getIdentifierQuote().apply(columnHandle1.getColumnName()), context.getIdentifierQuote().apply(columnHandle2.getColumnName())),
+                format("regr_intercept(%s, %s)", context.rewriteExpression(argument1).orElseThrow(), context.rewriteExpression(argument2).orElseThrow()),
                 columnHandle1.getJdbcTypeHandle()));
     }
 }
