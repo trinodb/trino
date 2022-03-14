@@ -18,21 +18,21 @@ import io.trino.matching.Pattern;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.expression.ConnectorExpression;
 
 import java.util.Map;
 import java.util.Optional;
-import java.util.function.Function;
 
 import static com.google.common.base.Verify.verifyNotNull;
 import static java.util.Objects.requireNonNull;
 
-public interface AggregateFunctionRule<Result>
+public interface AggregateFunctionRule<AggregationResult, ExpressionResult>
 {
     Pattern<AggregateFunction> getPattern();
 
-    Optional<Result> rewrite(AggregateFunction aggregateFunction, Captures captures, RewriteContext context);
+    Optional<AggregationResult> rewrite(AggregateFunction aggregateFunction, Captures captures, RewriteContext<ExpressionResult> context);
 
-    interface RewriteContext
+    interface RewriteContext<ExpressionResult>
     {
         default ColumnHandle getAssignment(String name)
         {
@@ -44,8 +44,8 @@ public interface AggregateFunctionRule<Result>
 
         Map<String, ColumnHandle> getAssignments();
 
-        Function<String, String> getIdentifierQuote();
-
         ConnectorSession getSession();
+
+        Optional<ExpressionResult> rewriteExpression(ConnectorExpression expression);
     }
 }

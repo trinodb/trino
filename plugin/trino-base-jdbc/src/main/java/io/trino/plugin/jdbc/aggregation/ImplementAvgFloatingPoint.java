@@ -39,7 +39,7 @@ import static java.lang.String.format;
  * Implements {@code avg(float)}
  */
 public class ImplementAvgFloatingPoint
-        implements AggregateFunctionRule<JdbcExpression>
+        implements AggregateFunctionRule<JdbcExpression, String>
 {
     private static final Capture<Variable> ARGUMENT = newCapture();
 
@@ -55,14 +55,14 @@ public class ImplementAvgFloatingPoint
     }
 
     @Override
-    public Optional<JdbcExpression> rewrite(AggregateFunction aggregateFunction, Captures captures, RewriteContext context)
+    public Optional<JdbcExpression> rewrite(AggregateFunction aggregateFunction, Captures captures, RewriteContext<String> context)
     {
         Variable argument = captures.get(ARGUMENT);
         JdbcColumnHandle columnHandle = (JdbcColumnHandle) context.getAssignment(argument.getName());
         verify(aggregateFunction.getOutputType() == columnHandle.getColumnType());
 
         return Optional.of(new JdbcExpression(
-                format("avg(%s)", context.getIdentifierQuote().apply(columnHandle.getColumnName())),
+                format("avg(%s)", context.rewriteExpression(argument).orElseThrow()),
                 columnHandle.getJdbcTypeHandle()));
     }
 }

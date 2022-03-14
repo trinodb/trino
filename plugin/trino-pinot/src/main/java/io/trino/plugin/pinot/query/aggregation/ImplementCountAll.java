@@ -32,7 +32,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
  * Implements {@code count(*)}.
  */
 public class ImplementCountAll
-        implements AggregateFunctionRule<AggregateExpression>
+        implements AggregateFunctionRule<AggregateExpression, Void>
 {
     @Override
     public Pattern<AggregateFunction> getPattern()
@@ -44,7 +44,7 @@ public class ImplementCountAll
     }
 
     @Override
-    public Optional<AggregateExpression> rewrite(AggregateFunction aggregateFunction, Captures captures, RewriteContext context)
+    public Optional<AggregateExpression> rewrite(AggregateFunction aggregateFunction, Captures captures, RewriteContext<Void> context)
     {
         return Optional.of(new AggregateExpression("count", "*", false));
     }

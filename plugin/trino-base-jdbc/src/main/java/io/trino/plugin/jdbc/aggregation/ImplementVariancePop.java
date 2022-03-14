@@ -35,7 +35,7 @@ import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.variabl
 import static java.lang.String.format;
 
 public class ImplementVariancePop
-        implements AggregateFunctionRule<JdbcExpression>
+        implements AggregateFunctionRule<JdbcExpression, String>
 {
     private static final Capture<Variable> ARGUMENT = newCapture();
 
@@ -51,14 +51,14 @@ public class ImplementVariancePop
     }
 
     @Override
-    public Optional<JdbcExpression> rewrite(AggregateFunction aggregateFunction, Captures captures, RewriteContext context)
+    public Optional<JdbcExpression> rewrite(AggregateFunction aggregateFunction, Captures captures, RewriteContext<String> context)
     {
         Variable argument = captures.get(ARGUMENT);
         JdbcColumnHandle columnHandle = (JdbcColumnHandle) context.getAssignment(argument.getName());
         verify(aggregateFunction.getOutputType() == columnHandle.getColumnType());
 
         return Optional.of(new JdbcExpression(
-                format("var_pop(%s)", context.getIdentifierQuote().apply(columnHandle.getColumnName())),
+                format("var_pop(%s)", context.rewriteExpression(argument).orElseThrow()),
                 columnHandle.getJdbcTypeHandle()));
     }
 }
