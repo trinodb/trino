@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg.catalog.hms;
 
 import io.trino.plugin.hive.authentication.HiveIdentity;
+import io.trino.plugin.hive.metastore.AcidTransactionOwner;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.MetastoreUtil;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
@@ -67,6 +68,7 @@ public class HiveMetastoreTableOperations
 
         long lockId = thriftMetastore.acquireTableExclusiveLock(
                 identity,
+                new AcidTransactionOwner(session.getUser()),
                 session.getQueryId(),
                 database,
                 tableName);
