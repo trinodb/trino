@@ -15,6 +15,7 @@ package io.trino.plugin.snowflake;
 
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ColumnMapping;
+import io.trino.plugin.jdbc.DefaultQueryBuilder;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
@@ -59,6 +60,7 @@ public class TestSnowflakeClient
     private static final JdbcClient JDBC_CLIENT = new SnowflakeClient(
             new BaseJdbcConfig(),
             session -> { throw new UnsupportedOperationException(); },
+            new DefaultQueryBuilder(),
             TESTING_TYPE_MANAGER,
             new DefaultIdentifierMapping());
 

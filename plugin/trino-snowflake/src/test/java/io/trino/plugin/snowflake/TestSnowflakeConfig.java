@@ -37,12 +37,12 @@ public class TestSnowflakeConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("snowflake.account", "MYACCOUNT")
                 .put("snowflake.database", "MYDATABASE")
                 .put("snowflake.role", "MYROLE")
                 .put("snowflake.warehouse", "MYWAREHOUSE")
-                .build();
+                .buildOrThrow();
 
         SnowflakeConfig expected = new SnowflakeConfig()
                 .setAccount("MYACCOUNT")
