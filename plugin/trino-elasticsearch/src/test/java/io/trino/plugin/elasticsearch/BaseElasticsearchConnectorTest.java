@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.BaseEncoding;
 import com.google.common.net.HostAndPort;
+import io.trino.Session;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.planner.plan.LimitNode;
 import io.trino.testing.AbstractTestQueries;
@@ -1803,6 +1804,21 @@ public abstract class BaseElasticsearchConnectorTest
                         "FROM data", BaseEncoding.base32().encode(query.getBytes(UTF_8))),
                 "VALUES (60000, 449872500)");
 
+        // assert that query pass-through returns the same result as the raw_query table function
+        assertThat(query(format("WITH data(r) AS (" +
+                "   SELECT CAST(json_parse(result) AS ROW(aggregations ROW(max_orderkey ROW(value BIGINT), sum_orderkey ROW(value BIGINT)))) " +
+                "   FROM \"orders$query:%s\") " +
+                "SELECT r.aggregations.max_orderkey.value, r.aggregations.sum_orderkey.value " +
+                "FROM data", BaseEncoding.base32().encode(query.getBytes(UTF_8)))))
+                .matches(format("WITH data(r) AS (" +
+                        "   SELECT CAST(json_parse(result) AS ROW(aggregations ROW(max_orderkey ROW(value BIGINT), sum_orderkey ROW(value BIGINT)))) " +
+                        "   FROM TABLE(elasticsearch.system.raw_query(" +
+                        "                        schema => 'tpch', " +
+                        "                        index => 'orders', " +
+                        "                        query => '%s'))) " +
+                        "SELECT r.aggregations.max_orderkey.value, r.aggregations.sum_orderkey.value " +
+                        "FROM data", query));
+
         assertQueryFails(
                 "SELECT * FROM \"orders$query:invalid-base32-encoding\"",
                 "Elasticsearch query for 'orders' is not base32-encoded correctly");
@@ -1858,6 +1874,53 @@ public abstract class BaseElasticsearchConnectorTest
     public void testMissingIndex()
     {
         assertTableDoesNotExist("nonexistent_table");
+    }
+
+    @Test
+    public void testQueryTableFunction()
+    {
+        // select single record
+        assertQuery("SELECT json_query(result, 'lax $[0][0].hits.hits._source') " +
+                        "FROM TABLE(elasticsearch.system.raw_query(" +
+                        "schema => 'tpch', " +
+                        "index => 'nation', " +
+                        "query => '{\"query\": {\"match\": {\"name\": \"ALGERIA\"}}}')) t(result)",
+                "VALUES '{\"nationkey\":0,\"name\":\"ALGERIA\",\"regionkey\":0,\"comment\":\" haggle. carefully final deposits detect slyly agai\"}'");
+
+        // parameters
+        Session session = Session.builder(getSession())
+                .addPreparedStatement(
+                        "my_query",
+                        "SELECT json_query(result, 'lax $[0][0].hits.hits._source') FROM TABLE(elasticsearch.system.raw_query(schema => ?, index => ?, query => ?))")
+                .build();
+        assertQuery(
+                session,
+                "EXECUTE my_query USING 'tpch', 'nation', '{\"query\": {\"match\": {\"name\": \"ALGERIA\"}}}'",
+                "VALUES '{\"nationkey\":0,\"name\":\"ALGERIA\",\"regionkey\":0,\"comment\":\" haggle. carefully final deposits detect slyly agai\"}'");
+
+        // select multiple records by range. Use array wrapper to wrap multiple results
+        assertQuery("SELECT array_sort(CAST(json_parse(json_query(result, 'lax $[0][0].hits.hits._source.name' WITH ARRAY WRAPPER)) AS array(varchar))) " +
+                        "FROM TABLE(elasticsearch.system.raw_query(" +
+                        "schema => 'tpch', " +
+                        "index => 'nation', " +
+                        "query => '{\"query\": {\"range\": {\"nationkey\": {\"gte\": 0,\"lte\": 3}}}}')) t(result)",
+                "VALUES ARRAY['ALGERIA', 'ARGENTINA', 'BRAZIL', 'CANADA']");
+
+        // no matches
+        assertQuery("SELECT json_query(result, 'lax $[0][0].hits.hits') " +
+                        "FROM TABLE(elasticsearch.system.raw_query(" +
+                        "schema => 'tpch', " +
+                        "index => 'nation', " +
+                        "query => '{\"query\": {\"match\": {\"name\": \"UTOPIA\"}}}')) t(result)",
+                "VALUES '[]'");
+
+        // syntax error
+        assertThatThrownBy(() -> query("SELECT * " +
+                "FROM TABLE(elasticsearch.system.raw_query(" +
+                "schema => 'tpch', " +
+                "index => 'nation', " +
+                "query => 'wrong syntax')) t(result)"))
+                .hasMessageContaining("json_parse_exception");
     }
 
     protected void assertTableDoesNotExist(String name)
