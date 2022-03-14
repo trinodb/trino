@@ -25,6 +25,10 @@ import io.trino.plugin.jdbc.DriverConnectionFactory;
 import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
+import io.trino.plugin.jdbc.ptf.RemoteQuery;
+import io.trino.spi.ptf.ConnectorTableFunction;
+
+import static com.google.inject.multibindings.Multibinder.newSetBinder;
 
 public class RedshiftClientModule
         implements Module
@@ -33,6 +37,7 @@ public class RedshiftClientModule
     public void configure(Binder binder)
     {
         binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(RedshiftClient.class).in(Scopes.SINGLETON);
+        newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(RemoteQuery.class).in(Scopes.SINGLETON);
     }
 
     @Singleton

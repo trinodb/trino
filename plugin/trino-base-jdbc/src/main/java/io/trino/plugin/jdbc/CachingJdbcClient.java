@@ -289,6 +289,12 @@ public class CachingJdbcClient
     }
 
     @Override
+    public JdbcTableHandle getTableHandle(ConnectorSession session, PreparedQuery preparedQuery)
+    {
+        return delegate.getTableHandle(session, preparedQuery); // TODO add caching?
+    }
+
+    @Override
     public void commitCreateTable(ConnectorSession session, JdbcOutputTableHandle handle)
     {
         delegate.commitCreateTable(session, handle);

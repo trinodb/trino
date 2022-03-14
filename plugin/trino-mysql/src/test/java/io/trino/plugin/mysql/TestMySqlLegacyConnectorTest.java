@@ -135,6 +135,15 @@ public class TestMySqlLegacyConnectorTest
                 .hasStackTraceContaining("RENAME COLUMN x TO before_y");
     }
 
+    @Test
+    @Override
+    public void testRemoteQueryTableFunction()
+    {
+        // override because MySql returns bigint
+        assertThat(query("SELECT * FROM TABLE(" + getSession().getCatalog().orElseThrow() + ".system.remote_query(\"query\" => 'SELECT 1'))"))
+                .matches("VALUES BIGINT '1'");
+    }
+
     @Override
     protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
     {

@@ -18,6 +18,7 @@ import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.SqlExecutor;
 
 import static io.trino.plugin.mariadb.MariaDbQueryRunner.createMariaDbQueryRunner;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestMariaDbConnectorTest
@@ -42,5 +43,13 @@ public class TestMariaDbConnectorTest
     {
         assertThatThrownBy(super::testRenameColumn)
                 .hasMessageContaining("Rename column not supported for the MariaDB server version");
+    }
+
+    @Override
+    public void testRemoteQueryTableFunction()
+    {
+        // override because mariaDB returns bigint
+        assertThat(query("SELECT * FROM TABLE(" + getSession().getCatalog().orElseThrow() + ".system.remote_query(\"query\" => 'SELECT 1'))"))
+                .matches("VALUES BIGINT '1'");
     }
 }

@@ -28,6 +28,7 @@ import static io.trino.plugin.oracle.TestingOracleServer.TEST_USER;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestOracleConnectorTest
         extends BaseOracleConnectorTest
@@ -84,5 +85,13 @@ public class TestOracleConnectorTest
     protected SqlExecutor onRemoteDatabase()
     {
         return oracleServer::execute;
+    }
+
+    @Override
+    public void testRemoteQueryTableFunction()
+    {
+        // override because Oracle requires the FROM clause, and it needs explicit type
+        assertThat(query("SELECT * FROM TABLE(" + getSession().getCatalog().orElseThrow() + ".system.remote_query(\"query\" => 'SELECT CAST(1 AS number(2, 1)) FROM DUAL'))"))
+                .matches("VALUES 1.0");
     }
 }

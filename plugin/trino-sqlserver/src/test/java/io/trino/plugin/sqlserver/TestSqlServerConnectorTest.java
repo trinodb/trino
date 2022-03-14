@@ -195,4 +195,13 @@ public class TestSqlServerConnectorTest
                 {"timestamp(12)"}
         };
     }
+
+    @Test
+    @Override
+    public void testRemoteQueryTableFunction()
+    {
+        // override because SqlServer provides an empty String as the name for unnamed column
+        assertThat(query("SELECT * FROM TABLE(" + getSession().getCatalog().orElseThrow() + ".system.remote_query(\"query\" => 'SELECT 1 a'))"))
+                .matches("VALUES 1");
+    }
 }

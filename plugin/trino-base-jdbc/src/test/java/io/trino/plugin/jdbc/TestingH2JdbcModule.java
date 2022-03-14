@@ -17,14 +17,18 @@ import com.google.common.collect.ImmutableMap;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
+import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
 import io.trino.plugin.jdbc.mapping.IdentifierMapping;
+import io.trino.plugin.jdbc.ptf.RemoteQuery;
+import io.trino.spi.ptf.ConnectorTableFunction;
 import org.h2.Driver;
 
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 
+import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -44,7 +48,10 @@ public class TestingH2JdbcModule
     }
 
     @Override
-    public void configure(Binder binder) {}
+    public void configure(Binder binder)
+    {
+        newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(RemoteQuery.class).in(Scopes.SINGLETON);
+    }
 
     @Provides
     @Singleton

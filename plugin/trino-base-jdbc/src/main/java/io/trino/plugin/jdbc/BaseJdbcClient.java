@@ -45,6 +45,7 @@ import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
@@ -68,6 +69,8 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.plugin.jdbc.CaseSensitivity.CASE_INSENSITIVE;
+import static io.trino.plugin.jdbc.CaseSensitivity.CASE_SENSITIVE;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.trino.plugin.jdbc.JdbcWriteSessionProperties.isNonTransactionalInsert;
 import static io.trino.plugin.jdbc.PredicatePushdownController.DISABLE_PUSHDOWN;
@@ -219,6 +222,45 @@ public abstract class BaseJdbcClient
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, e);
         }
+    }
+
+    @Override
+    public JdbcTableHandle getTableHandle(ConnectorSession session, PreparedQuery preparedQuery)
+    {
+        ImmutableList.Builder<JdbcColumnHandle> columns = ImmutableList.builder();
+        try (Connection connection = connectionFactory.openConnection(session);
+                PreparedStatement preparedStatement = queryBuilder.prepareStatement(this, session, connection, preparedQuery)) {
+            ResultSetMetaData metaData = preparedStatement.getMetaData();
+            if (metaData == null) {
+                throw new UnsupportedOperationException("ResultSetMetaData not provided for query");
+            }
+            for (int column = 1; column <= metaData.getColumnCount(); column++) {
+                JdbcTypeHandle jdbcTypeHandle = new JdbcTypeHandle(
+                        metaData.getColumnType(column),
+                        Optional.ofNullable(metaData.getColumnTypeName(column)),
+                        Optional.of(metaData.getPrecision(column)),
+                        Optional.of(metaData.getScale(column)),
+                        Optional.empty(), // TODO support arrays
+                        Optional.of(metaData.isCaseSensitive(column) ? CASE_SENSITIVE : CASE_INSENSITIVE));
+                Type type = toColumnMapping(session, connection, jdbcTypeHandle)
+                        .orElseThrow(() -> new IllegalArgumentException("Unsupported type: " + jdbcTypeHandle))
+                        .getType();
+                columns.add(new JdbcColumnHandle(metaData.getColumnName(column), jdbcTypeHandle, type));
+            }
+        }
+        catch (SQLException e) {
+            throw new TrinoException(JDBC_ERROR, e);
+        }
+
+        return new JdbcTableHandle(
+                new JdbcQueryRelationHandle(preparedQuery),
+                TupleDomain.all(),
+                ImmutableList.of(),
+                Optional.empty(),
+                OptionalLong.empty(),
+                Optional.of(columns.build()),
+                ImmutableSet.of(), // TODO return other tables referenced by the query
+                0);
     }
 
     @Override

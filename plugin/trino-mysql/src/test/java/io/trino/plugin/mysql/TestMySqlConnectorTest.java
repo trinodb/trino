@@ -15,8 +15,10 @@ package io.trino.plugin.mysql;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.testing.QueryRunner;
+import org.testng.annotations.Test;
 
 import static io.trino.plugin.mysql.MySqlQueryRunner.createMySqlQueryRunner;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestMySqlConnectorTest
         extends BaseMySqlConnectorTest
@@ -27,5 +29,14 @@ public class TestMySqlConnectorTest
     {
         mySqlServer = closeAfterClass(new TestingMySqlServer(false));
         return createMySqlQueryRunner(mySqlServer, ImmutableMap.of(), ImmutableMap.of(), REQUIRED_TPCH_TABLES);
+    }
+
+    @Test
+    @Override
+    public void testRemoteQueryTableFunction()
+    {
+        // override because MySql returns bigint
+        assertThat(query("SELECT * FROM TABLE(" + getSession().getCatalog().orElseThrow() + ".system.remote_query(\"query\" => 'SELECT 1'))"))
+                .matches("VALUES BIGINT '1'");
     }
 }

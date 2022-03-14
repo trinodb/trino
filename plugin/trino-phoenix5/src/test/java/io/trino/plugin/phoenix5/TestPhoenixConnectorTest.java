@@ -560,6 +560,14 @@ public class TestPhoenixConnectorTest
     }
 
     @Override
+    public void testRemoteQueryTableFunction()
+    {
+        // not implemented
+        assertThatThrownBy(super::testRemoteQueryTableFunction)
+                .hasMessage("line 1:21: Table function phoenix.system.remote_query not registered");
+    }
+
+    @Override
     protected TestTable createTableWithDoubleAndRealColumns(String name, List<String> rows)
     {
         return new TestTable(onRemoteDatabase(), name, "(t_double double primary key, u_double double, v_real float, w_real float)", rows);

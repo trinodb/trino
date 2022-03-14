@@ -18,12 +18,14 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.trino.plugin.jdbc.PredicatePushdownController.DomainPushdownResult;
+import io.trino.plugin.jdbc.ptf.RemoteQuery.RemoteQueryHandle;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.AggregationApplicationResult;
 import io.trino.spi.connector.Assignment;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ColumnSchema;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorOutputMetadata;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
@@ -45,6 +47,7 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.SortItem;
 import io.trino.spi.connector.SystemTable;
+import io.trino.spi.connector.TableFunctionApplicationResult;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.connector.TopNApplicationResult;
@@ -53,6 +56,7 @@ import io.trino.spi.expression.Constant;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.ptf.ConnectorTableFunctionHandle;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ComputedStatistics;
@@ -121,6 +125,12 @@ public class DefaultJdbcMetadata
     {
         return jdbcClient.getTableHandle(session, tableName)
                 .orElse(null);
+    }
+
+    @Override
+    public JdbcTableHandle getTableHandle(ConnectorSession session, PreparedQuery preparedQuery)
+    {
+        return jdbcClient.getTableHandle(session, preparedQuery);
     }
 
     @Override
@@ -318,10 +328,10 @@ public class DefaultJdbcMetadata
                 .flatMap(List::stream)
                 .distinct()
                 .peek(handle.getColumns().<Consumer<JdbcColumnHandle>>map(
-                                columns -> groupKey -> verify(columns.contains(groupKey),
-                                        "applyAggregation called with a grouping column %s which was not included in the table columns: %s",
-                                        groupKey,
-                                        tableColumns))
+                        columns -> groupKey -> verify(columns.contains(groupKey),
+                                "applyAggregation called with a grouping column %s which was not included in the table columns: %s",
+                                groupKey,
+                                tableColumns))
                         .orElse(groupKey -> {}))
                 .forEach(newColumns::add);
 
@@ -557,6 +567,24 @@ public class DefaultJdbcMetadata
                 handle.getNextSyntheticColumnId());
 
         return Optional.of(new TopNApplicationResult<>(sortedTableHandle, jdbcClient.isTopNGuaranteed(session), precalculateStatisticsForPushdown));
+    }
+
+    @Override
+    public Optional<TableFunctionApplicationResult<ConnectorTableHandle>> applyTableFunction(ConnectorSession session, ConnectorTableFunctionHandle handle)
+    {
+        if (!(handle instanceof RemoteQueryHandle)) {
+            return Optional.empty();
+        }
+
+        ConnectorTableHandle tableHandle = ((RemoteQueryHandle) handle).getTableHandle();
+        ConnectorTableSchema tableSchema = getTableSchema(session, tableHandle);
+        Map<String, ColumnHandle> columnHandlesByName = getColumnHandles(session, tableHandle);
+        List<ColumnHandle> columnHandles = tableSchema.getColumns().stream()
+                .map(ColumnSchema::getName)
+                .map(columnHandlesByName::get)
+                .collect(toImmutableList());
+
+        return Optional.of(new TableFunctionApplicationResult<>(tableHandle, columnHandles));
     }
 
     @Override

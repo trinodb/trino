@@ -1548,4 +1548,11 @@ public abstract class BaseJdbcConnectorTest
                 {10, 52}, // number of rows > n * batch size
         };
     }
+
+    @Test
+    public void testRemoteQueryTableFunction()
+    {
+        assertThat(query("SELECT * FROM TABLE(" + getSession().getCatalog().orElseThrow() + ".system.remote_query(\"query\" => 'SELECT 1'))"))
+                .matches("VALUES 1");
+    }
 }

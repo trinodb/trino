@@ -594,6 +594,14 @@ public class TestClickHouseConnectorTest
     }
 
     @Override
+    public void testRemoteQueryTableFunction()
+    {
+        // table function disabled for ClickHouse, because it doesn't provide ResultSetMetaData, so the result relation type cannot be determined
+        assertThatThrownBy(super::testRemoteQueryTableFunction)
+                .hasMessage("line 1:21: Table function clickhouse.system.remote_query not registered");
+    }
+
+    @Override
     protected SqlExecutor onRemoteDatabase()
     {
         return clickhouseServer::execute;
