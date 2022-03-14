@@ -24,8 +24,11 @@ import io.trino.tests.product.launcher.env.common.Standard;
 import io.trino.tests.product.launcher.env.common.TestsEnvironment;
 import io.trino.tests.product.launcher.testcontainers.PortBinder;
 import org.testcontainers.containers.wait.strategy.HttpWaitStrategy;
+import org.testcontainers.images.builder.ImageFromDockerfile;
 
 import javax.inject.Inject;
+
+import java.awt.Image;
 
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
 import static io.trino.tests.product.launcher.env.common.HydraIdentityProvider.HYDRA;
@@ -78,8 +81,16 @@ public class EnvSinglenodeOauth2HttpProxy
 
         builder.containerDependsOn(COORDINATOR, hydraClientConfig.getLogicalName());
 
-        builder.addContainer(new DockerContainer("httpd:2.4.51", "proxy")
+        builder.addContainer(new DockerContainer(
+                new ImageFromDockerfile()
+                        .withDockerfileFromBuilder(image -> image
+                                        .from("httpd:2.4.51")
+                                        .run("apt-get update && apt-get install -y tcpdump")
+                                        .cmd("tcpdump -s 65535 -i eth0 -w /tmp/tcpdump 'port 8888' & httpd-foreground"))
+                        .get(),
+                "proxy")
                 .withCopyFileToContainer(forHostPath(configDir.getPath("httpd.conf")), "/usr/local/apache2/conf/httpd.conf")
+                .withFileSystemBind("/tmp/", "/tmp")
                 .waitingFor(new HttpWaitStrategy().forPath("/health/ready")));
         builder.containerDependsOn("proxy", HYDRA);
         builder.containerDependsOn(COORDINATOR, "proxy");
