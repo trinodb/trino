@@ -19,6 +19,7 @@ import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Constant;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.ptf.ConnectorTableFunctionHandle;
 import io.trino.spi.security.GrantInfo;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.RoleGrant;
@@ -684,7 +685,6 @@ public interface ConnectorMetadata
      * operation, in table column order.
      * @return a ConnectorTableHandle that will be passed to split generation, and to the
      * {@link #finishUpdate} method.
-     *
      * @deprecated Use {@link #beginUpdate(ConnectorSession, ConnectorTableHandle, List, RetryMode)} instead.
      */
     @Deprecated
@@ -1247,6 +1247,19 @@ public interface ConnectorMetadata
             long topNCount,
             List<SortItem> sortItems,
             Map<String, ColumnHandle> assignments)
+    {
+        return Optional.empty();
+    }
+
+    /**
+     * Attempt to push down the table function invocation into the connector.
+     * <p>
+     * Connectors can indicate whether they don't support table function invocation pushdown or that the action had no
+     * effect by returning {@link Optional#empty()}. Connectors should expect this method may be called multiple times.
+     * <p>
+     * If the method returns a result, the returned table handle will be used in place of the table function invocation.
+     */
+    default Optional<TableFunctionApplicationResult<ConnectorTableHandle>> applyTableFunction(ConnectorSession session, ConnectorTableFunctionHandle handle)
     {
         return Optional.empty();
     }

@@ -42,6 +42,7 @@ import io.trino.spi.connector.SampleType;
 import io.trino.spi.connector.SortItem;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.connector.TableColumnsMetadata;
+import io.trino.spi.connector.TableFunctionApplicationResult;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.connector.TopNApplicationResult;
 import io.trino.spi.expression.ConnectorExpression;
@@ -472,6 +473,8 @@ public interface Metadata
             long topNCount,
             List<SortItem> sortItems,
             Map<String, ColumnHandle> assignments);
+
+    Optional<TableFunctionApplicationResult<TableHandle>> applyTableFunction(Session session, TableFunctionHandle handle);
 
     default void validateScan(Session session, TableHandle table) {}
 
