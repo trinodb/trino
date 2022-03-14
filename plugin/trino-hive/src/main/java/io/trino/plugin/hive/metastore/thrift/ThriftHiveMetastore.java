@@ -157,9 +157,13 @@ public class ThriftHiveMetastore
     private static final int MAX_SET_DATE_STATISTICS_ATTEMPTS = 100;
     private static final String DEFAULT_METASTORE_USER = "presto";
 
+    private static final Pattern TABLE_PARAMETER_SAFE_KEY_PATTERN = Pattern.compile("^[a-zA-Z_]+$");
+    private static final Pattern TABLE_PARAMETER_SAFE_VALUE_PATTERN = Pattern.compile("^[a-zA-Z0-9\\s]*$");
+
     private final ThriftMetastoreStats stats = new ThriftMetastoreStats();
+    private final HdfsContext hdfsContext = new HdfsContext(ConnectorIdentity.ofUser(DEFAULT_METASTORE_USER));
+
     private final HdfsEnvironment hdfsEnvironment;
-    private final HdfsContext hdfsContext;
     private final TokenDelegationThriftMetastoreFactory metastoreFactory;
     private final double backoffScaleFactor;
     private final Duration minBackoffDelay;
@@ -170,6 +174,7 @@ public class ThriftHiveMetastore
     private final boolean impersonationEnabled;
     private final boolean deleteFilesOnDrop;
     private final boolean translateHiveViews;
+    private final boolean assumeCanonicalPartitionKeys;
 
     private final AtomicInteger chosenGetTableAlternative = new AtomicInteger(Integer.MAX_VALUE);
     private final AtomicInteger chosenTableParamAlternative = new AtomicInteger(Integer.MAX_VALUE);
@@ -177,10 +182,6 @@ public class ThriftHiveMetastore
 
     private final AtomicReference<Optional<Boolean>> metastoreSupportsDateStatistics = new AtomicReference<>(Optional.empty());
     private final CoalescingCounter metastoreSetDateStatisticsFailures = new CoalescingCounter(new Duration(1, SECONDS));
-
-    private static final Pattern TABLE_PARAMETER_SAFE_KEY_PATTERN = Pattern.compile("^[a-zA-Z_]+$");
-    private static final Pattern TABLE_PARAMETER_SAFE_VALUE_PATTERN = Pattern.compile("^[a-zA-Z0-9\\s]*$");
-    private final boolean assumeCanonicalPartitionKeys;
 
     @Inject
     public ThriftHiveMetastore(
@@ -190,7 +191,6 @@ public class ThriftHiveMetastore
             ThriftMetastoreConfig thriftConfig,
             HdfsEnvironment hdfsEnvironment)
     {
-        this.hdfsContext = new HdfsContext(ConnectorIdentity.ofUser(DEFAULT_METASTORE_USER));
         this.metastoreFactory = requireNonNull(metastoreFactory, "metastoreFactory is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.backoffScaleFactor = thriftConfig.getBackoffScaleFactor();
