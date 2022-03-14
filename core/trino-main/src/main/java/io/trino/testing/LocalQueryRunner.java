@@ -386,6 +386,7 @@ public class LocalQueryRunner
                 transactionManager,
                 groupProvider,
                 tableProceduresRegistry,
+                new TableFunctionRegistry(),
                 sessionPropertyManager,
                 tablePropertyManager,
                 analyzePropertyManager,

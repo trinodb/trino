@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Multiset;
 import com.google.common.collect.Streams;
+import io.trino.connector.CatalogName;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TableExecuteHandle;
@@ -34,10 +35,13 @@ import io.trino.spi.QueryId;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnSchema;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.eventlistener.ColumnDetail;
 import io.trino.spi.eventlistener.ColumnInfo;
 import io.trino.spi.eventlistener.RoutineInfo;
 import io.trino.spi.eventlistener.TableInfo;
+import io.trino.spi.ptf.Argument;
+import io.trino.spi.ptf.ConnectorTableFunctionHandle;
 import io.trino.spi.security.Identity;
 import io.trino.spi.type.Type;
 import io.trino.sql.analyzer.ExpressionAnalyzer.LabelPrefixedReference;
@@ -68,6 +72,7 @@ import io.trino.sql.tree.SampledRelation;
 import io.trino.sql.tree.Statement;
 import io.trino.sql.tree.SubqueryExpression;
 import io.trino.sql.tree.Table;
+import io.trino.sql.tree.TableFunctionInvocation;
 import io.trino.sql.tree.Unnest;
 import io.trino.sql.tree.WindowFrame;
 import io.trino.sql.tree.WindowOperation;
@@ -220,6 +225,8 @@ public class Analysis
     private final Multimap<NodeRef<Expression>, Field> fieldLineage = ArrayListMultimap.create();
 
     private Optional<TableExecuteHandle> tableExecuteHandle = Optional.empty();
+
+    private final Map<NodeRef<TableFunctionInvocation>, TableFunctionInvocationAnalysis> tableFunctionAnalyses = new LinkedHashMap<>();
 
     public Analysis(@Nullable Statement root, Map<NodeRef<Parameter>, Expression> parameters, QueryType queryType)
     {
@@ -1153,6 +1160,16 @@ public class Analysis
         return tableExecuteHandle;
     }
 
+    public void setTableFunctionAnalysis(TableFunctionInvocation node, TableFunctionInvocationAnalysis analysis)
+    {
+        tableFunctionAnalyses.put(NodeRef.of(node), analysis);
+    }
+
+    public TableFunctionInvocationAnalysis getTableFunctionAnalysis(TableFunctionInvocation node)
+    {
+        return tableFunctionAnalyses.get(NodeRef.of(node));
+    }
+
     private boolean isInputTable(Table table)
     {
         return !(isUpdateTarget(table) || isInsertTarget(table));
@@ -1855,6 +1872,54 @@ public class Analysis
         public Optional<Integer> getAtMost()
         {
             return atMost;
+        }
+    }
+
+    public static class TableFunctionInvocationAnalysis
+    {
+        private final CatalogName catalogName;
+        private final String functionName;
+        private final Map<String, Argument> arguments;
+        private final ConnectorTableFunctionHandle connectorTableFunctionHandle;
+        private final ConnectorTransactionHandle transactionHandle;
+
+        public TableFunctionInvocationAnalysis(
+                CatalogName catalogName,
+                String functionName,
+                Map<String, Argument> arguments,
+                ConnectorTableFunctionHandle connectorTableFunctionHandle,
+                ConnectorTransactionHandle transactionHandle)
+        {
+            this.catalogName = requireNonNull(catalogName, "catalogName is null");
+            this.functionName = requireNonNull(functionName, "functionName is null");
+            this.arguments = requireNonNull(arguments, "arguments is null");
+            this.connectorTableFunctionHandle = requireNonNull(connectorTableFunctionHandle, "connectorTableFunctionHandle is null");
+            this.transactionHandle = requireNonNull(transactionHandle, "transactionHandle is null");
+        }
+
+        public CatalogName getCatalogName()
+        {
+            return catalogName;
+        }
+
+        public String getFunctionName()
+        {
+            return functionName;
+        }
+
+        public Map<String, Argument> getArguments()
+        {
+            return arguments;
+        }
+
+        public ConnectorTableFunctionHandle getConnectorTableFunctionHandle()
+        {
+            return connectorTableFunctionHandle;
+        }
+
+        public ConnectorTransactionHandle getTransactionHandle()
+        {
+            return transactionHandle;
         }
     }
 }

@@ -85,6 +85,7 @@ import io.trino.sql.tree.SortItem;
 import io.trino.sql.tree.SubqueryExpression;
 import io.trino.sql.tree.SubsetDefinition;
 import io.trino.sql.tree.Table;
+import io.trino.sql.tree.TableFunctionInvocation;
 import io.trino.sql.tree.TableSubquery;
 import io.trino.sql.tree.Union;
 import io.trino.sql.tree.Unnest;
@@ -318,6 +319,13 @@ class RelationPlanner
 
         return new RelationPlan(planBuilder.getRoot(), plan.getScope(), plan.getFieldMappings(), outerContext);
     }
+
+    @Override
+    protected RelationPlan visitTableFunctionInvocation(TableFunctionInvocation node, Void context)
+    {
+        throw semanticException(NOT_SUPPORTED, node, "Table functions are not yet supported");
+    }
+
 
     @Override
     protected RelationPlan visitAliasedRelation(AliasedRelation node, Void context)
