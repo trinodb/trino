@@ -76,6 +76,7 @@ import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.confluent.kafka.serializers.AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG;
+import static io.trino.plugin.pinot.TestingPinotCluster.PINOT_PREVIOUS_IMAGE_NAME;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
 import static java.lang.String.format;
@@ -121,13 +122,18 @@ public abstract class AbstractPinotIntegrationSmokeTest
 
     protected abstract boolean isSecured();
 
+    protected String getPinotImageName()
+    {
+        return PINOT_PREVIOUS_IMAGE_NAME;
+    }
+
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
         TestingKafka kafka = closeAfterClass(TestingKafka.createWithSchemaRegistry());
         kafka.start();
-        TestingPinotCluster pinot = closeAfterClass(new TestingPinotCluster(kafka.getNetwork(), isSecured()));
+        TestingPinotCluster pinot = closeAfterClass(new TestingPinotCluster(kafka.getNetwork(), isSecured(), getPinotImageName()));
         pinot.start();
 
         // Create and populate the all_types topic and table
@@ -532,7 +538,8 @@ public abstract class AbstractPinotIntegrationSmokeTest
                         false,
                         tableConfig.getValidationConfig().getSegmentPushType(),
                         tableConfig.getValidationConfig().getSegmentPushFrequency(),
-                        formatSpec));
+                        formatSpec,
+                        null));
             }
             else {
                 checkState(tableConfig.isDimTable(), "Null time column only allowed for dimension tables");
@@ -1883,15 +1890,10 @@ public abstract class AbstractPinotIntegrationSmokeTest
                         "  (56, BIGINT '-3147483640')," +
                         "  (56, BIGINT '-3147483639')");
 
-        // Query with a function on a column and an alias with the same column name fails
-        // For more details see https://github.com/apache/pinot/issues/7545
-        assertThatExceptionOfType(RuntimeException.class)
-                .isThrownBy(() -> query("SELECT int_col FROM " +
-                        "\"SELECT floor(int_col / 3) AS int_col" +
-                        "  FROM " + ALL_TYPES_TABLE +
-                        "  WHERE string_col IS NOT null AND string_col != 'array_null'\""))
-                .withRootCauseInstanceOf(RuntimeException.class)
-                .withMessage("Alias int_col cannot be referred in SELECT Clause");
+        assertQuerySucceeds("SELECT int_col FROM " +
+                "\"SELECT floor(int_col / 3) AS int_col" +
+                "  FROM " + ALL_TYPES_TABLE +
+                "  WHERE string_col IS NOT null AND string_col != 'array_null'\"");
     }
 
     @Test
@@ -1933,16 +1935,10 @@ public abstract class AbstractPinotIntegrationSmokeTest
                 "  GROUP BY int_col2, long_col2"))
                 .isFullyPushedDown();
 
-        // Query with grouping columns but no aggregates ignores aliases.
-        // For more details see: https://github.com/apache/pinot/issues/7546
-        assertThatExceptionOfType(RuntimeException.class)
-                .isThrownBy(() -> query("SELECT DISTINCT int_col2, long_col2 FROM " +
-                        "\"SELECT int_col AS int_col2, long_col AS long_col2" +
-                        "  FROM " + ALL_TYPES_TABLE +
-                        "  WHERE string_col IS NOT null AND string_col != 'array_null'\""))
-                .withRootCauseInstanceOf(RuntimeException.class)
-                .withMessage("column index for 'int_col2' was not found");
-
+        assertQuerySucceeds("SELECT DISTINCT int_col2, long_col2 FROM " +
+                "\"SELECT int_col AS int_col2, long_col AS long_col2" +
+                "  FROM " + ALL_TYPES_TABLE +
+                "  WHERE string_col IS NOT null AND string_col != 'array_null'\"");
         assertThat(query("SELECT int_col2, count(*) FROM " +
                 "\"SELECT int_col AS int_col2, long_col AS long_col2" +
                 "  FROM " + ALL_TYPES_TABLE +

@@ -83,7 +83,7 @@ public class PinotTypeResolver
             case FUNCTION:
                 return TransformFunctionFactory.get(expression, datasourceMap).getResultMetadata();
             case LITERAL:
-                FieldSpec.DataType literalDataType = LiteralTransformFunction.inferLiteralDataType(new LiteralTransformFunction(expression.getLiteral()));
+                FieldSpec.DataType literalDataType = new LiteralTransformFunction(expression.getLiteral()).getResultMetadata().getDataType();
                 return new TransformResultMetadata(literalDataType, true, false);
             default:
                 throw new PinotException(PINOT_INVALID_PQL_GENERATED, Optional.empty(), format("Unsupported expression: '%s'", expression));
