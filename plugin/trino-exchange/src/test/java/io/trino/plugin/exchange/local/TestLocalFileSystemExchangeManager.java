@@ -25,7 +25,6 @@ public class TestLocalFileSystemExchangeManager
     protected ExchangeManager createExchangeManager()
     {
         return new FileSystemExchangeManagerFactory().create(ImmutableMap.of(
-                "exchange.base-directory", System.getProperty("java.io.tmpdir") + "/trino-local-file-system-exchange-manager",
-                "exchange.encryption-enabled", "true"));
+                "exchange.base-directory", System.getProperty("java.io.tmpdir") + "/trino-local-file-system-exchange-manager"));
     }
 }
