@@ -304,8 +304,7 @@ public class PostgreSqlClient
                         .build());
 
         connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder()
-                .withIdentifierQuote(this::quoted)
-                .addStandardRules()
+                .addStandardRules(this::quoted)
                 // TODO allow all comparison operators for numeric types
                 .add(new RewriteComparison(RewriteComparison.ComparisonOperator.EQUAL, RewriteComparison.ComparisonOperator.NOT_EQUAL))
                 .map("$like_pattern(value: varchar, pattern: varchar): boolean").to("value LIKE pattern")
