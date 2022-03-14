@@ -27,7 +27,7 @@ connection properties as appropriate for your setup:
 
 .. code-block:: text
 
-    connector.name=memsql
+    connector.name=singlestore
     connection-url=jdbc:singlestore://example.net:3306
     connection-user=root
     connection-password=secret
@@ -86,25 +86,25 @@ Querying SingleStore
 The SingleStore connector provides a schema for every SingleStore *database*.
 You can see the available SingleStore databases by running ``SHOW SCHEMAS``::
 
-    SHOW SCHEMAS FROM memsql;
+    SHOW SCHEMAS FROM singlestore;
 
 If you have a SingleStore database named ``web``, you can view the tables
 in this database by running ``SHOW TABLES``::
 
-    SHOW TABLES FROM memsql.web;
+    SHOW TABLES FROM singlestore.web;
 
 You can see a list of the columns in the ``clicks`` table in the ``web``
 database using either of the following::
 
-    DESCRIBE memsql.web.clicks;
-    SHOW COLUMNS FROM memsql.web.clicks;
+    DESCRIBE singlestore.web.clicks;
+    SHOW COLUMNS FROM singlestore.web.clicks;
 
 Finally, you can access the ``clicks`` table in the ``web`` database::
 
-    SELECT * FROM memsql.web.clicks;
+    SELECT * FROM singlestore.web.clicks;
 
 If you used a different name for your catalog properties file, use
-that catalog name instead of ``memsql`` in the above examples.
+that catalog name instead of ``singlestore`` in the above examples.
 
 .. _singlestore-type-mapping:
 

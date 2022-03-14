@@ -14,13 +14,58 @@
 
 package io.trino.plugin.memsql;
 
-import io.trino.plugin.jdbc.JdbcPlugin;
+import com.google.common.collect.ImmutableList;
+import io.airlift.log.Logger;
+import io.trino.plugin.jdbc.ExtraCredentialsBasedIdentityCacheMappingModule;
+import io.trino.plugin.jdbc.JdbcConnectorFactory;
+import io.trino.plugin.jdbc.credential.CredentialProviderModule;
+import io.trino.spi.Plugin;
+import io.trino.spi.connector.Connector;
+import io.trino.spi.connector.ConnectorContext;
+import io.trino.spi.connector.ConnectorFactory;
+
+import java.util.Map;
+
+import static io.airlift.configuration.ConfigurationAwareModule.combine;
 
 public class MemSqlPlugin
-        extends JdbcPlugin
+        implements Plugin
 {
-    public MemSqlPlugin()
+    private static final Logger log = Logger.get(MemSqlPlugin.class);
+
+    @Override
+    public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        super("memsql", new MemSqlClientModule());
+        return ImmutableList.of(new SingleStoreConnectorFactory("singlestore"), new LegacyMemSqlConnectorFactory());
+    }
+
+    private static class LegacyMemSqlConnectorFactory
+            extends SingleStoreConnectorFactory
+    {
+        public LegacyMemSqlConnectorFactory()
+        {
+            super("memsql");
+        }
+
+        @Override
+        public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
+        {
+            log.warn("Connector name 'memsql' is deprecated. Use 'singlestore' instead.");
+            return super.create(catalogName, config, context);
+        }
+    }
+
+    private static class SingleStoreConnectorFactory
+            extends JdbcConnectorFactory
+    {
+        public SingleStoreConnectorFactory(String name)
+        {
+            super(
+                    name,
+                    combine(
+                            new CredentialProviderModule(),
+                            new ExtraCredentialsBasedIdentityCacheMappingModule(),
+                            new MemSqlClientModule()));
+        }
     }
 }
