@@ -21,82 +21,82 @@ local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPARTITION, HASH, ["c_customer_sk"])
                                                             scan customer
                             local exchange (GATHER, SINGLE, [])
-                                remote exchange (REPARTITION, HASH, ["c_customer_id_146"])
-                                    final aggregation over (c_birth_country_159, c_customer_id_146, c_email_address_161, c_first_name_153, c_last_name_154, c_login_160, c_preferred_cust_flag_155, d_year_192)
+                                remote exchange (REPARTITION, HASH, ["c_customer_id_172"])
+                                    final aggregation over (c_birth_country_185, c_customer_id_172, c_email_address_187, c_first_name_179, c_last_name_180, c_login_186, c_preferred_cust_flag_181, d_year_225)
                                         local exchange (GATHER, SINGLE, [])
-                                            remote exchange (REPARTITION, HASH, ["c_birth_country_159", "c_customer_id_146", "c_email_address_161", "c_first_name_153", "c_last_name_154", "c_login_160", "c_preferred_cust_flag_155", "d_year_192"])
-                                                partial aggregation over (c_birth_country_159, c_customer_id_146, c_email_address_161, c_first_name_153, c_last_name_154, c_login_160, c_preferred_cust_flag_155, d_year_192)
+                                            remote exchange (REPARTITION, HASH, ["c_birth_country_185", "c_customer_id_172", "c_email_address_187", "c_first_name_179", "c_last_name_180", "c_login_186", "c_preferred_cust_flag_181", "d_year_225"])
+                                                partial aggregation over (c_birth_country_185, c_customer_id_172, c_email_address_187, c_first_name_179, c_last_name_180, c_login_186, c_preferred_cust_flag_181, d_year_225)
                                                     join (INNER, PARTITIONED):
-                                                        remote exchange (REPARTITION, HASH, ["ss_customer_sk_166"])
+                                                        remote exchange (REPARTITION, HASH, ["ss_customer_sk_194"])
                                                             join (INNER, REPLICATED):
                                                                 scan store_sales
                                                                 local exchange (GATHER, SINGLE, [])
                                                                     remote exchange (REPLICATE, BROADCAST, [])
                                                                         scan date_dim
                                                         local exchange (GATHER, SINGLE, [])
-                                                            remote exchange (REPARTITION, HASH, ["c_customer_sk_145"])
+                                                            remote exchange (REPARTITION, HASH, ["c_customer_sk_171"])
                                                                 scan customer
                         local exchange (GATHER, SINGLE, [])
-                            remote exchange (REPARTITION, HASH, ["c_customer_id_508"])
-                                final aggregation over (c_birth_country_521, c_customer_id_508, c_email_address_523, c_first_name_515, c_last_name_516, c_login_522, c_preferred_cust_flag_517, d_year_565)
+                            remote exchange (REPARTITION, HASH, ["c_customer_id_574"])
+                                final aggregation over (c_birth_country_587, c_customer_id_574, c_email_address_589, c_first_name_581, c_last_name_582, c_login_588, c_preferred_cust_flag_583, d_year_638)
                                     local exchange (GATHER, SINGLE, [])
-                                        remote exchange (REPARTITION, HASH, ["c_birth_country_521", "c_customer_id_508", "c_email_address_523", "c_first_name_515", "c_last_name_516", "c_login_522", "c_preferred_cust_flag_517", "d_year_565"])
-                                            partial aggregation over (c_birth_country_521, c_customer_id_508, c_email_address_523, c_first_name_515, c_last_name_516, c_login_522, c_preferred_cust_flag_517, d_year_565)
+                                        remote exchange (REPARTITION, HASH, ["c_birth_country_587", "c_customer_id_574", "c_email_address_589", "c_first_name_581", "c_last_name_582", "c_login_588", "c_preferred_cust_flag_583", "d_year_638"])
+                                            partial aggregation over (c_birth_country_587, c_customer_id_574, c_email_address_589, c_first_name_581, c_last_name_582, c_login_588, c_preferred_cust_flag_583, d_year_638)
                                                 join (INNER, PARTITIONED):
-                                                    remote exchange (REPARTITION, HASH, ["cs_bill_customer_sk_528"])
+                                                    remote exchange (REPARTITION, HASH, ["c_customer_sk_573"])
+                                                        scan customer
+                                                    local exchange (GATHER, SINGLE, [])
+                                                        remote exchange (REPARTITION, HASH, ["cs_bill_customer_sk_596"])
+                                                            join (INNER, REPLICATED):
+                                                                scan catalog_sales
+                                                                local exchange (GATHER, SINGLE, [])
+                                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                                        scan date_dim
+                    local exchange (GATHER, SINGLE, [])
+                        remote exchange (REPARTITION, HASH, ["c_customer_id_886"])
+                            final aggregation over (c_birth_country_899, c_customer_id_886, c_email_address_901, c_first_name_893, c_last_name_894, c_login_900, c_preferred_cust_flag_895, d_year_950)
+                                local exchange (GATHER, SINGLE, [])
+                                    remote exchange (REPARTITION, HASH, ["c_birth_country_899", "c_customer_id_886", "c_email_address_901", "c_first_name_893", "c_last_name_894", "c_login_900", "c_preferred_cust_flag_895", "d_year_950"])
+                                        partial aggregation over (c_birth_country_899, c_customer_id_886, c_email_address_901, c_first_name_893, c_last_name_894, c_login_900, c_preferred_cust_flag_895, d_year_950)
+                                            join (INNER, PARTITIONED):
+                                                remote exchange (REPARTITION, HASH, ["c_customer_sk_885"])
+                                                    scan customer
+                                                local exchange (GATHER, SINGLE, [])
+                                                    remote exchange (REPARTITION, HASH, ["cs_bill_customer_sk_908"])
                                                         join (INNER, REPLICATED):
                                                             scan catalog_sales
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPLICATE, BROADCAST, [])
                                                                     scan date_dim
-                                                    local exchange (GATHER, SINGLE, [])
-                                                        remote exchange (REPARTITION, HASH, ["c_customer_sk_507"])
-                                                            scan customer
-                    local exchange (GATHER, SINGLE, [])
-                        remote exchange (REPARTITION, HASH, ["c_customer_id_790"])
-                            final aggregation over (c_birth_country_803, c_customer_id_790, c_email_address_805, c_first_name_797, c_last_name_798, c_login_804, c_preferred_cust_flag_799, d_year_847)
-                                local exchange (GATHER, SINGLE, [])
-                                    remote exchange (REPARTITION, HASH, ["c_birth_country_803", "c_customer_id_790", "c_email_address_805", "c_first_name_797", "c_last_name_798", "c_login_804", "c_preferred_cust_flag_799", "d_year_847"])
-                                        partial aggregation over (c_birth_country_803, c_customer_id_790, c_email_address_805, c_first_name_797, c_last_name_798, c_login_804, c_preferred_cust_flag_799, d_year_847)
-                                            join (INNER, PARTITIONED):
-                                                remote exchange (REPARTITION, HASH, ["cs_bill_customer_sk_810"])
+                local exchange (GATHER, SINGLE, [])
+                    remote exchange (REPARTITION, HASH, ["c_customer_id_1299"])
+                        final aggregation over (c_birth_country_1312, c_customer_id_1299, c_email_address_1314, c_first_name_1306, c_last_name_1307, c_login_1313, c_preferred_cust_flag_1308, d_year_1363)
+                            local exchange (GATHER, SINGLE, [])
+                                remote exchange (REPARTITION, HASH, ["c_birth_country_1312", "c_customer_id_1299", "c_email_address_1314", "c_first_name_1306", "c_last_name_1307", "c_login_1313", "c_preferred_cust_flag_1308", "d_year_1363"])
+                                    partial aggregation over (c_birth_country_1312, c_customer_id_1299, c_email_address_1314, c_first_name_1306, c_last_name_1307, c_login_1313, c_preferred_cust_flag_1308, d_year_1363)
+                                        join (INNER, PARTITIONED):
+                                            remote exchange (REPARTITION, HASH, ["c_customer_sk_1298"])
+                                                scan customer
+                                            local exchange (GATHER, SINGLE, [])
+                                                remote exchange (REPARTITION, HASH, ["ws_bill_customer_sk_1322"])
                                                     join (INNER, REPLICATED):
-                                                        scan catalog_sales
+                                                        scan web_sales
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
                                                                 scan date_dim
-                                                local exchange (GATHER, SINGLE, [])
-                                                    remote exchange (REPARTITION, HASH, ["c_customer_sk_789"])
-                                                        scan customer
-                local exchange (GATHER, SINGLE, [])
-                    remote exchange (REPARTITION, HASH, ["c_customer_id_1163"])
-                        final aggregation over (c_birth_country_1176, c_customer_id_1163, c_email_address_1178, c_first_name_1170, c_last_name_1171, c_login_1177, c_preferred_cust_flag_1172, d_year_1220)
-                            local exchange (GATHER, SINGLE, [])
-                                remote exchange (REPARTITION, HASH, ["c_birth_country_1176", "c_customer_id_1163", "c_email_address_1178", "c_first_name_1170", "c_last_name_1171", "c_login_1177", "c_preferred_cust_flag_1172", "d_year_1220"])
-                                    partial aggregation over (c_birth_country_1176, c_customer_id_1163, c_email_address_1178, c_first_name_1170, c_last_name_1171, c_login_1177, c_preferred_cust_flag_1172, d_year_1220)
-                                        join (INNER, PARTITIONED):
-                                            remote exchange (REPARTITION, HASH, ["ws_bill_customer_sk_1184"])
+            local exchange (GATHER, SINGLE, [])
+                remote exchange (REPARTITION, HASH, ["c_customer_id_1611"])
+                    final aggregation over (c_birth_country_1624, c_customer_id_1611, c_email_address_1626, c_first_name_1618, c_last_name_1619, c_login_1625, c_preferred_cust_flag_1620, d_year_1675)
+                        local exchange (GATHER, SINGLE, [])
+                            remote exchange (REPARTITION, HASH, ["c_birth_country_1624", "c_customer_id_1611", "c_email_address_1626", "c_first_name_1618", "c_last_name_1619", "c_login_1625", "c_preferred_cust_flag_1620", "d_year_1675"])
+                                partial aggregation over (c_birth_country_1624, c_customer_id_1611, c_email_address_1626, c_first_name_1618, c_last_name_1619, c_login_1625, c_preferred_cust_flag_1620, d_year_1675)
+                                    join (INNER, PARTITIONED):
+                                        remote exchange (REPARTITION, HASH, ["c_customer_sk_1610"])
+                                            scan customer
+                                        local exchange (GATHER, SINGLE, [])
+                                            remote exchange (REPARTITION, HASH, ["ws_bill_customer_sk_1634"])
                                                 join (INNER, REPLICATED):
                                                     scan web_sales
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
                                                             scan date_dim
-                                            local exchange (GATHER, SINGLE, [])
-                                                remote exchange (REPARTITION, HASH, ["c_customer_sk_1162"])
-                                                    scan customer
-            local exchange (GATHER, SINGLE, [])
-                remote exchange (REPARTITION, HASH, ["c_customer_id_1445"])
-                    final aggregation over (c_birth_country_1458, c_customer_id_1445, c_email_address_1460, c_first_name_1452, c_last_name_1453, c_login_1459, c_preferred_cust_flag_1454, d_year_1502)
-                        local exchange (GATHER, SINGLE, [])
-                            remote exchange (REPARTITION, HASH, ["c_birth_country_1458", "c_customer_id_1445", "c_email_address_1460", "c_first_name_1452", "c_last_name_1453", "c_login_1459", "c_preferred_cust_flag_1454", "d_year_1502"])
-                                partial aggregation over (c_birth_country_1458, c_customer_id_1445, c_email_address_1460, c_first_name_1452, c_last_name_1453, c_login_1459, c_preferred_cust_flag_1454, d_year_1502)
-                                    join (INNER, PARTITIONED):
-                                        remote exchange (REPARTITION, HASH, ["ws_bill_customer_sk_1466"])
-                                            join (INNER, REPLICATED):
-                                                scan web_sales
-                                                local exchange (GATHER, SINGLE, [])
-                                                    remote exchange (REPLICATE, BROADCAST, [])
-                                                        scan date_dim
-                                        local exchange (GATHER, SINGLE, [])
-                                            remote exchange (REPARTITION, HASH, ["c_customer_sk_1444"])
-                                                scan customer

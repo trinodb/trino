@@ -73,6 +73,7 @@ import static io.trino.plugin.hive.statistics.MetastoreHiveStatisticsProvider.ge
 import static io.trino.plugin.hive.statistics.MetastoreHiveStatisticsProvider.validatePartitionStatistics;
 import static io.trino.plugin.hive.util.HiveUtil.parsePartitionValue;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -499,15 +500,17 @@ public class TestMetastoreHiveStatisticsProvider
     @Test
     public void testCreateDataColumnStatistics()
     {
-        assertEquals(createDataColumnStatistics(COLUMN, BIGINT, 1000, ImmutableList.of()), ColumnStatistics.empty());
         assertEquals(
-                createDataColumnStatistics(COLUMN, BIGINT, 1000, ImmutableList.of(PartitionStatistics.empty(), PartitionStatistics.empty())),
+                createDataColumnStatistics(COLUMN, BIGINT, 1000, 42, ImmutableList.of()), ColumnStatistics.empty());
+        assertEquals(
+                createDataColumnStatistics(COLUMN, BIGINT, 1000, 42, ImmutableList.of(PartitionStatistics.empty(), PartitionStatistics.empty())),
                 ColumnStatistics.empty());
         assertEquals(
                 createDataColumnStatistics(
                         COLUMN,
                         BIGINT,
                         1000,
+                        42,
                         ImmutableList.of(new PartitionStatistics(HiveBasicStatistics.createZeroStatistics(), ImmutableMap.of("column2", HiveColumnStatistics.empty())))),
                 ColumnStatistics.empty());
     }
@@ -515,23 +518,31 @@ public class TestMetastoreHiveStatisticsProvider
     @Test
     public void testCalculateDistinctValuesCount()
     {
-        assertEquals(calculateDistinctValuesCount(ImmutableList.of()), Estimate.unknown());
-        assertEquals(calculateDistinctValuesCount(ImmutableList.of(HiveColumnStatistics.empty())), Estimate.unknown());
-        assertEquals(calculateDistinctValuesCount(ImmutableList.of(HiveColumnStatistics.empty(), HiveColumnStatistics.empty())), Estimate.unknown());
-        assertEquals(calculateDistinctValuesCount(ImmutableList.of(distinctValuesCount(1))), Estimate.of(1));
-        assertEquals(calculateDistinctValuesCount(ImmutableList.of(distinctValuesCount(1), distinctValuesCount(2))), Estimate.of(2));
-        assertEquals(calculateDistinctValuesCount(ImmutableList.of(distinctValuesCount(1), HiveColumnStatistics.empty())), Estimate.of(1));
-        assertEquals(calculateDistinctValuesCount(ImmutableList.of(createBooleanColumnStatistics(OptionalLong.empty(), OptionalLong.empty(), OptionalLong.empty()))), Estimate.unknown());
-        assertEquals(calculateDistinctValuesCount(ImmutableList.of(createBooleanColumnStatistics(OptionalLong.of(1), OptionalLong.of(0), OptionalLong.empty()))), Estimate.of(1));
-        assertEquals(calculateDistinctValuesCount(ImmutableList.of(createBooleanColumnStatistics(OptionalLong.of(10), OptionalLong.empty(), OptionalLong.empty()))), Estimate.unknown());
-        assertEquals(calculateDistinctValuesCount(ImmutableList.of(createBooleanColumnStatistics(OptionalLong.of(10), OptionalLong.of(10), OptionalLong.empty()))), Estimate.of(2));
-        assertEquals(calculateDistinctValuesCount(ImmutableList.of(createBooleanColumnStatistics(OptionalLong.empty(), OptionalLong.of(10), OptionalLong.empty()))), Estimate.unknown());
-        assertEquals(calculateDistinctValuesCount(ImmutableList.of(createBooleanColumnStatistics(OptionalLong.of(0), OptionalLong.of(10), OptionalLong.empty()))), Estimate.of(1));
-        assertEquals(calculateDistinctValuesCount(ImmutableList.of(createBooleanColumnStatistics(OptionalLong.of(0), OptionalLong.of(0), OptionalLong.empty()))), Estimate.of(0));
+        assertEquals(calculateDistinctValuesCount(ImmutableList.of(), 0, 0, BIGINT), Estimate.unknown());
+        assertEquals(calculateDistinctValuesCount(ImmutableList.of(HiveColumnStatistics.empty()), 2, 1, BIGINT), Estimate.unknown());
+        assertEquals(calculateDistinctValuesCount(ImmutableList.of(HiveColumnStatistics.empty(), HiveColumnStatistics.empty()), 3, 3, BIGINT), Estimate.unknown());
+        assertEquals(calculateDistinctValuesCount(ImmutableList.of(distinctValuesCount(42)), 1, 1, BIGINT), Estimate.of(42));
+        assertEquals(calculateDistinctValuesCount(ImmutableList.of(distinctValuesCount(1)), 4, 2, BIGINT), Estimate.of(2));
+        assertEquals(calculateDistinctValuesCount(ImmutableList.of(distinctValuesCount(1), distinctValuesCount(2)), 2, 2, BIGINT), Estimate.of(2));
+        assertEquals(calculateDistinctValuesCount(ImmutableList.of(distinctValuesCount(1), distinctValuesCount(2)), 12, 4, BIGINT), Estimate.of(4.5));
+        assertEquals(calculateDistinctValuesCount(ImmutableList.of(distinctValuesCount(1), HiveColumnStatistics.empty()), 1, 1, BIGINT), Estimate.of(1));
+        assertEquals(calculateDistinctValuesCount(ImmutableList.of(distinctValuesCount(1), HiveColumnStatistics.empty()), 4, 2, BIGINT), Estimate.of(2));
+        assertEquals(calculateDistinctValuesCount(ImmutableList.of(createBooleanColumnStatistics(OptionalLong.empty(), OptionalLong.empty(), OptionalLong.empty())), 1000, 1000, BOOLEAN), Estimate.unknown());
+        assertEquals(calculateDistinctValuesCount(ImmutableList.of(createBooleanColumnStatistics(OptionalLong.of(1), OptionalLong.of(0), OptionalLong.empty())), 1, 1, BOOLEAN), Estimate.of(1));
+        assertEquals(calculateDistinctValuesCount(ImmutableList.of(createBooleanColumnStatistics(OptionalLong.of(1), OptionalLong.of(0), OptionalLong.empty())), 8, 2, BOOLEAN), Estimate.of(2));
+        assertEquals(calculateDistinctValuesCount(ImmutableList.of(createBooleanColumnStatistics(OptionalLong.of(10), OptionalLong.empty(), OptionalLong.empty())), 1, 1, BOOLEAN), Estimate.unknown());
+        assertEquals(calculateDistinctValuesCount(ImmutableList.of(createBooleanColumnStatistics(OptionalLong.of(10), OptionalLong.of(10), OptionalLong.empty())), 1, 1, BOOLEAN), Estimate.of(2));
+        assertEquals(calculateDistinctValuesCount(ImmutableList.of(createBooleanColumnStatistics(OptionalLong.of(10), OptionalLong.of(10), OptionalLong.empty())), 100, 10, BOOLEAN), Estimate.of(2));
+        assertEquals(calculateDistinctValuesCount(ImmutableList.of(createBooleanColumnStatistics(OptionalLong.empty(), OptionalLong.of(10), OptionalLong.empty())), 10, 10, BOOLEAN), Estimate.unknown());
+        assertEquals(calculateDistinctValuesCount(ImmutableList.of(createBooleanColumnStatistics(OptionalLong.of(0), OptionalLong.of(10), OptionalLong.empty())), 1, 1, BOOLEAN), Estimate.of(1));
+        assertEquals(calculateDistinctValuesCount(ImmutableList.of(createBooleanColumnStatistics(OptionalLong.of(0), OptionalLong.of(10), OptionalLong.empty())), 100, 5, BOOLEAN), Estimate.of(2));
+        assertEquals(calculateDistinctValuesCount(ImmutableList.of(createBooleanColumnStatistics(OptionalLong.of(0), OptionalLong.of(0), OptionalLong.empty())), 1, 1, BOOLEAN), Estimate.of(0));
+        assertEquals(calculateDistinctValuesCount(ImmutableList.of(createBooleanColumnStatistics(OptionalLong.of(0), OptionalLong.of(0), OptionalLong.empty())), 100, 10, BOOLEAN), Estimate.of(0));
         assertEquals(
                 calculateDistinctValuesCount(ImmutableList.of(
                         createBooleanColumnStatistics(OptionalLong.of(0), OptionalLong.of(10), OptionalLong.empty()),
-                        createBooleanColumnStatistics(OptionalLong.of(1), OptionalLong.of(10), OptionalLong.empty()))),
+                        createBooleanColumnStatistics(OptionalLong.of(1), OptionalLong.of(10), OptionalLong.empty())),
+                        1, 1, BOOLEAN),
                 Estimate.of(2));
     }
 

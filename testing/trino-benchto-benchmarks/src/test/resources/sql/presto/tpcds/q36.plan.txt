@@ -1,21 +1,22 @@
 local exchange (GATHER, SINGLE, [])
     remote exchange (GATHER, SINGLE, [])
         local exchange (GATHER, SINGLE, [])
-            remote exchange (REPARTITION, HASH, ["expr", "expr_2"])
+            remote exchange (REPARTITION, HASH, ["expr", "expr_11"])
                 final aggregation over (groupid, i_category$gid, i_class$gid)
                     local exchange (REPARTITION, HASH, ["groupid", "i_category$gid", "i_class$gid"])
                         remote exchange (REPARTITION, HASH, ["groupid", "i_category$gid", "i_class$gid"])
                             partial aggregation over (groupid, i_category$gid, i_class$gid)
-                                join (INNER, REPLICATED):
-                                    join (INNER, REPLICATED):
+                                join (INNER, PARTITIONED):
+                                    remote exchange (REPARTITION, HASH, ["ss_item_sk"])
                                         join (INNER, REPLICATED):
-                                            scan store_sales
+                                            join (INNER, REPLICATED):
+                                                scan store_sales
+                                                local exchange (GATHER, SINGLE, [])
+                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                        scan date_dim
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPLICATE, BROADCAST, [])
                                                     scan store
-                                        local exchange (GATHER, SINGLE, [])
-                                            remote exchange (REPLICATE, BROADCAST, [])
-                                                scan date_dim
                                     local exchange (GATHER, SINGLE, [])
-                                        remote exchange (REPLICATE, BROADCAST, [])
+                                        remote exchange (REPARTITION, HASH, ["i_item_sk"])
                                             scan item

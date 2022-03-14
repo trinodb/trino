@@ -16,6 +16,7 @@ package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
+import io.trino.plugin.hive.HiveConnectorFactory;
 import io.trino.plugin.tpcds.TpcdsConnectorFactory;
 import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy;
@@ -49,7 +50,7 @@ public class TestTpcdsCostBasedPlan
         String catalog = "local";
         Session.SessionBuilder sessionBuilder = testSessionBuilder()
                 .setCatalog(catalog)
-                .setSchema("sf3000.0")
+                .setSchema("tpcds_sf1000_snappy_parquet_part")
                 .setSystemProperty("task_concurrency", "1") // these tests don't handle exchanges from local parallel
                 .setSystemProperty(JOIN_REORDERING_STRATEGY, JoinReorderingStrategy.AUTOMATIC.name())
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name());
@@ -57,10 +58,14 @@ public class TestTpcdsCostBasedPlan
         LocalQueryRunner queryRunner = LocalQueryRunner.builder(sessionBuilder.build())
                 .withNodeCountForStats(8)
                 .build();
-        queryRunner.createCatalog(
+        /*queryRunner.createCatalog(
                 catalog,
                 new TpcdsConnectorFactory(1),
-                ImmutableMap.of());
+                ImmutableMap.of());*/
+        queryRunner.createCatalog(
+                catalog,
+                new HiveConnectorFactory(catalog),
+                ImmutableMap.of("hive.metastore", "glue"));
         return queryRunner;
     }
 

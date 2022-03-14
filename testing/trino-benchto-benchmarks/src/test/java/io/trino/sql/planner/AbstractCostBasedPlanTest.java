@@ -16,6 +16,7 @@ package io.trino.sql.planner;
 
 import com.google.common.base.VerifyException;
 import com.google.common.io.Resources;
+import io.trino.plugin.hive.HiveTableHandle;
 import io.trino.plugin.tpcds.TpcdsTableHandle;
 import io.trino.plugin.tpch.TpchTableHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
@@ -79,7 +80,7 @@ public abstract class AbstractCostBasedPlanTest
         initPlanTest();
         try {
             getQueryResourcePaths()
-                    .parallel()
+                    //.parallel()
                     .forEach(queryResourcePath -> {
                         try {
                             Path queryPlanWritePath = Paths.get(
@@ -131,7 +132,7 @@ public abstract class AbstractCostBasedPlanTest
         switch (topDirectoryName) {
             case "trino-benchto-benchmarks":
                 return workingDir;
-            case "trino":
+            case "presto":
                 return workingDir.resolve("testing/trino-benchto-benchmarks");
             default:
                 throw new IllegalStateException("This class must be executed from trino-benchto-benchmarks or Trino source directory");
@@ -216,6 +217,9 @@ public abstract class AbstractCostBasedPlanTest
             }
             else if (connectorTableHandle instanceof TpchTableHandle) {
                 output(indent, "scan %s", ((TpchTableHandle) connectorTableHandle).getTableName());
+            }
+            else if (connectorTableHandle instanceof HiveTableHandle) {
+                output(indent, "scan %s", ((HiveTableHandle) connectorTableHandle).getTableName());
             }
             else {
                 throw new IllegalStateException(format("Unexpected ConnectorTableHandle: %s", connectorTableHandle.getClass()));

@@ -21,11 +21,11 @@ remote exchange (GATHER, SINGLE, [])
                                             remote exchange (REPLICATE, BROADCAST, [])
                                                 scan warehouse
                 local exchange (GATHER, SINGLE, [])
-                    remote exchange (REPARTITION, HASH, ["inv_item_sk_3", "inv_warehouse_sk_4"])
-                        final aggregation over (d_moy_50, inv_item_sk_3, inv_warehouse_sk_4, w_warehouse_name_30)
+                    remote exchange (REPARTITION, HASH, ["inv_item_sk_11", "inv_warehouse_sk_12"])
+                        final aggregation over (d_moy_69, inv_item_sk_11, inv_warehouse_sk_12, w_warehouse_name_46)
                             local exchange (GATHER, SINGLE, [])
-                                remote exchange (REPARTITION, HASH, ["d_moy_50", "inv_item_sk_3", "inv_warehouse_sk_4", "w_warehouse_name_30"])
-                                    partial aggregation over (d_moy_50, inv_item_sk_3, inv_warehouse_sk_4, w_warehouse_name_30)
+                                remote exchange (REPARTITION, HASH, ["d_moy_69", "inv_item_sk_11", "inv_warehouse_sk_12", "w_warehouse_name_46"])
+                                    partial aggregation over (d_moy_69, inv_item_sk_11, inv_warehouse_sk_12, w_warehouse_name_46)
                                         join (INNER, REPLICATED):
                                             join (INNER, REPLICATED):
                                                 join (INNER, REPLICATED):

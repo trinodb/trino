@@ -17,16 +17,16 @@ local exchange (GATHER, SINGLE, [])
                                                             scan date_dim
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPLICATE, BROADCAST, [])
-                                                        scan item
+                                                        scan call_center
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPLICATE, BROADCAST, [])
-                                                    scan call_center
+                                                    scan item
                 local exchange (GATHER, SINGLE, [])
-                    remote exchange (REPARTITION, HASH, ["cc_name_90", "i_brand_8", "i_category_12"])
-                        final aggregation over (cc_name_90, d_moy_64, d_year_62, i_brand_8, i_category_12)
+                    remote exchange (REPARTITION, HASH, ["cc_name_109", "i_brand_17", "i_category_21"])
+                        final aggregation over (cc_name_109, d_moy_80, d_year_78, i_brand_17, i_category_21)
                             local exchange (GATHER, SINGLE, [])
-                                remote exchange (REPARTITION, HASH, ["cc_name_90", "d_moy_64", "d_year_62", "i_brand_8", "i_category_12"])
-                                    partial aggregation over (cc_name_90, d_moy_64, d_year_62, i_brand_8, i_category_12)
+                                remote exchange (REPARTITION, HASH, ["cc_name_109", "d_moy_80", "d_year_78", "i_brand_17", "i_category_21"])
+                                    partial aggregation over (cc_name_109, d_moy_80, d_year_78, i_brand_17, i_category_21)
                                         join (INNER, REPLICATED):
                                             join (INNER, REPLICATED):
                                                 join (INNER, REPLICATED):
@@ -36,16 +36,16 @@ local exchange (GATHER, SINGLE, [])
                                                             scan date_dim
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPLICATE, BROADCAST, [])
-                                                        scan item
+                                                        scan call_center
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPLICATE, BROADCAST, [])
-                                                    scan call_center
+                                                    scan item
             local exchange (GATHER, SINGLE, [])
-                remote exchange (REPARTITION, HASH, ["cc_name_213", "i_brand_131", "i_category_135"])
-                    final aggregation over (cc_name_213, d_moy_187, d_year_185, i_brand_131, i_category_135)
+                remote exchange (REPARTITION, HASH, ["cc_name_245", "i_brand_153", "i_category_157"])
+                    final aggregation over (cc_name_245, d_moy_216, d_year_214, i_brand_153, i_category_157)
                         local exchange (GATHER, SINGLE, [])
-                            remote exchange (REPARTITION, HASH, ["cc_name_213", "d_moy_187", "d_year_185", "i_brand_131", "i_category_135"])
-                                partial aggregation over (cc_name_213, d_moy_187, d_year_185, i_brand_131, i_category_135)
+                            remote exchange (REPARTITION, HASH, ["cc_name_245", "d_moy_216", "d_year_214", "i_brand_153", "i_category_157"])
+                                partial aggregation over (cc_name_245, d_moy_216, d_year_214, i_brand_153, i_category_157)
                                     join (INNER, REPLICATED):
                                         join (INNER, REPLICATED):
                                             join (INNER, REPLICATED):
@@ -55,7 +55,7 @@ local exchange (GATHER, SINGLE, [])
                                                         scan date_dim
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPLICATE, BROADCAST, [])
-                                                    scan item
+                                                    scan call_center
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPLICATE, BROADCAST, [])
-                                                scan call_center
+                                                scan item

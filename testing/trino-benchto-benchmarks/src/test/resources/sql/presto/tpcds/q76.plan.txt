@@ -2,38 +2,37 @@ local exchange (GATHER, SINGLE, [])
     remote exchange (GATHER, SINGLE, [])
         final aggregation over (channel, col_name, d_qoy, d_year, i_category)
             local exchange (REPARTITION, HASH, ["channel", "col_name", "d_qoy", "d_year", "i_category"])
-                remote exchange (REPARTITION, HASH, ["d_qoy_8", "d_year_7", "expr_118", "expr_119", "i_category_6"])
-                    partial aggregation over (d_qoy_8, d_year_7, expr_118, expr_119, i_category_6)
+                remote exchange (REPARTITION, HASH, ["d_qoy_11", "d_year_10", "expr_144", "expr_145", "i_category_6"])
+                    partial aggregation over (d_qoy_11, d_year_10, expr_144, expr_145, i_category_6)
                         join (INNER, REPLICATED):
                             join (INNER, REPLICATED):
                                 scan store_sales
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPLICATE, BROADCAST, [])
-                                        scan item
+                                        scan date_dim
                             local exchange (GATHER, SINGLE, [])
                                 remote exchange (REPLICATE, BROADCAST, [])
-                                    scan date_dim
-                remote exchange (REPARTITION, HASH, ["d_qoy_43", "d_year_39", "expr_124", "expr_125", "i_category_23"])
-                    partial aggregation over (d_qoy_43, d_year_39, expr_124, expr_125, i_category_23)
+                                    scan item
+                remote exchange (REPARTITION, HASH, ["d_qoy_56", "d_year_52", "expr_150", "expr_151", "i_category_33"])
+                    partial aggregation over (d_qoy_56, d_year_52, expr_150, expr_151, i_category_33)
                         join (INNER, PARTITIONED):
-                            remote exchange (REPARTITION, HASH, ["ws_sold_date_sk"])
-                                join (INNER, PARTITIONED):
-                                    remote exchange (REPARTITION, HASH, ["ws_item_sk"])
-                                        scan web_sales
+                            remote exchange (REPARTITION, HASH, ["ws_item_sk"])
+                                join (INNER, REPLICATED):
+                                    scan web_sales
                                     local exchange (GATHER, SINGLE, [])
-                                        remote exchange (REPARTITION, HASH, ["i_item_sk_11"])
-                                            scan item
+                                        remote exchange (REPLICATE, BROADCAST, [])
+                                            scan date_dim
                             local exchange (GATHER, SINGLE, [])
-                                remote exchange (REPARTITION, HASH, ["d_date_sk_33"])
-                                    scan date_dim
-                remote exchange (REPARTITION, HASH, ["d_qoy_97", "d_year_93", "expr_115", "expr_117", "i_category_77"])
-                    partial aggregation over (d_qoy_97, d_year_93, expr_115, expr_117, i_category_77)
+                                remote exchange (REPARTITION, HASH, ["i_item_sk_21"])
+                                    scan item
+                remote exchange (REPARTITION, HASH, ["d_qoy_120", "d_year_116", "expr_141", "expr_143", "i_category_97"])
+                    partial aggregation over (d_qoy_120, d_year_116, expr_141, expr_143, i_category_97)
                         join (INNER, REPLICATED):
                             join (INNER, REPLICATED):
                                 scan catalog_sales
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPLICATE, BROADCAST, [])
-                                        scan item
+                                        scan date_dim
                             local exchange (GATHER, SINGLE, [])
                                 remote exchange (REPLICATE, BROADCAST, [])
-                                    scan date_dim
+                                    scan item
