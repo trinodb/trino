@@ -23,8 +23,8 @@ import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.type.Type;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
-import redis.clients.jedis.ScanParams;
-import redis.clients.jedis.ScanResult;
+import redis.clients.jedis.params.ScanParams;
+import redis.clients.jedis.resps.ScanResult;
 
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
@@ -32,7 +32,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -40,7 +39,7 @@ import static io.trino.decoder.FieldValueProviders.booleanValueProvider;
 import static io.trino.decoder.FieldValueProviders.bytesValueProvider;
 import static io.trino.decoder.FieldValueProviders.longValueProvider;
 import static java.lang.String.format;
-import static redis.clients.jedis.ScanParams.SCAN_POINTER_START;
+import static redis.clients.jedis.params.ScanParams.SCAN_POINTER_START;
 
 public class RedisRecordCursor
         implements RecordCursor
@@ -116,7 +115,7 @@ public class RedisRecordCursor
         // no more keys are unscanned when
         // when redis scan command
         // returns 0 string cursor
-        return (!redisCursor.getStringCursor().equals("0"));
+        return (!redisCursor.getCursor().equals("0"));
     }
 
     @Override
@@ -295,7 +294,7 @@ public class RedisRecordCursor
                 case STRING: {
                     String cursor = SCAN_POINTER_START;
                     if (redisCursor != null) {
-                        cursor = redisCursor.getStringCursor();
+                        cursor = redisCursor.getCursor();
                     }
 
                     log.debug("Scanning new Redis keys from cursor %s . %d values read so far", cursor, totalValues);
@@ -306,7 +305,7 @@ public class RedisRecordCursor
                 }
                 break;
                 case ZSET:
-                    Set<String> keys = jedis.zrange(split.getKeyName(), split.getStart(), split.getEnd());
+                    List<String> keys = jedis.zrange(split.getKeyName(), split.getStart(), split.getEnd());
                     keysIterator = keys.iterator();
                     break;
                 default:
