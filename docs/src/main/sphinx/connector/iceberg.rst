@@ -37,20 +37,50 @@ To use Iceberg, you need:
 
 * Network access from the Trino coordinator and workers to the distributed
   object storage.
-* Access to a Hive metastore service (HMS).
+* Access to a Hive metastore service (HMS) or AWS Glue.
 * Network access from the Trino coordinator to the HMS. Hive
   metastore access with the Thrift protocol defaults to using port 9083.
 
 Configuration
 -------------
 
-Iceberg supports the same metastore configuration properties as the Hive connector.
-At a minimum, ``hive.metastore.uri`` must be configured:
+The connector supports two Iceberg catalog types, you may use either a Hive
+metastore service (HMS) or AWS Glue. The catalog type is determined by the
+``iceberg.catalog.type`` property, it can be set to either ``HIVE_METASTORE``
+or ``GLUE``.
+
+Hive metastore catalog
+^^^^^^^^^^^^^^^^^^^^^^
+
+The Hive metastore catalog is the default implementation.
+When using it, the Iceberg connector supports the same metastore
+configuration properties as the Hive connector. At a minimum,
+``hive.metastore.uri`` must be configured, see
+:ref:`Thrift metastore configuration<hive-thrift-metastore>`.
 
 .. code-block:: text
 
     connector.name=iceberg
     hive.metastore.uri=thrift://localhost:9083
+
+Glue catalog
+^^^^^^^^^^^^
+
+When using the Glue catalog, the Iceberg connector supports the same
+configuration properties as the Hive connector's Glue setup. See
+:ref:`AWS Glue metastore configuration<hive-glue-metastore>`.
+
+.. code-block:: text
+
+    connector.name=iceberg
+    iceberg.catalog.type=glue
+
+
+General configuration
+^^^^^^^^^^^^^^^^^^^^^
+
+These configuration properties are independent of which catalog implementation
+is used.
 
 .. list-table:: Iceberg configuration properties
   :widths: 30, 58, 12
