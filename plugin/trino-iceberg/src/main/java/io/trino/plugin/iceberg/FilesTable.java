@@ -50,6 +50,8 @@ import static io.trino.spi.type.TypeSignature.mapType;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
+import static org.apache.iceberg.MetadataTableType.FILES;
+import static org.apache.iceberg.MetadataTableUtils.createMetadataTableInstance;
 
 public class FilesTable
         implements SystemTable
@@ -108,7 +110,8 @@ public class FilesTable
         PageListBuilder pagesBuilder = PageListBuilder.forTable(tableMetadata);
         Map<Integer, Type> idToTypeMapping = getIcebergIdToTypeMapping(icebergTable.schema());
 
-        TableScan tableScan = icebergTable.newScan()
+        TableScan tableScan = createMetadataTableInstance(icebergTable, FILES)
+                .newScan()
                 .useSnapshot(snapshotId)
                 .includeColumnStats();
 
