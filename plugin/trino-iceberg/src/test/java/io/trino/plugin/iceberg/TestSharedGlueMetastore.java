@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg;
 
+import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -103,6 +104,7 @@ public class TestSharedGlueMetastore
         this.glueMetastore = new GlueHiveMetastore(
                 hdfsEnvironment,
                 new GlueHiveMetastoreConfig(),
+                DefaultAWSCredentialsProviderChain.getInstance(),
                 directExecutor(),
                 new DefaultGlueColumnStatisticsProviderFactory(new GlueHiveMetastoreConfig(), directExecutor(), directExecutor()),
                 Optional.empty(),
