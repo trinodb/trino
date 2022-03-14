@@ -45,6 +45,7 @@ import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
@@ -60,6 +61,7 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.emptyToNull;
@@ -68,6 +70,8 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.plugin.jdbc.CaseSensitivity.CASE_INSENSITIVE;
+import static io.trino.plugin.jdbc.CaseSensitivity.CASE_SENSITIVE;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.trino.plugin.jdbc.JdbcWriteSessionProperties.isNonTransactionalInsert;
 import static io.trino.plugin.jdbc.PredicatePushdownController.DISABLE_PUSHDOWN;
@@ -219,6 +223,46 @@ public abstract class BaseJdbcClient
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, e);
         }
+    }
+
+    @Override
+    public JdbcTableHandle getTableHandle(ConnectorSession session, PreparedQuery preparedQuery)
+    {
+        ImmutableList.Builder<JdbcColumnHandle> columns = ImmutableList.builder();
+        try (Connection connection = connectionFactory.openConnection(session);
+                PreparedStatement preparedStatement = queryBuilder.prepareStatement(this, session, connection, preparedQuery)) {
+            ResultSetMetaData metadata = preparedStatement.getMetaData();
+            if (metadata == null) {
+                throw new UnsupportedOperationException("Query not supported: ResultSetMetaData not available for query: " + preparedQuery.getQuery());
+            }
+            for (int column = 1; column <= metadata.getColumnCount(); column++) {
+                String name = metadata.getColumnName(column);
+                JdbcTypeHandle jdbcTypeHandle = new JdbcTypeHandle(
+                        metadata.getColumnType(column),
+                        Optional.ofNullable(metadata.getColumnTypeName(column)),
+                        Optional.of(metadata.getPrecision(column)),
+                        Optional.of(metadata.getScale(column)),
+                        Optional.empty(), // TODO support arrays
+                        Optional.of(metadata.isCaseSensitive(column) ? CASE_SENSITIVE : CASE_INSENSITIVE));
+                Type type = toColumnMapping(session, connection, jdbcTypeHandle)
+                        .orElseThrow(() -> new UnsupportedOperationException(format("Unsupported type: %s of column: %s", jdbcTypeHandle, name)))
+                        .getType();
+                columns.add(new JdbcColumnHandle(name, jdbcTypeHandle, type));
+            }
+        }
+        catch (SQLException e) {
+            throw new TrinoException(JDBC_ERROR, "Failed to get table handle for prepared query. " + firstNonNull(e.getMessage(), e), e);
+        }
+
+        return new JdbcTableHandle(
+                new JdbcQueryRelationHandle(preparedQuery),
+                TupleDomain.all(),
+                ImmutableList.of(),
+                Optional.empty(),
+                OptionalLong.empty(),
+                Optional.of(columns.build()),
+                ImmutableSet.of(), // Note: the query is opaque, so we cannot return other referenced tables // TODO https://github.com/trinodb/trino/issues/12526
+                0);
     }
 
     @Override

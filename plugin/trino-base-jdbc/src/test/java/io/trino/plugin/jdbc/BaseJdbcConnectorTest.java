@@ -93,6 +93,7 @@ import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.testng.Assert.assertFalse;
 
 public abstract class BaseJdbcConnectorTest
         extends BaseConnectorTest
@@ -1582,5 +1583,81 @@ public abstract class BaseJdbcConnectorTest
                 {10, 50}, // number of rows = n * batch size
                 {10, 52}, // number of rows > n * batch size
         };
+    }
+
+    @Test
+    public void testNativeQuerySimple()
+    {
+        assertQuery("SELECT * FROM TABLE(system.query(query => 'SELECT 1'))", "VALUES 1");
+    }
+
+    @Test
+    public void testNativeQuerySelectFromNation()
+    {
+        assertQuery(
+                format("SELECT * FROM TABLE(system.query(query => 'SELECT name FROM %s.nation WHERE nationkey = 0'))", getSession().getSchema().orElseThrow()),
+                "VALUES 'ALGERIA'");
+    }
+
+    @Test
+    public void testNativeQuerySelectFromTestTable()
+    {
+        try (TestTable testTable = simpleTable()) {
+            assertQuery(
+                    format("SELECT * FROM TABLE(system.query(query => 'SELECT * FROM %s'))", testTable.getName()),
+                    "VALUES 1, 2");
+        }
+    }
+
+    @Test
+    public void testNativeQuerySelectUnsupportedType()
+    {
+        try (TestTable testTable = createTableWithUnsupportedColumn()) {
+            String unqualifiedTableName = testTable.getName().replaceAll("^\\w+\\.", "");
+            // Check that column 'two' is not supported.
+            assertQuery("SELECT column_name FROM information_schema.columns WHERE table_name = '" + unqualifiedTableName + "'", "VALUES 'one', 'three'");
+            assertUpdate("INSERT INTO " + testTable.getName() + " (one, three) VALUES (123, 'test')", 1);
+            assertThatThrownBy(() -> query(format("SELECT * FROM TABLE(system.query(query => 'SELECT * FROM %s'))", testTable.getName())))
+                    .hasMessageContaining("Unsupported type");
+        }
+    }
+
+    @Test
+    public void testNativeQueryCreateStatement()
+    {
+        assertFalse(getQueryRunner().tableExists(getSession(), "numbers"));
+        assertThatThrownBy(() -> query("SELECT * FROM TABLE(system.query(query => 'CREATE TABLE numbers(n INTEGER)'))"))
+                .hasMessageContaining("Query not supported: ResultSetMetaData not available for query: CREATE TABLE numbers(n INTEGER)");
+        assertFalse(getQueryRunner().tableExists(getSession(), "numbers"));
+    }
+
+    @Test
+    public void testNativeQueryInsertStatementTableDoesNotExist()
+    {
+        assertFalse(getQueryRunner().tableExists(getSession(), "non_existent_table"));
+        assertThatThrownBy(() -> query("SELECT * FROM TABLE(system.query(query => 'INSERT INTO non_existent_table VALUES (1)'))"))
+                .hasMessageContaining("Failed to get table handle for prepared query");
+    }
+
+    @Test
+    public void testNativeQueryInsertStatementTableExists()
+    {
+        try (TestTable testTable = simpleTable()) {
+            assertThatThrownBy(() -> query(format("SELECT * FROM TABLE(system.query(query => 'INSERT INTO %s VALUES (3)'))", testTable.getName())))
+                    .hasMessageContaining(format("Query not supported: ResultSetMetaData not available for query: INSERT INTO %s VALUES (3)", testTable.getName()));
+            assertQuery("SELECT * FROM " + testTable.getName(), "VALUES 1, 2");
+        }
+    }
+
+    @Test
+    public void testNativeQueryIncorrectSyntax()
+    {
+        assertThatThrownBy(() -> query("SELECT * FROM TABLE(system.query(query => 'some wrong syntax'))"))
+                .hasMessageContaining("Failed to get table handle for prepared query");
+    }
+
+    protected TestTable simpleTable()
+    {
+        return new TestTable(onRemoteDatabase(), format("%s.simple_table", getSession().getSchema().orElseThrow()), "(col BIGINT)", ImmutableList.of("1", "2"));
     }
 }
