@@ -86,6 +86,7 @@ import io.trino.metadata.StaticCatalogStore;
 import io.trino.metadata.StaticCatalogStoreConfig;
 import io.trino.metadata.SystemFunctionBundle;
 import io.trino.metadata.SystemSecurityMetadata;
+import io.trino.metadata.TableFunctionRegistry;
 import io.trino.metadata.TableProceduresPropertyManager;
 import io.trino.metadata.TableProceduresRegistry;
 import io.trino.metadata.TablePropertyManager;
@@ -391,6 +392,7 @@ public class ServerMainModule
         newExporter(binder).export(TypeOperatorsCache.class).withGeneratedName();
         binder.bind(ProcedureRegistry.class).in(Scopes.SINGLETON);
         binder.bind(TableProceduresRegistry.class).in(Scopes.SINGLETON);
+        binder.bind(TableFunctionRegistry.class).in(Scopes.SINGLETON);
         binder.bind(PlannerContext.class).in(Scopes.SINGLETON);
 
         // function
