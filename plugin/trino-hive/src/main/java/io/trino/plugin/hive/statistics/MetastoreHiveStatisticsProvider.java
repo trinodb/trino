@@ -735,8 +735,9 @@ public class MetastoreHiveStatisticsProvider
                 .mapToLong(Long::longValue)
                 .average()
                 .orElseThrow();
+        double distinctValuesToRowRatio = min(averageDistinctValuesCountPerPartition / averageRowsPerPartition, 1);
         double distinctValuesCount = max(
-                rowCount * min(averageDistinctValuesCountPerPartition / averageRowsPerPartition, 1),
+                rowCount * distinctValuesToRowRatio * distinctValuesToRowRatio,
                 minDistinctValueCount);
         return Estimate.of(min(distinctValuesCount, totalDistinctValueCount));
     }
