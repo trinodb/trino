@@ -25,7 +25,7 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 public class FileSystemExchangeConfig
 {
     private String baseDirectory;
-    private boolean exchangeEncryptionEnabled;
+    private boolean exchangeEncryptionEnabled = true;
     // For S3, we make read requests aligned with part boundaries. Incomplete slice at the end of the buffer is
     // possible and will be copied to the beginning of the new buffer, and we need to make room for that.
     // Therefore, it's recommended to set `maxPageStorageSize` to be slightly larger than a multiple of part size.
