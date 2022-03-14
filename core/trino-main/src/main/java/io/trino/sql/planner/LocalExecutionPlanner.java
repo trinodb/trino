@@ -218,6 +218,7 @@ import io.trino.sql.planner.plan.StatisticsWriterNode;
 import io.trino.sql.planner.plan.TableDeleteNode;
 import io.trino.sql.planner.plan.TableExecuteNode;
 import io.trino.sql.planner.plan.TableFinishNode;
+import io.trino.sql.planner.plan.TableFunctionNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableWriterNode;
 import io.trino.sql.planner.plan.TableWriterNode.DeleteTarget;
@@ -1643,6 +1644,12 @@ public class LocalExecutionPlanner
             // compile expression using input layout and input types
             RowExpression rowExpression = toRowExpression(argument, typeAnalyzer.getTypes(session, TypeProvider.viewOf(inputTypes.buildOrThrow()), argument), inputLayout.buildOrThrow());
             return pageFunctionCompiler.compileProjection(rowExpression, Optional.empty());
+        }
+
+        @Override
+        public PhysicalOperation visitTableFunction(TableFunctionNode node, LocalExecutionPlanContext context)
+        {
+            throw new UnsupportedOperationException("execution by operator is not yet implemented for table function " + node.getName());
         }
 
         @Override
