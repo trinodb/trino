@@ -18,6 +18,7 @@ import io.trino.plugin.hive.PartitionStatistics;
 import io.trino.plugin.hive.acid.AcidOperation;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.authentication.HiveIdentity;
+import io.trino.plugin.hive.metastore.AcidTransactionOwner;
 import io.trino.plugin.hive.metastore.HivePrincipal;
 import io.trino.plugin.hive.metastore.HivePrivilegeInfo;
 import io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege;
@@ -134,7 +135,7 @@ public interface ThriftMetastore
         return Optional.of(table.get().getSd().getCols());
     }
 
-    default long openTransaction(HiveIdentity identity)
+    default long openTransaction(HiveIdentity identity, AcidTransactionOwner transactionOwner)
     {
         throw new UnsupportedOperationException();
     }
@@ -154,7 +155,13 @@ public interface ThriftMetastore
         throw new UnsupportedOperationException();
     }
 
-    default void acquireSharedReadLock(HiveIdentity identity, String queryId, long transactionId, List<SchemaTableName> fullTables, List<HivePartition> partitions)
+    default void acquireSharedReadLock(
+            HiveIdentity identity,
+            AcidTransactionOwner transactionOwner,
+            String queryId,
+            long transactionId,
+            List<SchemaTableName> fullTables,
+            List<HivePartition> partitions)
     {
         throw new UnsupportedOperationException();
     }
@@ -174,12 +181,25 @@ public interface ThriftMetastore
         throw new UnsupportedOperationException();
     }
 
-    default void acquireTableWriteLock(HiveIdentity identity, String queryId, long transactionId, String dbName, String tableName, DataOperationType operation, boolean isDynamicPartitionWrite)
+    default void acquireTableWriteLock(
+            HiveIdentity identity,
+            AcidTransactionOwner transactionOwner,
+            String queryId,
+            long transactionId,
+            String dbName,
+            String tableName,
+            DataOperationType operation,
+            boolean isDynamicPartitionWrite)
     {
         throw new UnsupportedOperationException();
     }
 
-    default long acquireTableExclusiveLock(HiveIdentity identity, String queryId, String dbName, String tableName)
+    default long acquireTableExclusiveLock(
+            HiveIdentity identity,
+            AcidTransactionOwner transactionOwner,
+            String queryId,
+            String dbName,
+            String tableName)
     {
         throw new UnsupportedOperationException();
     }

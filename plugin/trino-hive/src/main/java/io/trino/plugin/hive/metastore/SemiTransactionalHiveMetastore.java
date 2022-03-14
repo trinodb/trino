@@ -1300,6 +1300,7 @@ public class SemiTransactionalHiveMetastore
             // because we need the writeId in order to write the delta files.
             HiveTransaction hiveTransaction = makeHiveTransaction(session, transactionId -> {
                 acquireTableWriteLock(
+                        new AcidTransactionOwner(session.getUser()),
                         queryId,
                         transactionId,
                         table.getDatabaseName(),
@@ -1322,7 +1323,8 @@ public class SemiTransactionalHiveMetastore
         long heartbeatInterval = configuredTransactionHeartbeatInterval
                 .map(Duration::toMillis)
                 .orElseGet(this::getServerExpectedHeartbeatIntervalMillis);
-        long transactionId = delegate.openTransaction();
+        // TODO consider adding query id to the owner
+        long transactionId = delegate.openTransaction(new AcidTransactionOwner(session.getUser()));
         log.debug("Using hive transaction %s for %s", transactionId, queryId);
 
         ScheduledFuture<?> heartbeatTask = heartbeatExecutor.scheduleAtFixedRate(
@@ -1357,7 +1359,7 @@ public class SemiTransactionalHiveMetastore
                     .get());
         }
 
-        return Optional.of(currentHiveTransaction.get().getValidWriteIds(delegate, tableHandle));
+        return Optional.of(currentHiveTransaction.get().getValidWriteIds(new AcidTransactionOwner(session.getUser()), delegate, tableHandle));
     }
 
     public synchronized void cleanupQuery(ConnectorSession session)
@@ -3601,9 +3603,16 @@ public class SemiTransactionalHiveMetastore
         return delegate.allocateWriteId(dbName, tableName, transactionId);
     }
 
-    private void acquireTableWriteLock(String queryId, long transactionId, String dbName, String tableName, DataOperationType operation, boolean isPartitioned)
+    private void acquireTableWriteLock(
+            AcidTransactionOwner transactionOwner,
+            String queryId,
+            long transactionId,
+            String dbName,
+            String tableName,
+            DataOperationType operation,
+            boolean isPartitioned)
     {
-        delegate.acquireTableWriteLock(queryId, transactionId, dbName, tableName, operation, isPartitioned);
+        delegate.acquireTableWriteLock(transactionOwner, queryId, transactionId, dbName, tableName, operation, isPartitioned);
     }
 
     public void updateTableWriteId(String dbName, String tableName, long transactionId, long writeId, OptionalLong rowCountChange)

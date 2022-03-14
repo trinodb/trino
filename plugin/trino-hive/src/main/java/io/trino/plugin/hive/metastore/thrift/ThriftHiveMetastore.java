@@ -36,6 +36,7 @@ import io.trino.plugin.hive.TableAlreadyExistsException;
 import io.trino.plugin.hive.acid.AcidOperation;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.authentication.HiveIdentity;
+import io.trino.plugin.hive.metastore.AcidTransactionOwner;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.HiveColumnStatistics;
 import io.trino.plugin.hive.metastore.HivePrincipal;
@@ -1574,15 +1575,15 @@ public class ThriftHiveMetastore
     }
 
     @Override
-    public long openTransaction(HiveIdentity identity)
+    public long openTransaction(HiveIdentity identity, AcidTransactionOwner transactionOwner)
     {
-        checkArgument(!identity.getUsername().map(String::isEmpty).orElse(true), "User should be provided to open transaction");
+        requireNonNull(transactionOwner, "transactionOwner is null");
         try {
             return retry()
                     .stopOnIllegalExceptions()
                     .run("openTransaction", stats.getOpenTransaction().wrap(() -> {
                         try (ThriftMetastoreClient metastoreClient = createMetastoreClient(identity)) {
-                            return metastoreClient.openTransaction(identity.getUsername().get());
+                            return metastoreClient.openTransaction(transactionOwner.toString());
                         }
                     }));
         }
@@ -1658,19 +1659,34 @@ public class ThriftHiveMetastore
     }
 
     @Override
-    public void acquireSharedReadLock(HiveIdentity identity, String queryId, long transactionId, List<SchemaTableName> fullTables, List<HivePartition> partitions)
+    public void acquireSharedReadLock(
+            HiveIdentity identity,
+            AcidTransactionOwner transactionOwner,
+            String queryId,
+            long transactionId,
+            List<SchemaTableName> fullTables,
+            List<HivePartition> partitions)
     {
-        acquireSharedLock(identity, queryId, transactionId, fullTables, partitions, DataOperationType.SELECT, false);
+        acquireSharedLock(identity, transactionOwner, queryId, transactionId, fullTables, partitions, DataOperationType.SELECT, false);
     }
 
     @Override
-    public void acquireTableWriteLock(HiveIdentity identity, String queryId, long transactionId, String dbName, String tableName, DataOperationType operation, boolean isDynamicPartitionWrite)
+    public void acquireTableWriteLock(
+            HiveIdentity identity,
+            AcidTransactionOwner transactionOwner,
+            String queryId,
+            long transactionId,
+            String dbName,
+            String tableName,
+            DataOperationType operation,
+            boolean isDynamicPartitionWrite)
     {
-        acquireSharedLock(identity, queryId, transactionId, ImmutableList.of(new SchemaTableName(dbName, tableName)), Collections.emptyList(), operation, isDynamicPartitionWrite);
+        acquireSharedLock(identity, transactionOwner, queryId, transactionId, ImmutableList.of(new SchemaTableName(dbName, tableName)), Collections.emptyList(), operation, isDynamicPartitionWrite);
     }
 
     private void acquireSharedLock(
             HiveIdentity identity,
+            AcidTransactionOwner transactionOwner,
             String queryId,
             long transactionId,
             List<SchemaTableName> fullTables,
@@ -1679,7 +1695,7 @@ public class ThriftHiveMetastore
             boolean isDynamicPartitionWrite)
     {
         requireNonNull(operation, "operation is null");
-        checkArgument(!identity.getUsername().map(String::isEmpty).orElse(true), "User should be provided to acquire locks");
+        requireNonNull(transactionOwner, "transactionOwner is null");
         requireNonNull(queryId, "queryId is null");
 
         if (fullTables.isEmpty() && partitions.isEmpty()) {
@@ -1688,7 +1704,7 @@ public class ThriftHiveMetastore
 
         LockRequestBuilder request = new LockRequestBuilder(queryId)
                 .setTransactionId(transactionId)
-                .setUser(identity.getUsername().get());
+                .setUser(transactionOwner.toString());
 
         for (SchemaTableName table : fullTables) {
             request.addLockComponent(createLockComponentForOperation(table, operation, isDynamicPartitionWrite, Optional.empty()));
@@ -1702,13 +1718,19 @@ public class ThriftHiveMetastore
     }
 
     @Override
-    public long acquireTableExclusiveLock(HiveIdentity identity, String queryId, String dbName, String tableName)
+    public long acquireTableExclusiveLock(
+            HiveIdentity identity,
+            AcidTransactionOwner transactionOwner,
+            String queryId,
+            String dbName,
+            String tableName)
     {
+        requireNonNull(transactionOwner, "transactionOwner is null");
         LockComponent lockComponent = new LockComponent(LockType.EXCLUSIVE, LockLevel.TABLE, dbName);
         lockComponent.setTablename(tableName);
         LockRequest lockRequest = new LockRequestBuilder(queryId)
                 .addLockComponent(lockComponent)
-                .setUser(identity.getUsername().get())
+                .setUser(transactionOwner.toString())
                 .build();
         return acquireLock(identity, format("query %s", queryId), lockRequest);
     }

@@ -29,6 +29,7 @@ import io.trino.plugin.hive.PartitionNotFoundException;
 import io.trino.plugin.hive.PartitionStatistics;
 import io.trino.plugin.hive.acid.AcidOperation;
 import io.trino.plugin.hive.acid.AcidTransaction;
+import io.trino.plugin.hive.metastore.AcidTransactionOwner;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HivePartitionName;
@@ -878,9 +879,9 @@ public class CachingHiveMetastore
     }
 
     @Override
-    public long openTransaction()
+    public long openTransaction(AcidTransactionOwner transactionOwner)
     {
-        return delegate.openTransaction();
+        return delegate.openTransaction(transactionOwner);
     }
 
     @Override
@@ -902,9 +903,14 @@ public class CachingHiveMetastore
     }
 
     @Override
-    public void acquireSharedReadLock(String queryId, long transactionId, List<SchemaTableName> fullTables, List<HivePartition> partitions)
+    public void acquireSharedReadLock(
+            AcidTransactionOwner transactionOwner,
+            String queryId,
+            long transactionId,
+            List<SchemaTableName> fullTables,
+            List<HivePartition> partitions)
     {
-        delegate.acquireSharedReadLock(queryId, transactionId, fullTables, partitions);
+        delegate.acquireSharedReadLock(transactionOwner, queryId, transactionId, fullTables, partitions);
     }
 
     @Override
@@ -925,14 +931,16 @@ public class CachingHiveMetastore
     }
 
     @Override
-    public void acquireTableWriteLock(String queryId,
+    public void acquireTableWriteLock(
+            AcidTransactionOwner transactionOwner,
+            String queryId,
             long transactionId,
             String dbName,
             String tableName,
             DataOperationType operation,
             boolean isDynamicPartitionWrite)
     {
-        delegate.acquireTableWriteLock(queryId, transactionId, dbName, tableName, operation, isDynamicPartitionWrite);
+        delegate.acquireTableWriteLock(transactionOwner, queryId, transactionId, dbName, tableName, operation, isDynamicPartitionWrite);
     }
 
     @Override
