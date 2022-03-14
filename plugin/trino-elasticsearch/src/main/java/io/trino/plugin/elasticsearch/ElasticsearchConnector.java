@@ -22,6 +22,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.SystemTable;
+import io.trino.spi.ptf.ConnectorTableFunction;
 import io.trino.spi.transaction.IsolationLevel;
 
 import javax.inject.Inject;
@@ -40,6 +41,7 @@ public class ElasticsearchConnector
     private final ElasticsearchSplitManager splitManager;
     private final ElasticsearchPageSourceProvider pageSourceProvider;
     private final NodesSystemTable nodesSystemTable;
+    private final Set<ConnectorTableFunction> connectorTableFunctions;
 
     @Inject
     public ElasticsearchConnector(
@@ -47,13 +49,15 @@ public class ElasticsearchConnector
             ElasticsearchMetadata metadata,
             ElasticsearchSplitManager splitManager,
             ElasticsearchPageSourceProvider pageSourceProvider,
-            NodesSystemTable nodesSystemTable)
+            NodesSystemTable nodesSystemTable,
+            Set<ConnectorTableFunction> connectorTableFunctions)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
         this.nodesSystemTable = requireNonNull(nodesSystemTable, "nodesSystemTable is null");
+        this.connectorTableFunctions = ImmutableSet.copyOf(requireNonNull(connectorTableFunctions, "tableFunctions is null"));
     }
 
     @Override
@@ -85,6 +89,12 @@ public class ElasticsearchConnector
     public Set<SystemTable> getSystemTables()
     {
         return ImmutableSet.of(nodesSystemTable);
+    }
+
+    @Override
+    public Set<ConnectorTableFunction> getTableFunctions()
+    {
+        return connectorTableFunctions;
     }
 
     @Override

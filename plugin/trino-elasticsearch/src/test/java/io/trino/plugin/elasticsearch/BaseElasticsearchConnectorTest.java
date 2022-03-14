@@ -1860,6 +1860,12 @@ public abstract class BaseElasticsearchConnectorTest
         assertTableDoesNotExist("nonexistent_table");
     }
 
+    @Test
+    public void testRemoteQueryTableFunction()
+    {
+        assertQuerySucceeds("SELECT * FROM TABLE(\"" + getSession().getCatalog().orElseThrow() + "\".\"system\".\"remote_query\"(\"schema\" => 'tpch', \"index\" => 'nation', \"query\" => '{\"query\": {\"match\": {\"name\": \"ALGERIA\"}}}'))");
+    }
+
     protected void assertTableDoesNotExist(String name)
     {
         assertQueryReturnsEmptyResult(format("SELECT * FROM information_schema.columns WHERE table_name = '%s'", name));
