@@ -18,6 +18,7 @@ import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.AnalyzePropertyManager;
 import io.trino.metadata.SessionPropertyManager;
+import io.trino.metadata.TableFunctionRegistry;
 import io.trino.metadata.TableProceduresPropertyManager;
 import io.trino.metadata.TableProceduresRegistry;
 import io.trino.metadata.TablePropertyManager;
@@ -40,6 +41,7 @@ public class StatementAnalyzerFactory
     private final TransactionManager transactionManager;
     private final GroupProvider groupProvider;
     private final TableProceduresRegistry tableProceduresRegistry;
+    private final TableFunctionRegistry tableFunctionRegistry;
     private final SessionPropertyManager sessionPropertyManager;
     private final TablePropertyManager tablePropertyManager;
     private final AnalyzePropertyManager analyzePropertyManager;
@@ -53,6 +55,7 @@ public class StatementAnalyzerFactory
             TransactionManager transactionManager,
             GroupProvider groupProvider,
             TableProceduresRegistry tableProceduresRegistry,
+            TableFunctionRegistry tableFunctionRegistry,
             SessionPropertyManager sessionPropertyManager,
             TablePropertyManager tablePropertyManager,
             AnalyzePropertyManager analyzePropertyManager,
@@ -64,6 +67,7 @@ public class StatementAnalyzerFactory
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.groupProvider = requireNonNull(groupProvider, "groupProvider is null");
         this.tableProceduresRegistry = requireNonNull(tableProceduresRegistry, "tableProceduresRegistry is null");
+        this.tableFunctionRegistry = requireNonNull(tableFunctionRegistry, "tableFunctionRegistry is null");
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.tablePropertyManager = requireNonNull(tablePropertyManager, "tablePropertyManager is null");
         this.analyzePropertyManager = requireNonNull(analyzePropertyManager, "analyzePropertyManager is null");
@@ -79,6 +83,7 @@ public class StatementAnalyzerFactory
                 transactionManager,
                 groupProvider,
                 tableProceduresRegistry,
+                tableFunctionRegistry,
                 sessionPropertyManager,
                 tablePropertyManager,
                 analyzePropertyManager,
@@ -101,6 +106,7 @@ public class StatementAnalyzerFactory
                 transactionManager,
                 session,
                 tableProceduresRegistry,
+                tableFunctionRegistry,
                 sessionPropertyManager,
                 tablePropertyManager,
                 analyzePropertyManager,
@@ -122,6 +128,7 @@ public class StatementAnalyzerFactory
                 new NoOpTransactionManager(),
                 user -> ImmutableSet.of(),
                 new TableProceduresRegistry(),
+                new TableFunctionRegistry(),
                 new SessionPropertyManager(),
                 tablePropertyManager,
                 analyzePropertyManager,
