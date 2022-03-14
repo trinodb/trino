@@ -67,6 +67,7 @@ import static java.util.Objects.requireNonNull;
         @JsonSubTypes.Type(value = CorrelatedJoinNode.class, name = "correlatedJoin"),
         @JsonSubTypes.Type(value = StatisticsWriterNode.class, name = "statisticsWriterNode"),
         @JsonSubTypes.Type(value = PatternRecognitionNode.class, name = "patternRecognition"),
+        @JsonSubTypes.Type(value = TableFunctionNode.class, name = "tableFunction"),
 })
 public abstract class PlanNode
 {
