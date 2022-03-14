@@ -14,6 +14,8 @@ To connect to SingleStore, you need:
 * Network access from the Trino coordinator and workers to SingleStore. Port
   3306 is the default port.
 
+.. _singlestore-configuration:
+
 Configuration
 -------------
 
@@ -29,6 +31,17 @@ connection properties as appropriate for your setup:
     connection-url=jdbc:singlestore://example.net:3306
     connection-user=root
     connection-password=secret
+
+The ``connection-url`` defines the connection information and parameters to pass
+to the SingleStore JDBC driver. The supported parameters for the URL are
+available in the `SingleStore JDBC driver documentation
+<https://docs.singlestore.com/db/v7.6/en/developer-resources/connect-with-application-development-tools/connect-with-java-jdbc/the-singlestore-jdbc-driver.html#connection-string-parameters>`_.
+
+The ``connection-user`` and ``connection-password`` are typically required and
+determine the user credentials for the connection, often a service user. You can
+use :doc:`secrets </security/secrets>` to avoid actual values in the catalog
+properties files.
+
 
 .. _singlestore-tls:
 
