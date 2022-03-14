@@ -65,7 +65,6 @@ public abstract class BaseMongoConnectorTest
             case SUPPORTS_NOT_NULL_CONSTRAINT:
             case SUPPORTS_RENAME_TABLE:
             case SUPPORTS_RENAME_COLUMN:
-            case SUPPORTS_COMMENT_ON_COLUMN:
                 return false;
             default:
                 return super.hasBehavior(connectorBehavior);
@@ -134,6 +133,18 @@ public abstract class BaseMongoConnectorTest
                 {"[9, \"test\"]", "CAST(row(9, 'test') AS row(_pos1 bigint, _pos2 varchar))"}, // array with multiple types -> row
                 {"{\"$ref\":\"test_ref\",\"$id\":ObjectId(\"4e3f33de6266b5845052c02c\"),\"$db\":\"test_db\"}", "CAST(row('test_db', 'test_ref', ObjectId('4e3f33de6266b5845052c02c')) AS row(databasename varchar, collectionname varchar, id ObjectId))"}, // dbref -> row
         };
+    }
+
+    @Test
+    public void testCreateTableWithColumnComment()
+    {
+        // TODO (https://github.com/trinodb/trino/issues/11162) Merge into io.trino.testing.BaseConnectorTest#testCommentColumn
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_column_comment", "(col integer COMMENT 'test')")) {
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
+                    .isEqualTo(format("CREATE TABLE %s.%s.%s (\n" +
+                            "   col integer COMMENT 'test'\n" +
+                            ")", getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow(), table.getName()));
+        }
     }
 
     @Test
