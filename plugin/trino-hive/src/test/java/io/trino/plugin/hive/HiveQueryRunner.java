@@ -230,7 +230,7 @@ public final class HiveQueryRunner
                 }
 
                 HiveMetastore metastore = this.metastore.apply(queryRunner);
-                queryRunner.installPlugin(new TestingHivePlugin(metastore, module, cachingDirectoryLister));
+                queryRunner.installPlugin(new TestingHivePlugin(Optional.of(metastore), module, cachingDirectoryLister));
 
                 Map<String, String> hiveProperties = new HashMap<>();
                 if (!skipTimezoneSetup) {
