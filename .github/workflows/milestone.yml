@@ -14,7 +14,7 @@ jobs:
       - name: Get milestone from pom.xml
         run: |
           .github/bin/retry ./mvnw -v
-          echo "MILESTONE_NUMBER=$(./mvnw -q -Dexec.executable=echo -Dexec.args='${project.version}' -N exec:exec | cut -d- -f1)" >> $GITHUB_ENV
+          echo "MILESTONE_NUMBER=$(./mvnw help:evaluate -Dexpression=project.version -q -DforceStdout | cut -d- -f1)" >> $GITHUB_ENV
       - name: Set milestone to PR
         uses: actions/github-script@v4
         with:
