@@ -19,7 +19,8 @@ import io.trino.spi.connector.ConnectorFactory;
 import io.trino.testing.TestingConnectorContext;
 import org.testng.annotations.Test;
 
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.toOptional;
+import static com.google.common.collect.Streams.stream;
 
 public class TestMemSqlPlugin
 {
@@ -27,7 +28,21 @@ public class TestMemSqlPlugin
     public void testCreateConnector()
     {
         Plugin plugin = new MemSqlPlugin();
-        ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
+        ConnectorFactory factory = stream(plugin.getConnectorFactories())
+                .filter(connectorFactory -> connectorFactory.getName().equals("singlestore"))
+                .collect(toOptional())
+                .orElseThrow();
+        factory.create("test", ImmutableMap.of("connection-url", "jdbc:singlestore://test"), new TestingConnectorContext()).shutdown();
+    }
+
+    @Test
+    public void testCreateConnectorLegacyName()
+    {
+        Plugin plugin = new MemSqlPlugin();
+        ConnectorFactory factory = stream(plugin.getConnectorFactories())
+                .filter(connectorFactory -> connectorFactory.getName().equals("memsql"))
+                .collect(toOptional())
+                .orElseThrow();
         factory.create("test", ImmutableMap.of("connection-url", "jdbc:singlestore://test"), new TestingConnectorContext()).shutdown();
     }
 }
