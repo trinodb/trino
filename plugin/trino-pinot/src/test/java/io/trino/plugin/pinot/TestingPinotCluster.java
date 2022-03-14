@@ -66,7 +66,9 @@ import static org.testcontainers.utility.DockerImageName.parse;
 public class TestingPinotCluster
         implements Closeable
 {
-    private static final String BASE_IMAGE = "apachepinot/pinot:0.8.0-jdk11";
+    public static final String PINOT_LATEST_IMAGE_NAME = "apachepinot/pinot:0.10.0";
+    public static final String PINOT_PREVIOUS_IMAGE_NAME = "apachepinot/pinot:0.9.3-jdk11";
+
     private static final String ZOOKEEPER_INTERNAL_HOST = "zookeeper";
     private static final JsonCodec<List<String>> LIST_JSON_CODEC = listJsonCodec(String.class);
     private static final JsonCodec<PinotSuccessResponse> PINOT_SUCCESS_RESPONSE_JSON_CODEC = jsonCodec(PinotSuccessResponse.class);
@@ -85,7 +87,7 @@ public class TestingPinotCluster
     private final Closer closer = Closer.create();
     private final boolean secured;
 
-    public TestingPinotCluster(Network network, boolean secured)
+    public TestingPinotCluster(Network network, boolean secured, String pinotImageName)
     {
         httpClient = closer.register(new JettyHttpClient());
         zookeeper = new GenericContainer<>(parse("zookeeper:3.5.6"))
@@ -96,7 +98,7 @@ public class TestingPinotCluster
         closer.register(zookeeper::stop);
 
         String controllerConfig = secured ? "/var/pinot/controller/config/pinot-controller-secured.conf" : "/var/pinot/controller/config/pinot-controller.conf";
-        controller = new GenericContainer<>(parse(BASE_IMAGE))
+        controller = new GenericContainer<>(parse(pinotImageName))
                 .withNetwork(network)
                 .withClasspathResourceMapping("/pinot-controller", "/var/pinot/controller/config", BindMode.READ_ONLY)
                 .withEnv("JAVA_OPTS", "-Xmx512m -Dlog4j2.configurationFile=/opt/pinot/conf/pinot-controller-log4j2.xml -Dplugins.dir=/opt/pinot/plugins")
@@ -106,7 +108,7 @@ public class TestingPinotCluster
         closer.register(controller::stop);
 
         String brokerConfig = secured ? "/var/pinot/broker/config/pinot-broker-secured.conf" : "/var/pinot/broker/config/pinot-broker.conf";
-        broker = new GenericContainer<>(parse(BASE_IMAGE))
+        broker = new GenericContainer<>(parse(pinotImageName))
                 .withNetwork(network)
                 .withClasspathResourceMapping("/pinot-broker", "/var/pinot/broker/config", BindMode.READ_ONLY)
                 .withEnv("JAVA_OPTS", "-Xmx512m -Dlog4j2.configurationFile=/opt/pinot/conf/pinot-broker-log4j2.xml -Dplugins.dir=/opt/pinot/plugins")
@@ -115,7 +117,7 @@ public class TestingPinotCluster
                 .withExposedPorts(BROKER_PORT);
         closer.register(broker::stop);
 
-        server = new GenericContainer<>(parse(BASE_IMAGE))
+        server = new GenericContainer<>(parse(pinotImageName))
                 .withNetwork(network)
                 .withClasspathResourceMapping("/pinot-server", "/var/pinot/server/config", BindMode.READ_ONLY)
                 .withEnv("JAVA_OPTS", "-Xmx512m -Dlog4j2.configurationFile=/opt/pinot/conf/pinot-server-log4j2.xml -Dplugins.dir=/opt/pinot/plugins")
