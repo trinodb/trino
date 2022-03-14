@@ -75,24 +75,35 @@ public class PageTestUtils
             float nullRate,
             Optional<Wrapping> wrapping)
     {
-        int channelCount = types.size();
-        ImmutableList.Builder<Block> blocks = ImmutableList.builder();
+        List<Block> blocks = types.stream()
+                .map(type -> createRandomBlock(type, positionCount, nullRate, wrapping))
+                .collect(toImmutableList());
 
-        for (int i = 0; i < channelCount; i++) {
-            Block block = createRandomBlockForType(types.get(i), positionCount, nullRate);
-            blocks.add(wrapping.map(w -> w.wrap(block, positionCount)).orElse(block));
-        }
+        return createPage(types, positionCount, hashChannels, blocks);
+    }
+
+    public static Page createPage(
+            List<Type> types,
+            int positionCount,
+            Optional<List<Integer>> hashChannels,
+            List<Block> blocks)
+    {
+        ImmutableList.Builder<Block> finalBlocks = ImmutableList.<Block>builder().addAll(blocks);
 
         hashChannels.ifPresent(channels -> {
-            ImmutableList<Block> blocksWithoutHash = blocks.build();
-
-            blocks.add(getHashBlock(
+            finalBlocks.add(getHashBlock(
                     channels.stream()
                             .map(types::get)
                             .collect(toImmutableList()),
-                    channels.stream().map(blocksWithoutHash::get).toArray(Block[]::new)));
+                    channels.stream().map(blocks::get).toArray(Block[]::new)));
         });
 
-        return new Page(positionCount, blocks.build().toArray(Block[]::new));
+        return new Page(positionCount, finalBlocks.build().toArray(Block[]::new));
+    }
+
+    private static Block createRandomBlock(Type type, int positionCount, float nullRate, Optional<Wrapping> wrapping)
+    {
+        Block block = createRandomBlockForType(type, positionCount, nullRate);
+        return wrapping.map(w -> w.wrap(block, positionCount)).orElse(block);
     }
 }

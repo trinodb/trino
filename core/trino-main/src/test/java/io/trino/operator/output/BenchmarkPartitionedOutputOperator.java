@@ -27,12 +27,14 @@ import io.trino.memory.context.LocalMemoryContext;
 import io.trino.memory.context.SimpleLocalMemoryContext;
 import io.trino.operator.BucketPartitionFunction;
 import io.trino.operator.DriverContext;
+import io.trino.operator.PageTestUtils;
 import io.trino.operator.PartitionFunction;
 import io.trino.operator.PrecomputedHashGenerator;
 import io.trino.operator.output.PartitionedOutputOperator.PartitionedOutputFactory;
 import io.trino.spi.Page;
 import io.trino.spi.QueryId;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.RowBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.block.TestingBlockEncodingSerde;
 import io.trino.spi.type.ArrayType;
@@ -66,6 +68,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
@@ -79,6 +82,7 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.block.BlockAssertions.chooseNullPositions;
 import static io.trino.block.BlockAssertions.createLongDictionaryBlock;
 import static io.trino.block.BlockAssertions.createLongsBlock;
 import static io.trino.block.BlockAssertions.createRLEBlock;
@@ -174,7 +178,8 @@ public class BenchmarkPartitionedOutputOperator
                 "MAP_BIGINT_BIGINT",
                 "MAP_BIGINT_MAP_BIGINT_BIGINT",
                 "ROW_BIGINT_BIGINT",
-                "ROW_ARRAY_BIGINT_ARRAY_BIGINT"
+                "ROW_ARRAY_BIGINT_ARRAY_BIGINT",
+                "ROW_RLE_BIGINT_BIGINT",
         })
         private TestType type = TestType.BIGINT;
 
@@ -323,7 +328,32 @@ public class BenchmarkPartitionedOutputOperator
             MAP_BIGINT_BIGINT(createMapType(BigintType.BIGINT, BigintType.BIGINT), 1000),
             MAP_BIGINT_MAP_BIGINT_BIGINT(createMapType(BigintType.BIGINT, createMapType(BigintType.BIGINT, BigintType.BIGINT)), 1000),
             ROW_BIGINT_BIGINT(rowTypeWithDefaultFieldNames(ImmutableList.of(BigintType.BIGINT, BigintType.BIGINT)), 1000),
-            ROW_ARRAY_BIGINT_ARRAY_BIGINT(rowTypeWithDefaultFieldNames(ImmutableList.of(new ArrayType(BigintType.BIGINT), new ArrayType(BigintType.BIGINT))), 1000);
+            ROW_ARRAY_BIGINT_ARRAY_BIGINT(rowTypeWithDefaultFieldNames(ImmutableList.of(new ArrayType(BigintType.BIGINT), new ArrayType(BigintType.BIGINT))), 1000),
+            ROW_RLE_BIGINT_BIGINT(rowTypeWithDefaultFieldNames(ImmutableList.of(BigintType.BIGINT, BigintType.BIGINT)), 1000) {
+                @Override
+                public Page createPage(List<Type> types, int positionCount, float nullRate)
+                {
+                    return PageTestUtils.createPage(types, positionCount, Optional.of(ImmutableList.of(0)), types.stream()
+                            .map(type -> {
+                                boolean[] isNull = null;
+                                int nullPositionCount = 0;
+                                if (nullRate > 0) {
+                                    isNull = new boolean[positionCount];
+                                    Set<Integer> nullPositions = chooseNullPositions(positionCount, nullRate);
+                                    for (int nullPosition : nullPositions) {
+                                        isNull[nullPosition] = true;
+                                    }
+                                    nullPositionCount = nullPositions.size();
+                                }
+
+                                int notNullPositionsCount = positionCount - nullPositionCount;
+                                return RowBlock.fromFieldBlocks(positionCount, Optional.ofNullable(isNull), new Block[] {
+                                        new RunLengthEncodedBlock(createRandomLongsBlock(1, 1), notNullPositionsCount),
+                                        createRandomLongsBlock(notNullPositionsCount, nullRate)});
+                            })
+                            .collect(toImmutableList()));
+                }
+            };
 
             private final Type type;
             private final int pageCount;

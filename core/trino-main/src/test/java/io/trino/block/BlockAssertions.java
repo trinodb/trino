@@ -871,7 +871,7 @@ public final class BlockAssertions
         void write(BlockBuilder builder, T value);
     }
 
-    private static Set<Integer> chooseNullPositions(int positionCount, float nullRate)
+    public static Set<Integer> chooseNullPositions(int positionCount, float nullRate)
     {
         int nullCount = (int) (positionCount * nullRate);
         if (nullCount == 0) {
