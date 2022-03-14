@@ -6,7 +6,7 @@ from typing import Dict, Any
 from urllib.parse import urlparse, parse_qs
 from urllib.request import Request, urlopen
 
-HYDRA_ADMIN_URL = os.getenv("HYDRA_ADMIN_URL", "https://hydra:4445")
+HYDRA_ADMIN_URL = os.getenv("HYDRA_ADMIN_URL", "http://hydra:4445")
 PORT = os.getenv("PORT", 3000)
 SSL_CONTEXT = ssl.create_default_context()
 SSL_CONTEXT.check_hostname = False
