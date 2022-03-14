@@ -21,7 +21,6 @@ import io.trino.spi.expression.ConnectorExpression;
 
 import java.util.Map;
 import java.util.Optional;
-import java.util.function.Function;
 
 import static com.google.common.base.Verify.verifyNotNull;
 import static java.util.Objects.requireNonNull;
@@ -43,8 +42,6 @@ public interface ConnectorExpressionRule<ExpressionType extends ConnectorExpress
         }
 
         Map<String, ColumnHandle> getAssignments();
-
-        Function<String, String> getIdentifierQuote();
 
         ConnectorSession getSession();
 

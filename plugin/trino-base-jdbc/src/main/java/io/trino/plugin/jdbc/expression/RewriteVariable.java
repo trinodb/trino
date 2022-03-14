@@ -20,12 +20,21 @@ import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.spi.expression.Variable;
 
 import java.util.Optional;
+import java.util.function.Function;
 
 import static io.trino.plugin.base.expression.ConnectorExpressionPatterns.variable;
+import static java.util.Objects.requireNonNull;
 
 public class RewriteVariable
         implements ConnectorExpressionRule<Variable, String>
 {
+    private final Function<String, String> identifierQuote;
+
+    public RewriteVariable(Function<String, String> identifierQuote)
+    {
+        this.identifierQuote = requireNonNull(identifierQuote, "identifierQuote is null");
+    }
+
     @Override
     public Pattern<Variable> getPattern()
     {
@@ -36,6 +45,6 @@ public class RewriteVariable
     public Optional<String> rewrite(Variable variable, Captures captures, RewriteContext<String> context)
     {
         JdbcColumnHandle columnHandle = (JdbcColumnHandle) context.getAssignment(variable.getName());
-        return Optional.of(context.getIdentifierQuote().apply(columnHandle.getColumnName()));
+        return Optional.of(identifierQuote.apply(columnHandle.getColumnName()));
     }
 }
