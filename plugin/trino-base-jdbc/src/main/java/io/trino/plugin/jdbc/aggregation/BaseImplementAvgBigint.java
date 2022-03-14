@@ -17,7 +17,6 @@ import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.plugin.base.aggregation.AggregateFunctionRule;
-import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.spi.connector.AggregateFunction;
@@ -43,7 +42,7 @@ import static java.lang.String.format;
  * can result in rounding of the output to a bigint.
  */
 public abstract class BaseImplementAvgBigint
-        implements AggregateFunctionRule<JdbcExpression>
+        implements AggregateFunctionRule<JdbcExpression, String>
 {
     private final Capture<Variable> argument;
 
@@ -64,19 +63,17 @@ public abstract class BaseImplementAvgBigint
     }
 
     @Override
-    public Optional<JdbcExpression> rewrite(AggregateFunction aggregateFunction, Captures captures, RewriteContext context)
+    public Optional<JdbcExpression> rewrite(AggregateFunction aggregateFunction, Captures captures, RewriteContext<String> context)
     {
         Variable argument = captures.get(this.argument);
-        JdbcColumnHandle columnHandle = (JdbcColumnHandle) context.getAssignment(argument.getName());
         verify(aggregateFunction.getOutputType() == DOUBLE);
 
-        String columnName = context.getIdentifierQuote().apply(columnHandle.getColumnName());
-
         return Optional.of(new JdbcExpression(
-                format(getRewriteFormatExpression(), columnName),
+                format(getRewriteFormatExpression(), context.rewriteExpression(argument).orElseThrow()),
                 new JdbcTypeHandle(Types.DOUBLE, Optional.of("double"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty())));
     }
 
+    // TODO String.format is not great for contract of an extensible API. Replace with formatting method.
     /**
      * Implement this method for each connector supporting avg(bigint) pushdown
      * @return A format string expression with a single placeholder for the column name; The string expression pushes down avg to the remote database

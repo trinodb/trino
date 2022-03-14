@@ -25,6 +25,7 @@ import io.airlift.slice.Slice;
 import io.trino.collect.cache.NonEvictableCache;
 import io.trino.plugin.base.aggregation.AggregateFunctionRewriter;
 import io.trino.plugin.base.aggregation.AggregateFunctionRule;
+import io.trino.plugin.base.expression.ConnectorExpressionRewriter;
 import io.trino.plugin.jdbc.BaseJdbcClient;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ColumnMapping;
@@ -49,6 +50,7 @@ import io.trino.plugin.jdbc.aggregation.ImplementAvgDecimal;
 import io.trino.plugin.jdbc.aggregation.ImplementAvgFloatingPoint;
 import io.trino.plugin.jdbc.aggregation.ImplementMinMax;
 import io.trino.plugin.jdbc.aggregation.ImplementSum;
+import io.trino.plugin.jdbc.expression.JdbcConnectorExpressionRewriterBuilder;
 import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
@@ -189,7 +191,8 @@ public class SqlServerClient
                     .maximumSize(1)
                     .expireAfterWrite(ofMinutes(5)));
 
-    private final AggregateFunctionRewriter<JdbcExpression> aggregateFunctionRewriter;
+    private final ConnectorExpressionRewriter<String> connectorExpressionRewriter;
+    private final AggregateFunctionRewriter<JdbcExpression, String> aggregateFunctionRewriter;
 
     private static final int MAX_SUPPORTED_TEMPORAL_PRECISION = 7;
 
@@ -200,9 +203,14 @@ public class SqlServerClient
 
         requireNonNull(sqlServerConfig, "sqlServerConfig is null");
         snapshotIsolationDisabled = sqlServerConfig.isSnapshotIsolationDisabled();
+
+        this.connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder()
+                .addStandardRules(this::quoted)
+                .build();
+
         this.aggregateFunctionRewriter = new AggregateFunctionRewriter<>(
-                this::quoted,
-                ImmutableSet.<AggregateFunctionRule<JdbcExpression>>builder()
+                this.connectorExpressionRewriter,
+                ImmutableSet.<AggregateFunctionRule<JdbcExpression, String>>builder()
                         .add(new ImplementSqlServerCountBigAll())
                         .add(new ImplementSqlServerCountBig())
                         .add(new ImplementMinMax(false))

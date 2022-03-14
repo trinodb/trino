@@ -22,6 +22,7 @@ import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.expression.Variable;
 
 import java.util.Optional;
+import java.util.function.Function;
 
 import static com.google.common.base.Verify.verify;
 import static io.trino.matching.Capture.newCapture;
@@ -32,11 +33,19 @@ import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.singleA
 import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.variable;
 import static io.trino.plugin.pinot.PinotSessionProperties.isCountDistinctPushdownEnabled;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static java.util.Objects.requireNonNull;
 
 public class ImplementCountDistinct
-        implements AggregateFunctionRule<AggregateExpression>
+        implements AggregateFunctionRule<AggregateExpression, Void>
 {
     private static final Capture<Variable> ARGUMENT = newCapture();
+
+    private final Function<String, String> identifierQuote;
+
+    public ImplementCountDistinct(Function<String, String> identifierQuote)
+    {
+        this.identifierQuote = requireNonNull(identifierQuote, "identifierQuote is null");
+    }
 
     @Override
     public Pattern<AggregateFunction> getPattern()
@@ -48,13 +57,13 @@ public class ImplementCountDistinct
     }
 
     @Override
-    public Optional<AggregateExpression> rewrite(AggregateFunction aggregateFunction, Captures captures, RewriteContext context)
+    public Optional<AggregateExpression> rewrite(AggregateFunction aggregateFunction, Captures captures, RewriteContext<Void> context)
     {
         if (!isCountDistinctPushdownEnabled(context.getSession())) {
             return Optional.empty();
         }
         Variable argument = captures.get(ARGUMENT);
         verify(aggregateFunction.getOutputType() == BIGINT);
-        return Optional.of(new AggregateExpression("distinctcount", context.getIdentifierQuote().apply(argument.getName()), false));
+        return Optional.of(new AggregateExpression("distinctcount", identifierQuote.apply(argument.getName()), false));
     }
 }

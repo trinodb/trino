@@ -36,7 +36,7 @@ import static java.util.Objects.requireNonNull;
  * Implements {@code count(*)}.
  */
 public class ImplementCountAll
-        implements AggregateFunctionRule<JdbcExpression>
+        implements AggregateFunctionRule<JdbcExpression, String>
 {
     private final JdbcTypeHandle bigintTypeHandle;
 
@@ -57,7 +57,7 @@ public class ImplementCountAll
     }
 
     @Override
-    public Optional<JdbcExpression> rewrite(AggregateFunction aggregateFunction, Captures captures, RewriteContext context)
+    public Optional<JdbcExpression> rewrite(AggregateFunction aggregateFunction, Captures captures, RewriteContext<String> context)
     {
         verify(aggregateFunction.getOutputType() == BIGINT);
         return Optional.of(new JdbcExpression("count(*)", bigintTypeHandle));

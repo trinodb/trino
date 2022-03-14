@@ -33,7 +33,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
  * Implements specialized version of {@code count(*)} that returns bigint in SQL Server.
  */
 public class ImplementSqlServerCountBigAll
-        implements AggregateFunctionRule<JdbcExpression>
+        implements AggregateFunctionRule<JdbcExpression, String>
 {
     @Override
     public Pattern<AggregateFunction> getPattern()
@@ -44,7 +44,7 @@ public class ImplementSqlServerCountBigAll
     }
 
     @Override
-    public Optional<JdbcExpression> rewrite(AggregateFunction aggregateFunction, Captures captures, RewriteContext context)
+    public Optional<JdbcExpression> rewrite(AggregateFunction aggregateFunction, Captures captures, RewriteContext<String> context)
     {
         verify(aggregateFunction.getOutputType() == BIGINT);
         return Optional.of(new JdbcExpression("count_big(*)", BIGINT_TYPE));
