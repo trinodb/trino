@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
-import io.airlift.log.Logger;
 import io.trino.plugin.base.security.CatalogAccessControlRule.AccessMode;
 import io.trino.plugin.base.security.TableAccessControlRule.TablePrivilege;
 import io.trino.spi.connector.CatalogSchemaName;
@@ -112,8 +111,6 @@ import static java.util.Objects.requireNonNull;
 public class FileBasedSystemAccessControl
         implements SystemAccessControl
 {
-    private static final Logger log = Logger.get(FileBasedSystemAccessControl.class);
-
     public static final String NAME = "file";
     private static final String INFORMATION_SCHEMA_NAME = "information_schema";
 

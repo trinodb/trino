@@ -14,33 +14,46 @@
 package io.trino.plugin.base.security;
 
 import io.airlift.configuration.Config;
-import io.airlift.configuration.validation.FileExists;
+import io.airlift.configuration.ConfigDescription;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 
 import javax.validation.constraints.NotNull;
 
-import java.io.File;
-
 public class FileBasedAccessControlConfig
 {
     public static final String SECURITY_CONFIG_FILE = "security.config-file";
+    public static final String SECURITY_JSON_POINTER = "security.json-pointer";
     public static final String SECURITY_REFRESH_PERIOD = "security.refresh-period";
 
-    private File configFile;
+    private String configFilePath;
+    private String jsonPointer = "";
     private Duration refreshPeriod;
 
     @NotNull
-    @FileExists
-    public File getConfigFile()
+    public String getConfigFilePath()
     {
-        return configFile;
+        return configFilePath;
     }
 
     @Config(SECURITY_CONFIG_FILE)
-    public FileBasedAccessControlConfig setConfigFile(File configFile)
+    public FileBasedAccessControlConfig setConfigFilePath(String configFilePath)
     {
-        this.configFile = configFile;
+        this.configFilePath = configFilePath;
+        return this;
+    }
+
+    @NotNull
+    public String getJsonPointer()
+    {
+        return jsonPointer;
+    }
+
+    @Config(SECURITY_JSON_POINTER)
+    @ConfigDescription("JSON pointer (RFC 6901) to mappings inside JSON config")
+    public FileBasedAccessControlConfig setJsonPointer(String jsonPointer)
+    {
+        this.jsonPointer = jsonPointer;
         return this;
     }
 

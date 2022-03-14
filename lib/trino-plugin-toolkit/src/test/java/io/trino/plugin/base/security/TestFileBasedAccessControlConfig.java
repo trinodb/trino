@@ -29,6 +29,7 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertFullMappin
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.trino.plugin.base.security.FileBasedAccessControlConfig.SECURITY_CONFIG_FILE;
+import static io.trino.plugin.base.security.FileBasedAccessControlConfig.SECURITY_JSON_POINTER;
 import static io.trino.plugin.base.security.FileBasedAccessControlConfig.SECURITY_REFRESH_PERIOD;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -38,23 +39,43 @@ public class TestFileBasedAccessControlConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(FileBasedAccessControlConfig.class)
-                .setConfigFile(null)
+                .setConfigFilePath(null)
+                .setJsonPointer("")
                 .setRefreshPeriod(null));
     }
 
     @Test
-    public void testExplicitPropertyMappings()
+    public void testExplicitPropertyMappingsWithLocalFile()
             throws IOException
     {
         Path securityConfigFile = Files.createTempFile(null, null);
 
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put(SECURITY_CONFIG_FILE, securityConfigFile.toString())
+                .put(SECURITY_JSON_POINTER, "/a/b")
                 .put(SECURITY_REFRESH_PERIOD, "1s")
                 .buildOrThrow();
 
         FileBasedAccessControlConfig expected = new FileBasedAccessControlConfig()
-                .setConfigFile(securityConfigFile.toFile())
+                .setConfigFilePath(securityConfigFile.toString())
+                .setJsonPointer("/a/b")
+                .setRefreshPeriod(new Duration(1, TimeUnit.SECONDS));
+
+        assertFullMapping(properties, expected);
+    }
+
+    @Test
+    public void testExplicitPropertyMappingsWithUri()
+    {
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
+                .put(SECURITY_CONFIG_FILE, "http://test:1234/example")
+                .put(SECURITY_JSON_POINTER, "/data")
+                .put(SECURITY_REFRESH_PERIOD, "1s")
+                .buildOrThrow();
+
+        FileBasedAccessControlConfig expected = new FileBasedAccessControlConfig()
+                .setConfigFilePath("http://test:1234/example")
+                .setJsonPointer("/data")
                 .setRefreshPeriod(new Duration(1, TimeUnit.SECONDS));
 
         assertFullMapping(properties, expected);

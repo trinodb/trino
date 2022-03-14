@@ -15,6 +15,7 @@ package io.trino.security;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.ProvisionException;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.plugin.base.security.DefaultSystemAccessControl;
 import io.trino.plugin.base.security.FileBasedSystemAccessControl;
@@ -803,15 +804,15 @@ public class TestFileBasedSystemAccessControl
                 .execute(transactionId -> {
                     accessControlManager.checkCanCreateView(new SecurityContext(transactionId, alice, queryId), aliceView);
                 }))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageStartingWith("Invalid JSON file");
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageStartingWith("Failed to parse JSON");
         // test if file based cached control was not cached somewhere
         assertThatThrownBy(() -> transaction(transactionManager, accessControlManager)
                 .execute(transactionId -> {
                     accessControlManager.checkCanCreateView(new SecurityContext(transactionId, alice, queryId), aliceView);
                 }))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageStartingWith("Invalid JSON file");
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageStartingWith("Failed to parse JSON");
 
         copy(new File(getResourcePath("catalog.json")), configFile);
         sleep(2);
@@ -826,16 +827,16 @@ public class TestFileBasedSystemAccessControl
     public void testAllowModeIsRequired()
     {
         assertThatThrownBy(() -> newAccessControlManager(createTestTransactionManager(), "catalog_allow_unset.json"))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageStartingWith("Invalid JSON file");
+                .isInstanceOf(ProvisionException.class)
+                .hasMessageContaining("Failed to parse JSON");
     }
 
     @Test
     public void testAllowModeInvalidValue()
     {
         assertThatThrownBy(() -> newAccessControlManager(createTestTransactionManager(), "catalog_invalid_allow_value.json"))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageStartingWith("Invalid JSON file");
+                .isInstanceOf(ProvisionException.class)
+                .hasMessageContaining("Failed to parse JSON");
     }
 
     private AccessControlManager newAccessControlManager(TransactionManager transactionManager, String resourceName)
@@ -861,7 +862,7 @@ public class TestFileBasedSystemAccessControl
     public void parseUnknownRules()
     {
         assertThatThrownBy(() -> parse("src/test/resources/security-config-file-with-unknown-rules.json"))
-                .hasMessageContaining("Invalid JSON");
+                .hasMessageContaining("Failed to parse JSON");
     }
 
     private void parse(String path)

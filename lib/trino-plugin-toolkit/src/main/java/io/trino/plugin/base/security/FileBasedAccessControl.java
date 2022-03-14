@@ -28,12 +28,12 @@ import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.security.ViewExpression;
 import io.trino.spi.type.Type;
 
-import java.io.File;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -44,7 +44,6 @@ import static io.trino.plugin.base.security.TableAccessControlRule.TablePrivileg
 import static io.trino.plugin.base.security.TableAccessControlRule.TablePrivilege.OWNERSHIP;
 import static io.trino.plugin.base.security.TableAccessControlRule.TablePrivilege.SELECT;
 import static io.trino.plugin.base.security.TableAccessControlRule.TablePrivilege.UPDATE;
-import static io.trino.plugin.base.util.JsonUtils.parseJson;
 import static io.trino.spi.function.FunctionKind.TABLE;
 import static io.trino.spi.security.AccessDeniedException.denyAddColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCommentColumn;
@@ -105,12 +104,12 @@ public class FileBasedAccessControl
     private final List<SessionPropertyAccessControlRule> sessionPropertyRules;
     private final Set<AnySchemaPermissionsRule> anySchemaPermissionsRules;
 
-    public FileBasedAccessControl(CatalogName catalogName, File configFile)
+    public FileBasedAccessControl(CatalogName catalogName, Supplier<AccessControlRules> rulesProvider)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null").toString();
 
-        AccessControlRules rules = parseJson(configFile.toPath(), AccessControlRules.class);
-        checkArgument(!rules.hasRoleRules(), "File connector access control does not support role rules: %s", configFile);
+        AccessControlRules rules = rulesProvider.get();
+        checkArgument(!rules.hasRoleRules(), "File connector access control does not support role rules!");
 
         this.schemaRules = rules.getSchemaRules();
         this.tableRules = rules.getTableRules();

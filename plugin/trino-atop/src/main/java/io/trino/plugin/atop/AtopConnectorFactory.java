@@ -15,6 +15,7 @@ package io.trino.plugin.atop;
 
 import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
+import io.airlift.configuration.ConfigurationFactory;
 import io.airlift.json.JsonModule;
 import io.trino.plugin.atop.AtopConnectorConfig.AtopSecurity;
 import io.trino.plugin.base.CatalogNameModule;
@@ -68,7 +69,10 @@ public class AtopConnectorFactory
                             AtopConnectorConfig.class,
                             config -> config.getSecurity() == AtopSecurity.FILE,
                             binder -> {
-                                binder.install(new FileBasedAccessControlModule());
+                                FileBasedAccessControlModule module = new FileBasedAccessControlModule();
+                                module.setConfigurationFactory(new ConfigurationFactory(requiredConfig));
+                                module.configure(binder);
+                                binder.install(module);
                                 binder.install(new JsonModule());
                             }));
 

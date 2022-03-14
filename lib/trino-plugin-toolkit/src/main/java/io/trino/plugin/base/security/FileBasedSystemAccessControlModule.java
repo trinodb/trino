@@ -17,24 +17,28 @@ import com.google.common.collect.ImmutableList;
 import com.google.inject.Binder;
 import com.google.inject.Inject;
 import com.google.inject.Provides;
+import com.google.inject.Scopes;
+import com.google.inject.TypeLiteral;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.configuration.ConfigurationFactory;
+import io.airlift.http.client.HttpClientConfig;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.spi.TrinoException;
 import io.trino.spi.security.SystemAccessControl;
 
-import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 import java.util.regex.Pattern;
 
 import static com.google.common.base.Suppliers.memoizeWithExpiration;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.airlift.http.client.HttpClientBinder.httpClientBinder;
 import static io.trino.plugin.base.security.CatalogAccessControlRule.AccessMode.ALL;
 import static io.trino.plugin.base.security.FileBasedAccessControlConfig.SECURITY_REFRESH_PERIOD;
-import static io.trino.plugin.base.util.JsonUtils.parseJson;
 import static io.trino.spi.StandardErrorCode.CONFIGURATION_INVALID;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -54,14 +58,32 @@ public class FileBasedSystemAccessControlModule
     @Override
     public void setup(Binder binder)
     {
+        FileBasedAccessControlConfig configuration = buildConfigObject(FileBasedAccessControlConfig.class);
+        if (FileBasedAccessControlUtils.isRest(configuration)) {
+            binder.bind(new TypeLiteral<Supplier<FileBasedSystemAccessControlRules>>() {})
+                    .to(RestFileBasedSystemAccessControlRulesProvider.class)
+                    .in(Scopes.SINGLETON);
+            httpClientBinder(binder).bindHttpClient(HTTP_CLIENT_NAME, ForAccessControlRules.class)
+                    .withConfigDefaults(config -> config
+                            .setRequestTimeout(Duration.succinctDuration(10, TimeUnit.SECONDS))
+                            .setSelectorCount(1)
+                            .setMinThreads(1));
+            configBinder(binder).bindConfig(HttpClientConfig.class, HTTP_CLIENT_NAME);
+        }
+        else {
+            binder.bind(new TypeLiteral<Supplier<FileBasedSystemAccessControlRules>>() {})
+                    .toProvider(() -> new LocalFileAccessControlRulesProvider<>(configuration, FileBasedSystemAccessControlRules.class))
+                    .in(Scopes.SINGLETON);
+        }
         configBinder(binder).bindConfig(FileBasedAccessControlConfig.class);
     }
 
     @Inject
     @Provides
-    public SystemAccessControl getSystemAccessControl(FileBasedAccessControlConfig config)
+    public SystemAccessControl getSystemAccessControl(FileBasedAccessControlConfig config,
+            Supplier<FileBasedSystemAccessControlRules> rulesProvider)
     {
-        String configFileName = config.getConfigFile().getPath();
+        String configFilePath = config.getConfigFilePath();
 
         if (config.getRefreshPeriod() != null) {
             Duration refreshPeriod;
@@ -69,31 +91,32 @@ public class FileBasedSystemAccessControlModule
                 refreshPeriod = config.getRefreshPeriod();
             }
             catch (IllegalArgumentException e) {
-                throw invalidRefreshPeriodException(config, configFileName);
+                throw invalidRefreshPeriodException(config, configFilePath);
             }
             if (refreshPeriod.toMillis() == 0) {
-                throw invalidRefreshPeriodException(config, configFileName);
+                throw invalidRefreshPeriodException(config, configFilePath);
             }
             return ForwardingSystemAccessControl.of(memoizeWithExpiration(
-                    () -> {
-                        log.info("Refreshing system access control from %s", configFileName);
-                        return create(configFileName);
-                    },
-                    refreshPeriod.toMillis(),
-                    MILLISECONDS));
+                () -> {
+                    log.info("Refreshing system access control from %s", configFilePath);
+                    return create(rulesProvider);
+                },
+                refreshPeriod.toMillis(),
+                MILLISECONDS));
         }
-        return create(configFileName);
+        return create(rulesProvider);
     }
 
     private static TrinoException invalidRefreshPeriodException(FileBasedAccessControlConfig config, String configFileName)
     {
         return new TrinoException(
-                CONFIGURATION_INVALID,
-                format("Invalid duration value '%s' for property '%s' in '%s'", config.getRefreshPeriod(), SECURITY_REFRESH_PERIOD, configFileName));
+            CONFIGURATION_INVALID,
+            format("Invalid duration value '%s' for property '%s' in '%s'", config.getRefreshPeriod(), SECURITY_REFRESH_PERIOD, configFileName));
     }
 
-    private static SystemAccessControl create(String configFileName) {
-        FileBasedSystemAccessControlRules rules = parseJson(Paths.get(configFileName), FileBasedSystemAccessControlRules.class);
+    private static SystemAccessControl create(Supplier<FileBasedSystemAccessControlRules> rulesProvider)
+    {
+        FileBasedSystemAccessControlRules rules = rulesProvider.get();
         List<CatalogAccessControlRule> catalogAccessControlRules;
         if (rules.getCatalogRules().isPresent()) {
             ImmutableList.Builder<CatalogAccessControlRule> catalogRulesBuilder = ImmutableList.builder();
@@ -108,20 +131,21 @@ public class FileBasedSystemAccessControlModule
                     Optional.empty(),
                     Optional.of(Pattern.compile("system"))));
             catalogAccessControlRules = catalogRulesBuilder.build();
-        } else {
+        }
+        else {
             // if no rules are defined then all access is allowed
             catalogAccessControlRules = ImmutableList.of(CatalogAccessControlRule.ALLOW_ALL);
         }
         return FileBasedSystemAccessControl.builder()
-                .setCatalogRules(catalogAccessControlRules)
-                .setQueryAccessRules(rules.getQueryAccessRules())
-                .setImpersonationRules(rules.getImpersonationRules())
-                .setPrincipalUserMatchRules(rules.getPrincipalUserMatchRules())
-                .setSystemInformationRules(rules.getSystemInformationRules())
-                .setSchemaRules(rules.getSchemaRules().orElse(ImmutableList.of(CatalogSchemaAccessControlRule.ALLOW_ALL)))
-                .setTableRules(rules.getTableRules().orElse(ImmutableList.of(CatalogTableAccessControlRule.ALLOW_ALL)))
-                .setSessionPropertyRules(rules.getSessionPropertyRules().orElse(ImmutableList.of(SessionPropertyAccessControlRule.ALLOW_ALL)))
-                .setCatalogSessionPropertyRules(rules.getCatalogSessionPropertyRules().orElse(ImmutableList.of(CatalogSessionPropertyAccessControlRule.ALLOW_ALL)))
-                .build();
+            .setCatalogRules(catalogAccessControlRules)
+            .setQueryAccessRules(rules.getQueryAccessRules())
+            .setImpersonationRules(rules.getImpersonationRules())
+            .setPrincipalUserMatchRules(rules.getPrincipalUserMatchRules())
+            .setSystemInformationRules(rules.getSystemInformationRules())
+            .setSchemaRules(rules.getSchemaRules().orElse(ImmutableList.of(CatalogSchemaAccessControlRule.ALLOW_ALL)))
+            .setTableRules(rules.getTableRules().orElse(ImmutableList.of(CatalogTableAccessControlRule.ALLOW_ALL)))
+            .setSessionPropertyRules(rules.getSessionPropertyRules().orElse(ImmutableList.of(SessionPropertyAccessControlRule.ALLOW_ALL)))
+            .setCatalogSessionPropertyRules(rules.getCatalogSessionPropertyRules().orElse(ImmutableList.of(CatalogSessionPropertyAccessControlRule.ALLOW_ALL)))
+            .build();
     }
 }

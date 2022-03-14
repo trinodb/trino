@@ -33,8 +33,6 @@ import org.testng.Assert.ThrowingRunnable;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
-import java.io.File;
-import java.net.URISyntaxException;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
@@ -493,7 +491,7 @@ public class TestFileBasedAccessControl
     public void testInvalidRules()
     {
         assertThatThrownBy(() -> createAccessControl("invalid.json"))
-                .hasMessageContaining("Invalid JSON");
+                .hasMessageContaining("Failed to parse JSON");
     }
 
     @Test
@@ -553,13 +551,11 @@ public class TestFileBasedAccessControl
 
     private static ConnectorAccessControl createAccessControl(String fileName)
     {
-        try {
-            File configFile = new File(getResource(fileName).toURI());
-            return new FileBasedAccessControl(new CatalogName("test_catalog"), configFile);
-        }
-        catch (URISyntaxException e) {
-            throw new RuntimeException(e);
-        }
+        FileBasedAccessControlConfig config = new FileBasedAccessControlConfig()
+                .setConfigFilePath(getResource(fileName).getPath());
+
+        return new FileBasedAccessControl(new CatalogName("test_catalog"),
+                new LocalFileAccessControlRulesProvider<>(config, AccessControlRules.class));
     }
 
     private static void assertDenied(ThrowingRunnable runnable)
