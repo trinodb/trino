@@ -289,6 +289,12 @@ public class CachingJdbcClient
     }
 
     @Override
+    public JdbcTableHandle getTableHandle(ConnectorSession session, PreparedQuery preparedQuery)
+    {
+        return delegate.getTableHandle(session, preparedQuery); // TODO add caching?
+    }
+
+    @Override
     public void commitCreateTable(ConnectorSession session, JdbcOutputTableHandle handle)
     {
         delegate.commitCreateTable(session, handle);
@@ -542,6 +548,7 @@ public class CachingJdbcClient
 
     private void invalidateTableCaches(SchemaTableName schemaTableName)
     {
+        // TODO https://github.com/trinodb/trino/issues/12526: invalidate tableHandleCache for handles derived from opaque queries
         invalidateColumnsCache(schemaTableName);
         invalidateCache(tableHandleCache, key -> key.tableName.equals(schemaTableName));
         invalidateCache(tableNamesCache, key -> key.schemaName.equals(Optional.of(schemaTableName.getSchemaName())));
