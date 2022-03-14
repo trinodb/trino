@@ -27,16 +27,21 @@ import static java.util.Objects.requireNonNull;
 public class TestingHivePlugin
         implements Plugin
 {
-    private final HiveMetastore metastore;
+    private final Optional<HiveMetastore> metastore;
     private final Module module;
     private final Optional<CachingDirectoryLister> cachingDirectoryLister;
 
-    public TestingHivePlugin(HiveMetastore metastore)
+    public TestingHivePlugin()
     {
-        this(metastore, EMPTY_MODULE, Optional.empty());
+        this(Optional.empty(), EMPTY_MODULE, Optional.empty());
     }
 
-    public TestingHivePlugin(HiveMetastore metastore, Module module, Optional<CachingDirectoryLister> cachingDirectoryLister)
+    public TestingHivePlugin(HiveMetastore metastore)
+    {
+        this(Optional.of(metastore), EMPTY_MODULE, Optional.empty());
+    }
+
+    public TestingHivePlugin(Optional<HiveMetastore> metastore, Module module, Optional<CachingDirectoryLister> cachingDirectoryLister)
     {
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.module = requireNonNull(module, "module is null");
