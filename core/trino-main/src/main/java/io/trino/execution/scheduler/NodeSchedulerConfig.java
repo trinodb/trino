@@ -48,7 +48,7 @@ public class NodeSchedulerConfig
     private int maxUnacknowledgedSplitsPerTask = 500;
     private int maxAbsoluteFullNodesPerQuery = Integer.MAX_VALUE;
     private double maxFractionFullNodesPerQuery = 0.5;
-    private NodeAllocatorType nodeAllocatorType = NodeAllocatorType.FULL_NODE_CAPABLE;
+    private NodeAllocatorType nodeAllocatorType = NodeAllocatorType.BIN_PACKING;
 
     @NotNull
     public NodeSchedulerPolicy getNodeSchedulerPolicy()
@@ -198,7 +198,8 @@ public class NodeSchedulerConfig
     public enum NodeAllocatorType
     {
         FIXED_COUNT,
-        FULL_NODE_CAPABLE
+        FULL_NODE_CAPABLE,
+        BIN_PACKING
     }
 
     @NotNull
@@ -221,6 +222,8 @@ public class NodeSchedulerConfig
                 return NodeAllocatorType.FIXED_COUNT;
             case "full_node_capable":
                 return NodeAllocatorType.FULL_NODE_CAPABLE;
+            case "bin_packing":
+                return NodeAllocatorType.BIN_PACKING;
         }
         throw new IllegalArgumentException("Unknown node allocator type: " + nodeAllocatorType);
     }
