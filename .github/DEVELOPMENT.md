@@ -21,7 +21,7 @@ When writing a Git commit message, follow these [guidelines](https://chris.beams
 
 Pull requests are usually merged into `master` using the  [`rebase and merge`](https://docs.github.com/en/github/collaborating-with-pull-requests/incorporating-changes-from-a-pull-request/about-pull-request-merges#rebase-and-merge-your-pull-request-commits) strategy.
 
-A typical pull request should strive to contain a single logical change.
+A typical pull request should strive to contain a single logical change (but not necessarily a single commit).
 Unrelated changes should generally be extracted into their own PRs.
 
 If a pull request does consist of multiple commits, it is expected that every prefix of it is correct. That is,
