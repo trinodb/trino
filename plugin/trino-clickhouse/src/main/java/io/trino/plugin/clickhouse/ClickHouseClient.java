@@ -33,6 +33,7 @@ import io.trino.plugin.jdbc.JdbcExpression;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.LongWriteFunction;
+import io.trino.plugin.jdbc.ObjectWriteFunction;
 import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.RemoteTableName;
 import io.trino.plugin.jdbc.SliceWriteFunction;
@@ -53,6 +54,7 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
+import io.trino.spi.type.Int128;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
@@ -64,6 +66,9 @@ import javax.annotation.Nullable;
 import javax.inject.Inject;
 
 import java.io.UncheckedIOException;
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.math.MathContext;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.sql.Connection;
@@ -108,6 +113,7 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.doubleColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.doubleWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.integerColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.integerWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.longDecimalReadFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.longDecimalWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.realWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.shortDecimalWriteFunction;
@@ -148,6 +154,7 @@ import static java.lang.Math.max;
 import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.lang.System.arraycopy;
+import static java.math.RoundingMode.UNNECESSARY;
 import static java.time.ZoneOffset.UTC;
 import static java.util.Locale.ENGLISH;
 
@@ -155,6 +162,10 @@ public class ClickHouseClient
         extends BaseJdbcClient
 {
     private static final Splitter TABLE_PROPERTY_SPLITTER = Splitter.on(',').omitEmptyStrings().trimResults();
+
+    private static final DecimalType UINT64_TYPE = createDecimalType(20, 0);
+    private static final BigDecimal UINT64_MIN_VALUE = BigDecimal.ZERO;
+    private static final BigDecimal UINT64_MAX_VALUE = new BigDecimal("18446744073709551615");
 
     private static final long MIN_SUPPORTED_DATE_EPOCH = LocalDate.parse("1970-01-01").toEpochDay();
     private static final long MAX_SUPPORTED_DATE_EPOCH = LocalDate.parse("2106-02-07").toEpochDay(); // The max date is '2148-12-31' in new ClickHouse version
@@ -463,6 +474,11 @@ public class ClickHouseClient
         ClickHouseColumn column = ClickHouseColumn.of("", jdbcTypeName);
         ClickHouseDataType columnDataType = column.getDataType();
         switch (columnDataType) {
+            case UInt64:
+                return Optional.of(ColumnMapping.objectMapping(
+                        UINT64_TYPE,
+                        longDecimalReadFunction(UINT64_TYPE, UNNECESSARY),
+                        uInt64WriteFunction()));
             case IPv4:
                 return Optional.of(ipAddressColumnMapping("IPv4StringToNum(?)"));
             case IPv6:
@@ -625,6 +641,21 @@ public class ClickHouseClient
         }
         // include more than one column
         return Optional.of("(" + String.join(",", prop) + ")");
+    }
+
+    private static ObjectWriteFunction uInt64WriteFunction()
+    {
+        return ObjectWriteFunction.of(
+                Int128.class,
+                (statement, index, value) -> {
+                    BigInteger unscaledValue = value.toBigInteger();
+                    BigDecimal bigDecimal = new BigDecimal(unscaledValue, UINT64_TYPE.getScale(), new MathContext(UINT64_TYPE.getPrecision()));
+                    // ClickHouse stores incorrect results when the values are out of supported range.
+                    if (bigDecimal.compareTo(UINT64_MIN_VALUE) < 0 || bigDecimal.compareTo(UINT64_MAX_VALUE) > 0) {
+                        throw new TrinoException(INVALID_ARGUMENTS, format("Value must be between %s and %s in ClickHouse: %s", UINT64_MIN_VALUE, UINT64_MAX_VALUE, bigDecimal));
+                    }
+                    statement.setBigDecimal(index, bigDecimal);
+                });
     }
 
     private static ColumnMapping dateColumnMappingUsingLocalDate()
