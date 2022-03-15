@@ -165,6 +165,9 @@ public class ClickHouseClient
 {
     private static final Splitter TABLE_PROPERTY_SPLITTER = Splitter.on(',').omitEmptyStrings().trimResults();
 
+    private static final long UINT32_MIN_VALUE = 0L;
+    private static final long UINT32_MAX_VALUE = 4294967295L;
+
     private static final DecimalType UINT64_TYPE = createDecimalType(20, 0);
     private static final BigDecimal UINT64_MIN_VALUE = BigDecimal.ZERO;
     private static final BigDecimal UINT64_MAX_VALUE = new BigDecimal("18446744073709551615");
@@ -480,6 +483,8 @@ public class ClickHouseClient
         ClickHouseColumn column = ClickHouseColumn.of("", jdbcTypeName);
         ClickHouseDataType columnDataType = column.getDataType();
         switch (columnDataType) {
+            case UInt32:
+                return Optional.of(ColumnMapping.longMapping(BIGINT, ResultSet::getLong, uInt32WriteFunction()));
             case UInt64:
                 return Optional.of(ColumnMapping.objectMapping(
                         UINT64_TYPE,
@@ -647,6 +652,17 @@ public class ClickHouseClient
         }
         // include more than one column
         return Optional.of("(" + String.join(",", prop) + ")");
+    }
+
+    private static LongWriteFunction uInt32WriteFunction()
+    {
+        return (preparedStatement, parameterIndex, value) -> {
+            // ClickHouse stores incorrect results when the values are out of supported range.
+            if (value < UINT32_MIN_VALUE || value > UINT32_MAX_VALUE) {
+                throw new TrinoException(INVALID_ARGUMENTS, format("Value must be between %s and %s in ClickHouse: %s", UINT32_MIN_VALUE, UINT32_MAX_VALUE, value));
+            }
+            preparedStatement.setLong(parameterIndex, value);
+        };
     }
 
     private static ObjectWriteFunction uInt64WriteFunction()
