@@ -74,6 +74,18 @@ public class InMemoryNodeManager
         listeners.forEach(listener -> listener.accept(allNodes));
     }
 
+    public void removeNode(InternalNode node)
+    {
+        for (CatalogName catalog : ImmutableSet.copyOf(remoteNodes.keySet())) {
+            removeNode(catalog, node);
+        }
+    }
+
+    public void removeNode(CatalogName catalogName, InternalNode node)
+    {
+        remoteNodes.remove(catalogName, node);
+    }
+
     @Override
     public Set<InternalNode> getNodes(NodeState state)
     {
