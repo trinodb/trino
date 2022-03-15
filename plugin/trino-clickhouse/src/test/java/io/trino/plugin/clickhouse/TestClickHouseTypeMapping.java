@@ -231,6 +231,42 @@ public class TestClickHouseTypeMapping
     }
 
     @Test
+    public void testUint64()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("UInt64", "0", createDecimalType(20), "CAST('0' AS decimal(20, 0))") // min value in ClickHouse
+                .addRoundTrip("UInt64", "18446744073709551615", createDecimalType(20), "CAST('18446744073709551615' AS decimal(20, 0))") // max value in ClickHouse
+                .addRoundTrip("Nullable(UInt64)", "NULL", createDecimalType(20), "CAST(null AS decimal(20, 0))")
+                .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_uint64"));
+
+        SqlDataTypeTest.create()
+                .addRoundTrip("UInt64", "CAST('0' AS decimal(20, 0))", createDecimalType(20), "CAST('0' AS decimal(20, 0))") // min value in ClickHouse
+                .addRoundTrip("UInt64", "CAST('18446744073709551615' AS decimal(20, 0))", createDecimalType(20), "CAST('18446744073709551615' AS decimal(20, 0))") // max value in ClickHouse
+                .addRoundTrip("Nullable(UInt64)", "NULL", createDecimalType(20), "CAST(null AS decimal(20, 0))")
+                .execute(getQueryRunner(), clickhouseCreateTrinoInsert("tpch.test_uint64"));
+    }
+
+    @Test
+    public void testUnsupportedUint64()
+    {
+        // ClickHouse stores incorrect results when the values are out of supported range. This test should be fixed when ClickHouse changes the behavior.
+        SqlDataTypeTest.create()
+                .addRoundTrip("UInt64", "-1", createDecimalType(20), "CAST('18446744073709551615' AS decimal(20, 0))")
+                .addRoundTrip("UInt64", "18446744073709551616", createDecimalType(20), "CAST('0' AS decimal(20, 0))")
+                .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_unsupported_uint64"));
+
+        // Prevent writing incorrect results in the connector
+        try (TestTable table = new TestTable(clickhouseServer::execute, "tpch.test_unsupported_uint64", "(value UInt64) ENGINE=Log")) {
+            assertQueryFails(
+                    format("INSERT INTO %s VALUES (CAST('-1' AS decimal(20, 0)))", table.getName()),
+                    "Value must be between 0 and 18446744073709551615 in ClickHouse: -1");
+            assertQueryFails(
+                    format("INSERT INTO %s VALUES (CAST('18446744073709551616' AS decimal(20, 0)))", table.getName()),
+                    "Value must be between 0 and 18446744073709551615 in ClickHouse: 18446744073709551616");
+        }
+    }
+
+    @Test
     public void testReal()
     {
         SqlDataTypeTest.create()
