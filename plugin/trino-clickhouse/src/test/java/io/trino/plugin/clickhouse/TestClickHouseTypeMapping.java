@@ -231,6 +231,42 @@ public class TestClickHouseTypeMapping
     }
 
     @Test
+    public void testUint32()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("UInt32", "0", BIGINT, "BIGINT '0'") // min value in ClickHouse
+                .addRoundTrip("UInt32", "4294967295", BIGINT, "BIGINT '4294967295'") // max value in ClickHouse
+                .addRoundTrip("Nullable(UInt32)", "NULL", BIGINT, "CAST(null AS BIGINT)")
+                .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_uint32"));
+
+        SqlDataTypeTest.create()
+                .addRoundTrip("UInt32", "BIGINT '0'", BIGINT, "BIGINT '0'") // min value in ClickHouse
+                .addRoundTrip("UInt32", "BIGINT '4294967295'", BIGINT, "BIGINT '4294967295'") // max value in ClickHouse
+                .addRoundTrip("Nullable(UInt32)", "NULL", BIGINT, "CAST(null AS BIGINT)")
+                .execute(getQueryRunner(), clickhouseCreateTrinoInsert("tpch.test_uint32"));
+    }
+
+    @Test
+    public void testUnsupportedUint32()
+    {
+        // ClickHouse stores incorrect results when the values are out of supported range. This test should be fixed when ClickHouse changes the behavior.
+        SqlDataTypeTest.create()
+                .addRoundTrip("UInt32", "-1", BIGINT, "BIGINT '4294967295'")
+                .addRoundTrip("UInt32", "4294967296", BIGINT, "BIGINT '0'")
+                .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_unsupported_uint32"));
+
+        // Prevent writing incorrect results in the connector
+        try (TestTable table = new TestTable(clickhouseServer::execute, "tpch.test_unsupported_uint32", "(value UInt32) ENGINE=Log")) {
+            assertQueryFails(
+                    format("INSERT INTO %s VALUES (CAST('-1' AS BIGINT))", table.getName()),
+                    "Value must be between 0 and 4294967295 in ClickHouse: -1");
+            assertQueryFails(
+                    format("INSERT INTO %s VALUES (CAST('4294967296' AS BIGINT))", table.getName()),
+                    "Value must be between 0 and 4294967295 in ClickHouse: 4294967296");
+        }
+    }
+
+    @Test
     public void testUint64()
     {
         SqlDataTypeTest.create()
