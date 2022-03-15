@@ -9,6 +9,7 @@
  */
 package com.starburstdata.presto.plugin.snowflake;
 
+import com.starburstdata.presto.testing.Closer;
 import io.trino.Session;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.TimeZoneKey;
@@ -24,10 +25,12 @@ import io.trino.testing.datatype.DataType;
 import io.trino.testing.datatype.SqlDataTypeTest;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TrinoSqlExecutor;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.io.IOException;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -57,6 +60,8 @@ public abstract class BaseSnowflakeTypeMappingTest
     protected static final int MAX_VARCHAR = 16777216;
 
     protected final SnowflakeServer server = new SnowflakeServer();
+    protected final Closer closer = Closer.create();
+    protected final TestDatabase testDatabase = closer.register(server.createTestDatabase());
 
     private LocalDateTime dateTimeBeforeEpoch;
     private LocalDateTime dateTimeEpoch;
@@ -102,6 +107,13 @@ public abstract class BaseSnowflakeTypeMappingTest
 
         dateTimeGapInKathmandu = LocalDateTime.of(1986, 1, 1, 0, 13, 7);
         checkIsGap(kathmandu, dateTimeGapInKathmandu);
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void cleanup()
+            throws IOException
+    {
+        closer.close();
     }
 
     @Test
@@ -763,7 +775,7 @@ public abstract class BaseSnowflakeTypeMappingTest
     {
         return sql -> {
             try {
-                server.execute(format("USE SCHEMA %s", TEST_SCHEMA), sql);
+                server.executeOnDatabase(testDatabase.getName(), format("USE SCHEMA %s", TEST_SCHEMA), sql);
             }
             catch (SQLException e) {
                 throw new RuntimeException(e);

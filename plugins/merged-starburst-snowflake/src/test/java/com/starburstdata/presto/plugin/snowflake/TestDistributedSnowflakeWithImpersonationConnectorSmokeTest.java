@@ -11,6 +11,9 @@ package com.starburstdata.presto.plugin.snowflake;
 
 import io.trino.testing.QueryRunner;
 
+import java.util.Optional;
+
+import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.TEST_SCHEMA;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.distributedBuilder;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.impersonationEnabled;
 
@@ -22,7 +25,11 @@ public class TestDistributedSnowflakeWithImpersonationConnectorSmokeTest
             throws Exception
     {
         return distributedBuilder()
+                .withServer(server)
+                .withDatabase(Optional.of(testDatabase.getName()))
+                .withSchema(Optional.of(TEST_SCHEMA))
                 .withConnectorProperties(impersonationEnabled())
+                .withTpchTables(REQUIRED_TPCH_TABLES)
                 .build();
     }
 }

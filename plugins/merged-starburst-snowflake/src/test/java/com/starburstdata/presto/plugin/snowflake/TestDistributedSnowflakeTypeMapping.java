@@ -18,7 +18,9 @@ import org.apache.hadoop.hive.common.type.HiveVarchar;
 import org.testng.annotations.Test;
 
 import java.time.ZoneId;
+import java.util.Optional;
 
+import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.TEST_SCHEMA;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.distributedBuilder;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.impersonationDisabled;
 import static io.trino.spi.type.TimestampType.createTimestampType;
@@ -36,6 +38,8 @@ public class TestDistributedSnowflakeTypeMapping
     {
         return distributedBuilder()
                 .withServer(server)
+                .withDatabase(Optional.of(testDatabase.getName()))
+                .withSchema(Optional.of(TEST_SCHEMA))
                 .withConnectorProperties(impersonationDisabled())
                 .build();
     }

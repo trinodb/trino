@@ -10,6 +10,7 @@
 package com.starburstdata.presto.plugin.snowflake;
 
 import com.google.common.collect.ImmutableList;
+import com.starburstdata.presto.testing.Closer;
 import io.trino.Session;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
 import io.trino.spi.type.TimeZoneKey;
@@ -21,8 +22,10 @@ import io.trino.testing.TestingSession;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import org.testng.SkipException;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
+import java.io.IOException;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -52,7 +55,9 @@ public abstract class BaseSnowflakeConnectorTest
         extends BaseJdbcConnectorTest
 {
     protected final SnowflakeServer server = new SnowflakeServer();
-    protected final SqlExecutor snowflakeExecutor = server::safeExecute;
+    protected final Closer closer = Closer.create();
+    protected final TestDatabase testDatabase = closer.register(server.createTestDatabase());
+    protected final SqlExecutor snowflakeExecutor = (sql) -> server.safeExecuteOnDatabase(testDatabase.getName(), sql);
 
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
@@ -75,6 +80,13 @@ public abstract class BaseSnowflakeConnectorTest
             default:
                 return super.hasBehavior(connectorBehavior);
         }
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void cleanup()
+            throws IOException
+    {
+        closer.close();
     }
 
     @Override
@@ -119,7 +131,7 @@ public abstract class BaseSnowflakeConnectorTest
     protected TestTable createTableWithDefaultColumns()
     {
         return new TestTable(
-                server::safeExecute,
+                (sql) -> server.safeExecuteOnDatabase(testDatabase.getName(), sql),
                 format("%s.test_table_with_default_columns", TEST_SCHEMA),
                 "(col_required BIGINT NOT NULL," +
                         "col_nullable BIGINT," +
@@ -254,10 +266,10 @@ public abstract class BaseSnowflakeConnectorTest
             throws SQLException
     {
         String viewName = "test_view_" + randomTableSuffix();
-        server.execute(format("CREATE VIEW test_schema_2.%s AS SELECT * FROM orders", viewName));
+        server.executeOnDatabase(testDatabase.getName(), format("CREATE VIEW %s.%s AS SELECT * FROM orders", TEST_SCHEMA, viewName));
         assertTrue(getQueryRunner().tableExists(getSession(), viewName));
         assertQuery(format("SELECT orderkey FROM %s", viewName), "SELECT orderkey FROM orders");
-        server.execute(format("DROP VIEW test_schema_2.%s", viewName));
+        server.executeOnDatabase(testDatabase.getName(), format("DROP VIEW %s.%s", TEST_SCHEMA, viewName));
     }
 
     @Test
@@ -265,7 +277,7 @@ public abstract class BaseSnowflakeConnectorTest
     {
         String tableName = TEST_SCHEMA + ".test_predicate_pushdown_numeric";
         try (TestTable testTable = new TestTable(
-                snowflakeExecutor,
+                sql -> server.safeExecuteOnDatabase(testDatabase.getName(), sql),
                 tableName,
                 "(c_binary_float FLOAT, c_binary_double DOUBLE, c_number NUMBER(5,3))",
                 ImmutableList.of("5.0, 20.233, 5.0"))) {

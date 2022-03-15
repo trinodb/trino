@@ -9,17 +9,20 @@
  */
 package com.starburstdata.presto.plugin.snowflake;
 
+import com.starburstdata.presto.testing.Closer;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
+import java.io.IOException;
 import java.util.Optional;
 
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.ALICE_USER;
+import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.TEST_SCHEMA;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.createSessionForUser;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.impersonationDisabled;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.jdbcBuilder;
-import static com.starburstdata.presto.plugin.snowflake.SnowflakeServer.PUBLIC_DB;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeServer.ROLE;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeServer.USER;
 import static java.lang.String.format;
@@ -29,6 +32,8 @@ public class TestJdbcSnowflakeWithFixedRole
         extends AbstractTestQueryFramework
 {
     protected final SnowflakeServer server = new SnowflakeServer();
+    private final Closer closer = Closer.create();
+    private final TestDatabase testDB = closer.register(server.createTestDatabase());
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -37,9 +42,17 @@ public class TestJdbcSnowflakeWithFixedRole
         return jdbcBuilder()
                 .withServer(server)
                 .withConnectorProperties(impersonationDisabled())
-                .withDatabase(Optional.of(PUBLIC_DB))
+                .withDatabase(Optional.of(testDB.getName()))
+                .withSchema(Optional.of(TEST_SCHEMA))
                 .withConnectionPooling()
                 .build();
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void cleanup()
+            throws IOException
+    {
+        closer.close();
     }
 
     @Test

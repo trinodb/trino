@@ -9,29 +9,53 @@
  */
 package com.starburstdata.presto.plugin.snowflake;
 
+import com.google.common.collect.ImmutableList;
+import com.starburstdata.presto.testing.Closer;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
+import java.io.IOException;
+import java.util.Optional;
+
+import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.TEST_SCHEMA;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.distributedBuilder;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.oktaImpersonationEnabled;
+import static io.trino.tpch.TpchTable.NATION;
+import static io.trino.tpch.TpchTable.ORDERS;
 import static org.testng.Assert.assertEquals;
 
 public class TestSnowflakeJmxStats
         extends AbstractTestQueryFramework
 {
+    protected final SnowflakeServer server = new SnowflakeServer();
+    protected final Closer closer = Closer.create();
+    protected final TestDatabase testDatabase = closer.register(server.createDatabase("TEST"));
+
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
         return distributedBuilder()
+                .withServer(server)
+                .withDatabase(Optional.of(testDatabase.getName()))
+                .withSchema(Optional.of(TEST_SCHEMA))
                 // using single worker instance, because workers overwrites their JMX stats
                 .withConnectorProperties(oktaImpersonationEnabled(false))
                 .withOktaCredentials(true)
                 .withNodeCount(1)
+                .withTpchTables(ImmutableList.of(ORDERS, NATION))
                 .build();
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void cleanup()
+            throws IOException
+    {
+        closer.close();
     }
 
     @Test

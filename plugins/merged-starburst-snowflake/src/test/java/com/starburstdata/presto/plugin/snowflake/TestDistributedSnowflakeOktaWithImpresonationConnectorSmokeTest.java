@@ -14,6 +14,8 @@ import io.trino.Session;
 import io.trino.spi.security.Identity;
 import io.trino.testing.QueryRunner;
 
+import java.util.Optional;
+
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.TEST_SCHEMA;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.distributedBuilder;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.oktaImpersonationEnabled;
@@ -24,16 +26,17 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 public class TestDistributedSnowflakeOktaWithImpresonationConnectorSmokeTest
         extends BaseDistributedSnowflakeConnectorSmokeTest
 {
-    private final SnowflakeServer server = new SnowflakeServer();
-
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
         return distributedBuilder()
                 .withServer(server)
+                .withDatabase(Optional.of(testDatabase.getName()))
+                .withSchema(Optional.of(TEST_SCHEMA))
                 .withConnectorProperties(oktaImpersonationEnabled(true))
                 .withOktaCredentials(true)
+                .withTpchTables(REQUIRED_TPCH_TABLES)
                 .build();
     }
 

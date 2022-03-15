@@ -9,19 +9,24 @@
  */
 package com.starburstdata.presto.plugin.snowflake;
 
+import com.google.common.collect.ImmutableList;
+import com.starburstdata.presto.testing.Closer;
 import io.trino.Session;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.io.IOException;
 import java.sql.SQLException;
+import java.util.Optional;
 
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.TEST_SCHEMA;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.impersonationDisabled;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.jdbcBuilder;
-import static com.starburstdata.presto.plugin.snowflake.SnowflakeServer.TEST_DATABASE;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeServer.TEST_WAREHOUSE;
+import static io.trino.tpch.TpchTable.NATION;
 import static java.lang.String.format;
 
 public class TestJdbcSnowflakeWarehouseSwitching
@@ -31,6 +36,8 @@ public class TestJdbcSnowflakeWarehouseSwitching
     protected static final String INVALID_WAREHOUSE = "NOT_EXISTING_WH";
 
     protected final SnowflakeServer server = new SnowflakeServer();
+    private final Closer closer = Closer.create();
+    private final TestDatabase testDB = closer.register(server.createTestDatabase());
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -38,8 +45,11 @@ public class TestJdbcSnowflakeWarehouseSwitching
     {
         return jdbcBuilder()
                 .withServer(server)
+                .withDatabase(Optional.of(testDB.getName()))
+                .withSchema(Optional.of(TEST_SCHEMA))
                 .withConnectorProperties(impersonationDisabled())
                 .withConnectionPooling()
+                .withTpchTables(ImmutableList.of(NATION))
                 .build();
     }
 
@@ -47,7 +57,14 @@ public class TestJdbcSnowflakeWarehouseSwitching
     public void initialize()
             throws SQLException
     {
-        server.executeOnDatabase(TEST_DATABASE, format("CREATE VIEW IF NOT EXISTS %s.current_warehouse (warehouse) AS SELECT current_warehouse();", TEST_SCHEMA));
+        server.executeOnDatabase(testDB.getName(), format("CREATE VIEW IF NOT EXISTS %s.current_warehouse (warehouse) AS SELECT current_warehouse();", TEST_SCHEMA));
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void cleanup()
+            throws IOException
+    {
+        closer.close();
     }
 
     @Test

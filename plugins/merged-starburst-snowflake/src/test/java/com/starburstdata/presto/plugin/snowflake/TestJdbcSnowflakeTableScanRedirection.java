@@ -11,7 +11,12 @@ package com.starburstdata.presto.plugin.snowflake;
 
 import com.google.common.collect.ImmutableMap;
 import com.starburstdata.presto.redirection.AbstractTableScanRedirectionTest;
+import com.starburstdata.presto.testing.Closer;
 import io.trino.testing.QueryRunner;
+import org.testng.annotations.AfterClass;
+
+import java.io.IOException;
+import java.util.Optional;
 
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.TEST_SCHEMA;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.impersonationDisabled;
@@ -21,6 +26,8 @@ public class TestJdbcSnowflakeTableScanRedirection
         extends AbstractTableScanRedirectionTest
 {
     protected final SnowflakeServer server = new SnowflakeServer();
+    protected final Closer closer = Closer.create();
+    protected final TestDatabase testDatabase = closer.register(server.createTestDatabase());
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -28,11 +35,21 @@ public class TestJdbcSnowflakeTableScanRedirection
     {
         return jdbcBuilder()
                 .withServer(server)
+                .withDatabase(Optional.of(testDatabase.getName()))
+                .withSchema(Optional.of(TEST_SCHEMA))
                 .withConnectorProperties(ImmutableMap.<String, String>builder()
                         .putAll(impersonationDisabled())
                         .putAll(getRedirectionProperties("snowflake", TEST_SCHEMA))
                         .buildOrThrow())
+                .withTpchTables(REQUIRED_TPCH_TABLES)
                 .build();
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void cleanup()
+            throws IOException
+    {
+        closer.close();
     }
 
     @Override

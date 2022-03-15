@@ -16,6 +16,8 @@ import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
+
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.TEST_SCHEMA;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.distributedBuilder;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.oktaImpersonationEnabled;
@@ -28,28 +30,29 @@ import static java.lang.String.format;
 public class TestDistributedSnowflakeOktaNoImpersonationPoolingConnectorSmokeTest
         extends BaseDistributedSnowflakeConnectorSmokeTest
 {
-    private final SnowflakeServer server = new SnowflakeServer();
+    private SnowflakeQueryRunner.Builder getBaseBuilder()
+    {
+        return distributedBuilder()
+                .withServer(server)
+                .withDatabase(Optional.of(testDatabase.getName()))
+                .withSchema(Optional.of(TEST_SCHEMA))
+                .withConnectorProperties(oktaImpersonationEnabled(false))
+                .withOktaCredentials(true)
+                .withTpchTables(REQUIRED_TPCH_TABLES);
+    }
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return distributedBuilder()
-                .withServer(server)
-                .withConnectorProperties(oktaImpersonationEnabled(false))
-                .withOktaCredentials(true)
-                .withConnectionPooling()
-                .build();
+        return getBaseBuilder().withConnectionPooling().build();
     }
 
     @Test
     public void testOktaWithoutConnectionPooling()
             throws Exception
     {
-        try (DistributedQueryRunner queryRunner = distributedBuilder()
-                .withConnectorProperties(oktaImpersonationEnabled(false))
-                .withOktaCredentials(true)
-                .build()) {
+        try (DistributedQueryRunner queryRunner = getBaseBuilder().build()) {
             Session session = getSession();
             String tableName = "test_insert_" + randomTableSuffix();
             queryRunner.execute(session, format("CREATE TABLE test_schema_2.%s (x decimal(19, 0), y varchar(100))", tableName));

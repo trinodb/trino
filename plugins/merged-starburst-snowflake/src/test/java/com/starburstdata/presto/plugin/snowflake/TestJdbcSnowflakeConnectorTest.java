@@ -22,6 +22,7 @@ import java.util.Optional;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.TEST_SCHEMA;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.impersonationDisabled;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.jdbcBuilder;
+import static com.starburstdata.presto.plugin.snowflake.SnowflakeServer.TEST_DATABASE;
 import static java.lang.String.format;
 
 public class TestJdbcSnowflakeConnectorTest
@@ -33,8 +34,11 @@ public class TestJdbcSnowflakeConnectorTest
     {
         return jdbcBuilder()
                 .withServer(server)
+                .withDatabase(Optional.of(testDatabase.getName()))
+                .withSchema(Optional.of(TEST_SCHEMA))
                 .withConnectorProperties(impersonationDisabled())
                 .withConnectionPooling()
+                .withTpchTables(REQUIRED_TPCH_TABLES)
                 .build();
     }
 
@@ -59,7 +63,11 @@ public class TestJdbcSnowflakeConnectorTest
                     .setIdentity(Identity.ofUser(SnowflakeServer.USER))
                     .build();
             String tableName = TEST_SCHEMA + ".test_insert_";
-            try (TestTable testTable = new TestTable(snowflakeExecutor, tableName, "(x decimal(19, 0), y varchar(100))", ImmutableList.of("123, 'test'"))) {
+            // this test uses the role: test_role whose default database is "TEST_DATABASE"
+            try (TestTable testTable = new TestTable(sql -> server.safeExecuteOnDatabase(TEST_DATABASE, sql),
+                    tableName,
+                    "(x decimal(19, 0), y varchar(100))",
+                    ImmutableList.of("123, 'test'"))) {
                 queryRunner.execute(session, format("SELECT * FROM %s", testTable.getName()));
             }
         }

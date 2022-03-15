@@ -19,15 +19,18 @@ import io.trino.testing.QueryRunner;
 import io.trino.testing.ResultWithQueryId;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
+import io.trino.tpch.TpchTable;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.TEST_SCHEMA;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.distributedBuilder;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.impersonationDisabled;
 import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
+import static io.trino.tpch.TpchTable.LINE_ITEM;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 
@@ -40,8 +43,14 @@ public class TestDistributedSnowflakeConnectorTest
     {
         return distributedBuilder()
                 .withServer(server)
+                .withDatabase(Optional.of(testDatabase.getName()))
+                .withSchema(Optional.of(TEST_SCHEMA))
                 .withConnectorProperties(impersonationDisabled())
                 .withConnectionPooling()
+                .withTpchTables(ImmutableList.<TpchTable<?>>builder()
+                        .addAll(REQUIRED_TPCH_TABLES)
+                        .add(LINE_ITEM)
+                        .build())
                 .build();
     }
 
@@ -66,6 +75,8 @@ public class TestDistributedSnowflakeConnectorTest
     @Test
     public void testLargeTableScan()
     {
+        // The rest of the tests use test TPCH data loaded into a temporary database that gets cleaned up
+        // However because TPCH_SF10 is large this table was created manually in the static db TEST_DB
         // Use "CREATE TABLE TEST_DB.TPCH_SF10.lineitem AS SELECT * FROM SNOWFLAKE_SAMPLE_DATA.TPCH_SF10.lineitem" in Snowflake UI to create test table
         assertQuery("SELECT " +
                         "count(l_orderkey + 1), " +
@@ -84,7 +95,7 @@ public class TestDistributedSnowflakeConnectorTest
                         "count(l_shipinstruct || 'F'), " +
                         "count(l_shipmode || 'F'), " +
                         "count(l_comment || 'F') " +
-                        "FROM tpch_sf10.lineitem",
+                        "FROM test_db.tpch_sf10.lineitem",
                 "VALUES (59986052, 59986052, 59986052, 59986052, 59986052, 59986052, 59986052, 59986052, " +
                         "59986052, 59986052, 59986052, 59986052, 59986052, 59986052, 59986052, 59986052)");
     }

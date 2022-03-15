@@ -18,7 +18,9 @@ import io.trino.plugin.jmx.JmxPlugin;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.spi.security.Identity;
 import io.trino.testing.DistributedQueryRunner;
+import io.trino.tpch.TpchTable;
 
+import java.util.ArrayList;
 import java.util.Map;
 import java.util.Optional;
 
@@ -33,11 +35,13 @@ import static com.starburstdata.presto.plugin.snowflake.SnowflakeServer.OKTA_PAS
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeServer.OKTA_URL;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeServer.OKTA_USER;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeServer.PASSWORD;
-import static com.starburstdata.presto.plugin.snowflake.SnowflakeServer.PUBLIC_DB;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeServer.TEST_DATABASE;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeServer.TEST_WAREHOUSE;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeServer.USER;
+import static com.starburstdata.presto.redirection.AbstractTableScanRedirectionTest.redirectionDisabled;
 import static io.airlift.testing.Closeables.closeAllSuppress;
+import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.Objects.requireNonNull;
 
@@ -107,16 +111,18 @@ class SnowflakeQueryRunner
             Map<String, String> connectorProperties,
             Map<String, String> extraProperties,
             int nodeCount,
-            boolean useOktaCredentials)
+            boolean useOktaCredentials,
+            Iterable<TpchTable<?>> tpchTables)
             throws Exception
     {
         server.init();
         // Create view used for testing user/role impersonation
-        server.executeOnDatabase(
-                PUBLIC_DB,
+        database.ifPresent(databaseName -> server.safeExecuteOnDatabase(
+                databaseName,
                 "CREATE VIEW IF NOT EXISTS public.user_context (user, role) AS SELECT current_user(), current_role();",
-                "GRANT SELECT ON VIEW USER_CONTEXT TO ROLE \"PUBLIC\";");
-        DistributedQueryRunner.Builder<?> builder = StarburstDistributedQueryRunner.builder(createSession(useOktaCredentials))
+                "GRANT SELECT ON VIEW USER_CONTEXT TO ROLE \"PUBLIC\";"));
+
+        DistributedQueryRunner.Builder builder = StarburstDistributedQueryRunner.builder(createSession(useOktaCredentials))
                 .setNodeCount(nodeCount);
         extraProperties.forEach(builder::addExtraProperty);
         DistributedQueryRunner queryRunner = builder.build();
@@ -135,6 +141,9 @@ class SnowflakeQueryRunner
 
             queryRunner.installPlugin(new TestingSnowflakePlugin());
             queryRunner.createCatalog(SNOWFLAKE_CATALOG, connectorName, properties.buildOrThrow());
+
+            copyTpchTables(queryRunner, TPCH_CATALOG, TINY_SCHEMA_NAME, redirectionDisabled(queryRunner.getDefaultSession()), tpchTables);
+
             queryRunner.installPlugin(new JmxPlugin());
             queryRunner.createCatalog("jmx", "jmx", ImmutableMap.of());
         }
@@ -172,10 +181,12 @@ class SnowflakeQueryRunner
         private SnowflakeServer server = new SnowflakeServer();
         private Optional<String> warehouseName = Optional.of(TEST_WAREHOUSE);
         private Optional<String> databaseName = Optional.of(TEST_DATABASE);
+        private Optional<String> schemaName = Optional.empty();
         private ImmutableMap.Builder<String, String> connectorProperties = ImmutableMap.builder();
         private ImmutableMap.Builder<String, String> extraProperties = ImmutableMap.builder();
         private int nodeCount = 3;
         private boolean useOktaCredentials;
+        private Iterable<TpchTable<?>> tpchTables = new ArrayList<>();
 
         private Builder(String connectorName)
         {
@@ -197,6 +208,12 @@ class SnowflakeQueryRunner
         public Builder withDatabase(Optional<String> databaseName)
         {
             this.databaseName = databaseName;
+            return this;
+        }
+
+        public Builder withSchema(Optional<String> schemaName)
+        {
+            this.schemaName = schemaName;
             return this;
         }
 
@@ -231,10 +248,19 @@ class SnowflakeQueryRunner
             return this;
         }
 
+        public Builder withTpchTables(Iterable<TpchTable<?>> tpchTables)
+        {
+            this.tpchTables = tpchTables;
+            return this;
+        }
+
         public DistributedQueryRunner build()
                 throws Exception
         {
-            return createSnowflakeQueryRunner(server, connectorName, warehouseName, databaseName, connectorProperties.buildOrThrow(), extraProperties.buildOrThrow(), nodeCount, useOktaCredentials);
+            if (databaseName.isPresent() && schemaName.isPresent()) {
+                server.createSchema(databaseName.get(), schemaName.get());
+            }
+            return createSnowflakeQueryRunner(server, connectorName, warehouseName, databaseName, connectorProperties.buildOrThrow(), extraProperties.buildOrThrow(), nodeCount, useOktaCredentials, tpchTables);
         }
     }
 
@@ -254,10 +280,6 @@ class SnowflakeQueryRunner
                 .withExtraProperties(ImmutableMap.of("http-server.http.port", "8080"))
                 .build();
 
-        // Uncomment below when you need to recreate the data set. Be careful not to delete shared testing resources.
-        //server.dropSchemaIfExistsCascade(TEST_SCHEMA);
-        //server.createSchema(TEST_SCHEMA);
-        //copyTpchTables(queryRunner, TPCH_CATALOG, TEST_SCHEMA, queryRunner.getDefaultSession(), TpchTable.getTables());
         Logger log = Logger.get(SnowflakeQueryRunner.class);
         log.info("======== SERVER STARTED ========");
         log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());

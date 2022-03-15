@@ -9,15 +9,23 @@
  */
 package com.starburstdata.presto.plugin.snowflake;
 
+import com.starburstdata.presto.testing.Closer;
 import io.trino.testing.BaseConnectorSmokeTest;
 import io.trino.testing.TestingConnectorBehavior;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
+
+import java.io.IOException;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 public abstract class BaseDistributedSnowflakeConnectorSmokeTest
         extends BaseConnectorSmokeTest
 {
+    protected final SnowflakeServer server = new SnowflakeServer();
+    protected final Closer closer = Closer.create();
+    protected final TestDatabase testDatabase = closer.register(server.createTestDatabase());
+
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
@@ -27,6 +35,13 @@ public abstract class BaseDistributedSnowflakeConnectorSmokeTest
             default:
                 return super.hasBehavior(connectorBehavior);
         }
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void cleanup()
+            throws IOException
+    {
+        closer.close();
     }
 
     @Test

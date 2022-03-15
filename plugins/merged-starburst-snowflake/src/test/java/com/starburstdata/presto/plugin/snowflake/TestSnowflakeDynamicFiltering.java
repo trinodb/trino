@@ -9,22 +9,45 @@
  */
 package com.starburstdata.presto.plugin.snowflake;
 
+import com.google.common.collect.ImmutableList;
 import com.starburstdata.presto.plugin.jdbc.dynamicfiltering.AbstractDynamicFilteringTest;
+import com.starburstdata.presto.testing.Closer;
 import io.trino.testing.QueryRunner;
+import org.testng.annotations.AfterClass;
 
+import java.io.IOException;
+import java.util.Optional;
+
+import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.TEST_SCHEMA;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.distributedBuilder;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.impersonationDisabled;
+import static io.trino.tpch.TpchTable.ORDERS;
 
 public class TestSnowflakeDynamicFiltering
         extends AbstractDynamicFilteringTest
 {
+    protected final SnowflakeServer server = new SnowflakeServer();
+    protected final Closer closer = Closer.create();
+    protected final TestDatabase testDatabase = closer.register(server.createDatabase("TEST"));
+
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
         return distributedBuilder()
+                .withServer(server)
+                .withDatabase(Optional.of(testDatabase.getName()))
+                .withSchema(Optional.of(TEST_SCHEMA))
                 .withConnectorProperties(impersonationDisabled())
+                .withTpchTables(ImmutableList.of(ORDERS))
                 .build();
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void cleanup()
+            throws IOException
+    {
+        closer.close();
     }
 
     @Override

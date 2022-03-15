@@ -11,6 +11,9 @@ package com.starburstdata.presto.plugin.snowflake;
 
 import io.trino.testing.QueryRunner;
 
+import java.util.Optional;
+
+import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.TEST_SCHEMA;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.impersonationDisabled;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.jdbcBuilder;
 
@@ -23,6 +26,8 @@ public class TestJdbcSnowflakeTypeMapping
     {
         return jdbcBuilder()
                 .withServer(server)
+                .withDatabase(Optional.of(testDatabase.getName()))
+                .withSchema(Optional.of(TEST_SCHEMA))
                 .withConnectorProperties(impersonationDisabled())
                 .build();
     }

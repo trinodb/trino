@@ -48,7 +48,8 @@ class SnowflakeServer
 
     static final String TEST_WAREHOUSE = "TEST_WH";
     static final String TEST_DATABASE = "TEST_DB";
-    static final String PUBLIC_DB = "DEMO_DB";
+
+    static final String databasePrefix = "TMP_SEP_CICD_";
 
     void init()
             throws SQLException
@@ -59,16 +60,20 @@ class SnowflakeServer
         execute("SELECT 1");
     }
 
-    void createSchema(String schemaName)
-            throws SQLException
+    TestDatabase createDatabase(String databaseName)
     {
-        execute(format("CREATE SCHEMA %s", schemaName));
+        return new TestDatabase(this::safeExecute, databasePrefix + databaseName);
     }
 
-    void dropSchemaIfExistsCascade(String schemaName)
+    TestDatabase createTestDatabase()
+    {
+        return createDatabase("TEST");
+    }
+
+    void createSchema(String databaseName, String schemaName)
             throws SQLException
     {
-        execute(format("DROP SCHEMA IF EXISTS %s CASCADE", schemaName));
+        executeOnDatabase(databaseName, format("CREATE SCHEMA IF NOT EXISTS %s", schemaName));
     }
 
     void execute(String... sqls)
@@ -94,10 +99,20 @@ class SnowflakeServer
         }
     }
 
-    void safeExecute(String sql)
+    private void safeExecute(String sql)
     {
         try {
             execute(sql);
+        }
+        catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    void safeExecuteOnDatabase(String database, String... sqls)
+    {
+        try {
+            executeOnDatabase(database, sqls);
         }
         catch (SQLException e) {
             throw new RuntimeException(e);
