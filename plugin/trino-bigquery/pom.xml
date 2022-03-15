@@ -405,6 +405,7 @@
                         <configuration>
                             <includes>
                                 <include>**/TestBigQueryCaseInsensitiveMapping.java</include>
+                                <include>**/TestBigQueryInstanceCleaner.java</include>
                             </includes>
                         </configuration>
                     </plugin>
