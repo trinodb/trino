@@ -231,6 +231,42 @@ public class TestClickHouseTypeMapping
     }
 
     @Test
+    public void testUint16()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("UInt16", "0", INTEGER, "0") // min value in ClickHouse
+                .addRoundTrip("UInt16", "65535", INTEGER, "65535") // max value in ClickHouse
+                .addRoundTrip("Nullable(UInt16)", "NULL", INTEGER, "CAST(null AS INTEGER)")
+                .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_uint16"));
+
+        SqlDataTypeTest.create()
+                .addRoundTrip("UInt16", "0", INTEGER, "0") // min value in ClickHouse
+                .addRoundTrip("UInt16", "65535", INTEGER, "65535") // max value in ClickHouse
+                .addRoundTrip("Nullable(UInt16)", "NULL", INTEGER, "CAST(null AS INTEGER)")
+                .execute(getQueryRunner(), clickhouseCreateTrinoInsert("tpch.test_uint16"));
+    }
+
+    @Test
+    public void testUnsupportedUint16()
+    {
+        // ClickHouse stores incorrect results when the values are out of supported range. This test should be fixed when ClickHouse changes the behavior.
+        SqlDataTypeTest.create()
+                .addRoundTrip("UInt16", "-1", INTEGER, "65535")
+                .addRoundTrip("UInt16", "65536", INTEGER, "0")
+                .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_unsupported_uint16"));
+
+        // Prevent writing incorrect results in the connector
+        try (TestTable table = new TestTable(clickhouseServer::execute, "tpch.test_unsupported_uint16", "(value UInt16) ENGINE=Log")) {
+            assertQueryFails(
+                    format("INSERT INTO %s VALUES (-1)", table.getName()),
+                    "Value must be between 0 and 65535 in ClickHouse: -1");
+            assertQueryFails(
+                    format("INSERT INTO %s VALUES (65536)", table.getName()),
+                    "Value must be between 0 and 65535 in ClickHouse: 65536");
+        }
+    }
+
+    @Test
     public void testUint32()
     {
         SqlDataTypeTest.create()

@@ -151,6 +151,7 @@ import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
 import static java.lang.Math.max;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.lang.System.arraycopy;
@@ -162,6 +163,9 @@ public class ClickHouseClient
         extends BaseJdbcClient
 {
     private static final Splitter TABLE_PROPERTY_SPLITTER = Splitter.on(',').omitEmptyStrings().trimResults();
+
+    private static final long UINT16_MIN_VALUE = 0L;
+    private static final long UINT16_MAX_VALUE = 65535L;
 
     private static final long UINT32_MIN_VALUE = 0L;
     private static final long UINT32_MAX_VALUE = 4294967295L;
@@ -477,6 +481,8 @@ public class ClickHouseClient
         ClickHouseColumn column = ClickHouseColumn.of("", jdbcTypeName);
         ClickHouseDataType columnDataType = column.getDataType();
         switch (columnDataType) {
+            case UInt16:
+                return Optional.of(ColumnMapping.longMapping(INTEGER, ResultSet::getInt, uInt16WriteFunction()));
             case UInt32:
                 return Optional.of(ColumnMapping.longMapping(BIGINT, ResultSet::getLong, uInt32WriteFunction()));
             case UInt64:
@@ -646,6 +652,17 @@ public class ClickHouseClient
         }
         // include more than one column
         return Optional.of("(" + String.join(",", prop) + ")");
+    }
+
+    private static LongWriteFunction uInt16WriteFunction()
+    {
+        return (statement, index, value) -> {
+            // ClickHouse stores incorrect results when the values are out of supported range.
+            if (value < UINT16_MIN_VALUE || value > UINT16_MAX_VALUE) {
+                throw new TrinoException(INVALID_ARGUMENTS, format("Value must be between %s and %s in ClickHouse: %s", UINT16_MIN_VALUE, UINT16_MAX_VALUE, value));
+            }
+            statement.setInt(index, toIntExact(value));
+        };
     }
 
     private static LongWriteFunction uInt32WriteFunction()
