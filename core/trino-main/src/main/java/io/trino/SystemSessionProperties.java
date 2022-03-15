@@ -708,7 +708,7 @@ public final class SystemSessionProperties
                         "Retry policy",
                         RetryPolicy.class,
                         queryManagerConfig.getRetryPolicy(),
-                        false),
+                        true),
                 integerProperty(
                         QUERY_RETRY_ATTEMPTS,
                         "Maximum number of query retry attempts",
