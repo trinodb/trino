@@ -37,7 +37,7 @@ import java.util.function.Consumer;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
-import static io.airlift.concurrent.Threads.threadsNamed;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
 import static java.lang.String.format;
 import static java.util.Comparator.comparing;
@@ -73,7 +73,7 @@ public class ClusterSizeMonitor
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.includeCoordinator = includeCoordinator;
-        this.executor = newSingleThreadScheduledExecutor(threadsNamed("node-monitor-%s"));
+        this.executor = newSingleThreadScheduledExecutor(daemonThreadsNamed("node-monitor-%s"));
     }
 
     @PostConstruct
