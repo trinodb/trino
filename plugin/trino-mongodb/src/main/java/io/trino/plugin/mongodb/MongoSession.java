@@ -262,6 +262,7 @@ public class MongoSession
         Document newColumn = new Document();
         newColumn.append(FIELDS_NAME_KEY, columnMetadata.getName());
         newColumn.append(FIELDS_TYPE_KEY, columnMetadata.getType().getTypeSignature().toString());
+        newColumn.append(COMMENT_KEY, columnMetadata.getComment());
         newColumn.append(FIELDS_HIDDEN_KEY, false);
         columns.add(newColumn);
 
