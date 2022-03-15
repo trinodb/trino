@@ -16,6 +16,8 @@ package io.trino.metadata;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Splitter;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.compress.zstd.ZstdCompressor;
@@ -23,6 +25,7 @@ import io.airlift.compress.zstd.ZstdDecompressor;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
+import io.trino.collect.cache.NonEvictableLoadingCache;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeId;
 import io.trino.spi.type.TypeSignature;
@@ -43,7 +46,7 @@ import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.io.BaseEncoding.base32Hex;
-import static io.trino.metadata.ResolvedFunction.ResolvedFunctionDecoder.serialize;
+import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
 import static java.lang.Math.toIntExact;
 import static java.nio.ByteBuffer.allocate;
 import static java.util.Locale.ENGLISH;
@@ -129,7 +132,7 @@ public class ResolvedFunction
 
     public QualifiedName toQualifiedName()
     {
-        return ResolvedFunctionDecoder.serialize(this);
+        return ResolvedFunctionDecoder.toQualifiedName(this);
     }
 
     public static String extractFunctionName(QualifiedName qualifiedName)
@@ -178,6 +181,12 @@ public class ResolvedFunction
         private static final JsonCodec<ResolvedFunction> SERIALIZE_JSON_CODEC = new JsonCodecFactory().jsonCodec(ResolvedFunction.class);
         private static final ThreadLocalCompressorDecompressor COMPRESSOR_DECOMPRESSOR = new ThreadLocalCompressorDecompressor(ZstdCompressor::new, ZstdDecompressor::new);
 
+        private final NonEvictableLoadingCache<QualifiedName, ResolvedFunction> resolvedFunctions = buildNonEvictableCache(
+                CacheBuilder.newBuilder().maximumSize(1024), CacheLoader.from(this::deserialize));
+
+        private static final NonEvictableLoadingCache<ResolvedFunction, QualifiedName> qualifiedNames = buildNonEvictableCache(
+                CacheBuilder.newBuilder().maximumSize(1024), CacheLoader.from(ResolvedFunctionDecoder::serialize));
+
         private final JsonCodec<ResolvedFunction> jsonCodec;
 
         public ResolvedFunctionDecoder(Function<TypeId, Type> typeLoader)
@@ -197,7 +206,12 @@ public class ResolvedFunction
                 return Optional.empty();
             }
 
-            return Optional.of(deserialize(qualifiedName));
+            return Optional.of(resolvedFunctions.getUnchecked(qualifiedName));
+        }
+
+        public static QualifiedName toQualifiedName(ResolvedFunction function)
+        {
+            return qualifiedNames.getUnchecked(function);
         }
 
         private ResolvedFunction deserialize(QualifiedName qualifiedName)
