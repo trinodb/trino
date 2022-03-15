@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.memsql;
+package io.trino.plugin.singlestore;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.Plugin;
@@ -22,12 +22,12 @@ import org.testng.annotations.Test;
 import static com.google.common.collect.MoreCollectors.toOptional;
 import static com.google.common.collect.Streams.stream;
 
-public class TestMemSqlPlugin
+public class TestSingleStorePlugin
 {
     @Test
     public void testCreateConnector()
     {
-        Plugin plugin = new MemSqlPlugin();
+        Plugin plugin = new SingleStorePlugin();
         ConnectorFactory factory = stream(plugin.getConnectorFactories())
                 .filter(connectorFactory -> connectorFactory.getName().equals("singlestore"))
                 .collect(toOptional())
@@ -38,7 +38,7 @@ public class TestMemSqlPlugin
     @Test
     public void testCreateConnectorLegacyName()
     {
-        Plugin plugin = new MemSqlPlugin();
+        Plugin plugin = new SingleStorePlugin();
         ConnectorFactory factory = stream(plugin.getConnectorFactories())
                 .filter(connectorFactory -> connectorFactory.getName().equals("memsql"))
                 .collect(toOptional())

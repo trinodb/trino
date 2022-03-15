@@ -9,8 +9,8 @@
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
-    <artifactId>trino-memsql</artifactId>
-    <description>Trino - MemSQL Connector</description>
+    <artifactId>trino-singlestore</artifactId>
+    <description>Trino - SingleStore Connector</description>
     <packaging>trino-plugin</packaging>
 
     <properties>

@@ -122,8 +122,8 @@
         </artifact>
     </artifactSet>
 
-    <artifactSet to="plugin/memsql">
-        <artifact id="${project.groupId}:trino-memsql:zip:${project.version}">
+    <artifactSet to="plugin/singlestore">
+        <artifact id="${project.groupId}:trino-singlestore:zip:${project.version}">
             <unpack />
         </artifact>
     </artifactSet>

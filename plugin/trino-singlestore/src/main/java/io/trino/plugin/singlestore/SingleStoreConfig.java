@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package io.trino.plugin.memsql;
+package io.trino.plugin.singlestore;
 
 import io.airlift.configuration.Config;
 import io.airlift.units.Duration;
@@ -21,7 +21,7 @@ import javax.validation.constraints.NotNull;
 
 import java.util.concurrent.TimeUnit;
 
-public class MemSqlConfig
+public class SingleStoreConfig
 {
     private boolean autoReconnect = true;
     private Duration connectionTimeout = new Duration(10, TimeUnit.SECONDS);
@@ -32,7 +32,7 @@ public class MemSqlConfig
     }
 
     @Config("memsql.auto-reconnect")
-    public MemSqlConfig setAutoReconnect(boolean autoReconnect)
+    public SingleStoreConfig setAutoReconnect(boolean autoReconnect)
     {
         this.autoReconnect = autoReconnect;
         return this;
@@ -45,7 +45,7 @@ public class MemSqlConfig
     }
 
     @Config("memsql.connection-timeout")
-    public MemSqlConfig setConnectionTimeout(Duration connectionTimeout)
+    public SingleStoreConfig setConnectionTimeout(Duration connectionTimeout)
     {
         this.connectionTimeout = connectionTimeout;
         return this;
