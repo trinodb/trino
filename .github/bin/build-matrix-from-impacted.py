@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 
 import argparse
-import itertools
 import json
 import logging
 import sys
+import tempfile
+import unittest
 
 import yaml
 
@@ -44,9 +45,19 @@ def main():
         default=logging.WARNING,
         help="Print info level logs",
     )
+    parser.add_argument(
+        "-t",
+        "--test",
+        action='store_true',
+        help="test this script instead of executing it",
+    )
 
     args = parser.parse_args()
     logging.basicConfig(level=args.loglevel)
+    if args.test:
+        sys.argv = [sys.argv[0]]
+        unittest.main()
+        return
     build(args.matrix, args.impacted, args.output)
 
 
@@ -88,6 +99,86 @@ def check_modules(modules, impacted):
         return None
     # concatenate because matrix values should be primitives
     return ",".join(modules)
+
+
+class TestBuild(unittest.TestCase):
+    def test_build(self):
+        cases = [
+            # basic test
+            (
+                {
+                    "modules": ["a", "b"],
+                },
+                ["a"],
+                {
+                    "modules": ["a"],
+                },
+            ),
+            # include adds a new entry
+            (
+                {
+                    "modules": ["a", "b"],
+                    "include": [
+                        {"modules": "c"},
+                        {"modules": "d"},
+                    ],
+                },
+                ["a", "d"],
+                {
+                    "modules": ["a"],
+                    "include": [
+                        {"modules": "d"},
+                    ],
+                },
+            ),
+            # include entry overwrites one in matrix
+            (
+                {
+                    "modules": ["a", "b"],
+                    "include": [
+                        {"modules": "a", "options": "-Pprofile"},
+                    ],
+                },
+                ["a"],
+                {
+                    "modules": ["a"],
+                    "include": [
+                        {"modules": "a", "options": "-Pprofile"},
+                    ],
+                },
+            ),
+            # with excludes
+            (
+                {
+                    "modules": ["a", "b"],
+                    "exclude": ["b"],
+                },
+                ["a"],
+                {
+                    "modules": ["a"],
+                    "exclude": ["b"],
+                },
+            ),
+        ]
+        for matrix, impacted, expected in cases:
+            with self.subTest():
+                # given
+                matrix_file = tempfile.TemporaryFile("w+")
+                yaml.dump(matrix, matrix_file)
+                matrix_file.seek(0)
+                impacted_file = tempfile.TemporaryFile("w+")
+                impacted_file.write("\n".join(impacted))
+                impacted_file.seek(0)
+                output_file = tempfile.TemporaryFile("w+")
+                # when
+                build(matrix_file, impacted_file, output_file)
+                output_file.seek(0)
+                output = json.load(output_file)
+                # then
+                self.assertEqual(output, expected)
+                matrix_file.close()
+                impacted_file.close()
+                output_file.close()
 
 
 if __name__ == "__main__":
