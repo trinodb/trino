@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.memsql;
+package io.trino.plugin.singlestore;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -23,26 +23,26 @@ import org.testng.annotations.Test;
 import java.nio.file.Path;
 
 import static io.trino.plugin.jdbc.mapping.RuleBasedIdentifierMappingUtils.createRuleBasedIdentifierMappingFile;
-import static io.trino.plugin.memsql.MemSqlQueryRunner.createMemSqlQueryRunner;
+import static io.trino.plugin.singlestore.SingleStoreQueryRunner.createSingleStoreQueryRunner;
 import static java.util.Objects.requireNonNull;
 
 // With case-insensitive-name-matching enabled colliding schema/table names are considered as errors.
 // Some tests here create colliding names which can cause any other concurrent test to fail.
 @Test(singleThreaded = true)
-public class TestMemSqlCaseInsensitiveMapping
+public class TestSingleStoreCaseInsensitiveMapping
         extends BaseCaseInsensitiveMappingTest
 {
     protected Path mappingFile;
-    protected TestingMemSqlServer memSqlServer;
+    protected TestingSingleStoreServer singleStoreServer;
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
         mappingFile = createRuleBasedIdentifierMappingFile();
-        memSqlServer = closeAfterClass(new TestingMemSqlServer());
-        return createMemSqlQueryRunner(
-                memSqlServer,
+        singleStoreServer = closeAfterClass(new TestingSingleStoreServer());
+        return createSingleStoreQueryRunner(
+                singleStoreServer,
                 ImmutableMap.of(),
                 ImmutableMap.<String, String>builder()
                         .put("case-insensitive-name-matching", "true")
@@ -61,7 +61,7 @@ public class TestMemSqlCaseInsensitiveMapping
     @Override
     protected SqlExecutor onRemoteDatabase()
     {
-        return requireNonNull(memSqlServer, "memSqlServer is null")::execute;
+        return requireNonNull(singleStoreServer, "singleStoreServer is null")::execute;
     }
 
     @Override

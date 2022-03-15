@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.memsql;
+package io.trino.plugin.singlestore;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
@@ -29,14 +29,14 @@ import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 
-public class MemSqlQueryRunner
+public class SingleStoreQueryRunner
 {
-    private MemSqlQueryRunner() {}
+    private SingleStoreQueryRunner() {}
 
     private static final String TPCH_SCHEMA = "tpch";
 
-    public static DistributedQueryRunner createMemSqlQueryRunner(
-            TestingMemSqlServer server,
+    public static DistributedQueryRunner createSingleStoreQueryRunner(
+            TestingSingleStoreServer server,
             Map<String, String> extraProperties,
             Map<String, String> connectorProperties,
             Iterable<TpchTable<?>> tables)
@@ -54,8 +54,8 @@ public class MemSqlQueryRunner
 
             server.execute("CREATE SCHEMA tpch");
 
-            queryRunner.installPlugin(new MemSqlPlugin());
-            queryRunner.createCatalog("memsql", "memsql", connectorProperties);
+            queryRunner.installPlugin(new SingleStorePlugin());
+            queryRunner.createCatalog("singlestore", "singlestore", connectorProperties);
 
             copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), tables);
 
@@ -70,7 +70,7 @@ public class MemSqlQueryRunner
     private static Session createSession()
     {
         return testSessionBuilder()
-                .setCatalog("memsql")
+                .setCatalog("singlestore")
                 .setSchema(TPCH_SCHEMA)
                 .build();
     }
@@ -81,13 +81,13 @@ public class MemSqlQueryRunner
         Logging.initialize();
 
         // You need to set 'memsql.license' to VM options
-        DistributedQueryRunner queryRunner = createMemSqlQueryRunner(
-                new TestingMemSqlServer(),
+        DistributedQueryRunner queryRunner = createSingleStoreQueryRunner(
+                new TestingSingleStoreServer(),
                 ImmutableMap.of("http-server.http.port", "8080"),
                 ImmutableMap.of(),
                 TpchTable.getTables());
 
-        Logger log = Logger.get(MemSqlQueryRunner.class);
+        Logger log = Logger.get(SingleStoreQueryRunner.class);
         log.info("======== SERVER STARTED ========");
         log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
     }

@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.memsql;
+package io.trino.plugin.singlestore;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -143,10 +143,10 @@ import static java.time.format.DateTimeFormatter.ISO_LOCAL_TIME;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
-public class MemSqlClient
+public class SingleStoreClient
         extends BaseJdbcClient
 {
-    private static final Logger log = Logger.get(MemSqlClient.class);
+    private static final Logger log = Logger.get(SingleStoreClient.class);
 
     static final int MEMSQL_DATE_TIME_MAX_PRECISION = 6;
     static final int MEMSQL_VARCHAR_MAX_LENGTH = 21844;
@@ -158,7 +158,7 @@ public class MemSqlClient
     private final Type jsonType;
 
     @Inject
-    public MemSqlClient(BaseJdbcConfig config, ConnectionFactory connectionFactory, QueryBuilder queryBuilder, TypeManager typeManager, IdentifierMapping identifierMapping)
+    public SingleStoreClient(BaseJdbcConfig config, ConnectionFactory connectionFactory, QueryBuilder queryBuilder, TypeManager typeManager, IdentifierMapping identifierMapping)
     {
         super(config, "`", connectionFactory, queryBuilder, identifierMapping);
         requireNonNull(typeManager, "typeManager is null");

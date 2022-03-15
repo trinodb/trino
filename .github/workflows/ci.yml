@@ -328,7 +328,7 @@ jobs:
             !:trino-jdbc,!:trino-base-jdbc,!:trino-thrift,!:trino-memory,
             !:trino-docs,!:trino-server,!:trino-server-rpm,
             !:trino-test-jdbc-compatibility-old-server,
-            !:trino-memsql,
+            !:trino-singlestore,
             !:trino-bigquery'
       - name: Upload test results
         uses: actions/upload-artifact@v2
@@ -396,7 +396,7 @@ jobs:
             - { modules: plugin/trino-mysql }
             - { modules: plugin/trino-postgresql }
             - { modules: plugin/trino-sqlserver }
-            - { modules: plugin/trino-memsql }
+            - { modules: plugin/trino-singlestore }
             - { modules: plugin/trino-oracle }
             # TODO: re-enable kudu tests after this issue is resolved: https://github.com/trinodb/trino/issues/11203
             # - { modules: plugin/trino-kudu }
@@ -434,14 +434,14 @@ jobs:
         run: echo "::add-matcher::.github/problem-matcher.json"
       - name: Cleanup node
         # This is required as a virtual environment update 20210219.1 left too little space for MemSQL to work
-        if: matrix.modules == 'plugin/trino-memsql'
+        if: matrix.modules == 'plugin/trino-singlestore'
         run: .github/bin/cleanup-node.sh
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
           $RETRY $MAVEN install ${MAVEN_FAST_INSTALL} -am -pl "${{ matrix.modules }}"
       - name: Maven Tests
-        if: matrix.modules != 'plugin/trino-memsql'
+        if: matrix.modules != 'plugin/trino-singlestore'
         run: $MAVEN test ${MAVEN_TEST} -pl ${{ matrix.modules }} ${{ matrix.profile != '' && format('-P {0}', matrix.profile) || '' }}
       # Additional tests for selected modules
       - name: Cloud Delta Lake Tests
@@ -464,9 +464,9 @@ jobs:
       - name: Memsql Tests
         env:
           MEMSQL_LICENSE: ${{ secrets.MEMSQL_LICENSE }}
-        if: matrix.modules == 'plugin/trino-memsql' && env.MEMSQL_LICENSE != ''
+        if: matrix.modules == 'plugin/trino-singlestore' && env.MEMSQL_LICENSE != ''
         run: |
-          $MAVEN test ${MAVEN_TEST} -pl :trino-memsql -Dmemsql.license=${MEMSQL_LICENSE}
+          $MAVEN test ${MAVEN_TEST} -pl :trino-singlestore -Dmemsql.license=${MEMSQL_LICENSE}
       - name: Cloud BigQuery Tests
         env:
           BIGQUERY_CREDENTIALS_KEY: ${{ secrets.BIGQUERY_CREDENTIALS_KEY }}

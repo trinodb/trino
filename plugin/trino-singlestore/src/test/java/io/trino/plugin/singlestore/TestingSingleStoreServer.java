@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.memsql;
+package io.trino.plugin.singlestore;
 
 import com.google.common.collect.ImmutableSet;
 import org.testcontainers.containers.JdbcDatabaseContainer;
@@ -25,8 +25,8 @@ import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 
-public class TestingMemSqlServer
-        extends JdbcDatabaseContainer<TestingMemSqlServer>
+public class TestingSingleStoreServer
+        extends JdbcDatabaseContainer<TestingSingleStoreServer>
 {
     private static final String MEM_SQL_LICENSE = requireNonNull(System.getProperty("memsql.license"), "memsql.license is not set");
 
@@ -35,12 +35,12 @@ public class TestingMemSqlServer
 
     public static final Integer MEMSQL_PORT = 3306;
 
-    public TestingMemSqlServer()
+    public TestingSingleStoreServer()
     {
         this(DEFAULT_TAG);
     }
 
-    public TestingMemSqlServer(String dockerImageName)
+    public TestingSingleStoreServer(String dockerImageName)
     {
         super(DockerImageName.parse(dockerImageName));
         addEnv("ROOT_PASSWORD", "memsql_root_password");

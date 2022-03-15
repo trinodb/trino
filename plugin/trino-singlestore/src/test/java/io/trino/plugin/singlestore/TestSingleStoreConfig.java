@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.memsql;
+package io.trino.plugin.singlestore;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
@@ -24,12 +24,12 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertFullMappin
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 
-public class TestMemSqlConfig
+public class TestSingleStoreConfig
 {
     @Test
     public void testDefaults()
     {
-        assertRecordedDefaults(recordDefaults(MemSqlConfig.class)
+        assertRecordedDefaults(recordDefaults(SingleStoreConfig.class)
                 .setAutoReconnect(true)
                 .setConnectionTimeout(new Duration(10, TimeUnit.SECONDS)));
     }
@@ -42,7 +42,7 @@ public class TestMemSqlConfig
                 .put("memsql.connection-timeout", "4s")
                 .buildOrThrow();
 
-        MemSqlConfig expected = new MemSqlConfig()
+        SingleStoreConfig expected = new SingleStoreConfig()
                 .setAutoReconnect(false)
                 .setConnectionTimeout(new Duration(4, TimeUnit.SECONDS));
 

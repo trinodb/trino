@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.memsql;
+package io.trino.plugin.singlestore;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -46,8 +46,8 @@ import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.DECIMAL_MAPPI
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.DECIMAL_ROUNDING_MODE;
 import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.UNSUPPORTED_TYPE_HANDLING;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
-import static io.trino.plugin.memsql.MemSqlClient.MEMSQL_VARCHAR_MAX_LENGTH;
-import static io.trino.plugin.memsql.MemSqlQueryRunner.createMemSqlQueryRunner;
+import static io.trino.plugin.singlestore.SingleStoreClient.MEMSQL_VARCHAR_MAX_LENGTH;
+import static io.trino.plugin.singlestore.SingleStoreQueryRunner.createSingleStoreQueryRunner;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.CharType.createCharType;
@@ -77,25 +77,25 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 /**
  * @see <a href="https://docs.singlestore.com/db/latest/en/reference/sql-reference/data-types.html">SingleStore (MemSQL) data types</a>
  */
-public class TestMemSqlTypeMapping
+public class TestSingleStoreTypeMapping
         extends AbstractTestQueryFramework
 {
     private static final String CHARACTER_SET_UTF8 = "CHARACTER SET utf8";
 
-    protected TestingMemSqlServer memSqlServer;
+    protected TestingSingleStoreServer singleStoreServer;
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        memSqlServer = new TestingMemSqlServer();
-        return createMemSqlQueryRunner(memSqlServer, ImmutableMap.of(), ImmutableMap.of(), ImmutableList.of());
+        singleStoreServer = new TestingSingleStoreServer();
+        return createSingleStoreQueryRunner(singleStoreServer, ImmutableMap.of(), ImmutableMap.of(), ImmutableList.of());
     }
 
     @AfterClass(alwaysRun = true)
     public final void destroy()
     {
-        memSqlServer.close();
+        singleStoreServer.close();
     }
 
     @Test
@@ -304,7 +304,7 @@ public class TestMemSqlTypeMapping
     public void testDecimalExceedingPrecisionMaxWithExceedingIntegerValues()
     {
         try (TestTable testTable = new TestTable(
-                memSqlServer::execute,
+                singleStoreServer::execute,
                 "tpch.test_exceeding_max_decimal",
                 "(d_col decimal(65,25))",
                 asList("1234567890123456789012345678901234567890.123456789", "-1234567890123456789012345678901234567890.123456789"))) {
@@ -335,7 +335,7 @@ public class TestMemSqlTypeMapping
     public void testDecimalExceedingPrecisionMaxWithNonExceedingIntegerValues()
     {
         try (TestTable testTable = new TestTable(
-                memSqlServer::execute,
+                singleStoreServer::execute,
                 "tpch.test_exceeding_max_decimal",
                 "(d_col decimal(60,20))",
                 asList("123456789012345678901234567890.123456789012345", "-123456789012345678901234567890.123456789012345"))) {
@@ -390,7 +390,7 @@ public class TestMemSqlTypeMapping
     public void testDecimalExceedingPrecisionMaxWithSupportedValues(int typePrecision, int typeScale)
     {
         try (TestTable testTable = new TestTable(
-                memSqlServer::execute,
+                singleStoreServer::execute,
                 "tpch.test_exceeding_max_decimal",
                 format("(d_col decimal(%d,%d))", typePrecision, typeScale),
                 asList("12.01", "-12.01", "123", "-123", "1.12345678", "-1.12345678"))) {
@@ -449,17 +449,17 @@ public class TestMemSqlTypeMapping
     private Session sessionWithDecimalMappingAllowOverflow(RoundingMode roundingMode, int scale)
     {
         return Session.builder(getSession())
-                .setCatalogSessionProperty("memsql", DECIMAL_MAPPING, ALLOW_OVERFLOW.name())
-                .setCatalogSessionProperty("memsql", DECIMAL_ROUNDING_MODE, roundingMode.name())
-                .setCatalogSessionProperty("memsql", DECIMAL_DEFAULT_SCALE, Integer.valueOf(scale).toString())
+                .setCatalogSessionProperty("singlestore", DECIMAL_MAPPING, ALLOW_OVERFLOW.name())
+                .setCatalogSessionProperty("singlestore", DECIMAL_ROUNDING_MODE, roundingMode.name())
+                .setCatalogSessionProperty("singlestore", DECIMAL_DEFAULT_SCALE, Integer.valueOf(scale).toString())
                 .build();
     }
 
     private Session sessionWithDecimalMappingStrict(UnsupportedTypeHandling unsupportedTypeHandling)
     {
         return Session.builder(getSession())
-                .setCatalogSessionProperty("memsql", DECIMAL_MAPPING, STRICT.name())
-                .setCatalogSessionProperty("memsql", UNSUPPORTED_TYPE_HANDLING, unsupportedTypeHandling.name())
+                .setCatalogSessionProperty("singlestore", DECIMAL_MAPPING, STRICT.name())
+                .setCatalogSessionProperty("singlestore", UNSUPPORTED_TYPE_HANDLING, unsupportedTypeHandling.name())
                 .build();
     }
 
@@ -705,13 +705,13 @@ public class TestMemSqlTypeMapping
     public void testUnsupportedTime(String unsupportedTime)
     {
         // SingleStore stores incorrect results when the values are out of supported range. This test should be fixed when SingleStore changes the behavior
-        try (TestTable table = new TestTable(memSqlServer::execute, "tpch.test_unsupported_time", "(col time)", ImmutableList.of(format("'%s'", unsupportedTime)))) {
+        try (TestTable table = new TestTable(singleStoreServer::execute, "tpch.test_unsupported_time", "(col time)", ImmutableList.of(format("'%s'", unsupportedTime)))) {
             assertQueryFails(
                     "SELECT * FROM " + table.getName(),
                     format("Supported Trino TIME type range is between 00:00:00 and 23:59:59.999999 but got %s", unsupportedTime));
         }
 
-        try (TestTable table = new TestTable(memSqlServer::execute, "tpch.test_unsupported_time", "(col time(6))", ImmutableList.of(format("'%s'", unsupportedTime)))) {
+        try (TestTable table = new TestTable(singleStoreServer::execute, "tpch.test_unsupported_time", "(col time(6))", ImmutableList.of(format("'%s'", unsupportedTime)))) {
             assertQueryFails(
                     "SELECT * FROM " + table.getName(),
                     format("Supported Trino TIME type range is between 00:00:00 and 23:59:59.999999 but got %s.000000", unsupportedTime));
@@ -733,7 +733,7 @@ public class TestMemSqlTypeMapping
     public void testUnsupportedTimePrecision(int precision)
     {
         // This test should be fixed if future MemSQL supports those precisions
-        assertThatThrownBy(() -> memSqlServer.execute(format("CREATE TABLE test_unsupported_timestamp_precision (col1 TIME(%s))", precision)))
+        assertThatThrownBy(() -> singleStoreServer.execute(format("CREATE TABLE test_unsupported_timestamp_precision (col1 TIME(%s))", precision)))
                 .hasMessageContaining("Feature 'TIME type with precision other than 0 or 6' is not supported by MemSQL.");
     }
 
@@ -919,10 +919,10 @@ public class TestMemSqlTypeMapping
     public void testUnsupportedDateTimePrecision(int precision)
     {
         // This test should be fixed if future MemSQL supports those precisions
-        assertThatThrownBy(() -> memSqlServer.execute(format("CREATE TABLE test_unsupported_timestamp_precision (col1 TIMESTAMP(%s))", precision)))
+        assertThatThrownBy(() -> singleStoreServer.execute(format("CREATE TABLE test_unsupported_timestamp_precision (col1 TIMESTAMP(%s))", precision)))
                 .hasMessageContaining("Feature 'TIMESTAMP type with precision other than 0 or 6' is not supported by MemSQL.");
 
-        assertThatThrownBy(() -> memSqlServer.execute(format("CREATE TABLE test_unsupported_datetime_precision (col1 DATETIME(%s))", precision)))
+        assertThatThrownBy(() -> singleStoreServer.execute(format("CREATE TABLE test_unsupported_datetime_precision (col1 DATETIME(%s))", precision)))
                 .hasMessageContaining("Feature 'DATETIME type with precision other than 0 or 6' is not supported by MemSQL.");
     }
 
@@ -974,7 +974,7 @@ public class TestMemSqlTypeMapping
 
     private void testUnsupportedDataType(String databaseDataType)
     {
-        SqlExecutor jdbcSqlExecutor = memSqlServer::execute;
+        SqlExecutor jdbcSqlExecutor = singleStoreServer::execute;
         jdbcSqlExecutor.execute(format("CREATE TABLE tpch.test_unsupported_data_type(supported_column varchar(5), unsupported_column %s)", databaseDataType));
         try {
             assertQuery(
@@ -1008,7 +1008,7 @@ public class TestMemSqlTypeMapping
 
     private DataSetup memSqlCreateAndInsert(String tableNamePrefix)
     {
-        return new CreateAndInsertDataSetup(memSqlServer::execute, tableNamePrefix);
+        return new CreateAndInsertDataSetup(singleStoreServer::execute, tableNamePrefix);
     }
 
     private static String toTimestamp(String value)

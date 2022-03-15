@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package io.trino.plugin.memsql;
+package io.trino.plugin.singlestore;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
@@ -28,10 +28,10 @@ import java.util.Map;
 
 import static io.airlift.configuration.ConfigurationAwareModule.combine;
 
-public class MemSqlPlugin
+public class SingleStorePlugin
         implements Plugin
 {
-    private static final Logger log = Logger.get(MemSqlPlugin.class);
+    private static final Logger log = Logger.get(SingleStorePlugin.class);
 
     @Override
     public Iterable<ConnectorFactory> getConnectorFactories()
@@ -65,7 +65,7 @@ public class MemSqlPlugin
                     combine(
                             new CredentialProviderModule(),
                             new ExtraCredentialsBasedIdentityCacheMappingModule(),
-                            new MemSqlClientModule()));
+                            new SingleStoreClientModule()));
         }
     }
 }
