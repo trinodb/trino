@@ -81,7 +81,7 @@ public final class DynamoDbQueryRunner
             throws Exception
     {
         // Create QueryRunner with writes enabled to create TPC-H tables
-        DistributedQueryRunner.Builder builder = StarburstDistributedQueryRunner.builder(createSession());
+        DistributedQueryRunner.Builder<?> builder = StarburstDistributedQueryRunner.builder(createSession());
         extraProperties.forEach(builder::addExtraProperty);
         try (DistributedQueryRunner queryRunner = builder.build()) {
             connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
