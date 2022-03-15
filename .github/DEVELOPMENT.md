@@ -47,6 +47,17 @@ To run checkstyle and other maven checks before opening a PR: `./mvnw validate`
 
 In addition to those you should also adhere to the following:
 
+### Readability
+
+The purpose of code style rules is to maintain code readability and developer efficiency when
+working with the code. All the code style rules explained below are good guidelines to follow
+but there may be exceptional situations where we purposefully depart from them. When readability
+and code style rule are at odds, the readability is more important.
+
+### Consistency
+
+Keep code consistent with surrounding code where possible.
+
 ### Alphabetize
 
 Alphabetize sections in the documentation source files (both in the table of
