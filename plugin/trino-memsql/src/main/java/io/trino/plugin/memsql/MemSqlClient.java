@@ -253,7 +253,7 @@ public class MemSqlClient
                     UnsupportedTypeHandling unsupportedTypeHandling = getUnsupportedTypeHandling(session);
                     verify(
                             unsupportedTypeHandling == IGNORE,
-                            "Unsupported type handling is set to %s, but toTrinoType() returned empty for %s",
+                            "Unsupported type handling is set to %s, but toColumnMapping() returned empty for %s",
                             unsupportedTypeHandling,
                             typeHandle);
                 }
