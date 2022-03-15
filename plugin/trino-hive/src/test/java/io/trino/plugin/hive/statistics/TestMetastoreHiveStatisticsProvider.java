@@ -501,16 +501,15 @@ public class TestMetastoreHiveStatisticsProvider
     public void testCreateDataColumnStatistics()
     {
         assertEquals(
-                createDataColumnStatistics(COLUMN, BIGINT, 1000, 42, ImmutableList.of()), ColumnStatistics.empty());
+                createDataColumnStatistics(COLUMN, BIGINT, 1000, ImmutableList.of()), ColumnStatistics.empty());
         assertEquals(
-                createDataColumnStatistics(COLUMN, BIGINT, 1000, 42, ImmutableList.of(PartitionStatistics.empty(), PartitionStatistics.empty())),
+                createDataColumnStatistics(COLUMN, BIGINT, 1000, ImmutableList.of(PartitionStatistics.empty(), PartitionStatistics.empty())),
                 ColumnStatistics.empty());
         assertEquals(
                 createDataColumnStatistics(
                         COLUMN,
                         BIGINT,
                         1000,
-                        42,
                         ImmutableList.of(new PartitionStatistics(HiveBasicStatistics.createZeroStatistics(), ImmutableMap.of("column2", HiveColumnStatistics.empty())))),
                 ColumnStatistics.empty());
     }
@@ -526,7 +525,7 @@ public class TestMetastoreHiveStatisticsProvider
         assertEquals(calculateDistinctValuesCount(ImmutableList.of(distinctValuesCount(1)), 20, 4, BIGINT), Estimate.of(1.25));
         assertEquals(calculateDistinctValuesCount(ImmutableList.of(distinctValuesCount(1)), 20, 1, BIGINT), Estimate.of(20));
         assertEquals(calculateDistinctValuesCount(ImmutableList.of(distinctValuesCount(1), distinctValuesCount(2)), 2, 2, BIGINT), Estimate.of(2));
-        assertEquals(calculateDistinctValuesCount(ImmutableList.of(distinctValuesCount(1), distinctValuesCount(2)), 12, 4, BIGINT), Estimate.of(2));
+        assertEquals(calculateDistinctValuesCount(ImmutableList.of(distinctValuesCount(1), distinctValuesCount(2)), 12, 8, BIGINT), Estimate.of(2));
         assertEquals(calculateDistinctValuesCount(ImmutableList.of(distinctValuesCount(1), HiveColumnStatistics.empty()), 1, 1, BIGINT), Estimate.of(1));
         assertEquals(calculateDistinctValuesCount(ImmutableList.of(distinctValuesCount(1), HiveColumnStatistics.empty()), 4, 2, BIGINT), Estimate.of(1.0));
         assertEquals(calculateDistinctValuesCount(ImmutableList.of(createBooleanColumnStatistics(OptionalLong.empty(), OptionalLong.empty(), OptionalLong.empty())), 1000, 1000, BOOLEAN), Estimate.unknown());
@@ -542,8 +541,8 @@ public class TestMetastoreHiveStatisticsProvider
         assertEquals(calculateDistinctValuesCount(ImmutableList.of(createBooleanColumnStatistics(OptionalLong.of(0), OptionalLong.of(0), OptionalLong.empty())), 100, 10, BOOLEAN), Estimate.of(0));
         assertEquals(
                 calculateDistinctValuesCount(ImmutableList.of(
-                        createBooleanColumnStatistics(OptionalLong.of(0), OptionalLong.of(10), OptionalLong.empty()),
-                        createBooleanColumnStatistics(OptionalLong.of(1), OptionalLong.of(10), OptionalLong.empty())),
+                                createBooleanColumnStatistics(OptionalLong.of(0), OptionalLong.of(10), OptionalLong.empty()),
+                                createBooleanColumnStatistics(OptionalLong.of(1), OptionalLong.of(10), OptionalLong.empty())),
                         1, 1, BOOLEAN),
                 Estimate.of(2));
     }

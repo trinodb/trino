@@ -410,12 +410,12 @@ public class MetastoreHiveStatisticsProvider
             HiveColumnHandle columnHandle = (HiveColumnHandle) column.getValue();
             Type columnType = columnTypes.get(columnName);
             ColumnStatistics columnStatistics;
-            double averageRowsPerPartition = optionalRowCount.get().getAverageRowsPerPartition();
             if (columnHandle.isPartitionKey()) {
+                double averageRowsPerPartition = optionalRowCount.get().getAverageRowsPerPartition();
                 columnStatistics = createPartitionColumnStatistics(columnHandle, columnType, partitions, statistics, averageRowsPerPartition, rowCount);
             }
             else {
-                columnStatistics = createDataColumnStatistics(columnName, columnType, rowCount, averageRowsPerPartition, statistics.values());
+                columnStatistics = createDataColumnStatistics(columnName, columnType, rowCount, statistics.values());
             }
             result.setColumnStatistics(columnHandle, columnStatistics);
         }
@@ -670,7 +670,6 @@ public class MetastoreHiveStatisticsProvider
             String column,
             Type type,
             double rowsCount,
-            double averageRowsPerPartition,
             Collection<PartitionStatistics> partitionStatistics)
     {
         List<HiveColumnStatistics> columnStatistics = partitionStatistics.stream()
@@ -678,13 +677,18 @@ public class MetastoreHiveStatisticsProvider
                 .map(statistics -> statistics.get(column))
                 .filter(Objects::nonNull)
                 .collect(toImmutableList());
+        long sampleRowCount = partitionStatistics.stream()
+                .map(partition -> partition.getBasicStatistics().getRowCount())
+                .filter(OptionalLong::isPresent)
+                .mapToLong(OptionalLong::getAsLong)
+                .sum();
 
         if (columnStatistics.isEmpty()) {
             return ColumnStatistics.empty();
         }
 
         return ColumnStatistics.builder()
-                .setDistinctValuesCount(calculateDistinctValuesCount(columnStatistics, rowsCount, averageRowsPerPartition, type))
+                .setDistinctValuesCount(calculateDistinctValuesCount(columnStatistics, rowsCount, sampleRowCount, type))
                 .setNullsFraction(calculateNullsFraction(column, partitionStatistics))
                 .setDataSize(calculateDataSize(column, partitionStatistics, rowsCount))
                 .setRange(calculateRange(type, columnStatistics))
@@ -712,7 +716,7 @@ public class MetastoreHiveStatisticsProvider
     static Estimate calculateDistinctValuesCount(
             List<HiveColumnStatistics> columnStatistics,
             double rowCount,
-            double averageRowsPerPartition,
+            double sampleRowCount,
             Type type)
     {
         long totalDistinctValueCount = getTotalNumberOfDistinctValues(type);
@@ -731,11 +735,10 @@ public class MetastoreHiveStatisticsProvider
                 .mapToLong(Long::longValue)
                 .max()
                 .orElseThrow();
-        double averageDistinctValuesCountPerPartition = partitionDistinctValueCounts.stream()
+        double partitionsDistinctValuesCount = partitionDistinctValueCounts.stream()
                 .mapToLong(Long::longValue)
-                .average()
-                .orElseThrow();
-        double distinctValuesToRowRatio = min(averageDistinctValuesCountPerPartition / averageRowsPerPartition, 1);
+                .sum();
+        double distinctValuesToRowRatio = min(partitionsDistinctValuesCount / sampleRowCount, 1);
         double distinctValuesCount = max(
                 rowCount * distinctValuesToRowRatio * distinctValuesToRowRatio,
                 minDistinctValueCount);
