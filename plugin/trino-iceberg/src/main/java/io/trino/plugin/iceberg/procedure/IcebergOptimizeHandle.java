@@ -24,6 +24,7 @@ import io.trino.plugin.iceberg.IcebergFileFormat;
 import java.util.List;
 import java.util.Map;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public class IcebergOptimizeHandle
@@ -96,5 +97,19 @@ public class IcebergOptimizeHandle
     public boolean isRetriesEnabled()
     {
         return retriesEnabled;
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("schemaAsJson", schemaAsJson)
+                .add("partitionSpecAsJson", partitionSpecAsJson)
+                .add("tableColumns", tableColumns)
+                .add("fileFormat", fileFormat)
+                .add("tableStorageProperties", tableStorageProperties)
+                .add("maxScannedFileSize", maxScannedFileSize)
+                .add("retriesEnabled", retriesEnabled)
+                .toString();
     }
 }
