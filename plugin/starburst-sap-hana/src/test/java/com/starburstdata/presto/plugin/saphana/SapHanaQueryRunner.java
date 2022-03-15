@@ -45,7 +45,7 @@ public final class SapHanaQueryRunner
     {
         DistributedQueryRunner queryRunner = null;
         try {
-            DistributedQueryRunner.Builder builder = StarburstDistributedQueryRunner.builder(createSession());
+            DistributedQueryRunner.Builder<?> builder = StarburstDistributedQueryRunner.builder(createSession());
             extraProperties.forEach(builder::addExtraProperty);
             queryRunner = builder.build();
 
