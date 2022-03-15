@@ -154,6 +154,13 @@ public final class DiscoveryNodeManager
         pollWorkers();
     }
 
+    @PreDestroy
+    public void destroy()
+    {
+        nodeStateUpdateExecutor.shutdown();
+        nodeStateEventExecutor.shutdown();
+    }
+
     private void pollWorkers()
     {
         AllNodes allNodes = getAllNodes();
