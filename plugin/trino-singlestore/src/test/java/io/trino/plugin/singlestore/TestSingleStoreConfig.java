@@ -38,8 +38,8 @@ public class TestSingleStoreConfig
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("memsql.auto-reconnect", "false")
-                .put("memsql.connection-timeout", "4s")
+                .put("singlestore.auto-reconnect", "false")
+                .put("singlestore.connection-timeout", "4s")
                 .buildOrThrow();
 
         SingleStoreConfig expected = new SingleStoreConfig()
