@@ -2096,7 +2096,7 @@ public abstract class BaseConnectorTest
 //        assertUpdate("DROP TABLE " + tableName);
     }
 
-    private String getColumnComment(String tableName, String columnName)
+    protected String getColumnComment(String tableName, String columnName)
     {
         MaterializedResult materializedResult = computeActual(format(
                 "SELECT comment FROM information_schema.columns WHERE table_schema = '%s' AND table_name = '%s' AND column_name = '%s'",
