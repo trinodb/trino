@@ -131,7 +131,6 @@
         <module>plugin/trino-kudu</module>
         <module>plugin/trino-local-file</module>
         <module>plugin/trino-memory</module>
-        <module>plugin/trino-memsql</module>
         <module>plugin/trino-ml</module>
         <module>plugin/trino-mongodb</module>
         <module>plugin/trino-mysql</module>
@@ -147,6 +146,7 @@
         <module>plugin/trino-redshift</module>
         <module>plugin/trino-resource-group-managers</module>
         <module>plugin/trino-session-property-managers</module>
+        <module>plugin/trino-singlestore</module>
         <module>plugin/trino-sqlserver</module>
         <module>plugin/trino-teradata-functions</module>
         <module>plugin/trino-thrift</module>

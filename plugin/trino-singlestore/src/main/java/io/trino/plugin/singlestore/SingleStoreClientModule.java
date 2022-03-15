@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.memsql;
+package io.trino.plugin.singlestore;
 
 import com.google.inject.Binder;
 import com.google.inject.Module;
@@ -31,21 +31,21 @@ import java.util.Properties;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
 
-public class MemSqlClientModule
+public class SingleStoreClientModule
         implements Module
 {
     @Override
     public void configure(Binder binder)
     {
-        binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(MemSqlClient.class).in(Scopes.SINGLETON);
-        configBinder(binder).bindConfig(MemSqlConfig.class);
+        binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(SingleStoreClient.class).in(Scopes.SINGLETON);
+        configBinder(binder).bindConfig(SingleStoreConfig.class);
         binder.install(new DecimalModule());
     }
 
     @Provides
     @Singleton
     @ForBaseJdbc
-    public static ConnectionFactory createConnectionFactory(BaseJdbcConfig config, CredentialProvider credentialProvider, MemSqlConfig memsqlConfig)
+    public static ConnectionFactory createConnectionFactory(BaseJdbcConfig config, CredentialProvider credentialProvider, SingleStoreConfig memsqlConfig)
     {
         Properties connectionProperties = new Properties();
         // we don't want to interpret tinyInt type (with cardinality as 2) as boolean/bit

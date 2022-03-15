@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.memsql;
+package io.trino.plugin.singlestore;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
@@ -30,7 +30,7 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.trino.plugin.memsql.MemSqlQueryRunner.createMemSqlQueryRunner;
+import static io.trino.plugin.singlestore.SingleStoreQueryRunner.createSingleStoreQueryRunner;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.assertions.Assert.assertEquals;
@@ -42,23 +42,23 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
-public class TestMemSqlConnectorTest
+public class TestSingleStoreConnectorTest
         extends BaseJdbcConnectorTest
 {
-    protected TestingMemSqlServer memSqlServer;
+    protected TestingSingleStoreServer singleStoreServer;
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        memSqlServer = new TestingMemSqlServer();
-        return createMemSqlQueryRunner(memSqlServer, ImmutableMap.of(), ImmutableMap.of(), REQUIRED_TPCH_TABLES);
+        singleStoreServer = new TestingSingleStoreServer();
+        return createSingleStoreQueryRunner(singleStoreServer, ImmutableMap.of(), ImmutableMap.of(), REQUIRED_TPCH_TABLES);
     }
 
     @AfterClass(alwaysRun = true)
     public final void destroy()
     {
-        memSqlServer.close();
+        singleStoreServer.close();
     }
 
     @Override
@@ -352,6 +352,6 @@ public class TestMemSqlConnectorTest
     @Override
     protected SqlExecutor onRemoteDatabase()
     {
-        return memSqlServer::execute;
+        return singleStoreServer::execute;
     }
 }
