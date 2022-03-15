@@ -231,6 +231,42 @@ public class TestClickHouseTypeMapping
     }
 
     @Test
+    public void testUint8()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("UInt8", "0", SMALLINT, "SMALLINT '0'") // min value in ClickHouse
+                .addRoundTrip("UInt8", "255", SMALLINT, "SMALLINT '255'") // max value in ClickHouse
+                .addRoundTrip("Nullable(UInt8)", "NULL", SMALLINT, "CAST(null AS SMALLINT)")
+                .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_uint8"));
+
+        SqlDataTypeTest.create()
+                .addRoundTrip("UInt8", "0", SMALLINT, "SMALLINT '0'") // min value in ClickHouse
+                .addRoundTrip("UInt8", "255", SMALLINT, "SMALLINT '255'") // max value in ClickHouse
+                .addRoundTrip("Nullable(UInt8)", "NULL", SMALLINT, "CAST(null AS SMALLINT)")
+                .execute(getQueryRunner(), clickhouseCreateTrinoInsert("tpch.test_uint8"));
+    }
+
+    @Test
+    public void testUnsupportedUint8()
+    {
+        // ClickHouse stores incorrect results when the values are out of supported range. This test should be fixed when ClickHouse changes the behavior.
+        SqlDataTypeTest.create()
+                .addRoundTrip("UInt8", "-1", SMALLINT, "SMALLINT '255'")
+                .addRoundTrip("UInt8", "256", SMALLINT, "SMALLINT '0'")
+                .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_unsupported_uint8"));
+
+        // Prevent writing incorrect results in the connector
+        try (TestTable table = new TestTable(clickhouseServer::execute, "tpch.test_unsupported_uint8", "(value UInt8) ENGINE=Log")) {
+            assertQueryFails(
+                    format("INSERT INTO %s VALUES (-1)", table.getName()),
+                    "Value must be between 0 and 255 in ClickHouse: -1");
+            assertQueryFails(
+                    format("INSERT INTO %s VALUES (256)", table.getName()),
+                    "Value must be between 0 and 255 in ClickHouse: 256");
+        }
+    }
+
+    @Test
     public void testUint16()
     {
         SqlDataTypeTest.create()

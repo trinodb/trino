@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.net.InetAddresses;
+import com.google.common.primitives.Shorts;
 import io.airlift.slice.Slice;
 import io.trino.plugin.base.aggregation.AggregateFunctionRewriter;
 import io.trino.plugin.base.aggregation.AggregateFunctionRule;
@@ -165,6 +166,9 @@ public class ClickHouseClient
         extends BaseJdbcClient
 {
     private static final Splitter TABLE_PROPERTY_SPLITTER = Splitter.on(',').omitEmptyStrings().trimResults();
+
+    private static final long UINT8_MIN_VALUE = 0L;
+    private static final long UINT8_MAX_VALUE = 255L;
 
     private static final long UINT16_MIN_VALUE = 0L;
     private static final long UINT16_MAX_VALUE = 65535L;
@@ -487,6 +491,8 @@ public class ClickHouseClient
         ClickHouseColumn column = ClickHouseColumn.of("", jdbcTypeName);
         ClickHouseDataType columnDataType = column.getDataType();
         switch (columnDataType) {
+            case UInt8:
+                return Optional.of(ColumnMapping.longMapping(SMALLINT, ResultSet::getShort, uInt8WriteFunction()));
             case UInt16:
                 return Optional.of(ColumnMapping.longMapping(INTEGER, ResultSet::getInt, uInt16WriteFunction()));
             case UInt32:
@@ -658,6 +664,17 @@ public class ClickHouseClient
         }
         // include more than one column
         return Optional.of("(" + String.join(",", prop) + ")");
+    }
+
+    private static LongWriteFunction uInt8WriteFunction()
+    {
+        return (statement, index, value) -> {
+            // ClickHouse stores incorrect results when the values are out of supported range.
+            if (value < UINT8_MIN_VALUE || value > UINT8_MAX_VALUE) {
+                throw new TrinoException(INVALID_ARGUMENTS, format("Value must be between %s and %s in ClickHouse: %s", UINT8_MIN_VALUE, UINT8_MAX_VALUE, value));
+            }
+            statement.setShort(index, Shorts.checkedCast(value));
+        };
     }
 
     private static LongWriteFunction uInt16WriteFunction()
