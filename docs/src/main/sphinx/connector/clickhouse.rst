@@ -160,26 +160,26 @@ Type mapping
 
 The data type mappings are as follows:
 
-================= =============== ===================================================================================================
-ClickHouse        Trino           Notes
-================= =============== ===================================================================================================
-``Int8``          ``TINYINT``     ``TINYINT``, ``BOOL``, ``BOOLEAN`` and ``INT1`` are aliases of ``Int8``
-``Int16``         ``SMALLINT``    ``SMALLINT`` and ``INT2`` are aliases of ``Int16``
-``Int32``         ``INTEGER``     ``INT``, ``INT4`` and ``INTEGER`` are aliases of ``Int32``
-``Int64``         ``BIGINT``      ``BIGINT`` is an alias of ``Int64``
-``Float32``       ``REAL``        ``FLOAT`` is an alias of ``Float32``
-``Float64``       ``DOUBLE``      ``DOUBLE`` is an alias of ``Float64``
+================= ================= ===================================================================================================
+ClickHouse        Trino             Notes
+================= ================= ===================================================================================================
+``Int8``          ``TINYINT``       ``TINYINT``, ``BOOL``, ``BOOLEAN`` and ``INT1`` are aliases of ``Int8``
+``Int16``         ``SMALLINT``      ``SMALLINT`` and ``INT2`` are aliases of ``Int16``
+``Int32``         ``INTEGER``       ``INT``, ``INT4`` and ``INTEGER`` are aliases of ``Int32``
+``Int64``         ``BIGINT``        ``BIGINT`` is an alias of ``Int64``
+``Float32``       ``REAL``          ``FLOAT`` is an alias of ``Float32``
+``Float64``       ``DOUBLE``        ``DOUBLE`` is an alias of ``Float64``
 ``Decimal``       ``DECIMAL``
-``FixedString``   ``VARBINARY``   Enabling ``clickhouse.map-string-as-varchar`` config property changes the mapping to ``VARCHAR``
-``String``        ``VARBINARY``   Enabling ``clickhouse.map-string-as-varchar`` config property changes the mapping to ``VARCHAR``
+``FixedString``   ``VARBINARY``     Enabling ``clickhouse.map-string-as-varchar`` config property changes the mapping to ``VARCHAR``
+``String``        ``VARBINARY``     Enabling ``clickhouse.map-string-as-varchar`` config property changes the mapping to ``VARCHAR``
 ``Date``          ``DATE``
 ``DateTime``      ``TIMESTAMP``
 ``IPv4``          ``IPADDRESS``
 ``IPv6``          ``IPADDRESS``
 ``Enum8``         ``VARCHAR``
 ``Enum16``        ``VARCHAR``
-``UUID``           ``UUID``
-================= =============== ===================================================================================================
+``UUID``          ``UUID``
+================= ================= ===================================================================================================
 
 .. include:: jdbc-type-mapping.fragment
 
