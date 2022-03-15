@@ -369,7 +369,8 @@ jobs:
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
           $RETRY $MAVEN validate ${MAVEN_FAST_INSTALL} -P disable-check-spi-dependencies -pl '!:trino-docs,!:trino-server,!:trino-server-rpm'
-      - id: set-matrix
+      - name: Set matrix
+        id: set-matrix
         run: |
           # GIB doesn't run on master, so make sure the file always exist
           touch gib-impacted.log
