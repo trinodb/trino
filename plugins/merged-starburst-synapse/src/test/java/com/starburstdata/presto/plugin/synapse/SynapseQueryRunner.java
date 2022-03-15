@@ -77,7 +77,7 @@ public final class SynapseQueryRunner
             throws Exception
     {
         Session session = createSession(USERNAME, catalogName);
-        DistributedQueryRunner.Builder builder = StarburstDistributedQueryRunner.builder(session);
+        DistributedQueryRunner.Builder<?> builder = StarburstDistributedQueryRunner.builder(session);
         extraProperties.forEach(builder::addExtraProperty);
         DistributedQueryRunner queryRunner = builder.build();
         try {
