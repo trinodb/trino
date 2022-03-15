@@ -15,6 +15,7 @@
 package io.trino.plugin.singlestore;
 
 import io.airlift.configuration.Config;
+import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.Duration;
 
 import javax.validation.constraints.NotNull;
@@ -31,7 +32,8 @@ public class SingleStoreConfig
         return autoReconnect;
     }
 
-    @Config("memsql.auto-reconnect")
+    @Config("singlestore.auto-reconnect")
+    @LegacyConfig("memsql.auto-reconnect")
     public SingleStoreConfig setAutoReconnect(boolean autoReconnect)
     {
         this.autoReconnect = autoReconnect;
@@ -44,7 +46,8 @@ public class SingleStoreConfig
         return connectionTimeout;
     }
 
-    @Config("memsql.connection-timeout")
+    @Config("singlestore.connection-timeout")
+    @LegacyConfig("memsql.connection-timeout")
     public SingleStoreConfig setConnectionTimeout(Duration connectionTimeout)
     {
         this.connectionTimeout = connectionTimeout;
