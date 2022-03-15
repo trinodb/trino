@@ -60,7 +60,9 @@ import io.trino.execution.TaskStatus;
 import io.trino.execution.resourcegroups.InternalResourceGroupManager;
 import io.trino.execution.resourcegroups.LegacyResourceGroupConfigurationManager;
 import io.trino.execution.resourcegroups.ResourceGroupManager;
+import io.trino.execution.scheduler.BinPackingNodeAllocatorService;
 import io.trino.execution.scheduler.ConstantPartitionMemoryEstimator;
+import io.trino.execution.scheduler.ExponentialGrowthPartitionMemoryEstimator;
 import io.trino.execution.scheduler.FallbackToFullNodePartitionMemoryEstimator;
 import io.trino.execution.scheduler.FixedCountNodeAllocatorService;
 import io.trino.execution.scheduler.FullNodeCapableNodeAllocatorService;
@@ -134,6 +136,7 @@ import static io.airlift.http.client.HttpClientBinder.httpClientBinder;
 import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.trino.execution.scheduler.NodeSchedulerConfig.NodeAllocatorType.BIN_PACKING;
 import static io.trino.execution.scheduler.NodeSchedulerConfig.NodeAllocatorType.FIXED_COUNT;
 import static io.trino.execution.scheduler.NodeSchedulerConfig.NodeAllocatorType.FULL_NODE_CAPABLE;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -232,6 +235,13 @@ public class CoordinatorModule
                 innerBinder -> {
                     innerBinder.bind(NodeAllocatorService.class).to(FullNodeCapableNodeAllocatorService.class).in(Scopes.SINGLETON);
                     innerBinder.bind(PartitionMemoryEstimator.class).to(FallbackToFullNodePartitionMemoryEstimator.class).in(Scopes.SINGLETON);
+                }));
+        install(conditionalModule(
+                NodeSchedulerConfig.class,
+                config -> BIN_PACKING == config.getNodeAllocatorType(),
+                innerBinder -> {
+                    innerBinder.bind(NodeAllocatorService.class).to(BinPackingNodeAllocatorService.class).in(Scopes.SINGLETON);
+                    innerBinder.bind(PartitionMemoryEstimator.class).to(ExponentialGrowthPartitionMemoryEstimator.class).in(Scopes.SINGLETON);
                 }));
 
         // node monitor
