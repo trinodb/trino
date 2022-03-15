@@ -25,6 +25,8 @@ import io.trino.connector.CatalogName;
 import io.trino.memory.ClusterMemoryManager;
 import io.trino.memory.MemoryInfo;
 import io.trino.metadata.InternalNode;
+import io.trino.metadata.InternalNodeManager;
+import io.trino.metadata.NodeState;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
 import org.assertj.core.util.VisibleForTesting;
@@ -59,6 +61,7 @@ import java.util.function.Supplier;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.Futures.transform;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -93,7 +96,7 @@ public class FullNodeCapableNodeAllocatorService
     @VisibleForTesting
     static final int PROCESS_PENDING_ACQUIRES_DELAY_SECONDS = 5;
 
-    private final NodeScheduler nodeScheduler;
+    private final InternalNodeManager nodeManager;
     private final Supplier<Map<String, Optional<MemoryInfo>>> workerMemoryInfoSupplier;
     private final int maxAbsoluteFullNodesPerQuery;
     private final double maxFractionFullNodesPerQuery;
@@ -113,27 +116,34 @@ public class FullNodeCapableNodeAllocatorService
     private final Semaphore processSemaphore = new Semaphore(0);
     private final ConcurrentMap<String, Long> nodePoolSizes = new ConcurrentHashMap<>();
     private final AtomicLong maxNodePoolSize = new AtomicLong(FULL_NODE_MEMORY.toBytes());
+    private final boolean scheduleOnCoordinator;
 
     @Inject
     public FullNodeCapableNodeAllocatorService(
-            NodeScheduler nodeScheduler,
+            InternalNodeManager nodeManager,
             ClusterMemoryManager clusterMemoryManager,
             NodeSchedulerConfig config)
     {
-        this(nodeScheduler, requireNonNull(clusterMemoryManager, "clusterMemoryManager is null")::getWorkerMemoryInfo, config.getMaxAbsoluteFullNodesPerQuery(), config.getMaxFractionFullNodesPerQuery());
+        this(nodeManager,
+                requireNonNull(clusterMemoryManager, "clusterMemoryManager is null")::getWorkerMemoryInfo,
+                config.getMaxAbsoluteFullNodesPerQuery(),
+                config.getMaxFractionFullNodesPerQuery(),
+                config.isIncludeCoordinator());
     }
 
     @VisibleForTesting
     FullNodeCapableNodeAllocatorService(
-            NodeScheduler nodeScheduler,
+            InternalNodeManager nodeManager,
             Supplier<Map<String, Optional<MemoryInfo>>> workerMemoryInfoSupplier,
             int maxAbsoluteFullNodesPerQuery,
-            double maxFractionFullNodesPerQuery)
+            double maxFractionFullNodesPerQuery,
+            boolean scheduleOnCoordinator)
     {
-        this.nodeScheduler = requireNonNull(nodeScheduler, "nodeScheduler is null");
+        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.workerMemoryInfoSupplier = requireNonNull(workerMemoryInfoSupplier, "workerMemoryInfoSupplier is null");
         this.maxAbsoluteFullNodesPerQuery = maxAbsoluteFullNodesPerQuery;
         this.maxFractionFullNodesPerQuery = maxFractionFullNodesPerQuery;
+        this.scheduleOnCoordinator = scheduleOnCoordinator;
     }
 
     private void refreshNodePoolSizes()
@@ -227,7 +237,7 @@ public class FullNodeCapableNodeAllocatorService
                 }
 
                 try {
-                    Candidates candidates = selectCandidates(pendingAcquire.getNodeRequirements(), pendingAcquire.getNodeSelector());
+                    Candidates candidates = selectCandidates(pendingAcquire.getNodeRequirements());
                     if (candidates.isEmpty()) {
                         throw new TrinoException(NO_NODES_AVAILABLE, "No nodes available to run query");
                     }
@@ -277,7 +287,7 @@ public class FullNodeCapableNodeAllocatorService
                         continue;
                     }
 
-                    Candidates currentCandidates = selectCandidates(pendingAcquire.getNodeRequirements(), pendingAcquire.getNodeSelector());
+                    Candidates currentCandidates = selectCandidates(pendingAcquire.getNodeRequirements());
                     if (currentCandidates.isEmpty()) {
                         throw new TrinoException(NO_NODES_AVAILABLE, "No nodes available to run query");
                     }
@@ -309,7 +319,7 @@ public class FullNodeCapableNodeAllocatorService
                     continue;
                 }
                 try {
-                    Candidates currentCandidates = selectCandidates(pendingAcquire.getNodeRequirements(), pendingAcquire.getNodeSelector());
+                    Candidates currentCandidates = selectCandidates(pendingAcquire.getNodeRequirements());
                     if (currentCandidates.isEmpty()) {
                         throw new TrinoException(NO_NODES_AVAILABLE, "No nodes available to run query");
                     }
@@ -435,9 +445,9 @@ public class FullNodeCapableNodeAllocatorService
         return selectedNode;
     }
 
-    private synchronized PendingAcquire registerPendingAcquire(NodeRequirements requirements, NodeSelector nodeSelector, Candidates candidates, QueryId queryId)
+    private synchronized PendingAcquire registerPendingAcquire(NodeRequirements requirements, Candidates candidates, QueryId queryId)
     {
-        PendingAcquire pendingAcquire = new PendingAcquire(requirements, nodeSelector, queryId);
+        PendingAcquire pendingAcquire = new PendingAcquire(requirements, queryId);
         if (isFullNode(requirements)) {
             Optional<InternalNode> targetNode = findTargetPendingFullNode(queryId, candidates);
 
@@ -496,9 +506,9 @@ public class FullNodeCapableNodeAllocatorService
         return new FullNodeCapableNodeAllocator(session);
     }
 
-    private static Candidates selectCandidates(NodeRequirements requirements, NodeSelector nodeSelector)
+    private Candidates selectCandidates(NodeRequirements requirements)
     {
-        List<InternalNode> allNodes = nodeSelector.allNodes();
+        Set<InternalNode> allNodes = getAllNodes(requirements.getCatalogName());
         return new Candidates(
                 allNodes.size(),
                 allNodes.stream()
@@ -533,11 +543,27 @@ public class FullNodeCapableNodeAllocatorService
         }
     }
 
+    private Set<InternalNode> getAllNodes(Optional<CatalogName> catalogName)
+    {
+        Set<InternalNode> activeNodes;
+        if (catalogName.isPresent()) {
+            activeNodes = nodeManager.getActiveConnectorNodes(catalogName.get());
+        }
+        else {
+            activeNodes = nodeManager.getNodes(NodeState.ACTIVE);
+        }
+        if (scheduleOnCoordinator) {
+            return activeNodes;
+        }
+        return activeNodes.stream()
+                .filter(node -> !node.isCoordinator())
+                .collect(toImmutableSet());
+    }
+
     private class FullNodeCapableNodeAllocator
             implements NodeAllocator
     {
         @GuardedBy("this")
-        private final Map<Optional<CatalogName>, NodeSelector> nodeSelectorCache = new HashMap<>();
         private final Session session;
 
         public FullNodeCapableNodeAllocator(Session session)
@@ -548,9 +574,7 @@ public class FullNodeCapableNodeAllocatorService
         @Override
         public NodeLease acquire(NodeRequirements requirements)
         {
-            NodeSelector nodeSelector = nodeSelectorCache.computeIfAbsent(requirements.getCatalogName(), catalogName -> nodeScheduler.createNodeSelector(session, catalogName));
-
-            Candidates candidates = selectCandidates(requirements, nodeSelector);
+            Candidates candidates = selectCandidates(requirements);
             if (candidates.isEmpty()) {
                 throw new TrinoException(NO_NODES_AVAILABLE, "No nodes available to run query");
             }
@@ -567,7 +591,7 @@ public class FullNodeCapableNodeAllocatorService
                         queryId);
             }
 
-            PendingAcquire pendingAcquire = registerPendingAcquire(requirements, nodeSelector, candidates, queryId);
+            PendingAcquire pendingAcquire = registerPendingAcquire(requirements, candidates, queryId);
             return new FullNodeCapableNodeLease(
                     transform(pendingAcquire.getFuture(), this::nodeInfoForNode, directExecutor()),
                     requirements.getMemory().toBytes(),
@@ -593,14 +617,12 @@ public class FullNodeCapableNodeAllocatorService
     private static class PendingAcquire
     {
         private final NodeRequirements nodeRequirements;
-        private final NodeSelector nodeSelector;
         private final SettableFuture<InternalNode> future;
         private final QueryId queryId;
 
-        private PendingAcquire(NodeRequirements nodeRequirements, NodeSelector nodeSelector, QueryId queryId)
+        private PendingAcquire(NodeRequirements nodeRequirements, QueryId queryId)
         {
             this.nodeRequirements = requireNonNull(nodeRequirements, "nodeRequirements is null");
-            this.nodeSelector = requireNonNull(nodeSelector, "nodeSelector is null");
             this.queryId = requireNonNull(queryId, "queryId is null");
             this.future = SettableFuture.create();
         }
@@ -608,11 +630,6 @@ public class FullNodeCapableNodeAllocatorService
         public NodeRequirements getNodeRequirements()
         {
             return nodeRequirements;
-        }
-
-        public NodeSelector getNodeSelector()
-        {
-            return nodeSelector;
         }
 
         public QueryId getQueryId()

@@ -20,8 +20,8 @@ import io.airlift.units.DataSize;
 import io.trino.Session;
 import io.trino.client.NodeVersion;
 import io.trino.connector.CatalogName;
-import io.trino.execution.scheduler.TestingNodeSelectorFactory.TestingNodeSupplier;
 import io.trino.memory.MemoryInfo;
+import io.trino.metadata.InMemoryNodeManager;
 import io.trino.metadata.InternalNode;
 import io.trino.spi.HostAddress;
 import io.trino.spi.QueryId;
@@ -37,6 +37,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
@@ -68,6 +69,7 @@ public class TestFullNodeCapableNodeAllocator
 
     private static final CatalogName CATALOG_1 = new CatalogName("catalog1");
     private static final CatalogName CATALOG_2 = new CatalogName("catalog2");
+    private static final List<CatalogName> ALL_CATALOGS = ImmutableList.of(CATALOG_1, CATALOG_2);
 
     private static final NodeRequirements NO_REQUIREMENTS = new NodeRequirements(Optional.empty(), Set.of(), DataSize.of(32, GIGABYTE));
     private static final NodeRequirements SHARED_NODE_CATALOG_1_REQUIREMENTS = new NodeRequirements(Optional.of(CATALOG_1), Set.of(), DataSize.of(32, GIGABYTE));
@@ -85,7 +87,7 @@ public class TestFullNodeCapableNodeAllocator
 
     private FullNodeCapableNodeAllocatorService nodeAllocatorService;
 
-    private void setupNodeAllocatorService(TestingNodeSupplier testingNodeSupplier, int maxFullNodesPerQuery)
+    private void setupNodeAllocatorService(InMemoryNodeManager nodeManager, int maxFullNodesPerQuery)
     {
         shutdownNodeAllocatorService(); // just in case
 
@@ -96,11 +98,13 @@ public class TestFullNodeCapableNodeAllocator
                 NODE_2.getNodeIdentifier(), Optional.of(memoryInfo),
                 NODE_3.getNodeIdentifier(), Optional.of(memoryInfo),
                 NODE_4.getNodeIdentifier(), Optional.of(memoryInfo));
+
         nodeAllocatorService = new FullNodeCapableNodeAllocatorService(
-                new NodeScheduler(new TestingNodeSelectorFactory(NODE_1, testingNodeSupplier)),
+                nodeManager,
                 () -> workerMemoryInfos,
                 maxFullNodesPerQuery,
-                1.0);
+                1.0,
+                false);
         nodeAllocatorService.start();
     }
 
@@ -117,8 +121,8 @@ public class TestFullNodeCapableNodeAllocator
     public void testAllocateSharedSimple()
             throws Exception
     {
-        TestingNodeSupplier nodeSupplier = TestingNodeSupplier.create(basicNodesMap(NODE_1, NODE_2));
-        setupNodeAllocatorService(nodeSupplier, 1);
+        InMemoryNodeManager nodeManager = testingNodeManager(basicNodesMap(NODE_1, NODE_2));
+        setupNodeAllocatorService(nodeManager, 1);
 
         try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(Q1_SESSION)) {
             // first two allocation should not block
@@ -153,7 +157,7 @@ public class TestFullNodeCapableNodeAllocator
             assertNotAcquired(acquire6);
 
             // add new node
-            nodeSupplier.addNode(NODE_3, ImmutableList.of());
+            addNode(nodeManager, NODE_3);
             // TODO: make FullNodeCapableNodeAllocatorService react on new node added automatically
             nodeAllocatorService.wakeupProcessPendingAcquires();
 
@@ -169,8 +173,8 @@ public class TestFullNodeCapableNodeAllocator
     public void testAllocateSharedReleaseBeforeAcquired()
             throws Exception
     {
-        TestingNodeSupplier nodeSupplier = TestingNodeSupplier.create(basicNodesMap(NODE_1));
-        setupNodeAllocatorService(nodeSupplier, 1);
+        InMemoryNodeManager nodeManager = testingNodeManager(basicNodesMap(NODE_1));
+        setupNodeAllocatorService(nodeManager, 1);
 
         try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(Q1_SESSION)) {
             // first two allocation should not block
@@ -199,8 +203,10 @@ public class TestFullNodeCapableNodeAllocator
     public void testNoSharedNodeAvailable()
             throws Exception
     {
-        TestingNodeSupplier nodeSupplier = TestingNodeSupplier.create(basicNodesMap(NODE_1));
-        setupNodeAllocatorService(nodeSupplier, 1);
+        InMemoryNodeManager nodeManager = testingNodeManager(nodesMapBuilder()
+                .put(NODE_1, ImmutableList.of(CATALOG_2))
+                .buildOrThrow());
+        setupNodeAllocatorService(nodeManager, 1);
 
         try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(Q1_SESSION)) {
             // request a node with specific catalog (not present)
@@ -209,7 +215,7 @@ public class TestFullNodeCapableNodeAllocator
                     .hasMessage("No nodes available to run query");
 
             // add node with specific catalog
-            nodeSupplier.addNode(NODE_2, ImmutableList.of(CATALOG_1));
+            addNode(nodeManager, NODE_2, CATALOG_1);
 
             // we should be able to acquire the node now
             NodeAllocator.NodeLease acquire1 = nodeAllocator.acquire(SHARED_NODE_CATALOG_1_REQUIREMENTS.withMemory(DataSize.of(64, GIGABYTE)));
@@ -220,7 +226,7 @@ public class TestFullNodeCapableNodeAllocator
             assertNotAcquired(acquire2);
 
             // remove node with catalog
-            nodeSupplier.removeNode(NODE_2);
+            nodeManager.removeNode(NODE_2);
             // TODO: make FullNodeCapableNodeAllocatorService react on node removed automatically
             nodeAllocatorService.wakeupProcessPendingAcquires();
 
@@ -234,19 +240,32 @@ public class TestFullNodeCapableNodeAllocator
         }
     }
 
+    private InMemoryNodeManager testingNodeManager(Map<InternalNode, List<CatalogName>> nodeMap)
+    {
+        InMemoryNodeManager nodeManager = new InMemoryNodeManager();
+        for (Map.Entry<InternalNode, List<CatalogName>> entry : nodeMap.entrySet()) {
+            InternalNode node = entry.getKey();
+            List<CatalogName> catalogs = entry.getValue();
+            for (CatalogName catalog : catalogs) {
+                nodeManager.addNode(catalog, node);
+            }
+        }
+        return nodeManager;
+    }
+
     @Test(timeOut = TEST_TIMEOUT)
     public void testRemoveAcquiredSharedNode()
             throws Exception
     {
-        TestingNodeSupplier nodeSupplier = TestingNodeSupplier.create(basicNodesMap(NODE_1));
-        setupNodeAllocatorService(nodeSupplier, 1);
+        InMemoryNodeManager nodeManager = testingNodeManager(basicNodesMap(NODE_1));
+        setupNodeAllocatorService(nodeManager, 1);
 
         try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(Q1_SESSION)) {
             NodeAllocator.NodeLease acquire1 = nodeAllocator.acquire(NO_REQUIREMENTS);
             assertAcquired(acquire1, NODE_1);
 
             // remove acquired node
-            nodeSupplier.removeNode(NODE_1);
+            nodeManager.removeNode(NODE_1);
 
             // we should still be able to release lease for removed node
             acquire1.release();
@@ -270,8 +289,8 @@ public class TestFullNodeCapableNodeAllocator
     private void testAllocateFullSimple(NodeRequirements fullNodeRequirements)
             throws Exception
     {
-        TestingNodeSupplier nodeSupplier = TestingNodeSupplier.create(basicNodesMap(NODE_1, NODE_2));
-        setupNodeAllocatorService(nodeSupplier, 3);
+        InMemoryNodeManager nodeManager = testingNodeManager(basicNodesMap(NODE_1, NODE_2));
+        setupNodeAllocatorService(nodeManager, 3);
 
         try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(Q1_SESSION)) {
             // allocate 2 full nodes should not block
@@ -319,8 +338,8 @@ public class TestFullNodeCapableNodeAllocator
     public void testAllocateFullReleaseBeforeAcquired()
             throws Exception
     {
-        TestingNodeSupplier nodeSupplier = TestingNodeSupplier.create(basicNodesMap(NODE_1));
-        setupNodeAllocatorService(nodeSupplier, 1);
+        InMemoryNodeManager nodeManager = testingNodeManager(basicNodesMap(NODE_1));
+        setupNodeAllocatorService(nodeManager, 1);
 
         try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(Q1_SESSION)) {
             // first allocation should not block
@@ -347,8 +366,8 @@ public class TestFullNodeCapableNodeAllocator
     public void testAllocateFullWithQueryLimit()
             throws Exception
     {
-        TestingNodeSupplier nodeSupplier = TestingNodeSupplier.create(basicNodesMap(NODE_1, NODE_2, NODE_3));
-        setupNodeAllocatorService(nodeSupplier, 2);
+        InMemoryNodeManager nodeManager = testingNodeManager(basicNodesMap(NODE_1, NODE_2, NODE_3));
+        setupNodeAllocatorService(nodeManager, 2);
 
         try (NodeAllocator q1NodeAllocator = nodeAllocatorService.getNodeAllocator(Q1_SESSION);
                 NodeAllocator q2NodeAllocator = nodeAllocatorService.getNodeAllocator(Q2_SESSION)) {
@@ -379,8 +398,8 @@ public class TestFullNodeCapableNodeAllocator
     public void testAllocateFullOpportunistic()
             throws Exception
     {
-        TestingNodeSupplier nodeSupplier = TestingNodeSupplier.create(basicNodesMap(NODE_1, NODE_2));
-        setupNodeAllocatorService(nodeSupplier, 2);
+        InMemoryNodeManager nodeManager = testingNodeManager(basicNodesMap(NODE_1, NODE_2));
+        setupNodeAllocatorService(nodeManager, 2);
 
         try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(Q1_SESSION)) {
             // allocate both nodes as shared
@@ -396,7 +415,7 @@ public class TestFullNodeCapableNodeAllocator
             assertNotAcquired(full2);
 
             // add new node to the cluster
-            nodeSupplier.addNode(NODE_3, ImmutableList.of());
+            addNode(nodeManager, NODE_3);
             // TODO: make FullNodeCapableNodeAllocatorService react on new node added automatically
             nodeAllocatorService.wakeupProcessPendingAcquires();
 
@@ -416,9 +435,9 @@ public class TestFullNodeCapableNodeAllocator
     public void testAllocateFullWithAddressRequirements()
             throws Exception
     {
-        TestingNodeSupplier nodeSupplier = TestingNodeSupplier.create(basicNodesMap(NODE_1, NODE_2, NODE_3));
+        InMemoryNodeManager nodeManager = testingNodeManager(basicNodesMap(NODE_1, NODE_2, NODE_3));
 
-        setupNodeAllocatorService(nodeSupplier, 2);
+        setupNodeAllocatorService(nodeManager, 2);
 
         try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(Q1_SESSION)) {
             NodeAllocator.NodeLease acquire1 = nodeAllocator.acquire(FULL_NODE_1_REQUIREMENTS);
@@ -437,13 +456,13 @@ public class TestFullNodeCapableNodeAllocator
     public void testAllocateFullWithCatalogRequirements()
             throws Exception
     {
-        TestingNodeSupplier nodeSupplier = TestingNodeSupplier.create(nodesMapBuilder()
+        InMemoryNodeManager nodeManager = testingNodeManager(nodesMapBuilder()
                 .put(NODE_1, ImmutableList.of(CATALOG_1))
                 .put(NODE_2, ImmutableList.of(CATALOG_1))
                 .put(NODE_3, ImmutableList.of(CATALOG_2))
                 .buildOrThrow());
 
-        setupNodeAllocatorService(nodeSupplier, 2);
+        setupNodeAllocatorService(nodeManager, 2);
 
         try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(Q1_SESSION)) {
             // we have 3 nodes available and per-query limit set to 2 but only 1 node that exposes CATALOG_2
@@ -462,14 +481,14 @@ public class TestFullNodeCapableNodeAllocator
     public void testAllocateFullWithQueryLimitAndCatalogRequirements()
             throws Exception
     {
-        TestingNodeSupplier nodeSupplier = TestingNodeSupplier.create(nodesMapBuilder()
+        InMemoryNodeManager nodeManager = testingNodeManager(nodesMapBuilder()
                 .put(NODE_1, ImmutableList.of(CATALOG_1))
                 .put(NODE_2, ImmutableList.of(CATALOG_1))
                 .put(NODE_3, ImmutableList.of(CATALOG_2))
                 .put(NODE_4, ImmutableList.of(CATALOG_2))
                 .buildOrThrow());
 
-        setupNodeAllocatorService(nodeSupplier, 2);
+        setupNodeAllocatorService(nodeManager, 2);
 
         try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(Q1_SESSION)) {
             // allocate 2 full nodes for Q1 should not block
@@ -492,8 +511,8 @@ public class TestFullNodeCapableNodeAllocator
     public void testAllocateFullNodeReleaseBeforeAcquiredWaitingOnMaxFullNodesPerQuery()
             throws Exception
     {
-        TestingNodeSupplier nodeSupplier = TestingNodeSupplier.create(basicNodesMap(NODE_1, NODE_2));
-        setupNodeAllocatorService(nodeSupplier, 1);
+        InMemoryNodeManager nodeManager = testingNodeManager(basicNodesMap(NODE_1, NODE_2));
+        setupNodeAllocatorService(nodeManager, 1);
 
         try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(Q1_SESSION)) {
             // first full allocation should not block
@@ -520,8 +539,8 @@ public class TestFullNodeCapableNodeAllocator
     public void testAllocateFullNodeReleaseBeforeAcquiredWaitingOnOtherNodesUsed()
             throws Exception
     {
-        TestingNodeSupplier nodeSupplier = TestingNodeSupplier.create(basicNodesMap(NODE_1));
-        setupNodeAllocatorService(nodeSupplier, 100);
+        InMemoryNodeManager nodeManager = testingNodeManager(basicNodesMap(NODE_1));
+        setupNodeAllocatorService(nodeManager, 100);
 
         try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(Q1_SESSION)) {
             // allocate NODE_1 in shared mode
@@ -529,7 +548,7 @@ public class TestFullNodeCapableNodeAllocator
             assertAcquired(acquire1, NODE_1);
 
             // add one more node
-            nodeSupplier.addNode(NODE_2, ImmutableList.of());
+            addNode(nodeManager, NODE_2);
 
             // first full allocation should not block
             NodeAllocator.NodeLease acquire2 = nodeAllocator.acquire(FULL_NODE_REQUIREMENTS);
@@ -555,15 +574,15 @@ public class TestFullNodeCapableNodeAllocator
     public void testRemoveAcquiredFullNode()
             throws Exception
     {
-        TestingNodeSupplier nodeSupplier = TestingNodeSupplier.create(basicNodesMap(NODE_1));
-        setupNodeAllocatorService(nodeSupplier, 1);
+        InMemoryNodeManager nodeManager = testingNodeManager(basicNodesMap(NODE_1));
+        setupNodeAllocatorService(nodeManager, 1);
 
         try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(Q1_SESSION)) {
             NodeAllocator.NodeLease acquire1 = nodeAllocator.acquire(FULL_NODE_REQUIREMENTS);
             assertAcquired(acquire1, NODE_1);
 
             // remove acquired node
-            nodeSupplier.removeNode(NODE_1);
+            nodeManager.removeNode(NODE_1);
 
             // we should still be able to release lease for removed node
             acquire1.release();
@@ -574,8 +593,10 @@ public class TestFullNodeCapableNodeAllocator
     public void testNoFullNodeAvailable()
             throws Exception
     {
-        TestingNodeSupplier nodeSupplier = TestingNodeSupplier.create(basicNodesMap(NODE_1));
-        setupNodeAllocatorService(nodeSupplier, 100);
+        InMemoryNodeManager nodeManager = testingNodeManager(nodesMapBuilder()
+                .put(NODE_1, ImmutableList.of(CATALOG_2))
+                .buildOrThrow());
+        setupNodeAllocatorService(nodeManager, 100);
 
         try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(Q1_SESSION)) {
             // request a full node with specific catalog (not present)
@@ -584,7 +605,7 @@ public class TestFullNodeCapableNodeAllocator
                     .hasMessage("No nodes available to run query");
 
             // add node with specific catalog
-            nodeSupplier.addNode(NODE_2, ImmutableList.of(CATALOG_1));
+            addNode(nodeManager, NODE_2, CATALOG_1);
 
             // we should be able to acquire the node now
             NodeAllocator.NodeLease acquire1 = nodeAllocator.acquire(FULL_NODE_CATALOG_1_REQUIREMENTS);
@@ -595,7 +616,7 @@ public class TestFullNodeCapableNodeAllocator
             assertNotAcquired(acquire2);
 
             // remove node with catalog
-            nodeSupplier.removeNode(NODE_2);
+            nodeManager.removeNode(NODE_2);
             // TODO: make FullNodeCapableNodeAllocatorService react on node removed automatically
             nodeAllocatorService.wakeupProcessPendingAcquires();
 
@@ -613,8 +634,8 @@ public class TestFullNodeCapableNodeAllocator
     public void testRemoveAssignedFullNode()
             throws Exception
     {
-        TestingNodeSupplier nodeSupplier = TestingNodeSupplier.create(basicNodesMap(NODE_1, NODE_2));
-        setupNodeAllocatorService(nodeSupplier, 1);
+        InMemoryNodeManager nodeManager = testingNodeManager(basicNodesMap(NODE_1, NODE_2));
+        setupNodeAllocatorService(nodeManager, 1);
 
         try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(Q1_SESSION)) {
             NodeAllocator.NodeLease sharedAcquire1 = nodeAllocator.acquire(NO_REQUIREMENTS);
@@ -634,7 +655,7 @@ public class TestFullNodeCapableNodeAllocator
             InternalNode pendingFullNode = Iterables.getOnlyElement(pendingFullNodes);
 
             // remove assigned node and release shared allocation for it; full node acquire still should not be fulfilled
-            nodeSupplier.removeNode(pendingFullNode);
+            nodeManager.removeNode(pendingFullNode);
             sharedAcquire1.release();
             assertNotAcquired(fullAcquire);
 
@@ -654,12 +675,30 @@ public class TestFullNodeCapableNodeAllocator
         return Arrays.stream(nodes)
                 .collect(toImmutableMap(
                         node -> node,
-                        node -> ImmutableList.of()));
+                        node -> ALL_CATALOGS));
     }
 
     private ImmutableMap.Builder<InternalNode, List<CatalogName>> nodesMapBuilder()
     {
         return ImmutableMap.builder();
+    }
+
+    private void addNode(InMemoryNodeManager nodeManager, InternalNode node)
+    {
+        addNode(nodeManager, node, ALL_CATALOGS);
+    }
+
+    private void addNode(InMemoryNodeManager nodeManager, InternalNode node, CatalogName... catalogs)
+    {
+        addNode(nodeManager, node, ImmutableList.copyOf(Arrays.asList(catalogs)));
+    }
+
+    private void addNode(InMemoryNodeManager nodeManager, InternalNode node, List<CatalogName> catalogs)
+    {
+        checkArgument(!catalogs.isEmpty(), "no catalogs specified");
+        for (CatalogName catalog : catalogs) {
+            nodeManager.addNode(catalog, node);
+        }
     }
 
     private void assertAcquired(NodeAllocator.NodeLease lease, InternalNode node)
