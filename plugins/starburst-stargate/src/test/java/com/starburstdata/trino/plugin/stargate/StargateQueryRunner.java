@@ -52,7 +52,7 @@ public final class StargateQueryRunner
                     .setCatalog("unspecified_catalog")
                     .setSchema("unspecified_schema")
                     .build();
-            DistributedQueryRunner.Builder queryRunnerBuilder = StarburstDistributedQueryRunner.builder(session)
+            DistributedQueryRunner.Builder<?> queryRunnerBuilder = StarburstDistributedQueryRunner.builder(session)
                     .setNodeCount(1); // 1 is perfectly enough until we do parallel Stargate connector
 
             systemAccessControl.ifPresent(queryRunnerBuilder::setSystemAccessControl);
@@ -198,7 +198,7 @@ public final class StargateQueryRunner
 
         DistributedQueryRunner queryRunner = null;
         try {
-            DistributedQueryRunner.Builder builder = StarburstDistributedQueryRunner.builder(session);
+            DistributedQueryRunner.Builder<?> builder = StarburstDistributedQueryRunner.builder(session);
             extraProperties.forEach(builder::addExtraProperty);
             queryRunner = builder.build();
 
