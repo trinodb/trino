@@ -401,7 +401,7 @@ public abstract class BaseMongoConnectorTest
 
         // IS NULL
         assertQuery("SELECT i FROM " + inlineTable + " WHERE one IS NULL", "VALUES 10, 15");
-        assertQuery("SELECT i FROM tmp_objectid WHERE one IS NULL", "SELECT 0 WHERE false"); // NULL gets replaced with new unique ObjectId in MongoPageSink, this affects other test cases
+        assertQuery("SELECT i FROM tmp_objectid WHERE one IS NULL", "VALUES 10, 15");
 
         // CAST AS varchar
         assertQuery(
@@ -416,8 +416,8 @@ public abstract class BaseMongoConnectorTest
         assertQuery("SELECT i FROM " + inlineTable + " WHERE one IS DISTINCT FROM two", "VALUES 12, 14, 15");
         assertQuery("SELECT i FROM " + inlineTable + " WHERE one IS NOT DISTINCT FROM two", "VALUES 10, 11, 13");
 
-        assertQuery("SELECT i FROM tmp_objectid WHERE one IS DISTINCT FROM two", "VALUES 10, 12, 14, 15");
-        assertQuery("SELECT i FROM tmp_objectid WHERE one IS NOT DISTINCT FROM two", "VALUES 11, 13");
+        assertQuery("SELECT i FROM tmp_objectid WHERE one IS DISTINCT FROM two", "VALUES 12, 14, 15");
+        assertQuery("SELECT i FROM tmp_objectid WHERE one IS NOT DISTINCT FROM two", "VALUES 10, 11, 13");
 
         // Join on ObjectId
         assertQuery(

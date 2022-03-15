@@ -121,9 +121,6 @@ public class MongoPageSink
     private Object getObjectValue(Type type, Block block, int position)
     {
         if (block.isNull(position)) {
-            if (type.equals(OBJECT_ID)) {
-                return new ObjectId();
-            }
             return null;
         }
 
