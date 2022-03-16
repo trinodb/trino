@@ -59,7 +59,7 @@ public class TestTrinoGlueCatalogTest
                 new NoHdfsAuthentication());
         return new TrinoGlueCatalog(
                 hdfsEnvironment,
-                new GlueIcebergTableOperationsProvider(new HdfsFileIoProvider(hdfsEnvironment), new GlueHiveMetastoreConfig()),
+                new GlueIcebergTableOperationsProvider(new HdfsFileIoProvider(hdfsEnvironment), new GlueMetastoreStats(), new GlueHiveMetastoreConfig()),
                 AWSGlueAsyncClientBuilder.defaultClient(),
                 new GlueMetastoreStats(),
                 Optional.empty(),
@@ -82,7 +82,7 @@ public class TestTrinoGlueCatalogTest
                 new NoHdfsAuthentication());
         TrinoCatalog catalogWithDefaultLocation = new TrinoGlueCatalog(
                 hdfsEnvironment,
-                new GlueIcebergTableOperationsProvider(new HdfsFileIoProvider(hdfsEnvironment), new GlueHiveMetastoreConfig()),
+                new GlueIcebergTableOperationsProvider(new HdfsFileIoProvider(hdfsEnvironment), new GlueMetastoreStats(), new GlueHiveMetastoreConfig()),
                 AWSGlueAsyncClientBuilder.defaultClient(),
                 new GlueMetastoreStats(),
                 Optional.of(tmpDirectory.toAbsolutePath().toString()),

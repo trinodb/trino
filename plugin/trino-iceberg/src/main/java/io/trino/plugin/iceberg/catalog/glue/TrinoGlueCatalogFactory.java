@@ -41,14 +41,15 @@ public class TrinoGlueCatalogFactory
     private final Optional<String> defaultSchemaLocation;
     private final AWSGlueAsync glueClient;
     private final boolean isUniqueTableLocation;
-    private final GlueMetastoreStats stats = new GlueMetastoreStats();
+    private final GlueMetastoreStats stats;
 
     @Inject
     public TrinoGlueCatalogFactory(
             HdfsEnvironment hdfsEnvironment,
             IcebergTableOperationsProvider tableOperationsProvider,
             GlueHiveMetastoreConfig glueConfig,
-            IcebergConfig icebergConfig)
+            IcebergConfig icebergConfig,
+            GlueMetastoreStats stats)
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.tableOperationsProvider = requireNonNull(tableOperationsProvider, "tableOperationsProvider is null");
@@ -58,6 +59,7 @@ public class TrinoGlueCatalogFactory
         this.glueClient = createAsyncGlueClient(glueConfig, Optional.empty(), stats.newRequestMetricsCollector());
         requireNonNull(icebergConfig, "icebergConfig is null");
         this.isUniqueTableLocation = icebergConfig.isUniqueTableLocation();
+        this.stats = requireNonNull(stats, "stats is null");
     }
 
     @Managed
