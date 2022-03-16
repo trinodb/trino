@@ -96,14 +96,14 @@ public class TestExpressionMappingParser
         return new ExpressionMappingParser().createExpressionPattern(expressionPattern);
     }
 
-    private static TypePattern type(String baseName)
+    private static SimpleTypePattern type(String baseName)
     {
-        return new TypePattern(baseName, ImmutableList.of());
+        return new SimpleTypePattern(baseName, ImmutableList.of());
     }
 
-    private static TypePattern type(String baseName, TypeParameterPattern... parameter)
+    private static SimpleTypePattern type(String baseName, TypeParameterPattern... parameter)
     {
-        return new TypePattern(baseName, ImmutableList.copyOf(parameter));
+        return new SimpleTypePattern(baseName, ImmutableList.copyOf(parameter));
     }
 
     private static TypeParameterPattern parameter(long value)
