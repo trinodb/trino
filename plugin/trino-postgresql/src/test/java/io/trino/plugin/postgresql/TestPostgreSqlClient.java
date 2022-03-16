@@ -32,8 +32,11 @@ import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.IsNotNullPredicate;
+import io.trino.sql.tree.IsNullPredicate;
 import io.trino.sql.tree.LikePredicate;
 import io.trino.sql.tree.LogicalExpression;
+import io.trino.sql.tree.NotExpression;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.SymbolReference;
 import org.testng.annotations.DataProvider;
@@ -274,6 +277,46 @@ public class TestPostgreSqlClient
                         Map.of("c_varchar", VARCHAR_COLUMN.getColumnType())),
                 Map.of(VARCHAR_COLUMN.getColumnName(), VARCHAR_COLUMN)))
                 .hasValue("(\"c_varchar\") LIKE ('%pattern\\%') ESCAPE ('\\')");
+    }
+
+    @Test
+    public void testConvertIsNull()
+    {
+        // c_varchar IS NULL
+        assertThat(JDBC_CLIENT.convertPredicate(SESSION,
+                translateToConnectorExpression(
+                        new IsNullPredicate(
+                                new SymbolReference("c_varchar_symbol")),
+                        Map.of("c_varchar_symbol", VARCHAR_COLUMN.getColumnType())),
+                Map.of("c_varchar_symbol", VARCHAR_COLUMN)))
+                .hasValue("(\"c_varchar\") IS NULL");
+    }
+
+    @Test
+    public void testConvertIsNotNull()
+    {
+        // c_varchar IS NOT NULL
+        assertThat(JDBC_CLIENT.convertPredicate(SESSION,
+                translateToConnectorExpression(
+                        new IsNotNullPredicate(
+                                new SymbolReference("c_varchar_symbol")),
+                        Map.of("c_varchar_symbol", VARCHAR_COLUMN.getColumnType())),
+                Map.of("c_varchar_symbol", VARCHAR_COLUMN)))
+                .hasValue("(\"c_varchar\") IS NOT NULL");
+    }
+
+    @Test
+    public void testConvertNotExpression()
+    {
+        // NOT(expression)
+        assertThat(JDBC_CLIENT.convertPredicate(SESSION,
+                translateToConnectorExpression(
+                        new NotExpression(
+                            new IsNotNullPredicate(
+                                    new SymbolReference("c_varchar_symbol"))),
+                        Map.of("c_varchar_symbol", VARCHAR_COLUMN.getColumnType())),
+                Map.of("c_varchar_symbol", VARCHAR_COLUMN)))
+                .hasValue("NOT ((\"c_varchar\") IS NOT NULL)");
     }
 
     private ConnectorExpression translateToConnectorExpression(Expression expression, Map<String, Type> symbolTypes)
