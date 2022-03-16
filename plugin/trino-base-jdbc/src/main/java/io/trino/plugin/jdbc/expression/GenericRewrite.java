@@ -17,7 +17,9 @@ import io.trino.matching.Captures;
 import io.trino.plugin.base.expression.ConnectorExpressionRule;
 import io.trino.spi.expression.ConnectorExpression;
 
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -34,9 +36,9 @@ public class GenericRewrite
     private final ExpressionPattern expressionPattern;
     private final String rewritePattern;
 
-    public GenericRewrite(String expressionPattern, String rewritePattern)
+    public GenericRewrite(Map<String, Set<String>> typeClasses, String expressionPattern, String rewritePattern)
     {
-        ExpressionMappingParser parser = new ExpressionMappingParser();
+        ExpressionMappingParser parser = new ExpressionMappingParser(typeClasses);
         this.expressionPattern = parser.createExpressionPattern(expressionPattern);
         this.rewritePattern = requireNonNull(rewritePattern, "rewritePattern is null");
     }

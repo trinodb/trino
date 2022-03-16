@@ -26,10 +26,13 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
-import static com.google.common.collect.MoreCollectors.onlyElement;
+import static com.google.common.collect.MoreCollectors.toOptional;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DecimalType.createDecimalType;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestGenericRewrite
@@ -37,7 +40,7 @@ public class TestGenericRewrite
     @Test
     public void testRewriteCall()
     {
-        GenericRewrite rewrite = new GenericRewrite("add(foo: decimal(p, s), bar: bigint): decimal(rp, rs)", "foo + bar::decimal(rp,rs)");
+        GenericRewrite rewrite = new GenericRewrite(Map.of(), "add(foo: decimal(p, s), bar: bigint): decimal(rp, rs)", "foo + bar::decimal(rp,rs)");
         ConnectorExpression expression = new Call(
                 createDecimalType(21, 2),
                 new FunctionName("add"),
@@ -49,10 +52,46 @@ public class TestGenericRewrite
         assertThat(rewritten).hasValue("(\"first\") + (\"second\")::decimal(21,2)");
     }
 
+    @Test
+    public void testRewriteCallWithTypeClass()
+    {
+        Map<String, Set<String>> typeClasses = Map.of("integer_class", Set.of("integer", "bigint"));
+        GenericRewrite rewrite = new GenericRewrite(typeClasses, "add(foo: integer_class, bar: bigint): integer_class", "foo + bar");
+
+        assertThat(apply(rewrite, new Call(
+                BIGINT,
+                new FunctionName("add"),
+                List.of(
+                        new Variable("first", INTEGER),
+                        new Variable("second", BIGINT)))))
+                .hasValue("(\"first\") + (\"second\")");
+
+        // argument type not in class
+        assertThat(apply(rewrite, new Call(
+                BIGINT,
+                new FunctionName("add"),
+                List.of(
+                        new Variable("first", DOUBLE),
+                        new Variable("second", BIGINT)))))
+                .isEmpty();
+
+        // result type not in class
+        assertThat(apply(rewrite, new Call(
+                DOUBLE,
+                new FunctionName("add"),
+                List.of(
+                        new Variable("first", INTEGER),
+                        new Variable("second", BIGINT)))))
+                .isEmpty();
+    }
+
     private static Optional<String> apply(GenericRewrite rewrite, ConnectorExpression expression)
     {
-        Match match = rewrite.getPattern().match(expression).collect(onlyElement());
-        return rewrite.rewrite(expression, match.captures(), new RewriteContext<>()
+        Optional<Match> match = rewrite.getPattern().match(expression).collect(toOptional());
+        if (match.isEmpty()) {
+            return Optional.empty();
+        }
+        return rewrite.rewrite(expression, match.get().captures(), new RewriteContext<>()
         {
             @Override
             public Map<String, ColumnHandle> getAssignments()
