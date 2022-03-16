@@ -23,9 +23,7 @@ import com.google.inject.Module;
 import com.google.inject.TypeLiteral;
 import io.trino.Session;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
-import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
-import io.trino.plugin.iceberg.catalog.glue.GlueIcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.glue.TrinoGlueCatalogFactory;
 import io.trino.spi.NodeManager;
 import io.trino.testing.AbstractTestQueryFramework;
@@ -90,8 +88,7 @@ public class TestIcebergGlueCatalogAccessOperations
             .setSchema(testSchema)
             .build();
 
-    private GlueMetastoreStats catalogStats;
-    private GlueMetastoreStats tableOperationStats;
+    private GlueMetastoreStats glueStats;
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -100,13 +97,11 @@ public class TestIcebergGlueCatalogAccessOperations
         File tmp = Files.createTempDirectory("test_iceberg").toFile();
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(testSession).build();
 
-        AtomicReference<GlueMetastoreStats> catalogStatsReference = new AtomicReference<>();
-        AtomicReference<GlueMetastoreStats> tableOperationStatsReference = new AtomicReference<>();
-
+        AtomicReference<GlueMetastoreStats> glueStatsReference = new AtomicReference<>();
         queryRunner.installPlugin(new TestingIcebergPlugin(
                 Optional.empty(),
                 Optional.empty(),
-                new StealStatsModule(catalogStatsReference, tableOperationStatsReference)));
+                new StealStatsModule(glueStatsReference)));
         queryRunner.createCatalog("iceberg", "iceberg",
                 ImmutableMap.of(
                         "iceberg.catalog.type", "glue",
@@ -114,8 +109,7 @@ public class TestIcebergGlueCatalogAccessOperations
 
         queryRunner.execute("CREATE SCHEMA " + testSchema);
 
-        catalogStats = verifyNotNull(catalogStatsReference.get(), "catalogStatsReference not set");
-        tableOperationStats = verifyNotNull(tableOperationStatsReference.get(), "tableOperationStatsReference not set");
+        glueStats = verifyNotNull(glueStatsReference.get(), "glueStatsReference not set");
         return queryRunner;
     }
 
@@ -415,17 +409,11 @@ public class TestIcebergGlueCatalogAccessOperations
     private void assertGlueMetastoreApiInvocations(@Language("SQL") String query, Multiset<?> expectedInvocations)
     {
         Map<GlueMetastoreMethod, Integer> countsBefore = Arrays.stream(GlueMetastoreMethod.values())
-                .collect(toImmutableMap(
-                                Function.identity(),
-                                method -> method.getInvocationCount(catalogStats) +
-                                        method.getInvocationCount(tableOperationStats)));
+                .collect(toImmutableMap(Function.identity(), method -> method.getInvocationCount(glueStats)));
 
         getQueryRunner().execute(query);
         Map<GlueMetastoreMethod, Integer> countsAfter = Arrays.stream(GlueMetastoreMethod.values())
-                .collect(toImmutableMap(
-                                Function.identity(),
-                                method -> method.getInvocationCount(catalogStats) +
-                                        method.getInvocationCount(tableOperationStats)));
+                .collect(toImmutableMap(Function.identity(), method -> method.getInvocationCount(glueStats)));
 
         Map<GlueMetastoreMethod, Integer> deltas = Arrays.stream(GlueMetastoreMethod.values())
                 .collect(Collectors.toMap(Function.identity(), method -> countsAfter.get(method) - countsBefore.get(method)));
@@ -458,30 +446,22 @@ public class TestIcebergGlueCatalogAccessOperations
     @Retention(RUNTIME)
     @Target({FIELD, PARAMETER, METHOD})
     @Qualifier
-    public @interface CatalogStatsReference {}
-
-    @Retention(RUNTIME)
-    @Target({FIELD, PARAMETER, METHOD})
-    @Qualifier
-    public @interface TableOperationStatsReference {}
+    public @interface GlueStatsReference {}
 
     static class StealStatsModule
             implements Module
     {
-        private final AtomicReference<GlueMetastoreStats> catalogStatsReference;
-        private final AtomicReference<GlueMetastoreStats> tableOperationStatsReference;
+        private final AtomicReference<GlueMetastoreStats> glueStatsReference;
 
-        public StealStatsModule(AtomicReference<GlueMetastoreStats> catalogStatsReference, AtomicReference<GlueMetastoreStats> tableOperationStatsReference)
+        public StealStatsModule(AtomicReference<GlueMetastoreStats> glueStatsReference)
         {
-            this.catalogStatsReference = requireNonNull(catalogStatsReference, "catalogStatsReference is null");
-            this.tableOperationStatsReference = requireNonNull(tableOperationStatsReference, "tableOperationStatsReference is null");
+            this.glueStatsReference = requireNonNull(glueStatsReference, "glueStatsReference is null");
         }
 
         @Override
         public void configure(Binder binder)
         {
-            binder.bind(new TypeLiteral<AtomicReference<GlueMetastoreStats>>() {}).annotatedWith(CatalogStatsReference.class).toInstance(catalogStatsReference);
-            binder.bind(new TypeLiteral<AtomicReference<GlueMetastoreStats>>() {}).annotatedWith(TableOperationStatsReference.class).toInstance(tableOperationStatsReference);
+            binder.bind(new TypeLiteral<AtomicReference<GlueMetastoreStats>>() {}).annotatedWith(GlueStatsReference.class).toInstance(glueStatsReference);
 
             // Eager singleton to make singleton immediately as a dummy object to trigger code that will extract the stats out of the catalog factory
             binder.bind(StealStats.class).asEagerSingleton();
@@ -493,21 +473,16 @@ public class TestIcebergGlueCatalogAccessOperations
         @Inject
         StealStats(
                 NodeManager nodeManager,
-                @CatalogStatsReference AtomicReference<GlueMetastoreStats> catalogStatsReference,
-                @TableOperationStatsReference AtomicReference<GlueMetastoreStats> tableOperationStatsReference,
-                TrinoCatalogFactory factory,
-                IcebergTableOperationsProvider provider)
+                @GlueStatsReference AtomicReference<GlueMetastoreStats> glueStatsReference,
+                TrinoCatalogFactory factory)
         {
             if (!nodeManager.getCurrentNode().isCoordinator()) {
                 // The test covers stats on the coordinator only.
                 return;
             }
 
-            if (!catalogStatsReference.compareAndSet(null, ((TrinoGlueCatalogFactory) factory).getStats())) {
-                throw new RuntimeException("catalogStatsReference already set");
-            }
-            if (!tableOperationStatsReference.compareAndSet(null, ((GlueIcebergTableOperationsProvider) provider).getStats())) {
-                throw new RuntimeException("tableOperationStatsReference already set");
+            if (!glueStatsReference.compareAndSet(null, ((TrinoGlueCatalogFactory) factory).getStats())) {
+                throw new RuntimeException("glueStatsReference already set");
             }
         }
     }
