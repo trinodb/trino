@@ -124,7 +124,7 @@ public abstract class AbstractTestQueryFramework
         }
         DistributedQueryRunner distributedQueryRunner = (DistributedQueryRunner) queryRunner;
         assertEventually(
-                new Duration(10, SECONDS),
+                new Duration(30, SECONDS),
                 new Duration(1, SECONDS),
                 () -> {
                     List<TestingTrinoServer> servers = distributedQueryRunner.getServers();
