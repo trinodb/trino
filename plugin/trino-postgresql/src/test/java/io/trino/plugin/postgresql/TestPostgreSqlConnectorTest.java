@@ -836,6 +836,14 @@ public class TestPostgreSqlConnectorTest
         }
     }
 
+    @Test
+    public void testCastPushdown()
+    {
+        assertThat(query("SELECT name FROM nation WHERE CAST(nationkey + regionkey AS varchar) = '3'"))
+                .matches("VALUES CAST('BRAZIL' AS varchar(25))")
+                .isFullyPushedDown();
+    }
+
     @Override
     protected String errorMessageForInsertIntoNotNullColumn(String columnName)
     {

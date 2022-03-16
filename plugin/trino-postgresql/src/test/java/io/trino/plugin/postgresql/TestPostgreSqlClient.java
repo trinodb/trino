@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ColumnMapping;
 import io.trino.plugin.jdbc.DefaultQueryBuilder;
-import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
 import io.trino.plugin.jdbc.JdbcStatisticsConfig;
@@ -27,6 +26,7 @@ import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Variable;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.ConnectorExpressionTranslator;
 import io.trino.sql.planner.LiteralEncoder;
@@ -34,6 +34,7 @@ import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.ArithmeticUnaryExpression;
+import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.IsNotNullPredicate;
@@ -44,6 +45,8 @@ import io.trino.sql.tree.NotExpression;
 import io.trino.sql.tree.NullIfExpression;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.SymbolReference;
+import io.trino.type.JsonType;
+import org.checkerframework.checker.guieffect.qual.UI;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -59,7 +62,16 @@ import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.RowType.field;
+import static io.trino.spi.type.RowType.rowType;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_NANOS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_NANOS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_SECONDS;
+import static io.trino.spi.type.UuidType.UUID;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.testing.DataProviders.toDataProvider;
@@ -93,7 +105,7 @@ public class TestPostgreSqlClient
                     .setJdbcTypeHandle(new JdbcTypeHandle(Types.VARCHAR, Optional.of("varchar"), Optional.of(10), Optional.empty(), Optional.empty(), Optional.empty()))
                     .build();
 
-    private static final JdbcClient JDBC_CLIENT = new PostgreSqlClient(
+    private static final PostgreSqlClient JDBC_CLIENT = new PostgreSqlClient(
             new BaseJdbcConfig(),
             new PostgreSqlConfig(),
             new JdbcStatisticsConfig(),
@@ -103,6 +115,8 @@ public class TestPostgreSqlClient
             new DefaultIdentifierMapping());
 
     private static final LiteralEncoder LITERAL_ENCODER = new LiteralEncoder(PLANNER_CONTEXT);
+
+    private static final Type ROW_TYPE = rowType(field("int_symbol_1", INTEGER), field("varchar_symbol_1", createVarcharType(5)));
 
     @Test
     public void testImplementCount()
@@ -375,6 +389,54 @@ public class TestPostgreSqlClient
                         Map.of("c_varchar_symbol", VARCHAR_COLUMN.getColumnType())),
                 Map.of("c_varchar_symbol", VARCHAR_COLUMN)))
                 .hasValue("NOT ((\"c_varchar\") IS NOT NULL)");
+    }
+
+    @Test(dataProvider = "testSupportedCastTypes")
+    public void testConvertCast(Type testedType, String expectedTypeCast)
+    {
+        assertThat(JDBC_CLIENT.convertPredicate(SESSION,
+                translateToConnectorExpression(
+                        new Cast(
+                                new SymbolReference("value_symbol"),
+                                toSqlType(testedType)),
+                        Map.of("value_symbol", testedType)),
+                Map.of("value_symbol", VARCHAR_COLUMN)))
+                .hasValue(format("CAST (\"c_varchar\" AS %s)", expectedTypeCast));
+    }
+
+    @Test(dataProvider = "testUnsupportedCastTypes")
+    public void testConvertCastWithUnsupportedType(Type unsupportedType)
+    {
+        assertThat(JDBC_CLIENT.convertPredicate(SESSION,
+                translateToConnectorExpression(
+                        new Cast(
+                                new SymbolReference("value_symbol"),
+                                toSqlType(unsupportedType)),
+                        Map.of("value_symbol", unsupportedType)),
+                Map.of("value_symbol", VARCHAR_COLUMN)))
+                .isEmpty();
+    }
+
+    @DataProvider
+    public Object[][] testSupportedCastTypes()
+    {
+        return new Object[][]{
+                {createVarcharType(1337), "varchar(1337)"},
+                {BIGINT, "bigint"},
+                {TIMESTAMP_TZ_SECONDS, "timestamptz(0)"},
+                {TIMESTAMP_TZ_MICROS, "timestamptz(6)"},
+                {JsonType.JSON, "jsonb"},
+                {UUID, "uuid"}};
+    }
+
+    @DataProvider
+    public Object[][] testUnsupportedCastTypes()
+    {
+        return new Object[][]{
+                {ROW_TYPE},
+                {TIMESTAMP_TZ_NANOS},
+                {TIMESTAMP_NANOS},
+                {new ArrayType(UUID)}};
     }
 
     private ConnectorExpression translateToConnectorExpression(Expression expression, Map<String, Type> symbolTypes)
