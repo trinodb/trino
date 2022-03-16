@@ -14,8 +14,8 @@
 package io.trino.plugin.jdbc.mapping;
 
 import com.google.common.collect.ImmutableList;
+import io.airlift.units.Duration;
 
-import java.io.IOException;
 import java.nio.file.Path;
 import java.util.List;
 
@@ -23,19 +23,22 @@ import static io.airlift.json.JsonCodec.jsonCodec;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.nio.file.Files.createTempFile;
 import static java.nio.file.Files.write;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public final class RuleBasedIdentifierMappingUtils
 {
+    public static final Duration REFRESH_PERIOD_DURATION = Duration.succinctDuration(1, MILLISECONDS);
+
     private RuleBasedIdentifierMappingUtils() {}
 
     public static Path createRuleBasedIdentifierMappingFile()
-            throws IOException
+            throws Exception
     {
         return createRuleBasedIdentifierMappingFile(ImmutableList.of(), ImmutableList.of());
     }
 
     public static Path createRuleBasedIdentifierMappingFile(List<SchemaMappingRule> schemas, List<TableMappingRule> tables)
-            throws IOException
+            throws Exception
     {
         Path file = createTempFile("identifier-mapping-", ".json");
         file.toFile().deleteOnExit();
@@ -44,13 +47,15 @@ public final class RuleBasedIdentifierMappingUtils
     }
 
     public static Path updateRuleBasedIdentifierMappingFile(Path file, List<SchemaMappingRule> schemas, List<TableMappingRule> tables)
-            throws IOException
+            throws Exception
     {
         IdentifierMappingRules mapping = new IdentifierMappingRules(schemas, tables);
 
         String json = jsonCodec(IdentifierMappingRules.class).toJson(mapping);
 
         write(file, json.getBytes(UTF_8));
+        // Wait to ensure rules have been reloaded
+        Thread.sleep(2 * REFRESH_PERIOD_DURATION.toMillis());
         return file;
     }
 }
