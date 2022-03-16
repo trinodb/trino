@@ -29,9 +29,12 @@ import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.ArithmeticUnaryExpression;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.IsNotNullPredicate;
+import io.trino.sql.tree.IsNullPredicate;
 import io.trino.sql.tree.LikePredicate;
 import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.NotExpression;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.SubscriptExpression;
@@ -48,8 +51,10 @@ import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.spi.expression.StandardFunctions.IS_NULL_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.LIKE_PATTERN_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.NEGATE_FUNCTION_NAME;
+import static io.trino.spi.expression.StandardFunctions.NOT_FUNCTION_NAME;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DecimalType.createDecimalType;
@@ -82,6 +87,7 @@ public class TestConnectorExpressionTranslator
             .put(new Symbol("double_symbol_2"), DOUBLE)
             .put(new Symbol("row_symbol_1"), ROW_TYPE)
             .put(new Symbol("varchar_symbol_1"), VARCHAR_TYPE)
+            .put(new Symbol("boolean_symbol_1"), BOOLEAN)
             .buildOrThrow();
 
     private static final TypeProvider TYPE_PROVIDER = TypeProvider.copyOf(symbols);
@@ -241,6 +247,39 @@ public class TestConnectorExpressionTranslator
                                 new Variable("varchar_symbol_1", VARCHAR_TYPE),
                                 new Constant(Slices.wrappedBuffer(pattern.getBytes(UTF_8)), createVarcharType(pattern.length())),
                                 new Constant(Slices.wrappedBuffer(escape.getBytes(UTF_8)), createVarcharType(escape.length())))));
+    }
+
+    @Test
+    public void testTranslateIsNull()
+    {
+        assertTranslationRoundTrips(
+                new IsNullPredicate(new SymbolReference("varchar_symbol_1")),
+                new Call(
+                        BOOLEAN,
+                        IS_NULL_FUNCTION_NAME,
+                        List.of(new Variable("varchar_symbol_1", VARCHAR_TYPE))));
+    }
+
+    @Test
+    public void testTranslateNotExpression()
+    {
+        assertTranslationRoundTrips(
+                new NotExpression(new SymbolReference("boolean_symbol_1")),
+                new Call(
+                        BOOLEAN,
+                        NOT_FUNCTION_NAME,
+                        List.of(new Variable("boolean_symbol_1", BOOLEAN))));
+    }
+
+    @Test
+    public void testTranslateIsNotNull()
+    {
+        assertTranslationRoundTrips(
+                new IsNotNullPredicate(new SymbolReference("varchar_symbol_1")),
+                new Call(
+                        BOOLEAN,
+                        NOT_FUNCTION_NAME,
+                        List.of(new Call(BOOLEAN, IS_NULL_FUNCTION_NAME, List.of(new Variable("varchar_symbol_1", VARCHAR_TYPE))))));
     }
 
     @Test
