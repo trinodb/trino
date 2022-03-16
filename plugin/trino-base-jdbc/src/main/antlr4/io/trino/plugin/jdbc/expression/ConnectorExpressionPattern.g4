@@ -36,7 +36,7 @@ call
     ;
 
 expressionCapture
-    : identifier ':' type
+    : identifier (':' type)?
     ;
 
 type

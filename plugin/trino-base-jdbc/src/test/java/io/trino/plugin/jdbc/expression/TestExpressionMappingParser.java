@@ -26,6 +26,8 @@ public class TestExpressionMappingParser
     @Test
     public void testCapture()
     {
+        assertExpressionPattern("b", new ExpressionCapture("b"));
+
         assertExpressionPattern(
                 "b: bigint",
                 new ExpressionCapture(
@@ -52,6 +54,13 @@ public class TestExpressionMappingParser
     @Test
     public void testCallPattern()
     {
+        assertExpressionPattern(
+                "is_null(a)",
+                new CallPattern(
+                        "is_null",
+                        List.of(new ExpressionCapture("a")),
+                        Optional.empty()));
+
         assertExpressionPattern(
                 "$like_pattern(a: varchar(n), b: varchar(m))",
                 new CallPattern(
