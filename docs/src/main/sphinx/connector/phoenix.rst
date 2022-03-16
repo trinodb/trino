@@ -2,6 +2,10 @@
 Phoenix connector
 =================
 
+.. raw:: html
+
+  <img src="../_static/img/phoenix.png" class="connector-logo">
+
 The Phoenix connector allows querying data stored in
 `Apache HBase <https://hbase.apache.org/>`_ using
 `Apache Phoenix <https://phoenix.apache.org/>`_.

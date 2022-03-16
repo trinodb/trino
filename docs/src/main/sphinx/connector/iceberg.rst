@@ -2,6 +2,10 @@
 Iceberg connector
 =================
 
+.. raw:: html
+
+  <img src="../_static/img/iceberg.png" class="connector-logo">
+
 Overview
 --------
 

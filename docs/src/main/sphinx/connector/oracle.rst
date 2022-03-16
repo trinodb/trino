@@ -2,6 +2,10 @@
 Oracle connector
 ================
 
+.. raw:: html
+
+  <img src="../_static/img/oracle.png" class="connector-logo">
+
 The Oracle connector allows querying and creating tables in an external Oracle
 database. Connectors let Trino join data provided by different databases,
 like Oracle and Hive, or different Oracle database instances.
