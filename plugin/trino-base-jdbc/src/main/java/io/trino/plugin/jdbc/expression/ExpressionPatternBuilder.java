@@ -52,7 +52,7 @@ public class ExpressionPatternBuilder
     {
         return new ExpressionCapture(
                 visit(context.identifier(), String.class),
-                visit(context.type(), TypePattern.class));
+                visitIfPresent(context.type(), TypePattern.class));
     }
 
     @Override
