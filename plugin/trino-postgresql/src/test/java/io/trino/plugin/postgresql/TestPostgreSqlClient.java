@@ -31,6 +31,8 @@ import io.trino.sql.planner.ConnectorExpressionTranslator;
 import io.trino.sql.planner.LiteralEncoder;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeProvider;
+import io.trino.sql.tree.ArithmeticBinaryExpression;
+import io.trino.sql.tree.ArithmeticUnaryExpression;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.IsNotNullPredicate;
@@ -253,6 +255,44 @@ public class TestPostgreSqlClient
     {
         return Stream.of(ComparisonExpression.Operator.values())
                 .collect(toDataProvider());
+    }
+
+    @Test(dataProvider = "testConvertArithmeticBinaryDataProvider")
+    public void testConvertArithmeticBinary(ArithmeticBinaryExpression.Operator operator)
+    {
+        Optional<String> converted = JDBC_CLIENT.convertPredicate(
+                SESSION,
+                translateToConnectorExpression(
+                        new ArithmeticBinaryExpression(
+                                operator,
+                                new SymbolReference("c_bigint_symbol"),
+                                LITERAL_ENCODER.toExpression(TEST_SESSION, 42L, BIGINT)),
+                        Map.of("c_bigint_symbol", BIGINT)),
+                Map.of("c_bigint_symbol", BIGINT_COLUMN));
+
+        assertThat(converted).hasValue(format("(\"c_bigint\") %s (42)", operator.getValue()));
+    }
+
+    @DataProvider
+    public static Object[][] testConvertArithmeticBinaryDataProvider()
+    {
+        return Stream.of(ArithmeticBinaryExpression.Operator.values())
+                .collect(toDataProvider());
+    }
+
+    @Test
+    public void testConvertArithmeticUnaryMinus()
+    {
+        Optional<String> converted = JDBC_CLIENT.convertPredicate(
+                SESSION,
+                translateToConnectorExpression(
+                        new ArithmeticUnaryExpression(
+                                ArithmeticUnaryExpression.Sign.MINUS,
+                                new SymbolReference("c_bigint_symbol")),
+                        Map.of("c_bigint_symbol", BIGINT)),
+                Map.of("c_bigint_symbol", BIGINT_COLUMN));
+
+        assertThat(converted).hasValue("-(\"c_bigint\")");
     }
 
     @Test
