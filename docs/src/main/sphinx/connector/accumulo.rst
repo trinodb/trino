@@ -1,6 +1,10 @@
 Accumulo connector
 ==================
 
+.. raw:: html
+
+  <img src="../_static/img/accumulo.png" class="connector-logo">
+
 Overview
 --------
 

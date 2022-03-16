@@ -2,6 +2,10 @@
 Hive connector
 ==============
 
+.. raw:: html
+
+  <img src="../_static/img/hive.png" class="connector-logo">
+
 .. toctree::
     :maxdepth: 1
     :hidden:

@@ -2,6 +2,10 @@
 Prometheus connector
 ====================
 
+.. raw:: html
+
+  <img src="../_static/img/prometheus.png" class="connector-logo">
+
 The Prometheus connector allows reading
 `Prometheus <https://prometheus.io/>`_
 metrics as tables in Trino.

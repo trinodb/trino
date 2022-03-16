@@ -2,6 +2,10 @@
 BigQuery connector
 ==================
 
+.. raw:: html
+
+  <img src="../_static/img/bigquery.png" class="connector-logo">
+
 The BigQuery connector allows querying the data stored in `BigQuery
 <https://cloud.google.com/bigquery/>`_. This can be used to join data between
 different systems like BigQuery and Hive. The connector uses the `BigQuery

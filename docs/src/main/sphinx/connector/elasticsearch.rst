@@ -5,6 +5,10 @@ Elasticsearch connector
 Overview
 --------
 
+.. raw:: html
+
+  <img src="../_static/img/elasticsearch.png" class="connector-logo">
+
 The Elasticsearch Connector allows access to `Elasticsearch <https://www.elastic.co/products/elasticsearch>`_ data from Trino.
 This document describes how to setup the Elasticsearch Connector to run SQL queries against Elasticsearch.
 

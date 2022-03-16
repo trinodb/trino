@@ -2,6 +2,10 @@
 SQL Server connector
 ====================
 
+.. raw:: html
+
+  <img src="../_static/img/sqlserver.png" class="connector-logo">
+
 The SQL Server connector allows querying and creating tables in an external
 `Microsoft SQL Server <https://www.microsoft.com/sql-server/>`_ database. This
 can be used to join data between different systems like SQL Server and Hive, or

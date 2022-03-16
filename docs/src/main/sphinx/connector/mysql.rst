@@ -2,6 +2,10 @@
 MySQL connector
 ===============
 
+.. raw:: html
+
+  <img src="../_static/img/mysql.png" class="connector-logo">
+
 The MySQL connector allows querying and creating tables in an external
 `MySQL <https://www.mysql.com/>`_ instance. This can be used to join data between different
 systems like MySQL and Hive, or between two different MySQL instances.

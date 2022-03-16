@@ -2,6 +2,10 @@
 MongoDB connector
 =================
 
+.. raw:: html
+
+  <img src="../_static/img/mongodb.png" class="connector-logo">
+
 The ``mongodb`` connector allows the use of `MongoDB <https://www.mongodb.com/>`_ collections as tables in Trino.
 
 

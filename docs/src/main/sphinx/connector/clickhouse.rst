@@ -2,6 +2,10 @@
 ClickHouse connector
 ====================
 
+.. raw:: html
+
+  <img src="../_static/img/clickhouse.png" class="connector-logo">
+
 The ClickHouse connector allows querying tables in an external
 `Yandex ClickHouse <https://clickhouse.tech/>`_ server. This can be used to
 query data in the databases on that server, or combine it with other data

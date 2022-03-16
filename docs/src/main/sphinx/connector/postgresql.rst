@@ -2,6 +2,10 @@
 PostgreSQL connector
 ====================
 
+.. raw:: html
+
+  <img src="../_static/img/postgresql.png" class="connector-logo">
+
 The PostgreSQL connector allows querying and creating tables in an
 external `PostgreSQL <https://www.postgresql.org/>`_ database. This can be used to join data between
 different systems like PostgreSQL and Hive, or between different
