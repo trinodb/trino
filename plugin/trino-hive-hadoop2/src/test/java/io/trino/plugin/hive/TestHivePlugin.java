@@ -127,6 +127,33 @@ public class TestHivePlugin
     }
 
     @Test
+    public void testGlueMetastoreCustomAwsCredentialsProvider()
+            throws IOException
+    {
+        ConnectorFactory factory = getHiveConnectorFactory();
+        Path customCredConf = Files.createTempFile(null, null);
+
+        assertThatThrownBy(() -> factory.create(
+                "test",
+                ImmutableMap.of(
+                        "hive.metastore", "glue",
+                        "hive.metastore.glue.region", "us-east-2",
+                        "hive.metastore.glue.aws-credentials-providerconf", customCredConf.toString()),
+                new TestingConnectorContext()))
+                .hasMessageContaining("AwsCredentialsProvider class must be set when AwsCredentialsProviderConf is set");
+
+        factory.create(
+                        "test",
+                        ImmutableMap.of(
+                                "hive.metastore", "glue",
+                                "hive.metastore.glue.region", "us-east-2",
+                                "hive.metastore.glue.aws-credentials-provider", "io.trino.plugin.hive.metastore.glue.TestCustomAwsProvider",
+                                "hive.metastore.glue.aws-credentials-providerconf", customCredConf.toString()),
+                        new TestingConnectorContext())
+                .shutdown();
+    }
+
+    @Test
     public void testRecordingMetastore()
     {
         ConnectorFactory factory = getHiveConnectorFactory();

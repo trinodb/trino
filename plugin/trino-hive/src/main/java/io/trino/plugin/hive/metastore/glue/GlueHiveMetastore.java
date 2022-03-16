@@ -109,6 +109,7 @@ import org.apache.hadoop.fs.Path;
 import javax.annotation.Nullable;
 import javax.inject.Inject;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -226,6 +227,10 @@ public class GlueHiveMetastore
             asyncGlueClientBuilder.setRegion(getCurrentRegionFromEC2Metadata().getName());
         }
 
+        if (config.getAwsCredentialsProviderConf().isPresent()) {
+            checkArgument(config.getAwsCredentialsProvider().isPresent(), "AwsCredentialsProvider class must be set when AwsCredentialsProviderConf is set");
+        }
+
         asyncGlueClientBuilder.setCredentials(getAwsCredentialsProvider(config));
 
         return asyncGlueClientBuilder.build();
@@ -234,7 +239,7 @@ public class GlueHiveMetastore
     private static AWSCredentialsProvider getAwsCredentialsProvider(GlueHiveMetastoreConfig config)
     {
         if (config.getAwsCredentialsProvider().isPresent()) {
-            return getCustomAWSCredentialsProvider(config.getAwsCredentialsProvider().get());
+            return getCustomAWSCredentialsProvider(config.getAwsCredentialsProvider().get(), config.getAwsCredentialsProviderConf());
         }
         AWSCredentialsProvider provider;
         if (config.getAwsAccessKey().isPresent() && config.getAwsSecretKey().isPresent()) {
@@ -254,10 +259,18 @@ public class GlueHiveMetastore
         return provider;
     }
 
-    private static AWSCredentialsProvider getCustomAWSCredentialsProvider(String providerClass)
+    private static AWSCredentialsProvider getCustomAWSCredentialsProvider(String providerClass, Optional<File> awsCredentialsProviderConf)
     {
         try {
-            Object instance = Class.forName(providerClass).getConstructor().newInstance();
+            Object instance;
+            if (awsCredentialsProviderConf.isPresent()) {
+                instance = Class.forName(providerClass)
+                        .getConstructor(File.class)
+                        .newInstance(awsCredentialsProviderConf.get());
+            }
+            else {
+                instance = Class.forName(providerClass).getConstructor().newInstance();
+            }
             if (!(instance instanceof AWSCredentialsProvider)) {
                 throw new RuntimeException("Invalid credentials provider class: " + instance.getClass().getName());
             }

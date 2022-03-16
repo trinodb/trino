@@ -16,6 +16,9 @@ package io.trino.plugin.hive.metastore.glue;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Map;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
@@ -39,6 +42,7 @@ public class TestGlueHiveMetastoreConfig
                 .setAwsAccessKey(null)
                 .setAwsSecretKey(null)
                 .setAwsCredentialsProvider(null)
+                .setAwsCredentialsProviderConf(null)
                 .setCatalogId(null)
                 .setPartitionSegments(5)
                 .setGetPartitionThreads(20)
@@ -49,7 +53,9 @@ public class TestGlueHiveMetastoreConfig
 
     @Test
     public void testExplicitPropertyMapping()
+            throws IOException
     {
+        Path awsCustomCredentialConf = Files.createTempFile(null, null);
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("hive.metastore.glue.region", "us-east-1")
                 .put("hive.metastore.glue.endpoint-url", "http://foo.bar")
@@ -62,6 +68,7 @@ public class TestGlueHiveMetastoreConfig
                 .put("hive.metastore.glue.aws-access-key", "ABC")
                 .put("hive.metastore.glue.aws-secret-key", "DEF")
                 .put("hive.metastore.glue.aws-credentials-provider", "custom")
+                .put("hive.metastore.glue.aws-credentials-providerconf", awsCustomCredentialConf.toString())
                 .put("hive.metastore.glue.catalogid", "0123456789")
                 .put("hive.metastore.glue.partitions-segments", "10")
                 .put("hive.metastore.glue.get-partition-threads", "42")
@@ -82,6 +89,7 @@ public class TestGlueHiveMetastoreConfig
                 .setAwsAccessKey("ABC")
                 .setAwsSecretKey("DEF")
                 .setAwsCredentialsProvider("custom")
+                .setAwsCredentialsProviderConf(awsCustomCredentialConf.toFile())
                 .setCatalogId("0123456789")
                 .setPartitionSegments(10)
                 .setGetPartitionThreads(42)
