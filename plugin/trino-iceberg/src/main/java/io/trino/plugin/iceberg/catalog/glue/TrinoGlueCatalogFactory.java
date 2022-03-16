@@ -22,6 +22,7 @@ import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
 import io.trino.spi.security.ConnectorIdentity;
+import io.trino.spi.type.TypeManager;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
 
@@ -37,6 +38,7 @@ public class TrinoGlueCatalogFactory
         implements TrinoCatalogFactory
 {
     private final HdfsEnvironment hdfsEnvironment;
+    private final TypeManager typeManager;
     private final IcebergTableOperationsProvider tableOperationsProvider;
     private final Optional<String> defaultSchemaLocation;
     private final AWSGlueAsync glueClient;
@@ -46,11 +48,13 @@ public class TrinoGlueCatalogFactory
     @Inject
     public TrinoGlueCatalogFactory(
             HdfsEnvironment hdfsEnvironment,
+            TypeManager typeManager,
             IcebergTableOperationsProvider tableOperationsProvider,
             GlueHiveMetastoreConfig glueConfig,
             IcebergConfig icebergConfig)
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.tableOperationsProvider = requireNonNull(tableOperationsProvider, "tableOperationsProvider is null");
         requireNonNull(glueConfig, "glueConfig is null");
         checkArgument(glueConfig.getCatalogId().isEmpty(), "catalogId configuration is not supported");
@@ -70,6 +74,6 @@ public class TrinoGlueCatalogFactory
     @Override
     public TrinoCatalog create(ConnectorIdentity identity)
     {
-        return new TrinoGlueCatalog(hdfsEnvironment, tableOperationsProvider, glueClient, stats, defaultSchemaLocation, isUniqueTableLocation);
+        return new TrinoGlueCatalog(hdfsEnvironment, typeManager, tableOperationsProvider, glueClient, stats, defaultSchemaLocation, isUniqueTableLocation);
     }
 }

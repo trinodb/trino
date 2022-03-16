@@ -30,22 +30,33 @@ import com.amazonaws.services.glue.model.GetTableRequest;
 import com.amazonaws.services.glue.model.GetTablesRequest;
 import com.amazonaws.services.glue.model.GetTablesResult;
 import com.amazonaws.services.glue.model.TableInput;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.json.JsonCodec;
+import io.airlift.json.JsonCodecFactory;
+import io.airlift.json.ObjectMapperProvider;
 import io.trino.plugin.hive.HdfsEnvironment;
+import io.trino.plugin.hive.HiveMetadata;
+import io.trino.plugin.hive.HiveViewNotSupportedException;
 import io.trino.plugin.hive.SchemaAlreadyExistsException;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
+import io.trino.plugin.iceberg.IcebergMaterializedViewDefinition;
+import io.trino.plugin.iceberg.IcebergUtil;
 import io.trino.plugin.iceberg.catalog.AbstractTrinoCatalog;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.CatalogSchemaTableName;
+import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.TrinoPrincipal;
+import io.trino.spi.type.TypeManager;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hive.metastore.TableType;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
@@ -54,40 +65,78 @@ import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableOperations;
 import org.apache.iceberg.Transaction;
 
+import java.util.Base64;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Predicate;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_DATABASE_LOCATION_ERROR;
+import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
+import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_VIEW_DATA;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
+import static io.trino.plugin.hive.HiveMetadata.PRESTO_QUERY_ID_NAME;
+import static io.trino.plugin.hive.HiveMetadata.PRESTO_VIEW_COMMENT;
+import static io.trino.plugin.hive.HiveMetadata.STORAGE_TABLE;
+import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
+import static io.trino.plugin.hive.HiveMetadata.TRINO_CREATED_BY;
+import static io.trino.plugin.hive.ViewReaderUtil.PRESTO_VIEW_FLAG;
+import static io.trino.plugin.hive.ViewReaderUtil.encodeViewData;
+import static io.trino.plugin.hive.ViewReaderUtil.isHiveOrPrestoView;
+import static io.trino.plugin.hive.ViewReaderUtil.isPrestoView;
 import static io.trino.plugin.hive.metastore.glue.AwsSdkUtil.getPaginatedResults;
+import static io.trino.plugin.hive.util.HiveUtil.checkCondition;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_CATALOG_ERROR;
+import static io.trino.plugin.iceberg.IcebergMaterializedViewDefinition.decodeMaterializedViewData;
+import static io.trino.plugin.iceberg.IcebergMaterializedViewDefinition.encodeMaterializedViewData;
+import static io.trino.plugin.iceberg.IcebergMaterializedViewDefinition.fromConnectorMaterializedViewDefinition;
 import static io.trino.plugin.iceberg.IcebergSchemaProperties.LOCATION_PROPERTY;
+import static io.trino.plugin.iceberg.IcebergTableProperties.FILE_FORMAT_PROPERTY;
+import static io.trino.plugin.iceberg.IcebergTableProperties.PARTITIONING_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergUtil.getIcebergTableWithMetadata;
 import static io.trino.plugin.iceberg.IcebergUtil.quotedTableName;
 import static io.trino.plugin.iceberg.IcebergUtil.validateTableCanBeDropped;
+import static io.trino.plugin.iceberg.PartitionFields.toPartitionFields;
 import static io.trino.plugin.iceberg.catalog.glue.GlueIcebergUtil.getTableInput;
+import static io.trino.plugin.iceberg.catalog.glue.GlueIcebergUtil.getViewInput;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.UUID.randomUUID;
+import static org.apache.iceberg.BaseMetastoreTableOperations.ICEBERG_TABLE_TYPE_VALUE;
+import static org.apache.iceberg.BaseMetastoreTableOperations.TABLE_TYPE_PROP;
 import static org.apache.iceberg.CatalogUtil.dropTableData;
+import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT_DEFAULT;
 
 public class TrinoGlueCatalog
         extends AbstractTrinoCatalog
 {
+    private static final String PRESTO_VIEW_EXPANDED_TEXT_MARKER = HiveMetadata.PRESTO_VIEW_EXPANDED_TEXT_MARKER;
+    private static final String TRINO_CREATED_BY_VALUE = "Trino iceberg connector";
+    private static final String ICEBERG_MATERIALIZED_VIEW_COMMENT = "Presto Materialized View";
+    private static final String VIEW_PREFIX = "/* Presto View: ";
+    private static final String VIEW_SUFFIX = " */";
+    private static final JsonCodec<ConnectorViewDefinition> VIEW_CODEC =
+            new JsonCodecFactory(new ObjectMapperProvider()).jsonCodec(ConnectorViewDefinition.class);
+
     private final HdfsEnvironment hdfsEnvironment;
     private final Optional<String> defaultSchemaLocation;
     private final AWSGlueAsync glueClient;
     private final GlueMetastoreStats stats;
+    private final TypeManager typeManager;
 
     private final Map<SchemaTableName, TableMetadata> tableMetadataCache = new ConcurrentHashMap<>();
 
     public TrinoGlueCatalog(
             HdfsEnvironment hdfsEnvironment,
+            TypeManager typeManager,
             IcebergTableOperationsProvider tableOperationsProvider,
             AWSGlueAsync glueClient,
             GlueMetastoreStats stats,
@@ -96,6 +145,7 @@ public class TrinoGlueCatalog
     {
         super(tableOperationsProvider, useUniqueTableLocation);
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.glueClient = requireNonNull(glueClient, "glueClient is null");
         this.stats = requireNonNull(stats, "stats is null");
         this.defaultSchemaLocation = requireNonNull(defaultSchemaLocation, "defaultSchemaLocation is null");
@@ -211,31 +261,7 @@ public class TrinoGlueCatalog
     @Override
     public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> namespace)
     {
-        try {
-            List<String> namespaces = namespace.map(List::of).orElseGet(() -> listNamespaces(session));
-            return namespaces.stream()
-                    .flatMap(glueNamespace -> {
-                        try {
-                            return getPaginatedResults(
-                                    glueClient::getTables,
-                                    new GetTablesRequest().withDatabaseName(glueNamespace),
-                                    GetTablesRequest::setNextToken,
-                                    GetTablesResult::getNextToken,
-                                    stats.getGetTables())
-                                    .map(GetTablesResult::getTableList)
-                                    .flatMap(List::stream)
-                                    .map(table -> new SchemaTableName(glueNamespace, table.getName()));
-                        }
-                        catch (EntityNotFoundException e) {
-                            // Namespace may have been deleted
-                            return Stream.empty();
-                        }
-                    })
-                    .collect(toImmutableList());
-        }
-        catch (AmazonServiceException e) {
-            throw new TrinoException(ICEBERG_CATALOG_ERROR, e);
-        }
+        return listObjects(session, namespace, TrinoGlueCatalog::isTable);
     }
 
     @Override
@@ -377,7 +403,25 @@ public class TrinoGlueCatalog
     @Override
     public void createView(ConnectorSession session, SchemaTableName schemaViewName, ConnectorViewDefinition definition, boolean replace)
     {
-        throw new TrinoException(NOT_SUPPORTED, "createView is not supported for Iceberg Glue catalogs");
+        CreateTableRequest createTableRequest = new CreateTableRequest();
+        createTableRequest.setDatabaseName(schemaViewName.getSchemaName());
+        createTableRequest.setTableInput(getViewInput(
+                schemaViewName.getTableName(),
+                Optional.of(session.getUser()),
+                ImmutableMap.<String, String>builder()
+                        .put(TABLE_TYPE_PROP, ICEBERG_TABLE_TYPE_VALUE)
+                        .put(TABLE_COMMENT, PRESTO_VIEW_COMMENT)
+                        .put(PRESTO_VIEW_FLAG, "true")
+                        .put(TRINO_CREATED_BY, TRINO_CREATED_BY_VALUE)
+                        .put(PRESTO_QUERY_ID_NAME, session.getQueryId())
+                        // TODO: add presto version just like in Hive?
+                        .buildOrThrow())
+                .withViewOriginalText(encodeViewData(definition))
+                .withViewExpandedText(PRESTO_VIEW_EXPANDED_TEXT_MARKER));
+
+        // TODO: support replace
+
+        glueClient.createTable(createTableRequest);
     }
 
     @Override
@@ -395,54 +439,248 @@ public class TrinoGlueCatalog
     @Override
     public void dropView(ConnectorSession session, SchemaTableName schemaViewName)
     {
-        throw new TrinoException(NOT_SUPPORTED, "dropView is not supported for Iceberg Glue catalogs");
+        try {
+            deleteTable(schemaViewName.getSchemaName(), schemaViewName.getTableName());
+        }
+        catch (AmazonServiceException e) {
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
+        }
     }
 
     @Override
     public List<SchemaTableName> listViews(ConnectorSession session, Optional<String> namespace)
     {
-        return ImmutableList.of();
+        return listObjects(session, namespace, TrinoGlueCatalog::isView);
     }
 
     @Override
     public Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, Optional<String> namespace)
     {
-        return ImmutableMap.of();
+        ImmutableMap.Builder<SchemaTableName, ConnectorViewDefinition> views = ImmutableMap.builder();
+        for (SchemaTableName name : listViews(session, namespace)) {
+            try {
+                getView(session, name).ifPresent(view -> views.put(name, view));
+            }
+            catch (TrinoException e) {
+                if (e.getErrorCode().equals(TABLE_NOT_FOUND.toErrorCode())) {
+                    // Ignore view that was dropped during query execution (race condition)
+                }
+                else {
+                    throw e;
+                }
+            }
+        }
+        return views.buildOrThrow();
     }
 
     @Override
     public Optional<ConnectorViewDefinition> getView(ConnectorSession session, SchemaTableName viewIdentifier)
     {
-        return Optional.empty();
+        GetTableRequest getTableRequest = new GetTableRequest()
+                .withDatabaseName(viewIdentifier.getSchemaName())
+                .withName(viewIdentifier.getTableName());
+
+        return Optional.ofNullable(stats.getGetTable().call(() -> {
+            try {
+                return glueClient.getTable(getTableRequest).getTable();
+            }
+            catch (EntityNotFoundException e) {
+                return null;
+            }
+            catch (AmazonServiceException e) {
+                throw new TrinoException(HIVE_METASTORE_ERROR, e);
+            }
+        }))
+                .filter(TrinoGlueCatalog::isView)
+                .map(view -> {
+                    if (!isPrestoView(view.getParameters())) {
+                        throw new HiveViewNotSupportedException(viewIdentifier);
+                    }
+
+                    ConnectorViewDefinition definition = decodeViewData(view.getViewOriginalText());
+                    // use owner from table metadata if it exists
+                    if (view.getOwner() != null && !definition.isRunAsInvoker()) {
+                        definition = new ConnectorViewDefinition(
+                                definition.getOriginalSql(),
+                                definition.getCatalog(),
+                                definition.getSchema(),
+                                definition.getColumns(),
+                                definition.getComment(),
+                                Optional.ofNullable(view.getOwner()),
+                                false);
+                    }
+                    return definition;
+                });
     }
 
     @Override
     public List<SchemaTableName> listMaterializedViews(ConnectorSession session, Optional<String> namespace)
     {
-        return ImmutableList.of();
+        return listObjects(session, namespace, TrinoGlueCatalog::isMaterializedView);
     }
 
     @Override
     public void createMaterializedView(ConnectorSession session, SchemaTableName schemaViewName, ConnectorMaterializedViewDefinition definition, boolean replace, boolean ignoreExisting)
     {
-        throw new TrinoException(NOT_SUPPORTED, "createMaterializedView is not supported for Iceberg Glue catalogs");
+        // Generate a storage table name and create a storage table. The properties in the definition are table properties for the
+        // storage table as indicated in the materialized view definition.
+        String storageTableName = "st_" + randomUUID().toString().replace("-", "");
+        Map<String, Object> storageTableProperties = new HashMap<>(definition.getProperties());
+        storageTableProperties.putIfAbsent(FILE_FORMAT_PROPERTY, DEFAULT_FILE_FORMAT_DEFAULT);
+
+        SchemaTableName storageTable = new SchemaTableName(schemaViewName.getSchemaName(), storageTableName);
+        List<ColumnMetadata> columns = definition.getColumns().stream()
+                .map(column -> new ColumnMetadata(column.getName(), typeManager.getType(column.getType())))
+                .collect(toImmutableList());
+
+        ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(storageTable, columns, storageTableProperties, Optional.empty());
+        Transaction transaction = IcebergUtil.newCreateTableTransaction(this, tableMetadata, session);
+        transaction.newAppend().commit();
+        transaction.commitTransaction();
+
+        CreateTableRequest createTableRequest = new CreateTableRequest();
+        createTableRequest.setDatabaseName(schemaViewName.getSchemaName());
+        createTableRequest.setTableInput(getViewInput(
+                schemaViewName.getTableName(),
+                Optional.of(session.getUser()),
+                ImmutableMap.<String, String>builder()
+                        .put(PRESTO_QUERY_ID_NAME, session.getQueryId())
+                        .put(STORAGE_TABLE, storageTableName)
+                        .put(PRESTO_VIEW_FLAG, "true")
+                        .put(TRINO_CREATED_BY, TRINO_CREATED_BY_VALUE)
+                        .put(TABLE_COMMENT, ICEBERG_MATERIALIZED_VIEW_COMMENT)
+                        .buildOrThrow())
+                .withViewOriginalText(encodeMaterializedViewData(fromConnectorMaterializedViewDefinition(definition)))
+                .withViewExpandedText(PRESTO_VIEW_EXPANDED_TEXT_MARKER));
+
+        // TODO: support replace
+
+        glueClient.createTable(createTableRequest);
     }
 
     @Override
     public void dropMaterializedView(ConnectorSession session, SchemaTableName schemaViewName)
     {
-        throw new TrinoException(NOT_SUPPORTED, "dropMaterializedView is not supported for Iceberg Glue catalogs");
+        try {
+            deleteTable(schemaViewName.getSchemaName(), schemaViewName.getTableName());
+        }
+        catch (AmazonServiceException e) {
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
+        }
     }
 
     @Override
     public Optional<ConnectorMaterializedViewDefinition> getMaterializedView(ConnectorSession session, SchemaTableName schemaViewName)
     {
-        return Optional.empty();
+        GetTableRequest getTableRequest = new GetTableRequest()
+                .withDatabaseName(schemaViewName.getSchemaName())
+                .withName(schemaViewName.getTableName());
+
+        return Optional.ofNullable(stats.getGetTable().call(() -> {
+            try {
+                return glueClient.getTable(getTableRequest).getTable();
+            }
+            catch (EntityNotFoundException e) {
+                return null;
+            }
+            catch (AmazonServiceException e) {
+                throw new TrinoException(HIVE_METASTORE_ERROR, e);
+            }
+        }))
+                .filter(TrinoGlueCatalog::isMaterializedView)
+                .map(materializedView -> {
+                    String storageTable = materializedView.getParameters().get(STORAGE_TABLE);
+                    checkState(storageTable != null, "Storage table missing in definition of materialized view " + schemaViewName);
+
+                    IcebergMaterializedViewDefinition definition = decodeMaterializedViewData(Optional.ofNullable(materializedView.getViewOriginalText())
+                            .orElseThrow(() -> new TrinoException(HIVE_INVALID_METADATA, "No view original text: " + schemaViewName)));
+
+                    Table icebergTable = loadTable(session, new SchemaTableName(schemaViewName.getSchemaName(), storageTable));
+                    ImmutableMap.Builder<String, Object> properties = ImmutableMap.builder();
+                    properties.put(FILE_FORMAT_PROPERTY, IcebergUtil.getFileFormat(icebergTable));
+                    if (!icebergTable.spec().fields().isEmpty()) {
+                        properties.put(PARTITIONING_PROPERTY, toPartitionFields(icebergTable.spec()));
+                    }
+
+                    // TODO: why catalog name is embedded in the view definition?
+                    String catalogName = definition.getCatalog().orElseThrow(() -> new TrinoException(HIVE_INVALID_METADATA, "No catalog defined in materialized view: " + schemaViewName));
+                    return new ConnectorMaterializedViewDefinition(
+                        definition.getOriginalSql(),
+                        Optional.of(new CatalogSchemaTableName(catalogName, new SchemaTableName(schemaViewName.getSchemaName(), storageTable))),
+                        definition.getCatalog(),
+                        definition.getSchema(),
+                        definition.getColumns().stream()
+                                .map(column -> new ConnectorMaterializedViewDefinition.Column(column.getName(), column.getType()))
+                                .collect(toImmutableList()),
+                        definition.getComment(),
+                        Optional.ofNullable(materializedView.getOwner()),
+                        properties.buildOrThrow());
+                });
     }
 
     @Override
     public void renameMaterializedView(ConnectorSession session, SchemaTableName source, SchemaTableName target)
     {
         throw new TrinoException(NOT_SUPPORTED, "renameMaterializedView is not supported for Iceberg Glue catalogs");
+    }
+
+    // TODO: check if this logic can generalized over hive and iceberg connector
+    private static ConnectorViewDefinition decodeViewData(String viewData)
+    {
+        checkCondition(viewData.startsWith(VIEW_PREFIX), HIVE_INVALID_VIEW_DATA, "View data missing prefix: %s", viewData);
+        checkCondition(viewData.endsWith(VIEW_SUFFIX), HIVE_INVALID_VIEW_DATA, "View data missing suffix: %s", viewData);
+        viewData = viewData.substring(VIEW_PREFIX.length());
+        viewData = viewData.substring(0, viewData.length() - VIEW_SUFFIX.length());
+        byte[] bytes = Base64.getDecoder().decode(viewData);
+        return VIEW_CODEC.fromJson(bytes);
+    }
+
+    private List<SchemaTableName> listObjects(ConnectorSession session, Optional<String> namespace, Predicate<com.amazonaws.services.glue.model.Table> predicate)
+    {
+        try {
+            List<String> namespaces = namespace.map(List::of).orElseGet(() -> listNamespaces(session));
+            return namespaces.stream()
+                    .flatMap(glueNamespace -> {
+                        try {
+                            return getPaginatedResults(
+                                    glueClient::getTables,
+                                    new GetTablesRequest().withDatabaseName(glueNamespace),
+                                    GetTablesRequest::setNextToken,
+                                    GetTablesResult::getNextToken,
+                                    stats.getGetTables())
+                                    .map(GetTablesResult::getTableList)
+                                    .flatMap(List::stream)
+                                    .filter(predicate)
+                                    .map(table -> new SchemaTableName(glueNamespace, table.getName()));
+                        }
+                        catch (EntityNotFoundException e) {
+                            // Namespace may have been deleted
+                            return Stream.empty();
+                        }
+                    })
+                    .collect(toImmutableList());
+        }
+        catch (AmazonServiceException e) {
+            throw new TrinoException(ICEBERG_CATALOG_ERROR, e);
+        }
+    }
+
+    private static Boolean isTable(com.amazonaws.services.glue.model.Table table)
+    {
+        return !table.getTableType().equals(TableType.VIRTUAL_VIEW.toString());
+    }
+
+    private static Boolean isView(com.amazonaws.services.glue.model.Table table)
+    {
+        return table.getTableType().equals(TableType.VIRTUAL_VIEW.name()) &&
+                PRESTO_VIEW_COMMENT.equals(table.getParameters().get(TABLE_COMMENT));
+    }
+
+    private static Boolean isMaterializedView(com.amazonaws.services.glue.model.Table table)
+    {
+        return table.getTableType().equals(TableType.VIRTUAL_VIEW.name()) &&
+                isPrestoView(table.getParameters()) &&
+                isHiveOrPrestoView(table.getTableType()) &&
+                table.getParameters().containsKey(STORAGE_TABLE);
     }
 }

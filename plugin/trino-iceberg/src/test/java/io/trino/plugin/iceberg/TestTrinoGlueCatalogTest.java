@@ -30,6 +30,7 @@ import io.trino.plugin.iceberg.catalog.glue.TrinoGlueCatalog;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.TrinoPrincipal;
+import io.trino.spi.type.TestingTypeManager;
 import org.testng.annotations.Test;
 
 import java.io.File;
@@ -59,6 +60,7 @@ public class TestTrinoGlueCatalogTest
                 new NoHdfsAuthentication());
         return new TrinoGlueCatalog(
                 hdfsEnvironment,
+                new TestingTypeManager(),
                 new GlueIcebergTableOperationsProvider(new HdfsFileIoProvider(hdfsEnvironment), new GlueHiveMetastoreConfig()),
                 AWSGlueAsyncClientBuilder.defaultClient(),
                 new GlueMetastoreStats(),
@@ -82,6 +84,7 @@ public class TestTrinoGlueCatalogTest
                 new NoHdfsAuthentication());
         TrinoCatalog catalogWithDefaultLocation = new TrinoGlueCatalog(
                 hdfsEnvironment,
+                new TestingTypeManager(),
                 new GlueIcebergTableOperationsProvider(new HdfsFileIoProvider(hdfsEnvironment), new GlueHiveMetastoreConfig()),
                 AWSGlueAsyncClientBuilder.defaultClient(),
                 new GlueMetastoreStats(),

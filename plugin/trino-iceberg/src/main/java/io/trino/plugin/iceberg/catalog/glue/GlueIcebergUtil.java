@@ -19,6 +19,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static org.apache.hadoop.hive.metastore.TableType.EXTERNAL_TABLE;
+import static org.apache.hadoop.hive.metastore.TableType.VIRTUAL_VIEW;
 
 public final class GlueIcebergUtil
 {
@@ -32,5 +33,14 @@ public final class GlueIcebergUtil
                 .withParameters(parameters)
                 // Iceberg does not distinguish managed and external tables, all tables are treated the same and marked as EXTERNAL
                 .withTableType(EXTERNAL_TABLE.name());
+    }
+
+    public static TableInput getViewInput(String tableName, Optional<String> owner, Map<String, String> parameters)
+    {
+        return new TableInput()
+                .withName(tableName)
+                .withOwner(owner.orElse(null))
+                .withParameters(parameters)
+                .withTableType(VIRTUAL_VIEW.name());
     }
 }
