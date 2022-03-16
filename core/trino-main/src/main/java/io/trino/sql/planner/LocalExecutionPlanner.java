@@ -4011,7 +4011,7 @@ public class LocalExecutionPlanner
     }
 
     /**
-     * Encapsulates an physical operator plus the mapping of logical symbols to channel/field
+     * Encapsulates a physical operator plus the mapping of logical symbols to channel/field
      */
     private static class PhysicalOperation
     {
