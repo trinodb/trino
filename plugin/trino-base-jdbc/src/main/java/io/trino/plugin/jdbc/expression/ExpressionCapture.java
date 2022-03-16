@@ -19,6 +19,7 @@ import io.trino.matching.Pattern;
 import io.trino.spi.expression.ConnectorExpression;
 
 import java.util.Objects;
+import java.util.Optional;
 
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.plugin.base.expression.ConnectorExpressionPatterns.type;
@@ -29,17 +30,30 @@ public class ExpressionCapture
         extends ExpressionPattern
 {
     private final String name;
-    private final TypePattern type;
+    private final Optional<TypePattern> type;
 
     private final Capture<ConnectorExpression> capture = newCapture();
     private final Pattern<ConnectorExpression> pattern;
 
+    public ExpressionCapture(String name)
+    {
+        this(name, Optional.empty());
+    }
+
     public ExpressionCapture(String name, TypePattern type)
+    {
+        this(name, Optional.of(type));
+    }
+
+    public ExpressionCapture(String name, Optional<TypePattern> type)
     {
         this.name = requireNonNull(name, "name is null");
         this.type = requireNonNull(type, "type is null");
-        this.pattern = Pattern.typeOf(ConnectorExpression.class).capturedAs(capture)
-                .with(type().matching(type.getPattern()));
+        Pattern<ConnectorExpression> pattern = Pattern.typeOf(ConnectorExpression.class).capturedAs(capture);
+        if (type.isPresent()) {
+            pattern = pattern.with(type().matching(type.get().getPattern()));
+        }
+        this.pattern = pattern;
     }
 
     @Override
@@ -52,7 +66,7 @@ public class ExpressionCapture
     public void resolve(Captures captures, MatchContext matchContext)
     {
         matchContext.record(name, captures.get(capture));
-        type.resolve(captures, matchContext);
+        type.ifPresent(type -> type.resolve(captures, matchContext));
     }
 
     @Override
@@ -78,6 +92,9 @@ public class ExpressionCapture
     @Override
     public String toString()
     {
-        return format("%s: %s", name, type);
+        if (type.isEmpty()) {
+            return name;
+        }
+        return format("%s: %s", name, type.get());
     }
 }
