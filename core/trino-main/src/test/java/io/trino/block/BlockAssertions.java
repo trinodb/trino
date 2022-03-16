@@ -143,6 +143,9 @@ public final class BlockAssertions
     public static Block createRandomBlockForType(Type type, int positionCount, float nullRate)
     {
         verifyNullRate(nullRate);
+        if (positionCount == 0) {
+            return type.createBlockBuilder(null, 0).build();
+        }
 
         if (type == BOOLEAN) {
             return createRandomBooleansBlock(positionCount, nullRate);

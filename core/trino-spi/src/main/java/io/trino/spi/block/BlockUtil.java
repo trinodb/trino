@@ -22,13 +22,13 @@ import static java.lang.Math.ceil;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-final class BlockUtil
+public final class BlockUtil
 {
     private static final double BLOCK_RESET_SKEW = 1.25;
 
     private static final int DEFAULT_CAPACITY = 64;
     // See java.util.ArrayList for an explanation
-    static final int MAX_ARRAY_SIZE = Integer.MAX_VALUE - 8;
+    public static final int MAX_ARRAY_SIZE = Integer.MAX_VALUE - 8;
 
     private BlockUtil()
     {
@@ -63,7 +63,7 @@ final class BlockUtil
         }
     }
 
-    static int calculateNewArraySize(int currentSize)
+    public static int calculateNewArraySize(int currentSize)
     {
         // grow array by 50%
         long newSize = (long) currentSize + (currentSize >> 1);
@@ -81,7 +81,7 @@ final class BlockUtil
         return (int) newSize;
     }
 
-    static int calculateBlockResetSize(int currentSize)
+    public static int calculateBlockResetSize(int currentSize)
     {
         long newSize = (long) ceil(currentSize * BLOCK_RESET_SKEW);
 
@@ -95,7 +95,7 @@ final class BlockUtil
         return (int) newSize;
     }
 
-    static int calculateBlockResetBytes(int currentBytes)
+    public static int calculateBlockResetBytes(int currentBytes)
     {
         long newBytes = (long) ceil(currentBytes * BLOCK_RESET_SKEW);
         if (newBytes > MAX_ARRAY_SIZE) {

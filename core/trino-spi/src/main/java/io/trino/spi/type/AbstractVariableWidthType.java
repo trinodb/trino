@@ -24,7 +24,7 @@ public abstract class AbstractVariableWidthType
         extends AbstractType
         implements VariableWidthType
 {
-    protected static final int EXPECTED_BYTES_PER_ENTRY = 32;
+    public static final int EXPECTED_BYTES_PER_ENTRY = 32;
 
     protected AbstractVariableWidthType(TypeSignature signature, Class<?> javaType)
     {

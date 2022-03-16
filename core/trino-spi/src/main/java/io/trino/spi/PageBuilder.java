@@ -31,7 +31,7 @@ public class PageBuilder
     // so the underlying data is larger than the object overhead, and the size is power of 2.
     //
     // This could be any other small number.
-    private static final int DEFAULT_INITIAL_EXPECTED_ENTRIES = 8;
+    public static final int DEFAULT_INITIAL_EXPECTED_ENTRIES = 8;
 
     private final BlockBuilder[] blockBuilders;
     private final List<Type> types;

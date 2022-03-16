@@ -13,142 +13,46 @@
  */
 package io.trino.operator.output;
 
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import io.airlift.bytecode.DynamicClassLoader;
-import io.trino.collect.cache.NonEvictableLoadingCache;
-import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilderStatus;
 import io.trino.spi.block.Int128ArrayBlock;
 import io.trino.spi.block.Int96ArrayBlock;
 import io.trino.spi.type.FixedWidthType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VariableWidthType;
-import io.trino.sql.gen.IsolatedClass;
 
-import java.util.Objects;
-import java.util.Optional;
+import javax.annotation.Nullable;
 
-import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
-import static java.util.Objects.requireNonNull;
-
-/**
- * Isolates the {@code PositionsAppender} class per type and block tuples.
- * Type specific {@code PositionsAppender} implementations manually inline {@code Type#appendTo} method inside the loop
- * to avoid virtual(mega-morphic) calls and force jit to inline the {@code Block} and {@code BlockBuilder} methods.
- * Ideally, {@code TypedPositionsAppender} could work instead of type specific {@code PositionsAppender}s,
- * but in practice jit falls back to virtual calls in some cases (e.g. {@link Block#isNull}).
- */
 public class PositionsAppenderFactory
 {
-    private final NonEvictableLoadingCache<CacheKey, PositionsAppender> cache;
-
-    public PositionsAppenderFactory()
+    public PositionsAppender create(Type type, @Nullable BlockBuilderStatus blockBuilderStatus, int expectedPositions)
     {
-        this.cache = buildNonEvictableCache(
-                CacheBuilder.newBuilder().maximumSize(1000),
-                CacheLoader.from(key -> createAppender(key.type)));
+        return new BlockTypeDispatchingPositionsAppender(createDedicatedAppenderFor(type, blockBuilderStatus, expectedPositions));
     }
 
-    public PositionsAppender create(Type type, Class<? extends Block> blockClass)
-    {
-        return cache.getUnchecked(new CacheKey(type, blockClass));
-    }
-
-    private PositionsAppender createAppender(Type type)
-    {
-        return Optional.ofNullable(findDedicatedAppenderClassFor(type))
-                .map(this::isolateAppender)
-                .orElseGet(() -> isolateTypeAppender(type));
-    }
-
-    private Class<? extends PositionsAppender> findDedicatedAppenderClassFor(Type type)
+    private BlockTypeAwarePositionsAppender createDedicatedAppenderFor(Type type, @Nullable BlockBuilderStatus blockBuilderStatus, int expectedPositions)
     {
         if (type instanceof FixedWidthType) {
             switch (((FixedWidthType) type).getFixedSize()) {
                 case Byte.BYTES:
-                    return BytePositionsAppender.class;
+                    return new io.trino.operator.output.BytePositionsAppender(blockBuilderStatus, expectedPositions);
                 case Short.BYTES:
-                    return ShortPositionsAppender.class;
+                    return new ShortPositionsAppender(blockBuilderStatus, expectedPositions);
                 case Integer.BYTES:
-                    return IntPositionsAppender.class;
+                    return new io.trino.operator.output.IntPositionsAppender(blockBuilderStatus, expectedPositions);
                 case Long.BYTES:
-                    return LongPositionsAppender.class;
+                    return new io.trino.operator.output.LongPositionsAppender(blockBuilderStatus, expectedPositions);
                 case Int96ArrayBlock.INT96_BYTES:
-                    return Int96PositionsAppender.class;
+                    return new io.trino.operator.output.Int96PositionsAppender(blockBuilderStatus, expectedPositions);
                 case Int128ArrayBlock.INT128_BYTES:
-                    return Int128PositionsAppender.class;
+                    return new io.trino.operator.output.Int128PositionsAppender(blockBuilderStatus, expectedPositions);
                 default:
                     // size not supported directly, fallback to the generic appender
             }
         }
         else if (type instanceof VariableWidthType) {
-            return SlicePositionsAppender.class;
+            return new io.trino.operator.output.SlicePositionsAppender(blockBuilderStatus, expectedPositions);
         }
 
-        return null;
-    }
-
-    private PositionsAppender isolateTypeAppender(Type type)
-    {
-        Class<? extends PositionsAppender> isolatedAppenderClass = isolateAppenderClass(TypedPositionsAppender.class);
-        try {
-            return isolatedAppenderClass.getConstructor(Type.class).newInstance(type);
-        }
-        catch (ReflectiveOperationException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private PositionsAppender isolateAppender(Class<? extends PositionsAppender> appenderClass)
-    {
-        Class<? extends PositionsAppender> isolatedAppenderClass = isolateAppenderClass(appenderClass);
-        try {
-            return isolatedAppenderClass.getConstructor().newInstance();
-        }
-        catch (ReflectiveOperationException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private Class<? extends PositionsAppender> isolateAppenderClass(Class<? extends PositionsAppender> appenderClass)
-    {
-        DynamicClassLoader dynamicClassLoader = new DynamicClassLoader(PositionsAppender.class.getClassLoader());
-
-        Class<? extends PositionsAppender> isolatedBatchPositionsTransferClass = IsolatedClass.isolateClass(
-                dynamicClassLoader,
-                PositionsAppender.class,
-                appenderClass);
-        return isolatedBatchPositionsTransferClass;
-    }
-
-    private static class CacheKey
-    {
-        private final Type type;
-        private final Class<? extends Block> blockClass;
-
-        private CacheKey(Type type, Class<? extends Block> blockClass)
-        {
-            this.type = requireNonNull(type, "type is null");
-            this.blockClass = requireNonNull(blockClass, "blockClass is null");
-        }
-
-        @Override
-        public boolean equals(Object o)
-        {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            CacheKey cacheKey = (CacheKey) o;
-            return type.equals(cacheKey.type) && blockClass.equals(cacheKey.blockClass);
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(type, blockClass);
-        }
+        return new TypedPositionsAppender(type, blockBuilderStatus, expectedPositions);
     }
 }

@@ -11,17 +11,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package io.trino.operator.output;
 
 import io.trino.spi.block.Block;
-import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.type.Type;
+import io.trino.spi.block.BlockBuilderStatus;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 
-import static java.util.Objects.requireNonNull;
+import javax.annotation.Nullable;
 
 public interface PositionsAppender
 {
-    void appendTo(IntArrayList positions, Block source, BlockBuilder target);
+    void append(IntArrayList positions, Block source);
+
+    void appendRow(Block source, int position);
+
+    Block build();
+
+    /**
+     * Creates new empty {@link PositionsAppender} of the same type as {@code this}
+     * pre-sized to the current position count and size in bytes.
+     */
+    PositionsAppender newStateLike(@Nullable BlockBuilderStatus blockBuilderStatus);
+
+    long getRetainedSizeInBytes();
 }
