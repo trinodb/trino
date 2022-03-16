@@ -51,7 +51,6 @@ import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -2016,7 +2015,7 @@ public abstract class BaseConnectorTest
             // comment set
             assertUpdate("COMMENT ON TABLE " + table.getName() + " IS 'new comment'");
             assertThat((String) computeActual("SHOW CREATE TABLE " + table.getName()).getOnlyValue()).contains("COMMENT 'new comment'");
-            assertThat(getTableComment(table.getName())).isEqualTo("new comment");
+            assertThat(getTableComment(catalogName, schemaName, table.getName())).isEqualTo("new comment");
             assertThat(query(
                     "SELECT table_name, comment FROM system.metadata.table_comments " +
                             "WHERE catalog_name = '" + catalogName + "' AND " +
@@ -2026,39 +2025,34 @@ public abstract class BaseConnectorTest
 
             // comment updated
             assertUpdate("COMMENT ON TABLE " + table.getName() + " IS 'updated comment'");
-            assertThat(getTableComment(table.getName())).isEqualTo("updated comment");
+            assertThat(getTableComment(catalogName, schemaName, table.getName())).isEqualTo("updated comment");
 
             // comment set to empty or deleted
             assertUpdate("COMMENT ON TABLE " + table.getName() + " IS ''");
-            assertThat(getTableComment(table.getName())).isIn("", null); // Some storages do not preserve empty comment
+            assertThat(getTableComment(catalogName, schemaName, table.getName())).isIn("", null); // Some storages do not preserve empty comment
 
             // comment deleted
             assertUpdate("COMMENT ON TABLE " + table.getName() + " IS 'a comment'");
-            assertThat(getTableComment(table.getName())).isEqualTo("a comment");
+            assertThat(getTableComment(catalogName, schemaName, table.getName())).isEqualTo("a comment");
             assertUpdate("COMMENT ON TABLE " + table.getName() + " IS NULL");
-            assertThat(getTableComment(table.getName())).isEqualTo(null);
+            assertThat(getTableComment(catalogName, schemaName, table.getName())).isEqualTo(null);
         }
 
         String tableName = "test_comment_" + randomTableSuffix();
         try {
             // comment set when creating a table
             assertUpdate("CREATE TABLE " + tableName + "(key integer) COMMENT 'new table comment'");
-            assertThat(getTableComment(tableName)).isEqualTo("new table comment");
+            assertThat(getTableComment(catalogName, schemaName, tableName)).isEqualTo("new table comment");
         }
         finally {
             assertUpdate("DROP TABLE IF EXISTS " + tableName);
         }
     }
 
-    private String getTableComment(String tableName)
+    private String getTableComment(String catalogName, String schemaName, String tableName)
     {
-        // TODO use information_schema.tables.table_comment
-        String result = (String) computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue();
-        Matcher matcher = Pattern.compile("COMMENT '([^']*)'").matcher(result);
-        if (matcher.find()) {
-            return matcher.group(1);
-        }
-        return null;
+        String sql = format("SELECT comment FROM system.metadata.table_comments WHERE catalog_name = '%s' AND schema_name = '%s' AND table_name = '%s'", catalogName, schemaName, tableName);
+        return (String) computeActual(sql).getOnlyValue();
     }
 
     @Test
