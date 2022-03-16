@@ -2,6 +2,10 @@
 Kafka connector
 ===============
 
+.. raw:: html
+
+  <img src="../_static/img/kafka.png" class="connector-logo">
+
 .. toctree::
     :maxdepth: 1
     :hidden:

@@ -2,6 +2,10 @@
 Cassandra connector
 ===================
 
+.. raw:: html
+
+  <img src="../_static/img/cassandra.png" class="connector-logo">
+
 The Cassandra connector allows querying data stored in
 `Apache Cassandra <https://cassandra.apache.org/>`_.
 

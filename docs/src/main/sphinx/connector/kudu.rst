@@ -2,6 +2,10 @@
 Kudu connector
 ==============
 
+.. raw:: html
+
+  <img src="../_static/img/kudu.png" class="connector-logo">
+
 The Kudu connector allows querying, inserting and deleting data in `Apache Kudu`_.
 
 .. _Apache Kudu: https://kudu.apache.org/

@@ -2,6 +2,10 @@
 Redis connector
 ===============
 
+.. raw:: html
+
+  <img src="../_static/img/redis.png" class="connector-logo">
+
 The Redis connector allows querying of live data stored in `Redis <https://redis.io/>`_. This can be
 used to join data between different systems like Redis and Hive.
 

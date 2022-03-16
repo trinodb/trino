@@ -2,6 +2,10 @@
 Pinot connector
 ===============
 
+.. raw:: html
+
+  <img src="../_static/img/pinot.png" class="connector-logo">
+
 The Pinot connector allows Trino to query data stored in
 `Apache Pinot™ <https://pinot.apache.org/>`_.
 
