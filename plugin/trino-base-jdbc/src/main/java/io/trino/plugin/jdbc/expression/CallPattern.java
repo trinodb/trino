@@ -37,10 +37,10 @@ public class CallPattern
 {
     private final String functionName;
     private final List<ExpressionPattern> parameters;
-    private final Optional<SimpleTypePattern> resultType;
+    private final Optional<TypePattern> resultType;
     private final Pattern<Call> pattern;
 
-    public CallPattern(String functionName, List<ExpressionPattern> parameters, Optional<SimpleTypePattern> resultType)
+    public CallPattern(String functionName, List<ExpressionPattern> parameters, Optional<TypePattern> resultType)
     {
         this.functionName = requireNonNull(functionName, "functionName is null");
         this.parameters = ImmutableList.copyOf(requireNonNull(parameters, "parameters is null"));
