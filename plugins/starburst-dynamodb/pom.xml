@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.starburstdata.presto</groupId>
         <artifactId>starburst-enterprise-root</artifactId>
-        <version>372-e-SNAPSHOT</version>
+        <version>374-e-SNAPSHOT</version>
         <relativePath>../..</relativePath>
     </parent>
 
@@ -265,14 +265,6 @@
             <groupId>io.trino</groupId>
             <artifactId>trino-testing</artifactId>
             <scope>test</scope>
-            <exclusions>
-                <exclusion>
-                    <!-- TODO: Remove after https://github.com/trinodb/trino/pull/11309 is available in SEP -->
-                    <!-- not needed for dynamodb, and results with conflict regarding software.amazon.awssdk:auth -->
-                    <groupId>io.trino</groupId>
-                    <artifactId>trino-exchange</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
         <dependency>
