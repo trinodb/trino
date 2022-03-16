@@ -706,6 +706,14 @@ public class TestPostgreSqlConnectorTest
     }
 
     @Test
+    public void testArithmeticPredicatePushdown()
+    {
+        assertThat(query("SELECT nationkey, name, regionkey FROM nation WHERE nationkey > 0 AND (nationkey - regionkey) % nationkey = 2"))
+                .isFullyPushedDown()
+                .matches("VALUES (BIGINT '3', CAST('CANADA' AS varchar(25)), BIGINT '1')");
+    }
+
+    @Test
     public void testLikePredicatePushdown()
     {
         assertThat(query("SELECT nationkey FROM nation WHERE name LIKE '%A%'"))
