@@ -93,12 +93,12 @@ public class SimpleTypePattern
                         .collect(joining(", ")));
     }
 
-    public static Property<Type, ?, String> baseName()
+    private static Property<Type, ?, String> baseName()
     {
         return Property.property("baseName", Type::getBaseName);
     }
 
-    public static Property<Type, ?, TypeSignatureParameter> parameter(int i)
+    private static Property<Type, ?, TypeSignatureParameter> parameter(int i)
     {
         return Property.property(format("parameter(%s)", i), type -> type.getTypeSignature().getParameters().get(i));
     }

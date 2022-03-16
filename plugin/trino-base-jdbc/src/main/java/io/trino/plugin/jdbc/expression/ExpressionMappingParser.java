@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.jdbc.expression;
 
+import com.google.common.collect.ImmutableMap;
 import org.antlr.v4.runtime.BaseErrorListener;
 import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonTokenStream;
@@ -22,9 +23,12 @@ import org.antlr.v4.runtime.Recognizer;
 import org.antlr.v4.runtime.atn.PredictionMode;
 import org.antlr.v4.runtime.misc.ParseCancellationException;
 
+import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 public class ExpressionMappingParser
 {
@@ -36,6 +40,13 @@ public class ExpressionMappingParser
             throw new IllegalArgumentException(format("Error at %s:%s: %s", line, charPositionInLine, message), e);
         }
     };
+
+    private final Map<String, Set<String>> typeClasses;
+
+    public ExpressionMappingParser(Map<String, Set<String>> typeClasses)
+    {
+        this.typeClasses = ImmutableMap.copyOf(requireNonNull(typeClasses, "typeClasses is null"));
+    }
 
     public ExpressionPattern createExpressionPattern(String expressionPattern)
     {
@@ -74,7 +85,7 @@ public class ExpressionMappingParser
                 parser.getInterpreter().setPredictionMode(PredictionMode.LL);
                 tree = parseFunction.apply(parser);
             }
-            return new ExpressionPatternBuilder().visit(tree);
+            return new ExpressionPatternBuilder(typeClasses).visit(tree);
         }
         catch (StackOverflowError e) {
             throw new IllegalArgumentException("expression pattern is too large (stack overflow while parsing)");
