@@ -286,6 +286,9 @@ public class PostgreSqlClient
                 .add(new RewriteComparison(RewriteComparison.ComparisonOperator.EQUAL, RewriteComparison.ComparisonOperator.NOT_EQUAL))
                 .map("$like_pattern(value: varchar, pattern: varchar): boolean").to("value LIKE pattern")
                 .map("$like_pattern(value: varchar, pattern: varchar, escape: varchar(1)): boolean").to("value LIKE pattern ESCAPE escape")
+                .map("$not($is_null(value))").to("value IS NOT NULL")
+                .map("$not(value: boolean)").to("NOT value")
+                .map("$is_null(value)").to("value IS NULL")
                 .build();
 
         JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
