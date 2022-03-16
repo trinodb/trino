@@ -78,6 +78,18 @@ public class TestTpchDistributedStats
 
         statisticsAssertion.check("SELECT l_orderkey FROM lineitem GROUP BY l_orderkey HAVING sum(l_quantity) > 30",
                 checks -> checks.estimate(OUTPUT_ROW_COUNT, defaultTolerance()));
+
+        statisticsAssertion.check("SELECT * FROM lineitem WHERE l_receiptdate > l_commitdate",
+                checks -> checks.estimate(OUTPUT_ROW_COUNT, relativeError(-0.2, -0.18)));
+
+        statisticsAssertion.check("SELECT * FROM lineitem WHERE l_receiptdate >= l_commitdate",
+                checks -> checks.estimate(OUTPUT_ROW_COUNT, relativeError(-0.23, -0.2)));
+
+        statisticsAssertion.check("SELECT * FROM lineitem WHERE l_receiptdate < l_commitdate",
+                checks -> checks.estimate(OUTPUT_ROW_COUNT, relativeError(0.35, 0.38)));
+
+        statisticsAssertion.check("SELECT * FROM lineitem WHERE l_receiptdate <= l_commitdate",
+                checks -> checks.estimate(OUTPUT_ROW_COUNT, relativeError(0.3, 0.35)));
     }
 
     @Test
