@@ -42,9 +42,9 @@ public class ExpressionMappingParser
         return (ExpressionPattern) invokeParser(expressionPattern, ConnectorExpressionPatternParser::standaloneExpression);
     }
 
-    public SimpleTypePattern createTypePattern(String typePattern)
+    public TypePattern createTypePattern(String typePattern)
     {
-        return (SimpleTypePattern) invokeParser(typePattern, ConnectorExpressionPatternParser::standaloneType);
+        return (TypePattern) invokeParser(typePattern, ConnectorExpressionPatternParser::standaloneType);
     }
 
     public Object invokeParser(String input, Function<ConnectorExpressionPatternParser, ParserRuleContext> parseFunction)

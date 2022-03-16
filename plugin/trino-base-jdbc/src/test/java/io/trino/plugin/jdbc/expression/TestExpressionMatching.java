@@ -34,7 +34,7 @@ public class TestExpressionMatching
     public void testMatchType()
     {
         Type type = createDecimalType(10, 2);
-        SimpleTypePattern pattern = typePattern("decimal(p, s)");
+        TypePattern pattern = typePattern("decimal(p, s)");
 
         Match match = pattern.getPattern().match(type).collect(onlyElement());
         MatchContext matchContext = new MatchContext();
@@ -93,7 +93,7 @@ public class TestExpressionMatching
         return new ExpressionMappingParser().createExpressionPattern(expressionPattern);
     }
 
-    private static SimpleTypePattern typePattern(String typePattern)
+    private static TypePattern typePattern(String typePattern)
     {
         return new ExpressionMappingParser().createTypePattern(typePattern);
     }

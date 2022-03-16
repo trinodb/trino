@@ -30,7 +30,7 @@ public class ExpressionCapture
         extends ExpressionPattern
 {
     private final String name;
-    private final Optional<SimpleTypePattern> type;
+    private final Optional<TypePattern> type;
 
     private final Capture<ConnectorExpression> capture = newCapture();
     private final Pattern<ConnectorExpression> pattern;
@@ -40,12 +40,12 @@ public class ExpressionCapture
         this(name, Optional.empty());
     }
 
-    public ExpressionCapture(String name, SimpleTypePattern type)
+    public ExpressionCapture(String name, TypePattern type)
     {
         this(name, Optional.of(type));
     }
 
-    public ExpressionCapture(String name, Optional<SimpleTypePattern> type)
+    public ExpressionCapture(String name, Optional<TypePattern> type)
     {
         this.name = requireNonNull(name, "name is null");
         this.type = requireNonNull(type, "type is null");

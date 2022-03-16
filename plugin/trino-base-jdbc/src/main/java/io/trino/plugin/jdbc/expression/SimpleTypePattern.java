@@ -28,6 +28,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
 public class SimpleTypePattern
+        implements TypePattern
 {
     private final String baseName;
     private final List<TypeParameterPattern> parameters;
@@ -44,11 +45,13 @@ public class SimpleTypePattern
         this.pattern = pattern;
     }
 
+    @Override
     public Pattern<Type> getPattern()
     {
         return pattern;
     }
 
+    @Override
     public void resolve(Captures captures, MatchContext matchContext)
     {
         for (TypeParameterPattern parameter : parameters) {
