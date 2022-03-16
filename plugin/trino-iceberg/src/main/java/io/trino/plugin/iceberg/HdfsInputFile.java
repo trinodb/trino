@@ -58,7 +58,29 @@ public class HdfsInputFile
     @Override
     public SeekableInputStream newStream()
     {
-        // Hack: this wrapping is required to circumvent https://github.com/trinodb/trino/issues/5201
+        // Hack:
+        //
+        // Trino uses HdfsInputFile instead of HadoopInputFile. This causes the reader in ParquetUtil#fileMetrics
+        // to use ParquetInputFile instead of org.apache.parquet.hadoop.util.HadoopInputFile.
+        //
+        // In this method, if we do not wrap delegate#newStream (a HadoopSeekableInputStream extending DelegatingInputStream) using a
+        // wrapper (which is not a DelegatingInputStream), ParquetIO#stream throws away the DelegatingInputStream.
+        // The finalizer triggered on this thrown-away HadoopSeekableInputStream ends up closing the delegate as well, which
+        // is still in use. That causes errors because of premature closing of the underyling stream in-use.
+        //
+        // static SeekableInputStream stream(org.apache.iceberg.io.SeekableInputStream stream) {
+        //        if (stream instanceof DelegatingInputStream) {
+        //            InputStream wrapped = ((DelegatingInputStream)stream).getDelegate();
+        //            if (wrapped instanceof FSDataInputStream) {
+        //                return HadoopStreams.wrap((FSDataInputStream)wrapped);
+        //            }
+        //        }
+        //
+        //        return new ParquetIO.ParquetInputStreamAdapter(stream);
+        // }
+        //
+        // https://github.com/trinodb/trino/issues/5201
+
         return new HdfsInputStream(environment.doAs(identity, delegate::newStream));
     }
 
