@@ -23,6 +23,7 @@ import org.testng.annotations.Test;
 import java.nio.file.Path;
 import java.util.Optional;
 
+import static io.trino.plugin.jdbc.mapping.RuleBasedIdentifierMappingUtils.REFRESH_PERIOD_DURATION;
 import static io.trino.plugin.jdbc.mapping.RuleBasedIdentifierMappingUtils.createRuleBasedIdentifierMappingFile;
 import static io.trino.plugin.oracle.OracleQueryRunner.createOracleQueryRunner;
 import static io.trino.plugin.oracle.TestingOracleServer.TEST_USER;
@@ -51,7 +52,7 @@ public class TestOracleCaseInsensitiveMapping
                         .putAll(OracleQueryRunner.connectionProperties(oracleServer))
                         .put("case-insensitive-name-matching", "true")
                         .put("case-insensitive-name-matching.config-file", mappingFile.toFile().getAbsolutePath())
-                        .put("case-insensitive-name-matching.config-file.refresh-period", "1ms") // ~always refresh
+                        .put("case-insensitive-name-matching.config-file.refresh-period", REFRESH_PERIOD_DURATION.toString())
                         .buildOrThrow(),
                 ImmutableList.of());
     }
