@@ -206,6 +206,34 @@ public class TestFilterStatsCalculator
     }
 
     @Test
+    public void testInequalityComparisonApproximation()
+    {
+        assertExpression("x > emptyRange").outputRowsCount(0);
+
+        assertExpression("x > y + 20").outputRowsCount(0);
+        assertExpression("x >= y + 20").outputRowsCount(0);
+        assertExpression("x < y - 25").outputRowsCount(0);
+        assertExpression("x <= y - 25").outputRowsCount(0);
+
+        double nullsFractionY = 0.5;
+        double inputRowCount = standardInputStatistics.getOutputRowCount();
+        double nonNullRowCount = inputRowCount * (1 - nullsFractionY);
+        SymbolStatsEstimate nonNullStatsX = xStats.mapNullsFraction(nullsFraction -> 0.0);
+        assertExpression("x > y - 25")
+                .outputRowsCount(nonNullRowCount)
+                .symbolStats("x", symbolAssert -> symbolAssert.isEqualTo(nonNullStatsX));
+        assertExpression("x >= y - 25")
+                .outputRowsCount(nonNullRowCount)
+                .symbolStats("x", symbolAssert -> symbolAssert.isEqualTo(nonNullStatsX));
+        assertExpression("x < y + 20")
+                .outputRowsCount(nonNullRowCount)
+                .symbolStats("x", symbolAssert -> symbolAssert.isEqualTo(nonNullStatsX));
+        assertExpression("x <= y + 20")
+                .outputRowsCount(nonNullRowCount)
+                .symbolStats("x", symbolAssert -> symbolAssert.isEqualTo(nonNullStatsX));
+    }
+
+    @Test
     public void testOrStats()
     {
         assertExpression("x < 0e0 OR x < DOUBLE '-7.5'")
