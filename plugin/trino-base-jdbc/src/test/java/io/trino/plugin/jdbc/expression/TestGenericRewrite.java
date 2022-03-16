@@ -45,8 +45,14 @@ public class TestGenericRewrite
                         new Variable("first", createDecimalType(10, 2)),
                         new Variable("second", BIGINT)));
 
+        Optional<String> rewritten = apply(rewrite, expression);
+        assertThat(rewritten).hasValue("(\"first\") + (\"second\")::decimal(21,2)");
+    }
+
+    private static Optional<String> apply(GenericRewrite rewrite, ConnectorExpression expression)
+    {
         Match match = rewrite.getPattern().match(expression).collect(onlyElement());
-        Optional<String> rewritten = rewrite.rewrite(expression, match.captures(), new RewriteContext<>()
+        return rewrite.rewrite(expression, match.captures(), new RewriteContext<>()
         {
             @Override
             public Map<String, ColumnHandle> getAssignments()
@@ -61,15 +67,13 @@ public class TestGenericRewrite
             }
 
             @Override
-            public Optional<String> defaultRewrite(ConnectorExpression expression)
+            public Optional<String> defaultRewrite(ConnectorExpression expression1)
             {
-                if (expression instanceof Variable) {
-                    return Optional.of("\"" + ((Variable) expression).getName().replace("\"", "\"\"") + "\"");
+                if (expression1 instanceof Variable) {
+                    return Optional.of("\"" + ((Variable) expression1).getName().replace("\"", "\"\"") + "\"");
                 }
                 return Optional.empty();
             }
         });
-
-        assertThat(rewritten).hasValue("(\"first\") + (\"second\")::decimal(21,2)");
     }
 }
