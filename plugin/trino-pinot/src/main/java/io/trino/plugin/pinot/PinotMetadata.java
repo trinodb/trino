@@ -349,6 +349,14 @@ public class PinotMetadata
             return Optional.empty();
         }
 
+        // Do not push aggregations down if a grouping column is an array type.
+        // Pinot treats each element of array as a grouping key
+        // See https://github.com/apache/pinot/issues/8353 for more details.
+        if (getOnlyElement(groupingSets).stream()
+                .filter(columnHandle -> ((PinotColumnHandle) columnHandle).getDataType() instanceof ArrayType)
+                .findFirst().isPresent()) {
+            return Optional.empty();
+        }
         PinotTableHandle tableHandle = (PinotTableHandle) handle;
         // If aggregates are present than no further aggregations
         // can be pushed down: there are currently no subqueries in pinot.
