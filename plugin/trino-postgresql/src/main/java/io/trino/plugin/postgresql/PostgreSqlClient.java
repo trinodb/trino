@@ -301,6 +301,13 @@ public class PostgreSqlClient
                 .addStandardRules(this::quoted)
                 // TODO allow all comparison operators for numeric types
                 .add(new RewriteComparison(RewriteComparison.ComparisonOperator.EQUAL, RewriteComparison.ComparisonOperator.NOT_EQUAL))
+                .withTypeClass("integer_type", ImmutableSet.of("tinyint", "smallint", "integer", "bigint"))
+                .map("$add(left: integer_type, right: integer_type)").to("left + right")
+                .map("$subtract(left: integer_type, right: integer_type)").to("left - right")
+                .map("$multiply(left: integer_type, right: integer_type)").to("left * right")
+                .map("$divide(left: integer_type, right: integer_type)").to("left / right")
+                .map("$modulus(left: integer_type, right: integer_type)").to("left % right")
+                .map("$negate(value: integer_type)").to("-value")
                 .map("$like_pattern(value: varchar, pattern: varchar): boolean").to("value LIKE pattern")
                 .map("$like_pattern(value: varchar, pattern: varchar, escape: varchar(1)): boolean").to("value LIKE pattern ESCAPE escape")
                 .map("$not($is_null(value))").to("value IS NOT NULL")
