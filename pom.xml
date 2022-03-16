@@ -93,7 +93,6 @@
         <module>core/trino-parser</module>
         <module>core/trino-server</module>
         <module>core/trino-server-main</module>
-        <module>core/trino-server-rpm</module>
         <module>core/trino-spi</module>
         <module>docs</module>
         <module>lib/trino-array</module>
@@ -470,12 +469,6 @@
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-server</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.trino</groupId>
-                <artifactId>trino-server-rpm</artifactId>
                 <version>${project.version}</version>
             </dependency>
 

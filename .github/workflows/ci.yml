@@ -58,10 +58,6 @@ jobs:
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
           $RETRY $MAVEN clean install -B --strict-checksums -V -T C1 -DskipTests -P ci -pl '!:trino-server-rpm'
-      - name: Test Server RPM
-        run: |
-          export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY bash -c "$MAVEN verify -B --strict-checksums -P ci -pl :trino-server-rpm || find core/trino-server-rpm/ -exec ls -ald {} +"
       - name: Clean Maven Output
         run: $MAVEN clean -pl '!:trino-server,!:trino-cli'
       - uses: docker/setup-qemu-action@v1
@@ -89,7 +85,7 @@ jobs:
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY $MAVEN clean install ${MAVEN_FAST_INSTALL} -pl '!:trino-docs,!:trino-server,!:trino-server-rpm'
+          $RETRY $MAVEN clean install ${MAVEN_FAST_INSTALL} -pl '!:trino-docs,!:trino-server'
       - name: Error Prone Checks
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
@@ -97,7 +93,7 @@ jobs:
           $RETRY $MAVEN ${MAVEN_TEST} -T C1 clean test-compile -P gib,errorprone-compiler -pl ':trino-spi'
           # The main Error Prone run
           $MAVEN ${MAVEN_TEST} -T C1 clean test-compile -P gib,errorprone-compiler \
-            -pl '!:trino-docs,!:trino-server,!:trino-server-rpm'
+            -pl '!:trino-docs,!:trino-server'
 
   web-ui-checks:
     runs-on: ubuntu-latest
@@ -128,7 +124,7 @@ jobs:
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY $MAVEN clean install ${MAVEN_FAST_INSTALL} -pl '!:trino-docs,!:trino-server,!:trino-server-rpm'
+          $RETRY $MAVEN clean install ${MAVEN_FAST_INSTALL} -pl '!:trino-docs,!:trino-server'
       - name: Test old JDBC vs current server
         run: |
           if [ ! -f gib-impacted.log ] || grep -q testing/trino-test-jdbc-compatibility-old-driver gib-impacted.log; then
@@ -304,7 +300,7 @@ jobs:
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY $MAVEN clean install ${MAVEN_FAST_INSTALL} -pl '!:trino-docs,!:trino-server,!:trino-server-rpm'
+          $RETRY $MAVEN clean install ${MAVEN_FAST_INSTALL} -pl '!:trino-docs,!:trino-server'
       - name: Maven Tests
         run: |
           $MAVEN test ${MAVEN_TEST} -pl '
@@ -330,7 +326,7 @@ jobs:
             !:trino-iceberg,
             !:trino-phoenix,!:trino-phoenix5,
             !:trino-jdbc,!:trino-base-jdbc,!:trino-thrift,!:trino-memory,
-            !:trino-docs,!:trino-server,!:trino-server-rpm,
+            !:trino-docs,!:trino-server,
             !:trino-test-jdbc-compatibility-old-server,
             !:trino-singlestore,
             !:trino-bigquery'
@@ -372,7 +368,7 @@ jobs:
       - name: Maven validate
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY $MAVEN validate ${MAVEN_FAST_INSTALL} -P disable-check-spi-dependencies -pl '!:trino-docs,!:trino-server,!:trino-server-rpm'
+          $RETRY $MAVEN validate ${MAVEN_FAST_INSTALL} -P disable-check-spi-dependencies -pl '!:trino-docs,!:trino-server'
       - name: Set matrix
         id: set-matrix
         run: |
@@ -542,7 +538,7 @@ jobs:
       - name: Map impacted plugins to features
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $MAVEN validate ${MAVEN_FAST_INSTALL} -pl '!:trino-docs,!:trino-server-rpm'
+          $MAVEN validate ${MAVEN_FAST_INSTALL} -pl '!:trino-docs'
           # GIB doesn't run on master, so make sure the file always exist
           touch gib-impacted.log
           testing/trino-plugin-reader/target/trino-plugin-reader-*-executable.jar -i gib-impacted.log -p core/trino-server/target/trino-server-*-hardlinks/plugin > impacted-features.log

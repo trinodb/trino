@@ -26,9 +26,6 @@ Linux operating system
       trino soft nofile 131072
       trino hard nofile 131072
 
-..
-   These values are used in core/trino-server-rpm/src/main/resources/dist/etc/init.d/trino
-
 .. _requirements-java:
 
 Java runtime environment
@@ -306,9 +303,7 @@ directory ``etc``, configuration files, the data directory ``var``,
 and log files in the data directory. You can change these values
 to adjust your Trino usage to any requirements, such as using a
 directory outside the installation directory, specific mount points
-or locations, and even using other file names. For example, the Trino
-RPM adjusts the used directories to better follow the Linux Filesystem
-Hierarchy Standard (FHS).
+or locations, and even using other file names.
 
 After starting Trino, you can find log files in the ``log`` directory inside
 the data directory ``var``:
