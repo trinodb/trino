@@ -44,7 +44,7 @@ public class ExpressionPatternBuilder
         return new CallPattern(
                 visit(context.identifier(), String.class),
                 visit(context.expression(), ExpressionPattern.class),
-                visitIfPresent(context.type(), SimpleTypePattern.class));
+                visitIfPresent(context.type(), TypePattern.class));
     }
 
     @Override
@@ -52,11 +52,11 @@ public class ExpressionPatternBuilder
     {
         return new ExpressionCapture(
                 visit(context.identifier(), String.class),
-                visitIfPresent(context.type(), SimpleTypePattern.class));
+                visitIfPresent(context.type(), TypePattern.class));
     }
 
     @Override
-    public Object visitType(ConnectorExpressionPatternParser.TypeContext context)
+    public TypePattern visitType(ConnectorExpressionPatternParser.TypeContext context)
     {
         return new SimpleTypePattern(
                 visit(context.identifier(), String.class),
