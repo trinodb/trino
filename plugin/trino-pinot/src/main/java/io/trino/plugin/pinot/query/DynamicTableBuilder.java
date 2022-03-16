@@ -193,6 +193,9 @@ public final class DynamicTableBuilder
         }
         else {
             trinoType = getTrinoTypeFromPinotType(pinotTypeResolver.resolveExpressionType(rewritten, schemaTableName, columnHandles));
+            if (!aggregateTypes.isEmpty() && trinoType instanceof ArrayType) {
+                trinoType = ((ArrayType) trinoType).getElementType();
+            }
         }
 
         return new PinotColumnHandle(alias.orElse(columnName), trinoType, pinotExpression, alias.isPresent(), isAggregate, isReturnNullOnEmptyGroup(expressionContext), Optional.empty(), Optional.empty());

@@ -1906,4 +1906,33 @@ public abstract class AbstractPinotIntegrationSmokeTest
                         "  (56, DOUBLE '2.7355647997347607')," +
                         "  (0, DOUBLE '0.0')");
     }
+
+    @Test
+    public void testAggregationPushdownWithArrays()
+    {
+        assertThat(query("SELECT string_array_col, count(*) FROM " + ALL_TYPES_TABLE + " WHERE int_col = 54 GROUP BY 1"))
+                .isNotFullyPushedDown(ExchangeNode.class, ProjectNode.class, AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class, ProjectNode.class);
+        assertThat(query("SELECT int_array_col, string_array_col, count(*) FROM " + ALL_TYPES_TABLE + " WHERE int_col = 54 GROUP BY 1, 2"))
+                .isNotFullyPushedDown(ExchangeNode.class, ProjectNode.class, AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class, ProjectNode.class);
+        assertThat(query("SELECT int_array_col, \"count(*)\"" +
+                "  FROM \"SELECT int_array_col, COUNT(*) FROM " + ALL_TYPES_TABLE +
+                "  WHERE int_col = 54 GROUP BY 1\""))
+                .isFullyPushedDown()
+                .matches("VALUES (-10001, BIGINT '3')," +
+                        "(54, BIGINT '3')," +
+                        "(1000, BIGINT '3')");
+        assertThat(query("SELECT int_array_col, string_array_col, \"count(*)\"" +
+                "  FROM \"SELECT int_array_col, string_array_col, COUNT(*) FROM " + ALL_TYPES_TABLE +
+                "  WHERE int_col = 56 AND string_col = 'string_8400' GROUP BY 1, 2\""))
+                .isFullyPushedDown()
+                .matches("VALUES (-10001, VARCHAR 'string_8400', BIGINT '1')," +
+                        "(-10001, VARCHAR 'string2_8402', BIGINT '1')," +
+                        "(1000, VARCHAR 'string2_8402', BIGINT '1')," +
+                        "(56, VARCHAR 'string2_8402', BIGINT '1')," +
+                        "(-10001, VARCHAR 'string1_8401', BIGINT '1')," +
+                        "(56, VARCHAR 'string1_8401', BIGINT '1')," +
+                        "(1000, VARCHAR 'string_8400', BIGINT '1')," +
+                        "(56, VARCHAR 'string_8400', BIGINT '1')," +
+                        "(1000, VARCHAR 'string1_8401', BIGINT '1')");
+    }
 }
