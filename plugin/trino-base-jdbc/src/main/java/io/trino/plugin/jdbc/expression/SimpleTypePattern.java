@@ -27,13 +27,13 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
-public class TypePattern
+public class SimpleTypePattern
 {
     private final String baseName;
     private final List<TypeParameterPattern> parameters;
     private final Pattern<Type> pattern;
 
-    public TypePattern(String baseName, List<TypeParameterPattern> parameters)
+    public SimpleTypePattern(String baseName, List<TypeParameterPattern> parameters)
     {
         this.baseName = requireNonNull(baseName, "baseName is null");
         this.parameters = ImmutableList.copyOf(requireNonNull(parameters, "parameters is null"));
@@ -65,7 +65,7 @@ public class TypePattern
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        TypePattern that = (TypePattern) o;
+        SimpleTypePattern that = (SimpleTypePattern) o;
         return Objects.equals(baseName, that.baseName) &&
                 Objects.equals(parameters, that.parameters);
     }
