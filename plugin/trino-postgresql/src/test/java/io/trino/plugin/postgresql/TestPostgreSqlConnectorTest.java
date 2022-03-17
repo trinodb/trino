@@ -715,6 +715,34 @@ public class TestPostgreSqlConnectorTest
     }
 
     @Test
+    public void testCoalescePredicatePushdown()
+    {
+        assertThat(query("SELECT * FROM nation WHERE COALESCE(nationkey, 1) = nationkey"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT * FROM nation WHERE COALESCE(nationkey, regionkey, 1) = nationkey"))
+                .isFullyPushedDown();
+
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_coalesce_predicate_pushdown",
+                "(a_varchar varchar, b_varchar varchar, c_varchar varchar)",
+                List.of(
+                        "NULL, NULL, 'third not null'",
+                        "'1', '2', 'first and second not null'",
+                        "NULL, '2', 'second not null'"))) {
+            assertThat(query("SELECT c_varchar FROM " + table.getName() + " WHERE COALESCE(a_varchar, b_varchar) = '1'"))
+                    .matches("VALUES VARCHAR 'first and second not null'")
+                    .isFullyPushedDown();
+            assertThat(query("SELECT c_varchar FROM " + table.getName() + " WHERE COALESCE(a_varchar, b_varchar) = '2'"))
+                    .matches("VALUES VARCHAR 'second not null'")
+                    .isFullyPushedDown();
+            assertThat(query("SELECT c_varchar FROM " + table.getName() + " WHERE COALESCE(a_varchar, b_varchar, c_varchar) = 'third not null'"))
+                    .matches("VALUES VARCHAR 'third not null'")
+                    .isFullyPushedDown();
+        }
+    }
+
+    @Test
     public void testLikePredicatePushdown()
     {
         assertThat(query("SELECT nationkey FROM nation WHERE name LIKE '%A%'"))
