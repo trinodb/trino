@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>374-SNAPSHOT</version>
+        <version>374</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -14,7 +14,7 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <dep.presto-jdbc-under-test>374-SNAPSHOT</dep.presto-jdbc-under-test>
+        <dep.presto-jdbc-under-test>374</dep.presto-jdbc-under-test>
     </properties>
 
     <dependencies>
