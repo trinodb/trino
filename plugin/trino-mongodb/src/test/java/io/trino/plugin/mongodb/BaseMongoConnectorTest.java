@@ -532,6 +532,19 @@ public abstract class BaseMongoConnectorTest
     }
 
     @Test
+    public void testBooleanPredicates()
+    {
+        assertUpdate("CREATE TABLE boolean_predicates(id integer, value boolean)");
+        assertUpdate("INSERT INTO boolean_predicates VALUES(1, true)", 1);
+        assertUpdate("INSERT INTO boolean_predicates VALUES(2, false)", 1);
+
+        assertQuery("SELECT id FROM boolean_predicates WHERE value = true", "VALUES 1");
+        assertQuery("SELECT id FROM boolean_predicates WHERE value = false", "VALUES 2");
+
+        assertUpdate("DROP TABLE boolean_predicates");
+    }
+
+    @Test
     public void testNullPredicates()
     {
         assertUpdate("CREATE TABLE test.null_predicates(name varchar, value integer)");
