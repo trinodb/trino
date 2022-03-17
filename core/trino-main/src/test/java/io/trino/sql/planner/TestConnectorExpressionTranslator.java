@@ -30,6 +30,7 @@ import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.ArithmeticUnaryExpression;
 import io.trino.sql.tree.BetweenPredicate;
 import io.trino.sql.tree.Cast;
+import io.trino.sql.tree.CoalesceExpression;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.DoubleLiteral;
 import io.trino.sql.tree.Expression;
@@ -58,6 +59,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.expression.StandardFunctions.AND_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.CAST_FUNCTION_NAME;
+import static io.trino.spi.expression.StandardFunctions.COALESCE_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.GREATER_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.IS_NULL_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.LESS_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME;
@@ -363,6 +365,32 @@ public class TestConnectorExpressionTranslator
                         true,
                         true),
                 Optional.empty());
+    }
+
+    @Test
+    public void testCoalesce()
+    {
+        assertTranslationRoundTrips(
+                new CoalesceExpression(
+                        new SymbolReference("varchar_symbol_1"),
+                        new StringLiteral("not null string")),
+                new Call(
+                        VARCHAR_TYPE,
+                        COALESCE_FUNCTION_NAME,
+                        List.of(new Variable("varchar_symbol_1", VARCHAR_TYPE),
+                                new Constant(Slices.wrappedBuffer("not null string".getBytes(UTF_8)), createVarcharType("not null string".length())))));
+
+        assertTranslationRoundTrips(
+                new CoalesceExpression(
+                        new SymbolReference("double_symbol_1"),
+                        new SymbolReference("double_symbol_2"),
+                        new DoubleLiteral("123.456")),
+                new Call(
+                        DOUBLE,
+                        COALESCE_FUNCTION_NAME,
+                        List.of(new Variable("double_symbol_1", DOUBLE),
+                                new Variable("double_symbol_2", DOUBLE),
+                                new Constant(123.456, DOUBLE))));
     }
 
     @Test

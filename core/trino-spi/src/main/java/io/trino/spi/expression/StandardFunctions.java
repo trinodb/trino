@@ -82,4 +82,9 @@ public final class StandardFunctions
     public static final FunctionName NEGATE_FUNCTION_NAME = new FunctionName("$negate");
 
     public static final FunctionName LIKE_PATTERN_FUNCTION_NAME = new FunctionName("$like_pattern");
+
+    /**
+     * $coalesce is a function accepting more than or equals to two arguments
+     */
+    public static final FunctionName COALESCE_FUNCTION_NAME = new FunctionName("$coalesce");
 }

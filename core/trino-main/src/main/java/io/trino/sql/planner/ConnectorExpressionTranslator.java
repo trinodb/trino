@@ -43,6 +43,7 @@ import io.trino.sql.tree.BinaryLiteral;
 import io.trino.sql.tree.BooleanLiteral;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.CharLiteral;
+import io.trino.sql.tree.CoalesceExpression;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.DecimalLiteral;
 import io.trino.sql.tree.DoubleLiteral;
@@ -79,6 +80,7 @@ import static io.trino.SystemSessionProperties.isComplexExpressionPushdown;
 import static io.trino.spi.expression.StandardFunctions.ADD_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.AND_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.CAST_FUNCTION_NAME;
+import static io.trino.spi.expression.StandardFunctions.COALESCE_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.DIVIDE_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.EQUAL_OPERATOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.GREATER_THAN_OPERATOR_FUNCTION_NAME;
@@ -268,6 +270,10 @@ public final class ConnectorExpressionTranslator
                 }
             }
 
+            if (COALESCE_FUNCTION_NAME.equals(call.getFunctionName()) && call.getArguments().size() >= 2) {
+                return translateCoalesce(call.getArguments());
+            }
+
             QualifiedName name = QualifiedName.of(call.getFunctionName().getName());
             List<TypeSignature> argumentTypes = call.getArguments().stream()
                     .map(argument -> argument.getType().getTypeSignature())
@@ -353,6 +359,20 @@ public final class ConnectorExpressionTranslator
             }
 
             return Optional.empty();
+        }
+
+        private Optional<Expression> translateCoalesce(List<ConnectorExpression> arguments)
+        {
+            ImmutableList.Builder<Expression> translatedArguments = ImmutableList.builderWithExpectedSize(arguments.size());
+            for (ConnectorExpression argument : arguments) {
+                Optional<Expression> translated = translate(argument);
+                if (translated.isEmpty()) {
+                    return Optional.empty();
+                }
+                translatedArguments.add(translated.get());
+            }
+
+            return Optional.of(new CoalesceExpression(translatedArguments.build()));
         }
 
         private Optional<ComparisonExpression.Operator> comparisonOperatorForFunctionName(FunctionName functionName)
@@ -582,6 +602,20 @@ public final class ConnectorExpressionTranslator
                     return process(node.getValue()).map(value -> new Call(typeOf(node), NEGATE_FUNCTION_NAME, ImmutableList.of(value)));
             }
             throw new UnsupportedOperationException("Unsupported sign: " + node.getSign());
+        }
+
+        @Override
+        protected Optional<ConnectorExpression> visitCoalesceExpression(CoalesceExpression node, Void context)
+        {
+            ImmutableList.Builder<ConnectorExpression> arguments = ImmutableList.builderWithExpectedSize(node.getOperands().size());
+            for (Node argument : node.getChildren()) {
+                Optional<ConnectorExpression> translated = process(argument);
+                if (translated.isEmpty()) {
+                    return Optional.empty();
+                }
+                arguments.add(translated.get());
+            }
+            return Optional.of(new Call(typeOf(node), COALESCE_FUNCTION_NAME, arguments.build()));
         }
 
         @Override
