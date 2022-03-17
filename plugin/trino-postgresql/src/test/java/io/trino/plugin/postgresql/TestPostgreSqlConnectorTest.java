@@ -788,6 +788,27 @@ public class TestPostgreSqlConnectorTest
     }
 
     @Test
+    public void testNullIfPredicatePushdown()
+    {
+        assertThat(query("SELECT nationkey FROM nation WHERE NULLIF(name, 'ALGERIA') IS NULL"))
+                .matches("VALUES BIGINT '0'")
+                .isFullyPushedDown();
+
+        assertThat(query("SELECT name FROM nation WHERE NULLIF(nationkey, 0) IS NULL"))
+                .matches("VALUES CAST('ALGERIA' AS varchar(25))")
+                .isFullyPushedDown();
+
+        assertThat(query("SELECT nationkey FROM nation WHERE NULLIF(name, 'Algeria') IS NULL"))
+                .returnsEmptyResult()
+                .isFullyPushedDown();
+
+        // NULLIF returns the first argument because arguments aren't the same
+        assertThat(query("SELECT nationkey FROM nation WHERE NULLIF(name, 'Name not found') = name"))
+                .matches("SELECT nationkey FROM nation")
+                .isFullyPushedDown();
+    }
+
+    @Test
     public void testNotExpressionPushdown()
     {
         assertThat(query("SELECT nationkey FROM nation WHERE NOT(name LIKE '%A%' ESCAPE '\\')")).isFullyPushedDown();
