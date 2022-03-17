@@ -36,6 +36,8 @@ import io.trino.spi.type.VarcharType;
 import io.trino.sql.DynamicFilters;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.TypeSignatureProvider;
+import io.trino.sql.tree.ArithmeticBinaryExpression;
+import io.trino.sql.tree.ArithmeticUnaryExpression;
 import io.trino.sql.tree.AstVisitor;
 import io.trino.sql.tree.BinaryLiteral;
 import io.trino.sql.tree.BooleanLiteral;
@@ -67,9 +69,12 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.slice.SliceUtf8.countCodePoints;
 import static io.trino.SystemSessionProperties.isComplexExpressionPushdown;
+import static io.trino.spi.expression.StandardFunctions.ADD_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.AND_FUNCTION_NAME;
+import static io.trino.spi.expression.StandardFunctions.DIVIDE_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.EQUAL_OPERATOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.GREATER_THAN_OPERATOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.GREATER_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME;
@@ -77,8 +82,12 @@ import static io.trino.spi.expression.StandardFunctions.IS_DISTINCT_FROM_OPERATO
 import static io.trino.spi.expression.StandardFunctions.LESS_THAN_OPERATOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.LESS_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.LIKE_PATTERN_FUNCTION_NAME;
+import static io.trino.spi.expression.StandardFunctions.MODULUS_FUNCTION_NAME;
+import static io.trino.spi.expression.StandardFunctions.MULTIPLY_FUNCTION_NAME;
+import static io.trino.spi.expression.StandardFunctions.NEGATE_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.NOT_EQUAL_OPERATOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.OR_FUNCTION_NAME;
+import static io.trino.spi.expression.StandardFunctions.SUBTRACT_FUNCTION_NAME;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.ExpressionUtils.isEffectivelyLiteral;
 import static io.trino.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
@@ -120,6 +129,24 @@ public final class ConnectorExpressionTranslator
                 return GREATER_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME;
             case IS_DISTINCT_FROM:
                 return IS_DISTINCT_FROM_OPERATOR_FUNCTION_NAME;
+        }
+        throw new UnsupportedOperationException("Unsupported operator: " + operator);
+    }
+
+    @VisibleForTesting
+    static FunctionName functionNameForArithmeticBinaryOperator(ArithmeticBinaryExpression.Operator operator)
+    {
+        switch (operator) {
+            case ADD:
+                return ADD_FUNCTION_NAME;
+            case SUBTRACT:
+                return SUBTRACT_FUNCTION_NAME;
+            case MULTIPLY:
+                return MULTIPLY_FUNCTION_NAME;
+            case DIVIDE:
+                return DIVIDE_FUNCTION_NAME;
+            case MODULUS:
+                return MODULUS_FUNCTION_NAME;
         }
         throw new UnsupportedOperationException("Unsupported operator: " + operator);
     }
@@ -176,11 +203,25 @@ public final class ConnectorExpressionTranslator
                 return translateLogicalExpression(LogicalExpression.Operator.OR, call.getArguments());
             }
 
+            // comparisons
             if (call.getArguments().size() == 2) {
                 Optional<ComparisonExpression.Operator> operator = comparisonOperatorForFunctionName(call.getFunctionName());
                 if (operator.isPresent()) {
                     return translateComparison(operator.get(), call.getArguments().get(0), call.getArguments().get(1));
                 }
+            }
+
+            // arithmetic binary
+            if (call.getArguments().size() == 2) {
+                Optional<ArithmeticBinaryExpression.Operator> operator = arithmeticBinaryOperatorForFunctionName(call.getFunctionName());
+                if (operator.isPresent()) {
+                    return translateArithmeticBinary(operator.get(), call.getArguments().get(0), call.getArguments().get(1));
+                }
+            }
+
+            // arithmetic unary
+            if (NEGATE_FUNCTION_NAME.equals(call.getFunctionName()) && call.getArguments().size() == 1) {
+                return translate(getOnlyElement(call.getArguments())).map(argument -> new ArithmeticUnaryExpression(ArithmeticUnaryExpression.Sign.MINUS, argument));
             }
 
             if (LIKE_PATTERN_FUNCTION_NAME.equals(call.getFunctionName())) {
@@ -252,6 +293,33 @@ public final class ConnectorExpressionTranslator
             }
             if (IS_DISTINCT_FROM_OPERATOR_FUNCTION_NAME.equals(functionName)) {
                 return Optional.of(ComparisonExpression.Operator.IS_DISTINCT_FROM);
+            }
+            return Optional.empty();
+        }
+
+        private Optional<Expression> translateArithmeticBinary(ArithmeticBinaryExpression.Operator operator, ConnectorExpression left, ConnectorExpression right)
+        {
+            return translate(left).flatMap(leftTranslated ->
+                    translate(right).map(rightTranslated ->
+                            new ArithmeticBinaryExpression(operator, leftTranslated, rightTranslated)));
+        }
+
+        private Optional<ArithmeticBinaryExpression.Operator> arithmeticBinaryOperatorForFunctionName(FunctionName functionName)
+        {
+            if (ADD_FUNCTION_NAME.equals(functionName)) {
+                return Optional.of(ArithmeticBinaryExpression.Operator.ADD);
+            }
+            if (SUBTRACT_FUNCTION_NAME.equals(functionName)) {
+                return Optional.of(ArithmeticBinaryExpression.Operator.SUBTRACT);
+            }
+            if (MULTIPLY_FUNCTION_NAME.equals(functionName)) {
+                return Optional.of(ArithmeticBinaryExpression.Operator.MULTIPLY);
+            }
+            if (DIVIDE_FUNCTION_NAME.equals(functionName)) {
+                return Optional.of(ArithmeticBinaryExpression.Operator.DIVIDE);
+            }
+            if (MODULUS_FUNCTION_NAME.equals(functionName)) {
+                return Optional.of(ArithmeticBinaryExpression.Operator.MODULUS);
             }
             return Optional.empty();
         }
@@ -388,6 +456,31 @@ public final class ConnectorExpressionTranslator
 
             return process(node.getLeft()).flatMap(left -> process(node.getRight()).map(right ->
                     new Call(typeOf(node), functionNameForComparisonOperator(node.getOperator()), ImmutableList.of(left, right))));
+        }
+
+        @Override
+        protected Optional<ConnectorExpression> visitArithmeticBinary(ArithmeticBinaryExpression node, Void context)
+        {
+            if (!isComplexExpressionPushdown(session)) {
+                return Optional.empty();
+            }
+            return process(node.getLeft()).flatMap(left -> process(node.getRight()).map(right ->
+                    new Call(typeOf(node), functionNameForArithmeticBinaryOperator(node.getOperator()), ImmutableList.of(left, right))));
+        }
+
+        @Override
+        protected Optional<ConnectorExpression> visitArithmeticUnary(ArithmeticUnaryExpression node, Void context)
+        {
+            if (!isComplexExpressionPushdown(session)) {
+                return Optional.empty();
+            }
+            switch (node.getSign()) {
+                case PLUS:
+                    return process(node.getValue());
+                case MINUS:
+                    return process(node.getValue()).map(value -> new Call(typeOf(node), NEGATE_FUNCTION_NAME, ImmutableList.of(value)));
+            }
+            throw new UnsupportedOperationException("Unsupported sign: " + node.getSign());
         }
 
         @Override

@@ -25,6 +25,8 @@ import io.trino.spi.expression.FunctionName;
 import io.trino.spi.expression.StandardFunctions;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.type.Type;
+import io.trino.sql.tree.ArithmeticBinaryExpression;
+import io.trino.sql.tree.ArithmeticUnaryExpression;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.LikePredicate;
@@ -47,6 +49,7 @@ import java.util.stream.Stream;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.expression.StandardFunctions.LIKE_PATTERN_FUNCTION_NAME;
+import static io.trino.spi.expression.StandardFunctions.NEGATE_FUNCTION_NAME;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DecimalType.createDecimalType;
@@ -177,6 +180,41 @@ public class TestConnectorExpressionTranslator
                 .collect(toDataProvider());
     }
 
+    @Test(dataProvider = "testTranslateArithmeticBinaryDataProvider")
+    public void testTranslateArithmeticBinary(ArithmeticBinaryExpression.Operator operator)
+    {
+        assertTranslationRoundTrips(
+                new ArithmeticBinaryExpression(operator, new SymbolReference("double_symbol_1"), new SymbolReference("double_symbol_2")),
+                new Call(
+                        DOUBLE,
+                        ConnectorExpressionTranslator.functionNameForArithmeticBinaryOperator(operator),
+                        List.of(new Variable("double_symbol_1", DOUBLE), new Variable("double_symbol_2", DOUBLE))));
+    }
+
+    @DataProvider
+    public static Object[][] testTranslateArithmeticBinaryDataProvider()
+    {
+        return Stream.of(ArithmeticBinaryExpression.Operator.values())
+                .collect(toDataProvider());
+    }
+
+    @Test
+    public void testTranslateArithmeticUnaryMinus()
+    {
+        assertTranslationRoundTrips(
+                new ArithmeticUnaryExpression(ArithmeticUnaryExpression.Sign.MINUS, new SymbolReference("double_symbol_1")),
+                new Call(DOUBLE, NEGATE_FUNCTION_NAME, List.of(new Variable("double_symbol_1", DOUBLE))));
+    }
+
+    @Test
+    public void testTranslateArithmeticUnaryPlus()
+    {
+        assertTranslationToConnectorExpression(
+                TEST_SESSION,
+                new ArithmeticUnaryExpression(ArithmeticUnaryExpression.Sign.PLUS, new SymbolReference("double_symbol_1")),
+                new Variable("double_symbol_1", DOUBLE));
+    }
+
     @Test
     public void testTranslateLike()
     {
@@ -232,6 +270,11 @@ public class TestConnectorExpressionTranslator
     {
         assertTranslationToConnectorExpression(session, expression, Optional.of(connectorExpression));
         assertTranslationFromConnectorExpression(session, connectorExpression, expression);
+    }
+
+    private void assertTranslationToConnectorExpression(Session session, Expression expression, ConnectorExpression connectorExpression)
+    {
+        assertTranslationToConnectorExpression(session, expression, Optional.of(connectorExpression));
     }
 
     private void assertTranslationToConnectorExpression(Session session, Expression expression, Optional<ConnectorExpression> connectorExpression)

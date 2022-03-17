@@ -35,5 +35,35 @@ public final class StandardFunctions
     public static final FunctionName GREATER_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME = new FunctionName("$greater_than_or_equal");
     public static final FunctionName IS_DISTINCT_FROM_OPERATOR_FUNCTION_NAME = new FunctionName("$is_distinct_from");
 
+    /**
+     * Arithmetic addition.
+     */
+    public static final FunctionName ADD_FUNCTION_NAME = new FunctionName("$add");
+
+    /**
+     * Arithmetic subtraction.
+     */
+    public static final FunctionName SUBTRACT_FUNCTION_NAME = new FunctionName("$subtract");
+
+    /**
+     * Arithmetic multiplication.
+     */
+    public static final FunctionName MULTIPLY_FUNCTION_NAME = new FunctionName("$multiply");
+
+    /**
+     * Arithmetic division.
+     */
+    public static final FunctionName DIVIDE_FUNCTION_NAME = new FunctionName("$divide");
+
+    /**
+     * Arithmetic modulus.
+     */
+    public static final FunctionName MODULUS_FUNCTION_NAME = new FunctionName("$modulus");
+
+    /**
+     * Arithmetic unary minus.
+     */
+    public static final FunctionName NEGATE_FUNCTION_NAME = new FunctionName("$negate");
+
     public static final FunctionName LIKE_PATTERN_FUNCTION_NAME = new FunctionName("$like_pattern");
 }
