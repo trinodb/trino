@@ -33,6 +33,7 @@ import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.IfExpression;
 import io.trino.sql.tree.IsNotNullPredicate;
 import io.trino.sql.tree.IsNullPredicate;
 import io.trino.sql.tree.LikePredicate;
@@ -243,6 +244,56 @@ public class TestPostgreSqlClient
             case IS_DISTINCT_FROM:
                 // Not supported yet, even for bigint
                 assertThat(converted).isEmpty();
+                return;
+        }
+        throw new UnsupportedOperationException("Unsupported operator: " + operator);
+    }
+
+    @Test(dataProvider = "testConvertComparisonDataProvider")
+    public void testConvertIf(ComparisonExpression.Operator operator)
+    {
+        // if(c_bigint_symbol = 42, a_varchar, b_varchar)
+        Optional<String> convertedWithFalseArgument = JDBC_CLIENT.convertPredicate(
+                SESSION,
+                translateToConnectorExpression(
+                        new IfExpression(
+                                new ComparisonExpression(
+                                        operator,
+                                        new SymbolReference("c_bigint_symbol"),
+                                        LITERAL_ENCODER.toExpression(TEST_SESSION, 42L, BIGINT)),
+                                new SymbolReference("a_varchar_symbol"),
+                                new SymbolReference("b_varchar_symbol")),
+                        ImmutableMap.of("c_bigint_symbol", BIGINT, "a_varchar_symbol", VARCHAR_COLUMN.getColumnType(), "b_varchar_symbol", VARCHAR_COLUMN.getColumnType())),
+                ImmutableMap.of("c_bigint_symbol", DOUBLE_COLUMN, "a_varchar_symbol", VARCHAR_COLUMN, "b_varchar_symbol", VARCHAR_COLUMN));
+
+        // if(c_bigint_symbol = 42, a_varchar)
+        Optional<String> convertedWithoutFalseArgument = JDBC_CLIENT.convertPredicate(
+                SESSION,
+                translateToConnectorExpression(
+                        new IfExpression(
+                                new ComparisonExpression(
+                                        operator,
+                                        new SymbolReference("c_bigint_symbol"),
+                                        LITERAL_ENCODER.toExpression(TEST_SESSION, 42L, BIGINT)),
+                                new SymbolReference("a_varchar_symbol"),
+                                null),
+                        ImmutableMap.of("c_bigint_symbol", BIGINT, "a_varchar_symbol", VARCHAR_COLUMN.getColumnType())),
+                ImmutableMap.of("c_bigint_symbol", DOUBLE_COLUMN, "a_varchar_symbol", VARCHAR_COLUMN));
+
+        switch (operator) {
+            case EQUAL:
+            case NOT_EQUAL:
+                assertThat(convertedWithFalseArgument).hasValue(format("CASE WHEN ((\"c_double\") %s (42)) THEN (\"c_varchar\") ELSE (\"c_varchar\") END", operator.getValue()));
+                assertThat(convertedWithoutFalseArgument).hasValue(format("CASE WHEN ((\"c_double\") %s (42)) THEN (\"c_varchar\") END", operator.getValue()));
+                return;
+            case LESS_THAN:
+            case LESS_THAN_OR_EQUAL:
+            case GREATER_THAN:
+            case GREATER_THAN_OR_EQUAL:
+            case IS_DISTINCT_FROM:
+                // Not supported yet, even for bigint
+                assertThat(convertedWithFalseArgument).isEmpty();
+                assertThat(convertedWithoutFalseArgument).isEmpty();
                 return;
         }
         throw new UnsupportedOperationException("Unsupported operator: " + operator);

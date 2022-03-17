@@ -827,6 +827,26 @@ public class TestPostgreSqlConnectorTest
         }
     }
 
+    @Test
+    public void testIfPredicatePushdown()
+    {
+        assertThat(query("SELECT nationkey FROM nation WHERE IF(name = 'ALGERIA', true, false)"))
+                .matches("VALUES BIGINT '0'")
+                .isFullyPushedDown();
+
+        assertThat(query("SELECT name FROM nation WHERE IF(nationkey = 0, true, false)"))
+                .matches("VALUES CAST('ALGERIA' AS varchar(25))")
+                .isFullyPushedDown();
+
+        assertThat(query("SELECT name FROM nation WHERE IF(nationkey <> 0, true, false)"))
+                .matches("SELECT name FROM nation WHERE nationkey <> 0")
+                .isFullyPushedDown();
+
+        assertThat(query("SELECT nationkey FROM nation WHERE IF(name = 'Algeria', true, false)"))
+                .returnsEmptyResult()
+                .isFullyPushedDown();
+    }
+
     @Override
     protected String errorMessageForInsertIntoNotNullColumn(String columnName)
     {
