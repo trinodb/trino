@@ -54,6 +54,7 @@ public class DecimalSumAggregation
     private static final MethodHandle SHORT_DECIMAL_INPUT_FUNCTION = methodHandle(DecimalSumAggregation.class, "inputShortDecimal", Int128State.class, NullableLongState.class, Block.class, int.class);
     private static final MethodHandle LONG_DECIMAL_INPUT_FUNCTION = methodHandle(DecimalSumAggregation.class, "inputLongDecimal", Int128State.class, NullableLongState.class, Block.class, int.class);
     private static final MethodHandle LONG_DECIMAL_OUTPUT_FUNCTION = methodHandle(DecimalSumAggregation.class, "outputLongDecimal", Int128State.class, NullableLongState.class, BlockBuilder.class);
+    private static final MethodHandle IS_NULL_FUNCTION = methodHandle(DecimalAverageAggregation.class, "isNull", Int128State.class);
 
     private static final MethodHandle COMBINE_FUNCTION = methodHandle(DecimalSumAggregation.class, "combine", Int128State.class, NullableLongState.class, Int128State.class, NullableLongState.class);
 
@@ -103,7 +104,7 @@ public class DecimalSumAggregation
                         new AccumulatorStateDescriptor<>(
                                 NullableLongState.class,
                             StateCompiler.generateStateSerializer(NullableLongState.class),
-                            StateCompiler.generateStateFactory(NullableLongState.class))));
+                            StateCompiler.generateStateFactory(NullableLongState.class))), ImmutableList.of(), Optional.of(IS_NULL_FUNCTION));
     }
 
     public static void inputShortDecimal(Int128State decimalState, NullableLongState overflowState, Block block, int position)
@@ -124,7 +125,7 @@ public class DecimalSumAggregation
                 decimalOffset);
         overflow = Math.addExact(overflow, overflowState.getValue());
         overflowState.setValue(overflow);
-        overflowState.setNull(overflow == 0 & overflowState.isNull());
+        overflowState.setNull(overflow == 0);
     }
 
     public static void inputLongDecimal(Int128State decimalState, NullableLongState overflowState, Block block, int position)
@@ -145,37 +146,35 @@ public class DecimalSumAggregation
                 decimalOffset);
         overflow += overflowState.getValue();
         overflowState.setValue(overflow);
-        overflowState.setNull(overflow == 0 & overflowState.isNull());
+        overflowState.setNull(overflow == 0);
     }
 
     public static void combine(Int128State decimalState, NullableLongState overflowState, Int128State otherDecimalState, NullableLongState otherOverflowState)
     {
-        if (!otherDecimalState.isNotNull()) {
-            return;
-        }
         long[] decimal = decimalState.getArray();
         int decimalOffset = decimalState.getArrayOffset();
 
         long[] otherDecimal = otherDecimalState.getArray();
         int otherDecimalOffset = otherDecimalState.getArrayOffset();
 
-        long overflow = 0;
-        if (decimalState.isNotNull()) {
-            overflow = addWithOverflow(
-                    decimal[decimalOffset],
-                    decimal[decimalOffset + 1],
-                    otherDecimal[otherDecimalOffset],
-                    otherDecimal[otherDecimalOffset + 1],
-                    decimal,
-                    decimalOffset);
-        } else {
-            decimal[decimalOffset] = otherDecimal[otherDecimalOffset];
-            decimal[decimalOffset + 1] = otherDecimal[otherDecimalOffset + 1];
-        }
+        long overflow = addWithOverflow(
+                decimal[decimalOffset],
+                decimal[decimalOffset + 1],
+                otherDecimal[otherDecimalOffset],
+                otherDecimal[otherDecimalOffset + 1],
+                decimal,
+                decimalOffset);
         decimalState.setNotNull(true);
-        overflow = (overflowState.isNull() ? 0 : overflowState.getValue()) + Math.addExact(overflow, otherOverflowState.isNull() ? 0 : otherOverflowState.getValue());
+        // zalozenie, ze LHS nawet jak jest null to jest ok
+        int isOverflowNull = overflowState.isNull() ? 0 : 1;
+        overflow = overflowState.getValue() + Math.addExact(overflow, otherOverflowState.getValue() * isOverflowNull);
         overflowState.setValue(overflow);
-        overflowState.setNull(overflow == 0 & overflowState.isNull() & otherOverflowState.isNull());
+        overflowState.setNull(overflow == 0);
+    }
+
+    public static boolean isNull(Int128State decimalState)
+    {
+        return !decimalState.isNotNull();
     }
 
     public static void outputLongDecimal(Int128State decimalState, NullableLongState overflowState, BlockBuilder out)

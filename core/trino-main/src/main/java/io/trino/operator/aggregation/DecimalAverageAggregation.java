@@ -36,6 +36,8 @@ import io.trino.spi.type.Int128;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 
+import javax.validation.constraints.Null;
+
 import java.lang.invoke.MethodHandle;
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -67,6 +69,7 @@ public class DecimalAverageAggregation
     private static final MethodHandle LONG_DECIMAL_OUTPUT_FUNCTION = methodHandle(DecimalAverageAggregation.class, "outputLongDecimal", DecimalType.class, Int128State.class, LongState.class, NullableLongState.class, BlockBuilder.class);
 
     private static final MethodHandle COMBINE_FUNCTION = methodHandle(DecimalAverageAggregation.class, "combine", Int128State.class, LongState.class, NullableLongState.class, Int128State.class, LongState.class, NullableLongState.class);
+    private static final MethodHandle IS_NULL_FUNCTION = methodHandle(DecimalAverageAggregation.class, "isNull", Int128State.class);
 
     private static final BigInteger TWO = new BigInteger("2");
     private static final BigInteger OVERFLOW_MULTIPLIER = TWO.pow(128);
@@ -127,7 +130,7 @@ public class DecimalAverageAggregation
                         new AccumulatorStateDescriptor<>(
                                 NullableLongState.class,
                                 StateCompiler.generateStateSerializer(NullableLongState.class),
-                                StateCompiler.generateStateFactory(NullableLongState.class))));
+                                StateCompiler.generateStateFactory(NullableLongState.class))), ImmutableList.of(), Optional.of(IS_NULL_FUNCTION));
     }
 
     public static void inputShortDecimal(Int128State decimalState, LongState counterState, NullableLongState overflowState, Block block, int position)
@@ -150,7 +153,7 @@ public class DecimalAverageAggregation
                 decimalOffset);
 
         overflow += overflowState.getValue();
-        overflowState.setNull(overflow == 0 & overflowState.isNull());
+        overflowState.setNull(overflow == 0);
         overflowState.setValue(overflow);
     }
 
@@ -174,38 +177,36 @@ public class DecimalAverageAggregation
                 decimalOffset);
 
         overflow += overflowState.getValue();
-        overflowState.setNull(overflow == 0 & overflowState.isNull());
+        overflowState.setNull(overflow == 0);
         overflowState.setValue(overflow);
     }
 
     public static void combine(Int128State decimalState, LongState counterState, NullableLongState overflowState, Int128State otherDecimalState, LongState otherCounterState, NullableLongState otherOverflowState)
     {
-        if (!otherDecimalState.isNotNull()) {
-            return;
-        }
         long[] decimal = decimalState.getArray();
         int decimalOffset = decimalState.getArrayOffset();
         long[] otherDecimal = otherDecimalState.getArray();
         int otherDecimalOffset = otherDecimalState.getArrayOffset();
 
-        long overflow = 0;
-        if (decimalState.isNotNull()) {
-             overflow = addWithOverflow(
-                    decimal[decimalOffset],
-                    decimal[decimalOffset + 1],
-                    otherDecimal[otherDecimalOffset],
-                    otherDecimal[otherDecimalOffset + 1],
-                    decimal,
-                    decimalOffset);
-        } else {
-            decimal[decimalOffset] = otherDecimal[otherDecimalOffset];
-            decimal[decimalOffset + 1] = otherDecimal[otherDecimalOffset + 1];
-        }
+        // zalozenie, ze LHS nawet jak jest null to jest ok (decimal i overflow)
+         long overflow = addWithOverflow(
+                decimal[decimalOffset],
+                decimal[decimalOffset + 1],
+                otherDecimal[otherDecimalOffset],
+                otherDecimal[otherDecimalOffset + 1],
+                decimal,
+                decimalOffset);
         decimalState.setNotNull(true);
-        overflow = overflow + (overflowState.isNull() ? 0 : overflowState.getValue()) + (otherOverflowState.isNull() ? 0 : otherOverflowState.getValue());
         counterState.setValue(counterState.getValue() + otherCounterState.getValue());
+        int isOverflowNull = overflowState.isNull() ? 0 : 1;
+        overflow += overflowState.getValue() + otherOverflowState.getValue() * isOverflowNull;
         overflowState.setValue(overflow);
-        overflowState.setNull(overflowState.isNull() & otherOverflowState.isNull() & overflow == 0);
+        overflowState.setNull(overflow == 0);
+    }
+
+    public static boolean isNull(Int128State decimalState)
+    {
+        return !decimalState.isNotNull();
     }
 
     public static void outputShortDecimal(DecimalType type, Int128State decimalState, LongState counterState, NullableLongState overflowState, BlockBuilder out)

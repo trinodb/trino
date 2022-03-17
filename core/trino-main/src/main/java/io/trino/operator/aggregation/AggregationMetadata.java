@@ -29,6 +29,7 @@ public class AggregationMetadata
     private final MethodHandle inputFunction;
     private final Optional<MethodHandle> removeInputFunction;
     private final Optional<MethodHandle> combineFunction;
+    private Optional<MethodHandle> isNullFunction = Optional.empty();
     private final MethodHandle outputFunction;
     private final List<AccumulatorStateDescriptor<?>> accumulatorStateDescriptors;
     private final List<Class<?>> lambdaInterfaces;
@@ -65,6 +66,25 @@ public class AggregationMetadata
         this.lambdaInterfaces = ImmutableList.copyOf(requireNonNull(lambdaInterfaces, "lambdaInterfaces is null"));
     }
 
+    public AggregationMetadata(
+            MethodHandle inputFunction,
+            Optional<MethodHandle> removeInputFunction,
+            Optional<MethodHandle> combineFunction,
+            MethodHandle outputFunction,
+            List<AccumulatorStateDescriptor<?>> accumulatorStateDescriptors,
+            List<Class<?>> lambdaInterfaces,
+            Optional<MethodHandle> isNullFunction)
+    {
+        this.inputFunction = requireNonNull(inputFunction, "inputFunction is null");
+        this.removeInputFunction = requireNonNull(removeInputFunction, "removeInputFunction is null");
+        this.combineFunction = requireNonNull(combineFunction, "combineFunction is null");
+        this.outputFunction = requireNonNull(outputFunction, "outputFunction is null");
+        this.accumulatorStateDescriptors = requireNonNull(accumulatorStateDescriptors, "accumulatorStateDescriptors is null");
+        this.lambdaInterfaces = ImmutableList.copyOf(requireNonNull(lambdaInterfaces, "lambdaInterfaces is null"));
+        this.isNullFunction = isNullFunction;
+    }
+
+
     public MethodHandle getInputFunction()
     {
         return inputFunction;
@@ -78,6 +98,10 @@ public class AggregationMetadata
     public Optional<MethodHandle> getCombineFunction()
     {
         return combineFunction;
+    }
+
+    public Optional<MethodHandle> getIsNullFunction() {
+        return isNullFunction;
     }
 
     public MethodHandle getOutputFunction()
