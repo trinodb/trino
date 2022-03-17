@@ -32,6 +32,7 @@ import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.auth.credentials.WebIdentityTokenFileCredentialsProvider;
 import software.amazon.awssdk.core.async.AsyncRequestBody;
 import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
 import software.amazon.awssdk.core.retry.RetryPolicy;
@@ -362,6 +363,11 @@ public class S3FileSystemExchangeStorage
         if (config.getS3AwsAccessKey() != null && config.getS3AwsSecretKey() != null) {
             return StaticCredentialsProvider.create(AwsBasicCredentials.create(config.getS3AwsAccessKey(), config.getS3AwsSecretKey()));
         }
+
+        if (config.isS3UseWebIdentityTokenCredentials()) {
+            return WebIdentityTokenFileCredentialsProvider.create();
+        }
+
         return DefaultCredentialsProvider.create();
     }
 
