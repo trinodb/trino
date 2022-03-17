@@ -19,7 +19,9 @@ import io.trino.spi.connector.ConnectorSession;
 
 import java.util.Optional;
 
+import static io.trino.plugin.hive.HiveSessionProperties.getDeltaLakeCatalogName;
 import static io.trino.plugin.hive.HiveSessionProperties.getIcebergCatalogName;
+import static io.trino.plugin.hive.util.HiveUtil.isDeltaLakeTable;
 import static io.trino.plugin.hive.util.HiveUtil.isIcebergTable;
 
 public class DefaultHiveTableRedirectionsProvider
@@ -28,11 +30,29 @@ public class DefaultHiveTableRedirectionsProvider
     @Override
     public Optional<CatalogSchemaTableName> redirectTable(ConnectorSession session, Table table)
     {
+        return redirectTableToIceberg(session, table)
+                .or(() -> redirectTableToDeltaLake(session, table));
+    }
+
+    private Optional<CatalogSchemaTableName> redirectTableToIceberg(ConnectorSession session, Table table)
+    {
         Optional<String> targetCatalogName = getIcebergCatalogName(session);
         if (targetCatalogName.isEmpty()) {
             return Optional.empty();
         }
         if (isIcebergTable(table)) {
+            return targetCatalogName.map(catalog -> new CatalogSchemaTableName(catalog, table.getSchemaTableName()));
+        }
+        return Optional.empty();
+    }
+
+    private Optional<CatalogSchemaTableName> redirectTableToDeltaLake(ConnectorSession session, Table table)
+    {
+        Optional<String> targetCatalogName = getDeltaLakeCatalogName(session);
+        if (targetCatalogName.isEmpty()) {
+            return Optional.empty();
+        }
+        if (isDeltaLakeTable(table)) {
             return targetCatalogName.map(catalog -> new CatalogSchemaTableName(catalog, table.getSchemaTableName()));
         }
         return Optional.empty();

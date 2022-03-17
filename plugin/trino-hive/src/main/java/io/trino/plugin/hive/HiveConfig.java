@@ -168,6 +168,8 @@ public class HiveConfig
     private boolean sizeBasedSplitWeightsEnabled = true;
     private double minimumAssignedSplitWeight = 0.05;
 
+    private Optional<String> deltaLakeCatalogName = Optional.empty();
+
     public boolean isSingleStatementWritesOnly()
     {
         return singleStatementWritesOnly;
@@ -1180,5 +1182,18 @@ public class HiveConfig
     public double getMinimumAssignedSplitWeight()
     {
         return minimumAssignedSplitWeight;
+    }
+
+    public Optional<String> getDeltaLakeCatalogName()
+    {
+        return deltaLakeCatalogName;
+    }
+
+    @Config("hive.delta-lake-catalog-name")
+    @ConfigDescription("Catalog to redirect to when a Delta Lake table is referenced")
+    public HiveConfig setDeltaLakeCatalogName(String deltaLakeCatalogName)
+    {
+        this.deltaLakeCatalogName = Optional.ofNullable(deltaLakeCatalogName);
+        return this;
     }
 }
