@@ -14,7 +14,7 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <awsjavasdk.version>2.17.102</awsjavasdk.version>
+        <awsjavasdk.version>2.17.151</awsjavasdk.version>
     </properties>
 
     <dependencyManagement>
@@ -113,6 +113,10 @@
                 <exclusion>
                     <groupId>commons-logging</groupId>
                     <artifactId>commons-logging</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>io.netty</groupId>
+                    <artifactId>netty-tcnative-classes</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>
