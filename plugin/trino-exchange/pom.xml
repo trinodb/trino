@@ -131,6 +131,13 @@
             <artifactId>utils</artifactId>
         </dependency>
 
+        <!-- use of WebIdentityTokenFileCredentialsProvider requires the 'sts' module to be on the classpath -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>sts</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
         <!-- Trino SPI -->
         <dependency>
             <groupId>io.trino</groupId>

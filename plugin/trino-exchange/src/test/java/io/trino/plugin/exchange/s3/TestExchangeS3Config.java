@@ -34,6 +34,7 @@ public class TestExchangeS3Config
                 .setS3AwsSecretKey(null)
                 .setS3Region(null)
                 .setS3Endpoint(null)
+                .setS3UseWebIdentityTokenCredentials(false)
                 .setS3MaxErrorRetries(3)
                 .setS3UploadPartSize(DataSize.of(5, MEGABYTE)));
     }
@@ -46,6 +47,7 @@ public class TestExchangeS3Config
                 .put("exchange.s3.aws-secret-key", "secret")
                 .put("exchange.s3.region", "us-west-1")
                 .put("exchange.s3.endpoint", "https://s3.us-east-1.amazonaws.com")
+                .put("exchange.s3.use-web-identity-token-credentials", "true")
                 .put("exchange.s3.max-error-retries", "8")
                 .put("exchange.s3.upload.part-size", "10MB")
                 .buildOrThrow();
@@ -55,6 +57,7 @@ public class TestExchangeS3Config
                 .setS3AwsSecretKey("secret")
                 .setS3Region("us-west-1")
                 .setS3Endpoint("https://s3.us-east-1.amazonaws.com")
+                .setS3UseWebIdentityTokenCredentials(true)
                 .setS3MaxErrorRetries(8)
                 .setS3UploadPartSize(DataSize.of(10, MEGABYTE));
 
