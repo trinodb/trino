@@ -1,7 +1,8 @@
-# Release 374 (16 Mar 2022)
+# Release 374 (17 Mar 2022)
 
 ## General
 
+* Add support for query parameters in `CREATE SCHEMA`. ({issue}`11485`)
 * Improve performance when reading from S3-based spool for
   [fault-tolerant execution](/admin/fault-tolerant-execution). ({issue}`11050`)
 * Improve performance of queries with `GROUP BY` clauses. ({issue}`11392`)
