@@ -162,6 +162,7 @@ public class HiveConfig
 
     private boolean legacyHiveViewTranslation;
     private Optional<String> icebergCatalogName = Optional.empty();
+    private Optional<String> deltaLakeCatalogName = Optional.empty();
 
     private DataSize targetMaxFileSize = DataSize.of(1, GIGABYTE);
 
@@ -1180,5 +1181,18 @@ public class HiveConfig
     public double getMinimumAssignedSplitWeight()
     {
         return minimumAssignedSplitWeight;
+    }
+
+    public Optional<String> getDeltaLakeCatalogName()
+    {
+        return deltaLakeCatalogName;
+    }
+
+    @Config("hive.delta-lake-catalog-name")
+    @ConfigDescription("Catalog to redirect to when a Delta Lake table is referenced")
+    public HiveConfig setDeltaLakeCatalogName(String deltaLakeCatalogName)
+    {
+        this.deltaLakeCatalogName = Optional.ofNullable(deltaLakeCatalogName);
+        return this;
     }
 }
