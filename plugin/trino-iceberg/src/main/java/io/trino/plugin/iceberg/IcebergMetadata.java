@@ -1310,7 +1310,7 @@ public class IcebergMetadata
                 IcebergSessionProperties.REMOVE_ORPHAN_FILES_MIN_RETENTION);
 
         if (table.currentSnapshot() == null) {
-            log.debug("Skipping remove_orphan_files procedure for empty table " + table);
+            log.debug("Skipping remove_orphan_files procedure for empty table %s", table);
             return;
         }
 

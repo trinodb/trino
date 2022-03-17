@@ -311,7 +311,7 @@ public abstract class BaseTrinoCatalogTest
                 catalog.dropNamespace(SESSION, namespace);
             }
             catch (Exception e) {
-                LOG.warn("Failed to clean up namespace: " + namespace);
+                LOG.warn("Failed to clean up namespace: %s", namespace);
             }
         }
     }
