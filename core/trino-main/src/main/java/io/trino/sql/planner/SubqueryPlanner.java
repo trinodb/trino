@@ -144,9 +144,9 @@ class SubqueryPlanner
     private <T extends Expression> List<T> selectSubqueries(PlanBuilder subPlan, Expression parent, List<T> candidates)
     {
         SuccessorsFunction<Node> recurse = expression -> {
-            if (expression instanceof Expression &&
-                    !analysis.isColumnReference((Expression) expression) && // no point in following dereference chains
-                    !subPlan.canTranslate((Expression) expression)) { // don't consider subqueries under parts of the expression that have already been handled
+            if (!(expression instanceof Expression) ||
+                    (!analysis.isColumnReference((Expression) expression) && // no point in following dereference chains
+                            !subPlan.canTranslate((Expression) expression))) { // don't consider subqueries under parts of the expression that have already been handled
                 return expression.getChildren();
             }
 
