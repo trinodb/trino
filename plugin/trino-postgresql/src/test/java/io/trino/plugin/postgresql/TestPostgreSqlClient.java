@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.postgresql;
 
+import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ColumnMapping;
 import io.trino.plugin.jdbc.DefaultQueryBuilder;
@@ -37,6 +38,7 @@ import io.trino.sql.tree.IsNullPredicate;
 import io.trino.sql.tree.LikePredicate;
 import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.NotExpression;
+import io.trino.sql.tree.NullIfExpression;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.SymbolReference;
 import org.testng.annotations.DataProvider;
@@ -303,6 +305,20 @@ public class TestPostgreSqlClient
                         Map.of("c_varchar_symbol", VARCHAR_COLUMN.getColumnType())),
                 Map.of("c_varchar_symbol", VARCHAR_COLUMN)))
                 .hasValue("(\"c_varchar\") IS NOT NULL");
+    }
+
+    @Test
+    public void testConvertNullIf()
+    {
+        // nullif(a_varchar, b_varchar)
+        assertThat(JDBC_CLIENT.convertPredicate(SESSION,
+                translateToConnectorExpression(
+                        new NullIfExpression(
+                                new SymbolReference("a_varchar_symbol"),
+                                new SymbolReference("b_varchar_symbol")),
+                        ImmutableMap.of("a_varchar_symbol", VARCHAR_COLUMN.getColumnType(), "b_varchar_symbol", VARCHAR_COLUMN.getColumnType())),
+                ImmutableMap.of("a_varchar_symbol", VARCHAR_COLUMN, "b_varchar_symbol", VARCHAR_COLUMN)))
+                .hasValue("NULLIF((\"c_varchar\"), (\"c_varchar\"))");
     }
 
     @Test
