@@ -39,6 +39,7 @@ import io.trino.spi.expression.Variable;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.sql.ir.Call;
+import io.trino.sql.ir.Coalesce;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
@@ -81,6 +82,13 @@ public class TestPostgreSqlClient
     private static final JdbcColumnHandle BIGINT_COLUMN =
             JdbcColumnHandle.builder()
                     .setColumnName("c_bigint")
+                    .setColumnType(BIGINT)
+                    .setJdbcTypeHandle(new JdbcTypeHandle(Types.BIGINT, Optional.of("int8"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()))
+                    .build();
+
+    private static final JdbcColumnHandle BIGINT_COLUMN2 =
+            JdbcColumnHandle.builder()
+                    .setColumnName("c_bigint2")
                     .setColumnType(BIGINT)
                     .setJdbcTypeHandle(new JdbcTypeHandle(Types.BIGINT, Optional.of("int8"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()))
                     .build();
@@ -409,6 +417,33 @@ public class TestPostgreSqlClient
         assertThat(converted.parameters()).isEqualTo(List.of(
                 new QueryParameter(createVarcharType(10), Optional.of(utf8Slice("value1"))),
                 new QueryParameter(createVarcharType(10), Optional.of(utf8Slice("value2")))));
+    }
+
+    @Test
+    public void testConvertCoalesce()
+    {
+        // COALESCE(varchar, varchar)
+        ParameterizedExpression converted = JDBC_CLIENT.convertPredicate(SESSION,
+                        translateToConnectorExpression(
+                                new Coalesce(
+                                        new Reference(VARCHAR, "c_varchar_symbol"),
+                                        new Reference(VARCHAR, "c_varchar_symbol_2"))),
+                        Map.of("c_varchar_symbol", VARCHAR_COLUMN, "c_varchar_symbol_2", VARCHAR_COLUMN2))
+                .orElseThrow();
+        assertThat(converted.expression()).isEqualTo("COALESCE(\"c_varchar\",\"c_varchar2\")");
+        assertThat(converted.parameters()).isEqualTo(List.of());
+
+        // COALESCE(bigint, bigint, bigint)
+        converted = JDBC_CLIENT.convertPredicate(SESSION,
+                        translateToConnectorExpression(
+                                new Coalesce(
+                                        new Reference(BIGINT, "c_bigint_symbol"),
+                                        new Reference(BIGINT, "c_bigint_symbol_2"),
+                                        new Constant(BIGINT, 123L))),
+                        Map.of("c_bigint_symbol", BIGINT_COLUMN, "c_bigint_symbol_2", BIGINT_COLUMN2))
+                .orElseThrow();
+        assertThat(converted.expression()).isEqualTo("COALESCE(\"c_bigint\",\"c_bigint2\",?)");
+        assertThat(converted.parameters()).isEqualTo(List.of(new QueryParameter(BIGINT, Optional.of(123L))));
     }
 
     private ConnectorExpression translateToConnectorExpression(Expression expression)
