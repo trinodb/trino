@@ -49,6 +49,7 @@ import io.trino.sql.tree.DoubleLiteral;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.GenericLiteral;
+import io.trino.sql.tree.IfExpression;
 import io.trino.sql.tree.IsNotNullPredicate;
 import io.trino.sql.tree.IsNullPredicate;
 import io.trino.sql.tree.LikePredicate;
@@ -82,6 +83,7 @@ import static io.trino.spi.expression.StandardFunctions.DIVIDE_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.EQUAL_OPERATOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.GREATER_THAN_OPERATOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.GREATER_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME;
+import static io.trino.spi.expression.StandardFunctions.IF_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.IS_DISTINCT_FROM_OPERATOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.IS_NULL_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.LESS_THAN_OPERATOR_FUNCTION_NAME;
@@ -259,6 +261,16 @@ public final class ConnectorExpressionTranslator
                         return Optional.empty();
                 }
             }
+            if (IF_FUNCTION_NAME.equals(call.getFunctionName())) {
+                switch (call.getArguments().size()) {
+                    case 2:
+                        return translateIf(call.getArguments().get(0), call.getArguments().get(1), Optional.empty());
+                    case 3:
+                        return translateIf(call.getArguments().get(0), call.getArguments().get(1), Optional.of(call.getArguments().get(2)));
+                    default:
+                        return Optional.empty();
+                }
+            }
 
             QualifiedName name = QualifiedName.of(call.getFunctionName().getName());
             List<TypeSignature> argumentTypes = call.getArguments().stream()
@@ -406,6 +418,23 @@ public final class ConnectorExpressionTranslator
                 }
 
                 return Optional.of(new LikePredicate(translatedValue.get(), translatedPattern.get(), Optional.empty()));
+            }
+
+            return Optional.empty();
+        }
+
+        private Optional<Expression> translateIf(ConnectorExpression condition, ConnectorExpression trueValue, Optional<ConnectorExpression> falseValue)
+        {
+            Optional<Expression> conditionExpression = translate(condition);
+            Optional<Expression> trueExpression = translate(trueValue);
+
+            if (conditionExpression.isPresent() && trueExpression.isPresent()) {
+                if (falseValue.isPresent()) {
+                    Optional<Expression> falseExpression = translate(falseValue.get());
+                    return falseExpression.map(expression -> new IfExpression(conditionExpression.get(), trueExpression.get(), expression));
+                }
+
+                return Optional.of(new IfExpression(conditionExpression.get(), trueExpression.get(), null));
             }
 
             return Optional.empty();
@@ -674,6 +703,24 @@ public final class ConnectorExpressionTranslator
             Optional<ConnectorExpression> secondValue = process(node.getSecond());
             if (firstValue.isPresent() && secondValue.isPresent()) {
                 return Optional.of(new Call(typeOf(node), NULLIF_FUNCTION_NAME, ImmutableList.of(firstValue.get(), secondValue.get())));
+            }
+            return Optional.empty();
+        }
+
+        @Override
+        protected Optional<ConnectorExpression> visitIfExpression(IfExpression node, Void context)
+        {
+            Optional<ConnectorExpression> condition = process(node.getCondition());
+            Optional<ConnectorExpression> trueValue = process(node.getTrueValue());
+            if (condition.isPresent() && trueValue.isPresent()) {
+                if (node.getFalseValue().isEmpty()) {
+                    return Optional.of(new Call(typeOf(node), IF_FUNCTION_NAME, ImmutableList.of(condition.get(), trueValue.get())));
+                }
+
+                Optional<ConnectorExpression> falseValue = process(node.getFalseValue().get());
+                if (falseValue.isPresent()) {
+                    return Optional.of(new Call(typeOf(node), IF_FUNCTION_NAME, ImmutableList.of(condition.get(), trueValue.get(), falseValue.get())));
+                }
             }
             return Optional.empty();
         }

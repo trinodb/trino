@@ -45,6 +45,11 @@ public final class StandardFunctions
     public static final FunctionName GREATER_THAN_OPERATOR_FUNCTION_NAME = new FunctionName("$greater_than");
     public static final FunctionName GREATER_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME = new FunctionName("$greater_than_or_equal");
     public static final FunctionName IS_DISTINCT_FROM_OPERATOR_FUNCTION_NAME = new FunctionName("$is_distinct_from");
+    /**
+     * $if is a function accepting 2 arguments - condition and trueValue, or 3 arguments - condition, trueValue and falseValue.
+     * Evaluates and returns true_value if condition is true, otherwise evaluates and returns false_value.
+     */
+    public static final FunctionName IF_FUNCTION_NAME = new FunctionName("$if");
 
     /**
      * Arithmetic addition.
