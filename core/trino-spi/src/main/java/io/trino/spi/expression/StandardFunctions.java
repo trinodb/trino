@@ -33,6 +33,10 @@ public final class StandardFunctions
     public static final FunctionName NOT_FUNCTION_NAME = new FunctionName("$not");
 
     public static final FunctionName IS_NULL_FUNCTION_NAME = new FunctionName("$is_null");
+    /**
+     * $nullif is a function accepting two arguments. Returns null if both values are the same, otherwise returns the first value.
+     */
+    public static final FunctionName NULLIF_FUNCTION_NAME = new FunctionName("$nullif");
 
     public static final FunctionName EQUAL_OPERATOR_FUNCTION_NAME = new FunctionName("$equal");
     public static final FunctionName NOT_EQUAL_OPERATOR_FUNCTION_NAME = new FunctionName("$not_equal");

@@ -57,6 +57,7 @@ import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.NotExpression;
+import io.trino.sql.tree.NullIfExpression;
 import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.StringLiteral;
@@ -91,6 +92,7 @@ import static io.trino.spi.expression.StandardFunctions.MULTIPLY_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.NEGATE_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.NOT_EQUAL_OPERATOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.NOT_FUNCTION_NAME;
+import static io.trino.spi.expression.StandardFunctions.NULLIF_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.OR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.SUBTRACT_FUNCTION_NAME;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -222,6 +224,9 @@ public final class ConnectorExpressionTranslator
             if (IS_NULL_FUNCTION_NAME.equals(call.getFunctionName()) && call.getArguments().size() == 1) {
                 return translateIsNull(call.getArguments().get(0));
             }
+            if (NULLIF_FUNCTION_NAME.equals(call.getFunctionName()) && call.getArguments().size() == 2) {
+                return translateNullIf(call.getArguments().get(0), call.getArguments().get(1));
+            }
 
             // comparisons
             if (call.getArguments().size() == 2) {
@@ -319,6 +324,17 @@ public final class ConnectorExpressionTranslator
             return translate(left).flatMap(leftTranslated ->
                     translate(right).map(rightTranslated ->
                             new ComparisonExpression(operator, leftTranslated, rightTranslated)));
+        }
+
+        private Optional<Expression> translateNullIf(ConnectorExpression first, ConnectorExpression second)
+        {
+            Optional<Expression> firstExpression = translate(first);
+            Optional<Expression> secondExpression = translate(second);
+            if (firstExpression.isPresent() && secondExpression.isPresent()) {
+                return Optional.of(new NullIfExpression(firstExpression.get(), secondExpression.get()));
+            }
+
+            return Optional.empty();
         }
 
         private Optional<ComparisonExpression.Operator> comparisonOperatorForFunctionName(FunctionName functionName)
@@ -647,6 +663,17 @@ public final class ConnectorExpressionTranslator
                 if (escape.isPresent()) {
                     return Optional.of(new Call(typeOf(node), LIKE_PATTERN_FUNCTION_NAME, List.of(value.get(), pattern.get(), escape.get())));
                 }
+            }
+            return Optional.empty();
+        }
+
+        @Override
+        protected Optional<ConnectorExpression> visitNullIfExpression(NullIfExpression node, Void context)
+        {
+            Optional<ConnectorExpression> firstValue = process(node.getFirst());
+            Optional<ConnectorExpression> secondValue = process(node.getSecond());
+            if (firstValue.isPresent() && secondValue.isPresent()) {
+                return Optional.of(new Call(typeOf(node), NULLIF_FUNCTION_NAME, ImmutableList.of(firstValue.get(), secondValue.get())));
             }
             return Optional.empty();
         }
