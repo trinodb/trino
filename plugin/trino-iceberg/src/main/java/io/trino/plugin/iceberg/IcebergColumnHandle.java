@@ -25,11 +25,15 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 
 public class IcebergColumnHandle
         implements ColumnHandle
 {
+    public static final String PATH_COLUMN_NAME = "$path";
+    public static final Type PATH_TYPE = VARCHAR;
+
     private final ColumnIdentity baseColumnIdentity;
     private final Type baseType;
     // The list of field ids to indicate the projected part of the top-level column represented by baseColumnIdentity

@@ -97,6 +97,7 @@ import org.apache.iceberg.types.Type;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.Deque;
@@ -135,6 +136,7 @@ import static io.trino.plugin.iceberg.IcebergUtil.deserializePartitionValue;
 import static io.trino.plugin.iceberg.IcebergUtil.getColumns;
 import static io.trino.plugin.iceberg.IcebergUtil.getFileFormat;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionKeys;
+import static io.trino.plugin.iceberg.IcebergUtil.getPathColumnHandle;
 import static io.trino.plugin.iceberg.IcebergUtil.getTableComment;
 import static io.trino.plugin.iceberg.IcebergUtil.newCreateTableTransaction;
 import static io.trino.plugin.iceberg.IcebergUtil.toIcebergSchema;
@@ -302,6 +304,8 @@ public class IcebergMetadata
                     .filter(column -> partitionSourceIds.contains(column.getId()))
                     .collect(toImmutableMap(IcebergColumnHandle::getId, Function.identity()));
 
+            // add a column for the path.
+
             Supplier<List<FileScanTask>> lazyFiles = Suppliers.memoize(() -> {
                 TableScan tableScan = icebergTable.newScan()
                         .useSnapshot(table.getSnapshotId().get())
@@ -375,7 +379,10 @@ public class IcebergMetadata
     {
         IcebergTableHandle table = (IcebergTableHandle) tableHandle;
         Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
-        return getColumns(icebergTable.schema(), typeManager).stream()
+        List<IcebergColumnHandle> columns = new ArrayList<>(getColumns(icebergTable.schema(), typeManager));
+        // add hidden path column
+        columns.add(getPathColumnHandle(columns.get(columns.size()-1).getId() + 1));
+        return columns.stream()
                 .collect(toImmutableMap(IcebergColumnHandle::getName, identity()));
     }
 
@@ -872,7 +879,9 @@ public class IcebergMetadata
     {
         Table icebergTable = catalog.loadTable(session, table);
 
-        List<ColumnMetadata> columns = getColumnMetadatas(icebergTable);
+        List<ColumnMetadata> columns = new ArrayList<>(getColumnMetadatas(icebergTable));
+        // add path column
+        columns.add(IcebergUtil.getPathColumnMetadata());
 
         ImmutableMap.Builder<String, Object> properties = ImmutableMap.builder();
         properties.put(FILE_FORMAT_PROPERTY, getFileFormat(icebergTable));

@@ -48,6 +48,7 @@ import org.apache.iceberg.Transaction;
 import org.apache.iceberg.io.LocationProvider;
 import org.apache.iceberg.types.Type.PrimitiveType;
 import org.apache.iceberg.types.TypeUtil;
+import org.apache.iceberg.types.Types;
 import org.apache.iceberg.types.Types.NestedField;
 import org.apache.iceberg.types.Types.StructType;
 
@@ -71,6 +72,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Lists.reverse;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
+import static io.trino.plugin.iceberg.ColumnIdentity.TypeCategory.PRIMITIVE;
 import static io.trino.plugin.iceberg.ColumnIdentity.createColumnIdentity;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_PARTITION_VALUE;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_SNAPSHOT_ID;
@@ -168,6 +170,24 @@ public final class IcebergUtil
         return schema.columns().stream()
                 .map(column -> getColumnHandle(column, typeManager))
                 .collect(toImmutableList());
+    }
+
+    public static IcebergColumnHandle getPathColumnHandle(int id)
+    {
+        return new IcebergColumnHandle(
+                new ColumnIdentity(id, IcebergColumnHandle.PATH_COLUMN_NAME, PRIMITIVE, ImmutableList.of()),
+                VarcharType.createUnboundedVarcharType(),
+                ImmutableList.of(),
+                VarcharType.createUnboundedVarcharType(),
+                Optional.empty());
+    }
+
+    public static ColumnMetadata getPathColumnMetadata()
+    {
+        return ColumnMetadata.builder()
+                .setName(IcebergColumnHandle.PATH_COLUMN_NAME)
+                .setType(VarcharType.createUnboundedVarcharType())
+                .build();
     }
 
     public static IcebergColumnHandle getColumnHandle(NestedField column, TypeManager typeManager)

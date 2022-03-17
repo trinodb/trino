@@ -30,8 +30,11 @@ import java.util.Optional;
 import java.util.OptionalLong;
 
 import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.base.util.Closables.closeAllSuppress;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
+import static io.trino.plugin.iceberg.IcebergColumnHandle.PATH_COLUMN_NAME;
+import static io.trino.plugin.iceberg.IcebergColumnHandle.PATH_TYPE;
 import static io.trino.plugin.iceberg.IcebergUtil.deserializePartitionValue;
 import static java.util.Objects.requireNonNull;
 
@@ -47,6 +50,7 @@ public class IcebergPageSource
             List<IcebergColumnHandle> columns,
             Map<Integer, Optional<String>> partitionKeys,
             ConnectorPageSource delegate,
+            String path,
             Optional<ReaderProjectionsAdapter> projectionsAdapter)
     {
         int size = requireNonNull(columns, "columns is null").size();
@@ -65,6 +69,10 @@ public class IcebergPageSource
                 Type type = column.getType();
                 Object prefilledValue = deserializePartitionValue(type, partitionValue, column.getName());
                 prefilledBlocks[outputIndex] = Utils.nativeValueToBlock(type, prefilledValue);
+                delegateIndexes[outputIndex] = -1;
+            }
+            else if (column.getName().equals(PATH_COLUMN_NAME)) {
+                prefilledBlocks[outputIndex] = Utils.nativeValueToBlock(PATH_TYPE, utf8Slice(path));
                 delegateIndexes[outputIndex] = -1;
             }
             else {

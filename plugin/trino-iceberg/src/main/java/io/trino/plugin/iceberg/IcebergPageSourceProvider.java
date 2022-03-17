@@ -213,7 +213,7 @@ public class IcebergPageSourceProvider
                         readerColumns,
                         column -> ((IcebergColumnHandle) column).getType(),
                         IcebergPageSourceProvider::applyProjection));
-        return new IcebergPageSource(icebergColumns, partitionKeys, dataPageSource.get(), projectionsAdapter);
+        return new IcebergPageSource(icebergColumns, partitionKeys, dataPageSource.get(), split.getPath(), projectionsAdapter);
     }
 
     private ReaderPageSource createDataPageSource(
