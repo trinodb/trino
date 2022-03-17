@@ -1134,7 +1134,7 @@ public class TrinoS3FileSystem
                     region = regionProviderChain.getRegion();
                 }
                 catch (SdkClientException ex) {
-                    log.warn("Falling back to default AWS region " + US_EAST_1);
+                    log.warn("Falling back to default AWS region %s", US_EAST_1);
                     region = US_EAST_1.getName();
                 }
             }

@@ -571,7 +571,7 @@ public class CassandraSession
                     throw e;
                 }
                 long delay = Math.min(schedule.nextDelay().toMillis(), timeLeft);
-                log.warn(e.getMessage());
+                log.warn("%s", e.getMessage());
                 log.warn("Reconnecting in %dms", delay);
                 try {
                     Thread.sleep(delay);
