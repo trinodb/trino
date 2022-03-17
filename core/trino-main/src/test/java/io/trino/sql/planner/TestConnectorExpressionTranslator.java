@@ -35,6 +35,7 @@ import io.trino.sql.tree.LikePredicate;
 import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.NotExpression;
+import io.trino.sql.tree.NullIfExpression;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.SubscriptExpression;
@@ -55,6 +56,7 @@ import static io.trino.spi.expression.StandardFunctions.IS_NULL_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.LIKE_PATTERN_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.NEGATE_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.NOT_FUNCTION_NAME;
+import static io.trino.spi.expression.StandardFunctions.NULLIF_FUNCTION_NAME;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DecimalType.createDecimalType;
@@ -280,6 +282,20 @@ public class TestConnectorExpressionTranslator
                         BOOLEAN,
                         NOT_FUNCTION_NAME,
                         List.of(new Call(BOOLEAN, IS_NULL_FUNCTION_NAME, List.of(new Variable("varchar_symbol_1", VARCHAR_TYPE))))));
+    }
+
+    @Test
+    public void testTranslateNullIf()
+    {
+        assertTranslationRoundTrips(
+                new NullIfExpression(
+                        new SymbolReference("varchar_symbol_1"),
+                        new SymbolReference("varchar_symbol_1")),
+                new Call(
+                        VARCHAR_TYPE,
+                        NULLIF_FUNCTION_NAME,
+                        List.of(new Variable("varchar_symbol_1", VARCHAR_TYPE),
+                                new Variable("varchar_symbol_1", VARCHAR_TYPE))));
     }
 
     @Test
