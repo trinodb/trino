@@ -110,7 +110,8 @@ public class TestHiveConfig
                 .setLegacyHiveViewTranslation(false)
                 .setIcebergCatalogName(null)
                 .setSizeBasedSplitWeightsEnabled(true)
-                .setMinimumAssignedSplitWeight(0.05));
+                .setMinimumAssignedSplitWeight(0.05)
+                .setDeltaLakeCatalogName(null));
     }
 
     @Test
@@ -192,6 +193,7 @@ public class TestHiveConfig
                 .put("hive.iceberg-catalog-name", "iceberg")
                 .put("hive.size-based-split-weights-enabled", "false")
                 .put("hive.minimum-assigned-split-weight", "1.0")
+                .put("hive.delta-lake-catalog-name", "delta")
                 .buildOrThrow();
 
         HiveConfig expected = new HiveConfig()
@@ -269,7 +271,8 @@ public class TestHiveConfig
                 .setLegacyHiveViewTranslation(true)
                 .setIcebergCatalogName("iceberg")
                 .setSizeBasedSplitWeightsEnabled(false)
-                .setMinimumAssignedSplitWeight(1.0);
+                .setMinimumAssignedSplitWeight(1.0)
+                .setDeltaLakeCatalogName("delta");
 
         assertFullMapping(properties, expected);
     }
