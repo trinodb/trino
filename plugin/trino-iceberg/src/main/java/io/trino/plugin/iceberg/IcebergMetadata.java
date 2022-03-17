@@ -127,8 +127,12 @@ import static io.trino.plugin.hive.HiveApplyProjectionUtil.replaceWithNewVariabl
 import static io.trino.plugin.hive.util.HiveUtil.isStructuralType;
 import static io.trino.plugin.iceberg.ColumnIdentity.primitiveColumnIdentity;
 import static io.trino.plugin.iceberg.ExpressionConverter.toIcebergExpression;
+import static io.trino.plugin.iceberg.IcebergColumnHandle.pathColumnHandle;
+import static io.trino.plugin.iceberg.IcebergColumnHandle.pathColumnMetadata;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
+import static io.trino.plugin.iceberg.IcebergMetadataColumn.FILE_PATH;
+import static io.trino.plugin.iceberg.IcebergMetadataColumn.isMetadataColumnId;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isProjectionPushdownEnabled;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isStatisticsEnabled;
 import static io.trino.plugin.iceberg.IcebergTableProperties.FILE_FORMAT_PROPERTY;
@@ -387,8 +391,13 @@ public class IcebergMetadata
     {
         IcebergTableHandle table = (IcebergTableHandle) tableHandle;
         Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
-        return getColumns(icebergTable.schema(), typeManager).stream()
-                .collect(toImmutableMap(IcebergColumnHandle::getName, identity()));
+
+        ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
+        for (IcebergColumnHandle columnHandle : getColumns(icebergTable.schema(), typeManager)) {
+            columnHandles.put(columnHandle.getName(), columnHandle);
+        }
+        columnHandles.put(FILE_PATH.getColumnName(), pathColumnHandle());
+        return columnHandles.buildOrThrow();
     }
 
     @Override
@@ -900,7 +909,9 @@ public class IcebergMetadata
     {
         Table icebergTable = catalog.loadTable(session, table);
 
-        List<ColumnMetadata> columns = getColumnMetadatas(icebergTable);
+        ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
+        columns.addAll(getColumnMetadatas(icebergTable));
+        columns.add(pathColumnMetadata());
 
         ImmutableMap.Builder<String, Object> properties = ImmutableMap.builder();
         properties.put(FILE_FORMAT_PROPERTY, getFileFormat(icebergTable));
@@ -912,7 +923,7 @@ public class IcebergMetadata
             properties.put(LOCATION_PROPERTY, icebergTable.location());
         }
 
-        return new ConnectorTableMetadata(table, columns, properties.buildOrThrow(), getTableComment(icebergTable));
+        return new ConnectorTableMetadata(table, columns.build(), properties.buildOrThrow(), getTableComment(icebergTable));
     }
 
     private List<ColumnMetadata> getColumnMetadatas(Table table)
@@ -1010,6 +1021,8 @@ public class IcebergMetadata
 
         Set<Integer> partitionSourceIds = identityPartitionColumnsInAllSpecs(icebergTable);
         BiPredicate<IcebergColumnHandle, Domain> isIdentityPartition = (column, domain) -> partitionSourceIds.contains(column.getId());
+        // Iceberg metadata columns can not be used in table scans
+        BiPredicate<IcebergColumnHandle, Domain> isMetadataColumn = (column, domain) -> isMetadataColumnId(column.getId());
 
         TupleDomain<IcebergColumnHandle> newEnforcedConstraint = constraint.getSummary()
                 .transformKeys(IcebergColumnHandle.class::cast)
@@ -1018,7 +1031,8 @@ public class IcebergMetadata
 
         TupleDomain<IcebergColumnHandle> remainingConstraint = constraint.getSummary()
                 .transformKeys(IcebergColumnHandle.class::cast)
-                .filter(isIdentityPartition.negate());
+                .filter(isIdentityPartition.negate())
+                .filter(isMetadataColumn.negate());
 
         TupleDomain<IcebergColumnHandle> newUnenforcedConstraint = remainingConstraint
                 // TODO: Remove after completing https://github.com/trinodb/trino/issues/8759
