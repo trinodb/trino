@@ -83,10 +83,7 @@ public class TestPartialTranslator
         assertFullTranslation(symbolReference1);
         assertFullTranslation(dereferenceExpression1);
         assertFullTranslation(stringLiteral);
-
-        assertPartialTranslation(
-                new ArithmeticBinaryExpression(ADD, symbolReference1, dereferenceExpression1),
-                List.of(symbolReference1, dereferenceExpression1));
+        assertFullTranslation(new ArithmeticBinaryExpression(ADD, symbolReference1, dereferenceExpression1));
 
         assertPartialTranslation(
                 new CoalesceExpression(
