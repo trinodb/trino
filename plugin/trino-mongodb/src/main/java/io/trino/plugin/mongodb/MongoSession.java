@@ -461,6 +461,10 @@ public class MongoSession
         requireNonNull(type, "type is null");
         checkArgument(Primitives.wrap(type.getJavaType()).isInstance(trinoNativeValue), "%s (%s) is not a valid representation for %s", trinoNativeValue, trinoNativeValue.getClass(), type);
 
+        if (type == BOOLEAN) {
+            return Optional.of(trinoNativeValue);
+        }
+
         if (type == TINYINT) {
             return Optional.of((long) SignedBytes.checkedCast(((Long) trinoNativeValue)));
         }
