@@ -19,12 +19,14 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.type.Type;
 
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
+import static io.trino.plugin.iceberg.IcebergMetadataColumn.FILE_PATH;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.MetadataColumns.IS_DELETED;
 import static org.apache.iceberg.MetadataColumns.ROW_POSITION;
@@ -183,5 +185,34 @@ public class IcebergColumnHandle
     public String toString()
     {
         return getId() + ":" + getName() + ":" + type.getDisplayName();
+    }
+
+    public static IcebergColumnHandle pathColumnHandle()
+    {
+        return new IcebergColumnHandle(
+                columIdentity(FILE_PATH),
+                FILE_PATH.getType(),
+                ImmutableList.of(),
+                FILE_PATH.getType(),
+                Optional.empty());
+    }
+
+    public static ColumnMetadata pathColumnMetadata()
+    {
+        return ColumnMetadata.builder()
+                .setName(FILE_PATH.getColumnName())
+                .setType(FILE_PATH.getType())
+                .setHidden(true)
+                .build();
+    }
+
+    private static ColumnIdentity columIdentity(IcebergMetadataColumn metadata)
+    {
+        return new ColumnIdentity(metadata.getId(), metadata.getColumnName(), metadata.getTypeCategory(), ImmutableList.of());
+    }
+
+    public boolean isPathColumn()
+    {
+        return getColumnIdentity().getId() == FILE_PATH.getId();
     }
 }

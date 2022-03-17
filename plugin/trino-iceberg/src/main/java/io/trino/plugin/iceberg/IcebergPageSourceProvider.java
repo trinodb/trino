@@ -114,6 +114,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Maps.uniqueIndex;
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static io.trino.orc.OrcReader.ProjectedLayout;
@@ -127,6 +128,7 @@ import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_CANNOT_OPEN_SPLIT
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_CURSOR_ERROR;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_MISSING_DATA;
+import static io.trino.plugin.iceberg.IcebergMetadataColumn.FILE_PATH;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getOrcLazyReadSmallRanges;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getOrcMaxBufferSize;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getOrcMaxMergeDistance;
@@ -399,6 +401,9 @@ public class IcebergPageSourceProvider
                     columnAdaptations.add(ColumnAdaptation.constantColumn(nativeValueToBlock(
                             trinoType,
                             deserializePartitionValue(trinoType, partitionKeys.get(column.getId()).orElse(null), column.getName()))));
+                }
+                else if (column.isPathColumn()) {
+                    columnAdaptations.add(ColumnAdaptation.constantColumn(nativeValueToBlock(FILE_PATH.getType(), utf8Slice(path.toString()))));
                 }
                 else if (column.isRowPositionColumn()) {
                     columnAdaptations.add(ColumnAdaptation.positionColumn());
@@ -746,6 +751,9 @@ public class IcebergPageSourceProvider
                     constantPopulatingPageSourceBuilder.addConstantColumn(nativeValueToBlock(
                             trinoType,
                             deserializePartitionValue(trinoType, partitionKeys.get(column.getId()).orElse(null), column.getName())));
+                }
+                else if (column.isPathColumn()) {
+                    constantPopulatingPageSourceBuilder.addConstantColumn(nativeValueToBlock(FILE_PATH.getType(), utf8Slice(path.toString())));
                 }
                 else if (column.isRowPositionColumn()) {
                     trinoTypes.add(BIGINT);

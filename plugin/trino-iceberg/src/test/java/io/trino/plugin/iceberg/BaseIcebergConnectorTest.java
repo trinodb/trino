@@ -3342,4 +3342,31 @@ public abstract class BaseIcebergConnectorTest
         assertThat(query("SELECT min(a_varchar) FROM test_iceberg_recreate")).matches("VALUES CAST('Trino' AS varchar)");
         dropTable("test_iceberg_recreate");
     }
+
+    @Test
+    public void testPathHiddenColumn()
+    {
+        String tableName = "test_path_" + randomTableSuffix();
+        @Language("SQL") String createTable = "CREATE TABLE " + tableName + " " +
+                "WITH ( partitioning = ARRAY['zip'] ) AS " +
+                "SELECT * FROM (VALUES " +
+                "(0, 0), (3, 0), (6, 0), " +
+                "(1, 1), (4, 1), (7, 1), " +
+                "(2, 2), (5, 2) " +
+                " ) t(userid, zip)";
+        assertUpdate(createTable, 8);
+
+        MaterializedResult expectedColumns = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+                .row("userid", "integer", "", "")
+                .row("zip", "integer", "", "")
+                .build();
+        MaterializedResult actualColumns = computeActual(format("DESCRIBE %s", tableName));
+        // Describe output should not have the $path hidden column
+        assertEquals(actualColumns, expectedColumns);
+
+        assertThat(query("SELECT file_path FROM \"" + tableName + "$files\""))
+                .matches("SELECT DISTINCT \"$path\" as file_path FROM " + tableName);
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
 }

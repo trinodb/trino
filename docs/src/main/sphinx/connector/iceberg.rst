@@ -448,6 +448,29 @@ and a file system location of ``/var/my_tables/test_table``::
         partitioning = ARRAY['c1', 'c2'],
         location = '/var/my_tables/test_table')
 
+.. _iceberg_metadata_columns:
+
+Metadata columns
+----------------
+
+In addition to the defined columns, the Iceberg connector automatically exposes
+path metadata as a hidden column in each table:
+
+* ``$path``: Full file system path name of the file for this row
+
+You can use this column in your SQL statements like any other column. This
+can be selected directly, or used in conditional statements. For example, you
+can inspect the file path for each record::
+
+    SELECT *, "$path"
+    FROM iceberg.web.page_views;
+
+Retrieve all records that belong to a specific file using ``"$path"`` filter::
+
+    SELECT *
+    FROM iceberg.web.page_views
+    WHERE "$path" = '/usr/iceberg/table/web.page_views/data/file_01.parquet'
+
 .. _iceberg-metadata-tables:
 
 Metadata tables
