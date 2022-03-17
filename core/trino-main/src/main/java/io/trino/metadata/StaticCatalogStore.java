@@ -94,7 +94,7 @@ public class StaticCatalogStore
         }
         catch (Exception e) {
             if (skipLoadError) {
-                log.warn("-- Skipping catalog %s, loading error: %s --", file, e.getMessage());
+                log.warn(e, "-- Skipping catalog %s, failed to load --", file);
             }
             else {
                 throw e;
