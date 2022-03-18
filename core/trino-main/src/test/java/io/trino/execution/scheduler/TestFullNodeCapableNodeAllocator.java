@@ -74,9 +74,9 @@ public class TestFullNodeCapableNodeAllocator
     private static final NodeRequirements NO_REQUIREMENTS = new NodeRequirements(Optional.empty(), Set.of(), DataSize.of(32, GIGABYTE));
     private static final NodeRequirements SHARED_NODE_CATALOG_1_REQUIREMENTS = new NodeRequirements(Optional.of(CATALOG_1), Set.of(), DataSize.of(32, GIGABYTE));
     private static final NodeRequirements FULL_NODE_REQUIREMENTS = new NodeRequirements(Optional.empty(), Set.of(), FULL_NODE_MEMORY);
-    private static final NodeRequirements FULL_NODE_1_REQUIREMENTS = new NodeRequirements(Optional.empty(), Set.of(NODE_1_ADDRESS), FULL_NODE_MEMORY);
     private static final NodeRequirements FULL_NODE_2_REQUIREMENTS = new NodeRequirements(Optional.empty(), Set.of(NODE_2_ADDRESS), FULL_NODE_MEMORY);
     private static final NodeRequirements FULL_NODE_3_REQUIREMENTS = new NodeRequirements(Optional.empty(), Set.of(NODE_3_ADDRESS), FULL_NODE_MEMORY);
+    private static final NodeRequirements FULL_NODE_4_REQUIREMENTS = new NodeRequirements(Optional.empty(), Set.of(NODE_4_ADDRESS), FULL_NODE_MEMORY);
     private static final NodeRequirements FULL_NODE_CATALOG_1_REQUIREMENTS = new NodeRequirements(Optional.of(CATALOG_1), Set.of(), FULL_NODE_MEMORY);
     private static final NodeRequirements FULL_NODE_CATALOG_2_REQUIREMENTS = new NodeRequirements(Optional.of(CATALOG_2), Set.of(), FULL_NODE_MEMORY);
     // not using FULL_NODE_MEMORY marker but with memory requirements exceeding any node in cluster
@@ -431,24 +431,32 @@ public class TestFullNodeCapableNodeAllocator
         }
     }
 
-    @Test(timeOut = TEST_TIMEOUT)
+    @Test(timeOut = TEST_TIMEOUT * 1000)
     public void testAllocateFullWithAddressRequirements()
             throws Exception
     {
-        InMemoryNodeManager nodeManager = testingNodeManager(basicNodesMap(NODE_1, NODE_2, NODE_3));
+        InMemoryNodeManager nodeManager = testingNodeManager(basicNodesMap(NODE_1, NODE_2, NODE_3, NODE_4));
 
         setupNodeAllocatorService(nodeManager, 2);
 
         try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(Q1_SESSION)) {
-            NodeAllocator.NodeLease acquire1 = nodeAllocator.acquire(FULL_NODE_1_REQUIREMENTS);
-            assertAcquired(acquire1);
-            NodeAllocator.NodeLease acquire2 = nodeAllocator.acquire(FULL_NODE_2_REQUIREMENTS);
-            assertAcquired(acquire2);
-            NodeAllocator.NodeLease acquire3 = nodeAllocator.acquire(FULL_NODE_3_REQUIREMENTS);
+            // note testing with NODE_1 as it has two incarnations when InMemoryNodeManager is in use (coordinator and non-coordinator, sharing address)
+            NodeAllocator.NodeLease acquire1 = nodeAllocator.acquire(FULL_NODE_2_REQUIREMENTS);
+            assertAcquired(acquire1, NODE_2);
+
+            NodeAllocator.NodeLease acquire1b = nodeAllocator.acquire(FULL_NODE_2_REQUIREMENTS);
+            // no more space on NODE_2
+            assertNotAcquired(acquire1b);
+            // cancel
+            acquire1b.release();
+
+            NodeAllocator.NodeLease acquire2 = nodeAllocator.acquire(FULL_NODE_3_REQUIREMENTS);
+            assertAcquired(acquire2, NODE_3);
+            NodeAllocator.NodeLease acquire3 = nodeAllocator.acquire(FULL_NODE_4_REQUIREMENTS);
             assertNotAcquired(acquire3);
 
             acquire1.release();
-            assertEventually(() -> assertAcquired(acquire3));
+            assertEventually(() -> assertAcquired(acquire3, NODE_4));
         }
     }
 
