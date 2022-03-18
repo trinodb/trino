@@ -35,6 +35,7 @@ import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
 @Description("Sorts the given array in ascending order according to the natural ordering of its elements.")
 public final class ArraySortFunction
 {
+    public static final String NAME = "array_sort";
     private final PageBuilder pageBuilder;
     private static final int INITIAL_LENGTH = 128;
     private final IntArrayList positions = new IntArrayList(INITIAL_LENGTH);
