@@ -329,6 +329,6 @@ public class OrcFileWriter
         if (isMapType(type)) {
             return mapOf(toStorageType(type.getTypeParameters().get(0)), toStorageType(type.getTypeParameters().get(1)));
         }
-        throw new TrinoException(NOT_SUPPORTED, "No storage type for type: " + type);
+        throw new TrinoException(NOT_SUPPORTED, "Unsupported type: " + type);
     }
 }

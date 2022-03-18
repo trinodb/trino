@@ -234,7 +234,7 @@ public class TestCassandraConnectorTest
     public void testCharVarcharComparison()
     {
         assertThatThrownBy(super::testCharVarcharComparison)
-                .hasMessage("unsupported type: char(3)");
+                .hasMessage("Unsupported type: char(3)");
     }
 
     @Test
