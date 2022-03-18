@@ -93,7 +93,7 @@ public abstract class BaseRaptorConnectorTest
     public void testCharVarcharComparison()
     {
         assertThatThrownBy(super::testCharVarcharComparison)
-                .hasMessage("No storage type for type: char(3)");
+                .hasMessage("Unsupported type: char(3)");
     }
 
     @Test
