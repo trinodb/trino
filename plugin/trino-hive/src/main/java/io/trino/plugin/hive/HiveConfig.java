@@ -165,6 +165,7 @@ public class HiveConfig
 
     private boolean sizeBasedSplitWeightsEnabled = true;
     private double minimumAssignedSplitWeight = 0.05;
+    private boolean autoPurgeDefault;
 
     public boolean isSingleStatementWritesOnly()
     {
@@ -1164,5 +1165,17 @@ public class HiveConfig
     public double getMinimumAssignedSplitWeight()
     {
         return minimumAssignedSplitWeight;
+    }
+
+    @Config("hive.managed-table-auto-purge-default")
+    public HiveConfig setAutoPurgeDefault(boolean autoPurgeDefault)
+    {
+        this.autoPurgeDefault = autoPurgeDefault;
+        return this;
+    }
+
+    public boolean isAutoPurgeDefault()
+    {
+        return this.autoPurgeDefault;
     }
 }

@@ -155,7 +155,7 @@ public class HiveTableProperties
                 stringProperty(CSV_QUOTE, "CSV quote character", null, false),
                 stringProperty(CSV_ESCAPE, "CSV escape character", null, false),
                 booleanProperty(TRANSACTIONAL, "Table is transactional", null, false),
-                booleanProperty(AUTO_PURGE, "Skip trash when table or partition is deleted", null, false));
+                booleanProperty(AUTO_PURGE, "Skip trash when table or partition is deleted", config.isAutoPurgeDefault(), false));
     }
 
     public List<PropertyMetadata<?>> getTableProperties()
