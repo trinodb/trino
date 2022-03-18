@@ -45,13 +45,13 @@ public class SingleStoreClientModule
     @Provides
     @Singleton
     @ForBaseJdbc
-    public static ConnectionFactory createConnectionFactory(BaseJdbcConfig config, CredentialProvider credentialProvider, SingleStoreConfig memsqlConfig)
+    public static ConnectionFactory createConnectionFactory(BaseJdbcConfig config, CredentialProvider credentialProvider, SingleStoreConfig singleStoreConfig)
     {
         Properties connectionProperties = new Properties();
         // we don't want to interpret tinyInt type (with cardinality as 2) as boolean/bit
         connectionProperties.setProperty("tinyInt1isBit", "false");
-        connectionProperties.setProperty("autoReconnect", String.valueOf(memsqlConfig.isAutoReconnect()));
-        connectionProperties.setProperty("connectTimeout", String.valueOf(memsqlConfig.getConnectionTimeout().toMillis()));
+        connectionProperties.setProperty("autoReconnect", String.valueOf(singleStoreConfig.isAutoReconnect()));
+        connectionProperties.setProperty("connectTimeout", String.valueOf(singleStoreConfig.getConnectionTimeout().toMillis()));
 
         return new DriverConnectionFactory(
                 new Driver(),
