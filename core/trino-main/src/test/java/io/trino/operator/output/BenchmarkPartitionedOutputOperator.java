@@ -50,6 +50,7 @@ import io.trino.spi.type.VarcharType;
 import io.trino.sql.planner.HashBucketFunction;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.TestingTaskContext;
+import io.trino.type.BlockTypeOperators;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -113,7 +114,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 @BenchmarkMode(Mode.AverageTime)
 public class BenchmarkPartitionedOutputOperator
 {
-    private static final PositionsAppenderFactory POSITIONS_APPENDER_FACTORY = new PositionsAppenderFactory();
+    private static final PositionsAppenderFactory POSITIONS_APPENDER_FACTORY = new PositionsAppenderFactory(new BlockTypeOperators());
 
     @Benchmark
     public void addPage(BenchmarkData data)

@@ -44,6 +44,7 @@ import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.TestingTaskContext;
+import io.trino.type.BlockTypeOperators;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
@@ -434,7 +435,7 @@ public class TestPartitionedOutputOperator
 
     static class PartitionedOutputOperatorBuilder
     {
-        public static final PositionsAppenderFactory POSITIONS_APPENDER_FACTORY = new PositionsAppenderFactory();
+        public static final PositionsAppenderFactory POSITIONS_APPENDER_FACTORY = new PositionsAppenderFactory(new BlockTypeOperators());
         private final ExecutorService executor;
         private final ScheduledExecutorService scheduledExecutor;
         private final OutputBuffer outputBuffer;

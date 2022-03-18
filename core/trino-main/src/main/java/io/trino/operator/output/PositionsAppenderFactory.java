@@ -19,14 +19,40 @@ import io.trino.spi.block.Int96ArrayBlock;
 import io.trino.spi.type.FixedWidthType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VariableWidthType;
+import io.trino.type.BlockTypeOperators;
+import io.trino.type.BlockTypeOperators.BlockPositionEqual;
 
 import javax.annotation.Nullable;
 
+import static java.util.Objects.requireNonNull;
+
 public class PositionsAppenderFactory
 {
+    private final BlockTypeOperators blockTypeOperators;
+
+    public PositionsAppenderFactory(BlockTypeOperators blockTypeOperators)
+    {
+        this.blockTypeOperators = requireNonNull(blockTypeOperators, "blockTypeOperators is null");
+    }
+
     public PositionsAppender create(Type type, @Nullable BlockBuilderStatus blockBuilderStatus, int expectedPositions)
     {
-        return new BlockTypeDispatchingPositionsAppender(createDedicatedAppenderFor(type, blockBuilderStatus, expectedPositions));
+        return new BlockTypeDispatchingPositionsAppender(
+                new AdaptivePositionsAppender(
+                        getEqualOperator(type),
+                        createDedicatedAppenderFor(type, blockBuilderStatus, expectedPositions),
+                        expectedPositions));
+    }
+
+    private BlockPositionEqual getEqualOperator(Type type)
+    {
+        if (type.isComparable()) {
+            return blockTypeOperators.getEqualOperator(type);
+        }
+        else {
+            // if type is not comparable, we are not going to be able to support different RLE values
+            return (left, leftPosition, right, rightPosition) -> false;
+        }
     }
 
     private BlockTypeAwarePositionsAppender createDedicatedAppenderFor(Type type, @Nullable BlockBuilderStatus blockBuilderStatus, int expectedPositions)

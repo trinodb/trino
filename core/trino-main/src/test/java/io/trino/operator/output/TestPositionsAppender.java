@@ -165,6 +165,20 @@ public class TestPositionsAppender
         testAppend(type, input);
     }
 
+    @Test(dataProvider = "types")
+    public void testMultipleRleWithTheSameValueProduceRle(Type type)
+    {
+        PositionsAppender positionsAppender = POSITIONS_APPENDER_FACTORY.create(type, null, 10);
+
+        Block value = notNullBlock(type, 1);
+        positionsAppender.append(allPositions(3), rleBlock(value, 3));
+        positionsAppender.append(allPositions(2), rleBlock(value, 2));
+
+        Block actual = positionsAppender.build();
+        assertEquals(actual.getPositionCount(), 5);
+        assertTrue(actual instanceof RunLengthEncodedBlock, actual.toString());
+    }
+
     @DataProvider(name = "nullRleTypes")
     public static Object[][] nullRleTypes()
     {
