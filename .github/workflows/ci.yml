@@ -17,7 +17,8 @@ env:
   MAVEN_OPTS: "-Xmx512M -XX:+ExitOnOutOfMemoryError -Dmaven.wagon.rto=60000"
   MAVEN_INSTALL_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError -Dmaven.wagon.rto=60000"
   MAVEN_FAST_INSTALL: "-B --strict-checksums -V --quiet -T C1 -DskipTests -Dmaven.source.skip=true -Dair.check.skip-all"
-  MAVEN_TEST: "-B --strict-checksums -Dmaven.source.skip=true -Dair.check.skip-all --fail-at-end -P gib -Dgib.referenceBranch=refs/remotes/origin/${{ github.event.pull_request.base.ref }}"
+  MAVEN_TEST: "-B --strict-checksums -Dmaven.source.skip=true -Dair.check.skip-all --fail-at-end"
+  GIB_OPTS: "-P gib -Dgib.referenceBranch=refs/remotes/origin/${{ github.event.pull_request.base.ref }}"
   RETRY: .github/bin/retry
   # Testcontainers kills image pulls if they don't make progress for > 30s and retries for 2m before failing. This means
   # that if an image doesn't download all it's layers within ~2m then any other concurrent pull will be killed because
@@ -87,11 +88,10 @@ jobs:
       - name: Error Prone Checks
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          # gib is explicitly disabled since we want to ensure errorprone passes on all modules
           # Run Error Prone on one module with a retry to ensure all runtime dependencies are fetched
-          $RETRY $MAVEN ${MAVEN_TEST} -T C1 clean test-compile -Dgib.disable -P errorprone-compiler -pl ':trino-spi'
+          $RETRY $MAVEN ${MAVEN_TEST} -T C1 clean test-compile -P errorprone-compiler -pl ':trino-spi'
           # The main Error Prone run
-          $MAVEN ${MAVEN_TEST} -T C1 clean test-compile -Dgib.disable -P errorprone-compiler \
+          $MAVEN ${MAVEN_TEST} -T C1 clean test-compile -P errorprone-compiler \
             -pl '!:trino-docs,!:trino-server,!:trino-server-rpm'
 
   web-ui-checks:
@@ -125,13 +125,13 @@ jobs:
       - name: Test old JDBC vs current server
         run: |
           if [ ! -f gib-impacted.log ] || grep -q testing/trino-test-jdbc-compatibility-old-driver gib-impacted.log; then
-            testing/trino-test-jdbc-compatibility-old-driver/bin/run_tests.sh
+            MAVEN_TEST="${MAVEN_TEST} ${GIB_OPTS}" testing/trino-test-jdbc-compatibility-old-driver/bin/run_tests.sh
           fi
       - name: Test current JDBC vs old server
         if: always()
         run: |
           if [ ! -f gib-impacted.log ] || grep -q testing/trino-test-jdbc-compatibility-old-server gib-impacted.log; then
-            $MAVEN test ${MAVEN_TEST} -pl :trino-test-jdbc-compatibility-old-server
+            $MAVEN test ${MAVEN_TEST} ${GIB_OPTS} -pl :trino-test-jdbc-compatibility-old-server
           fi
       - name: Upload test results
         uses: actions/upload-artifact@v2
@@ -185,7 +185,7 @@ jobs:
       - name: Run Hive Tests
         run: |
           source plugin/trino-hive-hadoop2/conf/hive-tests-${{ matrix.config }}.sh &&
-            plugin/trino-hive-hadoop2/bin/run_hive_tests.sh
+            MAVEN_TEST="${MAVEN_TEST} ${GIB_OPTS}" plugin/trino-hive-hadoop2/bin/run_hive_tests.sh
       - name: Run Hive S3 Tests
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESSKEY }}
@@ -195,7 +195,7 @@ jobs:
         run: |
           if [ "${AWS_ACCESS_KEY_ID}" != "" ]; then
             source plugin/trino-hive-hadoop2/conf/hive-tests-${{ matrix.config }}.sh &&
-              plugin/trino-hive-hadoop2/bin/run_hive_s3_tests.sh
+              MAVEN_TEST="${MAVEN_TEST} ${GIB_OPTS}" plugin/trino-hive-hadoop2/bin/run_hive_s3_tests.sh
           fi
       - name: Run Hive Glue Tests
         env:
@@ -204,7 +204,7 @@ jobs:
           AWS_REGION: us-east-2
         run: |
           if [ "${AWS_ACCESS_KEY_ID}" != "" ]; then
-            $MAVEN test ${MAVEN_TEST} -pl :trino-hive -P test-hive-glue
+            $MAVEN test ${MAVEN_TEST} ${GIB_OPTS} -pl :trino-hive -P test-hive-glue
           fi
       - name: Run Hive Azure ABFS Access Key Tests
         if: matrix.config != 'config-empty' # Hive 1.x does not support Azure storage
@@ -215,7 +215,7 @@ jobs:
         run: |
           if [ "${ABFS_CONTAINER}" != "" ]; then
             source plugin/trino-hive-hadoop2/conf/hive-tests-${{ matrix.config }}.sh &&
-              plugin/trino-hive-hadoop2/bin/run_hive_abfs_access_key_tests.sh
+              MAVEN_TEST="${MAVEN_TEST} ${GIB_OPTS}" plugin/trino-hive-hadoop2/bin/run_hive_abfs_access_key_tests.sh
           fi
       - name: Run Hive Azure ABFS OAuth Tests
         if: matrix.config != 'config-empty' # Hive 1.x does not support Azure storage
@@ -228,7 +228,7 @@ jobs:
         run: |
           if [ -n "$ABFS_CONTAINER" ]; then
             source plugin/trino-hive-hadoop2/conf/hive-tests-${{ matrix.config }}.sh &&
-              plugin/trino-hive-hadoop2/bin/run_hive_abfs_oauth_tests.sh
+              MAVEN_TEST="${MAVEN_TEST} ${GIB_OPTS}" plugin/trino-hive-hadoop2/bin/run_hive_abfs_oauth_tests.sh
           fi
       - name: Run Hive Azure WASB Tests
         if: matrix.config != 'config-empty' # Hive 1.x does not support Azure storage
@@ -239,7 +239,7 @@ jobs:
         run: |
           if [ "${WASB_CONTAINER}" != "" ]; then
             source plugin/trino-hive-hadoop2/conf/hive-tests-${{ matrix.config }}.sh &&
-              plugin/trino-hive-hadoop2/bin/run_hive_wasb_tests.sh
+              MAVEN_TEST="${MAVEN_TEST} ${GIB_OPTS}" plugin/trino-hive-hadoop2/bin/run_hive_wasb_tests.sh
           fi
       - name: Run Hive Azure ADL Tests
         if: matrix.config != 'config-empty' # Hive 1.x does not support Azure storage
@@ -251,12 +251,12 @@ jobs:
         run: |
           if [ "${ADL_NAME}" != "" ]; then
             source plugin/trino-hive-hadoop2/conf/hive-tests-${{ matrix.config }}.sh &&
-              plugin/trino-hive-hadoop2/bin/run_hive_adl_tests.sh
+              MAVEN_TEST="${MAVEN_TEST} ${GIB_OPTS}" plugin/trino-hive-hadoop2/bin/run_hive_adl_tests.sh
           fi
       - name: Run Hive Alluxio Tests
         run: |
           source plugin/trino-hive-hadoop2/conf/hive-tests-${{ matrix.config }}.sh &&
-            plugin/trino-hive-hadoop2/bin/run_hive_alluxio_tests.sh
+            MAVEN_TEST="${MAVEN_TEST} ${GIB_OPTS}" plugin/trino-hive-hadoop2/bin/run_hive_alluxio_tests.sh
       - name: Upload test results
         uses: actions/upload-artifact@v2
         # Upload all test reports only on failure, because the artifacts are large
@@ -300,7 +300,7 @@ jobs:
           $RETRY $MAVEN install ${MAVEN_FAST_INSTALL} -pl '!:trino-docs,!:trino-server,!:trino-server-rpm'
       - name: Maven Tests
         run: |
-          $MAVEN test ${MAVEN_TEST} -pl '
+          $MAVEN test ${MAVEN_TEST} ${GIB_OPTS} -pl '
             !:trino-main,
             !:trino-tests,
             !:trino-raptor-legacy,
@@ -439,7 +439,7 @@ jobs:
           $RETRY $MAVEN install ${MAVEN_FAST_INSTALL} -am -pl "${{ matrix.modules }}"
       - name: Maven Tests
         if: matrix.modules != 'plugin/trino-singlestore'
-        run: $MAVEN test ${MAVEN_TEST} -pl ${{ matrix.modules }} ${{ matrix.profile != '' && format('-P {0}', matrix.profile) || '' }}
+        run: $MAVEN test ${MAVEN_TEST} ${GIB_OPTS} -pl ${{ matrix.modules }} ${{ matrix.profile != '' && format('-P {0}', matrix.profile) || '' }}
       # Additional tests for selected modules
       - name: Cloud Delta Lake Tests
         env:
@@ -454,7 +454,7 @@ jobs:
           contains(matrix.modules, 'trino-delta-lake') &&
           (env.ABFS_ACCOUNT != '' || env.ABFS_CONTAINER != '' || env.ABFS_ACCESSKEY != '' || env.AWS_ACCESS_KEY_ID != '' || env.AWS_SECRET_ACCESS_KEY != '')
         run: |
-          $MAVEN test ${MAVEN_TEST} -P cloud-tests -pl :trino-delta-lake \
+          $MAVEN test ${MAVEN_TEST} ${GIB_OPTS} -P cloud-tests -pl :trino-delta-lake \
             -Dhive.hadoop2.azure-abfs-container="${ABFS_CONTAINER}" \
             -Dhive.hadoop2.azure-abfs-account="${ABFS_ACCOUNT}" \
             -Dhive.hadoop2.azure-abfs-access-key="${ABFS_ACCESSKEY}"
@@ -463,19 +463,19 @@ jobs:
           MEMSQL_LICENSE: ${{ secrets.MEMSQL_LICENSE }}
         if: matrix.modules == 'plugin/trino-singlestore' && env.MEMSQL_LICENSE != ''
         run: |
-          $MAVEN test ${MAVEN_TEST} -pl :trino-singlestore -Dmemsql.license=${MEMSQL_LICENSE}
+          $MAVEN test ${MAVEN_TEST} ${GIB_OPTS} -pl :trino-singlestore -Dmemsql.license=${MEMSQL_LICENSE}
       - name: Cloud BigQuery Tests
         env:
           BIGQUERY_CREDENTIALS_KEY: ${{ secrets.BIGQUERY_CREDENTIALS_KEY }}
         if: matrix.modules == 'plugin/trino-bigquery' && env.BIGQUERY_CREDENTIALS_KEY != ''
         run: |
-          $MAVEN test ${MAVEN_TEST} -pl :trino-bigquery -Pcloud-tests -Dbigquery.credentials-key="${BIGQUERY_CREDENTIALS_KEY}"
+          $MAVEN test ${MAVEN_TEST} ${GIB_OPTS} -pl :trino-bigquery -Pcloud-tests -Dbigquery.credentials-key="${BIGQUERY_CREDENTIALS_KEY}"
       - name: Cloud BigQuery Case Insensitive Mapping Tests
         env:
           BIGQUERY_CASE_INSENSITIVE_CREDENTIALS_KEY: ${{ secrets.BIGQUERY_CASE_INSENSITIVE_CREDENTIALS_KEY }}
         if: matrix.modules == 'plugin/trino-bigquery' && env.BIGQUERY_CASE_INSENSITIVE_CREDENTIALS_KEY != ''
         run: |
-          $MAVEN test ${MAVEN_TEST} -pl :trino-bigquery -Pcloud-tests-case-insensitive-mapping -Dbigquery.credentials-key="${BIGQUERY_CASE_INSENSITIVE_CREDENTIALS_KEY}"
+          $MAVEN test ${MAVEN_TEST} ${GIB_OPTS} -pl :trino-bigquery -Pcloud-tests-case-insensitive-mapping -Dbigquery.credentials-key="${BIGQUERY_CASE_INSENSITIVE_CREDENTIALS_KEY}"
       - name: Iceberg Glue Catalog Tests
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESSKEY }}
@@ -484,7 +484,7 @@ jobs:
           S3_BUCKET: presto-ci-test
         if: contains(matrix.modules, 'plugin/trino-iceberg') && (env.AWS_ACCESS_KEY_ID != '' || env.AWS_SECRET_ACCESS_KEY != '')
         run: |
-          $MAVEN test ${MAVEN_TEST} -pl :trino-iceberg -P test-glue-catalog -Ds3.bucket=${S3_BUCKET}
+          $MAVEN test ${MAVEN_TEST} ${GIB_OPTS} -pl :trino-iceberg -P test-glue-catalog -Ds3.bucket=${S3_BUCKET}
       - name: Sanitize artifact name
         if: always()
         run: |
@@ -526,8 +526,7 @@ jobs:
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          # GIB needs to be explicitly disabled, because the gib profile enables it, but the trino-server module requires all of its dependencies to be built
-          $RETRY $MAVEN install ${MAVEN_FAST_INSTALL} -Dgib.disable -pl '!:trino-docs,!:trino-server-rpm'
+          $RETRY $MAVEN install ${MAVEN_FAST_INSTALL} -pl '!:trino-docs,!:trino-server-rpm'
       - name: Product tests artifact
         uses: actions/upload-artifact@v2
         with:
