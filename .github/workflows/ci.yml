@@ -16,7 +16,7 @@ env:
   # maven.wagon.rto is in millis, defaults to 30m
   MAVEN_OPTS: "-Xmx512M -XX:+ExitOnOutOfMemoryError -Dmaven.wagon.rto=60000"
   MAVEN_INSTALL_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError -Dmaven.wagon.rto=60000"
-  MAVEN_FAST_INSTALL: "-B --strict-checksums -V --quiet -T C1 -DskipTests -Dmaven.source.skip=true -Dair.check.skip-all -P gib -Dgib.referenceBranch=refs/remotes/origin/${{ github.event.pull_request.base.ref }}"
+  MAVEN_FAST_INSTALL: "-B --strict-checksums -V --quiet -T C1 -DskipTests -Dmaven.source.skip=true -Dair.check.skip-all"
   MAVEN_TEST: "-B --strict-checksums -Dmaven.source.skip=true -Dair.check.skip-all --fail-at-end -P gib -Dgib.referenceBranch=refs/remotes/origin/${{ github.event.pull_request.base.ref }}"
   RETRY: .github/bin/retry
   # Testcontainers kills image pulls if they don't make progress for > 30s and retries for 2m before failing. This means
@@ -73,10 +73,6 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v2
-        with:
-          fetch-depth: 0 # checkout all commits to be able to determine merge base for GIB
-      - name: Fetch base ref to find merge-base for GIB
-        run: .github/bin/git-fetch-base-ref.sh
       - uses: actions/setup-java@v2
         with:
           distribution: 'zulu'
@@ -91,10 +87,11 @@ jobs:
       - name: Error Prone Checks
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
+          # gib is explicitly disabled since we want to ensure errorprone passes on all modules
           # Run Error Prone on one module with a retry to ensure all runtime dependencies are fetched
-          $RETRY $MAVEN ${MAVEN_TEST} -T C1 clean test-compile -P gib,errorprone-compiler -pl ':trino-spi'
+          $RETRY $MAVEN ${MAVEN_TEST} -T C1 clean test-compile -Dgib.disable -P errorprone-compiler -pl ':trino-spi'
           # The main Error Prone run
-          $MAVEN ${MAVEN_TEST} -T C1 clean test-compile -P gib,errorprone-compiler \
+          $MAVEN ${MAVEN_TEST} -T C1 clean test-compile -Dgib.disable -P errorprone-compiler \
             -pl '!:trino-docs,!:trino-server,!:trino-server-rpm'
 
   web-ui-checks:
