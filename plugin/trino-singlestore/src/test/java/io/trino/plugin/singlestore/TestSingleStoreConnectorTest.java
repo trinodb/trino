@@ -123,14 +123,14 @@ public class TestSingleStoreConnectorTest
         String typeName = dataMappingTestSetup.getTrinoTypeName();
 
         if (typeName.equals("boolean")) {
-            // MemSQL does not have built-in support for boolean type. MemSQL provides BOOLEAN as the synonym of TINYINT(1)
+            // SingleStore does not have built-in support for boolean type. SingleStore provides BOOLEAN as the synonym of TINYINT(1)
             // Querying the column with a boolean predicate subsequently fails with "Cannot apply operator: tinyint = boolean"
             return Optional.empty();
         }
 
         if (typeName.equals("time")) {
-            // MemSQL supports only second precision
-            // Skip 'time' that is alias of time(3) here and add test cases in TestMemSqlTypeMapping.testTime instead
+            // SingleStore supports only second precision
+            // Skip 'time' that is alias of time(3) here and add test cases in TestSingleStoreTypeMapping.testTime instead
             return Optional.empty();
         }
 
@@ -154,15 +154,15 @@ public class TestSingleStoreConnectorTest
     @Override
     public void testInsertUnicode()
     {
-        // MemSQL's utf8 encoding is 3 bytes and truncates strings upon encountering a 4 byte sequence
-        throw new SkipException("MemSQL doesn't support utf8mb4");
+        // SingleStore's utf8 encoding is 3 bytes and truncates strings upon encountering a 4 byte sequence
+        throw new SkipException("SingleStore doesn't support utf8mb4");
     }
 
     @Override
     public void testInsertHighestUnicodeCharacter()
     {
-        // MemSQL's utf8 encoding is 3 bytes and truncates strings upon encountering a 4 byte sequence
-        throw new SkipException("MemSQL doesn't support utf8mb4");
+        // SingleStore's utf8 encoding is 3 bytes and truncates strings upon encountering a 4 byte sequence
+        throw new SkipException("SingleStore doesn't support utf8mb4");
     }
 
     @Test
@@ -198,7 +198,7 @@ public class TestSingleStoreConnectorTest
     }
 
     @Test
-    public void testMemSqlTinyint()
+    public void testSingleStoreTinyint()
     {
         onRemoteDatabase().execute("CREATE TABLE tpch.mysql_test_tinyint1 (c_tinyint tinyint(1))");
 
@@ -302,7 +302,7 @@ public class TestSingleStoreConnectorTest
     @Override
     public void testCreateTableAsSelectNegativeDate()
     {
-        // TODO (https://github.com/trinodb/trino/issues/10320) MemSQL stores '0000-00-00' when inserted negative dates and it throws an exception during reading the row
+        // TODO (https://github.com/trinodb/trino/issues/10320) SingleStore stores '0000-00-00' when inserted negative dates and it throws an exception during reading the row
         assertThatThrownBy(super::testCreateTableAsSelectNegativeDate)
                 .hasCauseInstanceOf(RuntimeException.class)
                 .hasStackTraceContaining("JDBC_ERROR")
@@ -313,7 +313,7 @@ public class TestSingleStoreConnectorTest
     @Override
     public void testInsertNegativeDate()
     {
-        // TODO (https://github.com/trinodb/trino/issues/10320) MemSQL stores '0000-00-00' when inserted negative dates and it throws an exception during reading the row
+        // TODO (https://github.com/trinodb/trino/issues/10320) SingleStore stores '0000-00-00' when inserted negative dates and it throws an exception during reading the row
         assertThatThrownBy(super::testInsertNegativeDate)
                 .hasCauseInstanceOf(RuntimeException.class)
                 .hasStackTraceContaining("JDBC_ERROR")

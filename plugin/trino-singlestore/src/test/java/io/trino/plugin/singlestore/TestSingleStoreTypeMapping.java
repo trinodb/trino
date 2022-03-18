@@ -46,7 +46,7 @@ import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.DECIMAL_MAPPI
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.DECIMAL_ROUNDING_MODE;
 import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.UNSUPPORTED_TYPE_HANDLING;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
-import static io.trino.plugin.singlestore.SingleStoreClient.MEMSQL_VARCHAR_MAX_LENGTH;
+import static io.trino.plugin.singlestore.SingleStoreClient.SINGLESTORE_VARCHAR_MAX_LENGTH;
 import static io.trino.plugin.singlestore.SingleStoreQueryRunner.createSingleStoreQueryRunner;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -105,7 +105,7 @@ public class TestSingleStoreTypeMapping
                 .addRoundTrip("bit", "b'1'", BOOLEAN, "true")
                 .addRoundTrip("bit", "b'0'", BOOLEAN, "false")
                 .addRoundTrip("bit", "NULL", BOOLEAN, "CAST(NULL AS BOOLEAN)")
-                .execute(getQueryRunner(), memSqlCreateAndInsert("tpch.test_bit"));
+                .execute(getQueryRunner(), singleStoreCreateAndInsert("tpch.test_bit"));
     }
 
     @Test
@@ -115,7 +115,7 @@ public class TestSingleStoreTypeMapping
                 .addRoundTrip("boolean", "true", TINYINT, "TINYINT '1'")
                 .addRoundTrip("boolean", "false", TINYINT, "TINYINT '0'")
                 .addRoundTrip("boolean", "NULL", TINYINT, "CAST(NULL AS TINYINT)")
-                .execute(getQueryRunner(), memSqlCreateAndInsert("tpch.test_boolean"))
+                .execute(getQueryRunner(), singleStoreCreateAndInsert("tpch.test_boolean"))
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_boolean"));
     }
 
@@ -127,7 +127,7 @@ public class TestSingleStoreTypeMapping
                 .addRoundTrip("tinyint", "-128", TINYINT, "TINYINT '-128'") // min value in SingleStore and Trino
                 .addRoundTrip("tinyint", "5", TINYINT, "TINYINT '5'")
                 .addRoundTrip("tinyint", "127", TINYINT, "TINYINT '127'") // max value in SingleStore and Trino
-                .execute(getQueryRunner(), memSqlCreateAndInsert("tpch.test_tinyint"))
+                .execute(getQueryRunner(), singleStoreCreateAndInsert("tpch.test_tinyint"))
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_tinyint"))
                 .execute(getQueryRunner(), trinoCreateAndInsert("test_tinyint"));
     }
@@ -139,7 +139,7 @@ public class TestSingleStoreTypeMapping
         SqlDataTypeTest.create()
                 .addRoundTrip("tinyint", "-129", TINYINT, "TINYINT '-128'")
                 .addRoundTrip("tinyint", "128", TINYINT, "TINYINT '127'")
-                .execute(getQueryRunner(), memSqlCreateAndInsert("tpch.test_unsupported_tinyint"));
+                .execute(getQueryRunner(), singleStoreCreateAndInsert("tpch.test_unsupported_tinyint"));
     }
 
     @Test
@@ -150,7 +150,7 @@ public class TestSingleStoreTypeMapping
                 .addRoundTrip("smallint", "-32768", SMALLINT, "SMALLINT '-32768'") // min value in SingleStore and Trino
                 .addRoundTrip("smallint", "32456", SMALLINT, "SMALLINT '32456'")
                 .addRoundTrip("smallint", "32767", SMALLINT, "SMALLINT '32767'") // max value in SingleStore and Trino
-                .execute(getQueryRunner(), memSqlCreateAndInsert("tpch.test_smallint"))
+                .execute(getQueryRunner(), singleStoreCreateAndInsert("tpch.test_smallint"))
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_smallint"))
                 .execute(getQueryRunner(), trinoCreateAndInsert("test_smallint"));
     }
@@ -162,7 +162,7 @@ public class TestSingleStoreTypeMapping
         SqlDataTypeTest.create()
                 .addRoundTrip("smallint", "-32769", SMALLINT, "SMALLINT '-32768'")
                 .addRoundTrip("smallint", "32768", SMALLINT, "SMALLINT '32767'")
-                .execute(getQueryRunner(), memSqlCreateAndInsert("tpch.test_unsupported_smallint"));
+                .execute(getQueryRunner(), singleStoreCreateAndInsert("tpch.test_unsupported_smallint"));
     }
 
     @Test
@@ -173,7 +173,7 @@ public class TestSingleStoreTypeMapping
                 .addRoundTrip("integer", "-2147483648", INTEGER, "-2147483648") // min value in SingleStore and Trino
                 .addRoundTrip("integer", "1234567890", INTEGER, "1234567890")
                 .addRoundTrip("integer", "2147483647", INTEGER, "2147483647") // max value in SingleStore and Trino
-                .execute(getQueryRunner(), memSqlCreateAndInsert("tpch.test_int"))
+                .execute(getQueryRunner(), singleStoreCreateAndInsert("tpch.test_int"))
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_int"))
                 .execute(getQueryRunner(), trinoCreateAndInsert("test_int"));
     }
@@ -185,7 +185,7 @@ public class TestSingleStoreTypeMapping
         SqlDataTypeTest.create()
                 .addRoundTrip("integer", "-2147483649", INTEGER, "INTEGER '-2147483648'")
                 .addRoundTrip("integer", "2147483648", INTEGER, "INTEGER '2147483647'")
-                .execute(getQueryRunner(), memSqlCreateAndInsert("tpch.test_unsupported_integer"));
+                .execute(getQueryRunner(), singleStoreCreateAndInsert("tpch.test_unsupported_integer"));
     }
 
     @Test
@@ -196,7 +196,7 @@ public class TestSingleStoreTypeMapping
                 .addRoundTrip("bigint", "-9223372036854775808", BIGINT, "-9223372036854775808") // min value in SingleStore and Trino
                 .addRoundTrip("bigint", "123456789012", BIGINT, "123456789012")
                 .addRoundTrip("bigint", "9223372036854775807", BIGINT, "9223372036854775807") // max value in SingleStore and Trino
-                .execute(getQueryRunner(), memSqlCreateAndInsert("tpch.test_bigint"))
+                .execute(getQueryRunner(), singleStoreCreateAndInsert("tpch.test_bigint"))
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_bigint"))
                 .execute(getQueryRunner(), trinoCreateAndInsert("test_bigint"));
     }
@@ -208,18 +208,18 @@ public class TestSingleStoreTypeMapping
         SqlDataTypeTest.create()
                 .addRoundTrip("bigint", "-9223372036854775809", BIGINT, "BIGINT '-9223372036854775808'")
                 .addRoundTrip("bigint", "9223372036854775808", BIGINT, "BIGINT '9223372036854775807'")
-                .execute(getQueryRunner(), memSqlCreateAndInsert("tpch.test_unsupported_bigint"));
+                .execute(getQueryRunner(), singleStoreCreateAndInsert("tpch.test_unsupported_bigint"));
     }
 
     @Test
     public void testFloat()
     {
-        // we are not testing Nan/-Infinity/+Infinity as those are not supported by MemSQL
+        // we are not testing Nan/-Infinity/+Infinity as those are not supported by SingleStore
         SqlDataTypeTest.create()
                 .addRoundTrip("real", "3.14", REAL, "REAL '3.14'")
                 .addRoundTrip("real", "10.3e0", REAL, "REAL '10.3e0'")
                 .addRoundTrip("real", "NULL", REAL, "CAST(NULL AS REAL)")
-                // .addRoundTrip("real", "3.1415927", REAL, "REAL '3.1415927'") // Overeagerly rounded by MemSQL to 3.14159
+                // .addRoundTrip("real", "3.1415927", REAL, "REAL '3.1415927'") // Overeagerly rounded by SingleStore to 3.14159
                 .execute(getQueryRunner(), trinoCreateAsSelect("trino_test_float"))
                 .execute(getQueryRunner(), trinoCreateAndInsert("trino_test_float"));
 
@@ -227,21 +227,21 @@ public class TestSingleStoreTypeMapping
                 .addRoundTrip("float", "3.14", REAL, "REAL '3.14'")
                 .addRoundTrip("float", "10.3e0", REAL, "REAL '10.3e0'")
                 .addRoundTrip("float", "NULL", REAL, "CAST(NULL AS REAL)")
-                // .addRoundTrip("float", "3.1415927", REAL, "REAL '3.1415927'") // Overeagerly rounded by MemSQL to 3.14159
-                .execute(getQueryRunner(), memSqlCreateAndInsert("tpch.memsql_test_float"));
+                // .addRoundTrip("float", "3.1415927", REAL, "REAL '3.1415927'") // Overeagerly rounded by SingleStore to 3.14159
+                .execute(getQueryRunner(), singleStoreCreateAndInsert("tpch.singlestore_test_float"));
     }
 
     @Test
     public void testDouble()
     {
-        // we are not testing Nan/-Infinity/+Infinity as those are not supported by MemSQL
+        // we are not testing Nan/-Infinity/+Infinity as those are not supported by SingleStore
         SqlDataTypeTest.create()
                 .addRoundTrip("double", "1.0E100", DOUBLE, "DOUBLE '1.0E100'")
                 .addRoundTrip("double", "123.456E10", DOUBLE, "DOUBLE '123.456E10'")
                 .addRoundTrip("double", "NULL", DOUBLE, "CAST(NULL AS double)")
                 .execute(getQueryRunner(), trinoCreateAsSelect("trino_test_double"))
                 .execute(getQueryRunner(), trinoCreateAndInsert("trino_test_double"))
-                .execute(getQueryRunner(), memSqlCreateAndInsert("tpch.memsql_test_double"));
+                .execute(getQueryRunner(), singleStoreCreateAndInsert("tpch.singlestore_test_double"));
     }
 
     @Test
@@ -253,14 +253,14 @@ public class TestSingleStoreTypeMapping
                 .addRoundTrip("int unsigned", "4294967295", BIGINT)
                 .addRoundTrip("integer unsigned", "4294967295", BIGINT)
                 .addRoundTrip("bigint unsigned", "18446744073709551615", createDecimalType(20, 0), "CAST('18446744073709551615' AS decimal(20, 0))")
-                .execute(getQueryRunner(), memSqlCreateAndInsert("tpch.memsql_test_unsigned"));
+                .execute(getQueryRunner(), singleStoreCreateAndInsert("tpch.singlestore_test_unsigned"));
     }
 
     @Test
-    public void testMemsqlCreatedDecimal()
+    public void testSingleStoreCreatedDecimal()
     {
         decimalTests()
-                .execute(getQueryRunner(), memSqlCreateAndInsert("tpch.test_decimal"));
+                .execute(getQueryRunner(), singleStoreCreateAndInsert("tpch.test_decimal"));
     }
 
     @Test
@@ -466,19 +466,19 @@ public class TestSingleStoreTypeMapping
     @Test
     public void testTrinoCreatedParameterizedChar()
     {
-        memSqlCharTypeTest()
-                .execute(getQueryRunner(), trinoCreateAsSelect("memsql_test_parameterized_char"))
-                .execute(getQueryRunner(), trinoCreateAndInsert("memsql_test_parameterized_char"));
+        singleStoreCharTypeTest()
+                .execute(getQueryRunner(), trinoCreateAsSelect("singlestore_test_parameterized_char"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("singlestore_test_parameterized_char"));
     }
 
     @Test
-    public void testMemSqlCreatedParameterizedChar()
+    public void testSingleStoreCreatedParameterizedChar()
     {
-        memSqlCharTypeTest()
-                .execute(getQueryRunner(), memSqlCreateAndInsert("tpch.memsql_test_parameterized_char"));
+        singleStoreCharTypeTest()
+                .execute(getQueryRunner(), singleStoreCreateAndInsert("tpch.singlestore_test_parameterized_char"));
     }
 
-    private SqlDataTypeTest memSqlCharTypeTest()
+    private SqlDataTypeTest singleStoreCharTypeTest()
     {
         return SqlDataTypeTest.create()
                 .addRoundTrip("char(1)", "NULL", createCharType(1), "CAST(NULL AS char(1))")
@@ -490,13 +490,13 @@ public class TestSingleStoreTypeMapping
     }
 
     @Test
-    public void testMemSqlCreatedParameterizedCharUnicode()
+    public void testSingleStoreCreatedParameterizedCharUnicode()
     {
         SqlDataTypeTest.create()
                 .addRoundTrip("char(1)", "'攻'", createCharType(1), "CAST('攻' AS char(1))")
                 .addRoundTrip("char(5)", "'攻殻'", createCharType(5), "CAST('攻殻' AS char(5))")
                 .addRoundTrip("char(5)", "'攻殻機動隊'", createCharType(5), "CAST('攻殻機動隊' AS char(5))")
-                .execute(getQueryRunner(), memSqlCreateAndInsert("tpch.memsql_test_parameterized_varchar"));
+                .execute(getQueryRunner(), singleStoreCreateAndInsert("tpch.singlestore_test_parameterized_varchar"));
     }
 
     @Test
@@ -507,9 +507,9 @@ public class TestSingleStoreTypeMapping
                 .addRoundTrip("varchar(10)", "'text_a'", createVarcharType(10), "CAST('text_a' AS varchar(10))")
                 .addRoundTrip("varchar(255)", "'text_b'", createVarcharType(255), "CAST('text_b' AS varchar(255))")
                 .addRoundTrip("varchar(256)", "'text_c'", createVarcharType(256), "CAST('text_c' AS varchar(256))")
-                .addRoundTrip("varchar(" + MEMSQL_VARCHAR_MAX_LENGTH + ")", "'text_memsql_max'", createVarcharType(MEMSQL_VARCHAR_MAX_LENGTH), "CAST('text_memsql_max' AS varchar(" + MEMSQL_VARCHAR_MAX_LENGTH + "))")
-                // types larger than max VARCHAR(n) for MemSQL get mapped to one of TEXT/MEDIUMTEXT/LONGTEXT
-                .addRoundTrip("varchar(" + (MEMSQL_VARCHAR_MAX_LENGTH + 1) + ")", "'text_memsql_larger_than_max'", createVarcharType(65535), "CAST('text_memsql_larger_than_max' AS varchar(65535))")
+                .addRoundTrip("varchar(" + SINGLESTORE_VARCHAR_MAX_LENGTH + ")", "'text_singlestore_max'", createVarcharType(SINGLESTORE_VARCHAR_MAX_LENGTH), "CAST('text_singlestore_max' AS varchar(" + SINGLESTORE_VARCHAR_MAX_LENGTH + "))")
+                // types larger than max VARCHAR(n) for SingleStore get mapped to one of TEXT/MEDIUMTEXT/LONGTEXT
+                .addRoundTrip("varchar(" + (SINGLESTORE_VARCHAR_MAX_LENGTH + 1) + ")", "'text_singlestore_larger_than_max'", createVarcharType(65535), "CAST('text_singlestore_larger_than_max' AS varchar(65535))")
                 .addRoundTrip("varchar(65535)", "'text_d'", createVarcharType(65535), "CAST('text_d' AS varchar(65535))")
                 .addRoundTrip("varchar(65536)", "'text_e'", createVarcharType(16777215), "CAST('text_e' AS varchar(16777215))")
                 .addRoundTrip("varchar(16777215)", "'text_f'", createVarcharType(16777215), "CAST('text_f' AS varchar(16777215))")
@@ -521,7 +521,7 @@ public class TestSingleStoreTypeMapping
     }
 
     @Test
-    public void testMemSqlCreatedParameterizedVarchar()
+    public void testSingleStoreCreatedParameterizedVarchar()
     {
         SqlDataTypeTest.create()
                 .addRoundTrip("tinytext", "'a'", createVarcharType(255), "CAST('a' AS varchar(255))")
@@ -530,11 +530,11 @@ public class TestSingleStoreTypeMapping
                 .addRoundTrip("longtext", "'unbounded'", createUnboundedVarcharType(), "CAST('unbounded' AS varchar)")
                 .addRoundTrip("varchar(32)", "'e'", createVarcharType(32), "CAST('e' AS varchar(32))")
                 .addRoundTrip("varchar(15000)", "'f'", createVarcharType(15000), "CAST('f' AS varchar(15000))")
-                .execute(getQueryRunner(), memSqlCreateAndInsert("tpch.memsql_test_parameterized_varchar"));
+                .execute(getQueryRunner(), singleStoreCreateAndInsert("tpch.singlestore_test_parameterized_varchar"));
     }
 
     @Test
-    public void testMemSqlCreatedParameterizedVarcharUnicode()
+    public void testSingleStoreCreatedParameterizedVarcharUnicode()
     {
         String sampleUnicodeLiteral = "'\u653b\u6bbb\u6a5f\u52d5\u968a'";
         SqlDataTypeTest.create()
@@ -546,28 +546,28 @@ public class TestSingleStoreTypeMapping
                         createVarcharType(sampleUnicodeLiteral.length()), "CAST(" + sampleUnicodeLiteral + " AS varchar(" + sampleUnicodeLiteral.length() + "))")
                 .addRoundTrip("varchar(32) " + CHARACTER_SET_UTF8, sampleUnicodeLiteral, createVarcharType(32), "CAST(" + sampleUnicodeLiteral + " AS varchar(32))")
                 .addRoundTrip("varchar(20000) " + CHARACTER_SET_UTF8, sampleUnicodeLiteral, createVarcharType(20000), "CAST(" + sampleUnicodeLiteral + " AS varchar(20000))")
-                // MemSQL version >= 7.5 supports utf8mb4, but older versions store an empty character for a 4 bytes character
+                // SingleStore version >= 7.5 supports utf8mb4, but older versions store an empty character for a 4 bytes character
                 .addRoundTrip("varchar(1) " + CHARACTER_SET_UTF8, "'😂'", createVarcharType(1), "CAST('' AS varchar(1))")
-                .execute(getQueryRunner(), memSqlCreateAndInsert("tpch.memsql_test_parameterized_varchar_unicode"));
+                .execute(getQueryRunner(), singleStoreCreateAndInsert("tpch.singlestore_test_parameterized_varchar_unicode"));
     }
 
     @Test
     public void testVarbinary()
     {
         varbinaryTestCases("varbinary(50)")
-                .execute(getQueryRunner(), memSqlCreateAndInsert("tpch.test_varbinary"));
+                .execute(getQueryRunner(), singleStoreCreateAndInsert("tpch.test_varbinary"));
 
         varbinaryTestCases("tinyblob")
-                .execute(getQueryRunner(), memSqlCreateAndInsert("tpch.test_varbinary"));
+                .execute(getQueryRunner(), singleStoreCreateAndInsert("tpch.test_varbinary"));
 
         varbinaryTestCases("blob")
-                .execute(getQueryRunner(), memSqlCreateAndInsert("tpch.test_varbinary"));
+                .execute(getQueryRunner(), singleStoreCreateAndInsert("tpch.test_varbinary"));
 
         varbinaryTestCases("mediumblob")
-                .execute(getQueryRunner(), memSqlCreateAndInsert("tpch.test_varbinary"));
+                .execute(getQueryRunner(), singleStoreCreateAndInsert("tpch.test_varbinary"));
 
         varbinaryTestCases("longblob")
-                .execute(getQueryRunner(), memSqlCreateAndInsert("tpch.test_varbinary"));
+                .execute(getQueryRunner(), singleStoreCreateAndInsert("tpch.test_varbinary"));
 
         varbinaryTestCases("varbinary")
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_varbinary"))
@@ -597,7 +597,7 @@ public class TestSingleStoreTypeMapping
                 .addRoundTrip("binary(18)", "X'4261672066756C6C206F6620F09F92B0'", VARBINARY, "to_utf8('Bag full of 💰') || X'0000'")
                 .addRoundTrip("binary(18)", "X'0001020304050607080DF9367AA7000000'", VARBINARY, "X'0001020304050607080DF9367AA700000000'") // non-text prefix
                 .addRoundTrip("binary(18)", "X'000000000000'", VARBINARY, "X'000000000000000000000000000000000000'")
-                .execute(getQueryRunner(), memSqlCreateAndInsert("tpch.test_binary"));
+                .execute(getQueryRunner(), singleStoreCreateAndInsert("tpch.test_binary"));
     }
 
     @Test
@@ -641,7 +641,7 @@ public class TestSingleStoreTypeMapping
                             DATE, "DATE '" + dateOfLocalTimeChangeForwardAtMidnightInSomeZone.toString() + "'")
                     .addRoundTrip("date", "CAST('" + dateOfLocalTimeChangeBackwardAtMidnightInSomeZone.toString() + "' AS date)",
                             DATE, "DATE '" + dateOfLocalTimeChangeBackwardAtMidnightInSomeZone.toString() + "'")
-                    .execute(getQueryRunner(), session, memSqlCreateAndInsert("tpch.test_date"))
+                    .execute(getQueryRunner(), session, singleStoreCreateAndInsert("tpch.test_date"))
                     .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_date"))
                     .execute(getQueryRunner(), session, trinoCreateAsSelect("test_date"))
                     .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_date"))
@@ -680,11 +680,11 @@ public class TestSingleStoreTypeMapping
                 .execute(getQueryRunner(), session, trinoCreateAndInsert("test_time"));
 
         SqlDataTypeTest.create()
-                .addRoundTrip("time", "NULL", TIME_SECONDS, "CAST(NULL AS time(0))") // default to second in MemSQL
+                .addRoundTrip("time", "NULL", TIME_SECONDS, "CAST(NULL AS time(0))") // default to second in SingleStore
                 .addRoundTrip("time", "'00:00:00'", TIME_SECONDS, "TIME '00:00:00'")
                 .addRoundTrip("time", "'01:02:03'", TIME_SECONDS, "TIME '01:02:03'")
                 .addRoundTrip("time", "'23:59:59'", TIME_SECONDS, "TIME '23:59:59'")
-                .addRoundTrip("time", "'23:59:59.9'", TIME_SECONDS, "TIME '23:59:59'") // MemSQL ignores millis and stores only seconds in 'time' type
+                .addRoundTrip("time", "'23:59:59.9'", TIME_SECONDS, "TIME '23:59:59'") // SingleStore ignores millis and stores only seconds in 'time' type
                 .addRoundTrip("time(6)", "NULL", TIME_MICROS, "CAST(NULL AS time(6))")
                 .addRoundTrip("time(6)", "'00:00:00'", TIME_MICROS, "TIME '00:00:00.000000'")
                 .addRoundTrip("time(6)", "'01:02:03'", TIME_MICROS, "TIME '01:02:03.000000'")
@@ -697,8 +697,8 @@ public class TestSingleStoreTypeMapping
                 .addRoundTrip("time(6)", "'00:00:00.000000'", TIME_MICROS, "TIME '00:00:00.000000'")
                 .addRoundTrip("time(6)", "'01:02:03.123456'", TIME_MICROS, "TIME '01:02:03.123456'")
                 .addRoundTrip("time(6)", "'23:59:59.999999'", TIME_MICROS, "TIME '23:59:59.999999'")
-                .addRoundTrip("time(6)", "'23:59:59.9999999'", TIME_MICROS, "TIME '23:59:59.999999'") // MemSQL ignores nanos and stores only micros in 'time(6)' type
-                .execute(getQueryRunner(), session, memSqlCreateAndInsert("tpch.test_time"));
+                .addRoundTrip("time(6)", "'23:59:59.9999999'", TIME_MICROS, "TIME '23:59:59.999999'") // SingleStore ignores nanos and stores only micros in 'time(6)' type
+                .execute(getQueryRunner(), session, singleStoreCreateAndInsert("tpch.test_time"));
     }
 
     @Test(dataProvider = "unsupportedTimeDataProvider")
@@ -722,17 +722,17 @@ public class TestSingleStoreTypeMapping
     public Object[][] unsupportedTimeDataProvider()
     {
         return new Object[][] {
-                {"-838:59:59"}, // min value in MemSQL
+                {"-838:59:59"}, // min value in SingleStore
                 {"-00:00:01"},
                 {"24:00:00"},
-                {"838:59:59"}, // max value in MemSQL
+                {"838:59:59"}, // max value in SingleStore
         };
     }
 
     @Test(dataProvider = "unsupportedDateTimePrecisions")
     public void testUnsupportedTimePrecision(int precision)
     {
-        // This test should be fixed if future MemSQL supports those precisions
+        // This test should be fixed if future SingleStore supports those precisions
         assertThatThrownBy(() -> singleStoreServer.execute(format("CREATE TABLE test_unsupported_timestamp_precision (col1 TIME(%s))", precision)))
                 .hasMessageContaining("Feature 'TIME type with precision other than 0 or 6' is not supported by MemSQL.");
     }
@@ -779,11 +779,11 @@ public class TestSingleStoreTypeMapping
                 .addRoundTrip("datetime(6)", "CAST('1969-12-31 23:59:59.999949' AS DATETIME(6))", createTimestampType(6), "TIMESTAMP '1969-12-31 23:59:59.999949'")
                 .addRoundTrip("datetime(6)", "CAST('1969-12-31 23:59:59.999994' AS DATETIME(6))", createTimestampType(6), "TIMESTAMP '1969-12-31 23:59:59.999994'")
 
-                // min value in MemSQL
+                // min value in SingleStore
                 .addRoundTrip("datetime", "CAST('1000-01-01 00:00:00' AS DATETIME)", createTimestampType(0), "TIMESTAMP '1000-01-01 00:00:00'")
                 .addRoundTrip("datetime(6)", "CAST('1000-01-01 00:00:00.000000' AS DATETIME(6))", createTimestampType(6), "TIMESTAMP '1000-01-01 00:00:00.000000'")
 
-                // max value in MemSQL
+                // max value in SingleStore
                 .addRoundTrip("datetime", "CAST('9999-12-31 23:59:59' AS DATETIME)", createTimestampType(0), "TIMESTAMP '9999-12-31 23:59:59'")
                 .addRoundTrip("datetime(6)", "CAST('9999-12-31 23:59:59.999999' AS DATETIME(6))", createTimestampType(6), "TIMESTAMP '9999-12-31 23:59:59.999999'")
 
@@ -791,7 +791,7 @@ public class TestSingleStoreTypeMapping
                 .addRoundTrip("datetime", "NULL", createTimestampType(0), "CAST(NULL AS TIMESTAMP(0))")
                 .addRoundTrip("datetime(6)", "NULL", createTimestampType(6), "CAST(NULL AS TIMESTAMP(6))")
 
-                .execute(getQueryRunner(), session, memSqlCreateAndInsert("tpch.test_datetime"));
+                .execute(getQueryRunner(), session, singleStoreCreateAndInsert("tpch.test_datetime"));
     }
 
     @Test(dataProvider = "sessionZonesDataProvider")
@@ -803,7 +803,7 @@ public class TestSingleStoreTypeMapping
 
         // TODO (https://github.com/trinodb/trino/issues/5450) Fix DST handling
         SqlDataTypeTest.create()
-                // before epoch doesn't exist because min timestamp value is 1970-01-01 in MemSQL
+                // before epoch doesn't exist because min timestamp value is 1970-01-01 in SingleStore
                 // after epoch
                 .addRoundTrip("timestamp", toTimestamp("2019-03-18 10:01:17"), createTimestampType(0), "TIMESTAMP '2019-03-18 10:01:17'")
                 // time doubled in JVM zone
@@ -826,11 +826,11 @@ public class TestSingleStoreTypeMapping
 //                .addRoundTrip("timestamp(6)", toLongTimestamp("2018-04-01 02:13:55.123456"), createTimestampType(6), "TIMESTAMP '2018-04-01 02:13:55.123456'")
                 .addRoundTrip("timestamp(6)", toLongTimestamp("2018-03-25 03:17:17.000000"), createTimestampType(6), "TIMESTAMP '2018-03-25 03:17:17.000000'")
 
-                // min value in MemSQL
+                // min value in SingleStore
 //                .addRoundTrip("timestamp", toTimestamp("1970-01-01 00:00:01"), createTimestampType(0), "TIMESTAMP '1970-01-01 00:00:01'")
 //                .addRoundTrip("timestamp(6)", toLongTimestamp("1970-01-01 00:00:01.000000"), createTimestampType(6), "TIMESTAMP '1970-01-01 00:00:01.000000'")
 
-                // max value in MemSQL
+                // max value in SingleStore
                 .addRoundTrip("timestamp", toTimestamp("2038-01-19 03:14:07"), createTimestampType(0), "TIMESTAMP '2038-01-19 03:14:07'")
                 .addRoundTrip("timestamp(6)", toLongTimestamp("2038-01-19 03:14:07.999999"), createTimestampType(6), "TIMESTAMP '2038-01-19 03:14:07.999999'")
 
@@ -838,7 +838,7 @@ public class TestSingleStoreTypeMapping
                 .addRoundTrip("timestamp", "NULL", createTimestampType(0), "CAST(NULL AS TIMESTAMP(0))")
                 .addRoundTrip("timestamp(6)", "NULL", createTimestampType(6), "CAST(NULL AS TIMESTAMP(6))")
 
-                .execute(getQueryRunner(), session, memSqlCreateAndInsert("tpch.test_timestamp"));
+                .execute(getQueryRunner(), session, singleStoreCreateAndInsert("tpch.test_timestamp"));
     }
 
     @Test(dataProvider = "sessionZonesDataProvider")
@@ -885,11 +885,11 @@ public class TestSingleStoreTypeMapping
                 .addRoundTrip("timestamp(6)", "TIMESTAMP '1969-12-31 23:59:59.999949'", createTimestampType(6), "TIMESTAMP '1969-12-31 23:59:59.999949'")
                 .addRoundTrip("timestamp(6)", "TIMESTAMP '1969-12-31 23:59:59.999994'", createTimestampType(6), "TIMESTAMP '1969-12-31 23:59:59.999994'")
 
-                // min value in MemSQL
+                // min value in SingleStore
                 .addRoundTrip("timestamp(0)", "TIMESTAMP '1000-01-01 00:00:00'", createTimestampType(0), "TIMESTAMP '1000-01-01 00:00:00'")
                 .addRoundTrip("timestamp(6)", "TIMESTAMP '1000-01-01 00:00:00.000000'", createTimestampType(6), "TIMESTAMP '1000-01-01 00:00:00.000000'")
 
-                // max value in MemSQL
+                // max value in SingleStore
                 .addRoundTrip("timestamp(0)", "TIMESTAMP '9999-12-31 23:59:59'", createTimestampType(0), "TIMESTAMP '9999-12-31 23:59:59'")
                 .addRoundTrip("timestamp(6)", "TIMESTAMP '9999-12-31 23:59:59.999999'", createTimestampType(6), "TIMESTAMP '9999-12-31 23:59:59.999999'")
 
@@ -918,7 +918,7 @@ public class TestSingleStoreTypeMapping
     @Test(dataProvider = "unsupportedDateTimePrecisions")
     public void testUnsupportedDateTimePrecision(int precision)
     {
-        // This test should be fixed if future MemSQL supports those precisions
+        // This test should be fixed if future SingleStore supports those precisions
         assertThatThrownBy(() -> singleStoreServer.execute(format("CREATE TABLE test_unsupported_timestamp_precision (col1 TIMESTAMP(%s))", precision)))
                 .hasMessageContaining("Feature 'TIMESTAMP type with precision other than 0 or 6' is not supported by MemSQL.");
 
@@ -957,7 +957,7 @@ public class TestSingleStoreTypeMapping
                 .addRoundTrip("json", "json_parse('[]')", JSON, "JSON '[]'")
                 .execute(getQueryRunner(), trinoCreateAsSelect("trino_test_json"));
 
-        // MemSQL doesn't support CAST to JSON but accepts string literals as JSON values
+        // SingleStore doesn't support CAST to JSON but accepts string literals as JSON values
         SqlDataTypeTest.create()
                 .addRoundTrip("json", "'{}'", JSON, "JSON '{}'")
                 .addRoundTrip("json", "null", JSON, "CAST(NULL AS json)")
@@ -969,7 +969,7 @@ public class TestSingleStoreTypeMapping
                 .addRoundTrip("json", "'{\"a\":1,\"b\":2}'", JSON, "JSON '{\"a\":1,\"b\":2}'")
                 .addRoundTrip("json", "'{\"a\":[1,2,3],\"b\":{\"aa\":11,\"bb\":[{\"a\":1,\"b\":2},{\"a\":0}]}}'", JSON, "JSON '{\"a\":[1,2,3],\"b\":{\"aa\":11,\"bb\":[{\"a\":1,\"b\":2},{\"a\":0}]}}'")
                 .addRoundTrip("json", "'[]'", JSON, "JSON '[]'")
-                .execute(getQueryRunner(), memSqlCreateAndInsert("tpch.mysql_test_json"));
+                .execute(getQueryRunner(), singleStoreCreateAndInsert("tpch.mysql_test_json"));
     }
 
     private void testUnsupportedDataType(String databaseDataType)
@@ -1006,7 +1006,7 @@ public class TestSingleStoreTypeMapping
         return new CreateAndInsertDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
     }
 
-    private DataSetup memSqlCreateAndInsert(String tableNamePrefix)
+    private DataSetup singleStoreCreateAndInsert(String tableNamePrefix)
     {
         return new CreateAndInsertDataSetup(singleStoreServer::execute, tableNamePrefix);
     }

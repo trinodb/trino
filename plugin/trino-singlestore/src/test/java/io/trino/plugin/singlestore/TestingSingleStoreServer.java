@@ -33,7 +33,7 @@ public class TestingSingleStoreServer
     public static final String DEFAULT_TAG = "memsql/cluster-in-a-box:centos-7.1.13-11ddea2a3a-3.0.0-1.9.0";
     public static final String LATEST_TESTED_TAG = "memsql/cluster-in-a-box:centos-7.3.4-d596a2867a-3.2.4-1.10.1";
 
-    public static final Integer MEMSQL_PORT = 3306;
+    public static final Integer SINGLESTORE_PORT = 3306;
 
     public TestingSingleStoreServer()
     {
@@ -57,13 +57,13 @@ public class TestingSingleStoreServer
     @Override
     public Set<Integer> getLivenessCheckPortNumbers()
     {
-        return ImmutableSet.of(getMappedPort(MEMSQL_PORT));
+        return ImmutableSet.of(getMappedPort(SINGLESTORE_PORT));
     }
 
     @Override
     protected void configure()
     {
-        addExposedPort(MEMSQL_PORT);
+        addExposedPort(SINGLESTORE_PORT);
         addEnv("LICENSE_KEY", MEM_SQL_LICENSE);
         setStartupAttempts(3);
     }
@@ -89,7 +89,7 @@ public class TestingSingleStoreServer
     @Override
     public String getJdbcUrl()
     {
-        return "jdbc:singlestore://" + getContainerIpAddress() + ":" + getMappedPort(MEMSQL_PORT);
+        return "jdbc:singlestore://" + getContainerIpAddress() + ":" + getMappedPort(SINGLESTORE_PORT);
     }
 
     @Override

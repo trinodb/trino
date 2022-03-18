@@ -134,10 +134,10 @@ import static java.util.stream.Collectors.joining;
 public class SingleStoreClient
         extends BaseJdbcClient
 {
-    static final int MEMSQL_DATE_TIME_MAX_PRECISION = 6;
-    static final int MEMSQL_VARCHAR_MAX_LENGTH = 21844;
-    static final int MEMSQL_TEXT_MAX_LENGTH = 65535;
-    static final int MEMSQL_MEDIUMTEXT_MAX_LENGTH = 16777215;
+    static final int SINGLESTORE_DATE_TIME_MAX_PRECISION = 6;
+    static final int SINGLESTORE_VARCHAR_MAX_LENGTH = 21844;
+    static final int SINGLESTORE_TEXT_MAX_LENGTH = 65535;
+    static final int SINGLESTORE_MEDIUMTEXT_MAX_LENGTH = 16777215;
     // Singlestore driver returns width of timestamp types instead of precision.
     // 19 characters are used for zero-precision timestamps while others
     // require 19 + precision + 1 characters with the additional character for decimal separator
@@ -168,7 +168,7 @@ public class SingleStoreClient
     @Override
     public Collection<String> listSchemas(Connection connection)
     {
-        // for MemSQL, we need to list catalogs instead of schemas
+        // for SingleStore, we need to list catalogs instead of schemas
         try (ResultSet resultSet = connection.getMetaData().getCatalogs()) {
             ImmutableSet.Builder<String> schemaNames = ImmutableSet.builder();
             while (resultSet.next()) {
@@ -272,7 +272,7 @@ public class SingleStoreClient
                 TimeType timeType = createTimeType(getTimePrecision(typeHandle.getRequiredColumnSize()));
                 return Optional.of(ColumnMapping.longMapping(
                         timeType,
-                        memsqlTimeReadFunction(timeType),
+                        singleStoreTimeReadFunction(timeType),
                         timeWriteFunction(timeType.getPrecision())));
             case Types.TIMESTAMP:
                 // TODO (https://github.com/trinodb/trino/issues/5450) Fix DST handling
@@ -292,7 +292,7 @@ public class SingleStoreClient
             return 0;
         }
         int timePrecision = timeColumnSize - ZERO_PRECISION_TIME_COLUMN_SIZE - 1;
-        verify(1 <= timePrecision && timePrecision <= MEMSQL_DATE_TIME_MAX_PRECISION, "Unexpected time precision %s calculated from time column size %s", timePrecision, timeColumnSize);
+        verify(1 <= timePrecision && timePrecision <= SINGLESTORE_DATE_TIME_MAX_PRECISION, "Unexpected time precision %s calculated from time column size %s", timePrecision, timeColumnSize);
         return timePrecision;
     }
 
@@ -302,7 +302,7 @@ public class SingleStoreClient
             return 0;
         }
         int timestampPrecision = timestampColumnSize - ZERO_PRECISION_TIMESTAMP_COLUMN_SIZE - 1;
-        verify(1 <= timestampPrecision && timestampPrecision <= MEMSQL_DATE_TIME_MAX_PRECISION, "Unexpected timestamp precision %s calculated from timestamp column size %s", timestampPrecision, timestampColumnSize);
+        verify(1 <= timestampPrecision && timestampPrecision <= SINGLESTORE_DATE_TIME_MAX_PRECISION, "Unexpected timestamp precision %s calculated from timestamp column size %s", timestampPrecision, timestampColumnSize);
         return timestampPrecision;
     }
 
@@ -310,7 +310,7 @@ public class SingleStoreClient
     public ResultSet getTables(Connection connection, Optional<String> schemaName, Optional<String> tableName)
             throws SQLException
     {
-        // MemSQL maps their "database" to SQL catalogs and does not have schemas
+        // SingleStore maps their "database" to SQL catalogs and does not have schemas
         DatabaseMetaData metadata = connection.getMetaData();
         return metadata.getTables(
                 schemaName.orElse(null),
@@ -328,7 +328,7 @@ public class SingleStoreClient
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming tables across schemas");
         }
 
-        // MemSQL doesn't support specifying the catalog name in a rename. By setting the
+        // SingleStore doesn't support specifying the catalog name in a rename. By setting the
         // catalogName parameter to null, it will be omitted in the ALTER TABLE statement.
         renameTable(session, null, handle.getCatalogName(), handle.getTableName(), newTableName);
     }
@@ -338,7 +338,7 @@ public class SingleStoreClient
     {
         try (Connection connection = connectionFactory.openConnection(session)) {
             String newRemoteColumnName = getIdentifierMapping().toRemoteColumnName(connection, newColumnName);
-            // MemSQL versions earlier than 5.7 do not support the CHANGE syntax
+            // SingleStore versions earlier than 5.7 do not support the CHANGE syntax
             String sql = format(
                     "ALTER TABLE %s CHANGE %s %s",
                     quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName()),
@@ -361,7 +361,7 @@ public class SingleStoreClient
     protected String getTableSchemaName(ResultSet resultSet)
             throws SQLException
     {
-        // MemSQL uses catalogs instead of schemas
+        // SingleStore uses catalogs instead of schemas
         return resultSet.getString("TABLE_CAT");
     }
 
@@ -406,13 +406,13 @@ public class SingleStoreClient
             if (varcharType.isUnbounded()) {
                 dataType = "longtext";
             }
-            else if (varcharType.getBoundedLength() <= MEMSQL_VARCHAR_MAX_LENGTH) {
+            else if (varcharType.getBoundedLength() <= SINGLESTORE_VARCHAR_MAX_LENGTH) {
                 dataType = "varchar(" + varcharType.getBoundedLength() + ")";
             }
-            else if (varcharType.getBoundedLength() <= MEMSQL_TEXT_MAX_LENGTH) {
+            else if (varcharType.getBoundedLength() <= SINGLESTORE_TEXT_MAX_LENGTH) {
                 dataType = "text";
             }
-            else if (varcharType.getBoundedLength() <= MEMSQL_MEDIUMTEXT_MAX_LENGTH) {
+            else if (varcharType.getBoundedLength() <= SINGLESTORE_MEDIUMTEXT_MAX_LENGTH) {
                 dataType = "mediumtext";
             }
             else {
@@ -428,7 +428,7 @@ public class SingleStoreClient
         }
         if (type instanceof TimeType) {
             TimeType timeType = (TimeType) type;
-            checkArgument(timeType.getPrecision() <= MEMSQL_DATE_TIME_MAX_PRECISION, "The max time precision in MemSQL is 6");
+            checkArgument(timeType.getPrecision() <= SINGLESTORE_DATE_TIME_MAX_PRECISION, "The max time precision in SingleStore is 6");
             if (timeType.getPrecision() == 0) {
                 return WriteMapping.longMapping("time", timeWriteFunction(0));
             }
@@ -437,11 +437,11 @@ public class SingleStoreClient
         // TODO implement TIME type
         if (type instanceof TimestampType) {
             TimestampType timestampType = (TimestampType) type;
-            checkArgument(timestampType.getPrecision() <= MEMSQL_DATE_TIME_MAX_PRECISION, "The max timestamp precision in MemSQL is 6");
+            checkArgument(timestampType.getPrecision() <= SINGLESTORE_DATE_TIME_MAX_PRECISION, "The max timestamp precision in SingleStore is 6");
             if (timestampType.getPrecision() == 0) {
                 return WriteMapping.longMapping("datetime", timestampWriteFunction(timestampType));
             }
-            return WriteMapping.longMapping(format("datetime(%s)", MEMSQL_DATE_TIME_MAX_PRECISION), timestampWriteFunction(TIMESTAMP_MICROS));
+            return WriteMapping.longMapping(format("datetime(%s)", SINGLESTORE_DATE_TIME_MAX_PRECISION), timestampWriteFunction(TIMESTAMP_MICROS));
         }
         if (type.equals(jsonType)) {
             return WriteMapping.sliceMapping("json", varcharWriteFunction());
@@ -486,9 +486,9 @@ public class SingleStoreClient
 
                         switch (sortItem.getSortOrder()) {
                             case ASC_NULLS_FIRST:
-                                // In MemSQL ASC implies NULLS FIRST
+                                // In SingleStore ASC implies NULLS FIRST
                             case DESC_NULLS_LAST:
-                                // In MemSQL DESC implies NULLS LAST
+                                // In SingleStore DESC implies NULLS LAST
                                 return Stream.of(columnSorting);
 
                             case ASC_NULLS_LAST:
@@ -525,7 +525,7 @@ public class SingleStoreClient
             JoinStatistics statistics)
     {
         if (joinType == JoinType.FULL_OUTER) {
-            // Not supported in MemSQL
+            // Not supported in SingleStore
             return Optional.empty();
         }
         return super.implementJoin(session, joinType, leftSource, rightSource, joinConditions, rightAssignments, leftAssignments, statistics);
@@ -535,7 +535,7 @@ public class SingleStoreClient
     protected boolean isSupportedJoinCondition(ConnectorSession session, JdbcJoinCondition joinCondition)
     {
         if (joinCondition.getOperator() == JoinCondition.Operator.IS_DISTINCT_FROM) {
-            // Not supported in MemSQL
+            // Not supported in SingleStore
             return false;
         }
 
@@ -574,7 +574,7 @@ public class SingleStoreClient
         return Optional.empty();
     }
 
-    private static LongReadFunction memsqlTimeReadFunction(TimeType timeType)
+    private static LongReadFunction singleStoreTimeReadFunction(TimeType timeType)
     {
         requireNonNull(timeType, "timeType is null");
         checkArgument(timeType.getPrecision() <= 9, "Unsupported type precision: %s", timeType);
