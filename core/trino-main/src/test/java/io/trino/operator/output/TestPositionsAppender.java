@@ -14,6 +14,7 @@
 package io.trino.operator.output;
 
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slices;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockBuilderStatus;
@@ -22,17 +23,32 @@ import io.trino.spi.block.PageBuilderStatus;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Decimals;
+import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.Type;
+import io.trino.type.BlockTypeOperators;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.stream.IntStream;
 
 import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
+import static io.airlift.testing.Assertions.assertInstanceOf;
 import static io.trino.block.BlockAssertions.assertBlockEquals;
+import static io.trino.block.BlockAssertions.createArrayBigintBlock;
+import static io.trino.block.BlockAssertions.createBooleansBlock;
+import static io.trino.block.BlockAssertions.createDoublesBlock;
+import static io.trino.block.BlockAssertions.createIntsBlock;
+import static io.trino.block.BlockAssertions.createLongDecimalsBlock;
+import static io.trino.block.BlockAssertions.createLongTimestampBlock;
+import static io.trino.block.BlockAssertions.createLongsBlock;
 import static io.trino.block.BlockAssertions.createRandomBlockForType;
 import static io.trino.block.BlockAssertions.createRandomDictionaryBlock;
+import static io.trino.block.BlockAssertions.createSlicesBlock;
+import static io.trino.block.BlockAssertions.createSmallintsBlock;
+import static io.trino.block.BlockAssertions.createStringsBlock;
+import static io.trino.block.BlockAssertions.createTinyintsBlock;
 import static io.trino.spi.block.DictionaryId.randomDictionaryId;
 import static io.trino.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -48,10 +64,11 @@ import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 public class TestPositionsAppender
 {
-    private static final PositionsAppenderFactory POSITIONS_APPENDER_FACTORY = new PositionsAppenderFactory();
+    private static final PositionsAppenderFactory POSITIONS_APPENDER_FACTORY = new PositionsAppenderFactory(new BlockTypeOperators());
 
     @Test(dataProvider = "types")
     public void testMixedBlockTypes(Type type)
@@ -78,6 +95,106 @@ public class TestPositionsAppender
         testAppend(type, input);
     }
 
+    @Test(dataProvider = "nullRleTypes")
+    public void testNullRle(Type type)
+    {
+        testNullRle(type, nullBlock(type, 2));
+        testNullRle(type, nullRleBlock(type, 2));
+    }
+
+    @Test(dataProvider = "types")
+    public void testRleSwitchToFlat(Type type)
+    {
+        List<BlockView> inputs = ImmutableList.of(
+                input(rleBlock(type, 3), 0, 1),
+                input(notNullBlock(type, 2), 0, 1));
+        testAppend(type, inputs);
+
+        List<BlockView> dictionaryInputs = ImmutableList.of(
+                input(rleBlock(type, 3), 0, 1),
+                input(dictionaryBlock(type, 2, 4, 0.5F), 0, 1));
+        testAppend(type, dictionaryInputs);
+    }
+
+    @Test(dataProvider = "types")
+    public void testFlatAppendRle(Type type)
+    {
+        List<BlockView> inputs = ImmutableList.of(
+                input(notNullBlock(type, 2), 0, 1),
+                input(rleBlock(type, 3), 0, 1));
+        testAppend(type, inputs);
+
+        List<BlockView> dictionaryInputs = ImmutableList.of(
+                input(dictionaryBlock(type, 2, 4, 0.5F), 0, 1),
+                input(rleBlock(type, 3), 0, 1));
+        testAppend(type, dictionaryInputs);
+    }
+
+    @Test(dataProvider = "differentValues")
+    public void testMultipleRleBlocksWithDifferentValues(Type type, Block value1, Block value2)
+    {
+        List<BlockView> input = ImmutableList.of(
+                input(rleBlock(value1, 3), 0, 1),
+                input(rleBlock(value2, 3), 0, 1));
+        testAppend(type, input);
+    }
+
+    @DataProvider(name = "differentValues")
+    public static Object[][] differentValues()
+    {
+        return new Object[][]
+                {
+                        {BIGINT, createLongsBlock(0), createLongsBlock(1)},
+                        {BOOLEAN, createBooleansBlock(true), createBooleansBlock(false)},
+                        {INTEGER, createIntsBlock(0), createIntsBlock(1)},
+                        {createCharType(10), createStringsBlock("0"), createStringsBlock("1")},
+                        {createUnboundedVarcharType(), createStringsBlock("0"), createStringsBlock("1")},
+                        {DOUBLE, createDoublesBlock(0D), createDoublesBlock(1D)},
+                        {SMALLINT, createSmallintsBlock(0), createSmallintsBlock(1)},
+                        {TINYINT, createTinyintsBlock(0), createTinyintsBlock(1)},
+                        {VARBINARY, createSlicesBlock(Slices.wrappedLongArray(0)), createSlicesBlock(Slices.wrappedLongArray(1))},
+                        {createDecimalType(Decimals.MAX_SHORT_PRECISION + 1), createLongDecimalsBlock("0"), createLongDecimalsBlock("1")},
+                        {new ArrayType(BIGINT), createArrayBigintBlock(ImmutableList.of(ImmutableList.of(0L))), createArrayBigintBlock(ImmutableList.of(ImmutableList.of(1L)))},
+                        {
+                                createTimestampType(9),
+                                createLongTimestampBlock(createTimestampType(9), new LongTimestamp(0, 0)),
+                                createLongTimestampBlock(createTimestampType(9), new LongTimestamp(1, 0))}
+                };
+    }
+
+    @Test(dataProvider = "types")
+    public void testMultipleRleWithTheSameValueProduceRle(Type type)
+    {
+        PositionsAppender positionsAppender = POSITIONS_APPENDER_FACTORY.create(type, 10, DEFAULT_MAX_PAGE_SIZE_IN_BYTES);
+
+        Block value = notNullBlock(type, 1);
+        positionsAppender.append(allPositions(3), rleBlock(value, 3));
+        positionsAppender.append(allPositions(2), rleBlock(value, 2));
+
+        Block actual = positionsAppender.build();
+        assertEquals(actual.getPositionCount(), 5);
+        assertInstanceOf(actual, RunLengthEncodedBlock.class);
+    }
+
+    @DataProvider(name = "nullRleTypes")
+    public static Object[][] nullRleTypes()
+    {
+        return new Object[][]
+                {
+                        {BIGINT},
+                        {BOOLEAN},
+                        {INTEGER},
+                        {createCharType(10)},
+                        {createUnboundedVarcharType()},
+                        {DOUBLE},
+                        {SMALLINT},
+                        {TINYINT},
+                        {VARBINARY},
+                        {createDecimalType(Decimals.MAX_SHORT_PRECISION + 1)},
+                        {createTimestampType(9)}
+                };
+    }
+
     @DataProvider(name = "types")
     public static Object[][] types()
     {
@@ -96,6 +213,11 @@ public class TestPositionsAppender
                         {new ArrayType(BIGINT)},
                         {createTimestampType(9)}
                 };
+    }
+
+    private IntArrayList allPositions(int count)
+    {
+        return new IntArrayList(IntStream.range(0, count).toArray());
     }
 
     private BlockView input(Block block, int... positions)
@@ -158,6 +280,19 @@ public class TestPositionsAppender
     private Block emptyBlock(Type type)
     {
         return type.createBlockBuilder(null, 0).build();
+    }
+
+    private void testNullRle(Type type, Block source)
+    {
+        PositionsAppender positionsAppender = POSITIONS_APPENDER_FACTORY.create(type, 10, DEFAULT_MAX_PAGE_SIZE_IN_BYTES);
+
+        // append twice to trigger RleAwarePositionsAppender.equalOperator call
+        positionsAppender.append(new IntArrayList(IntStream.range(0, source.getPositionCount()).toArray()), source);
+        positionsAppender.append(new IntArrayList(IntStream.range(0, source.getPositionCount()).toArray()), source);
+        Block actual = positionsAppender.build();
+        assertTrue(actual.isNull(0));
+        assertEquals(actual.getPositionCount(), source.getPositionCount() * 2);
+        assertInstanceOf(actual, RunLengthEncodedBlock.class);
     }
 
     private void testAppend(Type type, List<BlockView> inputs)
