@@ -541,7 +541,6 @@ public class QueryStateMachine
         Set<BlockedReason> blockedReasons = new HashSet<>();
 
         ImmutableList.Builder<OperatorStats> operatorStatsSummary = ImmutableList.builder();
-        boolean completeInfo = true;
         for (StageInfo stageInfo : getAllStages(rootStage)) {
             StageStats stageStats = stageInfo.getStageStats();
             totalTasks += stageStats.getTotalTasks();
@@ -606,7 +605,6 @@ public class QueryStateMachine
 
             stageGcStatistics.add(stageStats.getGcInfo());
 
-            completeInfo = completeInfo && stageInfo.isCompleteInfo();
             operatorStatsSummary.addAll(stageInfo.getStageStats().getOperatorSummaries());
         }
 
