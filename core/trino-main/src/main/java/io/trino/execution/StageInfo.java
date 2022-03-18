@@ -167,9 +167,4 @@ public class StageInfo
                     .forEach(subStage -> addAllStages(Optional.ofNullable(subStage), collector));
         });
     }
-
-    public boolean isCompleteInfo()
-    {
-        return state.isDone() && tasks.stream().allMatch(taskInfo -> taskInfo.getTaskStatus().getState().isDone());
-    }
 }
