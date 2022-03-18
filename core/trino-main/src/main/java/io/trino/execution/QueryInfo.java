@@ -42,7 +42,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static io.trino.execution.StageInfo.getAllStages;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -77,7 +77,7 @@ public class QueryInfo
     private final List<TrinoWarning> warnings;
     private final Set<Input> inputs;
     private final Optional<Output> output;
-    private final boolean completeInfo;
+    private final boolean finalQueryInfo;
     private final Optional<ResourceGroupId> resourceGroupId;
     private final Optional<QueryType> queryType;
     private final RetryPolicy retryPolicy;
@@ -112,7 +112,7 @@ public class QueryInfo
             @JsonProperty("output") Optional<Output> output,
             @JsonProperty("referencedTables") List<TableInfo> referencedTables,
             @JsonProperty("routines") List<RoutineInfo> routines,
-            @JsonProperty("completeInfo") boolean completeInfo,
+            @JsonProperty("finalQueryInfo") boolean finalQueryInfo,
             @JsonProperty("resourceGroupId") Optional<ResourceGroupId> resourceGroupId,
             @JsonProperty("queryType") Optional<QueryType> queryType,
             @JsonProperty("retryPolicy") RetryPolicy retryPolicy)
@@ -172,7 +172,8 @@ public class QueryInfo
         this.output = output;
         this.referencedTables = ImmutableList.copyOf(referencedTables);
         this.routines = ImmutableList.copyOf(routines);
-        this.completeInfo = completeInfo;
+        this.finalQueryInfo = finalQueryInfo;
+        checkArgument(!finalQueryInfo || state.isDone(), "finalQueryInfo without a terminal query state");
         this.resourceGroupId = resourceGroupId;
         this.queryType = queryType;
         this.retryPolicy = retryPolicy;
@@ -335,7 +336,7 @@ public class QueryInfo
     @JsonProperty
     public boolean isFinalQueryInfo()
     {
-        return state.isDone() && getAllStages(outputStage).stream().allMatch(StageInfo::isFinalStageInfo);
+        return finalQueryInfo;
     }
 
     @JsonProperty
@@ -388,10 +389,5 @@ public class QueryInfo
                 .add("state", state)
                 .add("fieldNames", fieldNames)
                 .toString();
-    }
-
-    public boolean isCompleteInfo()
-    {
-        return completeInfo;
     }
 }
