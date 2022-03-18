@@ -78,6 +78,9 @@ public class TestTpchConnectorTest
             case SUPPORTS_ARRAY:
                 return false;
 
+            case SUPPORTS_ROW_TYPE:
+                return false;
+
             default:
                 return super.hasBehavior(connectorBehavior);
         }
