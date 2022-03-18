@@ -59,6 +59,7 @@ public class PrometheusSplitManager
         implements ConnectorSplitManager
 {
     static final long OFFSET_MILLIS = 1L;
+    static final String QUERY_ENDPOINT = "/api/v1/query";
     private final PrometheusClient prometheusClient;
     private final PrometheusClock prometheusClock;
 
@@ -118,8 +119,7 @@ public class PrometheusSplitManager
         nameValuePairs.add(new BasicNameValuePair("query", metricName + "[" + queryChunkSizeDuration.roundTo(queryChunkSizeDuration.getUnit()) +
                 Duration.timeUnitToString(queryChunkSizeDuration.getUnit()) + "]"));
         nameValuePairs.add(new BasicNameValuePair("time", time));
-        return new URIBuilder(baseURI.toString())
-                .setPath("api/v1/query")
+        return new URIBuilder(baseURI.toString() + QUERY_ENDPOINT)
                 .setParameters(nameValuePairs)
                 .build();
     }
