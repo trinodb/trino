@@ -119,25 +119,168 @@ that catalog name instead of ``sqlserver`` in the above examples.
 Type mapping
 ------------
 
-Trino supports the following SQL Server data types:
+Because Trino and SQL Server each support types that the other does not, this
+connector modifies some types when reading or writing data. Data types may not
+map the same way in both directions between Trino and the data source. Refer to
+the following sections for type mapping in each direction.
 
-==================================  ===============================
-SQL Server Type                     Trino Type
-==================================  ===============================
-``bigint``                          ``bigint``
-``tinyint``                         ``smallint``
-``smallint``                        ``smallint``
-``int``                             ``integer``
-``float``                           ``double``
-``char(n)``                         ``char(n)``
-``varchar(n)``                      ``varchar(n)``
-``date``                            ``date``
-``datetime2(n)``                    ``timestamp(n)``
-``datetimeoffset(n)``               ``timestamp(n) with time zone``
-==================================  ===============================
+SQL Server type to Trino type mapping
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The connector maps SQL server types to the corresponding Trino types following this table:
+
+.. list-table:: SQL Server type to Trino type mapping
+  :widths: 30, 20, 50
+  :header-rows: 1
+
+  * - SQL Server database type
+    - Trino type
+    - Notes
+  * - ``BIT``
+    - ``BOOLEAN``
+    -
+  * - ``TINYINT``
+    - ``SMALLINT``
+    - SQL Server ``TINYINT`` is actually ``unsigned tinyint``
+  * - ``SMALLINT``
+    - ``SMALLINT``
+    -
+  * - ``INTEGER``
+    - ``INTEGER``
+    -
+  * - ``BIGINT``
+    - ``BIGINT``
+    -
+  * - ``DOUBLE PRECISION``
+    - ``DOUBLE``
+    -
+  * - ``FLOAT[(n)]``
+    - ``REAL`` or ``DOUBLE``
+    -  See :ref:`sqlserver-numeric-mapping`
+  * - ``REAL``
+    - ``REAL``
+    -
+  * - ``DECIMAL[(p[, s])]``, ``NUMERIC[(p[, s])]``
+    - ``DECIMAL(p, s)``
+    -
+  * - ``CHAR[(n)]``
+    - ``CHAR(n)``
+    - ``1 <= n <= 8000``
+  * - ``NCHAR[(n)]``
+    - ``CHAR(n)``
+    - ``1 <= n <= 4000``
+  * - ``VARCHAR[(n | max)]``, ``NVARCHAR[(n | max)]``
+    - ``VARCHAR(n)``
+    - ``1 <= n <= 8000``, ``max = 2147483647``
+  * - ``TEXT``
+    - ``VARCHAR(2147483647)``
+    -
+  * - ``NTEXT``
+    - ``VARCHAR(1073741823)``
+    -
+  * - ``VARBINARY[(n | max)]``
+    - ``VARBINARY``
+    - ``1 <= n <= 8000``, ``max = 2147483647``
+  * - ``DATE``
+    - ``DATE``
+    -
+  * - ``TIME[(n)]``
+    - ``TIME(n)``
+    - ``0 <= n <= 7``
+  * - ``DATETIME2[(n)]``
+    - ``TIMESTAMP(n)``
+    - ``0 <= n <= 7``
+  * - ``SMALLDATETIME``
+    - ``TIMESTAMP(0)``
+    -
+  * - ``DATETIMEOFFSET[(n)]``
+    - ``TIMESTAMP(n) WITH TIME ZONE``
+    - ``0 <= n <= 7``
+
+Trino type to SQL Server type mapping
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The connector maps Trino types to the corresponding SQL Server types following this table:
+
+.. list-table:: Trino type to SQL Server type mapping
+  :widths: 30, 20, 50
+  :header-rows: 1
+
+  * - Trino type
+    - SQL Server type
+    - Notes
+  * - ``BOOLEAN``
+    - ``BIT``
+    -
+  * - ``TINYINT``
+    - ``TINYINT``
+    - Trino only supports writing values belonging to ``[0, 127]``
+  * - ``SMALLINT``
+    - ``SMALLINT``
+    -
+  * - ``INTEGER``
+    - ``INTEGER``
+    -
+  * - ``BIGINT``
+    - ``BIGINT``
+    -
+  * - ``REAL``
+    - ``REAL``
+    -
+  * - ``DOUBLE``
+    - ``DOUBLE PRECISION``
+    -
+  * - ``DECIMAL(p, s)``
+    - ``DECIMAL(p, s)``
+    -
+  * - ``CHAR(n)``
+    - ``NCHAR(n)`` or ``NVARCHAR(max)``
+    -  See :ref:`sqlserver-character-mapping`
+  * - ``VARCHAR(n)``
+    - ``NVARCHAR(n)`` or ``NVARCHAR(max)``
+    -  See :ref:`sqlserver-character-mapping`
+  * - ``VARBINARY``
+    - ``VARBINARY(max)``
+    -
+  * - ``DATE``
+    - ``DATE``
+    -
+  * - ``TIME(n)``
+    - ``TIME(n)``
+    - ``0 <= n <= 7``
+  * - ``TIMESTAMP(n)``
+    - ``DATETIME2(n)``
+    - ``0 <= n <= 7``
 
 Complete list of `SQL Server data types
 <https://msdn.microsoft.com/en-us/library/ms187752.aspx>`_.
+
+.. _sqlserver-numeric-mapping:
+
+Numeric type mapping
+^^^^^^^^^^^^^^^^^^^^
+
+For SQL Server ``FLOAT[(n)]``:
+
+- If ``n`` is not specified maps to Trino ``Double``
+- If ``1 <= n <= 24`` maps to Trino ``REAL``
+- If ``24 < n <= 53`` maps to Trino ``DOUBLE``
+
+.. _sqlserver-character-mapping:
+
+Character type mapping
+^^^^^^^^^^^^^^^^^^^^^^
+
+For Trino ``CHAR(n)``:
+
+- If ``1 <= n <= 4000`` maps SQL Server ``NCHAR(n)``
+- If ``n > 4000`` maps SQL Server ``NVARCHAR(max)``
+
+
+For Trino ``VARCHAR(n)``:
+
+- If ``1 <= n <= 4000`` maps SQL Server ``NVARCHAR(n)``
+- If ``n > 4000`` maps SQL Server ``NVARCHAR(max)``
 
 .. include:: jdbc-type-mapping.fragment
 
