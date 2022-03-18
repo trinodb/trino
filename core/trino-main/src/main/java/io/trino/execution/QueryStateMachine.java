@@ -436,7 +436,7 @@ public class QueryStateMachine
             }
         }
 
-        boolean completeInfo = getAllStages(rootStage).stream().allMatch(StageInfo::isCompleteInfo);
+        boolean finalInfo = state.isDone() && getAllStages(rootStage).stream().allMatch(StageInfo::isFinalStageInfo);
         boolean isScheduled = isScheduled(rootStage);
 
         return new QueryInfo(
@@ -468,7 +468,7 @@ public class QueryStateMachine
                 output.get(),
                 referencedTables.get(),
                 routines.get(),
-                completeInfo,
+                finalInfo,
                 Optional.of(resourceGroup),
                 queryType,
                 getRetryPolicy(session));
@@ -1189,7 +1189,7 @@ public class QueryStateMachine
                 queryInfo.getOutput(),
                 queryInfo.getReferencedTables(),
                 queryInfo.getRoutines(),
-                queryInfo.isCompleteInfo(),
+                queryInfo.isFinalQueryInfo(),
                 queryInfo.getResourceGroupId(),
                 queryInfo.getQueryType(),
                 queryInfo.getRetryPolicy());
