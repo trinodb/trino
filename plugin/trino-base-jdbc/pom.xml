@@ -60,11 +60,6 @@
 
         <dependency>
             <groupId>io.airlift</groupId>
-            <artifactId>log-manager</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
             <artifactId>slice</artifactId>
         </dependency>
 
@@ -142,7 +137,12 @@
             <scope>runtime</scope>
         </dependency>
 
-        <!-- used by tests but also needed transitively -->
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>log-manager</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>

@@ -30,8 +30,6 @@ import org.testng.SkipException;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
-import javax.annotation.Nullable;
-
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
@@ -247,7 +245,7 @@ public class TestKafkaConnectorTest
                 getProducerProperties());
     }
 
-    private static <K, V> ProducerRecord<K, V> setHeader(ProducerRecord<K, V> record, String key, @Nullable String value)
+    private static <K, V> ProducerRecord<K, V> setHeader(ProducerRecord<K, V> record, String key, String value)
     {
         record.headers()
                 .add(key, value != null ? value.getBytes(UTF_8) : null);

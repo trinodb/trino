@@ -24,11 +24,6 @@
 
         <dependency>
             <groupId>io.trino</groupId>
-            <artifactId>trino-memory</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.trino</groupId>
             <artifactId>trino-parser</artifactId>
         </dependency>
 
@@ -108,6 +103,12 @@
         </dependency>
 
         <!-- for testing -->
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-memory</artifactId>
+            <scope>test</scope>
+        </dependency>
+
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-testing-services</artifactId>
