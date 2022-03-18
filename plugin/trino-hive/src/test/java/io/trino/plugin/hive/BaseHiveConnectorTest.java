@@ -8555,6 +8555,15 @@ public abstract class BaseHiveConnectorTest
     }
 
     @Override
+    public void testPotentialDuplicateDereferencePushdown()
+    {
+        // TODO https://github.com/trinodb/trino/issues/11559 query fails
+        assertThatThrownBy(super::testPotentialDuplicateDereferencePushdown)
+                .hasMessageContaining("The optimizer exhausted the time limit of");
+        throw new SkipException("TODO fix the bug");
+    }
+
+    @Override
     protected TestTable createTableWithDefaultColumns()
     {
         throw new SkipException("Hive connector does not support column default values");
