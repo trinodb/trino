@@ -93,6 +93,7 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_SCHEMA;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_TABLE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ROW_LEVEL_DELETE;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ROW_TYPE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_TOPN_PUSHDOWN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_TRUNCATE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_UPDATE;
@@ -2855,11 +2856,8 @@ public abstract class BaseConnectorTest
             assertUpdate(createTable, 3);
         };
         if (dataMappingTestSetup.isUnsupportedType()) {
-            String typeNameBase = trinoTypeName.replaceFirst("\\(.*", "");
-            String expectedMessagePart = format("(%1$s.*not (yet )?supported)|((?i)unsupported.*%1$s)|((?i)not supported.*%1$s)", Pattern.quote(typeNameBase));
             assertThatThrownBy(setup::run)
-                    .hasMessageFindingMatch(expectedMessagePart)
-                    .satisfies(e -> assertThat(getTrinoExceptionCause(e)).hasMessageFindingMatch(expectedMessagePart));
+                    .satisfies(exception -> verifyUnsupportedTypeException(exception, trinoTypeName));
             return;
         }
         setup.run();
@@ -2956,6 +2954,69 @@ public abstract class BaseConnectorTest
                 .add(new DataMappingTestSetup("char(1)", "'B'", "'a'"))
                 .add(new DataMappingTestSetup("varchar(1)", "'B'", "'a'"))
                 .build();
+    }
+
+    /**
+     * A regression test for row (struct) dereference pushdown edge case, with duplicate expressions.
+     * See https://github.com/trinodb/trino/issues/11559 and https://github.com/trinodb/trino/issues/11560.
+     */
+    @Test
+    public void testPotentialDuplicateDereferencePushdown()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA));
+
+        String tableName = "test_dup_deref_" + randomTableSuffix();
+        String createTable = "CREATE TABLE " + tableName + " AS SELECT CAST(ROW('abc', 1) AS row(a varchar, b bigint)) r";
+        if (!hasBehavior(SUPPORTS_ROW_TYPE)) {
+            try {
+                assertUpdate(createTable);
+            }
+            catch (Exception expected) {
+                verifyUnsupportedTypeException(expected, "row(a varchar, b bigint)");
+                return;
+            }
+            assertUpdate("DROP TABLE " + tableName);
+            fail("Expected create table failure");
+        }
+
+        assertUpdate(createTable, 1);
+        try {
+            assertThat(query("SELECT r, r.b + 2 FROM " + tableName))
+                    .matches("SELECT CAST(ROW('abc', 1) AS ROW(a varchar, b bigint)), BIGINT '3'");
+
+            assertThat(query("SELECT r[1], r[2], r.b + 2 FROM " + tableName))
+                    .matches("VALUES (VARCHAR 'abc', BIGINT '1', BIGINT '3')");
+
+            assertThat(query("SELECT r[2], r.b + 2 FROM " + tableName))
+                    .matches("VALUES (BIGINT '1', BIGINT '3')");
+
+            assertThat(query("SELECT r.b, r.b + 2 FROM " + tableName))
+                    .matches("VALUES (BIGINT '1', BIGINT '3')");
+
+            assertThat(query("SELECT r, r.a LIKE '%c' FROM " + tableName))
+                    .matches("SELECT CAST(ROW('abc', 1) AS ROW(a varchar, b bigint)), true");
+
+            assertThat(query("SELECT r[1], r[2], r.a LIKE '%c' FROM " + tableName))
+                    .matches("VALUES (VARCHAR 'abc', BIGINT '1', true)");
+
+            assertThat(query("SELECT r[1], r.a LIKE '%c' FROM " + tableName))
+                    .matches("VALUES (VARCHAR 'abc', true)");
+
+            assertThat(query("SELECT r.a, r.a LIKE '%c' FROM " + tableName))
+                    .matches("VALUES (VARCHAR 'abc', true)");
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+        }
+    }
+
+    private void verifyUnsupportedTypeException(Throwable exception, String trinoTypeName)
+    {
+        String typeNameBase = trinoTypeName.replaceFirst("\\(.*", "");
+        String expectedMessagePart = format("(%1$s.*not (yet )?supported)|((?i)unsupported.*%1$s)|((?i)not supported.*%1$s)", Pattern.quote(typeNameBase));
+        assertThat(exception)
+                .hasMessageFindingMatch(expectedMessagePart)
+                .satisfies(e -> assertThat(getTrinoExceptionCause(e)).hasMessageFindingMatch(expectedMessagePart));
     }
 
     @Test(dataProvider = "testColumnNameDataProvider")

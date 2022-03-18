@@ -76,6 +76,10 @@ public abstract class AbstractKuduConnectorTest
             case SUPPORTS_NOT_NULL_CONSTRAINT:
             case SUPPORTS_TOPN_PUSHDOWN:
                 return false;
+
+            case SUPPORTS_ROW_TYPE:
+                return false;
+
             default:
                 return super.hasBehavior(connectorBehavior);
         }

@@ -99,6 +99,7 @@ public class TestCassandraConnectorTest
                 return false;
 
             case SUPPORTS_ARRAY:
+            case SUPPORTS_ROW_TYPE:
                 return false;
 
             case SUPPORTS_ADD_COLUMN:

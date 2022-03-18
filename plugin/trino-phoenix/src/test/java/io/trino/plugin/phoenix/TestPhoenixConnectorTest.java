@@ -85,6 +85,9 @@ public class TestPhoenixConnectorTest
             case SUPPORTS_NOT_NULL_CONSTRAINT:
                 return false;
 
+            case SUPPORTS_ROW_TYPE:
+                return false;
+
             default:
                 return super.hasBehavior(connectorBehavior);
         }
