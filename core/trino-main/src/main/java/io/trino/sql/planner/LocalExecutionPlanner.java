@@ -400,7 +400,7 @@ public class LocalExecutionPlanner
     private final BlockTypeOperators blockTypeOperators;
     private final TableExecuteContextManager tableExecuteContextManager;
     private final ExchangeManagerRegistry exchangeManagerRegistry;
-    private final PositionsAppenderFactory positionsAppenderFactory = new PositionsAppenderFactory();
+    private final PositionsAppenderFactory positionsAppenderFactory;
 
     private final NonEvictableCache<FunctionKey, AccumulatorFactory> accumulatorFactoryCache = buildNonEvictableCache(CacheBuilder.newBuilder()
             .maximumSize(1000)
@@ -464,6 +464,7 @@ public class LocalExecutionPlanner
         this.blockTypeOperators = requireNonNull(blockTypeOperators, "blockTypeOperators is null");
         this.tableExecuteContextManager = requireNonNull(tableExecuteContextManager, "tableExecuteContextManager is null");
         this.exchangeManagerRegistry = requireNonNull(exchangeManagerRegistry, "exchangeManagerRegistry is null");
+        this.positionsAppenderFactory = new PositionsAppenderFactory(blockTypeOperators);
     }
 
     public LocalExecutionPlan plan(
