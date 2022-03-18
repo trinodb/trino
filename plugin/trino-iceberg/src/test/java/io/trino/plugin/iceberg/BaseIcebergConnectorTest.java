@@ -3035,15 +3035,6 @@ public abstract class BaseIcebergConnectorTest
         return Optional.of(dataMappingTestSetup);
     }
 
-    @Override
-    public void testPotentialDuplicateDereferencePushdown()
-    {
-        // TODO https://github.com/trinodb/trino/issues/11560 query fails
-        assertThatThrownBy(super::testPotentialDuplicateDereferencePushdown)
-                .hasMessage("Unbound variable: r_0");
-        throw new SkipException("TODO fix the bug");
-    }
-
     @Test
     public void testAmbiguousColumnsWithDots()
     {
