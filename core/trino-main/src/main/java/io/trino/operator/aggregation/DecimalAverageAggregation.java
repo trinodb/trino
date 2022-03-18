@@ -36,8 +36,6 @@ import io.trino.spi.type.Int128;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 
-import javax.validation.constraints.Null;
-
 import java.lang.invoke.MethodHandle;
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -189,7 +187,7 @@ public class DecimalAverageAggregation
         int otherDecimalOffset = otherDecimalState.getArrayOffset();
 
         // zalozenie, ze LHS nawet jak jest null to jest ok (decimal i overflow)
-         long overflow = addWithOverflow(
+        long overflow = addWithOverflow(
                 decimal[decimalOffset],
                 decimal[decimalOffset + 1],
                 otherDecimal[otherDecimalOffset],

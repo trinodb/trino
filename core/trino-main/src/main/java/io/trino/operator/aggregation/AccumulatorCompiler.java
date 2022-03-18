@@ -45,6 +45,7 @@ import io.trino.spi.function.WindowIndex;
 import io.trino.sql.gen.Binding;
 import io.trino.sql.gen.CallSiteBinder;
 import io.trino.sql.gen.CompilerOperations;
+import io.trino.sql.tree.Call;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
@@ -192,7 +193,7 @@ public final class AccumulatorCompiler
             generateGroupedEvaluateIntermediate(definition, stateFieldAndDescriptors, true, callSiteBinder, metadata.getIsNullFunction());
         }
         else {
-            generateEvaluateIntermediate(definition, stateFieldAndDescriptors, true);
+            generateEvaluateIntermediate(definition, stateFieldAndDescriptors, true, metadata.getIsNullFunction(), callSiteBinder);
         }
 
         if (grouped) {
@@ -668,7 +669,7 @@ public final class AccumulatorCompiler
 
         BytecodeBlock loopBody = new BytecodeBlock();
         loopBody.comment("combine(state_0, state_1, ... scratchState_0, scratchState_1, ... lambda_0, lambda_1, ...)");
-        if(isNullFunction.isPresent() && grouped) {
+        if (isNullFunction.isPresent()) {
             loopBody.append(positionX.set(scope.getVariable("block").cast(AbstractRowBlock.class)
                     .invoke("getFieldBlockOffset", int.class, scope.getVariable("position"))));
         }
@@ -682,7 +683,7 @@ public final class AccumulatorCompiler
         for (int i = 0; i < stateCount; i++) {
             FieldDefinition stateSerializerField = stateFieldAndDescriptors.get(i).getStateSerializerField();
             loopBody.append(thisVariable.getField(stateSerializerField).invoke("deserialize", void.class, block.get(i),
-                    grouped && isNullFunction.isPresent() ? positionX : position,
+                    isNullFunction.isPresent() ? positionX : position,
                     scratchStates.get(i).cast(AccumulatorState.class)));
             loopBody.append(scratchStates.get(i));
         }
@@ -812,10 +813,11 @@ public final class AccumulatorCompiler
             for (StateFieldAndDescriptor stateFieldAndDescriptor : stateFieldAndDescriptors) {
                 BytecodeExpression stateSerializer = thisVariable.getField(stateFieldAndDescriptor.getStateSerializerField());
                 BytecodeExpression state = thisVariable.getField(stateFieldAndDescriptor.getStateField());
-                if(isNotNullFunction.isPresent() && i == 0) {
+                if (isNotNullFunction.isPresent() && i == 0) {
                     i = 1;
                     body.append(stateSerializer.invoke("serialize", void.class, state.cast(AccumulatorState.class), rowBuilder));
-                } else {
+                }
+                else {
                     body.append(state.invoke("setGroupId", void.class, groupId.cast(long.class)))
                             .append(stateSerializer.invoke("serialize", void.class, state.cast(AccumulatorState.class), rowBuilder));
                 }
@@ -825,7 +827,7 @@ public final class AccumulatorCompiler
         }
     }
 
-    private static void generateEvaluateIntermediate(ClassDefinition definition, List<StateFieldAndDescriptor> stateFieldAndDescriptors, boolean decomposable)
+    private static void generateEvaluateIntermediate(ClassDefinition definition, List<StateFieldAndDescriptor> stateFieldAndDescriptors, boolean decomposable, Optional<MethodHandle> isNotNullFunction, CallSiteBinder callSiteBinder)
     {
         Parameter out = arg("out", BlockBuilder.class);
         MethodDefinition method = definition.declareMethod(
@@ -853,6 +855,17 @@ public final class AccumulatorCompiler
         }
         else {
             Variable rowBuilder = method.getScope().declareVariable(BlockBuilder.class, "rowBuilder");
+            if (isNotNullFunction.isPresent()) {
+                Variable isNull = method.getScope().declareVariable(boolean.class, "isNull");
+                body.append(thisVariable.getField(stateFieldAndDescriptors.get(0).getStateField()));
+                body.append(isNull.set(invoke(callSiteBinder.bind(isNotNullFunction.get()), "isNull")));
+                BytecodeBlock bc = new BytecodeBlock();
+                bc.append(out.invoke("appendNull", BlockBuilder.class)).ret();
+                body.append(new IfStatement("if(state0.isNull)")
+                        .condition(isNull)
+                        .ifTrue(bc));
+            }
+
             body.append(rowBuilder.set(out.invoke("beginBlockEntry", BlockBuilder.class)));
 
             for (StateFieldAndDescriptor stateFieldAndDescriptor : stateFieldAndDescriptors) {

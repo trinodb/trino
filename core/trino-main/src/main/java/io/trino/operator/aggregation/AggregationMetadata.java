@@ -84,7 +84,6 @@ public class AggregationMetadata
         this.isNullFunction = isNullFunction;
     }
 
-
     public MethodHandle getInputFunction()
     {
         return inputFunction;
@@ -100,7 +99,8 @@ public class AggregationMetadata
         return combineFunction;
     }
 
-    public Optional<MethodHandle> getIsNullFunction() {
+    public Optional<MethodHandle> getIsNullFunction()
+    {
         return isNullFunction;
     }
 

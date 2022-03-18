@@ -369,7 +369,8 @@ public class TestDecimalAverageAggregation
         };
     }
 
-    private void assertEmptyState(Int128State decimalState, LongState counterState, NullableLongState overflowState) {
+    private void assertEmptyState(Int128State decimalState, LongState counterState, NullableLongState overflowState)
+    {
         assertEquals(counterState.getValue(), 0);
         assertEquals(overflowState.getValue(), 0);
         assertTrue(overflowState.isNull());

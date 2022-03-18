@@ -288,7 +288,8 @@ public class TestDecimalSumAggregation
         return Int128.valueOf(state.getArray()[offset], state.getArray()[offset + 1]);
     }
 
-    private void assertEmptyState(Int128State decimalState, NullableLongState overflowState) {
+    private void assertEmptyState(Int128State decimalState, NullableLongState overflowState)
+    {
         assertEquals(overflowState.getValue(), 0);
         assertTrue(overflowState.isNull());
         assertFalse(decimalState.isNotNull());
@@ -306,5 +307,4 @@ public class TestDecimalSumAggregation
         assertEquals(decimal[decimalState.getArrayOffset()], otherDecimal[otherDecimalState.getArrayOffset()]);
         assertEquals(decimal[decimalState.getArrayOffset() + 1], otherDecimal[otherDecimalState.getArrayOffset() + 1]);
     }
-
 }
