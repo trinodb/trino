@@ -33,15 +33,16 @@
             <artifactId>guava</artifactId>
         </dependency>
 
-        <dependency>
-            <groupId>com.qubole.rubix</groupId>
-            <artifactId>rubix-presto-shaded</artifactId>
-        </dependency>
-
         <!-- used by tests but also needed transitively -->
         <dependency>
             <groupId>io.trino.hadoop</groupId>
             <artifactId>hadoop-apache</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.qubole.rubix</groupId>
+            <artifactId>rubix-presto-shaded</artifactId>
             <scope>runtime</scope>
         </dependency>
 
