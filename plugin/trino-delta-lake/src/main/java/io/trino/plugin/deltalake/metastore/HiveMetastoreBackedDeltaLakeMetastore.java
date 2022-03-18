@@ -150,7 +150,7 @@ public class HiveMetastoreBackedDeltaLakeMetastore
                 throw new TrinoException(DELTA_LAKE_INVALID_TABLE, "Provided location did not contain a valid Delta Lake table: " + tableLocation);
             }
         }
-        catch (IOException e) {
+        catch (IOException | RuntimeException e) {
             throw new TrinoException(DELTA_LAKE_INVALID_TABLE, "Failed to access table location: " + tableLocation, e);
         }
         delegate.createTable(table, principalPrivileges);
