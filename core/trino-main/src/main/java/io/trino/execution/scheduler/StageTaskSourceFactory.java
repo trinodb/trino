@@ -15,6 +15,7 @@ package io.trino.execution.scheduler;
 
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
@@ -23,6 +24,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Multimaps;
+import com.google.common.collect.SetMultimap;
+import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
@@ -63,6 +66,7 @@ import java.util.function.LongConsumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Sets.newIdentityHashSet;
@@ -421,7 +425,7 @@ public class StageTaskSourceFactory
             }
 
             Map<Integer, ListMultimap<PlanNodeId, Split>> partitionToSplitsMap = new HashMap<>();
-            Map<Integer, HostAddress> partitionToNodeMap = new HashMap<>();
+            SetMultimap<Integer, HostAddress> partitionToNodeMap = HashMultimap.create();
             for (Map.Entry<PlanNodeId, SplitSource> entry : splitSources.entrySet()) {
                 SplitSource splitSource = entry.getValue();
                 BucketNodeMap bucketNodeMap = this.bucketNodeMap
@@ -439,8 +443,39 @@ public class StageTaskSourceFactory
                         int partition = getPartitionForBucket(bucket);
 
                         if (!bucketNodeMap.isDynamic()) {
-                            HostAddress existingValue = partitionToNodeMap.put(partition, bucketNodeMap.getAssignedNode(split).get().getHostAndPort());
-                            checkState(existingValue == null, "host already assigned for partition %s: %s", partition, existingValue);
+                            HostAddress requiredAddress = bucketNodeMap.getAssignedNode(split).get().getHostAndPort();
+                            Set<HostAddress> existingRequirement = partitionToNodeMap.get(partition);
+                            if (existingRequirement.isEmpty()) {
+                                existingRequirement.add(requiredAddress);
+                            }
+                            else {
+                                checkState(
+                                        existingRequirement.contains(requiredAddress),
+                                        "Unable to satisfy host requirement for partition %s. Existing requirement %s; Current split requirement: %s;",
+                                        partition,
+                                        existingRequirement,
+                                        requiredAddress);
+                                existingRequirement.removeIf(host -> !host.equals(requiredAddress));
+                            }
+                        }
+
+                        if (!split.isRemotelyAccessible()) {
+                            Set<HostAddress> requiredAddresses = ImmutableSet.copyOf(split.getAddresses());
+                            verify(!requiredAddresses.isEmpty(), "split is not remotely accessible but the list of addresses is empty: %s", split);
+                            Set<HostAddress> existingRequirement = partitionToNodeMap.get(partition);
+                            if (existingRequirement.isEmpty()) {
+                                existingRequirement.addAll(requiredAddresses);
+                            }
+                            else {
+                                Set<HostAddress> intersection = Sets.intersection(requiredAddresses, existingRequirement);
+                                checkState(
+                                        !intersection.isEmpty(),
+                                        "Unable to satisfy host requirement for partition %s. Existing requirement %s; Current split requirement: %s;",
+                                        partition,
+                                        existingRequirement,
+                                        requiredAddresses);
+                                partitionToNodeMap.replaceValues(partition, ImmutableSet.copyOf(intersection));
+                            }
                         }
 
                         Multimap<PlanNodeId, Split> partitionSplits = partitionToSplitsMap.computeIfAbsent(partition, (p) -> ArrayListMultimap.create());
@@ -471,8 +506,7 @@ public class StageTaskSourceFactory
                         .putAll(partitionToExchangeSourceHandlesMap.getOrDefault(partition, ImmutableMultimap.of()))
                         // replicated exchange source will be added in postprocessTasks below
                         .build();
-                HostAddress host = partitionToNodeMap.get(partition);
-                Set<HostAddress> hostRequirement = host == null ? ImmutableSet.of() : ImmutableSet.of(host);
+                Set<HostAddress> hostRequirement = partitionToNodeMap.get(partition);
                 partitionTasks.add(new TaskDescriptor(taskPartitionId++, splits, exchangeSourceHandles, new NodeRequirements(catalogRequirement, hostRequirement, taskMemory)));
             }
 
