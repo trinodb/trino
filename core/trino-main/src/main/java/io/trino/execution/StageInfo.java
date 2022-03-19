@@ -154,17 +154,21 @@ public class StageInfo
 
     public static List<StageInfo> getAllStages(Optional<StageInfo> stageInfo)
     {
+        if (stageInfo.isEmpty()) {
+            return ImmutableList.of();
+        }
         ImmutableList.Builder<StageInfo> collector = ImmutableList.builder();
-        addAllStages(stageInfo, collector);
+        addAllStages(stageInfo.get(), collector);
         return collector.build();
     }
 
-    private static void addAllStages(Optional<StageInfo> stageInfo, ImmutableList.Builder<StageInfo> collector)
+    private static void addAllStages(@Nullable StageInfo stage, ImmutableList.Builder<StageInfo> collector)
     {
-        stageInfo.ifPresent(stage -> {
+        if (stage != null) {
             collector.add(stage);
-            stage.getSubStages().stream()
-                    .forEach(subStage -> addAllStages(Optional.ofNullable(subStage), collector));
-        });
+            for (StageInfo subStage : stage.getSubStages()) {
+                addAllStages(subStage, collector);
+            }
+        }
     }
 }
