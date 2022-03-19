@@ -101,7 +101,6 @@ public class TestQueryStateInfo
                 new QueryId(queryId),
                 TEST_SESSION.toSessionRepresentation(),
                 state,
-                true,
                 URI.create("1"),
                 ImmutableList.of("2", "3"),
                 query,

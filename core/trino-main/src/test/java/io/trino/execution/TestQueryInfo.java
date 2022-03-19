@@ -95,7 +95,6 @@ public class TestQueryInfo
                 new QueryId("0"),
                 TEST_SESSION.toSessionRepresentation(),
                 FINISHED,
-                true,
                 URI.create("1"),
                 ImmutableList.of("number"),
                 "SELECT 1 as number",
