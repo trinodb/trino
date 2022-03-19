@@ -1900,16 +1900,29 @@ public class SqlQueryScheduler
                 return new BucketToPartition(Optional.of(IntStream.range(0, hashPartitionCount).toArray()), Optional.empty());
             }
             else if (partitioningHandle.getConnectorId().isPresent()) {
-                int partitionCount = hashPartitionCount;
                 BucketNodeMap bucketNodeMap = nodePartitioningManager.getBucketNodeMap(session, partitioningHandle, true);
-                if (!bucketNodeMap.isDynamic()) {
-                    partitionCount = bucketNodeMap.getNodeCount();
-                }
                 int bucketCount = bucketNodeMap.getBucketCount();
                 int[] bucketToPartition = new int[bucketCount];
-                int nextPartitionId = 0;
-                for (int bucket = 0; bucket < bucketCount; bucket++) {
-                    bucketToPartition[bucket] = nextPartitionId++ % partitionCount;
+                if (bucketNodeMap.isDynamic()) {
+                    int nextPartitionId = 0;
+                    for (int bucket = 0; bucket < bucketCount; bucket++) {
+                        bucketToPartition[bucket] = nextPartitionId++ % hashPartitionCount;
+                    }
+                }
+                else {
+                    // make sure all buckets mapped to the same node map to the same partition, such that locality requirements are respected in scheduling
+                    Map<InternalNode, Integer> nodeToPartition = new HashMap<>();
+                    int nextPartitionId = 0;
+                    for (int bucket = 0; bucket < bucketCount; bucket++) {
+                        InternalNode node = bucketNodeMap.getAssignedNode(bucket)
+                                .orElseThrow(() -> new IllegalStateException("Nodes are expected to be assigned for non dynamic BucketNodeMap"));
+                        Integer partitionId = nodeToPartition.get(node);
+                        if (partitionId == null) {
+                            partitionId = nextPartitionId++;
+                            nodeToPartition.put(node, partitionId);
+                        }
+                        bucketToPartition[bucket] = partitionId;
+                    }
                 }
                 return new BucketToPartition(Optional.of(bucketToPartition), Optional.of(bucketNodeMap));
             }
