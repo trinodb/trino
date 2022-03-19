@@ -158,7 +158,6 @@ public class MockManagedQueryExecution
                 new QueryId("test"),
                 session.toSessionRepresentation(),
                 state,
-                !state.isDone(),
                 URI.create("http://test"),
                 ImmutableList.of(),
                 "SELECT 1",
@@ -201,7 +200,7 @@ public class MockManagedQueryExecution
                         DataSize.ofBytes(25),
                         DataSize.ofBytes(26),
 
-                        true,
+                        !state.isDone(),
                         new Duration(20, NANOSECONDS),
                         new Duration(21, NANOSECONDS),
                         new Duration(22, NANOSECONDS),
