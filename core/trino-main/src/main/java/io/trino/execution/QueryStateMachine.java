@@ -436,19 +436,20 @@ public class QueryStateMachine
             }
         }
 
-        boolean finalInfo = state.isDone() && getAllStages(rootStage).stream().allMatch(StageInfo::isFinalStageInfo);
-        boolean isScheduled = isScheduled(rootStage);
+        List<StageInfo> allStages = getAllStages(rootStage);
+        QueryStats queryStats = getQueryStats(rootStage, allStages);
+        boolean finalInfo = state.isDone() && allStages.stream().allMatch(StageInfo::isFinalStageInfo);
 
         return new QueryInfo(
                 queryId,
                 session.toSessionRepresentation(),
                 state,
-                isScheduled,
+                queryStats.isScheduled(),
                 self,
                 outputManager.getQueryOutputInfo().map(QueryOutputInfo::getColumnNames).orElse(ImmutableList.of()),
                 query,
                 preparedQuery,
-                getQueryStats(rootStage),
+                queryStats,
                 Optional.ofNullable(setCatalog.get()),
                 Optional.ofNullable(setSchema.get()),
                 Optional.ofNullable(setPath.get()),
@@ -474,7 +475,7 @@ public class QueryStateMachine
                 getRetryPolicy(session));
     }
 
-    private QueryStats getQueryStats(Optional<StageInfo> rootStage)
+    private QueryStats getQueryStats(Optional<StageInfo> rootStage, List<StageInfo> allStages)
     {
         int totalTasks = 0;
         int runningTasks = 0;
@@ -535,13 +536,13 @@ public class QueryStateMachine
         long physicalWrittenDataSize = 0;
         long failedPhysicalWrittenDataSize = 0;
 
-        ImmutableList.Builder<StageGcStatistics> stageGcStatistics = ImmutableList.builder();
+        ImmutableList.Builder<StageGcStatistics> stageGcStatistics = ImmutableList.builderWithExpectedSize(allStages.size());
 
         boolean fullyBlocked = rootStage.isPresent();
         Set<BlockedReason> blockedReasons = new HashSet<>();
 
         ImmutableList.Builder<OperatorStats> operatorStatsSummary = ImmutableList.builder();
-        for (StageInfo stageInfo : getAllStages(rootStage)) {
+        for (StageInfo stageInfo : allStages) {
             StageStats stageStats = stageInfo.getStageStats();
             totalTasks += stageStats.getTotalTasks();
             runningTasks += stageStats.getRunningTasks();
@@ -616,7 +617,9 @@ public class QueryStateMachine
             failedOutputPositions += outputStageStats.getFailedOutputPositions();
         }
 
-        boolean isScheduled = isScheduled(rootStage);
+        boolean isScheduled = rootStage.isPresent() && allStages.stream()
+                .map(StageInfo::getState)
+                .allMatch(state -> state == StageState.RUNNING || state == StageState.PENDING || state.isDone());
 
         return new QueryStats(
                 queryStateTimer.getCreateTime(),
@@ -1104,16 +1107,6 @@ public class QueryStateMachine
     public Optional<DateTime> getEndTime()
     {
         return queryStateTimer.getEndTime();
-    }
-
-    private static boolean isScheduled(Optional<StageInfo> rootStage)
-    {
-        if (rootStage.isEmpty()) {
-            return false;
-        }
-        return getAllStages(rootStage).stream()
-                .map(StageInfo::getState)
-                .allMatch(state -> state == StageState.RUNNING || state == StageState.PENDING || state.isDone());
     }
 
     public Optional<ExecutionFailureInfo> getFailureInfo()
