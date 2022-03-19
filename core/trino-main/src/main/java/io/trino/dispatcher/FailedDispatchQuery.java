@@ -214,7 +214,6 @@ public class FailedDispatchQuery
                 session.getQueryId(),
                 session.toSessionRepresentation(),
                 QueryState.FAILED,
-                false,
                 self,
                 ImmutableList.of(),
                 query,
