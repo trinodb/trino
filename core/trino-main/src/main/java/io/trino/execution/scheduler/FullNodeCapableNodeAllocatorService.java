@@ -61,7 +61,6 @@ import java.util.function.Supplier;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.Futures.transform;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -512,7 +511,16 @@ public class FullNodeCapableNodeAllocatorService
         return new Candidates(
                 allNodes.size(),
                 allNodes.stream()
-                        .filter(node -> requirements.getAddresses().isEmpty() || requirements.getAddresses().contains(node.getHostAndPort()))
+                        .filter(node -> {
+                            // Allow using coordinator if explicitly requested
+                            if (requirements.getAddresses().contains(node.getHostAndPort())) {
+                                return true;
+                            }
+                            if (requirements.getAddresses().isEmpty()) {
+                                return scheduleOnCoordinator || !node.isCoordinator();
+                            }
+                            return false;
+                        })
                         .collect(toImmutableList()));
     }
 
@@ -552,12 +560,7 @@ public class FullNodeCapableNodeAllocatorService
         else {
             activeNodes = nodeManager.getNodes(NodeState.ACTIVE);
         }
-        if (scheduleOnCoordinator) {
-            return activeNodes;
-        }
-        return activeNodes.stream()
-                .filter(node -> !node.isCoordinator())
-                .collect(toImmutableSet());
+        return activeNodes;
     }
 
     private class FullNodeCapableNodeAllocator
