@@ -665,7 +665,9 @@ public abstract class AbstractTestOracleTypeMapping
                 // max value in Oracle
                 .addRoundTrip("DATE", "DATE '9999-12-31'", TIMESTAMP_SECONDS, "TIMESTAMP '9999-12-31 00:00:00'")
                 .execute(getQueryRunner(), session, oracleCreateAndInsert("test_date"))
+                .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_date"))
                 .execute(getQueryRunner(), session, trinoCreateAsSelect("test_date"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_date"))
                 .execute(getQueryRunner(), session, trinoCreateAndInsert("test_date"));
     }
 
@@ -699,8 +701,12 @@ public abstract class AbstractTestOracleTypeMapping
     @Test(dataProvider = "sessionZonesDataProvider")
     public void testTimestamp(ZoneId sessionZone)
     {
+        Session session = Session.builder(getSession())
+                .setTimeZoneKey(getTimeZoneKey(sessionZone.getId()))
+                .build();
+
         // using two non-JVM zones so that we don't need to worry what Oracle system zone is
-        SqlDataTypeTest tests = SqlDataTypeTest.create()
+        SqlDataTypeTest.create()
                 // min value in Oracle
                 .addRoundTrip("timestamp", "TIMESTAMP '-4712-01-01 00:00:00.000'", TIMESTAMP_MILLIS, "TIMESTAMP '-4712-01-01 00:00:00.000'")
                 .addRoundTrip("timestamp", "TIMESTAMP '-0001-01-01 00:00:00.000'", TIMESTAMP_MILLIS, "TIMESTAMP '-0001-01-01 00:00:00.000'")
@@ -720,14 +726,11 @@ public abstract class AbstractTestOracleTypeMapping
                 .addRoundTrip("timestamp", timestampDataType(3).toLiteral(timeGapInVilnius), TIMESTAMP_MILLIS, timestampDataType(3).toLiteral(timeGapInVilnius))
                 .addRoundTrip("timestamp", timestampDataType(3).toLiteral(timeGapInKathmandu), TIMESTAMP_MILLIS, timestampDataType(3).toLiteral(timeGapInKathmandu))
                 // max value in Oracle
-                .addRoundTrip("timestamp", "TIMESTAMP '9999-12-31 00:00:00.000'", TIMESTAMP_MILLIS, "TIMESTAMP '9999-12-31 00:00:00.000'");
-
-        Session session = Session.builder(getSession())
-                .setTimeZoneKey(getTimeZoneKey(sessionZone.getId()))
-                .build();
-        tests.execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_timestamp"));
-        tests.execute(getQueryRunner(), session, trinoCreateAndInsert("test_timestamp"));
-        tests.execute(getQueryRunner(), session, oracleCreateAndInsert("test_timestamp"));
+                .addRoundTrip("timestamp", "TIMESTAMP '9999-12-31 00:00:00.000'", TIMESTAMP_MILLIS, "TIMESTAMP '9999-12-31 00:00:00.000'")
+                .execute(getQueryRunner(), session, oracleCreateAndInsert("test_timestamp"))
+                .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_timestamp"))
+                .execute(getQueryRunner(), session, trinoCreateAsSelect("test_timestamp"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_timestamp"));
     }
 
     @Test

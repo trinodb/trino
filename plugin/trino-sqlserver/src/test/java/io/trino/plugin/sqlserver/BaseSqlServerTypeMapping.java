@@ -680,6 +680,7 @@ public abstract class BaseSqlServerTypeMapping
         tests.execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_timestamp"));
         tests.execute(getQueryRunner(), session, trinoCreateAsSelect("test_timestamp"));
         tests.execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_timestamp"));
+        tests.execute(getQueryRunner(), session, trinoCreateAndInsert("test_timestamp"));
     }
 
     @Test
