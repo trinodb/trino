@@ -20,6 +20,7 @@ import io.airlift.units.DataSize;
 import io.airlift.units.MaxDataSize;
 import io.airlift.units.MinDataSize;
 import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.s3.model.StorageClass;
 
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
@@ -28,6 +29,7 @@ import java.util.Optional;
 
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Locale.ENGLISH;
+import static software.amazon.awssdk.services.s3.model.StorageClass.STANDARD;
 
 public class ExchangeS3Config
 {
@@ -39,6 +41,7 @@ public class ExchangeS3Config
     private int s3MaxErrorRetries = 3;
     // Default to S3 multi-part upload minimum size to avoid excessive memory consumption from buffering
     private DataSize s3UploadPartSize = DataSize.of(5, MEGABYTE);
+    private StorageClass storageClass = STANDARD;
 
     public String getS3AwsAccessKey()
     {
@@ -130,6 +133,19 @@ public class ExchangeS3Config
     public ExchangeS3Config setS3UploadPartSize(DataSize s3UploadPartSize)
     {
         this.s3UploadPartSize = s3UploadPartSize;
+        return this;
+    }
+
+    @NotNull
+    public StorageClass getStorageClass()
+    {
+        return storageClass;
+    }
+
+    @Config("exchange.s3.storage-class")
+    public ExchangeS3Config setStorageClass(StorageClass storageClass)
+    {
+        this.storageClass = storageClass;
         return this;
     }
 }
