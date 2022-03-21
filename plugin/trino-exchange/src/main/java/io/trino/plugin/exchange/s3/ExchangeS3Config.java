@@ -42,6 +42,7 @@ public class ExchangeS3Config
     // Default to S3 multi-part upload minimum size to avoid excessive memory consumption from buffering
     private DataSize s3UploadPartSize = DataSize.of(5, MEGABYTE);
     private StorageClass storageClass = STANDARD;
+    private int asyncClientConcurrency = 250;
 
     public String getS3AwsAccessKey()
     {
@@ -146,6 +147,19 @@ public class ExchangeS3Config
     public ExchangeS3Config setStorageClass(StorageClass storageClass)
     {
         this.storageClass = storageClass;
+        return this;
+    }
+
+    @Min(1)
+    public int getAsyncClientConcurrency()
+    {
+        return asyncClientConcurrency;
+    }
+
+    @Config("exchange.s3.async-client-concurrency")
+    public ExchangeS3Config setAsyncClientConcurrency(int asyncClientConcurrency)
+    {
+        this.asyncClientConcurrency = asyncClientConcurrency;
         return this;
     }
 }

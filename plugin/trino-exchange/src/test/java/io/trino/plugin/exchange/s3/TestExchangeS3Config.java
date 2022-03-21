@@ -39,7 +39,8 @@ public class TestExchangeS3Config
                 .setS3UseWebIdentityTokenCredentials(false)
                 .setS3MaxErrorRetries(3)
                 .setS3UploadPartSize(DataSize.of(5, MEGABYTE))
-                .setStorageClass(STANDARD));
+                .setStorageClass(STANDARD)
+                .setAsyncClientConcurrency(250));
     }
 
     @Test
@@ -54,6 +55,7 @@ public class TestExchangeS3Config
                 .put("exchange.s3.max-error-retries", "8")
                 .put("exchange.s3.upload.part-size", "10MB")
                 .put("exchange.s3.storage-class", "REDUCED_REDUNDANCY")
+                .put("exchange.s3.async-client-concurrency", "202")
                 .buildOrThrow();
 
         ExchangeS3Config expected = new ExchangeS3Config()
@@ -64,7 +66,8 @@ public class TestExchangeS3Config
                 .setS3UseWebIdentityTokenCredentials(true)
                 .setS3MaxErrorRetries(8)
                 .setS3UploadPartSize(DataSize.of(10, MEGABYTE))
-                .setStorageClass(REDUCED_REDUNDANCY);
+                .setStorageClass(REDUCED_REDUNDANCY)
+                .setAsyncClientConcurrency(202);
 
         assertFullMapping(properties, expected);
     }
