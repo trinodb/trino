@@ -1096,7 +1096,8 @@ public class TestPostgreSqlTypeMapping
                 .execute(getQueryRunner(), session, postgresCreateAndInsert("test_date"))
                 .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_date"))
                 .execute(getQueryRunner(), session, trinoCreateAsSelect("test_date"))
-                .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_date"));
+                .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_date"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert("test_date"));
 
         // min value
         SqlDataTypeTest.create()
@@ -1106,7 +1107,8 @@ public class TestPostgreSqlTypeMapping
                 .addRoundTrip("DATE", "DATE '-4712-01-01'", DATE, "DATE '-4712-01-01'")
                 .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_date_min"))
                 .execute(getQueryRunner(), session, trinoCreateAsSelect("test_date_min"))
-                .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_date_min"));
+                .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_date_min"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert("test_date_min"));
     }
 
     @Test
@@ -1161,10 +1163,11 @@ public class TestPostgreSqlTypeMapping
                 .addRoundTrip("time(6)", "TIME '23:59:59.999999'", createTimeType(6), "TIME '23:59:59.999999'")
                 .addRoundTrip("time(3)", "TIME '00:00:00.000'", createTimeType(3), "TIME '00:00:00.000'")
                 .addRoundTrip("time(3)", "TIME '00:12:34.567'", createTimeType(3), "TIME '00:12:34.567'")
+                .execute(getQueryRunner(), session, postgresCreateAndInsert("test_time"))
                 .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_time"))
                 .execute(getQueryRunner(), session, trinoCreateAsSelect("test_time"))
                 .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_time"))
-                .execute(getQueryRunner(), session, postgresCreateAndInsert("test_time"));
+                .execute(getQueryRunner(), session, trinoCreateAndInsert("test_time"));
     }
 
     /**
@@ -1339,10 +1342,11 @@ public class TestPostgreSqlTypeMapping
                 .addRoundTrip("timestamp(6)", "TIMESTAMP '1969-12-31 23:59:59.123000'", createTimestampType(6), "TIMESTAMP '1969-12-31 23:59:59.123000'")
                 .addRoundTrip("timestamp(6)", "TIMESTAMP '1969-12-31 23:59:59.123456'", createTimestampType(6), "TIMESTAMP '1969-12-31 23:59:59.123456'")
 
+                .execute(getQueryRunner(), session, postgresCreateAndInsert("test_timestamp"))
                 .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_timestamp"))
                 .execute(getQueryRunner(), session, trinoCreateAsSelect("test_timestamp"))
                 .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_timestamp"))
-                .execute(getQueryRunner(), session, postgresCreateAndInsert("test_timestamp"));
+                .execute(getQueryRunner(), session, trinoCreateAndInsert("test_timestamp"));
     }
 
     /**

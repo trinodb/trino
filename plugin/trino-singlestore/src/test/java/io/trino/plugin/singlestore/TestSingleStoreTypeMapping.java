@@ -685,7 +685,9 @@ public class TestSingleStoreTypeMapping
                 .addRoundTrip("time(6)", "TIME '01:02:03.123456'", TIME_MICROS, "TIME '01:02:03.123456'")
                 .addRoundTrip("time(6)", "TIME '23:59:59.999999'", TIME_MICROS, "TIME '23:59:59.999999'")
                 .addRoundTrip("time(6)", "TIME '00:00:00.000000'", TIME_MICROS, "TIME '00:00:00.000000'") // round by engine
+                .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_time"))
                 .execute(getQueryRunner(), session, trinoCreateAsSelect("test_time"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_time"))
                 .execute(getQueryRunner(), session, trinoCreateAndInsert("test_time"));
 
         SqlDataTypeTest.create()
@@ -907,7 +909,9 @@ public class TestSingleStoreTypeMapping
                 .addRoundTrip("timestamp(6)", "NULL", createTimestampType(6), "CAST(NULL AS TIMESTAMP(6))")
 
                 .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_datetime"))
-                .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_datetime"));
+                .execute(getQueryRunner(), session, trinoCreateAsSelect("test_datetime"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_datetime"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert("test_datetime"));
     }
 
     @DataProvider
