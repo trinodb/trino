@@ -13,6 +13,7 @@
  */
 package io.trino.execution.scheduler;
 
+import com.google.common.collect.Ordering;
 import io.airlift.units.DataSize;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
@@ -33,14 +34,15 @@ public class ExponentialGrowthPartitionMemoryEstimator
     }
 
     @Override
-    public MemoryRequirements getNextRetryMemoryRequirements(Session session, MemoryRequirements previousMemoryRequirements, ErrorCode errorCode)
+    public MemoryRequirements getNextRetryMemoryRequirements(Session session, MemoryRequirements previousMemoryRequirements, DataSize peakMemoryUsage, ErrorCode errorCode)
     {
+        DataSize previousMemory = previousMemoryRequirements.getRequiredMemory();
+        DataSize baseMemory = Ordering.natural().max(peakMemoryUsage, previousMemory);
         if (shouldIncreaseMemory(errorCode)) {
             double growthFactor = SystemSessionProperties.getFaultTolerantExecutionTaskMemoryGrowthFactor(session);
-            long previousRequirementsBytes = previousMemoryRequirements.getRequiredMemory().toBytes();
-            return new MemoryRequirements(DataSize.of((long) (previousRequirementsBytes * growthFactor), DataSize.Unit.BYTE), false);
+            return new MemoryRequirements(DataSize.of((long) (baseMemory.toBytes() * growthFactor), DataSize.Unit.BYTE), false);
         }
-        return previousMemoryRequirements;
+        return new MemoryRequirements(baseMemory, false);
     }
 
     private boolean shouldIncreaseMemory(ErrorCode errorCode)
