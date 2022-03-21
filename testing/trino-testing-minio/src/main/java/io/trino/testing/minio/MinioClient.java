@@ -11,9 +11,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.deltalake.util;
+package io.trino.testing.minio;
 
 import com.google.common.collect.Sets;
+import com.google.common.collect.Streams;
 import com.google.common.io.ByteSource;
 import com.google.common.reflect.ClassPath;
 import com.google.common.util.concurrent.FutureCallback;
@@ -36,7 +37,6 @@ import java.util.function.Consumer;
 import java.util.regex.Pattern;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Streams.stream;
 import static com.google.common.util.concurrent.Futures.addCallback;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.minio.messages.EventType.OBJECT_ACCESSED_ANY;
@@ -45,7 +45,7 @@ import static io.minio.messages.EventType.OBJECT_REMOVED_ANY;
 import static java.util.Objects.requireNonNull;
 import static java.util.regex.Matcher.quoteReplacement;
 
-class MinioClient
+public class MinioClient
         implements AutoCloseable
 {
     private final Logger logger = Logger.get(MinioClient.class);
@@ -130,7 +130,7 @@ class MinioClient
     public List<String> listObjects(String bucket, String path)
     {
         try {
-            return stream(client.listObjects(bucket, path)).map(
+            return Streams.stream(client.listObjects(bucket, path)).map(
                     result -> {
                         try {
                             return result.get().objectName();

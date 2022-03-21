@@ -250,6 +250,12 @@
 
         <dependency>
             <groupId>io.trino</groupId>
+            <artifactId>trino-testing-minio</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
             <artifactId>trino-testing-services</artifactId>
             <scope>test</scope>
         </dependency>
@@ -301,28 +307,6 @@
             <artifactId>docker-java-api</artifactId>
             <version>${dep.docker-java.version}</version>
             <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.minio</groupId>
-            <artifactId>minio</artifactId>
-            <version>6.0.13</version>
-            <scope>test</scope>
-            <exclusions>
-                <exclusion>
-                    <groupId>com.google.code.findbugs</groupId>
-                    <artifactId>annotations</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>commons-logging</groupId>
-                    <artifactId>commons-logging</artifactId>
-                </exclusion>
-                <exclusion>
-                    <!-- conflicts with version pulled from trino-hive -->
-                    <groupId>com.google.http-client</groupId>
-                    <artifactId>google-http-client</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
         <dependency>

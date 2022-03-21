@@ -66,6 +66,7 @@
         <dep.docker-java.version>3.2.12</dep.docker-java.version>
         <dep.coral.version>2.0.55</dep.coral.version>
         <dep.confluent.version>5.5.2</dep.confluent.version>
+        <dep.minio.version>6.0.13</dep.minio.version>
 
         <dep.docker.images.version>53</dep.docker.images.version>
 
@@ -166,6 +167,7 @@
         <module>testing/trino-testing</module>
         <module>testing/trino-testing-containers</module>
         <module>testing/trino-testing-kafka</module>
+        <module>testing/trino-testing-minio</module>
         <module>testing/trino-testing-services</module>
         <module>testing/trino-tests</module>
     </modules>
@@ -512,6 +514,12 @@
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-testing-kafka</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-testing-minio</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
@@ -1342,6 +1350,12 @@
                 <groupId>io.jsonwebtoken</groupId>
                 <artifactId>jjwt-jackson</artifactId>
                 <version>${dep.jsonwebtoken.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.minio</groupId>
+                <artifactId>minio</artifactId>
+                <version>${dep.minio.version}</version>
             </dependency>
 
             <!-- io.confluent:kafka-avro-serializer uses multiple versions of this transitive dependency -->
