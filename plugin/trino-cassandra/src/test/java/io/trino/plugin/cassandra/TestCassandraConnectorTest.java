@@ -99,6 +99,7 @@ public class TestCassandraConnectorTest
                 return false;
 
             case SUPPORTS_ARRAY:
+            case SUPPORTS_ROW_TYPE:
                 return false;
 
             case SUPPORTS_ADD_COLUMN:
@@ -234,7 +235,7 @@ public class TestCassandraConnectorTest
     public void testCharVarcharComparison()
     {
         assertThatThrownBy(super::testCharVarcharComparison)
-                .hasMessage("unsupported type: char(3)");
+                .hasMessage("Unsupported type: char(3)");
     }
 
     @Test

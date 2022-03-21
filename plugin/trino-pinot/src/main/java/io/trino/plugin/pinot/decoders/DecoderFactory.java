@@ -25,7 +25,6 @@ import io.trino.spi.type.Type;
 
 import java.util.Optional;
 
-import static io.trino.plugin.pinot.PinotErrorCode.PINOT_DECODE_ERROR;
 import static io.trino.plugin.pinot.PinotErrorCode.PINOT_UNSUPPORTED_COLUMN_TYPE;
 import static java.util.Objects.requireNonNull;
 
@@ -33,31 +32,6 @@ public class DecoderFactory
 {
     private DecoderFactory()
     {
-    }
-
-    protected static final String PINOT_INFINITY = "∞";
-    protected static final String PINOT_POSITIVE_INFINITY = "+" + PINOT_INFINITY;
-    protected static final String PINOT_NEGATIVE_INFINITY = "-" + PINOT_INFINITY;
-
-    protected static final Double TRINO_INFINITY = Double.POSITIVE_INFINITY;
-    protected static final Double TRINO_NEGATIVE_INFINITY = Double.NEGATIVE_INFINITY;
-
-    public static Double parseDouble(String value)
-    {
-        try {
-            requireNonNull(value, "value is null");
-            return Double.valueOf(value);
-        }
-        catch (NumberFormatException ne) {
-            switch (value) {
-                case PINOT_INFINITY:
-                case PINOT_POSITIVE_INFINITY:
-                    return TRINO_INFINITY;
-                case PINOT_NEGATIVE_INFINITY:
-                    return TRINO_NEGATIVE_INFINITY;
-            }
-            throw new PinotException(PINOT_DECODE_ERROR, Optional.empty(), "Cannot decode double value from pinot " + value, ne);
-        }
     }
 
     public static Decoder createDecoder(Type type)

@@ -30,6 +30,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.InetAddresses;
 import io.airlift.slice.Slice;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.block.SingleRowBlockWriter;
@@ -70,6 +71,7 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.plugin.cassandra.util.CassandraCqlUtils.quoteStringLiteral;
 import static io.trino.plugin.cassandra.util.CassandraCqlUtils.quoteStringLiteralForJson;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
@@ -662,7 +664,7 @@ public class CassandraType
         if (type.equals(UuidType.UUID)) {
             return CassandraTypes.UUID;
         }
-        throw new IllegalArgumentException("unsupported type: " + type);
+        throw new TrinoException(NOT_SUPPORTED, "Unsupported type: " + type);
     }
 
     @Override
