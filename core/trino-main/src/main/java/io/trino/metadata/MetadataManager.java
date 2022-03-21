@@ -1701,6 +1701,17 @@ public final class MetadataManager
                 });
     }
 
+    @Override
+    public Optional<TableHandle> applyProjectedColumns(Session session, TableHandle table, Set<ColumnHandle> columns)
+    {
+        CatalogName catalogName = table.getCatalogName();
+        ConnectorMetadata metadata = getMetadata(session, catalogName);
+
+        ConnectorSession connectorSession = session.toConnectorSession(catalogName);
+        return metadata.applyProjectedColumns(connectorSession, table.getConnectorHandle(), columns)
+                .map(result -> new TableHandle(catalogName, result, table.getTransaction()));
+    }
+
     //
     // Roles and Grants
     //

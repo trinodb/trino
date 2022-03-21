@@ -447,6 +447,11 @@ public interface Metadata
 
     Optional<SampleApplicationResult<TableHandle>> applySample(Session session, TableHandle table, SampleType sampleType, double sampleRatio);
 
+    /**
+     * If the query has a filter, push the final (after prune) projected columns into connector
+     */
+    Optional<TableHandle> applyProjectedColumns(Session session, TableHandle table, Set<ColumnHandle> columns);
+
     Optional<AggregationApplicationResult<TableHandle>> applyAggregation(
             Session session,
             TableHandle table,

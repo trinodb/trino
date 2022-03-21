@@ -167,6 +167,7 @@ import io.trino.sql.planner.iterative.rule.PushPartialAggregationThroughJoin;
 import io.trino.sql.planner.iterative.rule.PushPredicateIntoTableScan;
 import io.trino.sql.planner.iterative.rule.PushPredicateThroughProjectIntoRowNumber;
 import io.trino.sql.planner.iterative.rule.PushPredicateThroughProjectIntoWindow;
+import io.trino.sql.planner.iterative.rule.PushProjectedColumns;
 import io.trino.sql.planner.iterative.rule.PushProjectionIntoTableScan;
 import io.trino.sql.planner.iterative.rule.PushProjectionThroughExchange;
 import io.trino.sql.planner.iterative.rule.PushProjectionThroughUnion;
@@ -892,6 +893,14 @@ public class PlanOptimizers
                         .add(new PushRemoteExchangeThroughAssignUniqueId())
                         .add(new InlineProjections(plannerContext, typeAnalyzer))
                         .build()));
+
+        // Should be run after all the executions of PruneProjectColumns and PushPredicateIntoTableScan
+        builder.add(new IterativeOptimizer(
+                plannerContext,
+                ruleStats,
+                statsCalculator,
+                costCalculator,
+                ImmutableSet.of(new PushProjectedColumns(metadata))));
 
         // Optimizers above this don't understand local exchanges, so be careful moving this.
         builder.add(new AddLocalExchanges(plannerContext, typeAnalyzer));

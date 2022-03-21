@@ -777,6 +777,12 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public Optional<TableHandle> applyProjectedColumns(Session session, TableHandle table, Set<ColumnHandle> columns)
+    {
+        return Optional.empty();
+    }
+
+    @Override
     public Optional<TopNApplicationResult<TableHandle>> applyTopN(Session session, TableHandle handle, long topNFunctions, List<SortItem> sortItems, Map<String, ColumnHandle> assignments)
     {
         return Optional.empty();

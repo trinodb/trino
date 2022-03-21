@@ -878,6 +878,14 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
+    public Optional<ConnectorTableHandle> applyProjectedColumns(ConnectorSession session, ConnectorTableHandle table, Set<ColumnHandle> columns)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.applyProjectedColumns(session, table, columns);
+        }
+    }
+
+    @Override
     public Optional<AggregationApplicationResult<ConnectorTableHandle>> applyAggregation(
             ConnectorSession session,
             ConnectorTableHandle table,

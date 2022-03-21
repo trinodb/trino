@@ -1064,6 +1064,11 @@ public interface ConnectorMetadata
         return Optional.empty();
     }
 
+    default Optional<ConnectorTableHandle> applyProjectedColumns(ConnectorSession session, ConnectorTableHandle handle, Set<ColumnHandle> columns)
+    {
+        return Optional.empty();
+    }
+
     /**
      * Attempt to push down the sampling into the table.
      * <p>
