@@ -382,12 +382,18 @@ Confluent table description supplier
 
 The Confluent table description supplier uses the `Confluent Schema Registry
 <https://docs.confluent.io/1.0/schema-registry/docs/intro.html>`_ to discover
-table definitions. Set ``kafka.table-description-supplier`` to ``CONFLUENT`` to
-use it and configure the additional properties in the following table.
+table definitions. It is only tested to work with the Confluent Schema
+Registry.
 
-The benefits of using the schema registry is that new tables can be defined
-without a cluster restart, schema updates are detected and there is no need to
-define tables manually.
+The benefits of using the Confluent table description supplier over the file
+table description supplier are:
+
+* New tables can be defined without a cluster restart.
+* Schema updates are detected automatically.
+* There is no need to define tables manually.
+
+Set ``kafka.table-description-supplier`` to ``CONFLUENT`` to use the
+schema registry and configure the additional properties in the following table:
 
 .. note::
 
