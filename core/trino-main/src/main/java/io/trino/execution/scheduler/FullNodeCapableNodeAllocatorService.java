@@ -62,8 +62,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
-import static com.google.common.util.concurrent.Futures.transform;
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.execution.scheduler.FallbackToFullNodePartitionMemoryEstimator.FULL_NODE_MEMORY;
@@ -588,7 +586,7 @@ public class FullNodeCapableNodeAllocatorService
 
             if (selectedNode.isPresent()) {
                 return new FullNodeCapableNodeLease(
-                        immediateFuture(nodeInfoForNode(selectedNode.get())),
+                        immediateFuture(selectedNode.get()),
                         requirements.getMemory().toBytes(),
                         isFullNode(requirements),
                         queryId);
@@ -596,16 +594,10 @@ public class FullNodeCapableNodeAllocatorService
 
             PendingAcquire pendingAcquire = registerPendingAcquire(requirements, candidates, queryId);
             return new FullNodeCapableNodeLease(
-                    transform(pendingAcquire.getFuture(), this::nodeInfoForNode, directExecutor()),
+                    pendingAcquire.getFuture(),
                     requirements.getMemory().toBytes(),
                     isFullNode(requirements),
                     queryId);
-        }
-
-        private NodeInfo nodeInfoForNode(InternalNode node)
-        {
-            // todo set memory limit properly
-            return NodeInfo.unlimitedMemoryNode(node);
         }
 
         @Override
@@ -654,13 +646,13 @@ public class FullNodeCapableNodeAllocatorService
     private class FullNodeCapableNodeLease
             implements NodeAllocator.NodeLease
     {
-        private final ListenableFuture<NodeInfo> node;
+        private final ListenableFuture<InternalNode> node;
         private final AtomicBoolean released = new AtomicBoolean();
         private final long memoryLease;
         private final boolean fullNode;
         private final QueryId queryId;
 
-        private FullNodeCapableNodeLease(ListenableFuture<NodeInfo> node, long memoryLease, boolean fullNode, QueryId queryId)
+        private FullNodeCapableNodeLease(ListenableFuture<InternalNode> node, long memoryLease, boolean fullNode, QueryId queryId)
         {
             this.node = requireNonNull(node, "node is null");
             this.memoryLease = memoryLease;
@@ -669,7 +661,7 @@ public class FullNodeCapableNodeAllocatorService
         }
 
         @Override
-        public ListenableFuture<NodeInfo> getNode()
+        public ListenableFuture<InternalNode> getNode()
         {
             return node;
         }
@@ -681,10 +673,10 @@ public class FullNodeCapableNodeAllocatorService
                 node.cancel(true);
                 if (node.isDone() && !node.isCancelled()) {
                     if (fullNode) {
-                        releaseFullNode(getFutureValue(node).getNode(), queryId);
+                        releaseFullNode(getFutureValue(node), queryId);
                     }
                     else {
-                        releaseSharedNode(getFutureValue(node).getNode(), memoryLease);
+                        releaseSharedNode(getFutureValue(node), memoryLease);
                     }
                 }
             }

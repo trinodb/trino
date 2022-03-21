@@ -82,7 +82,7 @@ public class TestFixedCountNodeAllocator
         try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION, 1)) {
             NodeAllocator.NodeLease acquire1 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of(), MEMORY_REQUIREMENTS));
             assertTrue(acquire1.getNode().isDone());
-            assertEquals(acquire1.getNode().get().getNode(), NODE_1);
+            assertEquals(acquire1.getNode().get(), NODE_1);
 
             NodeAllocator.NodeLease acquire2 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of(), MEMORY_REQUIREMENTS));
             assertFalse(acquire2.getNode().isDone());
@@ -90,17 +90,17 @@ public class TestFixedCountNodeAllocator
             acquire1.release();
 
             assertTrue(acquire2.getNode().isDone());
-            assertEquals(acquire2.getNode().get().getNode(), NODE_1);
+            assertEquals(acquire2.getNode().get(), NODE_1);
         }
 
         try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION, 2)) {
             NodeAllocator.NodeLease acquire1 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of(), MEMORY_REQUIREMENTS));
             assertTrue(acquire1.getNode().isDone());
-            assertEquals(acquire1.getNode().get().getNode(), NODE_1);
+            assertEquals(acquire1.getNode().get(), NODE_1);
 
             NodeAllocator.NodeLease acquire2 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of(), MEMORY_REQUIREMENTS));
             assertTrue(acquire2.getNode().isDone());
-            assertEquals(acquire2.getNode().get().getNode(), NODE_1);
+            assertEquals(acquire2.getNode().get(), NODE_1);
 
             NodeAllocator.NodeLease acquire3 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of(), MEMORY_REQUIREMENTS));
             assertFalse(acquire3.getNode().isDone());
@@ -110,11 +110,11 @@ public class TestFixedCountNodeAllocator
 
             acquire2.release(); // NODE_1
             assertTrue(acquire3.getNode().isDone());
-            assertEquals(acquire3.getNode().get().getNode(), NODE_1);
+            assertEquals(acquire3.getNode().get(), NODE_1);
 
             acquire3.release(); // NODE_1
             assertTrue(acquire4.getNode().isDone());
-            assertEquals(acquire4.getNode().get().getNode(), NODE_1);
+            assertEquals(acquire4.getNode().get(), NODE_1);
         }
     }
 
@@ -128,11 +128,11 @@ public class TestFixedCountNodeAllocator
         try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION, 1)) {
             NodeAllocator.NodeLease acquire1 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of(), MEMORY_REQUIREMENTS));
             assertTrue(acquire1.getNode().isDone());
-            assertEquals(acquire1.getNode().get().getNode(), NODE_1);
+            assertEquals(acquire1.getNode().get(), NODE_1);
 
             NodeAllocator.NodeLease acquire2 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of(), MEMORY_REQUIREMENTS));
             assertTrue(acquire2.getNode().isDone());
-            assertEquals(acquire2.getNode().get().getNode(), NODE_2);
+            assertEquals(acquire2.getNode().get(), NODE_2);
 
             NodeAllocator.NodeLease acquire3 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of(), MEMORY_REQUIREMENTS));
             assertFalse(acquire3.getNode().isDone());
@@ -145,33 +145,33 @@ public class TestFixedCountNodeAllocator
 
             acquire2.release(); // NODE_2
             assertTrue(acquire3.getNode().isDone());
-            assertEquals(acquire3.getNode().get().getNode(), NODE_2);
+            assertEquals(acquire3.getNode().get(), NODE_2);
 
             acquire1.release(); // NODE_1
             assertTrue(acquire4.getNode().isDone());
-            assertEquals(acquire4.getNode().get().getNode(), NODE_1);
+            assertEquals(acquire4.getNode().get(), NODE_1);
 
             acquire4.release(); //NODE_1
             assertTrue(acquire5.getNode().isDone());
-            assertEquals(acquire5.getNode().get().getNode(), NODE_1);
+            assertEquals(acquire5.getNode().get(), NODE_1);
         }
 
         try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION, 2)) {
             NodeAllocator.NodeLease acquire1 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of(), MEMORY_REQUIREMENTS));
             assertTrue(acquire1.getNode().isDone());
-            assertEquals(acquire1.getNode().get().getNode(), NODE_1);
+            assertEquals(acquire1.getNode().get(), NODE_1);
 
             NodeAllocator.NodeLease acquire2 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of(), MEMORY_REQUIREMENTS));
             assertTrue(acquire2.getNode().isDone());
-            assertEquals(acquire2.getNode().get().getNode(), NODE_2);
+            assertEquals(acquire2.getNode().get(), NODE_2);
 
             NodeAllocator.NodeLease acquire3 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of(), MEMORY_REQUIREMENTS));
             assertTrue(acquire3.getNode().isDone());
-            assertEquals(acquire3.getNode().get().getNode(), NODE_1);
+            assertEquals(acquire3.getNode().get(), NODE_1);
 
             NodeAllocator.NodeLease acquire4 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of(), MEMORY_REQUIREMENTS));
             assertTrue(acquire4.getNode().isDone());
-            assertEquals(acquire4.getNode().get().getNode(), NODE_2);
+            assertEquals(acquire4.getNode().get(), NODE_2);
 
             NodeAllocator.NodeLease acquire5 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of(), MEMORY_REQUIREMENTS));
             assertFalse(acquire5.getNode().isDone());
@@ -181,18 +181,18 @@ public class TestFixedCountNodeAllocator
 
             acquire4.release(); // NODE_2
             assertTrue(acquire5.getNode().isDone());
-            assertEquals(acquire5.getNode().get().getNode(), NODE_2);
+            assertEquals(acquire5.getNode().get(), NODE_2);
 
             acquire3.release(); // NODE_1
             assertTrue(acquire6.getNode().isDone());
-            assertEquals(acquire6.getNode().get().getNode(), NODE_1);
+            assertEquals(acquire6.getNode().get(), NODE_1);
 
             NodeAllocator.NodeLease acquire7 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of(), MEMORY_REQUIREMENTS));
             assertFalse(acquire7.getNode().isDone());
 
             acquire6.release(); // NODE_1
             assertTrue(acquire7.getNode().isDone());
-            assertEquals(acquire7.getNode().get().getNode(), NODE_1);
+            assertEquals(acquire7.getNode().get(), NODE_1);
 
             acquire7.release(); // NODE_1
             acquire5.release(); // NODE_2
@@ -200,7 +200,7 @@ public class TestFixedCountNodeAllocator
 
             NodeAllocator.NodeLease acquire8 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of(), MEMORY_REQUIREMENTS));
             assertTrue(acquire8.getNode().isDone());
-            assertEquals(acquire8.getNode().get().getNode(), NODE_2);
+            assertEquals(acquire8.getNode().get(), NODE_2);
         }
     }
 
@@ -218,18 +218,18 @@ public class TestFixedCountNodeAllocator
         try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION, 1)) {
             NodeAllocator.NodeLease catalog1acquire1 = nodeAllocator.acquire(new NodeRequirements(Optional.of(CATALOG_1), ImmutableSet.of(), MEMORY_REQUIREMENTS));
             assertTrue(catalog1acquire1.getNode().isDone());
-            assertEquals(catalog1acquire1.getNode().get().getNode(), NODE_1);
+            assertEquals(catalog1acquire1.getNode().get(), NODE_1);
 
             NodeAllocator.NodeLease catalog1acquire2 = nodeAllocator.acquire(new NodeRequirements(Optional.of(CATALOG_1), ImmutableSet.of(), MEMORY_REQUIREMENTS));
             assertTrue(catalog1acquire2.getNode().isDone());
-            assertEquals(catalog1acquire2.getNode().get().getNode(), NODE_3);
+            assertEquals(catalog1acquire2.getNode().get(), NODE_3);
 
             NodeAllocator.NodeLease catalog1acquire3 = nodeAllocator.acquire(new NodeRequirements(Optional.of(CATALOG_1), ImmutableSet.of(), MEMORY_REQUIREMENTS));
             assertFalse(catalog1acquire3.getNode().isDone());
 
             NodeAllocator.NodeLease catalog2acquire1 = nodeAllocator.acquire(new NodeRequirements(Optional.of(CATALOG_2), ImmutableSet.of(), MEMORY_REQUIREMENTS));
             assertTrue(catalog2acquire1.getNode().isDone());
-            assertEquals(catalog2acquire1.getNode().get().getNode(), NODE_2);
+            assertEquals(catalog2acquire1.getNode().get(), NODE_2);
 
             NodeAllocator.NodeLease catalog2acquire2 = nodeAllocator.acquire(new NodeRequirements(Optional.of(CATALOG_2), ImmutableSet.of(), MEMORY_REQUIREMENTS));
             assertFalse(catalog2acquire2.getNode().isDone());
@@ -237,11 +237,11 @@ public class TestFixedCountNodeAllocator
             catalog2acquire1.release(); // NODE_2
             assertFalse(catalog1acquire3.getNode().isDone());
             assertTrue(catalog2acquire2.getNode().isDone());
-            assertEquals(catalog2acquire2.getNode().get().getNode(), NODE_2);
+            assertEquals(catalog2acquire2.getNode().get(), NODE_2);
 
             catalog1acquire1.release(); // NODE_1
             assertTrue(catalog1acquire3.getNode().isDone());
-            assertEquals(catalog1acquire3.getNode().get().getNode(), NODE_1);
+            assertEquals(catalog1acquire3.getNode().get(), NODE_1);
 
             NodeAllocator.NodeLease catalog1acquire4 = nodeAllocator.acquire(new NodeRequirements(Optional.of(CATALOG_1), ImmutableSet.of(), MEMORY_REQUIREMENTS));
             assertFalse(catalog1acquire4.getNode().isDone());
@@ -252,11 +252,11 @@ public class TestFixedCountNodeAllocator
             catalog1acquire2.release(); // NODE_3
             assertFalse(catalog2acquire4.getNode().isDone());
             assertTrue(catalog1acquire4.getNode().isDone());
-            assertEquals(catalog1acquire4.getNode().get().getNode(), NODE_3);
+            assertEquals(catalog1acquire4.getNode().get(), NODE_3);
 
             catalog1acquire4.release(); // NODE_3
             assertTrue(catalog2acquire4.getNode().isDone());
-            assertEquals(catalog2acquire4.getNode().get().getNode(), NODE_3);
+            assertEquals(catalog2acquire4.getNode().get(), NODE_3);
         }
     }
 
@@ -270,7 +270,7 @@ public class TestFixedCountNodeAllocator
         try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION, 1)) {
             NodeAllocator.NodeLease acquire1 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of(), MEMORY_REQUIREMENTS));
             assertTrue(acquire1.getNode().isDone());
-            assertEquals(acquire1.getNode().get().getNode(), NODE_1);
+            assertEquals(acquire1.getNode().get(), NODE_1);
 
             NodeAllocator.NodeLease acquire2 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of(), MEMORY_REQUIREMENTS));
             assertFalse(acquire2.getNode().isDone());
@@ -282,7 +282,7 @@ public class TestFixedCountNodeAllocator
 
             acquire1.release(); // NODE_1
             assertTrue(acquire3.getNode().isDone());
-            assertEquals(acquire3.getNode().get().getNode(), NODE_1);
+            assertEquals(acquire3.getNode().get(), NODE_1);
         }
     }
 
@@ -296,7 +296,7 @@ public class TestFixedCountNodeAllocator
         try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION, 1)) {
             NodeAllocator.NodeLease acquire1 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of(), MEMORY_REQUIREMENTS));
             assertTrue(acquire1.getNode().isDone());
-            assertEquals(acquire1.getNode().get().getNode(), NODE_1);
+            assertEquals(acquire1.getNode().get(), NODE_1);
 
             NodeAllocator.NodeLease acquire2 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of(), MEMORY_REQUIREMENTS));
             assertFalse(acquire2.getNode().isDone());
@@ -304,7 +304,7 @@ public class TestFixedCountNodeAllocator
             nodeSupplier.addNode(NODE_2, ImmutableList.of());
             nodeAllocatorService.updateNodes();
 
-            assertEquals(acquire2.getNode().get(10, SECONDS).getNode(), NODE_2);
+            assertEquals(acquire2.getNode().get(10, SECONDS), NODE_2);
         }
     }
 
@@ -318,7 +318,7 @@ public class TestFixedCountNodeAllocator
         try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION, 1)) {
             NodeAllocator.NodeLease acquire1 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of(), MEMORY_REQUIREMENTS));
             assertTrue(acquire1.getNode().isDone());
-            assertEquals(acquire1.getNode().get().getNode(), NODE_1);
+            assertEquals(acquire1.getNode().get(), NODE_1);
 
             NodeAllocator.NodeLease acquire2 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of(), MEMORY_REQUIREMENTS));
             assertFalse(acquire2.getNode().isDone());
@@ -327,7 +327,7 @@ public class TestFixedCountNodeAllocator
             nodeSupplier.addNode(NODE_2, ImmutableList.of());
             nodeAllocatorService.updateNodes();
 
-            assertEquals(acquire2.getNode().get(10, SECONDS).getNode(), NODE_2);
+            assertEquals(acquire2.getNode().get(10, SECONDS), NODE_2);
 
             NodeAllocator.NodeLease acquire3 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of(), MEMORY_REQUIREMENTS));
             assertFalse(acquire3.getNode().isDone());
@@ -347,7 +347,7 @@ public class TestFixedCountNodeAllocator
         try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION, 1)) {
             NodeAllocator.NodeLease acquire1 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of(NODE_2_ADDRESS), MEMORY_REQUIREMENTS));
             assertTrue(acquire1.getNode().isDone());
-            assertEquals(acquire1.getNode().get().getNode(), NODE_2);
+            assertEquals(acquire1.getNode().get(), NODE_2);
 
             NodeAllocator.NodeLease acquire2 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of(NODE_2_ADDRESS), MEMORY_REQUIREMENTS));
             assertFalse(acquire2.getNode().isDone());
@@ -355,7 +355,7 @@ public class TestFixedCountNodeAllocator
             acquire1.release(); // NODE_2
 
             assertTrue(acquire2.getNode().isDone());
-            assertEquals(acquire2.getNode().get().getNode(), NODE_2);
+            assertEquals(acquire2.getNode().get(), NODE_2);
 
             NodeAllocator.NodeLease acquire3 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of(NODE_3_ADDRESS), MEMORY_REQUIREMENTS));
             assertTrue(acquire3.getNode().isDone());
@@ -367,7 +367,7 @@ public class TestFixedCountNodeAllocator
 
             NodeAllocator.NodeLease acquire4 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of(NODE_3_ADDRESS), MEMORY_REQUIREMENTS));
             assertTrue(acquire4.getNode().isDone());
-            assertEquals(acquire4.getNode().get().getNode(), NODE_3);
+            assertEquals(acquire4.getNode().get(), NODE_3);
 
             NodeAllocator.NodeLease acquire5 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of(NODE_3_ADDRESS), MEMORY_REQUIREMENTS));
             assertFalse(acquire5.getNode().isDone());

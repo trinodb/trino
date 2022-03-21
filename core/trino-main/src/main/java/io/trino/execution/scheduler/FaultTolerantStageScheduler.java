@@ -35,6 +35,7 @@ import io.trino.execution.TaskStatus;
 import io.trino.execution.buffer.OutputBuffers;
 import io.trino.execution.scheduler.PartitionMemoryEstimator.MemoryRequirements;
 import io.trino.failuredetector.FailureDetector;
+import io.trino.metadata.InternalNode;
 import io.trino.metadata.Split;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.TrinoException;
@@ -274,7 +275,7 @@ public class FaultTolerantStageScheduler
                 blocked = asVoid(nodeLease.getNode());
                 return;
             }
-            NodeInfo node = getFutureValue(nodeLease.getNode());
+            InternalNode node = getFutureValue(nodeLease.getNode());
 
             queuedPartitions.poll();
 
@@ -312,7 +313,7 @@ public class FaultTolerantStageScheduler
                     .build();
 
             RemoteTask task = stage.createTask(
-                    node.getNode(),
+                    node,
                     partition,
                     attemptId,
                     sinkBucketToPartitionMap,
