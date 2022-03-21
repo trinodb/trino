@@ -36,6 +36,7 @@ import software.amazon.awssdk.auth.credentials.WebIdentityTokenFileCredentialsPr
 import software.amazon.awssdk.core.async.AsyncRequestBody;
 import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
 import software.amazon.awssdk.core.retry.RetryPolicy;
+import software.amazon.awssdk.http.nio.netty.NettyNioAsyncHttpClient;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
 import software.amazon.awssdk.services.s3.S3AsyncClientBuilder;
@@ -134,7 +135,7 @@ public class S3FileSystemExchangeStorage
                 .build();
 
         this.s3Client = createS3Client(credentialsProvider, overrideConfig);
-        this.s3AsyncClient = createS3AsyncClient(credentialsProvider, overrideConfig);
+        this.s3AsyncClient = createS3AsyncClient(credentialsProvider, overrideConfig, config.getAsyncClientConcurrency());
     }
 
     @Override
@@ -386,11 +387,13 @@ public class S3FileSystemExchangeStorage
         return clientBuilder.build();
     }
 
-    private S3AsyncClient createS3AsyncClient(AwsCredentialsProvider credentialsProvider, ClientOverrideConfiguration overrideConfig)
+    private S3AsyncClient createS3AsyncClient(AwsCredentialsProvider credentialsProvider, ClientOverrideConfiguration overrideConfig, int maxConcurrency)
     {
         S3AsyncClientBuilder clientBuilder = S3AsyncClient.builder()
                 .credentialsProvider(credentialsProvider)
-                .overrideConfiguration(overrideConfig);
+                .overrideConfiguration(overrideConfig)
+                .httpClientBuilder(NettyNioAsyncHttpClient.builder()
+                        .maxConcurrency(maxConcurrency));
 
         region.ifPresent(clientBuilder::region);
         endpoint.ifPresent(s3Endpoint -> clientBuilder.endpointOverride(URI.create(s3Endpoint)));
