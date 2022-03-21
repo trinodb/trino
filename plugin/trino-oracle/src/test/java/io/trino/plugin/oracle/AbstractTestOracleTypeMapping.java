@@ -16,6 +16,7 @@ package io.trino.plugin.oracle;
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.plugin.jdbc.UnsupportedTypeHandling;
+import io.trino.spi.type.TimeZoneKey;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.TestingSession;
 import io.trino.testing.datatype.CreateAndInsertDataSetup;
@@ -37,6 +38,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.UNSUPPORTED_TYPE_HANDLING;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
@@ -48,7 +50,6 @@ import static io.trino.spi.type.CharType.createCharType;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
-import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_SECONDS;
@@ -95,10 +96,17 @@ public abstract class AbstractTestOracleTypeMapping
     @BeforeClass
     public void setUp()
     {
+        checkState(jvmZone.getId().equals("America/Bahia_Banderas"), "This test assumes certain JVM time zone");
+        LocalDate dateOfLocalTimeChangeForwardAtMidnightInJvmZone = LocalDate.of(1970, 1, 1);
+        checkIsGap(jvmZone, dateOfLocalTimeChangeForwardAtMidnightInJvmZone.atStartOfDay());
         checkIsGap(jvmZone, timeGapInJvmZone1);
         checkIsGap(jvmZone, timeGapInJvmZone2);
         checkIsDoubled(jvmZone, timeDoubledInJvmZone);
 
+        LocalDate dateOfLocalTimeChangeForwardAtMidnightInSomeZone = LocalDate.of(1983, 4, 1);
+        checkIsGap(vilnius, dateOfLocalTimeChangeForwardAtMidnightInSomeZone.atStartOfDay());
+        LocalDate dateOfLocalTimeChangeBackwardAtMidnightInSomeZone = LocalDate.of(1983, 10, 1);
+        checkIsDoubled(vilnius, dateOfLocalTimeChangeBackwardAtMidnightInSomeZone.atStartOfDay().minusMinutes(1));
         checkIsGap(vilnius, timeGapInVilnius);
         checkIsDoubled(vilnius, timeDoubledInVilnius);
 
@@ -626,35 +634,16 @@ public abstract class AbstractTestOracleTypeMapping
                 .execute(getQueryRunner(), oracleCreateAndInsert("test_blob"));
     }
 
-    @Test
-    public void testDate()
+    @Test(dataProvider = "sessionZonesDataProvider")
+    public void testDate(ZoneId sessionZone)
     {
         // Note: these test cases are duplicates of those for PostgreSQL and MySQL.
 
-        LocalDate dateOfLocalTimeChangeForwardAtMidnightInJvmZone =
-                LocalDate.of(1970, 1, 1);
+        Session session = Session.builder(getSession())
+                .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
+                .build();
 
-        verify(jvmZone.getRules().getValidOffsets(
-                dateOfLocalTimeChangeForwardAtMidnightInJvmZone
-                        .atStartOfDay()).isEmpty());
-
-        ZoneId someZone = ZoneId.of("Europe/Vilnius");
-
-        LocalDate dateOfLocalTimeChangeForwardAtMidnightInSomeZone =
-                LocalDate.of(1983, 4, 1);
-
-        verify(someZone.getRules().getValidOffsets(
-                dateOfLocalTimeChangeForwardAtMidnightInSomeZone
-                        .atStartOfDay()).isEmpty());
-
-        LocalDate dateOfLocalTimeChangeBackwardAtMidnightInSomeZone =
-                LocalDate.of(1983, 10, 1);
-
-        verify(someZone.getRules().getValidOffsets(
-                dateOfLocalTimeChangeBackwardAtMidnightInSomeZone
-                        .atStartOfDay().minusMinutes(1)).size() == 2);
-
-        SqlDataTypeTest dateTests = SqlDataTypeTest.create()
+        SqlDataTypeTest.create()
                 // min value in Oracle
                 .addRoundTrip("DATE", "DATE '-4712-01-01'", TIMESTAMP_SECONDS, "TIMESTAMP '-4712-01-01 00:00:00'")
                 .addRoundTrip("DATE", "DATE '-0001-01-01'", TIMESTAMP_SECONDS, "TIMESTAMP '-0001-01-01 00:00:00'")
@@ -674,16 +663,10 @@ public abstract class AbstractTestOracleTypeMapping
                 .addRoundTrip("DATE", "DATE '1983-04-01'", TIMESTAMP_SECONDS, "TIMESTAMP '1983-04-01 00:00:00'")
                 .addRoundTrip("DATE", "DATE '1983-10-01'", TIMESTAMP_SECONDS, "TIMESTAMP '1983-10-01 00:00:00'")
                 // max value in Oracle
-                .addRoundTrip("DATE", "DATE '9999-12-31'", TIMESTAMP_SECONDS, "TIMESTAMP '9999-12-31 00:00:00'");
-
-        for (String timeZoneId : ImmutableList.of(UTC_KEY.getId(), ZoneId.systemDefault().getId(), ZoneId.of("Europe/Vilnius").getId())) {
-            Session session = Session.builder(getSession())
-                    .setTimeZoneKey(getTimeZoneKey(timeZoneId))
-                    .build();
-            dateTests.execute(getQueryRunner(), session, oracleCreateAndInsert("test_date"));
-            dateTests.execute(getQueryRunner(), session, trinoCreateAsSelect("test_date"));
-            dateTests.execute(getQueryRunner(), session, trinoCreateAndInsert("test_date"));
-        }
+                .addRoundTrip("DATE", "DATE '9999-12-31'", TIMESTAMP_SECONDS, "TIMESTAMP '9999-12-31 00:00:00'")
+                .execute(getQueryRunner(), session, oracleCreateAndInsert("test_date"))
+                .execute(getQueryRunner(), session, trinoCreateAsSelect("test_date"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert("test_date"));
     }
 
     @Test
@@ -941,7 +924,12 @@ public abstract class AbstractTestOracleTypeMapping
 
     private DataSetup trinoCreateAndInsert(String tableNamePrefix)
     {
-        return new CreateAndInsertDataSetup(new TrinoSqlExecutor(getQueryRunner()), tableNamePrefix);
+        return trinoCreateAndInsert(getSession(), tableNamePrefix);
+    }
+
+    private DataSetup trinoCreateAndInsert(Session session, String tableNamePrefix)
+    {
+        return new CreateAndInsertDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
     }
 
     private DataSetup oracleCreateAndInsert(String tableNamePrefix)
