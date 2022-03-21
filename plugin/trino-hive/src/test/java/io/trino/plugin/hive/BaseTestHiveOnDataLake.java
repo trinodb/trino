@@ -16,6 +16,7 @@ package io.trino.plugin.hive;
 import com.amazonaws.services.s3.AmazonS3;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.authentication.NoHdfsAuthentication;
@@ -39,6 +40,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
@@ -87,18 +89,21 @@ public abstract class BaseTestHiveOnDataLake
                         new NoHdfsAuthentication()),
                 false),
                 HiveIdentity.none());
-        return S3HiveQueryRunner.create(
-                dockerizedS3DataLake,
-                ImmutableMap.<String, String>builder()
-                        // This is required when using MinIO which requires path style access
-                        .put("hive.insert-existing-partitions-behavior", "OVERWRITE")
-                        .put("hive.non-managed-table-writes-enabled", "true")
-                        // Below are required to enable caching on metastore
-                        .put("hive.metastore-cache-ttl", "1d")
-                        .put("hive.metastore-refresh-interval", "1d")
-                        // This is required to reduce memory pressure to test writing large files
-                        .put("hive.s3.streaming.part-size", "5MB")
-                        .buildOrThrow());
+        return S3HiveQueryRunner.builder(dockerizedS3DataLake)
+                .setHiveProperties(
+                        ImmutableMap.<String, String>builder()
+                                // This is required when using MinIO which requires path style access
+                                .put("hive.insert-existing-partitions-behavior", "OVERWRITE")
+                                .put("hive.non-managed-table-writes-enabled", "true")
+                                // Below are required to enable caching on metastore
+                                .put("hive.metastore-cache-ttl", "1d")
+                                .put("hive.metastore-refresh-interval", "1d")
+                                // This is required to reduce memory pressure to test writing large files
+                                .put("hive.s3.streaming.part-size", "5MB")
+                                .buildOrThrow())
+                // Increased timeout due to occasional slower responses in such setup
+                .setMetastoreTimeout(new Duration(20, TimeUnit.SECONDS))
+                .build();
     }
 
     @BeforeClass

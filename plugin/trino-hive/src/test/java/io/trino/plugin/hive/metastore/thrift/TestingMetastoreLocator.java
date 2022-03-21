@@ -34,7 +34,12 @@ public class TestingMetastoreLocator
 
     public TestingMetastoreLocator(Optional<HostAndPort> socksProxy, HostAndPort address)
     {
-        this.factory = new DefaultThriftMetastoreClientFactory(Optional.empty(), socksProxy, TIMEOUT, AUTHENTICATION, "localhost");
+        this(socksProxy, address, TIMEOUT);
+    }
+
+    public TestingMetastoreLocator(Optional<HostAndPort> socksProxy, HostAndPort address, Duration timeout)
+    {
+        this.factory = new DefaultThriftMetastoreClientFactory(Optional.empty(), socksProxy, timeout, AUTHENTICATION, "localhost");
         this.address = requireNonNull(address, "address is null");
     }
 
