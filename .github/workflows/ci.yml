@@ -55,7 +55,7 @@ jobs:
       - name: Maven Checks
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY $MAVEN install -B --strict-checksums -V -T C1 -DskipTests -P ci -pl '!:trino-server-rpm'
+          $RETRY $MAVEN clean install -B --strict-checksums -V -T C1 -DskipTests -P ci -pl '!:trino-server-rpm'
       - name: Test Server RPM
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
@@ -87,7 +87,7 @@ jobs:
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY $MAVEN install ${MAVEN_FAST_INSTALL} -pl '!:trino-docs,!:trino-server,!:trino-server-rpm'
+          $RETRY $MAVEN clean install ${MAVEN_FAST_INSTALL} -pl '!:trino-docs,!:trino-server,!:trino-server-rpm'
       - name: Error Prone Checks
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
@@ -124,7 +124,7 @@ jobs:
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY $MAVEN install ${MAVEN_FAST_INSTALL} -pl '!:trino-docs,!:trino-server,!:trino-server-rpm'
+          $RETRY $MAVEN clean install ${MAVEN_FAST_INSTALL} -pl '!:trino-docs,!:trino-server,!:trino-server-rpm'
       - name: Test old JDBC vs current server
         run: |
           if [ ! -f gib-impacted.log ] || grep -q testing/trino-test-jdbc-compatibility-old-driver gib-impacted.log; then
@@ -184,7 +184,7 @@ jobs:
       - name: Install Hive Module
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY $MAVEN install ${MAVEN_FAST_INSTALL} -am -pl :trino-hive-hadoop2
+          $RETRY $MAVEN clean install ${MAVEN_FAST_INSTALL} -am -pl :trino-hive-hadoop2
       - name: Run Hive Tests
         run: |
           source plugin/trino-hive-hadoop2/conf/hive-tests-${{ matrix.config }}.sh &&
@@ -300,7 +300,7 @@ jobs:
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY $MAVEN install ${MAVEN_FAST_INSTALL} -pl '!:trino-docs,!:trino-server,!:trino-server-rpm'
+          $RETRY $MAVEN clean install ${MAVEN_FAST_INSTALL} -pl '!:trino-docs,!:trino-server,!:trino-server-rpm'
       - name: Maven Tests
         run: |
           $MAVEN test ${MAVEN_TEST} -pl '
@@ -439,7 +439,7 @@ jobs:
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY $MAVEN install ${MAVEN_FAST_INSTALL} -am -pl "${{ matrix.modules }}"
+          $RETRY $MAVEN clean install ${MAVEN_FAST_INSTALL} -am -pl "${{ matrix.modules }}"
       - name: Maven Tests
         if: matrix.modules != 'plugin/trino-singlestore'
         run: $MAVEN test ${MAVEN_TEST} -pl ${{ matrix.modules }} ${{ matrix.profile != '' && format('-P {0}', matrix.profile) || '' }}
@@ -530,7 +530,7 @@ jobs:
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
           # GIB needs to be explicitly disabled, because the gib profile enables it, but the trino-server module requires all of its dependencies to be built
-          $RETRY $MAVEN install ${MAVEN_FAST_INSTALL} -Dgib.disable -pl '!:trino-docs,!:trino-server-rpm'
+          $RETRY $MAVEN clean install ${MAVEN_FAST_INSTALL} -Dgib.disable -pl '!:trino-docs,!:trino-server-rpm'
       - name: Product tests artifact
         uses: actions/upload-artifact@v2
         with:
