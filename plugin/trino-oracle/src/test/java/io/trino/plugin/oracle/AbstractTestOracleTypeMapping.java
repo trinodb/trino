@@ -19,6 +19,7 @@ import io.trino.plugin.jdbc.UnsupportedTypeHandling;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.TestingSession;
 import io.trino.testing.datatype.CreateAndInsertDataSetup;
+import io.trino.testing.datatype.CreateAndTrinoInsertDataSetup;
 import io.trino.testing.datatype.CreateAsSelectDataSetup;
 import io.trino.testing.datatype.DataSetup;
 import io.trino.testing.datatype.DataTypeTest;
@@ -479,10 +480,24 @@ public abstract class AbstractTestOracleTypeMapping
     @Test
     public void testNumberNegativeScaleReadMapping()
     {
-        // TODO: Add similar tests for write mappings.
-        // Those tests would require the table to be created in Oracle, but values inserted
-        // by Trino, which is outside the capabilities of the current DataSetup classes.
-        SqlDataTypeTest.create()
+        numberWithNegativeScaleTest()
+                .addRoundTrip("number(37, -1)", "99999999999999999999999999999999999990", createDecimalType(38, 0), "CAST('99999999999999999999999999999999999990' AS DECIMAL(38, 0))") // max
+                .addRoundTrip("number(37, -1)", "-99999999999999999999999999999999999990", createDecimalType(38, 0), "CAST('-99999999999999999999999999999999999990' AS DECIMAL(38, 0))") // min
+                .execute(getQueryRunner(), oracleCreateAndInsert("number_negative_s"));
+    }
+
+    @Test
+    public void testNumberNegativeScaleWriteMapping()
+    {
+        numberWithNegativeScaleTest()
+                .addRoundTrip("number(37, -1)", "CAST('99999999999999999999999999999999999990' AS DECIMAL(38, 0))", createDecimalType(38, 0), "CAST('99999999999999999999999999999999999990' AS DECIMAL(38, 0))") // max
+                .addRoundTrip("number(37, -1)", "CAST('-99999999999999999999999999999999999990' AS DECIMAL(38, 0))", createDecimalType(38, 0), "CAST('-99999999999999999999999999999999999990' AS DECIMAL(38, 0))") // min
+                .execute(getQueryRunner(), oracleCreateAndTrinoInsert("number_negative_s"));
+    }
+
+    private SqlDataTypeTest numberWithNegativeScaleTest()
+    {
+        return SqlDataTypeTest.create()
                 .addRoundTrip("number(1, -1)", "20", createDecimalType(2, 0), "CAST(20 AS DECIMAL(2, 0))")
                 .addRoundTrip("number(1, -1)", "35", createDecimalType(2, 0), "CAST(40 AS DECIMAL(2, 0))") // More useful as a test for write mappings.
                 .addRoundTrip("number(2, -4)", "470000", createDecimalType(6, 0), "CAST(470000 AS DECIMAL(6, 0))")
@@ -494,10 +509,7 @@ public abstract class AbstractTestOracleTypeMapping
                 .addRoundTrip("number(5, -33)", "1.2345E+37", createDecimalType(38, 0), "CAST(1.2345E+37 AS DECIMAL(38, 0))")
                 .addRoundTrip("number(5, -33)", "-1.2345E+37", createDecimalType(38, 0), "CAST(-1.2345E+37 AS DECIMAL(38, 0))")
                 .addRoundTrip("number(1, -37)", "1E+37", createDecimalType(38, 0), "CAST(1E+37 AS DECIMAL(38, 0))")
-                .addRoundTrip("number(1, -37)", "-1E+37", createDecimalType(38, 0), "CAST(-1E+37 AS DECIMAL(38, 0))")
-                .addRoundTrip("number(37, -1)", "99999999999999999999999999999999999990", createDecimalType(38, 0), "CAST('99999999999999999999999999999999999990' AS DECIMAL(38, 0))") // max
-                .addRoundTrip("number(37, -1)", "-99999999999999999999999999999999999990", createDecimalType(38, 0), "CAST('-99999999999999999999999999999999999990' AS DECIMAL(38, 0))") // min
-                .execute(getQueryRunner(), oracleCreateAndInsert("number_negative_s"));
+                .addRoundTrip("number(1, -37)", "-1E+37", createDecimalType(38, 0), "CAST(-1E+37 AS DECIMAL(38, 0))");
     }
 
     @Test
@@ -935,6 +947,11 @@ public abstract class AbstractTestOracleTypeMapping
     private DataSetup oracleCreateAndInsert(String tableNamePrefix)
     {
         return new CreateAndInsertDataSetup(onRemoteDatabase(), tableNamePrefix);
+    }
+
+    private DataSetup oracleCreateAndTrinoInsert(String tableNamePrefix)
+    {
+        return new CreateAndTrinoInsertDataSetup(onRemoteDatabase(), new TrinoSqlExecutor(getQueryRunner()), tableNamePrefix);
     }
 
     protected abstract SqlExecutor onRemoteDatabase();
