@@ -26,7 +26,7 @@ public interface PartitionMemoryEstimator
 {
     MemoryRequirements getInitialMemoryRequirements(Session session, DataSize defaultMemoryLimit);
 
-    MemoryRequirements getNextRetryMemoryRequirements(Session session, MemoryRequirements previousMemoryRequirements, ErrorCode errorCode);
+    MemoryRequirements getNextRetryMemoryRequirements(Session session, MemoryRequirements previousMemoryRequirements, DataSize peakMemoryUsage, ErrorCode errorCode);
 
     class MemoryRequirements
     {

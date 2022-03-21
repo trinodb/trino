@@ -546,7 +546,7 @@ public class FaultTolerantStageScheduler
                                 // update memory limits for next attempt
                                 MemoryRequirements memoryLimits = partitionMemoryRequirements.get(partitionId);
                                 verify(memoryLimits != null);
-                                MemoryRequirements newMemoryLimits = partitionMemoryEstimator.getNextRetryMemoryRequirements(session, memoryLimits, errorCode);
+                                MemoryRequirements newMemoryLimits = partitionMemoryEstimator.getNextRetryMemoryRequirements(session, memoryLimits, taskStatus.getPeakMemoryReservation(), errorCode);
                                 partitionMemoryRequirements.put(partitionId, newMemoryLimits);
 
                                 // reschedule
