@@ -377,6 +377,9 @@ public class ClickHouseClient
             // By default, the clickhouse column is not allowed to be null
             sb.append(toWriteMapping(session, column.getType()).getDataType());
         }
+        if (column.getComment() != null) {
+            sb.append(format(" COMMENT '%s'", column.getComment()));
+        }
         return sb.toString();
     }
 
@@ -401,9 +404,6 @@ public class ClickHouseClient
     @Override
     public void addColumn(ConnectorSession session, JdbcTableHandle handle, ColumnMetadata column)
     {
-        if (column.getComment() != null) {
-            throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding columns with comments");
-        }
         try (Connection connection = connectionFactory.openConnection(session)) {
             String remoteColumnName = getIdentifierMapping().toRemoteColumnName(connection, column.getName());
             String sql = format(
