@@ -12,11 +12,11 @@ remote exchange (GATHER, SINGLE, [])
                                             join (INNER, PARTITIONED):
                                                 remote exchange (REPARTITION, HASH, ["suppkey_5"])
                                                     join (INNER, PARTITIONED):
-                                                        remote exchange (REPARTITION, HASH, ["partkey"])
-                                                            scan part
+                                                        remote exchange (REPARTITION, HASH, ["partkey_4"])
+                                                            scan lineitem
                                                         local exchange (GATHER, SINGLE, [])
-                                                            remote exchange (REPARTITION, HASH, ["partkey_4"])
-                                                                scan lineitem
+                                                            remote exchange (REPARTITION, HASH, ["partkey"])
+                                                                scan part
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPARTITION, HASH, ["suppkey"])
                                                         scan supplier
