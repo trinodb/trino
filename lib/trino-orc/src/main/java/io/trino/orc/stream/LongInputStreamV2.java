@@ -13,6 +13,7 @@
  */
 package io.trino.orc.stream;
 
+import com.google.common.primitives.SignedBytes;
 import io.trino.orc.OrcCorruptionException;
 import io.trino.orc.checkpoint.LongStreamCheckpoint;
 import io.trino.orc.checkpoint.LongStreamV2Checkpoint;
@@ -400,6 +401,28 @@ public class LongInputStreamV2
                 if (literal != value) {
                     throw new OrcCorruptionException(input.getOrcDataSourceId(), "Decoded value out of range for a 16bit number");
                 }
+                values[offset + i] = value;
+            }
+            used += chunkSize;
+            offset += chunkSize;
+            items -= chunkSize;
+        }
+    }
+
+    @Override
+    public void next(byte[] values, int items) throws IOException {
+        int offset = 0;
+        while (items > 0) {
+            if (used == numLiterals) {
+                numLiterals = 0;
+                used = 0;
+                readValues();
+            }
+
+            int chunkSize = min(numLiterals - used, items);
+            for (int i = 0; i < chunkSize; i++) {
+                long literal = literals[used + i];
+                byte value = SignedBytes.saturatedCast(literal);
                 values[offset + i] = value;
             }
             used += chunkSize;
