@@ -992,6 +992,12 @@ public interface ConnectorMetadata
         return Optional.empty();
     }
 
+    default Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(
+            ConnectorSession session, ConnectorTableHandle tableHandle, Constraint constraint, Set<ColumnHandle> remainingPredicateColumns)
+    {
+        return applyFilter(session, tableHandle, constraint);
+    }
+
     /**
      * Attempt to push down the provided projections into the table.
      * <p>

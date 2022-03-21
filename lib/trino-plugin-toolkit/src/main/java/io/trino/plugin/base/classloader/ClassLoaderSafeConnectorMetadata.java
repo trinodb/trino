@@ -854,6 +854,14 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
+    public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle table, Constraint constraint, Set<ColumnHandle> remainingPredicateColumns)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.applyFilter(session, table, constraint, remainingPredicateColumns);
+        }
+    }
+
+    @Override
     public Optional<ProjectionApplicationResult<ConnectorTableHandle>> applyProjection(ConnectorSession session, ConnectorTableHandle table, List<ConnectorExpression> projections, Map<String, ColumnHandle> assignments)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {

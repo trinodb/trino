@@ -155,6 +155,7 @@ import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.nio.file.Files.createTempDirectory;
+import static java.util.Collections.emptySet;
 import static java.util.Collections.nCopies;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -3407,7 +3408,7 @@ public abstract class BaseHiveConnectorTest
                     QualifiedObjectName name = new QualifiedObjectName(catalog, TPCH_SCHEMA, tableName);
                     TableHandle table = metadata.getTableHandle(transactionSession, name)
                             .orElseThrow(() -> new AssertionError("table not found: " + name));
-                    table = metadata.applyFilter(transactionSession, table, Constraint.alwaysTrue())
+                    table = metadata.applyFilter(transactionSession, table, Constraint.alwaysTrue(), emptySet())
                             .orElseThrow(() -> new AssertionError("applyFilter did not return a result"))
                             .getHandle();
                     return propertyGetter.apply((HiveTableHandle) table.getConnectorHandle());

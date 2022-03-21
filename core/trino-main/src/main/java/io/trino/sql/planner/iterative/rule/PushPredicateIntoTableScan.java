@@ -40,6 +40,7 @@ import io.trino.sql.planner.LayoutConstraintEvaluator;
 import io.trino.sql.planner.LiteralEncoder;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
+import io.trino.sql.planner.SymbolsExtractor;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.iterative.Rule;
@@ -55,7 +56,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
@@ -242,7 +246,12 @@ public class PushPredicateIntoTableScan
             return Optional.of(new ValuesNode(node.getId(), node.getOutputSymbols(), ImmutableList.of()));
         }
 
-        Optional<ConstraintApplicationResult<TableHandle>> result = plannerContext.getMetadata().applyFilter(session, node.getTable(), constraint);
+        Set<ColumnHandle> remainingPredicateColumns = Stream.concat(
+                SymbolsExtractor.extractUnique(splitExpression.getNonDeterministicPredicate()).stream(),
+                SymbolsExtractor.extractUnique(expressionTranslation.getRemainingExpression()).stream())
+                .map(symbol -> node.getAssignments().get(symbol))
+                .collect(Collectors.toSet());
+        Optional<ConstraintApplicationResult<TableHandle>> result = plannerContext.getMetadata().applyFilter(session, node.getTable(), constraint, remainingPredicateColumns);
 
         if (result.isEmpty()) {
             return Optional.empty();

@@ -106,6 +106,7 @@ import static io.trino.tpch.TpchTable.LINE_ITEM;
 import static io.trino.transaction.TransactionBuilder.transaction;
 import static java.lang.String.format;
 import static java.lang.String.join;
+import static java.util.Collections.emptySet;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
@@ -2187,7 +2188,7 @@ public abstract class BaseIcebergConnectorTest
                     filter.entrySet().stream()
                             .collect(toImmutableMap(entry -> columns.get(entry.getKey()), Map.Entry::getValue)));
 
-            Optional<ConstraintApplicationResult<TableHandle>> result = metadata.applyFilter(session, table, new Constraint(domains));
+            Optional<ConstraintApplicationResult<TableHandle>> result = metadata.applyFilter(session, table, new Constraint(domains), emptySet());
 
             assertTrue(result.isEmpty() == (expectedUnenforcedPredicate == null && expectedEnforcedPredicate == null));
 

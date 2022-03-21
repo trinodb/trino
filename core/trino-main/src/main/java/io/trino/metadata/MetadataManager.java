@@ -1672,13 +1672,13 @@ public final class MetadataManager
     }
 
     @Override
-    public Optional<ConstraintApplicationResult<TableHandle>> applyFilter(Session session, TableHandle table, Constraint constraint)
+    public Optional<ConstraintApplicationResult<TableHandle>> applyFilter(Session session, TableHandle table, Constraint constraint, Set<ColumnHandle> remainingPredicateColumns)
     {
         CatalogName catalogName = table.getCatalogName();
         ConnectorMetadata metadata = getMetadata(session, catalogName);
 
         ConnectorSession connectorSession = session.toConnectorSession(catalogName);
-        return metadata.applyFilter(connectorSession, table.getConnectorHandle(), constraint)
+        return metadata.applyFilter(connectorSession, table.getConnectorHandle(), constraint, remainingPredicateColumns)
                 .map(result -> result.transform(handle -> new TableHandle(catalogName, handle, table.getTransaction())));
     }
 
