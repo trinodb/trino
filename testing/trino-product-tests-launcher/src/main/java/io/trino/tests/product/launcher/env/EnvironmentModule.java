@@ -25,6 +25,7 @@ import io.trino.tests.product.launcher.env.common.HydraIdentityProvider;
 import io.trino.tests.product.launcher.env.common.Kafka;
 import io.trino.tests.product.launcher.env.common.KafkaSsl;
 import io.trino.tests.product.launcher.env.common.Kerberos;
+import io.trino.tests.product.launcher.env.common.Minio;
 import io.trino.tests.product.launcher.env.common.Phoenix;
 import io.trino.tests.product.launcher.env.common.Standard;
 import io.trino.tests.product.launcher.env.common.StandardMultinode;
@@ -73,6 +74,7 @@ public final class EnvironmentModule
         binder.bind(StandardMultinode.class).in(SINGLETON);
         binder.bind(Phoenix.class).in(SINGLETON);
         binder.bind(Kerberos.class).in(SINGLETON);
+        binder.bind(Minio.class).in(SINGLETON);
 
         MapBinder<String, EnvironmentProvider> environments = newMapBinder(binder, String.class, EnvironmentProvider.class);
         findEnvironmentsByBasePackage(ENVIRONMENT_PACKAGE).forEach(clazz -> environments.addBinding(nameForEnvironmentClass(clazz)).to(clazz).in(SINGLETON));
