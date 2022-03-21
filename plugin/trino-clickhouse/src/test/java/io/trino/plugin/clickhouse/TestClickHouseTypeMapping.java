@@ -243,7 +243,7 @@ public class TestClickHouseTypeMapping
                 .addRoundTrip("UInt8", "0", SMALLINT, "SMALLINT '0'") // min value in ClickHouse
                 .addRoundTrip("UInt8", "255", SMALLINT, "SMALLINT '255'") // max value in ClickHouse
                 .addRoundTrip("Nullable(UInt8)", "NULL", SMALLINT, "CAST(null AS SMALLINT)")
-                .execute(getQueryRunner(), clickhouseCreateTrinoInsert("tpch.test_uint8"));
+                .execute(getQueryRunner(), clickhouseCreateAndTrinoInsert("tpch.test_uint8"));
     }
 
     @Test
@@ -279,7 +279,7 @@ public class TestClickHouseTypeMapping
                 .addRoundTrip("UInt16", "0", INTEGER, "0") // min value in ClickHouse
                 .addRoundTrip("UInt16", "65535", INTEGER, "65535") // max value in ClickHouse
                 .addRoundTrip("Nullable(UInt16)", "NULL", INTEGER, "CAST(null AS INTEGER)")
-                .execute(getQueryRunner(), clickhouseCreateTrinoInsert("tpch.test_uint16"));
+                .execute(getQueryRunner(), clickhouseCreateAndTrinoInsert("tpch.test_uint16"));
     }
 
     @Test
@@ -315,7 +315,7 @@ public class TestClickHouseTypeMapping
                 .addRoundTrip("UInt32", "BIGINT '0'", BIGINT, "BIGINT '0'") // min value in ClickHouse
                 .addRoundTrip("UInt32", "BIGINT '4294967295'", BIGINT, "BIGINT '4294967295'") // max value in ClickHouse
                 .addRoundTrip("Nullable(UInt32)", "NULL", BIGINT, "CAST(null AS BIGINT)")
-                .execute(getQueryRunner(), clickhouseCreateTrinoInsert("tpch.test_uint32"));
+                .execute(getQueryRunner(), clickhouseCreateAndTrinoInsert("tpch.test_uint32"));
     }
 
     @Test
@@ -351,7 +351,7 @@ public class TestClickHouseTypeMapping
                 .addRoundTrip("UInt64", "CAST('0' AS decimal(20, 0))", createDecimalType(20), "CAST('0' AS decimal(20, 0))") // min value in ClickHouse
                 .addRoundTrip("UInt64", "CAST('18446744073709551615' AS decimal(20, 0))", createDecimalType(20), "CAST('18446744073709551615' AS decimal(20, 0))") // max value in ClickHouse
                 .addRoundTrip("Nullable(UInt64)", "NULL", createDecimalType(20), "CAST(null AS decimal(20, 0))")
-                .execute(getQueryRunner(), clickhouseCreateTrinoInsert("tpch.test_uint64"));
+                .execute(getQueryRunner(), clickhouseCreateAndTrinoInsert("tpch.test_uint64"));
     }
 
     @Test
@@ -764,7 +764,7 @@ public class TestClickHouseTypeMapping
                 .addRoundTrip("IPv6", "IPADDRESS 'ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff'", IPADDRESS, "IPADDRESS 'ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff'")
                 .addRoundTrip("Nullable(IPv4)", "NULL", IPADDRESS, "CAST(NULL AS IPADDRESS)")
                 .addRoundTrip("Nullable(IPv6)", "NULL", IPADDRESS, "CAST(NULL AS IPADDRESS)")
-                .execute(getQueryRunner(), clickhouseCreateTrinoInsert("tpch.test_ip"));
+                .execute(getQueryRunner(), clickhouseCreateAndTrinoInsert("tpch.test_ip"));
     }
 
     private static Session mapStringAsVarcharSession()
@@ -801,7 +801,7 @@ public class TestClickHouseTypeMapping
         return new CreateAndInsertDataSetup(new ClickHouseSqlExecutor(clickhouseServer::execute), tableNamePrefix);
     }
 
-    private DataSetup clickhouseCreateTrinoInsert(String tableNamePrefix)
+    private DataSetup clickhouseCreateAndTrinoInsert(String tableNamePrefix)
     {
         return new CreateAndTrinoInsertDataSetup(new ClickHouseSqlExecutor(clickhouseServer::execute), new TrinoSqlExecutor(getQueryRunner()), tableNamePrefix);
     }
