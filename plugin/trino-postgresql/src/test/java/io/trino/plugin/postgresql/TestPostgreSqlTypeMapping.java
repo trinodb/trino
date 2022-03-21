@@ -214,7 +214,7 @@ public class TestPostgreSqlTypeMapping
                 .addRoundTrip("smallserial", "32456", SMALLINT, "SMALLINT '32456'")
                 .addRoundTrip("smallserial", "32767", SMALLINT, "SMALLINT '32767'") // max value in PostgreSQL and Trino
                 .execute(getQueryRunner(), postgresCreateAndInsert("tpch.test_smallserial"))
-                .execute(getQueryRunner(), postgresCreateTrinoInsert("tpch.test_smallserial"));
+                .execute(getQueryRunner(), postgresCreateAndTrinoInsert("tpch.test_smallserial"));
     }
 
     @Test
@@ -252,7 +252,7 @@ public class TestPostgreSqlTypeMapping
                 .addRoundTrip("serial", "1234567890", INTEGER, "1234567890")
                 .addRoundTrip("serial", "2147483647", INTEGER, "2147483647") // max value in PostgreSQL and Trino
                 .execute(getQueryRunner(), postgresCreateAndInsert("tpch.test_serial"))
-                .execute(getQueryRunner(), postgresCreateTrinoInsert("tpch.test_serial"));
+                .execute(getQueryRunner(), postgresCreateAndTrinoInsert("tpch.test_serial"));
     }
 
     @Test
@@ -290,7 +290,7 @@ public class TestPostgreSqlTypeMapping
                 .addRoundTrip("bigserial", "123456789012", BIGINT, "123456789012")
                 .addRoundTrip("bigserial", "9223372036854775807", BIGINT, "9223372036854775807") // max value in PostgreSQL and Trino
                 .execute(getQueryRunner(), postgresCreateAndInsert("tpch.test_bigserial"))
-                .execute(getQueryRunner(), postgresCreateTrinoInsert("tpch.test_bigserial"));
+                .execute(getQueryRunner(), postgresCreateAndTrinoInsert("tpch.test_bigserial"));
     }
 
     @Test
@@ -1685,7 +1685,7 @@ public class TestPostgreSqlTypeMapping
                 .addRoundTrip("hstore", "MAP(ARRAY['key1','key2','key3'], ARRAY['value1','value2','value3'])", mapOfVarcharToVarchar, "CAST(MAP(ARRAY['key1','key2','key3'], ARRAY['value1','value2','value3']) AS MAP(VARCHAR, VARCHAR))")
                 .addRoundTrip("hstore", "MAP(ARRAY['key1','key2','key3'], ARRAY[' \" ',' '' ',' ]) '])", mapOfVarcharToVarchar, "CAST(MAP(ARRAY['key1','key2','key3'], ARRAY[' \" ',' '' ',' ]) ']) AS MAP(VARCHAR, VARCHAR))")
                 .addRoundTrip("hstore", "MAP(ARRAY['key1'], ARRAY[null])", mapOfVarcharToVarchar, "CAST(MAP(ARRAY['key1'], ARRAY[null]) AS MAP(VARCHAR, VARCHAR))")
-                .execute(getQueryRunner(), postgresCreateTrinoInsert("postgresql_test_hstore"));
+                .execute(getQueryRunner(), postgresCreateAndTrinoInsert("postgresql_test_hstore"));
     }
 
     @Test
@@ -1876,7 +1876,7 @@ public class TestPostgreSqlTypeMapping
         return new CreateAndInsertDataSetup(new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl(), postgreSqlServer.getProperties()), tableNamePrefix);
     }
 
-    private DataSetup postgresCreateTrinoInsert(String tableNamePrefix)
+    private DataSetup postgresCreateAndTrinoInsert(String tableNamePrefix)
     {
         return new CreateAndTrinoInsertDataSetup(new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl(), postgreSqlServer.getProperties()), new TrinoSqlExecutor(getQueryRunner()), tableNamePrefix);
     }
