@@ -104,21 +104,6 @@ public abstract class AbstractTestOracleTypeMapping
         checkIsGap(kathmandu, timeGapInKathmandu);
     }
 
-    private DataSetup trinoCreateAsSelect(String tableNamePrefix)
-    {
-        return trinoCreateAsSelect(getSession(), tableNamePrefix);
-    }
-
-    private DataSetup trinoCreateAsSelect(Session session, String tableNamePrefix)
-    {
-        return new CreateAsSelectDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
-    }
-
-    private DataSetup trinoCreateAndInsert(String tableNamePrefix)
-    {
-        return new CreateAndInsertDataSetup(new TrinoSqlExecutor(getQueryRunner()), tableNamePrefix);
-    }
-
     /* Floating point types tests */
 
     @Test
@@ -579,8 +564,8 @@ public abstract class AbstractTestOracleTypeMapping
     @Test
     public void testSpecialNumberFormats()
     {
-        getOracleSqlExecutor().execute("CREATE TABLE test (num1 number)");
-        getOracleSqlExecutor().execute("INSERT INTO test VALUES (12345678901234567890.12345678901234567890123456789012345678)");
+        onRemoteDatabase().execute("CREATE TABLE test (num1 number)");
+        onRemoteDatabase().execute("INSERT INTO test VALUES (12345678901234567890.12345678901234567890123456789012345678)");
         assertQuery(number(HALF_UP, 10), "SELECT * FROM test", "VALUES (12345678901234567890.1234567890)");
     }
 
@@ -927,17 +912,32 @@ public abstract class AbstractTestOracleTypeMapping
      */
     private void testUnsupportedOracleType(String dataTypeName)
     {
-        try (TestTable table = new TestTable(getOracleSqlExecutor(), "unsupported_type", format("(unsupported_type %s)", dataTypeName))) {
+        try (TestTable table = new TestTable(onRemoteDatabase(), "unsupported_type", format("(unsupported_type %s)", dataTypeName))) {
             assertQueryFails("SELECT * FROM " + table.getName(), NO_SUPPORTED_COLUMNS);
         }
     }
 
-    private DataSetup oracleCreateAndInsert(String tableNamePrefix)
+    private DataSetup trinoCreateAsSelect(String tableNamePrefix)
     {
-        return new CreateAndInsertDataSetup(getOracleSqlExecutor(), tableNamePrefix);
+        return trinoCreateAsSelect(getSession(), tableNamePrefix);
     }
 
-    protected abstract SqlExecutor getOracleSqlExecutor();
+    private DataSetup trinoCreateAsSelect(Session session, String tableNamePrefix)
+    {
+        return new CreateAsSelectDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
+    }
+
+    private DataSetup trinoCreateAndInsert(String tableNamePrefix)
+    {
+        return new CreateAndInsertDataSetup(new TrinoSqlExecutor(getQueryRunner()), tableNamePrefix);
+    }
+
+    private DataSetup oracleCreateAndInsert(String tableNamePrefix)
+    {
+        return new CreateAndInsertDataSetup(onRemoteDatabase(), tableNamePrefix);
+    }
+
+    protected abstract SqlExecutor onRemoteDatabase();
 
     private static void checkIsGap(ZoneId zone, LocalDateTime dateTime)
     {
@@ -956,6 +956,6 @@ public abstract class AbstractTestOracleTypeMapping
 
     private TestTable oracleTable(String tableName, String schema, String data)
     {
-        return new TestTable(getOracleSqlExecutor(), tableName, format("(%s)", schema), ImmutableList.of(data));
+        return new TestTable(onRemoteDatabase(), tableName, format("(%s)", schema), ImmutableList.of(data));
     }
 }

@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.SqlExecutor;
-import org.testng.annotations.AfterClass;
 
 import static io.trino.plugin.oracle.TestingOracleServer.TEST_PASS;
 import static io.trino.plugin.oracle.TestingOracleServer.TEST_USER;
@@ -31,7 +30,7 @@ public class TestOracleTypeMapping
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        this.oracleServer = new TestingOracleServer();
+        this.oracleServer = closeAfterClass(new TestingOracleServer());
         return OracleQueryRunner.createOracleQueryRunner(
                 oracleServer,
                 ImmutableMap.of(),
@@ -45,16 +44,8 @@ public class TestOracleTypeMapping
                 ImmutableList.of());
     }
 
-    @AfterClass(alwaysRun = true)
-    public final void destroy()
-    {
-        if (oracleServer != null) {
-            oracleServer.close();
-        }
-    }
-
     @Override
-    protected SqlExecutor getOracleSqlExecutor()
+    protected SqlExecutor onRemoteDatabase()
     {
         return sql -> oracleServer.execute(sql);
     }
