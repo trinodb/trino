@@ -16,6 +16,8 @@ package io.trino.tracing;
 import io.airlift.configuration.Config;
 import io.trino.spi.TrinoException;
 
+import java.util.Locale;
+
 import static io.trino.spi.StandardErrorCode.DISTRIBUTED_TRACING_ERROR;
 
 public class TracingConfig
@@ -74,7 +76,7 @@ public class TracingConfig
                     DISTRIBUTED_TRACING_ERROR,
                     "SAMPLE_BASED Tracing Mode is currently not supported.");
         }
-        this.tracingMode = DistributedTracingMode.valueOf(tracingMode.toUpperCase());
+        this.tracingMode = DistributedTracingMode.valueOf(tracingMode.toUpperCase(Locale.ENGLISH));
         return this;
     }
 }
