@@ -53,6 +53,7 @@ public class TaskStats
 
     private final double cumulativeUserMemory;
     private final DataSize userMemoryReservation;
+    private final DataSize peakUserMemoryReservation;
     private final DataSize revocableMemoryReservation;
 
     private final Duration totalScheduledTime;
@@ -105,6 +106,7 @@ public class TaskStats
                 0.0,
                 DataSize.ofBytes(0),
                 DataSize.ofBytes(0),
+                DataSize.ofBytes(0),
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
@@ -149,6 +151,7 @@ public class TaskStats
 
             @JsonProperty("cumulativeUserMemory") double cumulativeUserMemory,
             @JsonProperty("userMemoryReservation") DataSize userMemoryReservation,
+            @JsonProperty("peakUserMemoryReservation") DataSize peakUserMemoryReservation,
             @JsonProperty("revocableMemoryReservation") DataSize revocableMemoryReservation,
 
             @JsonProperty("totalScheduledTime") Duration totalScheduledTime,
@@ -212,6 +215,7 @@ public class TaskStats
 
         this.cumulativeUserMemory = cumulativeUserMemory;
         this.userMemoryReservation = requireNonNull(userMemoryReservation, "userMemoryReservation is null");
+        this.peakUserMemoryReservation = requireNonNull(peakUserMemoryReservation, "peakUserMemoryReservation is null");
         this.revocableMemoryReservation = requireNonNull(revocableMemoryReservation, "revocableMemoryReservation is null");
 
         this.totalScheduledTime = requireNonNull(totalScheduledTime, "totalScheduledTime is null");
@@ -336,6 +340,12 @@ public class TaskStats
     public DataSize getUserMemoryReservation()
     {
         return userMemoryReservation;
+    }
+
+    @JsonProperty
+    public DataSize getPeakUserMemoryReservation()
+    {
+        return peakUserMemoryReservation;
     }
 
     @JsonProperty
@@ -509,6 +519,7 @@ public class TaskStats
                 completedDrivers,
                 cumulativeUserMemory,
                 userMemoryReservation,
+                peakUserMemoryReservation,
                 revocableMemoryReservation,
                 totalScheduledTime,
                 totalCpuTime,
@@ -553,6 +564,7 @@ public class TaskStats
                 completedDrivers,
                 cumulativeUserMemory,
                 userMemoryReservation,
+                peakUserMemoryReservation,
                 revocableMemoryReservation,
                 totalScheduledTime,
                 totalCpuTime,
