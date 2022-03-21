@@ -32,7 +32,6 @@ import io.trino.execution.StageInfo;
 import io.trino.execution.TaskId;
 import io.trino.execution.TaskInfo;
 import io.trino.execution.TaskStatus;
-import io.trino.execution.scheduler.NodeSchedulerConfig;
 import io.trino.memory.LowMemoryKiller.QueryMemoryInfo;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.InternalNodeManager;
@@ -108,7 +107,6 @@ public class ClusterMemoryManager
     private final AtomicLong clusterMemoryBytes = new AtomicLong();
     private final AtomicLong queriesKilledDueToOutOfMemory = new AtomicLong();
     private final AtomicLong tasksKilledDueToOutOfMemory = new AtomicLong();
-    private final boolean isWorkScheduledOnCoordinator;
 
     @GuardedBy("this")
     private final Map<String, RemoteNodeMemory> nodes = new HashMap<>();
@@ -135,13 +133,11 @@ public class ClusterMemoryManager
             LowMemoryKiller lowMemoryKiller,
             ServerConfig serverConfig,
             MemoryManagerConfig config,
-            NodeMemoryConfig nodeMemoryConfig,
-            NodeSchedulerConfig schedulerConfig)
+            NodeMemoryConfig nodeMemoryConfig)
     {
         requireNonNull(config, "config is null");
         requireNonNull(nodeMemoryConfig, "nodeMemoryConfig is null");
         requireNonNull(serverConfig, "serverConfig is null");
-        requireNonNull(schedulerConfig, "schedulerConfig is null");
         checkState(serverConfig.isCoordinator(), "ClusterMemoryManager must not be bound on worker");
 
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
@@ -153,7 +149,6 @@ public class ClusterMemoryManager
         this.maxQueryMemory = config.getMaxQueryMemory();
         this.maxQueryTotalMemory = config.getMaxQueryTotalMemory();
         this.killOnOutOfMemoryDelay = config.getKillOnOutOfMemoryDelay();
-        this.isWorkScheduledOnCoordinator = schedulerConfig.isIncludeCoordinator();
 
         verify(maxQueryMemory.toBytes() <= maxQueryTotalMemory.toBytes(),
                 "maxQueryMemory cannot be greater than maxQueryTotalMemory");
@@ -464,12 +459,6 @@ public class ClusterMemoryManager
             if (!nodes.containsKey(node.getNodeIdentifier())) {
                 nodes.put(node.getNodeIdentifier(), new RemoteNodeMemory(node, httpClient, memoryInfoCodec, locationFactory.createMemoryInfoLocation(node)));
             }
-        }
-
-        // If work isn't scheduled on the coordinator (the current node) there is no point
-        // in polling or updating its memory pools
-        if (!isWorkScheduledOnCoordinator) {
-            nodes.remove(nodeManager.getCurrentNode().getNodeIdentifier());
         }
 
         // Schedule refresh
