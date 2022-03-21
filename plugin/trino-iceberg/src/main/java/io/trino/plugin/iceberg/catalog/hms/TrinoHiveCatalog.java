@@ -224,7 +224,8 @@ public class TrinoHiveCatalog
     {
         // basic sanity check to provide a better error message
         if (!listTables(session, Optional.of(namespace)).isEmpty() ||
-                !listViews(session, Optional.of(namespace)).isEmpty()) {
+                !listViews(session, Optional.of(namespace)).isEmpty() ||
+                !listMaterializedViews(session, Optional.of(namespace)).isEmpty()) {
             throw new TrinoException(SCHEMA_NOT_EMPTY, "Schema not empty: " + namespace);
         }
 
