@@ -625,12 +625,18 @@ public class TestClickHouseTypeMapping
                 .addRoundTrip("date", "DATE '1983-10-01'", DATE, "DATE '1983-10-01'")
                 .addRoundTrip("date", "DATE '2106-02-07'", DATE, "DATE '2106-02-07'") // max value in ClickHouse
                 .execute(getQueryRunner(), session, clickhouseCreateAndInsert("tpch.test_date"))
-                .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_date"));
+                .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_date"))
+                .execute(getQueryRunner(), session, trinoCreateAsSelect("test_date"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_date"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert("test_date"));
 
         // Null
         SqlDataTypeTest.create()
                 .addRoundTrip("date", "NULL", DATE, "CAST(NULL AS DATE)")
-                .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_date"));
+                .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_date"))
+                .execute(getQueryRunner(), session, trinoCreateAsSelect("test_date"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_date"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert("test_date"));
         SqlDataTypeTest.create()
                 .addRoundTrip("Nullable(date)", "NULL", DATE, "CAST(NULL AS DATE)")
                 .execute(getQueryRunner(), session, clickhouseCreateAndInsert("tpch.test_date"));
@@ -663,8 +669,10 @@ public class TestClickHouseTypeMapping
                 .addRoundTrip("timestamp(0)", "timestamp '2018-10-28 01:33:17'", createTimestampType(0), "TIMESTAMP '2018-10-28 01:33:17'") // time doubled in JVM zone
                 .addRoundTrip("timestamp(0)", "timestamp '2018-10-28 03:33:33'", createTimestampType(0), "TIMESTAMP '2018-10-28 03:33:33'") // time double in Vilnius
                 .addRoundTrip("timestamp(0)", "timestamp '2105-12-31 23:59:59'", createTimestampType(0), "TIMESTAMP '2105-12-31 23:59:59'") // max value in ClickHouse
-                .execute(getQueryRunner(), session, trinoCreateAsSelect("tpch.test_timestamp"))
-                .execute(getQueryRunner(), session, trinoCreateAndInsert("tpch.test_timestamp"));
+                .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_timestamp"))
+                .execute(getQueryRunner(), session, trinoCreateAsSelect("test_timestamp"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_timestamp"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert("test_timestamp"));
 
         addTimestampRoundTrips("timestamp")
                 .execute(getQueryRunner(), session, clickhouseCreateAndInsert("tpch.test_timestamp"));
