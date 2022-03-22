@@ -1257,6 +1257,13 @@ public class TestCassandraConnectorTest
     }
 
     @Override
+    public void testDeleteWithLike()
+    {
+        assertThatThrownBy(super::testDeleteWithLike)
+                .hasStackTraceContaining("Delete without primary key or partition key is not supported");
+    }
+
+    @Override
     public void testDeleteWithComplexPredicate()
     {
         assertThatThrownBy(super::testDeleteWithComplexPredicate)

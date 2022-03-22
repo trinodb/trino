@@ -173,6 +173,14 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Override
+    public void testDeleteWithLike()
+    {
+        // Deletes are covered with testMetadataDelete test methods
+        assertThatThrownBy(super::testDeleteWithLike)
+                .hasStackTraceContaining("This connector only supports delete where one or more identity-transformed partitions are deleted entirely");
+    }
+
+    @Override
     public void testDeleteWithComplexPredicate()
     {
         // Deletes are covered with testMetadataDelete test methods

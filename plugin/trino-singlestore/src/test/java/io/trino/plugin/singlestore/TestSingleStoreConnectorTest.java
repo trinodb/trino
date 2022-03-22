@@ -176,6 +176,13 @@ public class TestSingleStoreConnectorTest
         assertFalse(getQueryRunner().tableExists(getSession(), "test_drop"));
     }
 
+    @Override
+    public void testDeleteWithLike()
+    {
+        assertThatThrownBy(super::testDeleteWithLike)
+                .hasStackTraceContaining("TrinoException: Unsupported delete");
+    }
+
     @Test
     public void testReadFromView()
     {
