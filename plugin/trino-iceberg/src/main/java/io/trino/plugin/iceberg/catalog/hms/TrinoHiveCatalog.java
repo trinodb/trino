@@ -65,7 +65,6 @@ import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -105,8 +104,6 @@ import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static org.apache.hadoop.hive.metastore.TableType.VIRTUAL_VIEW;
-import static org.apache.iceberg.BaseMetastoreTableOperations.ICEBERG_TABLE_TYPE_VALUE;
-import static org.apache.iceberg.BaseMetastoreTableOperations.TABLE_TYPE_PROP;
 import static org.apache.iceberg.CatalogUtil.dropTableData;
 import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT_DEFAULT;
 
@@ -208,9 +205,7 @@ public class TrinoHiveCatalog
     public void dropNamespace(ConnectorSession session, String namespace)
     {
         // basic sanity check to provide a better error message
-        if (!listTables(session, Optional.of(namespace)).isEmpty() ||
-                !listViews(session, Optional.of(namespace)).isEmpty() ||
-                !listMaterializedViews(session, Optional.of(namespace)).isEmpty()) {
+        if (!listTables(session, Optional.of(namespace)).isEmpty()) {
             throw new TrinoException(SCHEMA_NOT_EMPTY, "Schema not empty: " + namespace);
         }
 
@@ -271,22 +266,9 @@ public class TrinoHiveCatalog
     public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> namespace)
     {
         ImmutableSet.Builder<SchemaTableName> tablesListBuilder = ImmutableSet.builder();
-        listNamespaces(session, namespace)
-                .stream()
-                .flatMap(schema -> Stream.concat(
-                                // Get tables with parameter table_type set to  "ICEBERG" or "iceberg". This is required because
-                                // Trino uses lowercase value whereas Spark and Flink use uppercase.
-                                // TODO: use one metastore call to pass both the filters: https://github.com/trinodb/trino/issues/7710
-                                metastore.getTablesWithParameter(schema, TABLE_TYPE_PROP, ICEBERG_TABLE_TYPE_VALUE.toLowerCase(Locale.ENGLISH)).stream()
-                                        .map(table -> new SchemaTableName(schema, table)),
-                                metastore.getTablesWithParameter(schema, TABLE_TYPE_PROP, ICEBERG_TABLE_TYPE_VALUE.toUpperCase(Locale.ENGLISH)).stream()
-                                        .map(table -> new SchemaTableName(schema, table)))
-                        .distinct())  // distinct() to avoid duplicates for case-insensitive HMS backends
-                .forEach(tablesListBuilder::add);
-
-        tablesListBuilder.addAll(listViews(session, namespace));
-        tablesListBuilder.addAll(listMaterializedViews(session, namespace));
-        // Deduplicate with set because state may change concurrently
+        for (String schemaName : listNamespaces(session, namespace)) {
+            metastore.getAllTables(schemaName).forEach(tableName -> tablesListBuilder.add(new SchemaTableName(schemaName, tableName)));
+        }
         return tablesListBuilder.build().asList();
     }
 

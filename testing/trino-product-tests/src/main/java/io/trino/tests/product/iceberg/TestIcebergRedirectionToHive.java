@@ -357,16 +357,14 @@ public class TestIcebergRedirectionToHive
         createHiveTable(hiveTableName, false);
 
         assertTableComment("hive", "default", tableName).isNull();
-        // TODO: support redirects from Iceberg to Hive
-        assertThat(readTableComment("iceberg", "default", tableName)).hasNoRows();
+        assertTableComment("iceberg", "default", tableName).isNull();
 
         // TODO: support redirects from Iceberg to Hive
         assertQueryFailure(() -> onTrino().executeQuery("COMMENT ON TABLE " + icebergTableName + " IS 'This is my table, there are many like it but this one is mine'"))
                 .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): Not an Iceberg table: default." + tableName);
 
         assertTableComment("hive", "default", tableName).isNull();
-        // TODO: support redirects from Iceberg to Hive
-        assertThat(readTableComment("iceberg", "default", tableName)).hasNoRows();
+        assertTableComment("iceberg", "default", tableName).isNull();
 
         onTrino().executeQuery("DROP TABLE " + hiveTableName);
     }

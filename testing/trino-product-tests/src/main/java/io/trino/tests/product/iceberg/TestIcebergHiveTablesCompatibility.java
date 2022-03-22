@@ -112,4 +112,22 @@ public class TestIcebergHiveTablesCompatibility
         onTrino().executeQuery("DROP TABLE hive.default." + hiveTableName);
         onTrino().executeQuery("DROP TABLE iceberg.default." + icebergTableName);
     }
+
+    @Test(groups = {ICEBERG, STORAGE_FORMATS, HMS_ONLY})
+    public void testHiveListsIcebergTable()
+    {
+        String tableName = "test_hive_lists_iceberg_table_" + randomTableSuffix();
+        onTrino().executeQuery("CREATE TABLE iceberg.default." + tableName + "(a bigint)");
+        assertThat(onTrino().executeQuery("SHOW TABLES FROM hive.default")).contains(row(tableName));
+        onTrino().executeQuery("DROP TABLE iceberg.default." + tableName);
+    }
+
+    @Test(groups = {ICEBERG, STORAGE_FORMATS, HMS_ONLY})
+    public void testIcebergListsHiveTable()
+    {
+        String tableName = "test_iceberg_lists_hive_table_" + randomTableSuffix();
+        onTrino().executeQuery("CREATE TABLE hive.default." + tableName + "(a bigint)");
+        assertThat(onTrino().executeQuery("SHOW TABLES FROM iceberg.default")).contains(row(tableName));
+        onTrino().executeQuery("DROP TABLE hive.default." + tableName);
+    }
 }
