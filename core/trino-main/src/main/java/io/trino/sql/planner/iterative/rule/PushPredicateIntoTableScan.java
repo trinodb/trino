@@ -332,14 +332,12 @@ public class PushPredicateIntoTableScan
                 // dynamic filters have no meaning for connectors, so don't pass them
                 dynamicFilters.add(conjunct);
             }
+            else if (isDeterministic(conjunct, metadata)) {
+                deterministicPredicates.add(conjunct);
+            }
             else {
-                if (isDeterministic(conjunct, metadata)) {
-                    deterministicPredicates.add(conjunct);
-                }
-                else {
-                    // don't include non-deterministic predicates
-                    nonDeterministicPredicate.add(conjunct);
-                }
+                // don't include non-deterministic predicates
+                nonDeterministicPredicate.add(conjunct);
             }
         }
 
