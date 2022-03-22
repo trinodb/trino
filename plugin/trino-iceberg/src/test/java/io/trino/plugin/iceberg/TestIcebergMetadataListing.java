@@ -136,6 +136,7 @@ public class TestIcebergMetadataListing
                         "'iceberg_materialized_view', " +
                         "'" + storageTable.getTableName() + "', " +
                         "'iceberg_view', " +
+                        "'hive_table', " +
                         "'hive_view'");
     }
 
