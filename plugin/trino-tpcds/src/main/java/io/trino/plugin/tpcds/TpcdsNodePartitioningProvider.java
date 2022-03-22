@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.tpcds;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.spi.Node;
 import io.trino.spi.NodeManager;
 import io.trino.spi.connector.BucketFunction;
@@ -30,8 +31,9 @@ import java.util.function.ToIntFunction;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.connector.ConnectorBucketNodeMap.createBucketNodeMap;
-import static java.lang.Math.toIntExact;
+import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
 
 public class TpcdsNodePartitioningProvider
@@ -54,9 +56,17 @@ public class TpcdsNodePartitioningProvider
     {
         Set<Node> nodes = nodeManager.getRequiredWorkerNodes();
         checkState(!nodes.isEmpty(), "No TPCDS nodes available");
-
-        // Split the data using split and skew by the number of nodes available.
-        return createBucketNodeMap(toIntExact((long) nodes.size() * splitsPerNode));
+        // sort to ensure the assignment is consistent with TpcdsSplitManager
+        List<Node> sortedNodes = nodes.stream()
+                .sorted(comparing(node -> node.getHostAndPort().toString()))
+                .collect(toImmutableList());
+        ImmutableList.Builder<Node> bucketToNode = ImmutableList.builder();
+        for (Node node : sortedNodes) {
+            for (int i = 0; i < splitsPerNode; i++) {
+                bucketToNode.add(node);
+            }
+        }
+        return createBucketNodeMap(bucketToNode.build());
     }
 
     @Override
