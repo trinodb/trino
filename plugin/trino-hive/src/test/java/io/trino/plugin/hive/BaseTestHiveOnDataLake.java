@@ -96,6 +96,8 @@ public abstract class BaseTestHiveOnDataLake
                         // Below are required to enable caching on metastore
                         .put("hive.metastore-cache-ttl", "1d")
                         .put("hive.metastore-refresh-interval", "1d")
+                        // This is required to reduce memory pressure to test writing large files
+                        .put("hive.s3.streaming.part-size", "5MB")
                         .buildOrThrow());
     }
 
@@ -242,6 +244,41 @@ public abstract class BaseTestHiveOnDataLake
         assertQueryReturnsEmptyResult(queryUsingPartitionCacheForValue2);
 
         computeActual(format("DROP TABLE %s", fullyQualifiedTestTableName));
+    }
+
+    @Test
+    public void testWriteLargeFiles()
+    {
+        String testTable = getTestTableName();
+        computeActual(format(
+                "CREATE TABLE %s (" +
+                        "    col1 varchar, " +
+                        "    col2 varchar, " +
+                        "    regionkey bigint) " +
+                        "    WITH (partitioned_by=ARRAY['regionkey'])",
+                testTable));
+        String largeRowExpression = "array_join(transform(sequence(1, 70), x-> array_join(repeat(comment, 1000), '')), '')";
+        computeActual(format("INSERT INTO " + testTable + " SELECT %s, %s, regionkey FROM tpch.tiny.nation WHERE regionkey = 1", largeRowExpression, largeRowExpression));
+
+        // Exercise different code paths of Hive S3 streaming upload, with upload part size 5MB:
+        // 1. fileSize <= 5MB (direct upload)
+        // 2. 5MB < fileSize <= 10MB (upload in two parts)
+        // 3. fileSize > 10MB (upload in three or more parts)
+        query(format("SELECT DISTINCT (\"$file_size\" - 1) / (5 * 1024 * 1024) FROM %s ORDER BY 1", testTable))
+                .assertThat()
+                .skippingTypesCheck()
+                .containsAll(resultBuilder(getSession())
+                        .row(0L)
+                        .row(1L)
+                        .row(2L)
+                        .build());
+        query(format("SELECT SUM(LENGTH(col1)) FROM %s", testTable))
+                .assertThat()
+                .skippingTypesCheck()
+                .containsAll(resultBuilder(getSession())
+                        .row(500L * 70 * 1000)
+                        .build());
+        computeActual(format("DROP TABLE %s", testTable));
     }
 
     private void renamePartitionResourcesOutsideTrino(String tableName, String partitionColumn, String regionKey)
