@@ -11,11 +11,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hive.util;
+package io.trino.plugin.hive.fs;
 
 import com.google.common.collect.AbstractIterator;
 import io.airlift.stats.TimeStat;
-import io.trino.plugin.hive.DirectoryLister;
 import io.trino.plugin.hive.NamenodeStats;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.TrinoException;
