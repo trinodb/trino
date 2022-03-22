@@ -34,6 +34,7 @@ import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.ArithmeticUnaryExpression;
+import io.trino.sql.tree.CoalesceExpression;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.IsNotNullPredicate;
@@ -375,6 +376,31 @@ public class TestPostgreSqlClient
                         Map.of("c_varchar_symbol", VARCHAR_COLUMN.getColumnType())),
                 Map.of("c_varchar_symbol", VARCHAR_COLUMN)))
                 .hasValue("NOT ((\"c_varchar\") IS NOT NULL)");
+    }
+
+    @Test
+    public void testConvertCoalesce()
+    {
+        // COALESCE(varchar, varchar)
+        assertThat(JDBC_CLIENT.convertPredicate(SESSION,
+                translateToConnectorExpression(
+                        new CoalesceExpression(
+                                new SymbolReference("c_varchar_symbol"),
+                                new SymbolReference("c_varchar_symbol_2")),
+                        Map.of("c_varchar_symbol", VARCHAR_COLUMN.getColumnType(), "c_varchar_symbol_2", VARCHAR_COLUMN.getColumnType())),
+                Map.of("c_varchar_symbol", VARCHAR_COLUMN, "c_varchar_symbol_2", VARCHAR_COLUMN)))
+                .hasValue("COALESCE(\"c_varchar\",\"c_varchar\")");
+
+        // COALESCE(bigint, bigint, bigint)
+        assertThat(JDBC_CLIENT.convertPredicate(SESSION,
+                translateToConnectorExpression(
+                        new CoalesceExpression(
+                                new SymbolReference("c_bigint_symbol"),
+                                new SymbolReference("c_bigint_symbol_2"),
+                                new SymbolReference("c_bigint_symbol_3")),
+                        Map.of("c_bigint_symbol", BIGINT_COLUMN.getColumnType(), "c_bigint_symbol_2", BIGINT_COLUMN.getColumnType(), "c_bigint_symbol_3", BIGINT_COLUMN.getColumnType())),
+                Map.of("c_bigint_symbol", BIGINT_COLUMN, "c_bigint_symbol_2", BIGINT_COLUMN, "c_bigint_symbol_3", BIGINT_COLUMN)))
+                .hasValue("COALESCE(\"c_bigint\",\"c_bigint\",\"c_bigint\")");
     }
 
     private ConnectorExpression translateToConnectorExpression(Expression expression, Map<String, Type> symbolTypes)
