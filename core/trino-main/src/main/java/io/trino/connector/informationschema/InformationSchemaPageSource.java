@@ -263,7 +263,7 @@ public class InformationSchemaPageSource
                         column.getName(),
                         ordinalPosition,
                         null,
-                        "YES",
+                        column.isNullable() ? "YES" : "NO",
                         getDisplayLabel(column.getType(), isOmitDateTimeTypePrecision(session)),
                         column.getComment(),
                         column.getExtraInfo(),
