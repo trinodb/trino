@@ -22,6 +22,7 @@ import io.airlift.units.MinDuration;
 
 import javax.validation.constraints.NotNull;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.succinctBytes;
 import static java.lang.String.format;
@@ -42,6 +43,7 @@ public class MemoryManagerConfig
     // enforced against user + system memory allocations (default is maxQueryMemory * 2)
     private DataSize maxQueryTotalMemory;
     private DataSize faultTolerantExecutionTaskMemory = DataSize.of(4, GIGABYTE);
+    private double faultTolerantExecutionTaskMemoryGrowthFactor = 2.0;
     private LowMemoryKillerPolicy lowMemoryKillerPolicy = LowMemoryKillerPolicy.TOTAL_RESERVATION_ON_BLOCKED_NODES;
     private Duration killOnOutOfMemoryDelay = new Duration(5, MINUTES);
 
@@ -112,6 +114,21 @@ public class MemoryManagerConfig
     public MemoryManagerConfig setFaultTolerantExecutionTaskMemory(DataSize faultTolerantExecutionTaskMemory)
     {
         this.faultTolerantExecutionTaskMemory = faultTolerantExecutionTaskMemory;
+        return this;
+    }
+
+    @NotNull
+    public double getFaultTolerantExecutionTaskMemoryGrowthFactor()
+    {
+        return faultTolerantExecutionTaskMemoryGrowthFactor;
+    }
+
+    @Config("fault-tolerant-execution-task-memory-growth-factor")
+    @ConfigDescription("Factor by which estimated task memory is increased if task execution runs out of memory; value is used allocating nodes for tasks execution")
+    public MemoryManagerConfig setFaultTolerantExecutionTaskMemoryGrowthFactor(double faultTolerantExecutionTaskMemoryGrowthFactor)
+    {
+        checkArgument(faultTolerantExecutionTaskMemoryGrowthFactor >= 1.0, "faultTolerantExecutionTaskMemoryGrowthFactor must not be less than 1.0");
+        this.faultTolerantExecutionTaskMemoryGrowthFactor = faultTolerantExecutionTaskMemoryGrowthFactor;
         return this;
     }
 

@@ -15,6 +15,7 @@ package io.trino.execution.scheduler;
 
 import io.airlift.units.DataSize;
 import io.trino.Session;
+import io.trino.SystemSessionProperties;
 import io.trino.spi.ErrorCode;
 
 import static io.trino.spi.StandardErrorCode.CLUSTER_OUT_OF_MEMORY;
@@ -23,8 +24,6 @@ import static io.trino.spi.StandardErrorCode.EXCEEDED_LOCAL_MEMORY_LIMIT;
 public class ExponentialGrowthPartitionMemoryEstimator
         implements PartitionMemoryEstimator
 {
-    private static final double GROWTH_RATE = 2;
-
     @Override
     public MemoryRequirements getInitialMemoryRequirements(Session session, DataSize defaultMemoryLimit)
     {
@@ -37,8 +36,9 @@ public class ExponentialGrowthPartitionMemoryEstimator
     public MemoryRequirements getNextRetryMemoryRequirements(Session session, MemoryRequirements previousMemoryRequirements, ErrorCode errorCode)
     {
         if (shouldIncreaseMemory(errorCode)) {
+            double growthFactor = SystemSessionProperties.getFaultTolerantExecutionTaskMemoryGrowthFactor(session);
             long previousRequirementsBytes = previousMemoryRequirements.getRequiredMemory().toBytes();
-            return new MemoryRequirements(DataSize.of((long) (previousRequirementsBytes * GROWTH_RATE), DataSize.Unit.BYTE), false);
+            return new MemoryRequirements(DataSize.of((long) (previousRequirementsBytes * growthFactor), DataSize.Unit.BYTE), false);
         }
         return previousMemoryRequirements;
     }
