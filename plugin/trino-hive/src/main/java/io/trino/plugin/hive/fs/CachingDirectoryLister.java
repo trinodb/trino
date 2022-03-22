@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hive;
+package io.trino.plugin.hive.fs;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.Cache;
@@ -19,6 +19,8 @@ import com.google.common.cache.Weigher;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;
 import io.trino.collect.cache.EvictableCacheBuilder;
+import io.trino.plugin.hive.HiveConfig;
+import io.trino.plugin.hive.TableInvalidationCallback;
 import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.Storage;
 import io.trino.plugin.hive.metastore.Table;

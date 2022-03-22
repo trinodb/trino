@@ -11,11 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hive;
+package io.trino.plugin.hive.fs;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
+import io.trino.plugin.hive.HiveQueryRunner;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastore;
 import io.trino.testing.AbstractTestQueryFramework;
