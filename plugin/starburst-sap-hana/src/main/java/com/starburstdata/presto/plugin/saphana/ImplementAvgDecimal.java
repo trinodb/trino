@@ -32,7 +32,7 @@ import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.variabl
 import static java.lang.String.format;
 
 public class ImplementAvgDecimal
-        implements AggregateFunctionRule<JdbcExpression>
+        implements AggregateFunctionRule<JdbcExpression, String>
 {
     private static final Capture<Variable> INPUT = newCapture();
 
@@ -48,7 +48,7 @@ public class ImplementAvgDecimal
     }
 
     @Override
-    public Optional<JdbcExpression> rewrite(AggregateFunction aggregateFunction, Captures captures, RewriteContext context)
+    public Optional<JdbcExpression> rewrite(AggregateFunction aggregateFunction, Captures captures, RewriteContext<String> context)
     {
         Variable input = captures.get(INPUT);
         JdbcColumnHandle columnHandle = (JdbcColumnHandle) context.getAssignment(input.getName());
@@ -58,14 +58,14 @@ public class ImplementAvgDecimal
         // When decimal type has maximum precision we can get result that does not match Trino avg semantics.
         if (type.getPrecision() == SAP_HANA_MAX_DECIMAL_PRECISION) {
             return Optional.of(new JdbcExpression(
-                    format("avg(CAST(%s AS decimal(%s, %s)))", context.getIdentifierQuote().apply(columnHandle.getColumnName()), type.getPrecision(), type.getScale()),
+                    format("avg(CAST(%s AS decimal(%s, %s)))", context.rewriteExpression(input).orElseThrow(), type.getPrecision(), type.getScale()),
                     columnHandle.getJdbcTypeHandle()));
         }
 
         // SAP HANA avg function rounds down resulting decimal.
         // To match Trino avg semantics, we extend scale by 1 and round result to target scale.
         return Optional.of(new JdbcExpression(
-                format("round(avg(CAST(%s AS decimal(%s, %s))), %s)", context.getIdentifierQuote().apply(columnHandle.getColumnName()), type.getPrecision() + 1, type.getScale() + 1, type.getScale()),
+                format("round(avg(CAST(%s AS decimal(%s, %s))), %s)", context.rewriteExpression(input).orElseThrow(), type.getPrecision() + 1, type.getScale() + 1, type.getScale()),
                 columnHandle.getJdbcTypeHandle()));
     }
 }

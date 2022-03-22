@@ -19,6 +19,7 @@ import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.trino.plugin.base.aggregation.AggregateFunctionRewriter;
 import io.trino.plugin.base.aggregation.AggregateFunctionRule;
+import io.trino.plugin.base.expression.ConnectorExpressionRewriter;
 import io.trino.plugin.jdbc.BaseJdbcClient;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ColumnMapping;
@@ -48,6 +49,7 @@ import io.trino.plugin.jdbc.aggregation.ImplementStddevSamp;
 import io.trino.plugin.jdbc.aggregation.ImplementSum;
 import io.trino.plugin.jdbc.aggregation.ImplementVariancePop;
 import io.trino.plugin.jdbc.aggregation.ImplementVarianceSamp;
+import io.trino.plugin.jdbc.expression.JdbcConnectorExpressionRewriterBuilder;
 import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
@@ -185,7 +187,8 @@ public class SapHanaClient
 
     private static final TimeZone UTC_TIME_ZONE = TimeZone.getTimeZone(ZoneId.of("UTC"));
 
-    private final AggregateFunctionRewriter<JdbcExpression> aggregateFunctionRewriter;
+    private final ConnectorExpressionRewriter<String> connectorExpressionRewriter;
+    private final AggregateFunctionRewriter<JdbcExpression, String> aggregateFunctionRewriter;
     private final boolean statisticsEnabled;
     private final TableScanRedirection tableScanRedirection;
 
@@ -199,11 +202,14 @@ public class SapHanaClient
             IdentifierMapping identifierMapping)
     {
         super(baseJdbcConfig, "\"", connectionFactory, queryBuilder, identifierMapping);
+        this.connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder()
+                .addStandardRules(this::quoted)
+                .build();
 
         JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.empty(), 0, 0, Optional.empty());
         this.aggregateFunctionRewriter = new AggregateFunctionRewriter<>(
-                this::quoted,
-                ImmutableSet.<AggregateFunctionRule<JdbcExpression>>builder()
+                this.connectorExpressionRewriter,
+                ImmutableSet.<AggregateFunctionRule<JdbcExpression, String>>builder()
                         .add(new ImplementCountAll(bigintTypeHandle))
                         .add(new ImplementCount(bigintTypeHandle))
                         .add(new ImplementCountDistinct(bigintTypeHandle, true))
