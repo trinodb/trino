@@ -290,6 +290,13 @@ public class TestPhoenixConnectorTest
         }
     }
 
+    @Override
+    public void testDeleteWithLike()
+    {
+        assertThatThrownBy(super::testDeleteWithLike)
+                .hasStackTraceContaining("TrinoException: Unsupported delete");
+    }
+
     @Test
     public void testSchemaOperations()
     {
