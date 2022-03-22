@@ -35,15 +35,20 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
 class StargateAggregateFunctionRewriteRule
-        implements AggregateFunctionRule<JdbcExpression>
+        implements AggregateFunctionRule<JdbcExpression, String>
 {
     private final Function<ConnectorSession, Set<String>> supportedFunctions;
     private final Function<Type, Optional<JdbcTypeHandle>> toTypeHandle;
+    private final Function<String, String> identifierQuote;
 
-    public StargateAggregateFunctionRewriteRule(Function<ConnectorSession, Set<String>> supportedFunctions, Function<Type, Optional<JdbcTypeHandle>> toTypeHandle)
+    public StargateAggregateFunctionRewriteRule(
+            Function<ConnectorSession, Set<String>> supportedFunctions,
+            Function<Type, Optional<JdbcTypeHandle>> toTypeHandle,
+            Function<String, String> identifierQuote)
     {
         this.supportedFunctions = requireNonNull(supportedFunctions, "supportedFunctions is null");
         this.toTypeHandle = requireNonNull(toTypeHandle, "toTypeHandle is null");
+        this.identifierQuote = requireNonNull(identifierQuote, "identifierQuote is null");
     }
 
     @Override
@@ -82,7 +87,7 @@ class StargateAggregateFunctionRewriteRule
                 .map(sortItem -> {
                     JdbcColumnHandle columnHandle = getAssignment(context, sortItem.getName());
                     return format("%s %s",
-                            context.getIdentifierQuote().apply(columnHandle.getColumnName()),
+                            identifierQuote.apply(columnHandle.getColumnName()),
                             toSql(sortItem.getSortOrder()));
                 })
                 .collect(joining(", "));
@@ -123,7 +128,7 @@ class StargateAggregateFunctionRewriteRule
         }
 
         JdbcColumnHandle columnHandle = getAssignment(context, ((Variable) expression).getName());
-        String sqlExpression = context.getIdentifierQuote().apply(columnHandle.getColumnName());
+        String sqlExpression = identifierQuote.apply(columnHandle.getColumnName());
         verify(!sqlExpression.isBlank(), "Blank sqlExpression [%s] for %s", sqlExpression, columnHandle);
         return Optional.of(sqlExpression);
     }

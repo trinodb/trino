@@ -20,6 +20,7 @@ import io.airlift.slice.Slice;
 import io.trino.collect.cache.NonEvictableCache;
 import io.trino.jdbc.TrinoConnection;
 import io.trino.plugin.base.aggregation.AggregateFunctionRewriter;
+import io.trino.plugin.base.expression.ConnectorExpressionRewriter;
 import io.trino.plugin.jdbc.BaseJdbcClient;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ColumnMapping;
@@ -36,6 +37,7 @@ import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.SliceWriteFunction;
 import io.trino.plugin.jdbc.WriteMapping;
 import io.trino.plugin.jdbc.aggregation.ImplementCountDistinct;
+import io.trino.plugin.jdbc.expression.JdbcConnectorExpressionRewriterBuilder;
 import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
@@ -155,7 +157,7 @@ public class StargateClient
 
     private final boolean enableWrites;
     private final NonEvictableCache<FunctionsCacheKey, Set<String>> supportedAggregateFunctions;
-    private final AggregateFunctionRewriter<JdbcExpression> aggregateFunctionRewriter;
+    private final AggregateFunctionRewriter<JdbcExpression, String> aggregateFunctionRewriter;
     private final boolean statisticsEnabled;
     private final TableScanRedirection tableScanRedirection;
 
@@ -178,10 +180,14 @@ public class StargateClient
                 CacheBuilder.newBuilder()
                         .expireAfterWrite(30, MINUTES));
         JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
-        this.aggregateFunctionRewriter = new AggregateFunctionRewriter<>(this::quoted, Set.of(
+        ConnectorExpressionRewriter<String> connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder()
+                .addStandardRules(this::quoted)
+                .build();
+        this.aggregateFunctionRewriter = new AggregateFunctionRewriter<>(connectorExpressionRewriter, Set.of(
                 new StargateAggregateFunctionRewriteRule(
                         this::getSupportedAggregateFunctions,
-                        this::toTypeHandle),
+                        this::toTypeHandle,
+                        this::quoted),
                 new ImplementCountDistinct(bigintTypeHandle, false)));
         this.statisticsEnabled = requireNonNull(statisticsConfig, "statisticsConfig is null").isEnabled();
         this.tableScanRedirection = requireNonNull(tableScanRedirection, "tableScanRedirection is null");
