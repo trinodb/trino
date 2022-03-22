@@ -123,7 +123,7 @@ public class TrinoPreparedStatement
     public void close()
             throws SQLException
     {
-        super.execute(format("DEALLOCATE PREPARE %s", statementName));
+        optionalConnection().ifPresent(x -> x.removePreparedStatement(statementName));
         super.close();
     }
 
