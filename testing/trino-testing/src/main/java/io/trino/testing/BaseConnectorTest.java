@@ -187,9 +187,9 @@ public abstract class BaseConnectorTest
     }
 
     @Test
-    public void testDropNonEmptySchema()
+    public void testDropNonEmptySchemaWithTable()
     {
-        String schemaName = "test_drop_non_empty_schema_" + randomTableSuffix();
+        String schemaName = "test_drop_non_empty_schema_table_" + randomTableSuffix();
         // A connector either supports CREATE SCHEMA and DROP SCHEMA or none of them.
         if (!hasBehavior(SUPPORTS_CREATE_SCHEMA)) {
             return;
@@ -202,6 +202,54 @@ public abstract class BaseConnectorTest
         }
         finally {
             assertUpdate("DROP TABLE IF EXISTS " + schemaName + ".t");
+            assertUpdate("DROP SCHEMA IF EXISTS " + schemaName);
+        }
+    }
+
+    @Test
+    public void testDropNonEmptySchemaWithView()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_VIEW));
+
+        // A connector either supports CREATE SCHEMA and DROP SCHEMA or none of them.
+        if (!hasBehavior(SUPPORTS_CREATE_SCHEMA)) {
+            return;
+        }
+
+        String schemaName = "test_drop_non_empty_schema_view_" + randomTableSuffix();
+
+        try {
+            assertUpdate("CREATE SCHEMA " + schemaName);
+            assertUpdate("CREATE VIEW " + schemaName + ".v_t  AS SELECT 123 x");
+
+            assertQueryFails("DROP SCHEMA " + schemaName, ".*Cannot drop non-empty schema '\\Q" + schemaName + "\\E'");
+        }
+        finally {
+            assertUpdate("DROP VIEW IF EXISTS " + schemaName + ".v_t");
+            assertUpdate("DROP SCHEMA IF EXISTS " + schemaName);
+        }
+    }
+
+    @Test
+    public void testDropNonEmptySchemaWithMaterializedView()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_MATERIALIZED_VIEW));
+
+        // A connector either supports CREATE SCHEMA and DROP SCHEMA or none of them.
+        if (!hasBehavior(SUPPORTS_CREATE_SCHEMA)) {
+            return;
+        }
+
+        String schemaName = "test_drop_non_empty_schema_mv_" + randomTableSuffix();
+
+        try {
+            assertUpdate("CREATE SCHEMA " + schemaName);
+            assertUpdate("CREATE MATERIALIZED VIEW " + schemaName + ".mv_t  AS SELECT 123 x");
+
+            assertQueryFails("DROP SCHEMA " + schemaName, ".*Cannot drop non-empty schema '\\Q" + schemaName + "\\E'");
+        }
+        finally {
+            assertUpdate("DROP MATERIALIZED VIEW IF EXISTS " + schemaName + ".mv_t");
             assertUpdate("DROP SCHEMA IF EXISTS " + schemaName);
         }
     }
