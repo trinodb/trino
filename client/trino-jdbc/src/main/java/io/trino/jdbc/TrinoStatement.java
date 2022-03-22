@@ -637,6 +637,11 @@ public class TrinoStatement
         return connection;
     }
 
+    protected final Optional<TrinoConnection> optionalConnection()
+    {
+        return Optional.ofNullable(connection.get());
+    }
+
     private void closeResultSet()
             throws SQLException
     {
