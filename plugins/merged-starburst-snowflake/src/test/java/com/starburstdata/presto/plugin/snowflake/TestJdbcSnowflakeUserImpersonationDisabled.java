@@ -42,6 +42,7 @@ public class TestJdbcSnowflakeUserImpersonationDisabled
                 .withSchema(Optional.of(TEST_SCHEMA))
                 .withConnectionPooling()
                 .withConnectorProperties(impersonationDisabled())
+                .withCreateUserContextView()
                 .build();
     }
 

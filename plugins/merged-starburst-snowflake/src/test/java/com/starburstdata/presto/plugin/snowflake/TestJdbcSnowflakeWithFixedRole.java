@@ -45,6 +45,7 @@ public class TestJdbcSnowflakeWithFixedRole
                 .withDatabase(Optional.of(testDB.getName()))
                 .withSchema(Optional.of(TEST_SCHEMA))
                 .withConnectionPooling()
+                .withCreateUserContextView()
                 .build();
     }
 

@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.starburstdata.presto</groupId>
         <artifactId>starburst-enterprise-root</artifactId>
-        <version>376-e-SNAPSHOT</version>
+        <version>379-e-SNAPSHOT</version>
         <relativePath>../..</relativePath>
     </parent>
 
@@ -472,6 +472,7 @@
                                 <exclude>**/TestJdbcSnowflakeWithImpersonationConnectorSmokeTest.java</exclude>
                                 <exclude>**/TestJdbcSnowflakeTypeMapping.java</exclude>
                                 <exclude>**/TestDistributedSnowflakeConnectorTest.java</exclude>
+                                <exclude>**/TestDistributedSnowflakeLargeScan.java</exclude>
                                 <exclude>**/TestDistributedSnowflakeOktaNoImpersonationPoolingConnectorSmokeTest.java</exclude>
                                 <exclude>**/TestDistributedSnowflakeOktaWithImpresonationConnectorSmokeTest.java</exclude>
                                 <exclude>**/TestDistributedSnowflakeWithImpersonationConnectorSmokeTest.java</exclude>
@@ -511,6 +512,7 @@
                         <configuration>
                             <includes>
                                 <include>**/TestDistributedSnowflakeConnectorTest.java</include>
+                                <include>**/TestDistributedSnowflakeLargeScan.java</include>
                                 <include>**/TestDistributedSnowflakeWithImpersonationConnectorSmokeTest.java</include>
                                 <include>**/TestDistributedSnowflakeTypeMapping.java</include>
                             </includes>

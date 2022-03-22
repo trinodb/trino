@@ -112,15 +112,19 @@ class SnowflakeQueryRunner
             Map<String, String> extraProperties,
             int nodeCount,
             boolean useOktaCredentials,
+            boolean createUserContextView,
             Iterable<TpchTable<?>> tpchTables)
             throws Exception
     {
         server.init();
         // Create view used for testing user/role impersonation
-        database.ifPresent(databaseName -> server.safeExecuteOnDatabase(
-                databaseName,
-                "CREATE VIEW IF NOT EXISTS public.user_context (user, role) AS SELECT current_user(), current_role();",
-                "GRANT SELECT ON VIEW USER_CONTEXT TO ROLE \"PUBLIC\";"));
+        if (createUserContextView) {
+            database.ifPresent(databaseName ->
+                    server.safeExecuteOnDatabase(
+                            databaseName,
+                            "CREATE VIEW IF NOT EXISTS public.user_context (user, role) AS SELECT current_user(), current_role();",
+                            "GRANT SELECT ON VIEW USER_CONTEXT TO ROLE \"PUBLIC\";"));
+        }
 
         DistributedQueryRunner.Builder builder = StarburstDistributedQueryRunner.builder(createSession(useOktaCredentials))
                 .setNodeCount(nodeCount);
@@ -187,6 +191,7 @@ class SnowflakeQueryRunner
         private int nodeCount = 3;
         private boolean useOktaCredentials;
         private Iterable<TpchTable<?>> tpchTables = new ArrayList<>();
+        private boolean createUserContextView;
 
         private Builder(String connectorName)
         {
@@ -254,13 +259,19 @@ class SnowflakeQueryRunner
             return this;
         }
 
+        public Builder withCreateUserContextView()
+        {
+            this.createUserContextView = true;
+            return this;
+        }
+
         public DistributedQueryRunner build()
                 throws Exception
         {
             if (databaseName.isPresent() && schemaName.isPresent()) {
                 server.createSchema(databaseName.get(), schemaName.get());
             }
-            return createSnowflakeQueryRunner(server, connectorName, warehouseName, databaseName, connectorProperties.buildOrThrow(), extraProperties.buildOrThrow(), nodeCount, useOktaCredentials, tpchTables);
+            return createSnowflakeQueryRunner(server, connectorName, warehouseName, databaseName, connectorProperties.buildOrThrow(), extraProperties.buildOrThrow(), nodeCount, useOktaCredentials, createUserContextView, tpchTables);
         }
     }
 
