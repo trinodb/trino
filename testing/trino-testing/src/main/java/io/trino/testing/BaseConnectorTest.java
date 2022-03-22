@@ -161,11 +161,11 @@ public abstract class BaseConnectorTest
     {
         String schemaName = "test_schema_create_" + randomTableSuffix();
         if (!hasBehavior(SUPPORTS_CREATE_SCHEMA)) {
-            assertQueryFails("CREATE SCHEMA " + schemaName, "This connector does not support creating schemas");
+            assertQueryFails(createSchemaSql(schemaName), "This connector does not support creating schemas");
             return;
         }
         assertThat(computeActual("SHOW SCHEMAS").getOnlyColumnAsSet()).doesNotContain(schemaName);
-        assertUpdate("CREATE SCHEMA " + schemaName);
+        assertUpdate(createSchemaSql(schemaName));
 
         // verify listing of new schema
         assertThat(computeActual("SHOW SCHEMAS").getOnlyColumnAsSet()).contains(schemaName);
@@ -175,7 +175,7 @@ public abstract class BaseConnectorTest
                 .startsWith(format("CREATE SCHEMA %s.%s", getSession().getCatalog().orElseThrow(), schemaName));
 
         // try to create duplicate schema
-        assertQueryFails("CREATE SCHEMA " + schemaName, format("line 1:1: Schema '.*\\.%s' already exists", schemaName));
+        assertQueryFails(createSchemaSql(schemaName), format("line 1:1: Schema '.*\\.%s' already exists", schemaName));
 
         // cleanup
         assertUpdate("DROP SCHEMA " + schemaName);
@@ -3013,6 +3013,11 @@ public abstract class BaseConnectorTest
                         formattedPlan));
             }
         };
+    }
+
+    protected String createSchemaSql(String schemaName)
+    {
+        return "CREATE SCHEMA " + schemaName;
     }
 
     protected static final class DataMappingTestSetup
