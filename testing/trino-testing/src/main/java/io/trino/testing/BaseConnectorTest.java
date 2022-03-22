@@ -2337,6 +2337,17 @@ public abstract class BaseConnectorTest
     }
 
     @Test
+    public void testDeleteWithLike()
+    {
+        skipTestUnlessSupportsDeletes();
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_with_like_", "AS SELECT * FROM nation")) {
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE name LIKE '%a%'", "VALUES 0");
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE name LIKE '%A%'", "SELECT count(*) FROM nation WHERE name LIKE '%A%'");
+        }
+    }
+
+    @Test
     public void testDeleteWithComplexPredicate()
     {
         skipTestUnlessSupportsDeletes();

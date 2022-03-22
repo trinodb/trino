@@ -141,13 +141,20 @@ public class DefaultQueryBuilder
             ConnectorSession session,
             Connection connection,
             JdbcNamedRelationHandle baseRelation,
-            TupleDomain<ColumnHandle> tupleDomain)
+            TupleDomain<ColumnHandle> tupleDomain,
+            Optional<String> additionalPredicate)
     {
         String sql = "DELETE FROM " + getRelation(client, baseRelation.getRemoteTableName());
 
         ImmutableList.Builder<QueryParameter> accumulator = ImmutableList.builder();
 
         List<String> clauses = toConjuncts(client, session, connection, tupleDomain, accumulator::add);
+        if (additionalPredicate.isPresent()) {
+            clauses = ImmutableList.<String>builder()
+                    .addAll(clauses)
+                    .add(additionalPredicate.get())
+                    .build();
+        }
         if (!clauses.isEmpty()) {
             sql += " WHERE " + Joiner.on(" AND ").join(clauses);
         }
