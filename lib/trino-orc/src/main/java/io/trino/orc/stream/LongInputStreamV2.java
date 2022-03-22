@@ -410,7 +410,8 @@ public class LongInputStreamV2
     }
 
     @Override
-    public void next(byte[] values, int items) throws IOException {
+    public void next(byte[] values, int items) throws IOException
+    {
         int offset = 0;
         while (items > 0) {
             if (used == numLiterals) {
