@@ -37,7 +37,7 @@ public abstract class AbstractKuduWithStandardInferSchemaConnectorTest
 
     @Test
     @Override
-    public void testDropNonEmptySchema()
+    public void testDropNonEmptySchemaWithTable()
     {
         // Set column and table properties in CREATE TABLE statement
         String schemaName = "test_drop_non_empty_schema_" + randomTableSuffix();

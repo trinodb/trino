@@ -217,7 +217,7 @@ public abstract class BaseDeltaLakeMinioConnectorTest
     }
 
     @Override
-    public void testDropNonEmptySchema()
+    public void testDropNonEmptySchemaWithTable()
     {
         String schemaName = "test_drop_non_empty_schema_" + randomTableSuffix();
         if (!hasBehavior(SUPPORTS_CREATE_SCHEMA)) {
