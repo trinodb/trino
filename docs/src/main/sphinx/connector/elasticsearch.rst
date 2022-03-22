@@ -251,7 +251,7 @@ Raw JSON transform
 ^^^^^^^^^^^^^^^^^^
 
 There are many occurrences where documents in Elasticsearch have more complex
-structures that are not represented in the mapping. For instance, a single
+structures that are not represented in the mapping. For example, a single
 ``keyword`` field can have widely different content including a single
 ``keyword`` value, an array, or a multidimensional ``keyword`` array with any
 level of nesting.
