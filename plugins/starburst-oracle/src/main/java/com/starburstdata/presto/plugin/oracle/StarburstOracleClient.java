@@ -17,6 +17,7 @@ import com.starburstdata.presto.plugin.jdbc.redirection.TableScanRedirection;
 import com.starburstdata.presto.plugin.jdbc.stats.JdbcStatisticsConfig;
 import io.trino.plugin.base.aggregation.AggregateFunctionRewriter;
 import io.trino.plugin.base.aggregation.AggregateFunctionRule;
+import io.trino.plugin.base.expression.ConnectorExpressionRewriter;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ColumnMapping;
 import io.trino.plugin.jdbc.ConnectionFactory;
@@ -46,6 +47,7 @@ import io.trino.plugin.jdbc.aggregation.ImplementStddevSamp;
 import io.trino.plugin.jdbc.aggregation.ImplementSum;
 import io.trino.plugin.jdbc.aggregation.ImplementVariancePop;
 import io.trino.plugin.jdbc.aggregation.ImplementVarianceSamp;
+import io.trino.plugin.jdbc.expression.JdbcConnectorExpressionRewriterBuilder;
 import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.plugin.oracle.OracleClient;
 import io.trino.plugin.oracle.OracleConfig;
@@ -104,7 +106,8 @@ public class StarburstOracleClient
 
     private final boolean synonymsEnabled;
     private final LicenseManager licenseManager;
-    private final AggregateFunctionRewriter<JdbcExpression> aggregateFunctionRewriter;
+    private final ConnectorExpressionRewriter<String> connectorExpressionRewriter;
+    private final AggregateFunctionRewriter<JdbcExpression, String> aggregateFunctionRewriter;
     private final boolean statisticsEnabled;
     private final TableScanRedirection tableScanRedirection;
 
@@ -123,10 +126,13 @@ public class StarburstOracleClient
         super(config, oracleConfig, connectionFactory, queryBuilder, identifierMapping);
         synonymsEnabled = oracleConfig.isSynonymsEnabled();
         this.licenseManager = requireNonNull(licenseManager, "licenseManager is null");
+        this.connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder()
+                .addStandardRules(this::quoted)
+                .build();
         JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(PRESTO_BIGINT_TYPE, Optional.of("NUMBER"), 0, 0, Optional.empty());
         this.aggregateFunctionRewriter = new AggregateFunctionRewriter<>(
-                this::quoted,
-                ImmutableSet.<AggregateFunctionRule<JdbcExpression>>builder()
+                this.connectorExpressionRewriter,
+                ImmutableSet.<AggregateFunctionRule<JdbcExpression, String>>builder()
                         .add(new ImplementCountAll(bigintTypeHandle))
                         .add(new ImplementCount(bigintTypeHandle))
                         .add(new ImplementCountDistinct(bigintTypeHandle, true))
