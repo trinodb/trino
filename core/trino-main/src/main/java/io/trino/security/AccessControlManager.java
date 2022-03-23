@@ -1170,8 +1170,8 @@ public class AccessControlManager
         }
 
         for (SystemAccessControl systemAccessControl : getSystemAccessControls()) {
-            systemAccessControl.getRowFilter(context.toSystemSecurityContext(), tableName.asCatalogSchemaTableName())
-                    .ifPresent(filters::add);
+            systemAccessControl.getRowFilters(context.toSystemSecurityContext(), tableName.asCatalogSchemaTableName())
+                    .forEach(filters::add);
         }
 
         return filters.build();
@@ -1193,8 +1193,8 @@ public class AccessControlManager
         }
 
         for (SystemAccessControl systemAccessControl : getSystemAccessControls()) {
-            systemAccessControl.getColumnMask(context.toSystemSecurityContext(), tableName.asCatalogSchemaTableName(), columnName, type)
-                    .ifPresent(masks::add);
+            systemAccessControl.getColumnMasks(context.toSystemSecurityContext(), tableName.asCatalogSchemaTableName(), columnName, type)
+                    .forEach(masks::add);
         }
 
         return masks.build();
