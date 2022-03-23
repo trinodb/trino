@@ -45,9 +45,7 @@ public class TestSqlServerTableStatistics
         return SqlServerQueryRunner.createSqlServerQueryRunner(
                 sqlServer,
                 Map.of(),
-                Map.of(
-                        "case-insensitive-name-matching", "true",
-                        "join-pushdown.enabled", "true"),
+                Map.of("case-insensitive-name-matching", "true"),
                 List.of(ORDERS));
     }
 
