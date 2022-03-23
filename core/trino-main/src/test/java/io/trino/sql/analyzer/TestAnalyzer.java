@@ -5346,7 +5346,7 @@ public class TestAnalyzer
                 new ConnectorTableMetadata(table3, ImmutableList.of(
                         new ColumnMetadata("a", BIGINT),
                         new ColumnMetadata("b", BIGINT),
-                        new ColumnMetadata("x", BIGINT, null, true))),
+                        ColumnMetadata.builder().setName("x").setType(BIGINT).setHidden(true).build())),
                 false));
 
         // table in different catalog
@@ -5361,7 +5361,7 @@ public class TestAnalyzer
         inSetupTransaction(session -> metadata.createTable(session, TPCH_CATALOG,
                 new ConnectorTableMetadata(table5, ImmutableList.of(
                         new ColumnMetadata("a", BIGINT),
-                        new ColumnMetadata("b", BIGINT, null, true))),
+                        ColumnMetadata.builder().setName("b").setType(BIGINT).setHidden(true).build())),
                 false));
 
         // table with a varchar column
