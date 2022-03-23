@@ -456,7 +456,7 @@ public abstract class BaseFailureRecoveryTest
                 .finishesSuccessfully();
     }
 
-    private FailureRecoveryAssert assertThatQuery(String query)
+    protected FailureRecoveryAssert assertThatQuery(String query)
     {
         return new FailureRecoveryAssert(query);
     }

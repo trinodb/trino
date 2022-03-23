@@ -142,7 +142,8 @@ public class TestTransactionLogAccess
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                0);
+                0,
+                false);
 
         tableSnapshot = transactionLogAccess.loadSnapshot(tableHandle.getSchemaTableName(), tableLocation, SESSION);
     }

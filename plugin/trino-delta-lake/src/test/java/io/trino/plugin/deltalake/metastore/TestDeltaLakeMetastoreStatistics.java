@@ -179,7 +179,8 @@ public class TestDeltaLakeMetastoreStatistics
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                0);
+                0,
+                false);
     }
 
     @Test
@@ -308,7 +309,8 @@ public class TestDeltaLakeMetastoreStatistics
                 tableHandle.getUpdatedColumns(),
                 tableHandle.getUpdateRowIdColumns(),
                 tableHandle.getAnalyzeHandle(),
-                0);
+                0,
+                false);
         stats = deltaLakeMetastore.getTableStatistics(SESSION, tableHandleWithUnenforcedConstraint, Constraint.alwaysTrue());
         columnStatistics = stats.getColumnStatistics().get(COLUMN_HANDLE);
         assertEquals(columnStatistics.getRange().get().getMin(), 0.0);
@@ -331,7 +333,8 @@ public class TestDeltaLakeMetastoreStatistics
                 tableHandle.getUpdatedColumns(),
                 tableHandle.getUpdateRowIdColumns(),
                 tableHandle.getAnalyzeHandle(),
-                0);
+                0,
+                false);
         DeltaLakeTableHandle tableHandleWithNoneUnenforcedConstraint = new DeltaLakeTableHandle(
                 tableHandle.getSchemaName(),
                 tableHandle.getTableName(),
@@ -344,7 +347,8 @@ public class TestDeltaLakeMetastoreStatistics
                 tableHandle.getUpdatedColumns(),
                 tableHandle.getUpdateRowIdColumns(),
                 tableHandle.getAnalyzeHandle(),
-                0);
+                0,
+                false);
         // If either the table handle's constraint or the provided Constraint are none, it will cause a 0 record count to be reported
         assertEmptyStats(deltaLakeMetastore.getTableStatistics(SESSION, tableHandleWithNoneEnforcedConstraint, Constraint.alwaysTrue()));
         assertEmptyStats(deltaLakeMetastore.getTableStatistics(SESSION, tableHandleWithNoneUnenforcedConstraint, Constraint.alwaysTrue()));

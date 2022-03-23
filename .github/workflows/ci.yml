@@ -383,6 +383,7 @@ jobs:
             - { modules: plugin/trino-cassandra }
             - { modules: plugin/trino-clickhouse }
             - { modules: plugin/trino-delta-lake }
+            - { modules: plugin/trino-delta-lake, profile: test-failure-recovery }
             - { modules: plugin/trino-hive }
             - { modules: plugin/trino-hive, profile: test-parquet }
             - { modules: plugin/trino-hive, profile: test-failure-recovery }
