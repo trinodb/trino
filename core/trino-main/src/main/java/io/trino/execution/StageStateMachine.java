@@ -408,11 +408,17 @@ public class StageStateMachine
         long processedInputPositions = 0;
         long failedProcessedInputPositions = 0;
 
+        long inputBlockedTime = 0;
+        long failedInputBlockedTime = 0;
+
         long bufferedDataSize = 0;
         long outputDataSize = 0;
         long failedOutputDataSize = 0;
         long outputPositions = 0;
         long failedOutputPositions = 0;
+
+        long outputBlockedTime = 0;
+        long failedOutputBlockedTime = 0;
 
         long physicalWrittenDataSize = 0;
         long failedPhysicalWrittenDataSize = 0;
@@ -484,9 +490,13 @@ public class StageStateMachine
             processedInputDataSize += taskStats.getProcessedInputDataSize().toBytes();
             processedInputPositions += taskStats.getProcessedInputPositions();
 
+            inputBlockedTime += taskStats.getInputBlockedTime().roundTo(NANOSECONDS);
+
             bufferedDataSize += taskInfo.getOutputBuffers().getTotalBufferedBytes();
             outputDataSize += taskStats.getOutputDataSize().toBytes();
             outputPositions += taskStats.getOutputPositions();
+
+            outputBlockedTime += taskStats.getOutputBlockedTime().roundTo(NANOSECONDS);
 
             physicalWrittenDataSize += taskStats.getPhysicalWrittenDataSize().toBytes();
 
@@ -504,10 +514,14 @@ public class StageStateMachine
                 failedProcessedInputDataSize += taskStats.getProcessedInputDataSize().toBytes();
                 failedProcessedInputPositions += taskStats.getProcessedInputPositions();
 
+                failedInputBlockedTime += taskStats.getInputBlockedTime().roundTo(NANOSECONDS);
+
                 failedOutputDataSize += taskStats.getOutputDataSize().toBytes();
                 failedOutputPositions += taskStats.getOutputPositions();
 
                 failedPhysicalWrittenDataSize += taskStats.getPhysicalWrittenDataSize().toBytes();
+
+                failedOutputBlockedTime += taskStats.getOutputBlockedTime().roundTo(NANOSECONDS);
             }
 
             fullGcCount += taskStats.getFullGcCount();
@@ -577,11 +591,15 @@ public class StageStateMachine
                 succinctBytes(failedProcessedInputDataSize),
                 processedInputPositions,
                 failedProcessedInputPositions,
+                succinctDuration(inputBlockedTime, NANOSECONDS),
+                succinctDuration(failedInputBlockedTime, NANOSECONDS),
                 succinctBytes(bufferedDataSize),
                 succinctBytes(outputDataSize),
                 succinctBytes(failedOutputDataSize),
                 outputPositions,
                 failedOutputPositions,
+                succinctDuration(outputBlockedTime, NANOSECONDS),
+                succinctDuration(failedOutputBlockedTime, NANOSECONDS),
                 succinctBytes(physicalWrittenDataSize),
                 succinctBytes(failedPhysicalWrittenDataSize),
 

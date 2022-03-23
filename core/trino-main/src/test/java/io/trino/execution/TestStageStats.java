@@ -83,11 +83,17 @@ public class TestStageStats
             32,
             33,
 
+            new Duration(201, NANOSECONDS),
+            new Duration(202, NANOSECONDS),
+
             DataSize.ofBytes(34),
             DataSize.ofBytes(35),
             DataSize.ofBytes(36),
             37,
             38,
+
+            new Duration(203, NANOSECONDS),
+            new Duration(204, NANOSECONDS),
 
             DataSize.ofBytes(39),
             DataSize.ofBytes(40),
@@ -167,11 +173,17 @@ public class TestStageStats
         assertEquals(actual.getProcessedInputPositions(), 32);
         assertEquals(actual.getFailedProcessedInputPositions(), 33);
 
+        assertEquals(actual.getInputBlockedTime(), new Duration(201, NANOSECONDS));
+        assertEquals(actual.getFailedInputBlockedTime(), new Duration(202, NANOSECONDS));
+
         assertEquals(actual.getBufferedDataSize(), DataSize.ofBytes(34));
         assertEquals(actual.getOutputDataSize(), DataSize.ofBytes(35));
         assertEquals(actual.getFailedOutputDataSize(), DataSize.ofBytes(36));
         assertEquals(actual.getOutputPositions(), 37);
         assertEquals(actual.getFailedOutputPositions(), 38);
+
+        assertEquals(actual.getOutputBlockedTime(), new Duration(203, NANOSECONDS));
+        assertEquals(actual.getFailedOutputBlockedTime(), new Duration(204, NANOSECONDS));
 
         assertEquals(actual.getPhysicalWrittenDataSize(), DataSize.ofBytes(39));
         assertEquals(actual.getFailedPhysicalWrittenDataSize(), DataSize.ofBytes(40));
