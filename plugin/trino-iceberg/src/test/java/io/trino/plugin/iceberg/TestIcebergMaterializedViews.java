@@ -25,7 +25,6 @@ import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
 import io.trino.transaction.TransactionId;
 import io.trino.transaction.TransactionManager;
-import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -508,18 +507,6 @@ public class TestIcebergMaterializedViews
         assertUpdate("DROP TABLE IF EXISTS base_table5");
         assertUpdate("DROP MATERIALIZED VIEW materialized_view_level1");
         assertUpdate("DROP MATERIALIZED VIEW materialized_view_level2");
-    }
-
-    @AfterClass(alwaysRun = true)
-    public void tearDown()
-    {
-        assertUpdate("DROP TABLE IF EXISTS base_table1");
-        assertUpdate("DROP TABLE IF EXISTS base_table2");
-        // Drop storage tables
-        MaterializedResult baseResult = computeActual("show tables in tpch");
-        for (MaterializedRow row : baseResult.getMaterializedRows()) {
-            assertUpdate("DROP TABLE IF EXISTS " + row.getField(0).toString());
-        }
     }
 
     private SchemaTableName getStorageTable(String catalogName, String schemaName, String objectName)
