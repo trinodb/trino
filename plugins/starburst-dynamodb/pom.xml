@@ -45,22 +45,6 @@
         </dependency>
 
         <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>log</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>units</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.cdata</groupId>
-            <artifactId>dynamodb-jdbc</artifactId>
-            <version>2021-1</version>
-        </dependency>
-
-        <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
         </dependency>
@@ -115,11 +99,6 @@
         </dependency>
 
         <dependency>
-            <groupId>net.jodah</groupId>
-            <artifactId>failsafe</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>auth</artifactId>
             <version>${dep.aws-sdk2.version}</version>
@@ -149,9 +128,36 @@
             <version>${dep.aws-sdk2.version}</version>
         </dependency>
 
+        <!-- used by tests but also needed transitively -->
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>log</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>log-manager</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>units</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <!-- Driver is not referenced at compile time -->
+        <dependency>
+            <groupId>com.cdata</groupId>
+            <artifactId>dynamodb-jdbc</artifactId>
+            <version>2021-1</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>net.jodah</groupId>
+            <artifactId>failsafe</artifactId>
             <scope>runtime</scope>
         </dependency>
 
@@ -163,7 +169,6 @@
         </dependency>
 
         <!-- Trino SPI -->
-
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-spi</artifactId>
@@ -189,7 +194,6 @@
         </dependency>
 
         <!-- for testing -->
-
         <dependency>
             <groupId>com.starburstdata.presto</groupId>
             <artifactId>starburst-base-jdbc</artifactId>
@@ -316,4 +320,19 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <configuration>
+                    <ignoredNonTestScopedDependencies>
+                        <!-- TODO: https://issues.apache.org/jira/browse/MDEP-791 -->
+                        <ignoredNonTestScopedDependency>software.amazon.awssdk:sdk-core</ignoredNonTestScopedDependency>
+                    </ignoredNonTestScopedDependencies>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 </project>
