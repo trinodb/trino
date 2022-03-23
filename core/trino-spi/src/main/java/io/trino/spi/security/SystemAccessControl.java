@@ -22,6 +22,7 @@ import io.trino.spi.type.Type;
 
 import java.security.Principal;
 import java.util.Collection;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
@@ -823,10 +824,24 @@ public interface SystemAccessControl
      * The filter must be a scalar SQL expression of boolean type over the columns in the table.
      *
      * @return the filter, or {@link Optional#empty()} if not applicable
+     * @deprecated use {@link #getRowFilters(SystemSecurityContext, CatalogSchemaTableName)} instead
      */
+    @Deprecated
     default Optional<ViewExpression> getRowFilter(SystemSecurityContext context, CatalogSchemaTableName tableName)
     {
         return Optional.empty();
+    }
+
+    /**
+     * Get row filters associated with the given table and identity.
+     * <p>
+     * Each filter must be a scalar SQL expression of boolean type over the columns in the table.
+     *
+     * @return the list of filters, or empty list if not applicable
+     */
+    default List<ViewExpression> getRowFilters(SystemSecurityContext context, CatalogSchemaTableName tableName)
+    {
+        return getRowFilter(context, tableName).map(List::of).orElseGet(List::of);
     }
 
     /**
@@ -836,10 +851,25 @@ public interface SystemAccessControl
      * must be written in terms of columns in the table.
      *
      * @return the mask, or {@link Optional#empty()} if not applicable
+     * @deprecated use {@link #getColumnMasks(SystemSecurityContext, CatalogSchemaTableName, String, Type)} instead
      */
+    @Deprecated
     default Optional<ViewExpression> getColumnMask(SystemSecurityContext context, CatalogSchemaTableName tableName, String columnName, Type type)
     {
         return Optional.empty();
+    }
+
+    /**
+     * Get column masks associated with the given table, column and identity.
+     * <p>
+     * Each mask must be a scalar SQL expression of a type coercible to the type of the column being masked. The expression
+     * must be written in terms of columns in the table.
+     *
+     * @return the list of masks, or empty list if not applicable
+     */
+    default List<ViewExpression> getColumnMasks(SystemSecurityContext context, CatalogSchemaTableName tableName, String columnName, Type type)
+    {
+        return getColumnMask(context, tableName, columnName, type).map(List::of).orElseGet(List::of);
     }
 
     /**

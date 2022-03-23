@@ -28,6 +28,7 @@ import io.trino.spi.type.Type;
 
 import java.security.Principal;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -486,8 +487,20 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
+    public List<ViewExpression> getRowFilters(SystemSecurityContext context, CatalogSchemaTableName tableName)
+    {
+        return delegate().getRowFilters(context, tableName);
+    }
+
+    @Override
     public Optional<ViewExpression> getColumnMask(SystemSecurityContext context, CatalogSchemaTableName tableName, String columnName, Type type)
     {
         return delegate().getColumnMask(context, tableName, columnName, type);
+    }
+
+    @Override
+    public List<ViewExpression> getColumnMasks(SystemSecurityContext context, CatalogSchemaTableName tableName, String columnName, Type type)
+    {
+        return delegate().getColumnMasks(context, tableName, columnName, type);
     }
 }
