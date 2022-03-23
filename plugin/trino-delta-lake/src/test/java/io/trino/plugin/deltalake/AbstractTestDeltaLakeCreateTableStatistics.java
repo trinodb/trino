@@ -98,7 +98,7 @@ public abstract class AbstractTestDeltaLakeCreateTableStatistics
 
     @Test
     public void testComplexDataTypes()
-            throws IOException
+            throws Exception
     {
         try (TestTable table = new TestTable(
                 "test_complex_data_types_",
@@ -133,7 +133,7 @@ public abstract class AbstractTestDeltaLakeCreateTableStatistics
 
     @Test(dataProvider = "doubleTypes")
     public void testDoubleTypesNaN(String type)
-            throws IOException
+            throws Exception
     {
         String columnName = "t_double";
         DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(columnName, DoubleType.DOUBLE, REGULAR);
@@ -152,7 +152,7 @@ public abstract class AbstractTestDeltaLakeCreateTableStatistics
 
     @Test(dataProvider = "doubleTypes")
     public void testDoubleTypesInf(String type)
-            throws IOException
+            throws Exception
     {
         String columnName = "t_double";
         DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(columnName, DoubleType.DOUBLE, REGULAR);
@@ -174,7 +174,7 @@ public abstract class AbstractTestDeltaLakeCreateTableStatistics
 
     @Test(dataProvider = "doubleTypes")
     public void testDoubleTypesInfAndNaN(String type)
-            throws IOException
+            throws Exception
     {
         String columnName = "t_double";
         DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(columnName, DoubleType.DOUBLE, REGULAR);
@@ -196,7 +196,7 @@ public abstract class AbstractTestDeltaLakeCreateTableStatistics
 
     @Test(dataProvider = "doubleTypes")
     public void testDoubleTypesNaNPositive(String type)
-            throws IOException
+            throws Exception
     {
         String columnName = "t_double";
         DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(columnName, DoubleType.DOUBLE, REGULAR);
@@ -218,7 +218,7 @@ public abstract class AbstractTestDeltaLakeCreateTableStatistics
 
     @Test(dataProvider = "doubleTypes")
     public void testDoubleTypesNaNNegative(String type)
-            throws IOException
+            throws Exception
     {
         String columnName = "t_double";
         DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(columnName, DoubleType.DOUBLE, REGULAR);
@@ -240,27 +240,27 @@ public abstract class AbstractTestDeltaLakeCreateTableStatistics
 
     @Test
     public void testDecimalLowPrecisionRecords()
-            throws IOException
+            throws Exception
     {
         testDecimal(5, 1);
     }
 
     @Test
     public void testDecimalMediumPrecisionRecords()
-            throws IOException
+            throws Exception
     {
         testDecimal(10, 2);
     }
 
     @Test
     public void testDecimalHighPrecisionRecords()
-            throws IOException
+            throws Exception
     {
         testDecimal(25, 3);
     }
 
     private void testDecimal(int precision, int scale)
-            throws IOException
+            throws Exception
     {
         String low = "1" + "0".repeat(precision - scale) + "." + "0".repeat(scale - 1) + "1";
         String high = "2" + "0".repeat(precision - scale) + "." + "0".repeat(scale - 1) + "2";
@@ -296,7 +296,7 @@ public abstract class AbstractTestDeltaLakeCreateTableStatistics
 
     @Test
     public void testNullRecords()
-            throws IOException
+            throws Exception
     {
         String columnName = "t_double";
         DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(columnName, DoubleType.DOUBLE, REGULAR);
@@ -315,7 +315,7 @@ public abstract class AbstractTestDeltaLakeCreateTableStatistics
 
     @Test
     public void testOnlyNullRecords()
-            throws IOException
+            throws Exception
     {
         String columnName = "t_varchar";
         DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(columnName, createUnboundedVarcharType(), REGULAR);
@@ -337,7 +337,7 @@ public abstract class AbstractTestDeltaLakeCreateTableStatistics
 
     @Test
     public void testDateRecords()
-            throws IOException
+            throws Exception
     {
         String columnName = "t_date";
         DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(columnName, DateType.DATE, REGULAR);
@@ -359,7 +359,7 @@ public abstract class AbstractTestDeltaLakeCreateTableStatistics
 
     @Test
     public void testTimestampMilliRecords()
-            throws IOException
+            throws Exception
     {
         String columnName = "t_timestamp";
         DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(columnName, TIMESTAMP_TZ_MILLIS, REGULAR);
@@ -385,7 +385,7 @@ public abstract class AbstractTestDeltaLakeCreateTableStatistics
 
     @Test
     public void testUnicodeValues()
-            throws IOException
+            throws Exception
     {
         String columnName = "t_string";
         DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(columnName, createUnboundedVarcharType(), REGULAR);
@@ -404,7 +404,7 @@ public abstract class AbstractTestDeltaLakeCreateTableStatistics
 
     @Test
     public void testPartitionedTable()
-            throws IOException
+            throws Exception
     {
         String columnName = "t_string";
         DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(columnName, createUnboundedVarcharType(), REGULAR);
@@ -439,7 +439,7 @@ public abstract class AbstractTestDeltaLakeCreateTableStatistics
 
     @Test
     public void testMultiFileTable()
-            throws IOException
+            throws Exception
     {
         DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle("name", createUnboundedVarcharType(), REGULAR);
         try (TestTable table = new TestTable(
@@ -462,7 +462,7 @@ public abstract class AbstractTestDeltaLakeCreateTableStatistics
 
     @Test
     public void testMultiFileTableWithNaNValue()
-            throws IOException
+            throws Exception
     {
         // assertEventually because sometimes write from tpch.tiny.orders creates one file only and the test requires at least two files
         assertEventually(() -> {
