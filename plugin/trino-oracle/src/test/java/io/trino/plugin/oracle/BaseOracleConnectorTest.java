@@ -47,9 +47,6 @@ public abstract class BaseOracleConnectorTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
-            case SUPPORTS_LIMIT_PUSHDOWN:
-                return false;
-
             case SUPPORTS_TOPN_PUSHDOWN:
                 return false;
 
