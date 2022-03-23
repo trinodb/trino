@@ -516,9 +516,9 @@ public class TestIcebergMaterializedViews
         assertUpdate("DROP TABLE IF EXISTS base_table1");
         assertUpdate("DROP TABLE IF EXISTS base_table2");
         // Drop storage tables
-        MaterializedResult baseResult = computeActual("show tables in tpch");
+        MaterializedResult baseResult = computeActual("select storage_table from system.metadata.materialized_views where catalog_name='iceberg' and schema_name='tpch'");
         for (MaterializedRow row : baseResult.getMaterializedRows()) {
-            assertUpdate("DROP TABLE IF EXISTS " + row.getField(0).toString());
+            assertUpdate("DROP MATERIALIZED VIEW IF EXISTS " + row.getField(0).toString());
         }
     }
 
