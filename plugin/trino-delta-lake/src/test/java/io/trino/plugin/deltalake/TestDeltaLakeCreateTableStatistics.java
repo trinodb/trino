@@ -21,7 +21,6 @@ import io.trino.plugin.hive.parquet.ParquetWriterConfig;
 import io.trino.testing.QueryRunner;
 import org.testng.annotations.Test;
 
-import java.io.IOException;
 import java.time.Instant;
 import java.time.ZonedDateTime;
 import java.util.List;
@@ -58,7 +57,7 @@ public class TestDeltaLakeCreateTableStatistics
     @Override
     @Test
     public void testTimestampMilliRecords()
-            throws IOException
+            throws Exception
     {
         String columnName = "t_timestamp";
         DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(columnName, TIMESTAMP_TZ_MILLIS, REGULAR);
@@ -81,7 +80,7 @@ public class TestDeltaLakeCreateTableStatistics
     // int96 timestamp Statistics are only populated if a row group contains a single value
     @Test
     public void testTimestampMilliSingleRecord()
-            throws IOException
+            throws Exception
     {
         String columnName = "t_timestamp";
         DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(columnName, TIMESTAMP_TZ_MILLIS, REGULAR);
