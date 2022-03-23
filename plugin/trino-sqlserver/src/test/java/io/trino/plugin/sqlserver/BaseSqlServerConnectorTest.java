@@ -539,4 +539,13 @@ public abstract class BaseSqlServerConnectorTest
                 .collect(joining(", "));
         return "orderkey IN (" + longValues + ")";
     }
+
+    @Override
+    protected Session joinPushdownEnabled(Session session)
+    {
+        return Session.builder(super.joinPushdownEnabled(session))
+                // strategy is AUTOMATIC by default and would not work for certain test cases (even if statistics are collected)
+                .setCatalogSessionProperty(session.getCatalog().orElseThrow(), "join_pushdown_strategy", "EAGER")
+                .build();
+    }
 }
