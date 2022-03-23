@@ -139,7 +139,7 @@ public class AccessControlManager
         List<File> configFiles = this.configFiles;
         if (configFiles.isEmpty()) {
             if (!CONFIG_FILE.exists()) {
-                setSystemAccessControl(defaultAccessControlName, ImmutableMap.of());
+                loadSystemAccessControl(defaultAccessControlName, ImmutableMap.of());
                 log.info("Using system access control: %s", defaultAccessControlName);
                 return;
             }
@@ -187,7 +187,7 @@ public class AccessControlManager
     }
 
     @VisibleForTesting
-    protected void setSystemAccessControl(String name, Map<String, String> properties)
+    public void loadSystemAccessControl(String name, Map<String, String> properties)
     {
         requireNonNull(name, "name is null");
         requireNonNull(properties, "properties is null");
