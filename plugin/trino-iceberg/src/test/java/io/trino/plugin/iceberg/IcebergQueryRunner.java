@@ -43,62 +43,9 @@ public final class IcebergQueryRunner
     public static DistributedQueryRunner createIcebergQueryRunner(TpchTable<?>... tables)
             throws Exception
     {
-        return createIcebergQueryRunner(
-                ImmutableList.copyOf(tables));
-    }
-
-    public static DistributedQueryRunner createIcebergQueryRunner(Iterable<TpchTable<?>> tables)
-            throws Exception
-    {
-        return createIcebergQueryRunner(
-                ImmutableMap.of(),
-                ImmutableMap.of(),
-                tables);
-    }
-
-    public static DistributedQueryRunner createIcebergQueryRunner(
-            Map<String, String> extraProperties,
-            Map<String, String> connectorProperties,
-            Iterable<TpchTable<?>> tables)
-            throws Exception
-    {
-        return createIcebergQueryRunner(
-                extraProperties,
-                connectorProperties,
-                tables,
-                Optional.empty());
-    }
-
-    public static DistributedQueryRunner createIcebergQueryRunner(
-            Map<String, String> extraProperties,
-            Map<String, String> connectorProperties,
-            Iterable<TpchTable<?>> tables,
-            Optional<File> metastoreDirectory)
-            throws Exception
-    {
-        return createIcebergQueryRunner(
-                extraProperties,
-                connectorProperties,
-                SchemaInitializer.builder()
-                        .withClonedTpchTables(tables)
-                        .build(),
-                metastoreDirectory);
-    }
-
-    public static DistributedQueryRunner createIcebergQueryRunner(
-            Map<String, String> extraProperties,
-            Map<String, String> connectorProperties,
-            SchemaInitializer schemaInitializer,
-            Optional<File> metastoreDirectory)
-            throws Exception
-    {
-        Builder builder = builder()
-                .setExtraProperties(extraProperties)
-                .setIcebergProperties(connectorProperties)
-                .setSchemaInitializer(schemaInitializer);
-
-        metastoreDirectory.ifPresent(builder::setMetastoreDirectory);
-        return builder.build();
+        return builder()
+                .setInitialTables(tables)
+                .build();
     }
 
     public static Builder builder()
@@ -117,6 +64,7 @@ public final class IcebergQueryRunner
         {
             super(testSessionBuilder()
                     .setCatalog(ICEBERG_CATALOG)
+                    .setSchema("tpch")
                     .build());
         }
 
@@ -137,6 +85,11 @@ public final class IcebergQueryRunner
         {
             this.icebergProperties.put(key, value);
             return self();
+        }
+
+        public Builder setInitialTables(TpchTable<?>... initialTables)
+        {
+            return setInitialTables(ImmutableList.copyOf(initialTables));
         }
 
         public Builder setInitialTables(Iterable<TpchTable<?>> initialTables)
@@ -186,10 +139,12 @@ public final class IcebergQueryRunner
             throws Exception
     {
         Logging.initialize();
-        Map<String, String> properties = ImmutableMap.of("http-server.http.port", "8080");
         DistributedQueryRunner queryRunner = null;
         try {
-            queryRunner = createIcebergQueryRunner(properties, Map.of(), TpchTable.getTables());
+            queryRunner = IcebergQueryRunner.builder()
+                    .setExtraProperties(Map.of("http-server.http.port", "8080"))
+                    .setInitialTables(TpchTable.getTables())
+                    .build();
         }
         catch (Throwable t) {
             log.error(t);
