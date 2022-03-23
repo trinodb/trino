@@ -35,6 +35,11 @@
 
         <dependency>
             <groupId>io.airlift</groupId>
+            <artifactId>json</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
             <artifactId>log</artifactId>
         </dependency>
 
@@ -71,6 +76,11 @@
         <dependency>
             <groupId>mysql</groupId>
             <artifactId>mysql-connector-java</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.jdbi</groupId>
+            <artifactId>jdbi3-core</artifactId>
         </dependency>
 
         <!-- Trino SPI -->
@@ -128,6 +138,12 @@
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-testing-containers</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-testing-services</artifactId>
             <scope>test</scope>
         </dependency>
 
