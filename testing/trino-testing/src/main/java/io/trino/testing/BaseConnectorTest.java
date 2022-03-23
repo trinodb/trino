@@ -1694,8 +1694,6 @@ public abstract class BaseConnectorTest
             return;
         }
 
-        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
-
         String tableName;
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_add_column_", "AS SELECT VARCHAR 'first' x")) {
             tableName = table.getName();
