@@ -48,7 +48,6 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
-import static java.util.Collections.emptyMap;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
@@ -122,7 +121,7 @@ public class TestDefaultJdbcMetadata
         ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(SESSION, tableHandle);
         assertEquals(tableMetadata.getTable(), new SchemaTableName("example", "numbers"));
         assertEquals(tableMetadata.getColumns(), ImmutableList.of(
-                new ColumnMetadata("text", VARCHAR, false, null, null, false, emptyMap()), // primary key is not null in H2
+                ColumnMetadata.builder().setName("text").setType(VARCHAR).setNullable(false).build(), // primary key is not null in H2
                 new ColumnMetadata("text_short", createVarcharType(32)),
                 new ColumnMetadata("value", BIGINT)));
 
@@ -131,7 +130,7 @@ public class TestDefaultJdbcMetadata
         ConnectorTableMetadata specialTableMetadata = metadata.getTableMetadata(SESSION, specialTableHandle);
         assertEquals(specialTableMetadata.getTable(), new SchemaTableName("exa_ple", "num_ers"));
         assertEquals(specialTableMetadata.getColumns(), ImmutableList.of(
-                new ColumnMetadata("te_t", VARCHAR, false, null, null, false, emptyMap()), // primary key is not null in H2
+                ColumnMetadata.builder().setName("te_t").setType(VARCHAR).setNullable(false).build(), // primary key is not null in H2
                 new ColumnMetadata("va%ue", BIGINT)));
 
         // unknown tables should produce null
