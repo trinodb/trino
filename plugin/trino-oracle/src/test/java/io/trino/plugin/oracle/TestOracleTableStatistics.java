@@ -53,8 +53,7 @@ public class TestOracleTableStatistics
                         "connection-url", oracleServer.getJdbcUrl(),
                         "connection-user", TEST_USER,
                         "connection-password", TEST_PASS,
-                        "case-insensitive-name-matching", "true",
-                        "join-pushdown.enabled", "true"),
+                        "case-insensitive-name-matching", "true"),
                 List.of(TpchTable.ORDERS));
     }
 
