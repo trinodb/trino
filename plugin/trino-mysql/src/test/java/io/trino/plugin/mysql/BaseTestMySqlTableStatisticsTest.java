@@ -76,9 +76,7 @@ public abstract class BaseTestMySqlTableStatisticsTest
         return createMySqlQueryRunner(
                 mysqlServer,
                 Map.of(),
-                Map.of(
-                        "case-insensitive-name-matching", "true",
-                        "join-pushdown.enabled", "true"),
+                Map.of("case-insensitive-name-matching", "true"),
                 List.of(ORDERS));
     }
 
