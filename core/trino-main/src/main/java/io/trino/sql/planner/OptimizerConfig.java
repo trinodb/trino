@@ -41,7 +41,7 @@ public class OptimizerConfig
     private int maxReorderedJoins = 9;
 
     private boolean enableStatsCalculator = true;
-    private boolean statisticsPrecalculationForPushdownEnabled;
+    private boolean statisticsPrecalculationForPushdownEnabled = true;
     private boolean collectPlanStatisticsForAllQueries;
     private boolean ignoreStatsCalculatorFailures = true;
     private boolean defaultFilterFactorEnabled;
