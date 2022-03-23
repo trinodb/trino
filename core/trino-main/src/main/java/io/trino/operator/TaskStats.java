@@ -74,8 +74,12 @@ public class TaskStats
     private final DataSize processedInputDataSize;
     private final long processedInputPositions;
 
+    private final Duration inputBlockedTime;
+
     private final DataSize outputDataSize;
     private final long outputPositions;
+
+    private final Duration outputBlockedTime;
 
     private final DataSize physicalWrittenDataSize;
 
@@ -119,8 +123,10 @@ public class TaskStats
                 0,
                 DataSize.ofBytes(0),
                 0,
+                new Duration(0, MILLISECONDS),
                 DataSize.ofBytes(0),
                 0,
+                new Duration(0, MILLISECONDS),
                 DataSize.ofBytes(0),
                 0,
                 new Duration(0, MILLISECONDS),
@@ -170,8 +176,12 @@ public class TaskStats
             @JsonProperty("processedInputDataSize") DataSize processedInputDataSize,
             @JsonProperty("processedInputPositions") long processedInputPositions,
 
+            @JsonProperty("inputBlockedTime") Duration inputBlockedTime,
+
             @JsonProperty("outputDataSize") DataSize outputDataSize,
             @JsonProperty("outputPositions") long outputPositions,
+
+            @JsonProperty("outputBlockedTime") Duration outputBlockedTime,
 
             @JsonProperty("physicalWrittenDataSize") DataSize physicalWrittenDataSize,
 
@@ -237,9 +247,13 @@ public class TaskStats
         checkArgument(processedInputPositions >= 0, "processedInputPositions is negative");
         this.processedInputPositions = processedInputPositions;
 
+        this.inputBlockedTime = requireNonNull(inputBlockedTime, "inputBlockedTime is null");
+
         this.outputDataSize = requireNonNull(outputDataSize, "outputDataSize is null");
         checkArgument(outputPositions >= 0, "outputPositions is negative");
         this.outputPositions = outputPositions;
+
+        this.outputBlockedTime = requireNonNull(outputBlockedTime, "outputBlockedTime is null");
 
         this.physicalWrittenDataSize = requireNonNull(physicalWrittenDataSize, "physicalWrittenDataSize is null");
 
@@ -429,6 +443,12 @@ public class TaskStats
     }
 
     @JsonProperty
+    public Duration getInputBlockedTime()
+    {
+        return inputBlockedTime;
+    }
+
+    @JsonProperty
     public DataSize getOutputDataSize()
     {
         return outputDataSize;
@@ -438,6 +458,12 @@ public class TaskStats
     public long getOutputPositions()
     {
         return outputPositions;
+    }
+
+    @JsonProperty
+    public Duration getOutputBlockedTime()
+    {
+        return outputBlockedTime;
     }
 
     @JsonProperty
@@ -524,8 +550,10 @@ public class TaskStats
                 rawInputPositions,
                 processedInputDataSize,
                 processedInputPositions,
+                inputBlockedTime,
                 outputDataSize,
                 outputPositions,
+                outputBlockedTime,
                 physicalWrittenDataSize,
                 fullGcCount,
                 fullGcTime,
@@ -568,8 +596,10 @@ public class TaskStats
                 rawInputPositions,
                 processedInputDataSize,
                 processedInputPositions,
+                inputBlockedTime,
                 outputDataSize,
                 outputPositions,
+                outputBlockedTime,
                 physicalWrittenDataSize,
                 fullGcCount,
                 fullGcTime,

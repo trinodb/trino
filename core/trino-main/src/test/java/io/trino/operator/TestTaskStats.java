@@ -69,8 +69,12 @@ public class TestTaskStats
             DataSize.ofBytes(21),
             22,
 
+            new Duration(271, NANOSECONDS),
+
             DataSize.ofBytes(23),
             24,
+
+            new Duration(272, NANOSECONDS),
 
             DataSize.ofBytes(25),
 
@@ -130,8 +134,12 @@ public class TestTaskStats
         assertEquals(actual.getProcessedInputDataSize(), DataSize.ofBytes(21));
         assertEquals(actual.getProcessedInputPositions(), 22);
 
+        assertEquals(actual.getInputBlockedTime(), new Duration(271, NANOSECONDS));
+
         assertEquals(actual.getOutputDataSize(), DataSize.ofBytes(23));
         assertEquals(actual.getOutputPositions(), 24);
+
+        assertEquals(actual.getOutputBlockedTime(), new Duration(272, NANOSECONDS));
 
         assertEquals(actual.getPhysicalWrittenDataSize(), DataSize.ofBytes(25));
 
