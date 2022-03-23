@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.starburstdata.presto</groupId>
         <artifactId>starburst-enterprise-root</artifactId>
-        <version>374-e-SNAPSHOT</version>
+        <version>376-e-SNAPSHOT</version>
         <relativePath>../..</relativePath>
     </parent>
 
@@ -98,11 +98,6 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>log</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>log-manager</artifactId>
         </dependency>
 
         <dependency>
@@ -206,6 +201,13 @@
         <dependency>
             <groupId>org.weakref</groupId>
             <artifactId>jmxutils</artifactId>
+        </dependency>
+
+        <!-- used by tests but also needed transitively -->
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>log-manager</artifactId>
+            <scope>runtime</scope>
         </dependency>
 
         <!-- Trino SPI -->
@@ -372,6 +374,13 @@
 
     <build>
         <plugins>
+            <plugin>
+                <groupId>com.mycila</groupId>
+                <artifactId>license-maven-plugin</artifactId>
+                <configuration>
+                    <excludes>src/main/java/org/apache/hadoop/fs/azure/SymmetricKey.java,src/main/java/org/apache/hadoop/fs/azure/DecryptingAzureNativeFileSystemStore.java</excludes>
+                </configuration>
+            </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>

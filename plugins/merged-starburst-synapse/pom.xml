@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.starburstdata.presto</groupId>
         <artifactId>starburst-enterprise-root</artifactId>
-        <version>371-e-SNAPSHOT</version>
+        <version>376-e-SNAPSHOT</version>
         <relativePath>../..</relativePath>
     </parent>
 
@@ -55,16 +55,6 @@
         </dependency>
 
         <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>log</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>units</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
         </dependency>
@@ -84,10 +74,22 @@
             <artifactId>javax.inject</artifactId>
         </dependency>
 
+        <!-- used by tests but also needed transitively -->
         <dependency>
-            <!-- used by tests but also needed transitively -->
+            <groupId>io.airlift</groupId>
+            <artifactId>log</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>log-manager</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>units</artifactId>
             <scope>runtime</scope>
         </dependency>
 
