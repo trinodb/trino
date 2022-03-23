@@ -201,7 +201,11 @@ public class PlanPrinter
                 .mapToLong(planNode -> planNode.getPlanNodeCpuTime().toMillis())
                 .sum(), MILLISECONDS));
 
-        this.representation = new PlanRepresentation(planRoot, types, totalCpuTime, totalScheduledTime);
+        Optional<Duration> totalBlockedTime = stats.map(s -> new Duration(s.values().stream()
+                .mapToLong(planNode -> planNode.getPlanNodeBlockedTime().toMillis())
+                .sum(), MILLISECONDS));
+
+        this.representation = new PlanRepresentation(planRoot, types, totalCpuTime, totalScheduledTime, totalBlockedTime);
 
         Visitor visitor = new Visitor(stageExecutionStrategy, types, estimatedStatsAndCosts, stats);
         planRoot.accept(visitor, null);
@@ -333,9 +337,12 @@ public class PlanPrinter
             double sdAmongTasks = Math.sqrt(squaredDifferences / stageInfo.get().getTasks().size());
 
             builder.append(indentString(1))
-                    .append(format("CPU: %s, Scheduled: %s, Input: %s (%s); per task: avg.: %s std.dev.: %s, Output: %s (%s)\n",
+                    .append(format("CPU: %s, Scheduled: %s, Blocked %s (Input: %s, Output: %s), Input: %s (%s); per task: avg.: %s std.dev.: %s, Output: %s (%s)\n",
                             stageStats.getTotalCpuTime().convertToMostSuccinctTimeUnit(),
                             stageStats.getTotalScheduledTime().convertToMostSuccinctTimeUnit(),
+                            stageStats.getTotalBlockedTime().convertToMostSuccinctTimeUnit(),
+                            stageStats.getInputBlockedTime().convertToMostSuccinctTimeUnit(),
+                            stageStats.getOutputBlockedTime().convertToMostSuccinctTimeUnit(),
                             formatPositions(stageStats.getProcessedInputPositions()),
                             stageStats.getProcessedInputDataSize(),
                             formatDouble(avgPositionsPerTask),

@@ -118,7 +118,7 @@ public class TextRenderer
     private String printStats(PlanRepresentation plan, NodeRepresentation node)
     {
         StringBuilder output = new StringBuilder();
-        if (node.getStats().isEmpty() || !(plan.getTotalCpuTime().isPresent() && plan.getTotalScheduledTime().isPresent())) {
+        if (node.getStats().isEmpty() || !(plan.getTotalCpuTime().isPresent() && plan.getTotalScheduledTime().isPresent() && plan.getTotalBlockedTime().isPresent())) {
             return "";
         }
 
@@ -126,12 +126,15 @@ public class TextRenderer
 
         double scheduledTimeFraction = 100.0d * nodeStats.getPlanNodeScheduledTime().toMillis() / plan.getTotalScheduledTime().get().toMillis();
         double cpuTimeFraction = 100.0d * nodeStats.getPlanNodeCpuTime().toMillis() / plan.getTotalCpuTime().get().toMillis();
+        double blockedTimeFraction = 100.0d * nodeStats.getPlanNodeBlockedTime().toMillis() / plan.getTotalBlockedTime().get().toMillis();
 
-        output.append(format("CPU: %s (%s%%), Scheduled: %s (%s%%)",
+        output.append(format("CPU: %s (%s%%), Scheduled: %s (%s%%), Blocked: %s (%s%%)",
                 nodeStats.getPlanNodeCpuTime().convertToMostSuccinctTimeUnit(),
                 formatDouble(cpuTimeFraction),
                 nodeStats.getPlanNodeScheduledTime().convertToMostSuccinctTimeUnit(),
-                formatDouble(scheduledTimeFraction)));
+                formatDouble(scheduledTimeFraction),
+                nodeStats.getPlanNodeBlockedTime().convertToMostSuccinctTimeUnit(),
+                formatDouble(blockedTimeFraction)));
 
         output.append(format(", Output: %s (%s)", formatPositions(nodeStats.getPlanNodeOutputPositions()), nodeStats.getPlanNodeOutputDataSize().toString()));
         if (nodeStats.getPlanNodeSpilledDataSize().toBytes() > 0) {
