@@ -54,7 +54,7 @@ public class DeltaLakeTableProperties
         tableProperties = ImmutableList.<PropertyMetadata<?>>builder()
                 .add(stringProperty(
                         LOCATION_PROPERTY,
-                        "File system location URI for external table",
+                        "File system location URI for the table",
                         null,
                         false))
                 .add(new PropertyMetadata<>(

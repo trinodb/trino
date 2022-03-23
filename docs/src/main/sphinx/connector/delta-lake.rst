@@ -418,7 +418,7 @@ There are three table properties available for use in table creation.
   * - Property name
     - Description
   * - ``location``
-    - File system location URI for the external table.
+    - File system location URI for the table.
   * - ``partitioned_by``
     - Set partition columns.
   * - ``checkpoint_interval``
