@@ -156,8 +156,6 @@ public class OracleClient
             .add("xs$null")
             .build();
 
-    private final boolean synonymsEnabled;
-
     /**
      * Note the type mappings from trino -> oracle types can cause surprises since they are not invertible
      * For example, creating an oracle table in trino with a bigint column will generate an oracle table with a number column
@@ -175,6 +173,8 @@ public class OracleClient
             .put(DATE, WriteMapping.longMapping("date", trinoDateToOracleDateWriteFunction()))
             .put(TIMESTAMP_TZ_MILLIS, WriteMapping.longMapping("timestamp(3) with time zone", oracleTimestampWithTimeZoneWriteFunction()))
             .buildOrThrow();
+
+    private final boolean synonymsEnabled;
 
     @Inject
     public OracleClient(
