@@ -25,6 +25,7 @@ import io.trino.spi.type.Type;
 
 import javax.inject.Inject;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -493,18 +494,18 @@ public class ClassLoaderSafeConnectorAccessControl
     }
 
     @Override
-    public Optional<ViewExpression> getRowFilter(ConnectorSecurityContext context, SchemaTableName tableName)
+    public List<ViewExpression> getRowFilters(ConnectorSecurityContext context, SchemaTableName tableName)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getRowFilter(context, tableName);
+            return delegate.getRowFilters(context, tableName);
         }
     }
 
     @Override
-    public Optional<ViewExpression> getColumnMask(ConnectorSecurityContext context, SchemaTableName tableName, String columnName, Type type)
+    public List<ViewExpression> getColumnMasks(ConnectorSecurityContext context, SchemaTableName tableName, String columnName, Type type)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getColumnMask(context, tableName, columnName, type);
+            return delegate.getColumnMasks(context, tableName, columnName, type);
         }
     }
 }
