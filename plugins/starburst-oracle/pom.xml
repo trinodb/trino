@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.starburstdata.presto</groupId>
         <artifactId>starburst-enterprise-root</artifactId>
-        <version>371-e-SNAPSHOT</version>
+        <version>376-e-SNAPSHOT</version>
         <relativePath>../..</relativePath>
     </parent>
 
@@ -39,11 +39,6 @@
         </dependency>
 
         <dependency>
-            <groupId>com.starburstdata.presto</groupId>
-            <artifactId>starburst-redirection</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-base-jdbc</artifactId>
         </dependency>
@@ -71,22 +66,12 @@
 
         <dependency>
             <groupId>io.airlift</groupId>
-            <artifactId>bootstrap</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
             <artifactId>configuration</artifactId>
         </dependency>
 
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>log</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>log-manager</artifactId>
         </dependency>
 
         <dependency>
@@ -129,6 +114,25 @@
         <dependency>
             <groupId>org.jdbi</groupId>
             <artifactId>jdbi3-core</artifactId>
+        </dependency>
+
+        <!-- used by tests but also needed transitively -->
+        <dependency>
+            <groupId>com.starburstdata.presto</groupId>
+            <artifactId>starburst-redirection</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>bootstrap</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>log-manager</artifactId>
+            <scope>runtime</scope>
         </dependency>
 
         <!-- Trino SPI -->
