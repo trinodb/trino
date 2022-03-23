@@ -32,8 +32,8 @@ import io.trino.sql.planner.optimizations.PlanNodeSearcher;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.TableScanNode;
+import io.trino.sql.planner.plan.UnnestNode;
 import io.trino.sql.planner.plan.ValuesNode;
-import io.trino.sql.tree.Unnest;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -108,7 +108,7 @@ public class DetermineJoinDistributionType
     static double getSourceTablesSizeInBytes(PlanNode node, Lookup lookup, StatsProvider statsProvider, TypeProvider typeProvider)
     {
         boolean hasExpandingNodes = PlanNodeSearcher.searchFrom(node, lookup)
-                .where(isInstanceOfAny(JoinNode.class, Unnest.class))
+                .where(isInstanceOfAny(JoinNode.class, UnnestNode.class))
                 .matches();
         if (hasExpandingNodes) {
             return Double.NaN;
