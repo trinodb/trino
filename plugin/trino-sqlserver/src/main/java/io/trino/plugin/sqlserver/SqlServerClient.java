@@ -36,6 +36,7 @@ import io.trino.plugin.jdbc.JdbcJoinCondition;
 import io.trino.plugin.jdbc.JdbcOutputTableHandle;
 import io.trino.plugin.jdbc.JdbcSortItem;
 import io.trino.plugin.jdbc.JdbcSplit;
+import io.trino.plugin.jdbc.JdbcStatisticsConfig;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.LongReadFunction;
@@ -59,6 +60,10 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.JoinCondition;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.statistics.ColumnStatistics;
+import io.trino.spi.statistics.Estimate;
+import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
@@ -77,6 +82,7 @@ import org.jdbi.v3.core.Jdbi;
 
 import javax.inject.Inject;
 
+import java.sql.CallableStatement;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -89,6 +95,7 @@ import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -97,6 +104,9 @@ import java.util.function.BiFunction;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static com.google.common.collect.MoreCollectors.toOptional;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.microsoft.sqlserver.jdbc.SQLServerConnection.TRANSACTION_SNAPSHOT;
 import static io.airlift.slice.Slices.wrappedBuffer;
@@ -191,18 +201,27 @@ public class SqlServerClient
                     .maximumSize(1)
                     .expireAfterWrite(ofMinutes(5)));
 
+    private final boolean statisticsEnabled;
+
     private final ConnectorExpressionRewriter<String> connectorExpressionRewriter;
     private final AggregateFunctionRewriter<JdbcExpression, String> aggregateFunctionRewriter;
 
     private static final int MAX_SUPPORTED_TEMPORAL_PRECISION = 7;
 
     @Inject
-    public SqlServerClient(BaseJdbcConfig config, SqlServerConfig sqlServerConfig, ConnectionFactory connectionFactory, QueryBuilder queryBuilder, IdentifierMapping identifierMapping)
+    public SqlServerClient(
+            BaseJdbcConfig config,
+            SqlServerConfig sqlServerConfig,
+            JdbcStatisticsConfig statisticsConfig,
+            ConnectionFactory connectionFactory,
+            QueryBuilder queryBuilder,
+            IdentifierMapping identifierMapping)
     {
         super(config, "\"", connectionFactory, queryBuilder, identifierMapping);
 
         requireNonNull(sqlServerConfig, "sqlServerConfig is null");
         snapshotIsolationDisabled = sqlServerConfig.isSnapshotIsolationDisabled();
+        this.statisticsEnabled = requireNonNull(statisticsConfig, "statisticsConfig is null").isEnabled();
 
         this.connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder()
                 .addStandardRules(this::quoted)
@@ -450,6 +469,145 @@ public class SqlServerClient
         }
 
         throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
+    }
+
+    @Override
+    public TableStatistics getTableStatistics(ConnectorSession session, JdbcTableHandle handle, TupleDomain<ColumnHandle> tupleDomain)
+    {
+        if (!statisticsEnabled) {
+            return TableStatistics.empty();
+        }
+        if (!handle.isNamedRelation()) {
+            return TableStatistics.empty();
+        }
+        try {
+            return readTableStatistics(session, handle);
+        }
+        catch (SQLException | RuntimeException e) {
+            throwIfInstanceOf(e, TrinoException.class);
+            throw new TrinoException(JDBC_ERROR, "Failed fetching statistics for table: " + handle, e);
+        }
+    }
+
+    private TableStatistics readTableStatistics(ConnectorSession session, JdbcTableHandle table)
+            throws SQLException
+    {
+        checkArgument(table.isNamedRelation(), "Relation is not a table: %s", table);
+
+        try (Connection connection = connectionFactory.openConnection(session);
+                Handle handle = Jdbi.open(connection)) {
+            String catalog = table.getCatalogName();
+            String schema = table.getSchemaName();
+            String tableName = table.getTableName();
+
+            StatisticsDao statisticsDao = new StatisticsDao(handle);
+            Long tableObjectId = statisticsDao.getTableObjectId(catalog, schema, tableName);
+            if (tableObjectId == null) {
+                // Table not found
+                return TableStatistics.empty();
+            }
+
+            Long rowCount = statisticsDao.getRowCount(tableObjectId);
+            if (rowCount == null) {
+                // Table disappeared
+                return TableStatistics.empty();
+            }
+
+            if (rowCount == 0) {
+                return TableStatistics.empty();
+            }
+
+            TableStatistics.Builder tableStatistics = TableStatistics.builder();
+            tableStatistics.setRowCount(Estimate.of(rowCount));
+
+            Map<String, String> columnNameToStatisticsName = getColumnNameToStatisticsName(table, statisticsDao, tableObjectId);
+
+            for (JdbcColumnHandle column : this.getColumns(session, table)) {
+                String statisticName = columnNameToStatisticsName.get(column.getColumnName());
+                if (statisticName == null) {
+                    // No statistic for column
+                    continue;
+                }
+
+                double averageColumnLength;
+                long notNullValues = 0;
+                long nullValues = 0;
+                long distinctValues = 0;
+
+                try (CallableStatement showStatistics = handle.getConnection().prepareCall("DBCC SHOW_STATISTICS (?, ?)")) {
+                    showStatistics.setString(1, format("%s.%s.%s", catalog, schema, tableName));
+                    showStatistics.setString(2, statisticName);
+
+                    boolean isResultSet = showStatistics.execute();
+                    checkState(isResultSet, "Expected SHOW_STATISTICS to return a result set");
+                    try (ResultSet resultSet = showStatistics.getResultSet()) {
+                        checkState(resultSet.next(), "No rows in result set");
+
+                        averageColumnLength = resultSet.getDouble("Average Key Length"); // NULL values are accounted for with length 0
+
+                        checkState(!resultSet.next(), "More than one row in result set");
+                    }
+
+                    isResultSet = showStatistics.getMoreResults();
+                    checkState(isResultSet, "Expected SHOW_STATISTICS to return second result set");
+                    showStatistics.getResultSet().close();
+
+                    isResultSet = showStatistics.getMoreResults();
+                    checkState(isResultSet, "Expected SHOW_STATISTICS to return third result set");
+                    try (ResultSet resultSet = showStatistics.getResultSet()) {
+                        while (resultSet.next()) {
+                            resultSet.getObject("RANGE_HI_KEY");
+                            if (resultSet.wasNull()) {
+                                // Null fraction
+                                checkState(resultSet.getLong("RANGE_ROWS") == 0, "Unexpected RANGE_ROWS for null fraction");
+                                checkState(resultSet.getLong("DISTINCT_RANGE_ROWS") == 0, "Unexpected DISTINCT_RANGE_ROWS for null fraction");
+                                checkState(nullValues == 0, "Multiple null fraction entries");
+                                nullValues += resultSet.getLong("EQ_ROWS");
+                            }
+                            else {
+                                // TODO discover min/max from resultSet.getXxx("RANGE_HI_KEY")
+                                notNullValues += resultSet.getLong("RANGE_ROWS") // rows strictly within a bucket
+                                        + resultSet.getLong("EQ_ROWS"); // rows equal to RANGE_HI_KEY
+                                distinctValues += resultSet.getLong("DISTINCT_RANGE_ROWS") // NDV strictly within a bucket
+                                        + (resultSet.getLong("EQ_ROWS") > 0 ? 1 : 0);
+                            }
+                        }
+                    }
+                }
+
+                ColumnStatistics statistics = ColumnStatistics.builder()
+                        .setNullsFraction(Estimate.of(
+                                (notNullValues + nullValues == 0)
+                                        ? 1
+                                        : (1.0 * nullValues / (notNullValues + nullValues))))
+                        .setDistinctValuesCount(Estimate.of(distinctValues))
+                        .setDataSize(Estimate.of(rowCount * averageColumnLength))
+                        .build();
+
+                tableStatistics.setColumnStatistics(column, statistics);
+            }
+
+            return tableStatistics.build();
+        }
+    }
+
+    private static Map<String, String> getColumnNameToStatisticsName(JdbcTableHandle table, StatisticsDao statisticsDao, Long tableObjectId)
+    {
+        List<String> singleColumnStatistics = statisticsDao.getSingleColumnStatistics(tableObjectId);
+
+        Map<String, String> columnNameToStatisticsName = new HashMap<>();
+        for (String statisticName : singleColumnStatistics) {
+            String columnName = statisticsDao.getSingleColumnStatisticsColumnName(tableObjectId, statisticName);
+            if (columnName == null) {
+                // Table or statistics disappeared
+                continue;
+            }
+
+            if (columnNameToStatisticsName.putIfAbsent(columnName, statisticName) != null) {
+                log.debug("Multiple statistics for %s in %s: %s and %s", columnName, table, columnNameToStatisticsName.get(columnName), statisticName);
+            }
+        }
+        return columnNameToStatisticsName;
     }
 
     private LongWriteFunction sqlServerTimeWriteFunction(int precision)
@@ -832,5 +990,66 @@ public class SqlServerClient
         // The snapshot isolation can be enabled or disabled on database level. We connect to single
         // database, so from our perspective, this is a global property.
         INSTANCE
+    }
+
+    private static class StatisticsDao
+    {
+        private final Handle handle;
+
+        public StatisticsDao(Handle handle)
+        {
+            this.handle = requireNonNull(handle, "handle is null");
+        }
+
+        Long getTableObjectId(String catalog, String schema, String tableName)
+        {
+            return handle.createQuery("SELECT object_id(:table)")
+                    .bind("table", format("%s.%s.%s", catalog, schema, tableName))
+                    .mapTo(Long.class)
+                    .findOnly();
+        }
+
+        Long getRowCount(long tableObjectId)
+        {
+            return handle.createQuery("" +
+                            "SELECT sum(rows) row_count " +
+                            "FROM sys.partitions " +
+                            "WHERE object_id = :object_id " +
+                            "AND index_id IN (0, 1)") // 0 = heap, 1 = clustered index, 2 or greater = non-clustered index
+                    .bind("object_id", tableObjectId)
+                    .mapTo(Long.class)
+                    .findOnly();
+        }
+
+        List<String> getSingleColumnStatistics(long tableObjectId)
+        {
+            return handle.createQuery("" +
+                            "SELECT s.name " +
+                            "FROM sys.stats AS s " +
+                            "JOIN sys.stats_columns AS sc ON s.object_id = sc.object_id AND s.stats_id = sc.stats_id " +
+                            "WHERE s.object_id = :object_id " +
+                            "GROUP BY s.name " +
+                            "HAVING count(*) = 1 " +
+                            "ORDER BY s.name")
+                    .bind("object_id", tableObjectId)
+                    .mapTo(String.class)
+                    .list();
+        }
+
+        String getSingleColumnStatisticsColumnName(long tableObjectId, String statisticsName)
+        {
+            return handle.createQuery("" +
+                            "SELECT c.name " +
+                            "FROM sys.stats AS s " +
+                            "JOIN sys.stats_columns AS sc ON s.object_id = sc.object_id AND s.stats_id = sc.stats_id " +
+                            "JOIN sys.columns AS c ON sc.object_id = c.object_id AND c.column_id = sc.column_id " +
+                            "WHERE s.object_id = :object_id " +
+                            "AND s.name = :statistics_name")
+                    .bind("object_id", tableObjectId)
+                    .bind("statistics_name", statisticsName)
+                    .mapTo(String.class)
+                    .collect(toOptional()) // verify there is no more than 1 column name returned
+                    .orElse(null);
+        }
     }
 }
