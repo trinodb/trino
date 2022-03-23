@@ -13,8 +13,6 @@
  */
 package io.trino.plugin.iceberg;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.hive.HdfsConfig;
 import io.trino.plugin.hive.HdfsConfiguration;
@@ -41,12 +39,12 @@ import org.testng.annotations.Test;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.iceberg.DataFileRecord.toDataFileRecord;
-import static io.trino.plugin.iceberg.IcebergQueryRunner.createIcebergQueryRunner;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
@@ -80,11 +78,10 @@ public class TestIcebergTableWithCustomLocation
                 new MetastoreConfig(),
                 config);
 
-        return createIcebergQueryRunner(
-                ImmutableMap.of(),
-                ImmutableMap.of("iceberg.unique-table-location", "true"),
-                ImmutableList.of(),
-                Optional.of(metastoreDir));
+        return IcebergQueryRunner.builder()
+                .setIcebergProperties(Map.of("iceberg.unique-table-location", "true"))
+                .setMetastoreDirectory(metastoreDir)
+                .build();
     }
 
     @AfterClass(alwaysRun = true)
