@@ -32,6 +32,8 @@ import java.util.Optional;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.trino.plugin.deltalake.DeltaLakeDockerizedMinioDataLake.createDockerizedMinioDataLakeForDeltaLake;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
+import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.INSERT_TABLE;
+import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
@@ -478,6 +480,22 @@ public abstract class TestDeltaLakeAnalyze
                             + "('comment',   null, null,  0.0, null, null, null),"
                             + "('name',      null, null,  0.0, null, null, null),"
                             + "(null,        null, null, null, 25.0, null, null)");
+        }
+    }
+
+    @Test
+    public void testDropStatsAccessControl()
+    {
+        String path = "test_deny_drop_stats_" + randomTableSuffix();
+
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_deny_drop_stats",
+                format("WITH (location = '%s') AS SELECT * FROM tpch.sf1.nation", getLocationForTable(path)))) {
+            assertAccessDenied(
+                    format("CALL %s.system.drop_extended_stats('%s', '%s')", DELTA_CATALOG, SCHEMA, table.getName()),
+                    "Cannot insert into table .*",
+                    privilege(table.getName(), INSERT_TABLE));
         }
     }
 
