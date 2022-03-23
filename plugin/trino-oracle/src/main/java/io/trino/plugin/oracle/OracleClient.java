@@ -29,6 +29,7 @@ import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
 import io.trino.plugin.jdbc.JdbcJoinCondition;
 import io.trino.plugin.jdbc.JdbcSortItem;
+import io.trino.plugin.jdbc.JdbcStatisticsConfig;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.LongReadFunction;
@@ -57,6 +58,10 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.JoinCondition;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.statistics.ColumnStatistics;
+import io.trino.spi.statistics.Estimate;
+import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
@@ -64,6 +69,8 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import oracle.jdbc.OraclePreparedStatement;
 import oracle.jdbc.OracleTypes;
+import org.jdbi.v3.core.Handle;
+import org.jdbi.v3.core.Jdbi;
 
 import javax.inject.Inject;
 
@@ -86,7 +93,10 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.BiFunction;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
@@ -143,6 +153,7 @@ import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.DAYS;
+import static java.util.function.Function.identity;
 
 public class OracleClient
         extends BaseJdbcClient
@@ -199,6 +210,7 @@ public class OracleClient
             .buildOrThrow();
 
     private final boolean synonymsEnabled;
+    private final boolean statisticsEnabled;
     private final ConnectorExpressionRewriter<String> connectorExpressionRewriter;
     private final AggregateFunctionRewriter<JdbcExpression, String> aggregateFunctionRewriter;
 
@@ -206,6 +218,7 @@ public class OracleClient
     public OracleClient(
             BaseJdbcConfig config,
             OracleConfig oracleConfig,
+            JdbcStatisticsConfig statisticsConfig,
             ConnectionFactory connectionFactory,
             QueryBuilder queryBuilder,
             IdentifierMapping identifierMapping)
@@ -213,6 +226,7 @@ public class OracleClient
         super(config, "\"", connectionFactory, queryBuilder, identifierMapping);
 
         this.synonymsEnabled = oracleConfig.isSynonymsEnabled();
+        this.statisticsEnabled = requireNonNull(statisticsConfig, "statisticsConfig is null").isEnabled();
 
         this.connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder()
                 .addStandardRules(this::quoted)
@@ -496,6 +510,84 @@ public class OracleClient
         return joinCondition.getOperator() != JoinCondition.Operator.IS_DISTINCT_FROM;
     }
 
+    @Override
+    public TableStatistics getTableStatistics(ConnectorSession session, JdbcTableHandle handle, TupleDomain<ColumnHandle> tupleDomain)
+    {
+        if (!statisticsEnabled) {
+            return TableStatistics.empty();
+        }
+        if (!handle.isNamedRelation()) {
+            return TableStatistics.empty();
+        }
+        try {
+            return readTableStatistics(session, handle);
+        }
+        catch (SQLException | RuntimeException e) {
+            throwIfInstanceOf(e, TrinoException.class);
+            throw new TrinoException(JDBC_ERROR, "Failed fetching statistics for table: " + handle, e);
+        }
+    }
+
+    private TableStatistics readTableStatistics(ConnectorSession session, JdbcTableHandle table)
+            throws SQLException
+    {
+        checkArgument(table.isNamedRelation(), "Relation is not a table: %s", table);
+
+        try (Connection connection = connectionFactory.openConnection(session);
+                Handle handle = Jdbi.open(connection)) {
+            StatisticsDao statisticsDao = new StatisticsDao(handle);
+
+            Long rowCount = statisticsDao.getRowCount(table.getSchemaName(), table.getTableName());
+            if (rowCount == null) {
+                return TableStatistics.empty();
+            }
+
+            TableStatistics.Builder tableStatistics = TableStatistics.builder();
+            tableStatistics.setRowCount(Estimate.of(rowCount));
+
+            if (rowCount == 0) {
+                return tableStatistics.build();
+            }
+
+            Map<String, ColumnStatisticsResult> columnStatistics = statisticsDao.getColumnStatistics(table.getSchemaName(), table.getTableName()).stream()
+                    .collect(toImmutableMap(ColumnStatisticsResult::getColumnName, identity()));
+
+            for (JdbcColumnHandle column : this.getColumns(session, table)) {
+                ColumnStatisticsResult result = columnStatistics.get(column.getColumnName());
+                if (result == null) {
+                    continue;
+                }
+
+                ColumnStatistics statistics = ColumnStatistics.builder()
+                        .setNullsFraction(result.getNullsCount()
+                                .map(nullsCount -> Estimate.of(1.0 * nullsCount / rowCount))
+                                .orElseGet(Estimate::unknown))
+                        .setDistinctValuesCount(result.getDistinctValuesCount()
+                                .map(Estimate::of)
+                                .orElseGet(Estimate::unknown))
+                        .setDataSize(result.getAverageColumnLength()
+                                /*
+                                 * ALL_TAB_COLUMNS.AVG_COL_LEN is hard to interpret precisely:
+                                 * - it can be `0` for all-null column
+                                 * - it can be `len+1` for varchar column filled with constant of length `len`, as if each row contained a is-null byte or length
+                                 * - it can be `len/2+1` for varchar column half-filled with constant (or random) of length `len`, as if each row contained a is-null byte or length
+                                 * - it can be `2` for varchar column with single non-null value of length 10, as if ... (?)
+                                 * - it looks storage size does not directly depend on `IS NULL` column attribute
+                                 *
+                                 * Since the interpretation of the value is not obvious, we do not deduce is-null bytes. They will be accounted for second time in
+                                 * `PlanNodeStatsEstimate.getOutputSizeForSymbol`, but this is the safer thing to do.
+                                 */
+                                .map(averageColumnLength -> Estimate.of(1.0 * averageColumnLength * rowCount))
+                                .orElseGet(Estimate::unknown))
+                        .build();
+
+                tableStatistics.setColumnStatistics(column, statistics);
+            }
+
+            return tableStatistics.build();
+        }
+    }
+
     public static LongWriteFunction trinoDateToOracleDateWriteFunction()
     {
         return new LongWriteFunction()
@@ -702,5 +794,77 @@ public class OracleClient
                 quoted(column.getColumnName()),
                 varcharLiteral(comment.orElse("")));
         execute(session, sql);
+    }
+
+    private static class StatisticsDao
+    {
+        private final Handle handle;
+
+        public StatisticsDao(Handle handle)
+        {
+            this.handle = requireNonNull(handle, "handle is null");
+        }
+
+        Long getRowCount(String schema, String tableName)
+        {
+            return handle.createQuery("SELECT NUM_ROWS FROM ALL_TAB_STATISTICS WHERE OWNER = :schema AND TABLE_NAME = :table_name and PARTITION_NAME IS NULL")
+                    .bind("schema", schema)
+                    .bind("table_name", tableName)
+                    .mapTo(Long.class)
+                    .findFirst()
+                    .orElse(null);
+        }
+
+        List<ColumnStatisticsResult> getColumnStatistics(String schema, String tableName)
+        {
+            // [SEP-3425]    we are not using ALL_TAB_COL_STATISTICS, here because we observed queries which took multiple minutes when obtaining statistics for partitioned tables.
+            //               It adds slight risk, because the statistics-related columns in ALL_TAB_COLUMNS are marked as deprecated and present only for backward
+            //               compatibility with Oracle 7 (see: https://docs.oracle.com/cd/B14117_01/server.101/b10755/statviews_1180.htm)
+            return handle.createQuery("SELECT COLUMN_NAME, NUM_NULLS, NUM_DISTINCT, AVG_COL_LEN FROM ALL_TAB_COLUMNS WHERE OWNER = :schema AND TABLE_NAME = :table_name")
+                    .bind("schema", schema)
+                    .bind("table_name", tableName)
+                    .map((rs, ctx) -> new ColumnStatisticsResult(
+                            requireNonNull(rs.getString("COLUMN_NAME"), "COLUMN_NAME is null"),
+                            Optional.ofNullable(rs.getObject("NUM_NULLS", Long.class)),
+                            Optional.ofNullable(rs.getObject("NUM_DISTINCT", Long.class)),
+                            Optional.ofNullable(rs.getObject("AVG_COL_LEN", Long.class))))
+                    .list();
+        }
+    }
+
+    private static class ColumnStatisticsResult
+    {
+        private final String columnName;
+        private final Optional<Long> nullsCount;
+        private final Optional<Long> distinctValuesCount;
+        private final Optional<Long> averageColumnLength;
+
+        ColumnStatisticsResult(String columnName, Optional<Long> nullsCount, Optional<Long> distinctValuesCount, Optional<Long> averageColumnLength)
+        {
+            this.columnName = columnName;
+            this.nullsCount = nullsCount;
+            this.distinctValuesCount = distinctValuesCount;
+            this.averageColumnLength = averageColumnLength;
+        }
+
+        String getColumnName()
+        {
+            return columnName;
+        }
+
+        Optional<Long> getNullsCount()
+        {
+            return nullsCount;
+        }
+
+        Optional<Long> getDistinctValuesCount()
+        {
+            return distinctValuesCount;
+        }
+
+        Optional<Long> getAverageColumnLength()
+        {
+            return averageColumnLength;
+        }
     }
 }

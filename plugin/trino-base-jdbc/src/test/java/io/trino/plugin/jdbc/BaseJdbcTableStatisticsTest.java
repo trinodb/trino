@@ -74,7 +74,7 @@ public abstract class BaseJdbcTableStatisticsTest
     @Test
     public void testEmptyTable()
     {
-        String tableName = "test_stats_table_empty_" + randomTableSuffix();
+        String tableName = "test_empty_" + randomTableSuffix();
         computeActual(format("CREATE TABLE %s AS SELECT orderkey, custkey, orderpriority, comment FROM tpch.tiny.orders WHERE false", tableName));
         try {
             gatherStats(tableName);
