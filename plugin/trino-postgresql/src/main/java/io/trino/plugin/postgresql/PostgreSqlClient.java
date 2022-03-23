@@ -247,14 +247,6 @@ public class PostgreSqlClient
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("y-MM-dd[ G]");
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm:ss.SSSSSS");
 
-    private final Type jsonType;
-    private final Type uuidType;
-    private final MapType varcharMapType;
-    private final List<String> tableTypes;
-    private final boolean statisticsEnabled;
-    private final ConnectorExpressionRewriter<String> connectorExpressionRewriter;
-    private final AggregateFunctionRewriter<JdbcExpression, String> aggregateFunctionRewriter;
-
     private static final PredicatePushdownController POSTGRESQL_STRING_COLLATION_AWARE_PUSHDOWN = (session, domain) -> {
         if (domain.isOnlyNull()) {
             return FULL_PUSHDOWN.apply(session, domain);
@@ -272,6 +264,14 @@ public class PostgreSqlClient
 
         return FULL_PUSHDOWN.apply(session, simplifiedDomain);
     };
+
+    private final Type jsonType;
+    private final Type uuidType;
+    private final MapType varcharMapType;
+    private final List<String> tableTypes;
+    private final boolean statisticsEnabled;
+    private final ConnectorExpressionRewriter<String> connectorExpressionRewriter;
+    private final AggregateFunctionRewriter<JdbcExpression, String> aggregateFunctionRewriter;
 
     @Inject
     public PostgreSqlClient(
