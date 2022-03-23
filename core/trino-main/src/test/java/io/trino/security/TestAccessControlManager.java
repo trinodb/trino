@@ -206,9 +206,9 @@ public class TestAccessControlManager
                     return new SystemAccessControl()
                     {
                         @Override
-                        public Optional<ViewExpression> getColumnMask(SystemSecurityContext context, CatalogSchemaTableName tableName, String column, Type type)
+                        public List<ViewExpression> getColumnMasks(SystemSecurityContext context, CatalogSchemaTableName tableName, String column, Type type)
                         {
-                            return Optional.of(new ViewExpression("user", Optional.empty(), Optional.empty(), "system mask"));
+                            return ImmutableList.of(new ViewExpression("user", Optional.empty(), Optional.empty(), "system mask"));
                         }
 
                         @Override
