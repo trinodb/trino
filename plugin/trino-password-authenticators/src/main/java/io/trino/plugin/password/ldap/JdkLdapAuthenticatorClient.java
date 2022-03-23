@@ -24,6 +24,7 @@ import javax.inject.Inject;
 import javax.naming.AuthenticationException;
 import javax.naming.NamingEnumeration;
 import javax.naming.NamingException;
+import javax.naming.directory.Attributes;
 import javax.naming.directory.DirContext;
 import javax.naming.directory.SearchControls;
 import javax.naming.directory.SearchResult;
@@ -116,6 +117,21 @@ public class JdkLdapAuthenticatorClient
                 distinguishedNames.add(search.next().getNameInNamespace());
             }
             return distinguishedNames.build();
+        }
+    }
+
+    @Override
+    public Set<String> lookupUserAttributeValues(String searchBase, String searchFilter, String contextUserDistinguishedName, String contextPassword, String attributeName) throws NamingException {
+        try (CloseableContext context = createUserDirContext(contextUserDistinguishedName, contextPassword);
+             CloseableSearchResults search = searchContext(searchBase, searchFilter, context)) {
+            ImmutableSet.Builder<String> attributeValues = ImmutableSet.builder();
+            while (search.hasMore()) {
+                Attributes attributes = search.next().getAttributes();
+                Optional.ofNullable(attributes.get(attributeName))
+                                .map(Object::toString)
+                                .ifPresent(attributeValues::add);
+            }
+            return attributeValues.build();
         }
     }
 

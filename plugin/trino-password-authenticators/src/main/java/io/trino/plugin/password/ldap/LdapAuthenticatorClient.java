@@ -27,4 +27,7 @@ public interface LdapAuthenticatorClient
 
     Set<String> lookupUserDistinguishedNames(String searchBase, String searchFilter, String contextUserDistinguishedName, String contextPassword)
             throws NamingException;
+
+    Set<String> lookupUserAttributeValues(String searchBase, String searchFilter, String contextUserDistinguishedName, String contextPassword, String attributeName)
+            throws NamingException;
 }

@@ -182,6 +182,25 @@ public class LdapAuthenticator
         return SPECIAL_CHARACTERS.matchesAnyOf(user);
     }
 
+    public String lookupUserAttributeValue(String user, String attributeName)
+            throws NamingException
+    {
+        String searchBase = userBaseDistinguishedName.orElseThrow();
+        String searchFilter = replaceUser(groupAuthorizationSearchPattern.orElseThrow(), user);
+        Set<String> attributeValues = client.lookupUserAttributeValues(searchBase, searchFilter, bindDistinguishedName.orElseThrow(), bindPassword.orElseThrow(), attributeName);
+        if (attributeValues.isEmpty()) {
+            String message = format("User [%s] has no values for LDAP attribute '%s'.", user, attributeName);
+            log.debug("%s", message);
+            throw new IllegalStateException(message);
+        }
+        if (attributeValues.size() > 1) {
+            String message = format("User [%s] has multiple values for LDAP attribute '%s'.", user, attributeName);
+            log.debug("%s", message);
+            throw new IllegalStateException(message);
+        }
+        return getOnlyElement(attributeValues);
+    }
+
     private String lookupUserDistinguishedName(String user)
             throws NamingException
     {
