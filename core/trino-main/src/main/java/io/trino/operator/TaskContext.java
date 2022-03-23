@@ -432,8 +432,12 @@ public class TaskContext
         long processedInputDataSize = 0;
         long processedInputPositions = 0;
 
+        long inputBlockedTime = 0;
+
         long outputDataSize = 0;
         long outputPositions = 0;
+
+        long outputBlockedTime = 0;
 
         long physicalWrittenDataSize = 0;
 
@@ -479,11 +483,15 @@ public class TaskContext
 
                 processedInputDataSize += pipeline.getProcessedInputDataSize().toBytes();
                 processedInputPositions += pipeline.getProcessedInputPositions();
+
+                inputBlockedTime += pipeline.getInputBlockedTime().roundTo(NANOSECONDS);
             }
 
             if (pipeline.isOutputPipeline()) {
                 outputDataSize += pipeline.getOutputDataSize().toBytes();
                 outputPositions += pipeline.getOutputPositions();
+
+                outputBlockedTime += pipeline.getOutputBlockedTime().roundTo(NANOSECONDS);
             }
 
             physicalWrittenDataSize += pipeline.getPhysicalWrittenDataSize().toBytes();
@@ -557,8 +565,10 @@ public class TaskContext
                 rawInputPositions,
                 succinctBytes(processedInputDataSize),
                 processedInputPositions,
+                new Duration(inputBlockedTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 succinctBytes(outputDataSize),
                 outputPositions,
+                new Duration(outputBlockedTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 succinctBytes(physicalWrittenDataSize),
                 fullGcCount,
                 fullGcTime,

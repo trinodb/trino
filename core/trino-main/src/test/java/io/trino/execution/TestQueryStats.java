@@ -33,6 +33,7 @@ import java.util.Optional;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.trino.server.DynamicFilterService.DynamicFiltersStats;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertEquals;
 
@@ -226,10 +227,16 @@ public class TestQueryStats
             41,
             42,
 
+            new Duration(101, SECONDS),
+            new Duration(102, SECONDS),
+
             DataSize.ofBytes(43),
             DataSize.ofBytes(44),
             45,
             46,
+
+            new Duration(103, SECONDS),
+            new Duration(104, SECONDS),
 
             DataSize.ofBytes(47),
             DataSize.ofBytes(48),
@@ -327,10 +334,16 @@ public class TestQueryStats
         assertEquals(actual.getProcessedInputPositions(), 41);
         assertEquals(actual.getFailedProcessedInputPositions(), 42);
 
+        assertEquals(actual.getInputBlockedTime(), new Duration(101, SECONDS));
+        assertEquals(actual.getFailedInputBlockedTime(), new Duration(102, SECONDS));
+
         assertEquals(actual.getOutputDataSize(), DataSize.ofBytes(43));
         assertEquals(actual.getFailedOutputDataSize(), DataSize.ofBytes(44));
         assertEquals(actual.getOutputPositions(), 45);
         assertEquals(actual.getFailedOutputPositions(), 46);
+
+        assertEquals(actual.getOutputBlockedTime(), new Duration(103, SECONDS));
+        assertEquals(actual.getFailedOutputBlockedTime(), new Duration(104, SECONDS));
 
         assertEquals(actual.getPhysicalWrittenDataSize(), DataSize.ofBytes(47));
         assertEquals(actual.getFailedPhysicalWrittenDataSize(), DataSize.ofBytes(48));
