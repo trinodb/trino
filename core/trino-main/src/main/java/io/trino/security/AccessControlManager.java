@@ -200,6 +200,9 @@ public class AccessControlManager
             systemAccessControl = factory.create(ImmutableMap.copyOf(properties));
         }
 
+        systemAccessControl.getEventListeners()
+                .forEach(eventListenerManager::addEventListener);
+
         setSystemAccessControls(ImmutableList.of(systemAccessControl));
     }
 
