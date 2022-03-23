@@ -94,7 +94,6 @@ import static io.trino.sql.DynamicFilters.extractSourceSymbols;
 import static io.trino.sql.planner.DomainCoercer.applySaturatedCasts;
 import static io.trino.sql.planner.ExpressionExtractor.extractExpressions;
 import static io.trino.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
-import static io.trino.util.MorePredicates.isInstanceOfAny;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newFixedThreadPool;
@@ -517,7 +516,7 @@ public class DynamicFilterService
     private static Set<DynamicFilterId> getReplicatedDynamicFilters(PlanNode planNode)
     {
         return PlanNodeSearcher.searchFrom(planNode)
-                .where(isInstanceOfAny(JoinNode.class, SemiJoinNode.class))
+                .whereIsInstanceOfAny(JoinNode.class, SemiJoinNode.class)
                 .findAll().stream()
                 .filter(JoinUtils::isBuildSideReplicated)
                 .flatMap(node -> getDynamicFiltersProducedInPlanNode(node).stream())
@@ -527,7 +526,7 @@ public class DynamicFilterService
     private static Set<DynamicFilterId> getProducedDynamicFilters(PlanNode planNode)
     {
         return PlanNodeSearcher.searchFrom(planNode)
-                .where(isInstanceOfAny(JoinNode.class, SemiJoinNode.class))
+                .whereIsInstanceOfAny(JoinNode.class, SemiJoinNode.class)
                 .findAll().stream()
                 .flatMap(node -> getDynamicFiltersProducedInPlanNode(node).stream())
                 .collect(toImmutableSet());
