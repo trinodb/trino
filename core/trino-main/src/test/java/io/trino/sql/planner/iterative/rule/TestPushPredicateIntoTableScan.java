@@ -38,15 +38,17 @@ import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
+import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.BooleanLiteral;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.GenericLiteral;
 import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.QualifiedName;
+import io.trino.sql.tree.SearchedCaseExpression;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.SymbolReference;
-import io.trino.sql.tree.TryExpression;
+import io.trino.sql.tree.WhenClause;
 import io.trino.testing.TestingTransactionHandle;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -66,6 +68,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
+import static io.trino.sql.tree.ArithmeticBinaryExpression.Operator.MODULUS;
 import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static io.trino.sql.tree.LogicalExpression.Operator.AND;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -218,7 +221,17 @@ public class TestPushPredicateIntoTableScan
                                                         .build(),
                                                 new GenericLiteral("BIGINT", "42")),
                                         // non-translatable to connector expression
-                                        new TryExpression(new BooleanLiteral("false")),
+                                        new SearchedCaseExpression(
+                                                ImmutableList.of(new WhenClause(
+                                                        new ComparisonExpression(
+                                                                EQUAL,
+                                                                new ArithmeticBinaryExpression(
+                                                                        MODULUS,
+                                                                        new SymbolReference("nationkey"),
+                                                                        new GenericLiteral("BIGINT", "17")),
+                                                                new GenericLiteral("BIGINT", "44")),
+                                                        new BooleanLiteral("true"))),
+                                                Optional.empty()),
                                         LogicalExpression.or(
                                                 new ComparisonExpression(
                                                         EQUAL,
@@ -243,7 +256,17 @@ public class TestPushPredicateIntoTableScan
                                                         .functionCallBuilder(QualifiedName.of("rand"))
                                                         .build(),
                                                 new GenericLiteral("BIGINT", "42")),
-                                        new TryExpression(new BooleanLiteral("false"))),
+                                        new SearchedCaseExpression(
+                                                ImmutableList.of(new WhenClause(
+                                                        new ComparisonExpression(
+                                                                EQUAL,
+                                                                new ArithmeticBinaryExpression(
+                                                                        MODULUS,
+                                                                        new SymbolReference("nationkey"),
+                                                                        new GenericLiteral("BIGINT", "17")),
+                                                                new GenericLiteral("BIGINT", "44")),
+                                                        new BooleanLiteral("true"))),
+                                                Optional.empty())),
                                 constrainedTableScanWithTableLayout(
                                         "nation",
                                         ImmutableMap.of("nationkey", singleValue(BIGINT, (long) 44)),
