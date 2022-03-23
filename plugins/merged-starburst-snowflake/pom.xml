@@ -16,6 +16,8 @@
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <air.test.thread-count>8</air.test.thread-count>
+        <!-- TODO: Remove jvmsize change when surefire is upgraded in airbase 124: https://github.com/airlift/airbase/commit/15d4bfaac5ecc93ac9019c10a37ca7ada0b65da5 -->
+        <air.test.jvmsize>4g</air.test.jvmsize>
     </properties>
 
     <dependencies>
