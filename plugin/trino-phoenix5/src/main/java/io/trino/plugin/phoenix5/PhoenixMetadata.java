@@ -72,7 +72,7 @@ public class PhoenixMetadata
     @Inject
     public PhoenixMetadata(PhoenixClient phoenixClient, IdentifierMapping identifierMapping)
     {
-        super(phoenixClient);
+        super(phoenixClient, false);
         this.phoenixClient = requireNonNull(phoenixClient, "phoenixClient is null");
         this.identifierMapping = requireNonNull(identifierMapping, "identifierMapping is null");
     }
