@@ -43,6 +43,8 @@ public class QueryStatistics
     private final long peakTaskTotalMemory;
     private final long physicalInputBytes;
     private final long physicalInputRows;
+    private final long processedInputBytes;
+    private final long processedInputRows;
     private final long internalNetworkBytes;
     private final long internalNetworkRows;
     private final long totalBytes;
@@ -90,6 +92,8 @@ public class QueryStatistics
             long peakTaskTotalMemory,
             long physicalInputBytes,
             long physicalInputRows,
+            long processedInputBytes,
+            long processedInputRows,
             long internalNetworkBytes,
             long internalNetworkRows,
             long totalBytes,
@@ -122,6 +126,8 @@ public class QueryStatistics
         this.peakTaskTotalMemory = peakTaskTotalMemory;
         this.physicalInputBytes = physicalInputBytes;
         this.physicalInputRows = physicalInputRows;
+        this.processedInputBytes = processedInputBytes;
+        this.processedInputRows = processedInputRows;
         this.internalNetworkBytes = internalNetworkBytes;
         this.internalNetworkRows = internalNetworkRows;
         this.totalBytes = totalBytes;
@@ -228,6 +234,18 @@ public class QueryStatistics
     public long getPhysicalInputRows()
     {
         return physicalInputRows;
+    }
+
+    @JsonProperty
+    public long getProcessedInputBytes()
+    {
+        return processedInputBytes;
+    }
+
+    @JsonProperty
+    public long getProcessedInputRows()
+    {
+        return processedInputRows;
     }
 
     @JsonProperty
