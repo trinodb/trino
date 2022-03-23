@@ -325,7 +325,8 @@ public class TestDeltaLakeMetadata
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                0);
+                0,
+                false);
 
         assertThatThrownBy(() -> deltaLakeMetadataFactory.create(SESSION.getIdentity())
                 .getInsertLayout(SESSION, missingTableHandle))
@@ -449,7 +450,8 @@ public class TestDeltaLakeMetadata
                 Optional.of(ImmutableList.of(BOOLEAN_COLUMN_HANDLE)),
                 Optional.of(ImmutableList.of(DOUBLE_COLUMN_HANDLE)),
                 Optional.empty(),
-                0);
+                0,
+                false);
     }
 
     private static TupleDomain<DeltaLakeColumnHandle> createConstrainedColumnsTuple(

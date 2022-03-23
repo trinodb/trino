@@ -32,6 +32,7 @@ public class DeltaLakeInsertTableHandle
     private final MetadataEntry metadataEntry;
     private final List<DeltaLakeColumnHandle> inputColumns;
     private final long readVersion;
+    private final boolean retriesEnabled;
 
     @JsonCreator
     public DeltaLakeInsertTableHandle(
@@ -40,7 +41,8 @@ public class DeltaLakeInsertTableHandle
             @JsonProperty("location") String location,
             @JsonProperty("metadataEntry") MetadataEntry metadataEntry,
             @JsonProperty("inputColumns") List<DeltaLakeColumnHandle> inputColumns,
-            @JsonProperty("readVersion") long readVersion)
+            @JsonProperty("readVersion") long readVersion,
+            @JsonProperty("retriesEnabled") boolean retriesEnabled)
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
@@ -48,6 +50,7 @@ public class DeltaLakeInsertTableHandle
         this.inputColumns = ImmutableList.copyOf(inputColumns);
         this.location = requireNonNull(location, "location is null");
         this.readVersion = readVersion;
+        this.retriesEnabled = retriesEnabled;
     }
 
     @JsonProperty
@@ -84,5 +87,11 @@ public class DeltaLakeInsertTableHandle
     public long getReadVersion()
     {
         return readVersion;
+    }
+
+    @JsonProperty
+    public boolean isRetriesEnabled()
+    {
+        return retriesEnabled;
     }
 }
