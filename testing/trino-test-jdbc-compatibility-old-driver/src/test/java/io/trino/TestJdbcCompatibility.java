@@ -113,7 +113,9 @@ public class TestJdbcCompatibility
     {
         String sql = format("SELECT '%s' = '%s'", "x".repeat(100_000), "y".repeat(100_000));
 
-        try (ResultSet rs = runQuery(sql)) {
+        try (Connection connection = getConnection();
+                PreparedStatement statement = connection.prepareStatement(sql);
+                ResultSet rs = statement.executeQuery()) {
             assertThat(rs.next()).isTrue();
             assertThat(rs.getBoolean(1)).isFalse();
             assertThat(rs.next()).isFalse();
@@ -657,26 +659,30 @@ public class TestJdbcCompatibility
 
     private <T> void checkRepresentation(String query, T expectedValue, int expectedType, ResultSetMapper<T> extractValue)
     {
-        try (ResultSet rs = runQuery(query)) {
+        try (Connection connection = getConnection();
+                PreparedStatement statement = connection.prepareStatement(query);
+                ResultSet rs = statement.executeQuery()) {
             assertThat(rs.next()).isTrue();
             assertThat(extractValue.read(rs, 1)).isEqualTo(expectedValue);
             assertThat(rs.getMetaData().getColumnType(1)).isEqualTo(expectedType);
             assertThat(rs.next()).isFalse();
         }
-        catch (Exception e) {
+        catch (SQLException e) {
             throw new RuntimeException(e);
         }
     }
 
     public void checkRepresentation(String query, int expectedType, ResultSetAssertion extractValue)
     {
-        try (ResultSet rs = runQuery(query)) {
+        try (Connection connection = getConnection();
+                PreparedStatement statement = connection.prepareStatement(query);
+                ResultSet rs = statement.executeQuery()) {
             assertThat(rs.next()).isTrue();
             extractValue.check(rs, 1);
             assertThat(rs.getMetaData().getColumnType(1)).isEqualTo(expectedType);
             assertThat(rs.next()).isFalse();
         }
-        catch (Exception e) {
+        catch (SQLException e) {
             throw new RuntimeException(e);
         }
     }
@@ -781,34 +787,26 @@ public class TestJdbcCompatibility
         return map.get("timestamp");
     }
 
-    private ResultSet runQuery(String query)
+    private Connection getConnection()
+            throws SQLException
     {
-        return runQuery(query, ImmutableMap.of());
+        return getConnection(ImmutableMap.of());
     }
 
-    private ResultSet runQuery(String query, Map<String, String> params)
+    private Connection getConnection(Map<String, String> params)
+            throws SQLException
     {
         Properties properties = new Properties();
         properties.putAll(params);
         properties.put("user", "test");
         properties.put("password", "");
 
-        try (Connection connection = DriverManager.getConnection(serverUrl, properties); PreparedStatement stmt = connection.prepareStatement(query)) {
-            return stmt.executeQuery();
-        }
-        catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        return DriverManager.getConnection(serverUrl, properties);
     }
 
     private void useConnection(Map<String, String> connectionParameters, Consumer<Connection> consumer)
     {
-        Properties properties = new Properties();
-        properties.putAll(connectionParameters);
-        properties.put("user", "test");
-        properties.put("password", "");
-
-        try (Connection conn = DriverManager.getConnection(serverUrl, properties)) {
+        try (Connection conn = getConnection(connectionParameters)) {
             consumer.accept(conn);
         }
         catch (Exception e) {
