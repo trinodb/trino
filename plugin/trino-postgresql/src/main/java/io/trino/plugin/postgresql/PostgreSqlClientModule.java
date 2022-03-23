@@ -24,6 +24,7 @@ import io.trino.plugin.jdbc.DecimalModule;
 import io.trino.plugin.jdbc.DriverConnectionFactory;
 import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.JdbcClient;
+import io.trino.plugin.jdbc.JdbcJoinPushdownSupportModule;
 import io.trino.plugin.jdbc.JdbcStatisticsConfig;
 import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.RemoteQueryCancellationModule;
@@ -46,6 +47,7 @@ public class PostgreSqlClientModule
         bindSessionPropertiesProvider(binder, PostgreSqlSessionProperties.class);
         newOptionalBinder(binder, QueryBuilder.class).setBinding().to(CollationAwareQueryBuilder.class).in(Scopes.SINGLETON);
         install(new DecimalModule());
+        install(new JdbcJoinPushdownSupportModule());
         install(new RemoteQueryCancellationModule());
     }
 

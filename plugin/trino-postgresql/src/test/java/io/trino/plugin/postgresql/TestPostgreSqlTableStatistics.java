@@ -49,7 +49,6 @@ public class TestPostgreSqlTableStatistics
                         .put("connection-user", postgreSqlServer.getUser())
                         .put("connection-password", postgreSqlServer.getPassword())
                         .put("case-insensitive-name-matching", "true")
-                        .put("join-pushdown.enabled", "true")
                         .buildOrThrow(),
                 ImmutableList.of(ORDERS));
     }

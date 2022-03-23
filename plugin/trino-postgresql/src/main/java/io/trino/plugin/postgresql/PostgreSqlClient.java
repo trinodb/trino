@@ -76,6 +76,8 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.JoinCondition;
+import io.trino.spi.connector.JoinStatistics;
+import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.expression.ConnectorExpression;
@@ -143,6 +145,7 @@ import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalDef
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalRounding;
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalRoundingMode;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
+import static io.trino.plugin.jdbc.JdbcJoinPushdownUtil.implementJoinCostAware;
 import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.getDomainCompactionThreshold;
 import static io.trino.plugin.jdbc.PredicatePushdownController.DISABLE_PUSHDOWN;
 import static io.trino.plugin.jdbc.PredicatePushdownController.FULL_PUSHDOWN;
@@ -943,6 +946,26 @@ public class PostgreSqlClient
         }
 
         return rowCount;
+    }
+
+    @Override
+    public Optional<PreparedQuery> implementJoin(
+            ConnectorSession session,
+            JoinType joinType,
+            PreparedQuery leftSource,
+            PreparedQuery rightSource,
+            List<JdbcJoinCondition> joinConditions,
+            Map<JdbcColumnHandle, String> rightAssignments,
+            Map<JdbcColumnHandle, String> leftAssignments,
+            JoinStatistics statistics)
+    {
+        return implementJoinCostAware(
+                session,
+                joinType,
+                leftSource,
+                rightSource,
+                statistics,
+                () -> super.implementJoin(session, joinType, leftSource, rightSource, joinConditions, rightAssignments, leftAssignments, statistics));
     }
 
     @Override
