@@ -77,7 +77,8 @@ public class TestDeltaLakeSplitManager
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
-            0);
+            0,
+            false);
 
     @Test
     public void testInitialSplits()
