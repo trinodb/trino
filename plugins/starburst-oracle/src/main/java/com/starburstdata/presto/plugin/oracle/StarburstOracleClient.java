@@ -91,7 +91,6 @@ import static com.starburstdata.presto.plugin.jdbc.JdbcJoinPushdownUtil.implemen
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_NON_TRANSIENT_ERROR;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
-import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -379,13 +378,6 @@ public class StarburstOracleClient
     public boolean isTopNGuaranteed(ConnectorSession session)
     {
         return StarburstOracleSessionProperties.getParallelismType(session) == OracleParallelismType.NO_PARALLELISM;
-    }
-
-    @Override
-    // TODO: migrate to OSS?
-    public void dropSchema(ConnectorSession session, String schemaName)
-    {
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping schemas");
     }
 
     @Override
