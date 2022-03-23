@@ -29,11 +29,6 @@
         </dependency>
 
         <dependency>
-            <groupId>com.starburstdata.presto</groupId>
-            <artifactId>starburst-redirection</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-base-jdbc</artifactId>
         </dependency>
@@ -41,27 +36,6 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>configuration</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>log</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>stats</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>units</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.cdata</groupId>
-            <artifactId>salesforce-jdbc</artifactId>
-            <version>2021-3</version>
         </dependency>
 
         <dependency>
@@ -86,8 +60,40 @@
 
         <!-- used by tests but also needed transitively -->
         <dependency>
+            <groupId>com.starburstdata.presto</groupId>
+            <artifactId>starburst-redirection</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>log</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>log-manager</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>stats</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>units</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <!-- Driver is not referenced at compile time -->
+        <dependency>
+            <groupId>com.cdata</groupId>
+            <artifactId>salesforce-jdbc</artifactId>
+            <version>2021-3</version>
             <scope>runtime</scope>
         </dependency>
 
