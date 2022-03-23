@@ -13,8 +13,13 @@
  */
 package io.trino.plugin.mysql;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.mysql.cj.jdbc.JdbcStatement;
+import io.airlift.json.JsonCodec;
+import io.airlift.log.Logger;
 import io.trino.plugin.base.aggregation.AggregateFunctionRewriter;
 import io.trino.plugin.base.aggregation.AggregateFunctionRule;
 import io.trino.plugin.base.expression.ConnectorExpressionRewriter;
@@ -26,6 +31,7 @@ import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
 import io.trino.plugin.jdbc.JdbcJoinCondition;
 import io.trino.plugin.jdbc.JdbcSortItem;
+import io.trino.plugin.jdbc.JdbcStatisticsConfig;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.PreparedQuery;
@@ -53,6 +59,10 @@ import io.trino.spi.connector.JoinCondition;
 import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.statistics.ColumnStatistics;
+import io.trino.spi.statistics.Estimate;
+import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
@@ -63,6 +73,9 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.VarcharType;
+import org.jdbi.v3.core.Handle;
+import org.jdbi.v3.core.Jdbi;
+import org.jdbi.v3.core.statement.UnableToExecuteStatementException;
 
 import javax.inject.Inject;
 
@@ -72,6 +85,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
+import java.util.AbstractMap.SimpleEntry;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -79,12 +93,18 @@ import java.util.Optional;
 import java.util.function.BiFunction;
 import java.util.stream.Stream;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.emptyToNull;
+import static com.google.common.base.Strings.nullToEmpty;
+import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.mysql.cj.exceptions.MysqlErrorNumbers.SQL_STATE_ER_TABLE_EXISTS_ERROR;
 import static com.mysql.cj.exceptions.MysqlErrorNumbers.SQL_STATE_SYNTAX_ERROR;
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.base.util.JsonTypeUtil.jsonParse;
 import static io.trino.plugin.jdbc.DecimalConfig.DecimalMapping.ALLOW_OVERFLOW;
@@ -147,11 +167,14 @@ import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
 public class MySqlClient
         extends BaseJdbcClient
 {
+    private static final Logger log = Logger.get(MySqlClient.class);
+
     private static final int MAX_SUPPORTED_DATE_TIME_PRECISION = 6;
     // MySQL driver returns width of timestamp types instead of precision.
     // 19 characters are used for zero-precision timestamps while others
@@ -164,15 +187,28 @@ public class MySqlClient
     // An empty character means that the table doesn't have a comment in MySQL
     private static final String NO_COMMENT = "";
 
+    private static final JsonCodec<ColumnHistogram> HISTOGRAM_CODEC = jsonCodec(ColumnHistogram.class);
+
+    // We don't know null fraction, but having no null fraction will make CBO useless. Assume some arbitrary value.
+    private static final Estimate UNKNOWN_NULL_FRACTION_REPLACEMENT = Estimate.of(0.1);
+
     private final Type jsonType;
+    private final boolean statisticsEnabled;
     private final ConnectorExpressionRewriter<String> connectorExpressionRewriter;
     private final AggregateFunctionRewriter<JdbcExpression, String> aggregateFunctionRewriter;
 
     @Inject
-    public MySqlClient(BaseJdbcConfig config, ConnectionFactory connectionFactory, QueryBuilder queryBuilder, TypeManager typeManager, IdentifierMapping identifierMapping)
+    public MySqlClient(
+            BaseJdbcConfig config,
+            JdbcStatisticsConfig statisticsConfig,
+            ConnectionFactory connectionFactory,
+            QueryBuilder queryBuilder,
+            TypeManager typeManager,
+            IdentifierMapping identifierMapping)
     {
         super(config, "`", connectionFactory, queryBuilder, identifierMapping);
         this.jsonType = typeManager.getType(new TypeSignature(StandardTypes.JSON));
+        this.statisticsEnabled = requireNonNull(statisticsConfig, "statisticsConfig is null").isEnabled();
 
         this.connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder()
                 .addStandardRules(this::quoted)
@@ -685,6 +721,119 @@ public class MySqlClient
                 .noneMatch(type -> type instanceof CharType || type instanceof VarcharType);
     }
 
+    @Override
+    public TableStatistics getTableStatistics(ConnectorSession session, JdbcTableHandle handle, TupleDomain<ColumnHandle> tupleDomain)
+    {
+        if (!statisticsEnabled) {
+            return TableStatistics.empty();
+        }
+        if (!handle.isNamedRelation()) {
+            return TableStatistics.empty();
+        }
+        try {
+            return readTableStatistics(session, handle);
+        }
+        catch (SQLException | RuntimeException e) {
+            throwIfInstanceOf(e, TrinoException.class);
+            throw new TrinoException(JDBC_ERROR, "Failed fetching statistics for table: " + handle, e);
+        }
+    }
+
+    private TableStatistics readTableStatistics(ConnectorSession session, JdbcTableHandle table)
+            throws SQLException
+    {
+        checkArgument(table.isNamedRelation(), "Relation is not a table: %s", table);
+
+        log.debug("Reading statistics for %s", table);
+        try (Connection connection = connectionFactory.openConnection(session);
+                Handle handle = Jdbi.open(connection)) {
+            StatisticsDao statisticsDao = new StatisticsDao(handle);
+
+            Long rowCount = statisticsDao.getRowCount(table);
+            log.debug("Estimated row count of table %s is %s", table, rowCount);
+
+            if (rowCount == null) {
+                // Table not found, or is a view.
+                return TableStatistics.empty();
+            }
+
+            TableStatistics.Builder tableStatistics = TableStatistics.builder();
+            tableStatistics.setRowCount(Estimate.of(rowCount));
+
+            Map<String, String> columnHistograms = statisticsDao.getColumnHistograms(table);
+            Map<String, ColumnIndexStatistics> columnStatisticsFromIndexes = statisticsDao.getColumnIndexStatistics(table);
+
+            if (columnHistograms.isEmpty() && columnStatisticsFromIndexes.isEmpty()) {
+                log.debug("No column histograms and index statistics read");
+                // No more information to work on
+                return tableStatistics.build();
+            }
+
+            for (JdbcColumnHandle column : this.getColumns(session, table)) {
+                ColumnStatistics.Builder columnStatisticsBuilder = ColumnStatistics.builder();
+
+                String columnName = column.getColumnName();
+                Optional<ColumnHistogram> histogram = getColumnHistogram(columnHistograms, columnName);
+                if (histogram.isPresent()) {
+                    log.debug("Reading column statistics for %s, %s from histogram: %s", table, columnName, columnHistograms.get(columnName));
+                    histogram.get().updateColumnStatistics(columnStatisticsBuilder);
+
+                    // row count from INFORMATION_SCHEMA.TABLES is very inaccurate
+                    rowCount = histogram.get().getUpdateRowCount(rowCount);
+                }
+
+                ColumnIndexStatistics columnIndexStatistics = columnStatisticsFromIndexes.get(columnName);
+                if (columnIndexStatistics != null) {
+                    log.debug("Reading column statistics for %s, %s from index statistics: %s", table, columnName, columnIndexStatistics);
+                    updateColumnStatisticsFromIndexStatistics(table, columnName, columnStatisticsBuilder, columnIndexStatistics);
+
+                    // row count from INFORMATION_SCHEMA.TABLES is very inaccurate
+                    rowCount = max(rowCount, columnIndexStatistics.getCardinality());
+                }
+
+                ColumnStatistics columnStatistics = columnStatisticsBuilder.build();
+                if (!columnStatistics.getDistinctValuesCount().isUnknown() && columnStatistics.getNullsFraction().isUnknown()) {
+                    columnStatisticsBuilder.setNullsFraction(UNKNOWN_NULL_FRACTION_REPLACEMENT);
+                    columnStatistics = columnStatisticsBuilder.build();
+                }
+
+                tableStatistics.setColumnStatistics(column, columnStatistics);
+            }
+
+            tableStatistics.setRowCount(Estimate.of(rowCount));
+            return tableStatistics.build();
+        }
+    }
+
+    private static Optional<ColumnHistogram> getColumnHistogram(Map<String, String> columnHistograms, String columnName)
+    {
+        return Optional.ofNullable(columnHistograms.get(columnName))
+                .flatMap(histogramJson -> {
+                    try {
+                        return Optional.of(HISTOGRAM_CODEC.fromJson(histogramJson));
+                    }
+                    catch (RuntimeException e) {
+                        log.warn(e, "Failed to parse column statistics histogram: %s", histogramJson);
+                        return Optional.empty();
+                    }
+                });
+    }
+
+    private static void updateColumnStatisticsFromIndexStatistics(JdbcTableHandle table, String columnName, ColumnStatistics.Builder columnStatistics, ColumnIndexStatistics columnIndexStatistics)
+    {
+        // Prefer CARDINALITY from index statistics over NDV from a histogram.
+        // Index column might be NULLABLE. Then CARDINALITY includes all
+        columnStatistics.setDistinctValuesCount(Estimate.of(columnIndexStatistics.getCardinality()));
+
+        if (!columnIndexStatistics.nullable) {
+            double knownNullFraction = columnStatistics.build().getNullsFraction().getValue();
+            if (knownNullFraction > 0) {
+                log.warn("Inconsistent statistics, null fraction for a column %s, %s, that is not nullable according to index statistics: %s", table, columnName, knownNullFraction);
+            }
+            columnStatistics.setNullsFraction(Estimate.zero());
+        }
+    }
+
     private ColumnMapping jsonColumnMapping()
     {
         return ColumnMapping.sliceMapping(
@@ -706,6 +855,162 @@ public class MySqlClient
         }
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, e);
+        }
+    }
+
+    private static class StatisticsDao
+    {
+        private final Handle handle;
+
+        public StatisticsDao(Handle handle)
+        {
+            this.handle = requireNonNull(handle, "handle is null");
+        }
+
+        Long getRowCount(JdbcTableHandle table)
+        {
+            return handle.createQuery("" +
+                            "SELECT TABLE_ROWS FROM INFORMATION_SCHEMA.TABLES " +
+                            "WHERE TABLE_SCHEMA = :schema AND TABLE_NAME = :table_name " +
+                            "AND TABLE_TYPE = 'BASE TABLE' ")
+                    .bind("schema", table.getCatalogName())
+                    .bind("table_name", table.getTableName())
+                    .mapTo(Long.class)
+                    .findOne()
+                    .orElse(null);
+        }
+
+        Map<String, ColumnIndexStatistics> getColumnIndexStatistics(JdbcTableHandle table)
+        {
+            return handle.createQuery("" +
+                            "SELECT " +
+                            "  COLUMN_NAME, " +
+                            "  MAX(NULLABLE) AS NULLABLE, " +
+                            "  MAX(CARDINALITY) AS CARDINALITY " +
+                            "FROM INFORMATION_SCHEMA.STATISTICS " +
+                            "WHERE TABLE_SCHEMA = :schema AND TABLE_NAME = :table_name " +
+                            "AND SEQ_IN_INDEX = 1 " + // first column in the index
+                            "AND SUB_PART IS NULL " + // ignore cases where only a column prefix is indexed
+                            "AND CARDINALITY IS NOT NULL " + // CARDINALITY might be null (https://stackoverflow.com/a/42242729/65458)
+                            "GROUP BY COLUMN_NAME") // there might be multiple indexes on a column
+                    .bind("schema", table.getCatalogName())
+                    .bind("table_name", table.getTableName())
+                    .map((rs, ctx) -> {
+                        String columnName = rs.getString("COLUMN_NAME");
+
+                        boolean nullable = rs.getString("NULLABLE").equalsIgnoreCase("YES");
+                        checkState(!rs.wasNull(), "NULLABLE is null");
+
+                        long cardinality = rs.getLong("CARDINALITY");
+                        checkState(!rs.wasNull(), "CARDINALITY is null");
+
+                        return new SimpleEntry<>(columnName, new ColumnIndexStatistics(nullable, cardinality));
+                    })
+                    .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+        }
+
+        Map<String, String> getColumnHistograms(JdbcTableHandle table)
+        {
+            try {
+                handle.execute("SELECT 1 FROM INFORMATION_SCHEMA.COLUMN_STATISTICS WHERE 0=1");
+            }
+            catch (UnableToExecuteStatementException e) {
+                if (nullToEmpty(e.getMessage()).contains("Unknown table 'COLUMN_STATISTICS'")) {
+                    // The table is available since MySQL 8
+                    log.debug("INFORMATION_SCHEMA.COLUMN_STATISTICS table is not available: %s", e);
+                    return ImmutableMap.of();
+                }
+            }
+
+            return handle.createQuery("" +
+                            "SELECT COLUMN_NAME, HISTOGRAM FROM INFORMATION_SCHEMA.COLUMN_STATISTICS " +
+                            "WHERE SCHEMA_NAME = :schema AND TABLE_NAME = :table_name")
+                    .bind("schema", table.getCatalogName())
+                    .bind("table_name", table.getTableName())
+                    .map((rs, ctx) -> new SimpleEntry<>(rs.getString("COLUMN_NAME"), rs.getString("HISTOGRAM")))
+                    .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+        }
+    }
+
+    private static class ColumnIndexStatistics
+    {
+        private final boolean nullable;
+        private final long cardinality;
+
+        public ColumnIndexStatistics(boolean nullable, long cardinality)
+        {
+            this.cardinality = cardinality;
+            this.nullable = nullable;
+        }
+
+        public long getCardinality()
+        {
+            return cardinality;
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("cardinality", getCardinality())
+                    .add("nullable", nullable)
+                    .toString();
+        }
+    }
+
+    // See https://dev.mysql.com/doc/refman/8.0/en/optimizer-statistics.html
+    public static class ColumnHistogram
+    {
+        private final Optional<Double> nullFraction;
+        private final Optional<String> histogramType;
+        private final Optional<List<List<Object>>> buckets;
+
+        @JsonCreator
+        public ColumnHistogram(
+                @JsonProperty("null-values") Optional<Double> nullFraction,
+                @JsonProperty("histogram-type") Optional<String> histogramType,
+                @JsonProperty("buckets") Optional<List<List<Object>>> buckets)
+        {
+            this.nullFraction = nullFraction;
+            this.histogramType = histogramType;
+            this.buckets = buckets;
+        }
+
+        public void updateColumnStatistics(ColumnStatistics.Builder columnStatistics)
+        {
+            nullFraction.map(Estimate::of).ifPresent(columnStatistics::setNullsFraction);
+            getDistinctValuesCount().map(Estimate::of).ifPresent(columnStatistics::setDistinctValuesCount);
+        }
+
+        private Optional<Long> getDistinctValuesCount()
+        {
+            if (histogramType.isPresent() && buckets.isPresent()) {
+                switch (histogramType.get()) {
+                    case "singleton":
+                        return Optional.of((long) buckets.get().size());
+
+                    case "equi-height":
+                        long distinctValues = 0;
+                        for (List<?> bucket : buckets.get()) {
+                            distinctValues += ((Number) bucket.get(3)).longValue();
+                        }
+                        return Optional.of(distinctValues);
+
+                    default:
+                        log.debug("Unsupported histogram type: %s", histogramType.get());
+                }
+            }
+            else {
+                log.debug("Unsupported histogram: type: %s, bucket count: %s", histogramType, buckets.map(List::size));
+            }
+            return Optional.empty();
+        }
+
+        public long getUpdateRowCount(long rowCount)
+        {
+            return getDistinctValuesCount()
+                    .map(distinctValuesCount -> max(rowCount, distinctValuesCount))
+                    .orElse(rowCount);
         }
     }
 }
