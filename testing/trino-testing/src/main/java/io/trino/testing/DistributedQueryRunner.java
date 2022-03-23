@@ -35,6 +35,7 @@ import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.SessionPropertyManager;
+import io.trino.metadata.TablePropertyManager;
 import io.trino.server.BasicQueryInfo;
 import io.trino.server.SessionPropertyDefaults;
 import io.trino.server.testing.TestingTrinoServer;
@@ -325,6 +326,12 @@ public class DistributedQueryRunner
     public Metadata getMetadata()
     {
         return coordinator.getMetadata();
+    }
+
+    @Override
+    public TablePropertyManager getTablePropertyManager()
+    {
+        return getCoordinator().getTablePropertyManager();
     }
 
     @Override

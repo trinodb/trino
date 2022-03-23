@@ -60,8 +60,7 @@ public class TestResetSessionTask
                         stringProperty(
                                 "foo",
                                 "test property",
-                                null,
-                                false))))
+                                null))))
                 .build();
 
         queryRunner.createCatalog(
@@ -70,8 +69,7 @@ public class TestResetSessionTask
                         .withSessionProperty(stringProperty(
                                 "baz",
                                 "test property",
-                                null,
-                                false))
+                                null))
                         .build(),
                 ImmutableMap.of());
 

@@ -22,6 +22,7 @@ import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.SessionPropertyManager;
+import io.trino.metadata.TablePropertyManager;
 import io.trino.spi.ErrorType;
 import io.trino.spi.Plugin;
 import io.trino.spi.type.TypeManager;
@@ -52,6 +53,8 @@ public interface QueryRunner
     TransactionManager getTransactionManager();
 
     Metadata getMetadata();
+
+    TablePropertyManager getTablePropertyManager();
 
     TypeManager getTypeManager();
 

@@ -130,8 +130,8 @@ public class TestCreateMaterializedViewTask
                 TEST_CATALOG_NAME,
                 MockConnectorFactory.builder()
                         .withGetMaterializedViewProperties(() -> ImmutableList.<PropertyMetadata<?>>builder()
-                                .add(stringProperty("foo", "test materialized view property", DEFAULT_MATERIALIZED_VIEW_FOO_PROPERTY_VALUE, false))
-                                .add(integerProperty("bar", "test materialized view property", DEFAULT_MATERIALIZED_VIEW_BAR_PROPERTY_VALUE, false))
+                                .add(stringProperty("foo", "test materialized view property", DEFAULT_MATERIALIZED_VIEW_FOO_PROPERTY_VALUE))
+                                .add(integerProperty("bar", "test materialized view property", DEFAULT_MATERIALIZED_VIEW_BAR_PROPERTY_VALUE))
                                 .build())
                         .build(),
                 ImmutableMap.of());

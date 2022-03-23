@@ -65,6 +65,8 @@ import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.connector.ConnectorCapabilities.NOT_NULL_COLUMN_CONSTRAINT;
+import static io.trino.spi.session.PropertyMetadata.Flag.NOT_INHERITABLE;
+import static io.trino.spi.session.PropertyMetadata.flags;
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
@@ -99,7 +101,7 @@ public class TestCreateTableTask
     private static final ConnectorTableMetadata PARENT_TABLE = new ConnectorTableMetadata(
             new SchemaTableName("schema", "parent_table"),
             List.of(new ColumnMetadata("a", SMALLINT), new ColumnMetadata("b", BIGINT)),
-            Map.of("baz", "property_value"));
+            Map.of("baz", "property_value", "bar", "property_value2"));
 
     private LocalQueryRunner queryRunner;
     private Session testSession;
@@ -119,7 +121,9 @@ public class TestCreateTableTask
         queryRunner.createCatalog(
                 TEST_CATALOG_NAME,
                 MockConnectorFactory.builder()
-                        .withTableProperties(() -> ImmutableList.of(stringProperty("baz", "test property", null, false)))
+                        .withTableProperties(() -> ImmutableList.of(
+                                stringProperty("baz", "test property", null),
+                                stringProperty("bar", "test property 2", null, flags(NOT_INHERITABLE))))
                         .build(),
                 ImmutableMap.of());
         queryRunner.createCatalog(
@@ -268,7 +272,7 @@ public class TestCreateTableTask
         assertThat(metadata.getReceivedTableMetadata().get(0).getColumns())
                 .isEqualTo(PARENT_TABLE.getColumns());
         assertThat(metadata.getReceivedTableMetadata().get(0).getProperties())
-                .isEqualTo(PARENT_TABLE.getProperties());
+                .isEqualTo(Map.of("baz", "property_value"));
     }
 
     @Test

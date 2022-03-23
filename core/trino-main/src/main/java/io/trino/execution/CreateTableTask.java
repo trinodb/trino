@@ -32,6 +32,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.security.AccessDeniedException;
+import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeNotFoundException;
 import io.trino.sql.PlannerContext;
@@ -47,6 +48,7 @@ import io.trino.sql.tree.TableElement;
 
 import javax.inject.Inject;
 
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -58,6 +60,7 @@ import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.execution.ParameterExtractor.bindParameters;
@@ -80,6 +83,7 @@ import static io.trino.sql.tree.LikeClause.PropertiesOption.EXCLUDING;
 import static io.trino.sql.tree.LikeClause.PropertiesOption.INCLUDING;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.Predicate.not;
 
 public class CreateTableTask
         implements DataDefinitionTask<CreateTable>
@@ -221,7 +225,14 @@ public class CreateTableTask
                         throw semanticException(NOT_SUPPORTED, statement, "Only one LIKE clause can specify INCLUDING PROPERTIES");
                     }
                     includingProperties = true;
-                    inheritedProperties = likeTableMetadata.getMetadata().getProperties();
+                    Collection<PropertyMetadata<?>> connectorTableProperties = tablePropertyManager.getAllProperties(catalogHandle);
+                    Set<String> notInheritableProperties = connectorTableProperties.stream()
+                            .filter(not(PropertyMetadata::isInheritable))
+                            .map(PropertyMetadata::getName)
+                            .collect(toImmutableSet());
+                    inheritedProperties = likeTableMetadata.getMetadata().getProperties().entrySet().stream()
+                            .filter(entry -> !notInheritableProperties.contains(entry.getKey()))
+                            .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
                 }
 
                 try {

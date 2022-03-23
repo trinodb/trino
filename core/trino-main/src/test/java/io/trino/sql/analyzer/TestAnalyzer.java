@@ -7081,8 +7081,8 @@ public class TestAnalyzer
         public List<PropertyMetadata<?>> getAnalyzeProperties()
         {
             return ImmutableList.of(
-                    stringProperty("p1", "test string property", "", false),
-                    integerProperty("p2", "test integer property", 0, false));
+                    stringProperty("p1", "test string property", ""),
+                    integerProperty("p2", "test integer property", 0));
         }
     }
 }

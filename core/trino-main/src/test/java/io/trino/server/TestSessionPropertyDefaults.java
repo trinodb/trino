@@ -52,8 +52,8 @@ public class TestSessionPropertyDefaults
         SessionPropertyDefaults sessionPropertyDefaults = new SessionPropertyDefaults(TEST_NODE_INFO, new AllowAllAccessControlManager());
 
         ImmutableList<PropertyMetadata<?>> catalogProperties = ImmutableList.of(
-                PropertyMetadata.stringProperty("explicit_set", "Test property", null, false),
-                PropertyMetadata.stringProperty("catalog_default", "Test property", null, false));
+                PropertyMetadata.stringProperty("explicit_set", "Test property", null),
+                PropertyMetadata.stringProperty("catalog_default", "Test property", null));
         SessionPropertyManager sessionPropertyManager = new SessionPropertyManager(
                 ImmutableSet.of(new SystemSessionProperties()),
                 CatalogServiceProvider.singleton(TEST_CATALOG_HANDLE, Maps.uniqueIndex(catalogProperties, PropertyMetadata::getName)));

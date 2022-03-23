@@ -61,6 +61,7 @@ import io.trino.metadata.InternalNodeManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ProcedureRegistry;
 import io.trino.metadata.SessionPropertyManager;
+import io.trino.metadata.TablePropertyManager;
 import io.trino.security.AccessControl;
 import io.trino.security.AccessControlConfig;
 import io.trino.security.AccessControlManager;
@@ -148,6 +149,7 @@ public class TestingTrinoServer
     private final TypeManager typeManager;
     private final QueryExplainer queryExplainer;
     private final SessionPropertyManager sessionPropertyManager;
+    private final TablePropertyManager tablePropertyManager;
     private final FunctionManager functionManager;
     private final GlobalFunctionCatalog globalFunctionCatalog;
     private final StatsCalculator statsCalculator;
@@ -324,6 +326,7 @@ public class TestingTrinoServer
         splitManager = injector.getInstance(SplitManager.class);
         pageSourceManager = injector.getInstance(PageSourceManager.class);
         sessionPropertyManager = injector.getInstance(SessionPropertyManager.class);
+        tablePropertyManager = injector.getInstance(TablePropertyManager.class);
         if (coordinator) {
             dispatchManager = injector.getInstance(DispatchManager.class);
             queryManager = (SqlQueryManager) injector.getInstance(QueryManager.class);
@@ -489,6 +492,11 @@ public class TestingTrinoServer
     public Metadata getMetadata()
     {
         return metadata;
+    }
+
+    public TablePropertyManager getTablePropertyManager()
+    {
+        return tablePropertyManager;
     }
 
     public TypeManager getTypeManager()

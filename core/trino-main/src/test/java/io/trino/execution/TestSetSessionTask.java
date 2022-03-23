@@ -82,8 +82,7 @@ public class TestSetSessionTask
                         stringProperty(
                                 "foo",
                                 "test property",
-                                null,
-                                false))))
+                                null))))
                 .build();
 
         queryRunner.createCatalog(
@@ -92,20 +91,17 @@ public class TestSetSessionTask
                         .withSessionProperty(stringProperty(
                                 "bar",
                                 "test property",
-                                null,
-                                false))
+                                null))
                         .withSessionProperty(integerProperty(
                                 "positive_property",
                                 "property that should be positive",
                                 null,
-                                TestSetSessionTask::validatePositive,
-                                false))
+                                TestSetSessionTask::validatePositive))
                         .withSessionProperty(enumProperty(
                                 "size_property",
                                 "size enum property",
                                 Size.class,
-                                null,
-                                false))
+                                null))
                         .build(),
                 ImmutableMap.of());
 

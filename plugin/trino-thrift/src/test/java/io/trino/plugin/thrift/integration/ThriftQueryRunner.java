@@ -34,6 +34,7 @@ import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.SessionPropertyManager;
+import io.trino.metadata.TablePropertyManager;
 import io.trino.plugin.thrift.ThriftPlugin;
 import io.trino.plugin.thrift.server.ThriftIndexedTpchService;
 import io.trino.plugin.thrift.server.ThriftTpchService;
@@ -219,6 +220,12 @@ public final class ThriftQueryRunner
         public Metadata getMetadata()
         {
             return source.getMetadata();
+        }
+
+        @Override
+        public TablePropertyManager getTablePropertyManager()
+        {
+            return source.getTablePropertyManager();
         }
 
         @Override

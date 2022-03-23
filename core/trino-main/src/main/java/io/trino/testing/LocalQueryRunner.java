@@ -589,6 +589,7 @@ public class LocalQueryRunner
         return plannerContext.getMetadata();
     }
 
+    @Override
     public TablePropertyManager getTablePropertyManager()
     {
         return tablePropertyManager;
