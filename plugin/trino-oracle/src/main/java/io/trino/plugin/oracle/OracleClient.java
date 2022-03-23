@@ -404,7 +404,8 @@ public class OracleClient
 
     public static LongWriteFunction trinoDateToOracleDateWriteFunction()
     {
-        return new LongWriteFunction() {
+        return new LongWriteFunction()
+        {
             @Override
             public String getBindExpression()
             {
@@ -424,7 +425,8 @@ public class OracleClient
 
     private static LongWriteFunction trinoTimestampToOracleDateWriteFunction()
     {
-        return new LongWriteFunction() {
+        return new LongWriteFunction()
+        {
             @Override
             public String getBindExpression()
             {
@@ -447,7 +449,8 @@ public class OracleClient
 
     public static LongWriteFunction trinoTimestampToOracleTimestampWriteFunction()
     {
-        return new LongWriteFunction() {
+        return new LongWriteFunction()
+        {
             @Override
             public String getBindExpression()
             {
