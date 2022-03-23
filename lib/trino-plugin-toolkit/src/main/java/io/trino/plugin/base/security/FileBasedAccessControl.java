@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.base.security;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.base.security.TableAccessControlRule.TablePrivilege;
@@ -31,10 +32,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Function;
 import java.util.function.Predicate;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.base.security.TableAccessControlRule.TablePrivilege.DELETE;
 import static io.trino.plugin.base.security.TableAccessControlRule.TablePrivilege.GRANT_SELECT;
@@ -591,33 +592,37 @@ public class FileBasedAccessControl
     }
 
     @Override
-    public Optional<ViewExpression> getRowFilter(ConnectorSecurityContext context, SchemaTableName tableName)
+    public List<ViewExpression> getRowFilters(ConnectorSecurityContext context, SchemaTableName tableName)
     {
         if (INFORMATION_SCHEMA_NAME.equals(tableName.getSchemaName())) {
-            return Optional.empty();
+            return ImmutableList.of();
         }
 
         ConnectorIdentity identity = context.getIdentity();
         return tableRules.stream()
                 .filter(rule -> rule.matches(identity.getUser(), identity.getEnabledSystemRoles(), identity.getGroups(), tableName))
                 .map(rule -> rule.getFilter(identity.getUser(), catalogName, tableName.getSchemaName()))
-                .findFirst()
-                .flatMap(Function.identity());
+                .flatMap(Optional::stream)
+                // we return the first one we find
+                .limit(1)
+                .collect(toImmutableList());
     }
 
     @Override
-    public Optional<ViewExpression> getColumnMask(ConnectorSecurityContext context, SchemaTableName tableName, String columnName, Type type)
+    public List<ViewExpression> getColumnMasks(ConnectorSecurityContext context, SchemaTableName tableName, String columnName, Type type)
     {
         if (INFORMATION_SCHEMA_NAME.equals(tableName.getSchemaName())) {
-            return Optional.empty();
+            return ImmutableList.of();
         }
 
         ConnectorIdentity identity = context.getIdentity();
         return tableRules.stream()
                 .filter(rule -> rule.matches(identity.getUser(), identity.getEnabledSystemRoles(), identity.getGroups(), tableName))
                 .map(rule -> rule.getColumnMask(identity.getUser(), catalogName, tableName.getSchemaName(), columnName))
-                .findFirst()
-                .flatMap(Function.identity());
+                .flatMap(Optional::stream)
+                // we return the first one we find
+                .limit(1)
+                .collect(toImmutableList());
     }
 
     private boolean canSetSessionProperty(ConnectorSecurityContext context, String property)
