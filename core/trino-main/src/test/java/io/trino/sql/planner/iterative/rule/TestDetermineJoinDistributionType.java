@@ -32,6 +32,7 @@ import io.trino.sql.planner.plan.JoinNode.DistributionType;
 import io.trino.sql.planner.plan.JoinNode.Type;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.TableScanNode;
+import io.trino.sql.planner.plan.UnnestNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.testing.TestingMetadata.TestingColumnHandle;
 import org.testng.annotations.AfterClass;
@@ -828,6 +829,18 @@ public class TestDetermineJoinDistributionType
                                 INNER,
                                 planBuilder.values(sourceSymbol1),
                                 planBuilder.values(sourceSymbol2)),
+                        noLookup(),
+                        node -> sourceStatsEstimate1,
+                        planBuilder.getTypes()),
+                NaN);
+
+        // unnest node
+        assertEquals(
+                getSourceTablesSizeInBytes(
+                        planBuilder.unnest(
+                                ImmutableList.of(),
+                                ImmutableList.of(new UnnestNode.Mapping(sourceSymbol1, ImmutableList.of(sourceSymbol1))),
+                                planBuilder.values(sourceSymbol1)),
                         noLookup(),
                         node -> sourceStatsEstimate1,
                         planBuilder.getTypes()),
