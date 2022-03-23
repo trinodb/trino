@@ -328,6 +328,45 @@ public class TestAccessControlManager
     }
 
     @Test
+    public void testRegisterSingleEventListenerForDefaultAccessControl()
+    {
+        EventListener expectedListener = new EventListener() {};
+
+        String defaultAccessControlName = "event-listening-default-access-control";
+        TestingEventListenerManager eventListenerManager = emptyEventListenerManager();
+        AccessControlManager accessControlManager = createAccessControlManager(
+                eventListenerManager,
+                defaultAccessControlName);
+        accessControlManager.addSystemAccessControlFactory(
+                eventListeningSystemAccessControlFactory(defaultAccessControlName, expectedListener));
+
+        accessControlManager.loadSystemAccessControl();
+
+        assertThat(eventListenerManager.getConfiguredEventListeners())
+                .contains(expectedListener);
+    }
+
+    @Test
+    public void testRegisterMultipleEventListenerForDefaultAccessControl()
+    {
+        EventListener firstListener = new EventListener() {};
+        EventListener secondListener = new EventListener() {};
+
+        String defaultAccessControlName = "event-listening-default-access-control";
+        TestingEventListenerManager eventListenerManager = emptyEventListenerManager();
+        AccessControlManager accessControlManager = createAccessControlManager(
+                eventListenerManager,
+                defaultAccessControlName);
+        accessControlManager.addSystemAccessControlFactory(
+                eventListeningSystemAccessControlFactory(defaultAccessControlName, firstListener, secondListener));
+
+        accessControlManager.loadSystemAccessControl();
+
+        assertThat(eventListenerManager.getConfiguredEventListeners())
+                .contains(firstListener, secondListener);
+    }
+
+    @Test
     public void testRegisterSingleEventListener()
             throws IOException
     {
@@ -434,6 +473,11 @@ public class TestAccessControlManager
     private AccessControlManager createAccessControlManager(EventListenerManager eventListenerManager, AccessControlConfig config)
     {
         return new AccessControlManager(createTestTransactionManager(), eventListenerManager, config, DefaultSystemAccessControl.NAME);
+    }
+
+    private AccessControlManager createAccessControlManager(EventListenerManager eventListenerManager, String defaultAccessControlName)
+    {
+        return new AccessControlManager(createTestTransactionManager(), eventListenerManager, new AccessControlConfig(), defaultAccessControlName);
     }
 
     private SystemAccessControlFactory eventListeningSystemAccessControlFactory(String name, EventListener... eventListeners)
