@@ -88,13 +88,14 @@ public final class DeltaLakeQueryRunner
     public static DistributedQueryRunner createS3DeltaLakeQueryRunner(String catalogName, String schemaName, Map<String, String> connectorProperties, String minioAddress, TestingHadoop testingHadoop)
             throws Exception
     {
-        return createS3DeltaLakeQueryRunner(catalogName, schemaName, ImmutableMap.of(), connectorProperties, minioAddress, testingHadoop, queryRunner -> {});
+        return createS3DeltaLakeQueryRunner(catalogName, schemaName, ImmutableMap.of(), ImmutableMap.of(), connectorProperties, minioAddress, testingHadoop, queryRunner -> {});
     }
 
     public static DistributedQueryRunner createS3DeltaLakeQueryRunner(
             String catalogName,
             String schemaName,
             Map<String, String> extraProperties,
+            Map<String, String> coordinatorProperties,
             Map<String, String> connectorProperties,
             String minioAddress,
             TestingHadoop testingHadoop,
@@ -104,6 +105,7 @@ public final class DeltaLakeQueryRunner
         return createDockerizedDeltaLakeQueryRunner(
                 catalogName,
                 schemaName,
+                coordinatorProperties,
                 extraProperties,
                 ImmutableMap.<String, String>builder()
                         .put("hive.s3.aws-access-key", MINIO_ACCESS_KEY)
@@ -166,6 +168,7 @@ public final class DeltaLakeQueryRunner
         return createDockerizedDeltaLakeQueryRunner(
                 catalogName,
                 schemaName,
+                ImmutableMap.of(),
                 extraProperties,
                 connectorProperties,
                 testingHadoop,
@@ -175,6 +178,7 @@ public final class DeltaLakeQueryRunner
     public static DistributedQueryRunner createDockerizedDeltaLakeQueryRunner(
             String catalogName,
             String schemaName,
+            Map<String, String> coordinatorProperties,
             Map<String, String> extraProperties,
             Map<String, String> connectorProperties,
             TestingHadoop testingHadoop,
@@ -188,6 +192,7 @@ public final class DeltaLakeQueryRunner
 
         DistributedQueryRunner.Builder<?> builder = DistributedQueryRunner.builder(session);
         extraProperties.forEach(builder::addExtraProperty);
+        coordinatorProperties.forEach(builder::setSingleCoordinatorProperty);
         builder.setAdditionalSetup(additionalSetup);
         DistributedQueryRunner queryRunner = builder.build();
 
@@ -255,7 +260,7 @@ public final class DeltaLakeQueryRunner
                 queryRunner = DeltaLakeQueryRunner.createS3DeltaLakeQueryRunner(
                         DELTA_CATALOG,
                         schema,
-                        ImmutableMap.of("http-server.http.port", "8080"),
+                        ImmutableMap.of("http-server.http.port", "8080"), ImmutableMap.of(),
                         ImmutableMap.of(),
                         dockerizedMinioDataLake.getMinioAddress(),
                         dockerizedMinioDataLake.getTestingHadoop(),
