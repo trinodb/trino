@@ -16,6 +16,7 @@
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <dep.iceberg.version>0.13.1</dep.iceberg.version>
+        <dep.nessie.version>0.25.0</dep.nessie.version>
     </properties>
 
     <dependencies>
@@ -198,6 +199,18 @@
         </dependency>
 
         <dependency>
+            <groupId>org.projectnessie</groupId>
+            <artifactId>nessie-client</artifactId>
+            <version>${dep.nessie.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.projectnessie</groupId>
+            <artifactId>nessie-model</artifactId>
+            <version>${dep.nessie.version}</version>
+        </dependency>
+
+        <dependency>
             <groupId>org.weakref</groupId>
             <artifactId>jmxutils</artifactId>
         </dependency>
@@ -358,6 +371,12 @@
         <dependency>
             <groupId>org.assertj</groupId>
             <artifactId>assertj-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers</artifactId>
             <scope>test</scope>
         </dependency>
 

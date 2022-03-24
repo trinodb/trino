@@ -30,12 +30,14 @@ import io.trino.plugin.iceberg.catalog.file.IcebergFileMetastoreCatalogModule;
 import io.trino.plugin.iceberg.catalog.glue.IcebergGlueCatalogModule;
 import io.trino.plugin.iceberg.catalog.hms.IcebergHiveMetastoreCatalogModule;
 import io.trino.plugin.iceberg.catalog.hms.TrinoHiveCatalogFactory;
+import io.trino.plugin.iceberg.catalog.nessie.IcebergNessieCatalogModule;
 
 import java.util.Optional;
 
 import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.trino.plugin.iceberg.CatalogType.GLUE;
 import static io.trino.plugin.iceberg.CatalogType.HIVE_METASTORE;
+import static io.trino.plugin.iceberg.CatalogType.NESSIE;
 import static io.trino.plugin.iceberg.CatalogType.TESTING_FILE_METASTORE;
 import static java.util.Objects.requireNonNull;
 
@@ -63,6 +65,7 @@ public class IcebergCatalogModule
             bindCatalogModule(HIVE_METASTORE, new IcebergHiveMetastoreCatalogModule());
             bindCatalogModule(TESTING_FILE_METASTORE, new IcebergFileMetastoreCatalogModule());
             bindCatalogModule(GLUE, new IcebergGlueCatalogModule());
+            bindCatalogModule(NESSIE, new IcebergNessieCatalogModule());
         }
     }
 
