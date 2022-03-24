@@ -13,6 +13,8 @@
  */
 package io.trino.server.ui;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.Request;
 import io.airlift.http.client.ResponseHandler;
@@ -27,6 +29,7 @@ import io.trino.server.ForWorkerInfo;
 import io.trino.server.HttpRequestSessionContextFactory;
 import io.trino.server.ProtocolConfig;
 import io.trino.server.security.ResourceSecurity;
+import io.trino.spi.Node;
 import io.trino.spi.QueryId;
 import io.trino.spi.security.AccessDeniedException;
 
@@ -43,6 +46,7 @@ import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 
 import java.io.IOException;
+import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
 
@@ -122,6 +126,78 @@ public class WorkerResource
         }
         return Response.status(Status.GONE).build();
     }
+
+    @ResourceSecurity(WEB_UI)
+    @GET
+    public Response getWorkerList()
+    {
+        Set<InternalNode> activeNodes = nodeManager.getAllNodes().getActiveNodes();
+        Set<InternalNode> inactiveNodes = nodeManager.getAllNodes().getInactiveNodes();
+        Set<JsonNodeInfo> jsonNodes = new HashSet<>();
+        for (Node node : activeNodes) {
+            JsonNodeInfo jsonNode = new JsonNodeInfo(node.getNodeIdentifier(), node.getHostAndPort().getHostText(), node.getVersion(), String.valueOf(node.isCoordinator()), "active");
+            jsonNodes.add(jsonNode);
+        }
+        for (Node node : inactiveNodes) {
+            JsonNodeInfo jsonNode = new JsonNodeInfo(node.getNodeIdentifier(), node.getHostAndPort().getHostText(), node.getVersion(), String.valueOf(node.isCoordinator()), "inactive");
+            jsonNodes.add(jsonNode);
+        }
+        return Response.ok().entity(jsonNodes).build();
+    }
+
+    public static class JsonNodeInfo
+    {
+        private final String nodeId;
+        private final String nodeIp;
+        private final String nodeVersion;
+        private final String coordinator;
+        private final String state;
+
+        @JsonCreator
+        public JsonNodeInfo(@JsonProperty("nodeId") String nodeId,
+                @JsonProperty("nodeIp") String nodeIp,
+                @JsonProperty("nodeVersion") String nodeVersion,
+                @JsonProperty("coordinator") String coordinator,
+                @JsonProperty("state") String state)
+        {
+            this.nodeId = nodeId;
+            this.nodeIp = nodeIp;
+            this.nodeVersion = nodeVersion;
+            this.coordinator = coordinator;
+            this.state = state;
+        }
+
+        @JsonProperty
+        public String getNodeId()
+        {
+            return nodeId;
+        }
+
+        @JsonProperty
+        public String getNodeIp()
+        {
+            return nodeIp;
+        }
+
+        @JsonProperty
+        public String getNodeVersion()
+        {
+            return nodeVersion;
+        }
+
+        @JsonProperty
+        public String getCoordinator()
+        {
+            return coordinator;
+        }
+
+        @JsonProperty
+        public String getState()
+        {
+            return state;
+        }
+    }
+
 
     private Response proxyJsonResponse(String nodeId, String workerPath)
     {
