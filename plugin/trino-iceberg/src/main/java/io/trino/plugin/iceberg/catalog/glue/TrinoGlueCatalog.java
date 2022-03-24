@@ -412,7 +412,7 @@ public class TrinoGlueCatalog
     }
 
     @Override
-    public Optional<ConnectorViewDefinition> getView(ConnectorSession session, SchemaTableName viewIdentifier)
+    public Optional<ConnectorViewDefinition> getView(ConnectorSession session, SchemaTableName viewName)
     {
         return Optional.empty();
     }
