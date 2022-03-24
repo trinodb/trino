@@ -105,7 +105,6 @@ import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.INVALID_SCHEMA_PROPERTY;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
-import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static org.apache.hadoop.hive.metastore.TableType.VIRTUAL_VIEW;
@@ -121,19 +120,10 @@ public class TrinoHiveCatalog
     private static final String ICEBERG_MATERIALIZED_VIEW_COMMENT = "Presto Materialized View";
     public static final String DEPENDS_ON_TABLES = "dependsOnTables";
 
-    // Be compatible with views defined by the Hive connector, which can be useful under certain conditions.
-    private static final String TRINO_CREATED_BY = HiveMetadata.TRINO_CREATED_BY;
-    private static final String TRINO_CREATED_BY_VALUE = "Trino Iceberg connector";
-    private static final String PRESTO_VIEW_COMMENT = HiveMetadata.PRESTO_VIEW_COMMENT;
-    private static final String PRESTO_VERSION_NAME = HiveMetadata.PRESTO_VERSION_NAME;
-    private static final String PRESTO_QUERY_ID_NAME = HiveMetadata.PRESTO_QUERY_ID_NAME;
-    private static final String PRESTO_VIEW_EXPANDED_TEXT_MARKER = HiveMetadata.PRESTO_VIEW_EXPANDED_TEXT_MARKER;
-
     private final CatalogName catalogName;
     private final CachingHiveMetastore metastore;
     private final HdfsEnvironment hdfsEnvironment;
     private final TypeManager typeManager;
-    private final String trinoVersion;
     private final boolean isUsingSystemSecurity;
     private final boolean deleteSchemaLocationsFallback;
 
@@ -151,12 +141,11 @@ public class TrinoHiveCatalog
             boolean isUsingSystemSecurity,
             boolean deleteSchemaLocationsFallback)
     {
-        super(tableOperationsProvider, useUniqueTableLocation);
+        super(tableOperationsProvider, trinoVersion, useUniqueTableLocation);
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
-        this.trinoVersion = requireNonNull(trinoVersion, "trinoVersion is null");
         this.isUsingSystemSecurity = isUsingSystemSecurity;
         this.deleteSchemaLocationsFallback = deleteSchemaLocationsFallback;
     }
@@ -377,14 +366,6 @@ public class TrinoHiveCatalog
             definition = definition.withoutOwner();
         }
 
-        Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put(PRESTO_VIEW_FLAG, "true")
-                .put(TRINO_CREATED_BY, TRINO_CREATED_BY_VALUE)
-                .put(PRESTO_VERSION_NAME, trinoVersion)
-                .put(PRESTO_QUERY_ID_NAME, session.getQueryId())
-                .put(TABLE_COMMENT, PRESTO_VIEW_COMMENT)
-                .buildOrThrow();
-
         io.trino.plugin.hive.metastore.Table.Builder tableBuilder = io.trino.plugin.hive.metastore.Table.builder()
                 .setDatabaseName(schemaViewName.getSchemaName())
                 .setTableName(schemaViewName.getTableName())
@@ -392,7 +373,7 @@ public class TrinoHiveCatalog
                 .setTableType(org.apache.hadoop.hive.metastore.TableType.VIRTUAL_VIEW.name())
                 .setDataColumns(ImmutableList.of(new Column("dummy", HIVE_STRING, Optional.empty())))
                 .setPartitionColumns(ImmutableList.of())
-                .setParameters(properties)
+                .setParameters(createViewProperties(session))
                 .setViewOriginalText(Optional.of(encodeViewData(definition)))
                 .setViewExpandedText(Optional.of(PRESTO_VIEW_EXPANDED_TEXT_MARKER));
 
@@ -462,26 +443,6 @@ public class TrinoHiveCatalog
         // Filter on PRESTO_VIEW_COMMENT to distinguish from materialized views
         return metastore.getTablesWithParameter(schema, TABLE_COMMENT, PRESTO_VIEW_COMMENT).stream()
                 .map(table -> new SchemaTableName(schema, table));
-    }
-
-    @Override
-    public Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, Optional<String> namespace)
-    {
-        ImmutableMap.Builder<SchemaTableName, ConnectorViewDefinition> views = ImmutableMap.builder();
-        for (SchemaTableName name : listViews(session, namespace)) {
-            try {
-                getView(session, name).ifPresent(view -> views.put(name, view));
-            }
-            catch (TrinoException e) {
-                if (e.getErrorCode().equals(TABLE_NOT_FOUND.toErrorCode())) {
-                    // Ignore view that was dropped during query execution (race condition)
-                }
-                else {
-                    throw e;
-                }
-            }
-        }
-        return views.buildOrThrow();
     }
 
     @Override
