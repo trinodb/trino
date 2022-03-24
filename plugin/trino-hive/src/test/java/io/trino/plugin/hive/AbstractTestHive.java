@@ -5542,8 +5542,8 @@ public abstract class AbstractTestHive
                         .row(620L, "f", "insert3")
                         .build();
         Domain domainToDrop = Domain.create(ValueSet.of(
-                createUnboundedVarcharType(),
-                utf8Slice("alter1"), utf8Slice("alter2"), utf8Slice("alter3"), utf8Slice("drop1"), utf8Slice("drop2"), utf8Slice("drop3")),
+                        createUnboundedVarcharType(),
+                        utf8Slice("alter1"), utf8Slice("alter2"), utf8Slice("alter3"), utf8Slice("drop1"), utf8Slice("drop2"), utf8Slice("drop3")),
                 false);
         List<MaterializedRow> extraRowsForInsertExisting = ImmutableList.of();
         if (allowInsertExisting) {
