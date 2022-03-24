@@ -167,6 +167,11 @@ public final class ViewReaderUtil
         @Override
         public ConnectorViewDefinition decodeViewData(String viewData, Table table, CatalogName catalogName)
         {
+            return decodeViewData(viewData);
+        }
+
+        public static ConnectorViewDefinition decodeViewData(String viewData)
+        {
             checkCondition(viewData.startsWith(VIEW_PREFIX), HIVE_INVALID_VIEW_DATA, "View data missing prefix: %s", viewData);
             checkCondition(viewData.endsWith(VIEW_SUFFIX), HIVE_INVALID_VIEW_DATA, "View data missing suffix: %s", viewData);
             viewData = viewData.substring(VIEW_PREFIX.length());
