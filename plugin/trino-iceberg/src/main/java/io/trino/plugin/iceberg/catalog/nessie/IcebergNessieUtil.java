@@ -11,15 +11,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.iceberg;
+package io.trino.plugin.iceberg.catalog.nessie;
 
-public enum CatalogType
+import io.trino.spi.connector.SchemaTableName;
+import org.apache.iceberg.catalog.TableIdentifier;
+
+final class IcebergNessieUtil
 {
-    TESTING_FILE_METASTORE,
-    HIVE_METASTORE,
-    GLUE,
-    REST,
-    JDBC,
-    NESSIE,
-    /**/;
+    private IcebergNessieUtil() {}
+
+    static TableIdentifier toIdentifier(SchemaTableName schemaTableName)
+    {
+        return TableIdentifier.of(schemaTableName.getSchemaName(), schemaTableName.getTableName());
+    }
 }
