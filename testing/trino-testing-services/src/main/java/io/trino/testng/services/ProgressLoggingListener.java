@@ -15,6 +15,8 @@ package io.trino.testng.services;
 
 import com.google.common.base.Joiner;
 import io.airlift.log.Logger;
+import org.testng.IClassListener;
+import org.testng.ITestClass;
 import org.testng.ITestContext;
 import org.testng.ITestListener;
 import org.testng.ITestResult;
@@ -25,7 +27,7 @@ import java.math.RoundingMode;
 import static java.lang.String.format;
 
 public class ProgressLoggingListener
-        implements ITestListener
+        implements IClassListener, ITestListener
 {
     private static final Logger LOGGER = Logger.get(ProgressLoggingListener.class);
     private final boolean enabled;
@@ -106,6 +108,26 @@ public class ProgressLoggingListener
     {
     }
 
+    @Override
+    public void onBeforeClass(ITestClass testClass)
+    {
+        if (!enabled) {
+            return;
+        }
+
+        LOGGER.info("[BEFORE CLASS] %s", getName(testClass));
+    }
+
+    @Override
+    public void onAfterClass(ITestClass testClass)
+    {
+        if (!enabled) {
+            return;
+        }
+
+        LOGGER.info("[AFTER CLASS] %s", getName(testClass));
+    }
+
     private String formatTestName(ITestResult testCase)
     {
         // See LogTestDurationListener.getName
@@ -140,5 +162,10 @@ public class ProgressLoggingListener
     private static BigDecimal durationInSeconds(long millis)
     {
         return (new BigDecimal(millis)).divide(new BigDecimal(1000), 1, RoundingMode.HALF_UP);
+    }
+
+    private static String getName(ITestClass testClass)
+    {
+        return testClass.getName();
     }
 }
