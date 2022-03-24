@@ -143,6 +143,16 @@ public class TestIcebergPlugin
                         "hive.metastore-recording-path", "/tmp"),
                 new TestingConnectorContext()))
                 .hasMessageContaining("Configuration property 'hive.metastore-recording-path' was not used");
+
+        // recording with nessie
+        assertThatThrownBy(() -> factory.create(
+                "test",
+                Map.of(
+                        "iceberg.catalog.type", "nessie",
+                        "hive.metastore.nessie.region", "us-east-2",
+                        "hive.metastore-recording-path", "/tmp"),
+                new TestingConnectorContext()))
+                .hasMessageContaining("Configuration property 'hive.metastore-recording-path' was not used");
     }
 
     @Test
@@ -259,6 +269,21 @@ public class TestIcebergPlugin
                                 "iceberg.jdbc-catalog.connection-url", "jdbc:postgresql://localhost:5432/test",
                                 "iceberg.jdbc-catalog.catalog-name", "test",
                                 "iceberg.jdbc-catalog.default-warehouse-dir", "s3://bucket"),
+                        new TestingConnectorContext())
+                .shutdown();
+    }
+
+    @Test
+    public void testNessieCatalog()
+    {
+        ConnectorFactory factory = getConnectorFactory();
+
+        factory.create(
+                        "test",
+                        Map.of(
+                                "iceberg.catalog.type", "nessie",
+                                "iceberg.nessie-catalog.default-warehouse-dir", "/tmp",
+                                "iceberg.nessie-catalog.uri", "http://foo:1234"),
                         new TestingConnectorContext())
                 .shutdown();
     }
