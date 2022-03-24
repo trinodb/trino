@@ -101,7 +101,7 @@ public interface TrinoCatalog
 
     Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, Optional<String> namespace);
 
-    Optional<ConnectorViewDefinition> getView(ConnectorSession session, SchemaTableName viewIdentifier);
+    Optional<ConnectorViewDefinition> getView(ConnectorSession session, SchemaTableName viewName);
 
     List<SchemaTableName> listMaterializedViews(ConnectorSession session, Optional<String> namespace);
 

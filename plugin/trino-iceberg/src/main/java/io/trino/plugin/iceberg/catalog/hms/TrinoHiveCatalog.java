@@ -446,17 +446,17 @@ public class TrinoHiveCatalog
     }
 
     @Override
-    public Optional<ConnectorViewDefinition> getView(ConnectorSession session, SchemaTableName viewIdentifier)
+    public Optional<ConnectorViewDefinition> getView(ConnectorSession session, SchemaTableName viewName)
     {
-        if (isHiveSystemSchema(viewIdentifier.getSchemaName())) {
+        if (isHiveSystemSchema(viewName.getSchemaName())) {
             return Optional.empty();
         }
-        return metastore.getTable(viewIdentifier.getSchemaName(), viewIdentifier.getTableName())
+        return metastore.getTable(viewName.getSchemaName(), viewName.getTableName())
                 .filter(table -> HiveMetadata.PRESTO_VIEW_COMMENT.equals(table.getParameters().get(TABLE_COMMENT))) // filter out materialized views
                 .filter(ViewReaderUtil::canDecodeView)
                 .map(view -> {
                     if (!isPrestoView(view)) {
-                        throw new HiveViewNotSupportedException(viewIdentifier);
+                        throw new HiveViewNotSupportedException(viewName);
                     }
 
                     ConnectorViewDefinition definition = viewReader
