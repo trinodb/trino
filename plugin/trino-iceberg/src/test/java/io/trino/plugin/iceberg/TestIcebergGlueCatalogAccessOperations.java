@@ -159,7 +159,7 @@ public class TestIcebergGlueCatalogAccessOperations
 
             assertGlueMetastoreApiInvocations("SELECT * FROM test_select_from",
                     ImmutableMultiset.builder()
-                            .add(GET_TABLE)
+                            .addCopies(GET_TABLE, 2)
                             .build());
         }
         finally {
@@ -175,7 +175,7 @@ public class TestIcebergGlueCatalogAccessOperations
 
             assertGlueMetastoreApiInvocations("SELECT * FROM test_select_from_where WHERE age = 2",
                     ImmutableMultiset.builder()
-                            .add(GET_TABLE)
+                            .addCopies(GET_TABLE, 2)
                             .build());
         }
         finally {
@@ -183,7 +183,7 @@ public class TestIcebergGlueCatalogAccessOperations
         }
     }
 
-    @Test(enabled = false)
+    @Test
     public void testSelectFromView()
     {
         try {
@@ -192,7 +192,7 @@ public class TestIcebergGlueCatalogAccessOperations
 
             assertGlueMetastoreApiInvocations("SELECT * FROM test_select_view_view",
                     ImmutableMultiset.builder()
-                            .addCopies(GET_TABLE, 2)
+                            .addCopies(GET_TABLE, 3)
                             .build());
         }
         finally {
@@ -201,7 +201,7 @@ public class TestIcebergGlueCatalogAccessOperations
         }
     }
 
-    @Test(enabled = false)
+    @Test
     public void testSelectFromViewWithFilter()
     {
         try {
@@ -210,12 +210,12 @@ public class TestIcebergGlueCatalogAccessOperations
 
             assertGlueMetastoreApiInvocations("SELECT * FROM test_select_view_where_view WHERE age = 2",
                     ImmutableMultiset.builder()
-                            .addCopies(GET_TABLE, 2)
+                            .addCopies(GET_TABLE, 3)
                             .build());
         }
         finally {
+            getQueryRunner().execute("DROP TABLE IF EXISTS test_select_view_where_table");
             getQueryRunner().execute("DROP VIEW IF EXISTS test_select_view_where_view");
-            getQueryRunner().execute("DROP TABLE IF EXISTS test_select_view_where_view");
         }
     }
 
@@ -282,7 +282,7 @@ public class TestIcebergGlueCatalogAccessOperations
 
             assertGlueMetastoreApiInvocations("SELECT name, age FROM test_join_t1 JOIN test_join_t2 ON test_join_t2.id = test_join_t1.id",
                     ImmutableMultiset.builder()
-                            .addCopies(GET_TABLE, 2)
+                            .addCopies(GET_TABLE, 4)
                             .build());
         }
         finally {
@@ -299,7 +299,7 @@ public class TestIcebergGlueCatalogAccessOperations
 
             assertGlueMetastoreApiInvocations("SELECT child.age, parent.age FROM test_self_join_table child JOIN test_self_join_table parent ON child.parent = parent.id",
                     ImmutableMultiset.builder()
-                            .add(GET_TABLE)
+                            .addCopies(GET_TABLE, 3)
                             .build());
         }
         finally {
@@ -315,7 +315,7 @@ public class TestIcebergGlueCatalogAccessOperations
 
             assertGlueMetastoreApiInvocations("EXPLAIN SELECT * FROM test_explain",
                     ImmutableMultiset.builder()
-                            .add(GET_TABLE)
+                            .addCopies(GET_TABLE, 2)
                             .build());
         }
         finally {
@@ -331,7 +331,7 @@ public class TestIcebergGlueCatalogAccessOperations
 
             assertGlueMetastoreApiInvocations("SHOW STATS FOR test_show_stats",
                     ImmutableMultiset.builder()
-                            .add(GET_TABLE)
+                            .addCopies(GET_TABLE, 2)
                             .build());
         }
         finally {
@@ -347,7 +347,7 @@ public class TestIcebergGlueCatalogAccessOperations
 
             assertGlueMetastoreApiInvocations("SHOW STATS FOR (SELECT * FROM test_show_stats_with_filter where age >= 2)",
                     ImmutableMultiset.builder()
-                            .add(GET_TABLE)
+                            .addCopies(GET_TABLE, 2)
                             .build());
         }
         finally {

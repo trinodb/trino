@@ -13,12 +13,15 @@
  */
 package io.trino.plugin.iceberg;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
+import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.TrinoPrincipal;
+import io.trino.spi.type.VarcharType;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Table;
@@ -28,6 +31,7 @@ import org.testng.annotations.Test;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Map;
 import java.util.Optional;
 
 import static io.trino.plugin.iceberg.IcebergSchemaProperties.LOCATION_PROPERTY;
@@ -184,5 +188,82 @@ public abstract class BaseTrinoCatalogTest
                 LOG.warn("Failed to clean up namespace: %s", namespace);
             }
         }
+    }
+
+    @Test
+    public void testView()
+            throws IOException
+    {
+        TrinoCatalog catalog = createTrinoCatalog(false);
+        Path tmpDirectory = Files.createTempDirectory("iceberg_catalog_test_create_view_");
+        tmpDirectory.toFile().deleteOnExit();
+
+        String namespace = "test_create_view_" + randomTableSuffix();
+        String viewName = "viewName";
+        String renamedViewName = "renamedViewName";
+        SchemaTableName schemaTableName = new SchemaTableName(namespace, viewName);
+        SchemaTableName renamedSchemaTableName = new SchemaTableName(namespace, renamedViewName);
+        ConnectorViewDefinition viewDefinition = new ConnectorViewDefinition(
+                "SELECT name FROM local.tiny.nation",
+                Optional.empty(),
+                Optional.empty(),
+                ImmutableList.of(
+                        new ConnectorViewDefinition.ViewColumn("name", VarcharType.createVarcharType(25).getTypeId())),
+                Optional.empty(),
+                Optional.of(SESSION.getUser()),
+                false);
+
+        try {
+            catalog.createNamespace(SESSION, namespace, ImmutableMap.of(), new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
+            catalog.createView(SESSION, schemaTableName, viewDefinition, false);
+
+            assertThat(catalog.listTables(SESSION, Optional.of(namespace))).contains(schemaTableName);
+            assertThat(catalog.listViews(SESSION, Optional.of(namespace))).contains(schemaTableName);
+
+            Map<SchemaTableName, ConnectorViewDefinition> views = catalog.getViews(SESSION, Optional.of(schemaTableName.getSchemaName()));
+            assertEquals(views.size(), 1);
+            assertViewDefinition(views.get(schemaTableName), viewDefinition);
+            assertViewDefinition(catalog.getView(SESSION, schemaTableName).orElseThrow(), viewDefinition);
+
+            catalog.renameView(SESSION, schemaTableName, renamedSchemaTableName);
+            assertThat(catalog.listTables(SESSION, Optional.of(namespace))).doesNotContain(schemaTableName);
+            assertThat(catalog.listViews(SESSION, Optional.of(namespace))).doesNotContain(schemaTableName);
+            views = catalog.getViews(SESSION, Optional.of(schemaTableName.getSchemaName()));
+            assertEquals(views.size(), 1);
+            assertViewDefinition(views.get(renamedSchemaTableName), viewDefinition);
+            assertViewDefinition(catalog.getView(SESSION, renamedSchemaTableName).orElseThrow(), viewDefinition);
+            assertThat(catalog.getView(SESSION, schemaTableName)).isEmpty();
+
+            catalog.dropView(SESSION, renamedSchemaTableName);
+            assertThat(catalog.listTables(SESSION, Optional.of(namespace)))
+                    .doesNotContain(renamedSchemaTableName);
+        }
+        finally {
+            try {
+                catalog.dropNamespace(SESSION, namespace);
+            }
+            catch (Exception e) {
+                LOG.warn("Failed to clean up namespace: " + namespace);
+            }
+        }
+    }
+
+    private void assertViewDefinition(ConnectorViewDefinition actualView, ConnectorViewDefinition expectedView)
+    {
+        assertEquals(actualView.getOriginalSql(), expectedView.getOriginalSql());
+        assertEquals(actualView.getCatalog(), expectedView.getCatalog());
+        assertEquals(actualView.getSchema(), expectedView.getSchema());
+        assertEquals(actualView.getColumns().size(), expectedView.getColumns().size());
+        for (int i = 0; i < actualView.getColumns().size(); i++) {
+            assertViewColumnDefinition(actualView.getColumns().get(i), expectedView.getColumns().get(i));
+        }
+        assertEquals(actualView.getOwner(), expectedView.getOwner());
+        assertEquals(actualView.isRunAsInvoker(), expectedView.isRunAsInvoker());
+    }
+
+    private void assertViewColumnDefinition(ConnectorViewDefinition.ViewColumn actualViewColumn, ConnectorViewDefinition.ViewColumn expectedViewColumn)
+    {
+        assertEquals(actualViewColumn.getName(), expectedViewColumn.getName());
+        assertEquals(actualViewColumn.getType(), expectedViewColumn.getType());
     }
 }

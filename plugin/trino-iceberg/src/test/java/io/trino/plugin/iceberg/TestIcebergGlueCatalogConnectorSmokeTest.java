@@ -123,14 +123,6 @@ public class TestIcebergGlueCatalogConnectorSmokeTest
 
     @Test
     @Override
-    public void testView()
-    {
-        assertThatThrownBy(super::testView)
-                .hasStackTraceContaining("createView is not supported for Iceberg Glue catalogs");
-    }
-
-    @Test
-    @Override
     public void testMaterializedView()
     {
         assertThatThrownBy(super::testMaterializedView)

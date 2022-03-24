@@ -20,12 +20,9 @@ import io.airlift.log.Logger;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
-import io.trino.plugin.hive.HiveMetadata;
 import io.trino.plugin.hive.HiveSchemaProperties;
-import io.trino.plugin.hive.HiveViewNotSupportedException;
 import io.trino.plugin.hive.TableAlreadyExistsException;
 import io.trino.plugin.hive.ViewAlreadyExistsException;
-import io.trino.plugin.hive.ViewReaderUtil;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveMetastore;
@@ -451,27 +448,12 @@ public class TrinoHiveCatalog
             return Optional.empty();
         }
         return metastore.getTable(viewName.getSchemaName(), viewName.getTableName())
-                .filter(table -> HiveMetadata.PRESTO_VIEW_COMMENT.equals(table.getParameters().get(TABLE_COMMENT))) // filter out materialized views
-                .filter(ViewReaderUtil::canDecodeView)
-                .map(view -> {
-                    if (!isPrestoView(view)) {
-                        throw new HiveViewNotSupportedException(viewName);
-                    }
-
-                    ConnectorViewDefinition definition = ViewReaderUtil.PrestoViewReader.decodeViewData(view.getViewOriginalText().get());
-                    // use owner from table metadata if it exists
-                    if (view.getOwner().isPresent() && !definition.isRunAsInvoker()) {
-                        definition = new ConnectorViewDefinition(
-                                definition.getOriginalSql(),
-                                definition.getCatalog(),
-                                definition.getSchema(),
-                                definition.getColumns(),
-                                definition.getComment(),
-                                view.getOwner(),
-                                false);
-                    }
-                    return definition;
-                });
+                .flatMap(view -> getView(
+                        viewName,
+                        view.getViewOriginalText(),
+                        view.getTableType(),
+                        view.getParameters(),
+                        view.getOwner()));
     }
 
     @Override
