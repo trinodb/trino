@@ -100,39 +100,50 @@ public class JdkLdapAuthenticatorClient
     public boolean isGroupMember(String searchBase, String groupSearch, String contextUserDistinguishedName, String contextPassword)
             throws NamingException
     {
-        try (CloseableContext context = createUserDirContext(contextUserDistinguishedName, contextPassword);
-                CloseableSearchResults search = searchContext(searchBase, groupSearch, context)) {
-            return search.hasMore();
-        }
+        return lookupForResult(searchBase, groupSearch, contextUserDistinguishedName, contextPassword, CloseableSearchResults::hasMore);
     }
 
     @Override
     public Set<String> lookupUserDistinguishedNames(String searchBase, String searchFilter, String contextUserDistinguishedName, String contextPassword)
             throws NamingException
     {
-        try (CloseableContext context = createUserDirContext(contextUserDistinguishedName, contextPassword);
-                CloseableSearchResults search = searchContext(searchBase, searchFilter, context)) {
+        return lookupForResult(searchBase, searchFilter, contextUserDistinguishedName, contextPassword, search -> {
             ImmutableSet.Builder<String> distinguishedNames = ImmutableSet.builder();
             while (search.hasMore()) {
                 distinguishedNames.add(search.next().getNameInNamespace());
             }
             return distinguishedNames.build();
-        }
+        });
     }
 
     @Override
-    public Set<String> lookupUserAttributeValues(String searchBase, String searchFilter, String contextUserDistinguishedName, String contextPassword, String attributeName) throws NamingException {
-        try (CloseableContext context = createUserDirContext(contextUserDistinguishedName, contextPassword);
-             CloseableSearchResults search = searchContext(searchBase, searchFilter, context)) {
+    public Set<String> lookupUserAttributeValues(String searchBase, String searchFilter, String contextUserDistinguishedName, String contextPassword, String attributeName)
+            throws NamingException
+    {
+        return lookupForResult(searchBase, searchFilter, contextUserDistinguishedName, contextPassword, search -> {
             ImmutableSet.Builder<String> attributeValues = ImmutableSet.builder();
             while (search.hasMore()) {
                 Attributes attributes = search.next().getAttributes();
                 Optional.ofNullable(attributes.get(attributeName))
-                                .map(Object::toString)
-                                .ifPresent(attributeValues::add);
+                        .map(Object::toString)
+                        .ifPresent(attributeValues::add);
             }
             return attributeValues.build();
+        });
+    }
+
+    private <T> T lookupForResult(String searchBase, String searchFilter, String contextUserDistinguishedName, String contextPassword, SearchResultMapper<T> f)
+            throws NamingException
+    {
+        try (CloseableContext context = createUserDirContext(contextUserDistinguishedName, contextPassword);
+                CloseableSearchResults search = searchContext(searchBase, searchFilter, context)) {
+            return f.apply(search);
         }
+    }
+
+    private interface SearchResultMapper<T>
+    {
+        T apply(CloseableSearchResults search) throws NamingException;
     }
 
     private static CloseableSearchResults searchContext(String searchBase, String searchFilter, CloseableContext context)
