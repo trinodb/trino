@@ -38,7 +38,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.io.Resources.getResource;
 import static io.trino.spi.security.Privilege.UPDATE;
 import static io.trino.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
@@ -259,8 +258,7 @@ public class TestFileBasedAccessControl
         return EnumSet.allOf(Privilege.class)
                 .stream()
                 .flatMap(privilege -> Stream.of(true, false).map(grantOption -> new Object[] {privilege, grantOption}))
-                .collect(toImmutableList())
-                .toArray(new Object[0][0]);
+                .toArray(Object[][]::new);
     }
 
     @Test
