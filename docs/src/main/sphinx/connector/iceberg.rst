@@ -38,17 +38,16 @@ To use Iceberg, you need:
 
 * Network access from the Trino coordinator and workers to the distributed
   object storage.
-* Access to a Hive metastore service (HMS) or AWS Glue.
+* Access to a Hive metastore service (HMS) / AWS Glue or a `Nessie server <https://projectnessie.org/>`_.
 * Network access from the Trino coordinator to the HMS. Hive
   metastore access with the Thrift protocol defaults to using port 9083.
 
 Configuration
 -------------
 
-The connector supports two Iceberg catalog types, you may use either a Hive
-metastore service (HMS) or AWS Glue. The catalog type is determined by the
-``iceberg.catalog.type`` property, it can be set to either ``HIVE_METASTORE``
-or ``GLUE``.
+The connector supports multiple Iceberg catalog types, you may use a Hive
+metastore service (HMS), AWS Glue or Nessie. The catalog type is determined by the
+``iceberg.catalog.type`` property, it can be set to one of ``HIVE_METASTORE`` / ``GLUE`` / ``NESSIE``.
 
 Hive metastore catalog
 ^^^^^^^^^^^^^^^^^^^^^^
@@ -76,6 +75,32 @@ configuration properties as the Hive connector's Glue setup. See
     connector.name=iceberg
     iceberg.catalog.type=glue
 
+Nessie catalog
+^^^^^^^^^^^^^^
+
+In order to use a Nessie catalog, ensure to configure the catalog type with
+``iceberg.catalog.type=nessie`` and provide further details with the following
+properties:
+
+==================================================== ============================================================
+Property Name                                        Description
+==================================================== ============================================================
+``iceberg.nessie.ref``                               The branch/tag to use for Nessie, defaults to ``main``.
+
+``iceberg.nessie.uri``                               Nessie API endpoint URI (required).
+                                                     Example: ``https://localhost:19120/api/v1``
+
+``iceberg.nessie.default-warehouse-dir``             Default warehouse directory for schemas created without an
+                                                     explicit ``location`` property.
+                                                     Example: ``/tmp``
+==================================================== ============================================================
+
+.. code-block:: text
+
+    connector.name=iceberg
+    iceberg.catalog.type=nessie
+    iceberg.nessie.uri=https://localhost:19120/api/v1
+    iceberg.nessie.default-warehouse-dir=/tmp
 
 General configuration
 ^^^^^^^^^^^^^^^^^^^^^
