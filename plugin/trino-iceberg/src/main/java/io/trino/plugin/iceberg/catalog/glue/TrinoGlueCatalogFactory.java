@@ -31,7 +31,6 @@ import javax.inject.Inject;
 
 import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.plugin.hive.metastore.glue.GlueHiveMetastore.createAsyncGlueClient;
 import static java.util.Objects.requireNonNull;
 
@@ -60,7 +59,6 @@ public class TrinoGlueCatalogFactory
         this.tableOperationsProvider = requireNonNull(tableOperationsProvider, "tableOperationsProvider is null");
         this.trinoVersion = requireNonNull(nodeVersion, "nodeVersion is null").toString();
         requireNonNull(glueConfig, "glueConfig is null");
-        checkArgument(glueConfig.getCatalogId().isEmpty(), "catalogId configuration is not supported");
         this.defaultSchemaLocation = glueConfig.getDefaultWarehouseDir();
         requireNonNull(credentialsProvider, "credentialsProvider is null");
         this.glueClient = createAsyncGlueClient(glueConfig, credentialsProvider, Optional.empty(), stats.newRequestMetricsCollector());
