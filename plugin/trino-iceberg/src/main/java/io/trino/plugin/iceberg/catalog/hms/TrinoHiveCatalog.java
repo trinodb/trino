@@ -128,7 +128,6 @@ public class TrinoHiveCatalog
     private final boolean deleteSchemaLocationsFallback;
 
     private final Map<SchemaTableName, TableMetadata> tableMetadataCache = new ConcurrentHashMap<>();
-    private final ViewReaderUtil.PrestoViewReader viewReader = new ViewReaderUtil.PrestoViewReader();
 
     public TrinoHiveCatalog(
             CatalogName catalogName,
@@ -459,8 +458,7 @@ public class TrinoHiveCatalog
                         throw new HiveViewNotSupportedException(viewName);
                     }
 
-                    ConnectorViewDefinition definition = viewReader
-                            .decodeViewData(view.getViewOriginalText().get(), view, catalogName);
+                    ConnectorViewDefinition definition = ViewReaderUtil.PrestoViewReader.decodeViewData(view.getViewOriginalText().get());
                     // use owner from table metadata if it exists
                     if (view.getOwner().isPresent() && !definition.isRunAsInvoker()) {
                         definition = new ConnectorViewDefinition(
