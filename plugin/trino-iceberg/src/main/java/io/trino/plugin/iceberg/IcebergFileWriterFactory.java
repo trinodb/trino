@@ -116,7 +116,7 @@ public class IcebergFileWriterFactory
             MetricsConfig metricsConfig,
             FileContent fileContent)
     {
-        return createFileWriter(outputPath, icebergSchema, jobConf, session, hdfsContext, fileFormat, metricsConfig, fileContent, Optional.empty());
+        return createFileWriter(outputPath, icebergSchema, jobConf, session, hdfsContext, fileFormat, metricsConfig, fileContent, false);
     }
 
     public IcebergFileWriter createFileWriter(
@@ -128,14 +128,14 @@ public class IcebergFileWriterFactory
             IcebergFileFormat fileFormat,
             MetricsConfig metricsConfig,
             FileContent fileContent,
-            Optional<DataSize> maxStringStatisticsLimit)
+            boolean shouldCompactMinMax)
     {
         switch (fileFormat) {
             case PARQUET:
                 // TODO use metricsConfig
                 return createParquetWriter(outputPath, icebergSchema, jobConf, session, hdfsContext, fileContent);
             case ORC:
-                return createOrcWriter(metricsConfig, outputPath, icebergSchema, jobConf, session, maxStringStatisticsLimit);
+                return createOrcWriter(metricsConfig, outputPath, icebergSchema, jobConf, session, shouldCompactMinMax);
             default:
                 throw new TrinoException(NOT_SUPPORTED, "File format not supported for Iceberg: " + fileFormat);
         }
@@ -196,7 +196,7 @@ public class IcebergFileWriterFactory
             Schema icebergSchema,
             JobConf jobConf,
             ConnectorSession session,
-            Optional<DataSize> maxStringStatisticsLimit)
+            boolean shouldCompactMinMax)
     {
         try {
             FileSystem fileSystem = hdfsEnvironment.getFileSystem(session.getIdentity(), outputPath, jobConf);
@@ -246,7 +246,8 @@ public class IcebergFileWriterFactory
                             .withStripeMaxSize(getOrcWriterMaxStripeSize(session))
                             .withStripeMaxRowCount(getOrcWriterMaxStripeRows(session))
                             .withDictionaryMaxMemory(getOrcWriterMaxDictionaryMemory(session))
-                            .withMaxStringStatisticsLimit(maxStringStatisticsLimit.orElse(getOrcStringStatisticsLimit(session))),
+                            .withMaxStringStatisticsLimit(getOrcStringStatisticsLimit(session))
+                            .withShouldCompactMinMax(shouldCompactMinMax),
                     IntStream.range(0, fileColumnNames.size()).toArray(),
                     ImmutableMap.<String, String>builder()
                             .put(PRESTO_VERSION_NAME, nodeVersion.toString())

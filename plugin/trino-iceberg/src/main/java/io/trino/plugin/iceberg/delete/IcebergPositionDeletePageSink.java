@@ -90,7 +90,7 @@ public class IcebergPositionDeletePageSink
                 fileFormat,
                 MetricsConfig.fromProperties(ImmutableMap.of(DEFAULT_WRITE_METRICS_MODE, "full")), // TODO: Need a real one?
                 FileContent.POSITION_DELETES,
-                Optional.of(DataSize.of(512, DataSize.Unit.BYTE)));
+                true);
     }
 
     @Override

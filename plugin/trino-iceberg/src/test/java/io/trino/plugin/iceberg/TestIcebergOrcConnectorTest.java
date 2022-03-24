@@ -14,8 +14,10 @@
 package io.trino.plugin.iceberg;
 
 import io.trino.Session;
+import org.testng.annotations.Test;
 
 import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
+import static io.trino.testing.sql.TestTable.randomTableSuffix;
 
 public class TestIcebergOrcConnectorTest
         extends BaseIcebergConnectorTest
@@ -44,5 +46,16 @@ public class TestIcebergOrcConnectorTest
         return Session.builder(session)
                 .setCatalogSessionProperty("iceberg", "orc_writer_max_stripe_rows", "10")
                 .build();
+    }
+
+    @Override
+    @Test(invocationCount = 100)
+    public void testDelete()
+    {
+        String tableName = "tablename" + randomTableSuffix();
+        getQueryRunner().execute("CREATE TABLE " + tableName + "(col1 integer, col2 INTEGER, col3 integer)");
+        getQueryRunner().execute("INSERT INTO " + tableName + " VALUES(1, 1, 1), (2, 2, 2), (3, 3, 3)");
+        getQueryRunner().execute("DELETE FROM " + tableName + " WHERE col1 = 2");
+        assertQuery("SELECT * FROM " + tableName, "VALUES(1, 1, 1), (3, 3, 3)");
     }
 }
