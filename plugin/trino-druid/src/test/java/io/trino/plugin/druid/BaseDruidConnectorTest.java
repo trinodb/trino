@@ -61,6 +61,7 @@ public abstract class BaseDruidConnectorTest
             case SUPPORTS_CREATE_SCHEMA:
             case SUPPORTS_CREATE_TABLE:
             case SUPPORTS_CREATE_TABLE_WITH_DATA:
+            case SUPPORTS_ADD_COLUMN:
             case SUPPORTS_RENAME_TABLE:
             case SUPPORTS_COMMENT_ON_COLUMN:
             case SUPPORTS_COMMENT_ON_TABLE:

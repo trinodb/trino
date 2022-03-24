@@ -31,6 +31,7 @@ import io.trino.plugin.jdbc.WriteFunction;
 import io.trino.plugin.jdbc.WriteMapping;
 import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
@@ -366,6 +367,12 @@ public class DruidJdbcClient
     public void commitCreateTable(ConnectorSession session, JdbcOutputTableHandle handle)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables");
+    }
+
+    @Override
+    public void addColumn(ConnectorSession session, JdbcTableHandle handle, ColumnMetadata column)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding columns");
     }
 
     @Override
