@@ -213,7 +213,7 @@ public final class LambdaBytecodeGenerator
                 compiledLambda.getParameterTypes().stream()
                         .skip(captureExpressions.size() + 1) // skip capture variables and ConnectorSession
                         .map(ParameterizedType::getAsmType)
-                        .collect(toImmutableList()).toArray(new Type[0]));
+                        .toArray(Type[]::new));
 
         block.append(
                 invokeDynamic(

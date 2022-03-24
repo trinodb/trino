@@ -42,7 +42,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.io.Files.copy;
 import static io.trino.plugin.base.security.FileBasedAccessControlConfig.SECURITY_CONFIG_FILE;
 import static io.trino.plugin.base.security.FileBasedAccessControlConfig.SECURITY_REFRESH_PERIOD;
@@ -367,8 +366,7 @@ public class TestFileBasedSystemAccessControl
         return EnumSet.allOf(Privilege.class)
                 .stream()
                 .flatMap(privilege -> Stream.of(true, false).map(grantOption -> new Object[] {privilege, grantOption}))
-                .collect(toImmutableList())
-                .toArray(new Object[0][0]);
+                .toArray(Object[][]::new);
     }
 
     @Test
