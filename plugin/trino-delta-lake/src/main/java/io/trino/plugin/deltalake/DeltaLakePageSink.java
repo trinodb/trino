@@ -375,7 +375,7 @@ public class DeltaLakePageSink
                 partitionName = Optional.of(partName);
             }
 
-            String fileName = randomUUID().toString();
+            String fileName = session.getQueryId() + "-" + randomUUID();
             filePath = new Path(filePath, fileName);
 
             FileWriter fileWriter;
