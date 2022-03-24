@@ -89,12 +89,13 @@ public class TrinoGlueCatalog
     public TrinoGlueCatalog(
             HdfsEnvironment hdfsEnvironment,
             IcebergTableOperationsProvider tableOperationsProvider,
+            String trinoVersion,
             AWSGlueAsync glueClient,
             GlueMetastoreStats stats,
             Optional<String> defaultSchemaLocation,
             boolean useUniqueTableLocation)
     {
-        super(tableOperationsProvider, useUniqueTableLocation);
+        super(tableOperationsProvider, trinoVersion, useUniqueTableLocation);
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.glueClient = requireNonNull(glueClient, "glueClient is null");
         this.stats = requireNonNull(stats, "stats is null");
