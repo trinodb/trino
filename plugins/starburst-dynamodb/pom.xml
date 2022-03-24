@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.starburstdata.presto</groupId>
         <artifactId>starburst-enterprise-root</artifactId>
-        <version>374-e-SNAPSHOT</version>
+        <version>376-e-SNAPSHOT</version>
         <relativePath>../..</relativePath>
     </parent>
 
@@ -162,7 +162,7 @@
             <scope>runtime</scope>
         </dependency>
 
-        <!-- Presto SPI -->
+        <!-- Trino SPI -->
 
         <dependency>
             <groupId>io.trino</groupId>
