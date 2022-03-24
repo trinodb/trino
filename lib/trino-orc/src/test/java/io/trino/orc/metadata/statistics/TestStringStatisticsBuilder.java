@@ -16,6 +16,7 @@ package io.trino.orc.metadata.statistics;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
@@ -27,6 +28,10 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.orc.metadata.statistics.AbstractStatisticsBuilderTest.StatisticsType.STRING;
 import static io.trino.orc.metadata.statistics.ColumnStatistics.mergeColumnStatistics;
 import static io.trino.orc.metadata.statistics.StringStatistics.STRING_VALUE_BYTES_OVERHEAD;
+import static io.trino.orc.metadata.statistics.StringStatisticsBuilder.StringCompactor.computeMax;
+import static io.trino.orc.metadata.statistics.StringStatisticsBuilder.StringCompactor.computeMin;
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
@@ -330,5 +335,59 @@ public class TestStringStatisticsBuilder
         assertTrue(bloomFilter.testSlice(MEDIUM_BOTTOM_VALUE));
         assertTrue(bloomFilter.testSlice(MEDIUM_BOTTOM_VALUE));
         assertFalse(bloomFilter.testSlice(LOW_TOP_VALUE));
+    }
+
+    @DataProvider(name = "computeMin")
+    public static Object[][] computeMinProvider()
+    {
+        return new Object[][] {
+                {"simple/case", "simple", 6},
+                {"simple", "simple", 7},
+                {"simple", "simple", 10},
+                {"simple/", "simple/", 7},
+                {"simple/ƒ", "simple/ƒ", 9},
+                {"simple/ƒ", "simple/", 8},
+                {"simple/語", "simple/語", 10},
+                {"simple/語", "simple/", 9},
+                {"simple/語", "simple/", 8},
+                {"simple/\uD80C\uDE02", "simple/\uD80C\uDE02", 11},
+                {"simple/\uD80C\uDE02", "simple/", 10},
+                {"simple/\uD80C\uDE02", "simple/", 9},
+                {"simple/\uD80C\uDE02", "simple/", 8},
+        };
+    }
+
+    @Test(dataProvider = "computeMin")
+    public void testComputeMin(String input, String expected, int maxLength)
+    {
+        assertThat(computeMin(input.getBytes(UTF_8), maxLength)).containsExactly(expected.getBytes(UTF_8));
+    }
+
+    @DataProvider(name = "computeMax")
+    public static Object[][] computeMaxProvider()
+    {
+        return new Object[][] {
+                {"simple/case", "simplf", 6},
+                {"simple", "simple", 7},
+                {"simple", "simple", 10},
+                {"simple/", "simple/", 7},
+                {"simple/ƒ", "simple/ƒ", 9},
+                {"simple/ƒ", "simple0", 8},
+                {"simple/語", "simple/語", 10},
+                {"simple/語", "simple0", 9},
+                {"simple/語", "simple0", 8},
+                {"simple/\uD80C\uDE02", "simple/\uD80C\uDE02", 11},
+                {"simple/\uD80C\uDE02", "simple0", 10},
+                {"simple/\uD80C\uDE02", "simple0", 9},
+                {"simple/\uD80C\uDE02", "simple0", 8},
+                {"simple/ƒƒ", "simple/ƒƒ", 11},
+                {"simple/ƒƒ", "simple/Ɠ", 10},
+        };
+    }
+
+    @Test(dataProvider = "computeMax")
+    public void testComputeMax(String input, String expected, int maxLength)
+    {
+        assertThat(computeMax(input.getBytes(UTF_8), maxLength)).containsExactly(expected.getBytes(UTF_8));
     }
 }

@@ -16,6 +16,7 @@ package io.trino.orc.metadata.statistics;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
@@ -36,13 +37,26 @@ public class StringStatisticsBuilder
     private Slice maximum;
     private long sum;
     private final BloomFilterBuilder bloomFilterBuilder;
+    private final boolean shouldCompactMinMax;
 
     public StringStatisticsBuilder(int stringStatisticsLimitInBytes, BloomFilterBuilder bloomFilterBuilder)
     {
-        this(stringStatisticsLimitInBytes, 0, null, null, 0, bloomFilterBuilder);
+        this(stringStatisticsLimitInBytes, 0, null, null, 0, bloomFilterBuilder, false);
     }
 
-    private StringStatisticsBuilder(int stringStatisticsLimitInBytes, long nonNullValueCount, Slice minimum, Slice maximum, long sum, BloomFilterBuilder bloomFilterBuilder)
+    public StringStatisticsBuilder(int stringStatisticsLimitInBytes, BloomFilterBuilder bloomFilterBuilder, boolean shouldCompactMinMax)
+    {
+        this(stringStatisticsLimitInBytes, 0, null, null, 0, bloomFilterBuilder, shouldCompactMinMax);
+    }
+
+    private StringStatisticsBuilder(
+            int stringStatisticsLimitInBytes,
+            long nonNullValueCount,
+            Slice minimum,
+            Slice maximum,
+            long sum,
+            BloomFilterBuilder bloomFilterBuilder,
+            boolean shouldCompactMinMax)
     {
         this.stringStatisticsLimitInBytes = stringStatisticsLimitInBytes;
         this.nonNullValueCount = nonNullValueCount;
@@ -50,6 +64,7 @@ public class StringStatisticsBuilder
         this.maximum = maximum;
         this.sum = sum;
         this.bloomFilterBuilder = requireNonNull(bloomFilterBuilder, "bloomFilterBuilder");
+        this.shouldCompactMinMax = shouldCompactMinMax;
     }
 
     public long getNonNullValueCount()
@@ -112,8 +127,8 @@ public class StringStatisticsBuilder
         if (nonNullValueCount == 0) {
             return Optional.empty();
         }
-        minimum = dropStringMinMaxIfNecessary(minimum);
-        maximum = dropStringMinMaxIfNecessary(maximum);
+        minimum = dropStringMinMaxIfNecessary(minimum, true);
+        maximum = dropStringMinMaxIfNecessary(maximum, false);
         if (minimum == null && maximum == null) {
             // Create string stats only when min or max is not null.
             // This corresponds to the behavior of metadata reader.
@@ -158,9 +173,19 @@ public class StringStatisticsBuilder
         return stringStatisticsBuilder.buildStringStatistics();
     }
 
-    private Slice dropStringMinMaxIfNecessary(Slice minOrMax)
+    private Slice dropStringMinMaxIfNecessary(Slice minOrMax, boolean isMin)
     {
         if (minOrMax == null || minOrMax.length() > stringStatisticsLimitInBytes) {
+            if (minOrMax != null && shouldCompactMinMax) {
+                if (isMin) {
+                    byte[] min = StringCompactor.computeMin(minOrMax.getBytes(), stringStatisticsLimitInBytes);
+                    return Slices.wrappedBuffer(min);
+                }
+                else {
+                    byte[] max = StringCompactor.computeMax(minOrMax.getBytes(), stringStatisticsLimitInBytes);
+                    return Slices.wrappedBuffer(max);
+                }
+            }
             return null;
         }
 
@@ -169,5 +194,74 @@ public class StringStatisticsBuilder
             return minOrMax;
         }
         return Slices.copyOf(minOrMax);
+    }
+
+    static class StringCompactor
+    {
+        public static byte[] computeMin(byte[] bytes, int maxBytes)
+        {
+            if (maxBytes >= bytes.length) {
+                return bytes;
+            }
+            int lastIndex = findLastCharacter(bytes, 0, maxBytes);
+            return Arrays.copyOfRange(bytes, 0, lastIndex);
+        }
+
+        public static byte[] computeMax(byte[] bytes, int maxBytes)
+        {
+            if (maxBytes >= bytes.length) {
+                return bytes;
+            }
+            int lastIndex = findLastCharacter(bytes, 0, maxBytes);
+            int penultimateIndex = findLastCharacter(bytes, 0, lastIndex - 1);
+            int lastCharCodePoint = new String(bytes, penultimateIndex, lastIndex - penultimateIndex).codePointAt(0) + 1;
+            byte[] charToAppend = calculateCharToAppend(lastCharCodePoint);
+            byte[] result = new byte[penultimateIndex + charToAppend.length];
+            System.arraycopy(bytes, 0, result, 0, penultimateIndex);
+            System.arraycopy(charToAppend, 0, result, penultimateIndex, charToAppend.length);
+            return result;
+        }
+
+        private static int findLastCharacter(byte[] bytes, int from, int to)
+        {
+            int pos = to;
+            while (pos >= from) {
+                if (isUtfBlockStartChar(bytes[pos])) {
+                    return pos;
+                }
+                pos--;
+            }
+            throw new IllegalArgumentException("Provided byte array is not a valid utf8 string");
+        }
+
+        private static boolean isUtfBlockStartChar(byte b)
+        {
+            return (b & 0xC0) != 0x80;
+        }
+
+        private static byte[] calculateCharToAppend(int utf8CodePoint)
+        {
+            if (utf8CodePoint < 0x7f) {
+                return new byte[] {(byte) utf8CodePoint};
+            }
+            else if (utf8CodePoint <= 0x7ff) {
+                return new byte[] {
+                        (byte) (0xc0 | (utf8CodePoint >> 6)),
+                        (byte) (0x80 | (utf8CodePoint & 0x3f))};
+            }
+            else if (utf8CodePoint < 0xffff) {
+                return new byte[] {
+                        (byte) (0xe0 | (utf8CodePoint >> 12)),
+                        (byte) (0x80 | ((utf8CodePoint >> 6) & 0x3f)),
+                        (byte) (0x80 | (utf8CodePoint & 0x3f))};
+            }
+            else {
+                return new byte[] {
+                        (byte) (0xf0 | (utf8CodePoint >> 18)),
+                        (byte) (0x80 | ((utf8CodePoint >> 12) & 0x3f)),
+                        (byte) (0x80 | ((utf8CodePoint >> 6) & 0x3f)),
+                        (byte) (0x80 | (utf8CodePoint & 0x3f))};
+            }
+        }
     }
 }

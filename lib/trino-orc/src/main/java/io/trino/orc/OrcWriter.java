@@ -183,7 +183,8 @@ public final class OrcWriter
                     compression,
                     maxCompressionBufferSize,
                     options.getMaxStringStatisticsLimit(),
-                    getBloomFilterBuilder(options, columnNames.get(fieldId)));
+                    getBloomFilterBuilder(options, columnNames.get(fieldId)),
+                    options.isShouldCompactMinMax());
             columnWriters.add(columnWriter);
 
             if (columnWriter instanceof SliceDictionaryColumnWriter) {
