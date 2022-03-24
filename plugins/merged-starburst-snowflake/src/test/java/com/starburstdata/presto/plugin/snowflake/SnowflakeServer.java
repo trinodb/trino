@@ -49,8 +49,6 @@ class SnowflakeServer
     static final String TEST_WAREHOUSE = "TEST_WH";
     static final String TEST_DATABASE = "TEST_DB";
 
-    static final String databasePrefix = "TMP_SEP_CICD_";
-
     void init()
             throws SQLException
     {
@@ -60,9 +58,9 @@ class SnowflakeServer
         execute("SELECT 1");
     }
 
-    TestDatabase createDatabase(String databaseName)
+    TestDatabase createDatabase(String databaseSuffix)
     {
-        return new TestDatabase(this::safeExecute, databasePrefix + databaseName);
+        return new TestDatabase(this::safeExecute, databaseSuffix);
     }
 
     TestDatabase createTestDatabase()

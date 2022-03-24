@@ -20,16 +20,20 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.sql.SQLException;
+import java.sql.Timestamp;
 import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map.Entry;
+import java.util.Set;
 
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.TEST_SCHEMA;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeServer.ROLE;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeServer.TEST_DATABASE;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeServer.TEST_WAREHOUSE;
+import static com.starburstdata.presto.plugin.snowflake.TestDatabase.tmpDatabaseComment;
+import static com.starburstdata.presto.plugin.snowflake.TestDatabase.tmpDatabasePrefix;
 import static com.starburstdata.presto.plugin.snowflake.jdbc.SnowflakeClient.IDENTIFIER_QUOTE;
 import static java.lang.String.format;
 import static java.lang.String.join;
@@ -39,6 +43,21 @@ import static java.util.stream.Collectors.toUnmodifiableSet;
 public class TestSnowflakeInstanceCleaner
 {
     public static final Logger LOG = Logger.get(TestSnowflakeInstanceCleaner.class);
+
+    /**
+     * List of database names that will not be dropped.
+     */
+    private static final Set<String> databasesToKeep = ImmutableSet.<String>builder()
+            // Snowflake on AWS
+            .addAll(ImmutableList.of(
+                    "DEMO_DB", "FAB_DEMO_DB", "SNOWFLAKE_SAMPLE_DATA", "TEST_DB", "UTIL_DB"))
+            // Snowflake on Azure
+            .addAll(ImmutableList.of(
+                    "DEMO_DB", "SNOWFLAKE_SAMPLE_DATA", "TEST_DB", "UTIL_DB"))
+            .build()
+            .stream()
+            .map(String::toLowerCase)
+            .collect(toUnmodifiableSet());
 
     /**
      * List of table names that will not be dropped.
@@ -62,6 +81,52 @@ public class TestSnowflakeInstanceCleaner
     public void setUp()
     {
         snowflakeServer = new SnowflakeServer();
+    }
+
+    @Test
+    public void cleanupTestDatabases()
+            throws SQLException
+    {
+        // Drop all temporary test databases created more than 24 hours ago
+        LOG.info("Will not drop these databases: %s", join(", ", databasesToKeep));
+
+        List<SnowflakeDatabase> snowflakeDatabasesToDrop;
+        try (Handle handle = Jdbi.create(snowflakeServer.getConnection()).open()) {
+            handle.execute("USE ROLE " + ROLE);
+            handle.execute("USE WAREHOUSE " + TEST_WAREHOUSE);
+            handle.execute("USE DATABASE " + TEST_DATABASE);
+            snowflakeDatabasesToDrop = handle.createQuery("SELECT database_name, created " +
+                    "FROM INFORMATION_SCHEMA.DATABASES " +
+                    // database_name is lowercased to ensure it matches case from databasestoKeep
+                    "WHERE lower(database_name) not in (<databases_to_keep>) " +
+                    "AND database_name like concat(:database_prefix, '%') " +
+                    "AND datediff(hour, created, current_timestamp) > 24 " +
+                    "AND comment = :database_comment")
+                    .bindList("databases_to_keep", databasesToKeep)
+                    .bind("database_prefix", tmpDatabasePrefix)
+                    .bind("database_comment", tmpDatabaseComment)
+                    .map((rs, ctx) -> new SnowflakeDatabase(rs.getString("DATABASE_NAME"), rs.getTimestamp("CREATED")))
+                    .list();
+        }
+
+        if (snowflakeDatabasesToDrop.isEmpty()) {
+            LOG.info("Did not find any databases to drop.");
+            return;
+        }
+        LOG.info("Dropping %s databases.", snowflakeDatabasesToDrop.size());
+        LOG.info("Dropping: %s", snowflakeDatabasesToDrop.stream()
+                .map(snowflakeDatabase -> snowflakeDatabase.databaseName + ":created:" + snowflakeDatabase.created.toString())
+                .collect(joining(", ")));
+        try (Handle handle = Jdbi.create(snowflakeServer.getConnection()).open()) {
+            handle.execute("USE ROLE " + ROLE);
+            handle.execute("USE WAREHOUSE " + TEST_WAREHOUSE);
+            handle.execute("USE DATABASE " + TEST_DATABASE);
+            snowflakeDatabasesToDrop.forEach(snowflakeDatabase -> {
+                String dropStatement = format("DROP DATABASE IF EXISTS %s", quoted(snowflakeDatabase.databaseName));
+                LOG.info("Executing: %s", dropStatement);
+                handle.execute(dropStatement);
+            });
+        }
     }
 
     @Test(dataProvider = "cleanUpSchemasDataProvider")
@@ -180,6 +245,18 @@ public class TestSnowflakeInstanceCleaner
             this.schemaName = schemaName;
             this.tableName = tableName;
             this.tableType = tableType;
+        }
+    }
+
+    private static class SnowflakeDatabase
+    {
+        public final String databaseName;
+        public final Timestamp created;
+
+        private SnowflakeDatabase(String databaseName, Timestamp created)
+        {
+            this.databaseName = databaseName;
+            this.created = created;
         }
     }
 }

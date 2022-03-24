@@ -23,11 +23,14 @@ public class TestDatabase
     private final SqlExecutor sqlExecutor;
     private final String name;
 
+    static final String tmpDatabasePrefix = "TMP_SEP_CICD_";
+    static final String tmpDatabaseComment = "Created by SEP tests";
+
     public TestDatabase(SqlExecutor sqlExecutor, String namePrefix)
     {
         this.sqlExecutor = requireNonNull(sqlExecutor, "sqlExecutor is null");
-        this.name = format("%s_%s", namePrefix, randomTableSuffix()).toUpperCase(Locale.ENGLISH);
-        sqlExecutor.execute(format("CREATE DATABASE IF NOT EXISTS %s", name));
+        this.name = format("%s%s_%s", tmpDatabasePrefix, namePrefix, randomTableSuffix()).toUpperCase(Locale.ENGLISH);
+        sqlExecutor.execute(format("CREATE DATABASE IF NOT EXISTS %s COMMENT = '%s'", name, tmpDatabaseComment));
     }
 
     public String getName()
