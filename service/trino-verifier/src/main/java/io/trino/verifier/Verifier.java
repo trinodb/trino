@@ -25,6 +25,7 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletionService;
 import java.util.concurrent.ExecutionException;
@@ -33,6 +34,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.regex.Pattern;
 
 import static com.google.common.base.Throwables.getStackTraceAsString;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.StandardErrorCode.PAGE_TRANSPORT_TIMEOUT;
 import static io.trino.spi.StandardErrorCode.REMOTE_TASK_MISMATCH;
 import static io.trino.spi.StandardErrorCode.TOO_MANY_REQUESTS_FAILED;
@@ -219,7 +221,15 @@ public class Verifier
                 queryPair.getTest().getPreQueries(),
                 queryPair.getTest().getQuery(),
                 queryPair.getTest().getPostQueries(),
+                validator.getTestPreQueryResults().stream()
+                        .map(QueryResult::getQueryId)
+                        .filter(Objects::nonNull)
+                        .collect(toImmutableList()),
                 test.getQueryId(),
+                validator.getTestPostQueryResults().stream()
+                        .map(QueryResult::getQueryId)
+                        .filter(Objects::nonNull)
+                        .collect(toImmutableList()),
                 optionalDurationToSeconds(test.getCpuTime()),
                 optionalDurationToSeconds(test.getWallTime()),
                 queryPair.getControl().getCatalog(),
@@ -227,7 +237,15 @@ public class Verifier
                 queryPair.getControl().getPreQueries(),
                 queryPair.getControl().getQuery(),
                 queryPair.getControl().getPostQueries(),
+                validator.getControlPreQueryResults().stream()
+                        .map(QueryResult::getQueryId)
+                        .filter(Objects::nonNull)
+                        .collect(toImmutableList()),
                 control.getQueryId(),
+                validator.getControlPostQueryResults().stream()
+                        .map(QueryResult::getQueryId)
+                        .filter(Objects::nonNull)
+                        .collect(toImmutableList()),
                 optionalDurationToSeconds(control.getCpuTime()),
                 optionalDurationToSeconds(control.getWallTime()),
                 errorMessage);
