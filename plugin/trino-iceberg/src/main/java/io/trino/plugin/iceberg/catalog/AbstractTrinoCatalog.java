@@ -16,6 +16,8 @@ package io.trino.plugin.iceberg.catalog;
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.HiveMetadata;
+import io.trino.plugin.hive.HiveViewNotSupportedException;
+import io.trino.plugin.hive.ViewReaderUtil;
 import io.trino.plugin.iceberg.ColumnIdentity;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
@@ -34,8 +36,11 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.trino.plugin.hive.ViewReaderUtil.PRESTO_VIEW_FLAG;
+import static io.trino.plugin.hive.ViewReaderUtil.isHiveOrPrestoView;
+import static io.trino.plugin.hive.ViewReaderUtil.isPrestoView;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static java.lang.String.format;
@@ -152,10 +157,49 @@ public abstract class AbstractTrinoCatalog
         }
     }
 
+    protected Optional<ConnectorViewDefinition> getView(
+            SchemaTableName viewName,
+            Optional<String> viewOriginalText,
+            String tableType,
+            Map<String, String> tableParameters,
+            Optional<String> tableOwner)
+    {
+        if (!isView(tableType, tableParameters)) {
+            // Filter out Tables and Materialized Views
+            return Optional.empty();
+        }
+
+        if (!isPrestoView(tableParameters)) {
+            // Hive views are not compatible
+            throw new HiveViewNotSupportedException(viewName);
+        }
+
+        checkArgument(viewOriginalText.isPresent(), "viewOriginalText must be present");
+        ConnectorViewDefinition definition = ViewReaderUtil.PrestoViewReader.decodeViewData(viewOriginalText.get());
+        // use owner from table metadata if it exists
+        if (tableOwner.isPresent() && !definition.isRunAsInvoker()) {
+            definition = new ConnectorViewDefinition(
+                    definition.getOriginalSql(),
+                    definition.getCatalog(),
+                    definition.getSchema(),
+                    definition.getColumns(),
+                    definition.getComment(),
+                    tableOwner,
+                    false);
+        }
+        return Optional.of(definition);
+    }
+
+    private static boolean isView(String tableType, Map<String, String> tableParameters)
+
+    {
+        return isHiveOrPrestoView(tableType) && PRESTO_VIEW_COMMENT.equals(tableParameters.get(TABLE_COMMENT));
+    }
+
     protected Map<String, String> createViewProperties(ConnectorSession session)
     {
         return ImmutableMap.<String, String>builder()
-                .put(PRESTO_VIEW_FLAG, "true")
+                .put(PRESTO_VIEW_FLAG, "true") // Ensures compatibility with views created by the Hive connector
                 .put(TRINO_CREATED_BY, TRINO_CREATED_BY_VALUE)
                 .put(PRESTO_VERSION_NAME, trinoVersion)
                 .put(PRESTO_QUERY_ID_NAME, session.getQueryId())
