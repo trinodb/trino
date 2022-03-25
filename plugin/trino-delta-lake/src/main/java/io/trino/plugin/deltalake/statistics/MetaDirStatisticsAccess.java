@@ -39,6 +39,9 @@ public class MetaDirStatisticsAccess
     private static final String STATISTICS_META_DIR = TRANSACTION_LOG_DIRECTORY + "/_trino_meta"; // store inside TL directory so it is not deleted by VACUUM
     private static final String STATISTICS_FILE = "extended_stats.json";
 
+    private static final String STARBURST_META_DIR = TRANSACTION_LOG_DIRECTORY + "/_starburst_meta";
+    private static final String STARBURST_STATISTICS_FILE = "extendeded_stats.json";
+
     private final HdfsEnvironment hdfsEnvironment;
     private final JsonCodec<ExtendedStatistics> statisticsCodec;
 
@@ -56,9 +59,14 @@ public class MetaDirStatisticsAccess
             ConnectorSession session,
             String tableLocation)
     {
+        return readExtendedStatistics(session, tableLocation, STATISTICS_META_DIR, STATISTICS_FILE)
+                .or(() -> readExtendedStatistics(session, tableLocation, STARBURST_META_DIR, STARBURST_STATISTICS_FILE));
+    }
+
+    private Optional<ExtendedStatistics> readExtendedStatistics(ConnectorSession session, String tableLocation, String statisticsDirectory, String statisticsFile)
+    {
         try {
-            Path metadataDir = new Path(tableLocation, STATISTICS_META_DIR);
-            Path statisticsPath = new Path(metadataDir, STATISTICS_FILE);
+            Path statisticsPath = new Path(new Path(tableLocation, statisticsDirectory), statisticsFile);
             FileSystem fileSystem = hdfsEnvironment.getFileSystem(new HdfsEnvironment.HdfsContext(session), statisticsPath);
             if (!fileSystem.exists(statisticsPath)) {
                 return Optional.empty();
@@ -88,6 +96,9 @@ public class MetaDirStatisticsAccess
             try (OutputStream outputStream = fileSystem.create(statisticsPath, true)) {
                 outputStream.write(statisticsCodec.toJsonBytes(statistics));
             }
+
+            // Remove outdated Starburst stats file, if it exists.
+            fileSystem.delete(new Path(new Path(tableLocation, STARBURST_META_DIR), STARBURST_STATISTICS_FILE), false);
         }
         catch (IOException e) {
             throw new TrinoException(GENERIC_INTERNAL_ERROR, format("failed to store statistics with table location %s", tableLocation), e);
