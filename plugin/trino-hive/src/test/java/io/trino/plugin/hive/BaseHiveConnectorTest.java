@@ -1980,17 +1980,19 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testEmptyBucketedTable()
     {
-        // go through all storage formats to make sure the empty buckets are correctly created
-        testWithAllStorageFormats(this::testEmptyBucketedTable);
+        // create empty bucket files for all storage formats and compression codecs
+        for (HiveStorageFormat storageFormat : HiveStorageFormat.values()) {
+            for (HiveCompressionCodec compressionCodec : HiveCompressionCodec.values()) {
+                if ((storageFormat == HiveStorageFormat.AVRO) && (compressionCodec == HiveCompressionCodec.LZ4)) {
+                    continue;
+                }
+                testEmptyBucketedTable(storageFormat, compressionCodec, true);
+            }
+            testEmptyBucketedTable(storageFormat, HiveCompressionCodec.GZIP, false);
+        }
     }
 
-    private void testEmptyBucketedTable(Session session, HiveStorageFormat storageFormat)
-    {
-        testEmptyBucketedTable(session, storageFormat, true);
-        testEmptyBucketedTable(session, storageFormat, false);
-    }
-
-    private void testEmptyBucketedTable(Session session, HiveStorageFormat storageFormat, boolean createEmpty)
+    private void testEmptyBucketedTable(HiveStorageFormat storageFormat, HiveCompressionCodec compressionCodec, boolean createEmpty)
     {
         String tableName = "test_empty_bucketed_table";
 
@@ -2015,11 +2017,13 @@ public abstract class BaseHiveConnectorTest
         assertEquals(computeActual("SELECT * from " + tableName).getRowCount(), 0);
 
         // make sure that we will get one file per bucket regardless of writer count configured
-        Session parallelWriter = Session.builder(getParallelWriteSession())
+        Session session = Session.builder(getSession())
+                .setSystemProperty("task_writer_count", "4")
                 .setCatalogSessionProperty(catalog, "create_empty_bucket_files", String.valueOf(createEmpty))
+                .setCatalogSessionProperty(catalog, "compression_codec", compressionCodec.name())
                 .build();
-        assertUpdate(parallelWriter, "INSERT INTO " + tableName + " VALUES ('a0', 'b0', 'c0')", 1);
-        assertUpdate(parallelWriter, "INSERT INTO " + tableName + " VALUES ('a1', 'b1', 'c1')", 1);
+        assertUpdate(session, "INSERT INTO " + tableName + " VALUES ('a0', 'b0', 'c0')", 1);
+        assertUpdate(session, "INSERT INTO " + tableName + " VALUES ('a1', 'b1', 'c1')", 1);
 
         assertQuery("SELECT * from " + tableName, "VALUES ('a0', 'b0', 'c0'), ('a1', 'b1', 'c1')");
 

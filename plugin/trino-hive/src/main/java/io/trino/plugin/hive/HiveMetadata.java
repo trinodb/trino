@@ -121,6 +121,7 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RemoteIterator;
 import org.apache.hadoop.hive.metastore.TableType;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator;
+import org.apache.hadoop.hive.ql.io.orc.OrcOutputFormat;
 import org.apache.hadoop.hive.serde.serdeConstants;
 import org.apache.hadoop.hive.serde2.OpenCSVSerde;
 import org.apache.hadoop.mapred.JobConf;
@@ -1664,8 +1665,14 @@ public class HiveMetadata
             schema = getHiveSchema(table);
             format = table.getStorage().getStorageFormat();
         }
+
+        HiveCompressionCodec compression = selectCompressionCodec(session, format);
+        if (format.getOutputFormat().equals(OrcOutputFormat.class.getName()) && (compression == HiveCompressionCodec.ZSTD)) {
+            compression = HiveCompressionCodec.GZIP; // ZSTD not supported by Hive ORC writer
+        }
         JobConf conf = toJobConf(hdfsEnvironment.getConfiguration(new HdfsContext(session), path));
-        configureCompression(conf, selectCompressionCodec(session, format));
+        configureCompression(conf, compression);
+
         hdfsEnvironment.doAs(session.getIdentity(), () -> {
             for (String fileName : fileNames) {
                 writeEmptyFile(session, new Path(path, fileName), conf, schema, format.getSerde(), format.getOutputFormat());
