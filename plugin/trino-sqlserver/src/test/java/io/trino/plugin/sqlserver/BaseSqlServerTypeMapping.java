@@ -34,6 +34,7 @@ import org.testng.annotations.Test;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -444,44 +445,8 @@ public abstract class BaseSqlServerTypeMapping
         LocalDate dateOfLocalTimeChangeBackwardAtMidnightInSomeZone = LocalDate.of(1983, 10, 1);
         checkIsDoubled(someZone, dateOfLocalTimeChangeBackwardAtMidnightInSomeZone.atStartOfDay().minusMinutes(1));
 
-        // BC dates not supported by SQL Server
-        SqlDataTypeTest testsSqlServer = SqlDataTypeTest.create()
-                .addRoundTrip("date", "NULL", DATE, "CAST(NULL AS DATE)")
-                // first day of AD
-                .addRoundTrip("date", "'0001-01-01'", DATE, "DATE '0001-01-01'")
-                .addRoundTrip("date", "'0012-12-12'", DATE, "DATE '0012-12-12'")
-                // before julian->gregorian switch
-                .addRoundTrip("date", "'1500-01-01'", DATE, "DATE '1500-01-01'")
-                // before epoch
-                .addRoundTrip("date", "'1952-04-03'", DATE, "DATE '1952-04-03'")
-                .addRoundTrip("date", "'1970-01-01'", DATE, "DATE '1970-01-01'")
-                .addRoundTrip("date", "'1970-02-03'", DATE, "DATE '1970-02-03'")
-                // summer on northern hemisphere (possible DST)
-                .addRoundTrip("date", "'2017-07-01'", DATE, "DATE '2017-07-01'")
-                // winter on northern hemisphere (possible DST on southern hemisphere)
-                .addRoundTrip("date", "'2017-01-01'", DATE, "DATE '2017-01-01'")
-                .addRoundTrip("date", "'1970-01-01'", DATE, "DATE '1970-01-01'")
-                .addRoundTrip("date", "'1983-04-01'", DATE, "DATE '1983-04-01'")
-                .addRoundTrip("date", "'1983-10-01'", DATE, "DATE '1983-10-01'");
-
-        SqlDataTypeTest testsTrino = SqlDataTypeTest.create()
-                .addRoundTrip("date", "NULL", DATE, "CAST(NULL AS DATE)")
-                // first day of AD
-                .addRoundTrip("date", "DATE '0001-01-01'", DATE, "DATE '0001-01-01'")
-                .addRoundTrip("date", "DATE '0012-12-12'", DATE, "DATE '0012-12-12'")
-                // before julian->gregorian switch
-                .addRoundTrip("date", "DATE '1500-01-01'", DATE, "DATE '1500-01-01'")
-                // before epoch
-                .addRoundTrip("date", "DATE '1952-04-03'", DATE, "DATE '1952-04-03'")
-                .addRoundTrip("date", "DATE '1970-01-01'", DATE, "DATE '1970-01-01'")
-                .addRoundTrip("date", "DATE '1970-02-03'", DATE, "DATE '1970-02-03'")
-                // summer on northern hemisphere (possible DST)
-                .addRoundTrip("date", "DATE '2017-07-01'", DATE, "DATE '2017-07-01'")
-                // winter on northern hemisphere (possible DST on southern hemisphere)
-                .addRoundTrip("date", "DATE '2017-01-01'", DATE, "DATE '2017-01-01'")
-                .addRoundTrip("date", "DATE '1970-01-01'", DATE, "DATE '1970-01-01'")
-                .addRoundTrip("date", "DATE '1983-04-01'", DATE, "DATE '1983-04-01'")
-                .addRoundTrip("date", "DATE '1983-10-01'", DATE, "DATE '1983-10-01'");
+        SqlDataTypeTest testsSqlServer = dateTest(Function.identity());
+        SqlDataTypeTest testsTrino = dateTest(inputLiteral -> format("DATE %s", inputLiteral));
 
         for (String timeZoneId : ImmutableList.of(UTC_KEY.getId(), jvmZone.getId(), someZone.getId())) {
             Session session = Session.builder(getSession())
@@ -491,6 +456,29 @@ public abstract class BaseSqlServerTypeMapping
             testsTrino.execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_date"));
             testsTrino.execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_date"));
         }
+    }
+
+    private SqlDataTypeTest dateTest(Function<String, String> inputLiteralFactory)
+    {
+        // BC dates not supported by SQL Server
+        return SqlDataTypeTest.create()
+                .addRoundTrip("date", "NULL", DATE, "CAST(NULL AS DATE)")
+                // first day of AD
+                .addRoundTrip("date", inputLiteralFactory.apply("'0001-01-01'"), DATE, "DATE '0001-01-01'")
+                .addRoundTrip("date", inputLiteralFactory.apply("'0012-12-12'"), DATE, "DATE '0012-12-12'")
+                // before julian->gregorian switch
+                .addRoundTrip("date", inputLiteralFactory.apply("'1500-01-01'"), DATE, "DATE '1500-01-01'")
+                // before epoch
+                .addRoundTrip("date", inputLiteralFactory.apply("'1952-04-03'"), DATE, "DATE '1952-04-03'")
+                .addRoundTrip("date", inputLiteralFactory.apply("'1970-01-01'"), DATE, "DATE '1970-01-01'")
+                .addRoundTrip("date", inputLiteralFactory.apply("'1970-02-03'"), DATE, "DATE '1970-02-03'")
+                // summer on northern hemisphere (possible DST)
+                .addRoundTrip("date", inputLiteralFactory.apply("'2017-07-01'"), DATE, "DATE '2017-07-01'")
+                // winter on northern hemisphere (possible DST on southern hemisphere)
+                .addRoundTrip("date", inputLiteralFactory.apply("'2017-01-01'"), DATE, "DATE '2017-01-01'")
+                .addRoundTrip("date", inputLiteralFactory.apply("'1970-01-01'"), DATE, "DATE '1970-01-01'")
+                .addRoundTrip("date", inputLiteralFactory.apply("'1983-04-01'"), DATE, "DATE '1983-04-01'")
+                .addRoundTrip("date", inputLiteralFactory.apply("'1983-10-01'"), DATE, "DATE '1983-10-01'");
     }
 
     @Test
