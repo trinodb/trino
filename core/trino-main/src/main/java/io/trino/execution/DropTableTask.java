@@ -29,6 +29,7 @@ import java.util.List;
 
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
+import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static java.util.Objects.requireNonNull;
@@ -62,23 +63,17 @@ public class DropTableTask
         Session session = stateMachine.getSession();
         QualifiedObjectName originalTableName = createQualifiedObjectName(session, statement, statement.getTableName());
         if (metadata.isMaterializedView(session, originalTableName)) {
-            if (!statement.isExists()) {
-                throw semanticException(
-                        TABLE_NOT_FOUND,
-                        statement,
-                        "Table '%s' does not exist, but a materialized view with that name exists. Did you mean DROP MATERIALIZED VIEW %s?", originalTableName, originalTableName);
-            }
-            return immediateVoidFuture();
+            throw semanticException(
+                    GENERIC_USER_ERROR,
+                    statement,
+                    "Table '%s' does not exist, but a materialized view with that name exists. Did you mean DROP MATERIALIZED VIEW %s?", originalTableName, originalTableName);
         }
 
         if (metadata.isView(session, originalTableName)) {
-            if (!statement.isExists()) {
-                throw semanticException(
-                        TABLE_NOT_FOUND,
-                        statement,
-                        "Table '%s' does not exist, but a view with that name exists. Did you mean DROP VIEW %s?", originalTableName, originalTableName);
-            }
-            return immediateVoidFuture();
+            throw semanticException(
+                    GENERIC_USER_ERROR,
+                    statement,
+                    "Table '%s' does not exist, but a view with that name exists. Did you mean DROP VIEW %s?", originalTableName, originalTableName);
         }
 
         RedirectionAwareTableHandle redirectionAwareTableHandle = metadata.getRedirectionAwareTableHandle(session, originalTableName);
