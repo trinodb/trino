@@ -196,8 +196,7 @@ public class DecimalAverageAggregation
                 decimalOffset);
         decimalState.setNotNull(true);
         counterState.setValue(counterState.getValue() + otherCounterState.getValue());
-        int isOverflowNull = overflowState.isNull() ? 0 : 1;
-        overflow += overflowState.getValue() + otherOverflowState.getValue() * isOverflowNull;
+        overflow += overflowState.getValue() + otherOverflowState.getValue() * (otherOverflowState.isNull() ? 0 : 1);
         overflowState.setValue(overflow);
         overflowState.setNull(overflow == 0);
     }

@@ -648,8 +648,11 @@ public final class AccumulatorCompiler
             }
         }
 
-        Variable position = scope.declareVariable(int.class, "position");
-        Variable positionX = scope.declareVariable(int.class, "positionX");
+        Variable mayHaveNull = scope.declareVariable(boolean.class, "mayHaveNull");
+        if (isNullFunction.isPresent()) {
+            body.append(mayHaveNull.set(scope.getVariable("block").cast(AbstractRowBlock.class).invoke(
+                    "mayHaveNull", boolean.class)));
+        }
         for (int i = 0; i < stateCount; i++) {
             FieldDefinition stateFactoryField = stateFieldAndDescriptors.get(i).getStateFactoryField();
             body.comment(format("scratchState_%s = stateFactory[%s].createSingleState();", i, i))
@@ -667,11 +670,44 @@ public final class AccumulatorCompiler
             generateEnsureCapacity(scope, stateFields, body);
         }
 
+        Variable rowsVariable = scope.declareVariable(int.class, "rows");
+        Variable blockVariable = scope.getVariable("block");
+        Variable position = scope.declareVariable(int.class, "position");
+        Variable positionX = scope.declareVariable(int.class, "positionX");
+
+        BytecodeBlock mayHaveNullLoop = generateLoop(callSiteBinder, grouped, method, scratchStates, stateFields, stateFieldAndDescriptors,
+                lambdaProviderFields, combineFunction, block, blockVariable, rowsVariable, true, isNullFunction).ret();
+
+        BytecodeBlock notMayHaveNullLoop = generateLoop(callSiteBinder, grouped, method, scratchStates, stateFields, stateFieldAndDescriptors,
+            lambdaProviderFields, combineFunction, block, blockVariable, rowsVariable, false, isNullFunction).ret();
+
+        IfStatement mayHaveNullIf = new IfStatement()
+                .condition(mayHaveNull)
+                .ifFalse(notMayHaveNullLoop);
+        if(isNullFunction.isPresent()) {
+            body.append(mayHaveNullIf).append(mayHaveNullLoop).ret();
+        } else {
+            body.append(notMayHaveNullLoop).ret();
+        }
+    }
+
+    private static BytecodeBlock generateLoop(CallSiteBinder callSiteBinder, boolean grouped, MethodDefinition method, List<Variable> scratchStates,
+            List<FieldDefinition> stateFields, List<StateFieldAndDescriptor> stateFieldAndDescriptors,
+            List<FieldDefinition> lambdaProviderFields, Optional<MethodHandle> combineFunction, List<Variable> block,
+            Variable blockVariable, Variable rowsVariable, boolean flag, Optional<MethodHandle> isNullFunction) {
+        Variable thisVariable = method.getThis();
         BytecodeBlock loopBody = new BytecodeBlock();
+        Scope scope = method.getScope();
+
+        Variable position = scope.getVariable("position");
+        Variable positionX = scope.getVariable( "positionX");
+
         loopBody.comment("combine(state_0, state_1, ... scratchState_0, scratchState_1, ... lambda_0, lambda_1, ...)");
-        if (isNullFunction.isPresent()) {
+        if (flag && isNullFunction.isPresent()) {
             loopBody.append(positionX.set(scope.getVariable("block").cast(AbstractRowBlock.class)
-                    .invoke("getFieldBlockOffset", int.class, scope.getVariable("position"))));
+                    .invoke("getFieldBlockOffset", int.class, position)));
+        } else {
+            loopBody.append(positionX.set(position));
         }
         for (FieldDefinition stateField : stateFields) {
             if (grouped) {
@@ -680,11 +716,10 @@ public final class AccumulatorCompiler
             }
             loopBody.append(thisVariable.getField(stateField));
         }
-        for (int i = 0; i < stateCount; i++) {
+        for (int i = 0; i < stateFieldAndDescriptors.size(); i++) {
             FieldDefinition stateSerializerField = stateFieldAndDescriptors.get(i).getStateSerializerField();
             loopBody.append(thisVariable.getField(stateSerializerField).invoke("deserialize", void.class, block.get(i),
-                    isNullFunction.isPresent() ? positionX : position,
-                    scratchStates.get(i).cast(AccumulatorState.class)));
+                    positionX, scratchStates.get(i).cast(AccumulatorState.class)));
             loopBody.append(scratchStates.get(i));
         }
         for (FieldDefinition lambdaProviderField : lambdaProviderFields) {
@@ -701,9 +736,7 @@ public final class AccumulatorCompiler
 
             loopBody = new BytecodeBlock().append(ifStatement);
         }
-
-        body.append(generateBlockNonNullPositionForLoop(scope, position, loopBody))
-                .ret();
+        return generateBlockNonNullPositionForLoop(scope, position, loopBody, blockVariable, rowsVariable, flag);
     }
 
     private static void generateSetGroupIdFromGroupIdsBlock(Scope scope, List<FieldDefinition> stateFields, BytecodeBlock block)
@@ -742,23 +775,25 @@ public final class AccumulatorCompiler
 
     // Generates a for-loop with a local variable named "position" defined, with the current position in the block,
     // loopBody will only be executed for non-null positions in the Block
-    private static BytecodeBlock generateBlockNonNullPositionForLoop(Scope scope, Variable positionVariable, BytecodeBlock loopBody)
+    private static BytecodeBlock generateBlockNonNullPositionForLoop(Scope scope, Variable positionVariable, BytecodeBlock loopBody,
+            Variable blockVariable, Variable rowsVariable, boolean flag)
     {
-        Variable rowsVariable = scope.declareVariable(int.class, "rows");
-        Variable blockVariable = scope.getVariable("block");
-
         BytecodeBlock block = new BytecodeBlock()
                 .append(blockVariable)
                 .invokeInterface(Block.class, "getPositionCount", int.class)
                 .putVariable(rowsVariable);
 
-        IfStatement ifStatement = new IfStatement("if(!block.isNull(position))")
-                .condition(new BytecodeBlock()
-                        .append(blockVariable)
-                        .append(positionVariable)
-                        .invokeInterface(Block.class, "isNull", boolean.class, int.class))
-                .ifFalse(loopBody);
-
+        BytecodeNode zz;
+        if (flag) {
+            zz = new IfStatement("if(!block.isNull(position))")
+                    .condition(new BytecodeBlock()
+                            .append(blockVariable)
+                            .append(positionVariable)
+                            .invokeInterface(Block.class, "isNull", boolean.class, int.class))
+                    .ifFalse(loopBody);
+        } else {
+            zz = loopBody;
+        }
         block.append(new ForLoop()
                 .initialize(positionVariable.set(constantInt(0)))
                 .condition(new BytecodeBlock()
@@ -766,7 +801,7 @@ public final class AccumulatorCompiler
                         .append(rowsVariable)
                         .invokeStatic(CompilerOperations.class, "lessThan", boolean.class, int.class, int.class))
                 .update(new BytecodeBlock().incrementVariable(positionVariable, (byte) 1))
-                .body(ifStatement));
+                .body(zz));
 
         return block;
     }

@@ -166,8 +166,7 @@ public class DecimalSumAggregation
                 decimalOffset);
         decimalState.setNotNull(true);
         // zalozenie, ze LHS nawet jak jest null to jest ok
-        int isOverflowNull = overflowState.isNull() ? 0 : 1;
-        overflow = overflowState.getValue() + Math.addExact(overflow, otherOverflowState.getValue() * isOverflowNull);
+        overflow = overflowState.getValue() + Math.addExact(overflow, otherOverflowState.getValue() * (otherOverflowState.isNull() ? 0 : 1));
         overflowState.setValue(overflow);
         overflowState.setNull(overflow == 0);
     }
