@@ -54,7 +54,7 @@ import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestIcebergProjectionPushdownPlans
         extends BasePushdownPlanTest
@@ -135,7 +135,7 @@ public class TestIcebergProjectionPushdownPlans
         Session session = getQueryRunner().getDefaultSession();
 
         Optional<TableHandle> tableHandle = getTableHandle(session, completeTableName);
-        assertTrue(tableHandle.isPresent(), "expected the table handle to be present");
+        assertThat(tableHandle).as("expected the table handle to be present").isPresent();
 
         Map<String, ColumnHandle> columns = getColumnHandles(session, completeTableName);
 
