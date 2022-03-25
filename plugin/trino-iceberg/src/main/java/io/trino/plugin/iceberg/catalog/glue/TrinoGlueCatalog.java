@@ -222,12 +222,14 @@ public class TrinoGlueCatalog
     @Override
     public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> namespace)
     {
+        ImmutableList.Builder<SchemaTableName> tables = ImmutableList.builder();
         try {
             List<String> namespaces = namespace.map(List::of).orElseGet(() -> listNamespaces(session));
-            return namespaces.stream()
-                    .flatMap(glueNamespace -> {
-                        try {
-                            return getPaginatedResults(
+            for (String glueNamespace : namespaces) {
+                try {
+                    // Add all tables from a namespace together, in case it is removed while fetching paginated results
+                    tables.addAll(
+                            getPaginatedResults(
                                     glueClient::getTables,
                                     new GetTablesRequest().withDatabaseName(glueNamespace),
                                     GetTablesRequest::setNextToken,
@@ -235,18 +237,18 @@ public class TrinoGlueCatalog
                                     stats.getGetTables())
                                     .map(GetTablesResult::getTableList)
                                     .flatMap(List::stream)
-                                    .map(table -> new SchemaTableName(glueNamespace, table.getName()));
-                        }
-                        catch (EntityNotFoundException e) {
-                            // Namespace may have been deleted
-                            return Stream.empty();
-                        }
-                    })
-                    .collect(toImmutableList());
+                                    .map(table -> new SchemaTableName(glueNamespace, table.getName()))
+                                    .collect(toImmutableList()));
+                }
+                catch (EntityNotFoundException e) {
+                    // Namespace may have been deleted
+                }
+            }
         }
         catch (AmazonServiceException e) {
             throw new TrinoException(ICEBERG_CATALOG_ERROR, e);
         }
+        return tables.build();
     }
 
     @Override
