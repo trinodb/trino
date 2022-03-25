@@ -15,7 +15,6 @@ package io.trino.plugin.iceberg;
 
 import io.trino.operator.RetryPolicy;
 import io.trino.testing.BaseFailureRecoveryTest;
-import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -62,7 +61,7 @@ public abstract class BaseIcebergFailureRecoveryTest
     @Override
     protected void createPartitionedLineitemTable(String tableName, List<String> columns, String partitionColumn)
     {
-        @Language("SQL") String sql = format(
+        String sql = format(
                 "CREATE TABLE %s WITH (partitioning=array['%s']) AS SELECT %s FROM tpch.tiny.lineitem",
                 tableName,
                 partitionColumn,
