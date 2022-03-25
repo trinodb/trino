@@ -237,7 +237,7 @@ public class DeltaLakeMetadata
     private final boolean hideNonDeltaLakeTables;
     private final boolean unsafeWritesEnabled;
     private final JsonCodec<DataFileInfo> dataFileInfoCodec;
-    private final JsonCodec<DeltaLakeUpdateResult> deleteResultJsonCodec;
+    private final JsonCodec<DeltaLakeUpdateResult> updateResultJsonCodec;
     private final TransactionLogWriterFactory transactionLogWriterFactory;
     private final String nodeVersion;
     private final String nodeId;
@@ -253,7 +253,7 @@ public class DeltaLakeMetadata
             boolean hideNonDeltaLakeTables,
             boolean unsafeWritesEnabled,
             JsonCodec<DataFileInfo> dataFileInfoCodec,
-            JsonCodec<DeltaLakeUpdateResult> deleteResultJsonCodec,
+            JsonCodec<DeltaLakeUpdateResult> updateResultJsonCodec,
             TransactionLogWriterFactory transactionLogWriterFactory,
             NodeManager nodeManager,
             CheckpointWriterManager checkpointWriterManager,
@@ -269,7 +269,7 @@ public class DeltaLakeMetadata
         this.hideNonDeltaLakeTables = hideNonDeltaLakeTables;
         this.unsafeWritesEnabled = unsafeWritesEnabled;
         this.dataFileInfoCodec = requireNonNull(dataFileInfoCodec, "dataFileInfoCodec is null");
-        this.deleteResultJsonCodec = requireNonNull(deleteResultJsonCodec, "deleteResultJsonCodec is null");
+        this.updateResultJsonCodec = requireNonNull(updateResultJsonCodec, "updateResultJsonCodec is null");
         this.transactionLogWriterFactory = requireNonNull(transactionLogWriterFactory, "transactionLogWriterFactory is null");
         this.nodeVersion = nodeManager.getCurrentNode().getVersion();
         this.nodeId = nodeManager.getCurrentNode().getNodeIdentifier();
@@ -1389,7 +1389,7 @@ public class DeltaLakeMetadata
 
         List<DeltaLakeUpdateResult> updateResults = fragments.stream()
                 .map(Slice::getBytes)
-                .map(deleteResultJsonCodec::fromJson)
+                .map(updateResultJsonCodec::fromJson)
                 .collect(toImmutableList());
 
         if (handle.isRetriesEnabled()) {
