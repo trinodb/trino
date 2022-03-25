@@ -29,8 +29,8 @@ import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.json.JsonCodec.jsonCodec;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 public class TestMetricsWrapper
 {
@@ -66,7 +66,7 @@ public class TestMetricsWrapper
         Set<String> properties = getJsonProperties(MetricsWrapper.class);
         for (Method method : Metrics.class.getMethods()) {
             if (method.getDeclaringClass().equals(Method.class)) {
-                assertTrue(properties.contains(method.getName()), "Metrics method not in wrapper: " + method);
+                assertThat(properties).contains(method.getName());
             }
         }
     }
