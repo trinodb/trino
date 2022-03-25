@@ -52,8 +52,11 @@ public class SqlServerClientModule
     @Provides
     @Singleton
     @ForBaseJdbc
-    public ConnectionFactory getConnectionFactory(BaseJdbcConfig config, CredentialProvider credentialProvider)
+    public static ConnectionFactory getConnectionFactory(
+            BaseJdbcConfig config,
+            SqlServerConfig sqlServerConfig,
+            CredentialProvider credentialProvider)
     {
-        return new DriverConnectionFactory(new SQLServerDriver(), config, credentialProvider);
+        return new SqlServerConnectionFactory(new DriverConnectionFactory(new SQLServerDriver(), config, credentialProvider), sqlServerConfig.isSnapshotIsolationDisabled());
     }
 }
