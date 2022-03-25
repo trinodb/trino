@@ -393,7 +393,7 @@ public class GlueHiveMetastore
                             .withDatabaseName(table.getDatabaseName())
                             .withTableName(table.getTableName())
                             .withEntries(partitionUpdateRequestsPartition),
-                    new StatsRecordingAsyncHandler(stats.getBatchUpdatePartition(), startTimestamp)));
+                    new StatsRecordingAsyncHandler<>(stats.getBatchUpdatePartition(), startTimestamp)));
         });
 
         try {
@@ -885,7 +885,7 @@ public class GlueHiveMetastore
                                     .withDatabaseName(table.getDatabaseName())
                                     .withTableName(table.getTableName())
                                     .withPartitionsToGet(partitions),
-                            new StatsRecordingAsyncHandler(stats.getGetPartitions(), startTimestamp)));
+                            new StatsRecordingAsyncHandler<>(stats.getGetPartitions(), startTimestamp)));
                 }
                 pendingPartitions.clear();
 
@@ -933,7 +933,7 @@ public class GlueHiveMetastore
                                     .withDatabaseName(databaseName)
                                     .withTableName(tableName)
                                     .withPartitionInputList(partitionInputs),
-                            new StatsRecordingAsyncHandler(stats.getBatchCreatePartition(), startTime)));
+                            new StatsRecordingAsyncHandler<>(stats.getBatchCreatePartition(), startTime)));
                 }
 
                 for (Future<BatchCreatePartitionResult> future : futures) {

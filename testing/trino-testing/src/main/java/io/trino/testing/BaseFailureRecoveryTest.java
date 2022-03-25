@@ -651,14 +651,14 @@ public abstract class BaseFailureRecoveryTest
             queryAssertion.accept(actual.getQueryId());
         }
 
-        public FailureRecoveryAssert failsAlways(Consumer<AbstractThrowableAssert> failureAssertion)
+        public FailureRecoveryAssert failsAlways(Consumer<AbstractThrowableAssert<?, ? extends Throwable>> failureAssertion)
         {
             failsWithoutRetries(failureAssertion);
             failsDespiteRetries(failureAssertion);
             return this;
         }
 
-        public FailureRecoveryAssert failsWithoutRetries(Consumer<AbstractThrowableAssert> failureAssertion)
+        public FailureRecoveryAssert failsWithoutRetries(Consumer<AbstractThrowableAssert<?, ? extends Throwable>> failureAssertion)
         {
             verifyFailureTypeAndStageSelector();
             OptionalInt failureStageId = getFailureStageId(() -> executeExpected().getQueryResult());
@@ -666,7 +666,7 @@ public abstract class BaseFailureRecoveryTest
             return this;
         }
 
-        public FailureRecoveryAssert failsDespiteRetries(Consumer<AbstractThrowableAssert> failureAssertion)
+        public FailureRecoveryAssert failsDespiteRetries(Consumer<AbstractThrowableAssert<?, ? extends Throwable>> failureAssertion)
         {
             verifyFailureTypeAndStageSelector();
             OptionalInt failureStageId = getFailureStageId(() -> executeExpected().getQueryResult());
