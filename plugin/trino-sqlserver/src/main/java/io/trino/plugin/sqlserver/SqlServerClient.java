@@ -16,13 +16,11 @@ package io.trino.plugin.sqlserver;
 import com.google.common.base.Enums;
 import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
-import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.microsoft.sqlserver.jdbc.SQLServerException;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
-import io.trino.collect.cache.NonEvictableCache;
 import io.trino.plugin.base.aggregation.AggregateFunctionRewriter;
 import io.trino.plugin.base.aggregation.AggregateFunctionRule;
 import io.trino.plugin.base.expression.ConnectorExpressionRewriter;
@@ -33,9 +31,7 @@ import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
 import io.trino.plugin.jdbc.JdbcJoinCondition;
-import io.trino.plugin.jdbc.JdbcOutputTableHandle;
 import io.trino.plugin.jdbc.JdbcSortItem;
-import io.trino.plugin.jdbc.JdbcSplit;
 import io.trino.plugin.jdbc.JdbcStatisticsConfig;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
@@ -102,7 +98,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.ExecutionException;
 import java.util.function.BiFunction;
 import java.util.stream.Stream;
 
@@ -111,9 +106,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.collect.MoreCollectors.toOptional;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-import static com.microsoft.sqlserver.jdbc.SQLServerConnection.TRANSACTION_SNAPSHOT;
 import static io.airlift.slice.Slices.wrappedBuffer;
-import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.trino.plugin.jdbc.JdbcJoinPushdownUtil.implementJoinCostAware;
 import static io.trino.plugin.jdbc.PredicatePushdownController.DISABLE_PUSHDOWN;
@@ -147,7 +140,6 @@ import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.getUnsuppor
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.trino.plugin.sqlserver.SqlServerTableProperties.DATA_COMPRESSION;
 import static io.trino.plugin.sqlserver.SqlServerTableProperties.getDataCompression;
-import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -181,7 +173,6 @@ import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.math.RoundingMode.UNNECESSARY;
-import static java.time.Duration.ofMinutes;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
@@ -199,12 +190,6 @@ public class SqlServerClient
 
     private static final Joiner DOT_JOINER = Joiner.on(".");
 
-    private final boolean snapshotIsolationDisabled;
-    private final NonEvictableCache<SnapshotIsolationEnabledCacheKey, Boolean> snapshotIsolationEnabled = buildNonEvictableCache(
-            CacheBuilder.newBuilder()
-                    .maximumSize(1)
-                    .expireAfterWrite(ofMinutes(5)));
-
     private final boolean statisticsEnabled;
 
     private final ConnectorExpressionRewriter<String> connectorExpressionRewriter;
@@ -215,7 +200,6 @@ public class SqlServerClient
     @Inject
     public SqlServerClient(
             BaseJdbcConfig config,
-            SqlServerConfig sqlServerConfig,
             JdbcStatisticsConfig statisticsConfig,
             ConnectionFactory connectionFactory,
             QueryBuilder queryBuilder,
@@ -223,8 +207,6 @@ public class SqlServerClient
     {
         super(config, "\"", connectionFactory, queryBuilder, identifierMapping);
 
-        requireNonNull(sqlServerConfig, "sqlServerConfig is null");
-        snapshotIsolationDisabled = sqlServerConfig.isSnapshotIsolationDisabled();
         this.statisticsEnabled = requireNonNull(statisticsConfig, "statisticsConfig is null").isEnabled();
 
         this.connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder()
@@ -844,7 +826,7 @@ public class SqlServerClient
         if (!tableHandle.isNamedRelation()) {
             return ImmutableMap.of();
         }
-        try (Connection connection = configureConnectionTransactionIsolation(connectionFactory.openConnection(session));
+        try (Connection connection = connectionFactory.openConnection(session);
                 Handle handle = Jdbi.open(connection)) {
             return getTableDataCompressionWithRetries(handle, tableHandle)
                     .map(dataCompression -> ImmutableMap.<String, Object>of(DATA_COMPRESSION, dataCompression))
@@ -863,58 +845,6 @@ public class SqlServerClient
             // Abort connection before closing. Without this, the SQL Server driver
             // attempts to drain the connection by reading all the results.
             connection.abort(directExecutor());
-        }
-    }
-
-    @Override
-    public Connection getConnection(ConnectorSession session, JdbcOutputTableHandle handle)
-            throws SQLException
-    {
-        return configureConnectionTransactionIsolation(super.getConnection(session, handle));
-    }
-
-    @Override
-    public Connection getConnection(ConnectorSession session, JdbcSplit split)
-            throws SQLException
-    {
-        return configureConnectionTransactionIsolation(super.getConnection(session, split));
-    }
-
-    private Connection configureConnectionTransactionIsolation(Connection connection)
-            throws SQLException
-    {
-        if (snapshotIsolationDisabled) {
-            return connection;
-        }
-        try {
-            if (hasSnapshotIsolationEnabled(connection)) {
-                // SQL Server's READ COMMITTED + SNAPSHOT ISOLATION is equivalent to ordinary READ COMMITTED in e.g. Oracle, PostgreSQL.
-                connection.setTransactionIsolation(TRANSACTION_SNAPSHOT);
-            }
-        }
-        catch (SQLException e) {
-            connection.close();
-            throw e;
-        }
-
-        return connection;
-    }
-
-    private boolean hasSnapshotIsolationEnabled(Connection connection)
-            throws SQLException
-    {
-        try {
-            return snapshotIsolationEnabled.get(SnapshotIsolationEnabledCacheKey.INSTANCE, () -> {
-                Handle handle = Jdbi.open(connection);
-                return handle.createQuery("SELECT snapshot_isolation_state FROM sys.databases WHERE name = :name")
-                        .bind("name", connection.getCatalog())
-                        .mapTo(Boolean.class)
-                        .findOne()
-                        .orElse(false);
-            });
-        }
-        catch (ExecutionException e) {
-            throw new TrinoException(GENERIC_INTERNAL_ERROR, e);
         }
     }
 
