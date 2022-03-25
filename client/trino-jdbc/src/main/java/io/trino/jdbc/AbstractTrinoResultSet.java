@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import com.google.common.io.BaseEncoding;
 import io.trino.client.ClientTypeSignature;
 import io.trino.client.ClientTypeSignatureParameter;
@@ -61,7 +62,6 @@ import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.Calendar;
 import java.util.GregorianCalendar;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -171,10 +171,13 @@ abstract class AbstractTrinoResultSet
                     .add("row", io.trino.client.Row.class, Row.class, (type, clientRow) -> (Row) convertFromClientRepresentation(type, clientRow))
                     .add("row", io.trino.client.Row.class, Map.class, (type, clientRow) -> {
                         Row row = (Row) convertFromClientRepresentation(type, clientRow);
-                        Map<String, Object> result = new HashMap<>();
-                        for (RowField field : row.getFields()) {
-                            String name = field.getName()
-                                    .orElseGet(() -> "field" + field.getOrdinal());
+                        List<RowField> fields = row.getFields();
+                        Map<String, Object> result = Maps.newHashMapWithExpectedSize(fields.size());
+                        for (RowField field : fields) {
+                            String name = field.getName().orElse(null);
+                            if (name == null) {
+                                name = "field" + field.getOrdinal();
+                            }
                             if (result.containsKey(name)) {
                                 throw new SQLException("Duplicate field name: " + name);
                             }
@@ -661,8 +664,9 @@ abstract class AbstractTrinoResultSet
         switch (columnType.getRawType()) {
             case "array": {
                 ClientTypeSignature elementType = getOnlyElement(columnType.getArgumentsAsTypeSignatures());
-                List<Object> converted = Lists.newArrayListWithExpectedSize(((List<?>) value).size());
-                for (Object element : (List<?>) value) {
+                List<?> listValue = (List<?>) value;
+                List<Object> converted = Lists.newArrayListWithExpectedSize(listValue.size());
+                for (Object element : listValue) {
                     converted.add(convertFromClientRepresentation(elementType, element));
                 }
                 return unmodifiableList(converted);
@@ -673,8 +677,9 @@ abstract class AbstractTrinoResultSet
                 verify(typeSignatures.size() == 2, "Unexpected map parameters: %s", typeSignatures);
                 ClientTypeSignature keyType = typeSignatures.get(0);
                 ClientTypeSignature valueType = typeSignatures.get(1);
-                Map<Object, Object> converted = new HashMap<>();
-                for (Map.Entry<?, ?> entry : ((Map<?, ?>) value).entrySet()) {
+                Map<?, ?> mapValue = (Map<?, ?>) value;
+                Map<Object, Object> converted = Maps.newHashMapWithExpectedSize(mapValue.size());
+                for (Map.Entry<?, ?> entry : mapValue.entrySet()) {
                     converted.put(convertFromClientRepresentation(keyType, entry.getKey()), convertFromClientRepresentation(valueType, entry.getValue()));
                 }
                 return unmodifiableMap(converted);
@@ -684,8 +689,8 @@ abstract class AbstractTrinoResultSet
                 io.trino.client.Row row = (io.trino.client.Row) value;
                 List<io.trino.client.RowField> fields = row.getFields();
                 List<ClientTypeSignatureParameter> typeArguments = columnType.getArguments();
-                Row.Builder builder = Row.builder();
                 verify(fields.size() == typeArguments.size(), "Type mismatch: %s, %s", row, columnType);
+                Row.Builder builder = Row.builderWithExpectedSize(fields.size());
                 for (int i = 0; i < fields.size(); i++) {
                     io.trino.client.RowField field = fields.get(i);
                     ClientTypeSignatureParameter clientTypeSignatureParameter = typeArguments.get(i);
@@ -1934,7 +1939,7 @@ abstract class AbstractTrinoResultSet
 
     private static Map<String, Integer> getFieldMap(List<Column> columns)
     {
-        Map<String, Integer> map = new HashMap<>();
+        Map<String, Integer> map = Maps.newHashMapWithExpectedSize(columns.size());
         for (int i = 0; i < columns.size(); i++) {
             String name = columns.get(i).getName().toLowerCase(ENGLISH);
             if (!map.containsKey(name)) {
@@ -1946,7 +1951,7 @@ abstract class AbstractTrinoResultSet
 
     private static List<ColumnInfo> getColumnInfo(List<Column> columns)
     {
-        ImmutableList.Builder<ColumnInfo> list = ImmutableList.builder();
+        ImmutableList.Builder<ColumnInfo> list = ImmutableList.builderWithExpectedSize(columns.size());
         for (Column column : columns) {
             ColumnInfo.Builder builder = new ColumnInfo.Builder()
                     .setCatalogName("") // TODO
