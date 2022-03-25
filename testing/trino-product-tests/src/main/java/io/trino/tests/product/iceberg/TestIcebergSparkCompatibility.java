@@ -369,9 +369,8 @@ public class TestIcebergSparkCompatibility
         String selectByVarbinary = "SELECT * FROM %s WHERE _varbinary = X'0ff102f0feff'";
         assertThat(onTrino().executeQuery(format(selectByVarbinary, trinoTableName)))
                 .containsOnly(row2);
-        // for now this fails on spark see https://github.com/apache/iceberg/issues/2934
-        assertQueryFailure(() -> onSpark().executeQuery(format(selectByVarbinary, sparkTableName)))
-                .hasMessageContaining("Cannot convert bytes to SQL literal: java.nio.HeapByteBuffer[pos=0 lim=6 cap=6]");
+        assertThat(onSpark().executeQuery(format(selectByVarbinary, sparkTableName)))
+                .containsOnly(row2);
 
         onTrino().executeQuery("DROP TABLE " + trinoTableName);
     }
@@ -402,9 +401,8 @@ public class TestIcebergSparkCompatibility
         String selectByVarbinary = "SELECT * FROM %s WHERE _varbinary = X'0ff102fdfeff'";
         assertThat(onTrino().executeQuery(format(selectByVarbinary, trinoTableName)))
                 .containsOnly(row2);
-        // for now this fails on spark see https://github.com/apache/iceberg/issues/2934
-        assertQueryFailure(() -> onSpark().executeQuery(format(selectByVarbinary, sparkTableName)))
-                .hasMessageContaining("Cannot convert bytes to SQL literal: java.nio.HeapByteBuffer[pos=0 lim=6 cap=6]");
+        assertThat(onSpark().executeQuery(format(selectByVarbinary, sparkTableName)))
+                .containsOnly(row2);
 
         onSpark().executeQuery("DROP TABLE " + sparkTableName);
     }
@@ -1136,19 +1134,11 @@ public class TestIcebergSparkCompatibility
                 break;
 
             case ORC:
-                switch (compressionCodec) {
-                    case "GZIP":
-                        onSpark().executeQuery("SET spark.sql.orc.compression.codec = zlib");
-                        break;
-                    case "ZSTD":
-                    case "LZ4":
-                        // not supported
-                        assertQueryFailure(() -> onSpark().executeQuery("SET spark.sql.orc.compression.codec = " + compressionCodec))
-                                .hasMessageStartingWith("org.apache.hive.service.cli.HiveSQLException: Error running query: java.lang.IllegalArgumentException: " +
-                                        "The value of spark.sql.orc.compression.codec should be one of uncompressed, lzo, snappy, zlib, none, but was " + compressionCodec.toLowerCase(ENGLISH));
-                        return;
-                    default:
-                        onSpark().executeQuery("SET spark.sql.orc.compression.codec = " + compressionCodec);
+                if ("GZIP".equals(compressionCodec)) {
+                    onSpark().executeQuery("SET spark.sql.orc.compression.codec = zlib");
+                }
+                else {
+                    onSpark().executeQuery("SET spark.sql.orc.compression.codec = " + compressionCodec);
                 }
                 break;
 
