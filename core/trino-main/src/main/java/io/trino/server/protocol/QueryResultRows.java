@@ -16,6 +16,7 @@ package io.trino.server.protocol;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Maps;
 import io.trino.Session;
 import io.trino.client.ClientCapabilities;
 import io.trino.client.Column;
@@ -40,7 +41,6 @@ import javax.annotation.Nullable;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -59,7 +59,6 @@ import static java.lang.String.format;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toList;
 
 public class QueryResultRows
         implements Iterable<List<Object>>
@@ -131,11 +130,11 @@ public class QueryResultRows
 
     private static long countRows(List<Page> pages)
     {
-        return pages.stream()
-                .map(Page::getPositionCount)
-                .map(Integer::longValue)
-                .reduce(Long::sum)
-                .orElse(0L);
+        long rows = 0;
+        for (Page page : pages) {
+            rows += page.getPositionCount();
+        }
+        return rows;
     }
 
     @Override
@@ -221,7 +220,7 @@ public class QueryResultRows
             checkArgument(columns != null && types != null, "columns and types must be present at the same time");
             checkArgument(columns.size() == types.size(), "columns and types size mismatch");
 
-            ImmutableList.Builder<ColumnAndType> builder = ImmutableList.builder();
+            ImmutableList.Builder<ColumnAndType> builder = ImmutableList.builderWithExpectedSize(columns.size());
 
             for (int i = 0; i < columns.size(); i++) {
                 builder.add(new ColumnAndType(i, columns.get(i), types.get(i)));
@@ -329,11 +328,12 @@ public class QueryResultRows
                 Block block = currentPage.getBlock(channel);
 
                 try {
+                    Object value = type.getObjectValue(results.session, block, inPageIndex);
                     if (results.supportsParametricDateTime) {
-                        row.add(channel, type.getObjectValue(results.session, block, inPageIndex));
+                        row.add(channel, value);
                     }
                     else {
-                        row.add(channel, getLegacyValue(type.getObjectValue(results.session, block, inPageIndex), type));
+                        row.add(channel, getLegacyValue(value, type));
                     }
                 }
                 catch (Throwable throwable) {
@@ -375,32 +375,34 @@ public class QueryResultRows
                     return value;
                 }
 
-                return unmodifiableList(((List<Object>) value).stream()
-                        .map(element -> getLegacyValue(element, elementType))
-                        .collect(toList()));
+                List<Object> listValue = (List<Object>) value;
+                List<Object> legacyValues = new ArrayList<>(listValue.size());
+                for (Object element : listValue) {
+                    legacyValues.add(getLegacyValue(element, elementType));
+                }
+
+                return unmodifiableList(legacyValues);
             }
 
             if (type instanceof MapType) {
                 Type keyType = ((MapType) type).getKeyType();
                 Type valueType = ((MapType) type).getValueType();
 
-                Map<Object, Object> result = new HashMap<>();
-                ((Map<Object, Object>) value).forEach((key, val) -> result.put(getLegacyValue(key, keyType), getLegacyValue(val, valueType)));
+                Map<Object, Object> mapValue = (Map<Object, Object>) value;
+                Map<Object, Object> result = Maps.newHashMapWithExpectedSize(mapValue.size());
+                mapValue.forEach((key, val) -> result.put(getLegacyValue(key, keyType), getLegacyValue(val, valueType)));
                 return unmodifiableMap(result);
             }
 
             if (type instanceof RowType) {
                 List<RowType.Field> fields = ((RowType) type).getFields();
                 List<Object> values = (List<Object>) value;
-                List<Type> types = fields.stream()
-                        .map(RowType.Field::getType)
-                        .collect(toImmutableList());
 
                 List<Object> result = new ArrayList<>(values.size());
                 for (int i = 0; i < values.size(); i++) {
-                    result.add(i, getLegacyValue(values.get(i), types.get(i)));
+                    result.add(getLegacyValue(values.get(i), fields.get(i).getType()));
                 }
-                return result;
+                return unmodifiableList(result);
             }
 
             return value;
