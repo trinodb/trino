@@ -17,6 +17,7 @@ import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.MoreCollectors;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
@@ -25,7 +26,14 @@ import io.trino.operator.OperatorStats;
 import io.trino.plugin.deltalake.util.DockerizedDataLake;
 import io.trino.plugin.hive.TestingHivePlugin;
 import io.trino.spi.QueryId;
+import io.trino.spi.connector.SchemaTableName;
 import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
+import io.trino.sql.planner.Plan;
+import io.trino.sql.planner.optimizations.PlanNodeSearcher;
+import io.trino.sql.planner.plan.FilterNode;
+import io.trino.sql.planner.plan.PlanNodeId;
+import io.trino.sql.planner.plan.ProjectNode;
+import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.testing.BaseConnectorSmokeTest;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
@@ -1537,5 +1545,80 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.BROADCAST.name())
                 .setSystemProperty(ENABLE_DYNAMIC_FILTERING, Boolean.toString(dynamicFilteringEnabled))
                 .build();
+    }
+
+    @Test
+    public void testDynamicFilterIsApplied()
+    {
+        @Language("SQL")
+        String sql = "SELECT foo.data FROM foo JOIN bar ON foo.bar_id = bar.bar_id WHERE bar.data = 'data200'";
+
+        DistributedQueryRunner queryRunner = (DistributedQueryRunner) getQueryRunner();
+        ResultWithQueryId<MaterializedResult> dynamicFilter = queryRunner.executeWithQueryId(broadcastJoinDistribution(true), sql);
+        ResultWithQueryId<MaterializedResult> noDynamicFilter = queryRunner.executeWithQueryId(broadcastJoinDistribution(false), sql);
+        assertEquals(dynamicFilter.getResult().getOnlyColumnAsSet(), noDynamicFilter.getResult().getOnlyColumnAsSet());
+
+        OperatorStats noDynamicRowFilteringProbeStatsFoo = getScanFilterAndProjectOperatorStats(noDynamicFilter.getQueryId(), "foo");
+        OperatorStats noDynamicRowFilteringProbeStatsBar = getScanFilterAndProjectOperatorStats(noDynamicFilter.getQueryId(), "bar");
+
+        OperatorStats dynamicRowFilteringProbeStatsFoo = getScanFilterAndProjectOperatorStats(dynamicFilter.getQueryId(), "foo");
+        OperatorStats dynamicRowFilteringProbeStatsBar = getScanFilterAndProjectOperatorStats(dynamicFilter.getQueryId(), "bar");
+
+        long dynamicRowFilteringInputDataSizeFoo = dynamicRowFilteringProbeStatsFoo.getInputDataSize().toBytes();
+        long dynamicRowFilteringInputDataSizeBar = dynamicRowFilteringProbeStatsBar.getInputDataSize().toBytes();
+
+        long noDynamicRowFilteringInputDataSizeFoo = noDynamicRowFilteringProbeStatsFoo.getInputDataSize().toBytes();
+        long noDynamicRowFilteringInputDataSizeBar = noDynamicRowFilteringProbeStatsBar.getInputDataSize().toBytes();
+
+        assertThat(dynamicRowFilteringInputDataSizeFoo + dynamicRowFilteringInputDataSizeBar)
+                .as("check that query with dynamic filtering reads less data than without it")
+                .isLessThan(noDynamicRowFilteringInputDataSizeFoo + noDynamicRowFilteringInputDataSizeBar);
+    }
+
+    private OperatorStats getScanFilterAndProjectOperatorStats(QueryId queryId, String tableName)
+    {
+        Plan plan = getDistributedQueryRunner().getQueryPlan(queryId);
+        PlanNodeId nodeId = PlanNodeSearcher.searchFrom(plan.getRoot())
+                .where(node -> { //we want either ProjectNode -> FilterNode -> TableScanNode or ProjectNode -> TableScanNode
+                    if (!(node instanceof ProjectNode)) {
+                        return false;
+                    }
+                    ProjectNode projectNode = (ProjectNode) node;
+                    if (!(projectNode.getSource() instanceof FilterNode) && !(projectNode.getSource() instanceof TableScanNode)) {
+                        return false;
+                    }
+                    TableScanNode tableScanNode;
+                    if (projectNode.getSource() instanceof FilterNode) {
+                        FilterNode filterNode = (FilterNode) projectNode.getSource();
+                        if (!(filterNode.getSource() instanceof TableScanNode)) {
+                            return false;
+                        }
+                        else {
+                            tableScanNode = (TableScanNode) filterNode.getSource();
+                        }
+                    }
+                    else {
+                        tableScanNode = (TableScanNode) projectNode.getSource();
+                    }
+
+                    return ((DeltaLakeTableHandle) tableScanNode.getTable().getConnectorHandle()).getSchemaTableName()
+                            .equals(new SchemaTableName(SCHEMA, tableName));
+                })
+                .findOnlyElement()
+                .getId();
+
+        return extractOperatorStatsForNodeId(getDistributedQueryRunner(), queryId, nodeId);
+    }
+
+    private static OperatorStats extractOperatorStatsForNodeId(DistributedQueryRunner queryRunner, QueryId queryId, PlanNodeId nodeId)
+    {
+        return queryRunner.getCoordinator()
+                .getQueryManager()
+                .getFullQueryInfo(queryId)
+                .getQueryStats()
+                .getOperatorSummaries()
+                .stream()
+                .filter(summary -> nodeId.equals(summary.getPlanNodeId()) && summary.getOperatorType().equals("ScanFilterAndProjectOperator"))
+                .collect(MoreCollectors.onlyElement());
     }
 }
