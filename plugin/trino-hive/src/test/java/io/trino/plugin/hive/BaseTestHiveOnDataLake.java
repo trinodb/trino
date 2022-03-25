@@ -251,7 +251,8 @@ public abstract class BaseTestHiveOnDataLake
         computeActual(format("DROP TABLE %s", fullyQualifiedTestTableName));
     }
 
-    @Test
+    // TODO(https://github.com/trinodb/trino/issues/11659) reenable
+    @Test(enabled = false)
     public void testWriteLargeFiles()
     {
         String testTable = getTestTableName();
