@@ -212,8 +212,10 @@ public abstract class PrimitiveColumnReader
 
     public ColumnChunk readPrimitive(Field field)
     {
-        IntList definitionLevels = new IntArrayList();
-        IntList repetitionLevels = new IntArrayList();
+        // Pre-allocate these arrays to the necessary size. This saves a substantial amount of
+        // CPU time by avoiding container resizing.
+        IntList definitionLevels = new IntArrayList(nextBatchSize);
+        IntList repetitionLevels = new IntArrayList(nextBatchSize);
         seek();
         BlockBuilder blockBuilder = field.getType().createBlockBuilder(null, nextBatchSize);
         int valueCount = 0;
