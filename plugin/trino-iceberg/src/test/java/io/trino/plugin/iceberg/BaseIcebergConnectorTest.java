@@ -157,6 +157,9 @@ public abstract class BaseIcebergConnectorTest
             case SUPPORTS_RENAME_MATERIALIZED_VIEW_ACROSS_SCHEMAS:
                 return false;
 
+            case SUPPORTS_UPDATE:
+                return true;
+
             case SUPPORTS_DELETE:
                 return true;
             default:

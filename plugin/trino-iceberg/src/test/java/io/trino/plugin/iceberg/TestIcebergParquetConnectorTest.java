@@ -22,6 +22,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 
 public class TestIcebergParquetConnectorTest
@@ -73,5 +74,14 @@ public class TestIcebergParquetConnectorTest
                 .setCatalogSessionProperty("iceberg", "parquet_writer_block_size", "100B")
                 .setCatalogSessionProperty("iceberg", "parquet_writer_batch_size", "10")
                 .build();
+    }
+
+    @Test(timeOut = 60_000, invocationCount = 4)
+    public void testUpdateRowConcurrently()
+            throws Exception
+    {
+        // TODO currently we don't have a mechanism to avoid writing potentially conflicting transactions in iceberg
+        assertThatThrownBy(super::testUpdateRowConcurrently)
+                .hasStackTraceContaining("<[(1, 1, 1, 1)]>");
     }
 }
