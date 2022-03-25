@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg;
 
+import io.trino.Session;
 import io.trino.operator.RetryPolicy;
 import io.trino.testing.BaseFailureRecoveryTest;
 import org.testng.annotations.Test;
@@ -108,5 +109,15 @@ public abstract class BaseIcebergFailureRecoveryTest
                 Optional.of("CREATE TABLE <table> WITH (partitioning = ARRAY['p']) AS SELECT *, 'partition1' p FROM orders"),
                 "INSERT INTO <table> SELECT *, 'partition1' p FROM orders",
                 Optional.of("DROP TABLE <table>"));
+    }
+
+    @Override
+    protected Session enableDynamicFiltering(boolean enabled)
+    {
+        Session session = super.enableDynamicFiltering(enabled);
+        return Session.builder(session)
+                // Ensure probe side scan wait until DF is collected
+                .setCatalogSessionProperty(session.getCatalog().orElseThrow(), "dynamic_filtering_wait_timeout", "1h")
+                .build();
     }
 }

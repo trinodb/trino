@@ -156,4 +156,14 @@ public abstract class BaseHiveFailureRecoveryTest
                     Optional.of("DROP TABLE <table>"));
         }).hasMessageContaining("Deletes must match whole partitions for non-transactional tables");
     }
+
+    @Override
+    protected Session enableDynamicFiltering(boolean enabled)
+    {
+        Session session = super.enableDynamicFiltering(enabled);
+        return Session.builder(session)
+                // Ensure probe side scan wait until DF is collected
+                .setCatalogSessionProperty(session.getCatalog().orElseThrow(), "dynamic_filtering_wait_timeout", "1h")
+                .build();
+    }
 }
