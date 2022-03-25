@@ -2093,7 +2093,7 @@ public abstract class BaseIcebergConnectorTest
         List<Long> values = LongStream.range(1L, 1010L).boxed()
                 .filter(index -> index != 20L)
                 .collect(toImmutableList());
-        assertTrue(values.size() > ICEBERG_DOMAIN_COMPACTION_THRESHOLD);
+        assertThat(values).hasSizeGreaterThan(ICEBERG_DOMAIN_COMPACTION_THRESHOLD);
         String valuesString = join(",", values.stream().map(Object::toString).collect(toImmutableList()));
         String inPredicate = "%s IN (" + valuesString + ")";
         assertQuery(
