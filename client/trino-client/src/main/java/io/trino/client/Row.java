@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nullable;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -77,11 +76,25 @@ public final class Row
         return new Builder();
     }
 
+    public static Builder builderWithExpectedSize(int fields)
+    {
+        return new Builder(fields);
+    }
+
     public static final class Builder
     {
-        private List<RowField> fields = new ArrayList<>();
+        private final ImmutableList.Builder<RowField> fields;
+        private int size;
 
-        private Builder() {}
+        private Builder()
+        {
+            this.fields = ImmutableList.builder();
+        }
+
+        private Builder(int fields)
+        {
+            this.fields = ImmutableList.builderWithExpectedSize(fields);
+        }
 
         public Builder addField(String name, @Nullable Object value)
         {
@@ -95,14 +108,13 @@ public final class Row
 
         private Builder addField(Optional<String> name, @Nullable Object value)
         {
-            int ordinal = fields.size();
-            fields.add(new RowField(ordinal, name, value));
+            fields.add(new RowField(size++, name, value));
             return this;
         }
 
         public Row build()
         {
-            return new Row(fields);
+            return new Row(fields.build());
         }
     }
 }
