@@ -284,6 +284,7 @@ public abstract class AbstractKuduConnectorTest
     }
 
     @Test
+    @Override
     public void testAddColumnWithComment()
     {
         String tableName = "test_add_column_with_comment" + randomTableSuffix();

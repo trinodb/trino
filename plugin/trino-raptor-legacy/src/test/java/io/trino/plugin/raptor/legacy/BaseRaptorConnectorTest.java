@@ -74,6 +74,7 @@ public abstract class BaseRaptorConnectorTest
             case SUPPORTS_RENAME_SCHEMA:
             case SUPPORTS_COMMENT_ON_TABLE:
             case SUPPORTS_COMMENT_ON_COLUMN:
+            case SUPPORTS_ADD_COLUMN_WITH_COMMENT:
             case SUPPORTS_NOT_NULL_CONSTRAINT:
             case SUPPORTS_TOPN_PUSHDOWN:
                 return false;

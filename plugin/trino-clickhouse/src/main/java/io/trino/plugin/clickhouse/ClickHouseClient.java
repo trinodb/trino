@@ -401,6 +401,9 @@ public class ClickHouseClient
     @Override
     public void addColumn(ConnectorSession session, JdbcTableHandle handle, ColumnMetadata column)
     {
+        if (column.getComment() != null) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding columns with comments");
+        }
         try (Connection connection = connectionFactory.openConnection(session)) {
             String remoteColumnName = getIdentifierMapping().toRemoteColumnName(connection, column.getName());
             String sql = format(

@@ -64,6 +64,7 @@ public abstract class BaseMySqlConnectorTest
                 return false;
 
             case SUPPORTS_COMMENT_ON_COLUMN:
+            case SUPPORTS_ADD_COLUMN_WITH_COMMENT:
                 return false;
 
             case SUPPORTS_ARRAY:

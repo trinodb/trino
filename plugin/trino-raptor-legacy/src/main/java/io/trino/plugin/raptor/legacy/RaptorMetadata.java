@@ -473,6 +473,10 @@ public class RaptorMetadata
     @Override
     public void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column)
     {
+        if (column.getComment() != null) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding columns with comments");
+        }
+
         RaptorTableHandle table = (RaptorTableHandle) tableHandle;
 
         // Always add new columns to the end.

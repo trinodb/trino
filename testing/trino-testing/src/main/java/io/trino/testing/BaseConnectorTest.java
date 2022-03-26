@@ -72,6 +72,7 @@ import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.assertContains;
 import static io.trino.testing.QueryAssertions.getTrinoExceptionCause;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ADD_COLUMN;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ADD_COLUMN_WITH_COMMENT;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ARRAY;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_COMMENT_ON_COLUMN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_COMMENT_ON_TABLE;
@@ -1725,6 +1726,29 @@ public abstract class BaseConnectorTest
         assertUpdate("ALTER TABLE IF EXISTS " + tableName + " ADD COLUMN x bigint");
         assertUpdate("ALTER TABLE IF EXISTS " + tableName + " ADD COLUMN IF NOT EXISTS x bigint");
         assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+    }
+
+    @Test
+    public void testAddColumnWithComment()
+    {
+        if (!hasBehavior(SUPPORTS_ADD_COLUMN)) {
+            // Covered by testAddColumn
+            return;
+        }
+        if (!hasBehavior(SUPPORTS_ADD_COLUMN_WITH_COMMENT)) {
+            assertQueryFails("ALTER TABLE nation ADD COLUMN test_add_col_desc bigint COMMENT 'test column comment'", "This connector does not support adding columns with comments");
+            return;
+        }
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_add_col_desc_", "(a_varchar varchar)")) {
+            String tableName = table.getName();
+
+            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN b_varchar varchar COMMENT 'test new column comment'");
+            assertThat(getColumnComment(tableName, "b_varchar")).isEqualTo("test new column comment");
+
+            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN empty_comment varchar COMMENT ''");
+            assertEquals(getColumnComment(tableName, "empty_comment"), "");
+        }
     }
 
     @Test
