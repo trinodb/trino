@@ -75,6 +75,9 @@ public abstract class BaseSqlServerConnectorTest
             case SUPPORTS_COMMENT_ON_COLUMN:
                 return false;
 
+            case SUPPORTS_ADD_COLUMN_WITH_COMMENT:
+                return false;
+
             case SUPPORTS_ARRAY:
             case SUPPORTS_ROW_TYPE:
                 return false;

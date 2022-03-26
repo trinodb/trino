@@ -176,6 +176,13 @@ public class TestClickHouseConnectorTest
 
     @Test
     @Override
+    public void testAddColumnWithComment()
+    {
+        throw new SkipException("Clickhouse connector does not support specifying a comment when adding a column");
+    }
+
+    @Test
+    @Override
     public void testShowCreateTable()
     {
         assertThat(computeActual("SHOW CREATE TABLE orders").getOnlyValue())

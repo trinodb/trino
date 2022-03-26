@@ -907,24 +907,6 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
-    public void testColumnComments()
-    {
-        // TODO add support for setting comments on existing column and replace the test with io.trino.testing.BaseConnectorTest#testCommentColumn
-
-        assertUpdate("CREATE TABLE test_column_comments (_bigint BIGINT COMMENT 'test column comment')");
-        assertQuery(
-                "SHOW COLUMNS FROM test_column_comments",
-                "VALUES ('_bigint', 'bigint', '', 'test column comment')");
-
-        assertUpdate("ALTER TABLE test_column_comments ADD COLUMN _varchar VARCHAR COMMENT 'test new column comment'");
-        assertQuery(
-                "SHOW COLUMNS FROM test_column_comments",
-                "VALUES ('_bigint', 'bigint', '', 'test column comment'), ('_varchar', 'varchar', '', 'test new column comment')");
-
-        dropTable("test_column_comments");
-    }
-
-    @Test
     public void testTableComments()
     {
         File tempDir = getDistributedQueryRunner().getCoordinator().getBaseDataDir().toFile();
