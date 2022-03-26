@@ -229,21 +229,6 @@ public abstract class BaseMongoConnectorTest
     }
 
     @Test
-    public void testAddColumnWithComment()
-    {
-        // TODO (https://github.com/trinodb/trino/issues/11486) Merge into BaseConnectorTest
-        assertUpdate("CREATE TABLE test_add_column_with_comment (id integer)");
-
-        assertUpdate("ALTER TABLE test_add_column_with_comment ADD COLUMN new_column integer COMMENT 'new comment'");
-        assertEquals(getColumnComment("test_add_column_with_comment", "new_column"), "new comment");
-
-        assertUpdate("ALTER TABLE test_add_column_with_comment ADD COLUMN empty_comment integer COMMENT ''");
-        assertEquals(getColumnComment("test_add_column_with_comment", "empty_comment"), "");
-
-        assertUpdate("DROP TABLE test_add_column_with_comment");
-    }
-
-    @Test
     public void testJson()
     {
         assertUpdate("CREATE TABLE test_json (id INT, col JSON)");
