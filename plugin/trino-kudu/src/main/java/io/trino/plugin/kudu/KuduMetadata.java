@@ -153,6 +153,7 @@ public class KuduMetadata
                 .setType(prestoType)
                 .setExtraInfo(Optional.of(extra.toString()))
                 .setProperties(properties)
+                .setComment(Optional.ofNullable(column.getComment()))
                 .build();
     }
 
