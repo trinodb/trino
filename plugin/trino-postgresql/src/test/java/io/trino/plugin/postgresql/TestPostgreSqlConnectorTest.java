@@ -121,6 +121,7 @@ public class TestPostgreSqlConnectorTest
                 return true;
 
             case SUPPORTS_COMMENT_ON_TABLE:
+            case SUPPORTS_ADD_COLUMN_WITH_COMMENT:
                 return false;
 
             case SUPPORTS_ARRAY:
