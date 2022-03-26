@@ -324,6 +324,15 @@ public abstract class AbstractKuduConnectorTest
 
     @Test
     @Override
+    public void testDeleteWithLike()
+    {
+        // TODO Support these test once kudu connector can create tables with default partitions
+        assertThatThrownBy(super::testDeleteWithLike)
+                .hasMessage("Table partitioning must be specified using setRangePartitionColumns or addHashPartitions");
+    }
+
+    @Test
+    @Override
     public void testDeleteWithSemiJoin()
     {
         // TODO Support these test once kudu connector can create tables with default partitions
