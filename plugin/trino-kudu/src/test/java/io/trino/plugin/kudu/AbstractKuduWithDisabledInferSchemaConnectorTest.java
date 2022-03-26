@@ -67,6 +67,14 @@ public abstract class AbstractKuduWithDisabledInferSchemaConnectorTest
 
     @Test
     @Override
+    public void testRenameTableToUnqualifiedPreservesSchema()
+    {
+        assertThatThrownBy(super::testRenameTableToUnqualifiedPreservesSchema)
+                .hasMessage("Creating schema in Kudu connector not allowed if schema emulation is disabled.");
+    }
+
+    @Test
+    @Override
     public void testDropNonEmptySchemaWithTable()
     {
         assertThatThrownBy(super::testDropNonEmptySchemaWithTable)
