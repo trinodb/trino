@@ -132,15 +132,15 @@ public abstract class AbstractKuduConnectorTest
     {
         assertThat((String) computeActual("SHOW CREATE TABLE orders").getOnlyValue())
                 .matches("CREATE TABLE kudu\\.\\w+\\.orders \\Q(\n" +
-                        "   orderkey bigint WITH ( nullable = true ),\n" +
-                        "   custkey bigint WITH ( nullable = true ),\n" +
-                        "   orderstatus varchar WITH ( nullable = true ),\n" +
-                        "   totalprice double WITH ( nullable = true ),\n" +
-                        "   orderdate varchar WITH ( nullable = true ),\n" +
-                        "   orderpriority varchar WITH ( nullable = true ),\n" +
-                        "   clerk varchar WITH ( nullable = true ),\n" +
-                        "   shippriority integer WITH ( nullable = true ),\n" +
-                        "   comment varchar WITH ( nullable = true )\n" +
+                        "   orderkey bigint COMMENT '' WITH ( nullable = true ),\n" +
+                        "   custkey bigint COMMENT '' WITH ( nullable = true ),\n" +
+                        "   orderstatus varchar COMMENT '' WITH ( nullable = true ),\n" +
+                        "   totalprice double COMMENT '' WITH ( nullable = true ),\n" +
+                        "   orderdate varchar COMMENT '' WITH ( nullable = true ),\n" +
+                        "   orderpriority varchar COMMENT '' WITH ( nullable = true ),\n" +
+                        "   clerk varchar COMMENT '' WITH ( nullable = true ),\n" +
+                        "   shippriority integer COMMENT '' WITH ( nullable = true ),\n" +
+                        "   comment varchar COMMENT '' WITH ( nullable = true )\n" +
                         ")\n" +
                         "WITH (\n" +
                         "   number_of_replicas = 3,\n" +
@@ -281,6 +281,24 @@ public abstract class AbstractKuduConnectorTest
     {
         // TODO Support these test once kudu connector can create tables with default partitions
         throw new SkipException("TODO");
+    }
+
+    @Test
+    public void testAddColumnWithComment()
+    {
+        String tableName = "test_add_column_with_comment" + randomTableSuffix();
+
+        assertUpdate("CREATE TABLE IF NOT EXISTS " + tableName + " (" +
+                "id INT WITH (primary_key=true), " +
+                "a_varchar VARCHAR" +
+                ") WITH (" +
+                " partition_by_hash_columns = ARRAY['id'], " +
+                " partition_by_hash_buckets = 2" +
+                ")");
+
+        assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN b_varchar varchar COMMENT 'test new column comment'");
+        assertThat(getColumnComment(tableName, "b_varchar")).isEqualTo("test new column comment");
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test

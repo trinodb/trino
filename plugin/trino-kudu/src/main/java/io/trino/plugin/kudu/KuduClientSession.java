@@ -68,6 +68,9 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.QUERY_REJECTED;
 import static java.util.stream.Collectors.toList;
+import static org.apache.kudu.ColumnSchema.ColumnSchemaBuilder;
+import static org.apache.kudu.ColumnSchema.CompressionAlgorithm;
+import static org.apache.kudu.ColumnSchema.Encoding;
 import static org.apache.kudu.client.KuduPredicate.ComparisonOp.GREATER;
 import static org.apache.kudu.client.KuduPredicate.ComparisonOp.GREATER_EQUAL;
 import static org.apache.kudu.client.KuduPredicate.ComparisonOp.LESS;
@@ -312,7 +315,12 @@ public class KuduClientSession
             String rawName = schemaEmulation.toRawName(schemaTableName);
             AlterTableOptions alterOptions = new AlterTableOptions();
             Type type = TypeHelper.toKuduClientType(column.getType());
-            alterOptions.addNullableColumn(column.getName(), type);
+            alterOptions.addColumn(
+                    new ColumnSchemaBuilder(column.getName(), type)
+                            .nullable(true)
+                            .defaultValue(null)
+                            .comment(column.getComment())
+                            .build());
             client.alterTable(rawName, alterOptions);
         }
         catch (KuduException e) {
@@ -399,7 +407,7 @@ public class KuduClientSession
         String name = columnMetadata.getName();
         ColumnDesign design = KuduTableProperties.getColumnDesign(columnMetadata.getProperties());
         Type ktype = TypeHelper.toKuduClientType(columnMetadata.getType());
-        ColumnSchema.ColumnSchemaBuilder builder = new ColumnSchema.ColumnSchemaBuilder(name, ktype);
+        ColumnSchemaBuilder builder = new ColumnSchemaBuilder(name, ktype);
         builder.key(design.isPrimaryKey()).nullable(design.isNullable());
         setEncoding(name, builder, design);
         setCompression(name, builder, design);
@@ -407,7 +415,7 @@ public class KuduClientSession
         return builder.build();
     }
 
-    private void setTypeAttributes(ColumnMetadata columnMetadata, ColumnSchema.ColumnSchemaBuilder builder)
+    private void setTypeAttributes(ColumnMetadata columnMetadata, ColumnSchemaBuilder builder)
     {
         if (columnMetadata.getType() instanceof DecimalType) {
             DecimalType type = (DecimalType) columnMetadata.getType();
@@ -418,11 +426,11 @@ public class KuduClientSession
         }
     }
 
-    private void setCompression(String name, ColumnSchema.ColumnSchemaBuilder builder, ColumnDesign design)
+    private void setCompression(String name, ColumnSchemaBuilder builder, ColumnDesign design)
     {
         if (design.getCompression() != null) {
             try {
-                ColumnSchema.CompressionAlgorithm algorithm = KuduTableProperties.lookupCompression(design.getCompression());
+                CompressionAlgorithm algorithm = KuduTableProperties.lookupCompression(design.getCompression());
                 builder.compressionAlgorithm(algorithm);
             }
             catch (IllegalArgumentException e) {
@@ -431,11 +439,11 @@ public class KuduClientSession
         }
     }
 
-    private void setEncoding(String name, ColumnSchema.ColumnSchemaBuilder builder, ColumnDesign design)
+    private void setEncoding(String name, ColumnSchemaBuilder builder, ColumnDesign design)
     {
         if (design.getEncoding() != null) {
             try {
-                ColumnSchema.Encoding encoding = KuduTableProperties.lookupEncoding(design.getEncoding());
+                Encoding encoding = KuduTableProperties.lookupEncoding(design.getEncoding());
                 builder.encoding(encoding);
             }
             catch (IllegalArgumentException e) {
