@@ -90,7 +90,6 @@ public class MongoPageSource
     private final List<String> columnNames;
     private final List<Type> columnTypes;
     private Document currentDoc;
-    private long count;
     private boolean finished;
 
     private final PageBuilder pageBuilder;
@@ -111,7 +110,7 @@ public class MongoPageSource
     @Override
     public long getCompletedBytes()
     {
-        return count;
+        return 0;
     }
 
     @Override
@@ -136,14 +135,12 @@ public class MongoPageSource
     public Page getNextPage()
     {
         verify(pageBuilder.isEmpty());
-        count = 0;
         for (int i = 0; i < ROWS_PER_REQUEST; i++) {
             if (!cursor.hasNext()) {
                 finished = true;
                 break;
             }
             currentDoc = cursor.next();
-            count++;
 
             pageBuilder.declarePosition();
             for (int column = 0; column < columnTypes.size(); column++) {
