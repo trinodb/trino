@@ -39,6 +39,7 @@ import io.trino.sql.analyzer.TypeSignatureProvider;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.ArithmeticUnaryExpression;
 import io.trino.sql.tree.AstVisitor;
+import io.trino.sql.tree.BetweenPredicate;
 import io.trino.sql.tree.BinaryLiteral;
 import io.trino.sql.tree.BooleanLiteral;
 import io.trino.sql.tree.Cast;
@@ -532,6 +533,23 @@ public final class ConnectorExpressionTranslator
             }
             return process(node.getLeft()).flatMap(left -> process(node.getRight()).map(right ->
                     new Call(typeOf(node), functionNameForArithmeticBinaryOperator(node.getOperator()), ImmutableList.of(left, right))));
+        }
+
+        @Override
+        protected Optional<ConnectorExpression> visitBetweenPredicate(BetweenPredicate node, Void context)
+        {
+            if (!isComplexExpressionPushdown(session)) {
+                return Optional.empty();
+            }
+            return process(node.getValue()).flatMap(value ->
+                    process(node.getMin()).flatMap(min ->
+                            process(node.getMax()).map(max ->
+                                    new Call(
+                                            BOOLEAN,
+                                            AND_FUNCTION_NAME,
+                                            ImmutableList.of(
+                                                    new Call(BOOLEAN, GREATER_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME, ImmutableList.of(value, min)),
+                                                    new Call(BOOLEAN, LESS_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME, ImmutableList.of(value, max)))))));
         }
 
         @Override

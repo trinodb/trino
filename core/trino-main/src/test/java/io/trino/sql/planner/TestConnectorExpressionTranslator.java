@@ -27,7 +27,9 @@ import io.trino.spi.expression.Variable;
 import io.trino.spi.type.Type;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.ArithmeticUnaryExpression;
+import io.trino.sql.tree.BetweenPredicate;
 import io.trino.sql.tree.ComparisonExpression;
+import io.trino.sql.tree.DoubleLiteral;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.IsNotNullPredicate;
 import io.trino.sql.tree.IsNullPredicate;
@@ -52,7 +54,10 @@ import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.spi.expression.StandardFunctions.AND_FUNCTION_NAME;
+import static io.trino.spi.expression.StandardFunctions.GREATER_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.IS_NULL_FUNCTION_NAME;
+import static io.trino.spi.expression.StandardFunctions.LESS_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.LIKE_PATTERN_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.NEGATE_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.NOT_FUNCTION_NAME;
@@ -221,6 +226,33 @@ public class TestConnectorExpressionTranslator
                 TEST_SESSION,
                 new ArithmeticUnaryExpression(ArithmeticUnaryExpression.Sign.PLUS, new SymbolReference("double_symbol_1")),
                 new Variable("double_symbol_1", DOUBLE));
+    }
+
+    @Test
+    public void testTranslateBetween()
+    {
+        assertTranslationToConnectorExpression(
+                TEST_SESSION,
+                new BetweenPredicate(
+                        new SymbolReference("double_symbol_1"),
+                        new DoubleLiteral("1.2"),
+                        new SymbolReference("double_symbol_2")),
+                new Call(
+                        BOOLEAN,
+                        AND_FUNCTION_NAME,
+                        List.of(
+                                new Call(
+                                        BOOLEAN,
+                                        GREATER_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME,
+                                        List.of(
+                                                new Variable("double_symbol_1", DOUBLE),
+                                                new Constant(1.2d, DOUBLE))),
+                                new Call(
+                                        BOOLEAN,
+                                        LESS_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME,
+                                        List.of(
+                                                new Variable("double_symbol_1", DOUBLE),
+                                                new Variable("double_symbol_2", DOUBLE))))));
     }
 
     @Test
