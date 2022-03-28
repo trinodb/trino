@@ -52,6 +52,7 @@ public abstract class BaseSapHanaConnectorTest
                 return false;
 
             case SUPPORTS_ARRAY:
+            case SUPPORTS_ROW_TYPE:
             case SUPPORTS_NEGATIVE_DATE:
                 return false;
 
@@ -310,6 +311,13 @@ public abstract class BaseSapHanaConnectorTest
                         "   fiscal_period varchar(3),\n" +
                         "   current_year_adjustment varchar(2)\n" +
                         ")");
+    }
+
+    @Override
+    public void testDeleteWithLike()
+    {
+        assertThatThrownBy(super::testDeleteWithLike)
+                .hasStackTraceContaining("TrinoException: Unsupported delete");
     }
 
     @Override
