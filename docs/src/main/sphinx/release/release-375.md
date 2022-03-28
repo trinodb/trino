@@ -12,7 +12,7 @@
   expressions. ({issue}`8777`)
 * Fix `SHOW CREATE TABLE` to show actual table name in case of table
   redirections, so that the statement can be used to recreate the table. ({issue}`11604`)
-* Fix scheduling for non-remotely accessible splits in fault-toleration execution. ({issue}`11581`)
+* Fix scheduling for non-remotely accessible splits in fault-tolerant execution. ({issue}`11581`)
 * Fix incorrect `is_nullable` value in `information_schema.columns` table. ({issue}`11613`)
 
 ## JDBC driver
