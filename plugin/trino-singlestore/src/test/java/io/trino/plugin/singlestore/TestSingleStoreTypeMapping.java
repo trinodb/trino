@@ -29,7 +29,6 @@ import io.trino.testing.datatype.SqlDataTypeTest;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TrinoSqlExecutor;
-import org.testng.annotations.AfterClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -88,14 +87,8 @@ public class TestSingleStoreTypeMapping
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        singleStoreServer = new TestingSingleStoreServer();
+        singleStoreServer = closeAfterClass(new TestingSingleStoreServer());
         return createSingleStoreQueryRunner(singleStoreServer, ImmutableMap.of(), ImmutableMap.of(), ImmutableList.of());
-    }
-
-    @AfterClass(alwaysRun = true)
-    public final void destroy()
-    {
-        singleStoreServer.close();
     }
 
     @Test
