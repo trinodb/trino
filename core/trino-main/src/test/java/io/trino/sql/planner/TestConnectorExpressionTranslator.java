@@ -29,6 +29,7 @@ import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.ArithmeticUnaryExpression;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.IfExpression;
 import io.trino.sql.tree.IsNotNullPredicate;
 import io.trino.sql.tree.IsNullPredicate;
 import io.trino.sql.tree.LikePredicate;
@@ -52,6 +53,7 @@ import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.spi.expression.StandardFunctions.IF_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.IS_NULL_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.LIKE_PATTERN_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.NEGATE_FUNCTION_NAME;
@@ -221,6 +223,35 @@ public class TestConnectorExpressionTranslator
                 TEST_SESSION,
                 new ArithmeticUnaryExpression(ArithmeticUnaryExpression.Sign.PLUS, new SymbolReference("double_symbol_1")),
                 new Variable("double_symbol_1", DOUBLE));
+    }
+
+    @Test
+    public void testTranslateIf()
+    {
+        String trueValue = "true";
+        assertTranslationRoundTrips(
+                new IfExpression(
+                        new IsNullPredicate(new SymbolReference("varchar_symbol_1")),
+                        new StringLiteral(trueValue),
+                        null),
+                new Call(createVarcharType(trueValue.length()),
+                         IF_FUNCTION_NAME,
+                         List.of(
+                                 new Call(BOOLEAN, IS_NULL_FUNCTION_NAME, List.of(new Variable("varchar_symbol_1", VARCHAR_TYPE))),
+                                 new Constant(Slices.wrappedBuffer(trueValue.getBytes(UTF_8)), createVarcharType(trueValue.length())))));
+
+        String falseValue = "false";
+        assertTranslationRoundTrips(
+                new IfExpression(
+                        new IsNullPredicate(new SymbolReference("varchar_symbol_1")),
+                        new StringLiteral(trueValue),
+                        new StringLiteral(falseValue)),
+                new Call(createVarcharType(Math.max(trueValue.length(), falseValue.length())),
+                         IF_FUNCTION_NAME,
+                         List.of(
+                                 new Call(BOOLEAN, IS_NULL_FUNCTION_NAME, List.of(new Variable("varchar_symbol_1", VARCHAR_TYPE))),
+                                 new Constant(Slices.wrappedBuffer(trueValue.getBytes(UTF_8)), createVarcharType(trueValue.length())),
+                                 new Constant(Slices.wrappedBuffer(falseValue.getBytes(UTF_8)), createVarcharType(falseValue.length())))));
     }
 
     @Test

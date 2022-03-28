@@ -76,5 +76,10 @@ public final class StandardFunctions
      */
     public static final FunctionName NEGATE_FUNCTION_NAME = new FunctionName("$negate");
 
+    /**
+     * $if is a function accepting 2 arguments - condition and trueValue, or 3 arguments - condition, trueValue and falseValue.
+     */
+    public static final FunctionName IF_FUNCTION_NAME = new FunctionName("$if");
+
     public static final FunctionName LIKE_PATTERN_FUNCTION_NAME = new FunctionName("$like_pattern");
 }
