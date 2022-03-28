@@ -255,7 +255,7 @@ public class ParquetPageSourceFactory
                     Optional.ofNullable(fileMetaData.getCreatedBy()),
                     messageColumn,
                     blocks.build(),
-                    Optional.of(blockStarts.build()),
+                    blockStarts.build(),
                     dataSource,
                     timeZone,
                     newSimpleAggregatedMemoryContext(),
