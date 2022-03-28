@@ -11,7 +11,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package io.trino.operator.output;
 
 import io.trino.spi.block.Block;
@@ -21,7 +20,22 @@ import it.unimi.dsi.fastutil.ints.IntArrayList;
 
 import static java.util.Objects.requireNonNull;
 
-public interface PositionsAppender
+public class TypedPositionsAppender
+        implements PositionsAppender
 {
-    void appendTo(IntArrayList positions, Block source, BlockBuilder target);
+    private final Type type;
+
+    public TypedPositionsAppender(Type type)
+    {
+        this.type = requireNonNull(type, "type is null");
+    }
+
+    @Override
+    public void appendTo(IntArrayList positions, Block source, BlockBuilder target)
+    {
+        int[] positionArray = positions.elements();
+        for (int i = 0; i < positions.size(); i++) {
+            type.appendTo(source, positionArray[i], target);
+        }
+    }
 }
