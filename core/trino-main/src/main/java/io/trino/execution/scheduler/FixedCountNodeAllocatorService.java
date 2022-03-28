@@ -48,7 +48,6 @@ import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.trino.execution.scheduler.NodeInfo.unlimitedMemoryNode;
 import static io.trino.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
@@ -154,14 +153,14 @@ public class FixedCountNodeAllocatorService
             try {
                 Optional<InternalNode> node = tryAcquireNode(requirements);
                 if (node.isPresent()) {
-                    return new FixedCountNodeLease(immediateFuture(unlimitedMemoryNode(node.get())));
+                    return new FixedCountNodeLease(immediateFuture(node.get()));
                 }
             }
             catch (RuntimeException e) {
                 return new FixedCountNodeLease(immediateFailedFuture(e));
             }
 
-            SettableFuture<NodeInfo> future = SettableFuture.create();
+            SettableFuture<InternalNode> future = SettableFuture.create();
             PendingAcquire pendingAcquire = new PendingAcquire(requirements, future);
             pendingAcquires.add(pendingAcquire);
 
@@ -241,15 +240,15 @@ public class FixedCountNodeAllocatorService
 
             // set futures outside of critical section
             assignedNodes.forEach((pendingAcquire, node) -> {
-                SettableFuture<NodeInfo> future = pendingAcquire.getFuture();
-                future.set(unlimitedMemoryNode(node));
+                SettableFuture<InternalNode> future = pendingAcquire.getFuture();
+                future.set(node);
                 if (future.isCancelled()) {
                     releaseNode(node);
                 }
             });
 
             failures.forEach((pendingAcquire, failure) -> {
-                SettableFuture<NodeInfo> future = pendingAcquire.getFuture();
+                SettableFuture<InternalNode> future = pendingAcquire.getFuture();
                 future.setException(failure);
             });
         }
@@ -263,16 +262,16 @@ public class FixedCountNodeAllocatorService
         private class FixedCountNodeLease
                 implements NodeAllocator.NodeLease
         {
-            private final ListenableFuture<NodeInfo> node;
+            private final ListenableFuture<InternalNode> node;
             private final AtomicBoolean released = new AtomicBoolean();
 
-            private FixedCountNodeLease(ListenableFuture<NodeInfo> node)
+            private FixedCountNodeLease(ListenableFuture<InternalNode> node)
             {
                 this.node = requireNonNull(node, "node is null");
             }
 
             @Override
-            public ListenableFuture<NodeInfo> getNode()
+            public ListenableFuture<InternalNode> getNode()
             {
                 return node;
             }
@@ -283,7 +282,7 @@ public class FixedCountNodeAllocatorService
                 if (released.compareAndSet(false, true)) {
                     node.cancel(true);
                     if (node.isDone() && !node.isCancelled()) {
-                        releaseNode(getFutureValue(node).getNode());
+                        releaseNode(getFutureValue(node));
                     }
                 }
                 else {
@@ -296,9 +295,9 @@ public class FixedCountNodeAllocatorService
     private static class PendingAcquire
     {
         private final NodeRequirements nodeRequirements;
-        private final SettableFuture<NodeInfo> future;
+        private final SettableFuture<InternalNode> future;
 
-        private PendingAcquire(NodeRequirements nodeRequirements, SettableFuture<NodeInfo> future)
+        private PendingAcquire(NodeRequirements nodeRequirements, SettableFuture<InternalNode> future)
         {
             this.nodeRequirements = requireNonNull(nodeRequirements, "nodeRequirements is null");
             this.future = requireNonNull(future, "future is null");
@@ -309,7 +308,7 @@ public class FixedCountNodeAllocatorService
             return nodeRequirements;
         }
 
-        public SettableFuture<NodeInfo> getFuture()
+        public SettableFuture<InternalNode> getFuture()
         {
             return future;
         }

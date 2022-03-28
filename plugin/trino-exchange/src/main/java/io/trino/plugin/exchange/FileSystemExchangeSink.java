@@ -83,7 +83,8 @@ public class FileSystemExchangeSink
             int outputPartitionCount,
             Optional<SecretKey> secretKey,
             int maxPageStorageSize,
-            int exchangeSinkBufferPoolMinSize)
+            int exchangeSinkBufferPoolMinSize,
+            int exchangeSinkBuffersPerPartition)
     {
         this.exchangeStorage = requireNonNull(exchangeStorage, "exchangeStorage is null");
         this.outputDirectory = requireNonNull(outputDirectory, "outputDirectory is null");
@@ -91,7 +92,7 @@ public class FileSystemExchangeSink
         this.secretKey = requireNonNull(secretKey, "secretKey is null");
         this.maxPageStorageSize = maxPageStorageSize;
         // double buffering to overlap computation and I/O
-        this.bufferPool = new BufferPool(max(outputPartitionCount * 2, exchangeSinkBufferPoolMinSize), exchangeStorage.getWriteBufferSize());
+        this.bufferPool = new BufferPool(max(outputPartitionCount * exchangeSinkBuffersPerPartition, exchangeSinkBufferPoolMinSize), exchangeStorage.getWriteBufferSize());
     }
 
     // The future returned by {@link #isBlocked()} should only be considered as a best-effort hint.

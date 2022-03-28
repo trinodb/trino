@@ -11,22 +11,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.util;
+package io.trino.plugin.jdbc;
 
-import java.util.function.Predicate;
+import io.airlift.configuration.Config;
 
-import static com.google.common.base.Predicates.alwaysFalse;
-
-public final class MorePredicates
+public class JdbcStatisticsConfig
 {
-    private MorePredicates() {}
+    private boolean enabled = true;
 
-    public static <T> Predicate<T> isInstanceOfAny(Class<?>... classes)
+    public boolean isEnabled()
     {
-        Predicate<T> predicate = alwaysFalse();
-        for (Class<?> clazz : classes) {
-            predicate = predicate.or(clazz::isInstance);
-        }
-        return predicate;
+        return enabled;
+    }
+
+    @Config("statistics.enabled")
+    public JdbcStatisticsConfig setEnabled(boolean enabled)
+    {
+        this.enabled = enabled;
+        return this;
     }
 }

@@ -37,7 +37,7 @@ public class FallbackToFullNodePartitionMemoryEstimator
     }
 
     @Override
-    public MemoryRequirements getNextRetryMemoryRequirements(Session session, MemoryRequirements previousMemoryRequirements, ErrorCode errorCode)
+    public MemoryRequirements getNextRetryMemoryRequirements(Session session, MemoryRequirements previousMemoryRequirements, DataSize peakMemoryUsage, ErrorCode errorCode)
     {
         if (shouldRescheduleWithFullNode(errorCode)) {
             return FULL_NODE_MEMORY_REQUIREMENTS;

@@ -267,12 +267,12 @@ public final class DynamicTableBuilder
     // Extracted from org.apache.pinot.core.query.reduce.AggregationDataTableReducer
     private static DataSchema getPreAggregationDataSchema(QueryContext queryContext)
     {
-        AggregationFunction[] aggregationFunctions = queryContext.getAggregationFunctions();
+        AggregationFunction<?, ?>[] aggregationFunctions = queryContext.getAggregationFunctions();
         int numAggregationFunctions = aggregationFunctions.length;
         String[] columnNames = new String[numAggregationFunctions];
         DataSchema.ColumnDataType[] columnDataTypes = new DataSchema.ColumnDataType[numAggregationFunctions];
         for (int i = 0; i < numAggregationFunctions; i++) {
-            AggregationFunction aggregationFunction = aggregationFunctions[i];
+            AggregationFunction<?, ?> aggregationFunction = aggregationFunctions[i];
             columnNames[i] = aggregationFunction.getResultColumnName();
             columnDataTypes[i] = aggregationFunction.getFinalResultColumnType();
         }

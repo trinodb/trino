@@ -163,11 +163,11 @@ public abstract class BaseConnectorTest
     {
         String schemaName = "test_schema_create_" + randomTableSuffix();
         if (!hasBehavior(SUPPORTS_CREATE_SCHEMA)) {
-            assertQueryFails("CREATE SCHEMA " + schemaName, "This connector does not support creating schemas");
+            assertQueryFails(createSchemaSql(schemaName), "This connector does not support creating schemas");
             return;
         }
         assertThat(computeActual("SHOW SCHEMAS").getOnlyColumnAsSet()).doesNotContain(schemaName);
-        assertUpdate("CREATE SCHEMA " + schemaName);
+        assertUpdate(createSchemaSql(schemaName));
 
         // verify listing of new schema
         assertThat(computeActual("SHOW SCHEMAS").getOnlyColumnAsSet()).contains(schemaName);
@@ -177,7 +177,7 @@ public abstract class BaseConnectorTest
                 .startsWith(format("CREATE SCHEMA %s.%s", getSession().getCatalog().orElseThrow(), schemaName));
 
         // try to create duplicate schema
-        assertQueryFails("CREATE SCHEMA " + schemaName, format("line 1:1: Schema '.*\\.%s' already exists", schemaName));
+        assertQueryFails(createSchemaSql(schemaName), format("line 1:1: Schema '.*\\.%s' already exists", schemaName));
 
         // cleanup
         assertUpdate("DROP SCHEMA " + schemaName);
@@ -187,9 +187,9 @@ public abstract class BaseConnectorTest
     }
 
     @Test
-    public void testDropNonEmptySchema()
+    public void testDropNonEmptySchemaWithTable()
     {
-        String schemaName = "test_drop_non_empty_schema_" + randomTableSuffix();
+        String schemaName = "test_drop_non_empty_schema_table_" + randomTableSuffix();
         // A connector either supports CREATE SCHEMA and DROP SCHEMA or none of them.
         if (!hasBehavior(SUPPORTS_CREATE_SCHEMA)) {
             return;
@@ -202,6 +202,54 @@ public abstract class BaseConnectorTest
         }
         finally {
             assertUpdate("DROP TABLE IF EXISTS " + schemaName + ".t");
+            assertUpdate("DROP SCHEMA IF EXISTS " + schemaName);
+        }
+    }
+
+    @Test
+    public void testDropNonEmptySchemaWithView()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_VIEW));
+
+        // A connector either supports CREATE SCHEMA and DROP SCHEMA or none of them.
+        if (!hasBehavior(SUPPORTS_CREATE_SCHEMA)) {
+            return;
+        }
+
+        String schemaName = "test_drop_non_empty_schema_view_" + randomTableSuffix();
+
+        try {
+            assertUpdate("CREATE SCHEMA " + schemaName);
+            assertUpdate("CREATE VIEW " + schemaName + ".v_t  AS SELECT 123 x");
+
+            assertQueryFails("DROP SCHEMA " + schemaName, ".*Cannot drop non-empty schema '\\Q" + schemaName + "\\E'");
+        }
+        finally {
+            assertUpdate("DROP VIEW IF EXISTS " + schemaName + ".v_t");
+            assertUpdate("DROP SCHEMA IF EXISTS " + schemaName);
+        }
+    }
+
+    @Test
+    public void testDropNonEmptySchemaWithMaterializedView()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_MATERIALIZED_VIEW));
+
+        // A connector either supports CREATE SCHEMA and DROP SCHEMA or none of them.
+        if (!hasBehavior(SUPPORTS_CREATE_SCHEMA)) {
+            return;
+        }
+
+        String schemaName = "test_drop_non_empty_schema_mv_" + randomTableSuffix();
+
+        try {
+            assertUpdate("CREATE SCHEMA " + schemaName);
+            assertUpdate("CREATE MATERIALIZED VIEW " + schemaName + ".mv_t  AS SELECT 123 x");
+
+            assertQueryFails("DROP SCHEMA " + schemaName, ".*Cannot drop non-empty schema '\\Q" + schemaName + "\\E'");
+        }
+        finally {
+            assertUpdate("DROP MATERIALIZED VIEW IF EXISTS " + schemaName + ".mv_t");
             assertUpdate("DROP SCHEMA IF EXISTS " + schemaName);
         }
     }
@@ -1639,44 +1687,6 @@ public abstract class BaseConnectorTest
     }
 
     @Test
-    public void testRenameTableAcrossSchema()
-    {
-        if (!hasBehavior(SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS)) {
-            if (!hasBehavior(SUPPORTS_RENAME_TABLE)) {
-                throw new SkipException("Skipping since rename table is not supported at all");
-            }
-            assertQueryFails("ALTER TABLE nation RENAME TO other_schema.yyyy", "This connector does not support renaming tables across schemas");
-            return;
-        }
-
-        if (!hasBehavior(SUPPORTS_CREATE_SCHEMA)) {
-            throw new AssertionError("Cannot test ALTER TABLE RENAME across schemas without CREATE SCHEMA, the test needs to be implemented in a connector-specific way");
-        }
-
-        if (!hasBehavior(SUPPORTS_CREATE_TABLE)) {
-            throw new AssertionError("Cannot test ALTER TABLE RENAME across schemas without CREATE TABLE, the test needs to be implemented in a connector-specific way");
-        }
-
-        String tableName = "test_rename_old_" + randomTableSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " AS SELECT 123 x", 1);
-
-        String schemaName = "test_schema_" + randomTableSuffix();
-        assertUpdate("CREATE SCHEMA " + schemaName);
-
-        String renamedTable = schemaName + ".test_rename_new_" + randomTableSuffix();
-        assertUpdate("ALTER TABLE " + tableName + " RENAME TO " + renamedTable);
-
-        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
-        assertQuery("SELECT x FROM " + renamedTable, "VALUES 123");
-
-        assertUpdate("DROP TABLE " + renamedTable);
-        assertUpdate("DROP SCHEMA " + schemaName);
-
-        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
-        assertFalse(getQueryRunner().tableExists(getSession(), renamedTable));
-    }
-
-    @Test
     public void testAddColumn()
     {
         if (!hasBehavior(SUPPORTS_ADD_COLUMN)) {
@@ -2003,6 +2013,63 @@ public abstract class BaseConnectorTest
         assertUpdate("ALTER TABLE IF EXISTS " + tableName + " RENAME TO " + renamedTable);
         assertFalse(getQueryRunner().tableExists(getSession(), tableName));
         assertFalse(getQueryRunner().tableExists(getSession(), renamedTable));
+    }
+
+    @Test
+    public void testRenameTableAcrossSchema()
+    {
+        if (!hasBehavior(SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS)) {
+            if (!hasBehavior(SUPPORTS_RENAME_TABLE)) {
+                throw new SkipException("Skipping since rename table is not supported at all");
+            }
+            assertQueryFails("ALTER TABLE nation RENAME TO other_schema.yyyy", "This connector does not support renaming tables across schemas");
+            return;
+        }
+
+        if (!hasBehavior(SUPPORTS_CREATE_SCHEMA)) {
+            throw new AssertionError("Cannot test ALTER TABLE RENAME across schemas without CREATE SCHEMA, the test needs to be implemented in a connector-specific way");
+        }
+
+        if (!hasBehavior(SUPPORTS_CREATE_TABLE)) {
+            throw new AssertionError("Cannot test ALTER TABLE RENAME across schemas without CREATE TABLE, the test needs to be implemented in a connector-specific way");
+        }
+
+        String tableName = "test_rename_old_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT 123 x", 1);
+
+        String schemaName = "test_schema_" + randomTableSuffix();
+        assertUpdate("CREATE SCHEMA " + schemaName);
+
+        String renamedTable = schemaName + ".test_rename_new_" + randomTableSuffix();
+        assertUpdate("ALTER TABLE " + tableName + " RENAME TO " + renamedTable);
+
+        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+        assertQuery("SELECT x FROM " + renamedTable, "VALUES 123");
+
+        assertUpdate("DROP TABLE " + renamedTable);
+        assertUpdate("DROP SCHEMA " + schemaName);
+
+        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+        assertFalse(getQueryRunner().tableExists(getSession(), renamedTable));
+    }
+
+    @Test
+    public void testRenameTableToUnqualifiedPreservesSchema()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_SCHEMA) && hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_RENAME_TABLE));
+
+        String sourceSchemaName = "test_source_schema_" + randomTableSuffix();
+        assertUpdate(createSchemaSql(sourceSchemaName));
+
+        String tableName = "test_rename_unqualified_name_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + sourceSchemaName + "." + tableName + " AS SELECT 123 x", 1);
+
+        String renamedTable = "test_rename_unqualified_name_new_" + randomTableSuffix();
+        assertUpdate("ALTER TABLE " + sourceSchemaName + "." + tableName + " RENAME TO " + renamedTable);
+        assertQuery("SELECT x FROM " + sourceSchemaName + "." + renamedTable, "VALUES 123");
+
+        assertUpdate("DROP TABLE " + sourceSchemaName + "." + renamedTable);
+        assertUpdate("DROP SCHEMA " + sourceSchemaName);
     }
 
     @Test
@@ -2333,6 +2400,17 @@ public abstract class BaseConnectorTest
         }
         finally {
             assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    @Test
+    public void testDeleteWithLike()
+    {
+        skipTestUnlessSupportsDeletes();
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_with_like_", "AS SELECT * FROM nation")) {
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE name LIKE '%a%'", "VALUES 0");
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE name LIKE '%A%'", "SELECT count(*) FROM nation WHERE name LIKE '%A%'");
         }
     }
 
@@ -3073,6 +3151,11 @@ public abstract class BaseConnectorTest
                         formattedPlan));
             }
         };
+    }
+
+    protected String createSchemaSql(String schemaName)
+    {
+        return "CREATE SCHEMA " + schemaName;
     }
 
     protected static final class DataMappingTestSetup

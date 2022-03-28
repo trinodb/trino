@@ -39,7 +39,8 @@ public class TestMemoryManagerConfig
                 .setKillOnOutOfMemoryDelay(new Duration(5, MINUTES))
                 .setMaxQueryMemory(DataSize.of(20, GIGABYTE))
                 .setMaxQueryTotalMemory(DataSize.of(40, GIGABYTE))
-                .setFaultTolerantExecutionTaskMemory(DataSize.of(4, GIGABYTE)));
+                .setFaultTolerantExecutionTaskMemory(DataSize.of(4, GIGABYTE))
+                .setFaultTolerantExecutionTaskMemoryGrowthFactor(2.0));
     }
 
     @Test
@@ -51,6 +52,7 @@ public class TestMemoryManagerConfig
                 .put("query.max-memory", "2GB")
                 .put("query.max-total-memory", "3GB")
                 .put("fault-tolerant-execution-task-memory", "2GB")
+                .put("fault-tolerant-execution-task-memory-growth-factor", "17.3")
                 .buildOrThrow();
 
         MemoryManagerConfig expected = new MemoryManagerConfig()
@@ -58,7 +60,8 @@ public class TestMemoryManagerConfig
                 .setKillOnOutOfMemoryDelay(new Duration(20, SECONDS))
                 .setMaxQueryMemory(DataSize.of(2, GIGABYTE))
                 .setMaxQueryTotalMemory(DataSize.of(3, GIGABYTE))
-                .setFaultTolerantExecutionTaskMemory(DataSize.of(2, GIGABYTE));
+                .setFaultTolerantExecutionTaskMemory(DataSize.of(2, GIGABYTE))
+                .setFaultTolerantExecutionTaskMemoryGrowthFactor(17.3);
 
         assertFullMapping(properties, expected);
     }

@@ -20,6 +20,7 @@ import io.airlift.units.DataSize;
 import io.airlift.units.MaxDataSize;
 import io.airlift.units.MinDataSize;
 import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.s3.model.StorageClass;
 
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
@@ -28,6 +29,7 @@ import java.util.Optional;
 
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Locale.ENGLISH;
+import static software.amazon.awssdk.services.s3.model.StorageClass.STANDARD;
 
 public class ExchangeS3Config
 {
@@ -35,9 +37,12 @@ public class ExchangeS3Config
     private String s3AwsSecretKey;
     private Optional<Region> s3Region = Optional.empty();
     private Optional<String> s3Endpoint = Optional.empty();
+    private boolean s3UseWebIdentityTokenCredentials;
     private int s3MaxErrorRetries = 3;
     // Default to S3 multi-part upload minimum size to avoid excessive memory consumption from buffering
     private DataSize s3UploadPartSize = DataSize.of(5, MEGABYTE);
+    private StorageClass storageClass = STANDARD;
+    private int asyncClientConcurrency = 250;
 
     public String getS3AwsAccessKey()
     {
@@ -91,6 +96,18 @@ public class ExchangeS3Config
         return this;
     }
 
+    public boolean isS3UseWebIdentityTokenCredentials()
+    {
+        return s3UseWebIdentityTokenCredentials;
+    }
+
+    @Config("exchange.s3.use-web-identity-token-credentials")
+    public ExchangeS3Config setS3UseWebIdentityTokenCredentials(boolean s3UseWebIdentityTokenCredentials)
+    {
+        this.s3UseWebIdentityTokenCredentials = s3UseWebIdentityTokenCredentials;
+        return this;
+    }
+
     @Min(0)
     public int getS3MaxErrorRetries()
     {
@@ -117,6 +134,32 @@ public class ExchangeS3Config
     public ExchangeS3Config setS3UploadPartSize(DataSize s3UploadPartSize)
     {
         this.s3UploadPartSize = s3UploadPartSize;
+        return this;
+    }
+
+    @NotNull
+    public StorageClass getStorageClass()
+    {
+        return storageClass;
+    }
+
+    @Config("exchange.s3.storage-class")
+    public ExchangeS3Config setStorageClass(StorageClass storageClass)
+    {
+        this.storageClass = storageClass;
+        return this;
+    }
+
+    @Min(1)
+    public int getAsyncClientConcurrency()
+    {
+        return asyncClientConcurrency;
+    }
+
+    @Config("exchange.s3.async-client-concurrency")
+    public ExchangeS3Config setAsyncClientConcurrency(int asyncClientConcurrency)
+    {
+        this.asyncClientConcurrency = asyncClientConcurrency;
         return this;
     }
 }

@@ -442,6 +442,12 @@ public class DeltaLakeMetadata
     }
 
     @Override
+    public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
+    {
+        throw new UnsupportedOperationException("The deprecated listTableColumns is not supported because streamTableColumns is implemented instead");
+    }
+
+    @Override
     public Stream<TableColumnsMetadata> streamTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {
         if (prefix.getSchema().isPresent() && prefix.getSchema().get().equals("information_schema")) {

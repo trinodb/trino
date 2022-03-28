@@ -74,9 +74,9 @@ public class TestFullNodeCapableNodeAllocator
     private static final NodeRequirements NO_REQUIREMENTS = new NodeRequirements(Optional.empty(), Set.of(), DataSize.of(32, GIGABYTE));
     private static final NodeRequirements SHARED_NODE_CATALOG_1_REQUIREMENTS = new NodeRequirements(Optional.of(CATALOG_1), Set.of(), DataSize.of(32, GIGABYTE));
     private static final NodeRequirements FULL_NODE_REQUIREMENTS = new NodeRequirements(Optional.empty(), Set.of(), FULL_NODE_MEMORY);
-    private static final NodeRequirements FULL_NODE_1_REQUIREMENTS = new NodeRequirements(Optional.empty(), Set.of(NODE_1_ADDRESS), FULL_NODE_MEMORY);
     private static final NodeRequirements FULL_NODE_2_REQUIREMENTS = new NodeRequirements(Optional.empty(), Set.of(NODE_2_ADDRESS), FULL_NODE_MEMORY);
     private static final NodeRequirements FULL_NODE_3_REQUIREMENTS = new NodeRequirements(Optional.empty(), Set.of(NODE_3_ADDRESS), FULL_NODE_MEMORY);
+    private static final NodeRequirements FULL_NODE_4_REQUIREMENTS = new NodeRequirements(Optional.empty(), Set.of(NODE_4_ADDRESS), FULL_NODE_MEMORY);
     private static final NodeRequirements FULL_NODE_CATALOG_1_REQUIREMENTS = new NodeRequirements(Optional.of(CATALOG_1), Set.of(), FULL_NODE_MEMORY);
     private static final NodeRequirements FULL_NODE_CATALOG_2_REQUIREMENTS = new NodeRequirements(Optional.of(CATALOG_2), Set.of(), FULL_NODE_MEMORY);
     // not using FULL_NODE_MEMORY marker but with memory requirements exceeding any node in cluster
@@ -131,14 +131,14 @@ public class TestFullNodeCapableNodeAllocator
             NodeAllocator.NodeLease acquire2 = nodeAllocator.acquire(NO_REQUIREMENTS);
             assertAcquired(acquire2);
             // and different nodes should be assigned for each
-            assertThat(Set.of(acquire1.getNode().get().getNode(), acquire2.getNode().get().getNode())).containsExactlyInAnyOrder(NODE_1, NODE_2);
+            assertThat(Set.of(acquire1.getNode().get(), acquire2.getNode().get())).containsExactlyInAnyOrder(NODE_1, NODE_2);
 
             // same for subsequent two allocation (each task requires 32GB and we have 2 nodes with 64GB each)
             NodeAllocator.NodeLease acquire3 = nodeAllocator.acquire(NO_REQUIREMENTS);
             assertAcquired(acquire3);
             NodeAllocator.NodeLease acquire4 = nodeAllocator.acquire(NO_REQUIREMENTS);
             assertAcquired(acquire4);
-            assertThat(Set.of(acquire3.getNode().get().getNode(), acquire4.getNode().get().getNode())).containsExactlyInAnyOrder(NODE_1, NODE_2);
+            assertThat(Set.of(acquire3.getNode().get(), acquire4.getNode().get())).containsExactlyInAnyOrder(NODE_1, NODE_2);
 
             // 5th allocation should block
             NodeAllocator.NodeLease acquire5 = nodeAllocator.acquire(NO_REQUIREMENTS);
@@ -149,7 +149,7 @@ public class TestFullNodeCapableNodeAllocator
             assertEventually(() -> {
                 // we need to wait as pending acquires are processed asynchronously
                 assertAcquired(acquire5);
-                assertEquals(acquire5.getNode().get().getNode(), acquire2.getNode().get().getNode());
+                assertEquals(acquire5.getNode().get(), acquire2.getNode().get());
             });
 
             // try to acquire one more node (should block)
@@ -164,7 +164,7 @@ public class TestFullNodeCapableNodeAllocator
             // new node should be assigned
             assertEventually(() -> {
                 assertAcquired(acquire6);
-                assertEquals(acquire6.getNode().get().getNode(), NODE_3);
+                assertEquals(acquire6.getNode().get(), NODE_3);
             });
         }
     }
@@ -307,7 +307,7 @@ public class TestFullNodeCapableNodeAllocator
             acquire1.release();
             assertEventually(() -> {
                 assertAcquired(acquire3);
-                assertEquals(acquire3.getNode().get().getNode(), acquire1.getNode().get().getNode());
+                assertEquals(acquire3.getNode().get(), acquire1.getNode().get());
             });
 
             // both nodes are used exclusively so we should no be able to acquire shared node
@@ -318,7 +318,7 @@ public class TestFullNodeCapableNodeAllocator
             acquire2.release();
             assertEventually(() -> {
                 assertAcquired(acquire4);
-                assertEquals(acquire4.getNode().get().getNode(), acquire2.getNode().get().getNode());
+                assertEquals(acquire4.getNode().get(), acquire2.getNode().get());
             });
 
             // shared acquisition should block full acquisition
@@ -329,7 +329,7 @@ public class TestFullNodeCapableNodeAllocator
             acquire4.release();
             assertEventually(() -> {
                 assertAcquired(acquire5);
-                assertEquals(acquire5.getNode().get().getNode(), acquire4.getNode().get().getNode());
+                assertEquals(acquire5.getNode().get(), acquire4.getNode().get());
             });
         }
     }
@@ -389,7 +389,7 @@ public class TestFullNodeCapableNodeAllocator
             q1Acquire1.release();
             assertEventually(() -> {
                 assertAcquired(q1Acquire3);
-                assertEquals(q1Acquire3.getNode().get().getNode(), q1Acquire1.getNode().get().getNode());
+                assertEquals(q1Acquire3.getNode().get(), q1Acquire1.getNode().get());
             });
         }
     }
@@ -431,24 +431,32 @@ public class TestFullNodeCapableNodeAllocator
         }
     }
 
-    @Test(timeOut = TEST_TIMEOUT)
+    @Test(timeOut = TEST_TIMEOUT * 1000)
     public void testAllocateFullWithAddressRequirements()
             throws Exception
     {
-        InMemoryNodeManager nodeManager = testingNodeManager(basicNodesMap(NODE_1, NODE_2, NODE_3));
+        InMemoryNodeManager nodeManager = testingNodeManager(basicNodesMap(NODE_1, NODE_2, NODE_3, NODE_4));
 
         setupNodeAllocatorService(nodeManager, 2);
 
         try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(Q1_SESSION)) {
-            NodeAllocator.NodeLease acquire1 = nodeAllocator.acquire(FULL_NODE_1_REQUIREMENTS);
-            assertAcquired(acquire1);
-            NodeAllocator.NodeLease acquire2 = nodeAllocator.acquire(FULL_NODE_2_REQUIREMENTS);
-            assertAcquired(acquire2);
-            NodeAllocator.NodeLease acquire3 = nodeAllocator.acquire(FULL_NODE_3_REQUIREMENTS);
+            // note testing with NODE_1 as it has two incarnations when InMemoryNodeManager is in use (coordinator and non-coordinator, sharing address)
+            NodeAllocator.NodeLease acquire1 = nodeAllocator.acquire(FULL_NODE_2_REQUIREMENTS);
+            assertAcquired(acquire1, NODE_2);
+
+            NodeAllocator.NodeLease acquire1b = nodeAllocator.acquire(FULL_NODE_2_REQUIREMENTS);
+            // no more space on NODE_2
+            assertNotAcquired(acquire1b);
+            // cancel
+            acquire1b.release();
+
+            NodeAllocator.NodeLease acquire2 = nodeAllocator.acquire(FULL_NODE_3_REQUIREMENTS);
+            assertAcquired(acquire2, NODE_3);
+            NodeAllocator.NodeLease acquire3 = nodeAllocator.acquire(FULL_NODE_4_REQUIREMENTS);
             assertNotAcquired(acquire3);
 
             acquire1.release();
-            assertEventually(() -> assertAcquired(acquire3));
+            assertEventually(() -> assertAcquired(acquire3, NODE_4));
         }
     }
 
@@ -643,8 +651,8 @@ public class TestFullNodeCapableNodeAllocator
             NodeAllocator.NodeLease sharedAcquire2 = nodeAllocator.acquire(NO_REQUIREMENTS);
             assertAcquired(sharedAcquire2);
 
-            InternalNode nodeAcquired1 = sharedAcquire1.getNode().get().getNode();
-            InternalNode nodeAcquired2 = sharedAcquire2.getNode().get().getNode();
+            InternalNode nodeAcquired1 = sharedAcquire1.getNode().get();
+            InternalNode nodeAcquired2 = sharedAcquire2.getNode().get();
             assertNotEquals(nodeAcquired1, nodeAcquired2);
 
             // try to acquire full node; should not happen
@@ -719,7 +727,7 @@ public class TestFullNodeCapableNodeAllocator
         assertFalse(lease.getNode().isCancelled(), "node lease cancelled");
         assertTrue(lease.getNode().isDone(), "node lease not acquired");
         if (expectedNode.isPresent()) {
-            assertEquals(lease.getNode().get().getNode(), expectedNode.get());
+            assertEquals(lease.getNode().get(), expectedNode.get());
         }
     }
 

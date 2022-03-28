@@ -17,12 +17,16 @@ import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.testng.Assert.assertEquals;
 
 public class TestExpressionMappingParser
 {
+    private static final Map<String, Set<String>> TYPE_CLASSES = Map.of("integer_class", Set.of("integer", "bigint"));
+
     @Test
     public void testCapture()
     {
@@ -80,6 +84,20 @@ public class TestExpressionMappingParser
                         Optional.of(type("boolean"))));
     }
 
+    @Test
+    public void testCallPatternWithTypeClass()
+    {
+        TypeClassPattern integerClass = typeClass("integer_class", Set.of("integer", "bigint"));
+        assertExpressionPattern(
+                "add(a: integer_class, b: integer_class): integer_class",
+                new CallPattern(
+                        "add",
+                        List.of(
+                                new ExpressionCapture("a", integerClass),
+                                new ExpressionCapture("b", integerClass)),
+                        Optional.of(integerClass)));
+    }
+
     private static void assertExpressionPattern(String expressionPattern, ExpressionPattern expected)
     {
         assertExpressionPattern(expressionPattern, expressionPattern, expected);
@@ -93,17 +111,17 @@ public class TestExpressionMappingParser
 
     private static ExpressionPattern expressionPattern(String expressionPattern)
     {
-        return new ExpressionMappingParser().createExpressionPattern(expressionPattern);
+        return new ExpressionMappingParser(TYPE_CLASSES).createExpressionPattern(expressionPattern);
     }
 
-    private static TypePattern type(String baseName)
+    private static SimpleTypePattern type(String baseName)
     {
-        return new TypePattern(baseName, ImmutableList.of());
+        return new SimpleTypePattern(baseName, ImmutableList.of());
     }
 
-    private static TypePattern type(String baseName, TypeParameterPattern... parameter)
+    private static SimpleTypePattern type(String baseName, TypeParameterPattern... parameter)
     {
-        return new TypePattern(baseName, ImmutableList.copyOf(parameter));
+        return new SimpleTypePattern(baseName, ImmutableList.copyOf(parameter));
     }
 
     private static TypeParameterPattern parameter(long value)
@@ -114,5 +132,10 @@ public class TestExpressionMappingParser
     private static TypeParameterPattern parameter(String name)
     {
         return new TypeParameterCapture(name);
+    }
+
+    private static TypeClassPattern typeClass(String typeClassName, Set<String> typeNames)
+    {
+        return new TypeClassPattern(typeClassName, typeNames);
     }
 }

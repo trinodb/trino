@@ -289,6 +289,7 @@ import static io.trino.spi.StandardErrorCode.INVALID_SCHEMA_PROPERTY;
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
+import static io.trino.spi.StandardErrorCode.UNSUPPORTED_TABLE_TYPE;
 import static io.trino.spi.connector.Constraint.alwaysTrue;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static io.trino.spi.predicate.TupleDomain.withColumnDomains;
@@ -438,10 +439,10 @@ public class HiveMetadata
         }
 
         if (isDeltaLakeTable(table)) {
-            throw new TrinoException(HIVE_UNSUPPORTED_FORMAT, format("Cannot query Delta Lake table '%s'", tableName));
+            throw new TrinoException(UNSUPPORTED_TABLE_TYPE, format("Cannot query Delta Lake table '%s'", tableName));
         }
         if (isIcebergTable(table)) {
-            throw new TrinoException(HIVE_UNSUPPORTED_FORMAT, format("Cannot query Iceberg table '%s'", tableName));
+            throw new TrinoException(UNSUPPORTED_TABLE_TYPE, format("Cannot query Iceberg table '%s'", tableName));
         }
 
         // we must not allow system tables due to how permissions are checked in SystemTableAwareAccessControl
@@ -560,7 +561,7 @@ public class HiveMetadata
                 .orElseThrow(() -> new TableNotFoundException(tableName));
 
         if (isIcebergTable(table) || isDeltaLakeTable(table)) {
-            throw new TrinoException(HIVE_UNSUPPORTED_FORMAT, format("Not a Hive table '%s'", tableName));
+            throw new TrinoException(UNSUPPORTED_TABLE_TYPE, format("Not a Hive table '%s'", tableName));
         }
 
         if (!translateHiveViews && isHiveOrPrestoView(table)) {
@@ -722,6 +723,12 @@ public class HiveMetadata
                 .orElseThrow(() -> new TableNotFoundException(tableName));
         return hiveColumnHandles(table, typeManager, getTimestampPrecision(session)).stream()
                 .collect(toImmutableMap(HiveColumnHandle::getName, identity()));
+    }
+
+    @Override
+    public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
+    {
+        throw new UnsupportedOperationException("The deprecated listTableColumns is not supported because streamTableColumns is implemented instead");
     }
 
     @SuppressWarnings("TryWithIdenticalCatches")

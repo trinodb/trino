@@ -1141,11 +1141,18 @@ public class PlanPrinter
                     .map(UnnestNode.Mapping::getInput)
                     .collect(toImmutableList());
 
+            Optional<String> replicate = node.getReplicateSymbols().isEmpty()
+                    ? Optional.empty()
+                    : Optional.of("replicate=" + formatOutputs(types, node.getReplicateSymbols()));
+            Optional<String> unnest = Optional.of("unnest=" + formatOutputs(types, unnestInputs));
+            Optional<String> filter = node.getFilter().map(filterExpression -> "filter=" + filterExpression);
             addNode(
                     node,
                     name,
-                    format("[replicate=%s, unnest=%s", formatOutputs(types, node.getReplicateSymbols()), formatOutputs(types, unnestInputs))
-                            + (node.getFilter().isPresent() ? format(", filter=%s]", node.getFilter().get()) : "]"));
+                    Stream.of(replicate, unnest, filter)
+                            .filter(Optional::isPresent)
+                            .map(Optional::get)
+                            .collect(joining(", ", "[", "]")));
             return processChildren(node, context);
         }
 

@@ -14,7 +14,7 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <awsjavasdk.version>2.17.102</awsjavasdk.version>
+        <awsjavasdk.version>2.17.151</awsjavasdk.version>
     </properties>
 
     <dependencyManagement>
@@ -103,6 +103,22 @@
 
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
+            <artifactId>http-client-spi</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>netty-nio-client</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>io.netty</groupId>
+                    <artifactId>netty-tcnative-classes</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
             <artifactId>regions</artifactId>
         </dependency>
 
@@ -113,6 +129,10 @@
                 <exclusion>
                     <groupId>commons-logging</groupId>
                     <artifactId>commons-logging</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>io.netty</groupId>
+                    <artifactId>netty-tcnative-classes</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>
@@ -125,6 +145,13 @@
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>utils</artifactId>
+        </dependency>
+
+        <!-- use of WebIdentityTokenFileCredentialsProvider requires the 'sts' module to be on the classpath -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>sts</artifactId>
+            <scope>runtime</scope>
         </dependency>
 
         <!-- Trino SPI -->

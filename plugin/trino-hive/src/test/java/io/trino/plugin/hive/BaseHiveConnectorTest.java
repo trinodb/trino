@@ -249,6 +249,13 @@ public abstract class BaseHiveConnectorTest
     }
 
     @Override
+    public void testDeleteWithLike()
+    {
+        assertThatThrownBy(super::testDeleteWithLike)
+                .hasStackTraceContaining("Deletes must match whole partitions for non-transactional tables");
+    }
+
+    @Override
     public void testDeleteWithComplexPredicate()
     {
         assertThatThrownBy(super::testDeleteWithComplexPredicate)

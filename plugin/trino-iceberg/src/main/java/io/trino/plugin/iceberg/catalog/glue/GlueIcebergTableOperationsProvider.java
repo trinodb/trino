@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg.catalog.glue;
 
+import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.services.glue.AWSGlueAsync;
 import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.trino.plugin.hive.metastore.glue.GlueHiveMetastoreConfig;
@@ -22,8 +23,6 @@ import io.trino.plugin.iceberg.catalog.IcebergTableOperations;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.spi.connector.ConnectorSession;
-import org.weakref.jmx.Flatten;
-import org.weakref.jmx.Managed;
 
 import javax.inject.Inject;
 
@@ -37,21 +36,16 @@ public class GlueIcebergTableOperationsProvider
 {
     private final FileIoProvider fileIoProvider;
     private final AWSGlueAsync glueClient;
-    private final GlueMetastoreStats stats = new GlueMetastoreStats();
+    private final GlueMetastoreStats stats;
 
     @Inject
-    public GlueIcebergTableOperationsProvider(FileIoProvider fileIoProvider, GlueHiveMetastoreConfig glueConfig)
+    public GlueIcebergTableOperationsProvider(FileIoProvider fileIoProvider, GlueMetastoreStats stats, GlueHiveMetastoreConfig glueConfig, AWSCredentialsProvider credentialsProvider)
     {
         this.fileIoProvider = requireNonNull(fileIoProvider, "fileIoProvider is null");
+        this.stats = requireNonNull(stats, "stats is null");
         requireNonNull(glueConfig, "glueConfig is null");
-        this.glueClient = createAsyncGlueClient(glueConfig, Optional.empty(), stats.newRequestMetricsCollector());
-    }
-
-    @Managed
-    @Flatten
-    public GlueMetastoreStats getStats()
-    {
-        return stats;
+        requireNonNull(credentialsProvider, "credentialsProvider is null");
+        this.glueClient = createAsyncGlueClient(glueConfig, credentialsProvider, Optional.empty(), stats.newRequestMetricsCollector());
     }
 
     @Override

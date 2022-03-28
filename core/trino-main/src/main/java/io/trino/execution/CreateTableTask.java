@@ -71,6 +71,7 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TABLE_ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.TYPE_NOT_FOUND;
+import static io.trino.spi.StandardErrorCode.UNSUPPORTED_TABLE_TYPE;
 import static io.trino.spi.connector.ConnectorCapabilities.NOT_NULL_COLUMN_CONSTRAINT;
 import static io.trino.sql.ParameterUtils.parameterExtractor;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
@@ -125,7 +126,16 @@ public class CreateTableTask
 
         Map<NodeRef<Parameter>, Expression> parameterLookup = parameterExtractor(statement, parameters);
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getName());
-        Optional<TableHandle> tableHandle = plannerContext.getMetadata().getTableHandle(session, tableName);
+        Optional<TableHandle> tableHandle;
+        try {
+            tableHandle = plannerContext.getMetadata().getTableHandle(session, tableName);
+        }
+        catch (TrinoException e) {
+            if (e.getErrorCode().equals(UNSUPPORTED_TABLE_TYPE.toErrorCode())) {
+                throw semanticException(TABLE_ALREADY_EXISTS, statement, "Table '%s' of unsupported type already exists", tableName);
+            }
+            throw e;
+        }
         if (tableHandle.isPresent()) {
             if (!statement.isNotExists()) {
                 throw semanticException(TABLE_ALREADY_EXISTS, statement, "Table '%s' already exists", tableName);

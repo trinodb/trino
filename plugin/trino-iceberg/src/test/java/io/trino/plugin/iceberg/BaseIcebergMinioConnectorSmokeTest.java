@@ -20,11 +20,10 @@ import org.apache.iceberg.FileFormat;
 import org.testng.annotations.Test;
 
 import java.util.Locale;
-import java.util.Optional;
+import java.util.Map;
 
 import static io.trino.plugin.hive.containers.HiveMinioDataLake.ACCESS_KEY;
 import static io.trino.plugin.hive.containers.HiveMinioDataLake.SECRET_KEY;
-import static io.trino.plugin.iceberg.IcebergQueryRunner.createIcebergQueryRunner;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 
@@ -49,25 +48,26 @@ public abstract class BaseIcebergMinioConnectorSmokeTest
     {
         this.hiveMinioDataLake = closeAfterClass(new HiveMinioDataLake(bucketName, ImmutableMap.of()));
         this.hiveMinioDataLake.start();
-        return createIcebergQueryRunner(
-                ImmutableMap.of(),
-                ImmutableMap.<String, String>builder()
-                        .put("iceberg.file-format", format.name())
-                        .put("iceberg.catalog.type", "HIVE_METASTORE")
-                        .put("hive.metastore.uri", "thrift://" + hiveMinioDataLake.getHiveHadoop().getHiveMetastoreEndpoint())
-                        .put("hive.s3.aws-access-key", ACCESS_KEY)
-                        .put("hive.s3.aws-secret-key", SECRET_KEY)
-                        .put("hive.s3.endpoint", "http://" + hiveMinioDataLake.getMinio().getMinioApiEndpoint())
-                        .put("hive.s3.path-style-access", "true")
-                        .put("hive.s3.streaming.part-size", "5MB")
-                        .buildOrThrow(),
-                SchemaInitializer.builder()
-                        .withSchemaName(schemaName)
-                        .withClonedTpchTables(REQUIRED_TPCH_TABLES)
-                        .withSchemaProperties(ImmutableMap.of(
-                                "location", "'s3://" + bucketName + "/" + schemaName + "'"))
-                        .build(),
-                Optional.empty());
+
+        return IcebergQueryRunner.builder()
+                .setIcebergProperties(
+                        ImmutableMap.<String, String>builder()
+                                .put("iceberg.file-format", format.name())
+                                .put("iceberg.catalog.type", "HIVE_METASTORE")
+                                .put("hive.metastore.uri", "thrift://" + hiveMinioDataLake.getHiveHadoop().getHiveMetastoreEndpoint())
+                                .put("hive.s3.aws-access-key", ACCESS_KEY)
+                                .put("hive.s3.aws-secret-key", SECRET_KEY)
+                                .put("hive.s3.endpoint", "http://" + hiveMinioDataLake.getMinio().getMinioApiEndpoint())
+                                .put("hive.s3.path-style-access", "true")
+                                .put("hive.s3.streaming.part-size", "5MB")
+                                .buildOrThrow())
+                .setSchemaInitializer(
+                        SchemaInitializer.builder()
+                                .withSchemaName(schemaName)
+                                .withClonedTpchTables(REQUIRED_TPCH_TABLES)
+                                .withSchemaProperties(Map.of("location", "'s3://" + bucketName + "/" + schemaName + "'"))
+                                .build())
+                .build();
     }
 
     @Override

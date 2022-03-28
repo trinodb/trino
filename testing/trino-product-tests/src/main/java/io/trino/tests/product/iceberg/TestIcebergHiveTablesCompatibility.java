@@ -65,4 +65,28 @@ public class TestIcebergHiveTablesCompatibility
 
         onTrino().executeQuery("DROP TABLE iceberg.default." + tableName);
     }
+
+    @Test(groups = {ICEBERG, STORAGE_FORMATS, HMS_ONLY})
+    public void testIcebergCannotCreateTableNamesakeToHiveTable()
+    {
+        String tableName = "test_iceberg_create_namesake_hive_table_" + randomTableSuffix();
+        onTrino().executeQuery("CREATE TABLE hive.default." + tableName + "(a bigint)");
+
+        assertQueryFailure(() -> onTrino().executeQuery("CREATE TABLE iceberg.default." + tableName + "(a bigint)"))
+                .hasMessageMatching("Query failed \\(#\\w+\\):\\Q line 1:1: Table 'iceberg.default." + tableName + "' of unsupported type already exists");
+
+        onTrino().executeQuery("DROP TABLE hive.default." + tableName);
+    }
+
+    @Test(groups = {ICEBERG, STORAGE_FORMATS, HMS_ONLY})
+    public void testHiveCannotCreateTableNamesakeToIcebergTable()
+    {
+        String tableName = "test_hive_create_namesake_iceberg_table_" + randomTableSuffix();
+        onTrino().executeQuery("CREATE TABLE iceberg.default." + tableName + "(a bigint)");
+
+        assertQueryFailure(() -> onTrino().executeQuery("CREATE TABLE hive.default." + tableName + "(a bigint)"))
+                .hasMessageMatching("Query failed \\(#\\w+\\):\\Q line 1:1: Table 'hive.default." + tableName + "' of unsupported type already exists");
+
+        onTrino().executeQuery("DROP TABLE iceberg.default." + tableName);
+    }
 }

@@ -17,7 +17,14 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.base.expression.ConnectorExpressionRewriter;
 import io.trino.plugin.base.expression.ConnectorExpressionRule;
 
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
+
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 public class JdbcConnectorExpressionRewriterBuilder
 {
@@ -26,7 +33,8 @@ public class JdbcConnectorExpressionRewriterBuilder
         return new JdbcConnectorExpressionRewriterBuilder();
     }
 
-    private ImmutableSet.Builder<ConnectorExpressionRule<?, String>> rules = ImmutableSet.builder();
+    private final ImmutableSet.Builder<ConnectorExpressionRule<?, String>> rules = ImmutableSet.builder();
+    private final Map<String, Set<String>> typeClasses = new HashMap<>();
 
     private JdbcConnectorExpressionRewriterBuilder() {}
 
@@ -46,6 +54,15 @@ public class JdbcConnectorExpressionRewriterBuilder
         return this;
     }
 
+    public JdbcConnectorExpressionRewriterBuilder withTypeClass(String typeClass, Set<String> typeNames)
+    {
+        requireNonNull(typeClass, "typeClass is null");
+        checkArgument(!typeNames.isEmpty(), "No typeNames");
+        checkState(!typeClasses.containsKey(typeClass), "typeClass already defined");
+        typeClasses.put(typeClass, ImmutableSet.copyOf(typeNames));
+        return this;
+    }
+
     public ExpressionMapping<JdbcConnectorExpressionRewriterBuilder> map(String expressionPattern)
     {
         return new ExpressionMapping<>()
@@ -53,7 +70,7 @@ public class JdbcConnectorExpressionRewriterBuilder
             @Override
             public JdbcConnectorExpressionRewriterBuilder to(String rewritePattern)
             {
-                rules.add(new GenericRewrite(expressionPattern, rewritePattern));
+                rules.add(new GenericRewrite(typeClasses, expressionPattern, rewritePattern));
                 return JdbcConnectorExpressionRewriterBuilder.this;
             }
         };

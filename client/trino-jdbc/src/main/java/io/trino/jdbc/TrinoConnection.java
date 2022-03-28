@@ -772,6 +772,11 @@ public class TrinoConnection
         }
     }
 
+    void removePreparedStatement(String name)
+    {
+        preparedStatements.remove(name);
+    }
+
     private void registerStatement(TrinoStatement statement)
     {
         checkState(statements.add(statement), "Statement is already registered");

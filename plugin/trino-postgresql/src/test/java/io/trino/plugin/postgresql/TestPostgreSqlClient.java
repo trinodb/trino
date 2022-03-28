@@ -13,12 +13,14 @@
  */
 package io.trino.plugin.postgresql;
 
+import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ColumnMapping;
 import io.trino.plugin.jdbc.DefaultQueryBuilder;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
+import io.trino.plugin.jdbc.JdbcStatisticsConfig;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.mapping.DefaultIdentifierMapping;
 import io.trino.spi.connector.AggregateFunction;
@@ -30,10 +32,16 @@ import io.trino.sql.planner.ConnectorExpressionTranslator;
 import io.trino.sql.planner.LiteralEncoder;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeProvider;
+import io.trino.sql.tree.ArithmeticBinaryExpression;
+import io.trino.sql.tree.ArithmeticUnaryExpression;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.IsNotNullPredicate;
+import io.trino.sql.tree.IsNullPredicate;
 import io.trino.sql.tree.LikePredicate;
 import io.trino.sql.tree.LogicalExpression;
+import io.trino.sql.tree.NotExpression;
+import io.trino.sql.tree.NullIfExpression;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.SymbolReference;
 import org.testng.annotations.DataProvider;
@@ -88,6 +96,7 @@ public class TestPostgreSqlClient
     private static final JdbcClient JDBC_CLIENT = new PostgreSqlClient(
             new BaseJdbcConfig(),
             new PostgreSqlConfig(),
+            new JdbcStatisticsConfig(),
             session -> { throw new UnsupportedOperationException(); },
             new DefaultQueryBuilder(),
             TESTING_TYPE_MANAGER,
@@ -250,6 +259,44 @@ public class TestPostgreSqlClient
                 .collect(toDataProvider());
     }
 
+    @Test(dataProvider = "testConvertArithmeticBinaryDataProvider")
+    public void testConvertArithmeticBinary(ArithmeticBinaryExpression.Operator operator)
+    {
+        Optional<String> converted = JDBC_CLIENT.convertPredicate(
+                SESSION,
+                translateToConnectorExpression(
+                        new ArithmeticBinaryExpression(
+                                operator,
+                                new SymbolReference("c_bigint_symbol"),
+                                LITERAL_ENCODER.toExpression(TEST_SESSION, 42L, BIGINT)),
+                        Map.of("c_bigint_symbol", BIGINT)),
+                Map.of("c_bigint_symbol", BIGINT_COLUMN));
+
+        assertThat(converted).hasValue(format("(\"c_bigint\") %s (42)", operator.getValue()));
+    }
+
+    @DataProvider
+    public static Object[][] testConvertArithmeticBinaryDataProvider()
+    {
+        return Stream.of(ArithmeticBinaryExpression.Operator.values())
+                .collect(toDataProvider());
+    }
+
+    @Test
+    public void testConvertArithmeticUnaryMinus()
+    {
+        Optional<String> converted = JDBC_CLIENT.convertPredicate(
+                SESSION,
+                translateToConnectorExpression(
+                        new ArithmeticUnaryExpression(
+                                ArithmeticUnaryExpression.Sign.MINUS,
+                                new SymbolReference("c_bigint_symbol")),
+                        Map.of("c_bigint_symbol", BIGINT)),
+                Map.of("c_bigint_symbol", BIGINT_COLUMN));
+
+        assertThat(converted).hasValue("-(\"c_bigint\")");
+    }
+
     @Test
     public void testConvertLike()
     {
@@ -274,6 +321,60 @@ public class TestPostgreSqlClient
                         Map.of("c_varchar", VARCHAR_COLUMN.getColumnType())),
                 Map.of(VARCHAR_COLUMN.getColumnName(), VARCHAR_COLUMN)))
                 .hasValue("(\"c_varchar\") LIKE ('%pattern\\%') ESCAPE ('\\')");
+    }
+
+    @Test
+    public void testConvertIsNull()
+    {
+        // c_varchar IS NULL
+        assertThat(JDBC_CLIENT.convertPredicate(SESSION,
+                translateToConnectorExpression(
+                        new IsNullPredicate(
+                                new SymbolReference("c_varchar_symbol")),
+                        Map.of("c_varchar_symbol", VARCHAR_COLUMN.getColumnType())),
+                Map.of("c_varchar_symbol", VARCHAR_COLUMN)))
+                .hasValue("(\"c_varchar\") IS NULL");
+    }
+
+    @Test
+    public void testConvertIsNotNull()
+    {
+        // c_varchar IS NOT NULL
+        assertThat(JDBC_CLIENT.convertPredicate(SESSION,
+                translateToConnectorExpression(
+                        new IsNotNullPredicate(
+                                new SymbolReference("c_varchar_symbol")),
+                        Map.of("c_varchar_symbol", VARCHAR_COLUMN.getColumnType())),
+                Map.of("c_varchar_symbol", VARCHAR_COLUMN)))
+                .hasValue("(\"c_varchar\") IS NOT NULL");
+    }
+
+    @Test
+    public void testConvertNullIf()
+    {
+        // nullif(a_varchar, b_varchar)
+        assertThat(JDBC_CLIENT.convertPredicate(SESSION,
+                translateToConnectorExpression(
+                        new NullIfExpression(
+                                new SymbolReference("a_varchar_symbol"),
+                                new SymbolReference("b_varchar_symbol")),
+                        ImmutableMap.of("a_varchar_symbol", VARCHAR_COLUMN.getColumnType(), "b_varchar_symbol", VARCHAR_COLUMN.getColumnType())),
+                ImmutableMap.of("a_varchar_symbol", VARCHAR_COLUMN, "b_varchar_symbol", VARCHAR_COLUMN)))
+                .hasValue("NULLIF((\"c_varchar\"), (\"c_varchar\"))");
+    }
+
+    @Test
+    public void testConvertNotExpression()
+    {
+        // NOT(expression)
+        assertThat(JDBC_CLIENT.convertPredicate(SESSION,
+                translateToConnectorExpression(
+                        new NotExpression(
+                            new IsNotNullPredicate(
+                                    new SymbolReference("c_varchar_symbol"))),
+                        Map.of("c_varchar_symbol", VARCHAR_COLUMN.getColumnType())),
+                Map.of("c_varchar_symbol", VARCHAR_COLUMN)))
+                .hasValue("NOT ((\"c_varchar\") IS NOT NULL)");
     }
 
     private ConnectorExpression translateToConnectorExpression(Expression expression, Map<String, Type> symbolTypes)
