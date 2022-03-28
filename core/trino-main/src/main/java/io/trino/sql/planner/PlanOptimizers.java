@@ -36,6 +36,7 @@ import io.trino.sql.planner.iterative.rule.AddIntermediateAggregations;
 import io.trino.sql.planner.iterative.rule.ApplyPreferredTableExecutePartitioning;
 import io.trino.sql.planner.iterative.rule.ApplyPreferredTableWriterPartitioning;
 import io.trino.sql.planner.iterative.rule.ApplyTableScanRedirection;
+import io.trino.sql.planner.iterative.rule.ArrayAggregationAfterDistinct;
 import io.trino.sql.planner.iterative.rule.ArraySortAfterArrayDistinct;
 import io.trino.sql.planner.iterative.rule.CanonicalizeExpressions;
 import io.trino.sql.planner.iterative.rule.CreatePartialTopN;
@@ -455,7 +456,8 @@ public class PlanOptimizers
                                         new PruneOrderByInAggregation(metadata),
                                         new RewriteSpatialPartitioningAggregation(plannerContext),
                                         new SimplifyCountOverConstant(plannerContext),
-                                        new PreAggregateCaseAggregations(plannerContext, typeAnalyzer)))
+                                        new PreAggregateCaseAggregations(plannerContext, typeAnalyzer),
+                                        new ArrayAggregationAfterDistinct(metadata)))
                                 .build()),
                 new IterativeOptimizer(
                         plannerContext,

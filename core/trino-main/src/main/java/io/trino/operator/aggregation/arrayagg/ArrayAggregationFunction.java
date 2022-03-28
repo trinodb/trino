@@ -32,6 +32,8 @@ import io.trino.spi.type.Type;
 @Description("return an array of values")
 public final class ArrayAggregationFunction
 {
+    public static final String NAME = "array_agg";
+
     private ArrayAggregationFunction() {}
 
     @InputFunction
