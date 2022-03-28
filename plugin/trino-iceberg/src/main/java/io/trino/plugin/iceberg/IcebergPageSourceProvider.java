@@ -724,7 +724,7 @@ public class IcebergPageSourceProvider
                     Optional.ofNullable(fileMetaData.getCreatedBy()),
                     messageColumnIO,
                     blocks,
-                    Optional.of(blockStarts.build()),
+                    blockStarts.build(),
                     dataSource,
                     UTC,
                     memoryContext,
