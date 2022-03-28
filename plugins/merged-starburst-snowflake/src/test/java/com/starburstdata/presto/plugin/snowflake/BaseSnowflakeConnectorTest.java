@@ -61,6 +61,7 @@ public abstract class BaseSnowflakeConnectorTest
             case SUPPORTS_ARRAY:
             case SUPPORTS_COMMENT_ON_TABLE:
             case SUPPORTS_COMMENT_ON_COLUMN:
+            case SUPPORTS_ROW_TYPE:
                 return false;
             case SUPPORTS_AGGREGATION_PUSHDOWN_STDDEV:
             case SUPPORTS_AGGREGATION_PUSHDOWN_VARIANCE:
@@ -727,6 +728,13 @@ public abstract class BaseSnowflakeConnectorTest
     {
         // TODO Fix concurrent metadata modification test https://starburstdata.atlassian.net/browse/SEP-8789
         throw new SkipException("Test fails (SEP-8789)");
+    }
+
+    @Override
+    public void testDeleteWithLike()
+    {
+        assertThatThrownBy(super::testDeleteWithLike)
+                .hasStackTraceContaining("TrinoException: Unsupported delete");
     }
 
     @Override

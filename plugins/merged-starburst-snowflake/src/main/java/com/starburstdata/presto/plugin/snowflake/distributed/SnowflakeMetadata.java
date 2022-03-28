@@ -32,7 +32,7 @@ class SnowflakeMetadata
 
     SnowflakeMetadata(SnowflakeConnectionManager connectionManager, JdbcClient jdbcClient)
     {
-        super(jdbcClient);
+        super(jdbcClient, true);
         this.connectionManager = requireNonNull(connectionManager, "connectionManager is null");
     }
 
