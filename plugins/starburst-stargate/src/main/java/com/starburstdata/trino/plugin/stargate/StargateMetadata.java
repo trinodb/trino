@@ -17,13 +17,7 @@ public class StargateMetadata
 {
     public StargateMetadata(JdbcClient jdbcClient)
     {
-        super(jdbcClient);
-    }
-
-    @Override
-    protected boolean precalculateStatisticsForPushdown()
-    {
-        // Remote cluster is very good at estimates, should not be inferior to ours.
-        return false;
+        // Disable precalculate statistics for pushdown because remote cluster is very good at estimates, should not be inferior to ours.
+        super(jdbcClient, false);
     }
 }

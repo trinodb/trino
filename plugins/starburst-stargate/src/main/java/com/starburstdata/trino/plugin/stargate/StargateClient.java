@@ -85,7 +85,6 @@ import java.util.function.BiFunction;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static com.starburstdata.presto.plugin.jdbc.JdbcJoinPushdownUtil.implementJoinCostAware;
 import static com.starburstdata.trino.plugin.stargate.StargateColumnMappings.stargateDateColumnMapping;
 import static com.starburstdata.trino.plugin.stargate.StargateColumnMappings.stargateTimeColumnMapping;
 import static com.starburstdata.trino.plugin.stargate.StargateColumnMappings.stargateTimeWithTimeZoneColumnMapping;
@@ -99,6 +98,7 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.plugin.base.util.JsonTypeUtil.jsonParse;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
+import static io.trino.plugin.jdbc.JdbcJoinPushdownUtil.implementJoinCostAware;
 import static io.trino.plugin.jdbc.PredicatePushdownController.DISABLE_PUSHDOWN;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
@@ -201,6 +201,13 @@ public class StargateClient
                 quoted(handle.asPlainTable().getRemoteTableName()),
                 getColumnDefinitionSql(session, column, column.getName()));
         execute(session, sql);
+    }
+
+    @Override
+    public Optional<String> getTableComment(ResultSet resultSet)
+    {
+        // Don't return a comment until the connector supports creating tables with comment
+        return Optional.empty();
     }
 
     @Override
