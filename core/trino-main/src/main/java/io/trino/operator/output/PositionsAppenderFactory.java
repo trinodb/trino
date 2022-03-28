@@ -17,21 +17,17 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import io.airlift.bytecode.DynamicClassLoader;
 import io.trino.collect.cache.NonEvictableLoadingCache;
-import io.trino.operator.output.PositionsAppender.TypedPositionsAppender;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.Int128ArrayBlock;
 import io.trino.spi.block.Int96ArrayBlock;
 import io.trino.spi.type.FixedWidthType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VariableWidthType;
 import io.trino.sql.gen.IsolatedClass;
-import it.unimi.dsi.fastutil.ints.IntArrayList;
 
 import java.util.Objects;
 import java.util.Optional;
 
-import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
 import static java.util.Objects.requireNonNull;
 
@@ -123,201 +119,6 @@ public class PositionsAppenderFactory
                 PositionsAppender.class,
                 appenderClass);
         return isolatedBatchPositionsTransferClass;
-    }
-
-    public static class LongPositionsAppender
-            implements PositionsAppender
-    {
-        @Override
-        public void appendTo(IntArrayList positions, Block block, BlockBuilder blockBuilder)
-        {
-            int[] positionArray = positions.elements();
-            if (block.mayHaveNull()) {
-                for (int i = 0; i < positions.size(); i++) {
-                    int position = positionArray[i];
-                    if (block.isNull(position)) {
-                        blockBuilder.appendNull();
-                    }
-                    else {
-                        blockBuilder.writeLong(block.getLong(position, 0)).closeEntry();
-                    }
-                }
-            }
-            else {
-                for (int i = 0; i < positions.size(); i++) {
-                    blockBuilder.writeLong(block.getLong(positionArray[i], 0)).closeEntry();
-                }
-            }
-        }
-    }
-
-    public static class IntPositionsAppender
-            implements PositionsAppender
-    {
-        @Override
-        public void appendTo(IntArrayList positions, Block block, BlockBuilder blockBuilder)
-        {
-            int[] positionArray = positions.elements();
-            if (block.mayHaveNull()) {
-                for (int i = 0; i < positions.size(); i++) {
-                    int position = positionArray[i];
-                    if (block.isNull(position)) {
-                        blockBuilder.appendNull();
-                    }
-                    else {
-                        blockBuilder.writeInt(block.getInt(position, 0)).closeEntry();
-                    }
-                }
-            }
-            else {
-                for (int i = 0; i < positions.size(); i++) {
-                    blockBuilder.writeInt(block.getInt(positionArray[i], 0)).closeEntry();
-                }
-            }
-        }
-    }
-
-    public static class BytePositionsAppender
-            implements PositionsAppender
-    {
-        @Override
-        public void appendTo(IntArrayList positions, Block block, BlockBuilder blockBuilder)
-        {
-            int[] positionArray = positions.elements();
-            if (block.mayHaveNull()) {
-                for (int i = 0; i < positions.size(); i++) {
-                    int position = positionArray[i];
-                    if (block.isNull(position)) {
-                        blockBuilder.appendNull();
-                    }
-                    else {
-                        blockBuilder.writeByte(block.getByte(position, 0)).closeEntry();
-                    }
-                }
-            }
-            else {
-                for (int i = 0; i < positions.size(); i++) {
-                    blockBuilder.writeByte(block.getByte(positionArray[i], 0)).closeEntry();
-                }
-            }
-        }
-    }
-
-    public static class SlicePositionsAppender
-            implements PositionsAppender
-    {
-        @Override
-        public void appendTo(IntArrayList positions, Block block, BlockBuilder blockBuilder)
-        {
-            int[] positionArray = positions.elements();
-            if (block.mayHaveNull()) {
-                for (int i = 0; i < positions.size(); i++) {
-                    int position = positionArray[i];
-                    if (block.isNull(position)) {
-                        blockBuilder.appendNull();
-                    }
-                    else {
-                        block.writeBytesTo(position, 0, block.getSliceLength(position), blockBuilder);
-                        blockBuilder.closeEntry();
-                    }
-                }
-            }
-            else {
-                for (int i = 0; i < positions.size(); i++) {
-                    int position = positionArray[i];
-                    block.writeBytesTo(position, 0, block.getSliceLength(position), blockBuilder);
-                    blockBuilder.closeEntry();
-                }
-            }
-        }
-    }
-
-    public static class SmallintPositionsAppender
-            implements PositionsAppender
-    {
-        @Override
-        public void appendTo(IntArrayList positions, Block block, BlockBuilder blockBuilder)
-        {
-            int[] positionArray = positions.elements();
-            if (block.mayHaveNull()) {
-                for (int i = 0; i < positions.size(); i++) {
-                    int position = positionArray[i];
-                    if (block.isNull(position)) {
-                        blockBuilder.appendNull();
-                    }
-                    else {
-                        blockBuilder.writeShort(block.getShort(position, 0)).closeEntry();
-                    }
-                }
-            }
-            else {
-                for (int i = 0; i < positions.size(); i++) {
-                    blockBuilder.writeShort(block.getShort(positionArray[i], 0)).closeEntry();
-                }
-            }
-        }
-    }
-
-    public static class Int96PositionsAppender
-            implements PositionsAppender
-    {
-        @Override
-        public void appendTo(IntArrayList positions, Block block, BlockBuilder blockBuilder)
-        {
-            int[] positionArray = positions.elements();
-            if (block.mayHaveNull()) {
-                for (int i = 0; i < positions.size(); i++) {
-                    int position = positionArray[i];
-                    if (block.isNull(position)) {
-                        blockBuilder.appendNull();
-                    }
-                    else {
-                        blockBuilder.writeLong(block.getLong(position, 0));
-                        blockBuilder.writeInt(block.getInt(position, SIZE_OF_LONG));
-                        blockBuilder.closeEntry();
-                    }
-                }
-            }
-            else {
-                for (int i = 0; i < positions.size(); i++) {
-                    int position = positionArray[i];
-                    blockBuilder.writeLong(block.getLong(position, 0));
-                    blockBuilder.writeInt(block.getInt(position, SIZE_OF_LONG));
-                    blockBuilder.closeEntry();
-                }
-            }
-        }
-    }
-
-    public static class Int128PositionsAppender
-            implements PositionsAppender
-    {
-        @Override
-        public void appendTo(IntArrayList positions, Block block, BlockBuilder blockBuilder)
-        {
-            int[] positionArray = positions.elements();
-            if (block.mayHaveNull()) {
-                for (int i = 0; i < positions.size(); i++) {
-                    int position = positionArray[i];
-                    if (block.isNull(position)) {
-                        blockBuilder.appendNull();
-                    }
-                    else {
-                        blockBuilder.writeLong(block.getLong(position, 0));
-                        blockBuilder.writeLong(block.getLong(position, SIZE_OF_LONG));
-                        blockBuilder.closeEntry();
-                    }
-                }
-            }
-            else {
-                for (int i = 0; i < positions.size(); i++) {
-                    int position = positionArray[i];
-                    blockBuilder.writeLong(block.getLong(position, 0));
-                    blockBuilder.writeLong(block.getLong(position, SIZE_OF_LONG));
-                    blockBuilder.closeEntry();
-                }
-            }
-        }
     }
 
     private static class CacheKey
