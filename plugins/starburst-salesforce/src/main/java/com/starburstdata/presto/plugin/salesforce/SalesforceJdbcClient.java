@@ -43,6 +43,7 @@ import javax.inject.Inject;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Time;
@@ -186,7 +187,8 @@ public class SalesforceJdbcClient
     {
         dropTable(session, new JdbcTableHandle(
                 new SchemaTableName(handle.getSchemaName(), handle.getTableName()),
-                new RemoteTableName(Optional.ofNullable(handle.getCatalogName()), Optional.ofNullable(handle.getSchemaName()), handle.getTableName())));
+                new RemoteTableName(Optional.ofNullable(handle.getCatalogName()), Optional.ofNullable(handle.getSchemaName()), handle.getTableName()),
+                Optional.empty()));
     }
 
     @Override
@@ -198,6 +200,13 @@ public class SalesforceJdbcClient
 
         super.dropTable(session, handle);
         invalidateDriverCache(session);
+    }
+
+    @Override
+    public Optional<String> getTableComment(ResultSet resultSet)
+    {
+        // Don't return a comment until the connector supports creating tables with comment
+        return Optional.empty();
     }
 
     @Override
