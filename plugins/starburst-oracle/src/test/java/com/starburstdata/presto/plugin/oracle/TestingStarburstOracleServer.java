@@ -13,6 +13,7 @@ import com.github.dockerjava.api.model.Ulimit;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.testing.sql.TestTable;
+import io.trino.testing.sql.TestView;
 import org.testcontainers.containers.OracleContainer;
 import org.testcontainers.utility.DockerImageName;
 
