@@ -36,6 +36,7 @@ import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.ArithmeticUnaryExpression;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.IfExpression;
 import io.trino.sql.tree.IsNotNullPredicate;
 import io.trino.sql.tree.IsNullPredicate;
 import io.trino.sql.tree.LikePredicate;
@@ -361,6 +362,34 @@ public class TestPostgreSqlClient
                         ImmutableMap.of("a_varchar_symbol", VARCHAR_COLUMN.getColumnType(), "b_varchar_symbol", VARCHAR_COLUMN.getColumnType())),
                 ImmutableMap.of("a_varchar_symbol", VARCHAR_COLUMN, "b_varchar_symbol", VARCHAR_COLUMN)))
                 .hasValue("NULLIF((\"c_varchar\"), (\"c_varchar\"))");
+    }
+
+    @Test
+    public void testConvertIf()
+    {
+        // if(a_varchar IS NULL, "true")
+        String trueValue = "true";
+        assertThat(JDBC_CLIENT.convertPredicate(SESSION,
+                translateToConnectorExpression(
+                        new IfExpression(
+                                new IsNullPredicate(new SymbolReference("a_varchar_symbol")),
+                                new StringLiteral(trueValue),
+                                null),
+                        ImmutableMap.of("a_varchar_symbol", VARCHAR_COLUMN.getColumnType())),
+                ImmutableMap.of("a_varchar_symbol", VARCHAR_COLUMN)))
+                .hasValue("CASE WHEN ((\"c_varchar\") IS NULL) THEN ('true') END");
+
+        // if(a_varchar IS NULL, "true", "false")
+        String falseValue = "false";
+        assertThat(JDBC_CLIENT.convertPredicate(SESSION,
+                translateToConnectorExpression(
+                        new IfExpression(
+                                new IsNullPredicate(new SymbolReference("a_varchar_symbol")),
+                                new StringLiteral(trueValue),
+                                new StringLiteral(falseValue)),
+                        ImmutableMap.of("a_varchar_symbol", VARCHAR_COLUMN.getColumnType())),
+                ImmutableMap.of("a_varchar_symbol", VARCHAR_COLUMN)))
+                .hasValue("CASE WHEN ((\"c_varchar\") IS NULL) THEN ('true') ELSE ('false') END");
     }
 
     @Test

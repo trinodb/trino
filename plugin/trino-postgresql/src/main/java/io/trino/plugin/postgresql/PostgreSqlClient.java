@@ -314,6 +314,8 @@ public class PostgreSqlClient
                 .map("$not(value: boolean)").to("NOT value")
                 .map("$is_null(value)").to("value IS NULL")
                 .map("$nullif(first, second)").to("NULLIF(first, second)")
+                .map("$if(condition, trueValue)").to("CASE WHEN condition THEN trueValue END")
+                .map("$if(condition, trueValue, falseValue)").to("CASE WHEN condition THEN trueValue ELSE falseValue END")
                 .build();
 
         JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());

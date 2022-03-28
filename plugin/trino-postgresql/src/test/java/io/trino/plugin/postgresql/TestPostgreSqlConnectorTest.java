@@ -817,6 +817,22 @@ public class TestPostgreSqlConnectorTest
     }
 
     @Test
+    public void testIfPredicatePushdown()
+    {
+        assertThat(query("SELECT name FROM nation WHERE IF(name = 'Algeria', 'Is_Algeria') = 'Is_Algeria'"))
+                .matches("VALUES CAST('ALGERIA' AS varchar(25))")
+                .isFullyPushedDown();
+
+        assertThat(query("SELECT name FROM nation WHERE IF(name = 'Algeria', 'Is_Algeria', 'Not_Algeria') = 'Is_Algeria'"))
+                .matches("VALUES CAST('ALGERIA' AS varchar(25))")
+                .isFullyPushedDown();
+
+        assertThat(query("SELECT name FROM nation WHERE IF(name != 'Algeria', 'Not_Algeria', 'Is_Algeria') = 'Is_Algeria'"))
+                .matches("VALUES CAST('ALGERIA' AS varchar(25))")
+                .isFullyPushedDown();
+    }
+
+    @Test
     public void testNotExpressionPushdown()
     {
         assertThat(query("SELECT nationkey FROM nation WHERE NOT(name LIKE '%A%' ESCAPE '\\')")).isFullyPushedDown();
