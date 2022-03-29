@@ -68,7 +68,7 @@ public class PositionsAppenderFactory
                 case Byte.BYTES:
                     return BytePositionsAppender.class;
                 case Short.BYTES:
-                    return SmallintPositionsAppender.class;
+                    return ShortPositionsAppender.class;
                 case Integer.BYTES:
                     return IntPositionsAppender.class;
                 case Long.BYTES:

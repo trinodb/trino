@@ -17,7 +17,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 
-public class SmallintPositionsAppender
+public class ShortPositionsAppender
         implements PositionsAppender
 {
     @Override
