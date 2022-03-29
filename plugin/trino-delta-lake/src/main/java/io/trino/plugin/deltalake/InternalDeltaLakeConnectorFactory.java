@@ -15,11 +15,9 @@ package io.trino.plugin.deltalake;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
-import com.google.inject.Binder;
 import com.google.inject.Injector;
 import com.google.inject.Key;
 import com.google.inject.Module;
-import com.google.inject.Scopes;
 import com.google.inject.TypeLiteral;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.bootstrap.LifeCycleManager;
@@ -104,7 +102,6 @@ public final class InternalDeltaLakeConnectorFactory
                         binder.bind(CatalogName.class).toInstance(new CatalogName(catalogName));
                         newSetBinder(binder, EventListener.class);
                     },
-                    binder -> bindSessionPropertiesProvider(binder, DeltaLakeSessionProperties.class),
                     extraModule);
 
             Injector injector = app
@@ -146,13 +143,5 @@ public final class InternalDeltaLakeConnectorFactory
                     eventListeners,
                     transactionManager);
         }
-    }
-
-    public static void bindSessionPropertiesProvider(Binder binder, Class<? extends SessionPropertiesProvider> type)
-    {
-        newSetBinder(binder, SessionPropertiesProvider.class)
-                .addBinding()
-                .to(type)
-                .in(Scopes.SINGLETON);
     }
 }
