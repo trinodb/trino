@@ -15,7 +15,7 @@ package io.trino.plugin.deltalake.procedure;
 
 import io.trino.plugin.deltalake.DeltaLakeMetadata;
 import io.trino.plugin.deltalake.DeltaLakeMetadataFactory;
-import io.trino.plugin.deltalake.statistics.DeltaLakeStatisticsAccess;
+import io.trino.plugin.deltalake.statistics.ExtendedStatisticsAccess;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSession;
@@ -49,10 +49,10 @@ public class DropExtendedStatsProcedure
             String.class);
 
     private final DeltaLakeMetadataFactory metadataFactory;
-    private final DeltaLakeStatisticsAccess statsAccess;
+    private final ExtendedStatisticsAccess statsAccess;
 
     @Inject
-    public DropExtendedStatsProcedure(DeltaLakeMetadataFactory metadataFactory, DeltaLakeStatisticsAccess statsAccess)
+    public DropExtendedStatsProcedure(DeltaLakeMetadataFactory metadataFactory, ExtendedStatisticsAccess statsAccess)
     {
         this.metadataFactory = requireNonNull(metadataFactory, "metadataFactory");
         this.statsAccess = requireNonNull(statsAccess, "statsAccess");
@@ -81,6 +81,6 @@ public class DropExtendedStatsProcedure
             throw new TrinoException(INVALID_PROCEDURE_ARGUMENT, format("Table '%s' does not exist", name));
         }
         accessControl.checkCanInsertIntoTable(null, name);
-        statsAccess.deleteDeltaLakeStatistics(session, metadata.getMetastore().getTableLocation(name, session));
+        statsAccess.deleteExtendedStatistics(session, metadata.getMetastore().getTableLocation(name, session));
     }
 }

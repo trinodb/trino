@@ -31,8 +31,8 @@ import io.trino.plugin.deltalake.procedure.DeltaLakeTableExecuteHandle;
 import io.trino.plugin.deltalake.procedure.DeltaLakeTableProcedureId;
 import io.trino.plugin.deltalake.procedure.DeltaTableOptimizeHandle;
 import io.trino.plugin.deltalake.statistics.DeltaLakeColumnStatistics;
-import io.trino.plugin.deltalake.statistics.DeltaLakeStatistics;
-import io.trino.plugin.deltalake.statistics.DeltaLakeStatisticsAccess;
+import io.trino.plugin.deltalake.statistics.ExtendedStatistics;
+import io.trino.plugin.deltalake.statistics.ExtendedStatisticsAccess;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
 import io.trino.plugin.deltalake.transactionlog.CommitInfoEntry;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
@@ -236,7 +236,7 @@ public class DeltaLakeMetadata
     private final String nodeVersion;
     private final String nodeId;
     private final AtomicReference<Runnable> rollbackAction = new AtomicReference<>();
-    private final DeltaLakeStatisticsAccess statisticsAccess;
+    private final ExtendedStatisticsAccess statisticsAccess;
     private final boolean deleteSchemaLocationsFallback;
 
     public DeltaLakeMetadata(
@@ -254,7 +254,7 @@ public class DeltaLakeMetadata
             long defaultCheckpointInterval,
             boolean ignoreCheckpointWriteFailures,
             boolean deleteSchemaLocationsFallback,
-            DeltaLakeStatisticsAccess statisticsAccess)
+            ExtendedStatisticsAccess statisticsAccess)
     {
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
@@ -1655,9 +1655,9 @@ public class DeltaLakeMetadata
         long version = tableSnapshot.getVersion();
 
         String tableLocation = metastore.getTableLocation(tableName, session);
-        Optional<DeltaLakeStatistics> statistics = statisticsAccess.readDeltaLakeStatistics(session, tableLocation);
+        Optional<ExtendedStatistics> statistics = statisticsAccess.readExtendedStatistics(session, tableLocation);
 
-        Optional<Instant> alreadyAnalyzedModifiedTimeMax = statistics.map(DeltaLakeStatistics::getAlreadyAnalyzedModifiedTimeMax);
+        Optional<Instant> alreadyAnalyzedModifiedTimeMax = statistics.map(ExtendedStatistics::getAlreadyAnalyzedModifiedTimeMax);
 
         // determine list of files we want to read based on what caller requested via files_modified_after and what files were already analyzed in the past
         Optional<Instant> filesModifiedAfter = Optional.empty();
@@ -1689,7 +1689,7 @@ public class DeltaLakeMetadata
         }
 
         // verify that we do not extend set of analyzed columns
-        Optional<Set<String>> oldAnalyzeColumnNames = statistics.flatMap(DeltaLakeStatistics::getAnalyzedColumns);
+        Optional<Set<String>> oldAnalyzeColumnNames = statistics.flatMap(ExtendedStatistics::getAnalyzedColumns);
         if (oldAnalyzeColumnNames.isPresent()) {
             if (analyzeColumnNames.isEmpty() || !oldAnalyzeColumnNames.get().containsAll(analyzeColumnNames.get())) {
                 throw new TrinoException(INVALID_ANALYZE_PROPERTY,
@@ -1761,16 +1761,16 @@ public class DeltaLakeMetadata
         DeltaLakeTableHandle tableHandle = (DeltaLakeTableHandle) table;
         AnalyzeHandle analyzeHandle = tableHandle.getAnalyzeHandle().orElseThrow(() -> new IllegalArgumentException("analyzeHandle not set"));
         String location = metastore.getTableLocation(tableHandle.getSchemaTableName(), session);
-        Optional<DeltaLakeStatistics> oldStatistics = statisticsAccess.readDeltaLakeStatistics(session, location);
+        Optional<ExtendedStatistics> oldStatistics = statisticsAccess.readExtendedStatistics(session, location);
 
         // more elaborate logic for handling statistics model evaluation may need to be introduced in the future
         // for now let's have a simple check rejecting update
         oldStatistics.ifPresent(statistics ->
                 checkArgument(
-                        statistics.getModelVersion() == DeltaLakeStatistics.CURRENT_MODEL_VERSION,
+                        statistics.getModelVersion() == ExtendedStatistics.CURRENT_MODEL_VERSION,
                         "Existing table statistics are incompatible, run the drop statistics procedure on this table before re-analyzing"));
 
-        Map<String, DeltaLakeColumnStatistics> oldColumnStatistics = oldStatistics.map(DeltaLakeStatistics::getColumnStatistics)
+        Map<String, DeltaLakeColumnStatistics> oldColumnStatistics = oldStatistics.map(ExtendedStatistics::getColumnStatistics)
                 .orElseGet(ImmutableMap::of);
         Map<String, DeltaLakeColumnStatistics> newColumnStatistics = toDeltaLakeColumnStatistics(computedStatistics);
 
@@ -1806,12 +1806,12 @@ public class DeltaLakeMetadata
                             analyzeHandle.getColumns().get()));
         }
 
-        DeltaLakeStatistics mergedDeltaLakeStatistics = new DeltaLakeStatistics(
+        ExtendedStatistics mergedExtendedStatistics = new ExtendedStatistics(
                 finalAlreadyAnalyzedModifiedTimeMax,
                 mergedColumnStatistics,
                 analyzeHandle.getColumns());
 
-        statisticsAccess.updateDeltaLakeStatistics(session, location, mergedDeltaLakeStatistics);
+        statisticsAccess.updateExtendedStatistics(session, location, mergedExtendedStatistics);
     }
 
     private static Map<String, DeltaLakeColumnStatistics> toDeltaLakeColumnStatistics(Collection<ComputedStatistics> computedStatistics)

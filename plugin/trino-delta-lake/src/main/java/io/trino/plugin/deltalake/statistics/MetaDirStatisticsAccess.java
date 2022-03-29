@@ -34,25 +34,25 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class MetaDirStatisticsAccess
-        implements DeltaLakeStatisticsAccess
+        implements ExtendedStatisticsAccess
 {
     private static final String STATISTICS_META_DIR = TRANSACTION_LOG_DIRECTORY + "/_trino_meta"; // store inside TL directory so it is not deleted by VACUUM
     private static final String STATISTICS_FILE = "extended_stats.json";
 
     private final HdfsEnvironment hdfsEnvironment;
-    private final JsonCodec<DeltaLakeStatistics> statisticsCodec;
+    private final JsonCodec<ExtendedStatistics> statisticsCodec;
 
     @Inject
     public MetaDirStatisticsAccess(
             HdfsEnvironment hdfsEnvironment,
-            JsonCodec<DeltaLakeStatistics> statisticsCodec)
+            JsonCodec<ExtendedStatistics> statisticsCodec)
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.statisticsCodec = requireNonNull(statisticsCodec, "statisticsCodec is null");
     }
 
     @Override
-    public Optional<DeltaLakeStatistics> readDeltaLakeStatistics(
+    public Optional<ExtendedStatistics> readExtendedStatistics(
             ConnectorSession session,
             String tableLocation)
     {
@@ -74,10 +74,10 @@ public class MetaDirStatisticsAccess
     }
 
     @Override
-    public void updateDeltaLakeStatistics(
+    public void updateExtendedStatistics(
             ConnectorSession session,
             String tableLocation,
-            DeltaLakeStatistics statistics)
+            ExtendedStatistics statistics)
     {
         Path metaPath = new Path(tableLocation, STATISTICS_META_DIR);
         ensureDirectoryExists(session, metaPath);
@@ -95,7 +95,7 @@ public class MetaDirStatisticsAccess
     }
 
     @Override
-    public void deleteDeltaLakeStatistics(ConnectorSession session, String tableLocation)
+    public void deleteExtendedStatistics(ConnectorSession session, String tableLocation)
     {
         Path statisticsPath = new Path(new Path(tableLocation, STATISTICS_META_DIR), STATISTICS_FILE);
         try {

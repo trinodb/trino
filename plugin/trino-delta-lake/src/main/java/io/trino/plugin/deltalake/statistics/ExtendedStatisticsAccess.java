@@ -17,18 +17,18 @@ import io.trino.spi.connector.ConnectorSession;
 
 import java.util.Optional;
 
-public interface DeltaLakeStatisticsAccess
+public interface ExtendedStatisticsAccess
 {
-    Optional<DeltaLakeStatistics> readDeltaLakeStatistics(
+    Optional<ExtendedStatistics> readExtendedStatistics(
             ConnectorSession session,
             String tableLocation);
 
-    void updateDeltaLakeStatistics(
+    void updateExtendedStatistics(
             ConnectorSession session,
             String tableLocation,
-            DeltaLakeStatistics statistics);
+            ExtendedStatistics statistics);
 
-    void deleteDeltaLakeStatistics(
+    void deleteExtendedStatistics(
             ConnectorSession session,
             String tableLocation);
 }

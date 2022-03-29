@@ -37,29 +37,29 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
 import static java.time.temporal.ChronoUnit.HOURS;
 import static java.util.Objects.requireNonNull;
 
-public class CachingDeltaLakeStatisticsAccess
-        implements DeltaLakeStatisticsAccess
+public class CachingExtendedStatisticsAccess
+        implements ExtendedStatisticsAccess
 {
     private static final Duration CACHE_EXPIRATION = Duration.of(1, HOURS);
     private static final long CACHE_MAX_SIZE = 1000;
 
-    private final DeltaLakeStatisticsAccess delegate;
-    private final Cache<String, Optional<DeltaLakeStatistics>> cache = EvictableCacheBuilder.newBuilder()
+    private final ExtendedStatisticsAccess delegate;
+    private final Cache<String, Optional<ExtendedStatistics>> cache = EvictableCacheBuilder.newBuilder()
             .expireAfterWrite(CACHE_EXPIRATION)
             .maximumSize(CACHE_MAX_SIZE)
             .build();
 
     @Inject
-    public CachingDeltaLakeStatisticsAccess(@ForCachingDeltaLakeStatisticsAccess DeltaLakeStatisticsAccess delegate)
+    public CachingExtendedStatisticsAccess(@ForCachingExtendedStatisticsAccess ExtendedStatisticsAccess delegate)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
     }
 
     @Override
-    public Optional<DeltaLakeStatistics> readDeltaLakeStatistics(ConnectorSession session, String tableLocation)
+    public Optional<ExtendedStatistics> readExtendedStatistics(ConnectorSession session, String tableLocation)
     {
         try {
-            return uncheckedCacheGet(cache, tableLocation, () -> delegate.readDeltaLakeStatistics(session, tableLocation));
+            return uncheckedCacheGet(cache, tableLocation, () -> delegate.readExtendedStatistics(session, tableLocation));
         }
         catch (UncheckedExecutionException e) {
             throwIfInstanceOf(e.getCause(), TrinoException.class);
@@ -68,16 +68,16 @@ public class CachingDeltaLakeStatisticsAccess
     }
 
     @Override
-    public void updateDeltaLakeStatistics(ConnectorSession session, String tableLocation, DeltaLakeStatistics statistics)
+    public void updateExtendedStatistics(ConnectorSession session, String tableLocation, ExtendedStatistics statistics)
     {
-        delegate.updateDeltaLakeStatistics(session, tableLocation, statistics);
+        delegate.updateExtendedStatistics(session, tableLocation, statistics);
         cache.invalidate(tableLocation);
     }
 
     @Override
-    public void deleteDeltaLakeStatistics(ConnectorSession session, String tableLocation)
+    public void deleteExtendedStatistics(ConnectorSession session, String tableLocation)
     {
-        delegate.deleteDeltaLakeStatistics(session, tableLocation);
+        delegate.deleteExtendedStatistics(session, tableLocation);
         cache.invalidate(tableLocation);
     }
 
@@ -90,5 +90,5 @@ public class CachingDeltaLakeStatisticsAccess
     @Retention(RUNTIME)
     @Target({FIELD, PARAMETER, METHOD})
     @Qualifier
-    public @interface ForCachingDeltaLakeStatisticsAccess {};
+    public @interface ForCachingExtendedStatisticsAccess {};
 }
