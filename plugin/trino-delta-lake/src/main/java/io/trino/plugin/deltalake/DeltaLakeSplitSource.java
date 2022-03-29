@@ -13,11 +13,13 @@
  */
 package io.trino.plugin.deltalake;
 
+import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Futures;
 import io.airlift.concurrent.MoreFutures;
 import io.airlift.log.Logger;
+import io.airlift.units.Duration;
 import io.trino.plugin.hive.util.AsyncQueue;
 import io.trino.plugin.hive.util.ThrottledAsyncQueue;
 import io.trino.spi.TrinoException;
@@ -45,10 +47,12 @@ import static io.airlift.concurrent.MoreFutures.toCompletableFuture;
 import static io.trino.plugin.deltalake.DeltaLakeSplitManager.partitionMatchesPredicate;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class DeltaLakeSplitSource
         implements ConnectorSplitSource
 {
+    private static final ConnectorSplitBatch EMPTY_BATCH = new ConnectorSplitBatch(ImmutableList.of(), false);
     private static final Logger LOG = Logger.get(DeltaLakeSplitSource.class);
 
     private final SchemaTableName tableName;
@@ -56,6 +60,8 @@ public class DeltaLakeSplitSource
     private final boolean recordScannedFiles;
     private final ImmutableSet.Builder<String> scannedFilePaths = ImmutableSet.builder();
     private final DynamicFilter dynamicFilter;
+    private final long dynamicFilteringWaitTimeoutMillis;
+    private final Stopwatch dynamicFilterWaitStopwatch;
     private volatile TrinoException trinoException;
 
     public DeltaLakeSplitSource(
@@ -65,12 +71,15 @@ public class DeltaLakeSplitSource
             int maxSplitsPerSecond,
             int maxOutstandingSplits,
             DynamicFilter dynamicFilter,
+            Duration dynamicFilteringWaitTimeout,
             boolean recordScannedFiles)
     {
         this.tableName = requireNonNull(tableName, "tableName is null");
         this.queue = new ThrottledAsyncQueue<>(maxSplitsPerSecond, maxOutstandingSplits, executor);
         this.recordScannedFiles = recordScannedFiles;
         this.dynamicFilter = requireNonNull(dynamicFilter, "dynamicFilter is null");
+        this.dynamicFilteringWaitTimeoutMillis = requireNonNull(dynamicFilteringWaitTimeout, "dynamicFilteringWaitTimeout is null").toMillis();
+        this.dynamicFilterWaitStopwatch = Stopwatch.createStarted();
         queueSplits(splits, queue, executor)
                 .exceptionally(throwable -> {
                     // set trinoException before finishing the queue to ensure failure is observed instead of successful completion
@@ -91,6 +100,13 @@ public class DeltaLakeSplitSource
     @Override
     public CompletableFuture<ConnectorSplitBatch> getNextBatch(ConnectorPartitionHandle partitionHandle, int maxSize)
     {
+        long timeLeft = dynamicFilteringWaitTimeoutMillis - dynamicFilterWaitStopwatch.elapsed(MILLISECONDS);
+        if (dynamicFilter.isAwaitable() && timeLeft > 0) {
+            return dynamicFilter.isBlocked()
+                    .thenApply(ignored -> EMPTY_BATCH)
+                    .completeOnTimeout(EMPTY_BATCH, timeLeft, MILLISECONDS);
+        }
+
         boolean noMoreSplits = isFinished();
         if (trinoException != null) {
             return toCompletableFuture(immediateFailedFuture(trinoException));
