@@ -25,6 +25,7 @@ import io.airlift.event.client.EventModule;
 import io.airlift.json.JsonModule;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.base.CatalogNameModule;
+import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorAccessControl;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorPageSinkProvider;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorPageSourceProvider;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorSplitManager;
@@ -42,6 +43,7 @@ import io.trino.spi.NodeManager;
 import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.Connector;
+import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
@@ -54,6 +56,7 @@ import io.trino.spi.type.TypeManager;
 import org.weakref.jmx.guice.MBeanModule;
 
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -109,6 +112,11 @@ public final class InternalDeltaLakeConnectorFactory
             DeltaLakeAnalyzeProperties deltaLakeAnalyzeProperties = injector.getInstance(DeltaLakeAnalyzeProperties.class);
             DeltaLakeTransactionManager transactionManager = injector.getInstance(DeltaLakeTransactionManager.class);
 
+            Optional<ConnectorAccessControl> deltaAccessControl = injector.getInstance(Key.get(new TypeLiteral<Optional<ConnectorAccessControl>>() {}))
+                    // TODO: add the following when adding support for system tables
+                    //   .map(accessControl -> new SystemTableAwareAccessControl(accessControl, systemTableProviders))
+                    .map(accessControl -> new ClassLoaderSafeConnectorAccessControl(accessControl, classLoader));
+
             Set<EventListener> eventListeners = injector.getInstance(Key.get(new TypeLiteral<Set<EventListener>>() {}))
                     .stream()
                     .map(listener -> new ClassLoaderSafeEventListener(listener, classLoader))
@@ -130,6 +138,7 @@ public final class InternalDeltaLakeConnectorFactory
                     DeltaLakeSchemaProperties.SCHEMA_PROPERTIES,
                     deltaLakeTableProperties.getTableProperties(),
                     deltaLakeAnalyzeProperties.getAnalyzeProperties(),
+                    deltaAccessControl,
                     eventListeners,
                     transactionManager);
         }
