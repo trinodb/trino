@@ -16,14 +16,12 @@ package io.trino.plugin.deltalake;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.connector.ConnectorFactory;
 
-import java.util.Optional;
-
 public class TestingDeltaLakePlugin
         extends DeltaLakePlugin
 {
     @Override
     public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        return ImmutableList.of(getConnectorFactory(Optional.of(new TestingDeltaLakeExtensionsModule())));
+        return ImmutableList.of(getConnectorFactory(TestingDeltaLakeExtensionsModule.class));
     }
 }
