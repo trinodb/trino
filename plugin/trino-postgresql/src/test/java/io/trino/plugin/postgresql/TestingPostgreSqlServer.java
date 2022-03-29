@@ -15,6 +15,7 @@ package io.trino.plugin.postgresql;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.plugin.jdbc.RemoteDatabaseEvent;
+import org.intellij.lang.annotations.Language;
 import org.testcontainers.containers.PostgreSQLContainer;
 
 import java.io.Closeable;
@@ -61,7 +62,7 @@ public class TestingPostgreSqlServer
         execute("CREATE SCHEMA tpch");
     }
 
-    public void execute(String sql)
+    public void execute(@Language("SQL") String sql)
     {
         execute(getJdbcUrl(), getProperties(), sql);
     }
