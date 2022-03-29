@@ -81,7 +81,13 @@ public final class InternalHiveConnectorFactory
         return createConnector(catalogName, config, context, module, Optional.empty(), Optional.empty());
     }
 
-    public static Connector createConnector(String catalogName, Map<String, String> config, ConnectorContext context, Module module, Optional<HiveMetastore> metastore, Optional<CachingDirectoryLister> cachingDirectoryLister)
+    public static Connector createConnector(
+            String catalogName,
+            Map<String, String> config,
+            ConnectorContext context,
+            Module module,
+            Optional<HiveMetastore> metastore,
+            Optional<CachingDirectoryLister> cachingDirectoryLister)
     {
         requireNonNull(config, "config is null");
 
