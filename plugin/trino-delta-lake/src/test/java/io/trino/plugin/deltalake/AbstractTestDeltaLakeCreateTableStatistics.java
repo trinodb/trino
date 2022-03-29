@@ -532,8 +532,7 @@ public abstract class AbstractTestDeltaLakeCreateTableStatistics
                 new DeltaLakeConfig(),
                 new FileFormatDataSourceStats(),
                 hdfsEnvironment,
-                new ParquetReaderConfig(),
-                new DeltaLakeConfig());
+                new ParquetReaderConfig());
 
         return transactionLogAccess.getActiveFiles(
                 transactionLogAccess.loadSnapshot(new SchemaTableName(SCHEMA, tableName), new Path(format("s3://%s/%s", bucketName, tableName)), SESSION), SESSION);

@@ -117,8 +117,7 @@ public class TestDeltaLakeMetastoreStatistics
                 new DeltaLakeConfig(),
                 fileFormatDataSourceStats,
                 hdfsEnvironment,
-                new ParquetReaderConfig(),
-                new DeltaLakeConfig());
+                new ParquetReaderConfig());
 
         File tmpDir = Files.createTempDir();
         File metastoreDir = new File(tmpDir, "metastore");
