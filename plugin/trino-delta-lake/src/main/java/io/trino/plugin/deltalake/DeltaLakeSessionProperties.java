@@ -52,6 +52,7 @@ public final class DeltaLakeSessionProperties
     // This property is not supported by Delta Lake and exists solely for technical reasons.
     @Deprecated
     private static final String TIMESTAMP_PRECISION = "timestamp_precision";
+    private static final String DYNAMIC_FILTERING_WAIT_TIMEOUT = "dynamic_filtering_wait_timeout";
     private static final String TABLE_STATISTICS_ENABLED = "statistics_enabled";
     private static final String EXTENDED_STATISTICS_ENABLED = "extended_statistics_enabled";
 
@@ -118,6 +119,11 @@ public final class DeltaLakeSessionProperties
                         MILLISECONDS,
                         value -> { throw new IllegalStateException("The property cannot be set"); },
                         true),
+                durationProperty(
+                        DYNAMIC_FILTERING_WAIT_TIMEOUT,
+                        "Duration to wait for completion of dynamic filters during split generation",
+                        deltaLakeConfig.getDynamicFilteringWaitTimeout(),
+                        false),
                 booleanProperty(
                         TABLE_STATISTICS_ENABLED,
                         "Expose table statistics",
@@ -185,6 +191,11 @@ public final class DeltaLakeSessionProperties
     public static DataSize getParquetWriterPageSize(ConnectorSession session)
     {
         return session.getProperty(PARQUET_WRITER_PAGE_SIZE, DataSize.class);
+    }
+
+    public static Duration getDynamicFilteringWaitTimeout(ConnectorSession session)
+    {
+        return session.getProperty(DYNAMIC_FILTERING_WAIT_TIMEOUT, Duration.class);
     }
 
     public static boolean isTableStatisticsEnabled(ConnectorSession session)

@@ -27,6 +27,8 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDe
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.HOURS;
+import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class TestDeltaLakeConfig
 {
@@ -49,6 +51,7 @@ public class TestDeltaLakeConfig
                 .setCheckpointRowStatisticsWritingEnabled(true)
                 .setVacuumMinRetention(new Duration(7, DAYS))
                 .setHiveCatalogName(null)
+                .setDynamicFilteringWaitTimeout(new Duration(0, SECONDS))
                 .setTableStatisticsEnabled(true)
                 .setExtendedStatisticsEnabled(true)
                 .setCompressionCodec(HiveCompressionCodec.SNAPPY));
@@ -73,6 +76,7 @@ public class TestDeltaLakeConfig
                 .put("delta.checkpoint-row-statistics-writing.enabled", "false")
                 .put("delta.vacuum.min-retention", "13h")
                 .put("delta.hive-catalog-name", "hive")
+                .put("delta.dynamic-filtering.wait-timeout", "30m")
                 .put("delta.table-statistics-enabled", "false")
                 .put("delta.extended-statistics.enabled", "false")
                 .put("delta.compression-codec", "GZIP")
@@ -94,6 +98,7 @@ public class TestDeltaLakeConfig
                 .setCheckpointRowStatisticsWritingEnabled(false)
                 .setVacuumMinRetention(new Duration(13, HOURS))
                 .setHiveCatalogName("hive")
+                .setDynamicFilteringWaitTimeout(new Duration(30, MINUTES))
                 .setTableStatisticsEnabled(false)
                 .setExtendedStatisticsEnabled(false)
                 .setCompressionCodec(HiveCompressionCodec.GZIP);
