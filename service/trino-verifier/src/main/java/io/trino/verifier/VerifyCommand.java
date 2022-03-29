@@ -23,7 +23,6 @@ import com.google.inject.Inject;
 import com.google.inject.Injector;
 import com.google.inject.Key;
 import com.google.inject.Module;
-import com.google.inject.Provider;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
@@ -31,6 +30,7 @@ import com.google.inject.TypeLiteral;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.event.client.EventClient;
+import io.airlift.json.JsonModule;
 import io.airlift.log.Logger;
 import io.trino.sql.parser.ParsingOptions;
 import io.trino.sql.parser.SqlParser;
@@ -70,6 +70,8 @@ import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
 import picocli.CommandLine.Spec;
+
+import javax.inject.Provider;
 
 import java.io.File;
 import java.io.IOException;
@@ -132,6 +134,7 @@ public class VerifyCommand
         }
 
         ImmutableList.Builder<Module> builder = ImmutableList.<Module>builder()
+                .add(new JsonModule())
                 .add(new PrestoVerifierModule())
                 .add(new DataSourceModule(this))
                 .addAll(getAdditionalModules());
