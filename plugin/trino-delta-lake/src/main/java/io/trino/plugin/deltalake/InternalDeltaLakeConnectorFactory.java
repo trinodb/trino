@@ -54,7 +54,6 @@ import io.trino.spi.type.TypeManager;
 import org.weakref.jmx.guice.MBeanModule;
 
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -64,21 +63,12 @@ public final class InternalDeltaLakeConnectorFactory
 {
     private InternalDeltaLakeConnectorFactory() {}
 
-    public static Connector createConnector(
-            String catalogName,
-            Map<String, String> config,
-            ConnectorContext context,
-            Optional<Module> extensions)
-    {
-        return createConnector(catalogName, config, context, extensions.orElse(binder -> {}));
-    }
-
     @VisibleForTesting
     public static Connector createConnector(
             String catalogName,
             Map<String, String> config,
             ConnectorContext context,
-            Module extraModule)
+            Module module)
     {
         ClassLoader classLoader = InternalDeltaLakeConnectorFactory.class.getClassLoader();
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
@@ -102,7 +92,7 @@ public final class InternalDeltaLakeConnectorFactory
                         binder.bind(CatalogName.class).toInstance(new CatalogName(catalogName));
                         newSetBinder(binder, EventListener.class);
                     },
-                    extraModule);
+                    module);
 
             Injector injector = app
                     .doNotInitializeLogging()
