@@ -13,15 +13,62 @@
  */
 package io.trino.plugin.deltalake;
 
-import com.google.common.collect.ImmutableList;
+import com.google.inject.Binder;
+import com.google.inject.Module;
+import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.trino.spi.connector.Connector;
+import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
+
+import java.util.List;
+import java.util.Map;
+
+import static com.google.inject.util.Modules.EMPTY_MODULE;
+import static java.util.Objects.requireNonNull;
 
 public class TestingDeltaLakePlugin
         extends DeltaLakePlugin
 {
+    private final Module additionalModule;
+
+    public TestingDeltaLakePlugin()
+    {
+        this(EMPTY_MODULE);
+    }
+
+    public TestingDeltaLakePlugin(Module additionalModule)
+    {
+        this.additionalModule = requireNonNull(additionalModule, "additionalModule is null");
+    }
+
     @Override
     public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        return ImmutableList.of(getConnectorFactory(TestingDeltaLakeExtensionsModule.class));
+        return List.of(new ConnectorFactory()
+        {
+            @Override
+            public String getName()
+            {
+                return DeltaLakeConnectorFactory.CONNECTOR_NAME;
+            }
+
+            @Override
+            public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
+            {
+                return InternalDeltaLakeConnectorFactory.createConnector(
+                        catalogName,
+                        config,
+                        context,
+                        new AbstractConfigurationAwareModule()
+                        {
+                            @Override
+                            protected void setup(Binder binder)
+                            {
+                                install(additionalModule);
+                                install(new TestingDeltaLakeExtensionsModule());
+                            }
+                        });
+            }
+        });
     }
 }
