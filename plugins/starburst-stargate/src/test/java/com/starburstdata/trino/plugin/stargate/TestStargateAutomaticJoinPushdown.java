@@ -9,8 +9,8 @@
  */
 package com.starburstdata.trino.plugin.stargate;
 
-import com.starburstdata.presto.plugin.jdbc.joinpushdown.BaseAutomaticJoinPushdownTest;
 import io.trino.Session;
+import io.trino.plugin.jdbc.BaseAutomaticJoinPushdownTest;
 import io.trino.plugin.postgresql.TestingPostgreSqlServer;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
