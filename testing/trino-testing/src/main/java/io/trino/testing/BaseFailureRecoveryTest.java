@@ -266,7 +266,7 @@ public abstract class BaseFailureRecoveryTest
     {
         testTableModification(
                 Optional.of("CREATE TABLE <table> AS SELECT * FROM orders"),
-                "DELETE FROM orders WHERE orderkey = 1",
+                "DELETE FROM <table> WHERE orderkey = 1",
                 Optional.of("DROP TABLE <table>"));
     }
 
@@ -275,7 +275,7 @@ public abstract class BaseFailureRecoveryTest
     {
         testTableModification(
                 Optional.of("CREATE TABLE <table> AS SELECT * FROM orders"),
-                "DELETE FROM orders WHERE custkey IN (SELECT custkey FROM customer WHERE nationkey = 1)",
+                "DELETE FROM <table> WHERE custkey IN (SELECT custkey FROM customer WHERE nationkey = 1)",
                 Optional.of("DROP TABLE <table>"));
     }
 
@@ -284,7 +284,7 @@ public abstract class BaseFailureRecoveryTest
     {
         testTableModification(
                 Optional.of("CREATE TABLE <table> AS SELECT * FROM orders"),
-                "UPDATE orders SET shippriority = 101 WHERE custkey = 1",
+                "UPDATE <table> SET shippriority = 101 WHERE custkey = 1",
                 Optional.of("DROP TABLE <table>"));
     }
 
@@ -293,7 +293,7 @@ public abstract class BaseFailureRecoveryTest
     {
         testTableModification(
                 Optional.of("CREATE TABLE <table> AS SELECT * FROM orders"),
-                "UPDATE orders SET shippriority = 101 WHERE custkey = (SELECT min(custkey) FROM customer)",
+                "UPDATE <table> SET shippriority = 101 WHERE custkey = (SELECT min(custkey) FROM customer)",
                 Optional.of("DROP TABLE <table>"));
     }
 
