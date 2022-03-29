@@ -72,7 +72,7 @@ public class TestDeltaLakePerTransactionMetastoreCache
 
     private static final String TEST_DELTA_CONNECTOR_NAME = "TEST_DELTA_LAKE";
 
-    private Map<String, Long> hiveMetastoreInvocationCounts = new ConcurrentHashMap<>();
+    private final Map<String, Long> hiveMetastoreInvocationCounts = new ConcurrentHashMap<>();
 
     @AfterClass(alwaysRun = true)
     public final void close()
