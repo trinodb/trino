@@ -964,6 +964,37 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testCreateTableWithLocationAndSchemaNotExists()
+    {
+        File tempDir = getDistributedQueryRunner().getCoordinator().getBaseDataDir().toFile();
+        String tempDirPath = tempDir.toURI().toASCIIString() + randomTableSuffix();
+        String createTableWithLocationTemplate = "" +
+                "CREATE TABLE iceberg.any_schema.test_table_comments (\n" +
+                "   _x bigint\n" +
+                ")\n" +
+                "WITH (\n" +
+                format("   format = '%s',\n", format) +
+                format("   location = '%s'\n", tempDirPath) +
+                ")";
+        String createTableWithLocationSql = format(createTableWithLocationTemplate, format);
+        assertQueryFails(createTableWithLocationSql, "Schema any_schema not found");
+    }
+
+    @Test
+    public void testCreateTableWithoutLocationAndSchemaNotExists()
+    {
+        String createTableWithoutLocationTemplate = "" +
+                "CREATE TABLE iceberg.any_schema.test_table_comments (\n" +
+                "   _x bigint\n" +
+                ")\n" +
+                "WITH (\n" +
+                "   format = '" + format + "'\n"+
+                ")";
+        String createTableWithoutLocationSql = format(createTableWithoutLocationTemplate, format);
+        assertQueryFails(createTableWithoutLocationSql, "Schema any_schema not found");
+    }
+
+    @Test
     public void testRollbackSnapshot()
     {
         assertUpdate("CREATE TABLE test_rollback (col0 INTEGER, col1 BIGINT)");
