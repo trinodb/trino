@@ -72,6 +72,7 @@ import java.util.function.BiFunction;
 
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
@@ -132,6 +133,9 @@ public class DeltaLakeModule
         // Azure
         logSynchronizerMapBinder.addBinding("abfs").to(AzureTransactionLogSynchronizer.class).in(Scopes.SINGLETON);
         logSynchronizerMapBinder.addBinding("abfss").to(AzureTransactionLogSynchronizer.class).in(Scopes.SINGLETON);
+
+        newOptionalBinder(binder, DeltaLakeRedirectionsProvider.class)
+                .setDefault().toInstance(DeltaLakeRedirectionsProvider.NOOP);
 
         jsonCodecBinder(binder).bindJsonCodec(DataFileInfo.class);
         jsonCodecBinder(binder).bindJsonCodec(DeltaLakeUpdateResult.class);
