@@ -71,6 +71,10 @@ public final class IcebergSessionProperties
     private static final String STATISTICS_ENABLED = "statistics_enabled";
     private static final String PROJECTION_PUSHDOWN_ENABLED = "projection_pushdown_enabled";
     private static final String TARGET_MAX_FILE_SIZE = "target_max_file_size";
+    private static final String SPLIT_SIZE = "split_size";
+    private static final String METADATA_SPLIT_SIZE = "metadata_split_size";
+    private static final String SPLIT_LOOKBACK = "split_lookback";
+    private static final String SPLIT_OPEN_FILE_COST = "split_open_file_cost";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -219,6 +223,28 @@ public final class IcebergSessionProperties
                         "Target maximum size of written files; the actual size may be larger",
                         hiveConfig.getTargetMaxFileSize(),
                         false))
+                .add(dataSizeProperty(
+                        SPLIT_SIZE,
+                        "Maximum split size read on data file",
+                        icebergConfig.getSplitTargetSize(),
+                        false))
+                .add(dataSizeProperty(
+                        METADATA_SPLIT_SIZE,
+                        "Maximum split size read on metadata file",
+                        icebergConfig.getSplitMetadataTargetSize(),
+                        false))
+                .add(integerProperty(
+                        SPLIT_LOOKBACK,
+                        "The number of bins considered when trying to pack the next file split into " +
+                                "a task. Increasing this usually makes tasks a bit more even by considering " +
+                                "more ways to pack file regions into a single task with extra planning cost.",
+                        icebergConfig.getSplitPlanningLookback(),
+                        false))
+                .add(dataSizeProperty(
+                        SPLIT_OPEN_FILE_COST,
+                        "The minimum memory cost to open a file.",
+                        icebergConfig.getSplitOpenFileCost(),
+                        false))
                 .build();
     }
 
@@ -358,5 +384,25 @@ public final class IcebergSessionProperties
     public static long getTargetMaxFileSize(ConnectorSession session)
     {
         return session.getProperty(TARGET_MAX_FILE_SIZE, DataSize.class).toBytes();
+    }
+
+    public static DataSize getSplitSize(ConnectorSession session)
+    {
+        return session.getProperty(SPLIT_SIZE, DataSize.class);
+    }
+
+    public static DataSize getMetadataSplitSize(ConnectorSession session)
+    {
+        return session.getProperty(METADATA_SPLIT_SIZE, DataSize.class);
+    }
+
+    public static int getSplitLookback(ConnectorSession session)
+    {
+        return session.getProperty(SPLIT_LOOKBACK, Integer.class);
+    }
+
+    public static DataSize getSplitOpenFileCost(ConnectorSession session)
+    {
+        return session.getProperty(SPLIT_OPEN_FILE_COST, DataSize.class);
     }
 }

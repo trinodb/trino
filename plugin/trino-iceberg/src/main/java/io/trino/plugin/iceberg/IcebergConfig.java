@@ -15,6 +15,7 @@ package io.trino.plugin.iceberg;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.plugin.hive.HiveCompressionCodec;
 
@@ -37,6 +38,10 @@ public class IcebergConfig
     private Duration dynamicFilteringWaitTimeout = new Duration(0, SECONDS);
     private boolean tableStatisticsEnabled = true;
     private boolean projectionPushdownEnabled = true;
+    private DataSize splitTargetSize = DataSize.of(128, DataSize.Unit.MEGABYTE);
+    private DataSize splitMetadataTargetSize = DataSize.of(32, DataSize.Unit.MEGABYTE);
+    private int splitPlanningLookback = 10;
+    private DataSize splitOpenFileCost = DataSize.of(4, DataSize.Unit.MEGABYTE);
 
     public CatalogType getCatalogType()
     {
@@ -164,6 +169,61 @@ public class IcebergConfig
     public IcebergConfig setProjectionPushdownEnabled(boolean projectionPushdownEnabled)
     {
         this.projectionPushdownEnabled = projectionPushdownEnabled;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getSplitTargetSize()
+    {
+        return splitTargetSize;
+    }
+
+    @Config("iceberg.split-target-size")
+    @ConfigDescription("The target size of a data file split.")
+    public IcebergConfig setSplitTargetSize(DataSize splitTargetSize)
+    {
+        this.splitTargetSize = splitTargetSize;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getSplitMetadataTargetSize()
+    {
+        return splitMetadataTargetSize;
+    }
+
+    @Config("iceberg.split-metadata-target-size")
+    @ConfigDescription("The target size of a metadata file split.")
+    public IcebergConfig setSplitMetadataTargetSize(DataSize splitMetadataTargetSize)
+    {
+        this.splitMetadataTargetSize = splitMetadataTargetSize;
+        return this;
+    }
+
+    public int getSplitPlanningLookback()
+    {
+        return splitPlanningLookback;
+    }
+
+    @Config("iceberg.split-planning-lookback")
+    @ConfigDescription("The number of bins considered when trying to pack the next file split into a scan task.")
+    public IcebergConfig setSplitPlanningLookback(int splitPlanningLookback)
+    {
+        this.splitPlanningLookback = splitPlanningLookback;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getSplitOpenFileCost()
+    {
+        return splitOpenFileCost;
+    }
+
+    @Config("iceberg.split-open-file-cost")
+    @ConfigDescription("The cost of opening a file that will be taken into account during planning scan tasks.")
+    public IcebergConfig setSplitOpenFileCost(DataSize splitOpenFileCost)
+    {
+        this.splitOpenFileCost = splitOpenFileCost;
         return this;
     }
 }

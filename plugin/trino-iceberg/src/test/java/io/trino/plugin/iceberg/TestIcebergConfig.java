@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableMap;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.plugin.hive.HiveCompressionCodec;
 import org.testng.annotations.Test;
@@ -44,7 +45,11 @@ public class TestIcebergConfig
                 .setCatalogType(HIVE_METASTORE)
                 .setDynamicFilteringWaitTimeout(new Duration(0, MINUTES))
                 .setTableStatisticsEnabled(true)
-                .setProjectionPushdownEnabled(true));
+                .setProjectionPushdownEnabled(true)
+                .setSplitTargetSize(DataSize.of(128, DataSize.Unit.MEGABYTE))
+                .setSplitMetadataTargetSize(DataSize.of(32, DataSize.Unit.MEGABYTE))
+                .setSplitPlanningLookback(10)
+                .setSplitOpenFileCost(DataSize.of(4, DataSize.Unit.MEGABYTE)));
     }
 
     @Test
@@ -60,6 +65,10 @@ public class TestIcebergConfig
                 .put("iceberg.dynamic-filtering.wait-timeout", "1h")
                 .put("iceberg.table-statistics-enabled", "false")
                 .put("iceberg.projection-pushdown-enabled", "false")
+                .put("iceberg.split-target-size", "1kB")
+                .put("iceberg.split-metadata-target-size", "2MB")
+                .put("iceberg.split-planning-lookback", "3")
+                .put("iceberg.split-open-file-cost", "3GB")
                 .buildOrThrow();
 
         IcebergConfig expected = new IcebergConfig()
@@ -71,7 +80,11 @@ public class TestIcebergConfig
                 .setCatalogType(GLUE)
                 .setDynamicFilteringWaitTimeout(Duration.valueOf("1h"))
                 .setTableStatisticsEnabled(false)
-                .setProjectionPushdownEnabled(false);
+                .setProjectionPushdownEnabled(false)
+                .setSplitTargetSize(DataSize.of(1, DataSize.Unit.KILOBYTE))
+                .setSplitMetadataTargetSize(DataSize.of(2, DataSize.Unit.MEGABYTE))
+                .setSplitPlanningLookback(3)
+                .setSplitOpenFileCost(DataSize.of(3, DataSize.Unit.GIGABYTE));
 
         assertFullMapping(properties, expected);
     }

@@ -26,11 +26,16 @@ import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedSplitSource;
 import io.trino.spi.type.TypeManager;
 import org.apache.iceberg.Table;
+import org.apache.iceberg.TableProperties;
 import org.apache.iceberg.TableScan;
 
 import javax.inject.Inject;
 
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getDynamicFilteringWaitTimeout;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.getMetadataSplitSize;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.getSplitLookback;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.getSplitOpenFileCost;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.getSplitSize;
 import static java.util.Objects.requireNonNull;
 
 public class IcebergSplitManager
@@ -70,6 +75,10 @@ public class IcebergSplitManager
         Duration dynamicFilteringWaitTimeout = getDynamicFilteringWaitTimeout(session);
 
         TableScan tableScan = icebergTable.newScan()
+                .option(TableProperties.SPLIT_SIZE, String.valueOf(getSplitSize(session).toBytes()))
+                .option(TableProperties.METADATA_SPLIT_SIZE, String.valueOf(getMetadataSplitSize(session).toBytes()))
+                .option(TableProperties.SPLIT_LOOKBACK, String.valueOf(getSplitLookback(session)))
+                .option(TableProperties.SPLIT_OPEN_FILE_COST, String.valueOf(getSplitOpenFileCost(session).toBytes()))
                 .useSnapshot(table.getSnapshotId().get());
         IcebergSplitSource splitSource = new IcebergSplitSource(
                 table,

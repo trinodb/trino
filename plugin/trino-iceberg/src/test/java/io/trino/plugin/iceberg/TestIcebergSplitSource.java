@@ -16,7 +16,9 @@ package io.trino.plugin.iceberg;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.trino.Session;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.HdfsConfig;
 import io.trino.plugin.hive.HdfsConfiguration;
@@ -30,6 +32,7 @@ import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.catalog.file.FileMetastoreTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.hms.TrinoHiveCatalog;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.Domain;
@@ -41,9 +44,12 @@ import io.trino.spi.type.TestingTypeManager;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import org.apache.iceberg.Table;
+import org.apache.iceberg.TableProperties;
+import org.apache.iceberg.TableScan;
 import org.apache.iceberg.types.Conversions;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types;
+import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -59,14 +65,21 @@ import java.util.concurrent.TimeUnit;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
+import static io.trino.SystemSessionProperties.REDISTRIBUTE_WRITES;
 import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.memoizeMetastore;
 import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
+import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.getSplitOpenFileCost;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.getSplitSize;
 import static io.trino.spi.connector.Constraint.alwaysTrue;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.testing.TestingConnectorSession.SESSION;
+import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static io.trino.tpch.TpchTable.NATION;
+import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
@@ -369,5 +382,151 @@ public class TestIcebergSplitSource
                 ImmutableMap.of(),
                 ImmutableMap.of(),
                 ImmutableMap.of()));
+    }
+
+    @Test
+    public void testSplitSourceWithSmallSplitSize()
+    {
+        String tableName = "test_default_split_size" + randomTableSuffix();
+        SchemaTableName schemaTableName = new SchemaTableName("tpch", tableName);
+
+        @Language("SQL") String createTableSql =
+                format("CREATE TABLE %s AS SELECT * FROM tpch.sf1.customer", tableName);
+        // disable the redistribution to keep the original files layout
+        Session disableRedistributionSession = Session.builder(getSession())
+                .setSystemProperty(REDISTRIBUTE_WRITES, "false")
+                .build();
+        assertUpdate(disableRedistributionSession, createTableSql, 150000);
+
+        IcebergTableHandle tableHandle = new IcebergTableHandle(
+                schemaTableName.getSchemaName(),
+                schemaTableName.getTableName(),
+                TableType.DATA,
+                Optional.empty(),
+                TupleDomain.all(),
+                TupleDomain.all(),
+                ImmutableSet.of(),
+                Optional.empty());
+
+        // plan with the default split size
+
+        ConnectorSession connectorSession = getSession().toConnectorSession(ICEBERG_CATALOG);
+        assertEquals(getSplitSize(connectorSession), DataSize.of(128, DataSize.Unit.MEGABYTE));
+        assertEquals(getSplitOpenFileCost(connectorSession), DataSize.of(4, DataSize.Unit.MEGABYTE));
+
+        Table icebergTable = catalog.loadTable(connectorSession, schemaTableName);
+        IcebergSplitSource splitSource = getCompletableSplitSource(tableHandle, icebergTable.newScan());
+        ImmutableList<IcebergSplit> splitList = getSplits(splitSource);
+
+        assertTrue(splitSource.isFinished());
+
+        long plannedDefaultSplitsSize = 0;
+        long smallestOpenFileCost = Long.MAX_VALUE;
+        for (IcebergSplit icebergSplit : splitList) {
+            plannedDefaultSplitsSize += icebergSplit.getLength();
+            smallestOpenFileCost = Math.min(smallestOpenFileCost, Math.floorMod(icebergSplit.getFileSize(), 1024 * 1024));
+
+            assertTrue(icebergSplit.getLength() < getSplitOpenFileCost(connectorSession).toBytes(),
+                    format("Split size %s is smaller than the default open file size %s!",
+                            icebergSplit.getLength(), getSplitOpenFileCost(connectorSession).toString()));
+            assertTrue(icebergSplit.getLength() <= getSplitSize(connectorSession).toBytes(),
+                    format("Split size %s is bigger than the default split size %s!",
+                            icebergSplit.getLength(), getSplitSize(connectorSession).toString()));
+        }
+
+        // plan with a small split size
+
+        DataSize smallSplitSize = DataSize.of(1, DataSize.Unit.MEGABYTE);
+        DataSize smallSplitOpenFileSize = DataSize.of(smallestOpenFileCost, DataSize.Unit.BYTE);
+        connectorSession = Session.builder(getSession())
+                .setCatalogSessionProperty(ICEBERG_CATALOG, "split_size", smallSplitSize.toString())
+                .setCatalogSessionProperty(ICEBERG_CATALOG, "split_open_file_cost", smallSplitOpenFileSize.toString())
+                .build()
+                .toConnectorSession(ICEBERG_CATALOG);
+
+        System.out.println(smallestOpenFileCost);
+
+        assertEquals(getSplitSize(connectorSession), smallSplitSize);
+
+        icebergTable = catalog.loadTable(connectorSession, schemaTableName);
+        TableScan tableScan = icebergTable.newScan()
+                .option(TableProperties.SPLIT_SIZE,
+                        String.valueOf(getSplitSize(connectorSession).toBytes()))
+                .option(TableProperties.SPLIT_OPEN_FILE_COST,
+                        String.valueOf(getSplitOpenFileCost(connectorSession).toBytes()))
+                .useSnapshot(icebergTable.currentSnapshot().snapshotId());
+
+        splitSource = getCompletableSplitSource(tableHandle, tableScan);
+        splitList = getSplits(splitSource);
+
+        assertTrue(splitSource.isFinished());
+
+        long planedSmallSplitsSize = 0;
+        for (IcebergSplit icebergSplit : splitList) {
+            planedSmallSplitsSize += icebergSplit.getLength();
+
+            assertTrue(icebergSplit.getLength() >= getSplitOpenFileCost(connectorSession).toBytes(),
+                    format("Split size %s is smaller than the specified open file cost %s!",
+                            icebergSplit.getLength(), getSplitOpenFileCost(connectorSession).toString()));
+            assertTrue(icebergSplit.getLength() <= smallSplitSize.toBytes(),
+                    format("Split size %s is bigger than the specified split size %s!",
+                            icebergSplit.getLength(), smallSplitSize.toString()));
+        }
+
+        assertEquals(planedSmallSplitsSize, plannedDefaultSplitsSize);
+    }
+
+    private IcebergSplitSource getCompletableSplitSource(IcebergTableHandle tableHandle, TableScan tableScan)
+    {
+        return new IcebergSplitSource(
+                tableHandle,
+                tableScan,
+                Optional.empty(),
+                new DynamicFilter()
+                {
+                    @Override
+                    public Set<ColumnHandle> getColumnsCovered()
+                    {
+                        return ImmutableSet.of();
+                    }
+
+                    @Override
+                    public CompletableFuture<?> isBlocked()
+                    {
+                        return CompletableFuture.runAsync(() -> {});
+                    }
+
+                    @Override
+                    public boolean isComplete()
+                    {
+                        return true;
+                    }
+
+                    @Override
+                    public boolean isAwaitable()
+                    {
+                        return false;
+                    }
+
+                    @Override
+                    public TupleDomain<ColumnHandle> getCurrentPredicate()
+                    {
+                        return TupleDomain.all();
+                    }
+                },
+                new Duration(2, SECONDS),
+                alwaysTrue(),
+                new TestingTypeManager(),
+                true);
+    }
+
+    private ImmutableList<IcebergSplit> getSplits(IcebergSplitSource splitSource)
+    {
+        ImmutableList.Builder<IcebergSplit> builder = ImmutableList.builder();
+        // set a large size to ensure all the data files had been handled
+        splitSource.getNextBatch(null, Integer.MAX_VALUE).whenComplete((splitBatch, ex) -> {
+            splitBatch.getSplits().forEach(split -> builder.add((IcebergSplit) split));
+        });
+        return builder.build();
     }
 }
