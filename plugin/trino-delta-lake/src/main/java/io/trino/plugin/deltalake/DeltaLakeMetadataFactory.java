@@ -15,7 +15,7 @@ package io.trino.plugin.deltalake;
 
 import io.airlift.json.JsonCodec;
 import io.trino.plugin.deltalake.metastore.HiveMetastoreBackedDeltaLakeMetastore;
-import io.trino.plugin.deltalake.statistics.CachingDeltaLakeStatisticsAccess;
+import io.trino.plugin.deltalake.statistics.CachingExtendedStatisticsAccess;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointWriterManager;
 import io.trino.plugin.deltalake.transactionlog.writer.TransactionLogWriterFactory;
@@ -45,7 +45,7 @@ public class DeltaLakeMetadataFactory
     private final TransactionLogWriterFactory transactionLogWriterFactory;
     private final NodeManager nodeManager;
     private final CheckpointWriterManager checkpointWriterManager;
-    private final CachingDeltaLakeStatisticsAccess statisticsAccess;
+    private final CachingExtendedStatisticsAccess statisticsAccess;
     private final int domainCompactionThreshold;
     private final boolean hideNonDeltaLakeTables;
     private final boolean unsafeWritesEnabled;
@@ -67,7 +67,7 @@ public class DeltaLakeMetadataFactory
             TransactionLogWriterFactory transactionLogWriterFactory,
             NodeManager nodeManager,
             CheckpointWriterManager checkpointWriterManager,
-            CachingDeltaLakeStatisticsAccess statisticsAccess,
+            CachingExtendedStatisticsAccess statisticsAccess,
             HiveConfig hiveConfig)
     {
         this.hiveMetastoreFactory = requireNonNull(hiveMetastoreFactory, "hiveMetastore is null");

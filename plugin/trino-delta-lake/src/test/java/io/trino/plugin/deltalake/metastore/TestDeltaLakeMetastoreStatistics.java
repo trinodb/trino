@@ -23,8 +23,8 @@ import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
 import io.trino.plugin.deltalake.DeltaLakeConfig;
 import io.trino.plugin.deltalake.DeltaLakeSessionProperties;
 import io.trino.plugin.deltalake.DeltaLakeTableHandle;
-import io.trino.plugin.deltalake.statistics.CachingDeltaLakeStatisticsAccess;
-import io.trino.plugin.deltalake.statistics.DeltaLakeStatistics;
+import io.trino.plugin.deltalake.statistics.CachingExtendedStatisticsAccess;
+import io.trino.plugin.deltalake.statistics.ExtendedStatistics;
 import io.trino.plugin.deltalake.statistics.MetaDirStatisticsAccess;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
@@ -132,7 +132,7 @@ public class TestDeltaLakeMetastoreStatistics
 
         hiveMetastore.createDatabase(new Database("db_name", Optional.empty(), Optional.of("test"), Optional.of(PrincipalType.USER), Optional.empty(), ImmutableMap.of()));
 
-        CachingDeltaLakeStatisticsAccess statistics = new CachingDeltaLakeStatisticsAccess(new MetaDirStatisticsAccess(hdfsEnvironment, new JsonCodecFactory().jsonCodec(DeltaLakeStatistics.class)));
+        CachingExtendedStatisticsAccess statistics = new CachingExtendedStatisticsAccess(new MetaDirStatisticsAccess(hdfsEnvironment, new JsonCodecFactory().jsonCodec(ExtendedStatistics.class)));
         deltaLakeMetastore = new HiveMetastoreBackedDeltaLakeMetastore(
                 hiveMetastore,
                 transactionLogAccess,

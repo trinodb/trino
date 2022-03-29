@@ -25,7 +25,7 @@ import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 
-public class DeltaLakeStatistics
+public class ExtendedStatistics
 {
     public static final long CURRENT_MODEL_VERSION = 4;
 
@@ -34,7 +34,7 @@ public class DeltaLakeStatistics
     private final Map<String, DeltaLakeColumnStatistics> columnStatistics;
     private final Optional<Set<String>> analyzedColumns;
 
-    public DeltaLakeStatistics(
+    public ExtendedStatistics(
             Instant alreadyAnalyzedModifiedTimeMax,
             Map<String, DeltaLakeColumnStatistics> columnStatistics,
             Optional<Set<String>> analyzedColumns)
@@ -43,7 +43,7 @@ public class DeltaLakeStatistics
     }
 
     @JsonCreator
-    public DeltaLakeStatistics(
+    public ExtendedStatistics(
             @JsonProperty("modelVersion") long modelVersion,
             @JsonProperty("alreadyAnalyzedModifiedTimeMax") Instant alreadyAnalyzedModifiedTimeMax,
             @JsonProperty("columnStatistics") Map<String, DeltaLakeColumnStatistics> columnStatistics,
