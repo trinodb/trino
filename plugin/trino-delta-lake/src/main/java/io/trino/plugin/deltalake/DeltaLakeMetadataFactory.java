@@ -45,6 +45,7 @@ public class DeltaLakeMetadataFactory
     private final TransactionLogWriterFactory transactionLogWriterFactory;
     private final NodeManager nodeManager;
     private final CheckpointWriterManager checkpointWriterManager;
+    private final DeltaLakeRedirectionsProvider deltaLakeRedirectionsProvider;
     private final CachingExtendedStatisticsAccess statisticsAccess;
     private final int domainCompactionThreshold;
     private final boolean hideNonDeltaLakeTables;
@@ -67,6 +68,7 @@ public class DeltaLakeMetadataFactory
             TransactionLogWriterFactory transactionLogWriterFactory,
             NodeManager nodeManager,
             CheckpointWriterManager checkpointWriterManager,
+            DeltaLakeRedirectionsProvider deltaLakeRedirectionsProvider,
             CachingExtendedStatisticsAccess statisticsAccess,
             HiveConfig hiveConfig)
     {
@@ -79,6 +81,7 @@ public class DeltaLakeMetadataFactory
         this.transactionLogWriterFactory = requireNonNull(transactionLogWriterFactory, "transactionLogWriterFactory is null");
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.checkpointWriterManager = requireNonNull(checkpointWriterManager, "checkpointWriterManager is null");
+        this.deltaLakeRedirectionsProvider = requireNonNull(deltaLakeRedirectionsProvider, "deltaLakeRedirectionsProvider is null");
         this.statisticsAccess = requireNonNull(statisticsAccess, "statisticsAccess is null");
         requireNonNull(deltaLakeConfig, "deltaLakeConfig is null");
         this.domainCompactionThreshold = deltaLakeConfig.getDomainCompactionThreshold();
@@ -116,6 +119,7 @@ public class DeltaLakeMetadataFactory
                 checkpointWritingInterval,
                 ignoreCheckpointWriteFailures,
                 deleteSchemaLocationsFallback,
+                deltaLakeRedirectionsProvider,
                 statisticsAccess);
     }
 }

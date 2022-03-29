@@ -80,6 +80,7 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.TableColumnsMetadata;
 import io.trino.spi.connector.TableNotFoundException;
+import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.predicate.Domain;
@@ -242,6 +243,7 @@ public class DeltaLakeMetadata
     private final String nodeVersion;
     private final String nodeId;
     private final AtomicReference<Runnable> rollbackAction = new AtomicReference<>();
+    private final DeltaLakeRedirectionsProvider deltaLakeRedirectionsProvider;
     private final ExtendedStatisticsAccess statisticsAccess;
     private final boolean deleteSchemaLocationsFallback;
 
@@ -260,6 +262,7 @@ public class DeltaLakeMetadata
             long defaultCheckpointInterval,
             boolean ignoreCheckpointWriteFailures,
             boolean deleteSchemaLocationsFallback,
+            DeltaLakeRedirectionsProvider deltaLakeRedirectionsProvider,
             ExtendedStatisticsAccess statisticsAccess)
     {
         this.metastore = requireNonNull(metastore, "metastore is null");
@@ -276,6 +279,7 @@ public class DeltaLakeMetadata
         this.checkpointWriterManager = requireNonNull(checkpointWriterManager, "checkpointWriterManager is null");
         this.defaultCheckpointInterval = defaultCheckpointInterval;
         this.ignoreCheckpointWriteFailures = ignoreCheckpointWriteFailures;
+        this.deltaLakeRedirectionsProvider = requireNonNull(deltaLakeRedirectionsProvider, "deltaLakeRedirectionsProvider is null");
         this.statisticsAccess = requireNonNull(statisticsAccess, "statisticsAccess is null");
         this.deleteSchemaLocationsFallback = deleteSchemaLocationsFallback;
     }
@@ -1658,6 +1662,12 @@ public class DeltaLakeMetadata
                 simpleProjections,
                 newColumnAssignments,
                 false));
+    }
+
+    @Override
+    public Optional<TableScanRedirectApplicationResult> applyTableScanRedirect(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return deltaLakeRedirectionsProvider.getTableScanRedirection(session, (DeltaLakeTableHandle) tableHandle);
     }
 
     @Nullable
