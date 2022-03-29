@@ -344,14 +344,15 @@ public class InformationSchemaPageSource
 
     private void addRolesRecords()
     {
+        Optional<String> catalogName = metadata.isCatalogManagedSecurity(session, this.catalogName) ? Optional.of(this.catalogName) : Optional.empty();
         try {
-            accessControl.checkCanShowRoles(session.toSecurityContext(), Optional.of(catalogName));
+            accessControl.checkCanShowRoles(session.toSecurityContext(), catalogName);
         }
         catch (AccessDeniedException exception) {
             return;
         }
 
-        for (String role : metadata.listRoles(session, Optional.of(catalogName))) {
+        for (String role : metadata.listRoles(session, catalogName)) {
             addRecord(role);
             if (isLimitExhausted()) {
                 return;
@@ -361,14 +362,15 @@ public class InformationSchemaPageSource
 
     private void addRoleAuthorizationDescriptorRecords()
     {
+        Optional<String> catalogName = metadata.isCatalogManagedSecurity(session, this.catalogName) ? Optional.of(this.catalogName) : Optional.empty();
         try {
-            accessControl.checkCanShowRoleAuthorizationDescriptors(session.toSecurityContext(), Optional.of(catalogName));
+            accessControl.checkCanShowRoleAuthorizationDescriptors(session.toSecurityContext(), catalogName);
         }
         catch (AccessDeniedException exception) {
             return;
         }
 
-        for (RoleGrant grant : metadata.listAllRoleGrants(session, Optional.of(catalogName), roles, grantees, limit)) {
+        for (RoleGrant grant : metadata.listAllRoleGrants(session, catalogName, roles, grantees, limit)) {
             addRecord(
                     grant.getRoleName(),
                     null, // grantor
@@ -384,7 +386,8 @@ public class InformationSchemaPageSource
 
     private void addApplicableRolesRecords()
     {
-        for (RoleGrant grant : metadata.listApplicableRoles(session, new TrinoPrincipal(USER, session.getUser()), Optional.of(catalogName))) {
+        Optional<String> catalogName = metadata.isCatalogManagedSecurity(session, this.catalogName) ? Optional.of(this.catalogName) : Optional.empty();
+        for (RoleGrant grant : metadata.listApplicableRoles(session, new TrinoPrincipal(USER, session.getUser()), catalogName)) {
             addRecord(
                     grant.getGrantee().getName(),
                     grant.getGrantee().getType().toString(),
