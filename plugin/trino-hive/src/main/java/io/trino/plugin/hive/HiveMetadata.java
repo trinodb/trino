@@ -52,6 +52,7 @@ import io.trino.plugin.hive.statistics.HiveStatisticsProvider;
 import io.trino.plugin.hive.util.HiveBucketing;
 import io.trino.plugin.hive.util.HiveUtil;
 import io.trino.plugin.hive.util.HiveWriteUtils;
+import io.trino.spi.ErrorCode;
 import io.trino.spi.ErrorType;
 import io.trino.spi.StandardErrorCode;
 import io.trino.spi.TrinoException;
@@ -752,11 +753,12 @@ public class HiveMetadata
                 return Stream.empty();
             }
             catch (TrinoException e) {
+                ErrorCode errorCode = e.getErrorCode();
                 // Skip this table if there's a failure due to Hive, a bad Serde, or bad metadata
-                if (!e.getErrorCode().getType().equals(ErrorType.EXTERNAL)) {
-                    throw e;
+                if (errorCode.getType().equals(ErrorType.EXTERNAL) || errorCode.equals(UNSUPPORTED_TABLE_TYPE.toErrorCode())) {
+                    return Stream.empty();
                 }
-                return Stream.empty();
+                throw e;
             }
         });
     }
