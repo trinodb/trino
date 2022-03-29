@@ -94,7 +94,6 @@ public class DeltaLakeModule
         Multibinder<SystemTableProvider> systemTableProviders = newSetBinder(binder, SystemTableProvider.class);
         systemTableProviders.addBinding().to(PropertiesSystemTableProvider.class).in(Scopes.SINGLETON);
 
-        binder.bind(DeltaLakeSessionProperties.class).in(Scopes.SINGLETON);
         binder.bind(DeltaLakeTableProperties.class).in(Scopes.SINGLETON);
         binder.bind(DeltaLakeAnalyzeProperties.class).in(Scopes.SINGLETON);
 
