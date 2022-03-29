@@ -350,13 +350,12 @@ class StatementClientV1
                 return false;
             }
 
-            Duration sinceStart = Duration.nanosSince(start);
-            if (attempts > 0 && sinceStart.compareTo(requestTimeoutNanos) > 0) {
-                state.compareAndSet(State.RUNNING, State.CLIENT_ERROR);
-                throw new RuntimeException(format("Error fetching next (attempts: %s, duration: %s)", attempts, sinceStart), cause);
-            }
-
             if (attempts > 0) {
+                Duration sinceStart = Duration.nanosSince(start);
+                if (sinceStart.compareTo(requestTimeoutNanos) > 0) {
+                    state.compareAndSet(State.RUNNING, State.CLIENT_ERROR);
+                    throw new RuntimeException(format("Error fetching next (attempts: %s, duration: %s)", attempts, sinceStart), cause);
+                }
                 // back-off on retry
                 try {
                     MILLISECONDS.sleep(attempts * 100);
