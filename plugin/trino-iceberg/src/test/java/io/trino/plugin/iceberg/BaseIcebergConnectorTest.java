@@ -988,7 +988,7 @@ public abstract class BaseIcebergConnectorTest
                 "   _x bigint\n" +
                 ")\n" +
                 "WITH (\n" +
-                "   format = '" + format + "'\n"+
+                "   format = '" + format + "'\n" +
                 ")";
         String createTableWithoutLocationSql = format(createTableWithoutLocationTemplate, format);
         assertQueryFails(createTableWithoutLocationSql, "Schema any_schema not found");
