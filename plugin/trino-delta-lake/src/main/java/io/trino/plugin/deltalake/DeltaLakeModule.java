@@ -21,6 +21,7 @@ import com.google.inject.multibindings.MapBinder;
 import com.google.inject.multibindings.Multibinder;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.base.CatalogName;
+import io.trino.plugin.base.security.ConnectorAccessControlModule;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.deltalake.metastore.DeltaLakeMetastore;
 import io.trino.plugin.deltalake.procedure.DropExtendedStatsProcedure;
@@ -92,6 +93,10 @@ public class DeltaLakeModule
         binder.bind(MetastoreConfig.class).toInstance(new MetastoreConfig()); // currently not configurable
         configBinder(binder).bindConfig(ParquetReaderConfig.class);
         configBinder(binder).bindConfig(ParquetWriterConfig.class);
+
+        install(new ConnectorAccessControlModule());
+        newOptionalBinder(binder, DeltaLakeAccessControlMetadataFactory.class)
+                .setDefault().toInstance(DeltaLakeAccessControlMetadataFactory.SYSTEM);
 
         Multibinder<SystemTableProvider> systemTableProviders = newSetBinder(binder, SystemTableProvider.class);
         systemTableProviders.addBinding().to(PropertiesSystemTableProvider.class).in(Scopes.SINGLETON);
