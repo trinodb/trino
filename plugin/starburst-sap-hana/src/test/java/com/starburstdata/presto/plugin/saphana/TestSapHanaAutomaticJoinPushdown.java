@@ -9,7 +9,7 @@
  */
 package com.starburstdata.presto.plugin.saphana;
 
-import com.starburstdata.presto.plugin.jdbc.joinpushdown.BaseAutomaticJoinPushdownTest;
+import io.trino.plugin.jdbc.BaseAutomaticJoinPushdownTest;
 import io.trino.testing.QueryRunner;
 
 import java.util.List;
