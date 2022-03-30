@@ -348,6 +348,16 @@ public class BenchmarkPartitionedOutputOperator
             this.pageCount = pageCount;
         }
 
+        public void setPartitionCount(int partitionCount)
+        {
+            this.partitionCount = partitionCount;
+        }
+
+        public void setPositionCount(int positionCount)
+        {
+            this.positionCount = positionCount;
+        }
+
         public void setType(TestType type)
         {
             this.type = requireNonNull(type, "type is null");
@@ -517,6 +527,14 @@ public class BenchmarkPartitionedOutputOperator
                 data.setType(type);
                 data.setupData(null);
                 data.setPageCount(1);
+                benchmark.addPage(data);
+                // pollute row-wise processing
+                data = new BenchmarkData();
+                data.setType(type);
+                data.setPartitionCount(256);
+                data.setPositionCount(256);
+                data.setupData(null);
+                data.setPageCount(50);
                 benchmark.addPage(data);
             });
         }
