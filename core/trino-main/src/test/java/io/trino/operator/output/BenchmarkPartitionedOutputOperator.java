@@ -565,6 +565,14 @@ public class BenchmarkPartitionedOutputOperator
                 data.setupData(null);
                 data.setPageCount(1);
                 benchmark.addPage(data);
+                // pollute row-wise processing
+                data = new BenchmarkData();
+                data.setType(type);
+                data.partitionCount = 256;
+                data.positionCount = 512;
+                data.setupData(null);
+                data.setPageCount(50);
+                benchmark.addPage(data);
             });
         }
         catch (Throwable throwable) {
