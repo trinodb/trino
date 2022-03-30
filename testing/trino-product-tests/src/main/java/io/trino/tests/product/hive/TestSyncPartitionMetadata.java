@@ -58,9 +58,11 @@ public class TestSyncPartitionMetadata
         prepare(hdfsClient, hdfsDataSourceWriter, tableName);
 
         onTrino().executeQuery("CALL system.sync_partition_metadata('default', '" + tableName + "', 'ADD')");
-        assertPartitions(tableName, row("a", "1"), row("b", "2"), row("f", "9"));
+        assertPartitions(tableName, row("a", "1"), row("b", "2"), row("f", "9"), row("h's", "11"));
         assertQueryFailure(() -> onTrino().executeQuery("SELECT payload, col_x, col_y FROM " + tableName + " ORDER BY 1, 2, 3 ASC"))
                 .hasMessageContaining(format("Partition location does not exist: hdfs://hadoop-master:9000%s/%s/col_x=b/col_y=2", warehouseDirectory, tableName));
+        // calling ADD the second time should be a no-op and should not throw any exceptions about duplicates
+        onTrino().executeQuery("CALL system.sync_partition_metadata('default', '" + tableName + "', 'ADD')");
         cleanup(tableName);
     }
 
@@ -86,8 +88,8 @@ public class TestSyncPartitionMetadata
         prepare(hdfsClient, hdfsDataSourceWriter, tableName);
 
         onTrino().executeQuery("CALL system.sync_partition_metadata('default', '" + tableName + "', 'FULL')");
-        assertPartitions(tableName, row("a", "1"), row("f", "9"));
-        assertData(tableName, row(1, "a", "1"), row(42, "f", "9"));
+        assertPartitions(tableName, row("a", "1"), row("f", "9"), row("h's", "11"));
+        assertData(tableName, row(1, "a", "1"), row(42, "f", "9"), row(42, "h's", "11"));
 
         cleanup(tableName);
     }
@@ -113,13 +115,13 @@ public class TestSyncPartitionMetadata
         prepare(hdfsClient, hdfsDataSourceWriter, tableName);
         String tableLocation = tableLocation(tableName);
         HiveDataSource dataSource = createResourceDataSource(tableName, "io/trino/tests/product/hive/data/single_int_column/data.orc");
-        hdfsDataSourceWriter.ensureDataOnHdfs(tableLocation + "/col_x=h/col_Y=11", dataSource);
-        hdfsClient.createDirectory(tableLocation + "/COL_X=UPPER/COL_Y=12");
-        hdfsDataSourceWriter.ensureDataOnHdfs(tableLocation + "/COL_X=UPPER/COL_Y=12", dataSource);
+        hdfsDataSourceWriter.ensureDataOnHdfs(tableLocation + "/col_x=h/col_Y=12", dataSource);
+        hdfsClient.createDirectory(tableLocation + "/COL_X=UPPER/COL_Y=13");
+        hdfsDataSourceWriter.ensureDataOnHdfs(tableLocation + "/COL_X=UPPER/COL_Y=13", dataSource);
 
         onTrino().executeQuery("CALL system.sync_partition_metadata('default', '" + tableName + "', 'FULL', false)");
-        assertPartitions(tableName, row("UPPER", "12"), row("a", "1"), row("f", "9"), row("g", "10"), row("h", "11"));
-        assertData(tableName, row(1, "a", "1"), row(42, "UPPER", "12"), row(42, "f", "9"), row(42, "g", "10"), row(42, "h", "11"));
+        assertPartitions(tableName, row("UPPER", "13"), row("a", "1"), row("f", "9"), row("g", "10"), row("h", "12"), row("h's", "11"));
+        assertData(tableName, row(1, "a", "1"), row(42, "UPPER", "13"), row(42, "f", "9"), row(42, "g", "10"), row(42, "h", "12"), row(42, "h's", "11"));
     }
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE})
@@ -159,6 +161,9 @@ public class TestSyncPartitionMetadata
         // should only be picked up when not in case sensitive mode
         hdfsClient.createDirectory(tableLocation + "/COL_X=g/col_y=10");
         hdfsDataSourceWriter.ensureDataOnHdfs(tableLocation + "/COL_X=g/col_y=10", dataSource);
+        // add partition directory with special characters: col_x=h's/col_y=11 with single_int_column/data.orc file
+        hdfsClient.createDirectory(tableLocation + "/col_x=h's/col_y=11");
+        hdfsDataSourceWriter.ensureDataOnHdfs(tableLocation + "/col_x=h's/col_y=11", dataSource);
 
         // add invalid partition path
         hdfsClient.createDirectory(tableLocation + "/col_x=d");

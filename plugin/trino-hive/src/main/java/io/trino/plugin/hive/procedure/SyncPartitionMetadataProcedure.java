@@ -34,6 +34,7 @@ import io.trino.spi.procedure.Procedure.Argument;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hive.common.FileUtils;
 
 import javax.inject.Inject;
 import javax.inject.Provider;
@@ -44,6 +45,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -138,7 +140,10 @@ public class SyncPartitionMetadataProcedure
         try {
             FileSystem fileSystem = hdfsEnvironment.getFileSystem(hdfsContext, tableLocation);
             List<String> partitionsInMetastore = metastore.getPartitionNames(schemaName, tableName)
-                    .orElseThrow(() -> new TableNotFoundException(schemaTableName));
+                    .orElseThrow(() -> new TableNotFoundException(schemaTableName))
+                    .stream()
+                    .map(FileUtils::unescapePathName)
+                    .collect(Collectors.toList());
             List<String> partitionsInFileSystem = listDirectory(fileSystem, fileSystem.getFileStatus(tableLocation), table.getPartitionColumns(), table.getPartitionColumns().size(), caseSensitive).stream()
                     .map(fileStatus -> fileStatus.getPath().toUri())
                     .map(uri -> tableLocation.toUri().relativize(uri).getPath())
