@@ -85,12 +85,12 @@ public class TestDeltaLakeSplitManager
     {
         long fileSize = 20_000;
         List<AddFileEntry> addFileEntries = ImmutableList.of(addFileEntryOfSize(fileSize));
-        DeltaLakeConfig deltalakeConfig = new DeltaLakeConfig()
+        DeltaLakeConfig deltaLakeConfig = new DeltaLakeConfig()
                 .setMaxInitialSplits(1000)
                 .setMaxInitialSplitSize(DataSize.ofBytes(5_000));
 
-        DeltaLakeSplitManager splitManager = setupSplitManager(addFileEntries, deltalakeConfig);
-        List<DeltaLakeSplit> splits = getSplits(splitManager, deltalakeConfig);
+        DeltaLakeSplitManager splitManager = setupSplitManager(addFileEntries, deltaLakeConfig);
+        List<DeltaLakeSplit> splits = getSplits(splitManager, deltaLakeConfig);
 
         List<DeltaLakeSplit> expected = ImmutableList.of(
                 makeSplit(0, 5_000, fileSize),
@@ -107,13 +107,13 @@ public class TestDeltaLakeSplitManager
     {
         long fileSize = 50_000;
         List<AddFileEntry> addFileEntries = ImmutableList.of(addFileEntryOfSize(fileSize));
-        DeltaLakeConfig deltalakeConfig = new DeltaLakeConfig()
+        DeltaLakeConfig deltaLakeConfig = new DeltaLakeConfig()
                 .setMaxInitialSplits(5)
                 .setMaxInitialSplitSize(DataSize.ofBytes(5_000))
                 .setMaxSplitSize(DataSize.ofBytes(20_000));
 
-        DeltaLakeSplitManager splitManager = setupSplitManager(addFileEntries, deltalakeConfig);
-        List<DeltaLakeSplit> splits = getSplits(splitManager, deltalakeConfig);
+        DeltaLakeSplitManager splitManager = setupSplitManager(addFileEntries, deltaLakeConfig);
+        List<DeltaLakeSplit> splits = getSplits(splitManager, deltaLakeConfig);
 
         List<DeltaLakeSplit> expected = ImmutableList.of(
                 makeSplit(0, 5_000, fileSize),
@@ -134,14 +134,14 @@ public class TestDeltaLakeSplitManager
         long firstFileSize = 1_000;
         long secondFileSize = 20_000;
         List<AddFileEntry> addFileEntries = ImmutableList.of(addFileEntryOfSize(firstFileSize), addFileEntryOfSize(secondFileSize));
-        DeltaLakeConfig deltalakeConfig = new DeltaLakeConfig()
+        DeltaLakeConfig deltaLakeConfig = new DeltaLakeConfig()
                 .setMaxInitialSplits(3)
                 .setMaxInitialSplitSize(DataSize.ofBytes(2_000))
                 .setMaxSplitSize(DataSize.ofBytes(10_000));
 
-        DeltaLakeSplitManager splitManager = setupSplitManager(addFileEntries, deltalakeConfig);
+        DeltaLakeSplitManager splitManager = setupSplitManager(addFileEntries, deltaLakeConfig);
 
-        List<DeltaLakeSplit> splits = getSplits(splitManager, deltalakeConfig);
+        List<DeltaLakeSplit> splits = getSplits(splitManager, deltaLakeConfig);
         List<DeltaLakeSplit> expected = ImmutableList.of(
                 makeSplit(0, 1_000, firstFileSize),
                 makeSplit(0, 2_000, secondFileSize),
