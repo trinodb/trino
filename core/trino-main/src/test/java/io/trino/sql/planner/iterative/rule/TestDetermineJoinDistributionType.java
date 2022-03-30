@@ -594,7 +594,7 @@ public class TestDetermineJoinDistributionType
                 .addSymbolStatistics(ImmutableMap.of(new Symbol("B1"), new SymbolStatsEstimate(0, 100, 0, 640000, 10)))
                 .build();
 
-        // B table is small enough to be replicated in AUTOMATIC_RESTRICTED mode
+        // B table is small enough to be replicated according to JOIN_MAX_BROADCAST_TABLE_SIZE limit
         assertDetermineJoinDistributionType()
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name())
                 .setSystemProperty(JOIN_MAX_BROADCAST_TABLE_SIZE, "100MB")
@@ -629,7 +629,7 @@ public class TestDetermineJoinDistributionType
                 .addSymbolStatistics(ImmutableMap.of(new Symbol("B1"), new SymbolStatsEstimate(0, 100, 0, 640000d * 10000, 10)))
                 .build();
 
-        // B table exceeds AUTOMATIC_RESTRICTED limit therefore it is partitioned
+        // B table exceeds JOIN_MAX_BROADCAST_TABLE_SIZE limit therefore it is partitioned
         assertDetermineJoinDistributionType()
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name())
                 .setSystemProperty(JOIN_MAX_BROADCAST_TABLE_SIZE, "100MB")
@@ -663,23 +663,23 @@ public class TestDetermineJoinDistributionType
         int aRows = 10_000;
         int bRows = 10;
 
-        // output size exceeds AUTOMATIC_RESTRICTED limit
+        // output size exceeds JOIN_MAX_BROADCAST_TABLE_SIZE limit
         PlanNodeStatsEstimate aStatsEstimate = PlanNodeStatsEstimate.builder()
                 .setOutputRowCount(aRows)
                 .addSymbolStatistics(ImmutableMap.of(new Symbol("A1"), new SymbolStatsEstimate(0, 100, 0, 640000d * 10000, 10)))
                 .build();
-        // output size exceeds AUTOMATIC_RESTRICTED limit
+        // output size exceeds JOIN_MAX_BROADCAST_TABLE_SIZE limit
         PlanNodeStatsEstimate bStatsEstimate = PlanNodeStatsEstimate.builder()
                 .setOutputRowCount(bRows)
                 .addSymbolStatistics(ImmutableMap.of(new Symbol("B1"), new SymbolStatsEstimate(0, 100, 0, 640000d * 10000, 10)))
                 .build();
-        // output size does not  exceed AUTOMATIC_RESTRICTED limit
+        // output size does not exceed JOIN_MAX_BROADCAST_TABLE_SIZE limit
         PlanNodeStatsEstimate bSourceStatsEstimate = PlanNodeStatsEstimate.builder()
                 .setOutputRowCount(bRows)
                 .addSymbolStatistics(ImmutableMap.of(new Symbol("B1"), new SymbolStatsEstimate(0, 100, 0, 64, 10)))
                 .build();
 
-        // immediate join sources exceeds AUTOMATIC_RESTRICTED limit but build tables are small
+        // immediate join sources exceeds JOIN_MAX_BROADCAST_TABLE_SIZE limit but build tables are small
         // therefore replicated distribution type is chosen
         assertDetermineJoinDistributionType()
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name())
