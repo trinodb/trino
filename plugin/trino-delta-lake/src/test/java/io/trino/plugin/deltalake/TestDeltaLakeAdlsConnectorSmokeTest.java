@@ -142,7 +142,7 @@ public abstract class TestDeltaLakeAdlsConnectorSmokeTest
     QueryRunner createDeltaLakeQueryRunner(Map<String, String> connectorProperties)
             throws Exception
     {
-        return createAbfsDeltaLakeQueryRunner(DELTA_CATALOG, SCHEMA, connectorProperties, dockerizedDataLake.getTestingHadoop());
+        return createAbfsDeltaLakeQueryRunner(DELTA_CATALOG, SCHEMA, ImmutableMap.of(), connectorProperties, dockerizedDataLake.getTestingHadoop());
     }
 
     @Override
