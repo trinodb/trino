@@ -102,15 +102,15 @@ public class TransactionLogAccess
             FileFormatDataSourceStats fileFormatDataSourceStats,
             HdfsEnvironment hdfsEnvironment,
             ParquetReaderConfig parquetReaderConfig,
-            DeltaLakeConfig deltalakeConfig)
+            DeltaLakeConfig deltaLakeConfig)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.checkpointSchemaManager = requireNonNull(checkpointSchemaManager, "checkpointSchemaManager is null");
         this.fileFormatDataSourceStats = requireNonNull(fileFormatDataSourceStats, "fileFormatDataSourceStats is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.parquetReaderOptions = requireNonNull(parquetReaderConfig, "parquetReaderConfig is null").toParquetReaderOptions();
-        requireNonNull(deltalakeConfig, "deltalakeConfig is null");
-        this.checkpointRowStatisticsWritingEnabled = deltalakeConfig.isCheckpointRowStatisticsWritingEnabled();
+        requireNonNull(deltaLakeConfig, "deltaLakeConfig is null");
+        this.checkpointRowStatisticsWritingEnabled = deltaLakeConfig.isCheckpointRowStatisticsWritingEnabled();
 
         tableSnapshots = EvictableCacheBuilder.newBuilder()
                 .expireAfterWrite(config.getMetadataCacheTtl().toMillis(), TimeUnit.MILLISECONDS)
