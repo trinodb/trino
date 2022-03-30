@@ -40,6 +40,7 @@ import javax.annotation.Nullable;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Deque;
 import java.util.Iterator;
 import java.util.List;
@@ -307,20 +308,20 @@ public class QueryResultRows
 
                 rowPosition++;
 
-                Optional<List<Object>> row = getRowValues();
-                if (row.isEmpty()) {
-                    continue;
+                List<Object> row = getRowValues();
+                if (row != null) {
+                    // row is not skipped, return it
+                    return row;
                 }
-
-                return row.get();
             }
         }
 
-        private Optional<List<Object>> getRowValues()
+        @Nullable
+        private List<Object> getRowValues()
         {
             // types are present if data is present
             List<ColumnAndType> columns = results.columns.orElseThrow();
-            List<Object> row = new ArrayList<>(columns.size());
+            Object[] row = new Object[currentPage.getChannelCount()];
 
             for (int channel = 0; channel < currentPage.getChannelCount(); channel++) {
                 ColumnAndType column = columns.get(channel);
@@ -329,21 +330,19 @@ public class QueryResultRows
 
                 try {
                     Object value = type.getObjectValue(results.session, block, inPageIndex);
-                    if (results.supportsParametricDateTime) {
-                        row.add(channel, value);
+                    if (!results.supportsParametricDateTime) {
+                        value = getLegacyValue(value, type);
                     }
-                    else {
-                        row.add(channel, getLegacyValue(value, type));
-                    }
+                    row[channel] = value;
                 }
                 catch (Throwable throwable) {
                     propagateException(rowPosition, column, throwable);
                     // skip row as it contains non-serializable value
-                    return Optional.empty();
+                    return null;
                 }
             }
 
-            return Optional.of(unmodifiableList(row));
+            return unmodifiableList(Arrays.asList(row));
         }
 
         private Object getLegacyValue(Object value, Type type)
