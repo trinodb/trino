@@ -16,7 +16,9 @@ package io.trino.tests.product.iceberg;
 import io.trino.tempto.ProductTest;
 import org.testng.annotations.Test;
 
+import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
+import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tests.product.TestGroups.HMS_ONLY;
 import static io.trino.tests.product.TestGroups.ICEBERG;
 import static io.trino.tests.product.TestGroups.STORAGE_FORMATS;
@@ -88,5 +90,26 @@ public class TestIcebergHiveTablesCompatibility
                 .hasMessageMatching("Query failed \\(#\\w+\\):\\Q line 1:1: Table 'hive.default." + tableName + "' of unsupported type already exists");
 
         onTrino().executeQuery("DROP TABLE iceberg.default." + tableName);
+    }
+
+    @Test(groups = {ICEBERG, STORAGE_FORMATS, HMS_ONLY})
+    public void testHiveSelectTableColumns()
+    {
+        String hiveTableName = "test_hive_table_columns_table_" + randomTableSuffix();
+        onTrino().executeQuery("CREATE TABLE hive.default." + hiveTableName + "(a bigint)");
+
+        String icebergTableName = "test_iceberg_table_columns_table_" + randomTableSuffix();
+        onTrino().executeQuery("CREATE TABLE iceberg.default." + icebergTableName + "(a bigint)");
+
+        assertThat(onTrino().executeQuery(
+                format("SELECT table_cat, table_schem, table_name, column_name FROM system.jdbc.columns WHERE table_cat = 'hive' AND table_schem = 'default' AND table_name = '%s'", hiveTableName)))
+                .containsOnly(row("hive", "default", hiveTableName, "a"));
+        // Hive does not show any information about tables with unsupported format
+        assertThat(onTrino().executeQuery(
+                format("SELECT table_cat, table_schem, table_name, column_name FROM system.jdbc.columns WHERE table_cat = 'hive' AND table_schem = 'default' AND table_name = '%s'", icebergTableName)))
+                .hasNoRows();
+
+        onTrino().executeQuery("DROP TABLE hive.default." + hiveTableName);
+        onTrino().executeQuery("DROP TABLE iceberg.default." + icebergTableName);
     }
 }
