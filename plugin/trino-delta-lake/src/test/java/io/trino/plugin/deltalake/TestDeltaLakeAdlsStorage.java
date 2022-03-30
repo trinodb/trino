@@ -84,7 +84,7 @@ public class TestDeltaLakeAdlsStorage
                 ImmutableMap.of(hadoopCoreSiteXmlTempFile.toString(), "/etc/hadoop/conf/core-site.xml")));
         testingHadoop = dockerizedDataLake.getTestingHadoop();
 
-        return createAbfsDeltaLakeQueryRunner(DELTA_CATALOG, SCHEMA_NAME, testingHadoop);
+        return createAbfsDeltaLakeQueryRunner(DELTA_CATALOG, SCHEMA_NAME, ImmutableMap.of(), ImmutableMap.of(), testingHadoop);
     }
 
     private Path createHadoopCoreSiteXmlTempFileWithAbfsSettings()

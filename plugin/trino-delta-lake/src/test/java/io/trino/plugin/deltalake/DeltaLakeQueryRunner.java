@@ -58,12 +58,6 @@ public final class DeltaLakeQueryRunner
         return createDeltaLakeQueryRunner(ImmutableMap.of(), ImmutableMap.of());
     }
 
-    public static DistributedQueryRunner createDeltaLakeQueryRunner(Map<String, String> connectorProperties)
-            throws Exception
-    {
-        return createDeltaLakeQueryRunner(ImmutableMap.of(), connectorProperties);
-    }
-
     public static DistributedQueryRunner createDeltaLakeQueryRunner(Map<String, String> extraProperties, Map<String, String> connectorProperties)
             throws Exception
     {
@@ -129,45 +123,6 @@ public final class DeltaLakeQueryRunner
     public static QueryRunner createAbfsDeltaLakeQueryRunner(
             String catalogName,
             String schemaName,
-            TestingHadoop testingHadoop)
-            throws Exception
-    {
-        return createAbfsDeltaLakeQueryRunner(catalogName, schemaName, ImmutableMap.of(), ImmutableMap.of(), testingHadoop);
-    }
-
-    public static QueryRunner createAbfsDeltaLakeQueryRunner(
-            String catalogName,
-            String schemaName,
-            Map<String, String> connectorProperties,
-            TestingHadoop testingHadoop)
-            throws Exception
-    {
-        return createAbfsDeltaLakeQueryRunner(catalogName, schemaName, ImmutableMap.of(), connectorProperties, testingHadoop);
-    }
-
-    public static QueryRunner createAbfsDeltaLakeQueryRunner(
-            String catalogName,
-            String schemaName,
-            Map<String, String> extraProperties,
-            Map<String, String> connectorProperties,
-            TestingHadoop testingHadoop)
-            throws Exception
-    {
-        return createDockerizedDeltaLakeQueryRunner(
-                catalogName,
-                schemaName,
-                extraProperties,
-                ImmutableMap.<String, String>builder()
-                        .put("hive.azure.abfs-storage-account", requiredNonEmptySystemProperty("hive.hadoop2.azure-abfs-account"))
-                        .put("hive.azure.abfs-access-key", requiredNonEmptySystemProperty("hive.hadoop2.azure-abfs-access-key"))
-                        .putAll(connectorProperties)
-                        .buildOrThrow(),
-                testingHadoop);
-    }
-
-    public static DistributedQueryRunner createDockerizedDeltaLakeQueryRunner(
-            String catalogName,
-            String schemaName,
             Map<String, String> extraProperties,
             Map<String, String> connectorProperties,
             TestingHadoop testingHadoop)
@@ -178,7 +133,11 @@ public final class DeltaLakeQueryRunner
                 schemaName,
                 ImmutableMap.of(),
                 extraProperties,
-                connectorProperties,
+                ImmutableMap.<String, String>builder()
+                        .put("hive.azure.abfs-storage-account", requiredNonEmptySystemProperty("hive.hadoop2.azure-abfs-account"))
+                        .put("hive.azure.abfs-access-key", requiredNonEmptySystemProperty("hive.hadoop2.azure-abfs-access-key"))
+                        .putAll(connectorProperties)
+                        .buildOrThrow(),
                 testingHadoop,
                 queryRunner -> {});
     }
