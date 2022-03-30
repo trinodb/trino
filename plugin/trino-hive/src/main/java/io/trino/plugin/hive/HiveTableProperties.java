@@ -30,6 +30,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
 import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V2;
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
@@ -259,7 +260,11 @@ public class HiveTableProperties
 
     public static Double getOrcBloomFilterFpp(Map<String, Object> tableProperties)
     {
-        return (Double) tableProperties.get(ORC_BLOOM_FILTER_FPP);
+        Double fpp = (Double) tableProperties.get(ORC_BLOOM_FILTER_FPP);
+        if (fpp < 0.0 || fpp > 1.0) {
+            throw new TrinoException(HIVE_UNSUPPORTED_FORMAT, format("Invalid value for bloom filter: %f", fpp));
+        }
+        return fpp;
     }
 
     public static Optional<Character> getSingleCharacterProperty(Map<String, Object> tableProperties, String key)

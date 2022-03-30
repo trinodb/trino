@@ -99,6 +99,7 @@ public class IcebergPageSink
     private final MetricsConfig metricsConfig;
     private final PagePartitioner pagePartitioner;
     private final long targetMaxFileSize;
+    private final Map<String, String> storageProperties;
 
     private final List<WriteContext> writers = new ArrayList<>();
     private final List<WriteContext> closedWriters = new ArrayList<>();
@@ -138,6 +139,7 @@ public class IcebergPageSink
         this.maxOpenWriters = maxOpenWriters;
         this.pagePartitioner = new PagePartitioner(pageIndexerFactory, toPartitionColumns(inputColumns, partitionSpec));
         this.targetMaxFileSize = IcebergSessionProperties.getTargetMaxFileSize(session);
+        this.storageProperties = requireNonNull(storageProperties, "storageProperties is null");
     }
 
     @Override
@@ -336,7 +338,8 @@ public class IcebergPageSink
                 session,
                 hdfsContext,
                 fileFormat,
-                metricsConfig);
+                metricsConfig,
+                storageProperties);
 
         return new WriteContext(writer, outputPath, partitionData);
     }

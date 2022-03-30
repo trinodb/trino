@@ -13,7 +13,9 @@
  */
 package io.trino.plugin.iceberg;
 
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.trino.orc.OrcDataSink;
 import io.trino.orc.OrcDataSource;
 import io.trino.orc.OrcDataSourceId;
@@ -44,6 +46,7 @@ import javax.inject.Inject;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.function.Supplier;
@@ -51,10 +54,14 @@ import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
+import static io.trino.plugin.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static io.trino.plugin.hive.HiveMetadata.PRESTO_QUERY_ID_NAME;
 import static io.trino.plugin.hive.HiveMetadata.PRESTO_VERSION_NAME;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_WRITER_OPEN_ERROR;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_WRITE_VALIDATION_FAILED;
+import static io.trino.plugin.iceberg.IcebergMetadata.ORC_BLOOM_FILTER_COLUMNS_KEY;
+import static io.trino.plugin.iceberg.IcebergMetadata.ORC_BLOOM_FILTER_FPP_KEY;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getCompressionCodec;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getOrcStringStatisticsLimit;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getOrcWriterMaxDictionaryMemory;
@@ -66,10 +73,13 @@ import static io.trino.plugin.iceberg.IcebergSessionProperties.getParquetWriterB
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getParquetWriterBlockSize;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getParquetWriterPageSize;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isOrcWriterValidate;
+import static io.trino.plugin.iceberg.IcebergTableProperties.ORC_BLOOM_FILTER_FPP;
 import static io.trino.plugin.iceberg.TypeConverter.toOrcType;
 import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
 import static io.trino.plugin.iceberg.util.PrimitiveTypeMapBuilder.makeTypeMap;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static java.lang.Double.parseDouble;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.parquet.ParquetSchemaUtil.convert;
 
@@ -81,6 +91,7 @@ public class IcebergFileWriterFactory
     private final FileFormatDataSourceStats readStats;
     private final OrcWriterStats orcWriterStats = new OrcWriterStats();
     private final OrcWriterOptions orcWriterOptions;
+    private static final Splitter COLUMN_NAMES_SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
 
     @Inject
     public IcebergFileWriterFactory(
@@ -111,14 +122,15 @@ public class IcebergFileWriterFactory
             ConnectorSession session,
             HdfsContext hdfsContext,
             IcebergFileFormat fileFormat,
-            MetricsConfig metricsConfig)
+            MetricsConfig metricsConfig,
+            Map<String, String> storageProperties)
     {
         switch (fileFormat) {
             case PARQUET:
                 // TODO use metricsConfig
                 return createParquetWriter(outputPath, icebergSchema, jobConf, session, hdfsContext);
             case ORC:
-                return createOrcWriter(metricsConfig, outputPath, icebergSchema, jobConf, session);
+                return createOrcWriter(metricsConfig, outputPath, icebergSchema, jobConf, session, storageProperties);
             default:
                 throw new TrinoException(NOT_SUPPORTED, "File format not supported for Iceberg: " + fileFormat);
         }
@@ -176,7 +188,8 @@ public class IcebergFileWriterFactory
             Path outputPath,
             Schema icebergSchema,
             JobConf jobConf,
-            ConnectorSession session)
+            ConnectorSession session,
+            Map<String, String> storageProperties)
     {
         try {
             FileSystem fileSystem = hdfsEnvironment.getFileSystem(session.getIdentity(), outputPath, jobConf);
@@ -221,7 +234,7 @@ public class IcebergFileWriterFactory
                     fileColumnTypes,
                     toOrcType(icebergSchema),
                     getCompressionCodec(session).getOrcCompressionKind(),
-                    orcWriterOptions
+                    getOrcWriterOptions(storageProperties, orcWriterOptions)
                             .withStripeMinSize(getOrcWriterMinStripeSize(session))
                             .withStripeMaxSize(getOrcWriterMaxStripeSize(session))
                             .withStripeMaxRowCount(getOrcWriterMaxStripeRows(session))
@@ -239,5 +252,24 @@ public class IcebergFileWriterFactory
         catch (IOException e) {
             throw new TrinoException(ICEBERG_WRITER_OPEN_ERROR, "Error creating ORC file", e);
         }
+    }
+
+    public static OrcWriterOptions getOrcWriterOptions(Map<String, String> storageProperties, OrcWriterOptions orcWriterOptions)
+    {
+        if (storageProperties.containsKey(ORC_BLOOM_FILTER_COLUMNS_KEY)) {
+            if (!storageProperties.containsKey(ORC_BLOOM_FILTER_FPP_KEY)) {
+                throw new TrinoException(HIVE_INVALID_METADATA, format("FPP for bloom filter is missing"));
+            }
+            try {
+                double fpp = parseDouble(storageProperties.get(ORC_BLOOM_FILTER_FPP_KEY));
+                return orcWriterOptions
+                        .withBloomFilterColumns(ImmutableSet.copyOf(COLUMN_NAMES_SPLITTER.splitToList(storageProperties.get(ORC_BLOOM_FILTER_COLUMNS_KEY))))
+                        .withBloomFilterFpp(fpp);
+            }
+            catch (NumberFormatException e) {
+                throw new TrinoException(HIVE_UNSUPPORTED_FORMAT, format("Invalid value for %s property: %s", ORC_BLOOM_FILTER_FPP, storageProperties.get(ORC_BLOOM_FILTER_FPP_KEY)));
+            }
+        }
+        return orcWriterOptions;
     }
 }
