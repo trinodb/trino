@@ -17,11 +17,14 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.trino.Session;
+import io.trino.metadata.QualifiedObjectName;
 import io.trino.plugin.deltalake.util.DockerizedMinioDataLake;
 import io.trino.plugin.deltalake.util.TestingHadoop;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
+import io.trino.tpch.TpchTable;
+import org.intellij.lang.annotations.Language;
 
 import java.nio.file.Path;
 import java.util.HashMap;
@@ -29,18 +32,24 @@ import java.util.Map;
 import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.units.Duration.nanosSince;
 import static io.trino.plugin.deltalake.DeltaLakeConnectorFactory.CONNECTOR_NAME;
 import static io.trino.plugin.deltalake.DeltaLakeDockerizedMinioDataLake.createDockerizedMinioDataLakeForDeltaLake;
 import static io.trino.plugin.deltalake.util.MinioContainer.MINIO_ACCESS_KEY;
 import static io.trino.plugin.deltalake.util.MinioContainer.MINIO_SECRET_KEY;
+import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
+import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.util.Strings.isNullOrEmpty;
 
 public final class DeltaLakeQueryRunner
 {
     private static final Logger log = Logger.get(DeltaLakeQueryRunner.class);
     public static final String DELTA_CATALOG = "delta_lake";
+    public static final String TPCH_SCHEMA = "tpch";
 
     private DeltaLakeQueryRunner() {}
 
@@ -217,65 +226,103 @@ public final class DeltaLakeQueryRunner
         return val;
     }
 
+    private static void copyTpchTables(
+            QueryRunner queryRunner,
+            String sourceCatalog,
+            String sourceSchema,
+            TableLocationSupplier locationSupplier,
+            Session session,
+            Iterable<TpchTable<?>> tables)
+    {
+        log.info("Loading data from %s.%s...", sourceCatalog, sourceSchema);
+        long startTime = System.nanoTime();
+        for (TpchTable<?> table : tables) {
+            copyTable(queryRunner, sourceCatalog, sourceSchema, table.getTableName().toLowerCase(ENGLISH), locationSupplier, session);
+        }
+        log.info("Loading from %s.%s complete in %s", sourceCatalog, sourceSchema, nanosSince(startTime).toString(SECONDS));
+    }
+
+    private static void copyTable(QueryRunner queryRunner, String sourceCatalog, String sourceSchema, String sourceTable, TableLocationSupplier locationSupplier, Session session)
+    {
+        QualifiedObjectName table = new QualifiedObjectName(sourceCatalog, sourceSchema, sourceTable);
+        copyTable(queryRunner, table, locationSupplier, session);
+    }
+
+    private static void copyTable(QueryRunner queryRunner, QualifiedObjectName table, TableLocationSupplier locationSupplier, Session session)
+    {
+        long start = System.nanoTime();
+        log.info("Running import for %s", table.getObjectName());
+        String location = locationSupplier.getTableLocation(table.getSchemaName(), table.getObjectName());
+        @Language("SQL") String sql = format("CREATE TABLE IF NOT EXISTS %s WITH (location='%s') AS SELECT * FROM %s", table.getObjectName(), location, table);
+        long rows = (Long) queryRunner.execute(session, sql).getMaterializedRows().get(0).getField(0);
+        log.info("Imported %s rows for %s in %s", rows, table.getObjectName(), nanosSince(start).convertToMostSuccinctTimeUnit());
+
+        assertThat(queryRunner.execute(session, "SELECT count(*) FROM " + table).getOnlyValue())
+                .as("Table is not loaded properly: %s", table)
+                .isEqualTo(queryRunner.execute(session, "SELECT count(*) FROM " + table.getObjectName()).getOnlyValue());
+    }
+
+    private static Session createSession()
+    {
+        return testSessionBuilder()
+                .setCatalog(DELTA_CATALOG)
+                .setSchema(TPCH_SCHEMA)
+                .build();
+    }
+
+    @FunctionalInterface
+    private interface TableLocationSupplier
+    {
+        String getTableLocation(String schemaName, String tableName);
+    }
+
     public static class DefaultDeltaLakeQueryRunnerMain
     {
         public static void main(String[] args)
                 throws Exception
         {
             Logging.initialize();
-            DistributedQueryRunner queryRunner = null;
-            try {
-                queryRunner = createDeltaLakeQueryRunner(
-                        ImmutableMap.of("http-server.http.port", "8080"),
-                        ImmutableMap.of("delta.enable-non-concurrent-writes", "true"));
-            }
-            catch (Throwable t) {
-                log.error(t);
-                System.exit(1);
-            }
+            DistributedQueryRunner queryRunner = createDeltaLakeQueryRunner(
+                    ImmutableMap.of("http-server.http.port", "8080"),
+                    ImmutableMap.of("delta.enable-non-concurrent-writes", "true"));
+
+            Path baseDirectory = queryRunner.getCoordinator().getBaseDataDir().resolve(DELTA_CATALOG);
+            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, (schemaName, tableName) -> format("file://%s/%s/%s", baseDirectory, schemaName, tableName), createSession(), TpchTable.getTables());
+            log.info("Data directory is: %s", baseDirectory);
+
             Thread.sleep(10);
             Logger log = Logger.get(DeltaLakeQueryRunner.class);
             log.info("======== SERVER STARTED ========");
             log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
-
-            System.out.println("Data directory is: " + queryRunner.getCoordinator().getBaseDataDir().resolve(DELTA_CATALOG));
-            String dataPath = DeltaLakeQueryRunner.class.getClassLoader().getResource("databricks/person").toExternalForm();
-            queryRunner.execute(
-                    format("CREATE TABLE person (name VARCHAR(256), age INTEGER) WITH (location = '%s')", dataPath));
-            System.out.println("Record count for person table: " + queryRunner.execute("select name from person").getRowCount());
         }
     }
 
     public static class S3DeltaLakeQueryRunnerMain
     {
         public static void main(String[] args)
+                throws Exception
         {
             Logging.initialize();
-            DistributedQueryRunner queryRunner;
-            String schema = "default";
             String bucketName = "test-bucket";
 
-            try {
-                DockerizedMinioDataLake dockerizedMinioDataLake = createDockerizedMinioDataLakeForDeltaLake(bucketName);
-                queryRunner = DeltaLakeQueryRunner.createS3DeltaLakeQueryRunner(
-                        DELTA_CATALOG,
-                        schema,
-                        ImmutableMap.of("http-server.http.port", "8080"), ImmutableMap.of(),
-                        ImmutableMap.of(),
-                        dockerizedMinioDataLake.getMinioAddress(),
-                        dockerizedMinioDataLake.getTestingHadoop(),
-                        runner -> {});
+            DockerizedMinioDataLake dockerizedMinioDataLake = createDockerizedMinioDataLakeForDeltaLake(bucketName);
+            DistributedQueryRunner queryRunner = createS3DeltaLakeQueryRunner(
+                    DELTA_CATALOG,
+                    TPCH_SCHEMA,
+                    ImmutableMap.of("http-server.http.port", "8080"),
+                    ImmutableMap.of(),
+                    ImmutableMap.of("delta.enable-non-concurrent-writes", "true"),
+                    dockerizedMinioDataLake.getMinioAddress(),
+                    dockerizedMinioDataLake.getTestingHadoop(),
+                    runner -> {});
 
-                Thread.sleep(10);
-                Logger log = Logger.get(DeltaLakeQueryRunner.class);
-                log.info("======== SERVER STARTED ========");
-                log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
+            queryRunner.execute("CREATE SCHEMA tpch");
+            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, (schemaName, tableName) -> format("s3://%s/%s/%s", bucketName, schemaName, tableName), createSession(), TpchTable.getTables());
 
-                System.out.println("Data directory is: " + queryRunner.getCoordinator().getBaseDataDir().resolve(DELTA_CATALOG));
-            }
-            catch (Throwable t) {
-                log.error(t);
-            }
+            Thread.sleep(10);
+            Logger log = Logger.get(DeltaLakeQueryRunner.class);
+            log.info("======== SERVER STARTED ========");
+            log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
         }
     }
 }
