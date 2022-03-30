@@ -66,6 +66,7 @@ import io.trino.plugin.deltalake.transactionlog.writer.TransactionConflictExcept
 import io.trino.plugin.deltalake.transactionlog.writer.TransactionLogWriter;
 import io.trino.plugin.deltalake.transactionlog.writer.TransactionLogWriterFactory;
 import io.trino.plugin.hive.HiveType;
+import io.trino.plugin.hive.LocationAccessControl;
 import io.trino.plugin.hive.SchemaAlreadyExistsException;
 import io.trino.plugin.hive.TableAlreadyExistsException;
 import io.trino.plugin.hive.TrinoViewHiveMetastore;
@@ -370,6 +371,7 @@ public class DeltaLakeMetadata
 
     private static final String CHECK_CONSTRAINT_CONVERT_FAIL_EXPRESSION = "CAST(fail('Failed to convert Delta check constraints to Trino expression') AS boolean)";
 
+    private final LocationAccessControl locationAccessControl;
     private final DeltaLakeMetastore metastore;
     private final TransactionLogAccess transactionLogAccess;
     private final DeltaLakeTableStatisticsProvider tableStatisticsProvider;
@@ -404,6 +406,7 @@ public class DeltaLakeMetadata
     }
 
     public DeltaLakeMetadata(
+            LocationAccessControl locationAccessControl,
             DeltaLakeMetastore metastore,
             TransactionLogAccess transactionLogAccess,
             DeltaLakeTableStatisticsProvider tableStatisticsProvider,
@@ -425,6 +428,7 @@ public class DeltaLakeMetadata
             boolean useUniqueTableLocation,
             boolean allowManagedTableRename)
     {
+        this.locationAccessControl = requireNonNull(locationAccessControl, "locationAccessControl is null");
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.transactionLogAccess = requireNonNull(transactionLogAccess, "transactionLogAccess is null");
         this.tableStatisticsProvider = requireNonNull(tableStatisticsProvider, "tableStatisticsProvider is null");
@@ -815,6 +819,7 @@ public class DeltaLakeMetadata
     public void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties, TrinoPrincipal owner)
     {
         Optional<String> location = DeltaLakeSchemaProperties.getLocation(properties).map(locationUri -> {
+            locationAccessControl.checkCanUseLocation(session.getIdentity(), locationUri);
             try {
                 fileSystemFactory.create(session).directoryExists(Location.of(locationUri));
             }
@@ -932,6 +937,9 @@ public class DeltaLakeMetadata
             location = getTableLocation(schema, tableName);
             checkPathContainsNoFiles(session, Location.of(location));
             external = false;
+        }
+        else {
+            locationAccessControl.checkCanUseLocation(session.getIdentity(), location);
         }
         Location deltaLogDirectory = Location.of(getTransactionLogDir(location));
         Optional<Long> checkpointInterval = getCheckpointInterval(tableMetadata.getProperties());
@@ -1133,6 +1141,9 @@ public class DeltaLakeMetadata
         if (location == null) {
             location = getTableLocation(schema, tableName);
             external = false;
+        }
+        else {
+            locationAccessControl.checkCanUseLocation(session.getIdentity(), location);
         }
 
         ColumnMappingMode columnMappingMode = DeltaLakeTableProperties.getColumnMappingMode(tableMetadata.getProperties());

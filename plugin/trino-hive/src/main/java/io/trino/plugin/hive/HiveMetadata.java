@@ -366,6 +366,7 @@ public class HiveMetadata
 
     public static final String MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE = "Modifying Hive table rows is only supported for transactional tables";
 
+    private final LocationAccessControl locationAccessControl;
     private final CatalogName catalogName;
     private final SemiTransactionalHiveMetastore metastore;
     private final boolean autoCommit;
@@ -394,6 +395,7 @@ public class HiveMetadata
     private final HiveTimestampPrecision hiveViewsTimestampPrecision;
 
     public HiveMetadata(
+            LocationAccessControl locationAccessControl,
             CatalogName catalogName,
             SemiTransactionalHiveMetastore metastore,
             boolean autoCommit,
@@ -421,6 +423,7 @@ public class HiveMetadata
             long maxPartitionDropsPerQuery,
             HiveTimestampPrecision hiveViewsTimestampPrecision)
     {
+        this.locationAccessControl = requireNonNull(locationAccessControl, "locationAccessControl is null");
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.autoCommit = autoCommit;
@@ -971,6 +974,7 @@ public class HiveMetadata
     public void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties, TrinoPrincipal owner)
     {
         Optional<String> location = HiveSchemaProperties.getLocation(properties).map(locationUri -> {
+            locationAccessControl.checkCanUseLocation(session.getIdentity(), locationUri);
             try {
                 fileSystemFactory.create(session).directoryExists(Location.of(locationUri));
             }
@@ -1075,6 +1079,7 @@ public class HiveMetadata
         boolean external;
         String externalLocation = getExternalLocation(tableMetadata.getProperties());
         if (externalLocation != null) {
+            locationAccessControl.checkCanUseLocation(session.getIdentity(), externalLocation);
             if (!createsOfNonManagedTablesEnabled) {
                 throw new TrinoException(NOT_SUPPORTED, "Cannot create non-managed Hive table");
             }
@@ -1714,6 +1719,7 @@ public class HiveMetadata
     {
         Optional<Location> externalLocation = Optional.ofNullable(getExternalLocation(tableMetadata.getProperties()))
                 .map(HiveMetadata::getValidatedExternalLocation);
+        externalLocation.ifPresent(location -> locationAccessControl.checkCanUseLocation(session.getIdentity(), location.toString()));
         if (!createsOfNonManagedTablesEnabled && externalLocation.isPresent()) {
             throw new TrinoException(NOT_SUPPORTED, "Creating non-managed Hive tables is disabled");
         }

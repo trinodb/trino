@@ -16,6 +16,7 @@ package io.trino.plugin.iceberg;
 import com.google.inject.Inject;
 import io.airlift.json.JsonCodec;
 import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.plugin.hive.LocationAccessControl;
 import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.security.ConnectorIdentity;
@@ -25,6 +26,7 @@ import static java.util.Objects.requireNonNull;
 
 public class IcebergMetadataFactory
 {
+    private final LocationAccessControl locationAccessControl;
     private final TypeManager typeManager;
     private final CatalogHandle trinoCatalogHandle;
     private final JsonCodec<CommitTaskData> commitTaskCodec;
@@ -34,6 +36,7 @@ public class IcebergMetadataFactory
 
     @Inject
     public IcebergMetadataFactory(
+            LocationAccessControl locationAccessControl,
             TypeManager typeManager,
             CatalogHandle trinoCatalogHandle,
             JsonCodec<CommitTaskData> commitTaskCodec,
@@ -41,6 +44,7 @@ public class IcebergMetadataFactory
             TrinoFileSystemFactory fileSystemFactory,
             TableStatisticsWriter tableStatisticsWriter)
     {
+        this.locationAccessControl = requireNonNull(locationAccessControl, "locationAccessControl is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.trinoCatalogHandle = requireNonNull(trinoCatalogHandle, "trinoCatalogHandle is null");
         this.commitTaskCodec = requireNonNull(commitTaskCodec, "commitTaskCodec is null");
@@ -52,6 +56,7 @@ public class IcebergMetadataFactory
     public IcebergMetadata create(ConnectorIdentity identity)
     {
         return new IcebergMetadata(
+                locationAccessControl,
                 typeManager,
                 trinoCatalogHandle,
                 commitTaskCodec,

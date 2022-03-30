@@ -22,6 +22,7 @@ import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.base.util.UncheckedCloseable;
 import io.trino.plugin.hive.HiveConfig;
+import io.trino.plugin.hive.LocationAccessControl;
 import io.trino.plugin.hive.PartitionStatistics;
 import io.trino.plugin.hive.TransactionalMetadata;
 import io.trino.plugin.hive.TransactionalMetadataFactory;
@@ -73,13 +74,19 @@ public class RegisterPartitionProcedure
     private final boolean allowRegisterPartition;
     private final TransactionalMetadataFactory hiveMetadataFactory;
     private final TrinoFileSystemFactory fileSystemFactory;
+    private final LocationAccessControl locationAccessControl;
 
     @Inject
-    public RegisterPartitionProcedure(HiveConfig hiveConfig, TransactionalMetadataFactory hiveMetadataFactory, TrinoFileSystemFactory fileSystemFactory)
+    public RegisterPartitionProcedure(
+            HiveConfig hiveConfig,
+            TransactionalMetadataFactory hiveMetadataFactory,
+            TrinoFileSystemFactory fileSystemFactory,
+            LocationAccessControl locationAccessControl)
     {
         this.allowRegisterPartition = hiveConfig.isAllowRegisterPartition();
         this.hiveMetadataFactory = requireNonNull(hiveMetadataFactory, "hiveMetadataFactory is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
+        this.locationAccessControl = requireNonNull(locationAccessControl, "locationAccessControl is null");
     }
 
     @Override
@@ -134,6 +141,9 @@ public class RegisterPartitionProcedure
             if (partition.isPresent()) {
                 String partitionName = makePartName(partitionColumns, partitionValues);
                 throw new TrinoException(ALREADY_EXISTS, format("Partition [%s] is already registered with location %s", partitionName, partition.get().getStorage().getLocation()));
+            }
+            if (location != null) {
+                locationAccessControl.checkCanUseLocation(session.getIdentity(), location);
             }
 
             Location partitionLocation = Optional.ofNullable(location)
