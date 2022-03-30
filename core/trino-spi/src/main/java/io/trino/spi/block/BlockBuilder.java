@@ -78,7 +78,7 @@ public interface BlockBuilder
     }
 
     /**
-     * Write a byte to the current entry;
+     * Close the current entry.
      */
     BlockBuilder closeEntry();
 

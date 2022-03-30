@@ -50,6 +50,9 @@ import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.TRANSACTION_LOG_DIRECTORY;
+import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.DELETE_TABLE;
+import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.INSERT_TABLE;
+import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.assertions.Assert.assertEquals;
 import static io.trino.testing.assertions.Assert.assertEventually;
@@ -1254,6 +1257,25 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                         "Minimum retention can be changed with delta.vacuum.min-retention configuration property or " + catalog + ".vacuum_min_retention session property");
         assertQueryFails("CALL system.vacuum('', '', '77d')", "schema_name cannot be empty");
         assertQueryFails("CALL system.vacuum(CURRENT_SCHEMA, '', '77d')", "table_name cannot be empty");
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testVacuumAccessControl()
+    {
+        String tableName = "test_deny_vacuum_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " WITH (location = '" + getLocationForTable(bucketName, tableName) + "') " +
+                "AS SELECT * FROM orders", "SELECT count(*) FROM orders");
+
+        assertAccessDenied(
+                "CALL system.vacuum(schema_name => CURRENT_SCHEMA, table_name => '" + tableName + "', retention => '30d')",
+                "Cannot insert into table .*",
+                privilege(tableName, INSERT_TABLE));
+        assertAccessDenied(
+                "CALL system.vacuum(schema_name => CURRENT_SCHEMA, table_name => '" + tableName + "', retention => '30d')",
+                "Cannot delete from table .*",
+                privilege(tableName, DELETE_TABLE));
+
         assertUpdate("DROP TABLE " + tableName);
     }
 

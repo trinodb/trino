@@ -53,7 +53,7 @@ import static java.time.format.DateTimeFormatter.ISO_DATE_TIME;
 @Fork(1)
 @Measurement(iterations = 10)
 @BenchmarkMode(Mode.AverageTime)
-public class BenchmarkDeltaLakeStatistics
+public class BenchmarkExtendedStatistics
 {
     @SuppressWarnings("FieldMayBeFinal")
     @State(Scope.Benchmark)
@@ -145,9 +145,9 @@ public class BenchmarkDeltaLakeStatistics
     {
         Options options = new OptionsBuilder()
                 .verbosity(VerboseMode.NORMAL)
-                .include(".*" + BenchmarkDeltaLakeStatistics.class.getSimpleName() + ".*")
+                .include(".*" + BenchmarkExtendedStatistics.class.getSimpleName() + ".*")
                 .resultFormat(ResultFormatType.JSON)
-                .result(format("%s/%s-result-%s.json", System.getProperty("java.io.tmpdir"), BenchmarkDeltaLakeStatistics.class.getSimpleName(), ISO_DATE_TIME.format(LocalDateTime.now())))
+                .result(format("%s/%s-result-%s.json", System.getProperty("java.io.tmpdir"), BenchmarkExtendedStatistics.class.getSimpleName(), ISO_DATE_TIME.format(LocalDateTime.now())))
                 .build();
         new Runner(options).run();
     }

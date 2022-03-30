@@ -35,6 +35,7 @@ import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
@@ -64,6 +65,7 @@ public abstract class BaseOracleConnectorTest
                 return false;
 
             case SUPPORTS_ARRAY:
+            case SUPPORTS_ROW_TYPE:
                 return false;
 
             case SUPPORTS_CREATE_SCHEMA:
@@ -303,6 +305,13 @@ public abstract class BaseOracleConnectorTest
 
         assertUpdate("DROP TABLE " + tableName);
         assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+    }
+
+    @Override
+    public void testDeleteWithLike()
+    {
+        assertThatThrownBy(super::testDeleteWithLike)
+                .hasStackTraceContaining("TrinoException: Unsupported delete");
     }
 
     @Test

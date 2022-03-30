@@ -34,6 +34,7 @@ import static io.trino.plugin.jdbc.UnsupportedTypeHandling.IGNORE;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 // Single-threaded because H2 DDL operations can sometimes take a global lock, leading to apparent deadlocks
 // like in https://github.com/trinodb/trino/issues/7209.
@@ -70,6 +71,7 @@ public class TestJdbcConnectorTest
                 return false;
 
             case SUPPORTS_ARRAY:
+            case SUPPORTS_ROW_TYPE:
                 return false;
 
             default:
@@ -121,6 +123,13 @@ public class TestJdbcConnectorTest
         }
 
         return Optional.of(dataMappingTestSetup);
+    }
+
+    @Override
+    public void testDeleteWithLike()
+    {
+        assertThatThrownBy(super::testDeleteWithLike)
+                .hasStackTraceContaining("TrinoException: Unsupported delete");
     }
 
     @Test

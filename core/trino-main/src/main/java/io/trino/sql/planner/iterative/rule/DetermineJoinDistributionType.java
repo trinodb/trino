@@ -32,8 +32,8 @@ import io.trino.sql.planner.optimizations.PlanNodeSearcher;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.TableScanNode;
+import io.trino.sql.planner.plan.UnnestNode;
 import io.trino.sql.planner.plan.ValuesNode;
-import io.trino.sql.tree.Unnest;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -50,7 +50,6 @@ import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
 import static io.trino.sql.planner.plan.JoinNode.Type.LEFT;
 import static io.trino.sql.planner.plan.JoinNode.Type.RIGHT;
 import static io.trino.sql.planner.plan.Patterns.join;
-import static io.trino.util.MorePredicates.isInstanceOfAny;
 import static java.util.Objects.requireNonNull;
 
 public class DetermineJoinDistributionType
@@ -108,14 +107,14 @@ public class DetermineJoinDistributionType
     static double getSourceTablesSizeInBytes(PlanNode node, Lookup lookup, StatsProvider statsProvider, TypeProvider typeProvider)
     {
         boolean hasExpandingNodes = PlanNodeSearcher.searchFrom(node, lookup)
-                .where(isInstanceOfAny(JoinNode.class, Unnest.class))
+                .whereIsInstanceOfAny(JoinNode.class, UnnestNode.class)
                 .matches();
         if (hasExpandingNodes) {
             return Double.NaN;
         }
 
         List<PlanNode> sourceNodes = PlanNodeSearcher.searchFrom(node, lookup)
-                .where(isInstanceOfAny(TableScanNode.class, ValuesNode.class))
+                .whereIsInstanceOfAny(TableScanNode.class, ValuesNode.class)
                 .findAll();
 
         return sourceNodes.stream()

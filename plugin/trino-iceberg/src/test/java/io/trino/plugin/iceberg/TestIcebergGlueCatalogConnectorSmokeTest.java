@@ -28,11 +28,9 @@ import org.testng.annotations.Parameters;
 import org.testng.annotations.Test;
 
 import java.util.List;
-import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.hive.metastore.glue.AwsSdkUtil.getPaginatedResults;
-import static io.trino.plugin.iceberg.IcebergQueryRunner.createIcebergQueryRunner;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -62,16 +60,17 @@ public class TestIcebergGlueCatalogConnectorSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createIcebergQueryRunner(
-                ImmutableMap.of(),
-                ImmutableMap.of(
-                        "iceberg.catalog.type", "glue",
-                        "hive.metastore.glue.default-warehouse-dir", schemaPath()),
-                SchemaInitializer.builder()
-                        .withClonedTpchTables(REQUIRED_TPCH_TABLES)
-                        .withSchemaName(schemaName)
-                        .build(),
-                Optional.empty());
+        return IcebergQueryRunner.builder()
+                .setIcebergProperties(
+                        ImmutableMap.of(
+                                "iceberg.catalog.type", "glue",
+                                "hive.metastore.glue.default-warehouse-dir", schemaPath()))
+                .setSchemaInitializer(
+                        SchemaInitializer.builder()
+                                .withClonedTpchTables(REQUIRED_TPCH_TABLES)
+                                .withSchemaName(schemaName)
+                                .build())
+                .build();
     }
 
     @AfterClass(alwaysRun = true)

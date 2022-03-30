@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Longs;
 import io.airlift.slice.Slice;
+import io.trino.hive.orc.util.Murmur3;
 import io.trino.orc.OrcWriterOptions.WriterIdentification;
 import io.trino.orc.metadata.ColumnMetadata;
 import io.trino.orc.metadata.CompressedMetadataWriter;
@@ -34,7 +35,6 @@ import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.RealType;
 import io.trino.spi.type.Type;
-import org.apache.orc.util.Murmur3;
 import org.testng.annotations.Test;
 
 import java.io.InputStream;
@@ -359,7 +359,7 @@ public class TestOrcBloomFilters
             int entries = ThreadLocalRandom.current().nextInt(size / 2, size);
 
             BloomFilter actual = new BloomFilter(size, fpp);
-            org.apache.orc.util.BloomFilter expected = new org.apache.orc.util.BloomFilter(size, fpp);
+            io.trino.hive.orc.util.BloomFilter expected = new io.trino.hive.orc.util.BloomFilter(size, fpp);
 
             assertFalse(actual.test(null));
             assertFalse(expected.test(null));

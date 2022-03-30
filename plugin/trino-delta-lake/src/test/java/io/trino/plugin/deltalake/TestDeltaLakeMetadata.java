@@ -25,7 +25,7 @@ import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.deltalake.metastore.DeltaLakeMetastore;
 import io.trino.plugin.deltalake.metastore.DeltaLakeMetastoreModule;
 import io.trino.plugin.deltalake.metastore.HiveMetastoreBackedDeltaLakeMetastore;
-import io.trino.plugin.deltalake.statistics.CachingDeltaLakeStatisticsAccess;
+import io.trino.plugin.deltalake.statistics.CachingExtendedStatisticsAccess;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.plugin.hive.HdfsEnvironment;
@@ -169,7 +169,7 @@ public class TestDeltaLakeMetadata
                             @RawHiveMetastoreFactory HiveMetastoreFactory hiveMetastoreFactory,
                             TransactionLogAccess transactionLogAccess,
                             TypeManager typeManager,
-                            CachingDeltaLakeStatisticsAccess statistics)
+                            CachingExtendedStatisticsAccess statistics)
                     {
                         return new HiveMetastoreBackedDeltaLakeMetastore(
                                 hiveMetastoreFactory.createMetastore(Optional.empty()),
@@ -325,7 +325,8 @@ public class TestDeltaLakeMetadata
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                0);
+                0,
+                false);
 
         assertThatThrownBy(() -> deltaLakeMetadataFactory.create(SESSION.getIdentity())
                 .getInsertLayout(SESSION, missingTableHandle))
@@ -449,7 +450,8 @@ public class TestDeltaLakeMetadata
                 Optional.of(ImmutableList.of(BOOLEAN_COLUMN_HANDLE)),
                 Optional.of(ImmutableList.of(DOUBLE_COLUMN_HANDLE)),
                 Optional.empty(),
-                0);
+                0,
+                false);
     }
 
     private static TupleDomain<DeltaLakeColumnHandle> createConstrainedColumnsTuple(

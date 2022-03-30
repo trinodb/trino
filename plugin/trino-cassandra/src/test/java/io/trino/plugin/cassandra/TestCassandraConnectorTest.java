@@ -99,6 +99,7 @@ public class TestCassandraConnectorTest
                 return false;
 
             case SUPPORTS_ARRAY:
+            case SUPPORTS_ROW_TYPE:
                 return false;
 
             case SUPPORTS_ADD_COLUMN:
@@ -234,7 +235,7 @@ public class TestCassandraConnectorTest
     public void testCharVarcharComparison()
     {
         assertThatThrownBy(super::testCharVarcharComparison)
-                .hasMessage("unsupported type: char(3)");
+                .hasMessage("Unsupported type: char(3)");
     }
 
     @Test
@@ -1253,6 +1254,13 @@ public class TestCassandraConnectorTest
             assertEquals(execute("SELECT * FROM " + keyspaceAndTable).getRowCount(), 6);
             assertEquals(execute("SELECT * FROM " + keyspaceAndTable + whereMultiplePartitionKey).getRowCount(), 0);
         }
+    }
+
+    @Override
+    public void testDeleteWithLike()
+    {
+        assertThatThrownBy(super::testDeleteWithLike)
+                .hasStackTraceContaining("Delete without primary key or partition key is not supported");
     }
 
     @Override

@@ -15,7 +15,7 @@ package io.trino.plugin.deltalake;
 
 import io.airlift.json.JsonCodec;
 import io.trino.plugin.deltalake.metastore.HiveMetastoreBackedDeltaLakeMetastore;
-import io.trino.plugin.deltalake.statistics.CachingDeltaLakeStatisticsAccess;
+import io.trino.plugin.deltalake.statistics.CachingExtendedStatisticsAccess;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointWriterManager;
 import io.trino.plugin.deltalake.transactionlog.writer.TransactionLogWriterFactory;
@@ -41,11 +41,11 @@ public class DeltaLakeMetadataFactory
     private final TransactionLogAccess transactionLogAccess;
     private final TypeManager typeManager;
     private final JsonCodec<DataFileInfo> dataFileInfoCodec;
-    private final JsonCodec<DeltaLakeUpdateResult> deleteResultJsonCodec;
+    private final JsonCodec<DeltaLakeUpdateResult> updateResultJsonCodec;
     private final TransactionLogWriterFactory transactionLogWriterFactory;
     private final NodeManager nodeManager;
     private final CheckpointWriterManager checkpointWriterManager;
-    private final CachingDeltaLakeStatisticsAccess statisticsAccess;
+    private final CachingExtendedStatisticsAccess statisticsAccess;
     private final int domainCompactionThreshold;
     private final boolean hideNonDeltaLakeTables;
     private final boolean unsafeWritesEnabled;
@@ -63,11 +63,11 @@ public class DeltaLakeMetadataFactory
             DeltaLakeConfig deltaLakeConfig,
             @HideNonDeltaLakeTables boolean hideNonDeltaLakeTables,
             JsonCodec<DataFileInfo> dataFileInfoCodec,
-            JsonCodec<DeltaLakeUpdateResult> deleteResultJsonCodec,
+            JsonCodec<DeltaLakeUpdateResult> updateResultJsonCodec,
             TransactionLogWriterFactory transactionLogWriterFactory,
             NodeManager nodeManager,
             CheckpointWriterManager checkpointWriterManager,
-            CachingDeltaLakeStatisticsAccess statisticsAccess,
+            CachingExtendedStatisticsAccess statisticsAccess,
             HiveConfig hiveConfig)
     {
         this.hiveMetastoreFactory = requireNonNull(hiveMetastoreFactory, "hiveMetastore is null");
@@ -75,7 +75,7 @@ public class DeltaLakeMetadataFactory
         this.transactionLogAccess = requireNonNull(transactionLogAccess, "transactionLogAccess is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.dataFileInfoCodec = requireNonNull(dataFileInfoCodec, "dataFileInfoCodec is null");
-        this.deleteResultJsonCodec = requireNonNull(deleteResultJsonCodec, "deleteResultJsonCodec is null");
+        this.updateResultJsonCodec = requireNonNull(updateResultJsonCodec, "updateResultJsonCodec is null");
         this.transactionLogWriterFactory = requireNonNull(transactionLogWriterFactory, "transactionLogWriterFactory is null");
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.checkpointWriterManager = requireNonNull(checkpointWriterManager, "checkpointWriterManager is null");
@@ -109,7 +109,7 @@ public class DeltaLakeMetadataFactory
                 hideNonDeltaLakeTables,
                 unsafeWritesEnabled,
                 dataFileInfoCodec,
-                deleteResultJsonCodec,
+                updateResultJsonCodec,
                 transactionLogWriterFactory,
                 nodeManager,
                 checkpointWriterManager,

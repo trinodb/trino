@@ -82,6 +82,9 @@ public class TestClickHouseConnectorTest
                 return false;
 
             case SUPPORTS_ARRAY:
+            case SUPPORTS_ROW_TYPE:
+                return false;
+
             case SUPPORTS_NEGATIVE_DATE:
                 return false;
 

@@ -18,6 +18,7 @@ import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
+import io.trino.metadata.RedirectionAwareTableHandle;
 import io.trino.metadata.TableHandle;
 import io.trino.security.AccessControl;
 import io.trino.spi.connector.CatalogSchemaName;
@@ -39,6 +40,7 @@ import static io.trino.metadata.MetadataUtil.createCatalogSchemaName;
 import static io.trino.metadata.MetadataUtil.createPrincipal;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.trino.spi.StandardErrorCode.INVALID_PRIVILEGE;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
@@ -98,9 +100,13 @@ public class GrantTask
     private void executeGrantOnTable(Session session, Grant statement)
     {
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getName());
-        Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
+        RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, tableName);
+        Optional<TableHandle> tableHandle = redirection.getTableHandle();
         if (tableHandle.isEmpty()) {
             throw semanticException(TABLE_NOT_FOUND, statement, "Table '%s' does not exist", tableName);
+        }
+        if (redirection.getRedirectedTableName().isPresent()) {
+            throw semanticException(NOT_SUPPORTED, statement, "Table %s is redirected to %s and GRANT is not supported with table redirections", tableName, redirection.getRedirectedTableName().get());
         }
 
         Set<Privilege> privileges = parseStatementPrivileges(statement);

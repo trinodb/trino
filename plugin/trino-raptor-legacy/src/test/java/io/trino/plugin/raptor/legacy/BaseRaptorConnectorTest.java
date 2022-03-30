@@ -77,6 +77,10 @@ public abstract class BaseRaptorConnectorTest
             case SUPPORTS_NOT_NULL_CONSTRAINT:
             case SUPPORTS_TOPN_PUSHDOWN:
                 return false;
+
+            case SUPPORTS_ROW_TYPE:
+                return false;
+
             default:
                 return super.hasBehavior(connectorBehavior);
         }
@@ -93,7 +97,7 @@ public abstract class BaseRaptorConnectorTest
     public void testCharVarcharComparison()
     {
         assertThatThrownBy(super::testCharVarcharComparison)
-                .hasMessage("No storage type for type: char(3)");
+                .hasMessage("Unsupported type: char(3)");
     }
 
     @Test

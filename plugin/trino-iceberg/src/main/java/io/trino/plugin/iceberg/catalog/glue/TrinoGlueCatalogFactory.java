@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg.catalog.glue;
 
+import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.services.glue.AWSGlueAsync;
 import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.metastore.glue.GlueHiveMetastoreConfig;
@@ -41,23 +42,27 @@ public class TrinoGlueCatalogFactory
     private final Optional<String> defaultSchemaLocation;
     private final AWSGlueAsync glueClient;
     private final boolean isUniqueTableLocation;
-    private final GlueMetastoreStats stats = new GlueMetastoreStats();
+    private final GlueMetastoreStats stats;
 
     @Inject
     public TrinoGlueCatalogFactory(
             HdfsEnvironment hdfsEnvironment,
             IcebergTableOperationsProvider tableOperationsProvider,
             GlueHiveMetastoreConfig glueConfig,
-            IcebergConfig icebergConfig)
+            AWSCredentialsProvider credentialsProvider,
+            IcebergConfig icebergConfig,
+            GlueMetastoreStats stats)
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.tableOperationsProvider = requireNonNull(tableOperationsProvider, "tableOperationsProvider is null");
         requireNonNull(glueConfig, "glueConfig is null");
         checkArgument(glueConfig.getCatalogId().isEmpty(), "catalogId configuration is not supported");
         this.defaultSchemaLocation = glueConfig.getDefaultWarehouseDir();
-        this.glueClient = createAsyncGlueClient(glueConfig, Optional.empty(), stats.newRequestMetricsCollector());
+        requireNonNull(credentialsProvider, "credentialsProvider is null");
+        this.glueClient = createAsyncGlueClient(glueConfig, credentialsProvider, Optional.empty(), stats.newRequestMetricsCollector());
         requireNonNull(icebergConfig, "icebergConfig is null");
         this.isUniqueTableLocation = icebergConfig.isUniqueTableLocation();
+        this.stats = requireNonNull(stats, "stats is null");
     }
 
     @Managed

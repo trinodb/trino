@@ -82,6 +82,7 @@ public abstract class AbstractPinotIntegrationSmokeTest
     private static final String JSON_TABLE = "my_table";
     private static final String RESERVED_KEYWORD_TABLE = "reserved_keyword";
     private static final String QUOTES_IN_COLUMN_NAME_TABLE = "quotes_in_column_name";
+    private static final String DUPLICATE_VALUES_IN_COLUMNS_TABLE = "duplicate_values_in_columns";
     // Use a recent value for updated_at to ensure Pinot doesn't clean up records older than retentionTimeValue as defined in the table specs
     private static final Instant initialUpdatedAt = Instant.now().minus(Duration.ofDays(1)).truncatedTo(SECONDS);
     // Use a fixed instant for testing date time functions
@@ -295,6 +296,69 @@ public abstract class AbstractPinotIntegrationSmokeTest
         kafka.sendMessages(quotesInColumnNameRecordsBuilder.build().stream(), schemaRegistryAwareProducer(kafka));
         pinot.createSchema(getClass().getClassLoader().getResourceAsStream("quotes_in_column_name_schema.json"), QUOTES_IN_COLUMN_NAME_TABLE);
         pinot.addRealTimeTable(getClass().getClassLoader().getResourceAsStream("quotes_in_column_name_realtimeSpec.json"), QUOTES_IN_COLUMN_NAME_TABLE);
+
+        // Create a table having multiple columns with duplicate values
+        kafka.createTopic(DUPLICATE_VALUES_IN_COLUMNS_TABLE);
+        Schema duplicateValuesInColumnsAvroSchema = SchemaBuilder.record(DUPLICATE_VALUES_IN_COLUMNS_TABLE).fields()
+                .name("dim_col").type().optional().longType()
+                .name("another_dim_col").type().optional().longType()
+                .name("string_col").type().optional().stringType()
+                .name("another_string_col").type().optional().stringType()
+                .name("metric_col1").type().optional().longType()
+                .name("metric_col2").type().optional().longType()
+                .name("updated_at").type().longType().noDefault()
+                .endRecord();
+
+        ImmutableList.Builder<ProducerRecord<String, GenericRecord>> duplicateValuesInColumnsRecordsBuilder = ImmutableList.builder();
+        duplicateValuesInColumnsRecordsBuilder.add(new ProducerRecord<>(DUPLICATE_VALUES_IN_COLUMNS_TABLE, "key0", new GenericRecordBuilder(duplicateValuesInColumnsAvroSchema)
+                .set("dim_col", 1000L)
+                .set("another_dim_col", 1000L)
+                .set("string_col", "string1")
+                .set("another_string_col", "string1")
+                .set("metric_col1", 10L)
+                .set("metric_col2", 20L)
+                .set("updated_at", initialUpdatedAt.plusMillis(1000).toEpochMilli())
+                .build()));
+        duplicateValuesInColumnsRecordsBuilder.add(new ProducerRecord<>(DUPLICATE_VALUES_IN_COLUMNS_TABLE, "key1", new GenericRecordBuilder(duplicateValuesInColumnsAvroSchema)
+                .set("dim_col", 2000L)
+                .set("another_dim_col", 2000L)
+                .set("string_col", "string1")
+                .set("another_string_col", "string1")
+                .set("metric_col1", 100L)
+                .set("metric_col2", 200L)
+                .set("updated_at", initialUpdatedAt.plusMillis(2000).toEpochMilli())
+                .build()));
+        duplicateValuesInColumnsRecordsBuilder.add(new ProducerRecord<>(DUPLICATE_VALUES_IN_COLUMNS_TABLE, "key2", new GenericRecordBuilder(duplicateValuesInColumnsAvroSchema)
+                .set("dim_col", 3000L)
+                .set("another_dim_col", 3000L)
+                .set("string_col", "string1")
+                .set("another_string_col", "another_string1")
+                .set("metric_col1", 1000L)
+                .set("metric_col2", 2000L)
+                .set("updated_at", initialUpdatedAt.plusMillis(3000).toEpochMilli())
+                .build()));
+        duplicateValuesInColumnsRecordsBuilder.add(new ProducerRecord<>(DUPLICATE_VALUES_IN_COLUMNS_TABLE, "key1", new GenericRecordBuilder(duplicateValuesInColumnsAvroSchema)
+                .set("dim_col", 4000L)
+                .set("another_dim_col", 4000L)
+                .set("string_col", "string2")
+                .set("another_string_col", "another_string2")
+                .set("metric_col1", 100L)
+                .set("metric_col2", 200L)
+                .set("updated_at", initialUpdatedAt.plusMillis(4000).toEpochMilli())
+                .build()));
+        duplicateValuesInColumnsRecordsBuilder.add(new ProducerRecord<>(DUPLICATE_VALUES_IN_COLUMNS_TABLE, "key2", new GenericRecordBuilder(duplicateValuesInColumnsAvroSchema)
+                .set("dim_col", 4000L)
+                .set("another_dim_col", 4001L)
+                .set("string_col", "string2")
+                .set("another_string_col", "string2")
+                .set("metric_col1", 1000L)
+                .set("metric_col2", 2000L)
+                .set("updated_at", initialUpdatedAt.plusMillis(5000).toEpochMilli())
+                .build()));
+
+        kafka.sendMessages(duplicateValuesInColumnsRecordsBuilder.build().stream(), schemaRegistryAwareProducer(kafka));
+        pinot.createSchema(getClass().getClassLoader().getResourceAsStream("duplicate_values_in_columns_schema.json"), DUPLICATE_VALUES_IN_COLUMNS_TABLE);
+        pinot.addRealTimeTable(getClass().getClassLoader().getResourceAsStream("duplicate_values_in_columns_realtimeSpec.json"), DUPLICATE_VALUES_IN_COLUMNS_TABLE);
 
         return PinotQueryRunner.createPinotQueryRunner(
                 ImmutableMap.of(),
@@ -667,6 +731,20 @@ public abstract class AbstractPinotIntegrationSmokeTest
                         "  FROM  \"SELECT updatedatseconds, longcol, stringcol FROM " + MIXED_CASE_COLUMN_NAMES_TABLE +
                         "\" WHERE longcol = 3"))
                 .matches(singleRowValues)
+                .isFullyPushedDown();
+
+        assertThat(query("SELECT AVG(longcol), MIN(longcol), MAX(longcol), APPROX_DISTINCT(longcol), SUM(longcol)" +
+                "  FROM " + MIXED_CASE_COLUMN_NAMES_TABLE))
+                .matches("VALUES (DOUBLE '1.5', BIGINT '0', BIGINT '3', BIGINT '4', BIGINT '6')")
+                .isFullyPushedDown();
+
+        assertThat(query("SELECT stringcol, AVG(longcol), MIN(longcol), MAX(longcol), APPROX_DISTINCT(longcol), SUM(longcol)" +
+                "  FROM " + MIXED_CASE_COLUMN_NAMES_TABLE +
+                "  GROUP BY stringcol"))
+                .matches("VALUES (VARCHAR 'string_0', DOUBLE '0.0', BIGINT '0', BIGINT '0', BIGINT '1', BIGINT '0')," +
+                        "  (VARCHAR 'string_1', DOUBLE '1.0', BIGINT '1', BIGINT '1', BIGINT '1', BIGINT '1')," +
+                        "  (VARCHAR 'string_2', DOUBLE '2.0', BIGINT '2', BIGINT '2', BIGINT '1', BIGINT '2')," +
+                        "  (VARCHAR 'string_3', DOUBLE '3.0', BIGINT '3', BIGINT '3', BIGINT '1', BIGINT '3')")
                 .isFullyPushedDown();
     }
 
@@ -1107,7 +1185,14 @@ public abstract class AbstractPinotIntegrationSmokeTest
                 "  MIN(long_col), MAX(long_col), AVG(long_col), SUM(long_col)," +
                 "  MIN(float_col), MAX(float_col), AVG(float_col), SUM(float_col)," +
                 "  MIN(double_col), MAX(double_col), AVG(double_col), SUM(double_col)" +
-                "  FROM " + ALL_TYPES_TABLE + " WHERE long_col > 4147483649")).isFullyPushedDown();
+                "  FROM " + ALL_TYPES_TABLE + " WHERE long_col > 4147483649"))
+                .isFullyPushedDown();
+
+        // Ensure that isNullOnEmptyGroup is handled correctly for passthrough queries as well
+        assertThat(query("SELECT \"count(*)\", \"distinctcounthll(string_col)\", \"distinctcount(string_col)\", \"sum(created_at_seconds)\", \"max(created_at_seconds)\"" +
+                "  FROM \"SELECT count(*), distinctcounthll(string_col), distinctcount(string_col), sum(created_at_seconds), max(created_at_seconds) FROM " + DATE_TIME_FIELDS_TABLE + " WHERE created_at_seconds = 0\""))
+                .matches("VALUES (BIGINT '0', BIGINT '0', INTEGER '0', CAST(NULL AS DOUBLE), CAST(NULL AS DOUBLE))")
+                .isFullyPushedDown();
 
         // Test passthrough queries with no aggregates
         assertThat(query("SELECT string_col, COUNT(*)," +
@@ -1764,5 +1849,90 @@ public abstract class AbstractPinotIntegrationSmokeTest
                         "  (BIGINT '-3147483641', VARCHAR 'string_7200')," +
                         "  (BIGINT '-3147483640', VARCHAR 'string_8400')")
                 .isFullyPushedDown();
+    }
+
+    @Test
+    public void testAggregatePassthroughQueriesWithExpressions()
+    {
+        assertThat(query("SELECT string_col, sum_metric_col1, count_dup_string_col, ratio_metric_col" +
+                "  FROM \"SELECT string_col, SUM(metric_col1) AS sum_metric_col1, COUNT(DISTINCT another_string_col) AS count_dup_string_col," +
+                "  (SUM(metric_col1) - SUM(metric_col2)) / SUM(metric_col1) AS ratio_metric_col" +
+                "  FROM duplicate_values_in_columns WHERE dim_col = another_dim_col" +
+                "  GROUP BY string_col" +
+                "  ORDER BY string_col\""))
+                .matches("VALUES (VARCHAR 'string1', DOUBLE '1110.0', 2, DOUBLE '-1.0')," +
+                        "  (VARCHAR 'string2', DOUBLE '100.0', 1, DOUBLE '-1.0')");
+
+        assertThat(query("SELECT string_col, sum_metric_col1, count_dup_string_col, ratio_metric_col" +
+                "  FROM \"SELECT string_col, SUM(metric_col1) AS sum_metric_col1," +
+                "  COUNT(DISTINCT another_string_col) AS count_dup_string_col," +
+                "  (SUM(metric_col1) - SUM(metric_col2)) / SUM(metric_col1) AS ratio_metric_col" +
+                "  FROM duplicate_values_in_columns WHERE dim_col != another_dim_col" +
+                "  GROUP BY string_col" +
+                "  ORDER BY string_col\""))
+                .matches("VALUES (VARCHAR 'string2', DOUBLE '1000.0', 1, DOUBLE '-1.0')");
+
+        assertThat(query("SELECT DISTINCT string_col, another_string_col" +
+                "  FROM \"SELECT string_col, another_string_col" +
+                "  FROM duplicate_values_in_columns WHERE dim_col = another_dim_col\""))
+                .matches("VALUES (VARCHAR 'string1', VARCHAR 'string1')," +
+                        "  (VARCHAR 'string1', VARCHAR 'another_string1')," +
+                        "  (VARCHAR 'string2', VARCHAR 'another_string2')");
+
+        assertThat(query("SELECT string_col, sum_metric_col1" +
+                "  FROM \"SELECT string_col," +
+                "  SUM(CASE WHEN dim_col = another_dim_col THEN metric_col1 ELSE 0 END) AS sum_metric_col1" +
+                "  FROM duplicate_values_in_columns GROUP BY string_col ORDER BY string_col\""))
+                .matches("VALUES (VARCHAR 'string1', DOUBLE '1110.0')," +
+                        "  (VARCHAR 'string2', DOUBLE '100.0')");
+
+        assertThat(query("SELECT \"percentile(int_col, 90.0)\"" +
+                "  FROM \"SELECT percentile(int_col, 90) FROM " + ALL_TYPES_TABLE + "\""))
+                .matches("VALUES (DOUBLE '56.0')");
+
+        assertThat(query("SELECT bool_col, \"percentile(int_col, 90.0)\"" +
+                "  FROM \"SELECT bool_col, percentile(int_col, 90) FROM " + ALL_TYPES_TABLE + " GROUP BY bool_col\""))
+                .matches("VALUES (true, DOUBLE '56.0')," +
+                        "  (false, DOUBLE '0.0')");
+
+        assertThat(query("SELECT \"sqrt(percentile(sqrt(int_col),'26.457513110645905'))\"" +
+                "  FROM \"SELECT sqrt(percentile(sqrt(int_col), sqrt(700))) FROM " + ALL_TYPES_TABLE + "\""))
+                .matches("VALUES (DOUBLE '2.7108060108295344')");
+
+        assertThat(query("SELECT int_col, \"sqrt(percentile(sqrt(int_col),'26.457513110645905'))\"" +
+                "  FROM \"SELECT int_col, sqrt(percentile(sqrt(int_col), sqrt(700))) FROM " + ALL_TYPES_TABLE + " GROUP BY int_col\""))
+                .matches("VALUES (54, DOUBLE '2.7108060108295344')," +
+                        "  (55, DOUBLE '2.7232698153315003')," +
+                        "  (56, DOUBLE '2.7355647997347607')," +
+                        "  (0, DOUBLE '0.0')");
+    }
+
+    @Test
+    public void testAggregationPushdownWithArrays()
+    {
+        assertThat(query("SELECT string_array_col, count(*) FROM " + ALL_TYPES_TABLE + " WHERE int_col = 54 GROUP BY 1"))
+                .isNotFullyPushedDown(ExchangeNode.class, ProjectNode.class, AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class, ProjectNode.class);
+        assertThat(query("SELECT int_array_col, string_array_col, count(*) FROM " + ALL_TYPES_TABLE + " WHERE int_col = 54 GROUP BY 1, 2"))
+                .isNotFullyPushedDown(ExchangeNode.class, ProjectNode.class, AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class, ProjectNode.class);
+        assertThat(query("SELECT int_array_col, \"count(*)\"" +
+                "  FROM \"SELECT int_array_col, COUNT(*) FROM " + ALL_TYPES_TABLE +
+                "  WHERE int_col = 54 GROUP BY 1\""))
+                .isFullyPushedDown()
+                .matches("VALUES (-10001, BIGINT '3')," +
+                        "(54, BIGINT '3')," +
+                        "(1000, BIGINT '3')");
+        assertThat(query("SELECT int_array_col, string_array_col, \"count(*)\"" +
+                "  FROM \"SELECT int_array_col, string_array_col, COUNT(*) FROM " + ALL_TYPES_TABLE +
+                "  WHERE int_col = 56 AND string_col = 'string_8400' GROUP BY 1, 2\""))
+                .isFullyPushedDown()
+                .matches("VALUES (-10001, VARCHAR 'string_8400', BIGINT '1')," +
+                        "(-10001, VARCHAR 'string2_8402', BIGINT '1')," +
+                        "(1000, VARCHAR 'string2_8402', BIGINT '1')," +
+                        "(56, VARCHAR 'string2_8402', BIGINT '1')," +
+                        "(-10001, VARCHAR 'string1_8401', BIGINT '1')," +
+                        "(56, VARCHAR 'string1_8401', BIGINT '1')," +
+                        "(1000, VARCHAR 'string_8400', BIGINT '1')," +
+                        "(56, VARCHAR 'string_8400', BIGINT '1')," +
+                        "(1000, VARCHAR 'string1_8401', BIGINT '1')");
     }
 }

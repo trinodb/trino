@@ -687,6 +687,7 @@ public class TestMySqlTypeMapping
                 .addRoundTrip("TIME(5)", "NULL", createTimeType(5), "CAST(NULL AS TIME(5))")
                 .addRoundTrip("TIME(6)", "NULL", createTimeType(6), "CAST(NULL AS TIME(6))")
 
+                .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_time"))
                 .execute(getQueryRunner(), session, trinoCreateAsSelect("test_time"))
                 .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_time"))
                 .execute(getQueryRunner(), session, trinoCreateAndInsert("test_time"));

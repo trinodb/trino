@@ -11,24 +11,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.deltalake.statistics;
+package io.trino.plugin.jdbc;
 
-import io.trino.spi.connector.ConnectorSession;
+import io.airlift.configuration.Config;
 
-import java.util.Optional;
-
-public interface DeltaLakeStatisticsAccess
+public class JdbcStatisticsConfig
 {
-    Optional<DeltaLakeStatistics> readDeltaLakeStatistics(
-            ConnectorSession session,
-            String tableLocation);
+    private boolean enabled = true;
 
-    void updateDeltaLakeStatistics(
-            ConnectorSession session,
-            String tableLocation,
-            DeltaLakeStatistics statistics);
+    public boolean isEnabled()
+    {
+        return enabled;
+    }
 
-    void deleteDeltaLakeStatistics(
-            ConnectorSession session,
-            String tableLocation);
+    @Config("statistics.enabled")
+    public JdbcStatisticsConfig setEnabled(boolean enabled)
+    {
+        this.enabled = enabled;
+        return this;
+    }
 }

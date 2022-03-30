@@ -24,10 +24,10 @@ import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.deltalake.metastore.DeltaLakeMetastore;
 import io.trino.plugin.deltalake.procedure.DropExtendedStatsProcedure;
 import io.trino.plugin.deltalake.procedure.VacuumProcedure;
-import io.trino.plugin.deltalake.statistics.CachingDeltaLakeStatisticsAccess;
-import io.trino.plugin.deltalake.statistics.CachingDeltaLakeStatisticsAccess.ForCachingDeltaLakeStatisticsAccess;
-import io.trino.plugin.deltalake.statistics.DeltaLakeStatistics;
-import io.trino.plugin.deltalake.statistics.DeltaLakeStatisticsAccess;
+import io.trino.plugin.deltalake.statistics.CachingExtendedStatisticsAccess;
+import io.trino.plugin.deltalake.statistics.CachingExtendedStatisticsAccess.ForCachingExtendedStatisticsAccess;
+import io.trino.plugin.deltalake.statistics.ExtendedStatistics;
+import io.trino.plugin.deltalake.statistics.ExtendedStatisticsAccess;
 import io.trino.plugin.deltalake.statistics.MetaDirStatisticsAccess;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointSchemaManager;
@@ -94,7 +94,6 @@ public class DeltaLakeModule
         Multibinder<SystemTableProvider> systemTableProviders = newSetBinder(binder, SystemTableProvider.class);
         systemTableProviders.addBinding().to(PropertiesSystemTableProvider.class).in(Scopes.SINGLETON);
 
-        binder.bind(DeltaLakeSessionProperties.class).in(Scopes.SINGLETON);
         binder.bind(DeltaLakeTableProperties.class).in(Scopes.SINGLETON);
         binder.bind(DeltaLakeAnalyzeProperties.class).in(Scopes.SINGLETON);
 
@@ -106,10 +105,10 @@ public class DeltaLakeModule
 
         binder.bind(LocationService.class).to(HiveLocationService.class).in(Scopes.SINGLETON);
         binder.bind(DeltaLakeMetadataFactory.class).in(Scopes.SINGLETON);
-        binder.bind(CachingDeltaLakeStatisticsAccess.class).in(Scopes.SINGLETON);
-        binder.bind(DeltaLakeStatisticsAccess.class).to(CachingDeltaLakeStatisticsAccess.class).in(Scopes.SINGLETON);
-        binder.bind(DeltaLakeStatisticsAccess.class).annotatedWith(ForCachingDeltaLakeStatisticsAccess.class).to(MetaDirStatisticsAccess.class).in(Scopes.SINGLETON);
-        jsonCodecBinder(binder).bindJsonCodec(DeltaLakeStatistics.class);
+        binder.bind(CachingExtendedStatisticsAccess.class).in(Scopes.SINGLETON);
+        binder.bind(ExtendedStatisticsAccess.class).to(CachingExtendedStatisticsAccess.class).in(Scopes.SINGLETON);
+        binder.bind(ExtendedStatisticsAccess.class).annotatedWith(ForCachingExtendedStatisticsAccess.class).to(MetaDirStatisticsAccess.class).in(Scopes.SINGLETON);
+        jsonCodecBinder(binder).bindJsonCodec(ExtendedStatistics.class);
         binder.bind(HiveTransactionManager.class).in(Scopes.SINGLETON);
         binder.bind(CheckpointSchemaManager.class).in(Scopes.SINGLETON);
         jsonCodecBinder(binder).bindJsonCodec(LastCheckpoint.class);

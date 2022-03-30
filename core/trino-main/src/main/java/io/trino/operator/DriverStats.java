@@ -68,8 +68,12 @@ public class DriverStats
     private final DataSize processedInputDataSize;
     private final long processedInputPositions;
 
+    private final Duration inputBlockedTime;
+
     private final DataSize outputDataSize;
     private final long outputPositions;
+
+    private final Duration outputBlockedTime;
 
     private final DataSize physicalWrittenDataSize;
 
@@ -109,8 +113,12 @@ public class DriverStats
         this.processedInputDataSize = DataSize.ofBytes(0);
         this.processedInputPositions = 0;
 
+        this.inputBlockedTime = new Duration(0, MILLISECONDS);
+
         this.outputDataSize = DataSize.ofBytes(0);
         this.outputPositions = 0;
+
+        this.outputBlockedTime = new Duration(0, MILLISECONDS);
 
         this.physicalWrittenDataSize = DataSize.ofBytes(0);
 
@@ -151,8 +159,12 @@ public class DriverStats
             @JsonProperty("processedInputDataSize") DataSize processedInputDataSize,
             @JsonProperty("processedInputPositions") long processedInputPositions,
 
+            @JsonProperty("inputBlockedTime") Duration inputBlockedTime,
+
             @JsonProperty("outputDataSize") DataSize outputDataSize,
             @JsonProperty("outputPositions") long outputPositions,
+
+            @JsonProperty("outputBlockedTime") Duration outputBlockedTime,
 
             @JsonProperty("physicalWrittenDataSize") DataSize physicalWrittenDataSize,
 
@@ -194,9 +206,13 @@ public class DriverStats
         checkArgument(processedInputPositions >= 0, "processedInputPositions is negative");
         this.processedInputPositions = processedInputPositions;
 
+        this.inputBlockedTime = requireNonNull(inputBlockedTime, "inputBlockedTime is null");
+
         this.outputDataSize = requireNonNull(outputDataSize, "outputDataSize is null");
         checkArgument(outputPositions >= 0, "outputPositions is negative");
         this.outputPositions = outputPositions;
+
+        this.outputBlockedTime = requireNonNull(outputBlockedTime, "outputBlockedTime is null");
 
         this.physicalWrittenDataSize = requireNonNull(physicalWrittenDataSize, "physicalWrittenDataSize is null");
 
@@ -350,6 +366,12 @@ public class DriverStats
     }
 
     @JsonProperty
+    public Duration getInputBlockedTime()
+    {
+        return inputBlockedTime;
+    }
+
+    @JsonProperty
     public DataSize getOutputDataSize()
     {
         return outputDataSize;
@@ -359,6 +381,12 @@ public class DriverStats
     public long getOutputPositions()
     {
         return outputPositions;
+    }
+
+    @JsonProperty
+    public Duration getOutputBlockedTime()
+    {
+        return outputBlockedTime;
     }
 
     @JsonProperty

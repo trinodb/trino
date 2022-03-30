@@ -34,6 +34,7 @@ import org.testng.annotations.Test;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -47,7 +48,6 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeType.createTimeType;
-import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
@@ -80,10 +80,17 @@ public abstract class BaseSqlServerTypeMapping
     @BeforeClass
     public void setUp()
     {
+        checkState(jvmZone.getId().equals("America/Bahia_Banderas"), "This test assumes certain JVM time zone");
+        LocalDate dateOfLocalTimeChangeForwardAtMidnightInJvmZone = LocalDate.of(1970, 1, 1);
+        checkIsGap(jvmZone, dateOfLocalTimeChangeForwardAtMidnightInJvmZone.atStartOfDay());
         checkIsGap(jvmZone, timeGapInJvmZone1);
         checkIsGap(jvmZone, timeGapInJvmZone2);
         checkIsDoubled(jvmZone, timeDoubledInJvmZone);
 
+        LocalDate dateOfLocalTimeChangeForwardAtMidnightInSomeZone = LocalDate.of(1983, 4, 1);
+        checkIsGap(vilnius, dateOfLocalTimeChangeForwardAtMidnightInSomeZone.atStartOfDay());
+        LocalDate dateOfLocalTimeChangeBackwardAtMidnightInSomeZone = LocalDate.of(1983, 10, 1);
+        checkIsDoubled(vilnius, dateOfLocalTimeChangeBackwardAtMidnightInSomeZone.atStartOfDay().minusMinutes(1));
         checkIsGap(vilnius, timeGapInVilnius);
         checkIsDoubled(vilnius, timeDoubledInVilnius);
 
@@ -430,67 +437,43 @@ public abstract class BaseSqlServerTypeMapping
                 .execute(getQueryRunner(), sqlServerCreateAndInsert("test_varbinary"));
     }
 
-    @Test
-    public void testDate()
+    @Test(dataProvider = "sessionZonesDataProvider")
+    public void testDate(ZoneId sessionZone)
     {
-        ZoneId jvmZone = ZoneId.systemDefault();
-        checkState(jvmZone.getId().equals("America/Bahia_Banderas"), "This test assumes certain JVM time zone");
-        LocalDate dateOfLocalTimeChangeForwardAtMidnightInJvmZone = LocalDate.of(1970, 1, 1);
-        checkIsGap(jvmZone, dateOfLocalTimeChangeForwardAtMidnightInJvmZone.atStartOfDay());
+        Session session = Session.builder(getSession())
+                .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
+                .build();
 
-        ZoneId someZone = ZoneId.of("Europe/Vilnius");
-        LocalDate dateOfLocalTimeChangeForwardAtMidnightInSomeZone = LocalDate.of(1983, 4, 1);
-        checkIsGap(someZone, dateOfLocalTimeChangeForwardAtMidnightInSomeZone.atStartOfDay());
-        LocalDate dateOfLocalTimeChangeBackwardAtMidnightInSomeZone = LocalDate.of(1983, 10, 1);
-        checkIsDoubled(someZone, dateOfLocalTimeChangeBackwardAtMidnightInSomeZone.atStartOfDay().minusMinutes(1));
+        dateTest(Function.identity())
+                .execute(getQueryRunner(), session, sqlServerCreateAndInsert("test_date"));
 
+        dateTest(inputLiteral -> format("DATE %s", inputLiteral))
+                .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_date"))
+                .execute(getQueryRunner(), session, trinoCreateAsSelect("test_date"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_date"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert("test_date"));
+    }
+
+    private SqlDataTypeTest dateTest(Function<String, String> inputLiteralFactory)
+    {
         // BC dates not supported by SQL Server
-        SqlDataTypeTest testsSqlServer = SqlDataTypeTest.create()
+        return SqlDataTypeTest.create()
                 .addRoundTrip("date", "NULL", DATE, "CAST(NULL AS DATE)")
                 // first day of AD
-                .addRoundTrip("date", "'0001-01-01'", DATE, "DATE '0001-01-01'")
-                .addRoundTrip("date", "'0012-12-12'", DATE, "DATE '0012-12-12'")
+                .addRoundTrip("date", inputLiteralFactory.apply("'0001-01-01'"), DATE, "DATE '0001-01-01'")
+                .addRoundTrip("date", inputLiteralFactory.apply("'0012-12-12'"), DATE, "DATE '0012-12-12'")
                 // before julian->gregorian switch
-                .addRoundTrip("date", "'1500-01-01'", DATE, "DATE '1500-01-01'")
+                .addRoundTrip("date", inputLiteralFactory.apply("'1500-01-01'"), DATE, "DATE '1500-01-01'")
                 // before epoch
-                .addRoundTrip("date", "'1952-04-03'", DATE, "DATE '1952-04-03'")
-                .addRoundTrip("date", "'1970-01-01'", DATE, "DATE '1970-01-01'")
-                .addRoundTrip("date", "'1970-02-03'", DATE, "DATE '1970-02-03'")
+                .addRoundTrip("date", inputLiteralFactory.apply("'1952-04-03'"), DATE, "DATE '1952-04-03'")
+                .addRoundTrip("date", inputLiteralFactory.apply("'1970-01-01'"), DATE, "DATE '1970-01-01'")
+                .addRoundTrip("date", inputLiteralFactory.apply("'1970-02-03'"), DATE, "DATE '1970-02-03'")
                 // summer on northern hemisphere (possible DST)
-                .addRoundTrip("date", "'2017-07-01'", DATE, "DATE '2017-07-01'")
+                .addRoundTrip("date", inputLiteralFactory.apply("'2017-07-01'"), DATE, "DATE '2017-07-01'")
                 // winter on northern hemisphere (possible DST on southern hemisphere)
-                .addRoundTrip("date", "'2017-01-01'", DATE, "DATE '2017-01-01'")
-                .addRoundTrip("date", "'1970-01-01'", DATE, "DATE '1970-01-01'")
-                .addRoundTrip("date", "'1983-04-01'", DATE, "DATE '1983-04-01'")
-                .addRoundTrip("date", "'1983-10-01'", DATE, "DATE '1983-10-01'");
-
-        SqlDataTypeTest testsTrino = SqlDataTypeTest.create()
-                .addRoundTrip("date", "NULL", DATE, "CAST(NULL AS DATE)")
-                // first day of AD
-                .addRoundTrip("date", "DATE '0001-01-01'", DATE, "DATE '0001-01-01'")
-                .addRoundTrip("date", "DATE '0012-12-12'", DATE, "DATE '0012-12-12'")
-                // before julian->gregorian switch
-                .addRoundTrip("date", "DATE '1500-01-01'", DATE, "DATE '1500-01-01'")
-                // before epoch
-                .addRoundTrip("date", "DATE '1952-04-03'", DATE, "DATE '1952-04-03'")
-                .addRoundTrip("date", "DATE '1970-01-01'", DATE, "DATE '1970-01-01'")
-                .addRoundTrip("date", "DATE '1970-02-03'", DATE, "DATE '1970-02-03'")
-                // summer on northern hemisphere (possible DST)
-                .addRoundTrip("date", "DATE '2017-07-01'", DATE, "DATE '2017-07-01'")
-                // winter on northern hemisphere (possible DST on southern hemisphere)
-                .addRoundTrip("date", "DATE '2017-01-01'", DATE, "DATE '2017-01-01'")
-                .addRoundTrip("date", "DATE '1970-01-01'", DATE, "DATE '1970-01-01'")
-                .addRoundTrip("date", "DATE '1983-04-01'", DATE, "DATE '1983-04-01'")
-                .addRoundTrip("date", "DATE '1983-10-01'", DATE, "DATE '1983-10-01'");
-
-        for (String timeZoneId : ImmutableList.of(UTC_KEY.getId(), jvmZone.getId(), someZone.getId())) {
-            Session session = Session.builder(getSession())
-                    .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(timeZoneId))
-                    .build();
-            testsSqlServer.execute(getQueryRunner(), session, sqlServerCreateAndInsert("test_date"));
-            testsTrino.execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_date"));
-            testsTrino.execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_date"));
-        }
+                .addRoundTrip("date", inputLiteralFactory.apply("'2017-01-01'"), DATE, "DATE '2017-01-01'")
+                .addRoundTrip("date", inputLiteralFactory.apply("'1983-04-01'"), DATE, "DATE '1983-04-01'")
+                .addRoundTrip("date", inputLiteralFactory.apply("'1983-10-01'"), DATE, "DATE '1983-10-01'");
     }
 
     @Test
@@ -697,6 +680,7 @@ public abstract class BaseSqlServerTypeMapping
         tests.execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_timestamp"));
         tests.execute(getQueryRunner(), session, trinoCreateAsSelect("test_timestamp"));
         tests.execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_timestamp"));
+        tests.execute(getQueryRunner(), session, trinoCreateAndInsert("test_timestamp"));
     }
 
     @Test

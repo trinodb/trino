@@ -266,7 +266,7 @@ public abstract class BaseFailureRecoveryTest
     {
         testTableModification(
                 Optional.of("CREATE TABLE <table> AS SELECT * FROM orders"),
-                "DELETE FROM orders WHERE orderkey = 1",
+                "DELETE FROM <table> WHERE orderkey = 1",
                 Optional.of("DROP TABLE <table>"));
     }
 
@@ -275,7 +275,7 @@ public abstract class BaseFailureRecoveryTest
     {
         testTableModification(
                 Optional.of("CREATE TABLE <table> AS SELECT * FROM orders"),
-                "DELETE FROM orders WHERE custkey IN (SELECT custkey FROM customer WHERE nationkey = 1)",
+                "DELETE FROM <table> WHERE custkey IN (SELECT custkey FROM customer WHERE nationkey = 1)",
                 Optional.of("DROP TABLE <table>"));
     }
 
@@ -284,7 +284,7 @@ public abstract class BaseFailureRecoveryTest
     {
         testTableModification(
                 Optional.of("CREATE TABLE <table> AS SELECT * FROM orders"),
-                "UPDATE orders SET shippriority = 101 WHERE custkey = 1",
+                "UPDATE <table> SET shippriority = 101 WHERE custkey = 1",
                 Optional.of("DROP TABLE <table>"));
     }
 
@@ -293,7 +293,7 @@ public abstract class BaseFailureRecoveryTest
     {
         testTableModification(
                 Optional.of("CREATE TABLE <table> AS SELECT * FROM orders"),
-                "UPDATE orders SET shippriority = 101 WHERE custkey = (SELECT min(custkey) FROM customer)",
+                "UPDATE <table> SET shippriority = 101 WHERE custkey = (SELECT min(custkey) FROM customer)",
                 Optional.of("DROP TABLE <table>"));
     }
 
@@ -456,7 +456,7 @@ public abstract class BaseFailureRecoveryTest
                 .finishesSuccessfully();
     }
 
-    private FailureRecoveryAssert assertThatQuery(String query)
+    protected FailureRecoveryAssert assertThatQuery(String query)
     {
         return new FailureRecoveryAssert(query);
     }
@@ -651,14 +651,14 @@ public abstract class BaseFailureRecoveryTest
             queryAssertion.accept(actual.getQueryId());
         }
 
-        public FailureRecoveryAssert failsAlways(Consumer<AbstractThrowableAssert> failureAssertion)
+        public FailureRecoveryAssert failsAlways(Consumer<AbstractThrowableAssert<?, ? extends Throwable>> failureAssertion)
         {
             failsWithoutRetries(failureAssertion);
             failsDespiteRetries(failureAssertion);
             return this;
         }
 
-        public FailureRecoveryAssert failsWithoutRetries(Consumer<AbstractThrowableAssert> failureAssertion)
+        public FailureRecoveryAssert failsWithoutRetries(Consumer<AbstractThrowableAssert<?, ? extends Throwable>> failureAssertion)
         {
             verifyFailureTypeAndStageSelector();
             OptionalInt failureStageId = getFailureStageId(() -> executeExpected().getQueryResult());
@@ -666,7 +666,7 @@ public abstract class BaseFailureRecoveryTest
             return this;
         }
 
-        public FailureRecoveryAssert failsDespiteRetries(Consumer<AbstractThrowableAssert> failureAssertion)
+        public FailureRecoveryAssert failsDespiteRetries(Consumer<AbstractThrowableAssert<?, ? extends Throwable>> failureAssertion)
         {
             verifyFailureTypeAndStageSelector();
             OptionalInt failureStageId = getFailureStageId(() -> executeExpected().getQueryResult());
@@ -812,14 +812,13 @@ public abstract class BaseFailureRecoveryTest
         return requireNonNull(statementStats.getRootStage(), "root stage is null");
     }
 
-    private Session enableDynamicFiltering(boolean enabled)
+    protected Session enableDynamicFiltering(boolean enabled)
     {
         Session defaultSession = getQueryRunner().getDefaultSession();
         return Session.builder(defaultSession)
                 .setSystemProperty(ENABLE_DYNAMIC_FILTERING, Boolean.toString(enabled))
                 .setSystemProperty(JOIN_REORDERING_STRATEGY, NONE.name())
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, PARTITIONED.name())
-                .setCatalogSessionProperty(defaultSession.getCatalog().orElseThrow(), "dynamic_filtering_wait_timeout", "1h")
                 .build();
     }
 }

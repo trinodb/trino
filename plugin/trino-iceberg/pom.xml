@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>375-SNAPSHOT</version>
+        <version>376-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -77,6 +77,11 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>log</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>stats</artifactId>
         </dependency>
 
         <dependency>
@@ -223,13 +228,13 @@
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-exchange</artifactId>
-            <type>test-jar</type>
             <scope>test</scope>
         </dependency>
 
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-exchange</artifactId>
+            <type>test-jar</type>
             <scope>test</scope>
         </dependency>
 
@@ -321,6 +326,36 @@
         </dependency>
     </dependencies>
 
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <configuration>
+                    <rules>
+                        <requireUpperBoundDeps>
+                            <excludes combine.children="append">
+                                <exclude>com.google.guava:guava</exclude>
+                            </excludes>
+                        </requireUpperBoundDeps>
+                    </rules>
+                </configuration>
+            </plugin>
+
+            <plugin>
+                <groupId>org.basepom.maven</groupId>
+                <artifactId>duplicate-finder-maven-plugin</artifactId>
+                <configuration>
+                    <ignoredResourcePatterns>
+                        <!-- com.amazonaws:aws-java-sdk-core and software.amazon.awssdk:sdk-core MIME type file duplicate-->
+                        <ignoredResourcePattern>mime.types</ignoredResourcePattern>
+                        <ignoredResourcePattern>about.html</ignoredResourcePattern>
+                    </ignoredResourcePatterns>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
     <profiles>
         <profile>
             <id>default</id>
@@ -338,33 +373,8 @@
                                 <exclude>**/TestIcebergGlueCatalogConnectorSmokeTest.java</exclude>
                                 <exclude>**/TestTrinoGlueCatalogTest.java</exclude>
                                 <exclude>**/TestSharedGlueMetastore.java</exclude>
+                                <exclude>**/TestIcebergGlueCatalogAccessOperations.java</exclude>
                             </excludes>
-                        </configuration>
-                    </plugin>
-
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-enforcer-plugin</artifactId>
-                        <configuration>
-                            <rules>
-                                <requireUpperBoundDeps>
-                                    <excludes combine.children="append">
-                                        <exclude>com.google.guava:guava</exclude>
-                                    </excludes>
-                                </requireUpperBoundDeps>
-                            </rules>
-                        </configuration>
-                    </plugin>
-
-                    <plugin>
-                        <groupId>org.basepom.maven</groupId>
-                        <artifactId>duplicate-finder-maven-plugin</artifactId>
-                        <configuration>
-                            <ignoredResourcePatterns>
-                                <!-- com.amazonaws:aws-java-sdk-core and software.amazon.awssdk:sdk-core MIME type file duplicate-->
-                                <ignoredResourcePattern>mime.types</ignoredResourcePattern>
-                                <ignoredResourcePattern>about.html</ignoredResourcePattern>
-                            </ignoredResourcePatterns>
                         </configuration>
                     </plugin>
                 </plugins>
@@ -402,6 +412,7 @@
                                 <include>**/TestIcebergGlueCatalogConnectorSmokeTest.java</include>
                                 <include>**/TestTrinoGlueCatalogTest.java</include>
                                 <include>**/TestSharedGlueMetastore.java</include>
+                                <include>**/TestIcebergGlueCatalogAccessOperations.java</include>
                             </includes>
                         </configuration>
                     </plugin>

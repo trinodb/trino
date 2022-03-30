@@ -17,10 +17,6 @@ import com.amazonaws.AmazonServiceException;
 import com.amazonaws.AmazonWebServiceRequest;
 import com.amazonaws.ClientConfiguration;
 import com.amazonaws.auth.AWSCredentialsProvider;
-import com.amazonaws.auth.AWSStaticCredentialsProvider;
-import com.amazonaws.auth.BasicAWSCredentials;
-import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
-import com.amazonaws.auth.STSAssumeRoleSessionCredentialsProvider;
 import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration;
 import com.amazonaws.handlers.AsyncHandler;
 import com.amazonaws.handlers.RequestHandler2;
@@ -145,7 +141,6 @@ import static io.trino.plugin.hive.util.HiveUtil.toPartitionValues;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.security.PrincipalType.USER;
-import static java.lang.String.format;
 import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.UnaryOperator.identity;
@@ -184,15 +179,17 @@ public class GlueHiveMetastore
     public GlueHiveMetastore(
             HdfsEnvironment hdfsEnvironment,
             GlueHiveMetastoreConfig glueConfig,
+            AWSCredentialsProvider credentialsProvider,
             @ForGlueHiveMetastore Executor partitionsReadExecutor,
             GlueColumnStatisticsProviderFactory columnStatisticsProviderFactory,
             @ForGlueHiveMetastore Optional<RequestHandler2> requestHandler,
             @ForGlueHiveMetastore Predicate<com.amazonaws.services.glue.model.Table> tableFilter)
     {
         requireNonNull(glueConfig, "glueConfig is null");
+        requireNonNull(credentialsProvider, "credentialsProvider is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.hdfsContext = new HdfsContext(ConnectorIdentity.ofUser(DEFAULT_METASTORE_USER));
-        this.glueClient = createAsyncGlueClient(glueConfig, requestHandler, stats.newRequestMetricsCollector());
+        this.glueClient = createAsyncGlueClient(glueConfig, credentialsProvider, requestHandler, stats.newRequestMetricsCollector());
         this.defaultDir = glueConfig.getDefaultWarehouseDir();
         this.catalogId = glueConfig.getCatalogId().orElse(null);
         this.partitionSegments = glueConfig.getPartitionSegments();
@@ -202,7 +199,7 @@ public class GlueHiveMetastore
         this.columnStatisticsProvider = columnStatisticsProviderFactory.createGlueColumnStatisticsProvider(glueClient, stats);
     }
 
-    public static AWSGlueAsync createAsyncGlueClient(GlueHiveMetastoreConfig config, Optional<RequestHandler2> requestHandler, RequestMetricCollector metricsCollector)
+    public static AWSGlueAsync createAsyncGlueClient(GlueHiveMetastoreConfig config, AWSCredentialsProvider credentialsProvider, Optional<RequestHandler2> requestHandler, RequestMetricCollector metricsCollector)
     {
         ClientConfiguration clientConfig = new ClientConfiguration()
                 .withMaxConnections(config.getMaxGlueConnections())
@@ -226,46 +223,9 @@ public class GlueHiveMetastore
             asyncGlueClientBuilder.setRegion(getCurrentRegionFromEC2Metadata().getName());
         }
 
-        asyncGlueClientBuilder.setCredentials(getAwsCredentialsProvider(config));
+        asyncGlueClientBuilder.setCredentials(credentialsProvider);
 
         return asyncGlueClientBuilder.build();
-    }
-
-    private static AWSCredentialsProvider getAwsCredentialsProvider(GlueHiveMetastoreConfig config)
-    {
-        if (config.getAwsCredentialsProvider().isPresent()) {
-            return getCustomAWSCredentialsProvider(config.getAwsCredentialsProvider().get());
-        }
-        AWSCredentialsProvider provider;
-        if (config.getAwsAccessKey().isPresent() && config.getAwsSecretKey().isPresent()) {
-            provider = new AWSStaticCredentialsProvider(
-                    new BasicAWSCredentials(config.getAwsAccessKey().get(), config.getAwsSecretKey().get()));
-        }
-        else {
-            provider = DefaultAWSCredentialsProviderChain.getInstance();
-        }
-        if (config.getIamRole().isPresent()) {
-            provider = new STSAssumeRoleSessionCredentialsProvider
-                    .Builder(config.getIamRole().get(), "trino-session")
-                    .withExternalId(config.getExternalId().orElse(null))
-                    .withLongLivedCredentialsProvider(provider)
-                    .build();
-        }
-        return provider;
-    }
-
-    private static AWSCredentialsProvider getCustomAWSCredentialsProvider(String providerClass)
-    {
-        try {
-            Object instance = Class.forName(providerClass).getConstructor().newInstance();
-            if (!(instance instanceof AWSCredentialsProvider)) {
-                throw new RuntimeException("Invalid credentials provider class: " + instance.getClass().getName());
-            }
-            return (AWSCredentialsProvider) instance;
-        }
-        catch (ReflectiveOperationException e) {
-            throw new RuntimeException(format("Error creating an instance of %s", providerClass), e);
-        }
     }
 
     public GlueMetastoreStats getStats()
@@ -433,7 +393,7 @@ public class GlueHiveMetastore
                             .withDatabaseName(table.getDatabaseName())
                             .withTableName(table.getTableName())
                             .withEntries(partitionUpdateRequestsPartition),
-                    new StatsRecordingAsyncHandler(stats.getBatchUpdatePartition(), startTimestamp)));
+                    new StatsRecordingAsyncHandler<>(stats.getBatchUpdatePartition(), startTimestamp)));
         });
 
         try {
@@ -925,7 +885,7 @@ public class GlueHiveMetastore
                                     .withDatabaseName(table.getDatabaseName())
                                     .withTableName(table.getTableName())
                                     .withPartitionsToGet(partitions),
-                            new StatsRecordingAsyncHandler(stats.getGetPartitions(), startTimestamp)));
+                            new StatsRecordingAsyncHandler<>(stats.getGetPartitions(), startTimestamp)));
                 }
                 pendingPartitions.clear();
 
@@ -973,7 +933,7 @@ public class GlueHiveMetastore
                                     .withDatabaseName(databaseName)
                                     .withTableName(tableName)
                                     .withPartitionInputList(partitionInputs),
-                            new StatsRecordingAsyncHandler(stats.getBatchCreatePartition(), startTime)));
+                            new StatsRecordingAsyncHandler<>(stats.getBatchCreatePartition(), startTime)));
                 }
 
                 for (Future<BatchCreatePartitionResult> future : futures) {

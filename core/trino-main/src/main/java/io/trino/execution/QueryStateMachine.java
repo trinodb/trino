@@ -94,6 +94,7 @@ import static io.trino.spi.StandardErrorCode.USER_CANCELED;
 import static io.trino.util.Failures.toFailure;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 @ThreadSafe
 public class QueryStateMachine
@@ -515,10 +516,16 @@ public class QueryStateMachine
         long processedInputPositions = 0;
         long failedProcessedInputPositions = 0;
 
+        long inputBlockedTime = 0;
+        long failedInputBlockedTime = 0;
+
         long outputDataSize = 0;
         long failedOutputDataSize = 0;
         long outputPositions = 0;
         long failedOutputPositions = 0;
+
+        long outputBlockedTime = 0;
+        long failedOutputBlockedTime = 0;
 
         long physicalWrittenDataSize = 0;
         long failedPhysicalWrittenDataSize = 0;
@@ -582,6 +589,12 @@ public class QueryStateMachine
                 processedInputPositions += stageStats.getProcessedInputPositions();
                 failedProcessedInputPositions += stageStats.getFailedProcessedInputPositions();
             }
+
+            inputBlockedTime += stageStats.getInputBlockedTime().roundTo(NANOSECONDS);
+            failedInputBlockedTime += stageStats.getFailedInputBlockedTime().roundTo(NANOSECONDS);
+
+            outputBlockedTime += stageStats.getOutputBlockedTime().roundTo(NANOSECONDS);
+            failedOutputBlockedTime += stageStats.getFailedOutputBlockedTime().roundTo(NANOSECONDS);
 
             physicalWrittenDataSize += stageStats.getPhysicalWrittenDataSize().toBytes();
             failedPhysicalWrittenDataSize += stageStats.getFailedPhysicalWrittenDataSize().toBytes();
@@ -668,10 +681,16 @@ public class QueryStateMachine
                 succinctBytes(failedProcessedInputDataSize),
                 processedInputPositions,
                 failedProcessedInputPositions,
+                new Duration(inputBlockedTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
+                new Duration(failedInputBlockedTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
+
                 succinctBytes(outputDataSize),
                 succinctBytes(failedOutputDataSize),
                 outputPositions,
                 failedOutputPositions,
+
+                new Duration(outputBlockedTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
+                new Duration(failedOutputBlockedTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
 
                 succinctBytes(physicalWrittenDataSize),
                 succinctBytes(failedPhysicalWrittenDataSize),
@@ -1232,10 +1251,14 @@ public class QueryStateMachine
                 queryStats.getFailedProcessedInputDataSize(),
                 queryStats.getProcessedInputPositions(),
                 queryStats.getFailedProcessedInputPositions(),
+                queryStats.getInputBlockedTime(),
+                queryStats.getFailedInputBlockedTime(),
                 queryStats.getOutputDataSize(),
                 queryStats.getFailedOutputDataSize(),
                 queryStats.getOutputPositions(),
                 queryStats.getFailedOutputPositions(),
+                queryStats.getOutputBlockedTime(),
+                queryStats.getFailedOutputBlockedTime(),
                 queryStats.getPhysicalWrittenDataSize(),
                 queryStats.getFailedPhysicalWrittenDataSize(),
                 queryStats.getStageGcStatistics(),

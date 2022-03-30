@@ -107,6 +107,16 @@ public class InMemoryNodeManager
     }
 
     @Override
+    public NodesSnapshot getActiveNodesSnapshot()
+    {
+        Set<InternalNode> allActiveNodes = ImmutableSet.<InternalNode>builder()
+                .addAll(remoteNodes.values())
+                .add(localNode)
+                .build();
+        return new NodesSnapshot(allActiveNodes, remoteNodes);
+    }
+
+    @Override
     public AllNodes getAllNodes()
     {
         return new AllNodes(ImmutableSet.<InternalNode>builder().add(localNode).addAll(remoteNodes.values()).build(), ImmutableSet.of(), ImmutableSet.of(), ImmutableSet.of(localNode));

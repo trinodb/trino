@@ -23,8 +23,8 @@ import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
 import io.trino.plugin.deltalake.DeltaLakeConfig;
 import io.trino.plugin.deltalake.DeltaLakeSessionProperties;
 import io.trino.plugin.deltalake.DeltaLakeTableHandle;
-import io.trino.plugin.deltalake.statistics.CachingDeltaLakeStatisticsAccess;
-import io.trino.plugin.deltalake.statistics.DeltaLakeStatistics;
+import io.trino.plugin.deltalake.statistics.CachingExtendedStatisticsAccess;
+import io.trino.plugin.deltalake.statistics.ExtendedStatistics;
 import io.trino.plugin.deltalake.statistics.MetaDirStatisticsAccess;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
@@ -132,7 +132,7 @@ public class TestDeltaLakeMetastoreStatistics
 
         hiveMetastore.createDatabase(new Database("db_name", Optional.empty(), Optional.of("test"), Optional.of(PrincipalType.USER), Optional.empty(), ImmutableMap.of()));
 
-        CachingDeltaLakeStatisticsAccess statistics = new CachingDeltaLakeStatisticsAccess(new MetaDirStatisticsAccess(hdfsEnvironment, new JsonCodecFactory().jsonCodec(DeltaLakeStatistics.class)));
+        CachingExtendedStatisticsAccess statistics = new CachingExtendedStatisticsAccess(new MetaDirStatisticsAccess(hdfsEnvironment, new JsonCodecFactory().jsonCodec(ExtendedStatistics.class)));
         deltaLakeMetastore = new HiveMetastoreBackedDeltaLakeMetastore(
                 hiveMetastore,
                 transactionLogAccess,
@@ -179,7 +179,8 @@ public class TestDeltaLakeMetastoreStatistics
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                0);
+                0,
+                false);
     }
 
     @Test
@@ -308,7 +309,8 @@ public class TestDeltaLakeMetastoreStatistics
                 tableHandle.getUpdatedColumns(),
                 tableHandle.getUpdateRowIdColumns(),
                 tableHandle.getAnalyzeHandle(),
-                0);
+                0,
+                false);
         stats = deltaLakeMetastore.getTableStatistics(SESSION, tableHandleWithUnenforcedConstraint, Constraint.alwaysTrue());
         columnStatistics = stats.getColumnStatistics().get(COLUMN_HANDLE);
         assertEquals(columnStatistics.getRange().get().getMin(), 0.0);
@@ -331,7 +333,8 @@ public class TestDeltaLakeMetastoreStatistics
                 tableHandle.getUpdatedColumns(),
                 tableHandle.getUpdateRowIdColumns(),
                 tableHandle.getAnalyzeHandle(),
-                0);
+                0,
+                false);
         DeltaLakeTableHandle tableHandleWithNoneUnenforcedConstraint = new DeltaLakeTableHandle(
                 tableHandle.getSchemaName(),
                 tableHandle.getTableName(),
@@ -344,7 +347,8 @@ public class TestDeltaLakeMetastoreStatistics
                 tableHandle.getUpdatedColumns(),
                 tableHandle.getUpdateRowIdColumns(),
                 tableHandle.getAnalyzeHandle(),
-                0);
+                0,
+                false);
         // If either the table handle's constraint or the provided Constraint are none, it will cause a 0 record count to be reported
         assertEmptyStats(deltaLakeMetastore.getTableStatistics(SESSION, tableHandleWithNoneEnforcedConstraint, Constraint.alwaysTrue()));
         assertEmptyStats(deltaLakeMetastore.getTableStatistics(SESSION, tableHandleWithNoneUnenforcedConstraint, Constraint.alwaysTrue()));

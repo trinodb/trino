@@ -263,6 +263,16 @@ public class TestTrinoDatabaseMetaData
     }
 
     @Test
+    public void testGetUserName()
+            throws Exception
+    {
+        try (Connection connection = createConnection()) {
+            DatabaseMetaData metaData = connection.getMetaData();
+            assertEquals(metaData.getUserName(), "admin");
+        }
+    }
+
+    @Test
     public void testGetCatalogs()
             throws Exception
     {
@@ -658,6 +668,7 @@ public class TestTrinoDatabaseMetaData
                 assertEquals(rs.getString("TABLE_SCHEM"), "information_schema");
                 assertEquals(rs.getString("TABLE_NAME"), "tables");
                 assertEquals(rs.getString("COLUMN_NAME"), "table_name");
+                assertEquals(rs.getString("IS_NULLABLE"), "YES");
                 assertEquals(rs.getInt("DATA_TYPE"), Types.VARCHAR);
                 assertTrue(rs.next());
                 assertEquals(rs.getString("TABLE_CAT"), "hive");
@@ -721,6 +732,14 @@ public class TestTrinoDatabaseMetaData
                 assertTrue(rs.next());
                 assertEquals(rs.getString("COLUMN_NAME"), "table_name");
                 assertFalse(rs.next());
+            }
+        }
+
+        try (Connection connection = createConnection()) {
+            try (ResultSet rs = connection.getMetaData().getColumns(TEST_CATALOG, "tiny", "supplier", "suppkey")) {
+                assertColumnMetadata(rs);
+                assertTrue(rs.next());
+                assertEquals(rs.getString("IS_NULLABLE"), "NO");
             }
         }
 

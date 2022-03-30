@@ -61,7 +61,6 @@ import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.memoizeMetastore;
 import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
-import static io.trino.plugin.iceberg.IcebergQueryRunner.createIcebergQueryRunner;
 import static io.trino.spi.connector.Constraint.alwaysTrue;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.testing.TestingConnectorSession.SESSION;
@@ -100,7 +99,10 @@ public class TestIcebergSplitSource
                 false,
                 false);
 
-        return createIcebergQueryRunner(ImmutableMap.of(), ImmutableMap.of(), ImmutableList.of(NATION), Optional.of(metastoreDir));
+        return IcebergQueryRunner.builder()
+                .setInitialTables(NATION)
+                .setMetastoreDirectory(metastoreDir)
+                .build();
     }
 
     @AfterClass(alwaysRun = true)

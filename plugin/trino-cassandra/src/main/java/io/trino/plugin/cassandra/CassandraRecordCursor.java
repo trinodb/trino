@@ -34,7 +34,6 @@ public class CassandraRecordCursor
     private final List<CassandraType> cassandraTypes;
     private final ResultSet rs;
     private Row currentRow;
-    private long count;
 
     public CassandraRecordCursor(CassandraSession cassandraSession, List<CassandraType> cassandraTypes, String cql)
     {
@@ -48,7 +47,6 @@ public class CassandraRecordCursor
     {
         if (!rs.isExhausted()) {
             currentRow = rs.one();
-            count++;
             return true;
         }
         return false;
@@ -68,7 +66,7 @@ public class CassandraRecordCursor
     @Override
     public long getCompletedBytes()
     {
-        return count;
+        return 0;
     }
 
     @Override

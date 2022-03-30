@@ -125,6 +125,7 @@ public final class SystemSessionProperties
     public static final String MAX_DRIVERS_PER_TASK = "max_drivers_per_task";
     public static final String DEFAULT_FILTER_FACTOR_ENABLED = "default_filter_factor_enabled";
     public static final String FILTER_CONJUNCTION_INDEPENDENCE_FACTOR = "filter_conjunction_independence_factor";
+    public static final String NON_ESTIMATABLE_PREDICATE_APPROXIMATION_ENABLED = "non_estimatable_predicate_approximation_enabled";
     public static final String SKIP_REDUNDANT_SORT = "skip_redundant_sort";
     public static final String ALLOW_PUSHDOWN_INTO_CONNECTORS = "allow_pushdown_into_connectors";
     public static final String COMPLEX_EXPRESSION_PUSHDOWN = "complex_expression_pushdown";
@@ -160,6 +161,7 @@ public final class SystemSessionProperties
     public static final String FAULT_TOLERANT_EXECUTION_TARGET_TASK_SPLIT_COUNT = "fault_tolerant_execution_target_task_split_count";
     public static final String FAULT_TOLERANT_EXECUTION_MAX_TASK_SPLIT_COUNT = "fault_tolerant_execution_max_task_split_count";
     public static final String FAULT_TOLERANT_EXECUTION_TASK_MEMORY = "fault_tolerant_execution_task_memory";
+    public static final String FAULT_TOLERANT_EXECUTION_TASK_MEMORY_GROWTH_FACTOR = "fault_tolerant_execution_task_memory_growth_factor";
     public static final String ADAPTIVE_PARTIAL_AGGREGATION_ENABLED = "adaptive_partial_aggregation_enabled";
     public static final String ADAPTIVE_PARTIAL_AGGREGATION_MIN_ROWS = "adaptive_partial_aggregation_min_rows";
     public static final String ADAPTIVE_PARTIAL_AGGREGATION_UNIQUE_ROWS_RATIO_THRESHOLD = "adaptive_partial_aggregation_unique_rows_ratio_threshold";
@@ -579,6 +581,11 @@ public final class SystemSessionProperties
                         value -> validateDoubleRange(value, FILTER_CONJUNCTION_INDEPENDENCE_FACTOR, 0.0, 1.0),
                         value -> value),
                 booleanProperty(
+                        NON_ESTIMATABLE_PREDICATE_APPROXIMATION_ENABLED,
+                        "Approximate the cost of filters which cannot be accurately estimated even with complete statistics",
+                        optimizerConfig.isNonEstimatablePredicateApproximationEnabled(),
+                        false),
+                booleanProperty(
                         SKIP_REDUNDANT_SORT,
                         "Skip redundant sort operations",
                         optimizerConfig.isSkipRedundantSort(),
@@ -764,6 +771,11 @@ public final class SystemSessionProperties
                         FAULT_TOLERANT_EXECUTION_TASK_MEMORY,
                         "Estimated amount of memory a single task will use when task level retries are used; value is used allocating nodes for tasks execution",
                         memoryManagerConfig.getFaultTolerantExecutionTaskMemory(),
+                        false),
+                doubleProperty(
+                        FAULT_TOLERANT_EXECUTION_TASK_MEMORY_GROWTH_FACTOR,
+                        "Factor by which estimated task memory is increased if task execution runs out of memory; value is used allocating nodes for tasks execution",
+                        memoryManagerConfig.getFaultTolerantExecutionTaskMemoryGrowthFactor(),
                         false),
                 booleanProperty(
                         ADAPTIVE_PARTIAL_AGGREGATION_ENABLED,
@@ -1206,6 +1218,11 @@ public final class SystemSessionProperties
         return session.getSystemProperty(FILTER_CONJUNCTION_INDEPENDENCE_FACTOR, Double.class);
     }
 
+    public static boolean isNonEstimatablePredicateApproximationEnabled(Session session)
+    {
+        return session.getSystemProperty(NON_ESTIMATABLE_PREDICATE_APPROXIMATION_ENABLED, Boolean.class);
+    }
+
     public static boolean isSkipRedundantSort(Session session)
     {
         return session.getSystemProperty(SKIP_REDUNDANT_SORT, Boolean.class);
@@ -1390,6 +1407,11 @@ public final class SystemSessionProperties
     public static DataSize getFaultTolerantExecutionDefaultTaskMemory(Session session)
     {
         return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_TASK_MEMORY, DataSize.class);
+    }
+
+    public static double getFaultTolerantExecutionTaskMemoryGrowthFactor(Session session)
+    {
+        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_TASK_MEMORY_GROWTH_FACTOR, Double.class);
     }
 
     public static boolean isAdaptivePartialAggregationEnabled(Session session)

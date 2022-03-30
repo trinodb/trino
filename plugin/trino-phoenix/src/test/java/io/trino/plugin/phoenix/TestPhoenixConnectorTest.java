@@ -85,6 +85,9 @@ public class TestPhoenixConnectorTest
             case SUPPORTS_NOT_NULL_CONSTRAINT:
                 return false;
 
+            case SUPPORTS_ROW_TYPE:
+                return false;
+
             default:
                 return super.hasBehavior(connectorBehavior);
         }
@@ -285,6 +288,13 @@ public class TestPhoenixConnectorTest
             assertQuery("SELECT count(DISTINCT t_char) FROM " + testTable.getName(), "VALUES 6");
             assertQuery("SELECT count(DISTINCT t_char), count(DISTINCT t_varchar) FROM " + testTable.getName(), "VALUES (6, 6)");
         }
+    }
+
+    @Override
+    public void testDeleteWithLike()
+    {
+        assertThatThrownBy(super::testDeleteWithLike)
+                .hasStackTraceContaining("TrinoException: Unsupported delete");
     }
 
     @Test

@@ -29,7 +29,7 @@ public class ConstantPartitionMemoryEstimator
     }
 
     @Override
-    public MemoryRequirements getNextRetryMemoryRequirements(Session session, MemoryRequirements previousMemoryRequirements, ErrorCode errorCode)
+    public MemoryRequirements getNextRetryMemoryRequirements(Session session, MemoryRequirements previousMemoryRequirements, DataSize peakMemoryUsage, ErrorCode errorCode)
     {
         return previousMemoryRequirements;
     }

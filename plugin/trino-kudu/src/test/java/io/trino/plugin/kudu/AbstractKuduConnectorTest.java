@@ -76,6 +76,10 @@ public abstract class AbstractKuduConnectorTest
             case SUPPORTS_NOT_NULL_CONSTRAINT:
             case SUPPORTS_TOPN_PUSHDOWN:
                 return false;
+
+            case SUPPORTS_ROW_TYPE:
+                return false;
+
             default:
                 return super.hasBehavior(connectorBehavior);
         }
@@ -316,6 +320,15 @@ public abstract class AbstractKuduConnectorTest
     {
         // TODO Support these test once kudu connector can create tables with default partitions
         throw new SkipException("TODO");
+    }
+
+    @Test
+    @Override
+    public void testDeleteWithLike()
+    {
+        // TODO Support these test once kudu connector can create tables with default partitions
+        assertThatThrownBy(super::testDeleteWithLike)
+                .hasMessage("Table partitioning must be specified using setRangePartitionColumns or addHashPartitions");
     }
 
     @Test

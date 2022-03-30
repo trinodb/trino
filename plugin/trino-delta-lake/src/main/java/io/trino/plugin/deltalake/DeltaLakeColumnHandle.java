@@ -18,10 +18,12 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.type.Type;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Objects;
 import java.util.Optional;
 
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.trino.plugin.deltalake.DeltaHiveTypeTranslator.toHiveType;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.SYNTHESIZED;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -32,6 +34,8 @@ import static java.util.Objects.requireNonNull;
 public class DeltaLakeColumnHandle
         implements ColumnHandle
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(DeltaLakeColumnHandle.class).instanceSize();
+
     public static final String ROW_ID_COLUMN_NAME = "$row_id";
     public static final Type ROW_ID_COLUMN_TYPE = BIGINT;
 
@@ -90,6 +94,12 @@ public class DeltaLakeColumnHandle
         return Objects.equals(this.name, other.name) &&
                 Objects.equals(this.type, other.type) &&
                 this.columnType == other.columnType;
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        // type is not accounted for as the instances are cached (by TypeRegistry) and shared
+        return INSTANCE_SIZE + estimatedSizeOf(name);
     }
 
     @Override

@@ -53,6 +53,7 @@ public class FileSystemExchangeManager
     private final boolean exchangeEncryptionEnabled;
     private final int maxPageStorageSize;
     private final int exchangeSinkBufferPoolMinSize;
+    private final int exchangeSinkBuffersPerPartition;
     private final int exchangeSourceConcurrentReaders;
     private final ExecutorService executor;
 
@@ -71,6 +72,7 @@ public class FileSystemExchangeManager
         this.exchangeEncryptionEnabled = fileSystemExchangeConfig.isExchangeEncryptionEnabled();
         this.maxPageStorageSize = toIntExact(fileSystemExchangeConfig.getMaxPageStorageSize().toBytes());
         this.exchangeSinkBufferPoolMinSize = fileSystemExchangeConfig.getExchangeSinkBufferPoolMinSize();
+        this.exchangeSinkBuffersPerPartition = fileSystemExchangeConfig.getExchangeSinkBuffersPerPartition();
         this.exchangeSourceConcurrentReaders = fileSystemExchangeConfig.getExchangeSourceConcurrentReaders();
         this.executor = newCachedThreadPool(daemonThreadsNamed("exchange-source-handles-creation-%s"));
     }
@@ -104,7 +106,8 @@ public class FileSystemExchangeManager
                 instanceHandle.getOutputPartitionCount(),
                 instanceHandle.getSinkHandle().getSecretKey().map(key -> new SecretKeySpec(key, 0, key.length, "AES")),
                 maxPageStorageSize,
-                exchangeSinkBufferPoolMinSize);
+                exchangeSinkBufferPoolMinSize,
+                exchangeSinkBuffersPerPartition);
     }
 
     @Override

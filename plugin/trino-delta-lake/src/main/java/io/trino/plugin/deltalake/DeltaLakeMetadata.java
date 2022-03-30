@@ -31,8 +31,8 @@ import io.trino.plugin.deltalake.procedure.DeltaLakeTableExecuteHandle;
 import io.trino.plugin.deltalake.procedure.DeltaLakeTableProcedureId;
 import io.trino.plugin.deltalake.procedure.DeltaTableOptimizeHandle;
 import io.trino.plugin.deltalake.statistics.DeltaLakeColumnStatistics;
-import io.trino.plugin.deltalake.statistics.DeltaLakeStatistics;
-import io.trino.plugin.deltalake.statistics.DeltaLakeStatisticsAccess;
+import io.trino.plugin.deltalake.statistics.ExtendedStatistics;
+import io.trino.plugin.deltalake.statistics.ExtendedStatisticsAccess;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
 import io.trino.plugin.deltalake.transactionlog.CommitInfoEntry;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
@@ -74,6 +74,7 @@ import io.trino.spi.connector.ConnectorTableProperties;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.ProjectionApplicationResult;
+import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
@@ -99,6 +100,7 @@ import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.VarcharType;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RemoteIterator;
 
@@ -107,9 +109,12 @@ import javax.annotation.Nullable;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.time.Instant;
+import java.util.ArrayDeque;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Deque;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -167,6 +172,7 @@ import static io.trino.spi.StandardErrorCode.INVALID_ANALYZE_PROPERTY;
 import static io.trino.spi.StandardErrorCode.INVALID_SCHEMA_PROPERTY;
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static io.trino.spi.connector.SchemaTableName.schemaTableName;
 import static io.trino.spi.predicate.Range.greaterThanOrEqual;
 import static io.trino.spi.predicate.Range.lessThanOrEqual;
@@ -231,12 +237,12 @@ public class DeltaLakeMetadata
     private final boolean hideNonDeltaLakeTables;
     private final boolean unsafeWritesEnabled;
     private final JsonCodec<DataFileInfo> dataFileInfoCodec;
-    private final JsonCodec<DeltaLakeUpdateResult> deleteResultJsonCodec;
+    private final JsonCodec<DeltaLakeUpdateResult> updateResultJsonCodec;
     private final TransactionLogWriterFactory transactionLogWriterFactory;
     private final String nodeVersion;
     private final String nodeId;
     private final AtomicReference<Runnable> rollbackAction = new AtomicReference<>();
-    private final DeltaLakeStatisticsAccess statisticsAccess;
+    private final ExtendedStatisticsAccess statisticsAccess;
     private final boolean deleteSchemaLocationsFallback;
 
     public DeltaLakeMetadata(
@@ -247,14 +253,14 @@ public class DeltaLakeMetadata
             boolean hideNonDeltaLakeTables,
             boolean unsafeWritesEnabled,
             JsonCodec<DataFileInfo> dataFileInfoCodec,
-            JsonCodec<DeltaLakeUpdateResult> deleteResultJsonCodec,
+            JsonCodec<DeltaLakeUpdateResult> updateResultJsonCodec,
             TransactionLogWriterFactory transactionLogWriterFactory,
             NodeManager nodeManager,
             CheckpointWriterManager checkpointWriterManager,
             long defaultCheckpointInterval,
             boolean ignoreCheckpointWriteFailures,
             boolean deleteSchemaLocationsFallback,
-            DeltaLakeStatisticsAccess statisticsAccess)
+            ExtendedStatisticsAccess statisticsAccess)
     {
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
@@ -263,7 +269,7 @@ public class DeltaLakeMetadata
         this.hideNonDeltaLakeTables = hideNonDeltaLakeTables;
         this.unsafeWritesEnabled = unsafeWritesEnabled;
         this.dataFileInfoCodec = requireNonNull(dataFileInfoCodec, "dataFileInfoCodec is null");
-        this.deleteResultJsonCodec = requireNonNull(deleteResultJsonCodec, "deleteResultJsonCodec is null");
+        this.updateResultJsonCodec = requireNonNull(updateResultJsonCodec, "updateResultJsonCodec is null");
         this.transactionLogWriterFactory = requireNonNull(transactionLogWriterFactory, "transactionLogWriterFactory is null");
         this.nodeVersion = nodeManager.getCurrentNode().getVersion();
         this.nodeId = nodeManager.getCurrentNode().getNodeIdentifier();
@@ -345,7 +351,8 @@ public class DeltaLakeMetadata
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                tableSnapshot.getVersion());
+                tableSnapshot.getVersion(),
+                false);
     }
 
     @Override
@@ -439,6 +446,12 @@ public class DeltaLakeMetadata
         }
 
         return Optional.of(new ConnectorTableLayout(partitionColumnNames));
+    }
+
+    @Override
+    public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
+    {
+        throw new UnsupportedOperationException("The deprecated listTableColumns is not supported because streamTableColumns is implemented instead");
     }
 
     @Override
@@ -669,7 +682,7 @@ public class DeltaLakeMetadata
     }
 
     @Override
-    public DeltaLakeOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorTableLayout> layout)
+    public DeltaLakeOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorTableLayout> layout, RetryMode retryMode)
     {
         validateTableColumns(tableMetadata);
 
@@ -935,7 +948,7 @@ public class DeltaLakeMetadata
     }
 
     @Override
-    public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> columns)
+    public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> columns, RetryMode retryMode)
     {
         DeltaLakeTableHandle table = (DeltaLakeTableHandle) tableHandle;
         if (!allowWrite(session, table)) {
@@ -962,7 +975,8 @@ public class DeltaLakeMetadata
                     tableLocation,
                     table.getMetadataEntry(),
                     inputColumns,
-                    getMandatoryCurrentVersion(fileSystem, new Path(tableLocation)));
+                    getMandatoryCurrentVersion(fileSystem, new Path(tableLocation)),
+                    retryMode != NO_RETRIES);
         }
         catch (IOException e) {
             throw new TrinoException(GENERIC_INTERNAL_ERROR, e);
@@ -996,6 +1010,10 @@ public class DeltaLakeMetadata
                 .map(Slice::getBytes)
                 .map(dataFileInfoCodec::fromJson)
                 .collect(toImmutableList());
+
+        if (handle.isRetriesEnabled()) {
+            cleanExtraOutputFiles(session, handle.getLocation(), dataFileInfos);
+        }
 
         boolean writeCommitted = false;
         try {
@@ -1052,7 +1070,7 @@ public class DeltaLakeMetadata
     }
 
     @Override
-    public ConnectorTableHandle beginDelete(ConnectorSession session, ConnectorTableHandle tableHandle)
+    public ConnectorTableHandle beginDelete(ConnectorSession session, ConnectorTableHandle tableHandle, RetryMode retryMode)
     {
         DeltaLakeTableHandle handle = (DeltaLakeTableHandle) tableHandle;
         if (!allowWrite(session, handle)) {
@@ -1069,7 +1087,8 @@ public class DeltaLakeMetadata
                 handle.getEnforcedPartitionConstraint(),
                 handle.getNonPartitionConstraint(),
                 handle.getProjectedColumns(),
-                handle.getReadVersion());
+                handle.getReadVersion(),
+                retryMode != NO_RETRIES);
     }
 
     @Override
@@ -1103,7 +1122,7 @@ public class DeltaLakeMetadata
     }
 
     @Override
-    public ConnectorTableHandle beginUpdate(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> updatedColumns)
+    public ConnectorTableHandle beginUpdate(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> updatedColumns, RetryMode retryMode)
     {
         DeltaLakeTableHandle handle = (DeltaLakeTableHandle) tableHandle;
         if (!allowWrite(session, handle)) {
@@ -1135,7 +1154,8 @@ public class DeltaLakeMetadata
                 handle.getProjectedColumns(),
                 updatedColumnHandles,
                 unmodifiedColumns,
-                handle.getReadVersion());
+                handle.getReadVersion(),
+                retryMode != NO_RETRIES);
     }
 
     @Override
@@ -1149,7 +1169,8 @@ public class DeltaLakeMetadata
             ConnectorSession session,
             ConnectorTableHandle connectorTableHandle,
             String procedureName,
-            Map<String, Object> executeProperties)
+            Map<String, Object> executeProperties,
+            RetryMode retryMode)
     {
         DeltaLakeTableHandle tableHandle = (DeltaLakeTableHandle) connectorTableHandle;
 
@@ -1163,13 +1184,13 @@ public class DeltaLakeMetadata
 
         switch (procedureId) {
             case OPTIMIZE:
-                return getTableHandleForOptimize(tableHandle, executeProperties);
+                return getTableHandleForOptimize(tableHandle, executeProperties, retryMode);
         }
 
         throw new IllegalArgumentException("Unknown procedure: " + procedureId);
     }
 
-    private Optional<ConnectorTableExecuteHandle> getTableHandleForOptimize(DeltaLakeTableHandle tableHandle, Map<String, Object> executeProperties)
+    private Optional<ConnectorTableExecuteHandle> getTableHandleForOptimize(DeltaLakeTableHandle tableHandle, Map<String, Object> executeProperties, RetryMode retryMode)
     {
         DataSize maxScannedFileSize = (DataSize) executeProperties.get("file_size_threshold");
 
@@ -1185,7 +1206,8 @@ public class DeltaLakeMetadata
                         columns,
                         tableHandle.getMetadataEntry().getOriginalPartitionColumns(),
                         maxScannedFileSize,
-                        Optional.empty()),
+                        Optional.empty(),
+                        retryMode != NO_RETRIES),
                 tableHandle.getLocation()));
     }
 
@@ -1280,6 +1302,10 @@ public class DeltaLakeMetadata
                 .map(dataFileInfoCodec::fromJson)
                 .collect(toImmutableList());
 
+        if (optimizeHandle.isRetriesEnabled()) {
+            cleanExtraOutputFiles(session, executeHandle.getTableLocation(), dataFileInfos);
+        }
+
         boolean writeCommitted = false;
         try {
             TransactionLogWriter transactionLogWriter = transactionLogWriterFactory.newWriter(session, tableLocation);
@@ -1363,8 +1389,12 @@ public class DeltaLakeMetadata
 
         List<DeltaLakeUpdateResult> updateResults = fragments.stream()
                 .map(Slice::getBytes)
-                .map(deleteResultJsonCodec::fromJson)
+                .map(updateResultJsonCodec::fromJson)
                 .collect(toImmutableList());
+
+        if (handle.isRetriesEnabled()) {
+            cleanExtraOutputFilesForUpdate(session, handle.getLocation(), updateResults);
+        }
 
         String tableLocation = metastore.getTableLocation(handle.getSchemaTableName(), session);
 
@@ -1583,7 +1613,8 @@ public class DeltaLakeMetadata
                 tableHandle.getUpdatedColumns(),
                 tableHandle.getUpdateRowIdColumns(),
                 Optional.empty(),
-                tableHandle.getReadVersion());
+                tableHandle.getReadVersion(),
+                tableHandle.isRetriesEnabled());
 
         if (tableHandle.getEnforcedPartitionConstraint().equals(newHandle.getEnforcedPartitionConstraint()) &&
                 tableHandle.getNonPartitionConstraint().equals(newHandle.getNonPartitionConstraint())) {
@@ -1649,9 +1680,9 @@ public class DeltaLakeMetadata
         long version = tableSnapshot.getVersion();
 
         String tableLocation = metastore.getTableLocation(tableName, session);
-        Optional<DeltaLakeStatistics> statistics = statisticsAccess.readDeltaLakeStatistics(session, tableLocation);
+        Optional<ExtendedStatistics> statistics = statisticsAccess.readExtendedStatistics(session, tableLocation);
 
-        Optional<Instant> alreadyAnalyzedModifiedTimeMax = statistics.map(DeltaLakeStatistics::getAlreadyAnalyzedModifiedTimeMax);
+        Optional<Instant> alreadyAnalyzedModifiedTimeMax = statistics.map(ExtendedStatistics::getAlreadyAnalyzedModifiedTimeMax);
 
         // determine list of files we want to read based on what caller requested via files_modified_after and what files were already analyzed in the past
         Optional<Instant> filesModifiedAfter = Optional.empty();
@@ -1683,7 +1714,7 @@ public class DeltaLakeMetadata
         }
 
         // verify that we do not extend set of analyzed columns
-        Optional<Set<String>> oldAnalyzeColumnNames = statistics.flatMap(DeltaLakeStatistics::getAnalyzedColumns);
+        Optional<Set<String>> oldAnalyzeColumnNames = statistics.flatMap(ExtendedStatistics::getAnalyzedColumns);
         if (oldAnalyzeColumnNames.isPresent()) {
             if (analyzeColumnNames.isEmpty() || !oldAnalyzeColumnNames.get().containsAll(analyzeColumnNames.get())) {
                 throw new TrinoException(INVALID_ANALYZE_PROPERTY,
@@ -1704,7 +1735,8 @@ public class DeltaLakeMetadata
                 Optional.empty(),
                 Optional.empty(),
                 Optional.of(analyzeHandle),
-                version);
+                version,
+                false);
     }
 
     @Override
@@ -1755,16 +1787,16 @@ public class DeltaLakeMetadata
         DeltaLakeTableHandle tableHandle = (DeltaLakeTableHandle) table;
         AnalyzeHandle analyzeHandle = tableHandle.getAnalyzeHandle().orElseThrow(() -> new IllegalArgumentException("analyzeHandle not set"));
         String location = metastore.getTableLocation(tableHandle.getSchemaTableName(), session);
-        Optional<DeltaLakeStatistics> oldStatistics = statisticsAccess.readDeltaLakeStatistics(session, location);
+        Optional<ExtendedStatistics> oldStatistics = statisticsAccess.readExtendedStatistics(session, location);
 
         // more elaborate logic for handling statistics model evaluation may need to be introduced in the future
         // for now let's have a simple check rejecting update
         oldStatistics.ifPresent(statistics ->
                 checkArgument(
-                        statistics.getModelVersion() == DeltaLakeStatistics.CURRENT_MODEL_VERSION,
+                        statistics.getModelVersion() == ExtendedStatistics.CURRENT_MODEL_VERSION,
                         "Existing table statistics are incompatible, run the drop statistics procedure on this table before re-analyzing"));
 
-        Map<String, DeltaLakeColumnStatistics> oldColumnStatistics = oldStatistics.map(DeltaLakeStatistics::getColumnStatistics)
+        Map<String, DeltaLakeColumnStatistics> oldColumnStatistics = oldStatistics.map(ExtendedStatistics::getColumnStatistics)
                 .orElseGet(ImmutableMap::of);
         Map<String, DeltaLakeColumnStatistics> newColumnStatistics = toDeltaLakeColumnStatistics(computedStatistics);
 
@@ -1800,12 +1832,102 @@ public class DeltaLakeMetadata
                             analyzeHandle.getColumns().get()));
         }
 
-        DeltaLakeStatistics mergedDeltaLakeStatistics = new DeltaLakeStatistics(
+        ExtendedStatistics mergedExtendedStatistics = new ExtendedStatistics(
                 finalAlreadyAnalyzedModifiedTimeMax,
                 mergedColumnStatistics,
                 analyzeHandle.getColumns());
 
-        statisticsAccess.updateDeltaLakeStatistics(session, location, mergedDeltaLakeStatistics);
+        statisticsAccess.updateExtendedStatistics(session, location, mergedExtendedStatistics);
+    }
+
+    private void cleanExtraOutputFiles(ConnectorSession session, String baseLocation, List<DataFileInfo> validDataFiles)
+    {
+        Set<String> writtenFilePaths = validDataFiles.stream()
+                .map(dataFileInfo -> baseLocation + "/" + dataFileInfo.getPath())
+                .collect(toImmutableSet());
+
+        cleanExtraOutputFiles(session, writtenFilePaths);
+    }
+
+    private void cleanExtraOutputFilesForUpdate(ConnectorSession session, String baseLocation, List<DeltaLakeUpdateResult> validUpdateResults)
+    {
+        Set<String> writtenFilePaths = validUpdateResults.stream()
+                .map(DeltaLakeUpdateResult::getNewFile)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .map(dataFileInfo -> baseLocation + "/" + dataFileInfo.getPath())
+                .collect(toImmutableSet());
+
+        cleanExtraOutputFiles(session, writtenFilePaths);
+    }
+
+    private void cleanExtraOutputFiles(ConnectorSession session, Set<String> validWrittenFilePaths)
+    {
+        HdfsContext hdfsContext = new HdfsContext(session);
+
+        Set<String> fileLocations = validWrittenFilePaths.stream()
+                .map(path -> {
+                    int fileNameSeparatorPos = path.lastIndexOf("/");
+                    verify(fileNameSeparatorPos != -1 && fileNameSeparatorPos != 0, "invalid data file path: %s", path);
+                    return path.substring(0, fileNameSeparatorPos);
+                })
+                .collect(toImmutableSet());
+
+        for (String location : fileLocations) {
+            cleanExtraOutputFiles(hdfsContext, session.getQueryId(), location, validWrittenFilePaths);
+        }
+    }
+
+    private void cleanExtraOutputFiles(HdfsContext hdfsContext, String queryId, String location, Set<String> filesToKeep)
+    {
+        Deque<String> filesToDelete = new ArrayDeque<>();
+        try {
+            LOG.debug("Deleting failed attempt files from %s for query %s", location, queryId);
+            FileSystem fileSystem = hdfsEnvironment.getFileSystem(hdfsContext, new Path(location));
+            if (!fileSystem.exists(new Path(location))) {
+                // directory may not exist if no files were actually written
+                return;
+            }
+
+            // files within given partition are written flat into location; we need to list recursively
+            RemoteIterator<LocatedFileStatus> iterator = fileSystem.listFiles(new Path(location), false);
+            while (iterator.hasNext()) {
+                Path file = iterator.next().getPath();
+                if (isFileCreatedByQuery(file.getName(), queryId) && !filesToKeep.contains(location + "/" + file.getName())) {
+                    filesToDelete.add(file.getName());
+                }
+            }
+
+            if (filesToDelete.isEmpty()) {
+                return;
+            }
+
+            LOG.info("Found %s files to delete and %s to retain in location %s for query %s", filesToDelete.size(), filesToKeep.size(), location, queryId);
+            ImmutableList.Builder<String> deletedFilesBuilder = ImmutableList.builder();
+            Iterator<String> filesToDeleteIterator = filesToDelete.iterator();
+            while (filesToDeleteIterator.hasNext()) {
+                String fileName = filesToDeleteIterator.next();
+                LOG.debug("Deleting failed attempt file %s/%s for query %s", location, fileName, queryId);
+                fileSystem.delete(new Path(location, fileName), false);
+                deletedFilesBuilder.add(fileName);
+                filesToDeleteIterator.remove();
+            }
+
+            List<String> deletedFiles = deletedFilesBuilder.build();
+            if (!deletedFiles.isEmpty()) {
+                LOG.info("Deleted failed attempt files %s from %s for query %s", deletedFiles, location, queryId);
+            }
+        }
+        catch (IOException e) {
+            throw new TrinoException(GENERIC_INTERNAL_ERROR,
+                    format("Could not clean up extraneous output files; remaining files: %s", filesToDelete), e);
+        }
+    }
+
+    private boolean isFileCreatedByQuery(String fileName, String queryId)
+    {
+        verify(!queryId.contains("-"), "queryId(%s) should not contain hyphens", queryId);
+        return fileName.startsWith(queryId + "-");
     }
 
     private static Map<String, DeltaLakeColumnStatistics> toDeltaLakeColumnStatistics(Collection<ComputedStatistics> computedStatistics)

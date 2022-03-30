@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg;
 
+import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import com.amazonaws.services.glue.AWSGlueAsyncClientBuilder;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -59,7 +60,7 @@ public class TestTrinoGlueCatalogTest
                 new NoHdfsAuthentication());
         return new TrinoGlueCatalog(
                 hdfsEnvironment,
-                new GlueIcebergTableOperationsProvider(new HdfsFileIoProvider(hdfsEnvironment), new GlueHiveMetastoreConfig()),
+                new GlueIcebergTableOperationsProvider(new HdfsFileIoProvider(hdfsEnvironment), new GlueMetastoreStats(), new GlueHiveMetastoreConfig(), DefaultAWSCredentialsProviderChain.getInstance()),
                 AWSGlueAsyncClientBuilder.defaultClient(),
                 new GlueMetastoreStats(),
                 Optional.empty(),
@@ -82,7 +83,7 @@ public class TestTrinoGlueCatalogTest
                 new NoHdfsAuthentication());
         TrinoCatalog catalogWithDefaultLocation = new TrinoGlueCatalog(
                 hdfsEnvironment,
-                new GlueIcebergTableOperationsProvider(new HdfsFileIoProvider(hdfsEnvironment), new GlueHiveMetastoreConfig()),
+                new GlueIcebergTableOperationsProvider(new HdfsFileIoProvider(hdfsEnvironment), new GlueMetastoreStats(), new GlueHiveMetastoreConfig(), DefaultAWSCredentialsProviderChain.getInstance()),
                 AWSGlueAsyncClientBuilder.defaultClient(),
                 new GlueMetastoreStats(),
                 Optional.of(tmpDirectory.toAbsolutePath().toString()),

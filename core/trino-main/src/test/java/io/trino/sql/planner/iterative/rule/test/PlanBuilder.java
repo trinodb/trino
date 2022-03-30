@@ -393,6 +393,7 @@ public class PlanBuilder
         private Step step = Step.SINGLE;
         private Optional<Symbol> hashSymbol = Optional.empty();
         private Optional<Symbol> groupIdSymbol = Optional.empty();
+        private Optional<PlanNodeId> nodeId = Optional.empty();
 
         public AggregationBuilder source(PlanNode source)
         {
@@ -474,11 +475,17 @@ public class PlanBuilder
             return this;
         }
 
+        public AggregationBuilder nodeId(PlanNodeId nodeId)
+        {
+            this.nodeId = Optional.of(nodeId);
+            return this;
+        }
+
         protected AggregationNode build()
         {
             checkState(groupingSets != null, "No grouping sets defined; use globalGrouping/groupingKeys method");
             return new AggregationNode(
-                    idAllocator.getNextId(),
+                    nodeId.orElse(idAllocator.getNextId()),
                     source,
                     assignments,
                     groupingSets,

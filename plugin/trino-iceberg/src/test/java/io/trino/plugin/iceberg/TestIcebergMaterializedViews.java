@@ -25,7 +25,7 @@ import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
 import io.trino.transaction.TransactionId;
 import io.trino.transaction.TransactionManager;
-import org.testng.annotations.AfterClass;
+import org.assertj.core.api.Condition;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -44,10 +44,9 @@ import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.UPDATE_TABLE;
 import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.assertions.Assert.assertEquals;
-import static io.trino.testing.assertions.Assert.assertFalse;
-import static io.trino.testing.assertions.Assert.assertTrue;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.anyOf;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -290,54 +289,54 @@ public class TestIcebergMaterializedViews
         MaterializedResult baseResult = computeActual("SELECT * from materialized_view_no_part");
         assertEquals(baseResult.getRowCount(), 6);
         String plan = getExplainPlan("SELECT * from materialized_view_no_part", ExplainType.Type.IO);
-        assertTrue(plan.contains("base_table1"));
+        assertThat(plan).contains("base_table1");
         assertUpdate("REFRESH MATERIALIZED VIEW materialized_view_no_part", 6);
         MaterializedResult viewResult = computeActual("SELECT * from materialized_view_no_part");
         assertEquals(viewResult.getRowCount(), 6);
         plan = getExplainPlan("SELECT * from materialized_view_no_part", ExplainType.Type.IO);
-        assertFalse(plan.contains("base_table1"));
+        assertThat(plan).doesNotContain("base_table1");
 
         baseResult = computeActual("SELECT * from materialized_view_agg");
         assertEquals(baseResult.getRowCount(), 3);
         plan = getExplainPlan("SELECT * from materialized_view_agg", ExplainType.Type.IO);
-        assertTrue(plan.contains("base_table1"));
+        assertThat(plan).contains("base_table1");
         assertUpdate("REFRESH MATERIALIZED VIEW materialized_view_agg", 3);
         viewResult = computeActual("SELECT * from materialized_view_agg");
         assertEquals(viewResult.getRowCount(), 3);
         plan = getExplainPlan("SELECT * from materialized_view_agg", ExplainType.Type.IO);
-        assertFalse(plan.contains("base_table1"));
+        assertThat(plan).doesNotContain("base_table1");
         assertQuery(session, "SELECT * from materialized_view_agg", "VALUES (DATE '2019-09-10', 2)," +
                 "(DATE '2019-09-08', 1), (DATE '2019-09-09', 3)");
 
         baseResult = computeActual("SELECT * from materialized_view_part");
         assertEquals(baseResult.getRowCount(), 3);
         plan = getExplainPlan("SELECT * from materialized_view_part", ExplainType.Type.IO);
-        assertTrue(plan.contains("base_table1"));
+        assertThat(plan).contains("base_table1");
         assertUpdate("REFRESH MATERIALIZED VIEW materialized_view_part", 3);
         viewResult = computeActual("SELECT * from materialized_view_part");
         assertEquals(viewResult.getRowCount(), 3);
         plan = getExplainPlan("SELECT * from materialized_view_part", ExplainType.Type.IO);
-        assertFalse(plan.contains("base_table1"));
+        assertThat(plan).doesNotContain("base_table1");
 
         baseResult = computeActual("SELECT * from materialized_view_join");
         assertEquals(baseResult.getRowCount(), 5);
         plan = getExplainPlan("SELECT * from materialized_view_join", ExplainType.Type.IO);
-        assertTrue(plan.contains("base_table1") && plan.contains("base_table2"));
+        assertThat(plan).contains("base_table1", "base_table2");
         assertUpdate("REFRESH MATERIALIZED VIEW materialized_view_join", 5);
         viewResult = computeActual("SELECT * from materialized_view_join");
         assertEquals(viewResult.getRowCount(), 5);
         plan = getExplainPlan("SELECT * from materialized_view_join", ExplainType.Type.IO);
-        assertFalse(plan.contains("base_table1") || plan.contains("base_table2"));
+        assertThat(plan).doesNotContain("base_table1", "base_table2");
 
         baseResult = computeActual("SELECT * from materialized_view_join_part");
         assertEquals(baseResult.getRowCount(), 4);
         plan = getExplainPlan("SELECT * from materialized_view_join_part", ExplainType.Type.IO);
-        assertTrue(plan.contains("base_table1") && plan.contains("base_table2"));
+        assertThat(plan).contains("base_table1", "base_table2");
         assertUpdate("REFRESH MATERIALIZED VIEW materialized_view_join_part", 4);
         viewResult = computeActual("SELECT * from materialized_view_join_part");
         assertEquals(viewResult.getRowCount(), 4);
         plan = getExplainPlan("SELECT * from materialized_view_join_part", ExplainType.Type.IO);
-        assertFalse(plan.contains("base_table1") || plan.contains("base_table2"));
+        assertThat(plan).doesNotContain("base_table1", "base_table2");
         assertQuery(session, "SELECT * from materialized_view_join_part", "VALUES (2, 'a', DATE '2019-09-09', 1), " +
                 "(0, 'a', DATE '2019-09-08', 2), (3, 'a', DATE '2019-09-09', 1), (1, 'a', DATE '2019-09-09', 1)");
 
@@ -374,26 +373,28 @@ public class TestIcebergMaterializedViews
 
         assertUpdate("INSERT INTO base_table3 VALUES (3, DATE '2019-09-09'), (4, DATE '2019-09-10'), (5, DATE '2019-09-10')", 3);
         String plan = getExplainPlan("SELECT * from materialized_view_part_stale", ExplainType.Type.IO);
-        assertTrue(plan.contains("base_table3"));
+        assertThat(plan).contains("base_table3");
 
         plan = getExplainPlan("SELECT * from materialized_view_join_stale", ExplainType.Type.IO);
-        assertTrue(plan.contains("base_table3") || plan.contains("base_table4"));
+        Condition<String> containsTable3 = new Condition<>(p -> p.contains("base_table3"), "base_table3");
+        Condition<String> containsTable4 = new Condition<>(p -> p.contains("base_table4"), "base_table4");
+        assertThat(plan).is(anyOf(containsTable3, containsTable4));
 
         plan = getExplainPlan("SELECT * from materialized_view_join_part_stale", ExplainType.Type.IO);
-        assertTrue(plan.contains("base_table3") || plan.contains("base_table4"));
+        assertThat(plan).is(anyOf(containsTable3, containsTable4));
 
         assertUpdate("REFRESH MATERIALIZED VIEW materialized_view_part_stale", 3);
         assertUpdate("REFRESH MATERIALIZED VIEW materialized_view_join_stale", 5);
         assertUpdate("REFRESH MATERIALIZED VIEW materialized_view_join_part_stale", 4);
 
         plan = getExplainPlan("SELECT * from materialized_view_part_stale", ExplainType.Type.IO);
-        assertFalse(plan.contains("base_table3"));
+        assertThat(plan).doesNotContain("base_table3");
 
         plan = getExplainPlan("SELECT * from materialized_view_join_stale", ExplainType.Type.IO);
-        assertFalse(plan.contains("base_table3") || plan.contains("base_table4"));
+        assertThat(plan).doesNotContain("base_table3", "base_table4");
 
         plan = getExplainPlan("SELECT * from materialized_view_join_part_stale", ExplainType.Type.IO);
-        assertFalse(plan.contains("base_table3") || plan.contains("base_table4"));
+        assertThat(plan).doesNotContain("base_table3", "base_table4");
 
         assertUpdate("DROP TABLE IF EXISTS base_table3");
         assertUpdate("DROP TABLE IF EXISTS base_table4");
@@ -419,11 +420,11 @@ public class TestIcebergMaterializedViews
 
         // This set of tests intend to test various SQL features in the context of materialized views. It also tests commands pertaining to materialized views.
         String plan = getExplainPlan("SELECT * from materialized_view_window", ExplainType.Type.IO);
-        assertFalse(plan.contains("base_table1"));
+        assertThat(plan).doesNotContain("base_table1");
         plan = getExplainPlan("SELECT * from materialized_view_union", ExplainType.Type.IO);
-        assertFalse(plan.contains("base_table1"));
+        assertThat(plan).doesNotContain("base_table1");
         plan = getExplainPlan("SELECT * from materialized_view_subquery", ExplainType.Type.IO);
-        assertFalse(plan.contains("base_table1"));
+        assertThat(plan).doesNotContain("base_table1");
 
         assertQueryFails("show create view  materialized_view_window",
                 "line 1:1: Relation 'iceberg.tpch.materialized_view_window' is a materialized view, not a view");
@@ -468,7 +469,7 @@ public class TestIcebergMaterializedViews
 
         assertUpdate("CREATE OR REPLACE MATERIALIZED VIEW materialized_view_replace as select sum(1) as num_rows from base_table2");
         String plan = getExplainPlan("SELECT * from materialized_view_replace", ExplainType.Type.IO);
-        assertTrue(plan.contains("base_table2"));
+        assertThat(plan).contains("base_table2");
         assertUpdate("REFRESH MATERIALIZED VIEW materialized_view_replace", 1);
         MaterializedResult viewResult = computeActual("SELECT * from materialized_view_replace");
         assertEquals(viewResult.getRowCount(), 1);
@@ -487,12 +488,12 @@ public class TestIcebergMaterializedViews
 
         // Unrefreshed 2nd level materialized view .. resolves to base table
         String plan = getExplainPlan("select * from materialized_view_level2", ExplainType.Type.IO);
-        assertTrue(plan.contains("base_table5"));
+        assertThat(plan).contains("base_table5");
         assertUpdate("refresh materialized view materialized_view_level2", 2);
         plan = getExplainPlan("select * from materialized_view_level2", ExplainType.Type.IO);
 
         // Refreshed 2nd level materialized view .. resolves to storage table
-        assertFalse(plan.contains("base_table5"));
+        assertThat(plan).doesNotContain("base_table5");
 
         // Re-refreshing 2nd level materialized view is a no-op
         assertUpdate("refresh materialized view materialized_view_level2", 0);
@@ -503,23 +504,11 @@ public class TestIcebergMaterializedViews
 
         // Refreshing the 2nd level (outer-most) materialized view does not refresh the 1st level (inner) materialized view.
         plan = getExplainPlan("select * from materialized_view_level1", ExplainType.Type.IO);
-        assertTrue(plan.contains("base_table5"));
+        assertThat(plan).contains("base_table5");
 
         assertUpdate("DROP TABLE IF EXISTS base_table5");
         assertUpdate("DROP MATERIALIZED VIEW materialized_view_level1");
         assertUpdate("DROP MATERIALIZED VIEW materialized_view_level2");
-    }
-
-    @AfterClass(alwaysRun = true)
-    public void tearDown()
-    {
-        assertUpdate("DROP TABLE IF EXISTS base_table1");
-        assertUpdate("DROP TABLE IF EXISTS base_table2");
-        // Drop storage tables
-        MaterializedResult baseResult = computeActual("show tables in tpch");
-        for (MaterializedRow row : baseResult.getMaterializedRows()) {
-            assertUpdate("DROP TABLE IF EXISTS " + row.getField(0).toString());
-        }
     }
 
     private SchemaTableName getStorageTable(String catalogName, String schemaName, String objectName)

@@ -234,9 +234,9 @@ public class KuduClientSession
         catch (KuduException e) {
             log.debug(e, "Error on doOpenTable");
             if (!listSchemaNames().contains(schemaTableName.getSchemaName())) {
-                throw new SchemaNotFoundException(schemaTableName.getSchemaName());
+                throw new SchemaNotFoundException(schemaTableName.getSchemaName(), e);
             }
-            throw new TableNotFoundException(schemaTableName);
+            throw new TableNotFoundException(schemaTableName, e);
         }
     }
 

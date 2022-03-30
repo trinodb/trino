@@ -88,7 +88,6 @@ import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
 import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
 import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
-import static io.trino.plugin.iceberg.IcebergQueryRunner.createIcebergQueryRunner;
 import static io.trino.plugin.iceberg.IcebergSplitManager.ICEBERG_DOMAIN_COMPACTION_THRESHOLD;
 import static io.trino.spi.predicate.Domain.multipleValues;
 import static io.trino.spi.predicate.Domain.singleValue;
@@ -132,13 +131,13 @@ public abstract class BaseIcebergConnectorTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createIcebergQueryRunner(
-                Map.of(),
-                Map.of("iceberg.file-format", format.name()),
-                ImmutableList.<TpchTable<?>>builder()
+        return IcebergQueryRunner.builder()
+                .setIcebergProperties(Map.of("iceberg.file-format", format.name()))
+                .setInitialTables(ImmutableList.<TpchTable<?>>builder()
                         .addAll(REQUIRED_TPCH_TABLES)
                         .add(LINE_ITEM)
-                        .build());
+                        .build())
+                .build();
     }
 
     @Override
@@ -170,6 +169,14 @@ public abstract class BaseIcebergConnectorTest
     {
         // Deletes are covered with testMetadataDelete test methods
         assertThatThrownBy(super::testDelete)
+                .hasStackTraceContaining("This connector only supports delete where one or more identity-transformed partitions are deleted entirely");
+    }
+
+    @Override
+    public void testDeleteWithLike()
+    {
+        // Deletes are covered with testMetadataDelete test methods
+        assertThatThrownBy(super::testDeleteWithLike)
                 .hasStackTraceContaining("This connector only supports delete where one or more identity-transformed partitions are deleted entirely");
     }
 
@@ -2086,7 +2093,7 @@ public abstract class BaseIcebergConnectorTest
         List<Long> values = LongStream.range(1L, 1010L).boxed()
                 .filter(index -> index != 20L)
                 .collect(toImmutableList());
-        assertTrue(values.size() > ICEBERG_DOMAIN_COMPACTION_THRESHOLD);
+        assertThat(values).hasSizeGreaterThan(ICEBERG_DOMAIN_COMPACTION_THRESHOLD);
         String valuesString = join(",", values.stream().map(Object::toString).collect(toImmutableList()));
         String inPredicate = "%s IN (" + valuesString + ")";
         assertQuery(

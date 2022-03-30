@@ -46,6 +46,7 @@ import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -75,6 +76,9 @@ public abstract class BaseSqlServerConnectorTest
                 return false;
 
             case SUPPORTS_ARRAY:
+            case SUPPORTS_ROW_TYPE:
+                return false;
+
             case SUPPORTS_NEGATIVE_DATE:
                 return false;
 
@@ -379,6 +383,13 @@ public abstract class BaseSqlServerConnectorTest
                         "WITH (\n" +
                         "   data_compression = 'NONE'\n" +
                         ")");
+    }
+
+    @Override
+    public void testDeleteWithLike()
+    {
+        assertThatThrownBy(super::testDeleteWithLike)
+                .hasStackTraceContaining("TrinoException: Unsupported delete");
     }
 
     @Test(dataProvider = "dataCompression")

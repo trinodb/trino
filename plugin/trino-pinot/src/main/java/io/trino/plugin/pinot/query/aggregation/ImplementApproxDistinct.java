@@ -17,6 +17,7 @@ import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.plugin.base.aggregation.AggregateFunctionRule;
+import io.trino.plugin.pinot.PinotColumnHandle;
 import io.trino.plugin.pinot.query.AggregateExpression;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.expression.Variable;
@@ -59,6 +60,7 @@ public class ImplementApproxDistinct
     public Optional<AggregateExpression> rewrite(AggregateFunction aggregateFunction, Captures captures, RewriteContext<Void> context)
     {
         Variable argument = captures.get(ARGUMENT);
-        return Optional.of(new AggregateExpression("distinctcounthll", identifierQuote.apply(argument.getName()), false));
+        PinotColumnHandle columnHandle = (PinotColumnHandle) context.getAssignment(argument.getName());
+        return Optional.of(new AggregateExpression("distinctcounthll", identifierQuote.apply(columnHandle.getColumnName()), false));
     }
 }

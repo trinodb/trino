@@ -43,47 +43,7 @@ public class ColumnMetadata
         this(name, type, true, null, null, false, emptyMap());
     }
 
-    /**
-     * @deprecated Use {@link #builder()} instead.
-     */
-    @Deprecated
-    public ColumnMetadata(String name, Type type, String comment)
-    {
-        this(name, type, true, comment, null, false, emptyMap());
-    }
-
-    /**
-     * @deprecated Use {@link #builder()} instead.
-     */
-    @Deprecated
-    public ColumnMetadata(String name, Type type, String comment, boolean hidden)
-    {
-        this(name, type, true, comment, null, hidden, emptyMap());
-    }
-
-    /**
-     * @deprecated Use {@link #builder()} instead.
-     */
-    @Deprecated
-    public ColumnMetadata(String name, Type type, String comment, String extraInfo, boolean hidden)
-    {
-        this(name, type, true, comment, extraInfo, hidden, emptyMap());
-    }
-
-    /**
-     * @deprecated Use {@link #builder()} instead.
-     */
-    @Deprecated
-    public ColumnMetadata(String name, Type type, String comment, String extraInfo, boolean hidden, Map<String, Object> properties)
-    {
-        this(name, type, true, comment, extraInfo, hidden, properties);
-    }
-
-    /**
-     * @deprecated Use {@link #builder()} instead.
-     */
-    @Deprecated
-    public ColumnMetadata(String name, Type type, boolean nullable, String comment, String extraInfo, boolean hidden, Map<String, Object> properties)
+    private ColumnMetadata(String name, Type type, boolean nullable, String comment, String extraInfo, boolean hidden, Map<String, Object> properties)
     {
         checkNotEmpty(name, "name");
         requireNonNull(type, "type is null");

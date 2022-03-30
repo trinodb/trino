@@ -68,7 +68,7 @@ query window into 6 queries each of which can be handled in a Trino split.
 
 Primarily query issuers can limit the amount of data returned by Prometheus by taking
 advantage of ``WHERE`` clause limits on ``timestamp``, setting an upper bound and lower bound that define
-a relatively small window. For instance:
+a relatively small window. For example:
 
 .. code-block:: sql
 

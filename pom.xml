@@ -10,7 +10,7 @@
 
     <groupId>io.trino</groupId>
     <artifactId>trino-root</artifactId>
-    <version>375-SNAPSHOT</version>
+    <version>376-SNAPSHOT</version>
 
     <name>trino-root</name>
     <description>Trino</description>
@@ -587,7 +587,7 @@
             <dependency>
                 <groupId>io.trino.hive</groupId>
                 <artifactId>hive-apache</artifactId>
-                <version>3.1.2-18</version>
+                <version>3.1.2-19</version>
             </dependency>
 
             <dependency>

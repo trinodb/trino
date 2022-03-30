@@ -74,18 +74,15 @@ public class DefaultQueryBuilder
                     .ifPresent(column -> { throw new IllegalArgumentException(format("Column %s has an expression and a constraint attached at the same time", column)); });
         }
 
+        ImmutableList.Builder<String> conjuncts = ImmutableList.builder();
         ImmutableList.Builder<QueryParameter> accumulator = ImmutableList.builder();
 
         String sql = "SELECT " + getProjection(client, columns, columnExpressions);
         sql += getFrom(client, baseRelation, accumulator::add);
 
-        List<String> clauses = toConjuncts(client, session, connection, tupleDomain, accumulator::add);
-        if (additionalPredicate.isPresent()) {
-            clauses = ImmutableList.<String>builder()
-                    .addAll(clauses)
-                    .add(additionalPredicate.get())
-                    .build();
-        }
+        toConjuncts(client, session, connection, tupleDomain, conjuncts, accumulator::add);
+        additionalPredicate.ifPresent(conjuncts::add);
+        List<String> clauses = conjuncts.build();
         if (!clauses.isEmpty()) {
             sql += " WHERE " + Joiner.on(" AND ").join(clauses);
         }
@@ -141,13 +138,17 @@ public class DefaultQueryBuilder
             ConnectorSession session,
             Connection connection,
             JdbcNamedRelationHandle baseRelation,
-            TupleDomain<ColumnHandle> tupleDomain)
+            TupleDomain<ColumnHandle> tupleDomain,
+            Optional<String> additionalPredicate)
     {
         String sql = "DELETE FROM " + getRelation(client, baseRelation.getRemoteTableName());
 
+        ImmutableList.Builder<String> conjuncts = ImmutableList.builder();
         ImmutableList.Builder<QueryParameter> accumulator = ImmutableList.builder();
 
-        List<String> clauses = toConjuncts(client, session, connection, tupleDomain, accumulator::add);
+        toConjuncts(client, session, connection, tupleDomain, conjuncts, accumulator::add);
+        additionalPredicate.ifPresent(conjuncts::add);
+        List<String> clauses = conjuncts.build();
         if (!clauses.isEmpty()) {
             sql += " WHERE " + Joiner.on(" AND ").join(clauses);
         }
@@ -275,23 +276,23 @@ public class DefaultQueryBuilder
                 .getPredicatePushdownController().apply(session, domain).getPushedDown();
     }
 
-    protected List<String> toConjuncts(
+    protected void toConjuncts(
             JdbcClient client,
             ConnectorSession session,
             Connection connection,
             TupleDomain<ColumnHandle> tupleDomain,
+            ImmutableList.Builder<String> result,
             Consumer<QueryParameter> accumulator)
     {
         if (tupleDomain.isNone()) {
-            return ImmutableList.of(ALWAYS_FALSE);
+            result.add(ALWAYS_FALSE);
+            return;
         }
-        ImmutableList.Builder<String> builder = ImmutableList.builder();
         for (Map.Entry<ColumnHandle, Domain> entry : tupleDomain.getDomains().get().entrySet()) {
             JdbcColumnHandle column = ((JdbcColumnHandle) entry.getKey());
             Domain domain = pushDownDomain(client, session, connection, column, entry.getValue());
-            builder.add(toPredicate(client, session, connection, column, domain, accumulator));
+            result.add(toPredicate(client, session, connection, column, domain, accumulator));
         }
-        return builder.build();
     }
 
     protected String toPredicate(JdbcClient client, ConnectorSession session, Connection connection, JdbcColumnHandle column, Domain domain, Consumer<QueryParameter> accumulator)

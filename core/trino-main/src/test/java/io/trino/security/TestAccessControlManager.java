@@ -90,7 +90,7 @@ public class TestAccessControlManager
     public void testNoneSystemAccessControl()
     {
         AccessControlManager accessControlManager = createAccessControlManager(createTestTransactionManager());
-        accessControlManager.setSystemAccessControl(AllowAllSystemAccessControl.NAME, ImmutableMap.of());
+        accessControlManager.loadSystemAccessControl(AllowAllSystemAccessControl.NAME, ImmutableMap.of());
         accessControlManager.checkCanSetUser(Optional.empty(), USER_NAME);
     }
 
@@ -102,7 +102,7 @@ public class TestAccessControlManager
         TransactionManager transactionManager = createTestTransactionManager();
         AccessControlManager accessControlManager = createAccessControlManager(transactionManager);
 
-        accessControlManager.setSystemAccessControl(ReadOnlySystemAccessControl.NAME, ImmutableMap.of());
+        accessControlManager.loadSystemAccessControl(ReadOnlySystemAccessControl.NAME, ImmutableMap.of());
         accessControlManager.checkCanSetUser(Optional.of(PRINCIPAL), USER_NAME);
         accessControlManager.checkCanSetSystemSessionProperty(identity, "property");
 
@@ -139,7 +139,7 @@ public class TestAccessControlManager
 
         TestSystemAccessControlFactory accessControlFactory = new TestSystemAccessControlFactory("test");
         accessControlManager.addSystemAccessControlFactory(accessControlFactory);
-        accessControlManager.setSystemAccessControl("test", ImmutableMap.of());
+        accessControlManager.loadSystemAccessControl("test", ImmutableMap.of());
 
         accessControlManager.checkCanSetUser(Optional.of(PRINCIPAL), USER_NAME);
         assertEquals(accessControlFactory.getCheckedUserName(), USER_NAME);
@@ -154,7 +154,7 @@ public class TestAccessControlManager
 
         TestSystemAccessControlFactory accessControlFactory = new TestSystemAccessControlFactory("test");
         accessControlManager.addSystemAccessControlFactory(accessControlFactory);
-        accessControlManager.setSystemAccessControl("test", ImmutableMap.of());
+        accessControlManager.loadSystemAccessControl("test", ImmutableMap.of());
 
         transaction(transactionManager, accessControlManager)
                 .execute(transactionId -> {
@@ -171,7 +171,7 @@ public class TestAccessControlManager
 
             TestSystemAccessControlFactory accessControlFactory = new TestSystemAccessControlFactory("test");
             accessControlManager.addSystemAccessControlFactory(accessControlFactory);
-            accessControlManager.setSystemAccessControl("test", ImmutableMap.of());
+            accessControlManager.loadSystemAccessControl("test", ImmutableMap.of());
 
             queryRunner.createCatalog("catalog", MockConnectorFactory.create(), ImmutableMap.of());
             accessControlManager.addCatalogAccessControl(new CatalogName("catalog"), new DenyConnectorAccessControl());
@@ -218,7 +218,7 @@ public class TestAccessControlManager
                     };
                 }
             });
-            accessControlManager.setSystemAccessControl("test", ImmutableMap.of());
+            accessControlManager.loadSystemAccessControl("test", ImmutableMap.of());
 
             queryRunner.createCatalog("catalog", MockConnectorFactory.create(), ImmutableMap.of());
             accessControlManager.addCatalogAccessControl(new CatalogName("catalog"), new ConnectorAccessControl()
@@ -263,7 +263,7 @@ public class TestAccessControlManager
 
             TestSystemAccessControlFactory accessControlFactory = new TestSystemAccessControlFactory("test");
             accessControlManager.addSystemAccessControlFactory(accessControlFactory);
-            accessControlManager.setSystemAccessControl("test", ImmutableMap.of());
+            accessControlManager.loadSystemAccessControl("test", ImmutableMap.of());
 
             queryRunner.createCatalog("catalog", MockConnectorFactory.create(), ImmutableMap.of());
             accessControlManager.addCatalogAccessControl(new CatalogName("connector"), new DenyConnectorAccessControl());
@@ -289,7 +289,7 @@ public class TestAccessControlManager
 
         TestSystemAccessControlFactory accessControlFactory = new TestSystemAccessControlFactory("deny-all");
         accessControlManager.addSystemAccessControlFactory(accessControlFactory);
-        accessControlManager.setSystemAccessControl("deny-all", ImmutableMap.of());
+        accessControlManager.loadSystemAccessControl("deny-all", ImmutableMap.of());
 
         assertDenyExecuteProcedure(transactionManager, accessControlManager, "Access Denied: Cannot execute procedure connector.schema.procedure");
     }
@@ -300,7 +300,7 @@ public class TestAccessControlManager
         try (LocalQueryRunner queryRunner = LocalQueryRunner.create(TEST_SESSION)) {
             TransactionManager transactionManager = queryRunner.getTransactionManager();
             AccessControlManager accessControlManager = createAccessControlManager(transactionManager);
-            accessControlManager.setSystemAccessControl("allow-all", ImmutableMap.of());
+            accessControlManager.loadSystemAccessControl("allow-all", ImmutableMap.of());
 
             queryRunner.createCatalog("connector", MockConnectorFactory.create(), ImmutableMap.of());
             accessControlManager.addCatalogAccessControl(new CatalogName("connector"), new DenyConnectorAccessControl());
@@ -315,7 +315,7 @@ public class TestAccessControlManager
         try (LocalQueryRunner queryRunner = LocalQueryRunner.create(TEST_SESSION)) {
             TransactionManager transactionManager = queryRunner.getTransactionManager();
             AccessControlManager accessControlManager = createAccessControlManager(transactionManager);
-            accessControlManager.setSystemAccessControl("allow-all", ImmutableMap.of());
+            accessControlManager.loadSystemAccessControl("allow-all", ImmutableMap.of());
 
             queryRunner.createCatalog("connector", MockConnectorFactory.create(), ImmutableMap.of());
             accessControlManager.addCatalogAccessControl(new CatalogName("connector"), new AllowAllAccessControl());
@@ -325,6 +325,45 @@ public class TestAccessControlManager
                         accessControlManager.checkCanExecuteProcedure(context(transactionId), new QualifiedObjectName("connector", "schema", "procedure"));
                     });
         }
+    }
+
+    @Test
+    public void testRegisterSingleEventListenerForDefaultAccessControl()
+    {
+        EventListener expectedListener = new EventListener() {};
+
+        String defaultAccessControlName = "event-listening-default-access-control";
+        TestingEventListenerManager eventListenerManager = emptyEventListenerManager();
+        AccessControlManager accessControlManager = createAccessControlManager(
+                eventListenerManager,
+                defaultAccessControlName);
+        accessControlManager.addSystemAccessControlFactory(
+                eventListeningSystemAccessControlFactory(defaultAccessControlName, expectedListener));
+
+        accessControlManager.loadSystemAccessControl();
+
+        assertThat(eventListenerManager.getConfiguredEventListeners())
+                .contains(expectedListener);
+    }
+
+    @Test
+    public void testRegisterMultipleEventListenerForDefaultAccessControl()
+    {
+        EventListener firstListener = new EventListener() {};
+        EventListener secondListener = new EventListener() {};
+
+        String defaultAccessControlName = "event-listening-default-access-control";
+        TestingEventListenerManager eventListenerManager = emptyEventListenerManager();
+        AccessControlManager accessControlManager = createAccessControlManager(
+                eventListenerManager,
+                defaultAccessControlName);
+        accessControlManager.addSystemAccessControlFactory(
+                eventListeningSystemAccessControlFactory(defaultAccessControlName, firstListener, secondListener));
+
+        accessControlManager.loadSystemAccessControl();
+
+        assertThat(eventListenerManager.getConfiguredEventListeners())
+                .contains(firstListener, secondListener);
     }
 
     @Test
@@ -384,7 +423,7 @@ public class TestAccessControlManager
 
         TestSystemAccessControlFactory accessControlFactory = new TestSystemAccessControlFactory("deny-all");
         accessControlManager.addSystemAccessControlFactory(accessControlFactory);
-        accessControlManager.setSystemAccessControl("deny-all", ImmutableMap.of());
+        accessControlManager.loadSystemAccessControl("deny-all", ImmutableMap.of());
 
         transaction(transactionManager, accessControlManager)
                 .execute(transactionId -> {
@@ -403,7 +442,7 @@ public class TestAccessControlManager
         CatalogManager catalogManager = new CatalogManager();
         TransactionManager transactionManager = createTestTransactionManager(catalogManager);
         AccessControlManager accessControlManager = createAccessControlManager(transactionManager);
-        accessControlManager.setSystemAccessControl("allow-all", ImmutableMap.of());
+        accessControlManager.loadSystemAccessControl("allow-all", ImmutableMap.of());
 
         transaction(transactionManager, accessControlManager)
                 .execute(transactionId -> {
@@ -434,6 +473,11 @@ public class TestAccessControlManager
     private AccessControlManager createAccessControlManager(EventListenerManager eventListenerManager, AccessControlConfig config)
     {
         return new AccessControlManager(createTestTransactionManager(), eventListenerManager, config, DefaultSystemAccessControl.NAME);
+    }
+
+    private AccessControlManager createAccessControlManager(EventListenerManager eventListenerManager, String defaultAccessControlName)
+    {
+        return new AccessControlManager(createTestTransactionManager(), eventListenerManager, new AccessControlConfig(), defaultAccessControlName);
     }
 
     private SystemAccessControlFactory eventListeningSystemAccessControlFactory(String name, EventListener... eventListeners)

@@ -261,7 +261,7 @@ public class TestHiveRedirectionToIceberg
         createIcebergTable(icebergTableName, true);
 
         assertThat(onTrino().executeQuery("SHOW CREATE TABLE " + hiveTableName))
-                .containsOnly(row("CREATE TABLE " + hiveTableName + " (\n" +
+                .containsOnly(row("CREATE TABLE " + icebergTableName + " (\n" +
                         "   nationkey bigint,\n" +
                         "   name varchar,\n" +
                         "   regionkey bigint,\n" +
@@ -305,11 +305,21 @@ public class TestHiveRedirectionToIceberg
 
         createIcebergTable(icebergTableName, false);
 
-        //TODO restore test assertions after adding redirection awareness to the RenameTableTask
-        assertQueryFailure(() -> onTrino().executeQuery("ALTER TABLE " + hiveTableName + " RENAME TO " + tableName + "_new"))
-                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): Cannot query Iceberg table 'default." + tableName + "'");
+        assertQueryFailure(() -> onTrino().executeQuery("ALTER TABLE " + hiveTableName + " RENAME TO hive.default." + tableName + "_new"))
+                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): line 1:1: Table rename across catalogs is not supported");
 
-        onTrino().executeQuery("DROP TABLE " + icebergTableName);
+        String newTableNameWithoutCatalogWithoutSchema = tableName + "_new_without_catalog_without_schema";
+        onTrino().executeQuery("ALTER TABLE " + hiveTableName + " RENAME TO " + newTableNameWithoutCatalogWithoutSchema);
+        String newTableNameWithoutCatalogWithSchema = tableName + "_new_without_catalog_with_schema";
+        onTrino().executeQuery("ALTER TABLE hive.default." + newTableNameWithoutCatalogWithoutSchema + " RENAME TO default." + newTableNameWithoutCatalogWithSchema);
+        String newTableNameWithCatalogWithSchema = tableName + "_new_with_catalog_with_schema";
+        onTrino().executeQuery("ALTER TABLE hive.default." + newTableNameWithoutCatalogWithSchema + " RENAME TO iceberg.default." + newTableNameWithCatalogWithSchema);
+
+        assertResultsEqual(
+                onTrino().executeQuery("TABLE " + icebergTableName + "_new_with_catalog_with_schema"),
+                onTrino().executeQuery("TABLE " + hiveTableName + "_new_with_catalog_with_schema"));
+
+        onTrino().executeQuery("DROP TABLE " + icebergTableName + "_new_with_catalog_with_schema");
     }
 
     @Test(groups = {HIVE_ICEBERG_REDIRECTIONS, PROFILE_SPECIFIC_TESTS})
@@ -513,6 +523,66 @@ public class TestHiveRedirectionToIceberg
 
         onTrino().executeQuery("DROP TABLE " + icebergTableName);
         onTrino().executeQuery("DROP SCHEMA hive." + schemaName);
+    }
+
+    @Test(groups = {HIVE_ICEBERG_REDIRECTIONS, PROFILE_SPECIFIC_TESTS})
+    public void testGrant()
+    {
+        String tableName = "iceberg_grant_" + randomTableSuffix();
+        String hiveTableName = "hive.default." + tableName;
+        String icebergTableName = "iceberg.default." + tableName;
+
+        createIcebergTable(icebergTableName, false);
+
+        assertQueryFailure(() -> onTrino().executeQuery("GRANT SELECT ON " + hiveTableName + " TO ROLE PUBLIC"))
+                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): line 1:1: Table " + hiveTableName + " is redirected to " + icebergTableName + " and GRANT is not supported with table redirections");
+
+        onTrino().executeQuery("DROP TABLE " + icebergTableName);
+    }
+
+    @Test(groups = {HIVE_ICEBERG_REDIRECTIONS, PROFILE_SPECIFIC_TESTS})
+    public void testRevoke()
+    {
+        String tableName = "iceberg_revoke_" + randomTableSuffix();
+        String hiveTableName = "hive.default." + tableName;
+        String icebergTableName = "iceberg.default." + tableName;
+
+        createIcebergTable(icebergTableName, false);
+
+        assertQueryFailure(() -> onTrino().executeQuery("REVOKE SELECT ON " + hiveTableName + " FROM ROLE PUBLIC"))
+                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): line 1:1: Table " + hiveTableName + " is redirected to " + icebergTableName + " and REVOKE is not supported with table redirections");
+
+        onTrino().executeQuery("DROP TABLE " + icebergTableName);
+    }
+
+    @Test(groups = {HIVE_ICEBERG_REDIRECTIONS, PROFILE_SPECIFIC_TESTS})
+    public void testSetTableAuthorization()
+    {
+        String tableName = "iceberg_set_table_authorization_" + randomTableSuffix();
+        String hiveTableName = "hive.default." + tableName;
+        String icebergTableName = "iceberg.default." + tableName;
+
+        createIcebergTable(icebergTableName, false);
+
+        assertQueryFailure(() -> onTrino().executeQuery("ALTER TABLE " + hiveTableName + " SET AUTHORIZATION ROLE PUBLIC"))
+                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): line 1:1: Table " + hiveTableName + " is redirected to " + icebergTableName + " and SET TABLE AUTHORIZATION is not supported with table redirections");
+
+        onTrino().executeQuery("DROP TABLE " + icebergTableName);
+    }
+
+    @Test(groups = {HIVE_ICEBERG_REDIRECTIONS, PROFILE_SPECIFIC_TESTS})
+    public void testDeny()
+    {
+        String tableName = "iceberg_deny_" + randomTableSuffix();
+        String hiveTableName = "hive.default." + tableName;
+        String icebergTableName = "iceberg.default." + tableName;
+
+        createIcebergTable(icebergTableName, false);
+
+        assertQueryFailure(() -> onTrino().executeQuery("DENY DELETE ON " + hiveTableName + " TO ROLE PUBLIC"))
+                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): line 1:1: Table " + hiveTableName + " is redirected to " + icebergTableName + " and DENY is not supported with table redirections");
+
+        onTrino().executeQuery("DROP TABLE " + icebergTableName);
     }
 
     private static void createIcebergTable(String tableName, boolean partitioned)
