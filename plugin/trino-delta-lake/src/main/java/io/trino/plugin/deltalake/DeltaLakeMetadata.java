@@ -1272,7 +1272,6 @@ public class DeltaLakeMetadata
     {
         DeltaTableOptimizeHandle optimizeHandle = (DeltaTableOptimizeHandle) executeHandle.getProcedureHandle();
         long readVersion = optimizeHandle.getCurrentVersion().orElseThrow(() -> new IllegalArgumentException("currentVersion not set"));
-        Optional<Long> checkpointInterval = optimizeHandle.getMetadataEntry().getCheckpointInterval();
         String tableLocation = executeHandle.getTableLocation();
 
         // paths to be deleted
@@ -1322,6 +1321,7 @@ public class DeltaLakeMetadata
 
             transactionLogWriter.flush();
             writeCommitted = true;
+            Optional<Long> checkpointInterval = Optional.of(1L); // force checkpoint
             writeCheckpointIfNeeded(session, executeHandle.getSchemaTableName(), checkpointInterval, commitVersion);
         }
         catch (Exception e) {
