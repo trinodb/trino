@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMultimap;
 import com.google.common.io.Files;
 import com.google.common.io.Resources;
 import com.google.inject.Injector;
+import com.google.inject.Scopes;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.json.JsonModule;
@@ -116,6 +117,7 @@ public class TestDeltaLakeGlueMetastore
                 // connector modules
                 new DeltaLakeMetastoreModule(),
                 new DeltaLakeModule(),
+                binder -> binder.bind(DeltaLakeSessionProperties.class).in(Scopes.SINGLETON),
                 // test setup
                 binder -> {
                     binder.bind(HdfsEnvironment.class).toInstance(HDFS_ENVIRONMENT);
