@@ -18,10 +18,13 @@ import com.google.common.collect.ImmutableMultimap;
 import com.google.common.io.Files;
 import com.google.common.io.Resources;
 import com.google.inject.Injector;
+import com.google.inject.Key;
+import com.google.inject.TypeLiteral;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.json.JsonModule;
 import io.trino.plugin.base.CatalogName;
+import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.deltalake.DeltaLakeMetadata;
 import io.trino.plugin.deltalake.DeltaLakeMetadataFactory;
 import io.trino.plugin.deltalake.DeltaLakeModule;
@@ -68,6 +71,7 @@ import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.testing.Closeables.closeAll;
 import static io.trino.plugin.deltalake.DeltaLakeMetadata.DELTA_STORAGE_FORMAT;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.LOCATION_PROPERTY;
+import static io.trino.plugin.deltalake.InternalDeltaLakeConnectorFactory.bindSessionPropertiesProvider;
 import static io.trino.plugin.deltalake.metastore.HiveMetastoreBackedDeltaLakeMetastore.TABLE_PROVIDER_PROPERTY;
 import static io.trino.plugin.deltalake.metastore.HiveMetastoreBackedDeltaLakeMetastore.TABLE_PROVIDER_VALUE;
 import static io.trino.plugin.hive.HiveStorageFormat.PARQUET;
@@ -116,6 +120,7 @@ public class TestDeltaLakeGlueMetastore
                 // connector modules
                 new DeltaLakeMetastoreModule(),
                 new DeltaLakeModule(),
+                binder -> bindSessionPropertiesProvider(binder, DeltaLakeSessionProperties.class), // see InternalDeltaLakeConnectorFactory
                 // test setup
                 binder -> {
                     binder.bind(HdfsEnvironment.class).toInstance(HDFS_ENVIRONMENT);
@@ -131,7 +136,10 @@ public class TestDeltaLakeGlueMetastore
         metadataFactory = injector.getInstance(DeltaLakeMetadataFactory.class);
 
         session = TestingConnectorSession.builder()
-                .setPropertyMetadata(injector.getInstance(DeltaLakeSessionProperties.class).getSessionProperties())
+                .setPropertyMetadata(injector.getInstance(Key.get(new TypeLiteral<Set<SessionPropertiesProvider>>() {})).stream()
+                        .map(SessionPropertiesProvider::getSessionProperties)
+                        .flatMap(List::stream)
+                        .collect(toImmutableList()))
                 .build();
 
         databaseName = "test_delta_glue" + randomName();
