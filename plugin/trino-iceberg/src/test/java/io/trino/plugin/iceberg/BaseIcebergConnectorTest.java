@@ -16,6 +16,8 @@ package io.trino.plugin.iceberg;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.log.Level;
+import io.airlift.log.Logging;
 import io.airlift.units.DataSize;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
@@ -40,7 +42,7 @@ import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
 import io.trino.tpch.TpchTable;
 import org.apache.avro.Schema;
-import org.apache.avro.file.DataFileReader;
+import org.apache.avro.file.DataFileStream;
 import org.apache.avro.file.DataFileWriter;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericDatumReader;
@@ -57,7 +59,6 @@ import java.io.OutputStream;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -125,6 +126,8 @@ public abstract class BaseIcebergConnectorTest
     protected BaseIcebergConnectorTest(IcebergFileFormat format)
     {
         this.format = requireNonNull(format, "format is null");
+        Logging logging = Logging.initialize();
+        logging.setLevel("org.apache.iceberg.BaseTableScan", Level.WARN); // To suppress huge "Scanning table ... filter" message
     }
 
     @Override
@@ -213,9 +216,9 @@ public abstract class BaseIcebergConnectorTest
     @Test
     public void testShowCreateTable()
     {
-        File tempDir = getDistributedQueryRunner().getCoordinator().getBaseDataDir().toFile();
+        String schemaName = getSession().getSchema().orElseThrow();
         assertThat(computeActual("SHOW CREATE TABLE orders").getOnlyValue())
-                .isEqualTo("CREATE TABLE iceberg.tpch.orders (\n" +
+                .isEqualTo("CREATE TABLE iceberg." + schemaName + ".orders (\n" +
                         "   orderkey bigint,\n" +
                         "   custkey bigint,\n" +
                         "   orderstatus varchar,\n" +
@@ -229,7 +232,7 @@ public abstract class BaseIcebergConnectorTest
                         "WITH (\n" +
                         "   format = '" + format.name() + "',\n" +
                         "   format_version = 2,\n" +
-                        "   location = '" + tempDir + "/iceberg_data/tpch/orders'\n" +
+                        "   location = '" + getSchemaLocation() + "/orders'\n" +
                         ")");
     }
 
@@ -854,10 +857,11 @@ public abstract class BaseIcebergConnectorTest
     @Test
     public void testTableComments()
     {
+        String schemaName = getSession().getSchema().orElseThrow();
         File tempDir = getDistributedQueryRunner().getCoordinator().getBaseDataDir().toFile();
         String tempDirPath = tempDir.toURI().toASCIIString() + randomTableSuffix();
         String createTableTemplate = "" +
-                "CREATE TABLE iceberg.tpch.test_table_comments (\n" +
+                "CREATE TABLE iceberg." + schemaName + ".test_table_comments (\n" +
                 "   _x bigint\n" +
                 ")\n" +
                 "COMMENT '%s'\n" +
@@ -867,7 +871,7 @@ public abstract class BaseIcebergConnectorTest
                 format("   location = '%s'\n", tempDirPath) +
                 ")";
         String createTableWithoutComment = "" +
-                "CREATE TABLE iceberg.tpch.test_table_comments (\n" +
+                "CREATE TABLE iceberg." + schemaName + ".test_table_comments (\n" +
                 "   _x bigint\n" +
                 ")\n" +
                 "WITH (\n" +
@@ -884,12 +888,12 @@ public abstract class BaseIcebergConnectorTest
 
         assertUpdate("COMMENT ON TABLE test_table_comments IS NULL");
         assertEquals(computeScalar("SHOW CREATE TABLE test_table_comments"), createTableWithoutComment);
-        dropTable("iceberg.tpch.test_table_comments");
+        dropTable("test_table_comments");
 
         assertUpdate(createTableWithoutComment);
         assertEquals(computeScalar("SHOW CREATE TABLE test_table_comments"), createTableWithoutComment);
 
-        dropTable("iceberg.tpch.test_table_comments");
+        dropTable("test_table_comments");
     }
 
     @Test
@@ -904,10 +908,10 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate("INSERT INTO test_rollback (col0, col1) VALUES (456, CAST(654 AS BIGINT))", 1);
         assertQuery("SELECT * FROM test_rollback ORDER BY col0", "VALUES (123, CAST(987 AS BIGINT)), (456, CAST(654 AS BIGINT))");
 
-        assertUpdate(format("CALL system.rollback_to_snapshot('tpch', 'test_rollback', %s)", afterFirstInsertId));
+        assertUpdate(format("CALL system.rollback_to_snapshot('%s', 'test_rollback', %s)", getSession().getSchema().orElseThrow(), afterFirstInsertId));
         assertQuery("SELECT * FROM test_rollback ORDER BY col0", "VALUES (123, CAST(987 AS BIGINT))");
 
-        assertUpdate(format("CALL system.rollback_to_snapshot('tpch', 'test_rollback', %s)", afterCreateTableId));
+        assertUpdate(format("CALL system.rollback_to_snapshot('%s', 'test_rollback', %s)", getSession().getSchema().orElseThrow(), afterCreateTableId));
         assertEquals((long) computeActual("SELECT COUNT(*) FROM test_rollback").getOnlyValue(), 0);
 
         assertUpdate("INSERT INTO test_rollback (col0, col1) VALUES (789, CAST(987 AS BIGINT))", 1);
@@ -916,7 +920,7 @@ public abstract class BaseIcebergConnectorTest
         // extra insert which should be dropped on rollback
         assertUpdate("INSERT INTO test_rollback (col0, col1) VALUES (999, CAST(999 AS BIGINT))", 1);
 
-        assertUpdate(format("CALL system.rollback_to_snapshot('tpch', 'test_rollback', %s)", afterSecondInsertId));
+        assertUpdate(format("CALL system.rollback_to_snapshot('%s', 'test_rollback', %s)", getSession().getSchema().orElseThrow(), afterSecondInsertId));
         assertQuery("SELECT * FROM test_rollback ORDER BY col0", "VALUES (789, CAST(987 AS BIGINT))");
 
         dropTable("test_rollback");
@@ -1016,8 +1020,8 @@ public abstract class BaseIcebergConnectorTest
 
     private void testCreateTableLikeForFormat(IcebergFileFormat otherFormat)
     {
-        File tempDir = getDistributedQueryRunner().getCoordinator().getBaseDataDir().toFile();
-        String tempDirPath = tempDir.toURI().toASCIIString() + randomTableSuffix();
+        String tempDir = getBaseDirectory();
+        String tempDirPath = tempDir + randomTableSuffix();
 
         // LIKE source INCLUDING PROPERTIES copies all the properties of the source table, including the `location`.
         // For this reason the source and the copied table will share the same directory.
@@ -1036,12 +1040,11 @@ public abstract class BaseIcebergConnectorTest
 
         assertUpdate("CREATE TABLE test_create_table_like_copy1 (LIKE test_create_table_like_original)");
         assertEquals(getTablePropertiesString("test_create_table_like_copy1"), "WITH (\n" +
-                format("   format = '%s',\n   format_version = 2,\n   location = '%s'\n)", format, tempDir + "/iceberg_data/tpch/test_create_table_like_copy1"));
+                format("   format = '%s',\n   format_version = 2,\n   location = '%s/test_create_table_like_copy1'\n)", format, getSchemaLocation()));
 
         assertUpdate("CREATE TABLE test_create_table_like_copy2 (LIKE test_create_table_like_original EXCLUDING PROPERTIES)");
         assertEquals(getTablePropertiesString("test_create_table_like_copy2"), "WITH (\n" +
-                format("   format = '%s',\n   format_version = 2,\n   location = '%s'\n)", format, tempDir + "/iceberg_data/tpch/test_create_table_like_copy2"));
-        dropTable("test_create_table_like_copy2");
+                format("   format = '%s',\n   format_version = 2,\n   location = '%s/test_create_table_like_copy2'\n)", format, getSchemaLocation()));
 
         assertUpdate("CREATE TABLE test_create_table_like_copy3 (LIKE test_create_table_like_original INCLUDING PROPERTIES)");
         assertEquals(getTablePropertiesString("test_create_table_like_copy3"), "WITH (\n" +
@@ -1865,13 +1868,13 @@ public abstract class BaseIcebergConnectorTest
     @Test
     public void testPartitionedTableStatistics()
     {
-        assertUpdate("CREATE TABLE iceberg.tpch.test_partitioned_table_statistics (col1 REAL, col2 BIGINT) WITH (partitioning = ARRAY['col2'])");
+        assertUpdate("CREATE TABLE test_partitioned_table_statistics (col1 REAL, col2 BIGINT) WITH (partitioning = ARRAY['col2'])");
 
         String insertStart = "INSERT INTO test_partitioned_table_statistics";
         assertUpdate(insertStart + " VALUES (-10, -1)", 1);
         assertUpdate(insertStart + " VALUES (100, 10)", 1);
 
-        MaterializedResult result = computeActual("SHOW STATS FOR iceberg.tpch.test_partitioned_table_statistics");
+        MaterializedResult result = computeActual("SHOW STATS FOR test_partitioned_table_statistics");
         assertEquals(result.getRowCount(), 3);
 
         MaterializedRow row0 = result.getMaterializedRows().get(0);
@@ -1897,7 +1900,7 @@ public abstract class BaseIcebergConnectorTest
                 .mapToObj(i -> "(NULL, 10)")
                 .collect(joining(", ")), 5);
 
-        result = computeActual("SHOW STATS FOR iceberg.tpch.test_partitioned_table_statistics");
+        result = computeActual("SHOW STATS FOR test_partitioned_table_statistics");
         assertEquals(result.getRowCount(), 3);
         row0 = result.getMaterializedRows().get(0);
         assertEquals(row0.getField(0), "col1");
@@ -1918,7 +1921,7 @@ public abstract class BaseIcebergConnectorTest
                 .mapToObj(i -> "(100, NULL)")
                 .collect(joining(", ")), 5);
 
-        result = computeActual("SHOW STATS FOR iceberg.tpch.test_partitioned_table_statistics");
+        result = computeActual("SHOW STATS FOR test_partitioned_table_statistics");
         row0 = result.getMaterializedRows().get(0);
         assertEquals(row0.getField(0), "col1");
         assertEquals(row0.getField(3), 5.0 / 17.0);
@@ -1934,13 +1937,13 @@ public abstract class BaseIcebergConnectorTest
         row2 = result.getMaterializedRows().get(2);
         assertEquals(row2.getField(4), 17.0);
 
-        dropTable("iceberg.tpch.test_partitioned_table_statistics");
+        dropTable("test_partitioned_table_statistics");
     }
 
     @Test
     public void testPredicatePushdown()
     {
-        QualifiedObjectName tableName = new QualifiedObjectName("iceberg", "tpch", "test_predicate");
+        QualifiedObjectName tableName = new QualifiedObjectName("iceberg", getSession().getSchema().orElseThrow(), "test_predicate");
         assertUpdate(format("CREATE TABLE %s (col1 BIGINT, col2 BIGINT, col3 BIGINT) WITH (partitioning = ARRAY['col2', 'col3'])", tableName));
         assertUpdate(format("INSERT INTO %s VALUES (1, 10, 100)", tableName), 1L);
         assertUpdate(format("INSERT INTO %s VALUES (2, 20, 200)", tableName), 1L);
@@ -2274,10 +2277,19 @@ public abstract class BaseIcebergConnectorTest
             Long fileSizeInBytes = (Long) row.getField(2);
 
             totalRecordCount += recordCount;
-            assertThat(fileSizeInBytes).isEqualTo(Files.size(Paths.get(path)));
+
+            assertThat(fileSizeInBytes).isEqualTo(getFileSize(new org.apache.hadoop.fs.Path(path)));
         }
         // Verify sum(record_count) to make sure we have all the files.
         assertThat(totalRecordCount).isEqualTo(2);
+    }
+
+    private long getFileSize(org.apache.hadoop.fs.Path path)
+            throws IOException
+    {
+        HdfsEnvironment.HdfsContext context = new HdfsContext(getSession().toConnectorSession());
+        FileSystem fileSystem = HDFS_ENVIRONMENT.getFileSystem(context, path);
+        return fileSystem.getFileStatus(path).getLen();
     }
 
     @Test
@@ -2296,7 +2308,12 @@ public abstract class BaseIcebergConnectorTest
         // Read manifest file
         Schema schema;
         GenericData.Record entry = null;
-        try (DataFileReader<GenericData.Record> dataFileReader = new DataFileReader<>(new File(manifestFile), new GenericDatumReader<>())) {
+
+        HdfsEnvironment.HdfsContext context = new HdfsContext(getSession().toConnectorSession());
+        org.apache.hadoop.fs.Path manifestFilePath = new org.apache.hadoop.fs.Path(manifestFile);
+        FileSystem fs = HDFS_ENVIRONMENT.getFileSystem(context, manifestFilePath);
+
+        try (DataFileStream<GenericData.Record> dataFileReader = new DataFileStream<>(fs.open(manifestFilePath), new GenericDatumReader<>())) {
             schema = dataFileReader.getSchema();
             int recordCount = 0;
             while (dataFileReader.hasNext()) {
@@ -2305,7 +2322,6 @@ public abstract class BaseIcebergConnectorTest
             }
             assertEquals(recordCount, 1);
         }
-
         // Alter data file entry to store incorrect file size
         GenericData.Record dataFile = (GenericData.Record) entry.get("data_file");
         long alteredValue = 50L;
@@ -2313,10 +2329,6 @@ public abstract class BaseIcebergConnectorTest
         dataFile.put("file_size_in_bytes", alteredValue);
 
         // Replace the file through HDFS client. This is required for correct checksums.
-        HdfsEnvironment.HdfsContext context = new HdfsContext(getSession().toConnectorSession());
-        org.apache.hadoop.fs.Path manifestFilePath = new org.apache.hadoop.fs.Path(manifestFile);
-        FileSystem fs = HDFS_ENVIRONMENT.getFileSystem(context, manifestFilePath);
-
         // Write altered metadata
         try (OutputStream out = fs.create(manifestFilePath);
                 DataFileWriter<GenericData.Record> dataFileWriter = new DataFileWriter<>(new GenericDatumWriter<>(schema))) {
@@ -3131,7 +3143,7 @@ public abstract class BaseIcebergConnectorTest
                 .collect(toImmutableList());
     }
 
-    private List<String> getAllDataFilesFromTableDirectory(String tableName)
+    protected List<String> getAllDataFilesFromTableDirectory(String tableName)
             throws IOException
     {
         String schema = getSession().getSchema().orElseThrow();
@@ -3150,7 +3162,7 @@ public abstract class BaseIcebergConnectorTest
     {
         assertQueryFails(
                 "ALTER TABLE no_such_table_exists EXECUTE OPTIMIZE",
-                "\\Qline 1:1: Table 'iceberg.tpch.no_such_table_exists' does not exist");
+                format("\\Qline 1:1: Table 'iceberg.%s.no_such_table_exists' does not exist", getSession().getSchema().orElseThrow()));
         assertQueryFails(
                 "ALTER TABLE nation EXECUTE OPTIMIZE (file_size_threshold => '33')",
                 "\\QUnable to set catalog 'iceberg' table procedure 'OPTIMIZE' property 'file_size_threshold' to ['33']: size is not a valid data size string: 33");
@@ -3533,5 +3545,15 @@ public abstract class BaseIcebergConnectorTest
     {
         String schema = getSession().getSchema().orElseThrow();
         return getDistributedQueryRunner().getCoordinator().getBaseDataDir().resolve("iceberg_data").resolve(schema).resolve(tableName).resolve(suffix);
+    }
+
+    protected String getSchemaLocation()
+    {
+        return getBaseDirectory() + "/iceberg_data/tpch";
+    }
+
+    protected String getBaseDirectory()
+    {
+        return getDistributedQueryRunner().getCoordinator().getBaseDataDir().toFile().getPath();
     }
 }

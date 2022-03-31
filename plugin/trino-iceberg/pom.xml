@@ -419,6 +419,7 @@
                             <excludes>
                                 <exclude>**/TestIceberg*FailureRecoveryTest.java</exclude>
                                 <exclude>**/TestIcebergGlueCatalogConnectorSmokeTest.java</exclude>
+                                <exclude>**/TestIcebergGlueConnectorTest.java</exclude>
                                 <exclude>**/TestTrinoGlueCatalogTest.java</exclude>
                                 <exclude>**/TestSharedGlueMetastore.java</exclude>
                                 <exclude>**/TestIcebergGlueCatalogAccessOperations.java</exclude>
@@ -459,6 +460,7 @@
                         <configuration>
                             <includes>
                                 <include>**/TestIcebergGlueCatalogConnectorSmokeTest.java</include>
+                                <include>**/TestIcebergGlueConnectorTest.java</include>
                                 <include>**/TestTrinoGlueCatalogTest.java</include>
                                 <include>**/TestSharedGlueMetastore.java</include>
                                 <include>**/TestIcebergGlueCatalogAccessOperations.java</include>
