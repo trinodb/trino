@@ -784,7 +784,12 @@ for the data files and partition the storage per day using the column
 Updating the data in the materialized view with
 :doc:`/sql/refresh-materialized-view` deletes the data from the storage table,
 and inserts the data that is the result of executing the materialized view
-query into the existing table.
+query into the existing table. Refreshing the materialized view will also store
+the snapshot-ids of all the tables that are part of the materialized
+view's query at that point in materialized view metadata. When the materialized 
+view is queried, the snapshot-ids are used to check if the data in the storage 
+table is up to date. If the data is outdated, the materialized view will behave 
+like a normal view and query the data directly from the base tables.
 
 .. warning::
 
