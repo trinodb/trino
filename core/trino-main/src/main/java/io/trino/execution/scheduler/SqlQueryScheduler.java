@@ -123,6 +123,7 @@ import static io.airlift.concurrent.MoreFutures.whenAnyComplete;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.trino.SystemSessionProperties.getConcurrentLifespansPerNode;
 import static io.trino.SystemSessionProperties.getHashPartitionCount;
+import static io.trino.SystemSessionProperties.getMaxTasksWaitingForNodePerStage;
 import static io.trino.SystemSessionProperties.getQueryRetryAttempts;
 import static io.trino.SystemSessionProperties.getRetryInitialDelay;
 import static io.trino.SystemSessionProperties.getRetryMaxDelay;
@@ -198,6 +199,7 @@ public class SqlQueryScheduler
     private final int maxQueryRetryAttempts;
     private final int maxTaskRetryAttemptsOverall;
     private final int maxTaskRetryAttemptsPerTask;
+    private final int maxTasksWaitingForNodePerStage;
     private final AtomicInteger currentAttempt = new AtomicInteger();
     private final Duration retryInitialDelay;
     private final Duration retryMaxDelay;
@@ -277,6 +279,7 @@ public class SqlQueryScheduler
         maxQueryRetryAttempts = getQueryRetryAttempts(queryStateMachine.getSession());
         maxTaskRetryAttemptsOverall = getTaskRetryAttemptsOverall(queryStateMachine.getSession());
         maxTaskRetryAttemptsPerTask = getTaskRetryAttemptsPerTask(queryStateMachine.getSession());
+        maxTasksWaitingForNodePerStage = getMaxTasksWaitingForNodePerStage(queryStateMachine.getSession());
         retryInitialDelay = getRetryInitialDelay(queryStateMachine.getSession());
         retryMaxDelay = getRetryMaxDelay(queryStateMachine.getSession());
     }
@@ -352,6 +355,7 @@ public class SqlQueryScheduler
                         coordinatorStagesScheduler.getTaskLifecycleListener(),
                         maxTaskRetryAttemptsOverall,
                         maxTaskRetryAttemptsPerTask,
+                        maxTasksWaitingForNodePerStage,
                         schedulerExecutor,
                         schedulerStats,
                         nodeAllocatorService,
@@ -1754,6 +1758,7 @@ public class SqlQueryScheduler
                 TaskLifecycleListener coordinatorTaskLifecycleListener,
                 int taskRetryAttemptsOverall,
                 int taskRetryAttemptsPerTask,
+                int maxTasksWaitingForNodePerStage,
                 ScheduledExecutorService scheduledExecutorService,
                 SplitSchedulerStats schedulerStats,
                 NodeAllocatorService nodeAllocatorService,
@@ -1829,7 +1834,8 @@ public class SqlQueryScheduler
                             inputBucketToPartition.getBucketToPartitionMap(),
                             inputBucketToPartition.getBucketNodeMap(),
                             remainingTaskRetryAttemptsOverall,
-                            taskRetryAttemptsPerTask);
+                            taskRetryAttemptsPerTask,
+                            maxTasksWaitingForNodePerStage);
 
                     schedulers.add(scheduler);
                 }

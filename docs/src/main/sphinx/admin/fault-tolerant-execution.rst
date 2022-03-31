@@ -258,6 +258,11 @@ fault-tolerant execution:
        reschedule tasks in case of a failure.
      - (JVM heap size * 0.15)
      - Only ``TASK``
+   * - ``max-tasks-waiting-for-node-per-stage``
+     - Allow for up to configured number of tasks to wait for node allocation
+       per stage, before pausing scheduling for other tasks from this stage.
+     - 5
+     - Only ``TASK``
 
 .. _fte-exchange-manager:
 

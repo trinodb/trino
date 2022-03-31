@@ -153,6 +153,7 @@ public final class SystemSessionProperties
     public static final String QUERY_RETRY_ATTEMPTS = "query_retry_attempts";
     public static final String TASK_RETRY_ATTEMPTS_OVERALL = "task_retry_attempts_overall";
     public static final String TASK_RETRY_ATTEMPTS_PER_TASK = "task_retry_attempts_per_task";
+    public static final String MAX_TASKS_WAITING_FOR_NODE_PER_STAGE = "max_tasks_waiting_for_node_per_stage";
     public static final String RETRY_INITIAL_DELAY = "retry_initial_delay";
     public static final String RETRY_MAX_DELAY = "retry_max_delay";
     public static final String HIDE_INACCESSIBLE_COLUMNS = "hide_inaccessible_columns";
@@ -731,6 +732,11 @@ public final class SystemSessionProperties
                         TASK_RETRY_ATTEMPTS_PER_TASK,
                         "Maximum number of task retry attempts per single task",
                         queryManagerConfig.getTaskRetryAttemptsPerTask(),
+                        false),
+                integerProperty(
+                        MAX_TASKS_WAITING_FOR_NODE_PER_STAGE,
+                        "Maximum possible number of tasks waiting for node allocation per stage before scheduling of new tasks for stage is paused",
+                        queryManagerConfig.getMaxTasksWaitingForNodePerStage(),
                         false),
                 durationProperty(
                         RETRY_INITIAL_DELAY,
@@ -1374,6 +1380,11 @@ public final class SystemSessionProperties
     public static int getTaskRetryAttemptsPerTask(Session session)
     {
         return session.getSystemProperty(TASK_RETRY_ATTEMPTS_PER_TASK, Integer.class);
+    }
+
+    public static int getMaxTasksWaitingForNodePerStage(Session session)
+    {
+        return session.getSystemProperty(MAX_TASKS_WAITING_FOR_NODE_PER_STAGE, Integer.class);
     }
 
     public static Duration getRetryInitialDelay(Session session)
