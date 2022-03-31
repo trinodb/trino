@@ -22,7 +22,7 @@ Trino coordinator node configuration
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Access to the Trino coordinator should be through HTTPS, configured as described
-on :doc:`HTTPS and TLS </security/tls>`.
+on :doc:`TLS and HTTPS </security/tls>`.
 
 You also need to make changes to the Trino configuration files.
 LDAP authentication is configured on the coordinator in two parts.
@@ -247,7 +247,7 @@ TLS configuration
 ~~~~~~~~~~~~~~~~~
 
 When using LDAP authentication, access to the Trino coordinator must be through
-:doc:`HTTPS/TLS </security/tls>`.
+:doc:`TLS/HTTPS </security/tls>`.
 
 Trino CLI execution
 ^^^^^^^^^^^^^^^^^^^^

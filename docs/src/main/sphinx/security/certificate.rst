@@ -19,7 +19,7 @@ Trino server on initial connection.
 Using certificate authentication
 --------------------------------
 
-All clients connecting with HTTPS/TLS go through the following initial steps:
+All clients connecting with TLS/HTTPS go through the following initial steps:
 
 1. The client attempts to contact the coordinator.
 2. The coordinator returns its certificate to the client.

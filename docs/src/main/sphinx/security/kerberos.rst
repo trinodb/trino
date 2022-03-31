@@ -50,7 +50,7 @@ Configuration for TLS
 ^^^^^^^^^^^^^^^^^^^^^
 
 When using Kerberos authentication, access to the Trino coordinator must be
-through :doc:`HTTPS and TLS </security/tls>`.
+through :doc:`TLS and HTTPS </security/tls>`.
 
 System access control plugin
 ----------------------------
