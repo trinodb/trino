@@ -82,6 +82,8 @@ public class QueryManagerConfig
     private Duration retryInitialDelay = new Duration(10, SECONDS);
     private Duration retryMaxDelay = new Duration(1, MINUTES);
 
+    private int maxTasksWaitingForNodePerStage = 5;
+
     private DataSize faultTolerantExecutionTargetTaskInputSize = DataSize.of(1, GIGABYTE);
 
     private int faultTolerantExecutionMinTaskSplitCount = 16;
@@ -480,6 +482,20 @@ public class QueryManagerConfig
     public QueryManagerConfig setRetryMaxDelay(Duration retryMaxDelay)
     {
         this.retryMaxDelay = retryMaxDelay;
+        return this;
+    }
+
+    @Min(1)
+    public int getMaxTasksWaitingForNodePerStage()
+    {
+        return maxTasksWaitingForNodePerStage;
+    }
+
+    @Config("max-tasks-waiting-for-node-per-stage")
+    @ConfigDescription("Maximum possible number of tasks waiting for node allocation per stage before scheduling of new tasks for stage is paused")
+    public QueryManagerConfig setMaxTasksWaitingForNodePerStage(int maxTasksWaitingForNodePerStage)
+    {
+        this.maxTasksWaitingForNodePerStage = maxTasksWaitingForNodePerStage;
         return this;
     }
 
