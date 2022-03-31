@@ -28,8 +28,6 @@ import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 import javax.crypto.SecretKey;
 
-import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.net.URI;
 import java.util.ArrayDeque;
 import java.util.Map;
@@ -128,12 +126,7 @@ public class FileSystemExchangeSink
     private BufferedStorageWriter createWriter(int partitionId)
     {
         URI outputPath = outputDirectory.resolve(partitionId + DATA_FILE_SUFFIX);
-        try {
-            return new BufferedStorageWriter(exchangeStorage.createExchangeStorageWriter(outputPath, secretKey), bufferPool, failure);
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
+        return new BufferedStorageWriter(exchangeStorage.createExchangeStorageWriter(outputPath, secretKey), bufferPool, failure);
     }
 
     @Override
