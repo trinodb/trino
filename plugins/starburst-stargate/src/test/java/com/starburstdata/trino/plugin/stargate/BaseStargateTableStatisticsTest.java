@@ -9,9 +9,9 @@
  */
 package com.starburstdata.trino.plugin.stargate;
 
-import com.starburstdata.presto.plugin.jdbc.BaseJdbcTableStatisticsTest;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
+import io.trino.plugin.jdbc.BaseJdbcTableStatisticsTest;
 import org.testng.annotations.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
