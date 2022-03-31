@@ -10,7 +10,7 @@
 package com.starburstdata.presto.plugin.synapse;
 
 import com.google.common.collect.ImmutableMap;
-import com.starburstdata.presto.plugin.jdbc.BaseJdbcTableStatisticsTest;
+import io.trino.plugin.jdbc.BaseJdbcTableStatisticsTest;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.TestingColumnHandle;
 import io.trino.spi.statistics.ColumnStatistics;
