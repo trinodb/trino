@@ -27,6 +27,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.math.BigInteger;
+import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.util.Arrays;
 import java.util.Objects;
@@ -100,7 +101,8 @@ public class TestReadJsonTransactionLog
 
     private Stream<String> readJsonTransactionLogs(String location)
     {
-        File[] files = new File(getClass().getClassLoader().getResource(location).getPath()).listFiles((dir, name) -> name.matches("[0-9]{20}\\.json"));
+        File directory = directoryForResource(location);
+        File[] files = directory.listFiles((dir, name) -> name.matches("[0-9]{20}\\.json"));
         verify(files != null);
         return Arrays.stream(files)
                 .sorted()
@@ -128,6 +130,16 @@ public class TestReadJsonTransactionLog
         }
         catch (JsonProcessingException e) {
             throw new RuntimeException("Failed to parse " + json, e);
+        }
+    }
+
+    private File directoryForResource(String location)
+    {
+        try {
+            return new File(getClass().getClassLoader().getResource(location).toURI());
+        }
+        catch (URISyntaxException e) {
+            throw new RuntimeException(e);
         }
     }
 }

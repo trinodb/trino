@@ -43,7 +43,6 @@ import org.apache.hadoop.fs.Path;
 import org.testng.annotations.Test;
 
 import java.io.File;
-import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -80,9 +79,9 @@ public class TestDeltaLakeFileStatistics
 
     @Test
     public void testParseJsonStatistics()
-            throws IOException
+            throws Exception
     {
-        File statsFile = new File(getClass().getResource("all_type_statistics.json").getFile());
+        File statsFile = new File(getClass().getResource("all_type_statistics.json").toURI());
         DeltaLakeFileStatistics fileStatistics = objectMapper.readValue(statsFile, DeltaLakeJsonFileStatistics.class);
         testStatisticsValues(fileStatistics);
     }
@@ -91,7 +90,7 @@ public class TestDeltaLakeFileStatistics
     public void testParseParquetStatistics()
             throws Exception
     {
-        File statsFile = new File(getClass().getResource("/databricks/pruning/parquet_struct_statistics/_delta_log/00000000000000000010.checkpoint.parquet").getFile());
+        File statsFile = new File(getClass().getResource("/databricks/pruning/parquet_struct_statistics/_delta_log/00000000000000000010.checkpoint.parquet").toURI());
         Path checkpointPath = new Path(statsFile.toURI());
 
         TypeManager typeManager = TESTING_TYPE_MANAGER;
