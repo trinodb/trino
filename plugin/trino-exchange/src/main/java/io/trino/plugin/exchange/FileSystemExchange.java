@@ -15,7 +15,7 @@ package io.trino.plugin.exchange;
 
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimap;
 import io.trino.spi.exchange.Exchange;
 import io.trino.spi.exchange.ExchangeContext;
@@ -36,7 +36,6 @@ import java.security.Key;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -58,7 +57,7 @@ import static java.util.concurrent.CompletableFuture.supplyAsync;
 public class FileSystemExchange
         implements Exchange
 {
-    private static final Pattern PARTITION_FILE_NAME_PATTERN = Pattern.compile("(\\d+)\\.data");
+    private static final Pattern PARTITION_FILE_NAME_PATTERN = Pattern.compile("(\\d+)_(\\d+)\\.data");
 
     private final URI baseDirectory;
     private final FileSystemExchangeStorage exchangeStorage;
@@ -183,7 +182,7 @@ public class FileSystemExchange
         }
         for (Integer taskPartition : finishedTaskPartitions) {
             URI committedAttemptPath = getCommittedAttemptPath(taskPartition);
-            Map<Integer, FileStatus> partitions = getCommittedPartitions(committedAttemptPath);
+            Multimap<Integer, FileStatus> partitions = getCommittedPartitions(committedAttemptPath);
             partitions.forEach(partitionFiles::put);
         }
 
@@ -222,21 +221,21 @@ public class FileSystemExchange
         }
     }
 
-    private Map<Integer, FileStatus> getCommittedPartitions(URI committedAttemptPath)
+    private Multimap<Integer, FileStatus> getCommittedPartitions(URI committedAttemptPath)
     {
         try {
             List<FileStatus> partitionFiles = exchangeStorage.listFiles(committedAttemptPath)
                     .stream()
                     .filter(file -> file.getFilePath().endsWith(DATA_FILE_SUFFIX))
                     .collect(toImmutableList());
-            ImmutableMap.Builder<Integer, FileStatus> result = ImmutableMap.builder();
+            ImmutableMultimap.Builder<Integer, FileStatus> result = ImmutableMultimap.builder();
             for (FileStatus partitionFile : partitionFiles) {
                 Matcher matcher = PARTITION_FILE_NAME_PATTERN.matcher(new File(partitionFile.getFilePath()).getName());
                 checkState(matcher.matches(), "Unexpected partition file: %s", partitionFile);
                 int partitionId = Integer.parseInt(matcher.group(1));
                 result.put(partitionId, partitionFile);
             }
-            return result.buildOrThrow();
+            return result.build();
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);

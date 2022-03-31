@@ -51,9 +51,10 @@ public class FileSystemExchangeManager
     private final FileSystemExchangeStorage exchangeStorage;
     private final URI baseDirectory;
     private final boolean exchangeEncryptionEnabled;
-    private final int maxPageStorageSize;
+    private final int maxPageStorageSizeInBytes;
     private final int exchangeSinkBufferPoolMinSize;
     private final int exchangeSinkBuffersPerPartition;
+    private final long exchangeSinkMaxFileSizeInBytes;
     private final int exchangeSourceConcurrentReaders;
     private final ExecutorService executor;
 
@@ -70,9 +71,10 @@ public class FileSystemExchangeManager
         }
         this.baseDirectory = URI.create(baseDirectory);
         this.exchangeEncryptionEnabled = fileSystemExchangeConfig.isExchangeEncryptionEnabled();
-        this.maxPageStorageSize = toIntExact(fileSystemExchangeConfig.getMaxPageStorageSize().toBytes());
+        this.maxPageStorageSizeInBytes = toIntExact(fileSystemExchangeConfig.getMaxPageStorageSize().toBytes());
         this.exchangeSinkBufferPoolMinSize = fileSystemExchangeConfig.getExchangeSinkBufferPoolMinSize();
         this.exchangeSinkBuffersPerPartition = fileSystemExchangeConfig.getExchangeSinkBuffersPerPartition();
+        this.exchangeSinkMaxFileSizeInBytes = fileSystemExchangeConfig.getExchangeSinkMaxFileSize().toBytes();
         this.exchangeSourceConcurrentReaders = fileSystemExchangeConfig.getExchangeSourceConcurrentReaders();
         this.executor = newCachedThreadPool(daemonThreadsNamed("exchange-source-handles-creation-%s"));
     }
@@ -105,9 +107,11 @@ public class FileSystemExchangeManager
                 instanceHandle.getOutputDirectory(),
                 instanceHandle.getOutputPartitionCount(),
                 instanceHandle.getSinkHandle().getSecretKey().map(key -> new SecretKeySpec(key, 0, key.length, "AES")),
-                maxPageStorageSize,
+                preserveRecordsOrder,
+                maxPageStorageSizeInBytes,
                 exchangeSinkBufferPoolMinSize,
-                exchangeSinkBuffersPerPartition);
+                exchangeSinkBuffersPerPartition,
+                exchangeSinkMaxFileSizeInBytes);
     }
 
     @Override
@@ -125,6 +129,6 @@ public class FileSystemExchangeManager
                                 entry.getValue(),
                                 fileStatus.getFileSize())))
                 .collect(toImmutableList());
-        return new FileSystemExchangeSource(exchangeStorage, sourceFiles, maxPageStorageSize, exchangeSourceConcurrentReaders);
+        return new FileSystemExchangeSource(exchangeStorage, sourceFiles, maxPageStorageSizeInBytes, exchangeSourceConcurrentReaders);
     }
 }
