@@ -28,6 +28,14 @@ public class TestDeltaLakePlugin
     @Test
     public void testCreateConnector()
     {
+        Plugin plugin = new DeltaLakePlugin();
+        ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
+        factory.create("test", ImmutableMap.of("hive.metastore.uri", "thrift://foo:1234"), new TestingConnectorContext());
+    }
+
+    @Test
+    public void testCreateTestingConnector()
+    {
         Plugin plugin = new TestingDeltaLakePlugin();
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
         factory.create("test", ImmutableMap.of("hive.metastore.uri", "thrift://foo:1234"), new TestingConnectorContext());
@@ -36,7 +44,7 @@ public class TestDeltaLakePlugin
     @Test
     public void testThriftMetastore()
     {
-        Plugin plugin = new TestingDeltaLakePlugin();
+        Plugin plugin = new DeltaLakePlugin();
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
         factory.create(
                 "test",
@@ -61,7 +69,7 @@ public class TestDeltaLakePlugin
     @Test
     public void testGlueMetastore()
     {
-        Plugin plugin = new TestingDeltaLakePlugin();
+        Plugin plugin = new DeltaLakePlugin();
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
         factory.create(
                 "test",
@@ -87,7 +95,7 @@ public class TestDeltaLakePlugin
     @Test
     public void testAlluxioMetastore()
     {
-        Plugin plugin = new TestingDeltaLakePlugin();
+        Plugin plugin = new DeltaLakePlugin();
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
 
         assertThatThrownBy(() -> factory.create(
