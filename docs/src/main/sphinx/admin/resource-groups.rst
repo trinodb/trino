@@ -128,7 +128,7 @@ Resource group properties
   * ``query_priority``: all sub-groups must also be configured with ``query_priority``.
     Queued queries are selected strictly according to their priority.
 
-* ``schedulingWeight`` (optional): weight of this subgroup used in ``weight`` 
+* ``schedulingWeight`` (optional): weight of this sub-group used in ``weight`` 
   and the ``weighted_fair`` scheduling policy. Defaults to ``1``. See
   :ref:`scheduleweight-example`.
 
@@ -142,7 +142,7 @@ Resource group properties
 Scheduling weight example
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Schedule weighting is a method of assigning a priority to a resource. Subgroups
+Schedule weighting is a method of assigning a priority to a resource. Sub-groups
 with a higher scheduling weight are given higher priority. For example, to
 ensure timely execution of scheduled pipelines queries, weight them higher than
 adhoc queries.
@@ -150,10 +150,10 @@ adhoc queries.
 In the following example, pipeline queries are weighted with a value of ``350``,
 which is higher than the adhoc queries that have a scheduling weight of ``150``.
 This means that approximately 70% (350 out of 500 queries) of your queries come
-from the pipeline subgroup, and 30% (150 out of 500 queries) come from the adhoc
-subgroup in a given timeframe. Alternatively, if you set each subgroup value to
-``1``, the weight of the queries for the pipeline and adhoc subgroups are split
-evenly and each receive 50% of the queries in a given timeframe. 
+from the pipeline sub-group, and 30% (150 out of 500 queries) come from the adhoc
+sub-group in a given timeframe. Alternatively, if you set each sub-group value to
+``1``, the weight of the queries for the pipeline and adhoc sub-groups are split
+evenly and each receive 50% of the queries in a given timeframe.
 
 .. literalinclude:: schedule-weight-example.json
     :language: text
