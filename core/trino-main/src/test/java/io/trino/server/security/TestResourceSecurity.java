@@ -146,7 +146,7 @@ public class TestResourceSecurity
 
     static {
         try {
-            JWK_PRIVATE_KEY = PemReader.loadPrivateKey(new File(Resources.getResource("jwk/jwk-rsa-private.pem").getPath()), Optional.empty());
+            JWK_PRIVATE_KEY = PemReader.loadPrivateKey(new File(Resources.getResource("jwk/jwk-rsa-private.pem").toURI()), Optional.empty());
         }
         catch (Exception e) {
             throw new RuntimeException(e);

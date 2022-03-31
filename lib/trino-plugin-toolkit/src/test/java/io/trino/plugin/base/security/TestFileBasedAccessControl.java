@@ -31,6 +31,7 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.net.URISyntaxException;
 import java.util.EnumSet;
 import java.util.Map;
 import java.util.Optional;
@@ -477,8 +478,13 @@ public class TestFileBasedAccessControl
 
     private static ConnectorAccessControl createAccessControl(String fileName)
     {
-        File configFile = new File(getResource(fileName).getPath());
-        return new FileBasedAccessControl(new CatalogName("test_catalog"), configFile);
+        try {
+            File configFile = new File(getResource(fileName).toURI());
+            return new FileBasedAccessControl(new CatalogName("test_catalog"), configFile);
+        }
+        catch (URISyntaxException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private static void assertDenied(ThrowingRunnable runnable)
