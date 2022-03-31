@@ -140,7 +140,7 @@ Name                                                         Description
                                                              property nor ``ApplicationName`` or ``source`` are set, the source
                                                              name for the query is ``trino-jdbc``.
 ``accessToken``                                              :doc:`JWT </security/jwt>` access token for token based authentication.
-``SSL``                                                      Set ``true`` to specify using HTTPS/TLS for connections.
+``SSL``                                                      Set ``true`` to specify using TLS/HTTPS for connections.
 ``SSLVerification``                                          The method of TLS verification. There are three modes: ``FULL``
                                                              (default), ``CA`` and ``NONE``. For ``FULL``, the normal TLS
                                                              verification is performed. For ``CA``, only the CA is verified but

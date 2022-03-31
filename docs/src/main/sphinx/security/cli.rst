@@ -37,7 +37,7 @@ Configuration for TLS
 ^^^^^^^^^^^^^^^^^^^^^
 
 When using Kerberos authentication, access to the Trino coordinator must be
-through HTTPS. If you have not yet configured HTTPS/TLS for your coordinator,
+through HTTPS. If you have not yet configured TLS/HTTPS for your coordinator,
 refer to :doc:`HTTPS and TLS </security/tls>`.
 
 Trino CLI execution

@@ -23,7 +23,7 @@ Suggested configuration workflow
 To configure security for a new Trino cluster, follow this best practice
 order of steps. Do not skip or combine steps.
 
-#. **Enable** :doc:`HTTPS/TLS </security/tls>`
+#. **Enable** :doc:`TLS/HTTPS </security/tls>`
 
    * Work with your security team.
    * Use a :ref:`load balancer or proxy <https-load-balancer>` to terminate
