@@ -11,7 +11,6 @@ package com.starburstdata.presto.plugin.oracle;
 
 import com.google.common.collect.ImmutableList;
 import com.starburstdata.presto.plugin.jdbc.redirection.TableScanRedirection;
-import com.starburstdata.presto.plugin.jdbc.stats.JdbcStatisticsConfig;
 import com.starburstdata.presto.redirection.NoneRedirectionsProvider;
 import com.starburstdata.presto.redirection.RedirectionStats;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
@@ -21,6 +20,7 @@ import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
 import io.trino.plugin.jdbc.JdbcMetadataConfig;
+import io.trino.plugin.jdbc.JdbcStatisticsConfig;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.TypeHandlingJdbcConfig;
 import io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties;

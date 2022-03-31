@@ -17,13 +17,13 @@ import com.starburstdata.presto.plugin.jdbc.dynamicfiltering.DynamicFilteringMod
 import com.starburstdata.presto.plugin.jdbc.dynamicfiltering.ForDynamicFiltering;
 import com.starburstdata.presto.plugin.jdbc.dynamicfiltering.jdbc.DynamicFilteringJdbcRecordSetProvider;
 import com.starburstdata.presto.plugin.jdbc.redirection.JdbcTableScanRedirectionModule;
-import com.starburstdata.presto.plugin.jdbc.stats.JdbcStatisticsConfig;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcJoinPushdownSupportModule;
 import io.trino.plugin.jdbc.JdbcMetadataConfig;
 import io.trino.plugin.jdbc.JdbcRecordSetProvider;
+import io.trino.plugin.jdbc.JdbcStatisticsConfig;
 import io.trino.plugin.jdbc.MaxDomainCompactionThreshold;
 import io.trino.plugin.oracle.OracleConfig;
 import io.trino.plugin.oracle.OracleSessionProperties;
