@@ -30,7 +30,7 @@ public interface FileSystemExchangeStorage
 
     ExchangeStorageReader createExchangeStorageReader(Queue<ExchangeSourceFile> sourceFiles, int maxPageStorageSize);
 
-    ExchangeStorageWriter createExchangeStorageWriter(URI file, Optional<SecretKey> secretKey) throws IOException;
+    ExchangeStorageWriter createExchangeStorageWriter(URI file, Optional<SecretKey> secretKey);
 
     boolean exists(URI file) throws IOException;
 

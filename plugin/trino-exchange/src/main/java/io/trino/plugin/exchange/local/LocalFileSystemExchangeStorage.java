@@ -42,6 +42,7 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.io.UncheckedIOException;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -83,7 +84,6 @@ public class LocalFileSystemExchangeStorage
 
     @Override
     public ExchangeStorageWriter createExchangeStorageWriter(URI file, Optional<SecretKey> secretKey)
-            throws IOException
     {
         return new LocalExchangeStorageWriter(file, secretKey);
     }
@@ -260,20 +260,24 @@ public class LocalFileSystemExchangeStorage
         private final OutputStream outputStream;
 
         public LocalExchangeStorageWriter(URI file, Optional<SecretKey> secretKey)
-                throws FileNotFoundException
         {
-            if (secretKey.isPresent()) {
-                try {
-                    Cipher cipher = Cipher.getInstance("AES");
-                    cipher.init(Cipher.ENCRYPT_MODE, secretKey.get());
-                    this.outputStream = new CipherOutputStream(new FileOutputStream(Paths.get(file.getPath()).toFile()), cipher);
+            try {
+                if (secretKey.isPresent()) {
+                    try {
+                        Cipher cipher = Cipher.getInstance("AES");
+                        cipher.init(Cipher.ENCRYPT_MODE, secretKey.get());
+                        this.outputStream = new CipherOutputStream(new FileOutputStream(Paths.get(file.getPath()).toFile()), cipher);
+                    }
+                    catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException e) {
+                        throw new TrinoException(GENERIC_INTERNAL_ERROR, "Failed to create CipherOutputStream: " + e.getMessage(), e);
+                    }
                 }
-                catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException e) {
-                    throw new TrinoException(GENERIC_INTERNAL_ERROR, "Failed to create CipherOutputStream: " + e.getMessage(), e);
+                else {
+                    this.outputStream = new FileOutputStream(Paths.get(file.getPath()).toFile());
                 }
             }
-            else {
-                this.outputStream = new FileOutputStream(Paths.get(file.getPath()).toFile());
+            catch (FileNotFoundException e) {
+                throw new UncheckedIOException(e);
             }
         }
 
