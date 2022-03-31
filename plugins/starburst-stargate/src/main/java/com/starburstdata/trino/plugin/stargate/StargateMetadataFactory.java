@@ -9,14 +9,14 @@
  */
 package com.starburstdata.trino.plugin.stargate;
 
-import com.starburstdata.presto.plugin.jdbc.StarburstJdbcMetadataFactory;
+import io.trino.plugin.jdbc.DefaultJdbcMetadataFactory;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcMetadata;
 
 import javax.inject.Inject;
 
 public class StargateMetadataFactory
-        extends StarburstJdbcMetadataFactory
+        extends DefaultJdbcMetadataFactory
 {
     @Inject
     public StargateMetadataFactory(JdbcClient jdbcClient)

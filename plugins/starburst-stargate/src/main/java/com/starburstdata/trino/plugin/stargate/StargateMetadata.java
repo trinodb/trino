@@ -9,11 +9,11 @@
  */
 package com.starburstdata.trino.plugin.stargate;
 
-import com.starburstdata.presto.plugin.jdbc.StarburstJdbcMetadata;
+import io.trino.plugin.jdbc.DefaultJdbcMetadata;
 import io.trino.plugin.jdbc.JdbcClient;
 
 public class StargateMetadata
-        extends StarburstJdbcMetadata
+        extends DefaultJdbcMetadata
 {
     public StargateMetadata(JdbcClient jdbcClient)
     {
