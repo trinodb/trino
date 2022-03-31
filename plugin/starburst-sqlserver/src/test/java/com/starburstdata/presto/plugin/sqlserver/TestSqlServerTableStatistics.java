@@ -11,7 +11,7 @@ package com.starburstdata.presto.plugin.sqlserver;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.starburstdata.presto.plugin.jdbc.BaseJdbcTableStatisticsTest;
+import io.trino.plugin.jdbc.BaseJdbcTableStatisticsTest;
 import io.trino.plugin.sqlserver.TestingSqlServer;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
