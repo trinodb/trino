@@ -16,7 +16,6 @@ import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import com.starburstdata.presto.plugin.jdbc.JdbcConnectionPoolConfig;
-import com.starburstdata.presto.plugin.jdbc.StarburstJdbcMetadataFactory;
 import com.starburstdata.presto.plugin.jdbc.auth.AuthenticationBasedIdentityCacheMapping;
 import com.starburstdata.presto.plugin.jdbc.auth.ForImpersonation;
 import com.starburstdata.presto.plugin.jdbc.auth.PassThroughCredentialProvider;
@@ -48,7 +47,6 @@ import io.trino.plugin.jdbc.ExtraCredentialsBasedIdentityCacheMapping;
 import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.IdentityCacheMapping;
 import io.trino.plugin.jdbc.JdbcClient;
-import io.trino.plugin.jdbc.JdbcMetadataFactory;
 import io.trino.plugin.jdbc.MaxDomainCompactionThreshold;
 import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
@@ -95,7 +93,6 @@ public class SnowflakeJdbcClientModule
     @Override
     protected void setup(Binder binder)
     {
-        newOptionalBinder(binder, JdbcMetadataFactory.class).setBinding().to(StarburstJdbcMetadataFactory.class).in(Scopes.SINGLETON);
         binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(SnowflakeClient.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, Key.get(int.class, MaxDomainCompactionThreshold.class)).setBinding().toInstance(SNOWFLAKE_MAX_LIST_EXPRESSIONS);
 
