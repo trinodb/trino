@@ -25,6 +25,8 @@ public class TestLocalFileSystemExchangeManager
     protected ExchangeManager createExchangeManager()
     {
         return new FileSystemExchangeManagerFactory().create(ImmutableMap.of(
-                "exchange.base-directory", System.getProperty("java.io.tmpdir") + "/trino-local-file-system-exchange-manager"));
+                "exchange.base-directory", System.getProperty("java.io.tmpdir") + "/trino-local-file-system-exchange-manager",
+                // to trigger file split in some tests
+                "exchange.sink-max-file-size", "16MB"));
     }
 }
