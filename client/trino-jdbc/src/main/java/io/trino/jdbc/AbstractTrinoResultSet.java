@@ -33,10 +33,12 @@ import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.ISODateTimeFormat;
 
+import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.io.Reader;
 import java.math.BigDecimal;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.sql.Array;
 import java.sql.Blob;
 import java.sql.Clob;
@@ -315,7 +317,14 @@ abstract class AbstractTrinoResultSet
     public byte[] getBytes(int columnIndex)
             throws SQLException
     {
-        return (byte[]) column(columnIndex);
+        final Object value = column(columnIndex);
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof byte[]) {
+            return (byte[]) value;
+        }
+        throw new SQLException("Value is not a byte array: " + value);
     }
 
     @Override
@@ -446,7 +455,16 @@ abstract class AbstractTrinoResultSet
     public InputStream getAsciiStream(int columnIndex)
             throws SQLException
     {
-        throw new NotImplementedException("ResultSet", "getAsciiStream");
+        Object value = column(columnIndex);
+        if (value == null) {
+            return null;
+        }
+        if (!(value instanceof String)) {
+            throw new SQLException("Value is not a string: " + value);
+        }
+        // TODO: a stream returned here should get implicitly closed
+        //  on any subsequent invocation of a ResultSet getter method.
+        return new ByteArrayInputStream(((String) value).getBytes(StandardCharsets.US_ASCII));
     }
 
     @Override
@@ -460,7 +478,13 @@ abstract class AbstractTrinoResultSet
     public InputStream getBinaryStream(int columnIndex)
             throws SQLException
     {
-        throw new NotImplementedException("ResultSet", "getBinaryStream");
+        byte[] value = getBytes(columnIndex);
+        if (value == null) {
+            return null;
+        }
+        // TODO: a stream returned here should get implicitly closed
+        //  on any subsequent invocation of a ResultSet getter method.
+        return new ByteArrayInputStream(value);
     }
 
     @Override
@@ -558,7 +582,7 @@ abstract class AbstractTrinoResultSet
     public InputStream getAsciiStream(String columnLabel)
             throws SQLException
     {
-        throw new NotImplementedException("ResultSet", "getAsciiStream");
+        return getAsciiStream(columnIndex(columnLabel));
     }
 
     @Override
@@ -572,7 +596,7 @@ abstract class AbstractTrinoResultSet
     public InputStream getBinaryStream(String columnLabel)
             throws SQLException
     {
-        throw new NotImplementedException("ResultSet", "getBinaryStream");
+        return getBinaryStream(columnIndex(columnLabel));
     }
 
     @Override
