@@ -107,7 +107,7 @@ public class TestIcebergGetTableStatisticsOperations
                 "WHERE o.orderkey = l.orderkey");
         assertThat(metadata.getMethodInvocations()).containsExactlyInAnyOrderElementsOf(
                 ImmutableMultiset.<CountingAccessMetadata.Methods>builder()
-                        .addCopies(CountingAccessMetadata.Methods.GET_TABLE_STATISTICS, 6)
+                        .addCopies(CountingAccessMetadata.Methods.GET_TABLE_STATISTICS, 4)
                         .build());
     }
 
@@ -119,7 +119,7 @@ public class TestIcebergGetTableStatisticsOperations
                 "WHERE o.orderkey = l.orderkey AND c.custkey = o.custkey");
         assertThat(metadata.getMethodInvocations()).containsExactlyInAnyOrderElementsOf(
                 ImmutableMultiset.<CountingAccessMetadata.Methods>builder()
-                        .addCopies(CountingAccessMetadata.Methods.GET_TABLE_STATISTICS, 10)
+                        .addCopies(CountingAccessMetadata.Methods.GET_TABLE_STATISTICS, 7)
                         .build());
     }
 
