@@ -47,11 +47,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public abstract class AbstractTestExchangeManager
 {
-    private static final String SMALL_PAGE = "a".repeat(toIntExact(DataSize.of(123, BYTE).toBytes()));
-    private static final String MEDIUM_PAGE = "b".repeat(toIntExact(DataSize.of(66, KILOBYTE).toBytes()));
-    private static final String LARGE_PAGE = "c".repeat(toIntExact(DataSize.of(5, MEGABYTE).toBytes()) - Integer.BYTES);
-    private static final String MAX_PAGE = "d".repeat(toIntExact(DataSize.of(16, MEGABYTE).toBytes()) - Integer.BYTES);
-
     private ExchangeManager exchangeManager;
 
     @BeforeClass
@@ -168,6 +163,11 @@ public abstract class AbstractTestExchangeManager
     public void testLargePages()
             throws Exception
     {
+        String smallPage = "a".repeat(toIntExact(DataSize.of(123, BYTE).toBytes()));
+        String mediumPage = "b".repeat(toIntExact(DataSize.of(66, KILOBYTE).toBytes()));
+        String largePage = "c".repeat(toIntExact(DataSize.of(5, MEGABYTE).toBytes()) - Integer.BYTES);
+        String maxPage = "d".repeat(toIntExact(DataSize.of(16, MEGABYTE).toBytes()) - Integer.BYTES);
+
         Exchange exchange = exchangeManager.createExchange(new ExchangeContext(new QueryId("query"), createRandomExchangeId()), 3);
         ExchangeSinkHandle sinkHandle0 = exchange.addSink(0);
         ExchangeSinkHandle sinkHandle1 = exchange.addSink(1);
@@ -178,8 +178,8 @@ public abstract class AbstractTestExchangeManager
         writeData(
                 sinkInstanceHandle,
                 new ImmutableListMultimap.Builder<Integer, String>()
-                        .putAll(0, ImmutableList.of(SMALL_PAGE))
-                        .putAll(1, ImmutableList.of(MAX_PAGE, MEDIUM_PAGE))
+                        .putAll(0, ImmutableList.of(smallPage))
+                        .putAll(1, ImmutableList.of(maxPage, mediumPage))
                         .putAll(2, ImmutableList.of())
                         .build(),
                 true);
@@ -189,9 +189,9 @@ public abstract class AbstractTestExchangeManager
         writeData(
                 sinkInstanceHandle,
                 new ImmutableListMultimap.Builder<Integer, String>()
-                        .putAll(0, ImmutableList.of(MEDIUM_PAGE))
-                        .putAll(1, ImmutableList.of(LARGE_PAGE))
-                        .putAll(2, ImmutableList.of(SMALL_PAGE))
+                        .putAll(0, ImmutableList.of(mediumPage))
+                        .putAll(1, ImmutableList.of(largePage))
+                        .putAll(2, ImmutableList.of(smallPage))
                         .build(),
                 true);
         exchange.sinkFinished(sinkInstanceHandle);
@@ -200,9 +200,9 @@ public abstract class AbstractTestExchangeManager
         writeData(
                 sinkInstanceHandle,
                 new ImmutableListMultimap.Builder<Integer, String>()
-                        .putAll(0, ImmutableList.of(LARGE_PAGE, MAX_PAGE))
-                        .putAll(1, ImmutableList.of(SMALL_PAGE))
-                        .putAll(2, ImmutableList.of(MAX_PAGE, LARGE_PAGE, MEDIUM_PAGE))
+                        .putAll(0, ImmutableList.of(largePage, maxPage))
+                        .putAll(1, ImmutableList.of(smallPage))
+                        .putAll(2, ImmutableList.of(maxPage, largePage, mediumPage))
                         .build(),
                 true);
         exchange.sinkFinished(sinkInstanceHandle);
@@ -214,13 +214,13 @@ public abstract class AbstractTestExchangeManager
                 .collect(toImmutableMap(ExchangeSourceHandle::getPartitionId, Function.identity()));
 
         assertThat(readData(partitions.get(0)))
-                .containsExactlyInAnyOrder(SMALL_PAGE, MEDIUM_PAGE, LARGE_PAGE, MAX_PAGE);
+                .containsExactlyInAnyOrder(smallPage, mediumPage, largePage, maxPage);
 
         assertThat(readData(partitions.get(1)))
-                .containsExactlyInAnyOrder(SMALL_PAGE, MEDIUM_PAGE, LARGE_PAGE, MAX_PAGE);
+                .containsExactlyInAnyOrder(smallPage, mediumPage, largePage, maxPage);
 
         assertThat(readData(partitions.get(2)))
-                .containsExactlyInAnyOrder(SMALL_PAGE, MEDIUM_PAGE, LARGE_PAGE, MAX_PAGE);
+                .containsExactlyInAnyOrder(smallPage, mediumPage, largePage, maxPage);
 
         exchange.close();
     }
