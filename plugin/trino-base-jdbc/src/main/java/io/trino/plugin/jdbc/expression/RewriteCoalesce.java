@@ -21,8 +21,10 @@ import io.trino.plugin.base.expression.ConnectorExpressionRule;
 import io.trino.spi.expression.Call;
 import io.trino.spi.expression.ConnectorExpression;
 
+import java.util.List;
 import java.util.Optional;
 
+import static com.google.common.base.Verify.verify;
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.plugin.base.expression.ConnectorExpressionPatterns.call;
 import static io.trino.plugin.base.expression.ConnectorExpressionPatterns.functionName;
@@ -52,15 +54,18 @@ public class RewriteCoalesce
     @Override
     public Optional<String> rewrite(Call call, Captures captures, RewriteContext<String> context)
     {
-        ImmutableList.Builder<String> arguments = ImmutableList.builderWithExpectedSize(call.getArguments().size());
+        verify(call.getArguments().size() >= 2, "Function 'coalesce' expects more than or equals to two arguments");
+        ImmutableList.Builder<String> rewrittenArguments = ImmutableList.builderWithExpectedSize(call.getArguments().size());
         for (ConnectorExpression expression : captures.get(CALL).getArguments()) {
             Optional<String> rewritten = context.defaultRewrite(expression);
             if (rewritten.isEmpty()) {
                 return Optional.empty();
             }
-            arguments.add(rewritten.get());
+            rewrittenArguments.add(rewritten.get());
         }
 
-        return Optional.of(format("COALESCE(%s)", join(",", arguments.build())));
+        List<String> arguments = rewrittenArguments.build();
+        verify(arguments.size() >= 2, "Function 'coalesce' expects more than or equals to two arguments");
+        return Optional.of(format("COALESCE(%s)", join(",", arguments)));
     }
 }
