@@ -293,6 +293,13 @@ for your storage solution.
      - The minimum buffer pool size for an exchange sink. The larger the buffer
        pool size, the larger the write parallelism and memory usage.
      - ``10``
+   * - ``exchange.sink-buffers-per-partition``
+     - The number of buffers per partition in the buffer pool. The larger the
+       buffer pool size, the larger the write parallelism and memory usage.
+     - ``2``
+   * - ``exchange.sink-max-file-size``
+     - Max size of files written by exchange sinks.
+     - ``1GB``
    * - ``exchange.source-concurrent-reader``
      - The number of concurrent readers to read from spooling storage. The
        larger the number of concurrent readers, the larger the read parallelism
