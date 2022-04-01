@@ -49,6 +49,7 @@ import io.trino.plugin.hive.PropertiesSystemTableProvider;
 import io.trino.plugin.hive.SystemTableProvider;
 import io.trino.plugin.hive.TransactionalMetadata;
 import io.trino.plugin.hive.TransactionalMetadataFactory;
+import io.trino.plugin.hive.fs.DirectoryLister;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.MetastoreConfig;
 import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
@@ -173,6 +174,12 @@ public class DeltaLakeModule
             public SemiTransactionalHiveMetastore getMetastore()
             {
                 throw new RuntimeException("SemiTransactionalHiveMetastore is not used by Delta");
+            }
+
+            @Override
+            public DirectoryLister getDirectoryLister()
+            {
+                throw new RuntimeException("DirectoryLister is not used by Delta");
             }
 
             @Override

@@ -15,7 +15,7 @@ package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Module;
-import io.trino.plugin.hive.fs.CachingDirectoryLister;
+import io.trino.plugin.hive.fs.DirectoryLister;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.spi.Plugin;
 import io.trino.spi.connector.ConnectorFactory;
@@ -30,7 +30,7 @@ public class TestingHivePlugin
 {
     private final Optional<HiveMetastore> metastore;
     private final Module module;
-    private final Optional<CachingDirectoryLister> cachingDirectoryLister;
+    private final Optional<DirectoryLister> directoryLister;
 
     public TestingHivePlugin()
     {
@@ -42,16 +42,16 @@ public class TestingHivePlugin
         this(Optional.of(metastore), EMPTY_MODULE, Optional.empty());
     }
 
-    public TestingHivePlugin(Optional<HiveMetastore> metastore, Module module, Optional<CachingDirectoryLister> cachingDirectoryLister)
+    public TestingHivePlugin(Optional<HiveMetastore> metastore, Module module, Optional<DirectoryLister> directoryLister)
     {
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.module = requireNonNull(module, "module is null");
-        this.cachingDirectoryLister = requireNonNull(cachingDirectoryLister, "cachingDirectoryLister is null");
+        this.directoryLister = requireNonNull(directoryLister, "directoryLister is null");
     }
 
     @Override
     public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        return ImmutableList.of(new TestingHiveConnectorFactory(metastore, module, cachingDirectoryLister));
+        return ImmutableList.of(new TestingHiveConnectorFactory(metastore, module, directoryLister));
     }
 }

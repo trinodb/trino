@@ -36,6 +36,7 @@ import io.trino.plugin.hive.LocationService.WriteInfo;
 import io.trino.plugin.hive.acid.AcidOperation;
 import io.trino.plugin.hive.acid.AcidSchema;
 import io.trino.plugin.hive.acid.AcidTransaction;
+import io.trino.plugin.hive.fs.DirectoryLister;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveColumnStatistics;
@@ -364,6 +365,7 @@ public class HiveMetadata
     private final HiveMaterializedViewMetadata hiveMaterializedViewMetadata;
     private final AccessControlMetadata accessControlMetadata;
     private final HiveTableRedirectionsProvider tableRedirectionsProvider;
+    private final DirectoryLister directoryLister;
 
     public HiveMetadata(
             CatalogName catalogName,
@@ -385,7 +387,8 @@ public class HiveMetadata
             Set<SystemTableProvider> systemTableProviders,
             HiveMaterializedViewMetadata hiveMaterializedViewMetadata,
             AccessControlMetadata accessControlMetadata,
-            HiveTableRedirectionsProvider tableRedirectionsProvider)
+            HiveTableRedirectionsProvider tableRedirectionsProvider,
+            DirectoryLister directoryLister)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.metastore = requireNonNull(metastore, "metastore is null");
@@ -407,12 +410,19 @@ public class HiveMetadata
         this.hiveMaterializedViewMetadata = requireNonNull(hiveMaterializedViewMetadata, "hiveMaterializedViewMetadata is null");
         this.accessControlMetadata = requireNonNull(accessControlMetadata, "accessControlMetadata is null");
         this.tableRedirectionsProvider = requireNonNull(tableRedirectionsProvider, "tableRedirectionsProvider is null");
+        this.directoryLister = requireNonNull(directoryLister, "directoryLister is null");
     }
 
     @Override
     public SemiTransactionalHiveMetastore getMetastore()
     {
         return metastore;
+    }
+
+    @Override
+    public DirectoryLister getDirectoryLister()
+    {
+        return directoryLister;
     }
 
     @Override

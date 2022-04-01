@@ -13,18 +13,35 @@
  */
 package io.trino.plugin.hive.fs;
 
-import io.trino.plugin.hive.TableInvalidationCallback;
-import io.trino.plugin.hive.metastore.Table;
-import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.LocatedFileStatus;
-import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RemoteIterator;
 
 import java.io.IOException;
+import java.util.Iterator;
 
-public interface DirectoryLister
-        extends TableInvalidationCallback
+import static java.util.Objects.requireNonNull;
+
+class SimpleRemoteIterator
+        implements RemoteIterator<LocatedFileStatus>
 {
-    RemoteIterator<LocatedFileStatus> list(FileSystem fs, Table table, Path path)
-            throws IOException;
+    private final Iterator<LocatedFileStatus> iterator;
+
+    public SimpleRemoteIterator(Iterator<LocatedFileStatus> iterator)
+    {
+        this.iterator = requireNonNull(iterator, "iterator is null");
+    }
+
+    @Override
+    public boolean hasNext()
+            throws IOException
+    {
+        return iterator.hasNext();
+    }
+
+    @Override
+    public LocatedFileStatus next()
+            throws IOException
+    {
+        return iterator.next();
+    }
 }
