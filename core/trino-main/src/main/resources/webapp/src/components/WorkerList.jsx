@@ -14,10 +14,6 @@
 
 import React from "react";
 
-import {
-    addToHistory,
-} from "../utils";
-
 const SMALL_SPARKLINE_PROPERTIES = {
     width: '100%',
     height: '57px',
@@ -35,40 +31,37 @@ export class WorkerList extends React.Component {
             workerInfo: null,
             initialized: false,
             ended: false,
-
-            workerId: [],
-            workerIp: [],
-            workerVersion: [],
-            coordinator: [],
-            state: [],
+            workers: [{
+                workerId: String,
+                workerIp: String,
+                workerVersion: String,
+                coordinator: Boolean,
+                state: String
+            }]
         };
         this.refreshLoop = this.refreshLoop.bind(this);
     }
 
     refreshLoop() {
-        clearTimeout(this.timeoutId); // to stop multiple series of refreshLoop from going on simultaneously
-        // const nodeId = getFirstParameter(window.location.search);
+        clearTimeout(this.timeoutId);
         $.get('/ui/api/worker', function (workerInfo) {
             this.setState({
                 initialized: true,
-                workerInfo: workerInfo
+                workers: workerInfo
             })
-            for (var index in workerInfo) {
-                this.setState({
-                    workerId: addToHistory(workerInfo[index].nodeId, this.state.workerId),
-                    workerIp: addToHistory(workerInfo[index].nodeIp, this.state.workerIp),
-                    workerVersion: addToHistory(workerInfo[index].nodeVersion, this.state.workerVersion),
-                    coordinator: addToHistory(workerInfo[index].coordinator, this.state.coordinator),
-                    state: addToHistory(workerInfo[index].state, this.state.state)
-                });
-            }
+            this.resetTimer();
         }.bind(this))
                 .fail(() => {
                     this.setState({
                         initialized: true,
                     });
+                    this.resetTimer();
                 });
+    }
 
+    resetTimer() {
+        clearTimeout(this.timeoutId);
+        this.timeoutId = setTimeout(this.refreshLoop.bind(this), 1000);
     }
 
     componentDidMount() {
@@ -76,65 +69,58 @@ export class WorkerList extends React.Component {
     }
 
     render() {
-        const workerInfo = this.state.workerInfo;
-        const workerId = this.state.workerId;
-        const workerIp = this.state.workerIp;
-        const workerVersion = this.state.workerVersion;
-        const coordinator = this.state.coordinator;
-        const state = this.state.state;
-
-        if (workerInfo === null) {
+        const workers = this.state.workers;
+        if (workers === null) {
             if (this.state.initialized === false) {
                 return (
-                        <div className="loader">Loading...</div>
+                    <div className="loader">Loading...</div>
                 );
             }
             else {
                 return (
-                        <div className="row error-message">
-                            <div className="col-xs-12"><h4>Worker list information could not be loaded</h4></div>
-                        </div>
+                    <div className="row error-message">
+                        <div className="col-xs-12"><h4>Worker list information could not be loaded</h4></div>
+                    </div>
                 );
             }
         }
-
-        var list = function () {
-            var trs = [];
-            for (var i  in workerId) {
+        let workerList = function () {
+            let trs = [];
+            workers.forEach((worker) => {
                 trs.push(
-                        <tr>
-                            <td className="info-text wrap-text"><a href={"worker.html?" + workerId[i]} className="font-light" target="_blank">{workerId[i]}</a></td>
-                            <td className="info-text wrap-text"><a href={"worker.html?" + workerId[i]} className="font-light" target="_blank">{workerIp[i]}</a></td>
-                            <td className="info-text wrap-text">{workerVersion[i]}</td>
-                            <td className="info-text wrap-text">{coordinator[i]}</td>
-                            <td className="info-text wrap-text">{state[i]}</td>
-                        </tr>
+                    <tr>
+                        <td className="info-text wrap-text"><a href={"worker.html?" + worker.nodeId} className="font-light" target="_blank">{worker.nodeId}</a></td>
+                        <td className="info-text wrap-text"><a href={"worker.html?" + worker.nodeId} className="font-light" target="_blank">{worker.nodeIp}</a></td>
+                        <td className="info-text wrap-text">{worker.nodeVersion}</td>
+                        <td className="info-text wrap-text">{String(worker.coordinator)}</td>
+                        <td className="info-text wrap-text">{worker.state}</td>
+                    </tr>
                 );
-            }
+            });
             return trs;
         };
 
         return (
-                <div>
-                    <div className="row">
-                        <div className="col-xs-12">
-                            <h3>Overview</h3>
-                            <hr className="h3-hr"/>
-                            <table className="table">
-                                <tbody>
-                                <tr>
-                                    <td className="info-title stage-table-stat-text">Node ID</td>
-                                    <td className="info-title stage-table-stat-text">Node IP</td>
-                                    <td className="info-title stage-table-stat-text">Node Version</td>
-                                    <td className="info-title stage-table-stat-text">Coordinator</td>
-                                    <td className="info-title stage-table-stat-text">State</td>
-                                </tr>
-                                {list()}
-                                </tbody>
-                            </table>
-                        </div>
+            <div>
+                <div className="row">
+                    <div className="col-xs-12">
+                        <h3>Overview</h3>
+                        <hr className="h3-hr"/>
+                        <table className="table">
+                            <tbody>
+                            <tr>
+                                <td className="info-title stage-table-stat-text">Node ID</td>
+                                <td className="info-title stage-table-stat-text">Node IP</td>
+                                <td className="info-title stage-table-stat-text">Node Version</td>
+                                <td className="info-title stage-table-stat-text">Coordinator</td>
+                                <td className="info-title stage-table-stat-text">State</td>
+                            </tr>
+                            {workerList()}
+                            </tbody>
+                        </table>
                     </div>
                 </div>
+            </div>
         );
     }
 }

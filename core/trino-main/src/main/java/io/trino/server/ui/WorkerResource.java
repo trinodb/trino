@@ -47,6 +47,7 @@ import javax.ws.rs.core.Response.Status;
 
 import java.io.IOException;
 import java.util.HashSet;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 
@@ -54,6 +55,8 @@ import static com.google.common.io.ByteStreams.toByteArray;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.Request.Builder.prepareGet;
+import static io.trino.metadata.NodeState.ACTIVE;
+import static io.trino.metadata.NodeState.INACTIVE;
 import static io.trino.security.AccessControlUtil.checkCanViewQueryOwnedBy;
 import static io.trino.server.security.ResourceSecurity.AccessType.WEB_UI;
 import static java.util.Objects.requireNonNull;
@@ -135,11 +138,11 @@ public class WorkerResource
         Set<InternalNode> inactiveNodes = nodeManager.getAllNodes().getInactiveNodes();
         Set<JsonNodeInfo> jsonNodes = new HashSet<>();
         for (Node node : activeNodes) {
-            JsonNodeInfo jsonNode = new JsonNodeInfo(node.getNodeIdentifier(), node.getHostAndPort().getHostText(), node.getVersion(), String.valueOf(node.isCoordinator()), "active");
+            JsonNodeInfo jsonNode = new JsonNodeInfo(node.getNodeIdentifier(), node.getHostAndPort().getHostText(), node.getVersion(), node.isCoordinator(), ACTIVE.toString().toLowerCase(Locale.ENGLISH));
             jsonNodes.add(jsonNode);
         }
         for (Node node : inactiveNodes) {
-            JsonNodeInfo jsonNode = new JsonNodeInfo(node.getNodeIdentifier(), node.getHostAndPort().getHostText(), node.getVersion(), String.valueOf(node.isCoordinator()), "inactive");
+            JsonNodeInfo jsonNode = new JsonNodeInfo(node.getNodeIdentifier(), node.getHostAndPort().getHostText(), node.getVersion(), node.isCoordinator(), INACTIVE.toString().toLowerCase(Locale.ENGLISH));
             jsonNodes.add(jsonNode);
         }
         return Response.ok().entity(jsonNodes).build();
@@ -150,21 +153,21 @@ public class WorkerResource
         private final String nodeId;
         private final String nodeIp;
         private final String nodeVersion;
-        private final String coordinator;
+        private final boolean coordinator;
         private final String state;
 
         @JsonCreator
         public JsonNodeInfo(@JsonProperty("nodeId") String nodeId,
                 @JsonProperty("nodeIp") String nodeIp,
                 @JsonProperty("nodeVersion") String nodeVersion,
-                @JsonProperty("coordinator") String coordinator,
+                @JsonProperty("coordinator") boolean coordinator,
                 @JsonProperty("state") String state)
         {
-            this.nodeId = nodeId;
-            this.nodeIp = nodeIp;
-            this.nodeVersion = nodeVersion;
-            this.coordinator = coordinator;
-            this.state = state;
+            this.nodeId = requireNonNull(nodeId, "nodeId is null");
+            this.nodeIp = requireNonNull(nodeIp, "nodeIp is null");
+            this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
+            this.coordinator = requireNonNull(coordinator, "coordinator is null");
+            this.state = requireNonNull(state, "state is null");
         }
 
         @JsonProperty
@@ -186,7 +189,7 @@ public class WorkerResource
         }
 
         @JsonProperty
-        public String getCoordinator()
+        public boolean getCoordinator()
         {
             return coordinator;
         }
@@ -197,7 +200,6 @@ public class WorkerResource
             return state;
         }
     }
-
 
     private Response proxyJsonResponse(String nodeId, String workerPath)
     {
