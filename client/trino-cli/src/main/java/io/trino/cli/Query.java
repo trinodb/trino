@@ -151,7 +151,7 @@ public class Query
         WarningsPrinter warningsPrinter = new PrintStreamWarningsPrinter(errorChannel);
 
         if (showProgress) {
-            statusPrinter = new StatusPrinter(client, errorChannel, debug);
+            statusPrinter = new StatusPrinter(client, errorChannel, debug, usePager);
             statusPrinter.printInitialStatusUpdates(terminal);
         }
         else {
