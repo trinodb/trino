@@ -19,6 +19,7 @@ import com.google.common.math.IntMath;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.sql.Array;
 import java.sql.Connection;
 import java.sql.Date;
@@ -54,6 +55,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 public abstract class BaseTestJdbcResultSet
@@ -94,8 +96,21 @@ public abstract class BaseTestJdbcResultSet
             checkRepresentation(connectedStatement.getStatement(), "1.0E0 / 0.0E0", Types.DOUBLE, Double.POSITIVE_INFINITY);
             checkRepresentation(connectedStatement.getStatement(), "0.0E0 / 0.0E0", Types.DOUBLE, Double.NaN);
             checkRepresentation(connectedStatement.getStatement(), "true", Types.BOOLEAN, true);
-            checkRepresentation(connectedStatement.getStatement(), "'hello'", Types.VARCHAR, "hello");
-            checkRepresentation(connectedStatement.getStatement(), "cast('foo' as char(5))", Types.CHAR, "foo  ");
+            checkRepresentation(connectedStatement.getStatement(), "'hello'", Types.VARCHAR, (rs, column) -> {
+                assertEquals(rs.getObject(column), "hello");
+                assertThat(rs.getAsciiStream(column)).hasBinaryContent("hello".getBytes(StandardCharsets.US_ASCII));
+                assertThatThrownBy(() -> rs.getBinaryStream(column))
+                        .isInstanceOf(SQLException.class)
+                        .hasMessage("Value is not a byte array: hello");
+            });
+            checkRepresentation(connectedStatement.getStatement(), "CAST(NULL AS VARCHAR)", Types.VARCHAR, (rs, column) -> {
+                assertNull(rs.getAsciiStream(column));
+                assertNull(rs.getBinaryStream(column));
+            });
+            checkRepresentation(connectedStatement.getStatement(), "cast('foo' as char(5))", Types.CHAR, (rs, column) -> {
+                assertEquals(rs.getObject(column), "foo  ");
+                assertThat(rs.getAsciiStream(column)).hasBinaryContent("foo  ".getBytes(StandardCharsets.US_ASCII));
+            });
             checkRepresentation(connectedStatement.getStatement(), "VARCHAR '123'", Types.VARCHAR,
                     (rs, column) -> assertEquals(rs.getLong(column), 123L));
 
@@ -107,24 +122,31 @@ public abstract class BaseTestJdbcResultSet
                 assertThatThrownBy(() -> rs.getDouble(column))
                         .isInstanceOf(SQLException.class)
                         .hasMessage("Value is not a number: ");
+
+                assertThat(rs.getAsciiStream(column)).isEmpty();
             });
 
             checkRepresentation(connectedStatement.getStatement(), "VARCHAR '123e-1'", Types.VARCHAR, (rs, column) -> {
                 assertEquals(rs.getDouble(column), 12.3);
                 assertEquals(rs.getLong(column), 12);
                 assertEquals(rs.getFloat(column), 12.3f);
+                assertThat(rs.getAsciiStream(column)).hasBinaryContent("123e-1".getBytes(StandardCharsets.US_ASCII));
             });
 
             checkRepresentation(connectedStatement.getStatement(), "DOUBLE '123.456'", Types.DOUBLE, (rs, column) -> {
                 assertEquals(rs.getDouble(column), 123.456);
                 assertEquals(rs.getLong(column), 123);
                 assertEquals(rs.getFloat(column), 123.456f);
+                assertThatThrownBy(() -> rs.getAsciiStream(column))
+                        .isInstanceOf(SQLException.class)
+                        .hasMessage("Value is not a string: 123.456");
             });
 
             checkRepresentation(connectedStatement.getStatement(), "VARCHAR '123'", Types.VARCHAR, (rs, column) -> {
                 assertEquals(rs.getDouble(column), 123.0);
                 assertEquals(rs.getLong(column), 123);
                 assertEquals(rs.getFloat(column), 123f);
+                assertThat(rs.getAsciiStream(column)).hasBinaryContent("123".getBytes(StandardCharsets.US_ASCII));
             });
         }
     }
@@ -191,6 +213,21 @@ public abstract class BaseTestJdbcResultSet
                         .hasMessageStartingWith("Value is not a number: [B@");
 
                 assertEquals(rs.getString(column), "0x12345678");
+                assertThat(rs.getBinaryStream(column)).hasBinaryContent(bytes);
+                assertThatThrownBy(() -> rs.getAsciiStream(column))
+                        .isInstanceOf(SQLException.class)
+                        .hasMessageStartingWith("Value is not a string: [B@");
+            });
+            checkRepresentation(connectedStatement.getStatement(), "CAST(NULL AS VARBINARY)", Types.VARBINARY, (rs, column) -> {
+                assertNull(rs.getAsciiStream(column));
+                assertNull(rs.getBinaryStream(column));
+            });
+
+            checkRepresentation(connectedStatement.getStatement(), "X''", Types.VARBINARY, (rs, column) -> {
+                assertThat(rs.getBinaryStream(column)).isEmpty();
+                assertThatThrownBy(() -> rs.getAsciiStream(column))
+                        .isInstanceOf(SQLException.class)
+                        .hasMessageStartingWith("Value is not a string: [B@");
             });
         }
     }
