@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;
 import io.trino.collect.cache.EvictableCacheBuilder;
 import io.trino.plugin.hive.HiveConfig;
-import io.trino.plugin.hive.TableInvalidationCallback;
 import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.Storage;
 import io.trino.plugin.hive.metastore.Table;
@@ -36,7 +35,6 @@ import javax.inject.Inject;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
@@ -48,7 +46,7 @@ import static java.util.Objects.requireNonNull;
 import static org.apache.commons.lang3.StringUtils.isNotEmpty;
 
 public class CachingDirectoryLister
-        implements DirectoryLister, TableInvalidationCallback
+        implements DirectoryLister
 {
     //TODO use a cache key based on Path & SchemaTableName and iterate over the cache keys
     // to deal more efficiently with cache invalidation scenarios for partitioned tables.
@@ -100,7 +98,7 @@ public class CachingDirectoryLister
 
         ValueHolder cachedValueHolder = uncheckedCacheGet(cache, path, ValueHolder::new);
         if (cachedValueHolder.getFiles().isPresent()) {
-            return simpleRemoteIterator(cachedValueHolder.getFiles().get());
+            return new SimpleRemoteIterator(cachedValueHolder.getFiles().get().iterator());
         }
         return cachingRemoteIterator(cachedValueHolder, fs.listLocatedStatus(path), path);
     }
@@ -153,26 +151,6 @@ public class CachingDirectoryLister
                 LocatedFileStatus next = iterator.next();
                 files.add(next);
                 return next;
-            }
-        };
-    }
-
-    private static RemoteIterator<LocatedFileStatus> simpleRemoteIterator(List<LocatedFileStatus> files)
-    {
-        return new RemoteIterator<>()
-        {
-            private final Iterator<LocatedFileStatus> iterator = ImmutableList.copyOf(files).iterator();
-
-            @Override
-            public boolean hasNext()
-            {
-                return iterator.hasNext();
-            }
-
-            @Override
-            public LocatedFileStatus next()
-            {
-                return iterator.next();
             }
         };
     }

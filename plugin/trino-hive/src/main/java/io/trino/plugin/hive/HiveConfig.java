@@ -141,6 +141,8 @@ public class HiveConfig
     private Duration fileStatusCacheExpireAfterWrite = new Duration(1, MINUTES);
     private long fileStatusCacheMaxSize = 1000 * 1000;
     private List<String> fileStatusCacheTables = ImmutableList.of();
+    private long perTransactionFileStatusCacheMaximumSize = 1000 * 1000;
+
     private boolean translateHiveViews;
 
     private Optional<Duration> hiveTransactionHeartbeatInterval = Optional.empty();
@@ -743,6 +745,20 @@ public class HiveConfig
     public HiveConfig setFileStatusCacheTables(String fileStatusCacheTables)
     {
         this.fileStatusCacheTables = SPLITTER.splitToList(fileStatusCacheTables);
+        return this;
+    }
+
+    @Min(1)
+    public long getPerTransactionFileStatusCacheMaximumSize()
+    {
+        return perTransactionFileStatusCacheMaximumSize;
+    }
+
+    @Config("hive.per-transaction-file-status-cache-maximum-size")
+    @ConfigDescription("Maximum number of file statuses cached by transactional file status cache")
+    public HiveConfig setPerTransactionFileStatusCacheMaximumSize(long perTransactionFileStatusCacheMaximumSize)
+    {
+        this.perTransactionFileStatusCacheMaximumSize = perTransactionFileStatusCacheMaximumSize;
         return this;
     }
 

@@ -32,7 +32,7 @@ import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.authentication.NoHdfsAuthentication;
 import io.trino.plugin.hive.azure.HiveAzureConfig;
 import io.trino.plugin.hive.azure.TrinoAzureConfigurationInitializer;
-import io.trino.plugin.hive.fs.CachingDirectoryLister;
+import io.trino.plugin.hive.fs.DirectoryLister;
 import io.trino.plugin.hive.gcs.GoogleGcsConfigurationInitializer;
 import io.trino.plugin.hive.gcs.HiveGcsConfig;
 import io.trino.plugin.hive.metastore.Column;
@@ -136,7 +136,9 @@ import io.trino.testing.TestingNodeManager;
 import io.trino.type.BlockTypeOperators;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.RemoteIterator;
 import org.apache.hadoop.hive.metastore.TableType;
 import org.joda.time.DateTime;
 import org.testng.annotations.AfterClass;
@@ -162,6 +164,7 @@ import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -644,6 +647,7 @@ public abstract class AbstractTestHive
     protected HdfsEnvironment hdfsEnvironment;
     protected LocationService locationService;
 
+    protected CountingDirectoryLister countingDirectoryLister;
     protected HiveMetadataFactory metadataFactory;
     protected HiveTransactionManager transactionManager;
     protected HiveMetastore metastoreClient;
@@ -810,6 +814,7 @@ public abstract class AbstractTestHive
         HivePartitionManager partitionManager = new HivePartitionManager(hiveConfig);
         locationService = new HiveLocationService(hdfsEnvironment);
         JsonCodec<PartitionUpdate> partitionUpdateCodec = JsonCodec.jsonCodec(PartitionUpdate.class);
+        countingDirectoryLister = new CountingDirectoryLister();
         metadataFactory = new HiveMetadataFactory(
                 new CatalogName("hive"),
                 HiveMetastoreFactory.ofInstance(metastoreClient),
@@ -867,14 +872,14 @@ public abstract class AbstractTestHive
                 },
                 SqlStandardAccessControlMetadata::new,
                 NO_REDIRECTIONS,
-                TableInvalidationCallback.NOOP);
+                countingDirectoryLister,
+                1000);
         transactionManager = new HiveTransactionManager(metadataFactory);
         splitManager = new HiveSplitManager(
                 transactionManager,
                 partitionManager,
                 new NamenodeStats(),
                 hdfsEnvironment,
-                new CachingDirectoryLister(hiveConfig),
                 directExecutor(),
                 new CounterStat(),
                 100,
@@ -1493,6 +1498,48 @@ public abstract class AbstractTestHive
             ConnectorSplitSource splitSource = getSplits(splitManager, transaction, session, tableHandle);
 
             assertEquals(getSplitCount(splitSource), 1);
+        }
+    }
+
+    @Test
+    public void testPerTransactionDirectoryListerCache()
+            throws Exception
+    {
+        long initListCount = countingDirectoryLister.getListCount();
+        SchemaTableName tableName = temporaryTable("per_transaction_listing_cache_test");
+        List<Column> columns = ImmutableList.of(new Column("test", HIVE_STRING, Optional.empty()));
+        createEmptyTable(tableName, ORC, columns, ImmutableList.of());
+        try {
+            try (Transaction transaction = newTransaction()) {
+                ConnectorMetadata metadata = transaction.getMetadata();
+                ConnectorSession session = newSession();
+                metadata.beginQuery(session);
+
+                ConnectorTableHandle tableHandle = getTableHandle(metadata, tableName);
+                getSplits(splitManager, transaction, session, tableHandle);
+
+                // directory should be listed initially
+                assertEquals(countingDirectoryLister.getListCount(), initListCount + 1);
+
+                // directory content should be cached
+                getSplits(splitManager, transaction, session, tableHandle);
+                assertEquals(countingDirectoryLister.getListCount(), initListCount + 1);
+            }
+
+            try (Transaction transaction = newTransaction()) {
+                ConnectorMetadata metadata = transaction.getMetadata();
+                ConnectorSession session = newSession();
+                metadata.beginQuery(session);
+
+                ConnectorTableHandle tableHandle = getTableHandle(metadata, tableName);
+                getSplits(splitManager, transaction, session, tableHandle);
+
+                // directory should be listed again in new transaction
+                assertEquals(countingDirectoryLister.getListCount(), initListCount + 2);
+            }
+        }
+        finally {
+            dropTable(tableName);
         }
     }
 
@@ -5907,6 +5954,35 @@ public abstract class AbstractTestHive
             // The file we added to trigger a conflict was cleaned up because it matches the query prefix.
             // Consider this the same as a network failure that caused the successful creation of file not reported to the caller.
             assertFalse(hdfsEnvironment.getFileSystem(context, path).exists(path));
+        }
+    }
+
+    private static class CountingDirectoryLister
+            implements DirectoryLister
+    {
+        private final AtomicInteger listCount = new AtomicInteger();
+
+        @Override
+        public RemoteIterator<LocatedFileStatus> list(FileSystem fs, Table table, Path path)
+                throws IOException
+        {
+            listCount.incrementAndGet();
+            return fs.listLocatedStatus(path);
+        }
+
+        public int getListCount()
+        {
+            return listCount.get();
+        }
+
+        @Override
+        public void invalidate(Partition partition)
+        {
+        }
+
+        @Override
+        public void invalidate(Table table)
+        {
         }
     }
 }

@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.hive.fs;
 
-import io.trino.plugin.hive.TableInvalidationCallback;
+import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.Table;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.LocatedFileStatus;
@@ -22,9 +22,23 @@ import org.apache.hadoop.fs.RemoteIterator;
 
 import java.io.IOException;
 
-public interface DirectoryLister
-        extends TableInvalidationCallback
+public class FileSystemDirectoryLister
+        implements DirectoryLister
 {
-    RemoteIterator<LocatedFileStatus> list(FileSystem fs, Table table, Path path)
-            throws IOException;
+    @Override
+    public RemoteIterator<LocatedFileStatus> list(FileSystem fs, Table table, Path path)
+            throws IOException
+    {
+        return fs.listLocatedStatus(path);
+    }
+
+    @Override
+    public void invalidate(Partition partition)
+    {
+    }
+
+    @Override
+    public void invalidate(Table table)
+    {
+    }
 }
