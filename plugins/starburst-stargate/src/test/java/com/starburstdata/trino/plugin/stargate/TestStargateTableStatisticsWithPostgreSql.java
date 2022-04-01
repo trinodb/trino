@@ -22,7 +22,6 @@ import org.jdbi.v3.core.HandleConsumer;
 import org.jdbi.v3.core.Jdbi;
 import org.testng.SkipException;
 import org.testng.annotations.BeforeClass;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -310,20 +309,6 @@ public class TestStargateTableStatisticsWithPostgreSql
         finally {
             executeInPostgres("DROP TABLE " + tableName);
         }
-    }
-
-    @Override
-    @DataProvider
-    public Object[][] testCaseColumnNamesDataProvider()
-    {
-        return new Object[][] {
-                {"TEST_STATS_MIXED_UNQUOTED_UPPER"},
-                {"test_stats_mixed_unquoted_lower"},
-                {"test_stats_mixed_uNQuoTeD_miXED"},
-                {"\"TEST_STATS_MIXED_QUOTED_UPPER\""},
-                {"\"test_stats_mixed_quoted_lower\""},
-                {"\"test_stats_mixed_QuoTeD_miXED\""},
-        };
     }
 
     @Override

@@ -19,7 +19,6 @@ import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
 import org.testng.SkipException;
 import org.testng.annotations.BeforeClass;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.nio.file.Path;
@@ -340,20 +339,6 @@ public class TestStargateTableStatisticsWithHive
         finally {
             executeInRemoteStarburst("DROP TABLE " + tableName);
         }
-    }
-
-    @Override
-    @DataProvider
-    public Object[][] testCaseColumnNamesDataProvider()
-    {
-        return new Object[][] {
-                {"TEST_STATS_MIXED_UNQUOTED_UPPER"},
-                {"test_stats_mixed_unquoted_lower"},
-                {"test_stats_mixed_uNQuoTeD_miXED"},
-                {"\"TEST_STATS_MIXED_QUOTED_UPPER\""},
-                {"\"test_stats_mixed_quoted_lower\""},
-                {"\"test_stats_mixed_QuoTeD_miXED\""},
-        };
     }
 
     @Override
