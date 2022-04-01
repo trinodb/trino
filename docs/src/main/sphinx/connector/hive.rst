@@ -399,6 +399,11 @@ Property Name                                      Description                  
                                                    Set to ``false`` to disable statistics. Disabling statistics
                                                    means that :doc:`/optimizer/cost-based-optimizations` can
                                                    not make smart decisions about the query plan.
+
+``hive.auto-purge``                                Set the default value for the auto_purge table property for   ``false``
+                                                   managed tables.
+                                                   See the :ref:`hive_table_properties` for more information
+                                                   on auto_purge.
 ================================================== ============================================================ ============
 
 ORC format configuration properties

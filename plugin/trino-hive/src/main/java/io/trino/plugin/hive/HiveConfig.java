@@ -168,6 +168,7 @@ public class HiveConfig
 
     private boolean sizeBasedSplitWeightsEnabled = true;
     private double minimumAssignedSplitWeight = 0.05;
+    private boolean autoPurge;
 
     public boolean isSingleStatementWritesOnly()
     {
@@ -1193,6 +1194,18 @@ public class HiveConfig
     public HiveConfig setDeltaLakeCatalogName(String deltaLakeCatalogName)
     {
         this.deltaLakeCatalogName = Optional.ofNullable(deltaLakeCatalogName);
+        return this;
+    }
+
+    public boolean isAutoPurge()
+    {
+        return this.autoPurge;
+    }
+
+    @Config("hive.auto-purge")
+    public HiveConfig setAutoPurge(boolean autoPurge)
+    {
+        this.autoPurge = autoPurge;
         return this;
     }
 }
