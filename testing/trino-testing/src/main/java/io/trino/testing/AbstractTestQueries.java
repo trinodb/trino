@@ -309,7 +309,7 @@ public abstract class AbstractTestQueries
                     "This test expects at least one schema without underscore in it's name. Satisfy this assumption or override the test.");
             assertThat(result)
                     .isSubsetOf(allSchemas)
-                    .isNotEqualTo(allSchemas);
+                    .isNotEqualTo(allSchemas); // Iceberg Glue
             assertThat(result).contains("information_schema").allMatch(schemaName -> ((String) schemaName).contains("_"));
         });
     }

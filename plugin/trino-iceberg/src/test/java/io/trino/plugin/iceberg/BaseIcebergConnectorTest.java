@@ -3300,14 +3300,14 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate("INSERT INTO " + tableName + " VALUES ('two', 2)", 1);
 
         assertExplain("EXPLAIN ALTER TABLE " + tableName + " EXECUTE EXPIRE_SNAPSHOTS (retention_threshold => '0s')",
-                "SimpleTableExecute\\[iceberg:schemaTableName:tpch.test_expiring_snapshots.*\\{retentionThreshold:0\\.00s}.*");
+                "SimpleTableExecute\\[iceberg:schemaTableName:.*test_expiring_snapshots.*\\{retentionThreshold:0\\.00s}.*");
     }
 
     @Test
     public void testExpireSnapshotsParameterValidation()
     {
         assertQueryFails(
-                "ALTER TABLE no_such_table_exists EXECUTE EXPIRE_SNAPSHOTS",
+                "ALTER TABLE tpch.no_such_table_exists EXECUTE EXPIRE_SNAPSHOTS",
                 "\\Qline 1:1: Table 'iceberg.tpch.no_such_table_exists' does not exist");
         assertQueryFails(
                 "ALTER TABLE nation EXECUTE EXPIRE_SNAPSHOTS (retention_threshold => '33')",
@@ -3424,14 +3424,14 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate("INSERT INTO " + tableName + " VALUES ('two', 2)", 1);
 
         assertExplain("EXPLAIN ALTER TABLE " + tableName + " EXECUTE DELETE_ORPHAN_FILES (retention_threshold => '0s')",
-                "SimpleTableExecute\\[iceberg:schemaTableName:tpch.test_delete_orphan_files.*\\{retentionThreshold=0\\.00s}.*");
+                "SimpleTableExecute\\[iceberg:schemaTableName:.*test_delete_orphan_files.*\\{retentionThreshold=0\\.00s}.*");
     }
 
     @Test
     public void testDeleteOrphanFilesParameterValidation()
     {
         assertQueryFails(
-                "ALTER TABLE no_such_table_exists EXECUTE DELETE_ORPHAN_FILES",
+                "ALTER TABLE tpch.no_such_table_exists EXECUTE DELETE_ORPHAN_FILES",
                 "\\Qline 1:1: Table 'iceberg.tpch.no_such_table_exists' does not exist");
         assertQueryFails(
                 "ALTER TABLE nation EXECUTE DELETE_ORPHAN_FILES (retention_threshold => '33')",
