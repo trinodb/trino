@@ -101,6 +101,12 @@ public class TestHiveAlluxioMetastore
         // Alluxio metastore does not support create operations
     }
 
+    @Override
+    public void testPerTransactionDirectoryListerCache()
+    {
+        // Alluxio metastore does not support create operations
+    }
+
     // specifically disable so that expected exception on the superclass don't fail this test
     @Override
     @Test(enabled = false)

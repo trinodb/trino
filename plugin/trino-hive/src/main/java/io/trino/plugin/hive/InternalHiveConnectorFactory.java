@@ -36,8 +36,8 @@ import io.trino.plugin.base.jmx.MBeanServerModule;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.hive.authentication.HdfsAuthenticationModule;
 import io.trino.plugin.hive.azure.HiveAzureModule;
-import io.trino.plugin.hive.fs.CachingDirectoryLister;
 import io.trino.plugin.hive.fs.CachingDirectoryListerModule;
+import io.trino.plugin.hive.fs.DirectoryLister;
 import io.trino.plugin.hive.gcs.HiveGcsModule;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastoreModule;
@@ -89,7 +89,7 @@ public final class InternalHiveConnectorFactory
             ConnectorContext context,
             Module module,
             Optional<HiveMetastore> metastore,
-            Optional<CachingDirectoryLister> cachingDirectoryLister)
+            Optional<DirectoryLister> directoryLister)
     {
         requireNonNull(config, "config is null");
 
@@ -103,7 +103,7 @@ public final class InternalHiveConnectorFactory
                     new JsonModule(),
                     new TypeDeserializerModule(context.getTypeManager()),
                     new HiveModule(),
-                    new CachingDirectoryListerModule(cachingDirectoryLister),
+                    new CachingDirectoryListerModule(directoryLister),
                     new HiveHdfsModule(),
                     new HiveS3Module(),
                     new HiveGcsModule(),

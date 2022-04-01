@@ -27,7 +27,7 @@ import io.trino.plugin.hive.AbstractTestHive.Transaction;
 import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.authentication.NoHdfsAuthentication;
-import io.trino.plugin.hive.fs.CachingDirectoryLister;
+import io.trino.plugin.hive.fs.FileSystemDirectoryLister;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.ForwardingHiveMetastore;
@@ -222,14 +222,13 @@ public abstract class AbstractTestHiveFileSystem
                 new DefaultHiveMaterializedViewMetadataFactory(),
                 SqlStandardAccessControlMetadata::new,
                 NO_REDIRECTIONS,
-                TableInvalidationCallback.NOOP);
+                new FileSystemDirectoryLister());
         transactionManager = new HiveTransactionManager(metadataFactory);
         splitManager = new HiveSplitManager(
                 transactionManager,
                 hivePartitionManager,
                 new NamenodeStats(),
                 hdfsEnvironment,
-                new CachingDirectoryLister(new HiveConfig()),
                 new BoundedExecutor(executor, config.getMaxSplitIteratorThreads()),
                 new CounterStat(),
                 config.getMaxOutstandingSplits(),
