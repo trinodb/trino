@@ -209,12 +209,12 @@ public class MultiChannelGroupByHash
     }
 
     @Override
-    public void appendValuesTo(int groupId, PageBuilder pageBuilder, int outputChannelOffset)
+    public void appendValuesTo(int groupId, PageBuilder pageBuilder)
     {
         long address = groupAddressByGroupId.get(groupId);
         int blockIndex = decodeSliceIndex(address);
         int position = decodePosition(address);
-        hashStrategy.appendTo(blockIndex, position, pageBuilder, outputChannelOffset);
+        hashStrategy.appendTo(blockIndex, position, pageBuilder, 0);
     }
 
     @Override
