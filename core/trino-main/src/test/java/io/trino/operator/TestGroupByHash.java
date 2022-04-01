@@ -226,7 +226,7 @@ public class TestGroupByHash
         PageBuilder pageBuilder = new PageBuilder(groupByHash.getTypes());
         for (int i = 0; i < groupByHash.getGroupCount(); i++) {
             pageBuilder.declarePosition();
-            groupByHash.appendValuesTo(i, pageBuilder, 0);
+            groupByHash.appendValuesTo(i, pageBuilder);
         }
         Page page = pageBuilder.build();
         // Ensure that all blocks have the same positionCount
@@ -255,7 +255,7 @@ public class TestGroupByHash
         PageBuilder pageBuilder = new PageBuilder(groupByHash.getTypes());
         for (int i = 0; i < groupByHash.getGroupCount(); i++) {
             pageBuilder.declarePosition();
-            groupByHash.appendValuesTo(i, pageBuilder, 0);
+            groupByHash.appendValuesTo(i, pageBuilder);
         }
         Page outputPage = pageBuilder.build();
         assertEquals(outputPage.getPositionCount(), 50);

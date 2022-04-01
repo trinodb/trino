@@ -138,10 +138,10 @@ public class BigintGroupByHash
     }
 
     @Override
-    public void appendValuesTo(int groupId, PageBuilder pageBuilder, int outputChannelOffset)
+    public void appendValuesTo(int groupId, PageBuilder pageBuilder)
     {
         checkArgument(groupId >= 0, "groupId is negative");
-        BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(outputChannelOffset);
+        BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(0);
         if (groupId == nullGroupId) {
             blockBuilder.appendNull();
         }
@@ -150,7 +150,7 @@ public class BigintGroupByHash
         }
 
         if (outputRawHash) {
-            BlockBuilder hashBlockBuilder = pageBuilder.getBlockBuilder(outputChannelOffset + 1);
+            BlockBuilder hashBlockBuilder = pageBuilder.getBlockBuilder(1);
             if (groupId == nullGroupId) {
                 BIGINT.writeLong(hashBlockBuilder, NULL_HASH_CODE);
             }
