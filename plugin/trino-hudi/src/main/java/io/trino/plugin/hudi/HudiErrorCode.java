@@ -19,24 +19,15 @@ import io.trino.spi.ErrorCodeSupplier;
 import io.trino.spi.ErrorType;
 
 import static io.trino.spi.ErrorType.EXTERNAL;
-import static io.trino.spi.ErrorType.INTERNAL_ERROR;
-import static io.trino.spi.ErrorType.USER_ERROR;
 
 public enum HudiErrorCode
         implements ErrorCodeSupplier
 {
     HUDI_UNKNOWN_TABLE_TYPE(0, EXTERNAL),
-    HUDI_INVALID_METADATA(1, EXTERNAL),
-    HUDI_TOO_MANY_OPEN_PARTITIONS(2, USER_ERROR),
-    HUDI_INVALID_PARTITION_VALUE(3, EXTERNAL),
-    HUDI_BAD_DATA(4, EXTERNAL),
-    HUDI_MISSING_DATA(5, EXTERNAL),
-    HUDI_CANNOT_OPEN_SPLIT(6, EXTERNAL),
-    HUDI_WRITER_OPEN_ERROR(7, EXTERNAL),
-    HUDI_FILESYSTEM_ERROR(8, EXTERNAL),
-    HUDI_CURSOR_ERROR(9, EXTERNAL),
-    HUDI_WRITE_VALIDATION_FAILED(10, INTERNAL_ERROR),
-    HUDI_INVALID_SNAPSHOT_ID(11, USER_ERROR);
+    HUDI_INVALID_PARTITION_VALUE(1, EXTERNAL),
+    HUDI_BAD_DATA(2, EXTERNAL),
+    HUDI_MISSING_DATA(3, EXTERNAL),
+    HUDI_CANNOT_OPEN_SPLIT(4, EXTERNAL);
 
     private final ErrorCode errorCode;
 

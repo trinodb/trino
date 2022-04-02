@@ -32,7 +32,6 @@ import io.trino.plugin.hive.HiveTimestampPrecision;
 import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.avro.TrinoAvroSerDe;
 import io.trino.plugin.hive.metastore.Column;
-import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.SortingColumn;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.ErrorCodeSupplier;
@@ -1159,27 +1158,5 @@ public final class HiveUtil
     {
         return table.getParameters().containsKey(SPARK_TABLE_PROVIDER_KEY)
                 && table.getParameters().containsKey(SPARK_TABLE_BUCKET_NUMBER_KEY);
-    }
-
-    public static List<HivePartitionKey> getPartitionKeys(Table table, Optional<Partition> partition)
-    {
-        if (partition.isEmpty()) {
-            return ImmutableList.of();
-        }
-        ImmutableList.Builder<HivePartitionKey> partitionKeys = ImmutableList.builder();
-        List<Column> keys = table.getPartitionColumns();
-        List<String> values = partition.get().getValues();
-        checkCondition(keys.size() == values.size(), HIVE_INVALID_METADATA, "Expected %s partition key values, but got %s", keys.size(), values.size());
-        for (int i = 0; i < keys.size(); i++) {
-            String name = keys.get(i).getName();
-            HiveType hiveType = keys.get(i).getType();
-            if (!hiveType.isSupportedType(table.getStorage().getStorageFormat())) {
-                throw new TrinoException(NOT_SUPPORTED, format("Unsupported Hive type %s found in partition keys of table %s.%s", hiveType, table.getDatabaseName(), table.getTableName()));
-            }
-            String value = values.get(i);
-            checkCondition(value != null, HIVE_INVALID_PARTITION_VALUE, "partition key value cannot be null for field: %s", name);
-            partitionKeys.add(new HivePartitionKey(name, value));
-        }
-        return partitionKeys.build();
     }
 }

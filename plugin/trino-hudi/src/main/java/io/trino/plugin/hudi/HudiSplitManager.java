@@ -26,6 +26,7 @@ import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.connector.TableNotFoundException;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 
@@ -34,6 +35,7 @@ import javax.inject.Inject;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import static io.trino.spi.connector.SchemaTableName.schemaTableName;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 
@@ -59,19 +61,20 @@ public class HudiSplitManager
             DynamicFilter dynamicFilter,
             Constraint constraint)
     {
-        HudiTableHandle hudiTable = (HudiTableHandle) tableHandle;
-        HudiMetadata hudiMetadata = transactionManager.get(transaction);
+        HudiTableHandle hudiTableHandle = (HudiTableHandle) tableHandle;
+        HudiMetadata hudiMetadata = transactionManager.get(transaction, session.getIdentity());
         HiveMetastore metastore = hudiMetadata.getMetastore();
         Map<String, HiveColumnHandle> partitionColumnHandles = hudiMetadata.getColumnHandles(session, tableHandle)
                 .values().stream().map(HiveColumnHandle.class::cast)
                 .filter(HiveColumnHandle::isPartitionKey)
                 .collect(Collectors.toMap(HiveColumnHandle::getName, identity()));
-        Table hiveTable = hudiMetadata.getTable();
+        Table table = metastore.getTable(hudiTableHandle.getSchemaName(), hudiTableHandle.getTableName())
+                .orElseThrow(() -> new TableNotFoundException(schemaTableName(hudiTableHandle.getSchemaName(), hudiTableHandle.getTableName())));
         HdfsEnvironment.HdfsContext context = new HdfsEnvironment.HdfsContext(session);
         Configuration conf = hdfsEnvironment.getConfiguration(
-                context, new Path(hiveTable.getStorage().getLocation()));
+                context, new Path(table.getStorage().getLocation()));
         HudiSplitSource splitSource = new HudiSplitSource(
-                session, metastore, hiveTable, hudiTable, conf, partitionColumnHandles);
+                session, metastore, table, hudiTableHandle, conf, partitionColumnHandles);
         return new ClassLoaderSafeConnectorSplitSource(splitSource, Thread.currentThread().getContextClassLoader());
     }
 }

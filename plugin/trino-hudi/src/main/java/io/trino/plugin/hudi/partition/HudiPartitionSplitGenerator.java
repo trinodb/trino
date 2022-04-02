@@ -30,11 +30,13 @@ import org.apache.hudi.common.util.collection.Pair;
 import org.apache.hudi.exception.HoodieIOException;
 
 import java.io.IOException;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+
+import static java.lang.String.format;
 
 public class HudiPartitionSplitGenerator
         implements Runnable
@@ -45,8 +47,8 @@ public class HudiPartitionSplitGenerator
     private final HudiTableHandle tableHandle;
     private final HudiSplitWeightProvider hudiSplitWeightProvider;
     private final Map<String, HudiPartitionInfo> partitionInfoMap;
-    private final ArrayDeque<Pair<FileStatus, String>> hoodieFileStatusQueue;
-    private final ArrayDeque<ConnectorSplit> connectorSplitQueue;
+    private final Deque<Pair<FileStatus, String>> hoodieFileStatusQueue;
+    private final Deque<ConnectorSplit> connectorSplitQueue;
     private boolean isRunning;
 
     public HudiPartitionSplitGenerator(
@@ -55,8 +57,8 @@ public class HudiPartitionSplitGenerator
             HudiTableHandle tableHandle,
             HudiSplitWeightProvider hudiSplitWeightProvider,
             Map<String, HudiPartitionInfo> partitionInfoMap,
-            ArrayDeque<Pair<FileStatus, String>> hoodieFileStatusQueue,
-            ArrayDeque<ConnectorSplit> connectorSplitQueue)
+            Deque<Pair<FileStatus, String>> hoodieFileStatusQueue,
+            Deque<ConnectorSplit> connectorSplitQueue)
     {
         this.fileSystem = fileSystem;
         this.metaClient = metaClient;
@@ -99,11 +101,10 @@ public class HudiPartitionSplitGenerator
                                             ImmutableList.of(),
                                             tableHandle.getRegularPredicates(),
                                             hivePartitionKeys,
-                                            hudiSplitWeightProvider.weightForSplitSizeInBytes(
-                                                    fileSplit.getLength())));
+                                            hudiSplitWeightProvider.weightForSplitSizeInBytes(fileSplit.getLength())));
                                 }
                                 catch (IOException e) {
-                                    throw new HoodieIOException(String.format(
+                                    throw new HoodieIOException(format(
                                             "Unable to get Hudi split for %s, start=%d len=%d",
                                             fileSplit.getPath(), fileSplit.getStart(), fileSplit.getLength()), e);
                                 }
@@ -119,7 +120,7 @@ public class HudiPartitionSplitGenerator
                 }
             }
         }
-        log.debug(String.format("HudiPartitionSplitGenerator finishes in %d ms", timer.endTimer()));
+        log.debug(format("HudiPartitionSplitGenerator finishes in %d ms", timer.endTimer()));
     }
 
     public void stopRunning()

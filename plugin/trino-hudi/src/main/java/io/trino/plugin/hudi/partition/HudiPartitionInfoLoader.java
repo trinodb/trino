@@ -21,9 +21,9 @@ import io.trino.spi.connector.ConnectorSession;
 import org.apache.hudi.common.util.HoodieTimer;
 import org.apache.hudi.exception.HoodieIOException;
 
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.Deque;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -32,6 +32,7 @@ import java.util.stream.Collectors;
 
 import static io.trino.plugin.hudi.HudiSessionProperties.getMaxPartitionBatchSize;
 import static io.trino.plugin.hudi.HudiSessionProperties.getMinPartitionBatchSize;
+import static java.lang.String.format;
 
 public class HudiPartitionInfoLoader
         implements Runnable
@@ -40,13 +41,13 @@ public class HudiPartitionInfoLoader
     private final HudiFileListing hudiFileListing;
     private final int minPartitionBatchSize;
     private final int maxPartitionBatchSize;
-    private final ArrayDeque<HudiPartitionInfo> partitionQueue;
+    private final Deque<HudiPartitionInfo> partitionQueue;
     private int currBatchSize;
 
     public HudiPartitionInfoLoader(
             ConnectorSession session,
             HudiFileListing hudiFileListing,
-            ArrayDeque<HudiPartitionInfo> partitionQueue)
+            Deque<HudiPartitionInfo> partitionQueue)
     {
         this.hudiFileListing = hudiFileListing;
         this.partitionQueue = partitionQueue;
@@ -100,7 +101,7 @@ public class HudiPartitionInfoLoader
                 }
             }
         }
-        log.debug(String.format("HudiPartitionInfoLoader finishes in %d ms", timer.endTimer()));
+        log.debug(format("HudiPartitionInfoLoader finishes in %d ms", timer.endTimer()));
     }
 
     private int updateBatchSize()

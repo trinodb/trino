@@ -24,7 +24,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static io.trino.spi.session.PropertyMetadata.enumProperty;
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
 
 public class HudiTableProperties
@@ -38,10 +37,9 @@ public class HudiTableProperties
     public HudiTableProperties(HudiConfig hudiConfig)
     {
         tableProperties = ImmutableList.<PropertyMetadata<?>>builder()
-                .add(enumProperty(
+                .add(stringProperty(
                         BASE_FILE_FORMAT_PROPERTY,
                         "File format for the table",
-                        HoodieFileFormat.class,
                         hudiConfig.getBaseFileFormat(),
                         false))
                 .add(stringProperty(
@@ -59,7 +57,7 @@ public class HudiTableProperties
 
     public static HoodieFileFormat getBaseFileFormat(Map<String, Object> tableProperties)
     {
-        return (HoodieFileFormat) tableProperties.get(BASE_FILE_FORMAT_PROPERTY);
+        return HoodieFileFormat.valueOf((String) tableProperties.get(BASE_FILE_FORMAT_PROPERTY));
     }
 
     public static Optional<String> getTableLocation(Map<String, Object> tableProperties)

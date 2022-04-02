@@ -35,6 +35,7 @@ import org.apache.hudi.common.util.HoodieTimer;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -46,6 +47,9 @@ import java.util.concurrent.TimeUnit;
 import static io.trino.plugin.hudi.HudiSessionProperties.isHudiMetadataEnabled;
 import static io.trino.plugin.hudi.HudiSessionProperties.shouldSkipMetaStoreForPartition;
 import static io.trino.plugin.hudi.HudiUtil.getMetaClient;
+import static java.lang.String.format;
+import static java.lang.Thread.currentThread;
+import static java.lang.Thread.sleep;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 
@@ -54,13 +58,8 @@ public class HudiSplitSource
 {
     private static final Logger log = Logger.get(HudiSplitSource.class);
     private static final long IDLE_WAIT_TIME_MS = 10;
-    private final HoodieTableMetaClient metaClient;
-    private final boolean metadataEnabled;
-    private final boolean shouldSkipMetastoreForPartition;
     private final HudiFileListing hudiFileListing;
-    private final ArrayDeque<ConnectorSplit> connectorSplitQueue;
-    private final HudiSplitBackgroundLoader splitLoader;
-    private final ScheduledExecutorService splitLoaderExecutorService;
+    private final Deque<ConnectorSplit> connectorSplitQueue;
     private final ScheduledFuture splitLoaderFuture;
 
     public HudiSplitSource(
@@ -71,9 +70,9 @@ public class HudiSplitSource
             Configuration conf,
             Map<String, HiveColumnHandle> partitionColumnHandleMap)
     {
-        this.metadataEnabled = isHudiMetadataEnabled(session);
-        this.shouldSkipMetastoreForPartition = shouldSkipMetaStoreForPartition(session);
-        this.metaClient = tableHandle.getMetaClient().orElseGet(() -> getMetaClient(conf, tableHandle.getBasePath()));
+        boolean metadataEnabled = isHudiMetadataEnabled(session);
+        boolean shouldSkipMetastoreForPartition = shouldSkipMetaStoreForPartition(session);
+        HoodieTableMetaClient metaClient = tableHandle.getMetaClient().orElseGet(() -> getMetaClient(conf, tableHandle.getBasePath()));
         HoodieEngineContext engineContext = new HoodieLocalEngineContext(conf);
         HoodieMetadataConfig metadataConfig = HoodieMetadataConfig.newBuilder()
                 .enable(metadataEnabled)
@@ -81,15 +80,26 @@ public class HudiSplitSource
         List<HiveColumnHandle> partitionColumnHandles = table.getPartitionColumns().stream()
                 .map(column -> partitionColumnHandleMap.get(column.getName())).collect(toList());
         // TODO: fetch the query mode from config / query context
-        this.hudiFileListing = HudiFileListingFactory.get(HudiQueryMode.READ_OPTIMIZED,
-                metadataConfig, engineContext, tableHandle, metaClient, metastore, table,
-                partitionColumnHandles, shouldSkipMetastoreForPartition);
+        this.hudiFileListing = HudiFileListingFactory.get(
+                HudiQueryMode.READ_OPTIMIZED,
+                metadataConfig,
+                engineContext,
+                tableHandle,
+                metaClient,
+                metastore,
+                table,
+                partitionColumnHandles,
+                shouldSkipMetastoreForPartition);
         this.connectorSplitQueue = new ArrayDeque<>();
-        this.splitLoader = new HudiSplitBackgroundLoader(
-                session, tableHandle, metaClient, hudiFileListing, connectorSplitQueue);
-        this.splitLoaderExecutorService = Executors.newSingleThreadScheduledExecutor();
-        this.splitLoaderFuture = this.splitLoaderExecutorService.schedule(
-                this.splitLoader, 0, TimeUnit.MILLISECONDS);
+        HudiSplitBackgroundLoader splitLoader = new HudiSplitBackgroundLoader(
+                session,
+                tableHandle,
+                metaClient,
+                hudiFileListing,
+                connectorSplitQueue);
+        ScheduledExecutorService splitLoaderExecutorService = Executors.newSingleThreadScheduledExecutor();
+        this.splitLoaderFuture = splitLoaderExecutorService.schedule(
+                splitLoader, 0, TimeUnit.MILLISECONDS);
     }
 
     @Override
@@ -104,9 +114,10 @@ public class HudiSplitSource
 
         while (!splitLoaderFuture.isDone() && connectorSplitQueue.isEmpty()) {
             try {
-                Thread.sleep(IDLE_WAIT_TIME_MS);
+                sleep(IDLE_WAIT_TIME_MS);
             }
             catch (InterruptedException e) {
+                currentThread().interrupt();
                 throw new RuntimeException(e);
             }
         }
@@ -117,7 +128,7 @@ public class HudiSplitSource
             }
         }
 
-        log.debug(String.format("Get the next batch of %d splits in %d ms", connectorSplits.size(), timer.endTimer()));
+        log.debug(format("Get the next batch of %d splits in %d ms", connectorSplits.size(), timer.endTimer()));
         return completedFuture(new ConnectorSplitBatch(connectorSplits, isFinished()));
     }
 

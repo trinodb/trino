@@ -21,26 +21,28 @@ import org.apache.hudi.common.util.HoodieTimer;
 import org.apache.hudi.common.util.collection.ImmutablePair;
 import org.apache.hudi.common.util.collection.Pair;
 
-import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+
+import static java.lang.String.format;
 
 public class HudiPartitionScanner
         implements Runnable
 {
     private static final Logger log = Logger.get(HudiPartitionScanner.class);
     private final HudiFileListing hudiFileListing;
-    private final ArrayDeque<HudiPartitionInfo> partitionQueue;
+    private final Deque<HudiPartitionInfo> partitionQueue;
     private final Map<String, HudiPartitionInfo> partitionInfoMap;
-    private final ArrayDeque<Pair<FileStatus, String>> hoodieFileStatusQueue;
+    private final Deque<Pair<FileStatus, String>> hoodieFileStatusQueue;
     private boolean isRunning;
 
     public HudiPartitionScanner(
             HudiFileListing hudiFileListing,
-            ArrayDeque<HudiPartitionInfo> partitionQueue,
+            Deque<HudiPartitionInfo> partitionQueue,
             Map<String, HudiPartitionInfo> partitionInfoMap,
-            ArrayDeque<Pair<FileStatus, String>> hoodieFileStatusQueue)
+            Deque<Pair<FileStatus, String>> hoodieFileStatusQueue)
     {
         this.hudiFileListing = hudiFileListing;
         this.partitionQueue = partitionQueue;
@@ -66,7 +68,7 @@ public class HudiPartitionScanner
                 scanPartition(partitionInfo);
             }
         }
-        log.debug(String.format("HudiPartitionScanner %s finishes in %d ms", this, timer.endTimer()));
+        log.debug(format("HudiPartitionScanner %s finishes in %d ms", this, timer.endTimer()));
     }
 
     public void stopRunning()
@@ -87,7 +89,7 @@ public class HudiPartitionScanner
         synchronized (hoodieFileStatusQueue) {
             hoodieFileStatusQueue.addAll(fileStatusList);
         }
-        log.debug(String.format("Add %d base files for %s",
+        log.debug(format("Add %d base files for %s",
                 fileStatusList.size(), partitionInfo.getRelativePartitionPath()));
     }
 }

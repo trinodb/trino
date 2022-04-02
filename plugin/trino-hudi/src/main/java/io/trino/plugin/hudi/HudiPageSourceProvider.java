@@ -14,6 +14,7 @@
 
 package io.trino.plugin.hudi;
 
+import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
@@ -73,10 +74,11 @@ public class HudiPageSourceProvider
         this.hudiConfig = requireNonNull(hudiConfig, "hudiConfig is null");
         this.timeZone = DateTimeZone.forID(TimeZone.getDefault().getID());
         this.pageSourceBuilderMap = new HashMap<>();
-        this.context = new HashMap<>();
-        this.context.put(
-                HudiParquetPageSourceCreator.CONTEXT_KEY_PARQUET_READER_OPTIONS,
-                requireNonNull(parquetReaderConfig, "parquetReaderConfig is null").toParquetReaderOptions());
+        this.context = ImmutableMap.<String, Object>builder()
+                .put(
+                        HudiParquetPageSourceCreator.CONTEXT_KEY_PARQUET_READER_OPTIONS,
+                        requireNonNull(parquetReaderConfig, "parquetReaderConfig is null").toParquetReaderOptions())
+                .buildOrThrow();
     }
 
     @Override

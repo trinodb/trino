@@ -25,29 +25,46 @@ import org.apache.hudi.exception.HoodieException;
 
 import java.util.List;
 
+import static java.lang.String.format;
+
 public final class HudiFileListingFactory
 {
     private HudiFileListingFactory() {}
 
     public static HudiFileListing get(
-            HudiQueryMode queryMode, HoodieMetadataConfig metadataConfig,
-            HoodieEngineContext engineContext, HudiTableHandle tableHandle,
-            HoodieTableMetaClient metaClient, HiveMetastore hiveMetastore, Table hiveTable,
+            HudiQueryMode queryMode,
+            HoodieMetadataConfig metadataConfig,
+            HoodieEngineContext engineContext,
+            HudiTableHandle tableHandle,
+            HoodieTableMetaClient metaClient,
+            HiveMetastore hiveMetastore,
+            Table hiveTable,
             List<HiveColumnHandle> partitionColumnHandles,
             boolean shouldSkipMetastoreForPartition)
     {
         switch (queryMode) {
             case SNAPSHOT:
-                return new HudiSnapshotFileListing(metadataConfig, engineContext, tableHandle,
-                        metaClient, hiveMetastore, hiveTable, partitionColumnHandles,
+                return new HudiSnapshotFileListing(
+                        metadataConfig,
+                        engineContext,
+                        tableHandle,
+                        metaClient,
+                        hiveMetastore,
+                        hiveTable,
+                        partitionColumnHandles,
                         shouldSkipMetastoreForPartition);
             case READ_OPTIMIZED:
-                return new HudiReadOptimizedFileListing(metadataConfig, engineContext, tableHandle,
-                        metaClient, hiveMetastore, hiveTable, partitionColumnHandles,
+                return new HudiReadOptimizedFileListing(
+                        metadataConfig,
+                        engineContext,
+                        tableHandle,
+                        metaClient,
+                        hiveMetastore,
+                        hiveTable,
+                        partitionColumnHandles,
                         shouldSkipMetastoreForPartition);
             default:
-                throw new HoodieException(
-                        String.format("Hudi query mode %s is not supported yet", queryMode));
+                throw new HoodieException(format("Hudi query mode %s is not supported yet", queryMode));
         }
     }
 }

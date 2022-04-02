@@ -89,7 +89,7 @@ public class HudiSplit
                 .put("start", start)
                 .put("length", length)
                 .put("fileSize", fileSize)
-                .build();
+                .buildOrThrow();
     }
 
     @JsonProperty

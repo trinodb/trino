@@ -33,7 +33,7 @@ public class TestHudiConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(HudiConfig.class)
-                .setBaseFileFormat(PARQUET)
+                .setBaseFileFormat(PARQUET.name())
                 .setMetadataEnabled(false)
                 .setSkipMetaStoreForPartition(false)
                 .setUseParquetColumnNames(true)
@@ -49,7 +49,7 @@ public class TestHudiConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("hudi.base-file-format", "ORC")
                 .put("hudi.metadata-enabled", "true")
                 .put("hudi.skip-metastore-for-partition", "true")
@@ -61,10 +61,10 @@ public class TestHudiConfig
                 .put("hudi.size-based-split-weights-enabled", "false")
                 .put("hudi.standard-split-weight-size", "64MB")
                 .put("hudi.minimum-assigned-split-weight", "0.1")
-                .build();
+                .buildOrThrow();
 
         HudiConfig expected = new HudiConfig()
-                .setBaseFileFormat(ORC)
+                .setBaseFileFormat(ORC.name())
                 .setMetadataEnabled(true)
                 .setSkipMetaStoreForPartition(true)
                 .setUseParquetColumnNames(false)

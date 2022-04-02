@@ -86,8 +86,11 @@ public class HudiParquetPageSourceCreator
     private final ParquetReaderOptions options;
 
     public HudiParquetPageSourceCreator(
-            HudiConfig hudiConfig, HdfsEnvironment hdfsEnvironment, FileFormatDataSourceStats stats,
-            DateTimeZone timeZone, Map<String, Object> context)
+            HudiConfig hudiConfig,
+            HdfsEnvironment hdfsEnvironment,
+            FileFormatDataSourceStats stats,
+            DateTimeZone timeZone,
+            Map<String, Object> context)
     {
         super(hudiConfig, hdfsEnvironment, stats, timeZone);
         this.options = (ParquetReaderOptions) requireNonNull(
@@ -136,7 +139,7 @@ public class HudiParquetPageSourceCreator
             TupleDomain<ColumnDescriptor> parquetTupleDomain = options.isIgnoreStatistics()
                     ? TupleDomain.all()
                     : getParquetTupleDomain(
-                            descriptorsByPath, hudiSplit.getPredicate(), fileSchema, useParquetColumnNames);
+                    descriptorsByPath, hudiSplit.getPredicate(), fileSchema, useParquetColumnNames);
 
             Predicate parquetPredicate = buildPredicate(
                     requestedSchema, parquetTupleDomain, descriptorsByPath, timeZone);
@@ -193,7 +196,7 @@ public class HudiParquetPageSourceCreator
                 }
                 else {
                     internalFields.add(Optional.ofNullable(
-                            getParquetType(column, fileSchema, useParquetColumnNames))
+                                    getParquetType(column, fileSchema, useParquetColumnNames))
                             .flatMap(field -> {
                                 String columnName = useParquetColumnNames
                                         ? column.getBaseColumnName()

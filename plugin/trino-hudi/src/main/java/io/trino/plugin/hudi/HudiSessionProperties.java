@@ -30,8 +30,8 @@ import static io.trino.plugin.base.session.PropertyMetadataUtil.dataSizeProperty
 import static io.trino.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static io.trino.spi.session.PropertyMetadata.booleanProperty;
 import static io.trino.spi.session.PropertyMetadata.doubleProperty;
-import static io.trino.spi.session.PropertyMetadata.enumProperty;
 import static io.trino.spi.session.PropertyMetadata.integerProperty;
+import static io.trino.spi.session.PropertyMetadata.stringProperty;
 import static java.lang.String.format;
 
 public class HudiSessionProperties
@@ -55,10 +55,9 @@ public class HudiSessionProperties
     public HudiSessionProperties(HudiConfig hudiConfig)
     {
         sessionProperties = ImmutableList.of(
-                enumProperty(
+                stringProperty(
                         BASE_FILE_FORMAT,
                         "Currently, only Parquet is supported",
-                        HoodieFileFormat.class,
                         hudiConfig.getBaseFileFormat(),
                         false),
                 booleanProperty(

@@ -23,21 +23,25 @@ import org.joda.time.DateTimeZone;
 
 import java.util.Map;
 
+import static java.lang.String.format;
+
 public final class HudiPageSourceFactory
 {
     private HudiPageSourceFactory() {}
 
     public static HudiPageSourceCreator get(
-            HoodieFileFormat baseFileFormat, HudiConfig hudiConfig, HdfsEnvironment hdfsEnvironment,
-            FileFormatDataSourceStats stats, DateTimeZone timeZone, Map<String, Object> context)
+            HoodieFileFormat baseFileFormat,
+            HudiConfig hudiConfig,
+            HdfsEnvironment hdfsEnvironment,
+            FileFormatDataSourceStats stats,
+            DateTimeZone timeZone,
+            Map<String, Object> context)
     {
         switch (baseFileFormat) {
             case PARQUET:
-                return new HudiParquetPageSourceCreator(
-                        hudiConfig, hdfsEnvironment, stats, timeZone, context);
+                return new HudiParquetPageSourceCreator(hudiConfig, hdfsEnvironment, stats, timeZone, context);
             default:
-                throw new HoodieIOException(
-                        String.format("Base file format %s is not supported yet", baseFileFormat));
+                throw new HoodieIOException(format("Base file format %s is not supported yet", baseFileFormat));
         }
     }
 }

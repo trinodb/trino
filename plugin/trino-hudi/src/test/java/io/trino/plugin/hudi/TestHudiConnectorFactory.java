@@ -27,6 +27,7 @@ import java.util.Map;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static io.trino.plugin.hudi.AbstractHudiTestQueryFramework.HUDI_CATALOG;
 import static io.trino.spi.transaction.IsolationLevel.READ_UNCOMMITTED;
+import static io.trino.testing.TestingConnectorSession.SESSION;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestHudiConnectorFactory
@@ -49,11 +50,11 @@ public class TestHudiConnectorFactory
     {
         Map<String, String> config = ImmutableMap.<String, String>builder()
                 .put("hive.metastore.uri", metastoreUri)
-                .build();
+                .buildOrThrow();
 
         Connector connector = new HudiConnectorFactory(HUDI_CATALOG).create("test", config, new TestingConnectorContext());
         ConnectorTransactionHandle transaction = connector.beginTransaction(READ_UNCOMMITTED, true, true);
-        assertInstanceOf(connector.getMetadata(transaction), ClassLoaderSafeConnectorMetadata.class);
+        assertInstanceOf(connector.getMetadata(SESSION, transaction), ClassLoaderSafeConnectorMetadata.class);
         assertInstanceOf(connector.getSplitManager(), ClassLoaderSafeConnectorSplitManager.class);
         assertInstanceOf(connector.getPageSourceProvider(), ConnectorPageSourceProvider.class);
         connector.commit(transaction);

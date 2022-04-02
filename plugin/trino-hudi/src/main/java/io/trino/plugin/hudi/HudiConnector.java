@@ -27,6 +27,7 @@ import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.SystemTable;
@@ -85,9 +86,9 @@ public class HudiConnector
     }
 
     @Override
-    public ConnectorMetadata getMetadata(ConnectorTransactionHandle transactionHandle)
+    public ConnectorMetadata getMetadata(ConnectorSession session, ConnectorTransactionHandle transactionHandle)
     {
-        ConnectorMetadata metadata = transactionManager.get(transactionHandle);
+        ConnectorMetadata metadata = transactionManager.get(transactionHandle, session.getIdentity());
         return new ClassLoaderSafeConnectorMetadata(metadata, getClass().getClassLoader());
     }
 
@@ -139,7 +140,7 @@ public class HudiConnector
         checkConnectorSupports(SERIALIZABLE, isolationLevel);
         ConnectorTransactionHandle transaction = new HiveTransactionHandle(true);
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
-            transactionManager.put(transaction, metadataFactory.create());
+            transactionManager.put(transaction);
         }
         return transaction;
     }
@@ -147,16 +148,13 @@ public class HudiConnector
     @Override
     public void commit(ConnectorTransactionHandle transaction)
     {
-        transactionManager.remove(transaction);
+        transactionManager.commit(transaction);
     }
 
     @Override
     public void rollback(ConnectorTransactionHandle transaction)
     {
-        HudiMetadata metadata = transactionManager.remove(transaction);
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
-            metadata.rollback();
-        }
+        transactionManager.rollback(transaction);
     }
 
     @Override

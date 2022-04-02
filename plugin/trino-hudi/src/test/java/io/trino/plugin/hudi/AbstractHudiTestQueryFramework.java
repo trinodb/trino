@@ -87,11 +87,11 @@ public class AbstractHudiTestQueryFramework
             "    partitioned_by = ARRAY['dt']\n" +
             " )";
 
-    private static final Map<String, String> TABLE_NAME_TO_CREATE_STATEMENT = new ImmutableMap.Builder<String, String>()
+    private static final Map<String, String> TABLE_NAME_TO_CREATE_STATEMENT = ImmutableMap.<String, String>builder()
             .put(NON_PARTITIONED_TABLE_NAME, CREATE_NON_PARTITIONED_TABLE_STATEMENT)
             .put(PARTITIONED_COW_TABLE_NAME, CREATE_PARTITIONED_TABLE_STATEMENT)
             .put(PARTITIONED_MOR_TABLE_NAME, CREATE_PARTITIONED_TABLE_STATEMENT)
-            .build();
+            .buildOrThrow();
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -145,7 +145,7 @@ public class AbstractHudiTestQueryFramework
         Map<String, String> hudiProperties = ImmutableMap.<String, String>builder()
                 .put("hive.metastore", "file")
                 .put("hive.metastore.catalog.dir", catalogDir.toFile().toURI().toString())
-                .build();
+                .buildOrThrow();
         queryRunner.createCatalog(HUDI_CATALOG, "hudi", hudiProperties);
 
         // Install Hive connector
@@ -155,7 +155,7 @@ public class AbstractHudiTestQueryFramework
                 .put("hive.metastore.catalog.dir", catalogDir.toFile().toURI().toString())
                 .put("hive.allow-drop-table", "true")
                 .put("hive.security", "legacy")
-                .build();
+                .buildOrThrow();
         queryRunner.createCatalog(HIVE_CATALOG, "hive", hiveProperties);
         queryRunner.execute(format("CREATE SCHEMA %s.%s", HIVE_CATALOG, HUDI_SCHEMA));
 

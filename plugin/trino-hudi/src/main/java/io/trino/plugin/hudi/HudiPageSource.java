@@ -32,42 +32,42 @@ public class HudiPageSource
         implements ConnectorPageSource
 {
     private final List<HiveColumnHandle> columnHandles;
-    private final ConnectorPageSource pageSource;
+    private final ConnectorPageSource dataPageSource;
     private final Map<String, Block> partitionBlocks;
 
     public HudiPageSource(
             List<HiveColumnHandle> columnHandles,
             Map<String, Block> partitionBlocks,
-            ConnectorPageSource pageSource)
+            ConnectorPageSource dataPageSource)
     {
         this.columnHandles = requireNonNull(columnHandles, "columnHandles is null");
-        this.pageSource = requireNonNull(pageSource, "pageSource is null");
+        this.dataPageSource = requireNonNull(dataPageSource, "dataPageSource is null");
         this.partitionBlocks = requireNonNull(partitionBlocks, "partitionBlocks is null");
     }
 
     @Override
     public long getCompletedBytes()
     {
-        return pageSource.getCompletedBytes();
+        return dataPageSource.getCompletedBytes();
     }
 
     @Override
     public long getReadTimeNanos()
     {
-        return pageSource.getReadTimeNanos();
+        return dataPageSource.getReadTimeNanos();
     }
 
     @Override
     public boolean isFinished()
     {
-        return pageSource.isFinished();
+        return dataPageSource.isFinished();
     }
 
     @Override
     public Page getNextPage()
     {
         try {
-            Page page = pageSource.getNextPage();
+            Page page = dataPageSource.getNextPage();
             if (page == null) {
                 return null;
             }
@@ -101,14 +101,14 @@ public class HudiPageSource
     @Override
     public long getMemoryUsage()
     {
-        return pageSource.getMemoryUsage();
+        return dataPageSource.getMemoryUsage();
     }
 
     @Override
     public void close()
             throws IOException
     {
-        pageSource.close();
+        dataPageSource.close();
     }
 
     private void closeWithSuppression(Throwable throwable)

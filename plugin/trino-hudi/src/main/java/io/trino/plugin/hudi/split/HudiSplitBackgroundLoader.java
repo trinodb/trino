@@ -32,6 +32,7 @@ import org.apache.hudi.common.util.collection.Pair;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -45,6 +46,7 @@ import static io.trino.plugin.hudi.HudiSessionProperties.getPartitionScannerPara
 import static io.trino.plugin.hudi.HudiSessionProperties.getSplitGeneratorParallelism;
 import static io.trino.plugin.hudi.HudiSessionProperties.getStandardSplitWeightSize;
 import static io.trino.plugin.hudi.HudiSessionProperties.isSizeBasedSplitWeightsEnabled;
+import static java.lang.String.format;
 
 public class HudiSplitBackgroundLoader
         implements Runnable
@@ -54,10 +56,10 @@ public class HudiSplitBackgroundLoader
     private final HudiTableHandle tableHandle;
     private final HoodieTableMetaClient metaClient;
     private final HudiFileListing hudiFileListing;
-    private final ArrayDeque<ConnectorSplit> connectorSplitQueue;
-    private final ArrayDeque<HudiPartitionInfo> partitionQueue;
+    private final Deque<ConnectorSplit> connectorSplitQueue;
+    private final Deque<HudiPartitionInfo> partitionQueue;
     private final Map<String, HudiPartitionInfo> partitionInfoMap;
-    private final ArrayDeque<Pair<FileStatus, String>> hoodieFileStatusQueue;
+    private final Deque<Pair<FileStatus, String>> hoodieFileStatusQueue;
     private final ExecutorService partitionInfoLoaderExecutorService;
     private final ExecutorService partitionScannerExecutorService;
     private final ExecutorService splitGeneratorExecutorService;
@@ -72,7 +74,7 @@ public class HudiSplitBackgroundLoader
             HudiTableHandle tableHandle,
             HoodieTableMetaClient metaClient,
             HudiFileListing hudiFileListing,
-            ArrayDeque<ConnectorSplit> connectorSplitQueue)
+            Deque<ConnectorSplit> connectorSplitQueue)
     {
         this.session = session;
         this.tableHandle = tableHandle;
@@ -120,8 +122,13 @@ public class HudiSplitBackgroundLoader
                     ? new SizeBasedSplitWeightProvider(minimumAssignedSplitWeight, standardSplitWeightSize)
                     : HudiSplitWeightProvider.uniformStandardWeightProvider();
             HudiPartitionSplitGenerator generator = new HudiPartitionSplitGenerator(
-                    fileSystem, metaClient, tableHandle, splitWeightProvider,
-                    partitionInfoMap, hoodieFileStatusQueue, connectorSplitQueue);
+                    fileSystem,
+                    metaClient,
+                    tableHandle,
+                    splitWeightProvider,
+                    partitionInfoMap,
+                    hoodieFileStatusQueue,
+                    connectorSplitQueue);
             splitGeneratorList.add(generator);
             splitGeneratorFutures.add(splitGeneratorExecutorService.submit(generator));
         }
@@ -161,6 +168,6 @@ public class HudiSplitBackgroundLoader
                 throw new RuntimeException("Split generator interrupted", e);
             }
         }
-        log.debug(String.format("Finish getting all splits in %d ms", timer.endTimer()));
+        log.debug(format("Finish getting all splits in %d ms", timer.endTimer()));
     }
 }

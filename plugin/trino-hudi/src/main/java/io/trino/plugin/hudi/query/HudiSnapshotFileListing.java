@@ -30,10 +30,14 @@ public class HudiSnapshotFileListing
         extends HudiFileListing
 {
     public HudiSnapshotFileListing(
-            HoodieMetadataConfig metadataConfig, HoodieEngineContext engineContext,
-            HudiTableHandle tableHandle, HoodieTableMetaClient metaClient,
-            HiveMetastore hiveMetastore, Table hiveTable,
-            List<HiveColumnHandle> partitionColumnHandles, boolean shouldSkipMetastoreForPartition)
+            HoodieMetadataConfig metadataConfig,
+            HoodieEngineContext engineContext,
+            HudiTableHandle tableHandle,
+            HoodieTableMetaClient metaClient,
+            HiveMetastore hiveMetastore,
+            Table hiveTable,
+            List<HiveColumnHandle> partitionColumnHandles,
+            boolean shouldSkipMetastoreForPartition)
     {
         super(metadataConfig, engineContext, tableHandle, metaClient, hiveMetastore, hiveTable, partitionColumnHandles, shouldSkipMetastoreForPartition);
     }

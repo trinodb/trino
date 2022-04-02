@@ -156,7 +156,7 @@ public class HudiUtil
             for (HiveColumnHandle columnHandle : domains.keySet()) {
                 if (newColumnDomains.containsKey(columnHandle)
                         && !newColumnDomains.get(columnHandle).equals(domains.get(columnHandle))) {
-                    throw new HoodieIOException(String.format("Conflicting predicates for %s: [%s] and [%s]",
+                    throw new HoodieIOException(format("Conflicting predicates for %s: [%s] and [%s]",
                             columnHandle, newColumnDomains.get(columnHandle), domains.get(columnHandle)));
                 }
                 else {
@@ -212,7 +212,7 @@ public class HudiUtil
                     dummyPartitionName, partitionValues.get(i), partitionColumnTypes.get(i));
             builder.put(column, parsedValue);
         }
-        Map<ColumnHandle, NullableValue> values = builder.build();
+        Map<ColumnHandle, NullableValue> values = builder.buildOrThrow();
         return new HivePartition(tableName, dummyPartitionName, values);
     }
 
@@ -420,19 +420,19 @@ public class HudiUtil
                 List<String> extractedPartitionValues =
                         partitionValueExtractor.extractPartitionValuesInPath(relativePartitionPath);
                 if (extractedPartitionValues.equals(expectedPartitionValues)) {
-                    log.debug(String.format("Inferred %s to be the partition value extractor",
+                    log.debug(format("Inferred %s to be the partition value extractor",
                             partitionValueExtractor.getClass().getName()));
                     return partitionValueExtractor;
                 }
                 else {
-                    log.debug(String.format("Cannot use partition value extractor %s due to value mismatch " +
+                    log.debug(format("Cannot use partition value extractor %s due to value mismatch " +
                                     "(expected: %s, actual: %s), trying the next option ...",
                             partitionValueExtractor.getClass().getName(), expectedPartitionValues,
                             extractedPartitionValues));
                 }
             }
             catch (IllegalArgumentException e) {
-                log.debug(String.format("Cannot use partition value extractor %s, trying the next option ...",
+                log.debug(format("Cannot use partition value extractor %s, trying the next option ...",
                         partitionValueExtractor.getClass().getName()));
             }
         }

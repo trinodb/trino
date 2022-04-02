@@ -53,10 +53,14 @@ public abstract class HudiFileListing
     protected List<Column> partitionColumns;
 
     public HudiFileListing(
-            HoodieMetadataConfig metadataConfig, HoodieEngineContext engineContext,
-            HudiTableHandle tableHandle, HoodieTableMetaClient metaClient,
-            HiveMetastore hiveMetastore, Table hiveTable,
-            List<HiveColumnHandle> partitionColumnHandles, boolean shouldSkipMetastoreForPartition)
+            HoodieMetadataConfig metadataConfig,
+            HoodieEngineContext engineContext,
+            HudiTableHandle tableHandle,
+            HoodieTableMetaClient metaClient,
+            HiveMetastore hiveMetastore,
+            Table hiveTable,
+            List<HiveColumnHandle> partitionColumnHandles,
+            boolean shouldSkipMetastoreForPartition)
     {
         this.metadataConfig = metadataConfig;
         this.engineContext = engineContext;

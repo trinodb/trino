@@ -45,6 +45,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import static java.lang.String.format;
 import static java.util.Objects.isNull;
 
 public class HudiReadOptimizedFileListing
@@ -60,8 +61,7 @@ public class HudiReadOptimizedFileListing
             HiveMetastore hiveMetastore, Table hiveTable,
             List<HiveColumnHandle> partitionColumnHandles, boolean shouldSkipMetastoreForPartition)
     {
-        super(metadataConfig, engineContext, tableHandle, metaClient, hiveMetastore, hiveTable,
-                partitionColumnHandles, shouldSkipMetastoreForPartition);
+        super(metadataConfig, engineContext, tableHandle, metaClient, hiveMetastore, hiveTable, partitionColumnHandles, shouldSkipMetastoreForPartition);
     }
 
     @Override
@@ -121,7 +121,7 @@ public class HudiReadOptimizedFileListing
                 .filter(HudiPartitionInfo::doesMatchPredicates)
                 .collect(Collectors.toList());
 
-        log.debug(String.format(
+        log.debug(format(
                 "Get partitions to scan in %d ms (shouldSkipMetastoreForPartition: %s): %s",
                 timer.endTimer(), shouldSkipMetastoreForPartition, filteredPartitionInfoList));
 

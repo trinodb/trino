@@ -36,7 +36,8 @@ public abstract class HudiPartitionInfo
     protected List<HivePartitionKey> hivePartitionKeys;
 
     public HudiPartitionInfo(
-            Table table, List<HiveColumnHandle> partitionColumnHandles,
+            Table table,
+            List<HiveColumnHandle> partitionColumnHandles,
             TupleDomain<HiveColumnHandle> constraintSummary)
     {
         this.table = table;

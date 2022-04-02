@@ -34,7 +34,9 @@ public abstract class HudiPageSourceCreator
     protected final DateTimeZone timeZone;
 
     public HudiPageSourceCreator(
-            HudiConfig hudiConfig, HdfsEnvironment hdfsEnvironment, FileFormatDataSourceStats stats,
+            HudiConfig hudiConfig,
+            HdfsEnvironment hdfsEnvironment,
+            FileFormatDataSourceStats stats,
             DateTimeZone timeZone)
     {
         this.hudiConfig = hudiConfig;

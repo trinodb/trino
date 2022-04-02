@@ -68,6 +68,7 @@ import static io.trino.plugin.hive.util.HiveUtil.hiveColumnHandles;
 import static io.trino.plugin.hive.util.HiveUtil.isHiveSystemSchema;
 import static io.trino.plugin.hudi.HudiErrorCode.HUDI_UNKNOWN_TABLE_TYPE;
 import static io.trino.plugin.hudi.HudiUtil.splitPredicate;
+import static io.trino.spi.connector.SchemaTableName.schemaTableName;
 import static java.lang.String.format;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
@@ -85,7 +86,6 @@ public class HudiMetadata
     private final HiveMetastore metastore;
     private final HdfsEnvironment hdfsEnvironment;
     private final TypeManager typeManager;
-    private Table hiveTable;
 
     public HudiMetadata(HiveMetastore metastore, HdfsEnvironment hdfsEnvironment, TypeManager typeManager)
     {
@@ -111,14 +111,13 @@ public class HudiMetadata
         if (table.isEmpty()) {
             return null;
         }
-        hiveTable = table.get();
-        if (!isHudiTable(session, hiveTable)) {
+        if (!isHudiTable(session, table.get())) {
             throw new TrinoException(HUDI_UNKNOWN_TABLE_TYPE, format("Not a Hudi table: %s", tableName));
         }
         return new HudiTableHandle(
                 tableName.getSchemaName(),
                 tableName.getTableName(),
-                hiveTable.getStorage().getLocation(),
+                table.get().getStorage().getLocation(),
                 HoodieTableType.COPY_ON_WRITE,
                 TupleDomain.all(),
                 TupleDomain.all(),
@@ -160,8 +159,10 @@ public class HudiMetadata
     @Override
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        requireNonNull(hiveTable, "hiveTable is null");
-        return hiveColumnHandles(hiveTable, typeManager, NANOSECONDS).stream()
+        HudiTableHandle hudiTableHandle = (HudiTableHandle) tableHandle;
+        Table table = metastore.getTable(hudiTableHandle.getSchemaName(), hudiTableHandle.getTableName())
+                .orElseThrow(() -> new TableNotFoundException(schemaTableName(hudiTableHandle.getSchemaName(), hudiTableHandle.getTableName())));
+        return hiveColumnHandles(table, typeManager, NANOSECONDS).stream()
                 .collect(toImmutableMap(HiveColumnHandle::getName, identity()));
     }
 
@@ -178,8 +179,7 @@ public class HudiMetadata
                 .map(partitions -> new HudiInputInfo(
                         partitions.stream()
                                 .map(HivePartition::getPartitionId)
-                                .collect(toImmutableList()),
-                        false));
+                                .collect(toImmutableList())));
     }
 
     @Override
@@ -188,7 +188,7 @@ public class HudiMetadata
         ImmutableList.Builder<SchemaTableName> tableNames = ImmutableList.builder();
         for (String schemaName : listSchemas(session, optionalSchemaName)) {
             for (String tableName : metastore.getAllTables(schemaName)) {
-                tableNames.add(new SchemaTableName(schemaName, tableName));
+                tableNames.add(schemaTableName(schemaName, tableName));
             }
         }
 
@@ -212,17 +212,12 @@ public class HudiMetadata
                 // table disappeared during listing operation
             }
         }
-        return columns.build();
+        return columns.buildOrThrow();
     }
 
     HiveMetastore getMetastore()
     {
         return metastore;
-    }
-
-    Table getTable()
-    {
-        return hiveTable;
     }
 
     void rollback()
@@ -269,7 +264,7 @@ public class HudiMetadata
             }
         }
 
-        Map<String, Optional<String>> columnComment = builder.build();
+        Map<String, Optional<String>> columnComment = builder.buildOrThrow();
 
         return handle -> ColumnMetadata.builder()
                 .setName(handle.getName())
@@ -302,29 +297,30 @@ public class HudiMetadata
 
     private ConnectorTableMetadata getTableMetadata(SchemaTableName tableName)
     {
-        requireNonNull(hiveTable, "hiveTable is null");
-        Function<HiveColumnHandle, ColumnMetadata> metadataGetter = columnMetadataGetter(hiveTable);
+        Table table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName())
+                .orElseThrow(() -> new TableNotFoundException(schemaTableName(tableName.getSchemaName(), tableName.getTableName())));
+        Function<HiveColumnHandle, ColumnMetadata> metadataGetter = columnMetadataGetter(table);
         ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
-        for (HiveColumnHandle columnHandle : hiveColumnHandles(hiveTable, typeManager, NANOSECONDS)) {
+        for (HiveColumnHandle columnHandle : hiveColumnHandles(table, typeManager, NANOSECONDS)) {
             columns.add(metadataGetter.apply(columnHandle));
         }
 
         // External location property
         ImmutableMap.Builder<String, Object> properties = ImmutableMap.builder();
-        if (hiveTable.getTableType().equals(EXTERNAL_TABLE.name())) {
-            properties.put(EXTERNAL_LOCATION_PROPERTY, hiveTable.getStorage().getLocation());
+        if (table.getTableType().equals(EXTERNAL_TABLE.name())) {
+            properties.put(EXTERNAL_LOCATION_PROPERTY, table.getStorage().getLocation());
         }
 
         // Partitioning property
-        List<String> partitionedBy = hiveTable.getPartitionColumns().stream()
+        List<String> partitionedBy = table.getPartitionColumns().stream()
                 .map(Column::getName)
                 .collect(toImmutableList());
         if (!partitionedBy.isEmpty()) {
             properties.put(PARTITIONED_BY_PROPERTY, partitionedBy);
         }
 
-        Optional<String> comment = Optional.ofNullable(hiveTable.getParameters().get(TABLE_COMMENT));
-        return new ConnectorTableMetadata(tableName, columns.build(), properties.build(), comment);
+        Optional<String> comment = Optional.ofNullable(table.getParameters().get(TABLE_COMMENT));
+        return new ConnectorTableMetadata(tableName, columns.build(), properties.buildOrThrow(), comment);
     }
 
     private List<String> listSchemas(ConnectorSession session, Optional<String> schemaName)

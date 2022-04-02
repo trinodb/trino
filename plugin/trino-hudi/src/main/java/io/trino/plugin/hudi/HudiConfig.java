@@ -17,7 +17,6 @@ package io.trino.plugin.hudi;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.units.DataSize;
-import org.apache.hudi.common.model.HoodieFileFormat;
 
 import javax.validation.constraints.DecimalMax;
 import javax.validation.constraints.DecimalMin;
@@ -29,7 +28,7 @@ import static org.apache.hudi.common.model.HoodieFileFormat.PARQUET;
 
 public class HudiConfig
 {
-    private HoodieFileFormat baseFileFormat = PARQUET;
+    private String baseFileFormat = PARQUET.name();
     private boolean metadataEnabled;
     private boolean shouldSkipMetaStoreForPartition;
     private boolean shouldUseParquetColumnNames = true;
@@ -42,13 +41,13 @@ public class HudiConfig
     private double minimumAssignedSplitWeight = 0.05;
 
     @NotNull
-    public HoodieFileFormat getBaseFileFormat()
+    public String getBaseFileFormat()
     {
-        return HoodieFileFormat.valueOf(baseFileFormat.name());
+        return baseFileFormat;
     }
 
     @Config("hudi.base-file-format")
-    public HudiConfig setBaseFileFormat(HoodieFileFormat baseFileFormat)
+    public HudiConfig setBaseFileFormat(String baseFileFormat)
     {
         this.baseFileFormat = baseFileFormat;
         return this;

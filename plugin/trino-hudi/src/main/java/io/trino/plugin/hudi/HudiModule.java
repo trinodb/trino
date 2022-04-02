@@ -22,12 +22,8 @@ import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.hive.CachingDirectoryLister;
 import io.trino.plugin.hive.DirectoryLister;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
-import io.trino.plugin.hive.HdfsConfiguration;
-import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.HiveConfig;
-import io.trino.plugin.hive.HiveHdfsConfiguration;
 import io.trino.plugin.hive.HiveNodePartitioningProvider;
-import io.trino.plugin.hive.HiveTransactionManager;
 import io.trino.plugin.hive.metastore.MetastoreConfig;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.hive.parquet.ParquetWriterConfig;
@@ -47,8 +43,6 @@ public class HudiModule
     @Override
     public void configure(Binder binder)
     {
-        binder.bind(HdfsConfiguration.class).to(HiveHdfsConfiguration.class).in(Scopes.SINGLETON);
-        binder.bind(HdfsEnvironment.class).in(Scopes.SINGLETON);
         binder.bind(DirectoryLister.class).to(CachingDirectoryLister.class).in(Scopes.SINGLETON);
         binder.bind(HudiTransactionManager.class).in(Scopes.SINGLETON);
 
@@ -67,7 +61,6 @@ public class HudiModule
         configBinder(binder).bindConfig(ParquetWriterConfig.class);
 
         binder.bind(HudiMetadataFactory.class).in(Scopes.SINGLETON);
-        binder.bind(HiveTransactionManager.class).in(Scopes.SINGLETON);
 
         binder.bind(FileFormatDataSourceStats.class).in(Scopes.SINGLETON);
         newExporter(binder).export(FileFormatDataSourceStats.class).withGeneratedName();

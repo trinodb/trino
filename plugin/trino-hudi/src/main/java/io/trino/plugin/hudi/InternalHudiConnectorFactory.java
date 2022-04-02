@@ -24,11 +24,11 @@ import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.event.client.EventModule;
 import io.airlift.json.JsonModule;
 import io.trino.plugin.base.CatalogName;
+import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorAccessControl;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorPageSourceProvider;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorSplitManager;
 import io.trino.plugin.base.classloader.ClassLoaderSafeNodePartitioningProvider;
 import io.trino.plugin.base.jmx.MBeanServerModule;
-import io.trino.plugin.base.security.AllowAllAccessControl;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.hive.HiveHdfsModule;
 import io.trino.plugin.hive.NodeVersion;
@@ -104,7 +104,8 @@ public final class InternalHudiConnectorFactory
             ConnectorNodePartitioningProvider connectorDistributionProvider = injector.getInstance(ConnectorNodePartitioningProvider.class);
             Set<SessionPropertiesProvider> sessionPropertiesProviders = injector.getInstance(Key.get(new TypeLiteral<Set<SessionPropertiesProvider>>() {}));
             HudiTableProperties hudiTableProperties = injector.getInstance(HudiTableProperties.class);
-            Optional<ConnectorAccessControl> accessControl = Optional.of(new AllowAllAccessControl());
+            Optional<ConnectorAccessControl> hudiAccessControl = injector.getInstance(Key.get(new TypeLiteral<Optional<ConnectorAccessControl>>() {}))
+                    .map(accessControl -> new ClassLoaderSafeConnectorAccessControl(accessControl, classLoader));
 
             return new HudiConnector(
                     lifeCycleManager,
@@ -116,7 +117,7 @@ public final class InternalHudiConnectorFactory
                     ImmutableSet.of(),
                     sessionPropertiesProviders,
                     hudiTableProperties.getTableProperties(),
-                    accessControl);
+                    hudiAccessControl);
         }
     }
 }

@@ -33,6 +33,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static io.trino.plugin.hudi.HudiUtil.mergePredicates;
+import static io.trino.spi.connector.SchemaTableName.schemaTableName;
 import static java.util.Objects.requireNonNull;
 
 public class HudiTableHandle
@@ -151,7 +152,7 @@ public class HudiTableHandle
 
     public SchemaTableName getSchemaTableName()
     {
-        return new SchemaTableName(schemaName, tableName);
+        return schemaTableName(schemaName, tableName);
     }
 
     HudiTableHandle withPredicates(HudiPredicates predicates)

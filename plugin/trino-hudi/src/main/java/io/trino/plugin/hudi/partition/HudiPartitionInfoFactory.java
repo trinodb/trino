@@ -30,19 +30,30 @@ public final class HudiPartitionInfoFactory
 
     public static HudiPartitionInfo get(
             boolean shouldSkipMetastoreForPartition,
-            Option<String> relativePartitionPath, Option<String> hivePartitionName,
+            Option<String> relativePartitionPath,
+            Option<String> hivePartitionName,
             Option<PartitionValueExtractor> partitionValueExtractor,
-            List<Column> partitionColumns, List<HiveColumnHandle> partitionColumnHandles,
+            List<Column> partitionColumns,
+            List<HiveColumnHandle> partitionColumnHandles,
             TupleDomain<HiveColumnHandle> constraintSummary,
-            Table table, HiveMetastore hiveMetastore)
+            Table table,
+            HiveMetastore hiveMetastore)
     {
         if (shouldSkipMetastoreForPartition) {
             return new HudiPartitionInternalInfo(
-                    relativePartitionPath.get(), partitionColumns, partitionColumnHandles,
-                    constraintSummary, partitionValueExtractor.get(), table);
+                    relativePartitionPath.get(),
+                    partitionColumns,
+                    partitionColumnHandles,
+                    constraintSummary,
+                    partitionValueExtractor.get(),
+                    table);
         }
         return new HudiPartitionHiveInfo(
-                hivePartitionName.get(), partitionColumns, partitionColumnHandles,
-                constraintSummary, table, hiveMetastore);
+                hivePartitionName.get(),
+                partitionColumns,
+                partitionColumnHandles,
+                constraintSummary,
+                table,
+                hiveMetastore);
     }
 }
