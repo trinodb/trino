@@ -28,26 +28,18 @@ export class WorkerList extends React.Component {
     constructor(props) {
         super(props);
         this.state = {
-            workerInfo: null,
             initialized: false,
-            ended: false,
-            workers: [{
-                workerId: String,
-                workerIp: String,
-                workerVersion: String,
-                coordinator: Boolean,
-                state: String
-            }]
+            workers: []
         };
         this.refreshLoop = this.refreshLoop.bind(this);
     }
 
     refreshLoop() {
         clearTimeout(this.timeoutId);
-        $.get('/ui/api/worker', function (workerInfo) {
+        $.get('/ui/api/worker', function (workers) {
             this.setState({
                 initialized: true,
-                workers: workerInfo
+                workers: workers
             })
             this.resetTimer();
         }.bind(this))

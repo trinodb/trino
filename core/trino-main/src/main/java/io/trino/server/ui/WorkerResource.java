@@ -166,7 +166,7 @@ public class WorkerResource
             this.nodeId = requireNonNull(nodeId, "nodeId is null");
             this.nodeIp = requireNonNull(nodeIp, "nodeIp is null");
             this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
-            this.coordinator = requireNonNull(coordinator, "coordinator is null");
+            this.coordinator = coordinator;
             this.state = requireNonNull(state, "state is null");
         }
 
