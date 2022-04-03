@@ -83,7 +83,8 @@ public class Validator
     private final boolean verboseResultsComparison;
     private final QueryPair queryPair;
     private final boolean explainOnly;
-    private final Map<String, String> sessionProperties;
+    private final Map<String, String> controlSessionProperties;
+    private final Map<String, String> testSessionProperties;
     private final int precision;
     private final int controlTeardownRetries;
     private final int testTeardownRetries;
@@ -136,8 +137,8 @@ public class Validator
         this.runTearDownOnResultMismatch = runTearDownOnResultMismatch;
 
         this.queryPair = requireNonNull(queryPair, "queryPair is null");
-        // Test and Control always have the same session properties.
-        this.sessionProperties = queryPair.getTest().getSessionProperties();
+        this.controlSessionProperties = queryPair.getControl().getSessionProperties();
+        this.testSessionProperties = queryPair.getTest().getSessionProperties();
     }
 
     public boolean isSkipped()
@@ -265,7 +266,8 @@ public class Validator
                 controlPassword,
                 controlTimeout,
                 controlPostQueryResults,
-                controlTeardownRetries);
+                controlTeardownRetries,
+                controlSessionProperties);
         if (controlTearDownResult.getState() != State.SUCCESS) {
             log.warn("Control table teardown failed");
         }
@@ -280,7 +282,8 @@ public class Validator
                 testPassword,
                 testTimeout,
                 testPostQueryResults,
-                testTeardownRetries);
+                testTeardownRetries,
+                testSessionProperties);
         if (testTearDownResult.getState() != State.SUCCESS) {
             log.warn("Test table teardown failed");
         }
@@ -358,7 +361,8 @@ public class Validator
                 testPassword,
                 testTimeout,
                 testPostQueryResults,
-                testTeardownRetries);
+                testTeardownRetries,
+                testSessionProperties);
     }
 
     private QueryResult executePreAndMainForControl()
@@ -371,7 +375,8 @@ public class Validator
                 controlPassword,
                 controlTimeout,
                 controlPostQueryResults,
-                controlTeardownRetries);
+                controlTeardownRetries,
+                controlSessionProperties);
     }
 
     private QueryResult executePreAndMain(
@@ -382,7 +387,8 @@ public class Validator
             String password,
             Duration timeout,
             List<QueryResult> postQueryResults,
-            int teardownRetries)
+            int teardownRetries,
+            Map<String, String> sessionProperties)
     {
         try {
             // startup
@@ -397,7 +403,7 @@ public class Validator
             return queryResult;
         }
         catch (Exception e) {
-            executeTearDown(query, gateway, username, password, timeout, postQueryResults, teardownRetries);
+            executeTearDown(query, gateway, username, password, timeout, postQueryResults, teardownRetries, sessionProperties);
             throw e;
         }
     }
@@ -409,7 +415,8 @@ public class Validator
             String password,
             Duration timeout,
             List<QueryResult> postQueryResults,
-            int teardownRetries)
+            int teardownRetries,
+            Map<String, String> sessionProperties)
     {
         int attempt = 0;
         QueryResult tearDownResult;
