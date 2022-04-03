@@ -26,6 +26,7 @@ import io.trino.metadata.SqlScalarFunction;
 import io.trino.operator.scalar.ChoicesScalarFunctionImplementation;
 import io.trino.operator.scalar.ScalarFunctionImplementation;
 import io.trino.spi.TrinoException;
+import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
@@ -53,7 +54,7 @@ public class JsonExistsFunction
         extends SqlScalarFunction
 {
     public static final String JSON_EXISTS_FUNCTION_NAME = "$json_exists";
-    private static final MethodHandle METHOD_HANDLE = methodHandle(JsonExistsFunction.class, "jsonExists", FunctionManager.class, Metadata.class, TypeManager.class, Type.class, ConnectorSession.class, JsonNode.class, IrJsonPath.class, Object.class, long.class);
+    private static final MethodHandle METHOD_HANDLE = methodHandle(JsonExistsFunction.class, "jsonExists", FunctionManager.class, Metadata.class, TypeManager.class, Type.class, ConnectorSession.class, JsonNode.class, IrJsonPath.class, Block.class, long.class);
     private static final TrinoException INPUT_ARGUMENT_ERROR = new JsonInputConversionError("malformed input argument to JSON_EXISTS function");
     private static final TrinoException PATH_PARAMETER_ERROR = new JsonInputConversionError("malformed JSON path parameter to JSON_EXISTS function");
 
@@ -106,7 +107,7 @@ public class JsonExistsFunction
             ConnectorSession session,
             JsonNode inputExpression,
             IrJsonPath jsonPath,
-            Object parametersRow,
+            Block parametersRow,
             long errorBehavior)
     {
         if (inputExpression.equals(JSON_ERROR)) {

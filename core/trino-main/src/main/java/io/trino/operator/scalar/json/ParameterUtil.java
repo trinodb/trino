@@ -43,15 +43,14 @@ public final class ParameterUtil
      * @param parametersRow a Block containing parameters
      * @return an array containing the converted values
      */
-    public static Object[] getParametersArray(Type parametersRowType, Object parametersRow)
+    public static Object[] getParametersArray(Type parametersRowType, Block parametersRow)
     {
         if (JSON_NO_PARAMETERS_ROW_TYPE.equals(parametersRowType)) {
             return new Object[] {};
         }
 
         RowType rowType = (RowType) parametersRowType;
-        Block row = (Block) parametersRow;
-        List<Block> parameterBlocks = row.getChildren();
+        List<Block> parameterBlocks = parametersRow.getChildren();
 
         Object[] array = new Object[rowType.getFields().size()];
         for (int i = 0; i < rowType.getFields().size(); i++) {
