@@ -33,6 +33,7 @@ import io.trino.metadata.SqlScalarFunction;
 import io.trino.operator.scalar.ChoicesScalarFunctionImplementation;
 import io.trino.operator.scalar.ScalarFunctionImplementation;
 import io.trino.spi.TrinoException;
+import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
@@ -65,11 +66,11 @@ public class JsonValueFunction
         extends SqlScalarFunction
 {
     public static final String JSON_VALUE_FUNCTION_NAME = "$json_value";
-    private static final MethodHandle METHOD_HANDLE_LONG = methodHandle(JsonValueFunction.class, "jsonValueLong", FunctionManager.class, Metadata.class, TypeManager.class, Type.class, Type.class, ConnectorSession.class, JsonNode.class, IrJsonPath.class, Object.class, long.class, Long.class, long.class, Long.class);
-    private static final MethodHandle METHOD_HANDLE_DOUBLE = methodHandle(JsonValueFunction.class, "jsonValueDouble", FunctionManager.class, Metadata.class, TypeManager.class, Type.class, Type.class, ConnectorSession.class, JsonNode.class, IrJsonPath.class, Object.class, long.class, Double.class, long.class, Double.class);
-    private static final MethodHandle METHOD_HANDLE_BOOLEAN = methodHandle(JsonValueFunction.class, "jsonValueBoolean", FunctionManager.class, Metadata.class, TypeManager.class, Type.class, Type.class, ConnectorSession.class, JsonNode.class, IrJsonPath.class, Object.class, long.class, Boolean.class, long.class, Boolean.class);
-    private static final MethodHandle METHOD_HANDLE_SLICE = methodHandle(JsonValueFunction.class, "jsonValueSlice", FunctionManager.class, Metadata.class, TypeManager.class, Type.class, Type.class, ConnectorSession.class, JsonNode.class, IrJsonPath.class, Object.class, long.class, Slice.class, long.class, Slice.class);
-    private static final MethodHandle METHOD_HANDLE = methodHandle(JsonValueFunction.class, "jsonValue", FunctionManager.class, Metadata.class, TypeManager.class, Type.class, Type.class, ConnectorSession.class, JsonNode.class, IrJsonPath.class, Object.class, long.class, Object.class, long.class, Object.class);
+    private static final MethodHandle METHOD_HANDLE_LONG = methodHandle(JsonValueFunction.class, "jsonValueLong", FunctionManager.class, Metadata.class, TypeManager.class, Type.class, Type.class, ConnectorSession.class, JsonNode.class, IrJsonPath.class, Block.class, long.class, Long.class, long.class, Long.class);
+    private static final MethodHandle METHOD_HANDLE_DOUBLE = methodHandle(JsonValueFunction.class, "jsonValueDouble", FunctionManager.class, Metadata.class, TypeManager.class, Type.class, Type.class, ConnectorSession.class, JsonNode.class, IrJsonPath.class, Block.class, long.class, Double.class, long.class, Double.class);
+    private static final MethodHandle METHOD_HANDLE_BOOLEAN = methodHandle(JsonValueFunction.class, "jsonValueBoolean", FunctionManager.class, Metadata.class, TypeManager.class, Type.class, Type.class, ConnectorSession.class, JsonNode.class, IrJsonPath.class, Block.class, long.class, Boolean.class, long.class, Boolean.class);
+    private static final MethodHandle METHOD_HANDLE_SLICE = methodHandle(JsonValueFunction.class, "jsonValueSlice", FunctionManager.class, Metadata.class, TypeManager.class, Type.class, Type.class, ConnectorSession.class, JsonNode.class, IrJsonPath.class, Block.class, long.class, Slice.class, long.class, Slice.class);
+    private static final MethodHandle METHOD_HANDLE = methodHandle(JsonValueFunction.class, "jsonValue", FunctionManager.class, Metadata.class, TypeManager.class, Type.class, Type.class, ConnectorSession.class, JsonNode.class, IrJsonPath.class, Block.class, long.class, Object.class, long.class, Object.class);
     private static final TrinoException INPUT_ARGUMENT_ERROR = new JsonInputConversionError("malformed input argument to JSON_VALUE function");
     private static final TrinoException PATH_PARAMETER_ERROR = new JsonInputConversionError("malformed JSON path parameter to JSON_VALUE function");
     private static final TrinoException NO_ITEMS = new JsonValueResultError("JSON path found no items");
@@ -153,7 +154,7 @@ public class JsonValueFunction
             ConnectorSession session,
             JsonNode inputExpression,
             IrJsonPath jsonPath,
-            Object parametersRow,
+            Block parametersRow,
             long emptyBehavior,
             Long emptyDefault,
             long errorBehavior,
@@ -172,7 +173,7 @@ public class JsonValueFunction
             ConnectorSession session,
             JsonNode inputExpression,
             IrJsonPath jsonPath,
-            Object parametersRow,
+            Block parametersRow,
             long emptyBehavior,
             Double emptyDefault,
             long errorBehavior,
@@ -191,7 +192,7 @@ public class JsonValueFunction
             ConnectorSession session,
             JsonNode inputExpression,
             IrJsonPath jsonPath,
-            Object parametersRow,
+            Block parametersRow,
             long emptyBehavior,
             Boolean emptyDefault,
             long errorBehavior,
@@ -210,7 +211,7 @@ public class JsonValueFunction
             ConnectorSession session,
             JsonNode inputExpression,
             IrJsonPath jsonPath,
-            Object parametersRow,
+            Block parametersRow,
             long emptyBehavior,
             Slice emptyDefault,
             long errorBehavior,
@@ -229,7 +230,7 @@ public class JsonValueFunction
             ConnectorSession session,
             JsonNode inputExpression,
             IrJsonPath jsonPath,
-            Object parametersRow,
+            Block parametersRow,
             long emptyBehavior,
             Object emptyDefault,
             long errorBehavior,
