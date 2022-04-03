@@ -20,6 +20,7 @@ CREATE TABLE verifier_queries(
     test_postqueries TEXT,
     test_username VARCHAR(256) NOT NULL default 'verifier-test',
     test_password VARCHAR(256),
+    test_session_properties_json VARCHAR(2048),
     control_catalog VARCHAR(256) NOT NULL,
     control_schema VARCHAR(256) NOT NULL,
     control_prequeries TEXT,
@@ -27,7 +28,7 @@ CREATE TABLE verifier_queries(
     control_postqueries TEXT,
     control_username VARCHAR(256) NOT NULL default 'verifier-test',
     control_password VARCHAR(256),
-    session_properties_json VARCHAR(2048),
+    control_session_properties_json VARCHAR(2048),
     PRIMARY KEY (id)
 );
 ```
