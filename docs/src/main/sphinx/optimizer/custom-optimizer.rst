@@ -6,7 +6,7 @@ Trino provides support to custom optimizer, registering of custom optimizer clas
 
 Custom Optimizer Class Register
 -------------------------------
-1. Create an Implementation class of `io.trino.sql.planner.optimizations.CustomPlanOptimizer`.
+1. Create an Implementation class of ``io.trino.sql.planner.optimizations.CustomPlanOptimizer``.
    | Example of CustomPlanOptimizer Implementation class is ``io.trino.sql.planner.SampleCustomPlanOptimizer``
 2. Set optimizer.custom-optimizer.allow properties to enable custom-optimizer
    | ``optimizer.custom-optimizer.allow=true``
