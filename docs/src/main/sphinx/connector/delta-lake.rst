@@ -237,6 +237,37 @@ configure processing of Parquet files.
     * - ``parquet_writer_page_size``
       - The maximum page size created by the Parquet writer.
 
+.. _delta-lake-authorization:
+
+Authorization checks
+^^^^^^^^^^^^^^^^^^^^
+
+You can enable authorization checks for the connector by setting
+the ``delta.security`` property in the catalog properties file. This
+property must be one of the following values:
+
+.. list-table:: Delta Lake security values
+  :widths: 30, 60
+  :header-rows: 1
+
+  * - Property value
+    - Description
+  * - ``ALLOW_ALL`` (default value)
+    - No authorization checks are enforced.
+  * - ``SYSTEM``
+    - The connector relies on system-level access control.
+  * - ``READ_ONLY``
+    - Operations that read data or metadata, such as :doc:`/sql/select` are
+      permitted. No operations that write data or metadata, such as
+      :doc:`/sql/create-table`, :doc:`/sql/insert`, or :doc:`/sql/delete` are
+      allowed.
+  * - ``FILE``
+    - Authorization checks are enforced using a catalog-level access control
+      configuration file whose path is specified in the ``security.config-file``
+      catalog configuration property. See
+      :ref:`catalog-file-based-access-control` for information on the
+      authorization configuration file.
+
 .. _delta-lake-type-mapping:
 
 Type mapping

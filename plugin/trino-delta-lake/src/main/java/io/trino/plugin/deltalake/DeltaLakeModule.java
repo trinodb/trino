@@ -96,8 +96,7 @@ public class DeltaLakeModule
         configBinder(binder).bindConfigDefaults(ParquetWriterConfig.class, config -> config.setParquetOptimizedWriterEnabled(true));
 
         install(new ConnectorAccessControlModule());
-        newOptionalBinder(binder, DeltaLakeAccessControlMetadataFactory.class)
-                .setDefault().toInstance(DeltaLakeAccessControlMetadataFactory.SYSTEM);
+        configBinder(binder).bindConfig(DeltaLakeSecurityConfig.class);
 
         Multibinder<SystemTableProvider> systemTableProviders = newSetBinder(binder, SystemTableProvider.class);
         systemTableProviders.addBinding().to(PropertiesSystemTableProvider.class).in(Scopes.SINGLETON);
