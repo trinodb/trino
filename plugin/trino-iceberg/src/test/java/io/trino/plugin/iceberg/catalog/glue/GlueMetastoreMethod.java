@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.iceberg;
+package io.trino.plugin.iceberg.catalog.glue;
 
 import com.google.common.math.DoubleMath;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreApiStats;
