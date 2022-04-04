@@ -17,6 +17,7 @@ import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.UncheckedTimeoutException;
+import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.cost.StatsAndCosts;
@@ -2357,6 +2358,33 @@ public abstract class BaseConnectorTest
     protected String errorMessageForInsertIntoNotNullColumn(String columnName)
     {
         throw new UnsupportedOperationException("This method should be overridden");
+    }
+
+    @Test
+    public void testInsertInTransaction()
+    {
+        if (!hasBehavior(SUPPORTS_INSERT)) {
+            // nothing to test
+            return;
+        }
+
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_tx_insert",
+                "(a bigint)")) {
+            String tableName = table.getName();
+            String insert = "INSERT INTO " + tableName + " VALUES 42";
+
+            if (!hasBehavior(SUPPORTS_MULTI_STATEMENT_WRITES)) {
+                assertThatThrownBy(() -> inTransaction(session -> getQueryRunner().execute(session, insert)))
+                        .hasMessage("Catalog only supports writes using autocommit: " + getSession().getCatalog().orElseThrow());
+                assertQueryReturnsEmptyResult("TABLE " + tableName);
+            }
+            else {
+                inTransaction(session -> assertUpdate(session, insert, 1));
+                assertQuery("TABLE " + tableName, "VALUES 42");
+            }
+        }
     }
 
     @Test
