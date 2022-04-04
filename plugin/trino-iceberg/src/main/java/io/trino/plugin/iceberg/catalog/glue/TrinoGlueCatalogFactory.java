@@ -15,6 +15,7 @@ package io.trino.plugin.iceberg.catalog.glue;
 
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.services.glue.AWSGlueAsync;
+import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.metastore.glue.GlueHiveMetastoreConfig;
@@ -24,6 +25,7 @@ import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
 import io.trino.spi.security.ConnectorIdentity;
+import io.trino.spi.type.TypeManager;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
 
@@ -37,7 +39,9 @@ import static java.util.Objects.requireNonNull;
 public class TrinoGlueCatalogFactory
         implements TrinoCatalogFactory
 {
+    private final CatalogName catalogName;
     private final HdfsEnvironment hdfsEnvironment;
+    private final TypeManager typeManager;
     private final IcebergTableOperationsProvider tableOperationsProvider;
     private final String trinoVersion;
     private final Optional<String> defaultSchemaLocation;
@@ -47,7 +51,9 @@ public class TrinoGlueCatalogFactory
 
     @Inject
     public TrinoGlueCatalogFactory(
+            CatalogName catalogName,
             HdfsEnvironment hdfsEnvironment,
+            TypeManager typeManager,
             IcebergTableOperationsProvider tableOperationsProvider,
             NodeVersion nodeVersion,
             GlueHiveMetastoreConfig glueConfig,
@@ -55,7 +61,9 @@ public class TrinoGlueCatalogFactory
             IcebergConfig icebergConfig,
             GlueMetastoreStats stats)
     {
+        this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.tableOperationsProvider = requireNonNull(tableOperationsProvider, "tableOperationsProvider is null");
         this.trinoVersion = requireNonNull(nodeVersion, "nodeVersion is null").toString();
         requireNonNull(glueConfig, "glueConfig is null");
@@ -77,6 +85,15 @@ public class TrinoGlueCatalogFactory
     @Override
     public TrinoCatalog create(ConnectorIdentity identity)
     {
-        return new TrinoGlueCatalog(hdfsEnvironment, tableOperationsProvider, trinoVersion, glueClient, stats, defaultSchemaLocation, isUniqueTableLocation);
+        return new TrinoGlueCatalog(
+                catalogName,
+                hdfsEnvironment,
+                typeManager,
+                tableOperationsProvider,
+                trinoVersion,
+                glueClient,
+                stats,
+                defaultSchemaLocation,
+                isUniqueTableLocation);
     }
 }
