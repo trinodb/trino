@@ -60,6 +60,7 @@ import java.net.URI;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.collect.Iterables.cycle;
 import static com.google.common.collect.Iterables.limit;
@@ -516,7 +517,7 @@ public class TestFaultTolerantStageScheduler
                 sourceExchanges,
                 Optional.empty(),
                 Optional.empty(),
-                retryAttempts,
+                new AtomicInteger(retryAttempts),
                 retryAttempts);
     }
 
