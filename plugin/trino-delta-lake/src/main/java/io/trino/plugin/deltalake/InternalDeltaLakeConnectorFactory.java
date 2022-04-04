@@ -91,6 +91,7 @@ public final class InternalDeltaLakeConnectorFactory
                     new CatalogNameModule(catalogName),
                     new DeltaLakeMetastoreModule(),
                     new DeltaLakeModule(),
+                    new DeltaLakeSecurityModule(),
                     binder -> {
                         binder.bind(NodeVersion.class).toInstance(new NodeVersion(context.getNodeManager().getCurrentNode().getVersion()));
                         binder.bind(NodeManager.class).toInstance(context.getNodeManager());
