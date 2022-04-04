@@ -30,7 +30,7 @@ public class TestOracleTypeMapping
     }
 
     @Override
-    protected SqlExecutor getOracleSqlExecutor()
+    protected SqlExecutor onRemoteDatabase()
     {
         return TestingStarburstOracleServer::executeInOracle;
     }
