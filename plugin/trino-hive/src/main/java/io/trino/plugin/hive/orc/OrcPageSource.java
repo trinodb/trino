@@ -278,6 +278,11 @@ public class OrcPageSource
         {
             return new UpdatedRowAdaptation(updateProcessor, dependencyColumns);
         }
+
+        static ColumnAdaptation constantColumn(Block singleValueBlock)
+        {
+            return new ConstantAdaptation(singleValueBlock);
+        }
     }
 
     private static class NullColumn
@@ -469,6 +474,25 @@ public class OrcPageSource
                             createOriginalFilesRowIdBlock(startingRowId, filePosition, positionCount)
                     }));
             return rowBlock;
+        }
+    }
+
+    private static class ConstantAdaptation
+            implements ColumnAdaptation
+    {
+        private final Block singleValueBlock;
+
+        public ConstantAdaptation(Block singleValueBlock)
+        {
+            requireNonNull(singleValueBlock, "singleValueBlock is null");
+            checkArgument(singleValueBlock.getPositionCount() == 1, "ConstantColumnAdaptation singleValueBlock may only contain one position");
+            this.singleValueBlock = singleValueBlock;
+        }
+
+        @Override
+        public Block block(Page sourcePage, MaskDeletedRowsFunction maskDeletedRowsFunction, long filePosition)
+        {
+            return new RunLengthEncodedBlock(singleValueBlock, sourcePage.getPositionCount());
         }
     }
 
