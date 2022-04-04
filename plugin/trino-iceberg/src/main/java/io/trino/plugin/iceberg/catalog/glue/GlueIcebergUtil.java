@@ -21,6 +21,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static io.trino.plugin.hive.HiveMetadata.PRESTO_VIEW_EXPANDED_TEXT_MARKER;
+import static io.trino.plugin.hive.ViewReaderUtil.ICEBERG_MATERIALIZED_VIEW_COMMENT;
 import static org.apache.hadoop.hive.metastore.TableType.EXTERNAL_TABLE;
 import static org.apache.hadoop.hive.metastore.TableType.VIRTUAL_VIEW;
 
@@ -45,6 +46,17 @@ public final class GlueIcebergUtil
                 .withTableType(VIRTUAL_VIEW.name())
                 .withViewOriginalText(viewOriginalText)
                 .withViewExpandedText(PRESTO_VIEW_EXPANDED_TEXT_MARKER)
+                .withOwner(owner)
+                .withParameters(parameters);
+    }
+
+    public static TableInput getMaterializedViewTableInput(String viewName, String viewOriginalText, String owner, Map<String, String> parameters)
+    {
+        return new TableInput()
+                .withName(viewName)
+                .withTableType(VIRTUAL_VIEW.name())
+                .withViewOriginalText(viewOriginalText)
+                .withViewExpandedText(ICEBERG_MATERIALIZED_VIEW_COMMENT)
                 .withOwner(owner)
                 .withParameters(parameters);
     }
