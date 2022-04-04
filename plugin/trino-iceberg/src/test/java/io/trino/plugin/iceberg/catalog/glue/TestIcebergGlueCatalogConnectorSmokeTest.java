@@ -126,14 +126,6 @@ public class TestIcebergGlueCatalogConnectorSmokeTest
 
     @Test
     @Override
-    public void testMaterializedView()
-    {
-        assertThatThrownBy(super::testMaterializedView)
-                .hasStackTraceContaining("createMaterializedView is not supported for Iceberg Glue catalogs");
-    }
-
-    @Test
-    @Override
     public void testRenameSchema()
     {
         assertThatThrownBy(super::testRenameSchema)
