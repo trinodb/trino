@@ -256,6 +256,28 @@ public class SemiTransactionalHiveMetastore
         throw new IllegalStateException("Unknown action type: " + tableAction.getType());
     }
 
+    public synchronized boolean isReadableWithinTransaction(String databaseName, String tableName)
+    {
+        Action<TableAndMore> tableAction = tableActions.get(new SchemaTableName(databaseName, tableName));
+        if (tableAction == null) {
+            return true;
+        }
+        switch (tableAction.getType()) {
+            case ADD:
+            case ALTER:
+                return true;
+            case INSERT_EXISTING:
+            case DELETE_ROWS:
+            case UPDATE:
+                // Until transaction is committed, the table data may or may not be visible.
+                return false;
+            case DROP:
+            case DROP_PRESERVE_DATA:
+                return false;
+        }
+        throw new IllegalStateException("Unknown action type: " + tableAction.getType());
+    }
+
     public synchronized Set<ColumnStatisticType> getSupportedColumnStatistics(Type type)
     {
         return delegate.getSupportedColumnStatistics(type);
