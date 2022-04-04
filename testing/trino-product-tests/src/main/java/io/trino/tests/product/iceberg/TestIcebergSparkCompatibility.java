@@ -30,6 +30,7 @@ import java.sql.Date;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CyclicBarrier;
@@ -1402,6 +1403,58 @@ public class TestIcebergSparkCompatibility
         onSpark().executeQuery("DROP TABLE " + sparkTableName);
     }
 
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "tableFormatWithDeleteFormat")
+    public void testTrinoReadsSparkRowLevelDeletes(StorageFormat tableStorageFormat, StorageFormat deleteFileStorageFormat)
+    {
+        String tableName = format("test_trino_reads_spark_row_level_deletes_%s_%s_%s", tableStorageFormat.name(), deleteFileStorageFormat.name(), randomTableSuffix());
+        String sparkTableName = sparkTableName(tableName);
+        String trinoTableName = trinoTableName(tableName);
+
+        onSpark().executeQuery("CREATE TABLE " + sparkTableName + "(a INT, b INT) " +
+                "USING ICEBERG PARTITIONED BY (b) " +
+                "TBLPROPERTIES ('format-version'='2', 'write.delete.mode'='merge-on-read'," +
+                "'write.format.default'='" + tableStorageFormat.name() + "'," +
+                "'write.delete.format.default'='" + deleteFileStorageFormat.name() + "')");
+        onSpark().executeQuery("INSERT INTO " + sparkTableName + " VALUES (1, 2), (2, 2), (3, 2), (11, 12), (12, 12), (13, 12)");
+        // Spark inserts may create multiple files. rewrite_data_files ensures it is compacted to one file so a row level delete occurs.
+        onSpark().executeQuery("CALL " + SPARK_CATALOG + ".system.rewrite_data_files(table=>'" + TEST_SCHEMA_NAME + "." + tableName + "', options => map('min-input-files','1'))");
+        // Delete one row in a file
+        onSpark().executeQuery("DELETE FROM " + sparkTableName + " WHERE a = 13");
+        // Delete an entire partition
+        onSpark().executeQuery("DELETE FROM " + sparkTableName + " WHERE b = 2");
+
+        List<Row> expected = ImmutableList.of(row(11, 12), row(12, 12));
+        assertThat(onTrino().executeQuery("SELECT * FROM " + trinoTableName)).containsOnly(expected);
+        assertThat(onSpark().executeQuery("SELECT * FROM " + sparkTableName)).containsOnly(expected);
+
+        onSpark().executeQuery("DROP TABLE " + sparkTableName);
+    }
+
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "tableFormatWithDeleteFormat")
+    public void testTrinoReadsSparkRowLevelDeletesWithRowTypes(StorageFormat tableStorageFormat, StorageFormat deleteFileStorageFormat)
+    {
+        String tableName = format("test_trino_reads_spark_row_level_deletes_row_types_%s_%s_%s", tableStorageFormat.name(), deleteFileStorageFormat.name(), randomTableSuffix());
+        String sparkTableName = sparkTableName(tableName);
+        String trinoTableName = trinoTableName(tableName);
+
+        onSpark().executeQuery("CREATE TABLE " + sparkTableName + "(part_key INT, int_t INT, row_t STRUCT<a:INT, b:INT>) " +
+                "USING ICEBERG PARTITIONED BY (part_key) " +
+                "TBLPROPERTIES ('format-version'='2', 'write.delete.mode'='merge-on-read'," +
+                "'write.format.default'='" + tableStorageFormat.name() + "'," +
+                "'write.delete.format.default'='" + deleteFileStorageFormat.name() + "')");
+        onSpark().executeQuery("INSERT INTO " + sparkTableName + " VALUES " +
+                "(1, 1, named_struct('a', 1, 'b', 2)), (1, 2, named_struct('a', 3, 'b', 4)), (1, 3, named_struct('a', 5, 'b', 6)), (2, 4, named_struct('a', 1, 'b',2))");
+        // Spark inserts may create multiple files. rewrite_data_files ensures it is compacted to one file so a row level delete occurs.
+        onSpark().executeQuery("CALL " + SPARK_CATALOG + ".system.rewrite_data_files(table=>'" + TEST_SCHEMA_NAME + "." + tableName + "', options => map('min-input-files','1'))");
+        onSpark().executeQuery("DELETE FROM " + sparkTableName + " WHERE int_t = 2");
+
+        List<Row> expected = ImmutableList.of(row(1, 2), row(1, 6), row(2, 2));
+        assertThat(onTrino().executeQuery("SELECT part_key, row_t.b FROM " + trinoTableName)).containsOnly(expected);
+        assertThat(onSpark().executeQuery("SELECT part_key, row_t.b FROM " + sparkTableName)).containsOnly(expected);
+
+        onSpark().executeQuery("DROP TABLE " + sparkTableName);
+    }
+
     private static String escapeSparkString(String value)
     {
         return value.replace("\\", "\\\\").replace("'", "\\'");
@@ -1444,6 +1497,17 @@ public class TestIcebergSparkCompatibility
         return Stream.of(StorageFormat.values())
                 .filter(StorageFormat::isSupportedInTrino)
                 .map(storageFormat -> new Object[] {storageFormat})
+                .toArray(Object[][]::new);
+    }
+
+    // Provides each supported table formats paired with each delete file format.
+    @DataProvider
+    public static Object[][] tableFormatWithDeleteFormat()
+    {
+        return Stream.of(StorageFormat.values())
+                .filter(StorageFormat::isSupportedInTrino)
+                .flatMap(tableStorageFormat -> Arrays.stream(StorageFormat.values())
+                        .map(deleteFileStorageFormat -> new Object[]{tableStorageFormat, deleteFileStorageFormat}))
                 .toArray(Object[][]::new);
     }
 

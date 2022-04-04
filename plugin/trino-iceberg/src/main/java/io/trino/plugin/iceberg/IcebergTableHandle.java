@@ -36,6 +36,7 @@ public class IcebergTableHandle
     private final String tableName;
     private final TableType tableType;
     private final Optional<Long> snapshotId;
+    private final String tableSchemaJson;
 
     // Filter used during split generation and table scan, but not required to be strictly enforced by Iceberg Connector
     private final TupleDomain<IcebergColumnHandle> unenforcedPredicate;
@@ -56,6 +57,7 @@ public class IcebergTableHandle
             @JsonProperty("tableName") String tableName,
             @JsonProperty("tableType") TableType tableType,
             @JsonProperty("snapshotId") Optional<Long> snapshotId,
+            @JsonProperty("tableSchemaJson") String tableSchemaJson,
             @JsonProperty("unenforcedPredicate") TupleDomain<IcebergColumnHandle> unenforcedPredicate,
             @JsonProperty("enforcedPredicate") TupleDomain<IcebergColumnHandle> enforcedPredicate,
             @JsonProperty("projectedColumns") Set<IcebergColumnHandle> projectedColumns,
@@ -66,6 +68,7 @@ public class IcebergTableHandle
                 tableName,
                 tableType,
                 snapshotId,
+                tableSchemaJson,
                 unenforcedPredicate,
                 enforcedPredicate,
                 projectedColumns,
@@ -79,6 +82,7 @@ public class IcebergTableHandle
             String tableName,
             TableType tableType,
             Optional<Long> snapshotId,
+            String tableSchemaJson,
             TupleDomain<IcebergColumnHandle> unenforcedPredicate,
             TupleDomain<IcebergColumnHandle> enforcedPredicate,
             Set<IcebergColumnHandle> projectedColumns,
@@ -90,6 +94,7 @@ public class IcebergTableHandle
         this.tableName = requireNonNull(tableName, "tableName is null");
         this.tableType = requireNonNull(tableType, "tableType is null");
         this.snapshotId = requireNonNull(snapshotId, "snapshotId is null");
+        this.tableSchemaJson = requireNonNull(tableSchemaJson, "schemaJson is null");
         this.unenforcedPredicate = requireNonNull(unenforcedPredicate, "unenforcedPredicate is null");
         this.enforcedPredicate = requireNonNull(enforcedPredicate, "enforcedPredicate is null");
         this.projectedColumns = ImmutableSet.copyOf(requireNonNull(projectedColumns, "projectedColumns is null"));
@@ -120,6 +125,12 @@ public class IcebergTableHandle
     public Optional<Long> getSnapshotId()
     {
         return snapshotId;
+    }
+
+    @JsonProperty
+    public String getTableSchemaJson()
+    {
+        return tableSchemaJson;
     }
 
     @JsonProperty
@@ -175,6 +186,7 @@ public class IcebergTableHandle
                 tableName,
                 tableType,
                 snapshotId,
+                tableSchemaJson,
                 unenforcedPredicate,
                 enforcedPredicate,
                 projectedColumns,
@@ -190,6 +202,7 @@ public class IcebergTableHandle
                 tableName,
                 tableType,
                 snapshotId,
+                tableSchemaJson,
                 unenforcedPredicate,
                 enforcedPredicate,
                 projectedColumns,
@@ -214,6 +227,7 @@ public class IcebergTableHandle
                 Objects.equals(tableName, that.tableName) &&
                 tableType == that.tableType &&
                 Objects.equals(snapshotId, that.snapshotId) &&
+                Objects.equals(tableSchemaJson, that.tableSchemaJson) &&
                 Objects.equals(unenforcedPredicate, that.unenforcedPredicate) &&
                 Objects.equals(enforcedPredicate, that.enforcedPredicate) &&
                 Objects.equals(projectedColumns, that.projectedColumns) &&
@@ -224,7 +238,7 @@ public class IcebergTableHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(schemaName, tableName, tableType, snapshotId, unenforcedPredicate, enforcedPredicate, projectedColumns, nameMappingJson, recordScannedFiles, maxScannedFileSize);
+        return Objects.hash(schemaName, tableName, tableType, snapshotId, tableSchemaJson, unenforcedPredicate, enforcedPredicate, projectedColumns, nameMappingJson, recordScannedFiles, maxScannedFileSize);
     }
 
     @Override

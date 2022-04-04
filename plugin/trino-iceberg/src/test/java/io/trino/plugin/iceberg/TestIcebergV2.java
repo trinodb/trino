@@ -134,7 +134,7 @@ public class TestIcebergV2
         }
 
         icebergTable.newRowDelta().addDeletes(writer.toDeleteFile()).commit();
-        assertQueryFails("SELECT * FROM " + tableName, "Iceberg tables with delete files are not supported: tpch." + tableName);
+        assertQuery("SELECT count(*) FROM " + tableName, "VALUES 24");
     }
 
     @Test
@@ -145,20 +145,8 @@ public class TestIcebergV2
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.tiny.nation", 25);
         Table icebergTable = updateTableToV2(tableName);
         writeEqualityDeleteToNationTable(icebergTable);
-        assertQueryFails("SELECT * FROM " + tableName, "Iceberg tables with delete files are not supported: tpch." + tableName);
-    }
-
-    @Test
-    public void testV2TableWithUnreadEqualityDelete()
-            throws Exception
-    {
-        String tableName = "test_v2_equality_delete" + randomTableSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " AS SELECT nationkey, regionkey FROM tpch.tiny.nation", 25);
-        Table icebergTable = updateTableToV2(tableName);
-        writeEqualityDeleteToNationTable(icebergTable);
-
-        assertUpdate("INSERT INTO " + tableName + " VALUES (100, 101)", 1);
-        assertQuery("SELECT regionkey FROM " + tableName + " WHERE nationkey = 100", "VALUES 101");
+        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE regionkey != 1");
+        assertQuery("SELECT nationkey FROM " + tableName, "SELECT nationkey FROM nation WHERE regionkey != 1");
     }
 
     private void writeEqualityDeleteToNationTable(Table icebergTable)
