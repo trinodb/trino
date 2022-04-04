@@ -136,7 +136,7 @@ public class FaultTolerantStageScheduler
     @GuardedBy("this")
     private final Map<Integer, Integer> remainingAttemptsPerTask = new HashMap<>();
     @GuardedBy("this")
-    private Map<Integer, MemoryRequirements> partitionMemoryRequirements = new HashMap<>();
+    private final Map<Integer, MemoryRequirements> partitionMemoryRequirements = new HashMap<>();
 
     @GuardedBy("this")
     private Throwable failure;
