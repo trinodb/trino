@@ -38,6 +38,8 @@ appropriate for your setup:
     connection-user=exampleuser
     connection-password=examplepassword
 
+.. include:: jdbc-extra-credentials.fragment
+
 .. note::
 
     Trino uses the new ClickHouse driver(``com.clickhouse.jdbc.ClickHouseDriver``)

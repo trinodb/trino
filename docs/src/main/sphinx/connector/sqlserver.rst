@@ -90,6 +90,8 @@ catalog named ``sales`` using the configured connector.
 
 .. include:: non-transactional-insert.fragment
 
+.. include:: jdbc-extra-credentials.fragment
+
 Querying SQL Server
 -------------------
 

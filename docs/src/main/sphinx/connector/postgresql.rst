@@ -46,9 +46,12 @@ can have adverse effects on the connector behavior or not work with the
 connector.
 
 The ``connection-user`` and ``connection-password`` are typically required and
-determine the user credentials for the connection, often a service user. You can
-use :doc:`secrets </security/secrets>` to avoid actual values in the catalog
-properties files.
+determine the user credentials for the connection, often a service user. 
+
+.. include:: jdbc-extra-credentials.fragment
+
+You can also use other solutions mentioned in :doc:`secrets </security/secrets>` 
+to avoid actual values in the catalog properties files.
 
 .. _postgresql-tls:
 

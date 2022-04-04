@@ -42,10 +42,12 @@ available in the `SingleStore JDBC driver documentation
 <https://docs.singlestore.com/db/v7.6/en/developer-resources/connect-with-application-development-tools/connect-with-java-jdbc/the-singlestore-jdbc-driver.html#connection-string-parameters>`_.
 
 The ``connection-user`` and ``connection-password`` are typically required and
-determine the user credentials for the connection, often a service user. You can
-use :doc:`secrets </security/secrets>` to avoid actual values in the catalog
-properties files.
+determine the user credentials for the connection, often a service user. 
 
+.. include:: jdbc-extra-credentials.fragment
+
+You can also use other solutions mentioned in :doc:`secrets </security/secrets>` 
+to avoid actual values in the catalog properties files.
 
 .. _singlestore-tls:
 

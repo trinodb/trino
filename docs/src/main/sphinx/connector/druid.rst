@@ -43,6 +43,8 @@ secured by basic authentication by updating the URL and adding credentials:
     connection-user=root
     connection-password=secret
 
+.. include:: jdbc-extra-credentials.fragment
+
 Now you can access your Druid database in Trino with the ``druiddb`` catalog
 name from the properties file.
 

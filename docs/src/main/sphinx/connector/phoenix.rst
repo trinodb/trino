@@ -75,6 +75,8 @@ Property Name                                      Required   Description
 
 .. include:: non-transactional-insert.fragment
 
+.. include:: jdbc-extra-credentials.fragment
+
 Querying Phoenix tables
 -------------------------
 

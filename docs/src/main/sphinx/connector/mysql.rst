@@ -50,9 +50,12 @@ the server, and serves as a `workaround for a known issue
     connection-url=jdbc:mysql://example.net:3306?serverTimezone=UTC
 
 The ``connection-user`` and ``connection-password`` are typically required and
-determine the user credentials for the connection, often a service user. You can
-use :doc:`secrets </security/secrets>` to avoid actual values in the catalog
-properties files.
+determine the user credentials for the connection, often a service user. 
+
+.. include:: jdbc-extra-credentials.fragment
+
+You can also use other solutions mentioned in :doc:`secrets </security/secrets>` 
+to avoid actual values in the catalog properties files.
 
 .. _mysql-tls:
 
