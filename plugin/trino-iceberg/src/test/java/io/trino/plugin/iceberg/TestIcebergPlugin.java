@@ -97,6 +97,21 @@ public class TestIcebergPlugin
     }
 
     @Test
+    public void testDynamoDbMetastore()
+    {
+        ConnectorFactory factory = getConnectorFactory();
+
+        factory.create(
+                "test",
+                Map.of(
+                        "iceberg.catalog.type", "dynamo_db",
+                        "iceberg.dynamodb.catalog-name", "test",
+                        "iceberg.dynamodb.default-warehouse-dir", "/dev/null"),
+                new TestingConnectorContext())
+                .shutdown();
+    }
+
+    @Test
     public void testRecordingMetastore()
     {
         ConnectorFactory factory = getConnectorFactory();

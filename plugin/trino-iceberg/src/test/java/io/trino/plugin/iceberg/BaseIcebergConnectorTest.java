@@ -883,12 +883,12 @@ public abstract class BaseIcebergConnectorTest
 
         assertUpdate("COMMENT ON TABLE test_table_comments IS NULL");
         assertEquals(computeScalar("SHOW CREATE TABLE test_table_comments"), createTableWithoutComment);
-        dropTable("iceberg.tpch.test_table_comments");
+        dropTable("test_table_comments");
 
         assertUpdate(createTableWithoutComment);
         assertEquals(computeScalar("SHOW CREATE TABLE test_table_comments"), createTableWithoutComment);
 
-        dropTable("iceberg.tpch.test_table_comments");
+        dropTable("test_table_comments");
     }
 
     @Test
@@ -1933,7 +1933,7 @@ public abstract class BaseIcebergConnectorTest
         row2 = result.getMaterializedRows().get(2);
         assertEquals(row2.getField(4), 17.0);
 
-        dropTable("iceberg.tpch.test_partitioned_table_statistics");
+        dropTable("test_partitioned_table_statistics");
     }
 
     @Test

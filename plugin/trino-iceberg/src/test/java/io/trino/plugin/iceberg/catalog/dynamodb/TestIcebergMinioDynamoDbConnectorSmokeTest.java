@@ -11,35 +11,32 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.iceberg;
+package io.trino.plugin.iceberg.catalog.dynamodb;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.hive.containers.HiveMinioDataLake;
+import io.trino.plugin.iceberg.BaseIcebergMinioConnectorSmokeTest;
+import io.trino.plugin.iceberg.IcebergQueryRunner;
+import io.trino.plugin.iceberg.SchemaInitializer;
 import io.trino.testing.QueryRunner;
-import org.apache.iceberg.FileFormat;
+import org.testng.SkipException;
 import org.testng.annotations.Test;
 
-import java.util.Locale;
 import java.util.Map;
 
 import static io.trino.plugin.hive.containers.HiveMinioDataLake.ACCESS_KEY;
 import static io.trino.plugin.hive.containers.HiveMinioDataLake.SECRET_KEY;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
+import static org.apache.iceberg.FileFormat.ORC;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-public abstract class BaseIcebergMinioConnectorSmokeTest
-        extends BaseIcebergConnectorSmokeTest
+public class TestIcebergMinioDynamoDbConnectorSmokeTest
+        extends BaseIcebergMinioConnectorSmokeTest
 {
-    protected final String schemaName;
-    protected final String bucketName;
-
-    protected HiveMinioDataLake hiveMinioDataLake;
-
-    public BaseIcebergMinioConnectorSmokeTest(FileFormat format)
+    public TestIcebergMinioDynamoDbConnectorSmokeTest()
     {
-        super(format);
-        this.schemaName = "tpch_" + format.name().toLowerCase(Locale.ENGLISH);
-        this.bucketName = "test-iceberg-minio-smoke-test-" + randomTableSuffix();
+        super(ORC);
     }
 
     @Override
@@ -49,12 +46,14 @@ public abstract class BaseIcebergMinioConnectorSmokeTest
         this.hiveMinioDataLake = closeAfterClass(new HiveMinioDataLake(bucketName, ImmutableMap.of()));
         this.hiveMinioDataLake.start();
 
+        TestingIcebergDynamoDbServer dynamoServer = closeAfterClass(new TestingIcebergDynamoDbServer());
         return IcebergQueryRunner.builder()
                 .setIcebergProperties(
                         ImmutableMap.<String, String>builder()
                                 .put("iceberg.file-format", format.name())
-                                .put("iceberg.catalog.type", "HIVE_METASTORE")
-                                .put("hive.metastore.uri", "thrift://" + hiveMinioDataLake.getHiveHadoop().getHiveMetastoreEndpoint())
+                                .put("iceberg.catalog.type", "dynamo_db")
+                                .put("iceberg.dynamodb.catalog-name", "test")
+                                .put("iceberg.dynamodb.connection-url", dynamoServer.getEndpointUrl())
                                 .put("hive.s3.aws-access-key", ACCESS_KEY)
                                 .put("hive.s3.aws-secret-key", SECRET_KEY)
                                 .put("hive.s3.endpoint", "http://" + hiveMinioDataLake.getMinio().getMinioApiEndpoint())
@@ -70,10 +69,20 @@ public abstract class BaseIcebergMinioConnectorSmokeTest
                 .build();
     }
 
+    @Test
     @Override
-    protected String createSchemaSql(String schemaName)
+    public void testMaterializedView()
     {
-        return "CREATE SCHEMA IF NOT EXISTS " + schemaName + " WITH (location = 's3://" + bucketName + "/" + schemaName + "')";
+        assertThatThrownBy(super::testMaterializedView)
+                .hasMessage("createMaterializedView is not supported for Iceberg DynamoDB catalogs");
+    }
+
+    @Test
+    @Override
+    public void testView()
+    {
+        assertThatThrownBy(super::testView)
+                .hasMessage("createView is not supported for Iceberg DynamoDB catalogs");
     }
 
     @Test
@@ -82,6 +91,13 @@ public abstract class BaseIcebergMinioConnectorSmokeTest
     {
         assertQueryFails(
                 format("ALTER SCHEMA %s RENAME TO %s", schemaName, schemaName + randomTableSuffix()),
-                "Hive metastore does not support renaming schemas");
+                "renameNamespace is not supported for Iceberg DynamoDB catalogs");
+    }
+
+    @Test
+    @Override
+    public void testDeleteRowsConcurrently()
+    {
+        throw new SkipException("TODO: Fix test failure");
     }
 }

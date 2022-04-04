@@ -45,10 +45,10 @@ To use Iceberg, you need:
 Configuration
 -------------
 
-The connector supports two Iceberg catalog types, you may use either a Hive
-metastore service (HMS) or AWS Glue. The catalog type is determined by the
+The connector supports three Iceberg catalog types, you may use either a Hive
+metastore service (HMS), AWS Glue or DynamoDB. The catalog type is determined by the
 ``iceberg.catalog.type`` property, it can be set to either ``HIVE_METASTORE``
-or ``GLUE``.
+, ``GLUE`` or ``DYNAMO_DB``.
 
 Hive metastore catalog
 ^^^^^^^^^^^^^^^^^^^^^^
@@ -75,6 +75,39 @@ configuration properties as the Hive connector's Glue setup. See
 
     connector.name=iceberg
     iceberg.catalog.type=glue
+
+
+DynamoDB catalog
+^^^^^^^^^^^^^^^^
+
+In order to use a DynamoDB catalog, ensure to configure the catalog type with
+``iceberg.catalog.type=dynamo_db`` and provide further details with the following
+properties:
+
+============================================= =============================================================
+Property Name                                 Description
+============================================= =============================================================
+``iceberg.dynamodb.catalog-name``             Iceberg DynamoDB catalog name
+``iceberg.dynamodb.table-name``               Iceberg DynamoDB table name
+``iceberg.dynamodb.default-warehouse-dir``    The default warehouse directory to use for DynamoDB
+``iceberg.dynamodb.connection-url``           Optional URI to connect to the DynamoDB server
+``iceberg.dynamodb.aws.access-key``           User name for DynamoDB client
+``iceberg.dynamodb.aws.secret-key``           Password for DynamoDB client
+``iceberg.dynamodb.aws.region``               Region name for DynamoDB client
+``iceberg.dynamodb.aws.iam-role``             Optional AWS IAM role to assume for authenticating
+``iceberg.dynamodb.external-id``              Optional external id to pass to AWS STS while assuming a role
+============================================= =============================================================
+
+.. code-block:: text
+
+    connector.name=iceberg
+    iceberg.catalog.type=dynamo_db
+    iceberg.dynamodb.catalog-name=dynamo
+    iceberg.dynamodb.table-name=dynamo
+    iceberg.dynamodb.default-warehouse-dir=s3://bucket
+    iceberg.dynamodb.aws.access-key=access
+    iceberg.dynamodb.aws.secret-key=secret
+    iceberg.dynamodb.aws.region=us-east-1
 
 
 General configuration
