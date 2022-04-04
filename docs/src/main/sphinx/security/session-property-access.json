@@ -9,7 +9,7 @@
             "allow": false
         },
         {
-            "property": "resource_overcommit",
+            "property": "statistics_cpu_timer_enabled",
             "allow": true
         }
     ],

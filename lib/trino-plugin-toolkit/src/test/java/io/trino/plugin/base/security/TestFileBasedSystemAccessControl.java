@@ -1077,9 +1077,9 @@ public class TestFileBasedSystemAccessControl
         assertAccessDenied(() -> accessControl.checkCanSetSystemSessionProperty(ALICE, "any"), SET_SYSTEM_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE);
         assertAccessDenied(() -> accessControl.checkCanSetSystemSessionProperty(bannedUser, "any"), SET_SYSTEM_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE);
 
-        accessControl.checkCanSetSystemSessionProperty(ADMIN, "resource_overcommit");
-        accessControl.checkCanSetSystemSessionProperty(ALICE, "resource_overcommit");
-        assertAccessDenied(() -> accessControl.checkCanSetSystemSessionProperty(bannedUser, "resource_overcommit"), SET_SYSTEM_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE);
+        accessControl.checkCanSetSystemSessionProperty(ADMIN, "statistics_cpu_timer_enabled");
+        accessControl.checkCanSetSystemSessionProperty(ALICE, "statistics_cpu_timer_enabled");
+        assertAccessDenied(() -> accessControl.checkCanSetSystemSessionProperty(bannedUser, "statistics_cpu_timer_enabled"), SET_SYSTEM_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE);
 
         accessControl.checkCanSetCatalogSessionProperty(ADMIN, "hive", "any");
         assertAccessDenied(() -> accessControl.checkCanSetCatalogSessionProperty(ALICE, "hive", "any"), SET_CATALOG_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE);

@@ -35,14 +35,12 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 
-import static io.trino.SystemSessionProperties.RESOURCE_OVERCOMMIT;
 import static io.trino.execution.QueryState.FINISHED;
 import static io.trino.operator.BlockedReason.WAITING_FOR_MEMORY;
 import static io.trino.spi.StandardErrorCode.CLUSTER_OUT_OF_MEMORY;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
@@ -76,28 +74,6 @@ public class TestMemoryManager
     {
         executor.shutdownNow();
         executor = null;
-    }
-
-    @Test(timeOut = 240_000)
-    public void testResourceOverCommit()
-            throws Exception
-    {
-        Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("query.max-memory-per-node", "1kB")
-                .put("query.max-memory", "1kB")
-                .buildOrThrow();
-
-        try (DistributedQueryRunner queryRunner = createQueryRunner(TINY_SESSION, properties)) {
-            assertThatThrownBy(() -> queryRunner.execute("SELECT COUNT(*), clerk FROM orders GROUP BY clerk"))
-                    .isInstanceOf(RuntimeException.class)
-                    .hasMessageStartingWith("Query exceeded per-node memory limit of ");
-            Session session = testSessionBuilder()
-                    .setCatalog("tpch")
-                    .setSchema("tiny")
-                    .setSystemProperty(RESOURCE_OVERCOMMIT, "true")
-                    .build();
-            queryRunner.execute(session, "SELECT COUNT(*), clerk FROM orders GROUP BY clerk");
-        }
     }
 
     @Test(timeOut = 240_000, expectedExceptions = ExecutionException.class, expectedExceptionsMessageRegExp = ".*Query killed because the cluster is out of memory. Please try again in a few minutes.")

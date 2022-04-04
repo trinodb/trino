@@ -14,7 +14,6 @@
 package io.trino.benchmark;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.trino.testing.LocalQueryRunner;
 
 import static io.trino.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
@@ -38,7 +37,7 @@ public class SqlTopNRankingBenchmark
 
     public static void main(String[] args)
     {
-        LocalQueryRunner localQueryRunner = createLocalQueryRunner(ImmutableMap.of("resource_overcommit", "true"));
+        LocalQueryRunner localQueryRunner = createLocalQueryRunner();
         for (String function : ImmutableList.of("row_number", "rank")) {
             for (String partitions : ImmutableList.of("orderkey, partkey", "partkey", "linestatus")) {
                 for (int topN : ImmutableList.of(1, 100, 10_000)) {

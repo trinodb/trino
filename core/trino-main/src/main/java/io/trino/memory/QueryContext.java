@@ -132,17 +132,10 @@ public class QueryContext
     }
 
     // TODO: This method should be removed, and the correct limit set in the constructor. However, due to the way QueryContext is constructed the memory limit is not known in advance
-    public synchronized void initializeMemoryLimits(boolean resourceOverCommit, long maxUserMemory)
+    public synchronized void initializeMemoryLimits(long maxUserMemory)
     {
         checkArgument(maxUserMemory >= 0, "maxUserMemory must be >= 0, found: %s", maxUserMemory);
-        if (resourceOverCommit) {
-            // Allow the query to use the entire pool. This way the worker will kill the query, if it uses the entire local memory pool.
-            // The coordinator will kill the query if the cluster runs out of memory.
-            this.maxUserMemory = memoryPool.getMaxBytes();
-        }
-        else {
-            this.maxUserMemory = maxUserMemory;
-        }
+        this.maxUserMemory = maxUserMemory;
         memoryLimitsInitialized = true;
     }
 

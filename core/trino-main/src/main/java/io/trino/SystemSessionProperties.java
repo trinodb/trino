@@ -72,7 +72,6 @@ public final class SystemSessionProperties
     public static final String QUERY_MAX_EXECUTION_TIME = "query_max_execution_time";
     public static final String QUERY_MAX_PLANNING_TIME = "query_max_planning_time";
     public static final String QUERY_MAX_RUN_TIME = "query_max_run_time";
-    public static final String RESOURCE_OVERCOMMIT = "resource_overcommit";
     public static final String QUERY_MAX_CPU_TIME = "query_max_cpu_time";
     public static final String QUERY_MAX_SCAN_PHYSICAL_BYTES = "query_max_scan_physical_bytes";
     public static final String QUERY_MAX_STAGE_COUNT = "query_max_stage_count";
@@ -334,11 +333,6 @@ public final class SystemSessionProperties
                         QUERY_MAX_SCAN_PHYSICAL_BYTES,
                         "Maximum scan physical bytes of a query",
                         queryManagerConfig.getQueryMaxScanPhysicalBytes().orElse(null),
-                        false),
-                booleanProperty(
-                        RESOURCE_OVERCOMMIT,
-                        "Use resources which are not guaranteed to be available to the query",
-                        false,
                         false),
                 integerProperty(
                         QUERY_MAX_STAGE_COUNT,
@@ -928,11 +922,6 @@ public final class SystemSessionProperties
     public static Duration getQueryMaxPlanningTime(Session session)
     {
         return session.getSystemProperty(QUERY_MAX_PLANNING_TIME, Duration.class);
-    }
-
-    public static boolean resourceOvercommit(Session session)
-    {
-        return session.getSystemProperty(RESOURCE_OVERCOMMIT, Boolean.class);
     }
 
     public static int getQueryMaxStageCount(Session session)

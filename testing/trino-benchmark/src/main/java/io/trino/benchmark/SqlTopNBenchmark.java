@@ -13,7 +13,6 @@
  */
 package io.trino.benchmark;
 
-import com.google.common.collect.ImmutableMap;
 import io.trino.testing.LocalQueryRunner;
 
 import static io.trino.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
@@ -33,7 +32,7 @@ public class SqlTopNBenchmark
 
     public static void main(String[] args)
     {
-        LocalQueryRunner localQueryRunner = createLocalQueryRunner(ImmutableMap.of("resource_overcommit", "true"));
+        LocalQueryRunner localQueryRunner = createLocalQueryRunner();
         for (int i = 0; i < 11; i++) {
             new SqlTopNBenchmark(localQueryRunner, (int) Math.pow(4, i)).runBenchmark(new SimpleLineBenchmarkResultWriter(System.out));
         }

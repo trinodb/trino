@@ -71,7 +71,6 @@ import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.trino.SystemSessionProperties.getQueryMaxMemoryPerNode;
-import static io.trino.SystemSessionProperties.resourceOvercommit;
 import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.execution.SqlTask.createSqlTask;
 import static io.trino.spi.StandardErrorCode.ABANDONED_TASK;
@@ -397,9 +396,7 @@ public class SqlTaskManager
             long sessionQueryMaxMemoryPerNode = getQueryMaxMemoryPerNode(session).toBytes();
 
             // Session properties are only allowed to decrease memory limits, not increase them
-            queryContext.initializeMemoryLimits(
-                    resourceOvercommit(session),
-                    min(sessionQueryMaxMemoryPerNode, queryMaxMemoryPerNode));
+            queryContext.initializeMemoryLimits(min(sessionQueryMaxMemoryPerNode, queryMaxMemoryPerNode));
         }
 
         sqlTask.recordHeartbeat();

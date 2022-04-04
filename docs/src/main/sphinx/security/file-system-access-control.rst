@@ -357,7 +357,7 @@ The example below defines the following table access policy:
 
 * Role ``admin`` can set all session property
 * User ``banned_user`` can not set any session properties
-* All users can set the ``resource_overcommit`` system session property, and the
+* All users can set the ``statistics_cpu_timer_enabled`` system session property, and the
   ``bucket_execution_enabled`` session property in the ``hive`` catalog.
 
 .. literalinclude:: session-property-access.json

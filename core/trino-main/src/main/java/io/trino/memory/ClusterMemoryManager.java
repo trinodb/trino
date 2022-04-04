@@ -73,15 +73,12 @@ import static io.airlift.units.DataSize.succinctBytes;
 import static io.airlift.units.Duration.nanosSince;
 import static io.trino.ExceededMemoryLimitException.exceededGlobalTotalLimit;
 import static io.trino.ExceededMemoryLimitException.exceededGlobalUserLimit;
-import static io.trino.SystemSessionProperties.RESOURCE_OVERCOMMIT;
 import static io.trino.SystemSessionProperties.getQueryMaxMemory;
 import static io.trino.SystemSessionProperties.getQueryMaxTotalMemory;
-import static io.trino.SystemSessionProperties.resourceOvercommit;
 import static io.trino.metadata.NodeState.ACTIVE;
 import static io.trino.metadata.NodeState.SHUTTING_DOWN;
 import static io.trino.spi.StandardErrorCode.CLUSTER_OUT_OF_MEMORY;
 import static java.lang.Math.min;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class ClusterMemoryManager
@@ -188,30 +185,19 @@ public class ClusterMemoryManager
         long totalUserMemoryBytes = 0L;
         long totalMemoryBytes = 0L;
         for (QueryExecution query : runningQueries) {
-            boolean resourceOvercommit = resourceOvercommit(query.getSession());
             long userMemoryReservation = query.getUserMemoryReservation().toBytes();
             long totalMemoryReservation = query.getTotalMemoryReservation().toBytes();
 
-            if (resourceOvercommit && outOfMemory) {
-                // If a query has requested resource overcommit, only kill it if the cluster has run out of memory
-                DataSize memory = succinctBytes(getQueryMemoryReservation(query));
-                query.fail(new TrinoException(CLUSTER_OUT_OF_MEMORY,
-                        format("The cluster is out of memory and %s=true, so this query was killed. It was using %s of memory", RESOURCE_OVERCOMMIT, memory)));
+            long userMemoryLimit = min(maxQueryMemory.toBytes(), getQueryMaxMemory(query.getSession()).toBytes());
+            if (userMemoryReservation > userMemoryLimit) {
+                query.fail(exceededGlobalUserLimit(succinctBytes(userMemoryLimit)));
                 queryKilled = true;
             }
 
-            if (!resourceOvercommit) {
-                long userMemoryLimit = min(maxQueryMemory.toBytes(), getQueryMaxMemory(query.getSession()).toBytes());
-                if (userMemoryReservation > userMemoryLimit) {
-                    query.fail(exceededGlobalUserLimit(succinctBytes(userMemoryLimit)));
-                    queryKilled = true;
-                }
-
-                long totalMemoryLimit = min(maxQueryTotalMemory.toBytes(), getQueryMaxTotalMemory(query.getSession()).toBytes());
-                if (totalMemoryReservation > totalMemoryLimit) {
-                    query.fail(exceededGlobalTotalLimit(succinctBytes(totalMemoryLimit)));
-                    queryKilled = true;
-                }
+            long totalMemoryLimit = min(maxQueryTotalMemory.toBytes(), getQueryMaxTotalMemory(query.getSession()).toBytes());
+            if (totalMemoryReservation > totalMemoryLimit) {
+                query.fail(exceededGlobalTotalLimit(succinctBytes(totalMemoryLimit)));
+                queryKilled = true;
             }
 
             totalUserMemoryBytes += userMemoryReservation;
