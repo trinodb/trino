@@ -89,6 +89,7 @@ import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.INVALID_SCHEMA_PROPERTY;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
+import static io.trino.spi.StandardErrorCode.UNSUPPORTED_TABLE_TYPE;
 import static io.trino.spi.connector.SchemaTableName.schemaTableName;
 import static java.util.Objects.requireNonNull;
 import static org.apache.hadoop.hive.metastore.TableType.VIRTUAL_VIEW;
@@ -440,12 +441,16 @@ public class TrinoHiveCatalog
     {
         Optional<io.trino.plugin.hive.metastore.Table> existing = metastore.getTable(viewName.getSchemaName(), viewName.getTableName());
 
-        // It's a create command where the materialized view already exists and 'if not exists' clause is not specified
-        if (!replace && existing.isPresent()) {
-            if (ignoreExisting) {
-                return;
+        if (existing.isPresent()) {
+            if (!isTrinoMaterializedView(existing.get().getTableType(), existing.get().getParameters())) {
+                throw new TrinoException(UNSUPPORTED_TABLE_TYPE, "Existing table is not a Materialized View: " + viewName);
             }
-            throw new TrinoException(ALREADY_EXISTS, "Materialized view already exists: " + viewName);
+            if (!replace) {
+                if (ignoreExisting) {
+                    return;
+                }
+                throw new TrinoException(ALREADY_EXISTS, "Materialized view already exists: " + viewName);
+            }
         }
 
         SchemaTableName storageTable = createMaterializedViewStorageTable(session, viewName, definition);
@@ -488,6 +493,10 @@ public class TrinoHiveCatalog
     {
         io.trino.plugin.hive.metastore.Table view = metastore.getTable(viewName.getSchemaName(), viewName.getTableName())
                 .orElseThrow(() -> new MaterializedViewNotFoundException(viewName));
+
+        if (!isTrinoMaterializedView(view.getTableType(), view.getParameters())) {
+            throw new TrinoException(UNSUPPORTED_TABLE_TYPE, "Not a Materialized View: " + viewName);
+        }
 
         String storageTableName = view.getParameters().get(STORAGE_TABLE);
         if (storageTableName != null) {
