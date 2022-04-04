@@ -90,6 +90,7 @@ import java.util.stream.LongStream;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Throwables.getStackTraceAsString;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Sets.intersection;
@@ -233,6 +234,13 @@ public abstract class BaseHiveConnectorTest
             default:
                 return super.hasBehavior(connectorBehavior);
         }
+    }
+
+    @Override
+    protected void verifySelectAfterInsertFailurePermissible(Throwable e)
+    {
+        assertThat(getStackTraceAsString(e))
+                .containsPattern("io.trino.spi.TrinoException: Cannot read from a table tpch.test_insert_select_\\w+ that was modified within transaction, you need to commit the transaction first");
     }
 
     @Override
