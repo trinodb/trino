@@ -119,6 +119,7 @@ public final class ViewReaderUtil
         });
     }
 
+    public static final String ICEBERG_MATERIALIZED_VIEW_COMMENT = "Presto Materialized View";
     public static final String PRESTO_VIEW_FLAG = "presto_view";
     static final String VIEW_PREFIX = "/* Presto View: ";
     static final String VIEW_SUFFIX = " */";
@@ -143,6 +144,11 @@ public final class ViewReaderUtil
     public static boolean isHiveOrPrestoView(String tableType)
     {
         return tableType.equals(TableType.VIRTUAL_VIEW.name());
+    }
+
+    public static boolean isTrinoMaterializedView(String tableType, Map<String, String> tableParameters)
+    {
+        return isHiveOrPrestoView(tableType) && isPrestoView(tableParameters) && tableParameters.get(TABLE_COMMENT).equalsIgnoreCase(ICEBERG_MATERIALIZED_VIEW_COMMENT);
     }
 
     public static boolean canDecodeView(Table table)

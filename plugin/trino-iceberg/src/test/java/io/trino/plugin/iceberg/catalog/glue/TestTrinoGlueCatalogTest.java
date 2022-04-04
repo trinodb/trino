@@ -18,6 +18,7 @@ import com.amazonaws.services.glue.AWSGlueAsyncClientBuilder;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
+import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.HdfsConfig;
 import io.trino.plugin.hive.HdfsConfigurationInitializer;
 import io.trino.plugin.hive.HdfsEnvironment;
@@ -31,6 +32,7 @@ import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.TrinoPrincipal;
+import io.trino.spi.type.TestingTypeManager;
 import org.testng.annotations.Test;
 
 import java.io.File;
@@ -59,7 +61,9 @@ public class TestTrinoGlueCatalogTest
                 new HdfsConfig(),
                 new NoHdfsAuthentication());
         return new TrinoGlueCatalog(
+                new CatalogName("catalog_name"),
                 hdfsEnvironment,
+                new TestingTypeManager(),
                 new GlueIcebergTableOperationsProvider(new HdfsFileIoProvider(hdfsEnvironment), new GlueMetastoreStats(), new GlueHiveMetastoreConfig(), DefaultAWSCredentialsProviderChain.getInstance()),
                 "test",
                 AWSGlueAsyncClientBuilder.defaultClient(),
@@ -83,7 +87,9 @@ public class TestTrinoGlueCatalogTest
                 new HdfsConfig(),
                 new NoHdfsAuthentication());
         TrinoCatalog catalogWithDefaultLocation = new TrinoGlueCatalog(
+                new CatalogName("catalog_name"),
                 hdfsEnvironment,
+                new TestingTypeManager(),
                 new GlueIcebergTableOperationsProvider(new HdfsFileIoProvider(hdfsEnvironment), new GlueMetastoreStats(), new GlueHiveMetastoreConfig(), DefaultAWSCredentialsProviderChain.getInstance()),
                 "test",
                 AWSGlueAsyncClientBuilder.defaultClient(),
