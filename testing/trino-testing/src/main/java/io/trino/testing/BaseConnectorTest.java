@@ -132,6 +132,8 @@ import static org.testng.Assert.fail;
 public abstract class BaseConnectorTest
         extends AbstractTestQueries
 {
+    private static final Logger log = Logger.get(BaseConnectorTest.class);
+
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         return connectorBehavior.hasBehaviorByDefault(this::hasBehavior);
@@ -2620,6 +2622,33 @@ public abstract class BaseConnectorTest
             String tableName = table.getName();
             inTransaction(session -> assertUpdate(session, "INSERT INTO " + tableName + " VALUES 42", 1));
             assertQuery("TABLE " + tableName, "VALUES 42");
+        }
+    }
+
+    @Test
+    public void testSelectAfterInsertInTransaction()
+    {
+        if (!hasBehavior(SUPPORTS_INSERT) || !hasBehavior(SUPPORTS_MULTI_STATEMENT_WRITES)) {
+            // nothing to test
+            log.info("Connector does not support insert in transaction context, so nothing to test");
+            return;
+        }
+
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_insert_select_",
+                "AS SELECT nationkey, name, regionkey FROM nation WHERE nationkey = 1")) {
+            String tableName = table.getName();
+            inTransaction(session -> {
+                // SELECT first, to prime transactional caches, if any
+                assertQuery(session, "TABLE " + tableName, "SELECT nationkey, name, regionkey FROM nation WHERE nationkey = 1");
+                // INSERT
+                assertUpdate(session, "INSERT INTO " + tableName + "(nationkey, name, regionkey) SELECT nationkey, name, regionkey FROM nation WHERE nationkey = 2", 1);
+                // SELECT again
+                assertQuery(session, "TABLE " + tableName, "SELECT nationkey, name, regionkey FROM nation WHERE nationkey IN (1, 2)");
+            });
+            // SELECT again after transaction completes
+            assertQuery("TABLE " + tableName, "SELECT nationkey, name, regionkey FROM nation WHERE nationkey IN (1, 2)");
         }
     }
 
