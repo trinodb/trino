@@ -40,7 +40,7 @@ public class TestExchangeS3Config
                 .setS3MaxErrorRetries(3)
                 .setS3UploadPartSize(DataSize.of(5, MEGABYTE))
                 .setStorageClass(STANDARD)
-                .setAsyncClientConcurrency(250));
+                .setAsyncClientConcurrency(500));
     }
 
     @Test
