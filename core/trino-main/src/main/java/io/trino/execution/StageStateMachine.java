@@ -374,9 +374,9 @@ public class StageStateMachine
 
         long cumulativeUserMemory = 0;
         long failedCumulativeUserMemory = 0;
-        long userMemoryReservation = 0;
-        long revocableMemoryReservation = 0;
-        long totalMemoryReservation = 0;
+        long userMemoryReservation = currentUserMemory.get();
+        long revocableMemoryReservation = currentRevocableMemory.get();
+        long totalMemoryReservation = currentTotalMemory.get();
         long peakUserMemoryReservation = peakUserMemory.get();
         long peakRevocableMemoryReservation = peakRevocableMemory.get();
 
@@ -458,12 +458,6 @@ public class StageStateMachine
             if (taskState == TaskState.FAILED) {
                 failedCumulativeUserMemory += taskStats.getCumulativeUserMemory();
             }
-
-            long taskUserMemory = taskStats.getUserMemoryReservation().toBytes();
-            long taskRevocableMemory = taskStats.getRevocableMemoryReservation().toBytes();
-            userMemoryReservation += taskUserMemory;
-            revocableMemoryReservation += taskRevocableMemory;
-            totalMemoryReservation += taskUserMemory + taskRevocableMemory;
 
             totalScheduledTime += taskStats.getTotalScheduledTime().roundTo(NANOSECONDS);
             totalCpuTime += taskStats.getTotalCpuTime().roundTo(NANOSECONDS);
