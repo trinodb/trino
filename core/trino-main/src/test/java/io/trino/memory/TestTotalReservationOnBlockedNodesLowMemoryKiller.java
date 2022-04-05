@@ -100,7 +100,7 @@ public class TestTotalReservationOnBlockedNodesLowMemoryKiller
 
         assertEquals(
                 lowMemoryKiller.chooseQueryToKill(
-                        toQueryMemoryInfoList(queries),
+                        toQueryMemoryInfoList(queries, ImmutableSet.of("q_2")),
                         toNodeMemoryInfoList(memoryPool, queries, tasks)),
                 Optional.of(KillTarget.selectedTasks(ImmutableSet.of(TaskId.valueOf("t3"), TaskId.valueOf("t6")))));
     }
@@ -128,8 +128,36 @@ public class TestTotalReservationOnBlockedNodesLowMemoryKiller
 
         assertEquals(
                 lowMemoryKiller.chooseQueryToKill(
-                        toQueryMemoryInfoList(queries),
+                        toQueryMemoryInfoList(queries, ImmutableSet.of("q_1", "q_2")),
                         toNodeMemoryInfoList(memoryPool, queries, tasks)),
                 Optional.of(KillTarget.selectedTasks(ImmutableSet.of(TaskId.valueOf("t1_1"), TaskId.valueOf("t2_6")))));
+    }
+
+    @Test
+    public void testWillNotKillWholeQueryWithTaskRetries()
+    {
+        int memoryPool = 12;
+        Map<String, Map<String, Long>> queries = ImmutableMap.<String, Map<String, Long>>builder()
+                .put("q_1", ImmutableMap.of("n1", 0L, "n2", 5L, "n3", 0L, "n4", 0L, "n5", 0L))
+                .put("q_2", ImmutableMap.of("n1", 3L, "n2", 8L, "n3", 2L, "n4", 4L, "n5", 0L))
+                .put("q_3", ImmutableMap.of("n1", 0L, "n2", 0L, "n3", 3L, "n4", 0L, "n5", 0L))
+                .buildOrThrow();
+
+        Map<String, Map<String, Map<String, Long>>> tasks = ImmutableMap.<String, Map<String, Map<String, Long>>>builder()
+                .put("q_2", ImmutableMap.of(
+                        "n1", ImmutableMap.of("t1", 1L, "t2", 3L),
+                        "n2", ImmutableMap.of(), // no tasks reported for q_2 here even though based on per-query reservation it uses 8 here (and is biggest query)
+                        "n3", ImmutableMap.of("t6", 2L),
+                        "n4", ImmutableMap.of("t7", 2L, "t8", 2L),
+                        "n5", ImmutableMap.of())
+                ).buildOrThrow();
+
+        // we expect "q_1" to be killed even though "q_2" is the biggest query here. We won't kill whole query if it has task retries enabled.
+
+        assertEquals(
+                lowMemoryKiller.chooseQueryToKill(
+                        toQueryMemoryInfoList(queries, ImmutableSet.of("q_2")),
+                        toNodeMemoryInfoList(memoryPool, queries, tasks)),
+                Optional.of(KillTarget.wholeQuery(new QueryId("q_1"))));
     }
 }
