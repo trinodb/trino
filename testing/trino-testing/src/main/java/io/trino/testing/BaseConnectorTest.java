@@ -2370,6 +2370,22 @@ public abstract class BaseConnectorTest
     }
 
     @Test
+    public void testInsertInTransaction()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_INSERT));
+        skipTestUnless(hasBehavior(SUPPORTS_MULTI_STATEMENT_WRITES)); // covered by testWriteNotAllowedInTransaction
+
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_tx_insert",
+                "(a bigint)")) {
+            String tableName = table.getName();
+            inTransaction(session -> assertUpdate(session, "INSERT INTO " + tableName + " VALUES 42", 1));
+            assertQuery("TABLE " + tableName, "VALUES 42");
+        }
+    }
+
+    @Test
     public void testDelete()
     {
         skipTestUnlessSupportsDeletes();
