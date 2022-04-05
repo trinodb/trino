@@ -123,7 +123,7 @@ public class ClusterMemoryManager
     private long lastTimeNotOutOfMemory = System.nanoTime();
 
     @GuardedBy("this")
-    private KillTarget lastKillTarget;
+    private Optional<KillTarget> lastKillTarget = Optional.empty();
 
     @Inject
     public ClusterMemoryManager(
@@ -269,7 +269,7 @@ public class ClusterMemoryManager
                     // See comments in  isQueryGone for why chosenQuery might be absent.
                     chosenQuery.get().fail(new TrinoException(CLUSTER_OUT_OF_MEMORY, "Query killed because the cluster is out of memory. Please try again in a few minutes."));
                     queriesKilledDueToOutOfMemory.incrementAndGet();
-                    lastKillTarget = killTarget.get();
+                    lastKillTarget = killTarget;
                     logQueryKill(queryId, nodeMemoryInfosByNode);
                 }
             }
@@ -288,7 +288,7 @@ public class ClusterMemoryManager
                 // only record tasks actually killed
                 ImmutableSet<TaskId> killedTasks = killedTasksBuilder.build();
                 if (!killedTasks.isEmpty()) {
-                    lastKillTarget = KillTarget.selectedTasks(killedTasks);
+                    lastKillTarget = Optional.of(KillTarget.selectedTasks(killedTasks));
                     logTasksKill(killedTasks, nodeMemoryInfosByNode);
                 }
             }
@@ -298,15 +298,15 @@ public class ClusterMemoryManager
     @GuardedBy("this")
     private boolean isLastKillTargetGone(Iterable<QueryExecution> runningQueries)
     {
-        if (lastKillTarget == null) {
+        if (lastKillTarget.isEmpty()) {
             return true;
         }
 
-        if (lastKillTarget.isWholeQuery()) {
-            return isQueryGone(lastKillTarget.getQuery());
+        if (lastKillTarget.get().isWholeQuery()) {
+            return isQueryGone(lastKillTarget.get().getQuery());
         }
 
-        return areTasksGone(lastKillTarget.getTasks(), runningQueries);
+        return areTasksGone(lastKillTarget.get().getTasks(), runningQueries);
     }
 
     private boolean isQueryGone(QueryId killedQuery)
@@ -316,7 +316,7 @@ public class ClusterMemoryManager
         // Even if the weak references to the leaked queries are GCed in the ClusterMemoryLeakDetector, it will mark the same queries
         // as leaked in its next run, and eventually the ClusterMemoryManager will make progress.
         if (memoryLeakDetector.wasQueryPossiblyLeaked(killedQuery)) {
-            lastKillTarget = null;
+            lastKillTarget = Optional.empty();
             return true;
         }
 
