@@ -29,6 +29,7 @@ import java.util.Map;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
+import static io.trino.plugin.base.Versions.checkSpiVersion;
 import static java.util.Objects.requireNonNull;
 
 public class KinesisConnectorFactory
@@ -45,6 +46,7 @@ public class KinesisConnectorFactory
     {
         requireNonNull(catalogName, "catalogName is null");
         requireNonNull(config, "config is null");
+        checkSpiVersion(context, this);
 
         try {
             Bootstrap app = new Bootstrap(
