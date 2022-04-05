@@ -17,11 +17,13 @@ package io.trino.memory;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import io.trino.TaskMemoryInfo;
 import io.trino.client.NodeVersion;
 import io.trino.execution.TaskId;
 import io.trino.metadata.InternalNode;
+import io.trino.operator.RetryPolicy;
 import io.trino.spi.QueryId;
 import io.trino.spi.memory.MemoryPoolInfo;
 
@@ -29,6 +31,7 @@ import java.net.URI;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public final class LowMemoryKillerTestingUtils
 {
@@ -94,13 +97,21 @@ public final class LowMemoryKillerTestingUtils
 
     static List<LowMemoryKiller.QueryMemoryInfo> toQueryMemoryInfoList(Map<String, Map<String, Long>> queries)
     {
+        return toQueryMemoryInfoList(queries, ImmutableSet.of());
+    }
+
+    static List<LowMemoryKiller.QueryMemoryInfo> toQueryMemoryInfoList(Map<String, Map<String, Long>> queries, Set<String> queriesWithTaskLevelRetries)
+    {
         ImmutableList.Builder<LowMemoryKiller.QueryMemoryInfo> result = ImmutableList.builder();
         for (Map.Entry<String, Map<String, Long>> entry : queries.entrySet()) {
             String queryId = entry.getKey();
             long totalReservation = entry.getValue().values().stream()
                     .mapToLong(x -> x)
                     .sum();
-            result.add(new LowMemoryKiller.QueryMemoryInfo(new QueryId(queryId), totalReservation));
+            result.add(new LowMemoryKiller.QueryMemoryInfo(
+                    new QueryId(queryId),
+                    totalReservation,
+                    queriesWithTaskLevelRetries.contains(queryId) ? RetryPolicy.TASK : RetryPolicy.NONE));
         }
         return result.build();
     }

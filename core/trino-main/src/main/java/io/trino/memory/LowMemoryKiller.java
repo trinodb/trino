@@ -15,6 +15,7 @@
 package io.trino.memory;
 
 import io.trino.execution.TaskId;
+import io.trino.operator.RetryPolicy;
 import io.trino.spi.QueryId;
 
 import java.util.List;
@@ -31,11 +32,13 @@ public interface LowMemoryKiller
     {
         private final QueryId queryId;
         private final long memoryReservation;
+        private final RetryPolicy retryPolicy;
 
-        public QueryMemoryInfo(QueryId queryId, long memoryReservation)
+        public QueryMemoryInfo(QueryId queryId, long memoryReservation, RetryPolicy retryPolicy)
         {
             this.queryId = requireNonNull(queryId, "queryId is null");
             this.memoryReservation = memoryReservation;
+            this.retryPolicy = requireNonNull(retryPolicy, "retryPolicy is null");
         }
 
         public QueryId getQueryId()
@@ -48,12 +51,18 @@ public interface LowMemoryKiller
             return memoryReservation;
         }
 
+        public RetryPolicy getRetryPolicy()
+        {
+            return retryPolicy;
+        }
+
         @Override
         public String toString()
         {
             return toStringHelper(this)
                     .add("queryId", queryId)
                     .add("memoryReservation", memoryReservation)
+                    .add("retryPolicy", retryPolicy)
                     .toString();
         }
 
