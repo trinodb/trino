@@ -143,7 +143,7 @@ queries/tasks are no longer retried in the event of repeated failures:
    * - ``retry-max-delay``
      - Maximum time that a failed query must wait before it is retried.
        Wait time is increased on each subsequent query failure. May be
-       overridden with the ``retry_initial_delay`` :ref:`session property
+       overridden with the ``retry_max_delay`` :ref:`session property
        <session-properties-definition>`.
      - ``1m``
      - Only ``QUERY``
