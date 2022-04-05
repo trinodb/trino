@@ -15,8 +15,10 @@
 package io.trino.memory;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
 import io.trino.TaskMemoryInfo;
 import io.trino.execution.TaskId;
+import io.trino.operator.RetryPolicy;
 import io.trino.spi.QueryId;
 import io.trino.spi.memory.MemoryPoolInfo;
 
@@ -37,7 +39,7 @@ public class TotalReservationOnBlockedNodesLowMemoryKiller
     {
         Optional<KillTarget> killTarget = chooseTasksToKill(nodes);
         if (killTarget.isEmpty()) {
-            killTarget = chooseWholeQueryToKill(nodes);
+            killTarget = chooseWholeQueryToKill(runningQueries, nodes);
         }
         return killTarget;
     }
@@ -66,8 +68,9 @@ public class TotalReservationOnBlockedNodesLowMemoryKiller
         return Optional.of(KillTarget.selectedTasks(tasksToKill));
     }
 
-    private Optional<KillTarget> chooseWholeQueryToKill(List<MemoryInfo> nodes)
+    private Optional<KillTarget> chooseWholeQueryToKill(List<QueryMemoryInfo> runningQueries, List<MemoryInfo> nodes)
     {
+        Map<QueryId, QueryMemoryInfo> queriesById = Maps.uniqueIndex(runningQueries, QueryMemoryInfo::getQueryId);
         Map<QueryId, Long> memoryReservationOnBlockedNodes = new HashMap<>();
         for (MemoryInfo node : nodes) {
             MemoryPoolInfo memoryPool = node.getPool();
@@ -79,6 +82,14 @@ public class TotalReservationOnBlockedNodesLowMemoryKiller
             }
             Map<QueryId, Long> queryMemoryReservations = memoryPool.getQueryMemoryReservations();
             queryMemoryReservations.forEach((queryId, memoryReservation) -> {
+                if (queriesById.containsKey(queryId) && queriesById.get(queryId).getRetryPolicy() == RetryPolicy.TASK) {
+                    // Do not kill whole queries which run with task retries enabled
+                    // Most of the time if query with task retries enabled is a root cause of cluster out-of-memory error
+                    // individual tasks should be already picked for killing by `chooseTasksToKill`. Yet sometimes there is a discrepancy between
+                    // tasks listing and determining memory pool size. Pool may report it is fully reserved by Q, yet there are no running tasks from Q reported
+                    // for given node.
+                    return;
+                }
                 memoryReservationOnBlockedNodes.compute(queryId, (id, oldValue) -> oldValue == null ? memoryReservation : oldValue + memoryReservation);
             });
         }

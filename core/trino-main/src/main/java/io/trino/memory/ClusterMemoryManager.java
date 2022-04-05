@@ -413,7 +413,10 @@ public class ClusterMemoryManager
 
     private QueryMemoryInfo createQueryMemoryInfo(QueryExecution query)
     {
-        return new QueryMemoryInfo(query.getQueryId(), query.getTotalMemoryReservation().toBytes());
+        return new QueryMemoryInfo(
+                query.getQueryId(),
+                query.getTotalMemoryReservation().toBytes(),
+                getRetryPolicy(query.getSession()));
     }
 
     private List<TaskStatus> getRunningTasksForQuery(QueryExecution query)
