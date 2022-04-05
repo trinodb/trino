@@ -95,6 +95,7 @@ import io.trino.metadata.SchemaPropertyManager;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.metadata.Split;
 import io.trino.metadata.SystemFunctionBundle;
+import io.trino.metadata.SystemSecurityMetadata;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableProceduresPropertyManager;
 import io.trino.metadata.TableProceduresRegistry;
@@ -307,6 +308,7 @@ public class LocalQueryRunner
             int nodeCountForStats,
             Map<String, List<PropertyMetadata<?>>> defaultSessionProperties,
             PlanOptimizersProvider planOptimizersProvider,
+            MetadataProvider metadataProvider,
             OperatorFactories operatorFactories,
             Set<SystemSessionPropertiesProvider> extraSessionProperties)
     {
@@ -352,7 +354,7 @@ public class LocalQueryRunner
         globalFunctionCatalog.addFunctions(new InternalFunctionBundle(new LiteralFunction(blockEncodingSerde)));
         globalFunctionCatalog.addFunctions(SystemFunctionBundle.create(featuresConfig, typeOperators, blockTypeOperators, nodeManager.getCurrentNode().getNodeVersion()));
         this.functionManager = new FunctionManager(globalFunctionCatalog);
-        Metadata metadata = new MetadataManager(
+        Metadata metadata = metadataProvider.getMetadata(
                 featuresConfig,
                 new DisabledSystemSecurityMetadata(),
                 transactionManager,
@@ -1139,6 +1141,16 @@ public class LocalQueryRunner
                 RuleStatsRecorder ruleStats);
     }
 
+    public interface MetadataProvider
+    {
+        Metadata getMetadata(
+                FeaturesConfig featuresConfig,
+                SystemSecurityMetadata systemSecurityMetadata,
+                TransactionManager transactionManager,
+                GlobalFunctionCatalog globalFunctionCatalog,
+                TypeManager typeManager);
+    }
+
     public static class Builder
     {
         private final Session defaultSession;
@@ -1150,6 +1162,7 @@ public class LocalQueryRunner
         private Set<SystemSessionPropertiesProvider> extraSessionProperties = ImmutableSet.of();
         private int nodeCountForStats;
         private PlanOptimizersProvider planOptimizersProvider = PlanOptimizers::new;
+        private MetadataProvider metadataProvider = MetadataManager::new;
         private OperatorFactories operatorFactories = new TrinoOperatorFactories();
 
         private Builder(Session defaultSession)
@@ -1199,6 +1212,12 @@ public class LocalQueryRunner
             return this;
         }
 
+        public Builder withMetadataProvider(MetadataProvider metadataProvider)
+        {
+            this.metadataProvider = metadataProvider;
+            return this;
+        }
+
         public Builder withOperatorFactories(OperatorFactories operatorFactories)
         {
             this.operatorFactories = requireNonNull(operatorFactories, "operatorFactories is null");
@@ -1227,6 +1246,7 @@ public class LocalQueryRunner
                     nodeCountForStats,
                     defaultSessionProperties,
                     planOptimizersProvider,
+                    metadataProvider,
                     operatorFactories,
                     extraSessionProperties);
         }
