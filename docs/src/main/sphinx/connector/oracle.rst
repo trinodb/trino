@@ -398,6 +398,29 @@ The connector supports pushdown for a number of operations:
 * :ref:`limit-pushdown`
 * :ref:`topn-pushdown`
 
+In addition, the connector supports :ref:`aggregation-pushdown` for the
+following functions:
+
+* :func:`avg()`
+* :func:`count()`, also ``count(distinct x)``
+* :func:`max()`
+* :func:`min()`
+* :func:`sum()`
+
+Pushdown is only supported for ``DOUBLE`` type columns with the
+following functions:
+
+* :func:`stddev()` and :func:`stddev_samp()`
+* :func:`stddev_pop()`
+* :func:`var_pop()`
+* :func:`variance()` and :func:`var_samp()`
+
+Pushdown is only supported for ``REAL`` or ``DOUBLE`` type column
+with the following functions:
+
+* :func:`covar_samp()`
+* :func:`covar_pop()`
+
 .. _oracle-predicate-pushdown:
 
 Predicate pushdown support
