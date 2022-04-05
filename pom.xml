@@ -67,7 +67,7 @@
         <dep.coral.version>2.0.55</dep.coral.version>
         <dep.confluent.version>5.5.2</dep.confluent.version>
 
-        <dep.docker.images.version>55</dep.docker.images.version>
+        <dep.docker.images.version>56</dep.docker.images.version>
 
         <!--
           America/Bahia_Banderas has:
