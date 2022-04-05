@@ -35,6 +35,7 @@ import io.trino.execution.TaskStatus;
 import io.trino.memory.LowMemoryKiller.QueryMemoryInfo;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.InternalNodeManager;
+import io.trino.operator.RetryPolicy;
 import io.trino.server.BasicQueryInfo;
 import io.trino.server.ServerConfig;
 import io.trino.spi.QueryId;
@@ -76,6 +77,7 @@ import static io.trino.ExceededMemoryLimitException.exceededGlobalUserLimit;
 import static io.trino.SystemSessionProperties.RESOURCE_OVERCOMMIT;
 import static io.trino.SystemSessionProperties.getQueryMaxMemory;
 import static io.trino.SystemSessionProperties.getQueryMaxTotalMemory;
+import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.SystemSessionProperties.resourceOvercommit;
 import static io.trino.metadata.NodeState.ACTIVE;
 import static io.trino.metadata.NodeState.SHUTTING_DOWN;
@@ -191,6 +193,14 @@ public class ClusterMemoryManager
             boolean resourceOvercommit = resourceOvercommit(query.getSession());
             long userMemoryReservation = query.getUserMemoryReservation().toBytes();
             long totalMemoryReservation = query.getTotalMemoryReservation().toBytes();
+            totalUserMemoryBytes += userMemoryReservation;
+            totalMemoryBytes += totalMemoryReservation;
+
+            if (getRetryPolicy(query.getSession()) == RetryPolicy.TASK) {
+                // Memory limit for fault tolerant queries should only be enforced by the MemoryPool.
+                // LowMemoryKiller is responsible for freeing up the MemoryPool if necessary.
+                continue;
+            }
 
             if (resourceOvercommit && outOfMemory) {
                 // If a query has requested resource overcommit, only kill it if the cluster has run out of memory
@@ -213,9 +223,6 @@ public class ClusterMemoryManager
                     queryKilled = true;
                 }
             }
-
-            totalUserMemoryBytes += userMemoryReservation;
-            totalMemoryBytes += totalMemoryReservation;
         }
 
         clusterUserMemoryReservation.set(totalUserMemoryBytes);
