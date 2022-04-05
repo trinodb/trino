@@ -214,8 +214,7 @@ public abstract class AbstractIcebergTableOperations
                 .retry(20)
                 .exponentialBackoff(100, 5000, 600000, 4.0)
                 .stopRetryOn(org.apache.iceberg.exceptions.NotFoundException.class) // qualified name, as this is NOT the io.trino.spi.connector.NotFoundException
-                .run(metadataLocation -> newMetadata.set(
-                        TableMetadataParser.read(fileIo, io().newInputFile(metadataLocation))));
+                .run(metadataLocation -> newMetadata.set(readTableMetadata(metadataLocation)));
 
         String newUUID = newMetadata.get().uuid();
         if (currentMetadata != null) {
@@ -227,6 +226,17 @@ public abstract class AbstractIcebergTableOperations
         currentMetadataLocation = newLocation;
         version = parseVersion(newLocation);
         shouldRefresh = false;
+    }
+
+    private TableMetadata readTableMetadata(String metadataLocation)
+    {
+        try {
+            return TableMetadataParser.read(fileIo, io().newInputFile(metadataLocation));
+        }
+        catch (Exception e) {
+            log.info("Failed to read table metadata: %s.%s", database, tableName);
+            throw e;
+        }
     }
 
     protected static String newTableMetadataFilePath(TableMetadata meta, int newVersion)
