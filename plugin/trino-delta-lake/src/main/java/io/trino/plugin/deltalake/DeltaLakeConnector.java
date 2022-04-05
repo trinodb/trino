@@ -40,7 +40,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.transaction.IsolationLevel.READ_COMMITTED;
 import static io.trino.spi.transaction.IsolationLevel.checkConnectorSupports;
@@ -193,7 +192,6 @@ public class DeltaLakeConnector
     public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly, boolean autoCommit)
     {
         checkConnectorSupports(READ_COMMITTED, isolationLevel);
-        verify(autoCommit, "Catalog only supports writes using autocommit: DeltaLake");
         ConnectorTransactionHandle transaction = new HiveTransactionHandle(true);
         transactionManager.begin(transaction);
         return transaction;

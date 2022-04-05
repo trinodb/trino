@@ -492,6 +492,16 @@ public abstract class BaseConnectorTest
         assertQuery("SELECT * FROM orders");
     }
 
+    @Test
+    public void testSelectInTransaction()
+    {
+        inTransaction(session -> {
+            assertQuery(session, "SELECT nationkey, name, regionkey FROM nation");
+            assertQuery(session, "SELECT regionkey, name FROM region");
+            assertQuery(session, "SELECT nationkey, name, regionkey FROM nation");
+        });
+    }
+
     /**
      * Test interactions between optimizer (including CBO), scheduling and connector metadata APIs.
      */
