@@ -137,7 +137,7 @@ public class BinPackingNodeAllocatorService
         }
 
         refreshNodePoolMemoryInfos();
-        executor.scheduleWithFixedDelay(this::refreshNodePoolMemoryInfos, 1, 5, TimeUnit.SECONDS);
+        executor.scheduleWithFixedDelay(this::refreshNodePoolMemoryInfos, 1, 1, TimeUnit.SECONDS);
     }
 
     @PreDestroy
