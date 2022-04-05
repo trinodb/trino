@@ -35,4 +35,16 @@ public class TestIcebergConnectorSmokeTest
                 .setInitialTables(REQUIRED_TPCH_TABLES)
                 .build();
     }
+
+    @Override
+    protected String getMetadataDirectory(String tableName)
+    {
+        return getDistributedQueryRunner().getCoordinator().getBaseDataDir()
+                .resolve("iceberg_data")
+                .resolve(getSession().getSchema().orElseThrow())
+                .resolve(tableName)
+                .resolve("metadata")
+                .toFile()
+                .getPath();
+    }
 }

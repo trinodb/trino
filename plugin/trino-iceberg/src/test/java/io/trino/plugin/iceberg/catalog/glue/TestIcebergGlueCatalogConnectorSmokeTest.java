@@ -132,6 +132,12 @@ public class TestIcebergGlueCatalogConnectorSmokeTest
                 .hasStackTraceContaining("renameNamespace is not supported for Iceberg Glue catalogs");
     }
 
+    @Override
+    protected String getMetadataDirectory(String tableName)
+    {
+        return format("s3://%s/%s/%s.db/%s/metadata", bucketName, schemaName, schemaName, tableName);
+    }
+
     private String schemaPath()
     {
         return format("s3://%s/%s", bucketName, schemaName);

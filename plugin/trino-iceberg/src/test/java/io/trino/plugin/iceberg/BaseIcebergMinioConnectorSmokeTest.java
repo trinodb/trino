@@ -84,4 +84,10 @@ public abstract class BaseIcebergMinioConnectorSmokeTest
                 format("ALTER SCHEMA %s RENAME TO %s", schemaName, schemaName + randomTableSuffix()),
                 "Hive metastore does not support renaming schemas");
     }
+
+    @Override
+    protected String getMetadataDirectory(String tableName)
+    {
+        return format("s3://%s/%s/%s/metadata", bucketName, schemaName, tableName);
+    }
 }
