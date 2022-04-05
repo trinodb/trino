@@ -78,6 +78,7 @@ import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.plugin.hive.util.FSDataInputStreamTail;
+import io.trino.spi.TrinoException;
 import org.apache.hadoop.conf.Configurable;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.BlockLocation;
@@ -141,6 +142,7 @@ import static com.google.common.collect.Iterables.toArray;
 import static com.google.common.hash.Hashing.md5;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.trino.plugin.hive.HiveErrorCode.HIVE_FILE_NOT_FOUND;
 import static io.trino.plugin.hive.aws.AwsCurrentRegionHolder.getCurrentRegionFromEC2Metadata;
 import static io.trino.plugin.hive.util.RetryDriver.retry;
 import static java.lang.Math.max;
@@ -1186,7 +1188,7 @@ public class TrinoS3FileSystem
                                         case HTTP_RANGE_NOT_SATISFIABLE:
                                             throw new EOFException(CANNOT_SEEK_PAST_EOF);
                                         case HTTP_NOT_FOUND:
-                                            throw new UnrecoverableS3OperationException(path, e);
+                                            throw new UnrecoverableS3OperationException(path, new TrinoException(HIVE_FILE_NOT_FOUND, e));
                                     }
                                 }
                                 throw e;
@@ -1361,7 +1363,7 @@ public class TrinoS3FileSystem
                                             // ignore request for start past end of object
                                             return new ByteArrayInputStream(new byte[0]);
                                         case HTTP_NOT_FOUND:
-                                            throw new UnrecoverableS3OperationException(path, e);
+                                            throw new UnrecoverableS3OperationException(path, new TrinoException(HIVE_FILE_NOT_FOUND, e));
                                     }
                                 }
                                 throw e;
