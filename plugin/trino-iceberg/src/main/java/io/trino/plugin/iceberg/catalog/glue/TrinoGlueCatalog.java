@@ -560,19 +560,19 @@ public class TrinoGlueCatalog
     }
 
     @Override
-    public void createMaterializedView(ConnectorSession session, SchemaTableName schemaViewName, ConnectorMaterializedViewDefinition definition, boolean replace, boolean ignoreExisting)
+    public void createMaterializedView(ConnectorSession session, SchemaTableName viewName, ConnectorMaterializedViewDefinition definition, boolean replace, boolean ignoreExisting)
     {
         throw new TrinoException(NOT_SUPPORTED, "createMaterializedView is not supported for Iceberg Glue catalogs");
     }
 
     @Override
-    public void dropMaterializedView(ConnectorSession session, SchemaTableName schemaViewName)
+    public void dropMaterializedView(ConnectorSession session, SchemaTableName viewName)
     {
         throw new TrinoException(NOT_SUPPORTED, "dropMaterializedView is not supported for Iceberg Glue catalogs");
     }
 
     @Override
-    public Optional<ConnectorMaterializedViewDefinition> getMaterializedView(ConnectorSession session, SchemaTableName schemaViewName)
+    public Optional<ConnectorMaterializedViewDefinition> getMaterializedView(ConnectorSession session, SchemaTableName viewName)
     {
         return Optional.empty();
     }
