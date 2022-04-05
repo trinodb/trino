@@ -950,8 +950,7 @@ public final class JsonUtil
                 MapType mapType = (MapType) type;
                 return new MapBlockBuilderAppender(
                         createBlockBuilderAppender(mapType.getKeyType()),
-                        createBlockBuilderAppender(mapType.getValueType()),
-                        mapType.getKeyType());
+                        createBlockBuilderAppender(mapType.getValueType()));
             }
             if (type instanceof RowType) {
                 RowType rowType = (RowType) type;
@@ -1195,13 +1194,11 @@ public final class JsonUtil
     {
         final BlockBuilderAppender keyAppender;
         final BlockBuilderAppender valueAppender;
-        final Type keyType;
 
-        MapBlockBuilderAppender(BlockBuilderAppender keyAppender, BlockBuilderAppender valueAppender, Type keyType)
+        MapBlockBuilderAppender(BlockBuilderAppender keyAppender, BlockBuilderAppender valueAppender)
         {
             this.keyAppender = keyAppender;
             this.valueAppender = valueAppender;
-            this.keyType = keyType;
         }
 
         @Override
