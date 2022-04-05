@@ -67,6 +67,7 @@ import java.util.function.Supplier;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.MoreCollectors.toOptional;
 import static com.google.common.collect.Sets.difference;
@@ -250,12 +251,13 @@ public class ClusterMemoryManager
                 .map(this::createQueryMemoryInfo)
                 .collect(toImmutableList());
 
-        List<MemoryInfo> nodeMemoryInfos = nodes.values().stream()
-                .map(RemoteNodeMemory::getInfo)
-                .filter(Optional::isPresent)
-                .map(Optional::get)
-                .collect(toImmutableList());
+        Map<String, MemoryInfo> nodeMemoryInfosByNode = nodes.entrySet().stream()
+                .filter(entry -> entry.getValue().getInfo().isPresent())
+                .collect(toImmutableMap(
+                        Entry::getKey,
+                        entry -> entry.getValue().getInfo().get()));
 
+        List<MemoryInfo> nodeMemoryInfos = ImmutableList.copyOf(nodeMemoryInfosByNode.values());
         Optional<KillTarget> killTarget = lowMemoryKiller.chooseQueryToKill(queryMemoryInfoList, nodeMemoryInfos);
 
         if (killTarget.isPresent()) {
@@ -268,7 +270,7 @@ public class ClusterMemoryManager
                     chosenQuery.get().fail(new TrinoException(CLUSTER_OUT_OF_MEMORY, "Query killed because the cluster is out of memory. Please try again in a few minutes."));
                     queriesKilledDueToOutOfMemory.incrementAndGet();
                     lastKillTarget = killTarget.get();
-                    logQueryKill(queryId, nodeMemoryInfos);
+                    logQueryKill(queryId, nodeMemoryInfosByNode);
                 }
             }
             else {
@@ -287,7 +289,7 @@ public class ClusterMemoryManager
                 ImmutableSet<TaskId> killedTasks = killedTasksBuilder.build();
                 if (!killedTasks.isEmpty()) {
                     lastKillTarget = KillTarget.selectedTasks(killedTasks);
-                    logTasksKill(killedTasks, nodeMemoryInfos);
+                    logTasksKill(killedTasks, nodeMemoryInfosByNode);
                 }
             }
         }
@@ -355,18 +357,18 @@ public class ClusterMemoryManager
         return Streams.stream(runningQueries).filter(query -> queryId.equals(query.getQueryId())).collect(toOptional());
     }
 
-    private void logQueryKill(QueryId killedQueryId, List<MemoryInfo> nodes)
+    private void logQueryKill(QueryId killedQueryId, Map<String, MemoryInfo> nodeMemoryInfosByNode)
     {
         if (!log.isInfoEnabled()) {
             return;
         }
         StringBuilder nodeDescription = new StringBuilder();
         nodeDescription.append("Query Kill Decision: Killed ").append(killedQueryId).append("\n");
-        nodeDescription.append(formatKillScenario(nodes));
+        nodeDescription.append(formatKillScenario(nodeMemoryInfosByNode));
         log.info("%s", nodeDescription);
     }
 
-    private void logTasksKill(Set<TaskId> tasks, List<MemoryInfo> nodes)
+    private void logTasksKill(Set<TaskId> tasks, Map<String, MemoryInfo> nodeMemoryInfosByNode)
     {
         if (!log.isInfoEnabled()) {
             return;
@@ -374,24 +376,23 @@ public class ClusterMemoryManager
         StringBuilder nodeDescription = new StringBuilder();
         nodeDescription.append("Query Kill Decision: Tasks Killed ")
                 .append(tasks)
-                .append("(")
-                .append(tasks)
-                .append(")")
                 .append("\n");
-        nodeDescription.append(formatKillScenario(nodes));
+        nodeDescription.append(formatKillScenario(nodeMemoryInfosByNode));
         log.info("%s", nodeDescription);
     }
 
-    private String formatKillScenario(List<MemoryInfo> nodes)
+    private String formatKillScenario(Map<String, MemoryInfo> nodes)
     {
         StringBuilder stringBuilder = new StringBuilder();
-        for (MemoryInfo nodeMemoryInfo : nodes) {
+        for (Entry<String, MemoryInfo> entry : nodes.entrySet()) {
+            String nodeId = entry.getKey();
+            MemoryInfo nodeMemoryInfo = entry.getValue();
             MemoryPoolInfo memoryPoolInfo = nodeMemoryInfo.getPool();
-            stringBuilder.append("Query Kill Scenario: ");
+            stringBuilder.append("Node[").append(nodeId).append("]: ");
             stringBuilder.append("MaxBytes ").append(memoryPoolInfo.getMaxBytes()).append(' ');
             stringBuilder.append("FreeBytes ").append(memoryPoolInfo.getFreeBytes() + memoryPoolInfo.getReservedRevocableBytes()).append(' ');
             stringBuilder.append("Queries ");
-            Joiner.on(",").withKeyValueSeparator("=").appendTo(stringBuilder, memoryPoolInfo.getQueryMemoryReservations());
+            Joiner.on(",").withKeyValueSeparator("=").appendTo(stringBuilder, memoryPoolInfo.getQueryMemoryReservations()).append((' '));
             stringBuilder.append("Tasks ");
             Joiner.on(",").withKeyValueSeparator("=").appendTo(stringBuilder, nodeMemoryInfo.getTasksMemoryInfo().asMap());
             stringBuilder.append('\n');
