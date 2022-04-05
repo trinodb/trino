@@ -18,7 +18,6 @@ import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import io.airlift.units.MinDuration;
 
 import javax.validation.constraints.NotNull;
 
@@ -60,7 +59,6 @@ public class MemoryManagerConfig
     }
 
     @NotNull
-    @MinDuration("5s")
     public Duration getKillOnOutOfMemoryDelay()
     {
         return killOnOutOfMemoryDelay;

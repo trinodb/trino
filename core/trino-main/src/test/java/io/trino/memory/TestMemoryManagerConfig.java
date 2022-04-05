@@ -48,7 +48,7 @@ public class TestMemoryManagerConfig
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("query.low-memory-killer.policy", "none")
-                .put("query.low-memory-killer.delay", "20s")
+                .put("query.low-memory-killer.delay", "0s")
                 .put("query.max-memory", "2GB")
                 .put("query.max-total-memory", "3GB")
                 .put("fault-tolerant-execution-task-memory", "2GB")
@@ -57,7 +57,7 @@ public class TestMemoryManagerConfig
 
         MemoryManagerConfig expected = new MemoryManagerConfig()
                 .setLowMemoryKillerPolicy(NONE)
-                .setKillOnOutOfMemoryDelay(new Duration(20, SECONDS))
+                .setKillOnOutOfMemoryDelay(new Duration(0, SECONDS))
                 .setMaxQueryMemory(DataSize.of(2, GIGABYTE))
                 .setMaxQueryTotalMemory(DataSize.of(3, GIGABYTE))
                 .setFaultTolerantExecutionTaskMemory(DataSize.of(2, GIGABYTE))
