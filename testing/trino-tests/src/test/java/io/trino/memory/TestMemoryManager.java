@@ -100,7 +100,7 @@ public class TestMemoryManager
         }
     }
 
-    @Test(timeOut = 240_000, expectedExceptions = ExecutionException.class, expectedExceptionsMessageRegExp = ".*Query killed because the cluster is out of memory. Please try again in a few minutes.")
+    @Test(timeOut = 240_000)
     public void testOutOfMemoryKiller()
             throws Exception
     {
@@ -133,9 +133,13 @@ public class TestMemoryManager
                 assertTrue(pool.getFreeBytes() > 0);
             }
 
-            for (Future<?> query : queryFutures) {
-                query.get();
-            }
+            assertThatThrownBy(() -> {
+                for (Future<?> query : queryFutures) {
+                    query.get();
+                }
+            })
+                    .isInstanceOf(ExecutionException.class)
+                    .hasMessageMatching(".*Query killed because the cluster is out of memory. Please try again in a few minutes.");
         }
     }
 
