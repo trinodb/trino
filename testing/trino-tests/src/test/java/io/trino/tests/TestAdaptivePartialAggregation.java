@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.testing.AbstractTestAggregations;
 import io.trino.testing.QueryRunner;
 import io.trino.tests.tpch.TpchQueryRunnerBuilder;
+import org.testng.annotations.Test;
 
 public class TestAdaptivePartialAggregation
         extends AbstractTestAggregations
@@ -28,7 +29,26 @@ public class TestAdaptivePartialAggregation
         return TpchQueryRunnerBuilder.builder()
                 .setExtraProperties(ImmutableMap.of(
                         "adaptive-partial-aggregation.min-rows", "0",
-                        "task.max-partial-aggregation-memory", "0B"))
+                        "task.max-partial-aggregation-memory", "0B",
+                        "optimizer.push-partial-aggregation-through-join", "true"))
                 .build();
+    }
+
+    @Test
+    public void testAggregationWithLambda()
+    {
+        // case with partial aggregation disabled adaptively.
+        // orderkey + 1 is needed to avoid streaming aggregation.
+        assertQuery(
+                "SELECT orderkey + 1, reduce_agg(orderkey, 1, (a, b) -> a * b, (a, b) -> a * b) " +
+                        "FROM orders " +
+                        "GROUP BY orderkey + 1",
+                "SELECT orderkey + 1, orderkey from orders");
+    }
+
+    @Test
+    public void testPushPartialAggregationThroughJoin()
+    {
+        assertQuery("select count(*) from orders o join customer c on o.custkey = c.custkey");
     }
 }

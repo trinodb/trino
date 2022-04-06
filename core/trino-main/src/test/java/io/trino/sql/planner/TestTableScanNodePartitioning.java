@@ -169,7 +169,7 @@ public class TestTableScanNodePartitioning
         String query = "SELECT count(column_b) FROM " + table + " GROUP BY column_a";
         assertDistributedPlan(query, session,
                 anyTree(
-                        aggregation(ImmutableMap.of("COUNT", functionCall("count", ImmutableList.of("COUNT_PART"))), FINAL,
+                        aggregation(ImmutableMap.of("COUNT", functionCall("count", ImmutableList.of("COUNT_PART", "B"))), FINAL,
                                 exchange(LOCAL, REPARTITION,
                                         project(
                                                 aggregation(ImmutableMap.of("COUNT_PART", functionCall("count", ImmutableList.of("B"))), PARTIAL,
@@ -184,7 +184,7 @@ public class TestTableScanNodePartitioning
         String query = "SELECT count(column_b) FROM " + table + " GROUP BY column_a";
         assertDistributedPlan("SELECT count(column_b) FROM " + table + " GROUP BY column_a", session,
                 anyTree(
-                        aggregation(ImmutableMap.of("COUNT", functionCall("count", ImmutableList.of("COUNT_PART"))), FINAL,
+                        aggregation(ImmutableMap.of("COUNT", functionCall("count", ImmutableList.of("COUNT_PART", "B"))), FINAL,
                                 exchange(LOCAL, REPARTITION,
                                         exchange(REMOTE, REPARTITION,
                                                 project(

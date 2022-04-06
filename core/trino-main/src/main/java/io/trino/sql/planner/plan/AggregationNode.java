@@ -38,7 +38,9 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Stream;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static java.util.Objects.requireNonNull;
@@ -54,6 +56,11 @@ public class AggregationNode
     private final Step step;
     private final Optional<Symbol> hashSymbol;
     private final Optional<Symbol> groupIdSymbol;
+    // Mask symbol specifying if raw data or intermediate aggregation data is present in intermediate aggregation row.
+    // If empty, partial aggregation adaptation is disabled and intermediate state should be used.
+    // If the block is null at given position, the aggregated (intermediate) input should be used,
+    // otherwise raw input should be used (this happens when partial aggregation is disabled).
+    private final Optional<Symbol> rawInputMaskSymbol;
     private final List<Symbol> outputs;
 
     public static AggregationNode singleAggregation(
@@ -62,7 +69,7 @@ public class AggregationNode
             Map<Symbol, Aggregation> aggregations,
             GroupingSetDescriptor groupingSets)
     {
-        return new AggregationNode(id, source, aggregations, groupingSets, ImmutableList.of(), SINGLE, Optional.empty(), Optional.empty());
+        return new AggregationNode(id, source, aggregations, groupingSets, ImmutableList.of(), SINGLE, Optional.empty(), Optional.empty(), Optional.empty());
     }
 
     @JsonCreator
@@ -74,20 +81,21 @@ public class AggregationNode
             @JsonProperty("preGroupedSymbols") List<Symbol> preGroupedSymbols,
             @JsonProperty("step") Step step,
             @JsonProperty("hashSymbol") Optional<Symbol> hashSymbol,
-            @JsonProperty("groupIdSymbol") Optional<Symbol> groupIdSymbol)
+            @JsonProperty("groupIdSymbol") Optional<Symbol> groupIdSymbol,
+            @JsonProperty("rawInputMaskSymbol") Optional<Symbol> rawInputMaskSymbol)
     {
         super(id);
 
         this.source = source;
         this.aggregations = ImmutableMap.copyOf(requireNonNull(aggregations, "aggregations is null"));
-        aggregations.values().forEach(aggregation -> aggregation.verifyArguments(step));
-
         requireNonNull(groupingSets, "groupingSets is null");
+        aggregations.values().forEach(aggregation -> aggregation.verifyArguments(step, rawInputMaskSymbol.isPresent()));
+
         groupIdSymbol.ifPresent(symbol -> checkArgument(groupingSets.getGroupingKeys().contains(symbol), "Grouping columns does not contain groupId column"));
         this.groupingSets = groupingSets;
 
         this.groupIdSymbol = requireNonNull(groupIdSymbol);
-
+        this.rawInputMaskSymbol = requireNonNull(rawInputMaskSymbol, "rawInputMaskSymbol is null");
         boolean noOrderBy = aggregations.values().stream()
                 .map(Aggregation::getOrderingScheme)
                 .noneMatch(Optional::isPresent);
@@ -100,12 +108,34 @@ public class AggregationNode
         checkArgument(preGroupedSymbols.isEmpty() || groupingSets.getGroupingKeys().containsAll(preGroupedSymbols), "Pre-grouped symbols must be a subset of the grouping keys");
         this.preGroupedSymbols = ImmutableList.copyOf(preGroupedSymbols);
 
-        ImmutableList.Builder<Symbol> outputs = ImmutableList.builder();
-        outputs.addAll(groupingSets.getGroupingKeys());
-        hashSymbol.ifPresent(outputs::add);
-        outputs.addAll(aggregations.keySet());
+        ImmutableList.Builder<Symbol> outputsBuilder = ImmutableList.builder();
+        outputsBuilder.addAll(groupingSets.getGroupingKeys());
+        hashSymbol.ifPresent(outputsBuilder::add);
+        outputsBuilder.addAll(aggregations.keySet());
+        if (step.isOutputPartial() && rawInputMaskSymbol.isPresent()) {
+            // add mask channels
+            aggregations.values().stream()
+                    .map(Aggregation::getMask)
+                    .flatMap(Optional::stream)
+                    .distinct()
+                    .forEach(outputsBuilder::add);
+            // add raw inputs to the aggregations to be used by adaptive partial aggregation.
+            // lambda arguments are ignored here since they are not real input just functions.
+            // Since this can be intermediate step, the aggregation arguments can contain intermediate state,
+            // which is also the output of the step, so we need to deduplicate here using current outputs.
+            Set<Symbol> outputs = ImmutableSet.copyOf(outputsBuilder.build());
+            aggregations.values().stream()
+                    .flatMap(Aggregation::getRawInputs)
+                    .filter(symbol -> !groupingSets.getGroupingKeys().contains(symbol))
+                    .filter(symbol -> !outputs.contains(symbol))
+                    .distinct()
+                    .forEach(outputsBuilder::add);
 
-        this.outputs = outputs.build();
+            // add rawInputMask channel
+            outputsBuilder.add(rawInputMaskSymbol.orElseThrow());
+        }
+
+        this.outputs = outputsBuilder.build();
     }
 
     public List<Symbol> getGroupingKeys()
@@ -200,6 +230,12 @@ public class AggregationNode
         return groupIdSymbol;
     }
 
+    @JsonProperty("rawInputMaskSymbol")
+    public Optional<Symbol> getRawInputMaskSymbol()
+    {
+        return rawInputMaskSymbol;
+    }
+
     public boolean hasOrderings()
     {
         return aggregations.values().stream()
@@ -266,6 +302,11 @@ public class AggregationNode
         return ImmutableSet.copyOf(preGroupedSymbols).equals(ImmutableSet.copyOf(groupingSets.getGroupingKeys()))
                 && groupingSets.getGroupingSetCount() == 1
                 && groupingSets.getGlobalGroupingSets().isEmpty();
+    }
+
+    public boolean isGlobalAggregation()
+    {
+        return groupingSets.getGroupingKeys().isEmpty();
     }
 
     public static GroupingSetDescriptor globalAggregation()
@@ -444,6 +485,13 @@ public class AggregationNode
             return mask;
         }
 
+        public Stream<Symbol> getRawInputs()
+        {
+            return getArguments().stream()
+                    .filter(argument -> !(argument instanceof LambdaExpression))
+                    .map(Symbol::from);
+        }
+
         @Override
         public boolean equals(Object o)
         {
@@ -468,14 +516,31 @@ public class AggregationNode
             return Objects.hash(resolvedFunction, arguments, distinct, filter, orderingScheme, mask);
         }
 
-        private void verifyArguments(Step step)
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("resolvedFunction", resolvedFunction)
+                    .add("arguments", arguments)
+                    .add("distinct", distinct)
+                    .add("filter", filter)
+                    .add("orderingScheme", orderingScheme)
+                    .add("mask", mask)
+                    .toString();
+        }
+
+        private void verifyArguments(Step step, boolean supportAdaptivePartialAggregation)
         {
             int expectedArgumentCount;
             if (step == SINGLE || step == Step.PARTIAL) {
                 expectedArgumentCount = resolvedFunction.getSignature().getArgumentTypes().size();
             }
+            else if (supportAdaptivePartialAggregation) {
+                // intermediate and final steps get the intermediate value and all the arguments if the PA adaptation is enabled
+                expectedArgumentCount = 1 + resolvedFunction.getSignature().getArgumentTypes().size();
+            }
             else {
-                // Intermediate and final steps get the intermediate value and the lambda functions
+                // intermediate and final steps get the intermediate value and the lambda functions only if the PA adaptation is disabled
                 expectedArgumentCount = 1 + (int) resolvedFunction.getSignature().getArgumentTypes().stream()
                         .filter(FunctionType.class::isInstance)
                         .count();
@@ -506,6 +571,7 @@ public class AggregationNode
         private Step step;
         private Optional<Symbol> hashSymbol;
         private Optional<Symbol> groupIdSymbol;
+        private Optional<Symbol> rawInputMaskSymbol;
 
         public Builder(AggregationNode node)
         {
@@ -518,6 +584,7 @@ public class AggregationNode
             this.step = node.getStep();
             this.hashSymbol = node.getHashSymbol();
             this.groupIdSymbol = node.getGroupIdSymbol();
+            this.rawInputMaskSymbol = node.getRawInputMaskSymbol();
         }
 
         public Builder setId(PlanNodeId id)
@@ -568,6 +635,12 @@ public class AggregationNode
             return this;
         }
 
+        public Builder setRawInputMaskSymbol(Optional<Symbol> rawInputMaskSymbol)
+        {
+            this.rawInputMaskSymbol = requireNonNull(rawInputMaskSymbol, "rawInputMaskSymbol is null");
+            return this;
+        }
+
         public AggregationNode build()
         {
             return new AggregationNode(
@@ -578,7 +651,8 @@ public class AggregationNode
                     preGroupedSymbols,
                     step,
                     hashSymbol,
-                    groupIdSymbol);
+                    groupIdSymbol,
+                    rawInputMaskSymbol);
         }
     }
 }

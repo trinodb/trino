@@ -22,6 +22,7 @@ import io.trino.operator.WorkProcessor;
 import io.trino.operator.WorkProcessor.Transformation;
 import io.trino.operator.WorkProcessor.TransformationState;
 import io.trino.operator.aggregation.AggregatorFactory;
+import io.trino.operator.aggregation.partial.PartialAggregationOutputProcessor;
 import io.trino.spi.Page;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.JoinCompiler;
@@ -46,6 +47,7 @@ public class MergingHashAggregationBuilder
     private final WorkProcessor<Page> sortedPages;
     private InMemoryHashAggregationBuilder hashAggregationBuilder;
     private final List<Type> groupByTypes;
+    private final Optional<PartialAggregationOutputProcessor> partialAggregationOutputProcessor;
     private final LocalMemoryContext memoryContext;
     private final long memoryLimitForMerge;
     private final int overwriteIntermediateChannelOffset;
@@ -57,6 +59,7 @@ public class MergingHashAggregationBuilder
             AggregationNode.Step step,
             int expectedGroups,
             List<Type> groupByTypes,
+            Optional<PartialAggregationOutputProcessor> partialAggregationOutputProcessor,
             Optional<Integer> hashChannel,
             OperatorContext operatorContext,
             WorkProcessor<Page> sortedPages,
@@ -79,6 +82,7 @@ public class MergingHashAggregationBuilder
         this.operatorContext = operatorContext;
         this.sortedPages = sortedPages;
         this.groupByTypes = groupByTypes;
+        this.partialAggregationOutputProcessor = partialAggregationOutputProcessor;
         this.memoryContext = aggregatedMemoryContext.newLocalMemoryContext(MergingHashAggregationBuilder.class.getSimpleName());
         this.memoryLimitForMerge = memoryLimitForMerge;
         this.overwriteIntermediateChannelOffset = overwriteIntermediateChannelOffset;
@@ -149,6 +153,7 @@ public class MergingHashAggregationBuilder
                 expectedGroups,
                 groupByTypes,
                 groupByPartialChannels,
+                partialAggregationOutputProcessor,
                 hashChannel,
                 operatorContext,
                 Optional.of(DataSize.succinctBytes(0)),

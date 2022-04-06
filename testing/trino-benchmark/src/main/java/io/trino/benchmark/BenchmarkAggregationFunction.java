@@ -51,6 +51,7 @@ public class BenchmarkAggregationFunction
                 finalType,
                 inputChannels,
                 OptionalInt.empty(),
+                OptionalInt.empty(),
                 true,
                 ImmutableList.of());
     }

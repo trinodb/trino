@@ -53,6 +53,7 @@ public class HashAggregationBenchmark
                 new PlanNodeId("test"),
                 ImmutableList.of(tableTypes.get(0)),
                 Ints.asList(0),
+                Optional.empty(),
                 ImmutableList.of(),
                 Step.SINGLE,
                 ImmutableList.of(doubleSum.bind(ImmutableList.of(1))),

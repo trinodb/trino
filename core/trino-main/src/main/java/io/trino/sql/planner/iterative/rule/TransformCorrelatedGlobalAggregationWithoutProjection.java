@@ -260,7 +260,8 @@ public class TransformCorrelatedGlobalAggregationWithoutProjection
                 ImmutableList.of(),
                 globalAggregation.getStep(),
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                globalAggregation.getRawInputMaskSymbol());
 
         // restrict outputs
         Optional<PlanNode> project = restrictOutputs(context.getIdAllocator(), globalAggregation, ImmutableSet.copyOf(correlatedJoinNode.getOutputSymbols()));

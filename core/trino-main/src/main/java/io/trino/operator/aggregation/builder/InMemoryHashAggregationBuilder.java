@@ -29,6 +29,7 @@ import io.trino.operator.WorkProcessor;
 import io.trino.operator.WorkProcessor.ProcessState;
 import io.trino.operator.aggregation.AggregatorFactory;
 import io.trino.operator.aggregation.GroupedAggregator;
+import io.trino.operator.aggregation.partial.PartialAggregationOutputProcessor;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.BlockBuilder;
@@ -57,6 +58,7 @@ public class InMemoryHashAggregationBuilder
     private final boolean partial;
     private final OptionalLong maxPartialMemory;
     private final UpdateMemory updateMemory;
+    private final Optional<PartialAggregationOutputProcessor> partialAggregationOutputProcessor;
 
     private boolean full;
 
@@ -66,6 +68,7 @@ public class InMemoryHashAggregationBuilder
             int expectedGroups,
             List<Type> groupByTypes,
             List<Integer> groupByChannels,
+            Optional<PartialAggregationOutputProcessor> partialAggregationOutputProcessor,
             Optional<Integer> hashChannel,
             OperatorContext operatorContext,
             Optional<DataSize> maxPartialMemory,
@@ -78,6 +81,7 @@ public class InMemoryHashAggregationBuilder
                 expectedGroups,
                 groupByTypes,
                 groupByChannels,
+                partialAggregationOutputProcessor,
                 hashChannel,
                 operatorContext,
                 maxPartialMemory,
@@ -93,6 +97,7 @@ public class InMemoryHashAggregationBuilder
             int expectedGroups,
             List<Type> groupByTypes,
             List<Integer> groupByChannels,
+            Optional<PartialAggregationOutputProcessor> partialAggregationOutputProcessor,
             Optional<Integer> hashChannel,
             OperatorContext operatorContext,
             Optional<DataSize> maxPartialMemory,
@@ -113,7 +118,7 @@ public class InMemoryHashAggregationBuilder
         this.partial = step.isOutputPartial();
         this.maxPartialMemory = maxPartialMemory.map(dataSize -> OptionalLong.of(dataSize.toBytes())).orElseGet(OptionalLong::empty);
         this.updateMemory = requireNonNull(updateMemory, "updateMemory is null");
-
+        this.partialAggregationOutputProcessor = requireNonNull(partialAggregationOutputProcessor, "partialAggregationOutputProcessor is null");
         // wrapper each function with an aggregator
         ImmutableList.Builder<GroupedAggregator> builder = ImmutableList.builder();
         requireNonNull(aggregatorFactories, "aggregatorFactories is null");
@@ -290,7 +295,10 @@ public class InMemoryHashAggregationBuilder
                 }
             }
 
-            return ProcessState.ofResult(pageBuilder.build());
+            Page page = pageBuilder.build();
+            return ProcessState.ofResult(partialAggregationOutputProcessor
+                    .map(outputProcessor -> outputProcessor.processAggregatedPage(page))
+                    .orElse(page));
         });
     }
 

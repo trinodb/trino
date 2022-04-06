@@ -19,6 +19,7 @@ import io.trino.RowPagesBuilder;
 import io.trino.jmh.Benchmarks;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.HashAggregationOperator.HashAggregationOperatorFactory;
+import io.trino.operator.aggregation.AggregatorFactory;
 import io.trino.operator.aggregation.TestingAggregationFunction;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
@@ -246,17 +247,19 @@ public class BenchmarkHashAndStreamingAggregationOperators
         {
             SpillerFactory spillerFactory = (types, localSpillContext, aggregatedMemoryContext) -> null;
 
+            ImmutableList<AggregatorFactory> aggregatorFactories = ImmutableList.of(
+                    COUNT.createAggregatorFactory(SINGLE, ImmutableList.of(0), OptionalInt.empty()),
+                    LONG_SUM.createAggregatorFactory(SINGLE, ImmutableList.of(sumChannel), OptionalInt.empty()));
             return new HashAggregationOperatorFactory(
                     0,
                     new PlanNodeId("test"),
                     hashTypes,
                     hashChannels,
+                    Optional.empty(),
                     ImmutableList.of(),
                     SINGLE,
                     false,
-                    ImmutableList.of(
-                            COUNT.createAggregatorFactory(SINGLE, ImmutableList.of(0), OptionalInt.empty()),
-                            LONG_SUM.createAggregatorFactory(SINGLE, ImmutableList.of(sumChannel), OptionalInt.empty())),
+                    aggregatorFactories,
                     hashChannel,
                     Optional.empty(),
                     100_000,

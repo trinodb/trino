@@ -106,6 +106,7 @@ public class HandTpchQuery1
                 new PlanNodeId("test"),
                 getColumnTypes("lineitem", "returnflag", "linestatus"),
                 Ints.asList(0, 1),
+                Optional.empty(),
                 ImmutableList.of(),
                 Step.SINGLE,
                 ImmutableList.of(

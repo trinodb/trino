@@ -60,6 +60,14 @@ public class StatisticAggregations
         return groupingSymbols;
     }
 
+    public List<Symbol> getOutputSymbols()
+    {
+        return ImmutableList.<Symbol>builder()
+                .addAll(groupingSymbols)
+                .addAll(aggregations.keySet())
+                .build();
+    }
+
     public Parts createPartialAggregations(SymbolAllocator symbolAllocator, Session session, PlannerContext plannerContext)
     {
         ImmutableMap.Builder<Symbol, Aggregation> partialAggregation = ImmutableMap.builder();

@@ -260,7 +260,8 @@ public class TestEffectivePredicateExtractor
                 ImmutableMap.of(),
                 globalAggregation(),
                 ImmutableList.of(),
-                AggregationNode.Step.FINAL,
+                AggregationNode.Step.SINGLE,
+                Optional.empty(),
                 Optional.empty(),
                 Optional.empty());
 

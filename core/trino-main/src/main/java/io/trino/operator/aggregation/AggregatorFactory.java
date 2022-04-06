@@ -21,7 +21,6 @@ import java.util.List;
 import java.util.OptionalInt;
 import java.util.function.Supplier;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class AggregatorFactory
@@ -30,7 +29,9 @@ public class AggregatorFactory
     private final Step step;
     private final Type intermediateType;
     private final Type finalType;
-    private final List<Integer> inputChannels;
+    private final List<Integer> aggregationRawInputChannels;
+    private final OptionalInt intermediateStateChannel;
+    private final OptionalInt rawInputMaskChannel;
     private final OptionalInt maskChannel;
     private final boolean spillable;
     private final List<Supplier<Object>> lambdaProviders;
@@ -41,6 +42,7 @@ public class AggregatorFactory
             Type intermediateType,
             Type finalType,
             List<Integer> inputChannels,
+            OptionalInt rawInputMaskChannel,
             OptionalInt maskChannel,
             boolean spillable,
             List<Supplier<Object>> lambdaProviders)
@@ -49,12 +51,19 @@ public class AggregatorFactory
         this.step = requireNonNull(step, "step is null");
         this.intermediateType = requireNonNull(intermediateType, "intermediateType is null");
         this.finalType = requireNonNull(finalType, "finalType is null");
-        this.inputChannels = ImmutableList.copyOf(requireNonNull(inputChannels, "inputChannels is null"));
+        requireNonNull(inputChannels, "inputChannels is null");
+        if (step.isInputRaw()) {
+            intermediateStateChannel = OptionalInt.empty();
+            this.aggregationRawInputChannels = ImmutableList.copyOf(inputChannels);
+        }
+        else {
+            intermediateStateChannel = OptionalInt.of(inputChannels.get(0));
+            this.aggregationRawInputChannels = ImmutableList.copyOf(inputChannels.subList(1, inputChannels.size()));
+        }
+        this.rawInputMaskChannel = requireNonNull(rawInputMaskChannel, "rawInputMaskChannel is null");
         this.maskChannel = requireNonNull(maskChannel, "maskChannel is null");
         this.spillable = spillable;
         this.lambdaProviders = ImmutableList.copyOf(requireNonNull(lambdaProviders, "lambdaProviders is null"));
-
-        checkArgument(step.isInputRaw() || inputChannels.size() == 1, "expected 1 input channel for intermediate aggregation");
     }
 
     public Aggregator createAggregator()
@@ -66,7 +75,7 @@ public class AggregatorFactory
         else {
             accumulator = accumulatorFactory.createIntermediateAccumulator(lambdaProviders);
         }
-        return new Aggregator(accumulator, step, intermediateType, finalType, inputChannels, maskChannel);
+        return new Aggregator(accumulator, step, intermediateType, finalType, aggregationRawInputChannels, intermediateStateChannel, rawInputMaskChannel, maskChannel);
     }
 
     public GroupedAggregator createGroupedAggregator()
@@ -78,7 +87,7 @@ public class AggregatorFactory
         else {
             accumulator = accumulatorFactory.createGroupedIntermediateAccumulator(lambdaProviders);
         }
-        return new GroupedAggregator(accumulator, step, intermediateType, finalType, inputChannels, maskChannel);
+        return new GroupedAggregator(accumulator, step, intermediateType, finalType, aggregationRawInputChannels, intermediateStateChannel, rawInputMaskChannel, maskChannel);
     }
 
     public GroupedAggregator createUnspillGroupedAggregator(Step step, int inputChannel)
@@ -90,11 +99,21 @@ public class AggregatorFactory
         else {
             accumulator = accumulatorFactory.createGroupedIntermediateAccumulator(lambdaProviders);
         }
-        return new GroupedAggregator(accumulator, step, intermediateType, finalType, ImmutableList.of(inputChannel), maskChannel);
+        return new GroupedAggregator(accumulator, step, intermediateType, finalType, ImmutableList.of(inputChannel), OptionalInt.of(inputChannel), OptionalInt.empty(), maskChannel);
     }
 
     public boolean isSpillable()
     {
         return spillable;
+    }
+
+    public OptionalInt getMaskChannel()
+    {
+        return maskChannel;
+    }
+
+    public Type getIntermediateType()
+    {
+        return intermediateType;
     }
 }

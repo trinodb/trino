@@ -159,7 +159,8 @@ public class SymbolMapper
                 ImmutableList.of(),
                 node.getStep(),
                 node.getHashSymbol().map(this::map),
-                node.getGroupIdSymbol().map(this::map));
+                node.getGroupIdSymbol().map(this::map),
+                node.getRawInputMaskSymbol().map(this::map));
     }
 
     public Aggregation map(Aggregation aggregation)

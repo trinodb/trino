@@ -40,7 +40,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
-import static io.trino.sql.planner.plan.AggregationNode.Step.FINAL;
+import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPLICATE;
@@ -90,7 +90,8 @@ final class PlanUtils
                 ImmutableMap.of(),
                 singleGroupingSet(ImmutableList.of()),
                 ImmutableList.of(),
-                FINAL,
+                SINGLE,
+                Optional.empty(),
                 Optional.empty(),
                 Optional.empty());
 

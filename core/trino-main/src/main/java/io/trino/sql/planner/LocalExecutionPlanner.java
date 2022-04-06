@@ -106,6 +106,7 @@ import io.trino.operator.aggregation.AggregatorFactory;
 import io.trino.operator.aggregation.DistinctAccumulatorFactory;
 import io.trino.operator.aggregation.OrderedAccumulatorFactory;
 import io.trino.operator.aggregation.partial.PartialAggregationController;
+import io.trino.operator.aggregation.partial.PartialAggregationOutputProcessor;
 import io.trino.operator.exchange.LocalExchange;
 import io.trino.operator.exchange.LocalExchangeSinkOperator.LocalExchangeSinkOperatorFactory;
 import io.trino.operator.exchange.LocalExchangeSourceOperator.LocalExchangeSourceOperatorFactory;
@@ -282,6 +283,7 @@ import java.util.stream.IntStream;
 import static com.google.common.base.Functions.forMap;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.DiscreteDomain.integers;
@@ -3193,16 +3195,20 @@ public class LocalExecutionPlanner
 
             OperatorFactory statisticsAggregation = node.getStatisticsAggregation().map(aggregation -> {
                 List<Symbol> groupingSymbols = aggregation.getGroupingSymbols();
+                List<Symbol> outputSymbols = aggregation.getOutputSymbols();
                 if (groupingSymbols.isEmpty()) {
                     return createAggregationOperatorFactory(
                             node.getId(),
                             aggregation.getAggregations(),
                             PARTIAL,
+                            Optional.empty(), // TODO (https://github.com/trinodb/trino/issues/12697) Support adaptive partial aggregation for CTAS
+                            outputSymbols,
                             STATS_START_CHANNEL,
                             outputMapping,
                             source,
                             context);
                 }
+
                 return createHashAggregationOperatorFactory(
                         node.getId(),
                         aggregation.getAggregations(),
@@ -3211,7 +3217,8 @@ public class LocalExecutionPlanner
                         PARTIAL,
                         Optional.empty(),
                         Optional.empty(),
-                        source,
+                        Optional.empty(), // TODO (https://github.com/trinodb/trino/issues/12697) Support adaptive partial aggregation for CTAS
+                        outputSymbols, source,
                         false,
                         false,
                         false,
@@ -3270,11 +3277,14 @@ public class LocalExecutionPlanner
 
             OperatorFactory statisticsAggregation = node.getStatisticsAggregation().map(aggregation -> {
                 List<Symbol> groupingSymbols = aggregation.getGroupingSymbols();
+                List<Symbol> outputSymbols = aggregation.getOutputSymbols();
                 if (groupingSymbols.isEmpty()) {
                     return createAggregationOperatorFactory(
                             node.getId(),
                             aggregation.getAggregations(),
                             FINAL,
+                            Optional.empty(), // TODO (https://github.com/trinodb/trino/issues/12697) Support adaptive partial aggregation for CTAS
+                            outputSymbols,
                             0,
                             outputMapping,
                             source,
@@ -3288,7 +3298,8 @@ public class LocalExecutionPlanner
                         FINAL,
                         Optional.empty(),
                         Optional.empty(),
-                        source,
+                        Optional.empty(), // TODO (https://github.com/trinodb/trino/issues/12697) Support adaptive partial aggregation for CTAS
+                        outputSymbols, source,
                         false,
                         false,
                         false,
@@ -3656,13 +3667,19 @@ public class LocalExecutionPlanner
         private AggregatorFactory buildAggregatorFactory(
                 PhysicalOperation source,
                 Aggregation aggregation,
-                Step step)
+                Step step,
+                OptionalInt rawInputMaskChannel)
         {
             List<Integer> argumentChannels = new ArrayList<>();
             for (Expression argument : aggregation.getArguments()) {
                 if (!(argument instanceof LambdaExpression)) {
                     Symbol argumentSymbol = Symbol.from(argument);
-                    argumentChannels.add(source.getLayout().get(argumentSymbol));
+                    argumentChannels.add(checkNotNull(
+                            source.getLayout().get(argumentSymbol),
+                            "argument symbol %s for aggregation %s not found in source %s",
+                            argument,
+                            aggregation,
+                            source.getLayout()));
                 }
             }
 
@@ -3746,6 +3763,7 @@ public class LocalExecutionPlanner
                     intermediateType,
                     finalType,
                     argumentChannels,
+                    rawInputMaskChannel,
                     maskChannel,
                     !aggregation.isDistinct() && aggregation.getOrderingScheme().isEmpty(),
                     lambdaProviders);
@@ -3812,6 +3830,8 @@ public class LocalExecutionPlanner
                     node.getId(),
                     node.getAggregations(),
                     node.getStep(),
+                    node.getRawInputMaskSymbol(),
+                    node.getOutputSymbols(),
                     0,
                     outputMappings,
                     source,
@@ -3823,21 +3843,33 @@ public class LocalExecutionPlanner
                 PlanNodeId planNodeId,
                 Map<Symbol, Aggregation> aggregations,
                 Step step,
+                Optional<Symbol> rawInputMaskSymbol,
+                List<Symbol> outputSymbols,
                 int startOutputChannel,
-                ImmutableMap.Builder<Symbol, Integer> outputMappings,
+                ImmutableMap.Builder<Symbol, Integer> outputMappingsBuilder,
                 PhysicalOperation source,
                 LocalExecutionPlanContext context)
         {
-            int outputChannel = startOutputChannel;
-            ImmutableList.Builder<AggregatorFactory> aggregatorFactories = ImmutableList.builder();
-            for (Map.Entry<Symbol, Aggregation> entry : aggregations.entrySet()) {
-                Symbol symbol = entry.getKey();
-                Aggregation aggregation = entry.getValue();
-                aggregatorFactories.add(buildAggregatorFactory(source, aggregation, step));
-                outputMappings.put(symbol, outputChannel); // one aggregation per channel
-                outputChannel++;
+            List<AggregatorFactory> aggregatorFactories = buildAggregatorFactories(aggregations, step, rawInputMaskSymbol, source);
+
+            int channel = startOutputChannel;
+            for (Symbol outputSymbol : outputSymbols) {
+                outputMappingsBuilder.put(outputSymbol, channel);
+                channel++;
             }
-            return new AggregationOperatorFactory(context.getNextOperatorId(), planNodeId, aggregatorFactories.build());
+            return new AggregationOperatorFactory(
+                    context.getNextOperatorId(),
+                    planNodeId,
+                    aggregatorFactories,
+                    rawInputMaskSymbol
+                            .filter(s -> step.isOutputPartial())
+                            .map(symbol -> createPartialAggregationOutputProcessor(
+                                    aggregations,
+                                    rawInputMaskSymbol,
+                                    source,
+                                    aggregatorFactories,
+                                    ImmutableList.of(),
+                                    Optional.empty())));
         }
 
         private PhysicalOperation planGroupByAggregation(
@@ -3856,7 +3888,8 @@ public class LocalExecutionPlanner
                     node.getStep(),
                     node.getHashSymbol(),
                     node.getGroupIdSymbol(),
-                    source,
+                    node.getRawInputMaskSymbol(),
+                    node.getOutputSymbols(), source,
                     node.hasDefaultOutput(),
                     spillEnabled,
                     node.isStreamable(),
@@ -3877,6 +3910,8 @@ public class LocalExecutionPlanner
                 Step step,
                 Optional<Symbol> hashSymbol,
                 Optional<Symbol> groupIdSymbol,
+                Optional<Symbol> rawInputMaskSymbol,
+                List<Symbol> outputSymbols,
                 PhysicalOperation source,
                 boolean hasDefaultOutput,
                 boolean spillEnabled,
@@ -3884,41 +3919,20 @@ public class LocalExecutionPlanner
                 DataSize unspillMemoryLimit,
                 LocalExecutionPlanContext context,
                 int startOutputChannel,
-                ImmutableMap.Builder<Symbol, Integer> outputMappings,
+                ImmutableMap.Builder<Symbol, Integer> outputMappingsBuilder,
                 int expectedGroups,
                 Optional<DataSize> maxPartialAggregationMemorySize)
         {
-            List<Symbol> aggregationOutputSymbols = new ArrayList<>();
-            List<AggregatorFactory> aggregatorFactories = new ArrayList<>();
-            for (Map.Entry<Symbol, Aggregation> entry : aggregations.entrySet()) {
-                Symbol symbol = entry.getKey();
-                Aggregation aggregation = entry.getValue();
+            List<AggregatorFactory> aggregatorFactories = buildAggregatorFactories(aggregations, step, rawInputMaskSymbol, source);
 
-                aggregatorFactories.add(buildAggregatorFactory(source, aggregation, step));
-                aggregationOutputSymbols.add(symbol);
-            }
-
-            // add group-by key fields each in a separate channel
             int channel = startOutputChannel;
-            Optional<Integer> groupIdChannel = Optional.empty();
-            for (Symbol symbol : groupBySymbols) {
-                outputMappings.put(symbol, channel);
-                if (groupIdSymbol.isPresent() && groupIdSymbol.get().equals(symbol)) {
-                    groupIdChannel = Optional.of(channel);
-                }
+            for (Symbol outputSymbol : outputSymbols) {
+                outputMappingsBuilder.put(outputSymbol, channel);
                 channel++;
             }
 
-            // hashChannel follows the group by channels
-            if (hashSymbol.isPresent()) {
-                outputMappings.put(hashSymbol.get(), channel++);
-            }
-
-            // aggregations go in following channels
-            for (Symbol symbol : aggregationOutputSymbols) {
-                outputMappings.put(symbol, channel);
-                channel++;
-            }
+            Map<Symbol, Integer> outputMappings = outputMappingsBuilder.buildOrThrow();
+            Optional<Integer> groupIdChannel = groupIdSymbol.map(symbol -> requireNonNull(outputMappings.get(symbol)));
 
             List<Integer> groupByChannels = getChannelsForSymbols(groupBySymbols, source.getLayout());
             List<Type> groupByTypes = groupByChannels.stream()
@@ -3937,11 +3951,19 @@ public class LocalExecutionPlanner
             }
             else {
                 Optional<Integer> hashChannel = hashSymbol.map(channelGetter(source));
+                Optional<PartialAggregationController> partialAggregationController = createPartialAggregationController(step, session, rawInputMaskSymbol);
                 return new HashAggregationOperatorFactory(
                         context.getNextOperatorId(),
                         planNodeId,
                         groupByTypes,
                         groupByChannels,
+                        partialAggregationController.map(ignored -> createPartialAggregationOutputProcessor(
+                                aggregations,
+                                rawInputMaskSymbol,
+                                source,
+                                aggregatorFactories,
+                                groupByChannels,
+                                hashChannel)),
                         ImmutableList.copyOf(globalGroupingSets),
                         step,
                         hasDefaultOutput,
@@ -3955,8 +3977,25 @@ public class LocalExecutionPlanner
                         spillerFactory,
                         joinCompiler,
                         blockTypeOperators,
-                        createPartialAggregationController(step, session));
+                        partialAggregationController);
             }
+        }
+
+        private List<AggregatorFactory> buildAggregatorFactories(
+                Map<Symbol, Aggregation> aggregations,
+                Step step,
+                Optional<Symbol> rawInputMaskSymbol,
+                PhysicalOperation source)
+        {
+            OptionalInt rawInputMaskChannel = rawInputMaskSymbol
+                    .filter(symbol -> !step.isInputRaw())
+                    .map(symbol -> OptionalInt.of(source.getLayout().get(symbol)))
+                    .orElseGet(OptionalInt::empty);
+
+            List<AggregatorFactory> aggregatorFactories = aggregations.values().stream()
+                    .map(aggregation -> buildAggregatorFactory(source, aggregation, step, rawInputMaskChannel))
+                    .collect(toImmutableList());
+            return aggregatorFactories;
         }
     }
 
@@ -3993,9 +4032,43 @@ public class LocalExecutionPlanner
         }
     }
 
-    private static Optional<PartialAggregationController> createPartialAggregationController(AggregationNode.Step step, Session session)
+    private PartialAggregationOutputProcessor createPartialAggregationOutputProcessor(
+            Map<Symbol, Aggregation> aggregations,
+            Optional<Symbol> rawInputMaskSymbol,
+            PhysicalOperation source,
+            List<AggregatorFactory> aggregatorFactories,
+            List<Integer> groupByChannels,
+            Optional<Integer> hashChannel)
     {
-        return step.isOutputPartial() && isAdaptivePartialAggregationEnabled(session) ?
+        List<Integer> aggregationRawInputChannels;
+        if (rawInputMaskSymbol.isPresent()) {
+            Set<Integer> groupByChannelsSet = ImmutableSet.copyOf(groupByChannels);
+            aggregationRawInputChannels = aggregations.values().stream()
+                    .flatMap(Aggregation::getRawInputs)
+                    .distinct()
+                    .map(symbol -> source.getLayout().get(symbol))
+                    .filter(channel -> !groupByChannelsSet.contains(channel))
+                    .collect(toImmutableList());
+        }
+        else {
+            aggregationRawInputChannels = ImmutableList.of();
+        }
+
+        List<Type> aggregationRawInputTypes = aggregationRawInputChannels.stream()
+                .map(entry -> source.getTypes().get(entry))
+                .collect(toImmutableList());
+
+        return new PartialAggregationOutputProcessor(
+                groupByChannels,
+                hashChannel,
+                aggregatorFactories,
+                aggregationRawInputTypes,
+                aggregationRawInputChannels);
+    }
+
+    private static Optional<PartialAggregationController> createPartialAggregationController(Step step, Session session, Optional<Symbol> rawInputMaskSymbol)
+    {
+        return rawInputMaskSymbol.isPresent() && step.isOutputPartial() && isAdaptivePartialAggregationEnabled(session) ?
                 Optional.of(new PartialAggregationController(
                         getAdaptivePartialAggregationMinRows(session),
                         getAdaptivePartialAggregationUniqueRowsRatioThreshold(session))) :

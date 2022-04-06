@@ -185,24 +185,20 @@ public class PreAggregateCaseAggregations
             AggregationNode aggregationNode,
             Map<CaseAggregation, Symbol> newProjectionSymbols)
     {
-        return new AggregationNode(
-                aggregationNode.getId(),
-                source,
-                newProjectionSymbols.entrySet().stream()
-                        .collect(toImmutableMap(
-                                entry -> entry.getKey().getAggregationSymbol(),
-                                entry -> new Aggregation(
-                                        entry.getKey().getCumulativeFunction(),
-                                        ImmutableList.of(entry.getValue().toSymbolReference()),
-                                        false,
-                                        Optional.empty(),
-                                        Optional.empty(),
-                                        Optional.empty()))),
-                aggregationNode.getGroupingSets(),
-                aggregationNode.getPreGroupedSymbols(),
-                aggregationNode.getStep(),
-                aggregationNode.getHashSymbol(),
-                aggregationNode.getGroupIdSymbol());
+        return AggregationNode.builderFrom(aggregationNode)
+                .setSource(source)
+                .setAggregations(
+                        newProjectionSymbols.entrySet().stream()
+                                .collect(toImmutableMap(
+                                        entry -> entry.getKey().getAggregationSymbol(),
+                                        entry -> new Aggregation(
+                                                entry.getKey().getCumulativeFunction(),
+                                                ImmutableList.of(entry.getValue().toSymbolReference()),
+                                                false,
+                                                Optional.empty(),
+                                                Optional.empty(),
+                                                Optional.empty()))))
+                .build();
     }
 
     private ProjectNode createNewProjection(
@@ -240,7 +236,7 @@ public class PreAggregateCaseAggregations
             Map<PreAggregationKey, PreAggregation> preAggregations,
             Context context)
     {
-        return new AggregationNode(
+        return AggregationNode.singleAggregation(
                 context.getIdAllocator().getNextId(),
                 source,
                 preAggregations.entrySet().stream()
@@ -253,11 +249,7 @@ public class PreAggregateCaseAggregations
                                         Optional.empty(),
                                         Optional.empty(),
                                         Optional.empty()))),
-                singleGroupingSet(groupingKeys),
-                ImmutableList.of(),
-                SINGLE,
-                Optional.empty(),
-                Optional.empty());
+                singleGroupingSet(groupingKeys));
     }
 
     private ProjectNode createPreProjection(

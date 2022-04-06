@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.operator.aggregation.Aggregator;
 import io.trino.operator.aggregation.AggregatorFactory;
+import io.trino.operator.aggregation.partial.PartialAggregationOutputProcessor;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.BlockBuilder;
@@ -24,6 +25,7 @@ import io.trino.spi.type.Type;
 import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -41,13 +43,24 @@ public class AggregationOperator
         private final int operatorId;
         private final PlanNodeId planNodeId;
         private final List<AggregatorFactory> aggregatorFactories;
+        private final Optional<PartialAggregationOutputProcessor> partialAggregationOutputProcessor;
         private boolean closed;
 
         public AggregationOperatorFactory(int operatorId, PlanNodeId planNodeId, List<AggregatorFactory> aggregatorFactories)
         {
+            this(operatorId, planNodeId, aggregatorFactories, Optional.empty());
+        }
+
+        public AggregationOperatorFactory(
+                int operatorId,
+                PlanNodeId planNodeId,
+                List<AggregatorFactory> aggregatorFactories,
+                Optional<PartialAggregationOutputProcessor> partialAggregationOutputProcessor)
+        {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.aggregatorFactories = ImmutableList.copyOf(aggregatorFactories);
+            this.partialAggregationOutputProcessor = requireNonNull(partialAggregationOutputProcessor, "partialAggregationOutputProcessor is null");
         }
 
         @Override
@@ -55,7 +68,7 @@ public class AggregationOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, AggregationOperator.class.getSimpleName());
-            return new AggregationOperator(operatorContext, aggregatorFactories);
+            return new AggregationOperator(operatorContext, aggregatorFactories, partialAggregationOutputProcessor);
         }
 
         @Override
@@ -67,7 +80,7 @@ public class AggregationOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new AggregationOperatorFactory(operatorId, planNodeId, aggregatorFactories);
+            return new AggregationOperatorFactory(operatorId, planNodeId, aggregatorFactories, partialAggregationOutputProcessor);
         }
     }
 
@@ -81,13 +94,18 @@ public class AggregationOperator
     private final OperatorContext operatorContext;
     private final LocalMemoryContext userMemoryContext;
     private final List<Aggregator> aggregates;
+    private final Optional<PartialAggregationOutputProcessor> partialAggregationOutputProcessor;
 
     private State state = State.NEEDS_INPUT;
 
-    public AggregationOperator(OperatorContext operatorContext, List<AggregatorFactory> aggregatorFactories)
+    public AggregationOperator(
+            OperatorContext operatorContext,
+            List<AggregatorFactory> aggregatorFactories,
+            Optional<PartialAggregationOutputProcessor> partialAggregationOutputProcessor)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.userMemoryContext = operatorContext.localUserMemoryContext();
+        this.partialAggregationOutputProcessor = requireNonNull(partialAggregationOutputProcessor, "partialAggregationOutputProcessor is null");
 
         aggregates = aggregatorFactories.stream()
                 .map(AggregatorFactory::createAggregator)
@@ -162,6 +180,9 @@ public class AggregationOperator
         }
 
         state = State.FINISHED;
-        return pageBuilder.build();
+        Page output = pageBuilder.build();
+        return partialAggregationOutputProcessor
+                .map(outputProcessor -> outputProcessor.processAggregatedPage(output))
+                .orElse(output);
     }
 }
