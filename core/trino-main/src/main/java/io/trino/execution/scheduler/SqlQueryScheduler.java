@@ -177,7 +177,7 @@ public class SqlQueryScheduler
     private final NodePartitioningManager nodePartitioningManager;
     private final NodeScheduler nodeScheduler;
     private final NodeAllocatorService nodeAllocatorService;
-    private final PartitionMemoryEstimator partitionMemoryEstimator;
+    private final PartitionMemoryEstimatorFactory partitionMemoryEstimatorFactory;
     private final int splitBatchSize;
     private final ExecutorService executor;
     private final ScheduledExecutorService schedulerExecutor;
@@ -216,7 +216,7 @@ public class SqlQueryScheduler
             NodePartitioningManager nodePartitioningManager,
             NodeScheduler nodeScheduler,
             NodeAllocatorService nodeAllocatorService,
-            PartitionMemoryEstimator partitionMemoryEstimator,
+            PartitionMemoryEstimatorFactory partitionMemoryEstimatorFactory,
             RemoteTaskFactory remoteTaskFactory,
             boolean summarizeTaskInfo,
             int splitBatchSize,
@@ -239,7 +239,7 @@ public class SqlQueryScheduler
         this.nodePartitioningManager = requireNonNull(nodePartitioningManager, "nodePartitioningManager is null");
         this.nodeScheduler = requireNonNull(nodeScheduler, "nodeScheduler is null");
         this.nodeAllocatorService = requireNonNull(nodeAllocatorService, "nodeAllocatorService is null");
-        this.partitionMemoryEstimator = requireNonNull(partitionMemoryEstimator, "partitionMemoryEstimator is null");
+        this.partitionMemoryEstimatorFactory = requireNonNull(partitionMemoryEstimatorFactory, "partitionMemoryEstimatorFactory is null");
         this.splitBatchSize = splitBatchSize;
         this.executor = requireNonNull(queryExecutor, "queryExecutor is null");
         this.schedulerExecutor = requireNonNull(schedulerExecutor, "schedulerExecutor is null");
@@ -355,7 +355,7 @@ public class SqlQueryScheduler
                         schedulerExecutor,
                         schedulerStats,
                         nodeAllocatorService,
-                        partitionMemoryEstimator);
+                        partitionMemoryEstimatorFactory);
                 break;
             case QUERY:
             case NONE:
@@ -1757,7 +1757,7 @@ public class SqlQueryScheduler
                 ScheduledExecutorService scheduledExecutorService,
                 SplitSchedulerStats schedulerStats,
                 NodeAllocatorService nodeAllocatorService,
-                PartitionMemoryEstimator partitionMemoryEstimator)
+                PartitionMemoryEstimatorFactory partitionMemoryEstimatorFactory)
         {
             taskDescriptorStorage.initialize(queryStateMachine.getQueryId());
             queryStateMachine.addStateChangeListener(state -> {
@@ -1821,7 +1821,7 @@ public class SqlQueryScheduler
                             taskSourceFactory,
                             nodeAllocator,
                             taskDescriptorStorage,
-                            partitionMemoryEstimator,
+                            partitionMemoryEstimatorFactory.createPartitionMemoryEstimator(),
                             taskLifecycleListener,
                             exchange,
                             bucketToPartitionCache.apply(fragment.getPartitioningScheme().getPartitioning().getHandle()).getBucketToPartitionMap(),
