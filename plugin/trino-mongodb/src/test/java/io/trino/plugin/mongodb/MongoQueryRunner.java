@@ -60,6 +60,7 @@ public final class MongoQueryRunner
 
             queryRunner.installPlugin(new MongoPlugin());
             queryRunner.createCatalog("mongodb", "mongodb", properties);
+            queryRunner.execute("CREATE SCHEMA mongodb." + TPCH_SCHEMA);
 
             copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), tables);
             return queryRunner;
