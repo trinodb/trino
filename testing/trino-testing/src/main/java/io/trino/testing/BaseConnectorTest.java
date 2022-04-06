@@ -1888,6 +1888,23 @@ public abstract class BaseConnectorTest
     }
 
     @Test
+    public void testCreateTableSchemaNotFound()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
+
+        String schemaName = "test_schema_" + randomTableSuffix();
+        String tableName = "test_create_no_schema_" + randomTableSuffix();
+        try {
+            assertQueryFails(
+                    format("CREATE TABLE %s.%s (a bigint)", schemaName, tableName),
+                    format("Schema %s not found", schemaName));
+        }
+        finally {
+            assertUpdate(format("DROP TABLE IF EXISTS %s.%s", schemaName, tableName));
+        }
+    }
+
+    @Test
     public void testCreateTableAsSelect()
     {
         String tableName = "test_ctas" + randomTableSuffix();
@@ -1957,6 +1974,23 @@ public abstract class BaseConnectorTest
         assertExplainAnalyze("EXPLAIN ANALYZE CREATE TABLE " + tableName + " AS SELECT mktsegment FROM customer");
         assertQuery("SELECT * from " + tableName, "SELECT mktsegment FROM customer");
         assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testCreateTableAsSelectSchemaNotFound()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA));
+
+        String schemaName = "test_schema_" + randomTableSuffix();
+        String tableName = "test_ctas_no_schema_" + randomTableSuffix();
+        try {
+            assertQueryFails(
+                    format("CREATE TABLE %s.%s AS SELECT name FROM nation", schemaName, tableName),
+                    format("Schema %s not found", schemaName));
+        }
+        finally {
+            assertUpdate(format("DROP TABLE IF EXISTS %s.%s", schemaName, tableName));
+        }
     }
 
     @Test
