@@ -63,6 +63,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.IntStream;
 
+import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
@@ -319,7 +320,7 @@ public class KuduClientSession
                     new ColumnSchemaBuilder(column.getName(), type)
                             .nullable(true)
                             .defaultValue(null)
-                            .comment(column.getComment())
+                            .comment(nullToEmpty(column.getComment())) // Kudu doesn't allow null comment
                             .build());
             client.alterTable(rawName, alterOptions);
         }
