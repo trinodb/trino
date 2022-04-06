@@ -93,7 +93,8 @@ final class PlanUtils
                 ImmutableList.of(),
                 FINAL,
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                Optional.empty()); // TODO lysy:
 
         return createFragment(planNode);
     }

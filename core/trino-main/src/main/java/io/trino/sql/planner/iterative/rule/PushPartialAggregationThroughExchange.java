@@ -47,6 +47,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.SystemSessionProperties.preferPartialAggregation;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.planner.plan.AggregationNode.Step.FINAL;
 import static io.trino.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
@@ -173,7 +174,8 @@ public class PushPartialAggregationThroughExchange
         }
 
         for (PlanNode node : partials) {
-            verify(aggregation.getOutputSymbols().equals(node.getOutputSymbols()));
+//            verify(aggregation.getOutputSymbols().equals(node.getOutputSymbols()));
+            verify(node.getOutputSymbols().containsAll(aggregation.getOutputSymbols()));
         }
 
         // Since this exchange source is now guaranteed to have the same symbols as the inputs to the partial
@@ -226,18 +228,14 @@ public class PushPartialAggregationThroughExchange
                     entry.getKey(),
                     new AggregationNode.Aggregation(
                             resolvedFunction,
-                            ImmutableList.<Expression>builder()
-                                    .add(intermediateSymbol.toSymbolReference())
-                                    .addAll(originalAggregation.getArguments().stream()
-                                            .filter(LambdaExpression.class::isInstance)
-                                            .collect(toImmutableList()))
-                                    .build(),
+                            buildFinalAggregationArguments(node.getGroupingKeys().isEmpty(), originalAggregation, intermediateSymbol),
                             false,
                             Optional.empty(),
                             Optional.empty(),
                             Optional.empty()));
         }
 
+        Symbol useRawInputSymbol = context.getSymbolAllocator().newSymbol("useRawInputSymbol", BOOLEAN);
         PlanNode partial = new AggregationNode(
                 context.getIdAllocator().getNextId(),
                 node.getSource(),
@@ -248,7 +246,8 @@ public class PushPartialAggregationThroughExchange
                 ImmutableList.of(),
                 PARTIAL,
                 node.getHashSymbol(),
-                node.getGroupIdSymbol());
+                node.getGroupIdSymbol(),
+                Optional.of(useRawInputSymbol));
 
         return new AggregationNode(
                 node.getId(),
@@ -260,6 +259,23 @@ public class PushPartialAggregationThroughExchange
                 ImmutableList.of(),
                 FINAL,
                 node.getHashSymbol(),
-                node.getGroupIdSymbol());
+                node.getGroupIdSymbol(),
+                Optional.of(useRawInputSymbol));
+    }
+
+    private List<Expression> buildFinalAggregationArguments(boolean isGlobalAggregation, AggregationNode.Aggregation originalAggregation, Symbol intermediateSymbol)
+    {
+        if (isGlobalAggregation) {
+            return ImmutableList.<Expression>builder()
+                    .add(intermediateSymbol.toSymbolReference())
+                    .addAll(originalAggregation.getArguments().stream()
+                            .filter(LambdaExpression.class::isInstance)
+                            .collect(toImmutableList()))
+                    .build();
+        }
+        return ImmutableList.<Expression>builder()
+                .add(intermediateSymbol.toSymbolReference())
+                .addAll(originalAggregation.getArguments())
+                .build();
     }
 }

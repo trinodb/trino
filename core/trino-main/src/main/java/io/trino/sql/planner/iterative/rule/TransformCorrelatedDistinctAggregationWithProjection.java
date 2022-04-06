@@ -150,7 +150,8 @@ public class TransformCorrelatedDistinctAggregationWithProjection
                 ImmutableList.of(),
                 aggregation.getStep(),
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                aggregation.getUseRawInputSymbol());
 
         // restrict outputs and apply projection
         Set<Symbol> outputSymbols = new HashSet<>(correlatedJoinNode.getOutputSymbols());

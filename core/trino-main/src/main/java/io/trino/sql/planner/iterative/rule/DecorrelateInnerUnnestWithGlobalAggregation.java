@@ -345,6 +345,7 @@ public class DecorrelateInnerUnnestWithGlobalAggregation
                 ImmutableList.of(),
                 SINGLE,
                 Optional.empty(),
+                Optional.empty(),
                 Optional.empty());
     }
 
@@ -361,6 +362,7 @@ public class DecorrelateInnerUnnestWithGlobalAggregation
                 groupingSet,
                 ImmutableList.of(),
                 SINGLE,
+                Optional.empty(),
                 Optional.empty(),
                 Optional.empty());
     }

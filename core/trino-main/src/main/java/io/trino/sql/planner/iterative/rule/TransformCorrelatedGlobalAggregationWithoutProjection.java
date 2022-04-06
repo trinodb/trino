@@ -209,7 +209,8 @@ public class TransformCorrelatedGlobalAggregationWithoutProjection
                     ImmutableList.of(),
                     distinct.getStep(),
                     Optional.empty(),
-                    Optional.empty());
+                    Optional.empty(),
+                    distinct.getUseRawInputSymbol());
         }
 
         // prepare mask symbols for aggregations
@@ -258,7 +259,8 @@ public class TransformCorrelatedGlobalAggregationWithoutProjection
                 ImmutableList.of(),
                 globalAggregation.getStep(),
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                globalAggregation.getUseRawInputSymbol());
 
         // restrict outputs
         Optional<PlanNode> project = restrictOutputs(context.getIdAllocator(), globalAggregation, ImmutableSet.copyOf(correlatedJoinNode.getOutputSymbols()));

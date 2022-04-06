@@ -389,8 +389,17 @@ public final class HiveQueryRunner
             baseDataDir = Optional.of(path);
         }
 
+        ImmutableMap<String, String> extraProperties = ImmutableMap.<String, String>builder()
+                .put("spiller-spill-path", Paths.get(System.getProperty("java.io.tmpdir"), "trino", "spills").toString())
+                .put("spiller-max-used-space-threshold", "1.0")
+                .put("memory-revoking-threshold", "0.0") // revoke always
+                .put("memory-revoking-target", "0.0")
+                .put("http-server.http.port", "8080")
+                .buildOrThrow();
         DistributedQueryRunner queryRunner = HiveQueryRunner.builder()
-                .setExtraProperties(ImmutableMap.of("http-server.http.port", "8080"))
+//                .setExtraProperties(
+//                        ImmutableMap.of("http-server.http.port", "8080"))
+                .setExtraProperties(extraProperties)
                 .setSkipTimezoneSetup(true)
                 .setHiveProperties(ImmutableMap.of())
                 .setInitialTables(TpchTable.getTables())

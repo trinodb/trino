@@ -370,6 +370,7 @@ public class LogicalPlanner
                         ImmutableList.of(),
                         AggregationNode.Step.SINGLE,
                         Optional.empty(),
+                        Optional.empty(),
                         Optional.empty()),
                 new StatisticsWriterNode.WriteStatisticsReference(targetTable),
                 symbolAllocator.newSymbol("rows", BIGINT),

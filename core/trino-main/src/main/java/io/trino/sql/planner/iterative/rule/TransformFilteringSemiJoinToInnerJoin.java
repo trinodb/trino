@@ -132,6 +132,7 @@ public class TransformFilteringSemiJoinToInnerJoin
                 ImmutableList.of(),
                 SINGLE,
                 Optional.empty(),
+                Optional.empty(),
                 Optional.empty());
 
         JoinNode innerJoin = new JoinNode(

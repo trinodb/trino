@@ -187,6 +187,7 @@ public class SetOperationNodeTranslator
                 ImmutableList.of(),
                 AggregationNode.Step.SINGLE,
                 Optional.empty(),
+                Optional.empty(),
                 Optional.empty());
     }
 

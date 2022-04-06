@@ -86,6 +86,7 @@ public class PruneOrderByInAggregation
                 node.getPreGroupedSymbols(),
                 node.getStep(),
                 node.getHashSymbol(),
-                node.getGroupIdSymbol()));
+                node.getGroupIdSymbol(),
+                node.getUseRawInputSymbol()));
     }
 }

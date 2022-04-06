@@ -141,7 +141,8 @@ public class TransformCorrelatedDistinctAggregationWithoutProjection
                 ImmutableList.of(),
                 aggregation.getStep(),
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                aggregation.getUseRawInputSymbol());
 
         // restrict outputs
         Optional<PlanNode> project = restrictOutputs(context.getIdAllocator(), aggregation, ImmutableSet.copyOf(correlatedJoinNode.getOutputSymbols()));

@@ -272,6 +272,7 @@ public class DecorrelateLeftUnnestWithGlobalAggregation
                 ImmutableList.of(),
                 SINGLE,
                 Optional.empty(),
+                Optional.empty(),
                 Optional.empty());
     }
 }

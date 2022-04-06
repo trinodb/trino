@@ -188,6 +188,7 @@ public class TransformExistsApplyToCorrelatedJoin
                                 ImmutableList.of(),
                                 AggregationNode.Step.SINGLE,
                                 Optional.empty(),
+                                Optional.empty(),
                                 Optional.empty()),
                         Assignments.of(exists, new ComparisonExpression(GREATER_THAN, count.toSymbolReference(), new Cast(new LongLiteral("0"), toSqlType(BIGINT))))),
                 applyNode.getCorrelation(),

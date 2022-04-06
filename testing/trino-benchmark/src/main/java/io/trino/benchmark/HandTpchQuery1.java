@@ -107,6 +107,8 @@ public class HandTpchQuery1
                 getColumnTypes("lineitem", "returnflag", "linestatus"),
                 Ints.asList(0, 1),
                 ImmutableList.of(),
+                ImmutableList.of(), // TODO lysy:
+                ImmutableList.of(),
                 Step.SINGLE,
                 ImmutableList.of(
                         doubleSum.bind(ImmutableList.of(2)),

@@ -37,8 +37,10 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static java.util.Objects.requireNonNull;
 
@@ -48,6 +50,10 @@ public class AggregationNode
 {
     private final PlanNode source;
     private final Map<Symbol, Aggregation> aggregations;
+    // defines symbol for a column that selects which input should be used by final aggregation step.
+    // If the block is null at position 0, the aggregated input should be used,
+    // otherwise raw input should be used (this happens when partial aggregation is disabled).
+    private final Optional<Symbol> useRawInputSymbol;
     private final GroupingSetDescriptor groupingSets;
     private final List<Symbol> preGroupedSymbols;
     private final Step step;
@@ -64,20 +70,22 @@ public class AggregationNode
             @JsonProperty("preGroupedSymbols") List<Symbol> preGroupedSymbols,
             @JsonProperty("step") Step step,
             @JsonProperty("hashSymbol") Optional<Symbol> hashSymbol,
-            @JsonProperty("groupIdSymbol") Optional<Symbol> groupIdSymbol)
+            @JsonProperty("groupIdSymbol") Optional<Symbol> groupIdSymbol,
+            @JsonProperty("useRawInputSymbol") Optional<Symbol> useRawInputSymbol)
     {
         super(id);
 
         this.source = source;
         this.aggregations = ImmutableMap.copyOf(requireNonNull(aggregations, "aggregations is null"));
-        aggregations.values().forEach(aggregation -> aggregation.verifyArguments(step));
+        aggregations.values().forEach(aggregation -> aggregation.verifyArguments(step, groupingSets.getGroupingKeys().isEmpty()));
 
         requireNonNull(groupingSets, "groupingSets is null");
         groupIdSymbol.ifPresent(symbol -> checkArgument(groupingSets.getGroupingKeys().contains(symbol), "Grouping columns does not contain groupId column"));
         this.groupingSets = groupingSets;
 
         this.groupIdSymbol = requireNonNull(groupIdSymbol);
-
+        this.useRawInputSymbol = requireNonNull(useRawInputSymbol, "useRawInputSymbol is null");
+        checkArgument(useRawInputSymbol.isPresent() || step == SINGLE);
         boolean noOrderBy = aggregations.values().stream()
                 .map(Aggregation::getOrderingScheme)
                 .noneMatch(Optional::isPresent);
@@ -94,6 +102,15 @@ public class AggregationNode
         outputs.addAll(groupingSets.getGroupingKeys());
         hashSymbol.ifPresent(outputs::add);
         outputs.addAll(aggregations.keySet());
+        if (step.isOutputPartial() && !groupingSets.getGroupingKeys().isEmpty()) {
+            // add inputs to the aggregations to be used by adaptive partial aggregation
+            aggregations.values().stream()
+                    .flatMap(Aggregation::getInputs)
+                    .filter(symbol -> !groupingSets.getGroupingKeys().contains(symbol))
+                    .collect(toImmutableSet())
+                    .forEach(outputs::add);
+            outputs.add(useRawInputSymbol.orElseThrow());
+        }
 
         this.outputs = outputs.build();
     }
@@ -190,6 +207,12 @@ public class AggregationNode
         return groupIdSymbol;
     }
 
+    @JsonProperty("useRawInputSymbol")
+    public Optional<Symbol> getUseRawInputSymbol()
+    {
+        return useRawInputSymbol;
+    }
+
     public boolean hasOrderings()
     {
         return aggregations.values().stream()
@@ -206,7 +229,7 @@ public class AggregationNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new AggregationNode(getId(), Iterables.getOnlyElement(newChildren), aggregations, groupingSets, preGroupedSymbols, step, hashSymbol, groupIdSymbol);
+        return new AggregationNode(getId(), Iterables.getOnlyElement(newChildren), aggregations, groupingSets, preGroupedSymbols, step, hashSymbol, groupIdSymbol, useRawInputSymbol);
     }
 
     public boolean producesDistinctRows()
@@ -432,6 +455,13 @@ public class AggregationNode
             return mask;
         }
 
+        public Stream<Symbol> getInputs()
+        {
+            return getArguments().stream()
+                    .filter(argument -> !(argument instanceof LambdaExpression))
+                    .map(Symbol::from);
+        }
+
         @Override
         public boolean equals(Object o)
         {
@@ -456,17 +486,21 @@ public class AggregationNode
             return Objects.hash(resolvedFunction, arguments, distinct, filter, orderingScheme, mask);
         }
 
-        private void verifyArguments(Step step)
+        private void verifyArguments(Step step, boolean isGlobalAggregation)
         {
             int expectedArgumentCount;
             if (step == SINGLE || step == Step.PARTIAL) {
                 expectedArgumentCount = resolvedFunction.getSignature().getArgumentTypes().size();
             }
-            else {
-                // Intermediate and final steps get the intermediate value and the lambda functions
+            else if (isGlobalAggregation) {
+                // Global intermediate and final steps get the intermediate value and the lambda functions
                 expectedArgumentCount = 1 + (int) resolvedFunction.getSignature().getArgumentTypes().stream()
                         .filter(FunctionType.class::isInstance)
                         .count();
+            }
+            else {
+                // Hash intermediate and final steps get the intermediate value and all the arguments
+                expectedArgumentCount = 1 + resolvedFunction.getSignature().getArgumentTypes().size();
             }
 
             checkArgument(

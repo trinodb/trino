@@ -33,6 +33,7 @@ import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.type.BlockTypeOperators;
 
 import java.io.IOException;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 
@@ -54,6 +55,7 @@ public class SpillableHashAggregationBuilder
     private final int expectedGroups;
     private final List<Type> groupByTypes;
     private final List<Integer> groupByChannels;
+    private final List<Type> aggregationInputTypes;
     private final Optional<Integer> hashChannel;
     private final OperatorContext operatorContext;
     private final LocalMemoryContext localUserMemoryContext;
@@ -80,6 +82,7 @@ public class SpillableHashAggregationBuilder
             int expectedGroups,
             List<Type> groupByTypes,
             List<Integer> groupByChannels,
+            List<Type> aggregationInputTypes,
             Optional<Integer> hashChannel,
             OperatorContext operatorContext,
             DataSize memoryLimitForMerge,
@@ -93,6 +96,7 @@ public class SpillableHashAggregationBuilder
         this.expectedGroups = expectedGroups;
         this.groupByTypes = groupByTypes;
         this.groupByChannels = groupByChannels;
+        this.aggregationInputTypes = aggregationInputTypes;
         this.hashChannel = hashChannel;
         this.operatorContext = operatorContext;
         this.localUserMemoryContext = operatorContext.localUserMemoryContext();
@@ -257,7 +261,9 @@ public class SpillableHashAggregationBuilder
         }
 
         // start spilling process with current content of the hashAggregationBuilder builder...
-        spillInProgress = spiller.get().spill(hashAggregationBuilder.buildHashSortedResult().iterator());
+        Iterator<Page> pageIterator = hashAggregationBuilder.buildHashSortedResult().iterator();
+        ImmutableList<Page> pages = ImmutableList.copyOf(pageIterator);
+        spillInProgress = spiller.get().spill(pages.iterator());
         // ... and immediately create new hashAggregationBuilder so effectively memory ownership
         // over hashAggregationBuilder is transferred from this thread to a spilling thread
         rebuildHashAggregationBuilder();
@@ -310,6 +316,7 @@ public class SpillableHashAggregationBuilder
                 step,
                 expectedGroups,
                 groupByTypes,
+                aggregationInputTypes,
                 hashChannel,
                 operatorContext,
                 sortedPages,
@@ -336,6 +343,7 @@ public class SpillableHashAggregationBuilder
                 expectedGroups,
                 groupByTypes,
                 groupByChannels,
+                aggregationInputTypes,
                 hashChannel,
                 operatorContext,
                 Optional.of(DataSize.succinctBytes(0)),

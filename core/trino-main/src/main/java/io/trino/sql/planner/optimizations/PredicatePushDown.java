@@ -1516,7 +1516,8 @@ public class PredicatePushDown
                         ImmutableList.of(),
                         node.getStep(),
                         node.getHashSymbol(),
-                        node.getGroupIdSymbol());
+                        node.getGroupIdSymbol(),
+                        node.getUseRawInputSymbol());
             }
             if (!postAggregationConjuncts.isEmpty()) {
                 output = new FilterNode(idAllocator.getNextId(), output, combineConjuncts(metadata, postAggregationConjuncts));

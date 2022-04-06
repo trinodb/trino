@@ -106,7 +106,8 @@ public class SimplifyCountOverConstant
                 ImmutableList.of(),
                 parent.getStep(),
                 parent.getHashSymbol(),
-                parent.getGroupIdSymbol()));
+                parent.getGroupIdSymbol(),
+                parent.getUseRawInputSymbol()));
     }
 
     private boolean isCountOverConstant(Session session, AggregationNode.Aggregation aggregation, Assignments inputs)

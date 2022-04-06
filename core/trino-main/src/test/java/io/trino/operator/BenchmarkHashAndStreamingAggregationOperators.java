@@ -252,6 +252,8 @@ public class BenchmarkHashAndStreamingAggregationOperators
                     hashTypes,
                     hashChannels,
                     ImmutableList.of(),
+                    ImmutableList.of(), // TODO lysy:
+                    ImmutableList.of(),
                     SINGLE,
                     false,
                     ImmutableList.of(

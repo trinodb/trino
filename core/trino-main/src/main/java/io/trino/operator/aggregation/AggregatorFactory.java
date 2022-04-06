@@ -31,6 +31,8 @@ public class AggregatorFactory
     private final Type intermediateType;
     private final Type finalType;
     private final List<Integer> inputChannels;
+    private final int intermediateStateChannel;
+    private final OptionalInt useRawInputChannel;
     private final OptionalInt maskChannel;
     private final boolean spillable;
     private final List<Supplier<Object>> lambdaProviders;
@@ -41,6 +43,8 @@ public class AggregatorFactory
             Type intermediateType,
             Type finalType,
             List<Integer> inputChannels,
+            int intermediateStateChannel,
+            OptionalInt useRawInputChannel,
             OptionalInt maskChannel,
             boolean spillable,
             List<Supplier<Object>> lambdaProviders)
@@ -50,11 +54,13 @@ public class AggregatorFactory
         this.intermediateType = requireNonNull(intermediateType, "intermediateType is null");
         this.finalType = requireNonNull(finalType, "finalType is null");
         this.inputChannels = ImmutableList.copyOf(requireNonNull(inputChannels, "inputChannels is null"));
+        this.intermediateStateChannel = intermediateStateChannel;
+        this.useRawInputChannel = requireNonNull(useRawInputChannel, "useRawInputChannel is null");
         this.maskChannel = requireNonNull(maskChannel, "maskChannel is null");
         this.spillable = spillable;
         this.lambdaProviders = ImmutableList.copyOf(requireNonNull(lambdaProviders, "lambdaProviders is null"));
 
-        checkArgument(step.isInputRaw() || inputChannels.size() == 1, "expected 1 input channel for intermediate aggregation");
+        checkArgument(step.isInputRaw() || intermediateStateChannel != -1, "expected intermediateStateChannel for intermediate aggregation but got %s ", intermediateStateChannel);
     }
 
     public Aggregator createAggregator()
@@ -66,7 +72,8 @@ public class AggregatorFactory
         else {
             accumulator = accumulatorFactory.createIntermediateAccumulator(lambdaProviders);
         }
-        return new Aggregator(accumulator, step, intermediateType, finalType, inputChannels, maskChannel);
+        List<Integer> aggregatorInputChannels = intermediateStateChannel == -1 ? inputChannels : ImmutableList.of(intermediateStateChannel);
+        return new Aggregator(accumulator, step, intermediateType, finalType, aggregatorInputChannels, maskChannel);
     }
 
     public GroupedAggregator createGroupedAggregator()
@@ -78,7 +85,7 @@ public class AggregatorFactory
         else {
             accumulator = accumulatorFactory.createGroupedIntermediateAccumulator(lambdaProviders);
         }
-        return new GroupedAggregator(accumulator, step, intermediateType, finalType, inputChannels, maskChannel);
+        return new GroupedAggregator(accumulator, step, intermediateType, finalType, inputChannels, intermediateStateChannel, useRawInputChannel, maskChannel);
     }
 
     public GroupedAggregator createUnspillGroupedAggregator(Step step, int inputChannel)
@@ -90,7 +97,7 @@ public class AggregatorFactory
         else {
             accumulator = accumulatorFactory.createGroupedIntermediateAccumulator(lambdaProviders);
         }
-        return new GroupedAggregator(accumulator, step, intermediateType, finalType, ImmutableList.of(inputChannel), maskChannel);
+        return new GroupedAggregator(accumulator, step, intermediateType, finalType, ImmutableList.of(inputChannel), inputChannel, OptionalInt.empty(), maskChannel);
     }
 
     public boolean isSpillable()

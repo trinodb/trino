@@ -31,7 +31,10 @@ import io.trino.operator.aggregation.AggregatorFactory;
 import io.trino.operator.aggregation.GroupedAggregator;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
+import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.RunLengthEncodedBlock;
+import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.JoinCompiler;
 import io.trino.sql.planner.plan.AggregationNode.Step;
@@ -47,6 +50,7 @@ import java.util.OptionalLong;
 
 import static io.trino.operator.GroupByHash.createGroupByHash;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static java.util.Objects.requireNonNull;
 
 public class InMemoryHashAggregationBuilder
@@ -57,6 +61,7 @@ public class InMemoryHashAggregationBuilder
     private final boolean partial;
     private final OptionalLong maxPartialMemory;
     private final UpdateMemory updateMemory;
+    private final List<Type> aggregationInputTypes;
 
     private boolean full;
 
@@ -66,6 +71,7 @@ public class InMemoryHashAggregationBuilder
             int expectedGroups,
             List<Type> groupByTypes,
             List<Integer> groupByChannels,
+            List<Type> aggregationInputTypes,
             Optional<Integer> hashChannel,
             OperatorContext operatorContext,
             Optional<DataSize> maxPartialMemory,
@@ -78,6 +84,7 @@ public class InMemoryHashAggregationBuilder
                 expectedGroups,
                 groupByTypes,
                 groupByChannels,
+                aggregationInputTypes,
                 hashChannel,
                 operatorContext,
                 maxPartialMemory,
@@ -93,6 +100,7 @@ public class InMemoryHashAggregationBuilder
             int expectedGroups,
             List<Type> groupByTypes,
             List<Integer> groupByChannels,
+            List<Type> aggregationInputTypes,
             Optional<Integer> hashChannel,
             OperatorContext operatorContext,
             Optional<DataSize> maxPartialMemory,
@@ -101,6 +109,7 @@ public class InMemoryHashAggregationBuilder
             BlockTypeOperators blockTypeOperators,
             UpdateMemory updateMemory)
     {
+        this.aggregationInputTypes = ImmutableList.copyOf(aggregationInputTypes);
         this.groupByHash = createGroupByHash(
                 operatorContext.getSession(),
                 groupByTypes,
@@ -257,6 +266,10 @@ public class InMemoryHashAggregationBuilder
         for (GroupedAggregator groupedAggregator : groupedAggregators) {
             types.add(groupedAggregator.getSpillType());
         }
+        if (partial) {
+            types.addAll(aggregationInputTypes);
+            types.add(BOOLEAN);
+        }
         return types;
     }
 
@@ -290,8 +303,31 @@ public class InMemoryHashAggregationBuilder
                 }
             }
 
-            return ProcessState.ofResult(pageBuilder.build());
+            Page page = pageBuilder.build();
+            if (partial) {
+                // only from partial step output raw input columns
+                Block[] finalPage = new Block[page.getChannelCount() + aggregationInputTypes.size() + 1];
+                for (int i = 0; i < page.getChannelCount(); i++) {
+                    finalPage[i] = page.getBlock(i);
+                }
+                int positionCount = page.getPositionCount();
+                for (int i = 0; i < aggregationInputTypes.size(); i++) {
+                    finalPage[page.getChannelCount() + i] = nullRle(aggregationInputTypes.get(i), positionCount);
+                }
+                finalPage[finalPage.length - 1] = nullRle(BOOLEAN, positionCount);
+
+                page = Page.wrapBlocksWithoutCopy(positionCount, finalPage);
+            }
+
+            return ProcessState.ofResult(page);
         });
+    }
+
+    public static RunLengthEncodedBlock nullRle(Type type, int positionCount)
+    {
+        return new RunLengthEncodedBlock(
+                type.createBlockBuilder(null, 1).appendNull().build(),
+                positionCount);
     }
 
     public List<Type> buildTypes()

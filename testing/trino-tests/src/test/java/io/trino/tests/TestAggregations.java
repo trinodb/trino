@@ -16,6 +16,7 @@ package io.trino.tests;
 import io.trino.testing.AbstractTestAggregations;
 import io.trino.testing.QueryRunner;
 import io.trino.tests.tpch.TpchQueryRunnerBuilder;
+import org.testng.annotations.Test;
 
 public class TestAggregations
         extends AbstractTestAggregations
@@ -25,5 +26,11 @@ public class TestAggregations
             throws Exception
     {
         return TpchQueryRunnerBuilder.builder().build();
+    }
+
+    @Test
+    public void test()
+    {
+        assertQuery("SELECT suppkey, SUM(quantity) FROM lineitem GROUP BY suppkey");
     }
 }

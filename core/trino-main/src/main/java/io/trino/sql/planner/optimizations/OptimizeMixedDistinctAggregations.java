@@ -199,7 +199,8 @@ public class OptimizeMixedDistinctAggregations
                     ImmutableList.of(),
                     node.getStep(),
                     Optional.empty(),
-                    node.getGroupIdSymbol());
+                    node.getGroupIdSymbol(),
+                    node.getUseRawInputSymbol());
 
             if (coalesceSymbols.isEmpty()) {
                 return aggregationNode;
@@ -460,6 +461,7 @@ public class OptimizeMixedDistinctAggregations
                     ImmutableList.of(),
                     SINGLE,
                     originalNode.getHashSymbol(),
+                    Optional.empty(),
                     Optional.empty());
         }
 

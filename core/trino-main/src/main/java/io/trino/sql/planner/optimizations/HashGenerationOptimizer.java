@@ -190,7 +190,8 @@ public class HashGenerationOptimizer
                             node.getPreGroupedSymbols(),
                             node.getStep(),
                             hashSymbol,
-                            node.getGroupIdSymbol()),
+                            node.getGroupIdSymbol(),
+                            node.getUseRawInputSymbol()),
                     hashSymbol.isPresent() ? ImmutableMap.of(groupByHash.get(), hashSymbol.get()) : ImmutableMap.of());
         }
 

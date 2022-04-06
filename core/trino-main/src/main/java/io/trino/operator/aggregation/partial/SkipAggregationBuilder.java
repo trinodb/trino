@@ -13,6 +13,7 @@
  */
 package io.trino.operator.aggregation.partial;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.operator.CompletedWork;
@@ -27,6 +28,7 @@ import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.LongArrayBlock;
+import io.trino.spi.type.Type;
 
 import javax.annotation.Nullable;
 
@@ -35,6 +37,8 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.operator.aggregation.builder.InMemoryHashAggregationBuilder.nullRle;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -50,18 +54,24 @@ public class SkipAggregationBuilder
     @Nullable
     private Page currentPage;
     private final int[] hashChannels;
+    private final List<Type> aggregationInputTypes;
+    private final List<Integer> aggregationInputChannels;
 
     public SkipAggregationBuilder(
             List<Integer> groupByChannels,
             Optional<Integer> inputHashChannel,
             List<AggregatorFactory> aggregatorFactories,
-            LocalMemoryContext memoryContext)
+            LocalMemoryContext memoryContext,
+            List<Type> aggregationInputTypes,
+            List<Integer> aggregationInputChannels)
     {
         this.memoryContext = requireNonNull(memoryContext, "memoryContext is null");
         this.groupedAggregators = requireNonNull(aggregatorFactories, "aggregatorFactories is null")
                 .stream()
                 .map(AggregatorFactory::createGroupedAggregator)
                 .collect(toImmutableList());
+        this.aggregationInputTypes = ImmutableList.copyOf(aggregationInputTypes);
+        this.aggregationInputChannels = ImmutableList.copyOf(aggregationInputChannels);
         this.hashChannels = new int[groupByChannels.size() + (inputHashChannel.isPresent() ? 1 : 0)];
         for (int i = 0; i < groupByChannels.size(); i++) {
             hashChannels[i] = groupByChannels.get(i);
@@ -169,13 +179,18 @@ public class SkipAggregationBuilder
 
     private Page constructOutputPage(Page page, BlockBuilder[] outputBuilders)
     {
-        Block[] outputBlocks = new Block[hashChannels.length + outputBuilders.length];
+        // TODO lysy: implement with using aggregationInputChannels instead of outputBuilders
+        Block[] outputBlocks = new Block[hashChannels.length + outputBuilders.length + aggregationInputTypes.size() + 1];
         for (int i = 0; i < hashChannels.length; i++) {
             outputBlocks[i] = page.getBlock(hashChannels[i]);
         }
         for (int i = 0; i < outputBuilders.length; i++) {
             outputBlocks[hashChannels.length + i] = outputBuilders[i].build();
         }
+        for (int i = 0; i < aggregationInputTypes.size(); i++) {
+            outputBlocks[hashChannels.length + outputBuilders.length + i] = nullRle(aggregationInputTypes.get(i), page.getPositionCount());
+        }
+        outputBlocks[outputBlocks.length - 1] = nullRle(BOOLEAN, page.getPositionCount());
         return new Page(page.getPositionCount(), outputBlocks);
     }
 

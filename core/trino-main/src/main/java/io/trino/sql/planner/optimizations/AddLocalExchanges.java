@@ -376,7 +376,8 @@ public class AddLocalExchanges
                     preGroupedSymbols,
                     node.getStep(),
                     node.getHashSymbol(),
-                    node.getGroupIdSymbol());
+                    node.getGroupIdSymbol(),
+                    node.getUseRawInputSymbol());
 
             return deriveProperties(result, child.getProperties());
         }

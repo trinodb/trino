@@ -237,6 +237,7 @@ public class PlanNodeDecorrelator
                     ImmutableList.of(),
                     AggregationNode.Step.SINGLE,
                     Optional.empty(),
+                    Optional.empty(),
                     Optional.empty());
 
             return Optional.of(new DecorrelationResult(
@@ -450,7 +451,8 @@ public class PlanNodeDecorrelator
                     ImmutableList.of(),
                     decorrelatedAggregation.getStep(),
                     decorrelatedAggregation.getHashSymbol(),
-                    decorrelatedAggregation.getGroupIdSymbol());
+                    decorrelatedAggregation.getGroupIdSymbol(),
+                    decorrelatedAggregation.getUseRawInputSymbol());
 
             return Optional.of(new DecorrelationResult(
                     newAggregation,

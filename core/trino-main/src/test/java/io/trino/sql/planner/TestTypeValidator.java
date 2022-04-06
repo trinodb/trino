@@ -192,6 +192,7 @@ public class TestTypeValidator
                 ImmutableList.of(),
                 SINGLE,
                 Optional.empty(),
+                Optional.empty(),
                 Optional.empty());
 
         assertTypesValid(node);
@@ -248,6 +249,7 @@ public class TestTypeValidator
                 ImmutableList.of(),
                 SINGLE,
                 Optional.empty(),
+                Optional.empty(),
                 Optional.empty());
 
         assertThatThrownBy(() -> assertTypesValid(node))
@@ -273,6 +275,7 @@ public class TestTypeValidator
                 singleGroupingSet(ImmutableList.of(columnA, columnB)),
                 ImmutableList.of(),
                 SINGLE,
+                Optional.empty(),
                 Optional.empty(),
                 Optional.empty());
 

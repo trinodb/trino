@@ -240,6 +240,7 @@ public class TestEffectivePredicateExtractor
                 ImmutableList.of(),
                 AggregationNode.Step.SINGLE,
                 Optional.empty(),
+                Optional.empty(),
                 Optional.empty());
 
         Expression effectivePredicate = effectivePredicateExtractor.extract(SESSION, node, TypeProvider.empty(), typeAnalyzer);
@@ -264,6 +265,7 @@ public class TestEffectivePredicateExtractor
                 globalAggregation(),
                 ImmutableList.of(),
                 AggregationNode.Step.FINAL,
+                Optional.empty(),
                 Optional.empty(),
                 Optional.empty());
 

@@ -25,6 +25,7 @@ import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.plan.AggregationNode.Aggregation;
+import io.trino.sql.tree.Expression;
 
 import java.util.List;
 import java.util.Map;

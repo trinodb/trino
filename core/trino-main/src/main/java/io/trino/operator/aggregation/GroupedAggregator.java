@@ -36,17 +36,22 @@ public class GroupedAggregator
     private final Type intermediateType;
     private final Type finalType;
     private final int[] inputChannels;
+    private final int intermediateStateChannel;
+    private final OptionalInt useRawInputChannel;
     private final OptionalInt maskChannel;
 
-    public GroupedAggregator(GroupedAccumulator accumulator, Step step, Type intermediateType, Type finalType, List<Integer> inputChannels, OptionalInt maskChannel)
+    public GroupedAggregator(GroupedAccumulator accumulator, Step step, Type intermediateType, Type finalType, List<Integer> inputChannels, int intermediateStateChannel, OptionalInt useRawInputChannel, OptionalInt maskChannel)
     {
         this.accumulator = requireNonNull(accumulator, "accumulator is null");
         this.step = requireNonNull(step, "step is null");
         this.intermediateType = requireNonNull(intermediateType, "intermediateType is null");
         this.finalType = requireNonNull(finalType, "finalType is null");
         this.inputChannels = Ints.toArray(requireNonNull(inputChannels, "inputChannels is null"));
+        this.intermediateStateChannel = intermediateStateChannel;
+        this.useRawInputChannel = requireNonNull(useRawInputChannel, "useRawInputChannel is null");
         this.maskChannel = requireNonNull(maskChannel, "maskChannel is null");
-        checkArgument(step.isInputRaw() || inputChannels.size() == 1, "expected 1 input channel for intermediate aggregation");
+//        checkArgument(step.isInputRaw() || inputChannels.size() == 1, "expected 1 input channel for intermediate aggregation");
+        checkArgument(step.isInputRaw() || intermediateStateChannel != -1, "expected intermediateStateChannel for intermediate aggregation but got %s ", intermediateStateChannel);
     }
 
     public long getEstimatedSize()
@@ -70,7 +75,14 @@ public class GroupedAggregator
             accumulator.addInput(groupIds, page.getColumns(inputChannels), getMaskBlock(page));
         }
         else {
-            accumulator.addIntermediate(groupIds, page.getBlock(inputChannels[0]));
+            if (useRawInputChannel.isEmpty() || page.getBlock(useRawInputChannel.getAsInt()).isNull(0)) {
+                // process grouped data
+                accumulator.addIntermediate(groupIds, page.getBlock(intermediateStateChannel));
+            }
+            else {
+                // process raw data
+                accumulator.addInput(groupIds, page.getColumns(inputChannels), getMaskBlock(page));
+            }
         }
     }
 

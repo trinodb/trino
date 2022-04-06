@@ -147,7 +147,8 @@ public class PruneDistinctAggregation
                     ImmutableList.of(),
                     node.getStep(),
                     node.getHashSymbol(),
-                    node.getGroupIdSymbol());
+                    node.getGroupIdSymbol(),
+                    node.getUseRawInputSymbol());
         }
     }
 }

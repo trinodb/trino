@@ -67,6 +67,7 @@ public class RemoveRedundantDistinctLimit
                     ImmutableList.of(),
                     SINGLE,
                     node.getHashSymbol(),
+                    Optional.empty(),
                     Optional.empty()));
         }
         return Result.empty();
