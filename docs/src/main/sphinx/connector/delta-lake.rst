@@ -109,7 +109,8 @@ values. Typical usage does not require you to configure them.
         Hive table is detected.
       -
     * - ``delta.dynamic-filtering.wait-timeout``
-      - Duration to wait for completion of dynamic filters during split generation
+      - Duration to wait for completion of :doc:`dynamic filtering
+        </admin/dynamic-filtering>` during split generation.
       -
     * - ``delta.table-statistics-enabled``
       - Enables :ref:`Table statistics <delta-lake-table-statistics>` for
