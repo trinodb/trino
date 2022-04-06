@@ -580,7 +580,7 @@ message used for encoding.
 If only a start position is given:
 
 * For fixed width types, the appropriate number of bytes are used for the
-  specified ``dateFormat`` (see above).
+  specified ``dataFormat`` (see above).
 
 If both a start and end position are given, then:
 
@@ -1016,7 +1016,7 @@ message used for decoding. It can be one or two numbers separated by a colon (``
 
 If only a start position is given:
 
-* For fixed width types the column will use the appropriate number of bytes for the specified ``dateFormat`` (see above).
+* For fixed width types the column will use the appropriate number of bytes for the specified ``dataFormat`` (see above).
 * When ``VARCHAR`` value is decoded all bytes from start position till the end of the message will be used.
 
 If start and end position are given, then:
