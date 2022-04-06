@@ -29,6 +29,7 @@ import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.FixedSplitSource;
 import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
+import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.TupleDomain;
@@ -73,7 +74,6 @@ import static io.trino.plugin.jdbc.PredicatePushdownController.DISABLE_PUSHDOWN;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varcharReadFunction;
 import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.getUnsupportedTypeHandling;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.IGNORE;
-import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.lang.String.CASE_INSENSITIVE_ORDER;
@@ -501,7 +501,7 @@ public abstract class BaseJdbcClient
 
         ConnectorIdentity identity = session.getIdentity();
         if (!getSchemaNames(session).contains(schemaTableName.getSchemaName())) {
-            throw new TrinoException(NOT_FOUND, "Schema not found: " + schemaTableName.getSchemaName());
+            throw new SchemaNotFoundException(schemaTableName.getSchemaName());
         }
 
         try (Connection connection = connectionFactory.openConnection(session)) {
