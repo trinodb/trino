@@ -1455,6 +1455,20 @@ public class TestIcebergSparkCompatibility
         onSpark().executeQuery("DROP TABLE " + sparkTableName);
     }
 
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
+    public void testMissingMetrics()
+    {
+        String tableName = "test_missing_metrics_" + randomTableSuffix();
+        String sparkTableName = sparkTableName(tableName);
+        onSpark().executeQuery("CREATE TABLE " + sparkTableName + " (name STRING, country STRING) USING ICEBERG " +
+                "PARTITIONED BY (country) TBLPROPERTIES ('write.metadata.metrics.default'='none')");
+        onSpark().executeQuery("INSERT INTO " + sparkTableName + " VALUES ('Christoph', 'AT'), (NULL, 'RO')");
+        assertThat(onTrino().executeQuery(format("SELECT count(*) FROM %s.%s.\"%s$partitions\" WHERE data IS NOT NULL", TRINO_CATALOG, TEST_SCHEMA_NAME, tableName)))
+                .containsOnly(row(0));
+
+        onSpark().executeQuery("DROP TABLE " + sparkTableName);
+    }
+
     private static String escapeSparkString(String value)
     {
         return value.replace("\\", "\\\\").replace("'", "\\'");

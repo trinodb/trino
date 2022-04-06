@@ -195,7 +195,7 @@ final class IcebergStatistics
                             Conversions.fromByteBuffer(column.type(), Optional.ofNullable(dataFile.lowerBounds()).map(a -> a.get(id)).orElse(null)));
                     Object upperBound = convertIcebergValueToTrino(column.type(),
                             Conversions.fromByteBuffer(column.type(), Optional.ofNullable(dataFile.upperBounds()).map(a -> a.get(id)).orElse(null)));
-                    Optional<Long> nullCount = Optional.ofNullable(dataFile.nullValueCounts().get(id));
+                    Optional<Long> nullCount = Optional.ofNullable(dataFile.nullValueCounts()).map(nullCounts -> nullCounts.get(id));
                     updateMinMaxStats(
                             id,
                             trinoType,
