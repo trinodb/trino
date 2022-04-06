@@ -441,6 +441,10 @@ Property Name                                      Description
 
 ``location``                                       Optionally specifies the file system location URI for
                                                    the table.
+
+``format_version``                                 Optionally specifies the format version of the Iceberg
+                                                   specification to use for new tables; either ``1`` or ``2``.
+                                                   Defaults to ``1``. Version ``2`` is required for row level deletes.
 ================================================== ================================================================
 
 The table definition below specifies format Parquet, partitioning by columns ``c1`` and ``c2``,
