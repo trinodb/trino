@@ -275,12 +275,10 @@ public abstract class AbstractKuduConnectorTest
         throw new SkipException("TODO");
     }
 
-    @Test
     @Override
-    public void testAddColumn()
+    protected String tableDefinitionForAddColumn()
     {
-        // TODO Support these test once kudu connector can create tables with default partitions
-        throw new SkipException("TODO");
+        return "(x VARCHAR WITH (primary_key=true)) WITH (partition_by_hash_columns = ARRAY['x'], partition_by_hash_buckets = 2)";
     }
 
     @Test
