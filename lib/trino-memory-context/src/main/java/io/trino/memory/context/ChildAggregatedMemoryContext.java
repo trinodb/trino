@@ -51,12 +51,6 @@ class ChildAggregatedMemoryContext
     }
 
     @Override
-    synchronized AbstractAggregatedMemoryContext getParent()
-    {
-        return parentMemoryContext;
-    }
-
-    @Override
     void closeContext()
     {
         parentMemoryContext.updateBytes(FORCE_FREE_TAG, -getBytes());
