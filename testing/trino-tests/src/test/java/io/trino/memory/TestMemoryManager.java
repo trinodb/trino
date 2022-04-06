@@ -158,7 +158,6 @@ public class TestMemoryManager
             boolean hasRunningQuery = false;
             for (BasicQueryInfo info : queryRunner.getCoordinator().getQueryManager().getQueries()) {
                 if (info.getState() == FAILED) {
-                    assertNotNull(info.getErrorCode());
                     assertEquals(info.getErrorCode(), CLUSTER_OUT_OF_MEMORY.toErrorCode());
                     return;
                 }
