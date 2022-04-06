@@ -63,6 +63,7 @@ import static io.trino.plugin.iceberg.IcebergUtil.loadIcebergTable;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static io.trino.tpch.TpchTable.NATION;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestIcebergV2
         extends AbstractTestQueryFramework
@@ -95,6 +96,28 @@ public class TestIcebergV2
             throws IOException
     {
         deleteRecursively(tempDir, ALLOW_INSECURE);
+    }
+
+    @Test
+    public void testSettingFormatVersion()
+    {
+        String tableName = "test_seting_format_version_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " WITH (format_version = 2) AS SELECT * FROM tpch.tiny.nation", 25);
+        assertThat(loadTable(tableName).operations().current().formatVersion()).isEqualTo(2);
+        assertUpdate("DROP TABLE " + tableName);
+
+        assertUpdate("CREATE TABLE " + tableName + " WITH (format_version = 1) AS SELECT * FROM tpch.tiny.nation", 25);
+        assertThat(loadTable(tableName).operations().current().formatVersion()).isEqualTo(1);
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testDefaultFormatVersion()
+    {
+        String tableName = "test_default_format_version_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.tiny.nation", 25);
+        assertThat(loadTable(tableName).operations().current().formatVersion()).isEqualTo(1);
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -175,6 +198,16 @@ public class TestIcebergV2
 
     private Table updateTableToV2(String tableName)
     {
+        BaseTable table = loadTable(tableName);
+        TableOperations operations = table.operations();
+        TableMetadata currentMetadata = operations.current();
+        operations.commit(currentMetadata, currentMetadata.upgradeToFormatVersion(2));
+
+        return table;
+    }
+
+    private BaseTable loadTable(String tableName)
+    {
         IcebergTableOperationsProvider tableOperationsProvider = new FileMetastoreTableOperationsProvider(new HdfsFileIoProvider(hdfsEnvironment));
         TrinoCatalog catalog = new TrinoHiveCatalog(
                 new CatalogName("hive"),
@@ -186,12 +219,6 @@ public class TestIcebergV2
                 false,
                 false,
                 false);
-        BaseTable table = (BaseTable) loadIcebergTable(catalog, tableOperationsProvider, SESSION, new SchemaTableName("tpch", tableName));
-
-        TableOperations operations = table.operations();
-        TableMetadata currentMetadata = operations.current();
-        operations.commit(currentMetadata, currentMetadata.upgradeToFormatVersion(2));
-
-        return table;
+        return (BaseTable) loadIcebergTable(catalog, tableOperationsProvider, SESSION, new SchemaTableName("tpch", tableName));
     }
 }
