@@ -58,7 +58,7 @@ public class TestAccumuloConnectorTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
-            case SUPPORTS_CREATE_SCHEMA:
+            case SUPPORTS_RENAME_SCHEMA:
                 return false;
 
             case SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS:
