@@ -515,6 +515,8 @@ public class FaultTolerantStageScheduler
                 int partitionId = taskId.getPartitionId();
 
                 if (!finishedPartitions.contains(partitionId) && !closed) {
+                    MemoryRequirements memoryLimits = partitionMemoryRequirements.get(partitionId);
+                    verify(memoryLimits != null);
                     switch (state) {
                         case FINISHED:
                             finishedPartitions.add(partitionId);
@@ -523,12 +525,15 @@ public class FaultTolerantStageScheduler
                                 sinkExchange.get().sinkFinished(exchangeSinkInstanceHandle.get());
                             }
                             partitionToRemoteTaskMap.get(partitionId).forEach(RemoteTask::abort);
+                            partitionMemoryEstimator.registerPartitionFinished(session, memoryLimits, taskStatus.getPeakMemoryReservation(), true, Optional.empty());
                             break;
                         case CANCELED:
                             log.debug("Task cancelled: %s", taskId);
+                            // no need for partitionMemoryEstimator.registerPartitionFinished; task cancelled mid-way
                             break;
                         case ABORTED:
                             log.debug("Task aborted: %s", taskId);
+                            // no need for partitionMemoryEstimator.registerPartitionFinished; task aborted mid-way
                             break;
                         case FAILED:
                             ExecutionFailureInfo failureInfo = taskStatus.getFailures().stream()
@@ -537,6 +542,7 @@ public class FaultTolerantStageScheduler
                                     .orElse(toFailure(new TrinoException(GENERIC_INTERNAL_ERROR, "A task failed for an unknown reason")));
                             log.warn(failureInfo.toException(), "Task failed: %s", taskId);
                             ErrorCode errorCode = failureInfo.getErrorCode();
+                            partitionMemoryEstimator.registerPartitionFinished(session, memoryLimits, taskStatus.getPeakMemoryReservation(), false, Optional.ofNullable(errorCode));
 
                             int taskRemainingAttempts = remainingAttemptsPerTask.getOrDefault(partitionId, maxRetryAttemptsPerTask);
                             if (remainingRetryAttemptsOverall.get() > 0
@@ -546,8 +552,6 @@ public class FaultTolerantStageScheduler
                                 remainingAttemptsPerTask.put(partitionId, taskRemainingAttempts - 1);
 
                                 // update memory limits for next attempt
-                                MemoryRequirements memoryLimits = partitionMemoryRequirements.get(partitionId);
-                                verify(memoryLimits != null);
                                 MemoryRequirements newMemoryLimits = partitionMemoryEstimator.getNextRetryMemoryRequirements(session, memoryLimits, taskStatus.getPeakMemoryReservation(), errorCode);
                                 partitionMemoryRequirements.put(partitionId, newMemoryLimits);
 

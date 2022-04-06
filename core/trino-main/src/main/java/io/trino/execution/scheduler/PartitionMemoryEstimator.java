@@ -18,6 +18,7 @@ import io.trino.Session;
 import io.trino.spi.ErrorCode;
 
 import java.util.Objects;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -27,6 +28,8 @@ public interface PartitionMemoryEstimator
     MemoryRequirements getInitialMemoryRequirements(Session session, DataSize defaultMemoryLimit);
 
     MemoryRequirements getNextRetryMemoryRequirements(Session session, MemoryRequirements previousMemoryRequirements, DataSize peakMemoryUsage, ErrorCode errorCode);
+
+    void registerPartitionFinished(Session session, MemoryRequirements previousMemoryRequirements, DataSize peakMemoryUsage, boolean success, Optional<ErrorCode> errorCode);
 
     class MemoryRequirements
     {
