@@ -562,7 +562,7 @@ Property Name                                        Description
                                                      where Trino is running, defaults to ``false``.
 
 ``hive.metastore.glue.max-connections``              Max number of concurrent connections to Glue,
-                                                     defaults to ``5``.
+                                                     defaults to ``30``.
 
 ``hive.metastore.glue.max-error-retries``            Maximum number of error retries for the Glue client,
                                                      defaults to ``10``.
