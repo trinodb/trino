@@ -35,17 +35,22 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 
+import static com.google.common.base.Preconditions.checkState;
 import static io.trino.SystemSessionProperties.RESOURCE_OVERCOMMIT;
+import static io.trino.execution.QueryState.FAILED;
 import static io.trino.execution.QueryState.FINISHED;
 import static io.trino.operator.BlockedReason.WAITING_FOR_MEMORY;
 import static io.trino.spi.StandardErrorCode.CLUSTER_OUT_OF_MEMORY;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 // run single threaded to avoid creating multiple query runners at once
@@ -122,6 +127,9 @@ public class TestMemoryManager
                 queryFutures.add(executor.submit(() -> queryRunner.execute("SELECT COUNT(*), clerk FROM orders GROUP BY clerk")));
             }
 
+            // Wait for queries to start
+            assertEventually(() -> assertThat(queryRunner.getCoordinator().getQueryManager().getQueries()).hasSize(queryFutures.size()));
+
             // Wait for one of the queries to die
             waitForQueryToBeKilled(queryRunner);
 
@@ -147,13 +155,19 @@ public class TestMemoryManager
             throws InterruptedException
     {
         while (true) {
+            boolean hasRunningQuery = false;
             for (BasicQueryInfo info : queryRunner.getCoordinator().getQueryManager().getQueries()) {
-                if (info.getState().isDone()) {
+                if (info.getState() == FAILED) {
                     assertNotNull(info.getErrorCode());
                     assertEquals(info.getErrorCode(), CLUSTER_OUT_OF_MEMORY.toErrorCode());
                     return;
                 }
+                assertNull(info.getErrorCode(), "errorCode unexpectedly present for " + info);
+                if (!info.getState().isDone()) {
+                    hasRunningQuery = true;
+                }
             }
+            checkState(hasRunningQuery, "All queries already completed without failure");
             MILLISECONDS.sleep(10);
         }
     }
