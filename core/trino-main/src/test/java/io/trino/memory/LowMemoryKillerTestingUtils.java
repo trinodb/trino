@@ -69,6 +69,8 @@ public final class LowMemoryKillerTestingUtils
                     0,
                     nodeReservation.getReservationByQuery(),
                     ImmutableMap.of(),
+                    ImmutableMap.of(),
+                    ImmutableMap.of(),
                     ImmutableMap.of());
             result.add(new MemoryInfo(7, memoryPoolInfo, tasksMemoryInfoForNode(entry.getKey().getNodeIdentifier(), tasks)));
         }

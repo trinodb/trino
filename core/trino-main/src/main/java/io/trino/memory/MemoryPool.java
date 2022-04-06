@@ -37,6 +37,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.operator.Operator.NOT_BLOCKED;
 import static java.util.Objects.requireNonNull;
 
@@ -88,7 +89,26 @@ public class MemoryPool
             }
             memoryAllocations.put(entry.getKey(), allocations);
         }
-        return new MemoryPoolInfo(maxBytes, reservedBytes, reservedRevocableBytes, queryMemoryReservations, memoryAllocations, queryRevocableMemoryReservations);
+
+        Map<String, Long> stringKeyedTaskMemoryReservations = taskMemoryReservations.entrySet().stream()
+                .collect(toImmutableMap(
+                        entry -> entry.getKey().toString(),
+                        Entry::getValue));
+
+        Map<String, Long> stringKeyedTaskRevocableMemoryReservations = taskRevocableMemoryReservations.entrySet().stream()
+                .collect(toImmutableMap(
+                        entry -> entry.getKey().toString(),
+                        Entry::getValue));
+
+        return new MemoryPoolInfo(
+                maxBytes,
+                reservedBytes,
+                reservedRevocableBytes,
+                queryMemoryReservations,
+                memoryAllocations,
+                queryRevocableMemoryReservations,
+                stringKeyedTaskMemoryReservations,
+                stringKeyedTaskRevocableMemoryReservations);
     }
 
     public void addListener(MemoryPoolListener listener)
