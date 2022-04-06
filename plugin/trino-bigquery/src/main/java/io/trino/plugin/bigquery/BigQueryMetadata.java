@@ -369,6 +369,11 @@ public class BigQueryMetadata
         SchemaTableName schemaTableName = tableMetadata.getTable();
         String schemaName = schemaTableName.getSchemaName();
         String tableName = schemaTableName.getTableName();
+
+        if (!schemaExists(session, schemaName)) {
+            throw new SchemaNotFoundException(schemaName);
+        }
+
         List<Field> fields = tableMetadata.getColumns().stream()
                 .map(column -> toField(column.getName(), column.getType()))
                 .collect(toImmutableList());
