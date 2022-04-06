@@ -21,6 +21,7 @@ import io.trino.server.BasicQueryStats;
 import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spi.QueryId;
 import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.tests.tpch.TpchQueryRunnerBuilder;
 import org.intellij.lang.annotations.Language;
@@ -32,7 +33,9 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletionService;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 
@@ -129,16 +132,17 @@ public class TestMemoryManager
                 assertTrue(memoryPool.tryReserve(fakeQueryId, "test", memoryPool.getMaxBytes()));
             }
 
-            List<Future<?>> queryFutures = new ArrayList<>();
-            for (int i = 0; i < 2; i++) {
-                queryFutures.add(executor.submit(() -> queryRunner.execute("" +
+            int queries = 2;
+            CompletionService<MaterializedResult> completionService = new ExecutorCompletionService<>(executor);
+            for (int i = 0; i < queries; i++) {
+                completionService.submit(() -> queryRunner.execute("" +
                         "SELECT COUNT(*), clerk " +
                         "FROM (SELECT clerk FROM orders UNION ALL SELECT dummy FROM blackhole.default.take_30s)" +
-                        "GROUP BY clerk")));
+                        "GROUP BY clerk"));
             }
 
             // Wait for queries to start
-            assertEventually(() -> assertThat(queryRunner.getCoordinator().getQueryManager().getQueries()).hasSize(1 + queryFutures.size()));
+            assertEventually(() -> assertThat(queryRunner.getCoordinator().getQueryManager().getQueries()).hasSize(1 + queries));
 
             // Wait for one of the queries to die
             waitForQueryToBeKilled(queryRunner);
@@ -152,8 +156,8 @@ public class TestMemoryManager
             }
 
             assertThatThrownBy(() -> {
-                for (Future<?> query : queryFutures) {
-                    query.get();
+                for (int i = 0; i < queries; i++) {
+                    completionService.take().get();
                 }
             })
                     .isInstanceOf(ExecutionException.class)
