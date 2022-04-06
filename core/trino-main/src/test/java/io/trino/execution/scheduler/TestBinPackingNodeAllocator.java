@@ -81,7 +81,7 @@ public class TestBinPackingNodeAllocator
     {
         shutdownNodeAllocatorService(); // just in case
 
-        MemoryInfo memoryInfo = new MemoryInfo(4, new MemoryPoolInfo(DataSize.of(64, GIGABYTE).toBytes(), 0, 0, ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of()));
+        MemoryInfo memoryInfo = new MemoryInfo(4, new MemoryPoolInfo(DataSize.of(64, GIGABYTE).toBytes(), 0, 0, ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of()));
 
         Map<String, Optional<MemoryInfo>> workerMemoryInfos = ImmutableMap.of(
                 NODE_1.getNodeIdentifier(), Optional.of(memoryInfo),
