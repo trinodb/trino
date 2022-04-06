@@ -60,7 +60,7 @@
         <dep.scribejava.version>6.9.0</dep.scribejava.version>
         <dep.tempto.version>187</dep.tempto.version>
         <dep.gcs.version>2.0.0</dep.gcs.version>
-        <dep.errorprone.version>2.11.0</dep.errorprone.version>
+        <dep.errorprone.version>2.12.0</dep.errorprone.version>
         <dep.testcontainers.version>1.16.3</dep.testcontainers.version>
         <dep.duct-tape.version>1.0.8</dep.duct-tape.version>
         <dep.docker-java.version>3.2.12</dep.docker-java.version>
@@ -1867,7 +1867,6 @@
                                     -Xep:BoxedPrimitiveConstructor:ERROR \
                                     -Xep:ClassCanBeStatic:ERROR \
                                     -Xep:CompareToZero:ERROR \
-                                    -Xep:DoubleBraceInitialization:ERROR \
                                     -Xep:EqualsGetClass:OFF <!-- we would rather want the opposite check --> \
                                     -Xep:EqualsIncompatibleType:ERROR \
                                     -Xep:FallThrough:ERROR \
