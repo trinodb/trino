@@ -20,6 +20,8 @@ import org.apache.accumulo.core.client.AccumuloSecurityException;
 import org.apache.accumulo.core.client.Connector;
 import org.apache.accumulo.core.client.IteratorSetting;
 import org.apache.accumulo.core.client.NamespaceExistsException;
+import org.apache.accumulo.core.client.NamespaceNotEmptyException;
+import org.apache.accumulo.core.client.NamespaceNotFoundException;
 import org.apache.accumulo.core.client.TableExistsException;
 import org.apache.accumulo.core.client.TableNotFoundException;
 import org.apache.accumulo.core.iterators.IteratorUtil.IteratorScope;
@@ -43,7 +45,6 @@ import static java.util.Objects.requireNonNull;
 public class AccumuloTableManager
 {
     private static final Logger LOG = Logger.get(AccumuloTableManager.class);
-    private static final String DEFAULT = "default";
     private final Connector connector;
 
     @Inject
@@ -52,25 +53,33 @@ public class AccumuloTableManager
         this.connector = requireNonNull(connector, "connector is null");
     }
 
-    /**
-     * Ensures the given Accumulo namespace exist, creating it if necessary
-     *
-     * @param schema Trino schema (Accumulo namespace)
-     */
-    public void ensureNamespace(String schema)
+    public void createNamespace(String schema)
     {
         try {
-            // If the table schema is not "default" and the namespace does not exist, create it
-            if (!schema.equals(DEFAULT) && !connector.namespaceOperations().exists(schema)) {
-                connector.namespaceOperations().create(schema);
-            }
+            connector.namespaceOperations().create(schema);
+        }
+        catch (AccumuloException | AccumuloSecurityException | NamespaceExistsException e) {
+            throw new TrinoException(UNEXPECTED_ACCUMULO_ERROR, "Failed to create Accumulo namespace: " + schema, e);
+        }
+    }
+
+    public void dropNamespace(String schema)
+    {
+        try {
+            connector.namespaceOperations().delete(schema);
+        }
+        catch (AccumuloException | AccumuloSecurityException | NamespaceNotFoundException | NamespaceNotEmptyException e) {
+            throw new TrinoException(UNEXPECTED_ACCUMULO_ERROR, "Failed to delete Accumulo namespace: " + schema, e);
+        }
+    }
+
+    public boolean namespaceExists(String schema)
+    {
+        try {
+            return connector.namespaceOperations().exists(schema);
         }
         catch (AccumuloException | AccumuloSecurityException e) {
-            throw new TrinoException(UNEXPECTED_ACCUMULO_ERROR, "Failed to check for existence or create Accumulo namespace", e);
-        }
-        catch (NamespaceExistsException e) {
-            // Suppress race condition between test for existence and creation
-            LOG.warn("NamespaceExistsException suppressed when creating %s", schema);
+            throw new TrinoException(UNEXPECTED_ACCUMULO_ERROR, "Failed to check for existence Accumulo namespace: " + schema, e);
         }
     }
 

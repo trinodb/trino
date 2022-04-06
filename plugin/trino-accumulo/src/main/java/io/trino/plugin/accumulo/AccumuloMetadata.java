@@ -42,6 +42,7 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ComputedStatistics;
 
 import javax.inject.Inject;
@@ -54,6 +55,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.plugin.accumulo.AccumuloErrorCode.ACCUMULO_TABLE_EXISTS;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -77,6 +79,19 @@ public class AccumuloMetadata
     public AccumuloMetadata(AccumuloClient client)
     {
         this.client = requireNonNull(client, "client is null");
+    }
+
+    @Override
+    public void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties, TrinoPrincipal owner)
+    {
+        checkArgument(properties.isEmpty(), "Can't have properties for schema creation");
+        client.createSchema(schemaName);
+    }
+
+    @Override
+    public void dropSchema(ConnectorSession session, String schemaName)
+    {
+        client.dropSchema(schemaName);
     }
 
     @Override
