@@ -75,6 +75,7 @@ public class TestOptionsPrinter
         assertThat(OptionsPrinter.format(new OptionalFields(null))).isEqualTo("");
     }
 
+    @SuppressWarnings("UnusedVariable") // these fields are used for validation testing
     private static class Options
     {
         @Option(names = "--value", paramLabel = "<value>", description = "Test value")
@@ -94,6 +95,7 @@ public class TestOptionsPrinter
         }
     }
 
+    @SuppressWarnings("UnusedVariable") // these fields are used for validation testing
     private static class NegatableOptions
     {
         @Option(names = "--no-negatable", paramLabel = "<boolean>", description = "Test value boolean", negatable = true)
@@ -105,6 +107,7 @@ public class TestOptionsPrinter
         }
     }
 
+    @SuppressWarnings("UnusedVariable") // these fields are used for validation testing
     private static class OptionalFields
     {
         @Option(names = "--value", paramLabel = "<value>", description = "Test optional value")
