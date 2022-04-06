@@ -15,6 +15,7 @@ package io.trino.memory;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
+import io.trino.plugin.blackhole.BlackHolePlugin;
 import io.trino.server.BasicQueryInfo;
 import io.trino.server.BasicQueryStats;
 import io.trino.server.testing.TestingTrinoServer;
@@ -115,6 +116,12 @@ public class TestMemoryManager
                 .buildOrThrow();
 
         try (DistributedQueryRunner queryRunner = createQueryRunner(TINY_SESSION, properties)) {
+            queryRunner.installPlugin(new BlackHolePlugin());
+            queryRunner.createCatalog("blackhole", "blackhole");
+            queryRunner.execute("" +
+                    "CREATE TABLE blackhole.default.take_30s(dummy varchar(10)) " +
+                    "WITH (split_count=1, pages_per_split=30, rows_per_page=1, page_processing_delay='1s')");
+
             // Reserve all the memory
             QueryId fakeQueryId = new QueryId("fake");
             for (TestingTrinoServer server : queryRunner.getServers()) {
@@ -124,11 +131,14 @@ public class TestMemoryManager
 
             List<Future<?>> queryFutures = new ArrayList<>();
             for (int i = 0; i < 2; i++) {
-                queryFutures.add(executor.submit(() -> queryRunner.execute("SELECT COUNT(*), clerk FROM orders GROUP BY clerk")));
+                queryFutures.add(executor.submit(() -> queryRunner.execute("" +
+                        "SELECT COUNT(*), clerk " +
+                        "FROM (SELECT clerk FROM orders UNION ALL SELECT dummy FROM blackhole.default.take_30s)" +
+                        "GROUP BY clerk")));
             }
 
             // Wait for queries to start
-            assertEventually(() -> assertThat(queryRunner.getCoordinator().getQueryManager().getQueries()).hasSize(queryFutures.size()));
+            assertEventually(() -> assertThat(queryRunner.getCoordinator().getQueryManager().getQueries()).hasSize(1 + queryFutures.size()));
 
             // Wait for one of the queries to die
             waitForQueryToBeKilled(queryRunner);
