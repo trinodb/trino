@@ -39,11 +39,5 @@ class SimpleAggregatedMemoryContext
     }
 
     @Override
-    synchronized AbstractAggregatedMemoryContext getParent()
-    {
-        return null;
-    }
-
-    @Override
     void closeContext() {}
 }
