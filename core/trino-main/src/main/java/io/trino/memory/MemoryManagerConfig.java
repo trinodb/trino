@@ -43,7 +43,7 @@ public class MemoryManagerConfig
     // enforced against user + system memory allocations (default is maxQueryMemory * 2)
     private DataSize maxQueryTotalMemory;
     private DataSize faultTolerantExecutionTaskMemory = DataSize.of(4, GIGABYTE);
-    private double faultTolerantExecutionTaskMemoryGrowthFactor = 2.0;
+    private double faultTolerantExecutionTaskMemoryGrowthFactor = 3.0;
     private LowMemoryKillerPolicy lowMemoryKillerPolicy = LowMemoryKillerPolicy.TOTAL_RESERVATION_ON_BLOCKED_NODES;
     private Duration killOnOutOfMemoryDelay = new Duration(5, MINUTES);
 

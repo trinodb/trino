@@ -49,7 +49,7 @@ public class TestExponentialGrowthPartitionMemoryEstimator
                         new PartitionMemoryEstimator.MemoryRequirements(DataSize.of(50, MEGABYTE), false),
                         DataSize.of(10, MEGABYTE),
                         StandardErrorCode.CLUSTER_OUT_OF_MEMORY.toErrorCode()))
-                .isEqualTo(new PartitionMemoryEstimator.MemoryRequirements(DataSize.of(100, MEGABYTE), false));
+                .isEqualTo(new PartitionMemoryEstimator.MemoryRequirements(DataSize.of(150, MEGABYTE), false));
 
         assertThat(
                 estimator.getNextRetryMemoryRequirements(
@@ -57,7 +57,7 @@ public class TestExponentialGrowthPartitionMemoryEstimator
                         new PartitionMemoryEstimator.MemoryRequirements(DataSize.of(50, MEGABYTE), false),
                         DataSize.of(10, MEGABYTE),
                         StandardErrorCode.EXCEEDED_LOCAL_MEMORY_LIMIT.toErrorCode()))
-                .isEqualTo(new PartitionMemoryEstimator.MemoryRequirements(DataSize.of(100, MEGABYTE), false));
+                .isEqualTo(new PartitionMemoryEstimator.MemoryRequirements(DataSize.of(150, MEGABYTE), false));
 
         // peak memory of failed task 70MB
         assertThat(
@@ -74,6 +74,6 @@ public class TestExponentialGrowthPartitionMemoryEstimator
                         new PartitionMemoryEstimator.MemoryRequirements(DataSize.of(50, MEGABYTE), false),
                         DataSize.of(70, MEGABYTE),
                         StandardErrorCode.EXCEEDED_LOCAL_MEMORY_LIMIT.toErrorCode()))
-                .isEqualTo(new PartitionMemoryEstimator.MemoryRequirements(DataSize.of(140, MEGABYTE), false));
+                .isEqualTo(new PartitionMemoryEstimator.MemoryRequirements(DataSize.of(210, MEGABYTE), false));
     }
 }

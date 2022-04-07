@@ -40,7 +40,7 @@ public class TestMemoryManagerConfig
                 .setMaxQueryMemory(DataSize.of(20, GIGABYTE))
                 .setMaxQueryTotalMemory(DataSize.of(40, GIGABYTE))
                 .setFaultTolerantExecutionTaskMemory(DataSize.of(4, GIGABYTE))
-                .setFaultTolerantExecutionTaskMemoryGrowthFactor(2.0));
+                .setFaultTolerantExecutionTaskMemoryGrowthFactor(3.0));
     }
 
     @Test
