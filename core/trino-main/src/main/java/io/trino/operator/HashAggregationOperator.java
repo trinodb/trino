@@ -38,9 +38,11 @@ import io.trino.type.BlockTypeOperators;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.operator.aggregation.builder.InMemoryHashAggregationBuilder.nullRle;
 import static io.trino.operator.aggregation.builder.InMemoryHashAggregationBuilder.toTypes;
@@ -67,6 +69,7 @@ public class HashAggregationOperator
         private final List<AggregatorFactory> aggregatorFactories;
         private final List<Type> aggregationInputTypes;
         private final List<Integer> aggregationInputChannels;
+        private final List<Integer> maskBlockChannels;
         private final Optional<Integer> hashChannel;
         private final Optional<Integer> groupIdChannel;
 
@@ -203,6 +206,11 @@ public class HashAggregationOperator
             this.groupByChannels = ImmutableList.copyOf(groupByChannels);
             this.aggregationInputTypes = ImmutableList.copyOf(aggregationInputTypes);
             this.aggregationInputChannels = ImmutableList.copyOf(aggregationInputChannels);
+            this.maskBlockChannels = ImmutableList.copyOf(aggregatorFactories.stream()
+                    .map(AggregatorFactory::getMaskChannel)
+                    .flatMapToInt(OptionalInt::stream)
+                    .boxed()
+                    .collect(toImmutableSet()));
             this.globalAggregationGroupIds = ImmutableList.copyOf(globalAggregationGroupIds);
             this.step = step;
             this.produceDefaultOutput = produceDefaultOutput;
@@ -230,6 +238,7 @@ public class HashAggregationOperator
                     groupByChannels,
                     aggregationInputTypes,
                     aggregationInputChannels,
+                    maskBlockChannels,
                     globalAggregationGroupIds,
                     step,
                     produceDefaultOutput,
@@ -288,6 +297,7 @@ public class HashAggregationOperator
     private final List<Integer> groupByChannels;
     private final List<Type> aggregationInputTypes;
     private final List<Integer> aggregationInputChannels;
+    private final List<Integer> maskBlockChannels;
     private final List<Integer> globalAggregationGroupIds;
     private final Step step;
     private final boolean produceDefaultOutput;
@@ -324,6 +334,7 @@ public class HashAggregationOperator
             List<Integer> groupByChannels,
             List<Type> aggregationInputTypes,
             List<Integer> aggregationInputChannels,
+            List<Integer> maskBlockChannels,
             List<Integer> globalAggregationGroupIds,
             Step step,
             boolean produceDefaultOutput,
@@ -351,6 +362,7 @@ public class HashAggregationOperator
         this.groupByChannels = ImmutableList.copyOf(groupByChannels);
         this.aggregationInputTypes = ImmutableList.copyOf(aggregationInputTypes);
         this.aggregationInputChannels = ImmutableList.copyOf(aggregationInputChannels);
+        this.maskBlockChannels = ImmutableList.copyOf(maskBlockChannels);
         this.globalAggregationGroupIds = ImmutableList.copyOf(globalAggregationGroupIds);
         this.aggregatorFactories = ImmutableList.copyOf(aggregatorFactories);
         this.hashChannel = requireNonNull(hashChannel, "hashChannel is null");
@@ -417,7 +429,7 @@ public class HashAggregationOperator
                     .map(PartialAggregationController::isPartialAggregationDisabled)
                     .orElse(false);
             if (step.isOutputPartial() && partialAggregationDisabled) {
-                aggregationBuilder = new SkipAggregationBuilder(groupByChannels, hashChannel, aggregatorFactories, memoryContext, aggregationInputTypes, aggregationInputChannels);
+                aggregationBuilder = new SkipAggregationBuilder(groupByChannels, hashChannel, aggregatorFactories, memoryContext, aggregationInputChannels, maskBlockChannels);
             }
             else if (step.isOutputPartial() || !spillEnabled || !isSpillable()) {
                 // TODO: We ignore spillEnabled here if any aggregate has ORDER BY clause or DISTINCT because they are not yet implemented for spilling.
@@ -428,6 +440,7 @@ public class HashAggregationOperator
                         groupByTypes,
                         groupByChannels,
                         aggregationInputTypes,
+                        maskBlockChannels.size(),
                         hashChannel,
                         operatorContext,
                         maxPartialMemory,
@@ -450,6 +463,7 @@ public class HashAggregationOperator
                         groupByTypes,
                         groupByChannels,
                         aggregationInputTypes,
+                        maskBlockChannels.size(),
                         hashChannel,
                         operatorContext,
                         memoryLimitForMerge,
@@ -622,8 +636,12 @@ public class HashAggregationOperator
                 finalPage[i] = page.getBlock(i);
             }
             int positionCount = page.getPositionCount();
+            int maskChannelCount = maskBlockChannels.size();
+            for (int i = 0; i < maskChannelCount; i++) {
+                finalPage[page.getChannelCount() + i] = nullRle(BOOLEAN, positionCount);
+            }
             for (int i = 0; i < aggregationInputTypes.size(); i++) {
-                finalPage[page.getChannelCount() + i] = nullRle(aggregationInputTypes.get(i), positionCount);
+                finalPage[page.getChannelCount() + maskChannelCount + i] = nullRle(aggregationInputTypes.get(i), positionCount);
             }
 
             finalPage[finalPage.length - 1] = nullRle(BOOLEAN, positionCount);

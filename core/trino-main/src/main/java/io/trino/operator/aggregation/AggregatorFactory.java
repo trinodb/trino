@@ -104,4 +104,9 @@ public class AggregatorFactory
     {
         return spillable;
     }
+
+    public OptionalInt getMaskChannel()
+    {
+        return maskChannel;
+    }
 }

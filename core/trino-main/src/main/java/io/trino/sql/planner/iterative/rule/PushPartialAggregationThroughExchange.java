@@ -232,7 +232,7 @@ public class PushPartialAggregationThroughExchange
                             false,
                             Optional.empty(),
                             Optional.empty(),
-                            Optional.empty()));
+                            node.getGroupingKeys().isEmpty() ? Optional.empty() : originalAggregation.getMask()));
         }
 
         Symbol useRawInputSymbol = context.getSymbolAllocator().newSymbol("useRawInputSymbol", BOOLEAN);

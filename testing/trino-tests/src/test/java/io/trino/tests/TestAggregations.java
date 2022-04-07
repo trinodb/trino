@@ -31,6 +31,6 @@ public class TestAggregations
     @Test
     public void test()
     {
-        assertQuery("SELECT suppkey, SUM(quantity) FROM lineitem GROUP BY suppkey");
+        assertQuery("SELECT sum(x) FILTER (WHERE x > 1), sum(y) FILTER (WHERE y > 4) FROM (VALUES (1, 3), (2, 4), (2, 4), (4, 5)) t (x, y)", "SELECT 8, 5");
     }
 }

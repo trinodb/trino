@@ -103,12 +103,20 @@ public class AggregationNode
         hashSymbol.ifPresent(outputs::add);
         outputs.addAll(aggregations.keySet());
         if (step.isOutputPartial() && !groupingSets.getGroupingKeys().isEmpty()) {
+            // add mask channels
+            aggregations.values().stream()
+                    .map(Aggregation::getMask)
+                    .flatMap(Optional::stream)
+                    .collect(toImmutableSet())
+                    .forEach(outputs::add);
             // add inputs to the aggregations to be used by adaptive partial aggregation
             aggregations.values().stream()
                     .flatMap(Aggregation::getInputs)
                     .filter(symbol -> !groupingSets.getGroupingKeys().contains(symbol))
                     .collect(toImmutableSet())
                     .forEach(outputs::add);
+
+            // add useRawInput channel
             outputs.add(useRawInputSymbol.orElseThrow());
         }
 

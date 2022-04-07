@@ -47,6 +47,7 @@ public class MergingHashAggregationBuilder
     private InMemoryHashAggregationBuilder hashAggregationBuilder;
     private final List<Type> groupByTypes;
     private final List<Type> aggregationInputTypes;
+    private final int maskChannelCount;
     private final LocalMemoryContext memoryContext;
     private final long memoryLimitForMerge;
     private final int overwriteIntermediateChannelOffset;
@@ -59,6 +60,7 @@ public class MergingHashAggregationBuilder
             int expectedGroups,
             List<Type> groupByTypes,
             List<Type> aggregationInputTypes,
+            int maskChannelCount,
             Optional<Integer> hashChannel,
             OperatorContext operatorContext,
             WorkProcessor<Page> sortedPages,
@@ -82,6 +84,7 @@ public class MergingHashAggregationBuilder
         this.sortedPages = sortedPages;
         this.groupByTypes = groupByTypes;
         this.aggregationInputTypes = aggregationInputTypes;
+        this.maskChannelCount = maskChannelCount;
         this.memoryContext = aggregatedMemoryContext.newLocalMemoryContext(MergingHashAggregationBuilder.class.getSimpleName());
         this.memoryLimitForMerge = memoryLimitForMerge;
         this.overwriteIntermediateChannelOffset = overwriteIntermediateChannelOffset;
@@ -153,6 +156,7 @@ public class MergingHashAggregationBuilder
                 groupByTypes,
                 groupByPartialChannels,
                 aggregationInputTypes,
+                maskChannelCount,
                 hashChannel,
                 operatorContext,
                 Optional.of(DataSize.succinctBytes(0)),

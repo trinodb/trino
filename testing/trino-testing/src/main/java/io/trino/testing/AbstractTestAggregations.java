@@ -236,11 +236,10 @@ public abstract class AbstractTestAggregations
     public void testDistinctGroupBy()
     {
         @Language("SQL") String query = "" +
-                "SELECT COUNT(DISTINCT clerk) AS count_distinct, orderdate " +
+                "SELECT COUNT(DISTINCT clerk) AS count_distinct, COUNT(clerk) AS count, orderdate " +
                 "FROM orders " +
-                "GROUP BY orderdate ";
-//                +
-//                "ORDER BY count_distinct, orderdate";
+                "GROUP BY orderdate " +
+                "ORDER BY count_distinct, orderdate";
         assertQuery(query);
         assertQuery(
                 Session.builder(getSession())

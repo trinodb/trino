@@ -19,6 +19,7 @@ import io.trino.testing.AbstractTestEngineOnlyQueries;
 import io.trino.testing.LocalQueryRunner;
 import io.trino.testing.QueryRunner;
 import org.testng.SkipException;
+import org.testng.annotations.Test;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
 
@@ -55,5 +56,12 @@ public class TestLocalEngineOnlyQueries
     public void testResetSession()
     {
         throw new SkipException("RESET SESSION is not supported by LocalQueryRunner");
+    }
+
+    @Test
+    public void test()
+    {
+        assertQuery(
+                "SELECT count(*) FROM orders o WHERE EXISTS (SELECT l.linenumber FROM lineitem l WHERE o.orderkey = l.orderkey)");
     }
 }

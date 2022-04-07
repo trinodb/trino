@@ -3868,15 +3868,22 @@ public class LocalExecutionPlanner
 //                    .sorted(comparingByKey())
 //                    .map(Map.Entry::getValue)
                             .flatMap(Aggregation::getInputs)
+                            .filter(input -> !outputMappingsSoFar.containsKey(input))
                             .collect(toImmutableSet()))
                     : ImmutableList.of();
             if (step.isOutputPartial() && useRawInputSymbol.isPresent()) {
+                // add mask channels
+                for (Symbol symbol : aggregations.values().stream()
+                        .map(Aggregation::getMask)
+                        .flatMap(Optional::stream)
+                        .collect(toImmutableSet())) {
+                    outputMappings.put(symbol, channel);
+                    channel++;
+                }
                 // add inputs to the aggregations to be used by adaptive partial aggregation
                 for (Symbol symbol : aggregationInputs) {
-                    if (!outputMappingsSoFar.containsKey(symbol)) {
-                        outputMappings.put(symbol, channel);
-                        channel++;
-                    }
+                    outputMappings.put(symbol, channel);
+                    channel++;
                 }
                 outputMappings.put(useRawInputSymbol.orElseThrow(), channel);
                 channel++;

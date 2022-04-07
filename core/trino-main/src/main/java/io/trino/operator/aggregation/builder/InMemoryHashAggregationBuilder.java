@@ -34,7 +34,6 @@ import io.trino.spi.PageBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.RunLengthEncodedBlock;
-import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.JoinCompiler;
 import io.trino.sql.planner.plan.AggregationNode.Step;
@@ -62,6 +61,7 @@ public class InMemoryHashAggregationBuilder
     private final OptionalLong maxPartialMemory;
     private final UpdateMemory updateMemory;
     private final List<Type> aggregationInputTypes;
+    private final int maskChannelCount;
 
     private boolean full;
 
@@ -72,6 +72,7 @@ public class InMemoryHashAggregationBuilder
             List<Type> groupByTypes,
             List<Integer> groupByChannels,
             List<Type> aggregationInputTypes,
+            int maskChannelCount,
             Optional<Integer> hashChannel,
             OperatorContext operatorContext,
             Optional<DataSize> maxPartialMemory,
@@ -85,6 +86,7 @@ public class InMemoryHashAggregationBuilder
                 groupByTypes,
                 groupByChannels,
                 aggregationInputTypes,
+                maskChannelCount,
                 hashChannel,
                 operatorContext,
                 maxPartialMemory,
@@ -101,6 +103,7 @@ public class InMemoryHashAggregationBuilder
             List<Type> groupByTypes,
             List<Integer> groupByChannels,
             List<Type> aggregationInputTypes,
+            int maskChannelCount,
             Optional<Integer> hashChannel,
             OperatorContext operatorContext,
             Optional<DataSize> maxPartialMemory,
@@ -110,6 +113,7 @@ public class InMemoryHashAggregationBuilder
             UpdateMemory updateMemory)
     {
         this.aggregationInputTypes = ImmutableList.copyOf(aggregationInputTypes);
+        this.maskChannelCount = maskChannelCount;
         this.groupByHash = createGroupByHash(
                 operatorContext.getSession(),
                 groupByTypes,
@@ -306,13 +310,16 @@ public class InMemoryHashAggregationBuilder
             Page page = pageBuilder.build();
             if (partial) {
                 // only from partial step output raw input columns
-                Block[] finalPage = new Block[page.getChannelCount() + aggregationInputTypes.size() + 1];
+                Block[] finalPage = new Block[page.getChannelCount() + maskChannelCount + aggregationInputTypes.size() + 1];
                 for (int i = 0; i < page.getChannelCount(); i++) {
                     finalPage[i] = page.getBlock(i);
                 }
                 int positionCount = page.getPositionCount();
+                for (int i = 0; i < maskChannelCount; i++) {
+                    finalPage[page.getChannelCount() + i] = nullRle(BOOLEAN, positionCount);
+                }
                 for (int i = 0; i < aggregationInputTypes.size(); i++) {
-                    finalPage[page.getChannelCount() + i] = nullRle(aggregationInputTypes.get(i), positionCount);
+                    finalPage[page.getChannelCount() + maskChannelCount + i] = nullRle(aggregationInputTypes.get(i), positionCount);
                 }
                 finalPage[finalPage.length - 1] = nullRle(BOOLEAN, positionCount);
 

@@ -13,11 +13,10 @@
  */
 package io.trino.operator.aggregation.partial;
 
-import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.operator.CompletedWork;
-import io.trino.operator.GroupByIdBlock;
 import io.trino.operator.HashCollisionsCounter;
 import io.trino.operator.Work;
 import io.trino.operator.WorkProcessor;
@@ -27,8 +26,7 @@ import io.trino.operator.aggregation.builder.HashAggregationBuilder;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.LongArrayBlock;
-import io.trino.spi.type.Type;
+import io.trino.spi.block.RunLengthEncodedBlock;
 
 import javax.annotation.Nullable;
 
@@ -54,24 +52,24 @@ public class SkipAggregationBuilder
     @Nullable
     private Page currentPage;
     private final int[] hashChannels;
-    private final List<Type> aggregationInputTypes;
-    private final List<Integer> aggregationInputChannels;
+    private final int[] aggregationInputChannels;
+    private final int[] maskBlockChannels;
 
     public SkipAggregationBuilder(
             List<Integer> groupByChannels,
             Optional<Integer> inputHashChannel,
             List<AggregatorFactory> aggregatorFactories,
             LocalMemoryContext memoryContext,
-            List<Type> aggregationInputTypes,
-            List<Integer> aggregationInputChannels)
+            List<Integer> aggregationInputChannels,
+            List<Integer> maskBlockChannels)
     {
         this.memoryContext = requireNonNull(memoryContext, "memoryContext is null");
         this.groupedAggregators = requireNonNull(aggregatorFactories, "aggregatorFactories is null")
                 .stream()
                 .map(AggregatorFactory::createGroupedAggregator)
                 .collect(toImmutableList());
-        this.aggregationInputTypes = ImmutableList.copyOf(aggregationInputTypes);
-        this.aggregationInputChannels = ImmutableList.copyOf(aggregationInputChannels);
+        this.aggregationInputChannels = Ints.toArray(aggregationInputChannels);
+        this.maskBlockChannels = Ints.toArray(maskBlockChannels);
         this.hashChannels = new int[groupByChannels.size() + (inputHashChannel.isPresent() ? 1 : 0)];
         for (int i = 0; i < groupByChannels.size(); i++) {
             hashChannels[i] = groupByChannels.get(i);
@@ -138,68 +136,29 @@ public class SkipAggregationBuilder
 
     private Page buildOutputPage(Page page)
     {
-        populateInitialAccumulatorState(page);
-
-        BlockBuilder[] outputBuilders = serializeAccumulatorState(page.getPositionCount());
-
-        return constructOutputPage(page, outputBuilders);
+        Block[] outputBlocks = new Block[hashChannels.length + groupedAggregators.size() + maskBlockChannels.length + aggregationInputChannels.length + 1];
+        int blockOffset = 0;
+        for (int i = 0; i < hashChannels.length; i++, blockOffset++) {
+            outputBlocks[blockOffset] = page.getBlock(hashChannels[i]);
+        }
+        for (int i = 0; i < groupedAggregators.size(); i++, blockOffset++) {
+            outputBlocks[blockOffset] = nullRle(groupedAggregators.get(i).getType(), page.getPositionCount());
+        }
+        for (int i = 0; i < maskBlockChannels.length; i++, blockOffset++) {
+            outputBlocks[blockOffset] = page.getBlock(maskBlockChannels[i]);
+        }
+        for (int i = 0; i < aggregationInputChannels.length; i++, blockOffset++) {
+            outputBlocks[blockOffset] = page.getBlock(aggregationInputChannels[i]);
+        }
+        outputBlocks[blockOffset] = trueRle(page.getPositionCount());
+        Page outputPage = new Page(page.getPositionCount(), outputBlocks);
+        return outputPage;
     }
 
-    private void populateInitialAccumulatorState(Page page)
+    public static RunLengthEncodedBlock trueRle(int positionCount)
     {
-        GroupByIdBlock groupByIdBlock = getGroupByIdBlock(page.getPositionCount());
-        for (GroupedAggregator groupedAggregator : groupedAggregators) {
-            groupedAggregator.processPage(groupByIdBlock, page);
-        }
-    }
-
-    private GroupByIdBlock getGroupByIdBlock(int positionCount)
-    {
-        return new GroupByIdBlock(
-                positionCount,
-                new LongArrayBlock(positionCount, Optional.empty(), consecutive(positionCount)));
-    }
-
-    private BlockBuilder[] serializeAccumulatorState(int positionCount)
-    {
-        BlockBuilder[] outputBuilders = new BlockBuilder[groupedAggregators.size()];
-        for (int i = 0; i < outputBuilders.length; i++) {
-            outputBuilders[i] = groupedAggregators.get(i).getType().createBlockBuilder(null, positionCount);
-        }
-
-        for (int position = 0; position < positionCount; position++) {
-            for (int i = 0; i < groupedAggregators.size(); i++) {
-                GroupedAggregator groupedAggregator = groupedAggregators.get(i);
-                BlockBuilder output = outputBuilders[i];
-                groupedAggregator.evaluate(position, output);
-            }
-        }
-        return outputBuilders;
-    }
-
-    private Page constructOutputPage(Page page, BlockBuilder[] outputBuilders)
-    {
-        // TODO lysy: implement with using aggregationInputChannels instead of outputBuilders
-        Block[] outputBlocks = new Block[hashChannels.length + outputBuilders.length + aggregationInputTypes.size() + 1];
-        for (int i = 0; i < hashChannels.length; i++) {
-            outputBlocks[i] = page.getBlock(hashChannels[i]);
-        }
-        for (int i = 0; i < outputBuilders.length; i++) {
-            outputBlocks[hashChannels.length + i] = outputBuilders[i].build();
-        }
-        for (int i = 0; i < aggregationInputTypes.size(); i++) {
-            outputBlocks[hashChannels.length + outputBuilders.length + i] = nullRle(aggregationInputTypes.get(i), page.getPositionCount());
-        }
-        outputBlocks[outputBlocks.length - 1] = nullRle(BOOLEAN, page.getPositionCount());
-        return new Page(page.getPositionCount(), outputBlocks);
-    }
-
-    private static long[] consecutive(int positionCount)
-    {
-        long[] longs = new long[positionCount];
-        for (int i = 0; i < positionCount; i++) {
-            longs[i] = i;
-        }
-        return longs;
+        BlockBuilder valueBuilder = BOOLEAN.createBlockBuilder(null, 1);
+        BOOLEAN.writeBoolean(valueBuilder, true);
+        return new RunLengthEncodedBlock(valueBuilder.build(), positionCount);
     }
 }

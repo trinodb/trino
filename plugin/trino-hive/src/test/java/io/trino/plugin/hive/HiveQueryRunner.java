@@ -389,17 +389,21 @@ public final class HiveQueryRunner
             baseDataDir = Optional.of(path);
         }
 
-        ImmutableMap<String, String> extraProperties = ImmutableMap.<String, String>builder()
-                .put("spiller-spill-path", Paths.get(System.getProperty("java.io.tmpdir"), "trino", "spills").toString())
-                .put("spiller-max-used-space-threshold", "1.0")
-                .put("memory-revoking-threshold", "0.0") // revoke always
-                .put("memory-revoking-target", "0.0")
-                .put("http-server.http.port", "8080")
-                .buildOrThrow();
+//        ImmutableMap<String, String> extraProperties = ImmutableMap.<String, String>builder()
+//                .put("spiller-spill-path", Paths.get(System.getProperty("java.io.tmpdir"), "trino", "spills").toString())
+//                .put("spiller-max-used-space-threshold", "1.0")
+//                .put("memory-revoking-threshold", "0.0") // revoke always
+//                .put("memory-revoking-target", "0.0")
+//                .put("http-server.http.port", "8080")
+//                .buildOrThrow();
+
         DistributedQueryRunner queryRunner = HiveQueryRunner.builder()
 //                .setExtraProperties(
 //                        ImmutableMap.of("http-server.http.port", "8080"))
-                .setExtraProperties(extraProperties)
+                .setExtraProperties(ImmutableMap.of(
+                        "adaptive-partial-aggregation.min-rows", "0",
+                        "task.max-partial-aggregation-memory", "0B",
+                        "http-server.http.port", "8080"))
                 .setSkipTimezoneSetup(true)
                 .setHiveProperties(ImmutableMap.of())
                 .setInitialTables(TpchTable.getTables())

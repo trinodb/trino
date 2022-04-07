@@ -64,6 +64,11 @@ public class PushPartialAggregationThroughJoin
             // TODO: add support for hash symbol in aggregation node
             return false;
         }
+
+        if (aggregationNode.getUseRawInputSymbol().isPresent()) {
+            // TODO: add support for useRawInputSymbol in aggregation node
+            return false;
+        }
         return aggregationNode.getStep() == PARTIAL && aggregationNode.getGroupingSetCount() == 1;
     }
 

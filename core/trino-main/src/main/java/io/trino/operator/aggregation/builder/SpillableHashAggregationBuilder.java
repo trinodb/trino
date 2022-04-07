@@ -56,6 +56,7 @@ public class SpillableHashAggregationBuilder
     private final List<Type> groupByTypes;
     private final List<Integer> groupByChannels;
     private final List<Type> aggregationInputTypes;
+    private final int maskChannelCount;
     private final Optional<Integer> hashChannel;
     private final OperatorContext operatorContext;
     private final LocalMemoryContext localUserMemoryContext;
@@ -83,6 +84,7 @@ public class SpillableHashAggregationBuilder
             List<Type> groupByTypes,
             List<Integer> groupByChannels,
             List<Type> aggregationInputTypes,
+            int maskChannelCount,
             Optional<Integer> hashChannel,
             OperatorContext operatorContext,
             DataSize memoryLimitForMerge,
@@ -97,6 +99,7 @@ public class SpillableHashAggregationBuilder
         this.groupByTypes = groupByTypes;
         this.groupByChannels = groupByChannels;
         this.aggregationInputTypes = aggregationInputTypes;
+        this.maskChannelCount = maskChannelCount;
         this.hashChannel = hashChannel;
         this.operatorContext = operatorContext;
         this.localUserMemoryContext = operatorContext.localUserMemoryContext();
@@ -317,6 +320,7 @@ public class SpillableHashAggregationBuilder
                 expectedGroups,
                 groupByTypes,
                 aggregationInputTypes,
+                maskChannelCount,
                 hashChannel,
                 operatorContext,
                 sortedPages,
@@ -344,6 +348,7 @@ public class SpillableHashAggregationBuilder
                 groupByTypes,
                 groupByChannels,
                 aggregationInputTypes,
+                maskChannelCount,
                 hashChannel,
                 operatorContext,
                 Optional.of(DataSize.succinctBytes(0)),
