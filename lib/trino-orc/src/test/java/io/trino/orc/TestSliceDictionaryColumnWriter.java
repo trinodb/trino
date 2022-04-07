@@ -13,6 +13,7 @@
  */
 package io.trino.orc;
 
+import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import io.trino.orc.metadata.CompressionKind;
@@ -24,12 +25,16 @@ import io.trino.spi.block.RunLengthEncodedBlock;
 import org.testng.annotations.Test;
 
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.stream.IntStream;
 
+import static io.airlift.slice.SliceUtf8.lengthOfCodePoint;
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.orc.OrcWriterOptions.DEFAULT_MAX_COMPRESSION_BUFFER_SIZE;
 import static io.trino.orc.OrcWriterOptions.DEFAULT_MAX_STRING_STATISTICS_LIMIT;
 import static io.trino.orc.metadata.OrcColumnId.ROOT_COLUMN;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static java.lang.Character.MAX_CODE_POINT;
 import static java.lang.Math.toIntExact;
 import static org.testng.Assert.assertFalse;
 
@@ -45,15 +50,32 @@ public class TestSliceDictionaryColumnWriter
                 toIntExact(DEFAULT_MAX_COMPRESSION_BUFFER_SIZE.toBytes()),
                 () -> new StringStatisticsBuilder(toIntExact(DEFAULT_MAX_STRING_STATISTICS_LIMIT.toBytes()), new NoOpBloomFilterBuilder()));
 
-        // a single row group exceeds 2G after direct conversion
-        byte[] value = new byte[megabytes(1)];
-        ThreadLocalRandom.current().nextBytes(value);
-        Block data = RunLengthEncodedBlock.create(VARCHAR, Slices.wrappedBuffer(value), 3000);
+        int[] validCodepoints = IntStream.range(0, MAX_CODE_POINT)
+                .filter(Character::isValidCodePoint)
+                .toArray();
+        Slice randomUtf8Slice = createRandomUtf8Slice(validCodepoints, megabytes(1));
+        Block data = RunLengthEncodedBlock.create(VARCHAR, Slices.wrappedBuffer(randomUtf8Slice.byteArray()), 3000);
         writer.beginRowGroup();
         writer.writeBlock(data);
         writer.finishRowGroup();
 
         assertFalse(writer.tryConvertToDirect(megabytes(64)).isPresent());
+    }
+
+    public static Slice createRandomUtf8Slice(int[] codePointSet, int approximateLengthInBytes)
+    {
+        approximateLengthInBytes += 64;
+        int[] codePoints = new int[approximateLengthInBytes];
+        ThreadLocalRandom random = ThreadLocalRandom.current();
+        int totalLength = 0;
+        int offset = 0;
+        while (totalLength < approximateLengthInBytes) {
+            int codePoint = codePointSet[random.nextInt(codePointSet.length)];
+            codePoints[offset] = codePoint;
+            totalLength += lengthOfCodePoint(codePoint);
+            offset++;
+        }
+        return utf8Slice(new String(codePoints, 0, offset));
     }
 
     private static int megabytes(int size)
