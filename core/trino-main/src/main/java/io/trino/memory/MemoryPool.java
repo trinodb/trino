@@ -187,7 +187,7 @@ public class MemoryPool
 
         Long queryReservation = queryMemoryReservations.get(queryId);
         requireNonNull(queryReservation, "queryReservation is null");
-        checkArgument(queryReservation - bytes >= 0, "tried to free more memory than is reserved by query");
+        checkArgument(queryReservation >= bytes, "tried to free more memory than is reserved by query");
         queryReservation -= bytes;
         if (queryReservation == 0) {
             queryMemoryReservations.remove(queryId);
@@ -215,7 +215,7 @@ public class MemoryPool
 
         Long queryReservation = queryRevocableMemoryReservations.get(queryId);
         requireNonNull(queryReservation, "queryReservation is null");
-        checkArgument(queryReservation - bytes >= 0, "tried to free more revocable memory than is reserved by query");
+        checkArgument(queryReservation >= bytes, "tried to free more revocable memory than is reserved by query");
         queryReservation -= bytes;
         if (queryReservation == 0) {
             queryRevocableMemoryReservations.remove(queryId);
