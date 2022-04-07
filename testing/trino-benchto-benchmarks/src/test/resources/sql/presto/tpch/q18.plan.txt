@@ -1,23 +1,23 @@
 local exchange (GATHER, SINGLE, [])
     remote exchange (GATHER, SINGLE, [])
-        final aggregation over (custkey_1, name, orderdate, orderkey_4, totalprice)
+        final aggregation over (custkey_0, name, orderdate, orderkey_5, totalprice)
             local exchange (GATHER, SINGLE, [])
-                partial aggregation over (custkey_1, name, orderdate, orderkey_4, totalprice)
+                partial aggregation over (custkey_0, name, orderdate, orderkey_5, totalprice)
                     join (INNER, PARTITIONED):
-                        remote exchange (REPARTITION, HASH, ["orderkey_4"])
+                        remote exchange (REPARTITION, HASH, ["orderkey_5"])
                             scan lineitem
                         local exchange (GATHER, SINGLE, [])
                             remote exchange (REPARTITION, HASH, ["orderkey"])
                                 join (INNER, PARTITIONED):
-                                    remote exchange (REPARTITION, HASH, ["custkey_1"])
+                                    remote exchange (REPARTITION, HASH, ["custkey_0"])
                                         join (INNER, PARTITIONED):
                                             remote exchange (REPARTITION, HASH, ["orderkey"])
                                                 scan orders
-                                            single aggregation over (orderkey_7)
-                                                final aggregation over (orderkey_7)
+                                            single aggregation over (orderkey_10)
+                                                final aggregation over (orderkey_10)
                                                     local exchange (GATHER, SINGLE, [])
-                                                        remote exchange (REPARTITION, HASH, ["orderkey_7"])
-                                                            partial aggregation over (orderkey_7)
+                                                        remote exchange (REPARTITION, HASH, ["orderkey_10"])
+                                                            partial aggregation over (orderkey_10)
                                                                 scan lineitem
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPARTITION, HASH, ["custkey"])

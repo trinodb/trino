@@ -17,7 +17,7 @@ local exchange (GATHER, SINGLE, [])
                                             scan ship_mode
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPLICATE, BROADCAST, [])
-                                        scan warehouse
+                                        scan call_center
                             local exchange (GATHER, SINGLE, [])
                                 remote exchange (REPLICATE, BROADCAST, [])
-                                    scan call_center
+                                    scan warehouse
