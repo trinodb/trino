@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Primitives;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.FunctionNullability;
@@ -1211,11 +1212,11 @@ public class ExpressionInterpreter
                 StringLiteral pattern = (StringLiteral) node.getPattern();
 
                 if (node.getEscape().isPresent()) {
-                    Slice escape = ((StringLiteral) node.getEscape().get()).getSlice();
-                    result = LikeFunctions.likePattern(pattern.getSlice(), escape);
+                    Slice escape = Slices.utf8Slice(((StringLiteral) node.getEscape().get()).getValue());
+                    result = LikeFunctions.likePattern(Slices.utf8Slice(pattern.getValue()), escape);
                 }
                 else {
-                    result = LikeFunctions.compileLikePattern(pattern.getSlice());
+                    result = LikeFunctions.compileLikePattern(Slices.utf8Slice(pattern.getValue()));
                 }
 
                 likePatternCache.put(node, result);

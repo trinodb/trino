@@ -79,8 +79,8 @@ import java.util.List;
 import java.util.Map;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.airlift.slice.SliceUtf8.countCodePoints;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.HASH_CODE;
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
@@ -228,19 +228,19 @@ public final class SqlToRowExpressionTranslator
         @Override
         protected RowExpression visitStringLiteral(StringLiteral node, Void context)
         {
-            return constant(node.getSlice(), createVarcharType(countCodePoints(node.getSlice())));
+            return constant(utf8Slice(node.getValue()), createVarcharType(node.length()));
         }
 
         @Override
         protected RowExpression visitCharLiteral(CharLiteral node, Void context)
         {
-            return constant(node.getSlice(), createCharType(node.getValue().length()));
+            return constant(utf8Slice(node.getValue()), createCharType(node.length()));
         }
 
         @Override
         protected RowExpression visitBinaryLiteral(BinaryLiteral node, Void context)
         {
-            return constant(node.getValue(), VARBINARY);
+            return constant(wrappedBuffer(node.getValue()), VARBINARY);
         }
 
         @Override
