@@ -2602,7 +2602,7 @@ public class ExpressionAnalyzer
             if (typeCoercion.isTypeOnlyCoercion(type, superType)) {
                 typeOnlyCoercions.add(ref);
             }
-            else if (typeOnlyCoercions.contains(ref)) {
+            else {
                 typeOnlyCoercions.remove(ref);
             }
         }
