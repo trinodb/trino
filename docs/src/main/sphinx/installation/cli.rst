@@ -174,7 +174,7 @@ mode:
       operating system username. You can override the default username,
       if your cluster uses a different username or authentication mechanism.
   * - ``--extra-credential``
-    - Sets the extra credential keys, multiple extra credential keys can be used with format ``--extra-credential 'extra-credential-name=admin' --extra-credential 'extra-credential-password=password'``
+    - Sets the extra credential keys, multiple extra credential keys can be used with format ``--extra-credential 'extra-credential-name=admin' --extra-credential 'extra-credential-password=password'``.
 
 .. _cli-tls:
 
