@@ -11,21 +11,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package io.trino.sql.planner;
 
-import java.util.List;
-import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
-import static java.lang.String.format;
+import static io.trino.sql.planner.TestHiveTpcdsCostBasedPlan.TPCDS_SQL_FILES;
 
 /**
  * This class tests cost-based optimization rules related to joins. It contains unmodified TPCDS queries.
- * This class is using Hive connector with mocked in memory thrift metastore with un-partitioned TPCDS tables.
+ * This class is using Hive connector with mocked in memory thrift metastore with partitioned TPCDS tables.
  */
-public class TestHiveTpcdsCostBasedPlan
+public class TestHivePartitionedTpcdsCostBasedPlan
         extends AbstractHiveCostBasedPlanTest
 {
     /*
@@ -35,22 +31,18 @@ public class TestHiveTpcdsCostBasedPlan
      * large amount of data.
      */
 
-    public static final String TPCDS_METADATA_DIR = "/hive_metadata/unpartitioned_tpcds";
-    public static final List<String> TPCDS_SQL_FILES = IntStream.range(1, 100)
-            .mapToObj(i -> format("q%02d", i))
-            .map(queryId -> format("/sql/presto/tpcds/%s.sql", queryId))
-            .collect(toImmutableList());
+    public static final String PARTITIONED_TPCDS_METADATA_DIR = "/hive_metadata/partitioned_tpcds";
 
     @Override
     protected String getMetadataDir()
     {
-        return TPCDS_METADATA_DIR;
+        return PARTITIONED_TPCDS_METADATA_DIR;
     }
 
     @Override
     protected boolean isPartitioned()
     {
-        return false;
+        return true;
     }
 
     @Override
@@ -61,6 +53,6 @@ public class TestHiveTpcdsCostBasedPlan
 
     public static void main(String[] args)
     {
-        new TestHiveTpcdsCostBasedPlan().generate();
+        new TestHivePartitionedTpcdsCostBasedPlan().generate();
     }
 }
