@@ -459,7 +459,7 @@ public final class ConnectorExpressionTranslator
         @Override
         protected Optional<ConnectorExpression> visitStringLiteral(StringLiteral node, Void context)
         {
-            return Optional.of(new Constant(node.getSlice(), typeOf(node)));
+            return Optional.of(new Constant(Slices.utf8Slice(node.getValue()), typeOf(node)));
         }
 
         @Override
@@ -477,13 +477,13 @@ public final class ConnectorExpressionTranslator
         @Override
         protected Optional<ConnectorExpression> visitCharLiteral(CharLiteral node, Void context)
         {
-            return Optional.of(new Constant(node.getSlice(), typeOf(node)));
+            return Optional.of(new Constant(Slices.utf8Slice(node.getValue()), typeOf(node)));
         }
 
         @Override
         protected Optional<ConnectorExpression> visitBinaryLiteral(BinaryLiteral node, Void context)
         {
-            return Optional.of(new Constant(node.getValue(), typeOf(node)));
+            return Optional.of(new Constant(Slices.wrappedBuffer(node.getValue()), typeOf(node)));
         }
 
         @Override

@@ -13,6 +13,7 @@
  */
 package io.trino.spi.expression;
 
+import io.airlift.slice.Slice;
 import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.Type;
 
@@ -73,6 +74,11 @@ public class Constant
     @Override
     public String toString()
     {
+        // String and Char literals can be wrapped as Slice multiple times thus
+        // generating different toString representations that can be checked for equality in tests' assertions.
+        if (value instanceof Slice) {
+            return "Slice[hash=" + value.hashCode() + ",length=" + ((Slice) value).length() + "]::" + getType();
+        }
         return value + "::" + getType();
     }
 }
