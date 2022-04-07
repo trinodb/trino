@@ -296,7 +296,7 @@ public class ClusterMemoryManager
     }
 
     @GuardedBy("this")
-    private boolean isLastKillTargetGone(Iterable<QueryExecution> runningQueries)
+    private boolean isLastKillTargetGone()
     {
         if (lastKillTarget.isEmpty()) {
             return true;
@@ -394,7 +394,7 @@ public class ClusterMemoryManager
             stringBuilder.append("Queries ");
             Joiner.on(",").withKeyValueSeparator("=").appendTo(stringBuilder, memoryPoolInfo.getQueryMemoryReservations()).append((' '));
             stringBuilder.append("Tasks ");
-            Joiner.on(",").withKeyValueSeparator("=").appendTo(stringBuilder, nodeMemoryInfo.getTasksMemoryInfo().asMap());
+            Joiner.on(",").withKeyValueSeparator("=").appendTo(stringBuilder, memoryPoolInfo.getTaskMemoryReservations());
             stringBuilder.append('\n');
         }
         return stringBuilder.toString();
