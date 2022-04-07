@@ -61,7 +61,7 @@ public class MemoryPool
     private final Map<QueryId, Map<String, Long>> taggedMemoryAllocations = new HashMap<>();
 
     @GuardedBy("this")
-    private final Map<QueryId, Long> queryMemoryRevocableReservations = new HashMap<>();
+    private final Map<QueryId, Long> queryRevocableMemoryReservations = new HashMap<>();
 
     private final List<MemoryPoolListener> listeners = new CopyOnWriteArrayList<>();
 
@@ -81,7 +81,7 @@ public class MemoryPool
             }
             memoryAllocations.put(entry.getKey(), allocations);
         }
-        return new MemoryPoolInfo(maxBytes, reservedBytes, reservedRevocableBytes, queryMemoryReservations, memoryAllocations, queryMemoryRevocableReservations);
+        return new MemoryPoolInfo(maxBytes, reservedBytes, reservedRevocableBytes, queryMemoryReservations, memoryAllocations, queryRevocableMemoryReservations);
     }
 
     public void addListener(MemoryPoolListener listener)
@@ -136,7 +136,7 @@ public class MemoryPool
         ListenableFuture<Void> result;
         synchronized (this) {
             if (bytes != 0) {
-                queryMemoryRevocableReservations.merge(queryId, bytes, Long::sum);
+                queryRevocableMemoryReservations.merge(queryId, bytes, Long::sum);
             }
             reservedRevocableBytes += bytes;
             if (getFreeBytes() <= 0) {
@@ -213,15 +213,15 @@ public class MemoryPool
             return;
         }
 
-        Long queryReservation = queryMemoryRevocableReservations.get(queryId);
+        Long queryReservation = queryRevocableMemoryReservations.get(queryId);
         requireNonNull(queryReservation, "queryReservation is null");
         checkArgument(queryReservation - bytes >= 0, "tried to free more revocable memory than is reserved by query");
         queryReservation -= bytes;
         if (queryReservation == 0) {
-            queryMemoryRevocableReservations.remove(queryId);
+            queryRevocableMemoryReservations.remove(queryId);
         }
         else {
-            queryMemoryRevocableReservations.put(queryId, queryReservation);
+            queryRevocableMemoryReservations.put(queryId, queryReservation);
         }
         reservedRevocableBytes -= bytes;
         if (getFreeBytes() > 0 && future != null) {
