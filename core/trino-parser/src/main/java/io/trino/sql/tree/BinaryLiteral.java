@@ -14,11 +14,9 @@
 package io.trino.sql.tree;
 
 import com.google.common.io.BaseEncoding;
-import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 import io.trino.sql.parser.ParsingException;
 
-import java.util.Objects;
+import java.util.Arrays;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
@@ -32,7 +30,7 @@ public class BinaryLiteral
     private static final Pattern WHITESPACE_PATTERN = Pattern.compile("[ \\r\\n\\t]");
     private static final Pattern NOT_HEX_DIGIT_PATTERN = Pattern.compile(".*[^A-F0-9].*");
 
-    private final Slice value;
+    private final byte[] value;
 
     public BinaryLiteral(String value)
     {
@@ -50,7 +48,7 @@ public class BinaryLiteral
         if (hexString.length() % 2 != 0) {
             throw new ParsingException("Binary literal must contain an even number of digits", location.get());
         }
-        this.value = Slices.wrappedBuffer(BaseEncoding.base16().decode(hexString));
+        this.value = BaseEncoding.base16().decode(hexString);
     }
 
     public BinaryLiteral(NodeLocation location, String value)
@@ -63,12 +61,12 @@ public class BinaryLiteral
      */
     public String toHexString()
     {
-        return BaseEncoding.base16().encode(value.getBytes());
+        return BaseEncoding.base16().encode(value);
     }
 
-    public Slice getValue()
+    public byte[] getValue()
     {
-        return value;
+        return value.clone();
     }
 
     @Override
@@ -88,13 +86,13 @@ public class BinaryLiteral
         }
 
         BinaryLiteral that = (BinaryLiteral) o;
-        return Objects.equals(value, that.value);
+        return Arrays.equals(value, that.value);
     }
 
     @Override
     public int hashCode()
     {
-        return value.hashCode();
+        return Arrays.hashCode(value);
     }
 
     @Override
@@ -104,6 +102,6 @@ public class BinaryLiteral
             return false;
         }
 
-        return Objects.equals(value, ((BinaryLiteral) other).value);
+        return Arrays.equals(value, ((BinaryLiteral) other).value);
     }
 }

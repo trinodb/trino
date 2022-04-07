@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Streams;
-import io.airlift.slice.SliceUtf8;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.BoundSignature;
@@ -982,14 +981,14 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitStringLiteral(StringLiteral node, StackableAstVisitorContext<Context> context)
         {
-            VarcharType type = VarcharType.createVarcharType(SliceUtf8.countCodePoints(node.getSlice()));
+            VarcharType type = VarcharType.createVarcharType(node.length());
             return setExpressionType(node, type);
         }
 
         @Override
         protected Type visitCharLiteral(CharLiteral node, StackableAstVisitorContext<Context> context)
         {
-            CharType type = CharType.createCharType(node.getValue().length());
+            CharType type = CharType.createCharType(node.length());
             return setExpressionType(node, type);
         }
 
