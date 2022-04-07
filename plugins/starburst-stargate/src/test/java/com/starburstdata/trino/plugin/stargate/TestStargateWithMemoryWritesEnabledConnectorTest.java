@@ -94,7 +94,18 @@ public class TestStargateWithMemoryWritesEnabledConnectorTest
     @Override
     public void testAddColumn()
     {
+        // Required because Stargate connector adds additional `Query failed (...):` prefix to the error message
         assertThatThrownBy(super::testAddColumn)
+                .hasMessageContaining("This connector does not support adding columns");
+        throw new SkipException("not supported");
+    }
+
+    @Test
+    @Override
+    public void testAddColumnWithComment()
+    {
+        // Required because Stargate connector adds additional `Query failed (...):` prefix to the error message
+        assertThatThrownBy(super::testAddColumnWithComment)
                 .hasMessageContaining("This connector does not support adding columns");
         throw new SkipException("not supported");
     }

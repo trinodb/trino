@@ -61,7 +61,6 @@ public class TestStargateWithHiveConnectorTest
             case SUPPORTS_INSERT:
                 // Writes are not enabled
                 return false;
-
             default:
                 return super.hasBehavior(connectorBehavior);
         }
@@ -157,6 +156,26 @@ public class TestStargateWithHiveConnectorTest
         // Make sure that the test still fails how we expect it to, on table creation instead
         // of on join pushdown.
         assertThatThrownBy(super::testJoinPushdown)
+                .hasMessageMatching("This connector does not support creating tables.*");
+        throw new SkipException("test requires table creation");
+    }
+
+    @Override
+    public void testAddColumn()
+    {
+        // This test requires table creation, so we disable it here.
+        // It's tested by TestStarburstWithMemoryWritesEnabledConnectorTest
+        assertThatThrownBy(super::testAddColumn)
+                .hasMessageMatching("This connector does not support creating tables.*");
+        throw new SkipException("test requires table creation");
+    }
+
+    @Override
+    public void testAddColumnWithComment()
+    {
+        // This test requires table creation, so we disable it here.
+        // It's tested by TestStarburstRemoteWithMemoryWritesEnabledConnectorTest
+        assertThatThrownBy(super::testAddColumnWithComment)
                 .hasMessageMatching("This connector does not support creating tables.*");
         throw new SkipException("test requires table creation");
     }
