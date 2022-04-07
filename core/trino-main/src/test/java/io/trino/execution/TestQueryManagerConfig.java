@@ -65,7 +65,7 @@ public class TestQueryManagerConfig
                 .setRetryPolicy(RetryPolicy.NONE)
                 .setQueryRetryAttempts(4)
                 .setTaskRetryAttemptsOverall(Integer.MAX_VALUE)
-                .setTaskRetryAttemptsPerTask(2)
+                .setTaskRetryAttemptsPerTask(4)
                 .setRetryInitialDelay(new Duration(10, SECONDS))
                 .setRetryMaxDelay(new Duration(1, MINUTES))
                 .setFaultTolerantExecutionTargetTaskInputSize(DataSize.of(1, GIGABYTE))

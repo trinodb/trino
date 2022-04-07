@@ -77,7 +77,7 @@ public class QueryManagerConfig
 
     private RetryPolicy retryPolicy = RetryPolicy.NONE;
     private int queryRetryAttempts = 4;
-    private int taskRetryAttemptsPerTask = 2;
+    private int taskRetryAttemptsPerTask = 4;
     private int taskRetryAttemptsOverall = Integer.MAX_VALUE;
     private Duration retryInitialDelay = new Duration(10, SECONDS);
     private Duration retryMaxDelay = new Duration(1, MINUTES);
