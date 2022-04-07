@@ -147,12 +147,6 @@ public class QueryContext
     }
 
     @VisibleForTesting
-    MemoryTrackingContext getQueryMemoryContext()
-    {
-        return queryMemoryContext;
-    }
-
-    @VisibleForTesting
     public synchronized long getMaxUserMemory()
     {
         return maxUserMemory;
