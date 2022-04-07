@@ -74,8 +74,8 @@ public class QueryContext
     @GuardedBy("this")
     private long maxUserMemory;
 
-    private final MemoryTrackingContext queryMemoryContext;
     private final MemoryPool memoryPool;
+    private final long guaranteedMemory;
 
     @GuardedBy("this")
     private long spillUsed;
@@ -121,9 +121,7 @@ public class QueryContext
         this.yieldExecutor = requireNonNull(yieldExecutor, "yieldExecutor is null");
         this.maxSpill = requireNonNull(maxSpill, "maxSpill is null").toBytes();
         this.spillSpaceTracker = requireNonNull(spillSpaceTracker, "spillSpaceTracker is null");
-        this.queryMemoryContext = new MemoryTrackingContext(
-                newRootAggregatedMemoryContext(new QueryMemoryReservationHandler(this::updateUserMemory, this::tryUpdateUserMemory), guaranteedMemory),
-                newRootAggregatedMemoryContext(new QueryMemoryReservationHandler(this::updateRevocableMemory, this::tryReserveMemoryNotSupported), 0L));
+        this.guaranteedMemory = guaranteedMemory;
     }
 
     public boolean isMemoryLimitsInitialized()
@@ -157,33 +155,33 @@ public class QueryContext
         return queryId;
     }
 
-    private synchronized ListenableFuture<Void> updateUserMemory(String allocationTag, long delta)
+    private synchronized ListenableFuture<Void> updateUserMemory(TaskId taskId, String allocationTag, long delta)
     {
         if (delta >= 0) {
-            enforceUserMemoryLimit(queryMemoryContext.getUserMemory(), delta, maxUserMemory);
-            ListenableFuture<Void> future = memoryPool.reserve(queryId, allocationTag, delta);
+            enforceUserMemoryLimit(memoryPool.getQueryMemoryReservation(queryId), delta, maxUserMemory);
+            ListenableFuture<Void> future = memoryPool.reserve(taskId, allocationTag, delta);
             if (future.isDone()) {
                 return NOT_BLOCKED;
             }
 
             return future;
         }
-        memoryPool.free(queryId, allocationTag, -delta);
+        memoryPool.free(taskId, allocationTag, -delta);
         return NOT_BLOCKED;
     }
 
     //TODO Add tagging support for revocable memory reservations if needed
-    private synchronized ListenableFuture<Void> updateRevocableMemory(String allocationTag, long delta)
+    private synchronized ListenableFuture<Void> updateRevocableMemory(TaskId taskId, long delta)
     {
         if (delta >= 0) {
-            ListenableFuture<Void> future = memoryPool.reserveRevocable(queryId, delta);
+            ListenableFuture<Void> future = memoryPool.reserveRevocable(taskId, delta);
             if (future.isDone()) {
                 return NOT_BLOCKED;
             }
 
             return future;
         }
-        memoryPool.freeRevocable(queryId, -delta);
+        memoryPool.freeRevocable(taskId, -delta);
         return NOT_BLOCKED;
     }
 
@@ -199,10 +197,10 @@ public class QueryContext
         return future;
     }
 
-    private synchronized boolean tryUpdateUserMemory(String allocationTag, long delta)
+    private synchronized boolean tryUpdateUserMemory(TaskId taskId, String allocationTag, long delta)
     {
         if (delta <= 0) {
-            ListenableFuture<Void> future = updateUserMemory(allocationTag, delta);
+            ListenableFuture<Void> future = updateUserMemory(taskId, allocationTag, delta);
             // When delta == 0 and the pool is full the future can still not be done,
             // but, for negative deltas it must always be done.
             if (delta < 0) {
@@ -210,10 +208,10 @@ public class QueryContext
             }
             return true;
         }
-        if (queryMemoryContext.getUserMemory() + delta > maxUserMemory) {
+        if (memoryPool.getQueryMemoryReservation(queryId) + delta > maxUserMemory) {
             return false;
         }
-        return memoryPool.tryReserve(queryId, allocationTag, delta);
+        return memoryPool.tryReserve(taskId, allocationTag, delta);
     }
 
     public synchronized void freeSpill(long bytes)
@@ -235,6 +233,20 @@ public class QueryContext
             boolean perOperatorCpuTimerEnabled,
             boolean cpuTimerEnabled)
     {
+        TaskId taskId = taskStateMachine.getTaskId();
+
+        MemoryTrackingContext taskMemoryContext = new MemoryTrackingContext(
+                newRootAggregatedMemoryContext(
+                        new QueryMemoryReservationHandler(
+                                (tag, delta) -> updateUserMemory(taskId, tag, delta),
+                                (tag, delta) -> tryUpdateUserMemory(taskId, tag, delta)),
+                        guaranteedMemory),
+                newRootAggregatedMemoryContext(
+                        new QueryMemoryReservationHandler(
+                                (tag, delta) -> updateRevocableMemory(taskId, delta),
+                                (tag, delta) -> tryReserveMemoryNotSupported()),
+                        0L));
+
         TaskContext taskContext = createTaskContext(
                 this,
                 taskStateMachine,
@@ -242,11 +254,11 @@ public class QueryContext
                 notificationExecutor,
                 yieldExecutor,
                 session,
-                queryMemoryContext.newMemoryTrackingContext(),
+                taskMemoryContext,
                 notifyStatusChanged,
                 perOperatorCpuTimerEnabled,
                 cpuTimerEnabled);
-        taskContexts.put(taskStateMachine.getTaskId(), taskContext);
+        taskContexts.put(taskId, taskContext);
         return taskContext;
     }
 
@@ -296,7 +308,7 @@ public class QueryContext
         }
     }
 
-    private boolean tryReserveMemoryNotSupported(String allocationTag, long bytes)
+    private boolean tryReserveMemoryNotSupported()
     {
         throw new UnsupportedOperationException("tryReserveMemory is not supported");
     }
