@@ -25,6 +25,8 @@ import java.util.Map;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.configuration.ConfigurationLoader.loadPropertiesFrom;
 import static io.airlift.testing.Closeables.closeAllRuntimeException;
+import static io.trino.sql.planner.TestHivePartitionedTpcdsCostBasedPlan.PARTITIONED_TPCDS_METADATA_DIR;
+import static io.trino.sql.planner.TestHivePartitionedTpchCostBasedPlan.PARTITIONED_TPCH_METADATA_DIR;
 import static io.trino.sql.planner.TestHiveTpcdsCostBasedPlan.TPCDS_METADATA_DIR;
 import static io.trino.sql.planner.TestHiveTpcdsCostBasedPlan.TPCDS_SQL_FILES;
 import static io.trino.sql.planner.TestHiveTpchCostBasedPlan.TPCH_METADATA_DIR;
@@ -100,12 +102,16 @@ public class HiveMetadataRecorder
             throws Exception
     {
         recordMetadata(
-                ImmutableMap.of(TPCH_METADATA_DIR, "tpch_sf1000_orc"),
+                ImmutableMap.of(
+                        TPCH_METADATA_DIR, "tpch_sf1000_orc",
+                        PARTITIONED_TPCH_METADATA_DIR, "tpch_sf1000_orc_part"),
                 TPCH_SQL_FILES.stream()
                         .map(AbstractHiveCostBasedPlanTest::readQuery)
                         .collect(toImmutableList()));
         recordMetadata(
-                ImmutableMap.of(TPCDS_METADATA_DIR, "tpcds_sf1000_orc"),
+                ImmutableMap.of(
+                        TPCDS_METADATA_DIR, "tpcds_sf1000_orc",
+                        PARTITIONED_TPCDS_METADATA_DIR, "tpcds_sf1000_orc_part"),
                 TPCDS_SQL_FILES.stream()
                         .map(AbstractHiveCostBasedPlanTest::readQuery)
                         .collect(toImmutableList()));
