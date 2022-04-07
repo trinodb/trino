@@ -44,6 +44,7 @@ public class MemoryManagerConfig
     private DataSize maxQueryTotalMemory;
     private DataSize faultTolerantExecutionTaskMemory = DataSize.of(4, GIGABYTE);
     private double faultTolerantExecutionTaskMemoryGrowthFactor = 3.0;
+    private double faultTolerantExecutionTaskMemoryEstimationQuantile = 0.9;
     private LowMemoryKillerPolicy lowMemoryKillerPolicy = LowMemoryKillerPolicy.TOTAL_RESERVATION_ON_BLOCKED_NODES;
     private Duration killOnOutOfMemoryDelay = new Duration(5, MINUTES);
 
@@ -129,6 +130,22 @@ public class MemoryManagerConfig
     {
         checkArgument(faultTolerantExecutionTaskMemoryGrowthFactor >= 1.0, "faultTolerantExecutionTaskMemoryGrowthFactor must not be less than 1.0");
         this.faultTolerantExecutionTaskMemoryGrowthFactor = faultTolerantExecutionTaskMemoryGrowthFactor;
+        return this;
+    }
+
+    @NotNull
+    public double getFaultTolerantExecutionTaskMemoryEstimationQuantile()
+    {
+        return faultTolerantExecutionTaskMemoryEstimationQuantile;
+    }
+
+    @Config("fault-tolerant-execution-task-memory-estimation-quantile")
+    @ConfigDescription("What quantile of memory usage of completed tasks to look at when estimating memory usage for upcoming tasks")
+    public MemoryManagerConfig setFaultTolerantExecutionTaskMemoryEstimationQuantile(double faultTolerantExecutionTaskMemoryEstimationQuantile)
+    {
+        checkArgument(faultTolerantExecutionTaskMemoryEstimationQuantile >= 0.0 && faultTolerantExecutionTaskMemoryEstimationQuantile <= 1.0,
+                "fault-tolerant-execution-task-memory-estimation-quantile must not be in [0.0, 1.0] range");
+        this.faultTolerantExecutionTaskMemoryEstimationQuantile = faultTolerantExecutionTaskMemoryEstimationQuantile;
         return this;
     }
 
