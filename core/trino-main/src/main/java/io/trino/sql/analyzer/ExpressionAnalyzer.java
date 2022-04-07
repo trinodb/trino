@@ -477,11 +477,6 @@ public class ExpressionAnalyzer
         return tableColumnReferences;
     }
 
-    public Multimap<NodeRef<Node>, Field> getReferencedFields()
-    {
-        return referencedFields;
-    }
-
     public List<Field> getSourceFields()
     {
         return sourceFields;
@@ -2211,7 +2206,7 @@ public class ExpressionAnalyzer
                         .ifPresent(function -> {
                             throw semanticException(NOT_SUPPORTED, function, "IN-PREDICATE with %s function is not yet supported", function.getName().getSuffix());
                         });
-                extractExpressions(ImmutableList.of(value), DereferenceExpression.class).stream()
+                extractExpressions(ImmutableList.of(value), DereferenceExpression.class)
                         .forEach(dereference -> {
                             QualifiedName qualifiedName = DereferenceExpression.getQualifiedName(dereference);
                             if (qualifiedName != null) {
@@ -2867,8 +2862,7 @@ public class ExpressionAnalyzer
                 analyzer.getSortKeyCoercionsForFrameBoundCalculation(),
                 analyzer.getSortKeyCoercionsForFrameBoundComparison());
         analysis.addFrameBoundCalculations(analyzer.getFrameBoundCalculations());
-        analyzer.getResolvedFunctions().entrySet()
-                .forEach(entry -> analysis.addResolvedFunction(entry.getKey().getNode(), entry.getValue(), session.getUser()));
+        analyzer.getResolvedFunctions().forEach((key, value) -> analysis.addResolvedFunction(key.getNode(), value, session.getUser()));
         analysis.addColumnReferences(analyzer.getColumnReferences());
         analysis.addLambdaArgumentReferences(analyzer.getLambdaArgumentReferences());
         analysis.addTableColumnReferences(accessControl, session.getIdentity(), analyzer.getTableColumnReferences());
