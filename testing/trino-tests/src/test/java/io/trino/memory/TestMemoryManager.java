@@ -15,11 +15,12 @@ package io.trino.memory;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
+import io.trino.execution.StageId;
+import io.trino.execution.TaskId;
 import io.trino.plugin.blackhole.BlackHolePlugin;
 import io.trino.server.BasicQueryInfo;
 import io.trino.server.BasicQueryStats;
 import io.trino.server.testing.TestingTrinoServer;
-import io.trino.spi.QueryId;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
@@ -126,10 +127,10 @@ public class TestMemoryManager
                     "WITH (split_count=1, pages_per_split=30, rows_per_page=1, page_processing_delay='1s')");
 
             // Reserve all the memory
-            QueryId fakeQueryId = new QueryId("fake");
+            TaskId fakeTaskId = new TaskId(new StageId("fake", 0), 0, 0);
             for (TestingTrinoServer server : queryRunner.getServers()) {
                 MemoryPool memoryPool = server.getLocalMemoryManager().getMemoryPool();
-                assertTrue(memoryPool.tryReserve(fakeQueryId, "test", memoryPool.getMaxBytes()));
+                assertTrue(memoryPool.tryReserve(fakeTaskId, "test", memoryPool.getMaxBytes()));
             }
 
             int queries = 2;
@@ -151,7 +152,7 @@ public class TestMemoryManager
                 MemoryPool pool = server.getLocalMemoryManager().getMemoryPool();
                 assertTrue(pool.getReservedBytes() > 0);
                 // Free up the entire pool
-                pool.free(fakeQueryId, "test", pool.getMaxBytes());
+                pool.free(fakeTaskId, "test", pool.getMaxBytes());
                 assertTrue(pool.getFreeBytes() > 0);
             }
 
@@ -225,10 +226,10 @@ public class TestMemoryManager
 
         try (DistributedQueryRunner queryRunner = createQueryRunner(TINY_SESSION, properties)) {
             // Reserve all the memory
-            QueryId fakeQueryId = new QueryId("fake");
+            TaskId fakeTaskId = new TaskId(new StageId("fake", 0), 0, 0);
             for (TestingTrinoServer server : queryRunner.getServers()) {
                 MemoryPool pool = server.getLocalMemoryManager().getMemoryPool();
-                assertTrue(pool.tryReserve(fakeQueryId, "test", pool.getMaxBytes()));
+                assertTrue(pool.tryReserve(fakeTaskId, "test", pool.getMaxBytes()));
             }
 
             List<Future<?>> queryFutures = new ArrayList<>();
@@ -270,7 +271,7 @@ public class TestMemoryManager
             for (TestingTrinoServer server : queryRunner.getServers()) {
                 MemoryPool pool = server.getLocalMemoryManager().getMemoryPool();
                 // Free up the entire pool
-                pool.free(fakeQueryId, "test", pool.getMaxBytes());
+                pool.free(fakeTaskId, "test", pool.getMaxBytes());
                 assertTrue(pool.getFreeBytes() > 0);
             }
 
