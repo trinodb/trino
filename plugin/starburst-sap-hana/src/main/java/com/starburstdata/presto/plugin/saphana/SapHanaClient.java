@@ -255,6 +255,10 @@ public class SapHanaClient
     @Override
     public void addColumn(ConnectorSession session, JdbcTableHandle handle, ColumnMetadata column)
     {
+        if (column.getComment() != null) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding columns with comments");
+        }
+
         try (Connection connection = this.connectionFactory.openConnection(session)) {
             String columnName = column.getName();
             if (connection.getMetaData().storesUpperCaseIdentifiers()) {
