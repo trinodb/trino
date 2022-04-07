@@ -16,9 +16,9 @@ package io.trino.execution.scheduler;
 import com.google.common.collect.Ordering;
 import io.airlift.units.DataSize;
 import io.trino.Session;
-import io.trino.SystemSessionProperties;
 import io.trino.spi.ErrorCode;
 
+import static io.trino.SystemSessionProperties.getFaultTolerantExecutionTaskMemoryGrowthFactor;
 import static io.trino.spi.StandardErrorCode.CLUSTER_OUT_OF_MEMORY;
 import static io.trino.spi.StandardErrorCode.EXCEEDED_LOCAL_MEMORY_LIMIT;
 
@@ -39,7 +39,7 @@ public class ExponentialGrowthPartitionMemoryEstimator
         DataSize previousMemory = previousMemoryRequirements.getRequiredMemory();
         DataSize baseMemory = Ordering.natural().max(peakMemoryUsage, previousMemory);
         if (shouldIncreaseMemory(errorCode)) {
-            double growthFactor = SystemSessionProperties.getFaultTolerantExecutionTaskMemoryGrowthFactor(session);
+            double growthFactor = getFaultTolerantExecutionTaskMemoryGrowthFactor(session);
             return new MemoryRequirements(DataSize.of((long) (baseMemory.toBytes() * growthFactor), DataSize.Unit.BYTE), false);
         }
         return new MemoryRequirements(baseMemory, false);
