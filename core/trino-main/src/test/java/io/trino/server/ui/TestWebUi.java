@@ -166,7 +166,8 @@ public class TestWebUi
                 Optional.empty(),
                 Optional.of(LOCALHOST_KEYSTORE),
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                false);
         client = clientBuilder.build();
 
         passwordConfigDummy = Files.createTempFile("passwordConfigDummy", "");
@@ -547,7 +548,8 @@ public class TestWebUi
                     Optional.empty(),
                     Optional.of(LOCALHOST_KEYSTORE),
                     Optional.empty(),
-                    Optional.empty());
+                    Optional.empty(),
+                    false);
             OkHttpClient clientWithCert = clientBuilder.build();
             testAlwaysAuthorized(httpServerInfo.getHttpsUri(), clientWithCert, nodeId);
         }
