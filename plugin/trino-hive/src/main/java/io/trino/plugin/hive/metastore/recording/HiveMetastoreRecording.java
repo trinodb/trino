@@ -50,12 +50,13 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
+import java.util.zip.GZIPInputStream;
+import java.util.zip.GZIPOutputStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
-import static java.nio.file.Files.readAllBytes;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -118,7 +119,10 @@ public class HiveMetastoreRecording
     void loadRecording()
             throws IOException
     {
-        Recording recording = recordingCodec.fromJson(readAllBytes(recordingPath));
+        Recording recording;
+        try (GZIPInputStream inputStream = new GZIPInputStream(Files.newInputStream(recordingPath))) {
+            recording = recordingCodec.fromJson(inputStream.readAllBytes());
+        }
 
         allDatabases = recording.getAllDatabases();
         allRoles = recording.getAllRoles();
@@ -273,7 +277,9 @@ public class HiveMetastoreRecording
                 toPairs(roleGrantsCache),
                 toPairs(grantedPrincipalsCache));
 
-        Files.write(recordingPath, recordingCodec.toJsonBytes(recording));
+        try (GZIPOutputStream outputStream = new GZIPOutputStream(Files.newOutputStream(recordingPath))) {
+            outputStream.write(recordingCodec.toJsonBytes(recording));
+        }
     }
 
     private static <K, V> Map<K, V> toMap(List<Pair<K, V>> pairs)
