@@ -15,9 +15,18 @@
 package io.trino.sql.planner;
 
 import com.google.common.base.VerifyException;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableMetadata;
+import io.trino.plugin.hive.RecordingMetastoreConfig;
+import io.trino.plugin.hive.TestingHiveConnectorFactory;
+import io.trino.plugin.hive.metastore.UnimplementedHiveMetastore;
+import io.trino.plugin.hive.metastore.recording.HiveMetastoreRecording;
+import io.trino.plugin.hive.metastore.recording.RecordingHiveMetastore;
+import io.trino.spi.connector.ConnectorFactory;
+import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
+import io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.ExchangeNode;
@@ -25,25 +34,35 @@ import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.SemiJoinNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.ValuesNode;
+import io.trino.testing.LocalQueryRunner;
 import io.trino.testing.QueryRunner;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.net.URL;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Arrays;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.io.Files.createParentDirs;
 import static com.google.common.io.Files.write;
 import static com.google.common.io.Resources.getResource;
+import static io.trino.Session.SessionBuilder;
+import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
+import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
+import static io.trino.plugin.hive.metastore.recording.TestRecordingHiveMetastore.createJsonCodec;
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
 import static io.trino.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
 import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
 import static io.trino.testing.DataProviders.toDataProvider;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.transaction.TransactionBuilder.transaction;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -52,9 +71,74 @@ import static java.util.Locale.ENGLISH;
 import static java.util.stream.Collectors.joining;
 import static org.testng.Assert.assertEquals;
 
-public abstract class AbstractCostBasedPlanTest
+public abstract class AbstractHiveCostBasedPlanTest
         extends BasePlanTest
 {
+    @Override
+    protected LocalQueryRunner createLocalQueryRunner()
+    {
+        String catalog = "local";
+        SessionBuilder sessionBuilder = testSessionBuilder()
+                .setCatalog(catalog)
+                .setSchema(getSchema())
+                .setSystemProperty("task_concurrency", "1") // these tests don't handle exchanges from local parallel
+                .setSystemProperty(JOIN_REORDERING_STRATEGY, JoinReorderingStrategy.AUTOMATIC.name())
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name());
+        LocalQueryRunner queryRunner = LocalQueryRunner.builder(sessionBuilder.build())
+                .withNodeCountForStats(8)
+                .build();
+        queryRunner.createCatalog(
+                catalog,
+                createConnectorFactory(),
+                ImmutableMap.of());
+        return queryRunner;
+    }
+
+    protected ConnectorFactory createConnectorFactory()
+    {
+        RecordingMetastoreConfig recordingConfig = new RecordingMetastoreConfig()
+                .setRecordingPath(getRecordingPath())
+                .setReplay(true);
+        try {
+            // The RecordingHiveMetastore loads the metadata files generated through HiveMetadataRecorder
+            // which essentially helps to generate the optimal query plans for validation purposes. These files
+            // contains all the metadata including statistics.
+            RecordingHiveMetastore metastore = new RecordingHiveMetastore(
+                    new UnimplementedHiveMetastore(),
+                    new HiveMetastoreRecording(recordingConfig, createJsonCodec()));
+            return new TestingHiveConnectorFactory(metastore);
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    private String getSchema()
+    {
+        String fileName = Paths.get(getRecordingPath()).getFileName().toString();
+        return fileName.split("\\.")[0];
+    }
+
+    private String getRecordingPath()
+    {
+        URL resource = getClass().getResource(getMetadataDir());
+        if (resource == null) {
+            throw new RuntimeException("Hive metadata directory doesn't exist: " + getMetadataDir());
+        }
+
+        File[] files = new File(resource.getPath()).listFiles();
+        if (files == null) {
+            throw new RuntimeException("Hive metadata recording file doesn't exist in directory: " + getMetadataDir());
+        }
+
+        return Arrays.stream(files)
+                .filter(f -> !f.isDirectory())
+                .collect(onlyElement())
+                .getPath();
+    }
+
+    protected abstract String getMetadataDir();
+
     protected abstract Stream<String> getQueryResourcePaths();
 
     @DataProvider
@@ -67,7 +151,7 @@ public abstract class AbstractCostBasedPlanTest
     @Test(dataProvider = "getQueriesDataProvider")
     public void test(String queryResourcePath)
     {
-        assertEquals(generateQueryPlan(read(queryResourcePath)), read(getQueryPlanResourcePath(queryResourcePath)));
+        assertEquals(generateQueryPlan(readQuery(queryResourcePath)), read(getQueryPlanResourcePath(queryResourcePath)));
     }
 
     private String getQueryPlanResourcePath(String queryResourcePath)
@@ -88,7 +172,7 @@ public abstract class AbstractCostBasedPlanTest
                                     "src/test/resources",
                                     getQueryPlanResourcePath(queryResourcePath));
                             createParentDirs(queryPlanWritePath.toFile());
-                            write(generateQueryPlan(read(queryResourcePath)).getBytes(UTF_8), queryPlanWritePath.toFile());
+                            write(generateQueryPlan(readQuery(queryResourcePath)).getBytes(UTF_8), queryPlanWritePath.toFile());
                             System.out.println("Generated expected plan for query: " + queryResourcePath);
                         }
                         catch (IOException e) {
@@ -101,10 +185,18 @@ public abstract class AbstractCostBasedPlanTest
         }
     }
 
+    public static String readQuery(String resource)
+    {
+        return read(resource).replaceAll("\\s+;\\s+$", "")
+                .replace("${database}.${schema}.", "")
+                .replace("\"${database}\".\"${schema}\".\"${prefix}", "\"")
+                .replace("${scale}", "1");
+    }
+
     private static String read(String resource)
     {
         try {
-            return Resources.toString(getResource(AbstractCostBasedPlanTest.class, resource), UTF_8);
+            return Resources.toString(getResource(AbstractHiveCostBasedPlanTest.class, resource), UTF_8);
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
@@ -113,11 +205,7 @@ public abstract class AbstractCostBasedPlanTest
 
     private String generateQueryPlan(String query)
     {
-        String sql = query.replaceAll("\\s+;\\s+$", "")
-                .replace("${database}.${schema}.", "")
-                .replace("\"${database}\".\"${schema}\".\"${prefix}", "\"")
-                .replace("${scale}", "1");
-        Plan plan = plan(sql, OPTIMIZED_AND_VALIDATED, false);
+        Plan plan = plan(query, OPTIMIZED_AND_VALIDATED, false);
 
         JoinOrderPrinter joinOrderPrinter = new JoinOrderPrinter();
         plan.getRoot().accept(joinOrderPrinter, 0);

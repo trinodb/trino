@@ -1,10 +1,10 @@
 remote exchange (GATHER, SINGLE, [])
     local exchange (GATHER, UNKNOWN, [])
         remote exchange (REPARTITION, ROUND_ROBIN, [])
-            final aggregation over (expr$gid, name_16, name_20)
+            final aggregation over (expr$gid, name_21, name_27)
                 local exchange (GATHER, SINGLE, [])
-                    remote exchange (REPARTITION, HASH, ["expr$gid", "name_16", "name_20"])
-                        partial aggregation over (expr$gid, name_16, name_20)
+                    remote exchange (REPARTITION, HASH, ["expr$gid", "name_21", "name_27"])
+                        partial aggregation over (expr$gid, name_21, name_27)
                             join (INNER, PARTITIONED):
                                 remote exchange (REPARTITION, HASH, ["orderkey"])
                                     join (INNER, REPLICATED):
@@ -17,12 +17,12 @@ remote exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
                                                             scan nation
                                 local exchange (GATHER, SINGLE, [])
-                                    remote exchange (REPARTITION, HASH, ["orderkey_4"])
+                                    remote exchange (REPARTITION, HASH, ["orderkey_5"])
                                         join (INNER, PARTITIONED):
                                             remote exchange (REPARTITION, HASH, ["custkey"])
                                                 scan orders
                                             local exchange (GATHER, SINGLE, [])
-                                                remote exchange (REPARTITION, HASH, ["custkey_7"])
+                                                remote exchange (REPARTITION, HASH, ["custkey_10"])
                                                     join (INNER, REPLICATED):
                                                         scan customer
                                                         local exchange (GATHER, SINGLE, [])

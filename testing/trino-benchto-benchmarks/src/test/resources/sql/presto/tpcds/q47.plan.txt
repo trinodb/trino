@@ -22,11 +22,11 @@ local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPLICATE, BROADCAST, [])
                                                     scan item
                 local exchange (GATHER, SINGLE, [])
-                    remote exchange (REPARTITION, HASH, ["i_brand_8", "i_category_12", "s_company_name_90", "s_store_name_78"])
-                        final aggregation over (d_moy_53, d_year_51, i_brand_8, i_category_12, s_company_name_90, s_store_name_78)
+                    remote exchange (REPARTITION, HASH, ["i_brand_17", "i_category_21", "s_company_name_108", "s_store_name_96"])
+                        final aggregation over (d_moy_68, d_year_66, i_brand_17, i_category_21, s_company_name_108, s_store_name_96)
                             local exchange (GATHER, SINGLE, [])
-                                remote exchange (REPARTITION, HASH, ["d_moy_53", "d_year_51", "i_brand_8", "i_category_12", "s_company_name_90", "s_store_name_78"])
-                                    partial aggregation over (d_moy_53, d_year_51, i_brand_8, i_category_12, s_company_name_90, s_store_name_78)
+                                remote exchange (REPARTITION, HASH, ["d_moy_68", "d_year_66", "i_brand_17", "i_category_21", "s_company_name_108", "s_store_name_96"])
+                                    partial aggregation over (d_moy_68, d_year_66, i_brand_17, i_category_21, s_company_name_108, s_store_name_96)
                                         join (INNER, REPLICATED):
                                             join (INNER, REPLICATED):
                                                 join (INNER, REPLICATED):
@@ -41,11 +41,11 @@ local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPLICATE, BROADCAST, [])
                                                     scan item
             local exchange (GATHER, SINGLE, [])
-                remote exchange (REPARTITION, HASH, ["i_brand_119", "i_category_123", "s_company_name_201", "s_store_name_189"])
-                    final aggregation over (d_moy_164, d_year_162, i_brand_119, i_category_123, s_company_name_201, s_store_name_189)
+                remote exchange (REPARTITION, HASH, ["i_brand_140", "i_category_144", "s_company_name_231", "s_store_name_219"])
+                    final aggregation over (d_moy_191, d_year_189, i_brand_140, i_category_144, s_company_name_231, s_store_name_219)
                         local exchange (GATHER, SINGLE, [])
-                            remote exchange (REPARTITION, HASH, ["d_moy_164", "d_year_162", "i_brand_119", "i_category_123", "s_company_name_201", "s_store_name_189"])
-                                partial aggregation over (d_moy_164, d_year_162, i_brand_119, i_category_123, s_company_name_201, s_store_name_189)
+                            remote exchange (REPARTITION, HASH, ["d_moy_191", "d_year_189", "i_brand_140", "i_category_144", "s_company_name_231", "s_store_name_219"])
+                                partial aggregation over (d_moy_191, d_year_189, i_brand_140, i_category_144, s_company_name_231, s_store_name_219)
                                     join (INNER, REPLICATED):
                                         join (INNER, REPLICATED):
                                             join (INNER, REPLICATED):

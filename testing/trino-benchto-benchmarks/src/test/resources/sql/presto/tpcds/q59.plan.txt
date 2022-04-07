@@ -11,15 +11,15 @@ local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPLICATE, BROADCAST, [])
                                         scan date_dim
             local exchange (GATHER, SINGLE, [])
-                remote exchange (REPARTITION, HASH, ["expr_171", "s_store_sk"])
+                remote exchange (REPARTITION, HASH, ["expr_192", "s_store_sk"])
                     join (INNER, PARTITIONED):
-                        remote exchange (REPARTITION, HASH, ["ss_store_sk_47"])
+                        remote exchange (REPARTITION, HASH, ["ss_store_sk_56"])
                             join (INNER, REPLICATED):
                                 join (INNER, REPLICATED):
-                                    final aggregation over (d_week_seq_67, ss_store_sk_47)
+                                    final aggregation over (d_week_seq_79, ss_store_sk_56)
                                         local exchange (GATHER, SINGLE, [])
-                                            remote exchange (REPARTITION, HASH, ["d_week_seq_67", "ss_store_sk_47"])
-                                                partial aggregation over (d_week_seq_67, ss_store_sk_47)
+                                            remote exchange (REPARTITION, HASH, ["d_week_seq_79", "ss_store_sk_56"])
+                                                partial aggregation over (d_week_seq_79, ss_store_sk_56)
                                                     join (INNER, REPLICATED):
                                                         scan store_sales
                                                         local exchange (GATHER, SINGLE, [])
@@ -32,10 +32,10 @@ local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPLICATE, BROADCAST, [])
                                         scan date_dim
                         local exchange (GATHER, SINGLE, [])
-                            remote exchange (REPARTITION, HASH, ["s_store_sk_107"])
+                            remote exchange (REPARTITION, HASH, ["s_store_sk_122"])
                                 join (INNER, PARTITIONED):
                                     remote exchange (REPARTITION, HASH, ["s_store_id"])
                                         scan store
                                     local exchange (GATHER, SINGLE, [])
-                                        remote exchange (REPARTITION, HASH, ["s_store_id_108"])
+                                        remote exchange (REPARTITION, HASH, ["s_store_id_123"])
                                             scan store

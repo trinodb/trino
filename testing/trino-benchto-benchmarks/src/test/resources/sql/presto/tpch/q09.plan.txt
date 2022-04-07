@@ -1,18 +1,18 @@
 remote exchange (GATHER, SINGLE, [])
     local exchange (GATHER, UNKNOWN, [])
         remote exchange (REPARTITION, ROUND_ROBIN, [])
-            final aggregation over (expr$gid, name_16)
+            final aggregation over (expr$gid, name_23)
                 local exchange (GATHER, SINGLE, [])
-                    remote exchange (REPARTITION, HASH, ["expr$gid", "name_16"])
-                        partial aggregation over (expr$gid, name_16)
+                    remote exchange (REPARTITION, HASH, ["expr$gid", "name_23"])
+                        partial aggregation over (expr$gid, name_23)
                             join (INNER, REPLICATED):
                                 join (INNER, PARTITIONED):
                                     remote exchange (REPARTITION, HASH, ["orderkey"])
                                         join (INNER, PARTITIONED):
                                             join (INNER, PARTITIONED):
-                                                remote exchange (REPARTITION, HASH, ["suppkey_5"])
+                                                remote exchange (REPARTITION, HASH, ["suppkey_6"])
                                                     join (INNER, PARTITIONED):
-                                                        remote exchange (REPARTITION, HASH, ["partkey_4"])
+                                                        remote exchange (REPARTITION, HASH, ["partkey_5"])
                                                             scan lineitem
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPARTITION, HASH, ["partkey"])
@@ -21,10 +21,10 @@ remote exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPARTITION, HASH, ["suppkey"])
                                                         scan supplier
                                             local exchange (GATHER, SINGLE, [])
-                                                remote exchange (REPARTITION, HASH, ["suppkey_9"])
+                                                remote exchange (REPARTITION, HASH, ["suppkey_12"])
                                                     scan partsupp
                                     local exchange (GATHER, SINGLE, [])
-                                        remote exchange (REPARTITION, HASH, ["orderkey_12"])
+                                        remote exchange (REPARTITION, HASH, ["orderkey_17"])
                                             scan orders
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPLICATE, BROADCAST, [])
