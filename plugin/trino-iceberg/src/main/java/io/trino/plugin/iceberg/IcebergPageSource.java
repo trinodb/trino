@@ -41,14 +41,14 @@ public class IcebergPageSource
     private final int[] expectedColumnIndexes;
     private final ConnectorPageSource delegate;
     private final Optional<ReaderProjectionsAdapter> projectionsAdapter;
-    private final DeleteFilter<TrinoRow> deleteFilter;
+    private final Optional<DeleteFilter<TrinoRow>> deleteFilter;
 
     public IcebergPageSource(
             List<IcebergColumnHandle> expectedColumns,
             List<IcebergColumnHandle> requiredColumns,
             ConnectorPageSource delegate,
             Optional<ReaderProjectionsAdapter> projectionsAdapter,
-            DeleteFilter<TrinoRow> deleteFilter)
+            Optional<DeleteFilter<TrinoRow>> deleteFilter)
     {
         // expectedColumns should contain columns which should be in the final Page
         // requiredColumns should include all expectedColumns as well as any columns needed by the DeleteFilter
@@ -104,19 +104,23 @@ public class IcebergPageSource
                 return null;
             }
 
-            int positionCount = dataPage.getPositionCount();
-            int[] positionsToKeep = new int[positionCount];
-            try (CloseableIterable<TrinoRow> filteredRows = deleteFilter.filter(CloseableIterable.withNoopClose(TrinoRow.fromPage(columnTypes, dataPage, positionCount)))) {
-                int positionsToKeepCount = 0;
-                for (TrinoRow rowToKeep : filteredRows) {
-                    positionsToKeep[positionsToKeepCount] = rowToKeep.getPosition();
-                    positionsToKeepCount++;
+            if (deleteFilter.isPresent()) {
+                int positionCount = dataPage.getPositionCount();
+                int[] positionsToKeep = new int[positionCount];
+                try (CloseableIterable<TrinoRow> filteredRows = deleteFilter.get().filter(CloseableIterable.withNoopClose(TrinoRow.fromPage(columnTypes, dataPage, positionCount)))) {
+                    int positionsToKeepCount = 0;
+                    for (TrinoRow rowToKeep : filteredRows) {
+                        positionsToKeep[positionsToKeepCount] = rowToKeep.getPosition();
+                        positionsToKeepCount++;
+                    }
+                    dataPage = dataPage.getPositions(positionsToKeep, 0, positionsToKeepCount).getColumns(expectedColumnIndexes);
                 }
-                return dataPage.getPositions(positionsToKeep, 0, positionsToKeepCount).getColumns(expectedColumnIndexes);
+                catch (IOException e) {
+                    throw new TrinoException(ICEBERG_BAD_DATA, "Failed to filter rows during merge-on-read operation", e);
+                }
             }
-            catch (IOException e) {
-                throw new TrinoException(ICEBERG_BAD_DATA, "Failed to filter rows during merge-on-read operation", e);
-            }
+
+            return dataPage;
         }
         catch (RuntimeException e) {
             closeWithSuppression(e);

@@ -256,7 +256,7 @@ public class IcebergPageSourceProvider
                 requiredColumns,
                 dataPageSource.get(),
                 projectionsAdapter,
-                deleteFilter);
+                Optional.of(deleteFilter).filter(filter -> filter.hasPosDeletes() || filter.hasEqDeletes()));
     }
 
     private ReaderPageSource createDataPageSource(
