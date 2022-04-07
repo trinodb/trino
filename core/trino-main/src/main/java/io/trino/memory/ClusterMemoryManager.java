@@ -233,7 +233,7 @@ public class ClusterMemoryManager
                 outOfMemory &&
                 !queryKilled &&
                 nanosSince(lastTimeNotOutOfMemory).compareTo(killOnOutOfMemoryDelay) > 0) {
-            if (isLastKillTargetGone(runningQueries)) {
+            if (isLastKillTargetGone()) {
                 callOomKiller(runningQueries);
             }
             else {
@@ -306,7 +306,7 @@ public class ClusterMemoryManager
             return isQueryGone(lastKillTarget.get().getQuery());
         }
 
-        return areTasksGone(lastKillTarget.get().getTasks(), runningQueries);
+        return areTasksGone(lastKillTarget.get().getTasks());
     }
 
     private boolean isQueryGone(QueryId killedQuery)
@@ -329,27 +329,23 @@ public class ClusterMemoryManager
                 .containsKey(killedQuery);
     }
 
-    private boolean areTasksGone(Set<TaskId> tasks, Iterable<QueryExecution> runningQueries)
+    private boolean areTasksGone(Set<TaskId> tasks)
     {
-        List<QueryExecution> queryExecutions = tasks.stream()
-                .map(TaskId::getQueryId)
-                .distinct()
-                .map(query -> findRunningQuery(runningQueries, query))
+        // We build list of tasks based on MemoryPoolInfo objects, so it is consistent with memory usage reported for nodes.
+        // This will only contain tasks for queries with task retries enabled - but this is what we want.
+        Set<TaskId> runningTasks = getRunningTasks();
+        return tasks.stream().noneMatch(runningTasks::contains);
+    }
+
+    private ImmutableSet<TaskId> getRunningTasks()
+    {
+        return nodes.values().stream()
+                .map(RemoteNodeMemory::getInfo)
                 .filter(Optional::isPresent)
                 .map(Optional::get)
-                .collect(toImmutableList());
-
-        if (queryExecutions.isEmpty()) {
-            // all queries we care about are gone
-            return true;
-        }
-
-        Set<TaskId> runningTasks = queryExecutions.stream()
-                .flatMap(query -> getRunningTasksForQuery(query).stream())
-                .map(TaskStatus::getTaskId)
+                .flatMap(memoryInfo -> memoryInfo.getPool().getTaskMemoryReservations().keySet().stream())
+                .map(TaskId::valueOf)
                 .collect(toImmutableSet());
-
-        return tasks.stream().noneMatch(runningTasks::contains);
     }
 
     private Optional<QueryExecution> findRunningQuery(Iterable<QueryExecution> runningQueries, QueryId queryId)
