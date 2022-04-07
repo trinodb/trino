@@ -215,3 +215,4 @@ contribution](https://trino.io/development/process.html).
    Docker](https://www.youtube.com/watch?v=y58sb9bW2mA) gives you a starting
    point for setting up a test system on your laptop.
 
+Edit for running docs CI
