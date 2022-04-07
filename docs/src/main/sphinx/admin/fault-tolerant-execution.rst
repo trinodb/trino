@@ -132,7 +132,7 @@ queries/tasks are no longer retried in the event of repeated failures:
    * - ``task-retry-attempts-per-task``
      - Maximum number of times Trino may attempt to retry a single task before
        declaring the query as failed.
-     - ``2``
+     - ``4``
      - Only ``TASK``
    * - ``retry-initial-delay``
      - Minimum time that a failed query must wait before it is retried. May be
