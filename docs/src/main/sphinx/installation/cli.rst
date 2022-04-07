@@ -221,6 +221,11 @@ certificate usage:
     - The location of the Java truststore file that will be used to secure TLS.
   * - ``--truststore-type``
     - Truststore type.
+  * - ``--use-system-truststore``
+    - Verify the server certificate using the system truststore of the
+      operating system. Windows and macOS are supported. For other operating
+      systems, the default Java truststore is used. The truststore type can
+      be overridden using ``--truststore-type``.
 
 .. _cli-authentication:
 
@@ -292,7 +297,7 @@ Use the following CLI arguments to connect to a cluster that uses
    * - ``--keystore-password=<password>``
      - Only required if the keystore has a password.
 
-The three ``--truststore`` related options are independent of client certificate
+The truststore related options are independent of client certificate
 authentication with the CLI; instead, they control the client's trust of the
 server's certificate.
 

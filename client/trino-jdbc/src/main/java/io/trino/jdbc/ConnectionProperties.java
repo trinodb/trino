@@ -67,6 +67,7 @@ final class ConnectionProperties
     public static final ConnectionProperty<String> SSL_TRUST_STORE_PATH = new SslTrustStorePath();
     public static final ConnectionProperty<String> SSL_TRUST_STORE_PASSWORD = new SslTrustStorePassword();
     public static final ConnectionProperty<String> SSL_TRUST_STORE_TYPE = new SslTrustStoreType();
+    public static final ConnectionProperty<Boolean> SSL_USE_SYSTEM_TRUST_STORE = new SslUseSystemTrustStore();
     public static final ConnectionProperty<String> KERBEROS_SERVICE_PRINCIPAL_PATTERN = new KerberosServicePrincipalPattern();
     public static final ConnectionProperty<String> KERBEROS_REMOTE_SERVICE_NAME = new KerberosRemoteServiceName();
     public static final ConnectionProperty<Boolean> KERBEROS_USE_CANONICAL_HOSTNAME = new KerberosUseCanonicalHostname();
@@ -105,6 +106,7 @@ final class ConnectionProperties
             .add(SSL_TRUST_STORE_PATH)
             .add(SSL_TRUST_STORE_PASSWORD)
             .add(SSL_TRUST_STORE_TYPE)
+            .add(SSL_USE_SYSTEM_TRUST_STORE)
             .add(KERBEROS_REMOTE_SERVICE_NAME)
             .add(KERBEROS_SERVICE_PRINCIPAL_PATTERN)
             .add(KERBEROS_USE_CANONICAL_HOSTNAME)
@@ -353,9 +355,12 @@ final class ConnectionProperties
     private static class SslTrustStorePath
             extends AbstractConnectionProperty<String>
     {
+        private static final Predicate<Properties> IF_SYSTEM_TRUST_STORE_NOT_ENABLED =
+                checkedPredicate(properties -> !SSL_USE_SYSTEM_TRUST_STORE.getValue(properties).orElse(false));
+
         public SslTrustStorePath()
         {
-            super("SSLTrustStorePath", NOT_REQUIRED, SslVerification.IF_SSL_VERIFICATION_ENABLED, STRING_CONVERTER);
+            super("SSLTrustStorePath", NOT_REQUIRED, IF_SYSTEM_TRUST_STORE_NOT_ENABLED.and(SslVerification.IF_SSL_VERIFICATION_ENABLED), STRING_CONVERTER);
         }
     }
 
@@ -375,11 +380,20 @@ final class ConnectionProperties
             extends AbstractConnectionProperty<String>
     {
         private static final Predicate<Properties> IF_TRUST_STORE =
-                checkedPredicate(properties -> SSL_TRUST_STORE_PATH.getValue(properties).isPresent());
+                checkedPredicate(properties -> SSL_TRUST_STORE_PATH.getValue(properties).isPresent() || SSL_USE_SYSTEM_TRUST_STORE.getValue(properties).orElse(false));
 
         public SslTrustStoreType()
         {
             super("SSLTrustStoreType", NOT_REQUIRED, IF_TRUST_STORE.and(SslVerification.IF_SSL_VERIFICATION_ENABLED), STRING_CONVERTER);
+        }
+    }
+
+    private static class SslUseSystemTrustStore
+            extends AbstractConnectionProperty<Boolean>
+    {
+        public SslUseSystemTrustStore()
+        {
+            super("SSLUseSystemTrustStore", NOT_REQUIRED, SslVerification.IF_SSL_VERIFICATION_ENABLED, BOOLEAN_CONVERTER);
         }
     }
 
