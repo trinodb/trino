@@ -14,12 +14,14 @@
 package io.trino.execution.scheduler;
 
 import com.google.common.collect.Ordering;
+import io.airlift.stats.TDigest;
 import io.airlift.units.DataSize;
 import io.trino.Session;
 import io.trino.spi.ErrorCode;
 
 import java.util.Optional;
 
+import static io.trino.SystemSessionProperties.getFaultTolerantExecutionTaskMemoryEstimationQuantile;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionTaskMemoryGrowthFactor;
 import static io.trino.spi.StandardErrorCode.CLUSTER_OUT_OF_MEMORY;
 import static io.trino.spi.StandardErrorCode.EXCEEDED_LOCAL_MEMORY_LIMIT;
@@ -27,11 +29,13 @@ import static io.trino.spi.StandardErrorCode.EXCEEDED_LOCAL_MEMORY_LIMIT;
 public class ExponentialGrowthPartitionMemoryEstimator
         implements PartitionMemoryEstimator
 {
+    private final TDigest memoryUsageDistribution = new TDigest();
+
     @Override
     public MemoryRequirements getInitialMemoryRequirements(Session session, DataSize defaultMemoryLimit)
     {
         return new MemoryRequirements(
-                defaultMemoryLimit,
+                Ordering.natural().max(defaultMemoryLimit, getEstimatedMemoryUsage(session)),
                 false);
     }
 
@@ -39,20 +43,49 @@ public class ExponentialGrowthPartitionMemoryEstimator
     public MemoryRequirements getNextRetryMemoryRequirements(Session session, MemoryRequirements previousMemoryRequirements, DataSize peakMemoryUsage, ErrorCode errorCode)
     {
         DataSize previousMemory = previousMemoryRequirements.getRequiredMemory();
-        DataSize baseMemory = Ordering.natural().max(peakMemoryUsage, previousMemory);
-        if (shouldIncreaseMemory(errorCode)) {
+
+        // start with the maximum of previously used memory and actual usage
+        DataSize newMemory = Ordering.natural().max(peakMemoryUsage, previousMemory);
+        if (isOutOfMemoryError(errorCode)) {
+            // multiply if we hit an oom error
             double growthFactor = getFaultTolerantExecutionTaskMemoryGrowthFactor(session);
-            return new MemoryRequirements(DataSize.of((long) (baseMemory.toBytes() * growthFactor), DataSize.Unit.BYTE), false);
+            newMemory = DataSize.of((long) (newMemory.toBytes() * growthFactor), DataSize.Unit.BYTE);
         }
-        return new MemoryRequirements(baseMemory, false);
+
+        // if we are still below current estimate for new partition let's bump further
+        newMemory = Ordering.natural().max(newMemory, getEstimatedMemoryUsage(session));
+
+        return new MemoryRequirements(newMemory, false);
     }
 
-    private boolean shouldIncreaseMemory(ErrorCode errorCode)
+    private boolean isOutOfMemoryError(ErrorCode errorCode)
     {
         return EXCEEDED_LOCAL_MEMORY_LIMIT.toErrorCode().equals(errorCode) // too many tasks from single query on a node
                 || CLUSTER_OUT_OF_MEMORY.toErrorCode().equals(errorCode); // too many tasks in general on a node
     }
 
     @Override
-    public void registerPartitionFinished(Session session, MemoryRequirements previousMemoryRequirements, DataSize peakMemoryUsage, boolean success, Optional<ErrorCode> errorCode) {}
+    public synchronized void registerPartitionFinished(Session session, MemoryRequirements previousMemoryRequirements, DataSize peakMemoryUsage, boolean success, Optional<ErrorCode> errorCode)
+    {
+        if (success) {
+            memoryUsageDistribution.add(peakMemoryUsage.toBytes());
+        }
+        if (!success && errorCode.isPresent() && isOutOfMemoryError(errorCode.get())) {
+            double growthFactor = getFaultTolerantExecutionTaskMemoryGrowthFactor(session);
+            // take previousRequiredBytes into account when registering failure on oom. It is conservative hence safer (and in-line with getNextRetryMemoryRequirements)
+            long previousRequiredBytes = previousMemoryRequirements.getRequiredMemory().toBytes();
+            long previousPeakBytes = peakMemoryUsage.toBytes();
+            memoryUsageDistribution.add(Math.max(previousRequiredBytes, previousPeakBytes) * growthFactor);
+        }
+    }
+
+    private synchronized DataSize getEstimatedMemoryUsage(Session session)
+    {
+        double estimationQuantile = getFaultTolerantExecutionTaskMemoryEstimationQuantile(session);
+        double estimation = memoryUsageDistribution.valueAt(estimationQuantile);
+        if (Double.isNaN(estimation)) {
+            return DataSize.ofBytes(0);
+        }
+        return DataSize.ofBytes((long) estimation);
+    }
 }
