@@ -16,19 +16,19 @@ package io.trino.memory;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
-import io.trino.TaskMemoryInfo;
 import io.trino.execution.TaskId;
 import io.trino.operator.RetryPolicy;
 import io.trino.spi.QueryId;
 import io.trino.spi.memory.MemoryPoolInfo;
 
+import java.util.AbstractMap.SimpleEntry;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static java.util.Comparator.comparing;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Comparator.comparingLong;
 
 public class TotalReservationOnBlockedNodesLowMemoryKiller
@@ -37,15 +37,24 @@ public class TotalReservationOnBlockedNodesLowMemoryKiller
     @Override
     public Optional<KillTarget> chooseQueryToKill(List<QueryMemoryInfo> runningQueries, List<MemoryInfo> nodes)
     {
-        Optional<KillTarget> killTarget = chooseTasksToKill(nodes);
+        Optional<KillTarget> killTarget = chooseTasksToKill(runningQueries, nodes);
         if (killTarget.isEmpty()) {
             killTarget = chooseWholeQueryToKill(runningQueries, nodes);
         }
         return killTarget;
     }
 
-    private Optional<KillTarget> chooseTasksToKill(List<MemoryInfo> nodes)
+    private Optional<KillTarget> chooseTasksToKill(List<QueryMemoryInfo> runningQueries, List<MemoryInfo> nodes)
     {
+        Set<QueryId> queriesWithTaskRetryPolicy = runningQueries.stream()
+                                                          .filter(query -> query.getRetryPolicy() == RetryPolicy.TASK)
+                                                          .map(QueryMemoryInfo::getQueryId)
+                                                          .collect(toImmutableSet());
+
+        if (queriesWithTaskRetryPolicy.isEmpty()) {
+            return Optional.empty();
+        }
+
         ImmutableSet.Builder<TaskId> tasksToKillBuilder = ImmutableSet.builder();
         for (MemoryInfo node : nodes) {
             MemoryPoolInfo memoryPool = node.getPool();
@@ -56,9 +65,12 @@ public class TotalReservationOnBlockedNodesLowMemoryKiller
                 continue;
             }
 
-            node.getTasksMemoryInfo().values().stream()
-                    .max(comparing(TaskMemoryInfo::getMemoryReservation))
-                    .map(TaskMemoryInfo::getTaskId)
+            memoryPool.getTaskMemoryReservations().entrySet().stream()
+                    // consider only tasks from queries with task retries enabled
+                    .map(entry -> new SimpleEntry<>(TaskId.valueOf(entry.getKey()), entry.getValue()))
+                    .filter(entry -> queriesWithTaskRetryPolicy.contains(entry.getKey().getQueryId()))
+                    .max(Map.Entry.comparingByValue())
+                    .map(SimpleEntry::getKey)
                     .ifPresent(tasksToKillBuilder::add);
         }
         Set<TaskId> tasksToKill = tasksToKillBuilder.build();
@@ -82,7 +94,8 @@ public class TotalReservationOnBlockedNodesLowMemoryKiller
             }
             Map<QueryId, Long> queryMemoryReservations = memoryPool.getQueryMemoryReservations();
             queryMemoryReservations.forEach((queryId, memoryReservation) -> {
-                if (queriesById.containsKey(queryId) && queriesById.get(queryId).getRetryPolicy() == RetryPolicy.TASK) {
+                QueryMemoryInfo queryMemoryInfo = queriesById.get(queryId);
+                if (queryMemoryInfo != null && queryMemoryInfo.getRetryPolicy() == RetryPolicy.TASK) {
                     // Do not kill whole queries which run with task retries enabled
                     // Most of the time if query with task retries enabled is a root cause of cluster out-of-memory error
                     // individual tasks should be already picked for killing by `chooseTasksToKill`. Yet sometimes there is a discrepancy between

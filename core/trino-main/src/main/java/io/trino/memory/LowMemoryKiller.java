@@ -14,7 +14,6 @@
 
 package io.trino.memory;
 
-import io.trino.execution.TaskId;
 import io.trino.operator.RetryPolicy;
 import io.trino.spi.QueryId;
 
@@ -64,37 +63,6 @@ public interface LowMemoryKiller
                     .add("memoryReservation", memoryReservation)
                     .add("retryPolicy", retryPolicy)
                     .toString();
-        }
-
-        public static class TaskMemoryInfo
-        {
-            private final TaskId taskId;
-            private final long memoryReservation;
-
-            public TaskMemoryInfo(TaskId taskId, long memoryReservation)
-            {
-                this.taskId = requireNonNull(taskId, "taskId is null");
-                this.memoryReservation = memoryReservation;
-            }
-
-            public TaskId getTaskId()
-            {
-                return taskId;
-            }
-
-            public long getMemoryReservation()
-            {
-                return memoryReservation;
-            }
-
-            @Override
-            public String toString()
-            {
-                return toStringHelper(this)
-                        .add("taskId", taskId)
-                        .add("memoryReservation", memoryReservation)
-                        .toString();
-            }
         }
     }
 }
