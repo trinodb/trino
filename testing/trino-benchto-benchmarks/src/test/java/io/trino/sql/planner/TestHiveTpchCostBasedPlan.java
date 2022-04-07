@@ -48,6 +48,12 @@ public class TestHiveTpchCostBasedPlan
     }
 
     @Override
+    protected boolean isPartitioned()
+    {
+        return false;
+    }
+
+    @Override
     protected Stream<String> getQueryResourcePaths()
     {
         return TPCH_SQL_FILES.stream();

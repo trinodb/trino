@@ -156,8 +156,12 @@ public abstract class AbstractHiveCostBasedPlanTest
 
     private String getQueryPlanResourcePath(String queryResourcePath)
     {
-        return queryResourcePath.replaceAll("\\.sql$", ".plan.txt");
+        String subDir = isPartitioned() ? "partitioned" : "unpartitioned";
+        java.nio.file.Path tempPath = Paths.get(queryResourcePath.replaceAll("\\.sql$", ".plan.txt"));
+        return Paths.get(tempPath.getParent().toString(), subDir, tempPath.getFileName().toString()).toString();
     }
+
+    protected abstract boolean isPartitioned();
 
     protected void generate()
     {
