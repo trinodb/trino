@@ -9,7 +9,7 @@ remote exchange (GATHER, SINGLE, [])
                                 local exchange (GATHER, SINGLE, [])
                                     partial aggregation over (custkey)
                                         join (RIGHT, PARTITIONED):
-                                            remote exchange (REPARTITION, HASH, ["custkey_1"])
+                                            remote exchange (REPARTITION, HASH, ["custkey_0"])
                                                 scan orders
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPARTITION, HASH, ["custkey"])

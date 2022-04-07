@@ -1,7 +1,7 @@
 local exchange (GATHER, SINGLE, [])
     remote exchange (GATHER, SINGLE, [])
         local exchange (GATHER, SINGLE, [])
-            remote exchange (REPARTITION, HASH, ["expr", "expr_2"])
+            remote exchange (REPARTITION, HASH, ["expr", "expr_11"])
                 final aggregation over (groupid, i_category$gid, i_class$gid)
                     local exchange (REPARTITION, HASH, ["groupid", "i_category$gid", "i_class$gid"])
                         remote exchange (REPARTITION, HASH, ["groupid", "i_category$gid", "i_class$gid"])

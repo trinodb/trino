@@ -1,15 +1,15 @@
 local exchange (GATHER, SINGLE, [])
     remote exchange (GATHER, SINGLE, [])
-        final aggregation over (orderdate, orderkey_4, shippriority)
+        final aggregation over (orderdate, orderkey_5, shippriority)
             local exchange (GATHER, SINGLE, [])
-                partial aggregation over (orderdate, orderkey_4, shippriority)
+                partial aggregation over (orderdate, orderkey_5, shippriority)
                     join (INNER, PARTITIONED):
-                        remote exchange (REPARTITION, HASH, ["orderkey_4"])
+                        remote exchange (REPARTITION, HASH, ["orderkey_5"])
                             scan lineitem
                         local exchange (GATHER, SINGLE, [])
                             remote exchange (REPARTITION, HASH, ["orderkey"])
                                 join (INNER, PARTITIONED):
-                                    remote exchange (REPARTITION, HASH, ["custkey_1"])
+                                    remote exchange (REPARTITION, HASH, ["custkey_0"])
                                         scan orders
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPARTITION, HASH, ["custkey"])

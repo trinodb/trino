@@ -163,7 +163,7 @@ public class TestRecordingHiveMetastore
         validatePartitionSubset(recordingHiveMetastore);
     }
 
-    private JsonCodec<HiveMetastoreRecording.Recording> createJsonCodec()
+    public static JsonCodec<HiveMetastoreRecording.Recording> createJsonCodec()
     {
         ObjectMapperProvider objectMapperProvider = new ObjectMapperProvider();
         TypeDeserializer typeDeserializer = new TypeDeserializer(new TestingTypeManager());
