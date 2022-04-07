@@ -201,6 +201,9 @@ public class MongoSession
 
     public void createTable(SchemaTableName name, List<MongoColumnHandle> columns, Optional<String> comment)
     {
+        if (!getAllSchemas().contains(name.getSchemaName())) {
+            throw new SchemaNotFoundException(name.getSchemaName());
+        }
         createTableMetadata(name, columns, comment);
         // collection is created implicitly
     }

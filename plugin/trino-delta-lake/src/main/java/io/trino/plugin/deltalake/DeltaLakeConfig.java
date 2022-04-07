@@ -28,6 +28,7 @@ import java.util.concurrent.TimeUnit;
 
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.concurrent.TimeUnit.DAYS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class DeltaLakeConfig
 {
@@ -53,6 +54,7 @@ public class DeltaLakeConfig
     private boolean ignoreCheckpointWriteFailures;
     private Duration vacuumMinRetention = new Duration(7, DAYS);
     private Optional<String> hiveCatalogName = Optional.empty();
+    private Duration dynamicFilteringWaitTimeout = new Duration(0, SECONDS);
     private boolean tableStatisticsEnabled = true;
     private boolean extendedStatisticsEnabled = true;
     private HiveCompressionCodec compressionCodec = HiveCompressionCodec.SNAPPY;
@@ -253,6 +255,20 @@ public class DeltaLakeConfig
     public DeltaLakeConfig setCheckpointRowStatisticsWritingEnabled(boolean checkpointRowStatisticsWritingEnabled)
     {
         this.checkpointRowStatisticsWritingEnabled = checkpointRowStatisticsWritingEnabled;
+        return this;
+    }
+
+    @NotNull
+    public Duration getDynamicFilteringWaitTimeout()
+    {
+        return dynamicFilteringWaitTimeout;
+    }
+
+    @Config("delta.dynamic-filtering.wait-timeout")
+    @ConfigDescription("Duration to wait for completion of dynamic filters during split generation")
+    public DeltaLakeConfig setDynamicFilteringWaitTimeout(Duration dynamicFilteringWaitTimeout)
+    {
+        this.dynamicFilteringWaitTimeout = dynamicFilteringWaitTimeout;
         return this;
     }
 

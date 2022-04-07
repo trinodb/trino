@@ -493,6 +493,16 @@ public abstract class BaseConnectorTest
         assertQuery("SELECT * FROM orders");
     }
 
+    @Test
+    public void testSelectInTransaction()
+    {
+        inTransaction(session -> {
+            assertQuery(session, "SELECT nationkey, name, regionkey FROM nation");
+            assertQuery(session, "SELECT regionkey, name FROM region");
+            assertQuery(session, "SELECT nationkey, name, regionkey FROM nation");
+        });
+    }
+
     /**
      * Test interactions between optimizer (including CBO), scheduling and connector metadata APIs.
      */
@@ -1696,8 +1706,9 @@ public abstract class BaseConnectorTest
         }
 
         String tableName;
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_add_column_", "AS SELECT VARCHAR 'first' x")) {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_add_column_", tableDefinitionForAddColumn())) {
             tableName = table.getName();
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT 'first'", 1);
             assertQueryFails("ALTER TABLE " + table.getName() + " ADD COLUMN x bigint", ".* Column 'x' already exists");
             assertQueryFails("ALTER TABLE " + table.getName() + " ADD COLUMN X bigint", ".* Column 'X' already exists");
             assertQueryFails("ALTER TABLE " + table.getName() + " ADD COLUMN q bad_type", ".* Unknown type 'bad_type' for column 'q'");
@@ -1726,6 +1737,14 @@ public abstract class BaseConnectorTest
         assertUpdate("ALTER TABLE IF EXISTS " + tableName + " ADD COLUMN x bigint");
         assertUpdate("ALTER TABLE IF EXISTS " + tableName + " ADD COLUMN IF NOT EXISTS x bigint");
         assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+    }
+
+    /**
+     * The table must have one column 'x' of varchar type.
+     */
+    protected String tableDefinitionForAddColumn()
+    {
+        return "(x VARCHAR)";
     }
 
     @Test
@@ -1869,6 +1888,23 @@ public abstract class BaseConnectorTest
     }
 
     @Test
+    public void testCreateTableSchemaNotFound()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
+
+        String schemaName = "test_schema_" + randomTableSuffix();
+        String tableName = "test_create_no_schema_" + randomTableSuffix();
+        try {
+            assertQueryFails(
+                    format("CREATE TABLE %s.%s (a bigint)", schemaName, tableName),
+                    format("Schema %s not found", schemaName));
+        }
+        finally {
+            assertUpdate(format("DROP TABLE IF EXISTS %s.%s", schemaName, tableName));
+        }
+    }
+
+    @Test
     public void testCreateTableAsSelect()
     {
         String tableName = "test_ctas" + randomTableSuffix();
@@ -1938,6 +1974,23 @@ public abstract class BaseConnectorTest
         assertExplainAnalyze("EXPLAIN ANALYZE CREATE TABLE " + tableName + " AS SELECT mktsegment FROM customer");
         assertQuery("SELECT * from " + tableName, "SELECT mktsegment FROM customer");
         assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testCreateTableAsSelectSchemaNotFound()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA));
+
+        String schemaName = "test_schema_" + randomTableSuffix();
+        String tableName = "test_ctas_no_schema_" + randomTableSuffix();
+        try {
+            assertQueryFails(
+                    format("CREATE TABLE %s.%s AS SELECT name FROM nation", schemaName, tableName),
+                    format("Schema %s not found", schemaName));
+        }
+        finally {
+            assertUpdate(format("DROP TABLE IF EXISTS %s.%s", schemaName, tableName));
+        }
     }
 
     @Test
@@ -2379,6 +2432,22 @@ public abstract class BaseConnectorTest
     protected String errorMessageForInsertIntoNotNullColumn(String columnName)
     {
         throw new UnsupportedOperationException("This method should be overridden");
+    }
+
+    @Test
+    public void testInsertInTransaction()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_INSERT));
+        skipTestUnless(hasBehavior(SUPPORTS_MULTI_STATEMENT_WRITES)); // covered by testWriteNotAllowedInTransaction
+
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_tx_insert",
+                "(a bigint)")) {
+            String tableName = table.getName();
+            inTransaction(session -> assertUpdate(session, "INSERT INTO " + tableName + " VALUES 42", 1));
+            assertQuery("TABLE " + tableName, "VALUES 42");
+        }
     }
 
     @Test

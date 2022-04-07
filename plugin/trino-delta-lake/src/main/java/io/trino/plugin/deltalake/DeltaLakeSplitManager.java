@@ -51,6 +51,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.deltalake.DeltaLakeMetadata.createStatisticsPredicate;
+import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getDynamicFilteringWaitTimeout;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getMaxInitialSplitSize;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getMaxSplitSize;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractSchema;
@@ -110,6 +111,7 @@ public class DeltaLakeSplitManager
                 maxSplitsPerSecond,
                 maxOutstandingSplits,
                 dynamicFilter,
+                getDynamicFilteringWaitTimeout(session),
                 deltaLakeTableHandle.isRecordScannedFiles());
 
         return new ClassLoaderSafeConnectorSplitSource(splitSource, Thread.currentThread().getContextClassLoader());

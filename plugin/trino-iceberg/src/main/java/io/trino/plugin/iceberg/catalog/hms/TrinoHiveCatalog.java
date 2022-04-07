@@ -91,9 +91,11 @@ import static io.trino.plugin.iceberg.IcebergMaterializedViewDefinition.decodeMa
 import static io.trino.plugin.iceberg.IcebergMaterializedViewDefinition.encodeMaterializedViewData;
 import static io.trino.plugin.iceberg.IcebergMaterializedViewDefinition.fromConnectorMaterializedViewDefinition;
 import static io.trino.plugin.iceberg.IcebergSchemaProperties.getSchemaLocation;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.getHiveCatalogName;
 import static io.trino.plugin.iceberg.IcebergTableProperties.FILE_FORMAT_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.PARTITIONING_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergUtil.getIcebergTableWithMetadata;
+import static io.trino.plugin.iceberg.IcebergUtil.isIcebergTable;
 import static io.trino.plugin.iceberg.IcebergUtil.loadIcebergTable;
 import static io.trino.plugin.iceberg.IcebergUtil.validateTableCanBeDropped;
 import static io.trino.plugin.iceberg.PartitionFields.toPartitionFields;
@@ -101,6 +103,7 @@ import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.INVALID_SCHEMA_PROPERTY;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
+import static io.trino.spi.connector.SchemaTableName.schemaTableName;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static org.apache.hadoop.hive.metastore.TableType.VIRTUAL_VIEW;
@@ -620,6 +623,37 @@ public class TrinoHiveCatalog
             return ImmutableList.of(namespace.get());
         }
         return listNamespaces(session);
+    }
+
+    @Override
+    public Optional<CatalogSchemaTableName> redirectTable(ConnectorSession session, SchemaTableName tableName)
+    {
+        requireNonNull(session, "session is null");
+        requireNonNull(tableName, "tableName is null");
+        Optional<String> targetCatalogName = getHiveCatalogName(session);
+        if (targetCatalogName.isEmpty()) {
+            return Optional.empty();
+        }
+        if (isHiveSystemSchema(tableName.getSchemaName())) {
+            return Optional.empty();
+        }
+
+        // we need to chop off any "$partitions" and similar suffixes from table name while querying the metastore for the Table object
+        int metadataMarkerIndex = tableName.getTableName().lastIndexOf('$');
+        SchemaTableName tableNameBase = (metadataMarkerIndex == -1) ? tableName : schemaTableName(
+                tableName.getSchemaName(),
+                tableName.getTableName().substring(0, metadataMarkerIndex));
+
+        Optional<io.trino.plugin.hive.metastore.Table> table = metastore.getTable(tableNameBase.getSchemaName(), tableNameBase.getTableName());
+
+        if (table.isEmpty() || isHiveOrPrestoView(table.get().getTableType())) {
+            return Optional.empty();
+        }
+        if (!isIcebergTable(table.get())) {
+            // After redirecting, use the original table name, with "$partitions" and similar suffixes
+            return targetCatalogName.map(catalog -> new CatalogSchemaTableName(catalog, tableName));
+        }
+        return Optional.empty();
     }
 
     private static class MaterializedViewMayBeBeingRemovedException

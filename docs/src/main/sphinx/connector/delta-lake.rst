@@ -108,6 +108,10 @@ values. Typical usage does not require you to configure them.
       - Name of the catalog to which ``SELECT`` queries are redirected when a
         Hive table is detected.
       -
+    * - ``delta.dynamic-filtering.wait-timeout``
+      - Duration to wait for completion of :doc:`dynamic filtering
+        </admin/dynamic-filtering>` during split generation.
+      -
     * - ``delta.table-statistics-enabled``
       - Enables :ref:`Table statistics <delta-lake-table-statistics>` for
         performance improvements.

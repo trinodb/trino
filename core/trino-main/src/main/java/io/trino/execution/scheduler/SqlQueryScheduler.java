@@ -1784,6 +1784,8 @@ public class SqlQueryScheduler
 
                 ImmutableSet.Builder<PlanFragmentId> coordinatorConsumedFragmentsBuilder = ImmutableSet.builder();
 
+                checkArgument(taskRetryAttemptsOverall >= 0, "taskRetryAttemptsOverall must be greater than or equal to 0: %s", taskRetryAttemptsOverall);
+                AtomicInteger remainingTaskRetryAttemptsOverall = new AtomicInteger(taskRetryAttemptsOverall);
                 for (SqlStage stage : distributedStagesInReverseTopologicalOrder) {
                     PlanFragment fragment = stage.getFragment();
                     Optional<SqlStage> parentStage = stageManager.getParent(stage.getStageId());
@@ -1826,7 +1828,7 @@ public class SqlQueryScheduler
                             sourceExchanges.buildOrThrow(),
                             inputBucketToPartition.getBucketToPartitionMap(),
                             inputBucketToPartition.getBucketNodeMap(),
-                            taskRetryAttemptsOverall,
+                            remainingTaskRetryAttemptsOverall,
                             taskRetryAttemptsPerTask);
 
                     schedulers.add(scheduler);

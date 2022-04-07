@@ -40,6 +40,7 @@ import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
 import io.trino.plugin.iceberg.catalog.AbstractTrinoCatalog;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorViewDefinition;
@@ -74,16 +75,22 @@ import static io.trino.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static io.trino.plugin.hive.ViewReaderUtil.encodeViewData;
 import static io.trino.plugin.hive.ViewReaderUtil.isPrestoView;
 import static io.trino.plugin.hive.metastore.glue.AwsSdkUtil.getPaginatedResults;
+import static io.trino.plugin.hive.util.HiveUtil.isHiveSystemSchema;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_CATALOG_ERROR;
 import static io.trino.plugin.iceberg.IcebergSchemaProperties.LOCATION_PROPERTY;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.getHiveCatalogName;
 import static io.trino.plugin.iceberg.IcebergUtil.getIcebergTableWithMetadata;
 import static io.trino.plugin.iceberg.IcebergUtil.quotedTableName;
 import static io.trino.plugin.iceberg.IcebergUtil.validateTableCanBeDropped;
 import static io.trino.plugin.iceberg.catalog.glue.GlueIcebergUtil.getTableInput;
 import static io.trino.plugin.iceberg.catalog.glue.GlueIcebergUtil.getViewTableInput;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.connector.SchemaTableName.schemaTableName;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static org.apache.hadoop.hive.metastore.TableType.VIRTUAL_VIEW;
+import static org.apache.iceberg.BaseMetastoreTableOperations.ICEBERG_TABLE_TYPE_VALUE;
+import static org.apache.iceberg.BaseMetastoreTableOperations.TABLE_TYPE_PROP;
 import static org.apache.iceberg.CatalogUtil.dropTableData;
 
 public class TrinoGlueCatalog
@@ -574,5 +581,41 @@ public class TrinoGlueCatalog
     public void renameMaterializedView(ConnectorSession session, SchemaTableName source, SchemaTableName target)
     {
         throw new TrinoException(NOT_SUPPORTED, "renameMaterializedView is not supported for Iceberg Glue catalogs");
+    }
+
+    @Override
+    public Optional<CatalogSchemaTableName> redirectTable(ConnectorSession session, SchemaTableName tableName)
+    {
+        requireNonNull(session, "session is null");
+        requireNonNull(tableName, "tableName is null");
+        Optional<String> targetCatalogName = getHiveCatalogName(session);
+        if (targetCatalogName.isEmpty()) {
+            return Optional.empty();
+        }
+        if (isHiveSystemSchema(tableName.getSchemaName())) {
+            return Optional.empty();
+        }
+
+        // we need to chop off any "$partitions" and similar suffixes from table name while querying the metastore for the Table object
+        int metadataMarkerIndex = tableName.getTableName().lastIndexOf('$');
+        SchemaTableName tableNameBase = (metadataMarkerIndex == -1) ? tableName : schemaTableName(
+                tableName.getSchemaName(),
+                tableName.getTableName().substring(0, metadataMarkerIndex));
+
+        Optional<com.amazonaws.services.glue.model.Table> table = getTable(new SchemaTableName(tableNameBase.getSchemaName(), tableNameBase.getTableName()));
+
+        if (table.isEmpty() || VIRTUAL_VIEW.name().equals(table.get().getTableType())) {
+            return Optional.empty();
+        }
+        if (!isIcebergTable(table.get())) {
+            // After redirecting, use the original table name, with "$partitions" and similar suffixes
+            return targetCatalogName.map(catalog -> new CatalogSchemaTableName(catalog, tableName));
+        }
+        return Optional.empty();
+    }
+
+    private static boolean isIcebergTable(com.amazonaws.services.glue.model.Table table)
+    {
+        return ICEBERG_TABLE_TYPE_VALUE.equalsIgnoreCase(table.getParameters().get(TABLE_TYPE_PROP));
     }
 }

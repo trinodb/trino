@@ -15,32 +15,56 @@ package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.execution.DynamicFilterConfig;
+import io.trino.execution.Lifespan;
 import io.trino.execution.QueryStats;
+import io.trino.metadata.QualifiedObjectName;
+import io.trino.metadata.Split;
+import io.trino.metadata.TableHandle;
 import io.trino.operator.OperatorStats;
 import io.trino.plugin.deltalake.util.DockerizedMinioDataLake;
+import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.QueryId;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.predicate.TupleDomain;
+import io.trino.split.SplitSource;
 import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.ResultWithQueryId;
+import io.trino.transaction.TransactionId;
+import io.trino.transaction.TransactionManager;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Verify.verify;
+import static io.airlift.concurrent.MoreFutures.unmodifiableFuture;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static io.airlift.testing.Assertions.assertGreaterThan;
 import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static io.trino.plugin.deltalake.DeltaLakeDockerizedMinioDataLake.createDockerizedMinioDataLakeForDeltaLake;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
+import static io.trino.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
+import static io.trino.spi.connector.Constraint.alwaysTrue;
+import static io.trino.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static io.trino.testing.DataProviders.toDataProvider;
 import static io.trino.tpch.TpchTable.LINE_ITEM;
 import static io.trino.tpch.TpchTable.ORDERS;
 import static java.lang.String.format;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 public class TestDeltaLakeDynamicFiltering
         extends AbstractTestQueryFramework
@@ -56,8 +80,7 @@ public class TestDeltaLakeDynamicFiltering
         QueryRunner queryRunner = DeltaLakeQueryRunner.createS3DeltaLakeQueryRunner(
                 DELTA_CATALOG,
                 "default",
-                // Slowing down the query ensures the dynamic filter has enough time to populate.
-                ImmutableMap.of("delta.max-splits-per-second", "3"),
+                ImmutableMap.of(),
                 dockerizedMinioDataLake.getMinioAddress(),
                 dockerizedMinioDataLake.getTestingHadoop());
 
@@ -94,10 +117,35 @@ public class TestDeltaLakeDynamicFiltering
         assertGreaterThan(unfilteredStats.inputPositions, filteredStats.inputPositions);
     }
 
+    @Test(timeOut = 30_000)
+    public void testIncompleteDynamicFilterTimeout()
+            throws Exception
+    {
+        QueryRunner runner = getQueryRunner();
+        TransactionManager transactionManager = runner.getTransactionManager();
+        TransactionId transactionId = transactionManager.beginTransaction(true);
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty(DELTA_CATALOG, "dynamic_filtering_wait_timeout", "1s")
+                .build()
+                .beginTransactionId(transactionId, transactionManager, new AllowAllAccessControl());
+        QualifiedObjectName tableName = new QualifiedObjectName(DELTA_CATALOG, "default", "orders");
+        Optional<TableHandle> tableHandle = runner.getMetadata().getTableHandle(session, tableName);
+        assertTrue(tableHandle.isPresent());
+        SplitSource splitSource = runner.getSplitManager()
+                .getSplits(session, tableHandle.get(), UNGROUPED_SCHEDULING, new IncompleteDynamicFilter(), alwaysTrue());
+        List<Split> splits = new ArrayList<>();
+        while (!splitSource.isFinished()) {
+            splits.addAll(splitSource.getNextBatch(NOT_PARTITIONED, Lifespan.taskWide(), 1000).get().getSplits());
+        }
+        splitSource.close();
+        assertFalse(splits.isEmpty());
+    }
+
     private Session sessionWithDynamicFiltering(boolean enabled, JoinDistributionType joinDistributionType)
     {
         return Session.builder(noJoinReordering(joinDistributionType))
                 .setSystemProperty(ENABLE_DYNAMIC_FILTERING, String.valueOf(enabled))
+                .setCatalogSessionProperty(DELTA_CATALOG, "dynamic_filtering_wait_timeout", "1h")
                 .build();
     }
 
@@ -111,6 +159,47 @@ public class TestDeltaLakeDynamicFiltering
                 .sum();
         long inputPositions = stats.getPhysicalInputPositions();
         return new QueryInputStats(numberOfSplits, inputPositions);
+    }
+
+    private static class IncompleteDynamicFilter
+            implements DynamicFilter
+    {
+        @Override
+        public Set<ColumnHandle> getColumnsCovered()
+        {
+            return ImmutableSet.of();
+        }
+
+        @Override
+        public CompletableFuture<?> isBlocked()
+        {
+            return unmodifiableFuture(CompletableFuture.runAsync(() -> {
+                try {
+                    TimeUnit.HOURS.sleep(1);
+                }
+                catch (InterruptedException e) {
+                    throw new IllegalStateException(e);
+                }
+            }));
+        }
+
+        @Override
+        public boolean isComplete()
+        {
+            return false;
+        }
+
+        @Override
+        public boolean isAwaitable()
+        {
+            return true;
+        }
+
+        @Override
+        public TupleDomain<ColumnHandle> getCurrentPredicate()
+        {
+            return TupleDomain.all();
+        }
     }
 
     private static class QueryInputStats

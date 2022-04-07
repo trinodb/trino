@@ -159,7 +159,7 @@ final class TrinoSystemRequirements
     public static void verifySystemTimeIsReasonable()
     {
         int currentYear = DateTime.now().year().get();
-        if (currentYear < 2021) {
+        if (currentYear < 2022) {
             failRequirement("Trino requires the system time to be current (found year %s)", currentYear);
         }
     }

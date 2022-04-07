@@ -66,4 +66,11 @@ public class TestArrayExceptFunction
         assertFunction("array_except(ARRAY[VARCHAR 'x', 'x', 'y', 'z'], ARRAY['x', 'y', 'x'])", new ArrayType(VARCHAR), ImmutableList.of("z"));
         assertFunction("array_except(ARRAY[true, false, null, true, false, null], ARRAY[true, true, true])", new ArrayType(BOOLEAN), asList(false, null));
     }
+
+    @Test
+    public void testNonDistinctNonEqualValues()
+    {
+        assertFunction("array_except(ARRAY[NaN()], ARRAY[NaN()])", new ArrayType(DOUBLE), ImmutableList.of());
+        assertFunction("array_except(ARRAY[1, NaN(), 3], ARRAY[NaN(), 3])", new ArrayType(DOUBLE), ImmutableList.of(1.0));
+    }
 }

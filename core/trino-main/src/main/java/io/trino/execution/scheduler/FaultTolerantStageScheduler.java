@@ -59,6 +59,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Queue;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -132,11 +133,11 @@ public class FaultTolerantStageScheduler
     @GuardedBy("this")
     private final Set<Integer> finishedPartitions = new HashSet<>();
     @GuardedBy("this")
-    private int remainingRetryAttemptsOverall;
+    private final AtomicInteger remainingRetryAttemptsOverall;
     @GuardedBy("this")
     private final Map<Integer, Integer> remainingAttemptsPerTask = new HashMap<>();
     @GuardedBy("this")
-    private Map<Integer, MemoryRequirements> partitionMemoryRequirements = new HashMap<>();
+    private final Map<Integer, MemoryRequirements> partitionMemoryRequirements = new HashMap<>();
 
     @GuardedBy("this")
     private Throwable failure;
@@ -157,7 +158,7 @@ public class FaultTolerantStageScheduler
             Map<PlanFragmentId, Exchange> sourceExchanges,
             Optional<int[]> sourceBucketToPartitionMap,
             Optional<BucketNodeMap> sourceBucketNodeMap,
-            int taskRetryAttemptsOverall,
+            AtomicInteger remainingRetryAttemptsOverall,
             int taskRetryAttemptsPerTask)
     {
         checkArgument(!stage.getFragment().getStageExecutionDescriptor().isStageGroupedExecution(), "grouped execution is expected to be disabled");
@@ -175,8 +176,7 @@ public class FaultTolerantStageScheduler
         this.sourceExchanges = ImmutableMap.copyOf(requireNonNull(sourceExchanges, "sourceExchanges is null"));
         this.sourceBucketToPartitionMap = requireNonNull(sourceBucketToPartitionMap, "sourceBucketToPartitionMap is null");
         this.sourceBucketNodeMap = requireNonNull(sourceBucketNodeMap, "sourceBucketNodeMap is null");
-        checkArgument(taskRetryAttemptsOverall >= 0, "taskRetryAttemptsOverall must be greater than or equal to 0: %s", taskRetryAttemptsOverall);
-        this.remainingRetryAttemptsOverall = taskRetryAttemptsOverall;
+        this.remainingRetryAttemptsOverall = requireNonNull(remainingRetryAttemptsOverall, "remainingRetryAttemptsOverall is null");
         this.maxRetryAttemptsPerTask = taskRetryAttemptsPerTask;
     }
 
@@ -539,8 +539,10 @@ public class FaultTolerantStageScheduler
                             ErrorCode errorCode = failureInfo.getErrorCode();
 
                             int taskRemainingAttempts = remainingAttemptsPerTask.getOrDefault(partitionId, maxRetryAttemptsPerTask);
-                            if (remainingRetryAttemptsOverall > 0 && taskRemainingAttempts > 0 && (errorCode == null || errorCode.getType() != USER_ERROR)) {
-                                remainingRetryAttemptsOverall--;
+                            if (remainingRetryAttemptsOverall.get() > 0
+                                    && taskRemainingAttempts > 0
+                                    && (errorCode == null || errorCode.getType() != USER_ERROR)) {
+                                remainingRetryAttemptsOverall.decrementAndGet();
                                 remainingAttemptsPerTask.put(partitionId, taskRemainingAttempts - 1);
 
                                 // update memory limits for next attempt

@@ -13,28 +13,176 @@ Requirements
 The CLI requires a Java virtual machine available on the path.
 It can be used with Java version 8 and higher.
 
+The CLI uses the :doc:`Trino client REST API
+</develop/client-protocol>` over HTTP/HTTPS to communicate with the
+coordinator on the cluster.
+
 Installation
 ------------
 
-Download :maven_download:`cli`, rename it to ``trino``,
-make it executable with ``chmod +x``, then run it:
+Download :maven_download:`cli`, rename it to ``trino``, make it executable with
+``chmod +x``, and run it to show the version of the CLI:
 
 .. code-block:: text
 
-    ./trino --server localhost:8080 --catalog hive --schema default
+    ./trino --version
 
-Run the CLI with the ``--help`` option to see the available options.
+Run the CLI with ``--help`` or ``-h`` to see all available options.
 
-The CLI uses the HTTP protocol and the|
-:doc:`Trino client REST API </develop/client-protocol>` to communicate
-with Trino.
+Running the CLI
+---------------
+
+The minimal command to start the CLI in interactive mode specifies the URL of
+the coordinator in the Trino cluster:
+
+.. code-block:: text
+
+    ./trino --server http://trino.example.com:8080
+
+If successful, you will get a prompt to execute commands. Use the ``help``
+command to see a list of supported commands. Use the ``clear`` command to clear
+the terminal. To stop and exit the CLI, run ``exit`` or ``quit``.:
+
+.. code-block:: text
+
+    trino> help
+
+    Supported commands:
+    QUIT
+    EXIT
+    CLEAR
+    EXPLAIN [ ( option [, ...] ) ] <query>
+        options: FORMAT { TEXT | GRAPHVIZ | JSON }
+                TYPE { LOGICAL | DISTRIBUTED | VALIDATE | IO }
+    DESCRIBE <table>
+    SHOW COLUMNS FROM <table>
+    SHOW FUNCTIONS
+    SHOW CATALOGS [LIKE <pattern>]
+    SHOW SCHEMAS [FROM <catalog>] [LIKE <pattern>]
+    SHOW TABLES [FROM <schema>] [LIKE <pattern>]
+    USE [<catalog>.]<schema>
+
+You can now run SQL statements. After processing, the CLI will show results and
+statistics.
+
+.. code-block:: text
+
+  trino> SELECT count(*) FROM tpch.tiny.nation;
+
+  _col0
+  -------
+      25
+  (1 row)
+
+  Query 20220324_213359_00007_w6hbk, FINISHED, 1 node
+  Splits: 13 total, 13 done (100.00%)
+  2.92 [25 rows, 0B] [8 rows/s, 0B/s]
+
+As part of starting the CLI, you can set the default catalog and schema. This
+allows you to query tables directly without specifying catalog and schema.
+
+.. code-block:: text
+
+  ./trino --server http://trino.example.com:8080 --catalog tpch --schema tiny
+
+  trino:tiny> SHOW TABLES;
+
+    Table
+  ----------
+  customer
+  lineitem
+  nation
+  orders
+  part
+  partsupp
+  region
+  supplier
+  (8 rows)
+
+You can also set the default catalog and schema with the :doc:`/sql/use`
+statement.
+
+.. code-block:: text
+
+  trino> USE tpch.tiny;
+  USE
+  trino:tiny>
+
+Many other options are available to further configure the CLI in interactive
+mode:
+
+.. list-table::
+  :widths: 40, 60
+  :header-rows: 1
+
+  * - Option
+    - Description
+  * - ``--catalog``
+    - Sets the default catalog. You can change the default catalog and schema
+      with :doc:`/sql/use`.
+  * - ``--client-info``
+    - Adds arbitrary text as extra information about the client.
+  * - ``--client-request-timeout``
+    - Sets the duration for query processing, after which, the client request is
+      terminated. Defaults to ``2m``.
+  * - ``--client-tags``
+    - Adds extra tags information about the client and the CLI user. Separate
+      multiple tags with commas. The tags can be used as input for
+      :doc:`/admin/resource-groups`.
+  * - ``--debug``
+    - Enables display of debug information during CLI usage for
+      :ref:`cli-troubleshooting`. Displays more information about query
+      processing statistics.
+  * - ``--disable-compression``
+    - Disables compression of query results.
+  * - ``--editing-mode``
+    - Sets key bindings in the CLI to be compatible with VI or
+      EMACS editors. Defaults to ``EMACS``.
+  * - ``--http-proxy``
+    - Configures the URL of the HTTP proxy to connect to Trino.
+  * - ``--network-logging``
+    - Configures the level of detail provided for network logging of the CLI.
+      Defaults to ``NONE``, other options are ``BASIC``, ``HEADERS``, or
+      ``BODY``.
+  * - ``--password``
+    - Prompts for a password. Use if your Trino server requires password
+      authentication. You can set the ``TRINO_PASSWORD`` environment variable
+      with the password value to avoid the prompt. For more information, see :ref:`cli-username-password-auth`.
+  * - ``--schema``
+    - Sets the default schema. You can change the default catalog and schema
+      with :doc:`/sql/use`.
+  * - ``--server``
+    - The HTTP/HTTPS address and port of the Trino coordinator. The port must be
+      set to the port the Trino coordinator is listening for connections on.
+      Trino server location defaults to ``http://localhost:8080``.
+  * - ``--session``
+    - Sets one or more :ref:`session properties
+      <session-properties-definition>`. Property can be used multiple times with
+      the format ``session_property_name=value``.
+  * - ``--socks-proxy``
+    - Configures the URL of the SOCKS proxy to connect to Trino.
+  * - ``--source``
+    - Specifies the name of the application or source connecting to Trino.
+      Defaults to ``trino-cli``. The value can be used as input for
+      :doc:`/admin/resource-groups`.
+  * - ``--timezone``
+    - Sets the time zone for the session using the `time zone name
+      <https://en.wikipedia.org/wiki/List_of_tz_database_time_zones>`_. Defaults
+      to the timezone set on your workstation.
+  * - ``--user``
+    - Sets the username for :ref:`cli-username-password-auth`. Defaults to your
+      operating system username. You can override the default username,
+      if your cluster uses a different username or authentication mechanism.
+
+.. _cli-tls:
 
 TLS/HTTPS
 ---------
 
 Trino is typically available with an HTTPS URL. This means that all network
 traffic between the CLI and Trino uses TLS. :doc:`TLS configuration
-</security/tls>` is common, since it is a requirement for any authentication.
+</security/tls>` is common, since it is a requirement for :ref:`any
+authentication <cli-authentication>`.
 
 Use the HTTPS URL to connect to the server:
 
@@ -46,19 +194,40 @@ The recommended TLS implementation is to use a globally trusted certificate. In
 this case, no other options are necessary, since the JVM running the CLI
 recognizes these certificates.
 
-.. list-table:: CLI options for verifying the server certificate
-   :widths: 35 65
-   :header-rows: 1
+Use the options from the following table to further configure TLS and
+certificate usage:
 
-   * - Option
-     - Description
-   * - ``--use-system-truststore``
-     - Verify the server certificate using the system truststore of the operating system.
-       Windows and macOS are supported. For other operating systems, the default Java truststore is used.
-       The truststore type can be overridden using --truststore-type.
+.. list-table::
+  :widths: 40, 60
+  :header-rows: 1
 
-Use ``--help`` to see information about specifying the keystore, truststore, and
-other authentication details as required.
+  * - Option
+    - Description
+  * - ``--insecure``
+    - Skip certificate validation when connecting with TLS/HTTPS (should only be
+      used for debugging).
+  * - ``--keystore-path``
+    - The location of the Java Keystore file that contains the certificate of
+      the server to connect with TLS.
+  * - ``--keystore-password``
+    - The password for the keystore. This must match the password you specified
+      when creating the keystore.
+  * - ``--keystore-type``
+    - Keystore type.
+  * - ``--truststore-password``
+    - The password for the truststore. This must match the password you
+      specified when creating the truststore.
+  * - ``--truststore-path``
+    - The location of the Java truststore file that will be used to secure TLS.
+  * - ``--truststore-type``
+    - Truststore type.
+  * - ``--use-system-truststore``
+    - Verify the server certificate using the system truststore of the
+      operating system. Windows and macOS are supported. For other operating
+      systems, the default Java truststore is used. The truststore type can
+      be overridden using ``--truststore-type``.
+
+.. _cli-authentication:
 
 Authentication
 --------------
@@ -66,26 +235,21 @@ Authentication
 The Trino CLI supports many :doc:`/security/authentication-types` detailed in
 the following sections:
 
+.. _cli-username-password-auth:
+
 Username and password authentication
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Username and password authentication is typically configured in a cluster with
-the ``PASSWORD`` authentication type.
-
-If your Trino server requires password authentication, use the ``--password``
-option to have the CLI prompt for a password. If your cluster uses a different
-username, you can override your username with the ``--user`` option. It defaults
-to your operating system username.
+Username and password authentication is typically configured in a cluster using
+the ``PASSWORD`` :doc:`authentication type </security/authentication-types>`,
+for example with :doc:`/security/ldap` or :doc:`/security/password-file`.
 
 The following code example connects to the server, establishes your user name,
 and prompts the CLI for your password:
 
- .. code-block:: text
+.. code-block:: text
 
   ./trino --server https://trino.example.com --user=myusername --password
-
-You can set the ``TRINO_PASSWORD`` environment variable with the password value
-to avoid the prompt.
 
 .. _cli-external-sso-auth:
 
@@ -145,11 +309,57 @@ JWT authentication
 To access a Trino cluster configured to use :doc:`/security/jwt`, use the
 ``--access-token=<token>`` option to pass a JWT to the server.
 
+.. _cli-kerberos-auth:
+
 Kerberos authentication
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-If your cluster is secured with Kerberos authentication, see
-:doc:`/security/cli`.
+In addition to the options that are required when connecting to an unauthorized
+Trino coordinator, invoking the CLI with Kerberos support enabled requires a
+number of additional command line options. The simplest way to invoke the CLI is
+with a wrapper script.
+
+.. code-block:: text
+
+    #!/bin/bash
+
+    ./trino \
+      --server https://trino-coordinator.example.com:7778 \
+      --krb5-config-path /etc/krb5.conf \
+      --krb5-principal someuser@EXAMPLE.COM \
+      --krb5-keytab-path /home/someuser/someuser.keytab \
+      --krb5-remote-service-name trino \
+      --keystore-path /tmp/trino.jks \
+      --keystore-password password \
+      --catalog <catalog> \
+      --schema <schema>
+
+The following table list the available options for Kerberos authentication:
+
+.. list-table:: CLI options for Kerberos authentication
+  :widths: 40, 60
+  :header-rows: 1
+
+  * - Option
+    - Description
+  * - ``--krb5-config-path``
+    - Path to Kerberos configuration files.
+  * - ``--krb5-credential-cache-path``
+    - Kerberos credential cache path.
+  * - ``--krb5-disable-remote-service-hostname-canonicalization``
+    - Disable service hostname canonicalization using the DNS reverse lookup.
+  * - ``--krb5-keytab-path``
+    - The location of the keytab that can be used to authenticate the principal
+      specified by ``--krb5-principal``.
+  * - ``--krb5-principal``
+    - The principal to use when authenticating to the coordinator.
+  * - ``--krb5-remote-service-name``
+    - Trino coordinator Kerberos service name.
+  * - ``--krb5-service-principal-pattern``
+    - Remote kerberos service principal pattern (default: ${SERVICE}@${HOST})
+
+See :doc:`/security/cli` for more information on configuring and using Kerberos
+with the CLI.
 
 Pagination
 ----------
@@ -170,6 +380,8 @@ press :kbd:`Enter`.
 
 By default, you can locate the Trino history file in ``~/.trino_history``.
 Use the ``TRINO_HISTORY_FILE`` environment variable to change the default.
+
+.. _cli-output-format:
 
 Output Formats
 --------------
@@ -271,6 +483,8 @@ and displays an error message (which is unaffected by the output format):
     Query 20200707_170726_00030_2iup9 failed: line 1:25: Column 'region' cannot be resolved
     SELECT nationkey, name, region FROM tpch.sf1.nation LIMIT 3
 
+.. _cli-troubleshooting:
+
 Troubleshooting
 ---------------
 
@@ -297,4 +511,3 @@ To view debug information, including the stack trace for failures, use the
     ...
     at java.base/java.lang.Thread.run(Thread.java:834)
     select count(*) from tpch.tiny.nations
-
