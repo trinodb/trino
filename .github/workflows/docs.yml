@@ -73,6 +73,8 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0 # checkout all commits, as the build result depends on `git describe` equivalent
       - uses: actions/setup-java@v2
         with:
           distribution: 'zulu'
