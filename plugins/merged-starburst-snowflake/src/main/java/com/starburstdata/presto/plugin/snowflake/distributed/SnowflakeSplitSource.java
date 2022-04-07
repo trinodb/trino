@@ -18,7 +18,6 @@ import com.starburstdata.presto.plugin.snowflake.jdbc.SnowflakeClient;
 import io.airlift.log.Logger;
 import io.airlift.stats.CounterStat;
 import io.airlift.units.Duration;
-import io.trino.plugin.hive.CachingDirectoryLister;
 import io.trino.plugin.hive.HdfsConfig;
 import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.HiveConfig;
@@ -31,6 +30,7 @@ import io.trino.plugin.hive.HiveTableHandle;
 import io.trino.plugin.hive.HiveTransactionHandle;
 import io.trino.plugin.hive.HiveTransactionManager;
 import io.trino.plugin.hive.NamenodeStats;
+import io.trino.plugin.hive.fs.CachingDirectoryLister;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
@@ -328,7 +328,7 @@ public class SnowflakeSplitSource
         HdfsEnvironment hdfsEnvironment = getHdfsEnvironment(hdfsConfig, transferAgent);
         SemiTransactionalHiveMetastore metastore = getSemiTransactionalHiveMetastore(hiveConfig, hdfsEnvironment);
         metastore.beginQuery(session);
-        HiveTransactionManager transactionManager = new HiveTransactionManager(new SnowflakeHiveTransactionalMetadataFactory(metastore));
+        HiveTransactionManager transactionManager = new HiveTransactionManager(new SnowflakeHiveTransactionalMetadataFactory(metastore, directoryLister));
         transactionManager.begin(transactionHandle);
 
         return new HiveSplitManager(
@@ -336,7 +336,6 @@ public class SnowflakeSplitSource
                 new HivePartitionManager(hiveConfig),
                 new NamenodeStats(),
                 hdfsEnvironment,
-                directoryLister,
                 executorService,
                 new CounterStat(),
                 hiveConfig.getMaxOutstandingSplits(),

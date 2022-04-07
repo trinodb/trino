@@ -62,6 +62,7 @@ public abstract class BaseSnowflakeConnectorTest
             case SUPPORTS_COMMENT_ON_TABLE:
             case SUPPORTS_COMMENT_ON_COLUMN:
             case SUPPORTS_ROW_TYPE:
+            case SUPPORTS_ADD_COLUMN_WITH_COMMENT:
                 return false;
             case SUPPORTS_AGGREGATION_PUSHDOWN_STDDEV:
             case SUPPORTS_AGGREGATION_PUSHDOWN_VARIANCE:

@@ -11,6 +11,7 @@ package com.starburstdata.presto.plugin.snowflake.distributed;
 
 import io.trino.plugin.hive.TransactionalMetadata;
 import io.trino.plugin.hive.TransactionalMetadataFactory;
+import io.trino.plugin.hive.fs.DirectoryLister;
 import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.trino.spi.security.ConnectorIdentity;
 
@@ -20,10 +21,12 @@ public class SnowflakeHiveTransactionalMetadataFactory
         implements TransactionalMetadataFactory
 {
     private final SemiTransactionalHiveMetastore metastore;
+    private final DirectoryLister directoryLister;
 
-    public SnowflakeHiveTransactionalMetadataFactory(SemiTransactionalHiveMetastore metastore)
+    public SnowflakeHiveTransactionalMetadataFactory(SemiTransactionalHiveMetastore metastore, DirectoryLister directoryLister)
     {
         this.metastore = requireNonNull(metastore, "metastore is null");
+        this.directoryLister = requireNonNull(directoryLister, "directoryLister is null");
     }
 
     @Override
@@ -35,6 +38,12 @@ public class SnowflakeHiveTransactionalMetadataFactory
             public SemiTransactionalHiveMetastore getMetastore()
             {
                 return metastore;
+            }
+
+            @Override
+            public DirectoryLister getDirectoryLister()
+            {
+                return directoryLister;
             }
 
             @Override
