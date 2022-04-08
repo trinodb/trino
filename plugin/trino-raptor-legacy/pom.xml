@@ -65,16 +65,6 @@
 
         <dependency>
             <groupId>io.airlift</groupId>
-            <artifactId>dbpool</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>discovery</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
             <artifactId>http-client</artifactId>
         </dependency>
 
