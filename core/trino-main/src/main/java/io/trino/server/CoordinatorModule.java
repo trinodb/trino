@@ -62,7 +62,6 @@ import io.trino.execution.resourcegroups.LegacyResourceGroupConfigurationManager
 import io.trino.execution.resourcegroups.ResourceGroupManager;
 import io.trino.execution.scheduler.BinPackingNodeAllocatorService;
 import io.trino.execution.scheduler.ConstantPartitionMemoryEstimator;
-import io.trino.execution.scheduler.ExponentialGrowthPartitionMemoryEstimator;
 import io.trino.execution.scheduler.FallbackToFullNodePartitionMemoryEstimator;
 import io.trino.execution.scheduler.FixedCountNodeAllocatorService;
 import io.trino.execution.scheduler.FullNodeCapableNodeAllocatorService;
@@ -240,8 +239,9 @@ public class CoordinatorModule
                 NodeSchedulerConfig.class,
                 config -> BIN_PACKING == config.getNodeAllocatorType(),
                 innerBinder -> {
-                    innerBinder.bind(NodeAllocatorService.class).to(BinPackingNodeAllocatorService.class).in(Scopes.SINGLETON);
-                    innerBinder.bind(PartitionMemoryEstimatorFactory.class).toInstance(ExponentialGrowthPartitionMemoryEstimator::new);
+                    innerBinder.bind(BinPackingNodeAllocatorService.class).in(Scopes.SINGLETON);
+                    innerBinder.bind(NodeAllocatorService.class).to(BinPackingNodeAllocatorService.class);
+                    innerBinder.bind(PartitionMemoryEstimatorFactory.class).to(BinPackingNodeAllocatorService.class);
                 }));
 
         // node monitor

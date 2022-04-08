@@ -13,12 +13,16 @@
  */
 package io.trino.execution.scheduler;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Ordering;
+import com.google.common.collect.Streams;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.log.Logger;
+import io.airlift.stats.TDigest;
 import io.airlift.units.DataSize;
 import io.trino.Session;
 import io.trino.execution.TaskId;
@@ -28,6 +32,7 @@ import io.trino.memory.MemoryManagerConfig;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.InternalNodeManager;
 import io.trino.metadata.InternalNodeManager.NodesSnapshot;
+import io.trino.spi.ErrorCode;
 import io.trino.spi.TrinoException;
 import io.trino.spi.memory.MemoryPoolInfo;
 import org.assertj.core.util.VisibleForTesting;
@@ -55,6 +60,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -63,6 +69,10 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.trino.SystemSessionProperties.getFaultTolerantExecutionTaskMemoryEstimationQuantile;
+import static io.trino.SystemSessionProperties.getFaultTolerantExecutionTaskMemoryGrowthFactor;
+import static io.trino.spi.StandardErrorCode.CLUSTER_OUT_OF_MEMORY;
+import static io.trino.spi.StandardErrorCode.EXCEEDED_LOCAL_MEMORY_LIMIT;
 import static io.trino.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static java.lang.Math.max;
 import static java.lang.Thread.currentThread;
@@ -71,7 +81,7 @@ import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
 public class BinPackingNodeAllocatorService
-        implements NodeAllocatorService, NodeAllocator
+        implements NodeAllocatorService, NodeAllocator, PartitionMemoryEstimatorFactory
 {
     private static final Logger log = Logger.get(BinPackingNodeAllocatorService.class);
 
@@ -559,6 +569,99 @@ public class BinPackingNodeAllocatorService
             {
                 return node;
             }
+        }
+    }
+
+    @Override
+    public PartitionMemoryEstimator createPartitionMemoryEstimator()
+    {
+        return new ExponentialGrowthPartitionMemoryEstimator();
+    }
+
+    private class ExponentialGrowthPartitionMemoryEstimator
+            implements PartitionMemoryEstimator
+    {
+        private final TDigest memoryUsageDistribution = new TDigest();
+
+        private ExponentialGrowthPartitionMemoryEstimator() {}
+
+        @Override
+        public MemoryRequirements getInitialMemoryRequirements(Session session, DataSize defaultMemoryLimit)
+        {
+            return new MemoryRequirements(
+                    Ordering.natural().max(defaultMemoryLimit, getEstimatedMemoryUsage(session)),
+                    false);
+        }
+
+        @Override
+        public MemoryRequirements getNextRetryMemoryRequirements(Session session, MemoryRequirements previousMemoryRequirements, DataSize peakMemoryUsage, ErrorCode errorCode)
+        {
+            DataSize previousMemory = previousMemoryRequirements.getRequiredMemory();
+
+            // start with the maximum of previously used memory and actual usage
+            DataSize newMemory = Ordering.natural().max(peakMemoryUsage, previousMemory);
+            if (isOutOfMemoryError(errorCode)) {
+                // multiply if we hit an oom error
+                double growthFactor = getFaultTolerantExecutionTaskMemoryGrowthFactor(session);
+                newMemory = DataSize.of((long) (newMemory.toBytes() * growthFactor), DataSize.Unit.BYTE);
+            }
+
+            // if we are still below current estimate for new partition let's bump further
+            newMemory = Ordering.natural().max(newMemory, getEstimatedMemoryUsage(session));
+
+            return new MemoryRequirements(newMemory, false);
+        }
+
+        private boolean isOutOfMemoryError(ErrorCode errorCode)
+        {
+            return EXCEEDED_LOCAL_MEMORY_LIMIT.toErrorCode().equals(errorCode) // too many tasks from single query on a node
+                    || CLUSTER_OUT_OF_MEMORY.toErrorCode().equals(errorCode); // too many tasks in general on a node
+        }
+
+        @Override
+        public synchronized void registerPartitionFinished(Session session, MemoryRequirements previousMemoryRequirements, DataSize peakMemoryUsage, boolean success, Optional<ErrorCode> errorCode)
+        {
+            if (success) {
+                memoryUsageDistribution.add(peakMemoryUsage.toBytes());
+            }
+            if (!success && errorCode.isPresent() && isOutOfMemoryError(errorCode.get())) {
+                double growthFactor = getFaultTolerantExecutionTaskMemoryGrowthFactor(session);
+                // take previousRequiredBytes into account when registering failure on oom. It is conservative hence safer (and in-line with getNextRetryMemoryRequirements)
+                long previousRequiredBytes = previousMemoryRequirements.getRequiredMemory().toBytes();
+                long previousPeakBytes = peakMemoryUsage.toBytes();
+                memoryUsageDistribution.add(Math.max(previousRequiredBytes, previousPeakBytes) * growthFactor);
+            }
+        }
+
+        private synchronized DataSize getEstimatedMemoryUsage(Session session)
+        {
+            double estimationQuantile = getFaultTolerantExecutionTaskMemoryEstimationQuantile(session);
+            double estimation = memoryUsageDistribution.valueAt(estimationQuantile);
+            if (Double.isNaN(estimation)) {
+                return DataSize.ofBytes(0);
+            }
+            return DataSize.ofBytes((long) estimation);
+        }
+
+        private String memoryUsageDistributionInfo()
+        {
+            List<Double> quantiles = ImmutableList.of(0.01, 0.05, 0.1, 0.2, 0.5, 0.8, 0.9, 0.95, 0.99);
+            List<Double> values;
+            synchronized (this) {
+                values = memoryUsageDistribution.valuesAt(quantiles);
+            }
+
+            return Streams.zip(
+                            quantiles.stream(),
+                            values.stream(),
+                            (quantile, value) -> "" + quantile + "=" + value)
+                    .collect(Collectors.joining(", ", "[", "]"));
+        }
+
+        @Override
+        public String toString()
+        {
+            return "memoryUsageDistribution=" + memoryUsageDistributionInfo();
         }
     }
 }
