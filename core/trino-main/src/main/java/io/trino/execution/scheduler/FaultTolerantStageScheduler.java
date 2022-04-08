@@ -39,6 +39,7 @@ import io.trino.failuredetector.FailureDetector;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.Split;
 import io.trino.spi.ErrorCode;
+import io.trino.spi.StandardErrorCode;
 import io.trino.spi.TrinoException;
 import io.trino.spi.exchange.Exchange;
 import io.trino.spi.exchange.ExchangeSinkHandle;
@@ -588,6 +589,13 @@ public class FaultTolerantStageScheduler
                                 // update memory limits for next attempt
                                 MemoryRequirements newMemoryLimits = partitionMemoryEstimator.getNextRetryMemoryRequirements(session, memoryLimits, taskStatus.getPeakMemoryReservation(), errorCode);
                                 log.debug("Computed next memory requirements for task from stage %s; previous=%s; new=%s; peak=%s; estimator=%s", stage.getStageId(), memoryLimits, newMemoryLimits, taskStatus.getPeakMemoryReservation(), partitionMemoryEstimator);
+
+                                if (newMemoryLimits.getRequiredMemory().toBytes() * 0.99 <= taskStatus.getPeakMemoryReservation().toBytes()) {
+                                    ErrorCode finalErrorCode = errorCode != null ? errorCode : StandardErrorCode.CLUSTER_OUT_OF_MEMORY.toErrorCode();
+                                    failure = new TrinoException(() -> finalErrorCode, "Cannot allocate enough memory for task", failureInfo.toException());
+                                    break;
+                                }
+
                                 partitionMemoryRequirements.put(partitionId, newMemoryLimits);
 
                                 // reschedule
