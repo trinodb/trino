@@ -23,8 +23,8 @@ import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.List;
-import java.util.Queue;
 import java.util.concurrent.Executor;
 import java.util.function.Function;
 
@@ -40,7 +40,7 @@ public class AsyncQueue<T>
     private final int targetQueueSize;
 
     @GuardedBy("this")
-    private Queue<T> elements;
+    private Deque<T> elements;
     // This future is completed when the queue transitions from full to not. But it will be replaced by a new instance of future immediately.
     @GuardedBy("this")
     private SettableFuture<Void> notFullSignal = SettableFuture.create();
@@ -99,12 +99,27 @@ public class AsyncQueue<T>
 
     public synchronized ListenableFuture<Void> offer(T element)
     {
+        return offer(element, false);
+    }
+
+    public synchronized ListenableFuture<Void> offerFirst(T element)
+    {
+        return offer(element, true);
+    }
+
+    private synchronized ListenableFuture<Void> offer(T element, boolean first)
+    {
         requireNonNull(element);
 
         if (finishing && borrowerCount == 0) {
             return immediateVoidFuture();
         }
-        elements.add(element);
+        if (first) {
+            elements.addFirst(element);
+        }
+        else {
+            elements.addLast(element);
+        }
         int newSize = elements.size();
         if (newSize == 1) {
             completeAsync(executor, notEmptySignal);

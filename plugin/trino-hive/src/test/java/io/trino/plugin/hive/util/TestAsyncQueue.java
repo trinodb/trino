@@ -68,6 +68,21 @@ public class TestAsyncQueue
     }
 
     @Test(timeOut = 10_000)
+    public void testOfferFirst()
+            throws Exception
+    {
+        AsyncQueue<String> queue = new AsyncQueue<>(4, executor);
+
+        queue.offer("1");
+        queue.offer("2");
+        queue.offerFirst("3");
+        assertEquals(queue.getBatchAsync(100).get(), ImmutableList.of("3", "1", "2"));
+
+        queue.finish();
+        assertTrue(queue.isFinished());
+    }
+
+    @Test(timeOut = 10_000)
     public void testFullQueue()
             throws Exception
     {
