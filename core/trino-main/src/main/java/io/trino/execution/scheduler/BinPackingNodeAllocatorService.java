@@ -96,6 +96,7 @@ public class BinPackingNodeAllocatorService
     private final AtomicBoolean stopped = new AtomicBoolean();
     private final Semaphore processSemaphore = new Semaphore(0);
     private final AtomicReference<Map<String, MemoryPoolInfo>> nodePoolMemoryInfos = new AtomicReference<>(ImmutableMap.of());
+    private final AtomicReference<Optional<DataSize>> maxNodePoolSize = new AtomicReference<>(Optional.empty());
     private final boolean scheduleOnCoordinator;
     private final DataSize taskRuntimeMemoryEstimationOverhead;
 
@@ -170,12 +171,16 @@ public class BinPackingNodeAllocatorService
         ImmutableMap.Builder<String, MemoryPoolInfo> newNodePoolMemoryInfos = ImmutableMap.builder();
 
         Map<String, Optional<MemoryInfo>> workerMemoryInfos = workerMemoryInfoSupplier.get();
+        long maxNodePoolSizeBytes = -1;
         for (Map.Entry<String, Optional<MemoryInfo>> entry : workerMemoryInfos.entrySet()) {
             if (entry.getValue().isEmpty()) {
                 continue;
             }
-            newNodePoolMemoryInfos.put(entry.getKey(), entry.getValue().get().getPool());
+            MemoryPoolInfo poolInfo = entry.getValue().get().getPool();
+            newNodePoolMemoryInfos.put(entry.getKey(), poolInfo);
+            maxNodePoolSizeBytes = Math.max(poolInfo.getMaxBytes(), maxNodePoolSizeBytes);
         }
+        maxNodePoolSize.set(maxNodePoolSizeBytes == -1 ? Optional.empty() : Optional.of(DataSize.ofBytes(maxNodePoolSizeBytes)));
         nodePoolMemoryInfos.set(newNodePoolMemoryInfos.buildOrThrow());
     }
 
@@ -588,8 +593,10 @@ public class BinPackingNodeAllocatorService
         @Override
         public MemoryRequirements getInitialMemoryRequirements(Session session, DataSize defaultMemoryLimit)
         {
+            DataSize memory = Ordering.natural().max(defaultMemoryLimit, getEstimatedMemoryUsage(session));
+            memory = capMemoryToMaxNodeSize(memory);
             return new MemoryRequirements(
-                    Ordering.natural().max(defaultMemoryLimit, getEstimatedMemoryUsage(session)),
+                    memory,
                     false);
         }
 
@@ -609,7 +616,17 @@ public class BinPackingNodeAllocatorService
             // if we are still below current estimate for new partition let's bump further
             newMemory = Ordering.natural().max(newMemory, getEstimatedMemoryUsage(session));
 
+            newMemory = capMemoryToMaxNodeSize(newMemory);
             return new MemoryRequirements(newMemory, false);
+        }
+
+        private DataSize capMemoryToMaxNodeSize(DataSize memory)
+        {
+            Optional<DataSize> currentMaxNodePoolSize = maxNodePoolSize.get();
+            if (currentMaxNodePoolSize.isEmpty()) {
+                return memory;
+            }
+            return Ordering.natural().min(memory, currentMaxNodePoolSize.get());
         }
 
         private boolean isOutOfMemoryError(ErrorCode errorCode)
