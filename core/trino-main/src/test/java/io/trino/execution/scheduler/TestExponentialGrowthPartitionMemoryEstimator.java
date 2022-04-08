@@ -13,15 +13,24 @@
  */
 package io.trino.execution.scheduler;
 
+import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.trino.Session;
+import io.trino.client.NodeVersion;
+import io.trino.connector.CatalogName;
 import io.trino.execution.scheduler.PartitionMemoryEstimator.MemoryRequirements;
+import io.trino.memory.MemoryInfo;
+import io.trino.metadata.InMemoryNodeManager;
+import io.trino.metadata.InternalNode;
 import io.trino.spi.StandardErrorCode;
+import io.trino.spi.memory.MemoryPoolInfo;
 import io.trino.testing.TestingSession;
 import org.testng.annotations.Test;
 
+import java.net.URI;
 import java.util.Optional;
 
+import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.spi.StandardErrorCode.ADMINISTRATIVELY_PREEMPTED;
 import static io.trino.spi.StandardErrorCode.CLUSTER_OUT_OF_MEMORY;
@@ -34,7 +43,16 @@ public class TestExponentialGrowthPartitionMemoryEstimator
     public void testEstimator()
             throws Exception
     {
-        ExponentialGrowthPartitionMemoryEstimator estimator = new ExponentialGrowthPartitionMemoryEstimator();
+        InMemoryNodeManager nodeManager = new InMemoryNodeManager();
+        nodeManager.addNode(new CatalogName("catalog"), new InternalNode("a-node", URI.create("local://blah"), NodeVersion.UNKNOWN, false));
+        BinPackingNodeAllocatorService nodeAllocatorService = new BinPackingNodeAllocatorService(
+                nodeManager,
+                () -> ImmutableMap.of(new InternalNode("a-node", URI.create("local://blah"), NodeVersion.UNKNOWN, false).getNodeIdentifier(), Optional.of(buildWorkerMemoryInfo(DataSize.ofBytes(0)))),
+                false,
+                DataSize.ofBytes(0));
+        nodeAllocatorService.refreshNodePoolMemoryInfos();
+        PartitionMemoryEstimator estimator = nodeAllocatorService.createPartitionMemoryEstimator();
+
         Session session = TestingSession.testSessionBuilder().build();
 
         assertThat(estimator.getInitialMemoryRequirements(session, DataSize.of(107, MEGABYTE)))
@@ -138,5 +156,20 @@ public class TestExponentialGrowthPartitionMemoryEstimator
 
         assertThat(estimator.getInitialMemoryRequirements(session, DataSize.of(100, MEGABYTE)))
                 .isEqualTo(new MemoryRequirements(DataSize.of(900, MEGABYTE), false));
+    }
+
+    private MemoryInfo buildWorkerMemoryInfo(DataSize usedMemory)
+    {
+        return new MemoryInfo(
+                4,
+                new MemoryPoolInfo(
+                        DataSize.of(64, GIGABYTE).toBytes(),
+                        usedMemory.toBytes(),
+                        0,
+                        ImmutableMap.of(),
+                        ImmutableMap.of(),
+                        ImmutableMap.of(),
+                        ImmutableMap.of(),
+                        ImmutableMap.of()));
     }
 }
