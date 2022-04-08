@@ -54,7 +54,7 @@ public class JdkLdapAuthenticatorClient
     private final Optional<SSLContext> sslContext;
 
     @Inject
-    public JdkLdapAuthenticatorClient(LdapConfig ldapConfig)
+    public JdkLdapAuthenticatorClient(LdapClientConfig ldapConfig)
     {
         String ldapUrl = requireNonNull(ldapConfig.getLdapUrl(), "ldapUrl is null");
         if (ldapUrl.startsWith("ldap://")) {

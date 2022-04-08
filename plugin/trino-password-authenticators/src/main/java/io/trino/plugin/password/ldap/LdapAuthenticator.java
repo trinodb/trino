@@ -60,15 +60,15 @@ public class LdapAuthenticator
     private final NonKeyEvictableLoadingCache<Credential, Principal> authenticationCache;
 
     @Inject
-    public LdapAuthenticator(LdapAuthenticatorClient client, LdapConfig ldapConfig)
+    public LdapAuthenticator(LdapAuthenticatorClient client, LdapAuthenticatorConfig ldapAuthenticatorConfig)
     {
         this.client = requireNonNull(client, "client is null");
 
-        this.userBindSearchPatterns = ldapConfig.getUserBindSearchPatterns();
-        this.groupAuthorizationSearchPattern = Optional.ofNullable(ldapConfig.getGroupAuthorizationSearchPattern());
-        this.userBaseDistinguishedName = Optional.ofNullable(ldapConfig.getUserBaseDistinguishedName());
-        this.bindDistinguishedName = Optional.ofNullable(ldapConfig.getBindDistingushedName());
-        this.bindPassword = Optional.ofNullable(ldapConfig.getBindPassword());
+        this.userBindSearchPatterns = ldapAuthenticatorConfig.getUserBindSearchPatterns();
+        this.groupAuthorizationSearchPattern = Optional.ofNullable(ldapAuthenticatorConfig.getGroupAuthorizationSearchPattern());
+        this.userBaseDistinguishedName = Optional.ofNullable(ldapAuthenticatorConfig.getUserBaseDistinguishedName());
+        this.bindDistinguishedName = Optional.ofNullable(ldapAuthenticatorConfig.getBindDistingushedName());
+        this.bindPassword = Optional.ofNullable(ldapAuthenticatorConfig.getBindPassword());
 
         checkArgument(
                 groupAuthorizationSearchPattern.isEmpty() || userBaseDistinguishedName.isPresent(),
@@ -85,7 +85,7 @@ public class LdapAuthenticator
 
         this.authenticationCache = buildNonEvictableCacheWithWeakInvalidateAll(
                 CacheBuilder.newBuilder()
-                        .expireAfterWrite(ldapConfig.getLdapCacheTtl().toMillis(), MILLISECONDS),
+                        .expireAfterWrite(ldapAuthenticatorConfig.getLdapCacheTtl().toMillis(), MILLISECONDS),
                 CacheLoader.from(bindDistinguishedName.isPresent()
                         ? this::authenticateWithBindDistinguishedName
                         : this::authenticateWithUserBind));
