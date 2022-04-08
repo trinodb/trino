@@ -426,6 +426,9 @@ with ORC files performed by the Hive connector.
         accessed by their ordinal position in the Hive table definition. The
         equivalent catalog session property is ``orc_use_column_names``.
       - ``false``
+    * - ``hive.orc.bloom-filters.enabled``
+      - Enable bloom filters for predicate pushdown.
+      - ``false``
 
 Parquet format configuration properties
 ---------------------------------------
