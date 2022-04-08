@@ -45,7 +45,7 @@ public class TestLdapAuthenticator
         closer.register(openLdapServer);
         openLdapServer.start();
 
-        client = new JdkLdapAuthenticatorClient(new LdapConfig()
+        client = new JdkLdapAuthenticatorClient(new LdapClientConfig()
                 .setLdapUrl(openLdapServer.getLdapUrl()));
     }
 
@@ -64,7 +64,7 @@ public class TestLdapAuthenticator
                 DisposableSubContext ignored = openLdapServer.createUser(organization, "alice", "alice-pass")) {
             LdapAuthenticator ldapAuthenticator = new LdapAuthenticator(
                     client,
-                    new LdapConfig()
+                    new LdapAuthenticatorConfig()
                             .setUserBindSearchPatterns("uid=${USER}," + organization.getDistinguishedName()));
 
             assertThatThrownBy(() -> ldapAuthenticator.createAuthenticatedPrincipal("alice", "invalid"))
@@ -88,7 +88,7 @@ public class TestLdapAuthenticator
                 DisposableSubContext ignored2 = openLdapServer.createUser(alternativeOrganization, "alice", "alt-alice-pass")) {
             LdapAuthenticator ldapAuthenticator = new LdapAuthenticator(
                     client,
-                    new LdapConfig()
+                    new LdapAuthenticatorConfig()
                             .setUserBindSearchPatterns(format("uid=${USER},%s:uid=${USER},%s", organization.getDistinguishedName(), alternativeOrganization.getDistinguishedName())));
 
             assertEquals(ldapAuthenticator.createAuthenticatedPrincipal("alice", "alice-pass"), new BasicPrincipal("alice"));
@@ -114,7 +114,7 @@ public class TestLdapAuthenticator
                 DisposableSubContext ignored = openLdapServer.createUser(organization, "bob", "bob-pass")) {
             LdapAuthenticator ldapAuthenticator = new LdapAuthenticator(
                     client,
-                    new LdapConfig()
+                    new LdapAuthenticatorConfig()
                             .setUserBindSearchPatterns("uid=${USER}," + organization.getDistinguishedName())
                             .setUserBaseDistinguishedName(organization.getDistinguishedName())
                             .setGroupAuthorizationSearchPattern(format("(&(objectClass=groupOfNames)(cn=group_*)(member=uid=${USER},%s))", organization.getDistinguishedName())));
@@ -143,7 +143,7 @@ public class TestLdapAuthenticator
         try (DisposableSubContext organization = openLdapServer.createOrganization()) {
             LdapAuthenticator ldapAuthenticator = new LdapAuthenticator(
                     client,
-                    new LdapConfig()
+                    new LdapAuthenticatorConfig()
                             .setUserBaseDistinguishedName(organization.getDistinguishedName())
                             .setGroupAuthorizationSearchPattern("(&(objectClass=inetOrgPerson))")
                             .setBindDistingushedName("cn=admin,dc=trino,dc=testldap,dc=com")
@@ -165,7 +165,7 @@ public class TestLdapAuthenticator
                 DisposableSubContext bob = openLdapServer.createUser(organization, "bob", "bob-pass")) {
             LdapAuthenticator ldapAuthenticator = new LdapAuthenticator(
                     client,
-                    new LdapConfig()
+                    new LdapAuthenticatorConfig()
                             .setUserBaseDistinguishedName(organization.getDistinguishedName())
                             .setGroupAuthorizationSearchPattern(format("(&(objectClass=inetOrgPerson)(memberof=%s))", group.getDistinguishedName()))
                             .setBindDistingushedName("cn=admin,dc=trino,dc=testldap,dc=com")
