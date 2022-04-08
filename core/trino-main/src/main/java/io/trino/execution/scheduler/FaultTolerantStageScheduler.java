@@ -266,6 +266,7 @@ public class FaultTolerantStageScheduler
             TaskDescriptor taskDescriptor = taskDescriptorOptional.get();
 
             MemoryRequirements memoryRequirements = partitionMemoryRequirements.computeIfAbsent(partition, ignored -> partitionMemoryEstimator.getInitialMemoryRequirements(session, taskDescriptor.getNodeRequirements().getMemory()));
+            log.debug("Computed initial memory requirements for task from stage %s; requirements=%s; estimator=%s", stage.getStageId(), memoryRequirements, partitionMemoryEstimator);
             if (nodeLease == null) {
                 NodeRequirements nodeRequirements = taskDescriptor.getNodeRequirements();
                 nodeRequirements = nodeRequirements.withMemory(memoryRequirements.getRequiredMemory());
@@ -553,6 +554,7 @@ public class FaultTolerantStageScheduler
 
                                 // update memory limits for next attempt
                                 MemoryRequirements newMemoryLimits = partitionMemoryEstimator.getNextRetryMemoryRequirements(session, memoryLimits, taskStatus.getPeakMemoryReservation(), errorCode);
+                                log.debug("Computed next memory requirements for task from stage %s; previous=%s; new=%s; peak=%s; estimator=%s", stage.getStageId(), memoryLimits, newMemoryLimits, taskStatus.getPeakMemoryReservation(), partitionMemoryEstimator);
                                 partitionMemoryRequirements.put(partitionId, newMemoryLimits);
 
                                 // reschedule
