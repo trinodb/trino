@@ -15,12 +15,19 @@ package io.trino.plugin.iceberg;
 
 import io.trino.Session;
 import io.trino.operator.RetryPolicy;
+import io.trino.spi.ErrorType;
 import io.trino.testing.BaseFailureRecoveryTest;
 import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Optional;
 
+import static io.trino.execution.FailureInjector.FAILURE_INJECTION_MESSAGE;
+import static io.trino.execution.FailureInjector.InjectedFailureType.TASK_FAILURE;
+import static io.trino.execution.FailureInjector.InjectedFailureType.TASK_GET_RESULTS_REQUEST_FAILURE;
+import static io.trino.execution.FailureInjector.InjectedFailureType.TASK_GET_RESULTS_REQUEST_TIMEOUT;
+import static io.trino.execution.FailureInjector.InjectedFailureType.TASK_MANAGEMENT_REQUEST_FAILURE;
+import static io.trino.execution.FailureInjector.InjectedFailureType.TASK_MANAGEMENT_REQUEST_TIMEOUT;
 import static java.lang.String.format;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
 
@@ -46,20 +53,6 @@ public abstract class BaseIcebergFailureRecoveryTest
     }
 
     @Override
-    public void testDelete()
-    {
-        assertThatThrownBy(super::testDelete)
-                .hasMessageContaining("This connector only supports delete where one or more identity-transformed partitions are deleted entirely");
-    }
-
-    @Override
-    public void testDeleteWithSubquery()
-    {
-        assertThatThrownBy(super::testDelete)
-                .hasMessageContaining("This connector only supports delete where one or more identity-transformed partitions are deleted entirely");
-    }
-
-    @Override
     protected void createPartitionedLineitemTable(String tableName, List<String> columns, String partitionColumn)
     {
         String sql = format(
@@ -68,6 +61,91 @@ public abstract class BaseIcebergFailureRecoveryTest
                 partitionColumn,
                 String.join(",", columns));
         getQueryRunner().execute(sql);
+    }
+
+    // Copied from BaseDeltaFailureRecoveryTest
+    @Override
+    public void testDelete()
+    {
+        // Test method is overriden because method from superclass assumes more complex plan for `DELETE` query.
+        // Assertions do not play well if plan consists of just two fragments.
+
+        Optional<String> setupQuery = Optional.of("CREATE TABLE <table> AS SELECT * FROM orders");
+        Optional<String> cleanupQuery = Optional.of("DROP TABLE <table>");
+        String deleteQuery = "DELETE FROM <table> WHERE orderkey = 1";
+
+        assertThatQuery(deleteQuery)
+                .withSetupQuery(setupQuery)
+                .withCleanupQuery(cleanupQuery)
+                .experiencing(TASK_FAILURE, Optional.of(ErrorType.INTERNAL_ERROR))
+                .at(boundaryCoordinatorStage())
+                .failsAlways(failure -> failure.hasMessageContaining(FAILURE_INJECTION_MESSAGE));
+
+        assertThatQuery(deleteQuery)
+                .withSetupQuery(setupQuery)
+                .withCleanupQuery(cleanupQuery)
+                .experiencing(TASK_FAILURE, Optional.of(ErrorType.INTERNAL_ERROR))
+                .at(rootStage())
+                .failsAlways(failure -> failure.hasMessageContaining(FAILURE_INJECTION_MESSAGE));
+
+        assertThatQuery(deleteQuery)
+                .withSetupQuery(setupQuery)
+                .withCleanupQuery(cleanupQuery)
+                .experiencing(TASK_FAILURE, Optional.of(ErrorType.INTERNAL_ERROR))
+                .at(leafStage())
+                .failsWithoutRetries(failure -> failure.hasMessageContaining(FAILURE_INJECTION_MESSAGE))
+                .finishesSuccessfully();
+
+        // note: this is effectively same as test with `leafStage`. Should it be dropped?
+        assertThatQuery(deleteQuery)
+                .withSetupQuery(setupQuery)
+                .withCleanupQuery(cleanupQuery)
+                .experiencing(TASK_FAILURE, Optional.of(ErrorType.INTERNAL_ERROR))
+                .at(boundaryDistributedStage())
+                .failsWithoutRetries(failure -> failure.hasMessageContaining(FAILURE_INJECTION_MESSAGE))
+                .finishesSuccessfully();
+
+        // DELETE plan is too simplistic for testing with `intermediateDistributedStage`
+        assertThatThrownBy(() ->
+                assertThatQuery(deleteQuery)
+                        .withSetupQuery(setupQuery)
+                        .withCleanupQuery(cleanupQuery)
+                        .experiencing(TASK_FAILURE, Optional.of(ErrorType.INTERNAL_ERROR))
+                        .at(intermediateDistributedStage())
+                        .failsWithoutRetries(failure -> failure.hasMessageContaining(FAILURE_INJECTION_MESSAGE)))
+                .hasMessageContaining("stage not found");
+
+        assertThatQuery(deleteQuery)
+                .withSetupQuery(setupQuery)
+                .withCleanupQuery(cleanupQuery)
+                .experiencing(TASK_MANAGEMENT_REQUEST_FAILURE)
+                .at(boundaryDistributedStage())
+                .failsWithoutRetries(failure -> failure.hasMessageFindingMatch("Error 500 Internal Server Error|Error closing remote buffer, expected 204 got 500"))
+                .finishesSuccessfully();
+
+        assertThatQuery(deleteQuery)
+                .withSetupQuery(setupQuery)
+                .withCleanupQuery(cleanupQuery)
+                .experiencing(TASK_GET_RESULTS_REQUEST_FAILURE)
+                .at(boundaryDistributedStage())
+                .failsWithoutRetries(failure -> failure.hasMessageFindingMatch("Error 500 Internal Server Error|Error closing remote buffer, expected 204 got 500"))
+                .finishesSuccessfully();
+
+        assertThatQuery(deleteQuery)
+                .withSetupQuery(setupQuery)
+                .withCleanupQuery(cleanupQuery)
+                .experiencing(TASK_MANAGEMENT_REQUEST_TIMEOUT)
+                .at(boundaryDistributedStage())
+                .failsWithoutRetries(failure -> failure.hasMessageContaining("Encountered too many errors talking to a worker node"))
+                .finishesSuccessfully();
+
+        assertThatQuery(deleteQuery)
+                .withSetupQuery(setupQuery)
+                .withCleanupQuery(cleanupQuery)
+                .experiencing(TASK_GET_RESULTS_REQUEST_TIMEOUT)
+                .at(boundaryDistributedStage())
+                .failsWithoutRetries(failure -> failure.hasMessageContaining("Encountered too many errors talking to a worker node"))
+                .finishesSuccessfully();
     }
 
     @Override

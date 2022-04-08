@@ -45,6 +45,7 @@ import org.apache.hadoop.mapred.JobConf;
 import org.apache.iceberg.MetricsConfig;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
+import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.io.LocationProvider;
 import org.apache.iceberg.transforms.Transform;
@@ -79,6 +80,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.iceberg.FileContent.DATA;
 
 public class IcebergPageSink
         implements ConnectorPageSink
@@ -312,9 +314,13 @@ public class IcebergPageSink
 
         CommitTaskData task = new CommitTaskData(
                 writeContext.getPath().toString(),
+                fileFormat,
                 writeContext.getWriter().getWrittenBytes(),
                 new MetricsWrapper(writeContext.getWriter().getMetrics()),
-                writeContext.getPartitionData().map(PartitionData::toJson));
+                PartitionSpecParser.toJson(partitionSpec),
+                writeContext.getPartitionData().map(PartitionData::toJson),
+                DATA,
+                Optional.empty());
 
         commitTasks.add(wrappedBuffer(jsonCodec.toJsonBytes(task)));
 
@@ -329,7 +335,7 @@ public class IcebergPageSink
         Path outputPath = partitionData.map(partition -> new Path(locationProvider.newDataLocation(partitionSpec, partition, fileName)))
                 .orElse(new Path(locationProvider.newDataLocation(fileName)));
 
-        IcebergFileWriter writer = fileWriterFactory.createFileWriter(
+        IcebergFileWriter writer = fileWriterFactory.createDataFileWriter(
                 outputPath,
                 outputSchema,
                 jobConf,

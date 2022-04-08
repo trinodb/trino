@@ -16,6 +16,7 @@ package io.trino.plugin.iceberg;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.graph.Traverser;
+import io.airlift.json.JsonCodec;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.orc.OrcColumn;
 import io.trino.orc.OrcCorruptionException;
@@ -51,6 +52,7 @@ import io.trino.plugin.hive.parquet.ParquetPageSource;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.iceberg.IcebergParquetColumnIOConverter.FieldContext;
 import io.trino.plugin.iceberg.delete.DummyFileScanTask;
+import io.trino.plugin.iceberg.delete.IcebergPositionDeletePageSink;
 import io.trino.plugin.iceberg.delete.TrinoDeleteFilter;
 import io.trino.plugin.iceberg.delete.TrinoRow;
 import io.trino.spi.TrinoException;
@@ -79,10 +81,13 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hdfs.BlockMissingException;
 import org.apache.iceberg.FileScanTask;
+import org.apache.iceberg.PartitionSpec;
+import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.SchemaParser;
 import org.apache.iceberg.data.DeleteFilter;
 import org.apache.iceberg.io.FileIO;
+import org.apache.iceberg.io.LocationProvider;
 import org.apache.iceberg.mapping.MappedField;
 import org.apache.iceberg.mapping.MappedFields;
 import org.apache.iceberg.mapping.NameMapping;
@@ -107,6 +112,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -143,6 +149,8 @@ import static io.trino.plugin.iceberg.IcebergSessionProperties.isUseFileSizeFrom
 import static io.trino.plugin.iceberg.IcebergSplitManager.ICEBERG_DOMAIN_COMPACTION_THRESHOLD;
 import static io.trino.plugin.iceberg.IcebergUtil.deserializePartitionValue;
 import static io.trino.plugin.iceberg.IcebergUtil.getColumns;
+import static io.trino.plugin.iceberg.IcebergUtil.getLocationProvider;
+import static io.trino.plugin.iceberg.IcebergUtil.getPartitionKeys;
 import static io.trino.plugin.iceberg.TypeConverter.ICEBERG_BINARY_TYPE;
 import static io.trino.plugin.iceberg.TypeConverter.ORC_ICEBERG_ID_KEY;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -169,6 +177,8 @@ public class IcebergPageSourceProvider
     private final ParquetReaderOptions parquetReaderOptions;
     private final TypeManager typeManager;
     private final FileIoProvider fileIoProvider;
+    private final JsonCodec<CommitTaskData> jsonCodec;
+    private final IcebergFileWriterFactory fileWriterFactory;
 
     @Inject
     public IcebergPageSourceProvider(
@@ -177,7 +187,9 @@ public class IcebergPageSourceProvider
             OrcReaderConfig orcReaderConfig,
             ParquetReaderConfig parquetReaderConfig,
             TypeManager typeManager,
-            FileIoProvider fileIoProvider)
+            FileIoProvider fileIoProvider,
+            JsonCodec<CommitTaskData> jsonCodec,
+            IcebergFileWriterFactory fileWriterFactory)
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.fileFormatDataSourceStats = requireNonNull(fileFormatDataSourceStats, "fileFormatDataSourceStats is null");
@@ -185,6 +197,8 @@ public class IcebergPageSourceProvider
         this.parquetReaderOptions = requireNonNull(parquetReaderConfig, "parquetReaderConfig is null").toParquetReaderOptions();
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.fileIoProvider = requireNonNull(fileIoProvider, "fileIoProvider is null");
+        this.jsonCodec = requireNonNull(jsonCodec, "jsonCodec is null");
+        this.fileWriterFactory = requireNonNull(fileWriterFactory, "fileWriterFactory is null");
     }
 
     @Override
@@ -216,7 +230,13 @@ public class IcebergPageSourceProvider
                         .requiredSchema(),
                 typeManager);
 
-        Map<Integer, Optional<String>> partitionKeys = split.getPartitionKeys();
+        PartitionSpec partitionSpec = PartitionSpecParser.fromJson(tableSchema, split.getPartitionSpecJson());
+        org.apache.iceberg.types.Type[] partitionColumnTypes = partitionSpec.fields().stream()
+                .map(field -> field.transform().getResultType(tableSchema.findType(field.sourceId())))
+                .toArray(org.apache.iceberg.types.Type[]::new);
+        PartitionData partitionData = PartitionData.fromJson(split.getPartitionDataJson(), partitionColumnTypes);
+        Map<Integer, Optional<String>> partitionKeys = getPartitionKeys(partitionData, partitionSpec);
+
         ImmutableList.Builder<IcebergColumnHandle> requiredColumnsBuilder = ImmutableList.builder();
         requiredColumnsBuilder.addAll(icebergColumns);
         deleteFilterRequiredSchema.stream()
@@ -257,12 +277,27 @@ public class IcebergPageSourceProvider
                 requiredColumns,
                 fileIO);
 
+        Optional<PartitionData> partition = partitionSpec.isUnpartitioned() ? Optional.empty() : Optional.of(partitionData);
+        LocationProvider locationProvider = getLocationProvider(table.getSchemaTableName(), table.getTableLocation(), table.getStorageProperties());
+        Supplier<IcebergPositionDeletePageSink> positionDeleteSink = () -> new IcebergPositionDeletePageSink(
+                split.getPath(),
+                partitionSpec,
+                partition,
+                locationProvider,
+                fileWriterFactory,
+                hdfsEnvironment,
+                hdfsContext,
+                jsonCodec,
+                session,
+                split.getFileFormat());
+
         return new IcebergPageSource(
                 icebergColumns,
                 requiredColumns,
                 dataPageSource.get(),
                 projectionsAdapter,
-                Optional.of(deleteFilter).filter(filter -> filter.hasPosDeletes() || filter.hasEqDeletes()));
+                Optional.of(deleteFilter).filter(filter -> filter.hasPosDeletes() || filter.hasEqDeletes()),
+                positionDeleteSink);
     }
 
     private ReaderPageSource createDataPageSource(

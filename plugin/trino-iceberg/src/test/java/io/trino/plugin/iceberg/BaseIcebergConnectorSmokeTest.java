@@ -23,7 +23,6 @@ import org.testng.annotations.Test;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public abstract class BaseIcebergConnectorSmokeTest
         extends BaseConnectorSmokeTest
@@ -53,15 +52,6 @@ public abstract class BaseIcebergConnectorSmokeTest
             default:
                 return super.hasBehavior(connectorBehavior);
         }
-    }
-
-    @Test
-    @Override
-    public void testRowLevelDelete()
-    {
-        // Deletes are covered AbstractTestIcebergConnectorTest
-        assertThatThrownBy(super::testRowLevelDelete)
-                .hasStackTraceContaining("This connector only supports delete where one or more identity-transformed partitions are deleted entirely");
     }
 
     @Test
