@@ -29,6 +29,16 @@ Download :maven_download:`cli`, rename it to ``trino``, make it executable with
 
 Run the CLI with ``--help`` or ``-h`` to see all available options.
 
+Windows users, and users unable to execute the preceeding steps, can use the
+equivalent ``java`` command with the ``-jar`` option to run the CLI, and show
+the version:
+
+.. code-block:: text
+
+    java -jar trino-cli-*-executable.jar --version
+
+The syntax can be used for the examples in the following sections.
+
 Running the CLI
 ---------------
 
