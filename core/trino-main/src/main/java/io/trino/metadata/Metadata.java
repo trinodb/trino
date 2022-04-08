@@ -139,9 +139,9 @@ public interface Metadata
     TableMetadata getTableMetadata(Session session, TableHandle tableHandle);
 
     /**
-     * Return statistics for specified table for given filtering contraint.
+     * Return statistics for specified table.
      */
-    TableStatistics getTableStatistics(Session session, TableHandle tableHandle, Constraint constraint);
+    TableStatistics getTableStatistics(Session session, TableHandle tableHandle);
 
     /**
      * Get the relation names that match the specified table prefix (never null).
