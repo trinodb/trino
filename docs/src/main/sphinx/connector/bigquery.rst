@@ -169,6 +169,35 @@ For each Trino table which maps to BigQuery view there exists a system table whi
 Given a BigQuery view ``customer_view`` you can send query
 ``SELECT * customer_view$view_definition`` to see the SQL which defines view in BigQuery.
 
+.. _bigquery_special_columns:
+
+Special columns
+---------------
+
+In addition to the defined columns, the BigQuery connector exposes
+partition information in a number of hidden columns:
+
+* ``$partition_date``: Equivalent to ``_PARTITIONDATE`` pseudo-column in BigQuery
+
+* ``$partition_time``: Equivalent to ``_PARTITIONTIME`` pseudo-column in BigQuery
+
+You can use these columns in your SQL statements like any other column. They
+can be selected directly, or used in conditional statements. For example, you
+can inspect the partition date and time for each record::
+
+    SELECT *, "$partition_date", "$partition_time"
+    FROM bigquery.web.page_views;
+
+Retrieve all records stored in the partition ``_PARTITIONDATE = '2022-04-07'``::
+
+    SELECT *
+    FROM bigquery.web.page_views
+    WHERE "$partition_date" = date '2022-04-07';
+
+.. note::
+
+  Two special partitions ``__NULL__`` and ``__UNPARTITIONED__`` are not supported.
+
 .. _bigquery-sql-support:
 
 SQL support

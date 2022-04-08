@@ -19,6 +19,8 @@ import com.google.common.collect.ImmutableSet;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
 
+import java.util.Arrays;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.google.cloud.http.BaseHttpServiceException.UNKNOWN_CODE;
@@ -30,8 +32,6 @@ public final class BigQueryUtil
             "HTTP/2 error code: INTERNAL_ERROR",
             "Connection closed with unknown cause",
             "Received unexpected EOS on DATA frame from server");
-
-    private static final Set<String> INVALID_COLUMN_NAMES = ImmutableSet.of("_partitiondate", "_PARTITIONDATE", "_partitiontime", "_PARTITIONTIME");
 
     private BigQueryUtil() {}
 
@@ -56,8 +56,14 @@ public final class BigQueryUtil
         return new BigQueryException(UNKNOWN_CODE, error.getMessage(), error);
     }
 
-    public static boolean validColumnName(String columnName)
+    public static String toBigQueryColumnName(String columnName)
     {
-        return !INVALID_COLUMN_NAMES.contains(columnName);
+        Optional<BigQueryPseudoColumn> pseudoColumn = Arrays.stream(BigQueryPseudoColumn.values())
+                .filter(column -> column.getTrinoColumnName().equals(columnName))
+                .findFirst();
+        if (pseudoColumn.isPresent()) {
+            return pseudoColumn.get().getBigqueryColumnName();
+        }
+        return columnName;
     }
 }
