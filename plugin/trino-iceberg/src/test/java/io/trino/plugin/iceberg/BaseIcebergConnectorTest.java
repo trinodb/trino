@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.iceberg;
 
-import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -30,9 +29,7 @@ import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.Domain;
-import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
-import io.trino.spi.statistics.TableStatistics;
 import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.DataProviders;
 import io.trino.testing.MaterializedResult;
@@ -67,7 +64,6 @@ import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
-import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -1992,42 +1988,6 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
-    public void testStatisticsConstraints()
-    {
-        String tableName = "iceberg.tpch.test_simple_partitioned_table_statistics";
-        assertUpdate("CREATE TABLE iceberg.tpch.test_simple_partitioned_table_statistics (col1 BIGINT, col2 BIGINT) WITH (partitioning = ARRAY['col1'])");
-
-        String insertStart = "INSERT INTO iceberg.tpch.test_simple_partitioned_table_statistics";
-        assertUpdate(insertStart + " VALUES (1, 101), (2, 102), (3, 103), (4, 104)", 4);
-        TableStatistics tableStatistics = getTableStatistics(tableName, new Constraint(TupleDomain.all()));
-        IcebergColumnHandle col1Handle = getColumnHandleFromStatistics(tableStatistics, "col1");
-        IcebergColumnHandle col2Handle = getColumnHandleFromStatistics(tableStatistics, "col2");
-
-        // Constraint.predicate is currently not supported, because it's never provided by the engine.
-        // TODO add (restore) test coverage when this changes.
-
-        // predicate on a partition column
-        assertThatThrownBy(() ->
-                getTableStatistics(tableName, new Constraint(
-                        TupleDomain.all(),
-                        new TestRelationalNumberPredicate("col1", 3, i1 -> i1 >= 0),
-                        Set.of(col1Handle))))
-                .isInstanceOf(VerifyException.class)
-                .hasMessage("Unexpected Constraint predicate");
-
-        // predicate on a non-partition column
-        assertThatThrownBy(() ->
-                getTableStatistics(tableName, new Constraint(
-                        TupleDomain.all(),
-                        new TestRelationalNumberPredicate("col2", 102, i -> i >= 0),
-                        Set.of(col2Handle))))
-                .isInstanceOf(VerifyException.class)
-                .hasMessage("Unexpected Constraint predicate");
-
-        dropTable(tableName);
-    }
-
-    @Test
     public void testPredicatePushdown()
     {
         QualifiedObjectName tableName = new QualifiedObjectName("iceberg", "tpch", "test_predicate");
@@ -2179,63 +2139,6 @@ public abstract class BaseIcebergConnectorTest
                                 .collect(toImmutableMap(entry -> columns.get(entry.getKey()), Map.Entry::getValue))));
             }
         });
-    }
-
-    private static class TestRelationalNumberPredicate
-            implements Predicate<Map<ColumnHandle, NullableValue>>
-    {
-        private final String columnName;
-        private final Number comparand;
-        private final Predicate<Integer> comparePredicate;
-
-        public TestRelationalNumberPredicate(String columnName, Number comparand, Predicate<Integer> comparePredicate)
-        {
-            this.columnName = columnName;
-            this.comparand = comparand;
-            this.comparePredicate = comparePredicate;
-        }
-
-        @Override
-        public boolean test(Map<ColumnHandle, NullableValue> nullableValues)
-        {
-            for (Map.Entry<ColumnHandle, NullableValue> entry : nullableValues.entrySet()) {
-                IcebergColumnHandle handle = (IcebergColumnHandle) entry.getKey();
-                if (columnName.equals(handle.getName())) {
-                    Object object = entry.getValue().getValue();
-                    if (object instanceof Long) {
-                        return comparePredicate.test(((Long) object).compareTo(comparand.longValue()));
-                    }
-                    if (object instanceof Double) {
-                        return comparePredicate.test(((Double) object).compareTo(comparand.doubleValue()));
-                    }
-                    throw new IllegalArgumentException(format("NullableValue is neither Long or Double, but %s", object));
-                }
-            }
-            return false;
-        }
-    }
-
-    private static IcebergColumnHandle getColumnHandleFromStatistics(TableStatistics tableStatistics, String columnName)
-    {
-        for (ColumnHandle columnHandle : tableStatistics.getColumnStatistics().keySet()) {
-            IcebergColumnHandle handle = (IcebergColumnHandle) columnHandle;
-            if (handle.getName().equals(columnName)) {
-                return handle;
-            }
-        }
-        throw new IllegalArgumentException("TableStatistics did not contain column named " + columnName);
-    }
-
-    private TableStatistics getTableStatistics(String tableName, Constraint constraint)
-    {
-        Metadata metadata = getDistributedQueryRunner().getCoordinator().getMetadata();
-        QualifiedObjectName qualifiedName = QualifiedObjectName.valueOf(tableName);
-        return transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getAccessControl())
-                .execute(getSession(), session -> {
-                    Optional<TableHandle> optionalHandle = metadata.getTableHandle(session, qualifiedName);
-                    checkArgument(optionalHandle.isPresent(), "Could not create table handle for table %s", tableName);
-                    return metadata.getTableStatistics(session, optionalHandle.get(), constraint);
-                });
     }
 
     @Test

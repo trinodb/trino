@@ -17,8 +17,6 @@ import io.trino.Session;
 import io.trino.matching.Pattern;
 import io.trino.metadata.Metadata;
 import io.trino.spi.connector.ColumnHandle;
-import io.trino.spi.connector.Constraint;
-import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.statistics.ColumnStatistics;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.type.FixedWidthType;
@@ -63,10 +61,7 @@ public class TableScanStatsRule
             return node.getStatistics();
         }
 
-        // TODO Construct predicate like AddExchanges's LayoutConstraintEvaluator
-        Constraint constraint = new Constraint(TupleDomain.all());
-
-        TableStatistics tableStatistics = metadata.getTableStatistics(session, node.getTable(), constraint);
+        TableStatistics tableStatistics = metadata.getTableStatistics(session, node.getTable());
 
         Map<Symbol, SymbolStatsEstimate> outputSymbolStats = new HashMap<>();
 

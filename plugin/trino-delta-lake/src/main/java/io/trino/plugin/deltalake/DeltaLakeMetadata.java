@@ -521,12 +521,12 @@ public class DeltaLakeMetadata
     }
 
     @Override
-    public TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle, Constraint constraint)
+    public TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         if (!isTableStatisticsEnabled(session)) {
             return TableStatistics.empty();
         }
-        return metastore.getTableStatistics(session, (DeltaLakeTableHandle) tableHandle, constraint);
+        return metastore.getTableStatistics(session, (DeltaLakeTableHandle) tableHandle);
     }
 
     @Override

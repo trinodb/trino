@@ -1157,7 +1157,7 @@ public class IcebergMetadata
     }
 
     @Override
-    public TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle, Constraint constraint)
+    public TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         if (!isStatisticsEnabled(session)) {
             return TableStatistics.empty();
@@ -1165,7 +1165,7 @@ public class IcebergMetadata
 
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
         Table icebergTable = catalog.loadTable(session, handle.getSchemaTableName());
-        return TableStatisticsMaker.getTableStatistics(typeManager, constraint, handle, icebergTable);
+        return TableStatisticsMaker.getTableStatistics(typeManager, handle, icebergTable);
     }
 
     @Override

@@ -266,10 +266,21 @@ public interface ConnectorMetadata
 
     /**
      * Get statistics for table for given filtering constraint.
+     *
+     * @deprecated Use {@link #getTableStatistics(ConnectorSession, ConnectorTableHandle)}
      */
+    @Deprecated
     default TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle, Constraint constraint)
     {
         return TableStatistics.empty();
+    }
+
+    /**
+     * Get statistics for table.
+     */
+    default TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return getTableStatistics(session, tableHandle, Constraint.alwaysTrue());
     }
 
     /**
