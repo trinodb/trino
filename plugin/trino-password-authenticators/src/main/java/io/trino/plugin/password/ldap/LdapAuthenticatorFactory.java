@@ -37,7 +37,8 @@ public class LdapAuthenticatorFactory
     {
         Bootstrap app = new Bootstrap(
                 binder -> {
-                    configBinder(binder).bindConfig(LdapConfig.class);
+                    configBinder(binder).bindConfig(LdapClientConfig.class);
+                    configBinder(binder).bindConfig(LdapAuthenticatorConfig.class);
                     binder.bind(LdapAuthenticator.class).in(Scopes.SINGLETON);
                     binder.bind(LdapAuthenticatorClient.class).to(JdkLdapAuthenticatorClient.class).in(Scopes.SINGLETON);
                 });
