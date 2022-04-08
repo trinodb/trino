@@ -13,13 +13,17 @@
  */
 package io.trino.execution.scheduler;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
+import com.google.common.collect.Streams;
 import io.airlift.stats.TDigest;
 import io.airlift.units.DataSize;
 import io.trino.Session;
 import io.trino.spi.ErrorCode;
 
+import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionTaskMemoryEstimationQuantile;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionTaskMemoryGrowthFactor;
@@ -87,5 +91,26 @@ public class ExponentialGrowthPartitionMemoryEstimator
             return DataSize.ofBytes(0);
         }
         return DataSize.ofBytes((long) estimation);
+    }
+
+    private String memoryUsageDistributionInfo()
+    {
+        List<Double> quantiles = ImmutableList.of(0.01, 0.05, 0.1, 0.2, 0.5, 0.8, 0.9, 0.95, 0.99);
+        List<Double> values;
+        synchronized (this) {
+            values = memoryUsageDistribution.valuesAt(quantiles);
+        }
+
+        return Streams.zip(
+                        quantiles.stream(),
+                        values.stream(),
+                        (quantile, value) -> "" + quantile + "=" + value)
+                .collect(Collectors.joining(", ", "[", "]"));
+    }
+
+    @Override
+    public String toString()
+    {
+        return "memoryUsageDistribution=" + memoryUsageDistributionInfo();
     }
 }
