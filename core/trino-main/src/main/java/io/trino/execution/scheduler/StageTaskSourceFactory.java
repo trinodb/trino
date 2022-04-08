@@ -714,13 +714,13 @@ public class StageTaskSourceFactory
             List<TaskDescriptor> result = new ArrayList<>();
 
             while (true) {
-                boolean includeRemainder = splitSource.isFinished();
+                boolean splitSourceFinished = splitSource.isFinished();
 
                 result.addAll(getReadyTasks(
                         remotelyAccessibleSplitBuffer,
                         ImmutableList.of(),
                         new NodeRequirements(catalogRequirement, ImmutableSet.of(), taskMemory),
-                        includeRemainder));
+                        splitSourceFinished));
                 for (HostAddress remoteHost : locallyAccessibleSplitBuffer.keySet()) {
                     result.addAll(getReadyTasks(
                             locallyAccessibleSplitBuffer.get(remoteHost),
@@ -729,10 +729,10 @@ public class StageTaskSourceFactory
                                     .map(Map.Entry::getValue)
                                     .collect(toImmutableList()),
                             new NodeRequirements(catalogRequirement, ImmutableSet.of(remoteHost), taskMemory),
-                            includeRemainder));
+                            splitSourceFinished));
                 }
 
-                if (!result.isEmpty() || splitSource.isFinished()) {
+                if (!result.isEmpty() || splitSourceFinished) {
                     break;
                 }
 
