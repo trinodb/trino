@@ -86,13 +86,17 @@ import org.apache.iceberg.AppendFiles;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.DataFile;
 import org.apache.iceberg.DataFiles;
+import org.apache.iceberg.FileContent;
+import org.apache.iceberg.FileMetadata;
 import org.apache.iceberg.FileScanTask;
+import org.apache.iceberg.IsolationLevel;
 import org.apache.iceberg.ManifestFile;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.ReachableFileUtil;
 import org.apache.iceberg.RewriteFiles;
+import org.apache.iceberg.RowDelta;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.SchemaParser;
 import org.apache.iceberg.Snapshot;
@@ -139,7 +143,6 @@ import static io.trino.plugin.base.util.Procedures.checkProcedureArgument;
 import static io.trino.plugin.hive.HiveApplyProjectionUtil.extractSupportedProjectedColumns;
 import static io.trino.plugin.hive.HiveApplyProjectionUtil.replaceWithNewVariables;
 import static io.trino.plugin.hive.util.HiveUtil.isStructuralType;
-import static io.trino.plugin.iceberg.ColumnIdentity.primitiveColumnIdentity;
 import static io.trino.plugin.iceberg.ExpressionConverter.toIcebergExpression;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.pathColumnHandle;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.pathColumnMetadata;
@@ -172,15 +175,18 @@ import static io.trino.plugin.iceberg.catalog.hms.TrinoHiveCatalog.DEPENDS_ON_TA
 import static io.trino.plugin.iceberg.procedure.IcebergTableProcedureId.DELETE_ORPHAN_FILES;
 import static io.trino.plugin.iceberg.procedure.IcebergTableProcedureId.EXPIRE_SNAPSHOTS;
 import static io.trino.plugin.iceberg.procedure.IcebergTableProcedureId.OPTIMIZE;
+import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
-import static io.trino.spi.type.BigintType.BIGINT;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.joining;
+import static org.apache.iceberg.MetadataColumns.ROW_POSITION;
 import static org.apache.iceberg.ReachableFileUtil.metadataFileLocations;
 import static org.apache.iceberg.ReachableFileUtil.versionHintLocation;
+import static org.apache.iceberg.TableProperties.DELETE_ISOLATION_LEVEL;
+import static org.apache.iceberg.TableProperties.DELETE_ISOLATION_LEVEL_DEFAULT;
 import static org.apache.iceberg.TableProperties.WRITE_LOCATION_PROVIDER_IMPL;
 
 public class IcebergMetadata
@@ -240,26 +246,31 @@ public class IcebergMetadata
             return null;
         }
 
-        Table table;
+        BaseTable table;
         try {
-            table = catalog.loadTable(session, new SchemaTableName(tableName.getSchemaName(), name.getTableName()));
+            table = (BaseTable) catalog.loadTable(session, new SchemaTableName(tableName.getSchemaName(), name.getTableName()));
         }
         catch (TableNotFoundException e) {
             return null;
         }
         Optional<Long> snapshotId = getSnapshotId(table, name.getSnapshotId());
 
-        String nameMappingJson = table.properties().get(TableProperties.DEFAULT_NAME_MAPPING);
+        Map<String, String> tableProperties = table.properties();
+        String nameMappingJson = tableProperties.get(TableProperties.DEFAULT_NAME_MAPPING);
         return new IcebergTableHandle(
                 tableName.getSchemaName(),
                 name.getTableName(),
                 name.getTableType(),
                 snapshotId,
                 SchemaParser.toJson(table.schema()),
+                table.operations().current().formatVersion(),
                 TupleDomain.all(),
                 TupleDomain.all(),
                 ImmutableSet.of(),
-                Optional.ofNullable(nameMappingJson));
+                Optional.ofNullable(nameMappingJson),
+                table.location(),
+                table.properties(),
+                NO_RETRIES);
     }
 
     @Override
@@ -712,12 +723,6 @@ public class IcebergMetadata
         Matcher matcher = PATH_PATTERN.matcher(path);
         verify(matcher.matches(), "path %s does not match pattern", path);
         return matcher.group(1);
-    }
-
-    @Override
-    public ColumnHandle getDeleteRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
-    {
-        return new IcebergColumnHandle(primitiveColumnIdentity(0, "$row_id"), BIGINT, ImmutableList.of(), BIGINT, Optional.empty());
     }
 
     @Override
@@ -1208,9 +1213,83 @@ public class IcebergMetadata
     }
 
     @Override
-    public ConnectorTableHandle beginDelete(ConnectorSession session, ConnectorTableHandle tableHandle)
+    public ConnectorTableHandle beginDelete(ConnectorSession session, ConnectorTableHandle tableHandle, RetryMode retryMode)
     {
-        throw new TrinoException(NOT_SUPPORTED, "This connector only supports delete where one or more identity-transformed partitions are deleted entirely");
+        IcebergTableHandle table = (IcebergTableHandle) tableHandle;
+        if (table.getFormatVersion() < 2) {
+            throw new TrinoException(NOT_SUPPORTED, "Iceberg table updates require at least format version 2");
+        }
+        verify(transaction == null, "transaction already set");
+        transaction = catalog.loadTable(session, table.getSchemaTableName()).newTransaction();
+        return table.withRetryMode(retryMode);
+    }
+
+    @Override
+    public void finishDelete(ConnectorSession session, ConnectorTableHandle tableHandle, Collection<Slice> fragments)
+    {
+        IcebergTableHandle table = (IcebergTableHandle) tableHandle;
+        Table icebergTable = transaction.table();
+
+        List<CommitTaskData> commitTasks = fragments.stream()
+                .map(slice -> commitTaskCodec.fromJson(slice.getBytes()))
+                .collect(toImmutableList());
+
+        Schema schema = SchemaParser.fromJson(table.getTableSchemaJson());
+
+        RowDelta rowDelta = transaction.newRowDelta();
+        table.getSnapshotId().map(icebergTable::snapshot).ifPresent(s -> rowDelta.validateFromSnapshot(s.snapshotId()));
+        if (!table.getEnforcedPredicate().isAll()) {
+            rowDelta.conflictDetectionFilter(toIcebergExpression(table.getEnforcedPredicate()));
+        }
+
+        IsolationLevel isolationLevel = IsolationLevel.fromName(icebergTable.properties().getOrDefault(DELETE_ISOLATION_LEVEL, DELETE_ISOLATION_LEVEL_DEFAULT));
+        if (isolationLevel == IsolationLevel.SERIALIZABLE) {
+            rowDelta.validateNoConflictingDataFiles();
+        }
+
+        ImmutableSet.Builder<String> writtenFiles = ImmutableSet.builder();
+        ImmutableSet.Builder<String> referencedDataFiles = ImmutableSet.builder();
+        for (CommitTaskData task : commitTasks) {
+            if (task.getContent() != FileContent.POSITION_DELETES) {
+                throw new TrinoException(GENERIC_INTERNAL_ERROR, "Iceberg finishDelete called with commit task that was not a position delete file");
+            }
+            PartitionSpec partitionSpec = PartitionSpecParser.fromJson(schema, task.getPartitionSpecJson());
+            Type[] partitionColumnTypes = partitionSpec.fields().stream()
+                    .map(field -> field.transform().getResultType(icebergTable.schema().findType(field.sourceId())))
+                    .toArray(Type[]::new);
+            FileMetadata.Builder deleteBuilder = FileMetadata.deleteFileBuilder(partitionSpec)
+                    .withPath(task.getPath())
+                    .withFormat(task.getFileFormat().toIceberg())
+                    .ofPositionDeletes()
+                    .withFileSizeInBytes(task.getFileSizeInBytes())
+                    .withMetrics(task.getMetrics().metrics());
+
+            if (!partitionSpec.fields().isEmpty()) {
+                String partitionDataJson = task.getPartitionDataJson()
+                        .orElseThrow(() -> new VerifyException("No partition data for partitioned table"));
+                deleteBuilder.withPartition(PartitionData.fromJson(partitionDataJson, partitionColumnTypes));
+            }
+
+            rowDelta.addDeletes(deleteBuilder.build());
+            writtenFiles.add(task.getPath());
+            task.getReferencedDataFile().ifPresent(referencedDataFiles::add);
+        }
+
+        // try to leave as little garbage as possible behind
+        if (table.getRetryMode() != NO_RETRIES) {
+            cleanExtraOutputFiles(session, writtenFiles.build());
+        }
+
+        rowDelta.validateDataFilesExist(referencedDataFiles.build());
+        rowDelta.commit();
+        transaction.commitTransaction();
+        transaction = null;
+    }
+
+    @Override
+    public ColumnHandle getDeleteRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return IcebergUtil.getColumnHandle(ROW_POSITION, typeManager);
     }
 
     @Override
@@ -1266,7 +1345,7 @@ public class IcebergMetadata
                 .deleteFromRowFilter(toIcebergExpression(handle.getEnforcedPredicate()))
                 .commit();
 
-        // TODO: it should be possible to return number of deleted records
+        // TODO: it should be possible to return number of deleted records. https://github.com/trinodb/trino/issues/12055
         return OptionalLong.empty();
     }
 
@@ -1313,10 +1392,14 @@ public class IcebergMetadata
                         table.getTableType(),
                         table.getSnapshotId(),
                         table.getTableSchemaJson(),
+                        table.getFormatVersion(),
                         newUnenforcedConstraint,
                         newEnforcedConstraint,
                         table.getProjectedColumns(),
-                        table.getNameMappingJson()),
+                        table.getNameMappingJson(),
+                        table.getTableLocation(),
+                        table.getStorageProperties(),
+                        table.getRetryMode()),
                 remainingConstraint.transformKeys(ColumnHandle.class::cast),
                 false));
     }

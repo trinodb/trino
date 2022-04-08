@@ -39,6 +39,7 @@ import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.CombinedScanTask;
 import org.apache.iceberg.DataFile;
 import org.apache.iceberg.FileScanTask;
+import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.TableScan;
 import org.apache.iceberg.expressions.Expression;
@@ -188,7 +189,9 @@ public class IcebergSplitSource
             IcebergSplit icebergSplit = toIcebergSplit(scanTask);
 
             Schema fileSchema = scanTask.spec().schema();
-            Set<IcebergColumnHandle> identityPartitionColumns = icebergSplit.getPartitionKeys().keySet().stream()
+            Map<Integer, Optional<String>> partitionKeys = getPartitionKeys(scanTask);
+
+            Set<IcebergColumnHandle> identityPartitionColumns = partitionKeys.keySet().stream()
                     .map(fieldId -> getColumnHandle(fileSchema.findField(fieldId), typeManager))
                     .collect(toImmutableSet());
 
@@ -197,7 +200,7 @@ public class IcebergSplitSource
                 for (IcebergColumnHandle partitionColumn : identityPartitionColumns) {
                     Object partitionValue = deserializePartitionValue(
                             partitionColumn.getType(),
-                            icebergSplit.getPartitionKeys().get(partitionColumn.getId()).orElse(null),
+                            partitionKeys.get(partitionColumn.getId()).orElse(null),
                             partitionColumn.getName());
                     NullableValue bindingValue = new NullableValue(partitionColumn.getType(), partitionValue);
                     bindings.put(partitionColumn, bindingValue);
@@ -382,7 +385,8 @@ public class IcebergSplitSource
                 task.file().fileSizeInBytes(),
                 IcebergFileFormat.fromIceberg(task.file().format()),
                 ImmutableList.of(),
-                getPartitionKeys(task),
+                PartitionSpecParser.toJson(task.spec()),
+                PartitionData.toJson(task.file().partition()),
                 task.deletes().stream()
                         .map(TrinoDeleteFile::copyOf)
                         .collect(toImmutableList()));
