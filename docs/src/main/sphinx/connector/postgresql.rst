@@ -207,10 +207,38 @@ statements, the connector supports the following features:
 
 .. include:: alter-schema-limitation.fragment
 
+
+Performance
+-----------
+
+The connector includes a number of performance improvements, detailed in the
+following sections.
+
+.. _postgresql-table-statistics:
+
+Table statistics
+^^^^^^^^^^^^^^^^
+
+The PostgreSQL connector can use :doc:`table and column statistics
+</optimizer/statistics>` for :doc:`cost based optimizations
+</optimizer/cost-based-optimizations>`, to improve query processing performance
+based on the actual data in the data source.
+
+The statistics are collected by PostgreSQL and retrieved by the connector.
+
+To collect statistics for a table, execute the following statement in
+PostgreSQL.
+
+.. code-block:: text
+
+    ANALYZE table_schema.table_name;
+
+Refer to PostgreSQL documentation for additional ``ANALYZE`` options.
+
 .. _postgresql-pushdown:
 
 Pushdown
---------
+^^^^^^^^
 
 The connector supports pushdown for a number of operations:
 
