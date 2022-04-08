@@ -56,6 +56,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.bigquery.BigQueryType.toTrinoTimestamp;
+import static io.trino.plugin.bigquery.BigQueryUtil.toBigQueryColumnName;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
@@ -141,7 +142,7 @@ public class BigQueryResultPageSource
             pageBuilder.declarePosition();
             for (int column = 0; column < columnTypes.size(); column++) {
                 BlockBuilder output = pageBuilder.getBlockBuilder(column);
-                appendTo(columnTypes.get(column), record.get(columnNames.get(column)), output);
+                appendTo(columnTypes.get(column), record.get(toBigQueryColumnName(columnNames.get(column))), output);
             }
         }
 
