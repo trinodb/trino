@@ -72,6 +72,12 @@ public class TestHiveFileMetastore
     }
 
     @Override
+    public void testBucketedTableEvolutionWithDifferentReadBucketCount()
+    {
+        // FileHiveMetastore only supports replaceTable() for views
+    }
+
+    @Override
     public void testTransactionDeleteInsert()
     {
         // FileHiveMetastore has various incompatibilities

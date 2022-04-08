@@ -438,14 +438,14 @@ public class BackgroundHiveSplitLoader
         if (partition.getPartition().isPresent()) {
             Optional<HiveBucketProperty> partitionBucketProperty = partition.getPartition().get().getStorage().getBucketProperty();
             if (tableBucketInfo.isPresent() && partitionBucketProperty.isPresent()) {
-                int readBucketCount = tableBucketInfo.get().getReadBucketCount();
+                int tableBucketCount = tableBucketInfo.get().getTableBucketCount();
                 BucketingVersion bucketingVersion = partitionBucketProperty.get().getBucketingVersion(); // TODO can partition's bucketing_version be different from table's?
                 int partitionBucketCount = partitionBucketProperty.get().getBucketCount();
                 // Validation was done in HiveSplitManager#getPartitionMetadata.
                 // Here, it's just trying to see if its needs the BucketConversion.
-                if (readBucketCount != partitionBucketCount) {
-                    bucketConversion = Optional.of(new BucketConversion(bucketingVersion, readBucketCount, partitionBucketCount, tableBucketInfo.get().getBucketColumns()));
-                    if (readBucketCount > partitionBucketCount) {
+                if (tableBucketCount != partitionBucketCount) {
+                    bucketConversion = Optional.of(new BucketConversion(bucketingVersion, tableBucketCount, partitionBucketCount, tableBucketInfo.get().getBucketColumns()));
+                    if (tableBucketCount > partitionBucketCount) {
                         bucketConversionRequiresWorkerParticipation = true;
                     }
                 }
@@ -721,7 +721,7 @@ public class BackgroundHiveSplitLoader
                 transaction,
                 maxSplitFileSize);
         return Optional.of(locatedFileStatuses.stream()
-                .map(locatedFileStatus -> splitFactory.createInternalHiveSplit(locatedFileStatus, OptionalInt.empty(), splittable, Optional.empty()))
+                .map(locatedFileStatus -> splitFactory.createInternalHiveSplit(locatedFileStatus, OptionalInt.empty(), OptionalInt.empty(), splittable, Optional.empty()))
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .iterator());
@@ -742,6 +742,7 @@ public class BackgroundHiveSplitLoader
                             : Optional.empty();
                     return splitFactory.createInternalHiveSplit(
                             (LocatedFileStatus) fileStatus,
+                            OptionalInt.empty(),
                             OptionalInt.empty(),
                             splittable,
                             acidInfo);
@@ -778,7 +779,7 @@ public class BackgroundHiveSplitLoader
     private Iterator<InternalHiveSplit> createInternalHiveSplitIterator(Path path, FileSystem fileSystem, InternalHiveSplitFactory splitFactory, boolean splittable, Optional<AcidInfo> acidInfo)
     {
         return Streams.stream(new HiveFileIterator(table, path, fileSystem, directoryLister, namenodeStats, recursiveDirWalkerEnabled ? RECURSE : IGNORED, ignoreAbsentPartitions))
-                .map(status -> splitFactory.createInternalHiveSplit(status, OptionalInt.empty(), splittable, acidInfo))
+                .map(status -> splitFactory.createInternalHiveSplit(status, OptionalInt.empty(), OptionalInt.empty(), splittable, acidInfo))
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .iterator();
@@ -796,6 +797,8 @@ public class BackgroundHiveSplitLoader
         int tableBucketCount = bucketSplitInfo.getTableBucketCount();
         int partitionBucketCount = bucketConversion.map(BucketConversion::getPartitionBucketCount).orElse(tableBucketCount);
         int bucketCount = max(readBucketCount, partitionBucketCount);
+
+        checkState(readBucketCount <= tableBucketCount, "readBucketCount(%s) should be less than or equal to tableBucketCount(%s)", readBucketCount, tableBucketCount);
 
         // build mapping of file name to bucket
         ListMultimap<Integer, LocatedFileStatus> bucketFiles = ArrayListMultimap.create();
@@ -840,19 +843,19 @@ public class BackgroundHiveSplitLoader
             // Logical bucket #. Each logical bucket corresponds to a "bucket" from engine's perspective.
             int readBucketNumber = bucketNumber % readBucketCount;
 
-            boolean containsEligibleTableBucket = false;
             boolean containsIneligibleTableBucket = false;
+            List<Integer> eligibleTableBucketNumbers = new ArrayList<>();
             for (int tableBucketNumber = bucketNumber % tableBucketCount; tableBucketNumber < tableBucketCount; tableBucketNumber += bucketCount) {
                 // table bucket number: this is used for evaluating "$bucket" filters.
                 if (bucketSplitInfo.isTableBucketEnabled(tableBucketNumber)) {
-                    containsEligibleTableBucket = true;
+                    eligibleTableBucketNumbers.add(tableBucketNumber);
                 }
                 else {
                     containsIneligibleTableBucket = true;
                 }
             }
 
-            if (containsEligibleTableBucket && containsIneligibleTableBucket) {
+            if (!eligibleTableBucketNumbers.isEmpty() && containsIneligibleTableBucket) {
                 throw new TrinoException(
                         NOT_SUPPORTED,
                         "The bucket filter cannot be satisfied. There are restrictions on the bucket filter when all the following is true: " +
@@ -862,12 +865,13 @@ public class BackgroundHiveSplitLoader
                                 "(table name: " + table.getTableName() + ", table bucket count: " + tableBucketCount + ", " +
                                 "partition bucket count: " + partitionBucketCount + ", effective reading bucket count: " + readBucketCount + ")");
             }
-            if (containsEligibleTableBucket) {
+            if (!eligibleTableBucketNumbers.isEmpty()) {
                 for (LocatedFileStatus file : bucketFiles.get(partitionBucketNumber)) {
                     // OrcDeletedRows will load only delete delta files matching current bucket id,
                     // so we can pass all delete delta locations here, without filtering.
-                    splitFactory.createInternalHiveSplit(file, OptionalInt.of(readBucketNumber), splittable, acidInfo)
-                            .ifPresent(splitList::add);
+                    eligibleTableBucketNumbers.stream()
+                            .map(tableBucketNumber -> splitFactory.createInternalHiveSplit(file, OptionalInt.of(readBucketNumber), OptionalInt.of(tableBucketNumber), splittable, acidInfo))
+                            .forEach(optionalSplit -> optionalSplit.ifPresent(splitList::add));
                 }
             }
         }
@@ -990,11 +994,6 @@ public class BackgroundHiveSplitLoader
             BucketingVersion bucketingVersion = bucketHandle.get().getBucketingVersion();
             int tableBucketCount = bucketHandle.get().getTableBucketCount();
             int readBucketCount = bucketHandle.get().getReadBucketCount();
-
-            if (tableBucketCount != readBucketCount && bucketFilter.isPresent()) {
-                // TODO: remove when supported
-                throw new TrinoException(NOT_SUPPORTED, "Filter on \"$bucket\" is not supported when the table has partitions with different bucket counts");
-            }
 
             List<HiveColumnHandle> bucketColumns = bucketHandle.get().getColumns();
             IntPredicate predicate = bucketFilter
