@@ -219,6 +219,14 @@ public class HiveSplitManager
         // sort partitions
         partitions = Ordering.natural().onResultOf(HivePartition::getPartitionId).reverse().sortedCopy(partitions);
 
+        if (bucketHandle.isPresent()) {
+            if (bucketHandle.get().getReadBucketCount() > bucketHandle.get().getTableBucketCount()) {
+                throw new TrinoException(
+                        GENERIC_INTERNAL_ERROR,
+                        "readBucketCount (%s) is greater than the tableBucketCount (%s) which generally points to an issue in plan generation");
+            }
+        }
+
         Iterable<HivePartitionMetadata> hivePartitions = getPartitionMetadata(session, metastore, table, tableName, partitions, bucketHandle.map(HiveBucketHandle::toTableBucketProperty));
 
         // Only one thread per partition is usable when a table is not transactional
