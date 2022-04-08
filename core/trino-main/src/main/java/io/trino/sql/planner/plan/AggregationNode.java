@@ -50,8 +50,9 @@ public class AggregationNode
 {
     private final PlanNode source;
     private final Map<Symbol, Aggregation> aggregations;
-    // defines symbol for a column that selects which input should be used by final aggregation step.
-    // If the block is null at position 0, the aggregated input should be used,
+    // defines symbol for a column that selects which input should be used by final or intermediate aggregation step.
+    // If empty, partial aggregation adaptation is disabled and intermediate state should be used always.
+    // If the block is null at given position, the aggregated (intermediate) input should be used,
     // otherwise raw input should be used (this happens when partial aggregation is disabled).
     private final Optional<Symbol> useRawInputSymbol;
     private final GroupingSetDescriptor groupingSets;

@@ -50,7 +50,6 @@ public class BenchmarkAggregationFunction
                 intermediateType,
                 finalType,
                 inputChannels,
-                -1, // TODO lysy:
                 OptionalInt.empty(), // TODO lysy:
                 OptionalInt.empty(),
                 true,

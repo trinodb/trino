@@ -3665,23 +3665,12 @@ public class LocalExecutionPlanner
                     .collect(toImmutableList());
             List<Supplier<Object>> lambdaProviders = makeLambdaProviders(lambdaExpressions, aggregationMetadata.getLambdaInterfaces(), functionTypes);
 
-            List<Integer> newArgumentChannels;
-            int intermediateStateChannel;
-            if (step.isInputRaw()) {
-                intermediateStateChannel = -1;
-                newArgumentChannels = argumentChannels;
-            }
-            else {
-                intermediateStateChannel = argumentChannels.get(0);
-                newArgumentChannels = argumentChannels.subList(1, argumentChannels.size());
-            }
             return new AggregatorFactory(
                     accumulatorFactory,
                     step,
                     intermediateType,
                     finalType,
-                    newArgumentChannels,
-                    intermediateStateChannel,
+                    argumentChannels,
                     useRawInputChannel,
                     maskChannel,
                     !aggregation.isDistinct() && aggregation.getOrderingScheme().isEmpty(),

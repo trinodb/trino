@@ -113,7 +113,6 @@ public class TestingAggregationFunction
                 intermediateType,
                 finalType,
                 inputChannels,
-                -1,
                 OptionalInt.empty(), // TODO lysy:
                 maskChannel,
                 true,

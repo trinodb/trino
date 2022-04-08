@@ -150,15 +150,15 @@ public class SkipAggregationBuilder
         for (int i = 0; i < aggregationInputChannels.length; i++, blockOffset++) {
             outputBlocks[blockOffset] = page.getBlock(aggregationInputChannels[i]);
         }
-        outputBlocks[blockOffset] = trueRle(page.getPositionCount());
+        outputBlocks[blockOffset] = booleanRle(true, page.getPositionCount());
         Page outputPage = new Page(page.getPositionCount(), outputBlocks);
         return outputPage;
     }
 
-    public static RunLengthEncodedBlock trueRle(int positionCount)
+    public static RunLengthEncodedBlock booleanRle(boolean value, int positionCount)
     {
         BlockBuilder valueBuilder = BOOLEAN.createBlockBuilder(null, 1);
-        BOOLEAN.writeBoolean(valueBuilder, true);
+        BOOLEAN.writeBoolean(valueBuilder, value);
         return new RunLengthEncodedBlock(valueBuilder.build(), positionCount);
     }
 }

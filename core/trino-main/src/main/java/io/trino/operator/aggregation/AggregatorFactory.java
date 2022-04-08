@@ -43,7 +43,6 @@ public class AggregatorFactory
             Type intermediateType,
             Type finalType,
             List<Integer> inputChannels,
-            int intermediateStateChannel,
             OptionalInt useRawInputChannel,
             OptionalInt maskChannel,
             boolean spillable,
@@ -53,8 +52,15 @@ public class AggregatorFactory
         this.step = requireNonNull(step, "step is null");
         this.intermediateType = requireNonNull(intermediateType, "intermediateType is null");
         this.finalType = requireNonNull(finalType, "finalType is null");
-        this.inputChannels = ImmutableList.copyOf(requireNonNull(inputChannels, "inputChannels is null"));
-        this.intermediateStateChannel = intermediateStateChannel;
+        requireNonNull(inputChannels, "inputChannels is null");
+        if (step.isInputRaw()) {
+            intermediateStateChannel = -1;
+            this.inputChannels = ImmutableList.copyOf(inputChannels);
+        }
+        else {
+            intermediateStateChannel = inputChannels.get(0);
+            this.inputChannels = ImmutableList.copyOf(inputChannels.subList(1, inputChannels.size()));
+        }
         this.useRawInputChannel = requireNonNull(useRawInputChannel, "useRawInputChannel is null");
         this.maskChannel = requireNonNull(maskChannel, "maskChannel is null");
         this.spillable = spillable;
