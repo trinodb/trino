@@ -73,6 +73,7 @@ public final class IcebergSessionProperties
     private static final String STATISTICS_ENABLED = "statistics_enabled";
     private static final String PROJECTION_PUSHDOWN_ENABLED = "projection_pushdown_enabled";
     private static final String TARGET_MAX_FILE_SIZE = "target_max_file_size";
+    private static final String MAX_SPLIT_SIZE = "max_split_size";
     private static final String HIVE_CATALOG_NAME = "hive_catalog_name";
 
     private final List<PropertyMetadata<?>> sessionProperties;
@@ -222,6 +223,11 @@ public final class IcebergSessionProperties
                         "Target maximum size of written files; the actual size may be larger",
                         hiveConfig.getTargetMaxFileSize(),
                         false))
+                .add(dataSizeProperty(
+                        MAX_SPLIT_SIZE,
+                        "Max split size",
+                        hiveConfig.getMaxSplitSize(),
+                        true))
                 .add(stringProperty(
                         HIVE_CATALOG_NAME,
                         "Catalog to redirect to when a Hive table is referenced",
@@ -368,6 +374,11 @@ public final class IcebergSessionProperties
     public static long getTargetMaxFileSize(ConnectorSession session)
     {
         return session.getProperty(TARGET_MAX_FILE_SIZE, DataSize.class).toBytes();
+    }
+
+    public static long getMaxSplitSize(ConnectorSession session)
+    {
+        return session.getProperty(MAX_SPLIT_SIZE, DataSize.class).toBytes();
     }
 
     public static Optional<String> getHiveCatalogName(ConnectorSession session)

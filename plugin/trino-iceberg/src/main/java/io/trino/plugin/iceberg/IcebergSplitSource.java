@@ -24,6 +24,7 @@ import io.airlift.units.Duration;
 import io.trino.plugin.iceberg.delete.TrinoDeleteFile;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPartitionHandle;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.Constraint;
@@ -38,6 +39,7 @@ import org.apache.iceberg.CombinedScanTask;
 import org.apache.iceberg.DataFile;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.Schema;
+import org.apache.iceberg.TableProperties;
 import org.apache.iceberg.TableScan;
 import org.apache.iceberg.expressions.Expression;
 import org.apache.iceberg.io.CloseableIterable;
@@ -66,6 +68,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.intersection;
 import static io.trino.plugin.iceberg.ExpressionConverter.toIcebergExpression;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.getMaxSplitSize;
 import static io.trino.plugin.iceberg.IcebergSplitManager.ICEBERG_DOMAIN_COMPACTION_THRESHOLD;
 import static io.trino.plugin.iceberg.IcebergTypes.convertIcebergValueToTrino;
 import static io.trino.plugin.iceberg.IcebergUtil.deserializePartitionValue;
@@ -93,6 +96,7 @@ public class IcebergSplitSource
     private final Stopwatch dynamicFilterWaitStopwatch;
     private final Constraint constraint;
     private final TypeManager typeManager;
+    private final long maxSplitSize;
 
     private CloseableIterable<CombinedScanTask> combinedScanIterable;
     private Iterator<FileScanTask> fileScanIterator;
@@ -102,6 +106,7 @@ public class IcebergSplitSource
     private final ImmutableSet.Builder<DataFile> scannedFiles = ImmutableSet.builder();
 
     public IcebergSplitSource(
+            ConnectorSession session,
             IcebergTableHandle tableHandle,
             TableScan tableScan,
             Optional<DataSize> maxScannedFileSize,
@@ -121,6 +126,7 @@ public class IcebergSplitSource
         this.constraint = requireNonNull(constraint, "constraint is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.recordScannedFiles = recordScannedFiles;
+        this.maxSplitSize = getMaxSplitSize(session);
     }
 
     @Override
@@ -157,6 +163,7 @@ public class IcebergSplitSource
             this.combinedScanIterable = tableScan
                     .filter(filterExpression)
                     .includeColumnStats()
+                    .option(TableProperties.SPLIT_SIZE, Long.toString(maxSplitSize))
                     .planTasks();
             this.fileScanIterator = Streams.stream(combinedScanIterable)
                     .map(CombinedScanTask::files)

@@ -72,6 +72,7 @@ public class IcebergSplitManager
         TableScan tableScan = icebergTable.newScan()
                 .useSnapshot(table.getSnapshotId().get());
         IcebergSplitSource splitSource = new IcebergSplitSource(
+                session,
                 table,
                 tableScan,
                 table.getMaxScannedFileSize(),

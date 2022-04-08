@@ -30,6 +30,7 @@ import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.catalog.file.FileMetastoreTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.hms.TrinoHiveCatalog;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.Domain;
@@ -62,9 +63,9 @@ import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.memoizeMetastore;
 import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
+import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static io.trino.spi.connector.Constraint.alwaysTrue;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.tpch.TpchTable.NATION;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -117,9 +118,10 @@ public class TestIcebergSplitSource
     public void testIncompleteDynamicFilterTimeout()
             throws Exception
     {
+        ConnectorSession session = getSession().toConnectorSession(ICEBERG_CATALOG);
         long startMillis = System.currentTimeMillis();
         SchemaTableName schemaTableName = new SchemaTableName("tpch", "nation");
-        Table nationTable = catalog.loadTable(SESSION, schemaTableName);
+        Table nationTable = catalog.loadTable(session, schemaTableName);
         IcebergTableHandle tableHandle = new IcebergTableHandle(
                 schemaTableName.getSchemaName(),
                 schemaTableName.getTableName(),
@@ -132,6 +134,7 @@ public class TestIcebergSplitSource
                 Optional.empty());
 
         IcebergSplitSource splitSource = new IcebergSplitSource(
+                session,
                 tableHandle,
                 nationTable.newScan(),
                 Optional.empty(),
