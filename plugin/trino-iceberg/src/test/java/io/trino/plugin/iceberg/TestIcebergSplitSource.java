@@ -63,6 +63,7 @@ import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.memoizeMetastore;
 import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.spi.connector.Constraint.alwaysTrue;
+import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.tpch.TpchTable.NATION;
@@ -126,10 +127,14 @@ public class TestIcebergSplitSource
                 TableType.DATA,
                 Optional.empty(),
                 SchemaParser.toJson(nationTable.schema()),
+                1,
                 TupleDomain.all(),
                 TupleDomain.all(),
                 ImmutableSet.of(),
-                Optional.empty());
+                Optional.empty(),
+                nationTable.location(),
+                nationTable.properties(),
+                NO_RETRIES);
 
         IcebergSplitSource splitSource = new IcebergSplitSource(
                 tableHandle,

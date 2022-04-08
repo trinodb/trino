@@ -162,68 +162,11 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
-    @Override
-    public void testDelete()
+    public void testDeleteOnV1Table()
     {
-        // Deletes are covered with testMetadataDelete test methods
-        assertThatThrownBy(super::testDelete)
-                .hasStackTraceContaining("This connector only supports delete where one or more identity-transformed partitions are deleted entirely");
-    }
-
-    @Override
-    public void testDeleteWithLike()
-    {
-        // Deletes are covered with testMetadataDelete test methods
-        assertThatThrownBy(super::testDeleteWithLike)
-                .hasStackTraceContaining("This connector only supports delete where one or more identity-transformed partitions are deleted entirely");
-    }
-
-    @Override
-    public void testDeleteWithComplexPredicate()
-    {
-        // Deletes are covered with testMetadataDelete test methods
-        assertThatThrownBy(super::testDeleteWithComplexPredicate)
-                .hasStackTraceContaining("This connector only supports delete where one or more identity-transformed partitions are deleted entirely");
-    }
-
-    @Override
-    public void testDeleteWithSemiJoin()
-    {
-        // Deletes are covered with testMetadataDelete test methods
-        assertThatThrownBy(super::testDeleteWithSemiJoin)
-                .hasStackTraceContaining("This connector only supports delete where one or more identity-transformed partitions are deleted entirely");
-    }
-
-    @Override
-    public void testDeleteWithSubquery()
-    {
-        // Deletes are covered with testMetadataDelete test methods
-        assertThatThrownBy(super::testDeleteWithSubquery)
-                .hasStackTraceContaining("This connector only supports delete where one or more identity-transformed partitions are deleted entirely");
-    }
-
-    @Override
-    public void testExplainAnalyzeWithDeleteWithSubquery()
-    {
-        // Deletes are covered with testMetadataDelete test methods
-        assertThatThrownBy(super::testExplainAnalyzeWithDeleteWithSubquery)
-                .hasStackTraceContaining("This connector only supports delete where one or more identity-transformed partitions are deleted entirely");
-    }
-
-    @Override
-    public void testDeleteWithVarcharPredicate()
-    {
-        // Deletes are covered with testMetadataDelete test methods
-        assertThatThrownBy(super::testDeleteWithVarcharPredicate)
-                .hasStackTraceContaining("This connector only supports delete where one or more identity-transformed partitions are deleted entirely");
-    }
-
-    @Override
-    public void testRowLevelDelete()
-    {
-        // Deletes are covered with testMetadataDelete test methods
-        assertThatThrownBy(super::testRowLevelDelete)
-                .hasStackTraceContaining("This connector only supports delete where one or more identity-transformed partitions are deleted entirely");
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_", "WITH (format_version = 1) AS SELECT * FROM orders")) {
+            assertQueryFails("DELETE FROM " + table.getName() + " WHERE custkey <= 100", "Iceberg table updates require at least format version 2");
+        }
     }
 
     @Override
@@ -294,6 +237,46 @@ public abstract class BaseIcebergConnectorTest
         // TODO should probably return materialized view, as it's also a view -- to be double checked
         assertThatThrownBy(() -> super.checkInformationSchemaViewsForMaterializedView(schemaName, viewName))
                 .hasMessageFindingMatch("(?s)Expecting.*to contain:.*\\Q[(" + viewName + ")]");
+    }
+
+    // Override is required because metadata deletes do not return the number of rows deleted. https://github.com/trinodb/trino/issues/12055
+    @Test
+    @Override
+    public void testDeleteWithComplexPredicate()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_complex_", "AS SELECT * FROM orders")) {
+            // delete half the table, then delete the rest
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE orderkey % 2 = 0", "SELECT count(*) FROM orders WHERE orderkey % 2 = 0");
+            assertQuery("SELECT * FROM " + table.getName(), "SELECT * FROM orders WHERE orderkey % 2 <> 0");
+
+            query("DELETE FROM " + table.getName());
+            assertQuery("SELECT * FROM " + table.getName(), "SELECT * FROM orders LIMIT 0");
+
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE rand() < 0", 0);
+        }
+    }
+
+    // Override is required because metadata deletes do not return the number of rows deleted. https://github.com/trinodb/trino/issues/12055
+    @Test
+    @Override
+    public void testDeleteWithSubquery()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_subquery", "AS SELECT * FROM nation")) {
+            // delete using a subquery
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE regionkey IN (SELECT regionkey FROM region WHERE name LIKE 'A%')", 15);
+            assertQuery(
+                    "SELECT * FROM " + table.getName(),
+                    "SELECT * FROM nation WHERE regionkey IN (SELECT regionkey FROM region WHERE name NOT LIKE 'A%')");
+        }
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_subquery", "AS SELECT * FROM orders")) {
+            // delete using a scalar and EXISTS subquery
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE orderkey = (SELECT orderkey FROM orders ORDER BY orderkey LIMIT 1)", 1);
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE orderkey = (SELECT orderkey FROM orders WHERE false)", 0);
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE EXISTS(SELECT 1 WHERE false)", 0);
+            query("DELETE FROM " + table.getName() + " WHERE EXISTS(SELECT 1)");
+            assertQuery("SELECT count(*) FROM " + table.getName(), "VALUES 0");
+        }
     }
 
     @Test
@@ -1769,9 +1752,6 @@ public abstract class BaseIcebergConnectorTest
     {
         assertUpdate("CREATE TABLE test_metadata_delete_simple (col1 BIGINT, col2 BIGINT) WITH (partitioning = ARRAY['col1'])");
         assertUpdate("INSERT INTO test_metadata_delete_simple VALUES(1, 100), (1, 101), (1, 102), (2, 200), (2, 201), (3, 300)", 6);
-        assertQueryFails(
-                "DELETE FROM test_metadata_delete_simple WHERE col1 = 1 AND col2 > 101",
-                "This connector only supports delete where one or more identity-transformed partitions are deleted entirely");
         assertQuery("SELECT sum(col2) FROM test_metadata_delete_simple", "SELECT 1004");
         assertQuery("SELECT count(*) FROM \"test_metadata_delete_simple$partitions\"", "SELECT 3");
         assertUpdate("DELETE FROM test_metadata_delete_simple WHERE col1 = 1");
@@ -1808,8 +1788,6 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate("DELETE FROM test_metadata_delete WHERE linestatus='O'");
         assertQuery("SELECT count(*) FROM \"test_metadata_delete$partitions\"", "SELECT 6");
         assertQuery("SELECT * FROM test_metadata_delete", "SELECT orderkey, linenumber, linestatus FROM lineitem WHERE linestatus <> 'O' AND linenumber <> 3");
-
-        assertQueryFails("DELETE FROM test_metadata_delete WHERE orderkey=1", "This connector only supports delete where one or more identity-transformed partitions are deleted entirely");
 
         dropTable("test_metadata_delete");
     }

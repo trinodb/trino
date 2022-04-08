@@ -16,6 +16,7 @@ package io.trino.plugin.iceberg;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.json.JsonCodecFactory;
 import io.airlift.testing.TempFile;
 import io.trino.connector.CatalogName;
 import io.trino.metadata.TableHandle;
@@ -27,6 +28,7 @@ import io.trino.orc.OutputStreamOrcDataSink;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HiveTransactionHandle;
+import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.orc.OrcReaderConfig;
 import io.trino.plugin.hive.orc.OrcWriterConfig;
@@ -37,10 +39,13 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.connector.RetryMode;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import io.trino.testing.TestingConnectorSession;
+import org.apache.iceberg.PartitionSpec;
+import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.SchemaParser;
 import org.apache.iceberg.types.Types;
@@ -152,7 +157,8 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                 outputFile.length(),
                 ORC,
                 ImmutableList.of(),
-                ImmutableMap.of(),
+                PartitionSpecParser.toJson(PartitionSpec.unpartitioned()),
+                PartitionData.toJson(new PartitionData(new Object[] {})),
                 ImmutableList.of());
 
         TableHandle tableHandle = new TableHandle(
@@ -163,19 +169,26 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                         TableType.DATA,
                         Optional.empty(),
                         SchemaParser.toJson(TABLE_SCHEMA),
+                        2,
                         TupleDomain.withColumnDomains(ImmutableMap.of(KEY_ICEBERG_COLUMN_HANDLE, Domain.singleValue(INTEGER, (long) KEY_COLUMN_VALUE))),
                         TupleDomain.all(),
                         ImmutableSet.of(KEY_ICEBERG_COLUMN_HANDLE),
-                        Optional.empty()),
+                        Optional.empty(),
+                        outputFile.getParentFile().getAbsolutePath(),
+                        ImmutableMap.of(),
+                        RetryMode.NO_RETRIES),
                 transaction);
 
+        FileFormatDataSourceStats stats = new FileFormatDataSourceStats();
         IcebergPageSourceProvider provider = new IcebergPageSourceProvider(
                 HDFS_ENVIRONMENT,
-                new FileFormatDataSourceStats(),
+                stats,
                 ORC_READER_CONFIG,
                 PARQUET_READER_CONFIG,
                 TESTING_TYPE_MANAGER,
-                new HdfsFileIoProvider(HDFS_ENVIRONMENT));
+                new HdfsFileIoProvider(HDFS_ENVIRONMENT),
+                new JsonCodecFactory().jsonCodec(CommitTaskData.class),
+                new IcebergFileWriterFactory(HDFS_ENVIRONMENT, TESTING_TYPE_MANAGER, new NodeVersion("trino_test"), stats, ORC_WRITER_CONFIG));
 
         return provider.createPageSource(
                 transaction,

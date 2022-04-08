@@ -13,20 +13,30 @@
  */
 package io.trino.plugin.iceberg;
 
+import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slice;
 import io.trino.plugin.hive.ReaderProjectionsAdapter;
+import io.trino.plugin.iceberg.delete.IcebergPositionDeletePageSink;
 import io.trino.plugin.iceberg.delete.TrinoRow;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
+import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.UpdatablePageSource;
 import io.trino.spi.type.Type;
 import org.apache.iceberg.data.DeleteFilter;
 import org.apache.iceberg.io.CloseableIterable;
 
+import javax.annotation.Nullable;
+
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.concurrent.CompletableFuture;
+import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
@@ -35,20 +45,25 @@ import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
 import static java.util.Objects.requireNonNull;
 
 public class IcebergPageSource
-        implements ConnectorPageSource
+        implements UpdatablePageSource
 {
     private final Type[] columnTypes;
     private final int[] expectedColumnIndexes;
     private final ConnectorPageSource delegate;
     private final Optional<ReaderProjectionsAdapter> projectionsAdapter;
     private final Optional<DeleteFilter<TrinoRow>> deleteFilter;
+    private final Supplier<IcebergPositionDeletePageSink> positionDeleteSinkSupplier;
+
+    @Nullable
+    private IcebergPositionDeletePageSink positionDeleteSink;
 
     public IcebergPageSource(
             List<IcebergColumnHandle> expectedColumns,
             List<IcebergColumnHandle> requiredColumns,
             ConnectorPageSource delegate,
             Optional<ReaderProjectionsAdapter> projectionsAdapter,
-            Optional<DeleteFilter<TrinoRow>> deleteFilter)
+            Optional<DeleteFilter<TrinoRow>> deleteFilter,
+            Supplier<IcebergPositionDeletePageSink> positionDeleteSinkSupplier)
     {
         // expectedColumns should contain columns which should be in the final Page
         // requiredColumns should include all expectedColumns as well as any columns needed by the DeleteFilter
@@ -66,6 +81,7 @@ public class IcebergPageSource
         this.delegate = requireNonNull(delegate, "delegate is null");
         this.projectionsAdapter = requireNonNull(projectionsAdapter, "projectionsAdapter is null");
         this.deleteFilter = requireNonNull(deleteFilter, "deleteFilter is null");
+        this.positionDeleteSinkSupplier = requireNonNull(positionDeleteSinkSupplier, "positionDeleteSinkSupplier is null");
     }
 
     @Override
@@ -130,6 +146,32 @@ public class IcebergPageSource
     }
 
     @Override
+    public void deleteRows(Block rowIds)
+    {
+        if (positionDeleteSink == null) {
+            positionDeleteSink = positionDeleteSinkSupplier.get();
+        }
+        positionDeleteSink.appendPage(new Page(rowIds));
+    }
+
+    @Override
+    public CompletableFuture<Collection<Slice>> finish()
+    {
+        if (positionDeleteSink != null) {
+            return positionDeleteSink.finish();
+        }
+        return CompletableFuture.completedFuture(ImmutableList.of());
+    }
+
+    @Override
+    public void abort()
+    {
+        if (positionDeleteSink != null) {
+            positionDeleteSink.abort();
+        }
+    }
+
+    @Override
     public void close()
     {
         try {
@@ -149,7 +191,11 @@ public class IcebergPageSource
     @Override
     public long getMemoryUsage()
     {
-        return delegate.getMemoryUsage();
+        long memoryUsage = delegate.getMemoryUsage();
+        if (positionDeleteSink != null) {
+            memoryUsage += positionDeleteSink.getMemoryUsage();
+        }
+        return memoryUsage;
     }
 
     protected void closeWithSuppression(Throwable throwable)
