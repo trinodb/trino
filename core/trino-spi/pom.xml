@@ -14,6 +14,7 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
+        <released-artifacts.dir>${project.build.directory}/released-artifacts</released-artifacts.dir>
     </properties>
 
     <!-- the SPI should have only minimal dependencies -->
@@ -124,5 +125,53 @@
                 </excludes>
             </resource>
         </resources>
+        <plugins>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>build-helper-maven-plugin</artifactId>
+                <version>3.3.0</version>
+                <executions>
+                    <execution>
+                        <id>released-version</id>
+                        <goals>
+                            <!-- sets releasedVersion.version -->
+                            <goal>released-version</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>copy</id>
+                        <phase>generate-resources</phase>
+                        <goals>
+                            <goal>copy</goal>
+                        </goals>
+                        <configuration>
+                            <skip>false</skip>
+                            <artifactItems>
+                                <artifactItem>
+                                    <groupId>io.trino</groupId>
+                                    <artifactId>trino-spi</artifactId>
+                                    <version>${releasedVersion.version}</version>
+                                    <type>jar</type>
+                                    <outputDirectory>${released-artifacts.dir}</outputDirectory>
+                                </artifactItem>
+                                <artifactItem>
+                                    <!-- slice is needed when loading trino-spi classes for backward compatibility tests -->
+                                    <groupId>io.airlift</groupId>
+                                    <artifactId>slice</artifactId>
+                                    <type>jar</type>
+                                    <outputDirectory>${released-artifacts.dir}</outputDirectory>
+                                </artifactItem>
+                            </artifactItems>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
     </build>
 </project>
