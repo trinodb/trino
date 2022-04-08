@@ -64,6 +64,33 @@ public class TestSyncPartitionMetadata
         cleanup(tableName);
     }
 
+    @Test(groups = {HIVE_PARTITIONING, SMOKE, TRINO_JDBC})
+    @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
+    public void testAddPartitionContainingCharactersThatNeedUrlEncoding()
+    {
+        String tableName = "test_sync_partition_metadata_add_partition_urlencode";
+        onTrino().executeQuery("DROP TABLE IF EXISTS " + tableName);
+
+        onTrino().executeQuery("CREATE TABLE " + tableName + " (views bigint, col_issue varchar) WITH (format = 'ORC', partitioned_by = ARRAY['col_issue'])");
+        onTrino().executeQuery("INSERT INTO " + tableName + " VALUES (1024, '#8120')");
+
+        String tableLocation = tableLocation(tableName);
+        // add partition directory col_issue=#9154 with single_int_column/data.orc file
+        hdfsClient.createDirectory(tableLocation + "/col_issue=#9154");
+        HiveDataSource dataSource = createResourceDataSource(tableName, "io/trino/tests/product/hive/data/single_int_column/data.orc");
+        hdfsDataSourceWriter.ensureDataOnHdfs(tableLocation + "/col_issue=#9154", dataSource);
+
+        QueryResult partitionListResult = onTrino().executeQuery("SELECT * FROM \"" + tableName + "$partitions\" ORDER BY 1");
+        assertThat(partitionListResult).containsExactlyInOrder(row("#8120"));
+
+        onTrino().executeQuery("CALL system.sync_partition_metadata('default', '" + tableName + "', 'ADD')");
+
+        partitionListResult = onTrino().executeQuery("SELECT * FROM \"" + tableName + "$partitions\" ORDER BY 1");
+        assertThat(partitionListResult).containsExactlyInOrder(row("#8120"), row("#9154"));
+
+        cleanup(tableName);
+    }
+
     @Test(groups = {HIVE_PARTITIONING, SMOKE})
     @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testDropPartition()
@@ -74,6 +101,31 @@ public class TestSyncPartitionMetadata
         onTrino().executeQuery("CALL system.sync_partition_metadata('default', '" + tableName + "', 'DROP')");
         assertPartitions(tableName, row("a", "1"));
         assertData(tableName, row(1, "a", "1"));
+
+        cleanup(tableName);
+    }
+
+    @Test(groups = {HIVE_PARTITIONING, SMOKE, TRINO_JDBC})
+    @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
+    public void testDropPartitionContainingCharactersThatNeedUrlEncoding()
+    {
+        String tableName = "test_sync_partition_metadata_drop_partition_urlencode";
+        onTrino().executeQuery("DROP TABLE IF EXISTS " + tableName);
+
+        onTrino().executeQuery("CREATE TABLE " + tableName + " (views bigint, col_issue varchar) WITH (format = 'ORC', partitioned_by = ARRAY['col_issue'])");
+        onTrino().executeQuery("INSERT INTO " + tableName + " VALUES (1024, '#8120'), (2048, '#9154')");
+
+        String tableLocation = tableLocation(tableName);
+        // Delete partition directory col_issue=#8120 . Note that the partition directory location is sent to Web HDFS REST API and needs to be url encoded.
+        hdfsClient.delete(tableLocation + "/col_issue=%238120");
+
+        QueryResult partitionListResult = onTrino().executeQuery("SELECT * FROM \"" + tableName + "$partitions\" ORDER BY 1");
+        assertThat(partitionListResult).containsExactlyInOrder(row("#8120"), row("#9154"));
+
+        onTrino().executeQuery("CALL system.sync_partition_metadata('default', '" + tableName + "', 'DROP')");
+
+        partitionListResult = onTrino().executeQuery("SELECT * FROM \"" + tableName + "$partitions\" ORDER BY 1");
+        assertThat(partitionListResult).containsExactlyInOrder(row("#9154"));
 
         cleanup(tableName);
     }
