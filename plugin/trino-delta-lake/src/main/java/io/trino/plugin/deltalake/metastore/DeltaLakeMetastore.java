@@ -23,7 +23,6 @@ import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.connector.ConnectorSession;
-import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.statistics.TableStatistics;
 
@@ -58,7 +57,7 @@ public interface DeltaLakeMetastore
 
     List<AddFileEntry> getValidDataFiles(SchemaTableName table, ConnectorSession session);
 
-    TableStatistics getTableStatistics(ConnectorSession session, DeltaLakeTableHandle tableHandle, Constraint constraint);
+    TableStatistics getTableStatistics(ConnectorSession session, DeltaLakeTableHandle tableHandle);
 
     HiveMetastore getHiveMetastore();
 }
