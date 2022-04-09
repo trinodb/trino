@@ -537,12 +537,12 @@ public class HiveSplitManager
         };
     }
 
-    private static class ErrorCodedExecutor
+    public static class ErrorCodedExecutor
             implements Executor
     {
         private final Executor delegate;
 
-        private ErrorCodedExecutor(Executor delegate)
+        public ErrorCodedExecutor(Executor delegate)
         {
             this.delegate = requireNonNull(delegate, "delegate is null");
         }

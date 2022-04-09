@@ -39,6 +39,7 @@ import io.trino.plugin.hive.s3.HiveS3Module;
 import io.trino.plugin.iceberg.catalog.IcebergCatalogModule;
 import io.trino.spi.NodeManager;
 import io.trino.spi.PageIndexerFactory;
+import io.trino.spi.VersionEmbedder;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorAccessControl;
@@ -92,6 +93,7 @@ public final class InternalIcebergConnectorFactory
                     binder -> {
                         binder.bind(NodeVersion.class).toInstance(new NodeVersion(context.getNodeManager().getCurrentNode().getVersion()));
                         binder.bind(NodeManager.class).toInstance(context.getNodeManager());
+                        binder.bind(VersionEmbedder.class).toInstance(context.getVersionEmbedder());
                         binder.bind(TypeManager.class).toInstance(context.getTypeManager());
                         binder.bind(PageIndexerFactory.class).toInstance(context.getPageIndexerFactory());
                         binder.bind(CatalogName.class).toInstance(new CatalogName(catalogName));

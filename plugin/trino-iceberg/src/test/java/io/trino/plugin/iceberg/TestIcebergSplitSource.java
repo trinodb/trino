@@ -22,6 +22,7 @@ import io.trino.plugin.hive.HdfsConfig;
 import io.trino.plugin.hive.HdfsConfiguration;
 import io.trino.plugin.hive.HdfsConfigurationInitializer;
 import io.trino.plugin.hive.HdfsEnvironment;
+import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HiveHdfsConfiguration;
 import io.trino.plugin.hive.authentication.NoHdfsAuthentication;
 import io.trino.plugin.hive.metastore.HiveMetastore;
@@ -67,6 +68,7 @@ import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static io.trino.spi.connector.Constraint.alwaysTrue;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.tpch.TpchTable.NATION;
+import static java.util.concurrent.Executors.newSingleThreadExecutor;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertFalse;
@@ -135,6 +137,8 @@ public class TestIcebergSplitSource
 
         IcebergSplitSource splitSource = new IcebergSplitSource(
                 session,
+                new HiveConfig(),
+                newSingleThreadExecutor(),
                 tableHandle,
                 nationTable.newScan(),
                 Optional.empty(),

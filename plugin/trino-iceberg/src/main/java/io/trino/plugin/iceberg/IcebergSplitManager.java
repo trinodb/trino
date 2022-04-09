@@ -14,8 +14,12 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
+import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.units.Duration;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorSplitSource;
+import io.trino.plugin.hive.HiveConfig;
+import io.trino.plugin.hive.HiveSplitManager;
+import io.trino.spi.VersionEmbedder;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorSplitSource;
@@ -30,6 +34,9 @@ import org.apache.iceberg.TableScan;
 
 import javax.inject.Inject;
 
+import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
+
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getDynamicFilteringWaitTimeout;
 import static java.util.Objects.requireNonNull;
 
@@ -38,14 +45,25 @@ public class IcebergSplitManager
 {
     public static final int ICEBERG_DOMAIN_COMPACTION_THRESHOLD = 1000;
 
+    private final HiveConfig hiveConfig;
     private final IcebergTransactionManager transactionManager;
     private final TypeManager typeManager;
+    private final Executor executor;
 
     @Inject
-    public IcebergSplitManager(IcebergTransactionManager transactionManager, TypeManager typeManager)
+    public IcebergSplitManager(
+            HiveConfig hiveConfig,
+            IcebergTransactionManager transactionManager,
+            TypeManager typeManager,
+            ExecutorService executorService,
+            VersionEmbedder versionEmbedder)
     {
+        this.hiveConfig = requireNonNull(hiveConfig, "hiveConfig is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        requireNonNull(executorService, "executorService is null");
+        Executor executor = versionEmbedder.embedVersion(new BoundedExecutor(executorService, hiveConfig.getMaxSplitIteratorThreads()));
+        this.executor = new HiveSplitManager.ErrorCodedExecutor(executor);
     }
 
     @Override
@@ -73,6 +91,8 @@ public class IcebergSplitManager
                 .useSnapshot(table.getSnapshotId().get());
         IcebergSplitSource splitSource = new IcebergSplitSource(
                 session,
+                hiveConfig,
+                executor,
                 table,
                 tableScan,
                 table.getMaxScannedFileSize(),

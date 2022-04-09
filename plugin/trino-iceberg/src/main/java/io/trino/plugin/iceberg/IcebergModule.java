@@ -15,8 +15,10 @@ package io.trino.plugin.iceberg;
 
 import com.google.inject.Binder;
 import com.google.inject.Module;
+import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.multibindings.Multibinder;
+import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.HiveConfig;
@@ -33,10 +35,16 @@ import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.TableProcedureMetadata;
 import io.trino.spi.procedure.Procedure;
 
+import javax.inject.Singleton;
+
+import java.util.concurrent.ExecutorService;
+
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
+import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class IcebergModule
@@ -80,5 +88,12 @@ public class IcebergModule
 
         Multibinder<TableProcedureMetadata> tableProcedures = newSetBinder(binder, TableProcedureMetadata.class);
         tableProcedures.addBinding().toProvider(OptimizeTableProcedure.class).in(Scopes.SINGLETON);
+    }
+
+    @Singleton
+    @Provides
+    public ExecutorService createIcebergClientExecutor(CatalogName catalogName)
+    {
+        return newCachedThreadPool(daemonThreadsNamed("iceberg-" + catalogName + "-%s"));
     }
 }

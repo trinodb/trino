@@ -17,11 +17,17 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterators;
 import com.google.common.collect.Streams;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.trino.plugin.hive.HiveConfig;
+import io.trino.plugin.hive.util.AsyncQueue;
+import io.trino.plugin.hive.util.ResumableTask;
+import io.trino.plugin.hive.util.ResumableTasks;
 import io.trino.plugin.iceberg.delete.TrinoDeleteFile;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPartitionHandle;
 import io.trino.spi.connector.ConnectorSession;
@@ -48,7 +54,6 @@ import org.apache.iceberg.types.Type;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.Collections;
@@ -59,6 +64,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -67,6 +75,12 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.intersection;
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static io.airlift.concurrent.MoreFutures.addExceptionCallback;
+import static io.airlift.concurrent.MoreFutures.toCompletableFuture;
+import static io.airlift.concurrent.MoreFutures.toListenableFuture;
+import static io.trino.plugin.hive.HiveErrorCode.HIVE_UNKNOWN_ERROR;
 import static io.trino.plugin.iceberg.ExpressionConverter.toIcebergExpression;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getMaxSplitSize;
 import static io.trino.plugin.iceberg.IcebergSplitManager.ICEBERG_DOMAIN_COMPACTION_THRESHOLD;
@@ -77,36 +91,23 @@ import static io.trino.plugin.iceberg.IcebergUtil.getPartitionKeys;
 import static io.trino.plugin.iceberg.IcebergUtil.primitiveFieldTypes;
 import static io.trino.plugin.iceberg.TypeConverter.toIcebergType;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.iceberg.types.Conversions.fromByteBuffer;
 
 public class IcebergSplitSource
         implements ConnectorSplitSource
 {
-    private static final ConnectorSplitBatch EMPTY_BATCH = new ConnectorSplitBatch(ImmutableList.of(), false);
-    private static final ConnectorSplitBatch NO_MORE_SPLITS_BATCH = new ConnectorSplitBatch(ImmutableList.of(), true);
+    private static final Object NO_MORE_SPLITS_SIGNAL = new Object();
 
-    private final IcebergTableHandle tableHandle;
-    private final TableScan tableScan;
-    private final Optional<Long> maxScannedFileSizeInBytes;
-    private final Map<Integer, Type.PrimitiveType> fieldIdToType;
-    private final DynamicFilter dynamicFilter;
-    private final long dynamicFilteringWaitTimeoutMillis;
-    private final Stopwatch dynamicFilterWaitStopwatch;
-    private final Constraint constraint;
-    private final TypeManager typeManager;
-    private final long maxSplitSize;
-
-    private CloseableIterable<CombinedScanTask> combinedScanIterable;
-    private Iterator<FileScanTask> fileScanIterator;
-    private TupleDomain<IcebergColumnHandle> pushedDownDynamicFilterPredicate;
-
-    private final boolean recordScannedFiles;
-    private final ImmutableSet.Builder<DataFile> scannedFiles = ImmutableSet.builder();
+    private final AtomicBoolean noMoreSplits = new AtomicBoolean();
+    // Queue element: IcebergSplit | TrinoException | NO_MORE_SPLITS_SIGNAL
+    private final AsyncQueue<Object> queue;
+    private final IcebergSplitLoader icebergSplitLoader;
 
     public IcebergSplitSource(
             ConnectorSession session,
+            HiveConfig hiveConfig,
+            Executor executor,
             IcebergTableHandle tableHandle,
             TableScan tableScan,
             Optional<DataSize> maxScannedFileSize,
@@ -116,157 +117,301 @@ public class IcebergSplitSource
             TypeManager typeManager,
             boolean recordScannedFiles)
     {
-        this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
-        this.tableScan = requireNonNull(tableScan, "tableScan is null");
-        this.maxScannedFileSizeInBytes = requireNonNull(maxScannedFileSize, "maxScannedFileSize is null").map(DataSize::toBytes);
-        this.fieldIdToType = primitiveFieldTypes(tableScan.schema());
-        this.dynamicFilter = requireNonNull(dynamicFilter, "dynamicFilter is null");
-        this.dynamicFilteringWaitTimeoutMillis = requireNonNull(dynamicFilteringWaitTimeout, "dynamicFilteringWaitTimeout is null").toMillis();
-        this.dynamicFilterWaitStopwatch = Stopwatch.createStarted();
-        this.constraint = requireNonNull(constraint, "constraint is null");
-        this.typeManager = requireNonNull(typeManager, "typeManager is null");
-        this.recordScannedFiles = recordScannedFiles;
-        this.maxSplitSize = getMaxSplitSize(session);
+        this.queue = new AsyncQueue<>(hiveConfig.getMaxOutstandingSplits(), executor);
+        this.icebergSplitLoader = new IcebergSplitLoader(
+                queue,
+                tableHandle,
+                tableScan,
+                maxScannedFileSize,
+                dynamicFilter,
+                dynamicFilteringWaitTimeout,
+                constraint,
+                typeManager,
+                getMaxSplitSize(session),
+                recordScannedFiles);
+        ListenableFuture<Void> future = ResumableTasks.submit(executor, icebergSplitLoader);
+        addExceptionCallback(future, icebergSplitLoader::fail); // best effort; Split Source could be already completed
     }
 
     @Override
     public CompletableFuture<ConnectorSplitBatch> getNextBatch(ConnectorPartitionHandle partitionHandle, int maxSize)
     {
-        long timeLeft = dynamicFilteringWaitTimeoutMillis - dynamicFilterWaitStopwatch.elapsed(MILLISECONDS);
-        if (dynamicFilter.isAwaitable() && timeLeft > 0) {
-            return dynamicFilter.isBlocked()
-                    .thenApply(ignored -> EMPTY_BATCH)
-                    .completeOnTimeout(EMPTY_BATCH, timeLeft, MILLISECONDS);
-        }
-
-        if (combinedScanIterable == null) {
-            // Used to avoid duplicating work if the Dynamic Filter was already pushed down to the Iceberg API
-            this.pushedDownDynamicFilterPredicate = dynamicFilter.getCurrentPredicate().transformKeys(IcebergColumnHandle.class::cast);
-            TupleDomain<IcebergColumnHandle> fullPredicate = tableHandle.getUnenforcedPredicate()
-                    .intersect(pushedDownDynamicFilterPredicate);
-            // TODO: (https://github.com/trinodb/trino/issues/9743): Consider removing TupleDomain#simplify
-            TupleDomain<IcebergColumnHandle> simplifiedPredicate = fullPredicate.simplify(ICEBERG_DOMAIN_COMPACTION_THRESHOLD);
-            if (!simplifiedPredicate.equals(fullPredicate)) {
-                // Pushed down predicate was simplified, always evaluate it against individual splits
-                this.pushedDownDynamicFilterPredicate = TupleDomain.all();
-            }
-
-            TupleDomain<IcebergColumnHandle> effectivePredicate = tableHandle.getEnforcedPredicate()
-                    .intersect(simplifiedPredicate);
-
-            if (effectivePredicate.isNone()) {
-                finish();
-                return completedFuture(NO_MORE_SPLITS_BATCH);
-            }
-
-            Expression filterExpression = toIcebergExpression(effectivePredicate);
-            this.combinedScanIterable = tableScan
-                    .filter(filterExpression)
-                    .includeColumnStats()
-                    .option(TableProperties.SPLIT_SIZE, Long.toString(maxSplitSize))
-                    .planTasks();
-            this.fileScanIterator = Streams.stream(combinedScanIterable)
-                    .map(CombinedScanTask::files)
-                    .flatMap(Collection::stream)
-                    .iterator();
-        }
-
-        TupleDomain<IcebergColumnHandle> dynamicFilterPredicate = dynamicFilter.getCurrentPredicate()
-                .transformKeys(IcebergColumnHandle.class::cast);
-        if (dynamicFilterPredicate.isNone()) {
-            finish();
-            return completedFuture(NO_MORE_SPLITS_BATCH);
-        }
-
-        Iterator<FileScanTask> fileScanTasks = Iterators.limit(fileScanIterator, maxSize);
-        ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();
-        while (fileScanTasks.hasNext()) {
-            FileScanTask scanTask = fileScanTasks.next();
-            if (maxScannedFileSizeInBytes.isPresent() && scanTask.file().fileSizeInBytes() > maxScannedFileSizeInBytes.get()) {
-                continue;
-            }
-
-            IcebergSplit icebergSplit = toIcebergSplit(scanTask);
-
-            Schema fileSchema = scanTask.spec().schema();
-            Set<IcebergColumnHandle> identityPartitionColumns = icebergSplit.getPartitionKeys().keySet().stream()
-                    .map(fieldId -> getColumnHandle(fileSchema.findField(fieldId), typeManager))
-                    .collect(toImmutableSet());
-
-            Supplier<Map<ColumnHandle, NullableValue>> partitionValues = memoize(() -> {
-                Map<ColumnHandle, NullableValue> bindings = new HashMap<>();
-                for (IcebergColumnHandle partitionColumn : identityPartitionColumns) {
-                    Object partitionValue = deserializePartitionValue(
-                            partitionColumn.getType(),
-                            icebergSplit.getPartitionKeys().get(partitionColumn.getId()).orElse(null),
-                            partitionColumn.getName());
-                    NullableValue bindingValue = new NullableValue(partitionColumn.getType(), partitionValue);
-                    bindings.put(partitionColumn, bindingValue);
+        ListenableFuture<List<Object>> future = queue.getBatchAsync(maxSize);
+        ListenableFuture<ConnectorSplitBatch> transform = Futures.transform(future, list -> {
+            requireNonNull(list, "list is null");
+            boolean noMoreSplitsSignal = false;
+            ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();
+            for (Object o : list) {
+                if (o instanceof TrinoException) {
+                    throw (TrinoException) o;
                 }
-                return bindings;
-            });
-
-            if (!dynamicFilterPredicate.isAll() && !dynamicFilterPredicate.equals(pushedDownDynamicFilterPredicate)) {
-                if (!partitionMatchesPredicate(
-                        identityPartitionColumns,
-                        partitionValues,
-                        dynamicFilterPredicate)) {
+                if (o == NO_MORE_SPLITS_SIGNAL) {
+                    noMoreSplitsSignal = true;
                     continue;
                 }
-                if (!fileMatchesPredicate(
-                        fieldIdToType,
-                        dynamicFilterPredicate,
-                        scanTask.file().lowerBounds(),
-                        scanTask.file().upperBounds(),
-                        scanTask.file().nullValueCounts())) {
-                    continue;
-                }
+                verify(o instanceof IcebergSplit, "element is not split: %s", o);
+                verify(!noMoreSplitsSignal, "receive split after no more splits signal");
+                splits.add((IcebergSplit) o);
             }
-            if (!partitionMatchesConstraint(identityPartitionColumns, partitionValues, constraint)) {
-                continue;
+            if (noMoreSplitsSignal) {
+                noMoreSplits.set(true);
             }
-            if (recordScannedFiles) {
-                scannedFiles.add(scanTask.file());
-            }
-            splits.add(icebergSplit);
-        }
-        return completedFuture(new ConnectorSplitBatch(splits.build(), isFinished()));
+            return new ConnectorSplitBatch(splits.build(), noMoreSplitsSignal);
+        }, directExecutor());
+
+        return toCompletableFuture(transform);
     }
 
-    private void finish()
+    public static class IcebergSplitLoader
+            implements ResumableTask
     {
-        close();
-        this.combinedScanIterable = CloseableIterable.empty();
-        this.fileScanIterator = Collections.emptyIterator();
+        private static final ListenableFuture<Void> COMPLETED_FUTURE = immediateVoidFuture();
+
+        private final AsyncQueue<Object> queue;
+        private final IcebergTableHandle tableHandle;
+        private final TableScan tableScan;
+        private final Optional<Long> maxScannedFileSizeInBytes;
+        private final Map<Integer, Type.PrimitiveType> fieldIdToType;
+        private final DynamicFilter dynamicFilter;
+        private final long dynamicFilteringWaitTimeoutMillis;
+        private final Stopwatch dynamicFilterWaitStopwatch;
+        private final Constraint constraint;
+        private final TypeManager typeManager;
+        private final long maxSplitSize;
+
+        private volatile boolean stop;
+
+        private CloseableIterable<CombinedScanTask> combinedScanIterable;
+        private Iterator<FileScanTask> fileScanIterator;
+        private TupleDomain<IcebergColumnHandle> pushedDownDynamicFilterPredicate;
+
+        private final boolean recordScannedFiles;
+        private final ImmutableSet.Builder<DataFile> scannedFiles = ImmutableSet.builder();
+
+        public IcebergSplitLoader(
+                AsyncQueue<Object> queue,
+                IcebergTableHandle tableHandle,
+                TableScan tableScan,
+                Optional<DataSize> maxScannedFileSize,
+                DynamicFilter dynamicFilter,
+                Duration dynamicFilteringWaitTimeout,
+                Constraint constraint,
+                TypeManager typeManager,
+                long maxSplitSize,
+                boolean recordScannedFiles)
+        {
+            this.queue = queue;
+            this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
+            this.tableScan = requireNonNull(tableScan, "tableScan is null");
+            this.maxScannedFileSizeInBytes = requireNonNull(maxScannedFileSize, "maxScannedFileSize is null").map(DataSize::toBytes);
+            this.fieldIdToType = primitiveFieldTypes(tableScan.schema());
+            this.dynamicFilter = requireNonNull(dynamicFilter, "dynamicFilter is null");
+            this.dynamicFilteringWaitTimeoutMillis = requireNonNull(dynamicFilteringWaitTimeout, "dynamicFilteringWaitTimeout is null").toMillis();
+            this.dynamicFilterWaitStopwatch = Stopwatch.createStarted();
+            this.constraint = requireNonNull(constraint, "constraint is null");
+            this.typeManager = requireNonNull(typeManager, "typeManager is null");
+            this.maxSplitSize = maxSplitSize;
+            this.recordScannedFiles = recordScannedFiles;
+        }
+
+        @Override
+        public TaskStatus process()
+        {
+            while (true) {
+                try {
+                    if (stop) {
+                        closeScanner();
+                        queue.offer(NO_MORE_SPLITS_SIGNAL);
+                        return TaskStatus.finished();
+                    }
+
+                    // Block until one of below conditions is met:
+                    // 1. Completion of DynamicFilter
+                    // 2. Timeout after waiting for the configured time
+                    long timeLeft = dynamicFilteringWaitTimeoutMillis - dynamicFilterWaitStopwatch.elapsed(MILLISECONDS);
+                    if (timeLeft > 0 && dynamicFilter.isAwaitable()) {
+                        ListenableFuture<Void> future = asVoid(toListenableFuture(dynamicFilter.isBlocked()
+                                // As isBlocked() returns unmodifiableFuture, we need to create new future for correct propagation of the timeout
+                                .thenApply(Function.identity())
+                                .orTimeout(timeLeft, MILLISECONDS)));
+                        return TaskStatus.continueOn(future);
+                    }
+
+                    ListenableFuture<Void> future = loadSplits();
+                    if (!future.isDone()) {
+                        return TaskStatus.continueOn(future);
+                    }
+                }
+                catch (Throwable e) {
+                    if (!(e instanceof TrinoException)) {
+                        e = new TrinoException(HIVE_UNKNOWN_ERROR, e);
+                    }
+                    fail(e);
+                    return TaskStatus.finished();
+                }
+            }
+        }
+
+        private static <T> ListenableFuture<Void> asVoid(ListenableFuture<T> future)
+        {
+            return Futures.transform(future, v -> null, directExecutor());
+        }
+
+        private ListenableFuture<Void> loadSplits()
+        {
+            if (combinedScanIterable == null) {
+                // Used to avoid duplicating work if the Dynamic Filter was already pushed down to the Iceberg API
+                this.pushedDownDynamicFilterPredicate = dynamicFilter.getCurrentPredicate().transformKeys(IcebergColumnHandle.class::cast);
+                TupleDomain<IcebergColumnHandle> fullPredicate = tableHandle.getUnenforcedPredicate()
+                        .intersect(pushedDownDynamicFilterPredicate);
+                // TODO: (https://github.com/trinodb/trino/issues/9743): Consider removing TupleDomain#simplify
+                TupleDomain<IcebergColumnHandle> simplifiedPredicate = fullPredicate.simplify(ICEBERG_DOMAIN_COMPACTION_THRESHOLD);
+                if (!simplifiedPredicate.equals(fullPredicate)) {
+                    // Pushed down predicate was simplified, always evaluate it against individual splits
+                    this.pushedDownDynamicFilterPredicate = TupleDomain.all();
+                }
+
+                TupleDomain<IcebergColumnHandle> effectivePredicate = tableHandle.getEnforcedPredicate()
+                        .intersect(simplifiedPredicate);
+
+                if (effectivePredicate.isNone()) {
+                    stop();
+                    return COMPLETED_FUTURE;
+                }
+
+                Expression filterExpression = toIcebergExpression(effectivePredicate);
+                this.combinedScanIterable = tableScan
+                        .filter(filterExpression)
+                        .includeColumnStats()
+                        .option(TableProperties.SPLIT_SIZE, Long.toString(maxSplitSize))
+                        .planTasks();
+                this.fileScanIterator = Streams.stream(combinedScanIterable)
+                        .map(CombinedScanTask::files)
+                        .flatMap(Collection::stream)
+                        .iterator();
+            }
+
+            TupleDomain<IcebergColumnHandle> dynamicFilterPredicate = dynamicFilter.getCurrentPredicate()
+                    .transformKeys(IcebergColumnHandle.class::cast);
+            if (dynamicFilterPredicate.isNone()) {
+                stop();
+                return COMPLETED_FUTURE;
+            }
+
+            while (fileScanIterator.hasNext()) {
+                if (stop) {
+                    return COMPLETED_FUTURE;
+                }
+
+                FileScanTask scanTask = fileScanIterator.next();
+                if (maxScannedFileSizeInBytes.isPresent() && scanTask.file().fileSizeInBytes() > maxScannedFileSizeInBytes.get()) {
+                    continue;
+                }
+
+                IcebergSplit icebergSplit = toIcebergSplit(scanTask);
+
+                Schema fileSchema = scanTask.spec().schema();
+                Set<IcebergColumnHandle> identityPartitionColumns = icebergSplit.getPartitionKeys().keySet().stream()
+                        .map(fieldId -> getColumnHandle(fileSchema.findField(fieldId), typeManager))
+                        .collect(toImmutableSet());
+
+                Supplier<Map<ColumnHandle, NullableValue>> partitionValues = memoize(() -> {
+                    Map<ColumnHandle, NullableValue> bindings = new HashMap<>();
+                    for (IcebergColumnHandle partitionColumn : identityPartitionColumns) {
+                        Object partitionValue = deserializePartitionValue(
+                                partitionColumn.getType(),
+                                icebergSplit.getPartitionKeys().get(partitionColumn.getId()).orElse(null),
+                                partitionColumn.getName());
+                        NullableValue bindingValue = new NullableValue(partitionColumn.getType(), partitionValue);
+                        bindings.put(partitionColumn, bindingValue);
+                    }
+                    return bindings;
+                });
+
+                if (!dynamicFilterPredicate.isAll() && !dynamicFilterPredicate.equals(pushedDownDynamicFilterPredicate)) {
+                    if (!partitionMatchesPredicate(
+                            identityPartitionColumns,
+                            partitionValues,
+                            dynamicFilterPredicate)) {
+                        continue;
+                    }
+                    if (!fileMatchesPredicate(
+                            fieldIdToType,
+                            dynamicFilterPredicate,
+                            scanTask.file().lowerBounds(),
+                            scanTask.file().upperBounds(),
+                            scanTask.file().nullValueCounts())) {
+                        continue;
+                    }
+                }
+                if (!partitionMatchesConstraint(identityPartitionColumns, partitionValues, constraint)) {
+                    continue;
+                }
+                if (recordScannedFiles) {
+                    scannedFiles.add(scanTask.file());
+                }
+
+                ListenableFuture<Void> future = queue.offer(icebergSplit);
+                if (!future.isDone()) {
+                    return future;
+                }
+            }
+
+            stop();
+            return COMPLETED_FUTURE;
+        }
+
+        private void stop()
+        {
+            stop = true;
+        }
+
+        private void fail(Throwable e)
+        {
+            queue.offerFirst(e);
+            try {
+                closeScanner();
+            }
+            catch (Throwable ignored) {
+            }
+        }
+
+        private void closeScanner() throws IOException
+        {
+            if (combinedScanIterable != null) {
+                combinedScanIterable.close();
+            }
+            this.combinedScanIterable = CloseableIterable.empty();
+            this.fileScanIterator = Collections.emptyIterator();
+        }
+
+        private Optional<List<Object>> getTableExecuteSplitsInfo()
+        {
+            if (!recordScannedFiles) {
+                return Optional.empty();
+            }
+            return Optional.of(ImmutableList.copyOf(scannedFiles.build()));
+        }
     }
 
     @Override
     public boolean isFinished()
     {
-        return fileScanIterator != null && !fileScanIterator.hasNext();
+        return noMoreSplits.get();
     }
 
     @Override
     public Optional<List<Object>> getTableExecuteSplitsInfo()
     {
         checkState(isFinished(), "Split source must be finished before TableExecuteSplitsInfo is read");
-        if (!recordScannedFiles) {
-            return Optional.empty();
-        }
-        return Optional.of(ImmutableList.copyOf(scannedFiles.build()));
+        return icebergSplitLoader.getTableExecuteSplitsInfo();
     }
 
     @Override
     public void close()
     {
-        if (combinedScanIterable != null) {
-            try {
-                combinedScanIterable.close();
-            }
-            catch (IOException e) {
-                throw new UncheckedIOException(e);
-            }
-        }
+        icebergSplitLoader.stop();
+        queue.finish();
     }
 
     @VisibleForTesting
