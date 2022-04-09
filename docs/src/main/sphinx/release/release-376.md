@@ -47,7 +47,6 @@
 
 ## Delta Lake connector
 
-* Add support for views when using Iceberg Glue catalog. ({issue}`11499`)
 * Add support for `INSERT`, `UPDATE`, and `DELETE` queries on Delta Lake tables
   with fault-tolerant execution. ({issue}`11591`)
 * Allow setting duration for completion of [dynamic filtering](/admin/dynamic-filtering)
@@ -65,6 +64,7 @@
 
 ## Iceberg connector
 
+* Add support for views when using Iceberg Glue catalog. ({issue}`11499`)
 * Add support for reading Iceberg v2 tables containing deletion files. ({issue}`11642`)
 * Add support for table redirections to the Hive connector. ({issue}`11356`)
 * Include non-Iceberg tables when listing tables from Hive catalogs. ({issue}`11617`)
