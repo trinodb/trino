@@ -259,6 +259,7 @@ import static io.trino.plugin.hive.metastore.PrincipalPrivileges.fromHivePrivile
 import static io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore.cleanExtraOutputFiles;
 import static io.trino.plugin.hive.metastore.StorageFormat.VIEW_STORAGE_FORMAT;
 import static io.trino.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
+import static io.trino.plugin.hive.procedure.OptimizeTableProcedure.FILE_SIZE_THRESHOLD;
 import static io.trino.plugin.hive.util.CompressionConfigUtil.configureCompression;
 import static io.trino.plugin.hive.util.ConfigurationUtils.toJobConf;
 import static io.trino.plugin.hive.util.HiveBucketing.getHiveBucketHandle;
@@ -320,7 +321,7 @@ public class HiveMetadata
     public static final String PRESTO_VERSION_NAME = "presto_version";
     public static final String TRINO_CREATED_BY = "trino_created_by";
     public static final String PRESTO_QUERY_ID_NAME = "presto_query_id";
-    public static final String BUCKETING_VERSION = "bucketing_version";
+    public static final String BUCKETING_VERSION = "BUCKETING_VERSION";
     public static final String TABLE_COMMENT = "comment";
     public static final String STORAGE_TABLE = "storage_table";
     private static final String TRANSACTIONAL = "transactional";
@@ -2106,7 +2107,7 @@ public class HiveMetadata
         }
         LocationHandle locationHandle = locationService.forOptimize(metastore, session, table);
 
-        DataSize fileSizeThreshold = (DataSize) executeProperties.get("file_size_threshold");
+        DataSize fileSizeThreshold = (DataSize) executeProperties.get(FILE_SIZE_THRESHOLD);
 
         return Optional.of(new HiveTableExecuteHandle(
                 OptimizeTableProcedure.NAME,

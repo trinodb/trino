@@ -1078,7 +1078,7 @@ class StatementAnalyzer
 
             // analyze arguments
 
-            Map<String, Expression> propertiesMap = processTableExecuteArguments(node, procedureMetadata, scope);
+            Map<Identifier, Expression> propertiesMap = processTableExecuteArguments(node, procedureMetadata, scope);
             Map<String, Object> tableProperties = tableProceduresPropertyManager.getProperties(
                     catalogName,
                     procedureName,
@@ -1105,7 +1105,7 @@ class StatementAnalyzer
             return createAndAssignScope(node, scope, Field.newUnqualified("rows", BIGINT));
         }
 
-        private Map<String, Expression> processTableExecuteArguments(TableExecute node, TableProcedureMetadata procedureMetadata, Optional<Scope> scope)
+        private Map<Identifier, Expression> processTableExecuteArguments(TableExecute node, TableProcedureMetadata procedureMetadata, Optional<Scope> scope)
         {
             List<CallArgument> arguments = node.getArguments();
             Predicate<CallArgument> hasName = argument -> argument.getName().isPresent();
@@ -1123,12 +1123,12 @@ class StatementAnalyzer
                 process(argument, scope);
             }
 
-            Map<String, Expression> argumentsMap = new HashMap<>();
+            Map<Identifier, Expression> argumentsMap = new HashMap<>();
 
             if (anyNamed) {
                 // all properties named
                 for (CallArgument argument : arguments) {
-                    if (argumentsMap.put(argument.getName().get().getCanonicalValue(), argument.getValue()) != null) {
+                    if (argumentsMap.put(argument.getName().get(), argument.getValue()) != null) {
                         throw semanticException(DUPLICATE_PROPERTY, argument, "Duplicate named argument: %s", argument.getName());
                     }
                 }
@@ -1137,7 +1137,7 @@ class StatementAnalyzer
                 // all properties unnamed
                 int pos = 0;
                 for (CallArgument argument : arguments) {
-                    argumentsMap.put(procedureMetadata.getProperties().get(pos).getName(), argument.getValue());
+                    argumentsMap.put(new Identifier(procedureMetadata.getProperties().get(pos).getName()), argument.getValue());
                     pos++;
                 }
             }

@@ -971,7 +971,7 @@ public abstract class BaseHiveConnectorTest
                         "CREATE SCHEMA %s.test_show_create_schema\n" +
                         "AUTHORIZATION USER hive\n" +
                         "WITH \\(\n" +
-                        "   location = '.*test_show_create_schema'\n" +
+                        "   LOCATION = '.*test_show_create_schema'\n" +
                         "\\)",
                 getSession().getCatalog().get());
 
@@ -986,7 +986,7 @@ public abstract class BaseHiveConnectorTest
                         "CREATE SCHEMA %s.test_show_create_schema\n" +
                         "AUTHORIZATION ROLE test_show_create_schema_role\n" +
                         "WITH \\(\n" +
-                        "   location = '.*test_show_create_schema'\n" +
+                        "   LOCATION = '.*test_show_create_schema'\n" +
                         "\\)",
                 getSession().getCatalog().get());
 
@@ -3764,7 +3764,7 @@ public abstract class BaseHiveConnectorTest
                         "   comment varchar(79)\n" +
                         ")\n" +
                         "WITH (\n" +
-                        "   format = 'ORC'\n" +
+                        "   FORMAT = 'ORC'\n" +
                         ")");
 
         String createTableSql = format("" +
@@ -3776,7 +3776,7 @@ public abstract class BaseHiveConnectorTest
                         "   c5 map(bigint, varchar)\n" +
                         ")\n" +
                         "WITH (\n" +
-                        "   format = 'RCBINARY'\n" +
+                        "   FORMAT = 'RCBINARY'\n" +
                         ")",
                 getSession().getCatalog().get(),
                 getSession().getSchema().get(),
@@ -3795,15 +3795,15 @@ public abstract class BaseHiveConnectorTest
                         "   c5 double COMMENT ''\n)\n" +
                         "COMMENT 'test'\n" +
                         "WITH (\n" +
-                        "   bucket_count = 5,\n" +
-                        "   bucketed_by = ARRAY['c1','c 2'],\n" +
-                        "   bucketing_version = 1,\n" +
-                        "   format = 'ORC',\n" +
-                        "   orc_bloom_filter_columns = ARRAY['c1','c2'],\n" +
-                        "   orc_bloom_filter_fpp = 7E-1,\n" +
-                        "   partitioned_by = ARRAY['c5'],\n" +
-                        "   sorted_by = ARRAY['c1','c 2 DESC'],\n" +
-                        "   transactional = true\n" +
+                        "   BUCKETED_BY = ARRAY['c1','c 2'],\n" +
+                        "   BUCKETING_VERSION = 1,\n" +
+                        "   BUCKET_COUNT = 5,\n" +
+                        "   FORMAT = 'ORC',\n" +
+                        "   ORC_BLOOM_FILTER_COLUMNS = ARRAY['c1','c2'],\n" +
+                        "   ORC_BLOOM_FILTER_FPP = 7E-1,\n" +
+                        "   PARTITIONED_BY = ARRAY['c5'],\n" +
+                        "   SORTED_BY = ARRAY['c1','c 2 DESC'],\n" +
+                        "   TRANSACTIONAL = true\n" +
                         ")",
                 getSession().getCatalog().get(),
                 getSession().getSchema().get(),
@@ -3816,7 +3816,7 @@ public abstract class BaseHiveConnectorTest
                         "CREATE TABLE %s.%s.%s (\n" +
                         "   c1 ROW(\"$a\" bigint, \"$b\" varchar)\n)\n" +
                         "WITH (\n" +
-                        "   format = 'ORC'\n" +
+                        "   FORMAT = 'ORC'\n" +
                         ")",
                 getSession().getCatalog().get(),
                 getSession().getSchema().get(),
@@ -3840,8 +3840,8 @@ public abstract class BaseHiveConnectorTest
         // Table properties
         StringJoiner propertiesSql = new StringJoiner(",\n   ");
         propertiesSql.add(
-                format("external_location = '%s'", new Path(tempDir.toUri().toASCIIString())));
-        propertiesSql.add("format = 'TEXTFILE'");
+                format("EXTERNAL_LOCATION = '%s'", new Path(tempDir.toUri().toASCIIString())));
+        propertiesSql.add("FORMAT = 'TEXTFILE'");
         tableProperties.forEach(propertiesSql::add);
 
         @Language("SQL") String createTableSql = format("" +
@@ -3886,7 +3886,7 @@ public abstract class BaseHiveConnectorTest
                 "test_create_external_with_field_separator",
                 "helloXworld\nbyeXworld",
                 "VALUES ('hello', 'world'), ('bye', 'world')",
-                ImmutableList.of("textfile_field_separator = 'X'"));
+                ImmutableList.of("TEXTFILE_FIELD_SEPARATOR = 'X'"));
     }
 
     @Test
@@ -3897,7 +3897,7 @@ public abstract class BaseHiveConnectorTest
                 "test_create_external_with_field_separator_unescaped",
                 "heXlloXworld\nbyeXworld", // the first line contains an unescaped separator character which leads to inconsistent reading of its content
                 "VALUES ('he', 'llo'), ('bye', 'world')",
-                ImmutableList.of("textfile_field_separator = 'X'"));
+                ImmutableList.of("TEXTFILE_FIELD_SEPARATOR = 'X'"));
     }
 
     @Test
@@ -3909,8 +3909,8 @@ public abstract class BaseHiveConnectorTest
                 "HelloEFFWorld\nByeEFFWorld",
                 "VALUES ('HelloF', 'World'), ('ByeF', 'World')",
                 ImmutableList.of(
-                        "textfile_field_separator = 'F'",
-                        "textfile_field_separator_escape = 'E'"));
+                        "TEXTFILE_FIELD_SEPARATOR = 'F'",
+                        "TEXTFILE_FIELD_SEPARATOR_ESCAPE = 'E'"));
     }
 
     @Test
@@ -3921,7 +3921,7 @@ public abstract class BaseHiveConnectorTest
                 "test_create_external_textfile_with_null_format",
                 "hello\u0001NULL_VALUE\nNULL_VALUE\u0001123\n\\N\u0001456",
                 "VALUES ('hello', NULL), (NULL, 123), ('\\N', 456)",
-                ImmutableList.of("null_format = 'NULL_VALUE'"));
+                ImmutableList.of("NULL_FORMAT = 'NULL_VALUE'"));
     }
 
     @Test
@@ -3951,8 +3951,8 @@ public abstract class BaseHiveConnectorTest
                         "   name varchar\n" +
                         ")\n" +
                         "WITH (\n" +
-                        "   format = '%s',\n" +
-                        "   skip_header_line_count = 1\n" +
+                        "   FORMAT = '%s',\n" +
+                        "   SKIP_HEADER_LINE_COUNT = 1\n" +
                         ")",
                 catalog, schema, name, format);
 
@@ -3967,8 +3967,8 @@ public abstract class BaseHiveConnectorTest
                         "   name varchar\n" +
                         ")\n" +
                         "WITH (\n" +
-                        "   format = '%s',\n" +
-                        "   skip_footer_line_count = 1\n" +
+                        "   FORMAT = '%s',\n" +
+                        "   SKIP_HEADER_LINE_COUNT = 1\n" +
                         ")",
                 catalog, schema, name, format);
 
@@ -3983,9 +3983,9 @@ public abstract class BaseHiveConnectorTest
                         "   name varchar\n" +
                         ")\n" +
                         "WITH (\n" +
-                        "   format = '%s',\n" +
-                        "   skip_footer_line_count = 1,\n" +
-                        "   skip_header_line_count = 1\n" +
+                        "   FORMAT = '%s',\n" +
+                        "   SKIP_FOOTER_LINE_COUNT = 1,\n" +
+                        "   SKIP_HEADER_LINE_COUNT = 1\n" +
                         ")",
                 catalog, schema, name, format);
 
@@ -4097,33 +4097,33 @@ public abstract class BaseHiveConnectorTest
     {
         // ORC
         assertThatThrownBy(() -> assertUpdate("CREATE TABLE invalid_table (col1 bigint) WITH (format = 'TEXTFILE', orc_bloom_filter_columns = ARRAY['col1'])"))
-                .hasMessageMatching("Cannot specify orc_bloom_filter_columns table property for storage format: TEXTFILE");
+                .hasMessageMatching("Cannot specify ORC_BLOOM_FILTER_COLUMNS table property for storage format: TEXTFILE");
 
         // TEXTFILE
         assertThatThrownBy(() -> assertUpdate("CREATE TABLE test_orc_skip_header (col1 bigint) WITH (format = 'ORC', skip_header_line_count = 1)"))
-                .hasMessageMatching("Cannot specify skip_header_line_count table property for storage format: ORC");
+                .hasMessageMatching("Cannot specify SKIP_HEADER_LINE_COUNT table property for storage format: ORC");
         assertThatThrownBy(() -> assertUpdate("CREATE TABLE test_orc_skip_footer (col1 bigint) WITH (format = 'ORC', skip_footer_line_count = 1)"))
-                .hasMessageMatching("Cannot specify skip_footer_line_count table property for storage format: ORC");
+                .hasMessageMatching("Cannot specify SKIP_FOOTER_LINE_COUNT table property for storage format: ORC");
         assertThatThrownBy(() -> assertUpdate("CREATE TABLE test_orc_skip_footer (col1 bigint) WITH (format = 'ORC', null_format = 'ERROR')"))
-                .hasMessageMatching("Cannot specify null_format table property for storage format: ORC");
+                .hasMessageMatching("Cannot specify NULL_FORMAT table property for storage format: ORC");
         assertThatThrownBy(() -> assertUpdate("CREATE TABLE test_invalid_skip_header (col1 bigint) WITH (format = 'TEXTFILE', skip_header_line_count = -1)"))
-                .hasMessageMatching("Invalid value for skip_header_line_count property: -1");
+                .hasMessageMatching("Invalid value for SKIP_HEADER_LINE_COUNT property: -1");
         assertThatThrownBy(() -> assertUpdate("CREATE TABLE test_invalid_skip_footer (col1 bigint) WITH (format = 'TEXTFILE', skip_footer_line_count = -1)"))
-                .hasMessageMatching("Invalid value for skip_footer_line_count property: -1");
+                .hasMessageMatching("Invalid value for SKIP_FOOTER_LINE_COUNT property: -1");
 
         // CSV
         assertThatThrownBy(() -> assertUpdate("CREATE TABLE invalid_table (col1 bigint) WITH (format = 'ORC', csv_separator = 'S')"))
-                .hasMessageMatching("Cannot specify csv_separator table property for storage format: ORC");
+                .hasMessageMatching("Cannot specify CSV_SEPARATOR table property for storage format: ORC");
         assertThatThrownBy(() -> assertUpdate("CREATE TABLE invalid_table (col1 varchar) WITH (format = 'CSV', csv_separator = 'SS')"))
-                .hasMessageMatching("csv_separator must be a single character string, but was: 'SS'");
+                .hasMessageMatching("CSV_SEPARATOR must be a single character string, but was: 'SS'");
         assertThatThrownBy(() -> assertUpdate("CREATE TABLE invalid_table (col1 bigint) WITH (format = 'ORC', csv_quote = 'Q')"))
-                .hasMessageMatching("Cannot specify csv_quote table property for storage format: ORC");
+                .hasMessageMatching("Cannot specify CSV_QUOTE table property for storage format: ORC");
         assertThatThrownBy(() -> assertUpdate("CREATE TABLE invalid_table (col1 varchar) WITH (format = 'CSV', csv_quote = 'QQ')"))
-                .hasMessageMatching("csv_quote must be a single character string, but was: 'QQ'");
+                .hasMessageMatching("CSV_QUOTE must be a single character string, but was: 'QQ'");
         assertThatThrownBy(() -> assertUpdate("CREATE TABLE invalid_table (col1 varchar) WITH (format = 'ORC', csv_escape = 'E')"))
-                .hasMessageMatching("Cannot specify csv_escape table property for storage format: ORC");
+                .hasMessageMatching("Cannot specify CSV_ESCAPE table property for storage format: ORC");
         assertThatThrownBy(() -> assertUpdate("CREATE TABLE invalid_table (col1 varchar) WITH (format = 'CSV', csv_escape = 'EE')"))
-                .hasMessageMatching("csv_escape must be a single character string, but was: 'EE'");
+                .hasMessageMatching("CSV_ESCAPE must be a single character string, but was: 'EE'");
     }
 
     @Test
@@ -6418,8 +6418,8 @@ public abstract class BaseHiveConnectorTest
         assertQuery(
                 "SELECT * FROM system.metadata.analyze_properties WHERE catalog_name = 'hive'",
                 "SELECT * FROM VALUES " +
-                        "('hive', 'partitions', '', 'array(array(varchar))', 'Partitions to be analyzed'), " +
-                        "('hive', 'columns', '', 'array(varchar)', 'Columns to be analyzed')");
+                        "('hive', 'PARTITIONS', '', 'array(array(varchar))', 'Partitions to be analyzed'), " +
+                        "('hive', 'COLUMNS', '', 'array(varchar)', 'Columns to be analyzed')");
     }
 
     @Test
@@ -6441,9 +6441,9 @@ public abstract class BaseHiveConnectorTest
         createPartitionedTableForAnalyzeTest(tableName);
 
         // Test invalid property
-        assertQueryFails(format("ANALYZE %s WITH (error = 1)", tableName), ".*'hive' analyze property 'error' does not exist.*");
-        assertQueryFails(format("ANALYZE %s WITH (partitions = 1)", tableName), "\\QInvalid value for catalog 'hive' analyze property 'partitions': Cannot convert [1] to array(array(varchar))\\E");
-        assertQueryFails(format("ANALYZE %s WITH (partitions = NULL)", tableName), "\\QInvalid null value for catalog 'hive' analyze property 'partitions' from [null]\\E");
+        assertQueryFails(format("ANALYZE %s WITH (error = 1)", tableName), ".*'hive' analyze property 'ERROR' does not exist.*");
+        assertQueryFails(format("ANALYZE %s WITH (partitions = 1)", tableName), "\\QInvalid value for catalog 'hive' analyze property 'PARTITIONS': Cannot convert [1] to array(array(varchar))\\E");
+        assertQueryFails(format("ANALYZE %s WITH (partitions = NULL)", tableName), "\\QInvalid null value for catalog 'hive' analyze property 'PARTITIONS' from [null]\\E");
         assertQueryFails(format("ANALYZE %s WITH (partitions = ARRAY[NULL])", tableName), ".*Invalid null value in analyze partitions property.*");
 
         // Test non-existed partition
@@ -6956,7 +6956,7 @@ public abstract class BaseHiveConnectorTest
         // Column names must be strings
         assertQueryFails(
                 "ANALYZE " + tableName + " WITH (columns = ARRAY[42])",
-                "\\QInvalid value for catalog 'hive' analyze property 'columns': Cannot convert [ARRAY[42]] to array(varchar)\\E");
+                "\\QInvalid value for catalog 'hive' analyze property 'COLUMNS': Cannot convert [ARRAY[42]] to array(varchar)\\E");
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -7521,8 +7521,8 @@ public abstract class BaseHiveConnectorTest
                         "   another_dummy_col varchar\n" +
                         ")\n" +
                         "WITH (\n" +
-                        "   avro_schema_url = '%s',\n" +
-                        "   format = 'AVRO'\n" +
+                        "   AVRO_SCHEMA_URL = '%s',\n" +
+                        "   FORMAT = 'AVRO'\n" +
                         ")",
                 getSession().getCatalog().get(),
                 getSession().getSchema().get(),
@@ -7559,7 +7559,7 @@ public abstract class BaseHiveConnectorTest
                 getSession().getCatalog().get(),
                 getSession().getSchema().get());
 
-        assertQueryFails(createTableSql, "Cannot specify avro_schema_url table property for storage format: ORC");
+        assertQueryFails(createTableSql, "Cannot specify AVRO_SCHEMA_URL table property for storage format: ORC");
     }
 
     @Test
@@ -7910,7 +7910,8 @@ public abstract class BaseHiveConnectorTest
         assertQueryFails(optimizeEnabledSession, "ALTER TABLE " + tableName + " EXECUTE \"optimize\"", "Procedure optimize not registered for catalog hive");
         assertUpdate(optimizeEnabledSession, "ALTER TABLE " + tableName + " EXECUTE \"OPTIMIZE\"");
         // optimize with delimited parameter name (and procedure name)
-        assertUpdate(optimizeEnabledSession, "ALTER TABLE " + tableName + " EXECUTE \"OPTIMIZE\" (\"file_size_threshold\" => '10B')"); // TODO (https://github.com/trinodb/trino/issues/11326) this should fail
+        assertQueryFails(optimizeEnabledSession, "ALTER TABLE " + tableName + " EXECUTE \"OPTIMIZE\" (\"file_size_threshold\" => '10B')",
+                ".*'OPTIMIZE' property 'file_size_threshold' does not exist.*");
         assertUpdate(optimizeEnabledSession, "ALTER TABLE " + tableName + " EXECUTE \"OPTIMIZE\" (\"FILE_SIZE_THRESHOLD\" => '10B')");
 
         assertUpdate("DROP TABLE " + tableName);

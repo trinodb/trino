@@ -86,10 +86,10 @@ public abstract class BaseDataDefinitionTaskTest
     protected static final String CATALOG_NAME = "catalog";
     public static final String SCHEMA = "schema";
 
-    protected static final String MATERIALIZED_VIEW_PROPERTY_1_NAME = "property1";
+    protected static final String MATERIALIZED_VIEW_PROPERTY_1_NAME = "PROPERTY1";
     protected static final Long MATERIALIZED_VIEW_PROPERTY_1_DEFAULT_VALUE = null;
 
-    protected static final String MATERIALIZED_VIEW_PROPERTY_2_NAME = "property2";
+    protected static final String MATERIALIZED_VIEW_PROPERTY_2_NAME = "PROPERTY2";
     protected static final String MATERIALIZED_VIEW_PROPERTY_2_DEFAULT_VALUE = "defaultProperty2Value";
 
     private LocalQueryRunner queryRunner;

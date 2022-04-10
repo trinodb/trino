@@ -74,7 +74,7 @@ public class TableProceduresPropertyManager
     public Map<String, Object> getProperties(
             CatalogName catalog,
             String procedureName,
-            Map<String, Expression> sqlPropertyValues,
+            Map<Identifier, Expression> sqlPropertyValues,
             Session session,
             PlannerContext plannerContext,
             AccessControl accessControl,
@@ -87,7 +87,7 @@ public class TableProceduresPropertyManager
 
         Map<String, Optional<Object>> propertyValues = evaluateProperties(
                 sqlPropertyValues.entrySet().stream()
-                        .map(entry -> new Property(new Identifier(entry.getKey()), entry.getValue()))
+                        .map(entry -> new Property(entry.getKey(), entry.getValue()))
                         .collect(toImmutableList()),
                 session,
                 plannerContext,

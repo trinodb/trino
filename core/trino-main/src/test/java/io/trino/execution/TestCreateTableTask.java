@@ -98,7 +98,7 @@ public class TestCreateTableTask
     private static final ConnectorTableMetadata PARENT_TABLE = new ConnectorTableMetadata(
             new SchemaTableName("schema", "parent_table"),
             List.of(new ColumnMetadata("a", SMALLINT), new ColumnMetadata("b", BIGINT)),
-            Map.of("baz", "property_value"));
+            Map.of("BAZ", "property_value"));
 
     private LocalQueryRunner queryRunner;
     private Session testSession;
@@ -116,7 +116,7 @@ public class TestCreateTableTask
         queryRunner.createCatalog(
                 CATALOG_NAME,
                 MockConnectorFactory.builder()
-                        .withTableProperties(() -> ImmutableList.of(stringProperty("baz", "test property", null, false)))
+                        .withTableProperties(() -> ImmutableList.of(stringProperty("BAZ", "test property", null, false)))
                         .build(),
                 ImmutableMap.of());
 
@@ -180,7 +180,7 @@ public class TestCreateTableTask
         CreateTableTask createTableTask = new CreateTableTask(plannerContext, new AllowAllAccessControl(), columnPropertyManager, tablePropertyManager);
         assertTrinoExceptionThrownBy(() -> getFutureValue(createTableTask.internalExecute(statement, testSession, emptyList(), output -> {})))
                 .hasErrorCode(INVALID_TABLE_PROPERTY)
-                .hasMessage("Catalog 'catalog' table property 'foo' does not exist");
+                .hasMessage("Catalog 'catalog' table property 'FOO' does not exist");
 
         assertEquals(metadata.getCreateTableCallCount(), 0);
     }

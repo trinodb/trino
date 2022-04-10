@@ -85,7 +85,7 @@ public class TestHiveConnectorSmokeTest
                         "   comment varchar(152)\n" +
                         ")\n" +
                         "WITH (\n" +
-                        "   format = 'ORC'\n" +
+                        "   FORMAT = 'ORC'\n" +
                         ")");
     }
 }

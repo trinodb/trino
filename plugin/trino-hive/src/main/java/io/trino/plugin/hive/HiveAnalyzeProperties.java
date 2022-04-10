@@ -36,8 +36,8 @@ import static java.lang.String.format;
 
 public class HiveAnalyzeProperties
 {
-    public static final String PARTITIONS_PROPERTY = "partitions";
-    public static final String COLUMNS_PROPERTY = "columns";
+    public static final String PARTITIONS_PROPERTY = "PARTITIONS";
+    public static final String COLUMNS_PROPERTY = "COLUMNS";
 
     private final List<PropertyMetadata<?>> analyzeProperties;
 

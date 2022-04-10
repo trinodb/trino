@@ -26,6 +26,7 @@ public class OptimizeTableProcedure
         implements Provider<TableProcedureMetadata>
 {
     public static final String NAME = "OPTIMIZE";
+    public static final String FILE_SIZE_THRESHOLD = "FILE_SIZE_THRESHOLD";
 
     @Override
     public TableProcedureMetadata get()
@@ -35,7 +36,7 @@ public class OptimizeTableProcedure
                 distributedWithFilteringAndRepartitioning(),
                 ImmutableList.of(
                         dataSizeProperty(
-                                "file_size_threshold",
+                                FILE_SIZE_THRESHOLD,
                                 "Only compact files smaller than given threshold in bytes",
                                 DataSize.of(100, DataSize.Unit.MEGABYTE),
                                 false)));

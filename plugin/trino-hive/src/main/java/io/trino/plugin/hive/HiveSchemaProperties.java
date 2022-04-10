@@ -26,7 +26,7 @@ import static io.trino.spi.session.PropertyMetadata.stringProperty;
 
 public final class HiveSchemaProperties
 {
-    public static final String LOCATION_PROPERTY = "location";
+    public static final String LOCATION_PROPERTY = "LOCATION";
 
     public static final List<PropertyMetadata<?>> SCHEMA_PROPERTIES = ImmutableList.of(
             stringProperty(

@@ -94,7 +94,7 @@ public class TestOrcWriterOptions
         tableProperties.setProperty(ORC_BLOOM_FILTER_COLUMNS_KEY, "column_with_bloom_filter");
         tableProperties.setProperty(ORC_BLOOM_FILTER_FPP_KEY, "abc");
         assertThatThrownBy(() -> getOrcWriterOptions(tableProperties, new OrcWriterOptions()))
-                .hasMessage("Invalid value for orc_bloom_filter_fpp property: abc");
+                .hasMessage("Invalid value for ORC_BLOOM_FILTER_FPP property: abc");
     }
 
     @Test(dataProvider = "invalidBloomFilterFpp")

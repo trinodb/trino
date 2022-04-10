@@ -128,8 +128,8 @@ public class TestCreateMaterializedViewTask
                 CATALOG_NAME,
                 MockConnectorFactory.builder()
                         .withGetMaterializedViewProperties(() -> ImmutableList.<PropertyMetadata<?>>builder()
-                                .add(stringProperty("foo", "test materialized view property", DEFAULT_MATERIALIZED_VIEW_FOO_PROPERTY_VALUE, false))
-                                .add(integerProperty("bar", "test materialized view property", DEFAULT_MATERIALIZED_VIEW_BAR_PROPERTY_VALUE, false))
+                                .add(stringProperty("FOO", "test materialized view property", DEFAULT_MATERIALIZED_VIEW_FOO_PROPERTY_VALUE, false))
+                                .add(integerProperty("BAR", "test materialized view property", DEFAULT_MATERIALIZED_VIEW_BAR_PROPERTY_VALUE, false))
                                 .build())
                         .build(),
                 ImmutableMap.of());
@@ -204,7 +204,7 @@ public class TestCreateMaterializedViewTask
         assertTrinoExceptionThrownBy(() -> getFutureValue(new CreateMaterializedViewTask(plannerContext, new AllowAllAccessControl(), parser, analyzerFactory, materializedViewPropertyManager, new FeaturesConfig())
                 .execute(statement, queryStateMachine, ImmutableList.of(), WarningCollector.NOOP)))
                 .hasErrorCode(INVALID_MATERIALIZED_VIEW_PROPERTY)
-                .hasMessage("Catalog 'catalog' materialized view property 'baz' does not exist");
+                .hasMessage("Catalog 'catalog' materialized view property 'BAZ' does not exist");
 
         assertEquals(metadata.getCreateMaterializedViewCallCount(), 0);
     }
@@ -230,8 +230,8 @@ public class TestCreateMaterializedViewTask
                 metadata.getMaterializedView(testSession, QualifiedObjectName.valueOf(materializedViewName.toString()));
         assertThat(definitionOptional).isPresent();
         Map<String, Object> properties = definitionOptional.get().getProperties();
-        assertThat(properties.get("foo")).isEqualTo(DEFAULT_MATERIALIZED_VIEW_FOO_PROPERTY_VALUE);
-        assertThat(properties.get("bar")).isEqualTo(DEFAULT_MATERIALIZED_VIEW_BAR_PROPERTY_VALUE);
+        assertThat(properties.get("FOO")).isEqualTo(DEFAULT_MATERIALIZED_VIEW_FOO_PROPERTY_VALUE);
+        assertThat(properties.get("BAR")).isEqualTo(DEFAULT_MATERIALIZED_VIEW_BAR_PROPERTY_VALUE);
     }
 
     @Test

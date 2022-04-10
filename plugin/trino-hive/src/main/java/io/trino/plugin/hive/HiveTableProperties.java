@@ -44,31 +44,31 @@ import static java.util.Locale.ENGLISH;
 
 public class HiveTableProperties
 {
-    public static final String EXTERNAL_LOCATION_PROPERTY = "external_location";
-    public static final String STORAGE_FORMAT_PROPERTY = "format";
-    public static final String PARTITIONED_BY_PROPERTY = "partitioned_by";
-    public static final String BUCKETED_BY_PROPERTY = "bucketed_by";
-    public static final String BUCKETING_VERSION = "bucketing_version";
-    public static final String BUCKET_COUNT_PROPERTY = "bucket_count";
-    public static final String SORTED_BY_PROPERTY = "sorted_by";
+    public static final String EXTERNAL_LOCATION_PROPERTY = "EXTERNAL_LOCATION";
+    public static final String STORAGE_FORMAT_PROPERTY = "FORMAT";
+    public static final String PARTITIONED_BY_PROPERTY = "PARTITIONED_BY";
+    public static final String BUCKETED_BY_PROPERTY = "BUCKETED_BY";
+    public static final String BUCKETING_VERSION = "BUCKETING_VERSION";
+    public static final String BUCKET_COUNT_PROPERTY = "BUCKET_COUNT";
+    public static final String SORTED_BY_PROPERTY = "SORTED_BY";
     // TODO: This property represents the subset of columns to be analyzed. This exists mainly because there is no way
     //       to pass the column names to ConnectorMetadata#getStatisticsCollectionMetadata; we should consider passing
     //       ConnectorTableHandle instead of ConnectorTableMetadata as an argument since it makes more information
     //       available (including the names of the columns to be analyzed)
-    public static final String ANALYZE_COLUMNS_PROPERTY = "presto.analyze_columns";
-    public static final String ORC_BLOOM_FILTER_COLUMNS = "orc_bloom_filter_columns";
-    public static final String ORC_BLOOM_FILTER_FPP = "orc_bloom_filter_fpp";
-    public static final String AVRO_SCHEMA_URL = "avro_schema_url";
-    public static final String TEXTFILE_FIELD_SEPARATOR = "textfile_field_separator";
-    public static final String TEXTFILE_FIELD_SEPARATOR_ESCAPE = "textfile_field_separator_escape";
-    public static final String NULL_FORMAT_PROPERTY = "null_format";
-    public static final String SKIP_HEADER_LINE_COUNT = "skip_header_line_count";
-    public static final String SKIP_FOOTER_LINE_COUNT = "skip_footer_line_count";
-    public static final String CSV_SEPARATOR = "csv_separator";
-    public static final String CSV_QUOTE = "csv_quote";
-    public static final String CSV_ESCAPE = "csv_escape";
-    public static final String TRANSACTIONAL = "transactional";
-    public static final String AUTO_PURGE = "auto_purge";
+    public static final String ANALYZE_COLUMNS_PROPERTY = "PRESTO.ANALYZE_COLUMNS";
+    public static final String ORC_BLOOM_FILTER_COLUMNS = "ORC_BLOOM_FILTER_COLUMNS";
+    public static final String ORC_BLOOM_FILTER_FPP = "ORC_BLOOM_FILTER_FPP";
+    public static final String AVRO_SCHEMA_URL = "AVRO_SCHEMA_URL";
+    public static final String TEXTFILE_FIELD_SEPARATOR = "TEXTFILE_FIELD_SEPARATOR";
+    public static final String TEXTFILE_FIELD_SEPARATOR_ESCAPE = "TEXTFILE_FIELD_SEPARATOR_ESCAPE";
+    public static final String NULL_FORMAT_PROPERTY = "NULL_FORMAT";
+    public static final String SKIP_HEADER_LINE_COUNT = "SKIP_HEADER_LINE_COUNT";
+    public static final String SKIP_FOOTER_LINE_COUNT = "SKIP_FOOTER_LINE_COUNT";
+    public static final String CSV_SEPARATOR = "CSV_SEPARATOR";
+    public static final String CSV_QUOTE = "CSV_QUOTE";
+    public static final String CSV_ESCAPE = "CSV_ESCAPE";
+    public static final String TRANSACTIONAL = "TRANSACTIONAL";
+    public static final String AUTO_PURGE = "AUTO_PURGE";
 
     private final List<PropertyMetadata<?>> tableProperties;
 

@@ -36,7 +36,6 @@ import java.util.Optional;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
 import static java.lang.String.format;
-import static java.util.Locale.ENGLISH;
 
 public final class PropertyUtil
 {
@@ -57,8 +56,7 @@ public final class PropertyUtil
 
         // Fill in user-specified properties
         for (Property property : setProperties) {
-            // property names are case-insensitive and normalized to lower case
-            String propertyName = property.getName().getValue().toLowerCase(ENGLISH);
+            String propertyName = property.getName().getCanonicalValue();
             PropertyMetadata<?> propertyMetadata = metadata.get(propertyName);
             if (propertyMetadata == null) {
                 throw new TrinoException(errorCode, format("%s '%s' does not exist", capitalize(propertyTypeDescription), propertyName));
