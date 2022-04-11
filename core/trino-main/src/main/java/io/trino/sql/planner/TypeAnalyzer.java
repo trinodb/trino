@@ -13,13 +13,18 @@
  */
 package io.trino.sql.planner;
 
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
+import io.trino.collect.cache.NonEvictableCache;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.AnalyzePropertyManager;
 import io.trino.metadata.TablePropertyManager;
 import io.trino.security.AllowAllAccessControl;
+import io.trino.spi.QueryId;
+import io.trino.spi.TrinoException;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.StatementAnalyzerFactory;
@@ -28,8 +33,12 @@ import io.trino.sql.tree.NodeRef;
 
 import javax.inject.Inject;
 
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 
+import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.sql.analyzer.ExpressionAnalyzer.analyzeExpressions;
 import static io.trino.sql.analyzer.QueryType.OTHERS;
 import static io.trino.sql.analyzer.StatementAnalyzerFactory.createTestingStatementAnalyzerFactory;
@@ -45,6 +54,14 @@ public class TypeAnalyzer
     private final PlannerContext plannerContext;
     private final StatementAnalyzerFactory statementAnalyzerFactory;
 
+    private final NonEvictableCache<QueryId, QueryScopedCachedTypeAnalyzer> typeAnalyzersCache = buildNonEvictableCache(
+            CacheBuilder.newBuilder()
+                    // Try to evict queries cache as soon as possible to keep cache relatively small
+                    .expireAfterAccess(15, TimeUnit.SECONDS)
+                    .maximumSize(256)
+                    .softValues()
+                    .recordStats());
+
     @Inject
     public TypeAnalyzer(PlannerContext plannerContext, StatementAnalyzerFactory statementAnalyzerFactory)
     {
@@ -54,17 +71,13 @@ public class TypeAnalyzer
 
     public Map<NodeRef<Expression>, Type> getTypes(Session session, TypeProvider inputTypes, Iterable<Expression> expressions)
     {
-        return analyzeExpressions(
-                session,
-                plannerContext,
-                statementAnalyzerFactory,
-                new AllowAllAccessControl(),
-                inputTypes,
-                expressions,
-                ImmutableMap.of(),
-                WarningCollector.NOOP,
-                OTHERS)
-                .getExpressionTypes();
+        try {
+            return typeAnalyzersCache.get(session.getQueryId(), () -> new QueryScopedCachedTypeAnalyzer(plannerContext, statementAnalyzerFactory))
+                    .getTypes(session, inputTypes, ImmutableList.copyOf(expressions));
+        }
+        catch (ExecutionException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     public Map<NodeRef<Expression>, Type> getTypes(Session session, TypeProvider inputTypes, Expression expression)
@@ -86,5 +99,45 @@ public class TypeAnalyzer
                         new AllowAllAccessControl(),
                         new TablePropertyManager(),
                         new AnalyzePropertyManager()));
+    }
+
+    private static class QueryScopedCachedTypeAnalyzer
+    {
+        private final Cache<List<NodeRef<Expression>>, Map<NodeRef<Expression>, Type>> typesCache = buildNonEvictableCache(
+                CacheBuilder.newBuilder()
+                        .weakValues()
+                        .maximumSize(128));
+
+        private PlannerContext plannerContext;
+        private StatementAnalyzerFactory statementAnalyzerFactory;
+
+        private QueryScopedCachedTypeAnalyzer(PlannerContext plannerContext, StatementAnalyzerFactory statementAnalyzerFactory)
+        {
+            this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
+            this.statementAnalyzerFactory = requireNonNull(statementAnalyzerFactory, "statementAnalyzerFactory is null");
+        }
+
+        private Map<NodeRef<Expression>, Type> getTypes(Session session, TypeProvider inputTypes, List<Expression> expressions)
+        {
+            try {
+                return typesCache.get(asReferences(expressions), () -> {
+                    return analyzeExpressions(session, plannerContext, statementAnalyzerFactory, new AllowAllAccessControl(), inputTypes, expressions, ImmutableMap.of(), WarningCollector.NOOP, OTHERS)
+                                    .getExpressionTypes();
+                });
+            }
+            catch (ExecutionException e) {
+                if (e.getCause() instanceof TrinoException) {
+                    throw (TrinoException) e.getCause();
+                }
+                throw new RuntimeException(e);
+            }
+        }
+
+        private List<NodeRef<Expression>> asReferences(List<Expression> expressions)
+        {
+            ImmutableList.Builder<NodeRef<Expression>> builder = ImmutableList.builderWithExpectedSize(expressions.size());
+            expressions.forEach(expression -> builder.add(NodeRef.of(expression)));
+            return builder.build();
+        }
     }
 }

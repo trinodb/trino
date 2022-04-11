@@ -22,6 +22,10 @@ import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import org.testng.annotations.Test;
 
+import java.security.SecureRandom;
+import java.util.Random;
+import java.util.UUID;
+
 import static io.trino.SystemSessionProperties.PUSH_PARTIAL_AGGREGATION_THROUGH_JOIN;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -29,6 +33,9 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.assertions.Assert.assertEquals;
+import static java.lang.String.format;
+import static java.util.stream.Collectors.joining;
+import static java.util.stream.IntStream.range;
 
 public class TestLocalQueries
         extends AbstractTestQueries
@@ -116,5 +123,20 @@ public class TestLocalQueries
                 "SELECT json_format(CAST(try(transform_values(m, (k, v) -> k / v)) AS json)) " +
                         "FROM (VALUES map(ARRAY[1, 2], ARRAY[0, 0]),  map(ARRAY[28], ARRAY[2]), map(ARRAY[18], ARRAY[2]), map(ARRAY[4, 5], ARRAY[1, 0]),  map(ARRAY[12], ARRAY[3])) AS t(m)",
                 "VALUES NULL, '{\"28\":14}', '{\"18\":9}', NULL, '{\"12\":4}'");
+    }
+
+    @Test
+    public void testExtremelyLargeStringIn()
+    {
+        String stringValues = range(0, 10000)
+                .mapToObj(x -> format("CAST('%s' AS varchar)", UUID.randomUUID()))
+                .collect(joining(","));
+
+        Random random = new SecureRandom();
+        String complexPredicate = range(0, 20)
+                .mapToObj(value -> format("(clerk = 'Clerk#000000%03d' AND CAST(comment AS varchar) IN (%s))", random.nextInt(999), stringValues))
+                .collect(joining(" OR "));
+
+        computeActual("SELECT orderkey FROM orders WHERE " + complexPredicate);
     }
 }
