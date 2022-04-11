@@ -1132,14 +1132,14 @@ public class TestHiveFileFormats
         }
     }
 
-    private final List<TestColumn> getRegularColumns(List<TestColumn> columns)
+    private List<TestColumn> getRegularColumns(List<TestColumn> columns)
     {
         return columns.stream()
                 .filter(column -> !column.isPartitionKey())
                 .collect(toImmutableList());
     }
 
-    private final List<TestColumn> getPartitionColumns(List<TestColumn> columns)
+    private List<TestColumn> getPartitionColumns(List<TestColumn> columns)
     {
         return columns.stream()
                 .filter(TestColumn::isPartitionKey)
