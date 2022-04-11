@@ -283,6 +283,7 @@ public class LocalQueryRunner
     private final PlanOptimizersProvider planOptimizersProvider;
     private final OperatorFactories operatorFactories;
     private final StatementAnalyzerFactory statementAnalyzerFactory;
+    private final TypeAnalyzer typeAnalyzer;
     private boolean printPlan;
 
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
@@ -386,7 +387,7 @@ public class LocalQueryRunner
                 tablePropertyManager,
                 analyzePropertyManager,
                 tableProceduresPropertyManager);
-        TypeAnalyzer typeAnalyzer = new TypeAnalyzer(plannerContext, statementAnalyzerFactory);
+        this.typeAnalyzer = new TypeAnalyzer(plannerContext, statementAnalyzerFactory);
         this.statsCalculator = createNewStatsCalculator(plannerContext, typeAnalyzer);
         this.scalarStatsCalculator = new ScalarStatsCalculator(plannerContext, typeAnalyzer);
         this.taskCountEstimator = new TaskCountEstimator(() -> nodeCountForStats);
@@ -906,7 +907,7 @@ public class LocalQueryRunner
         tableExecuteContextManager.registerTableExecuteContextForQuery(taskContext.getQueryContext().getQueryId());
         LocalExecutionPlanner executionPlanner = new LocalExecutionPlanner(
                 plannerContext,
-                new TypeAnalyzer(plannerContext, statementAnalyzerFactory),
+                typeAnalyzer,
                 Optional.empty(),
                 pageSourceManager,
                 indexManager,
@@ -1025,7 +1026,7 @@ public class LocalQueryRunner
     {
         return planOptimizersProvider.getPlanOptimizers(
                 plannerContext,
-                new TypeAnalyzer(plannerContext, statementAnalyzerFactory),
+                typeAnalyzer,
                 taskManagerConfig,
                 forceSingleNode,
                 splitManager,
@@ -1066,7 +1067,7 @@ public class LocalQueryRunner
                 new PlanSanityChecker(true),
                 idAllocator,
                 getPlannerContext(),
-                new TypeAnalyzer(plannerContext, statementAnalyzerFactory),
+                typeAnalyzer,
                 statsCalculator,
                 costCalculator,
                 warningCollector);
