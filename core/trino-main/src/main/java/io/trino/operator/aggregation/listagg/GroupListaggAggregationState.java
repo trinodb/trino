@@ -86,14 +86,14 @@ public final class GroupListaggAggregationState
     }
 
     @Override
-    public final void add(Block block, int position)
+    public void add(Block block, int position)
     {
         prepareAdd();
         appendAtChannel(VALUE_CHANNEL, block, position);
     }
 
     @Override
-    protected final boolean accept(ListaggAggregationStateConsumer consumer, PageBuilder pageBuilder, int currentPosition)
+    protected boolean accept(ListaggAggregationStateConsumer consumer, PageBuilder pageBuilder, int currentPosition)
     {
         consumer.accept(pageBuilder.getBlockBuilder(VALUE_CHANNEL), currentPosition);
         return true;
