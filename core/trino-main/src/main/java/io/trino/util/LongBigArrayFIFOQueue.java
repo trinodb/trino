@@ -141,7 +141,7 @@ public class LongBigArrayFIFOQueue
         return t;
     }
 
-    private final void resize(final long size, final long newLength)
+    private void resize(final long size, final long newLength)
     {
         final LongBigArray newArray = new LongBigArray();
         newArray.ensureCapacity(newLength);
@@ -160,12 +160,12 @@ public class LongBigArrayFIFOQueue
         length = newLength;
     }
 
-    private final void expand()
+    private void expand()
     {
         resize(length, 2L * length);
     }
 
-    private final void reduce()
+    private void reduce()
     {
         final long size = longSize();
         if (length > INITIAL_CAPACITY && size <= length / 4) {
