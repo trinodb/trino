@@ -964,6 +964,28 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testCreateTableWithLocationAndSchemaNotExists()
+    {
+        File tempDir = getDistributedQueryRunner().getCoordinator().getBaseDataDir().toFile();
+        String tempDirPath = tempDir.toURI().toASCIIString() + randomTableSuffix();
+
+        assertQueryFails(
+                format("CREATE TABLE any_schema.test_create_table_with_location (x bigint) WITH (location = '%s')", tempDirPath),
+                "Schema any_schema not found");
+    }
+
+    @Test
+    public void testCreateTableAsSelectWithLocationAndSchemaNotExists()
+    {
+        File tempDir = getDistributedQueryRunner().getCoordinator().getBaseDataDir().toFile();
+        String tempDirPath = tempDir.toURI().toASCIIString() + randomTableSuffix();
+
+        assertQueryFails(
+                format("CREATE TABLE any_schema.test_ctas_with_location WITH (location = '%s') AS SELECT * FROM tpch.tiny.orders", tempDirPath),
+                "Schema any_schema not found");
+    }
+
+    @Test
     public void testRollbackSnapshot()
     {
         assertUpdate("CREATE TABLE test_rollback (col0 INTEGER, col1 BIGINT)");

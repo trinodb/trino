@@ -41,6 +41,7 @@ import java.util.stream.Stream;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.inject.util.Modules.EMPTY_MODULE;
 import static io.trino.plugin.iceberg.CountingAccessFileHiveMetastore.Methods.CREATE_TABLE;
+import static io.trino.plugin.iceberg.CountingAccessFileHiveMetastore.Methods.GET_ALL_DATABASES;
 import static io.trino.plugin.iceberg.CountingAccessFileHiveMetastore.Methods.GET_DATABASE;
 import static io.trino.plugin.iceberg.CountingAccessFileHiveMetastore.Methods.GET_TABLE;
 import static io.trino.plugin.iceberg.CountingAccessFileHiveMetastore.Methods.REPLACE_TABLE;
@@ -98,6 +99,7 @@ public class TestIcebergMetastoreAccessOperations
     {
         assertMetastoreInvocations("CREATE TABLE test_create (id VARCHAR, age INT)",
                 ImmutableMultiset.builder()
+                        .add(GET_ALL_DATABASES)
                         .add(CREATE_TABLE)
                         .add(GET_DATABASE)
                         .add(GET_TABLE)
@@ -109,6 +111,7 @@ public class TestIcebergMetastoreAccessOperations
     {
         assertMetastoreInvocations("CREATE TABLE test_ctas AS SELECT 1 AS age",
                 ImmutableMultiset.builder()
+                        .add(GET_ALL_DATABASES)
                         .add(GET_DATABASE)
                         .add(CREATE_TABLE)
                         .add(GET_TABLE)
