@@ -50,8 +50,10 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.spi.StandardErrorCode.NO_NODES_AVAILABLE;
@@ -80,6 +82,7 @@ public class BinPackingNodeAllocatorService
 
     private final ConcurrentMap<String, Long> allocatedMemory = new ConcurrentHashMap<>();
     private final Deque<PendingAcquire> pendingAcquires = new ConcurrentLinkedDeque<>();
+    private final Set<BinPackingNodeLease> fulfilledAcquires = newConcurrentHashSet();
 
     @Inject
     public BinPackingNodeAllocatorService(
@@ -180,6 +183,7 @@ public class BinPackingNodeAllocatorService
                     pendingAcquire.getFuture().set(reservedNode);
                     if (!pendingAcquire.getFuture().isCancelled()) {
                         updateAllocatedMemory(reservedNode, pendingAcquire.getMemoryLease());
+                        fulfilledAcquires.add(pendingAcquire.getLease());
                     }
                     else {
                         // request was cancelled in the meantime
@@ -214,13 +218,11 @@ public class BinPackingNodeAllocatorService
     @Override
     public NodeLease acquire(NodeRequirements requirements)
     {
-        PendingAcquire pendingAcquire = new PendingAcquire(requirements);
+        BinPackingNodeLease nodeLease = new BinPackingNodeLease(requirements.getMemory().toBytes());
+        PendingAcquire pendingAcquire = new PendingAcquire(requirements, nodeLease);
         pendingAcquires.add(pendingAcquire);
         wakeupProcessPendingAcquires();
-
-        return new BinPackingNodeLease(
-                pendingAcquire.getFuture(),
-                requirements.getMemory().toBytes());
+        return nodeLease;
     }
 
     @Override
@@ -248,12 +250,12 @@ public class BinPackingNodeAllocatorService
     private static class PendingAcquire
     {
         private final NodeRequirements nodeRequirements;
-        private final SettableFuture<InternalNode> future;
+        private final BinPackingNodeLease lease;
 
-        private PendingAcquire(NodeRequirements nodeRequirements)
+        private PendingAcquire(NodeRequirements nodeRequirements, BinPackingNodeLease lease)
         {
             this.nodeRequirements = requireNonNull(nodeRequirements, "nodeRequirements is null");
-            this.future = SettableFuture.create();
+            this.lease = requireNonNull(lease, "lease is null");
         }
 
         public NodeRequirements getNodeRequirements()
@@ -261,9 +263,14 @@ public class BinPackingNodeAllocatorService
             return nodeRequirements;
         }
 
+        public BinPackingNodeLease getLease()
+        {
+            return lease;
+        }
+
         public SettableFuture<InternalNode> getFuture()
         {
-            return future;
+            return lease.getNodeSettableFuture();
         }
 
         public long getMemoryLease()
@@ -275,19 +282,23 @@ public class BinPackingNodeAllocatorService
     private class BinPackingNodeLease
             implements NodeAllocator.NodeLease
     {
-        private final ListenableFuture<InternalNode> node;
+        private final SettableFuture<InternalNode> node = SettableFuture.create();
         private final AtomicBoolean released = new AtomicBoolean();
         private final long memoryLease;
         private final AtomicReference<TaskId> taskId = new AtomicReference<>();
 
-        private BinPackingNodeLease(ListenableFuture<InternalNode> node, long memoryLease)
+        private BinPackingNodeLease(long memoryLease)
         {
-            this.node = requireNonNull(node, "node is null");
             this.memoryLease = memoryLease;
         }
 
         @Override
         public ListenableFuture<InternalNode> getNode()
+        {
+            return node;
+        }
+
+        SettableFuture<InternalNode> getNodeSettableFuture()
         {
             return node;
         }
@@ -313,6 +324,7 @@ public class BinPackingNodeAllocatorService
                 if (node.isDone() && !node.isCancelled()) {
                     updateAllocatedMemory(getFutureValue(node), -memoryLease);
                     wakeupProcessPendingAcquires();
+                    checkState(fulfilledAcquires.remove(this), "node lease %s not found in fulfilledAcquires %s", this, fulfilledAcquires);
                 }
             }
             else {
