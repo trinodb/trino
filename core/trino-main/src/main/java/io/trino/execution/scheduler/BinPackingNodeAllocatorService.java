@@ -18,6 +18,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.log.Logger;
 import io.trino.Session;
+import io.trino.execution.TaskId;
 import io.trino.memory.ClusterMemoryManager;
 import io.trino.memory.MemoryInfo;
 import io.trino.metadata.InternalNode;
@@ -277,6 +278,7 @@ public class BinPackingNodeAllocatorService
         private final ListenableFuture<InternalNode> node;
         private final AtomicBoolean released = new AtomicBoolean();
         private final long memoryLease;
+        private final AtomicReference<TaskId> taskId = new AtomicReference<>();
 
         private BinPackingNodeLease(ListenableFuture<InternalNode> node, long memoryLease)
         {
@@ -288,6 +290,19 @@ public class BinPackingNodeAllocatorService
         public ListenableFuture<InternalNode> getNode()
         {
             return node;
+        }
+
+        @Override
+        public void attachTaskId(TaskId taskId)
+        {
+            if (!this.taskId.compareAndSet(null, taskId)) {
+                throw new IllegalStateException("cannot attach taskId " + taskId + "; alrady attached to " + this.taskId.get());
+            }
+        }
+
+        public Optional<TaskId> getTaskId()
+        {
+            return Optional.ofNullable(this.taskId.get());
         }
 
         @Override

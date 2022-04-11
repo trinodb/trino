@@ -360,6 +360,7 @@ public class FaultTolerantStageScheduler
                         .collect(toImmutableListMultimap(Function.identity(), planNodeId -> Lifespan.taskWide())),
                 allSourcePlanNodeIds).orElseThrow(() -> new VerifyException("stage execution is expected to be active"));
 
+        nodeLease.attachTaskId(task.getTaskId());
         partitionToRemoteTaskMap.put(partition, task);
         runningTasks.put(task.getTaskId(), task);
         runningNodes.put(task.getTaskId(), nodeLease);
