@@ -245,7 +245,7 @@ public class PartitionedOutputOperator
     public void finish()
     {
         finished = true;
-        partitionFunction.flush(true);
+        partitionFunction.forceFlush();
     }
 
     @Override
