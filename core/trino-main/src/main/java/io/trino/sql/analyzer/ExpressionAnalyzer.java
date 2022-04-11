@@ -300,7 +300,7 @@ public class ExpressionAnalyzer
     private final Function<Node, ResolvedWindow> getResolvedWindow;
     private final List<Field> sourceFields = new ArrayList<>();
 
-    private ExpressionAnalyzer(
+    public ExpressionAnalyzer(
             PlannerContext plannerContext,
             AccessControl accessControl,
             StatementAnalyzerFactory statementAnalyzerFactory,
@@ -2781,8 +2781,13 @@ public class ExpressionAnalyzer
             WarningCollector warningCollector,
             QueryType queryType)
     {
-        Analysis analysis = new Analysis(null, parameters, queryType);
-        ExpressionAnalyzer analyzer = new ExpressionAnalyzer(plannerContext, accessControl, statementAnalyzerFactory, analysis, session, types, warningCollector);
+        return analyzeExpressions(
+                new ExpressionAnalyzer(plannerContext, accessControl, statementAnalyzerFactory, new Analysis(null, parameters, queryType), session, types, warningCollector),
+                expressions);
+    }
+
+    public static ExpressionAnalysis analyzeExpressions(ExpressionAnalyzer analyzer, Iterable<Expression> expressions)
+    {
         for (Expression expression : expressions) {
             analyzer.analyze(
                     expression,
