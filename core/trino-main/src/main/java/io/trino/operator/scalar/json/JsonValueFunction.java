@@ -19,6 +19,9 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.trino.FullConnectorSession;
 import io.trino.annotation.UsedByGeneratedCode;
+import io.trino.json.JsonPathEvaluator;
+import io.trino.json.JsonPathInvocationContext;
+import io.trino.json.PathEvaluationError;
 import io.trino.json.ir.IrJsonPath;
 import io.trino.json.ir.SqlJsonLiteralConverter.JsonLiteralConversionError;
 import io.trino.json.ir.TypedValue;
@@ -39,8 +42,6 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeSignature;
 import io.trino.sql.InterpretedFunctionInvoker;
-import io.trino.sql.planner.JsonPathEvaluator;
-import io.trino.sql.planner.JsonPathEvaluator.PathEvaluationError;
 import io.trino.sql.tree.JsonValue.EmptyOrErrorBehavior;
 import io.trino.type.JsonPath2016Type;
 
@@ -58,6 +59,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.type.StandardTypes.JSON_2016;
 import static io.trino.spi.type.StandardTypes.TINYINT;
+import static io.trino.util.Reflection.constructorMethodHandle;
 import static io.trino.util.Reflection.methodHandle;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -66,11 +68,11 @@ public class JsonValueFunction
         extends SqlScalarFunction
 {
     public static final String JSON_VALUE_FUNCTION_NAME = "$json_value";
-    private static final MethodHandle METHOD_HANDLE_LONG = methodHandle(JsonValueFunction.class, "jsonValueLong", FunctionManager.class, Metadata.class, TypeManager.class, Type.class, Type.class, ConnectorSession.class, JsonNode.class, IrJsonPath.class, Block.class, long.class, Long.class, long.class, Long.class);
-    private static final MethodHandle METHOD_HANDLE_DOUBLE = methodHandle(JsonValueFunction.class, "jsonValueDouble", FunctionManager.class, Metadata.class, TypeManager.class, Type.class, Type.class, ConnectorSession.class, JsonNode.class, IrJsonPath.class, Block.class, long.class, Double.class, long.class, Double.class);
-    private static final MethodHandle METHOD_HANDLE_BOOLEAN = methodHandle(JsonValueFunction.class, "jsonValueBoolean", FunctionManager.class, Metadata.class, TypeManager.class, Type.class, Type.class, ConnectorSession.class, JsonNode.class, IrJsonPath.class, Block.class, long.class, Boolean.class, long.class, Boolean.class);
-    private static final MethodHandle METHOD_HANDLE_SLICE = methodHandle(JsonValueFunction.class, "jsonValueSlice", FunctionManager.class, Metadata.class, TypeManager.class, Type.class, Type.class, ConnectorSession.class, JsonNode.class, IrJsonPath.class, Block.class, long.class, Slice.class, long.class, Slice.class);
-    private static final MethodHandle METHOD_HANDLE = methodHandle(JsonValueFunction.class, "jsonValue", FunctionManager.class, Metadata.class, TypeManager.class, Type.class, Type.class, ConnectorSession.class, JsonNode.class, IrJsonPath.class, Block.class, long.class, Object.class, long.class, Object.class);
+    private static final MethodHandle METHOD_HANDLE_LONG = methodHandle(JsonValueFunction.class, "jsonValueLong", FunctionManager.class, Metadata.class, TypeManager.class, Type.class, Type.class, JsonPathInvocationContext.class, ConnectorSession.class, JsonNode.class, IrJsonPath.class, Block.class, long.class, Long.class, long.class, Long.class);
+    private static final MethodHandle METHOD_HANDLE_DOUBLE = methodHandle(JsonValueFunction.class, "jsonValueDouble", FunctionManager.class, Metadata.class, TypeManager.class, Type.class, Type.class, JsonPathInvocationContext.class, ConnectorSession.class, JsonNode.class, IrJsonPath.class, Block.class, long.class, Double.class, long.class, Double.class);
+    private static final MethodHandle METHOD_HANDLE_BOOLEAN = methodHandle(JsonValueFunction.class, "jsonValueBoolean", FunctionManager.class, Metadata.class, TypeManager.class, Type.class, Type.class, JsonPathInvocationContext.class, ConnectorSession.class, JsonNode.class, IrJsonPath.class, Block.class, long.class, Boolean.class, long.class, Boolean.class);
+    private static final MethodHandle METHOD_HANDLE_SLICE = methodHandle(JsonValueFunction.class, "jsonValueSlice", FunctionManager.class, Metadata.class, TypeManager.class, Type.class, Type.class, JsonPathInvocationContext.class, ConnectorSession.class, JsonNode.class, IrJsonPath.class, Block.class, long.class, Slice.class, long.class, Slice.class);
+    private static final MethodHandle METHOD_HANDLE = methodHandle(JsonValueFunction.class, "jsonValue", FunctionManager.class, Metadata.class, TypeManager.class, Type.class, Type.class, JsonPathInvocationContext.class, ConnectorSession.class, JsonNode.class, IrJsonPath.class, Block.class, long.class, Object.class, long.class, Object.class);
     private static final TrinoException INPUT_ARGUMENT_ERROR = new JsonInputConversionError("malformed input argument to JSON_VALUE function");
     private static final TrinoException PATH_PARAMETER_ERROR = new JsonInputConversionError("malformed JSON path parameter to JSON_VALUE function");
     private static final TrinoException NO_ITEMS = new JsonValueResultError("JSON path found no items");
@@ -137,11 +139,13 @@ public class JsonValueFunction
                 .bindTo(typeManager)
                 .bindTo(parametersRowType)
                 .bindTo(returnType);
+        MethodHandle instanceFactory = constructorMethodHandle(JsonPathInvocationContext.class);
         return new ChoicesScalarFunctionImplementation(
                 boundSignature,
                 NULLABLE_RETURN,
                 ImmutableList.of(BOXED_NULLABLE, BOXED_NULLABLE, BOXED_NULLABLE, NEVER_NULL, BOXED_NULLABLE, NEVER_NULL, BOXED_NULLABLE),
-                methodHandle);
+                methodHandle,
+                Optional.of(instanceFactory));
     }
 
     @UsedByGeneratedCode
@@ -151,6 +155,7 @@ public class JsonValueFunction
             TypeManager typeManager,
             Type parametersRowType,
             Type returnType,
+            JsonPathInvocationContext invocationContext,
             ConnectorSession session,
             JsonNode inputExpression,
             IrJsonPath jsonPath,
@@ -160,7 +165,7 @@ public class JsonValueFunction
             long errorBehavior,
             Long errorDefault)
     {
-        return (Long) jsonValue(functionManager, metadata, typeManager, parametersRowType, returnType, session, inputExpression, jsonPath, parametersRow, emptyBehavior, emptyDefault, errorBehavior, errorDefault);
+        return (Long) jsonValue(functionManager, metadata, typeManager, parametersRowType, returnType, invocationContext, session, inputExpression, jsonPath, parametersRow, emptyBehavior, emptyDefault, errorBehavior, errorDefault);
     }
 
     @UsedByGeneratedCode
@@ -170,6 +175,7 @@ public class JsonValueFunction
             TypeManager typeManager,
             Type parametersRowType,
             Type returnType,
+            JsonPathInvocationContext invocationContext,
             ConnectorSession session,
             JsonNode inputExpression,
             IrJsonPath jsonPath,
@@ -179,7 +185,7 @@ public class JsonValueFunction
             long errorBehavior,
             Double errorDefault)
     {
-        return (Double) jsonValue(functionManager, metadata, typeManager, parametersRowType, returnType, session, inputExpression, jsonPath, parametersRow, emptyBehavior, emptyDefault, errorBehavior, errorDefault);
+        return (Double) jsonValue(functionManager, metadata, typeManager, parametersRowType, returnType, invocationContext, session, inputExpression, jsonPath, parametersRow, emptyBehavior, emptyDefault, errorBehavior, errorDefault);
     }
 
     @UsedByGeneratedCode
@@ -189,6 +195,7 @@ public class JsonValueFunction
             TypeManager typeManager,
             Type parametersRowType,
             Type returnType,
+            JsonPathInvocationContext invocationContext,
             ConnectorSession session,
             JsonNode inputExpression,
             IrJsonPath jsonPath,
@@ -198,7 +205,7 @@ public class JsonValueFunction
             long errorBehavior,
             Boolean errorDefault)
     {
-        return (Boolean) jsonValue(functionManager, metadata, typeManager, parametersRowType, returnType, session, inputExpression, jsonPath, parametersRow, emptyBehavior, emptyDefault, errorBehavior, errorDefault);
+        return (Boolean) jsonValue(functionManager, metadata, typeManager, parametersRowType, returnType, invocationContext, session, inputExpression, jsonPath, parametersRow, emptyBehavior, emptyDefault, errorBehavior, errorDefault);
     }
 
     @UsedByGeneratedCode
@@ -208,6 +215,7 @@ public class JsonValueFunction
             TypeManager typeManager,
             Type parametersRowType,
             Type returnType,
+            JsonPathInvocationContext invocationContext,
             ConnectorSession session,
             JsonNode inputExpression,
             IrJsonPath jsonPath,
@@ -217,7 +225,7 @@ public class JsonValueFunction
             long errorBehavior,
             Slice errorDefault)
     {
-        return (Slice) jsonValue(functionManager, metadata, typeManager, parametersRowType, returnType, session, inputExpression, jsonPath, parametersRow, emptyBehavior, emptyDefault, errorBehavior, errorDefault);
+        return (Slice) jsonValue(functionManager, metadata, typeManager, parametersRowType, returnType, invocationContext, session, inputExpression, jsonPath, parametersRow, emptyBehavior, emptyDefault, errorBehavior, errorDefault);
     }
 
     @UsedByGeneratedCode
@@ -227,6 +235,7 @@ public class JsonValueFunction
             TypeManager typeManager,
             Type parametersRowType,
             Type returnType,
+            JsonPathInvocationContext invocationContext,
             ConnectorSession session,
             JsonNode inputExpression,
             IrJsonPath jsonPath,
@@ -245,10 +254,17 @@ public class JsonValueFunction
                 return handleSpecialCase(errorBehavior, errorDefault, PATH_PARAMETER_ERROR); // ERROR ON ERROR was already handled by the input function
             }
         }
-        JsonPathEvaluator pathEvaluator = new JsonPathEvaluator(inputExpression, parameters, functionManager, metadata, typeManager, session);
+        // The jsonPath argument is constant for every row. We use the first incoming jsonPath argument to initialize
+        // the JsonPathEvaluator, and ignore the subsequent jsonPath values. We could sanity-check that all the incoming
+        // jsonPath values are equal. We deliberately skip this costly check, since this is a hidden function.
+        JsonPathEvaluator evaluator = invocationContext.getEvaluator();
+        if (evaluator == null) {
+            evaluator = new JsonPathEvaluator(jsonPath, session, metadata, typeManager, functionManager);
+            invocationContext.setEvaluator(evaluator);
+        }
         List<Object> pathResult;
         try {
-            pathResult = pathEvaluator.evaluate(jsonPath);
+            pathResult = evaluator.evaluate(inputExpression, parameters);
         }
         catch (PathEvaluationError e) {
             return handleSpecialCase(errorBehavior, errorDefault, e); // TODO by spec, we should cast the defaults only if they are used

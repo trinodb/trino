@@ -16,6 +16,9 @@ package io.trino.operator.scalar.json;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.collect.ImmutableList;
 import io.trino.annotation.UsedByGeneratedCode;
+import io.trino.json.JsonPathEvaluator;
+import io.trino.json.JsonPathInvocationContext;
+import io.trino.json.PathEvaluationError;
 import io.trino.json.ir.IrJsonPath;
 import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionManager;
@@ -31,13 +34,12 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeSignature;
-import io.trino.sql.planner.JsonPathEvaluator;
-import io.trino.sql.planner.JsonPathEvaluator.PathEvaluationError;
 import io.trino.sql.tree.JsonExists.ErrorBehavior;
 import io.trino.type.JsonPath2016Type;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
+import java.util.Optional;
 
 import static io.trino.json.JsonInputErrorNode.JSON_ERROR;
 import static io.trino.operator.scalar.json.ParameterUtil.getParametersArray;
@@ -47,6 +49,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationReturnConvent
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.StandardTypes.JSON_2016;
 import static io.trino.spi.type.StandardTypes.TINYINT;
+import static io.trino.util.Reflection.constructorMethodHandle;
 import static io.trino.util.Reflection.methodHandle;
 import static java.util.Objects.requireNonNull;
 
@@ -54,7 +57,7 @@ public class JsonExistsFunction
         extends SqlScalarFunction
 {
     public static final String JSON_EXISTS_FUNCTION_NAME = "$json_exists";
-    private static final MethodHandle METHOD_HANDLE = methodHandle(JsonExistsFunction.class, "jsonExists", FunctionManager.class, Metadata.class, TypeManager.class, Type.class, ConnectorSession.class, JsonNode.class, IrJsonPath.class, Block.class, long.class);
+    private static final MethodHandle METHOD_HANDLE = methodHandle(JsonExistsFunction.class, "jsonExists", FunctionManager.class, Metadata.class, TypeManager.class, Type.class, JsonPathInvocationContext.class, ConnectorSession.class, JsonNode.class, IrJsonPath.class, Block.class, long.class);
     private static final TrinoException INPUT_ARGUMENT_ERROR = new JsonInputConversionError("malformed input argument to JSON_EXISTS function");
     private static final TrinoException PATH_PARAMETER_ERROR = new JsonInputConversionError("malformed JSON path parameter to JSON_EXISTS function");
 
@@ -91,11 +94,13 @@ public class JsonExistsFunction
                 .bindTo(metadata)
                 .bindTo(typeManager)
                 .bindTo(parametersRowType);
+        MethodHandle instanceFactory = constructorMethodHandle(JsonPathInvocationContext.class);
         return new ChoicesScalarFunctionImplementation(
                 boundSignature,
                 NULLABLE_RETURN,
                 ImmutableList.of(BOXED_NULLABLE, BOXED_NULLABLE, BOXED_NULLABLE, NEVER_NULL),
-                methodHandle);
+                methodHandle,
+                Optional.of(instanceFactory));
     }
 
     @UsedByGeneratedCode
@@ -104,6 +109,7 @@ public class JsonExistsFunction
             Metadata metadata,
             TypeManager typeManager,
             Type parametersRowType,
+            JsonPathInvocationContext invocationContext,
             ConnectorSession session,
             JsonNode inputExpression,
             IrJsonPath jsonPath,
@@ -119,10 +125,17 @@ public class JsonExistsFunction
                 return handleError(errorBehavior, PATH_PARAMETER_ERROR); // ERROR ON ERROR was already handled by the input function
             }
         }
-        JsonPathEvaluator pathEvaluator = new JsonPathEvaluator(inputExpression, parameters, functionManager, metadata, typeManager, session);
+        // The jsonPath argument is constant for every row. We use the first incoming jsonPath argument to initialize
+        // the JsonPathEvaluator, and ignore the subsequent jsonPath values. We could sanity-check that all the incoming
+        // jsonPath values are equal. We deliberately skip this costly check, since this is a hidden function.
+        JsonPathEvaluator evaluator = invocationContext.getEvaluator();
+        if (evaluator == null) {
+            evaluator = new JsonPathEvaluator(jsonPath, session, metadata, typeManager, functionManager);
+            invocationContext.setEvaluator(evaluator);
+        }
         List<Object> pathResult;
         try {
-            pathResult = pathEvaluator.evaluate(jsonPath);
+            pathResult = evaluator.evaluate(inputExpression, parameters);
         }
         catch (PathEvaluationError e) {
             return handleError(errorBehavior, e);
