@@ -58,9 +58,10 @@ query is finished.
 Important ``QueryResults`` attributes
 -------------------------------------
 
-The most important attributes of the ``QueryResults`` JSON document returned by the REST API
-endpoints are listed in this table.  Refer to the class ``io.trino.client.QueryResults`` in
-module ``trino-client`` for more details.
+The most important attributes of the ``QueryResults`` JSON document returned by
+the REST API endpoints are listed in this table. For more details, refer to the
+class ``io.trino.client.QueryResults`` in module ``trino-client`` in the
+``client`` directory of the Trino source code.
 
 .. list-table:: ``QueryResults attributes``
   :widths: 25, 55
@@ -86,11 +87,10 @@ module ``trino-client`` for more details.
       ``CREATE TABLE`` request, the ``updateType`` is
       "CREATE TABLE"; for ``SET SESSION`` it is "SET SESSION"; etc.
   * - ``error``
-    - If query failed, the ``error`` attribute contains a
-      ``QueryError`` object.  That object contains a ``message``, an
-      ``errorCode`` and other information about the error.  See the
-      ``io.trino.client.QueryError`` class in module ``trino-client``
-      for more details.
+    - If query failed, the ``error`` attribute contains a ``QueryError`` object.
+      That object contains a ``message``, an ``errorCode`` and other information
+      about the error.  See the ``io.trino.client.QueryError`` class in module
+      ``trino-client`` in the ``client`` directory for more details.
 
 
 ``QueryResults`` diagnostic attributes
@@ -262,6 +262,6 @@ subsequent requests to be consistent with the response headers received.
 ``ProtocolHeaders``
 -------------------
 
-Class ``io.trino.client.ProtocolHeaders``, in module ``trino-client``,
-enumerates all the HTTP request and response headers allowed by the
-Trino client REST API.
+Class ``io.trino.client.ProtocolHeaders`` in module ``trino-client`` in the
+``client`` directory of Trino source enumerates all the HTTP request and
+response headers allowed by the Trino client REST API.
