@@ -25,6 +25,7 @@ import io.trino.metadata.InternalNode;
 import io.trino.metadata.InternalNodeManager;
 import io.trino.metadata.InternalNodeManager.NodesSnapshot;
 import io.trino.spi.TrinoException;
+import io.trino.spi.memory.MemoryPoolInfo;
 import org.assertj.core.util.VisibleForTesting;
 
 import javax.annotation.PostConstruct;
@@ -77,7 +78,7 @@ public class BinPackingNodeAllocatorService
     private final AtomicBoolean started = new AtomicBoolean();
     private final AtomicBoolean stopped = new AtomicBoolean();
     private final Semaphore processSemaphore = new Semaphore(0);
-    private final AtomicReference<Map<String, Long>> nodePoolSizes = new AtomicReference<>(ImmutableMap.of());
+    private final AtomicReference<Map<String, MemoryPoolInfo>> nodePoolMemoryInfos = new AtomicReference<>(ImmutableMap.of());
     private final boolean scheduleOnCoordinator;
 
     private final ConcurrentMap<String, Long> allocatedMemory = new ConcurrentHashMap<>();
@@ -130,8 +131,8 @@ public class BinPackingNodeAllocatorService
             }, 0, TimeUnit.SECONDS);
         }
 
-        refreshNodePoolSizes();
-        executor.scheduleWithFixedDelay(this::refreshNodePoolSizes, 1, 5, TimeUnit.SECONDS);
+        refreshNodePoolMemoryInfos();
+        executor.scheduleWithFixedDelay(this::refreshNodePoolMemoryInfos, 1, 5, TimeUnit.SECONDS);
     }
 
     @PreDestroy
@@ -141,18 +142,19 @@ public class BinPackingNodeAllocatorService
         executor.shutdownNow();
     }
 
-    private void refreshNodePoolSizes()
+    @VisibleForTesting
+    void refreshNodePoolMemoryInfos()
     {
-        ImmutableMap.Builder<String, Long> newNodePoolSizes = ImmutableMap.builder();
+        ImmutableMap.Builder<String, MemoryPoolInfo> newNodePoolMemoryInfos = ImmutableMap.builder();
 
-        Map<String, Optional<MemoryInfo>> workerMemoryInfo = workerMemoryInfoSupplier.get();
-        for (Map.Entry<String, Optional<MemoryInfo>> entry : workerMemoryInfo.entrySet()) {
+        Map<String, Optional<MemoryInfo>> workerMemoryInfos = workerMemoryInfoSupplier.get();
+        for (Map.Entry<String, Optional<MemoryInfo>> entry : workerMemoryInfos.entrySet()) {
             if (entry.getValue().isEmpty()) {
                 continue;
             }
-            newNodePoolSizes.put(entry.getKey(), entry.getValue().get().getPool().getMaxBytes());
+            newNodePoolMemoryInfos.put(entry.getKey(), entry.getValue().get().getPool());
         }
-        nodePoolSizes.set(newNodePoolSizes.buildOrThrow());
+        nodePoolMemoryInfos.set(newNodePoolMemoryInfos.buildOrThrow());
     }
 
     @VisibleForTesting
@@ -163,7 +165,7 @@ public class BinPackingNodeAllocatorService
 
         BinPackingSimulation simulation = new BinPackingSimulation(
                 nodeManager.getActiveNodesSnapshot(),
-                nodePoolSizes.get(),
+                nodePoolMemoryInfos.get(),
                 allocatedMemory,
                 scheduleOnCoordinator);
 
@@ -311,7 +313,7 @@ public class BinPackingNodeAllocatorService
             }
         }
 
-        public Optional<TaskId> getTaskId()
+        public Optional<TaskId> getAttachedTaskId()
         {
             return Optional.ofNullable(this.taskId.get());
         }
@@ -338,12 +340,13 @@ public class BinPackingNodeAllocatorService
         private final NodesSnapshot nodesSnapshot;
         private final List<InternalNode> allNodesSorted;
         private final Map<String, Long> nodesRemainingMemory;
-        private final Map<String, Long> nodePoolSizes;
+
+        private final Map<String, MemoryPoolInfo> nodeMemoryPoolInfos;
         private final boolean scheduleOnCoordinator;
 
         public BinPackingSimulation(
                 NodesSnapshot nodesSnapshot,
-                Map<String, Long> nodePoolSizes,
+                Map<String, MemoryPoolInfo> nodeMemoryPoolInfos,
                 Map<String, Long> preReservedMemory,
                 boolean scheduleOnCoordinator)
         {
@@ -353,21 +356,21 @@ public class BinPackingNodeAllocatorService
                     .sorted(comparing(InternalNode::getNodeIdentifier))
                     .collect(toImmutableList());
 
-            requireNonNull(nodePoolSizes, "nodePoolSizes is null");
-            this.nodePoolSizes = ImmutableMap.copyOf(nodePoolSizes);
+            requireNonNull(nodeMemoryPoolInfos, "nodeMemoryPoolInfos is null");
+            this.nodeMemoryPoolInfos = ImmutableMap.copyOf(nodeMemoryPoolInfos);
 
             requireNonNull(preReservedMemory, "preReservedMemory is null");
             this.scheduleOnCoordinator = scheduleOnCoordinator;
 
             nodesRemainingMemory = new HashMap<>();
             for (InternalNode node : nodesSnapshot.getAllNodes()) {
-                Long nodePoolSize = nodePoolSizes.get(node.getNodeIdentifier());
-                if (nodePoolSize == null) {
+                MemoryPoolInfo memoryPoolInfo = nodeMemoryPoolInfos.get(node.getNodeIdentifier());
+                if (memoryPoolInfo == null) {
                     nodesRemainingMemory.put(node.getNodeIdentifier(), 0L);
                     continue;
                 }
                 long nodeReservedMemory = preReservedMemory.getOrDefault(node.getNodeIdentifier(), 0L);
-                nodesRemainingMemory.put(node.getNodeIdentifier(), nodePoolSize - nodeReservedMemory);
+                nodesRemainingMemory.put(node.getNodeIdentifier(), memoryPoolInfo.getMaxBytes() - nodeReservedMemory);
             }
         }
 
@@ -395,7 +398,7 @@ public class BinPackingNodeAllocatorService
             }
 
             boolean selectedCandidateMatches = false;
-            if (nodesRemainingMemory.get(selectedNode.get().getNodeIdentifier()) >= acquire.getMemoryLease() || isNodeEmpty(selectedNode.get())) {
+            if (nodesRemainingMemory.get(selectedNode.get().getNodeIdentifier()) >= acquire.getMemoryLease() || isNodeEmpty(selectedNode.get().getNodeIdentifier())) {
                 // there is enough unreserved memory on the node
                 // OR
                 // there is not enough memory available on the node but the node is empty so we cannot to better anyway
@@ -416,9 +419,10 @@ public class BinPackingNodeAllocatorService
             return ReserveResult.reserved(selectedNode.get());
         }
 
-        private boolean isNodeEmpty(InternalNode node)
+        private boolean isNodeEmpty(String nodeIdentifier)
         {
-            return nodePoolSizes.containsKey(node.getNodeIdentifier()) && nodesRemainingMemory.get(node.getNodeIdentifier()).equals(nodePoolSizes.get(node.getNodeIdentifier()));
+            return nodeMemoryPoolInfos.containsKey(nodeIdentifier)
+                    && nodesRemainingMemory.get(nodeIdentifier).equals(nodeMemoryPoolInfos.get(nodeIdentifier).getMaxBytes());
         }
 
         public enum ReservationStatus
