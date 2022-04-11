@@ -668,11 +668,11 @@ public class ExpressionInterpreter
                 Type type = type(node.getValue());
                 List<Expression> expressionValues = toExpressions(values, types);
                 List<Expression> simplifiedExpressionValues = Stream.concat(
-                        expressionValues.stream()
-                                .filter(expression -> isDeterministic(expression, metadata))
-                                .distinct(),
-                        expressionValues.stream()
-                                .filter((expression -> !isDeterministic(expression, metadata))))
+                                expressionValues.stream()
+                                        .filter(expression -> isDeterministic(expression, metadata))
+                                        .distinct(),
+                                expressionValues.stream()
+                                        .filter((expression -> !isDeterministic(expression, metadata))))
                         .collect(toImmutableList());
 
                 if (simplifiedExpressionValues.size() == 1) {
