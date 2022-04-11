@@ -26,6 +26,7 @@ import io.trino.plugin.iceberg.IcebergQueryRunner;
 import io.trino.plugin.iceberg.SchemaInitializer;
 import io.trino.testing.QueryRunner;
 import org.apache.iceberg.FileFormat;
+import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Parameters;
 import org.testng.annotations.Test;
@@ -34,6 +35,11 @@ import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.hive.metastore.glue.AwsSdkUtil.getPaginatedResults;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_SCHEMA;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_INSERT;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_TABLE;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -63,7 +69,7 @@ public class TestIcebergGlueCatalogConnectorSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return IcebergQueryRunner.builder()
+        QueryRunner queryRunner = IcebergQueryRunner.builder()
                 .setIcebergProperties(
                         ImmutableMap.of(
                                 "iceberg.catalog.type", "glue",
@@ -74,6 +80,8 @@ public class TestIcebergGlueCatalogConnectorSmokeTest
                                 .withSchemaName(schemaName)
                                 .build())
                 .build();
+        TestGlueCleanup.setSchemaFlag(schemaName);
+        return queryRunner;
     }
 
     @AfterClass(alwaysRun = true)
@@ -132,12 +140,80 @@ public class TestIcebergGlueCatalogConnectorSmokeTest
                 .hasStackTraceContaining("createMaterializedView is not supported for Iceberg Glue catalogs");
     }
 
+    // Overridden to set the schema flag for proper cleanup
+    @Test
+    @Override
+    public void testCreateSchema()
+    {
+        String schemaName = "test_schema_create_" + randomTableSuffix();
+        if (!hasBehavior(SUPPORTS_CREATE_SCHEMA)) {
+            assertQueryFails(createSchemaSql(schemaName), "This connector does not support creating schemas");
+            return;
+        }
+
+        assertUpdate(createSchemaSql(schemaName));
+        TestGlueCleanup.setSchemaFlag(schemaName);
+        assertThat(query("SHOW SCHEMAS"))
+                .skippingTypesCheck()
+                .containsAll(format("VALUES '%s', '%s'", getSession().getSchema().orElseThrow(), schemaName));
+        assertUpdate("DROP SCHEMA " + schemaName);
+    }
+
     @Test
     @Override
     public void testRenameSchema()
     {
         assertThatThrownBy(super::testRenameSchema)
                 .hasStackTraceContaining("renameNamespace is not supported for Iceberg Glue catalogs");
+    }
+
+    // Overridden to set the schema flag for proper cleanup
+    @Test
+    @Override
+    public void testRenameTableAcrossSchemas()
+    {
+        if (!hasBehavior(SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS)) {
+            if (!hasBehavior(SUPPORTS_RENAME_TABLE)) {
+                throw new SkipException("Skipping since rename table is not supported at all");
+            }
+            assertQueryFails("ALTER TABLE nation RENAME TO other_schema.yyyy", "This connector does not support renaming tables across schemas");
+            return;
+        }
+
+        if (!hasBehavior(SUPPORTS_CREATE_SCHEMA)) {
+            throw new AssertionError("Cannot test ALTER TABLE RENAME across schemas without CREATE SCHEMA, the test needs to be implemented in a connector-specific way");
+        }
+
+        if (!hasBehavior(SUPPORTS_CREATE_TABLE)) {
+            throw new AssertionError("Cannot test ALTER TABLE RENAME across schemas without CREATE TABLE, the test needs to be implemented in a connector-specific way");
+        }
+
+        String oldTable = "test_rename_old_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + oldTable + " (a bigint, b double)");
+
+        String schemaName = "test_schema_" + randomTableSuffix();
+        assertUpdate(createSchemaSql(schemaName));
+        TestGlueCleanup.setSchemaFlag(schemaName);
+
+        String newTable = schemaName + ".test_rename_new_" + randomTableSuffix();
+        assertUpdate("ALTER TABLE " + oldTable + " RENAME TO " + newTable);
+
+        assertThat(query("SHOW TABLES LIKE '" + oldTable + "'"))
+                .returnsEmptyResult();
+        assertThat(query("SELECT a, b FROM " + newTable))
+                .returnsEmptyResult();
+
+        if (hasBehavior(SUPPORTS_INSERT)) {
+            assertUpdate("INSERT INTO " + newTable + " (a, b) VALUES (42, -38.5)", 1);
+            assertThat(query("SELECT CAST(a AS bigint), b FROM " + newTable))
+                    .matches("VALUES (BIGINT '42', -385e-1)");
+        }
+
+        assertUpdate("DROP TABLE " + newTable);
+        assertThat(query("SHOW TABLES LIKE '" + newTable + "'"))
+                .returnsEmptyResult();
+
+        assertUpdate("DROP SCHEMA " + schemaName);
     }
 
     private String schemaPath()

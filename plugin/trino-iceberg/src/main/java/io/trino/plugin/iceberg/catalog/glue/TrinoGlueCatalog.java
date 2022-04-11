@@ -70,6 +70,7 @@ import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_DATABASE_LOCATION_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static io.trino.plugin.hive.ViewReaderUtil.encodeViewData;
@@ -206,6 +207,8 @@ public class TrinoGlueCatalog
     private DatabaseInput createDatabaseInput(String namespace, Map<String, Object> properties)
     {
         DatabaseInput databaseInput = new DatabaseInput().withName(namespace);
+        databaseInput.setParameters(properties.entrySet().stream()
+                .collect(toImmutableMap(Map.Entry::getKey, entry -> String.valueOf(entry.getValue()))));
         Object location = properties.get(LOCATION_PROPERTY);
         if (location != null) {
             databaseInput.setLocationUri((String) location);

@@ -416,6 +416,7 @@
                                 <exclude>**/TestTrinoGlueCatalogTest.java</exclude>
                                 <exclude>**/TestSharedGlueMetastore.java</exclude>
                                 <exclude>**/TestIcebergGlueCatalogAccessOperations.java</exclude>
+                                <exclude>**/TestGlueCleanup.java</exclude>
                             </excludes>
                         </configuration>
                     </plugin>
@@ -455,6 +456,7 @@
                                 <include>**/TestTrinoGlueCatalogTest.java</include>
                                 <include>**/TestSharedGlueMetastore.java</include>
                                 <include>**/TestIcebergGlueCatalogAccessOperations.java</include>
+                                <include>**/TestGlueCleanup.java</include>
                             </includes>
                         </configuration>
                     </plugin>

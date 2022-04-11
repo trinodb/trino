@@ -37,8 +37,11 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Map;
 import java.util.Optional;
 
+import static io.trino.plugin.iceberg.catalog.glue.TestGlueCleanup.GLUE_SCHEMA_PROPERTY_KEY;
+import static io.trino.plugin.iceberg.catalog.glue.TestGlueCleanup.GLUE_SCHEMA_PROPERTY_VALUE;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static org.testng.Assert.assertEquals;
@@ -68,6 +71,19 @@ public class TestTrinoGlueCatalogTest
                 useUniqueTableLocations);
     }
 
+    @Override
+    protected void createNamespace(TrinoCatalog catalog, String namespace, Map<String, Object> properties, TrinoPrincipal owner)
+    {
+        super.createNamespace(
+                catalog,
+                namespace,
+                ImmutableMap.<String, Object>builder()
+                        .putAll(properties)
+                        .put(GLUE_SCHEMA_PROPERTY_KEY, GLUE_SCHEMA_PROPERTY_VALUE)
+                        .buildOrThrow(),
+                owner);
+    }
+
     @Test
     public void testDefaultLocation()
             throws IOException
@@ -94,7 +110,11 @@ public class TestTrinoGlueCatalogTest
         String namespace = "test_default_location_" + randomTableSuffix();
         String table = "tableName";
         SchemaTableName schemaTableName = new SchemaTableName(namespace, table);
-        catalogWithDefaultLocation.createNamespace(SESSION, namespace, ImmutableMap.of(), new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
+        createNamespace(
+                catalogWithDefaultLocation,
+                namespace,
+                ImmutableMap.of(),
+                new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
         try {
             File expectedSchemaDirectory = new File(tmpDirectory.toFile(), namespace + ".db");
             File expectedTableDirectory = new File(expectedSchemaDirectory, schemaTableName.getTableName());

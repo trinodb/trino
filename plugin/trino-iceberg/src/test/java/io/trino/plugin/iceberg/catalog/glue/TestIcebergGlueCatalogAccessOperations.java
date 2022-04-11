@@ -109,6 +109,7 @@ public class TestIcebergGlueCatalogAccessOperations
                         "hive.metastore.glue.default-warehouse-dir", tmp.getAbsolutePath()));
 
         queryRunner.execute("CREATE SCHEMA " + testSchema);
+        TestGlueCleanup.setSchemaFlag(testSchema);
 
         glueStats = verifyNotNull(glueStatsReference.get(), "glueStatsReference not set");
         return queryRunner;

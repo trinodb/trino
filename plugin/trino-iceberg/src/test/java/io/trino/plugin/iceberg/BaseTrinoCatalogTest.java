@@ -54,7 +54,7 @@ public abstract class BaseTrinoCatalogTest
         TrinoCatalog catalog = createTrinoCatalog(false);
 
         String namespace = "test_create_namespace_with_location_" + randomTableSuffix();
-        catalog.createNamespace(SESSION, namespace, ImmutableMap.of(LOCATION_PROPERTY, "/a/path/"), new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
+        createNamespace(catalog, namespace, ImmutableMap.of(LOCATION_PROPERTY, "/a/path/"), new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
         assertThat(catalog.listNamespaces(SESSION)).contains(namespace);
         assertEquals(catalog.loadNamespaceMetadata(SESSION, namespace), ImmutableMap.of(LOCATION_PROPERTY, "/a/path/"));
         assertEquals(catalog.defaultTableLocation(SESSION, new SchemaTableName(namespace, "table")), "/a/path/table");
@@ -74,7 +74,7 @@ public abstract class BaseTrinoCatalogTest
         String table = "tableName";
         SchemaTableName schemaTableName = new SchemaTableName(namespace, table);
         try {
-            catalog.createNamespace(SESSION, namespace, ImmutableMap.of(), new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
+            createNamespace(catalog, namespace, ImmutableMap.of(), new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
             catalog.newCreateTableTransaction(
                     SESSION,
                     schemaTableName,
@@ -122,8 +122,8 @@ public abstract class BaseTrinoCatalogTest
         String table = "tableName";
         SchemaTableName sourceSchemaTableName = new SchemaTableName(namespace, table);
         try {
-            catalog.createNamespace(SESSION, namespace, ImmutableMap.of(), new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
-            catalog.createNamespace(SESSION, targetNamespace, ImmutableMap.of(), new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
+            createNamespace(catalog, namespace, ImmutableMap.of(), new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
+            createNamespace(catalog, targetNamespace, ImmutableMap.of(), new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
             catalog.newCreateTableTransaction(
                     SESSION,
                     sourceSchemaTableName,
@@ -171,7 +171,7 @@ public abstract class BaseTrinoCatalogTest
         String namespace = "test_unique_table_locations_" + randomTableSuffix();
         String table = "tableName";
         SchemaTableName schemaTableName = new SchemaTableName(namespace, table);
-        catalog.createNamespace(SESSION, namespace, ImmutableMap.of(LOCATION_PROPERTY, tmpDirectory.toString()), new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
+        createNamespace(catalog, namespace, ImmutableMap.of(LOCATION_PROPERTY, tmpDirectory.toString()), new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
         try {
             String location1 = catalog.defaultTableLocation(SESSION, schemaTableName);
             String location2 = catalog.defaultTableLocation(SESSION, schemaTableName);
@@ -214,7 +214,7 @@ public abstract class BaseTrinoCatalogTest
                 false);
 
         try {
-            catalog.createNamespace(SESSION, namespace, ImmutableMap.of(), new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
+            createNamespace(catalog, namespace, ImmutableMap.of(), new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
             catalog.createView(SESSION, schemaTableName, viewDefinition, false);
 
             assertThat(catalog.listTables(SESSION, Optional.of(namespace))).contains(schemaTableName);
@@ -246,6 +246,11 @@ public abstract class BaseTrinoCatalogTest
                 LOG.warn("Failed to clean up namespace: " + namespace);
             }
         }
+    }
+
+    protected void createNamespace(TrinoCatalog catalog, String namespace, Map<String, Object> properties, TrinoPrincipal owner)
+    {
+        catalog.createNamespace(SESSION, namespace, properties, owner);
     }
 
     private void assertViewDefinition(ConnectorViewDefinition actualView, ConnectorViewDefinition expectedView)

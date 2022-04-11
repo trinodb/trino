@@ -119,6 +119,7 @@ public class TestSharedGlueMetastore
                 ImmutableMap.of("hive.iceberg-catalog-name", "iceberg"));
 
         queryRunner.execute("CREATE SCHEMA " + schema + " WITH (location = '" + dataDirectory.toString() + "')");
+        TestGlueCleanup.setSchemaFlag(schema);
         copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, icebergSession, ImmutableList.of(TpchTable.NATION));
         copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, hiveSession, ImmutableList.of(TpchTable.REGION));
 
