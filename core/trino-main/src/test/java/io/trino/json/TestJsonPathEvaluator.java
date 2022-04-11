@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.sql.planner;
+package io.trino.json;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -34,7 +34,7 @@ import io.trino.json.ir.TypedValue;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.TestingTypeManager;
-import io.trino.sql.planner.JsonPathEvaluator.PathEvaluationError;
+import io.trino.sql.planner.PathNodes;
 import org.assertj.core.api.AssertProvider;
 import org.assertj.core.api.RecursiveComparisonAssert;
 import org.assertj.core.api.recursive.comparison.RecursiveComparisonConfiguration;
@@ -1337,14 +1337,7 @@ public class TestJsonPathEvaluator
 
     private static List<Object> evaluate(JsonNode input, IrJsonPath path)
     {
-        JsonPathEvaluator evaluator = new JsonPathEvaluator(
-                input,
-                PARAMETERS.values().toArray(),
-                createTestingFunctionManager(),
-                createTestMetadataManager(),
-                new TestingTypeManager(),
-                testSessionBuilder().build().toConnectorSession());
-        return evaluator.evaluate(path);
+        return createPathVisitor(input, path.isLax()).process(path.getRoot(), new PathEvaluationContext());
     }
 
     private static AssertProvider<? extends RecursiveComparisonAssert<?>> predicateResult(JsonNode input, Object currentItem, boolean lax, IrPredicate predicate)
@@ -1354,13 +1347,25 @@ public class TestJsonPathEvaluator
 
     private static Boolean evaluatePredicate(JsonNode input, Object currentItem, boolean lax, IrPredicate predicate)
     {
-        JsonPredicateEvaluator evaluator = new JsonPredicateEvaluator(new JsonPathEvaluator(
+        return createPredicateVisitor(input, lax).process(predicate, new PathEvaluationContext().withCurrentItem(currentItem));
+    }
+
+    private static PathEvaluationVisitor createPathVisitor(JsonNode input, boolean lax)
+    {
+        return new PathEvaluationVisitor(
+                lax,
                 input,
                 PARAMETERS.values().toArray(),
-                createTestingFunctionManager(),
-                createTestMetadataManager(),
-                new TestingTypeManager(),
-                testSessionBuilder().build().toConnectorSession()));
-        return evaluator.evaluate(predicate, lax, new JsonPathEvaluator.Context().withCurrentItem(currentItem));
+                new JsonPathEvaluator.Invoker(testSessionBuilder().build().toConnectorSession(), createTestingFunctionManager()),
+                new CachingResolver(createTestMetadataManager(), testSessionBuilder().build().toConnectorSession(), new TestingTypeManager()));
+    }
+
+    private static PathPredicateEvaluationVisitor createPredicateVisitor(JsonNode input, boolean lax)
+    {
+        return new PathPredicateEvaluationVisitor(
+                lax,
+                createPathVisitor(input, lax),
+                new JsonPathEvaluator.Invoker(testSessionBuilder().build().toConnectorSession(), createTestingFunctionManager()),
+                new CachingResolver(createTestMetadataManager(), testSessionBuilder().build().toConnectorSession(), new TestingTypeManager()));
     }
 }

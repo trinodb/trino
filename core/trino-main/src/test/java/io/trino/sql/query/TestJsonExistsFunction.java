@@ -13,9 +13,9 @@
  */
 package io.trino.sql.query;
 
+import io.trino.json.PathEvaluationError;
 import io.trino.operator.scalar.json.JsonInputConversionError;
 import io.trino.sql.parser.ParsingException;
-import io.trino.sql.planner.JsonPathEvaluator.PathEvaluationError;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
