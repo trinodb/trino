@@ -137,7 +137,7 @@ public class TestPagePartitioner
         Page page = new Page(createLongsBlock(ImmutableList.of()));
 
         pagePartitioner.partitionPage(page);
-        pagePartitioner.flush(true);
+        pagePartitioner.forceFlush();
 
         List<Object> partitioned = readLongs(outputBuffer.getEnqueuedDeserialized(), 0);
         assertThat(partitioned).isEmpty();
@@ -375,7 +375,7 @@ public class TestPagePartitioner
         mode1.partitionPage(pagePartitioner, input);
         mode2.partitionPage(pagePartitioner, input);
 
-        pagePartitioner.flush(true);
+        pagePartitioner.forceFlush();
 
         List<Object> partitioned = readChannel(outputBuffer.getEnqueuedDeserialized(), 1, type);
         assertThat(partitioned).containsExactlyInAnyOrderElementsOf(expected); // output of the PagePartitioner can be reordered
@@ -434,7 +434,7 @@ public class TestPagePartitioner
         for (Page page : pages) {
             partitioningMode.partitionPage(pagePartitioner, page);
         }
-        pagePartitioner.flush(true);
+        pagePartitioner.forceFlush();
     }
 
     private static List<Object> readLongs(Stream<Page> pages, int channel)

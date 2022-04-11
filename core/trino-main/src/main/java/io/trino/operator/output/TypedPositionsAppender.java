@@ -15,27 +15,68 @@ package io.trino.operator.output;
 
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.Type;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
+import org.openjdk.jol.info.ClassLayout;
 
 import static java.util.Objects.requireNonNull;
 
-public class TypedPositionsAppender
+class TypedPositionsAppender
         implements PositionsAppender
 {
-    private final Type type;
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(TypedPositionsAppender.class).instanceSize();
 
-    public TypedPositionsAppender(Type type)
+    private final Type type;
+    private BlockBuilder blockBuilder;
+
+    TypedPositionsAppender(Type type, int expectedPositions)
+    {
+        this(
+                type,
+                requireNonNull(type, "type is null").createBlockBuilder(null, expectedPositions));
+    }
+
+    TypedPositionsAppender(Type type, BlockBuilder blockBuilder)
     {
         this.type = requireNonNull(type, "type is null");
+        this.blockBuilder = requireNonNull(blockBuilder, "blockBuilder is null");
     }
 
     @Override
-    public void appendTo(IntArrayList positions, Block source, BlockBuilder target)
+    public void append(IntArrayList positions, Block source)
     {
         int[] positionArray = positions.elements();
         for (int i = 0; i < positions.size(); i++) {
-            type.appendTo(source, positionArray[i], target);
+            type.appendTo(source, positionArray[i], blockBuilder);
         }
+    }
+
+    @Override
+    public void appendRle(RunLengthEncodedBlock block)
+    {
+        for (int i = 0; i < block.getPositionCount(); i++) {
+            type.appendTo(block, 0, blockBuilder);
+        }
+    }
+
+    @Override
+    public Block build()
+    {
+        Block result = blockBuilder.build();
+        blockBuilder = blockBuilder.newBlockBuilderLike(null);
+        return result;
+    }
+
+    @Override
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE + blockBuilder.getRetainedSizeInBytes();
+    }
+
+    @Override
+    public long getSizeInBytes()
+    {
+        return blockBuilder.getSizeInBytes();
     }
 }
