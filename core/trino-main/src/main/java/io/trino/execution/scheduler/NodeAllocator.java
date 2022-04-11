@@ -14,6 +14,7 @@
 package io.trino.execution.scheduler;
 
 import com.google.common.util.concurrent.ListenableFuture;
+import io.trino.execution.TaskId;
 import io.trino.metadata.InternalNode;
 
 import java.io.Closeable;
@@ -35,6 +36,8 @@ public interface NodeAllocator
     interface NodeLease
     {
         ListenableFuture<InternalNode> getNode();
+
+        default void attachTaskId(TaskId taskId) {}
 
         void release();
     }
