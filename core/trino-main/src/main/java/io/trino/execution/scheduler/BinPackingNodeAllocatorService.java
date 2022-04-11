@@ -311,7 +311,7 @@ public class BinPackingNodeAllocatorService
         private final NodesSnapshot nodesSnapshot;
         private final List<InternalNode> allNodesSorted;
         private final Map<String, Long> nodesRemainingMemory;
-        private final ImmutableMap<String, Long> nodePoolSizes;
+        private final Map<String, Long> nodePoolSizes;
         private final boolean scheduleOnCoordinator;
 
         public BinPackingSimulation(
