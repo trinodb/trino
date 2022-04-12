@@ -35,9 +35,7 @@ import java.util.Optional;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static io.trino.tpch.TpchTable.LINE_ITEM;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -150,51 +148,5 @@ public class TestIcebergNessieConnectorTest
     {
         assertThat(computeActual("SHOW CREATE SCHEMA tpch").getOnlyValue().toString())
                 .matches("CREATE SCHEMA iceberg.tpch");
-    }
-
-    @Test
-    @Override
-    public void testCreateTableSchemaNotFound()
-    {
-        // creating a table without creating a namespace/schema first works in nessie
-        String schemaName = "test_schema_" + randomTableSuffix();
-        String tableName = "test_create_no_schema_" + randomTableSuffix();
-        try {
-            // schema shouldn't exist
-            assertThatThrownBy(() -> computeActual(format("SHOW CREATE SCHEMA %s", schemaName)).getOnlyValue().toString())
-                    .hasMessageContaining(format("Schema 'iceberg.%s' does not exist", schemaName));
-
-            assertQuerySucceeds(format("CREATE TABLE %s.%s (a bigint)", schemaName, tableName));
-
-            // schema should exist now
-            assertThat(computeActual(format("SHOW CREATE SCHEMA %s", schemaName)).getOnlyValue().toString())
-                    .matches(format("CREATE SCHEMA iceberg.%s", schemaName));
-        }
-        finally {
-            assertUpdate(format("DROP TABLE IF EXISTS %s.%s", schemaName, tableName));
-        }
-    }
-
-    @Test
-    @Override
-    public void testCreateTableAsSelectSchemaNotFound()
-    {
-        // creating a table without creating a namespace/schema first works in nessie
-        String schemaName = "test_schema_" + randomTableSuffix();
-        String tableName = "test_ctas_no_schema_" + randomTableSuffix();
-        try {
-            // schema shouldn't exist
-            assertThatThrownBy(() -> computeActual(format("SHOW CREATE SCHEMA %s", schemaName)).getOnlyValue().toString())
-                    .hasMessageContaining(format("Schema 'iceberg.%s' does not exist", schemaName));
-
-            assertQuerySucceeds(format("CREATE TABLE %s.%s AS SELECT name FROM nation", schemaName, tableName));
-
-            // schema should exist now
-            assertThat(computeActual(format("SHOW CREATE SCHEMA %s", schemaName)).getOnlyValue().toString())
-                    .matches(format("CREATE SCHEMA iceberg.%s", schemaName));
-        }
-        finally {
-            assertUpdate(format("DROP TABLE IF EXISTS %s.%s", schemaName, tableName));
-        }
     }
 }

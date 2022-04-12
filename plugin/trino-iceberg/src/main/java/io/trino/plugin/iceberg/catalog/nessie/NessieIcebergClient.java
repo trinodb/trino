@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.iceberg.catalog.nessie;
 
-import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.hive.SchemaAlreadyExistsException;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SchemaNotFoundException;
@@ -44,6 +43,7 @@ import org.projectnessie.model.Tag;
 
 import javax.annotation.Nullable;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -175,13 +175,16 @@ public class NessieIcebergClient
         }
     }
 
-    public void createNamespace(String namespace)
+    public void createNamespace(String namespace, Map<String, Object> properties)
     {
         try {
             getReference().checkMutable();
+            Map<String, String> props = new HashMap<>();
+            properties.forEach((key, value) -> props.put(key, value.toString()));
             getNessieApi().createNamespace()
                     .refName(getReference().getName())
                     .namespace(namespace)
+                    .properties(props)
                     .create();
             refreshReference();
         }
@@ -217,10 +220,12 @@ public class NessieIcebergClient
     public Map<String, Object> loadNamespaceMetadata(String namespace)
     {
         try {
-            getNessieApi().getNamespace()
+            Map<String, String> properties = getNessieApi().getNamespace()
                     .refName(getReference().getName())
                     .namespace(namespace)
-                    .get();
+                    .get()
+                    .getProperties();
+            return new HashMap<>(properties);
         }
         catch (NessieNamespaceNotFoundException e) {
             throw new SchemaNotFoundException(namespace);
@@ -230,8 +235,6 @@ public class NessieIcebergClient
                     format("Cannot load Namespace '%s': ref is no longer valid", namespace),
                     e);
         }
-        // TODO: currently Nessie doesn't store namespace properties
-        return ImmutableMap.of();
     }
 
     public void dropTable(SchemaTableName schemaTableName, String user)

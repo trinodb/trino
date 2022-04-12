@@ -52,9 +52,6 @@ public class TrinoNessieCatalog
 {
     private final String warehouseLocation;
     private final NessieIcebergClient nessieClient;
-    // TODO: this is just a workaround for now until Namespaces actually support properties
-    private final Map<String, Map<String, Object>> propertiesByNamespace = new ConcurrentHashMap<>();
-
     private final Map<SchemaTableName, TableMetadata> tableMetadataCache = new ConcurrentHashMap<>();
 
     public TrinoNessieCatalog(
@@ -81,18 +78,12 @@ public class TrinoNessieCatalog
     public void dropNamespace(ConnectorSession session, String namespace)
     {
         nessieClient.dropNamespace(namespace);
-        propertiesByNamespace.remove(namespace);
     }
 
     @Override
     public Map<String, Object> loadNamespaceMetadata(ConnectorSession session, String namespace)
     {
-        nessieClient.loadNamespaceMetadata(namespace);
-        Map<String, Object> properties = propertiesByNamespace.get(namespace);
-        if (properties == null) {
-            return ImmutableMap.of();
-        }
-        return properties;
+        return nessieClient.loadNamespaceMetadata(namespace);
     }
 
     @Override
@@ -104,8 +95,7 @@ public class TrinoNessieCatalog
     @Override
     public void createNamespace(ConnectorSession session, String namespace, Map<String, Object> properties, TrinoPrincipal owner)
     {
-        nessieClient.createNamespace(namespace);
-        propertiesByNamespace.put(namespace, properties);
+        nessieClient.createNamespace(namespace, properties);
     }
 
     @Override
@@ -188,12 +178,8 @@ public class TrinoNessieCatalog
     {
         String tableName = createNewTableName(schemaTableName.getTableName());
 
-        String databaseLocation = null;
-
-        Map<String, Object> properties = propertiesByNamespace.get(schemaTableName.getSchemaName());
-        if (properties != null) {
-            databaseLocation = (String) properties.get(IcebergSchemaProperties.LOCATION_PROPERTY);
-        }
+        Map<String, Object> properties = nessieClient.loadNamespaceMetadata(schemaTableName.getSchemaName());
+        String databaseLocation = (String) properties.get(IcebergSchemaProperties.LOCATION_PROPERTY);
 
         Path location;
         if (databaseLocation == null) {
