@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.deltalake;
 
-import com.azure.storage.blob.BlobClient;
 import com.azure.storage.blob.BlobContainerClient;
 import com.azure.storage.blob.BlobServiceClient;
 import com.azure.storage.blob.BlobServiceClientBuilder;
@@ -43,7 +42,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
-import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -55,14 +53,14 @@ import static java.util.Objects.requireNonNull;
 import static java.util.regex.Matcher.quoteReplacement;
 import static org.assertj.core.api.Assertions.assertThat;
 
-// TODO (https://github.com/trinodb/trino/issues/11325): removeTestData cleanup fails; enable the class by making it non-abstract
-public abstract class TestDeltaLakeAdlsConnectorSmokeTest
+public class TestDeltaLakeAdlsConnectorSmokeTest
         extends BaseDeltaLakeConnectorSmokeTest
 {
     private final String container;
     private final String account;
     private final String accessKey;
     private final BlobContainerClient azureContainerClient;
+    private final String adlsDirectory;
 
     @Parameters({
             "hive.hadoop2.azure-abfs-container",
@@ -77,6 +75,7 @@ public abstract class TestDeltaLakeAdlsConnectorSmokeTest
         String connectionString = format("DefaultEndpointsProtocol=https;AccountName=%s;AccountKey=%s;EndpointSuffix=core.windows.net", account, accessKey);
         BlobServiceClient blobServiceClient = new BlobServiceClientBuilder().connectionString(connectionString).buildClient();
         this.azureContainerClient = blobServiceClient.getBlobContainerClient(container);
+        this.adlsDirectory = format("abfs://%s@%s.dfs.core.windows.net/%s/", container, account, bucketName);
     }
 
     @Test
@@ -154,20 +153,10 @@ public abstract class TestDeltaLakeAdlsConnectorSmokeTest
     @AfterClass(alwaysRun = true)
     public void removeTestData()
     {
-        recursiveDelete(azureContainerClient.listBlobsByHierarchy(bucketName + "/").stream());
-    }
-
-    private void recursiveDelete(Stream<BlobItem> blobs)
-    {
-        blobs.forEach(blob -> {
-            BlobClient blobClient = azureContainerClient.getBlobClient(blob.getName());
-            if (blobClient.exists()) {
-                blobClient.delete();
-            }
-            if (blob.isPrefix() != null && blob.isPrefix()) {
-                recursiveDelete(azureContainerClient.listBlobsByHierarchy(blob.getName()).stream());
-            }
-        });
+        if (adlsDirectory != null && dockerizedDataLake.getTestingHadoop() != null) {
+            dockerizedDataLake.getTestingHadoop().runCommandInContainer("hadoop", "fs", "-rm", "-f", "-r", adlsDirectory);
+        }
+        assertThat(azureContainerClient.listBlobsByHierarchy(bucketName + "/").stream()).hasSize(0);
     }
 
     @Override
