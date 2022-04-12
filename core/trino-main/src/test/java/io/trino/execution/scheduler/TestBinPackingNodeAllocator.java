@@ -85,6 +85,11 @@ public class TestBinPackingNodeAllocator
 
     private void setupNodeAllocatorService(InMemoryNodeManager nodeManager)
     {
+        setupNodeAllocatorService(nodeManager, DataSize.ofBytes(0));
+    }
+
+    private void setupNodeAllocatorService(InMemoryNodeManager nodeManager, DataSize taskRuntimeMemoryEstimationOverhead)
+    {
         shutdownNodeAllocatorService(); // just in case
 
         workerMemoryInfos = new ConcurrentHashMap<>();
@@ -97,7 +102,8 @@ public class TestBinPackingNodeAllocator
         nodeAllocatorService = new BinPackingNodeAllocatorService(
                 nodeManager,
                 () -> workerMemoryInfos,
-                false);
+                false,
+                taskRuntimeMemoryEstimationOverhead);
         nodeAllocatorService.start();
     }
 
@@ -535,6 +541,42 @@ public class TestBinPackingNodeAllocator
             NodeAllocator.NodeLease acquire4 = nodeAllocator.acquire(REQ_20);
             assertAcquired(acquire4, NODE_1);
             acquire4.attachTaskId(taskId(2));
+        }
+    }
+
+    @Test(timeOut = TEST_TIMEOUT)
+    public void testAllocateWithRuntimeMemoryEstimateOverhead()
+    {
+        InMemoryNodeManager nodeManager = testingNodeManager(basicNodesMap(NODE_1));
+        setupNodeAllocatorService(nodeManager, DataSize.of(4, GIGABYTE));
+
+        // test when global memory usage on node is greater than per task usage
+        try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION)) {
+            // allocated 32GB
+            NodeAllocator.NodeLease acquire1 = nodeAllocator.acquire(REQ_32);
+            assertAcquired(acquire1, NODE_1);
+            acquire1.attachTaskId(taskId(1));
+
+            // set runtime usage of task1 to 30GB
+            updateWorkerUsedMemory(NODE_1,
+                    DataSize.of(30, GIGABYTE),
+                    ImmutableMap.of(taskId(1), DataSize.of(30, GIGABYTE)));
+            nodeAllocatorService.refreshNodePoolMemoryInfos();
+
+            // including overhead node runtime usage is 30+4 = 34GB so another 32GB task will not fit
+            NodeAllocator.NodeLease acquire2 = nodeAllocator.acquire(REQ_32);
+            assertNotAcquired(acquire2);
+
+            // decrease runtime usage to 28GB
+            // set runtime usage of task1 to 30GB
+            updateWorkerUsedMemory(NODE_1,
+                    DataSize.of(28, GIGABYTE),
+                    ImmutableMap.of(taskId(1), DataSize.of(28, GIGABYTE)));
+            nodeAllocatorService.refreshNodePoolMemoryInfos();
+
+            // now pending acquire should be fulfilled
+            nodeAllocatorService.processPendingAcquires();
+            assertAcquired(acquire2, NODE_1);
         }
     }
 
