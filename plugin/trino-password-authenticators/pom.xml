@@ -79,11 +79,6 @@
             <artifactId>validation-api</artifactId>
         </dependency>
 
-        <dependency>
-            <groupId>org.gaul</groupId>
-            <artifactId>modernizer-maven-annotations</artifactId>
-        </dependency>
-
         <!-- Trino SPI -->
         <dependency>
             <groupId>io.trino</groupId>

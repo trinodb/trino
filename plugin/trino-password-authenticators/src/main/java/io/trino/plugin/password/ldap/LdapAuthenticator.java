@@ -188,6 +188,7 @@ public class LdapAuthenticator
         String searchBase = userBaseDistinguishedName.orElseThrow();
         String searchFilter = replaceUser(groupAuthorizationSearchPattern.orElseThrow(), user);
         Set<String> userDistinguishedNames = client.lookupUserDistinguishedNames(searchBase, searchFilter, bindDistinguishedName.orElseThrow(), bindPassword.orElseThrow());
+
         if (userDistinguishedNames.isEmpty()) {
             String message = format("User [%s] not a member of an authorized group", user);
             log.debug("%s", message);

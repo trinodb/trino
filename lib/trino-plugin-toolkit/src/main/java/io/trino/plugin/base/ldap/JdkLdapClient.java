@@ -11,10 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.password.ldap;
+package io.trino.plugin.base.ldap;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.plugin.base.ssl.SslUtils;
@@ -34,9 +33,8 @@ import java.io.IOException;
 import java.security.GeneralSecurityException;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 
-import static io.trino.plugin.password.jndi.JndiUtils.createDirContext;
+import static io.trino.plugin.base.jndi.JndiUtils.createDirContext;
 import static java.util.Objects.requireNonNull;
 import static javax.naming.Context.INITIAL_CONTEXT_FACTORY;
 import static javax.naming.Context.PROVIDER_URL;
@@ -45,16 +43,16 @@ import static javax.naming.Context.SECURITY_AUTHENTICATION;
 import static javax.naming.Context.SECURITY_CREDENTIALS;
 import static javax.naming.Context.SECURITY_PRINCIPAL;
 
-public class JdkLdapAuthenticatorClient
-        implements LdapAuthenticatorClient
+public class JdkLdapClient
+        implements LdapClient
 {
-    private static final Logger log = Logger.get(JdkLdapAuthenticatorClient.class);
+    private static final Logger log = Logger.get(JdkLdapClient.class);
 
     private final Map<String, String> basicEnvironment;
     private final Optional<SSLContext> sslContext;
 
     @Inject
-    public JdkLdapAuthenticatorClient(LdapClientConfig ldapConfig)
+    public JdkLdapClient(LdapClientConfig ldapConfig)
     {
         String ldapUrl = requireNonNull(ldapConfig.getLdapUrl(), "ldapUrl is null");
         if (ldapUrl.startsWith("ldap://")) {
@@ -87,42 +85,22 @@ public class JdkLdapAuthenticatorClient
     }
 
     @Override
-    public void validatePassword(String userDistinguishedName, String password)
+    public <T> T executeLdapQuery(String userName, String password, LdapQuery ldapQuery, LdapSearchResultProcessor<T> resultProcessor)
             throws NamingException
     {
-        createUserDirContext(userDistinguishedName, password).close();
-    }
-
-    @Override
-    public boolean isGroupMember(String searchBase, String groupSearch, String contextUserDistinguishedName, String contextPassword)
-            throws NamingException
-    {
-        try (CloseableContext context = createUserDirContext(contextUserDistinguishedName, contextPassword);
-                CloseableSearchResults search = searchContext(searchBase, groupSearch, context)) {
-            return search.hasMore();
+        try (CloseableContext context = createUserDirContext(userName, password);
+                CloseableSearchResults search = searchContext(ldapQuery, context)) {
+            return resultProcessor.process(search.searchResults);
         }
     }
 
-    @Override
-    public Set<String> lookupUserDistinguishedNames(String searchBase, String searchFilter, String contextUserDistinguishedName, String contextPassword)
-            throws NamingException
-    {
-        try (CloseableContext context = createUserDirContext(contextUserDistinguishedName, contextPassword);
-                CloseableSearchResults search = searchContext(searchBase, searchFilter, context)) {
-            ImmutableSet.Builder<String> distinguishedNames = ImmutableSet.builder();
-            while (search.hasMore()) {
-                distinguishedNames.add(search.next().getNameInNamespace());
-            }
-            return distinguishedNames.build();
-        }
-    }
-
-    private static CloseableSearchResults searchContext(String searchBase, String searchFilter, CloseableContext context)
+    private static CloseableSearchResults searchContext(LdapQuery ldapQuery, CloseableContext context)
             throws NamingException
     {
         SearchControls searchControls = new SearchControls();
         searchControls.setSearchScope(SearchControls.SUBTREE_SCOPE);
-        return new CloseableSearchResults(context.search(searchBase, searchFilter, searchControls));
+        searchControls.setReturningAttributes(ldapQuery.getAttributes());
+        return new CloseableSearchResults(context.search(ldapQuery.getSearchBase(), ldapQuery.getSearchFilter(), searchControls));
     }
 
     private CloseableContext createUserDirContext(String userDistinguishedName, String password)
@@ -211,16 +189,10 @@ public class JdkLdapAuthenticatorClient
             this.searchResults = requireNonNull(searchResults, "searchResults is null");
         }
 
-        public SearchResult next()
+        public NamingEnumeration<SearchResult> getSearchResult()
                 throws NamingException
         {
-            return searchResults.next();
-        }
-
-        public boolean hasMore()
-                throws NamingException
-        {
-            return searchResults.hasMore();
+            return searchResults;
         }
 
         @Override
