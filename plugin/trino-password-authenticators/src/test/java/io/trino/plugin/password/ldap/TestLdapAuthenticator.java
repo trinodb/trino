@@ -14,6 +14,8 @@
 package io.trino.plugin.password.ldap;
 
 import com.google.common.io.Closer;
+import io.trino.plugin.base.ldap.JdkLdapClient;
+import io.trino.plugin.base.ldap.LdapClientConfig;
 import io.trino.plugin.password.ldap.TestingOpenLdapServer.DisposableSubContext;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.BasicPrincipal;
@@ -45,8 +47,9 @@ public class TestLdapAuthenticator
         closer.register(openLdapServer);
         openLdapServer.start();
 
-        client = new JdkLdapAuthenticatorClient(new LdapClientConfig()
-                .setLdapUrl(openLdapServer.getLdapUrl()));
+        client = new LdapAuthenticatorClient(
+                new JdkLdapClient(new LdapClientConfig()
+                        .setLdapUrl(openLdapServer.getLdapUrl())));
     }
 
     @AfterClass(alwaysRun = true)

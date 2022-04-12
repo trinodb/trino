@@ -15,6 +15,8 @@ package io.trino.plugin.password.ldap;
 
 import com.google.common.io.Closer;
 import io.airlift.units.Duration;
+import io.trino.plugin.base.ldap.JdkLdapClient;
+import io.trino.plugin.base.ldap.LdapClientConfig;
 import io.trino.plugin.password.ldap.TestingOpenLdapServer.DisposableSubContext;
 import io.trino.spi.security.BasicPrincipal;
 import org.testcontainers.containers.Network;
@@ -79,14 +81,17 @@ public class TestLdapAuthenticatorWithTimeouts
             LdapAuthenticatorConfig ldapAuthenticatorConfig = new LdapAuthenticatorConfig()
                     .setUserBindSearchPatterns("uid=${USER}," + organization.getDistinguishedName());
 
-            LdapAuthenticator ldapAuthenticator = new LdapAuthenticator(new JdkLdapAuthenticatorClient(ldapConfig), ldapAuthenticatorConfig);
+            LdapAuthenticator ldapAuthenticator = new LdapAuthenticator(
+                    new LdapAuthenticatorClient(
+                            new JdkLdapClient(ldapConfig)),
+                    ldapAuthenticatorConfig);
             assertThatThrownBy(() -> ldapAuthenticator.createAuthenticatedPrincipal("alice", "alice-pass"))
                     .isInstanceOf(RuntimeException.class)
                     .hasMessageMatching(".*Authentication error.*");
 
             LdapClientConfig withIncreasedTimeout = ldapConfig.setLdapConnectionTimeout(new Duration(30, SECONDS));
             assertEquals(
-                    new LdapAuthenticator(new JdkLdapAuthenticatorClient(withIncreasedTimeout), ldapAuthenticatorConfig)
+                    new LdapAuthenticator(new LdapAuthenticatorClient(new JdkLdapClient(withIncreasedTimeout)), ldapAuthenticatorConfig)
                             .createAuthenticatedPrincipal("alice", "alice-pass"),
                     new BasicPrincipal("alice"));
         }
@@ -110,14 +115,20 @@ public class TestLdapAuthenticatorWithTimeouts
                     .setUserBaseDistinguishedName(organization.getDistinguishedName())
                     .setGroupAuthorizationSearchPattern(format("(&(objectClass=groupOfNames)(cn=group_*)(member=uid=${USER},%s))", organization.getDistinguishedName()));
 
-            LdapAuthenticator ldapAuthenticator = new LdapAuthenticator(new JdkLdapAuthenticatorClient(ldapConfig), ldapAuthenticatorConfig);
+            LdapAuthenticator ldapAuthenticator = new LdapAuthenticator(
+                    new LdapAuthenticatorClient(
+                            new JdkLdapClient(ldapConfig)),
+                    ldapAuthenticatorConfig);
             assertThatThrownBy(() -> ldapAuthenticator.createAuthenticatedPrincipal("alice", "alice-pass"))
                     .isInstanceOf(RuntimeException.class)
                     .hasMessageMatching(".*Authentication error.*");
 
             LdapClientConfig withIncreasedTimeout = ldapConfig.setLdapReadTimeout(new Duration(30, SECONDS));
             assertEquals(
-                    new LdapAuthenticator(new JdkLdapAuthenticatorClient(withIncreasedTimeout), ldapAuthenticatorConfig)
+                    new LdapAuthenticator(
+                            new LdapAuthenticatorClient(
+                                    new JdkLdapClient(withIncreasedTimeout)),
+                            ldapAuthenticatorConfig)
                             .createAuthenticatedPrincipal("alice", "alice-pass"),
                     new BasicPrincipal("alice"));
         }
