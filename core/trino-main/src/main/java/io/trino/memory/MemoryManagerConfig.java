@@ -44,6 +44,7 @@ public class MemoryManagerConfig
     private DataSize faultTolerantExecutionTaskMemory = DataSize.of(4, GIGABYTE);
     private double faultTolerantExecutionTaskMemoryGrowthFactor = 3.0;
     private double faultTolerantExecutionTaskMemoryEstimationQuantile = 0.9;
+    private DataSize faultTolerantExecutionTaskRuntimeMemoryEstimationOverhead = DataSize.of(1, GIGABYTE);
     private LowMemoryKillerPolicy lowMemoryKillerPolicy = LowMemoryKillerPolicy.TOTAL_RESERVATION_ON_BLOCKED_NODES;
     private Duration killOnOutOfMemoryDelay = new Duration(5, MINUTES);
 
@@ -113,6 +114,20 @@ public class MemoryManagerConfig
     public MemoryManagerConfig setFaultTolerantExecutionTaskMemory(DataSize faultTolerantExecutionTaskMemory)
     {
         this.faultTolerantExecutionTaskMemory = faultTolerantExecutionTaskMemory;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getFaultTolerantExecutionTaskRuntimeMemoryEstimationOverhead()
+    {
+        return faultTolerantExecutionTaskRuntimeMemoryEstimationOverhead;
+    }
+
+    @Config("fault-tolerant-execution-task-runtime-memory-estimation-overhead")
+    @ConfigDescription("Extra memory to account for when estimating actual task runtime memory consumption")
+    public MemoryManagerConfig setFaultTolerantExecutionTaskRuntimeMemoryEstimationOverhead(DataSize faultTolerantExecutionTaskRuntimeMemoryEstimationOverhead)
+    {
+        this.faultTolerantExecutionTaskRuntimeMemoryEstimationOverhead = faultTolerantExecutionTaskRuntimeMemoryEstimationOverhead;
         return this;
     }
 

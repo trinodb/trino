@@ -19,10 +19,12 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.log.Logger;
+import io.airlift.units.DataSize;
 import io.trino.Session;
 import io.trino.execution.TaskId;
 import io.trino.memory.ClusterMemoryManager;
 import io.trino.memory.MemoryInfo;
+import io.trino.memory.MemoryManagerConfig;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.InternalNodeManager;
 import io.trino.metadata.InternalNodeManager.NodesSnapshot;
@@ -85,6 +87,7 @@ public class BinPackingNodeAllocatorService
     private final Semaphore processSemaphore = new Semaphore(0);
     private final AtomicReference<Map<String, MemoryPoolInfo>> nodePoolMemoryInfos = new AtomicReference<>(ImmutableMap.of());
     private final boolean scheduleOnCoordinator;
+    private final DataSize taskRuntimeMemoryEstimationOverhead;
 
     private final ConcurrentMap<String, Long> allocatedMemory = new ConcurrentHashMap<>();
     private final Deque<PendingAcquire> pendingAcquires = new ConcurrentLinkedDeque<>();
@@ -94,22 +97,26 @@ public class BinPackingNodeAllocatorService
     public BinPackingNodeAllocatorService(
             InternalNodeManager nodeManager,
             ClusterMemoryManager clusterMemoryManager,
-            NodeSchedulerConfig config)
+            NodeSchedulerConfig nodeSchedulerConfig,
+            MemoryManagerConfig memoryManagerConfig)
     {
         this(nodeManager,
                 requireNonNull(clusterMemoryManager, "clusterMemoryManager is null")::getWorkerMemoryInfo,
-                config.isIncludeCoordinator());
+                nodeSchedulerConfig.isIncludeCoordinator(),
+                memoryManagerConfig.getFaultTolerantExecutionTaskRuntimeMemoryEstimationOverhead());
     }
 
     @VisibleForTesting
     BinPackingNodeAllocatorService(
             InternalNodeManager nodeManager,
             Supplier<Map<String, Optional<MemoryInfo>>> workerMemoryInfoSupplier,
-            boolean scheduleOnCoordinator)
+            boolean scheduleOnCoordinator,
+            DataSize taskRuntimeMemoryEstimationOverhead)
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.workerMemoryInfoSupplier = requireNonNull(workerMemoryInfoSupplier, "workerMemoryInfoSupplier is null");
         this.scheduleOnCoordinator = scheduleOnCoordinator;
+        this.taskRuntimeMemoryEstimationOverhead = requireNonNull(taskRuntimeMemoryEstimationOverhead, "taskRuntimeMemoryEstimationOverhead is null");
     }
 
     @PostConstruct
@@ -173,7 +180,8 @@ public class BinPackingNodeAllocatorService
                 nodePoolMemoryInfos.get(),
                 fulfilledAcquires,
                 allocatedMemory,
-                scheduleOnCoordinator);
+                scheduleOnCoordinator,
+                taskRuntimeMemoryEstimationOverhead);
 
         while (iterator.hasNext()) {
             PendingAcquire pendingAcquire = iterator.next();
@@ -373,7 +381,8 @@ public class BinPackingNodeAllocatorService
                 Map<String, MemoryPoolInfo> nodeMemoryPoolInfos,
                 Set<BinPackingNodeLease> fulfilledAcquires,
                 Map<String, Long> preReservedMemory,
-                boolean scheduleOnCoordinator)
+                boolean scheduleOnCoordinator,
+                DataSize taskRuntimeMemoryEstimationOverhead)
         {
             this.nodesSnapshot = requireNonNull(nodesSnapshot, "nodesSnapshot is null");
             // use same node ordering for each simulation
@@ -436,6 +445,7 @@ public class BinPackingNodeAllocatorService
                     long realtimeTaskMemory = 0;
                     if (lease.getAttachedTaskId().isPresent()) {
                         realtimeTaskMemory = realtimeNodeMemory.getOrDefault(lease.getAttachedTaskId().get().toString(), 0L);
+                        realtimeTaskMemory += taskRuntimeMemoryEstimationOverhead.toBytes();
                     }
                     long reservedTaskMemory = lease.getMemoryLease();
                     nodeUsedMemoryRuntimeAdjusted += max(realtimeTaskMemory, reservedTaskMemory);
