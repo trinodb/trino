@@ -31,6 +31,11 @@
     <dependencies>
         <dependency>
             <groupId>io.trino</groupId>
+            <artifactId>trino-testing-containers</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
             <artifactId>trino-testing-services</artifactId>
         </dependency>
 
@@ -109,12 +114,6 @@
         <dependency>
             <groupId>net.jodah</groupId>
             <artifactId>failsafe</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>org.rnorth.duct-tape</groupId>
-            <artifactId>duct-tape</artifactId>
-            <version>${dep.duct-tape.version}</version>
         </dependency>
 
         <dependency>

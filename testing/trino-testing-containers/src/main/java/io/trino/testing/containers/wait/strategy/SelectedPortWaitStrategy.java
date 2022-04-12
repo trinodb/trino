@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.tests.product.launcher.testcontainers;
+package io.trino.testing.containers.wait.strategy;
 
 import com.github.dockerjava.api.command.InspectContainerResponse;
 import com.google.common.collect.ImmutableSet;
@@ -32,7 +32,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-// TODO add tests, move upstream
+// TODO add tests
 // This not only adds "wait for selected port" functionality (https://github.com/testcontainers/testcontainers-java/issues/2227),
 // but also addresses (https://github.com/testcontainers/testcontainers-java/issues/2225)
 public final class SelectedPortWaitStrategy
@@ -64,10 +64,11 @@ public final class SelectedPortWaitStrategy
         Callable<Boolean> externalCheck = new ExternalPortListeningCheck(waitStrategyTarget, externalPorts);
 
         Failsafe.with(new RetryPolicy<>()
-                .withMaxDuration(startupTimeout)
-                .withMaxAttempts(Integer.MAX_VALUE) // limited by MaxDuration
-                .abortOn(e -> getExitCode().isPresent()))
+                        .withMaxDuration(startupTimeout)
+                        .withMaxAttempts(Integer.MAX_VALUE) // limited by MaxDuration
+                        .abortOn(e -> getExitCode().isPresent()))
                 .run(() -> {
+                    // Note: This condition requires a dependency on org.rnorth.duct-tape:duct-tape
                     if (!getRateLimiter().getWhenReady(() -> internalCheck.call() && externalCheck.call())) {
                         // We say "timed out" immediately. Failsafe will propagate this only when timeout reached.
                         throw new ContainerLaunchException(format(
@@ -78,7 +79,7 @@ public final class SelectedPortWaitStrategy
                 });
     }
 
-    private Optional<Integer> getExitCode()
+    private Optional<Long> getExitCode()
     {
         if (waitStrategyTarget.getContainerId() == null) {
             // Not yet started
@@ -95,6 +96,6 @@ public final class SelectedPortWaitStrategy
             // running
             return Optional.empty();
         }
-        return Optional.ofNullable(currentContainerInfo.getState().getExitCode());
+        return Optional.ofNullable(currentContainerInfo.getState().getExitCodeLong());
     }
 }
