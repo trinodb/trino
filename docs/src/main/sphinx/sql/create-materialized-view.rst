@@ -76,8 +76,8 @@ Create or replace a materialized view ``order_totals_by_date`` that summarizes
         FROM orders
         GROUP BY orderdate;
 
-Create a materialized view with a comment and partitioning on two fields in the
-storage::
+Create a materialized view for a catalog using the Iceberg connector, with a
+comment and partitioning on two fields in the storage::
 
     CREATE MATERIALIZED VIEW orders_nation_mkgsegment
     COMMENT 'Orders with nation and market segment data'
