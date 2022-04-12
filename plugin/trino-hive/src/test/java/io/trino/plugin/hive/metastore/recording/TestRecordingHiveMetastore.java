@@ -110,6 +110,13 @@ public class TestRecordingHiveMetastore
             TABLE_STORAGE,
             ImmutableList.of(TABLE_COLUMN),
             ImmutableMap.of("param", "value4"));
+    private static final Partition OTHER_PARTITION = new Partition(
+            "database",
+            "table",
+            ImmutableList.of("other_value"),
+            TABLE_STORAGE,
+            ImmutableList.of(TABLE_COLUMN),
+            ImmutableMap.of("param", "value4"));
     private static final PartitionStatistics PARTITION_STATISTICS = new PartitionStatistics(
             new HiveBasicStatistics(10, 11, 10000, 10001),
             ImmutableMap.of("column", new HiveColumnStatistics(
@@ -153,6 +160,7 @@ public class TestRecordingHiveMetastore
         recordingHiveMetastore = new RecordingHiveMetastore(new UnimplementedHiveMetastore(), recording);
         recording.loadRecording();
         validateMetadata(recordingHiveMetastore);
+        validatePartitionSubset(recordingHiveMetastore);
     }
 
     private JsonCodec<HiveMetastoreRecording.Recording> createJsonCodec()
@@ -175,18 +183,30 @@ public class TestRecordingHiveMetastore
         assertEquals(hiveMetastore.getTable("database", "table"), Optional.of(TABLE));
         assertEquals(hiveMetastore.getSupportedColumnStatistics(createVarcharType(123)), ImmutableSet.of(MIN_VALUE, MAX_VALUE));
         assertEquals(hiveMetastore.getTableStatistics(TABLE), PARTITION_STATISTICS);
-        assertEquals(hiveMetastore.getPartitionStatistics(TABLE, ImmutableList.of(PARTITION)), ImmutableMap.of("value", PARTITION_STATISTICS));
+        assertEquals(hiveMetastore.getPartitionStatistics(TABLE, ImmutableList.of(PARTITION, OTHER_PARTITION)), ImmutableMap.of(
+                "column=value", PARTITION_STATISTICS,
+                "column=other_value", PARTITION_STATISTICS));
         assertEquals(hiveMetastore.getAllTables("database"), ImmutableList.of("table"));
         assertEquals(hiveMetastore.getTablesWithParameter("database", "param", "value3"), ImmutableList.of("table"));
         assertEquals(hiveMetastore.getAllViews("database"), ImmutableList.of());
         assertEquals(hiveMetastore.getPartition(TABLE, ImmutableList.of("value")), Optional.of(PARTITION));
         assertEquals(hiveMetastore.getPartitionNamesByFilter("database", "table", PARTITION_COLUMN_NAMES, TupleDomain.all()), Optional.of(ImmutableList.of("value")));
         assertEquals(hiveMetastore.getPartitionNamesByFilter("database", "table", PARTITION_COLUMN_NAMES, TUPLE_DOMAIN), Optional.of(ImmutableList.of("value")));
-        assertEquals(hiveMetastore.getPartitionsByNames(TABLE, ImmutableList.of("value")), ImmutableMap.of("value", Optional.of(PARTITION)));
+        assertEquals(hiveMetastore.getPartitionsByNames(TABLE, ImmutableList.of("column=value", "column=other_value")), ImmutableMap.of(
+                "column=value", Optional.of(PARTITION),
+                "column=other_value", Optional.of(OTHER_PARTITION)));
         assertEquals(hiveMetastore.listTablePrivileges("database", "table", Optional.of("owner"), Optional.of(new HivePrincipal(USER, "user"))), ImmutableSet.of(PRIVILEGE_INFO));
         assertEquals(hiveMetastore.listRoles(), ImmutableSet.of("role"));
         assertEquals(hiveMetastore.listRoleGrants(new HivePrincipal(USER, "user")), ImmutableSet.of(ROLE_GRANT));
         assertEquals(hiveMetastore.listGrantedPrincipals("role"), ImmutableSet.of(ROLE_GRANT));
+    }
+
+    private void validatePartitionSubset(HiveMetastore hiveMetastore)
+    {
+        assertEquals(hiveMetastore.getPartitionStatistics(TABLE, ImmutableList.of(PARTITION)), ImmutableMap.of("column=value", PARTITION_STATISTICS));
+        assertEquals(hiveMetastore.getPartitionStatistics(TABLE, ImmutableList.of(OTHER_PARTITION)), ImmutableMap.of("column=other_value", PARTITION_STATISTICS));
+        assertEquals(hiveMetastore.getPartitionsByNames(TABLE, ImmutableList.of("column=value")), ImmutableMap.of("column=value", Optional.of(PARTITION)));
+        assertEquals(hiveMetastore.getPartitionsByNames(TABLE, ImmutableList.of("column=other_value")), ImmutableMap.of("column=other_value", Optional.of(OTHER_PARTITION)));
     }
 
     private static class TestingHiveMetastore
@@ -241,13 +261,16 @@ public class TestRecordingHiveMetastore
         @Override
         public Map<String, PartitionStatistics> getPartitionStatistics(Table table, List<Partition> partitions)
         {
-            boolean partitionMatches = partitions.stream()
-                    .anyMatch(partition -> partition.getValues().get(0).equals("value"));
-            if (table.getDatabaseName().equals("database") && table.getTableName().equals("table") && partitionMatches) {
-                return ImmutableMap.of("value", PARTITION_STATISTICS);
+            ImmutableMap.Builder<String, PartitionStatistics> result = ImmutableMap.builder();
+            if (table.getDatabaseName().equals("database") && table.getTableName().equals("table")) {
+                if (partitions.stream().anyMatch(partition -> partition.getValues().get(0).equals("value"))) {
+                    result.put("column=value", PARTITION_STATISTICS);
+                }
+                if (partitions.stream().anyMatch(partition -> partition.getValues().get(0).equals("other_value"))) {
+                    result.put("column=other_value", PARTITION_STATISTICS);
+                }
             }
-
-            return ImmutableMap.of();
+            return result.buildOrThrow();
         }
 
         @Override
@@ -284,10 +307,14 @@ public class TestRecordingHiveMetastore
         @Override
         public Optional<Partition> getPartition(Table table, List<String> partitionValues)
         {
-            if (table.getDatabaseName().equals("database") && table.getTableName().equals("table") && partitionValues.equals(ImmutableList.of("value"))) {
-                return Optional.of(PARTITION);
+            if (table.getDatabaseName().equals("database") && table.getTableName().equals("table")) {
+                if (partitionValues.equals(ImmutableList.of("value"))) {
+                    return Optional.of(PARTITION);
+                }
+                else if (partitionValues.equals(ImmutableList.of("other_value"))) {
+                    return Optional.of(OTHER_PARTITION);
+                }
             }
-
             return Optional.empty();
         }
 
@@ -308,11 +335,16 @@ public class TestRecordingHiveMetastore
         @Override
         public Map<String, Optional<Partition>> getPartitionsByNames(Table table, List<String> partitionNames)
         {
-            if (table.getDatabaseName().equals("database") && table.getTableName().equals("table") && partitionNames.contains("value")) {
-                return ImmutableMap.of("value", Optional.of(PARTITION));
+            ImmutableMap.Builder<String, Optional<Partition>> result = ImmutableMap.builder();
+            if (table.getDatabaseName().equals("database") && table.getTableName().equals("table")) {
+                if (partitionNames.contains("column=value")) {
+                    result.put("column=value", Optional.of(PARTITION));
+                }
+                if (partitionNames.contains("column=other_value")) {
+                    result.put("column=other_value", Optional.of(OTHER_PARTITION));
+                }
             }
-
-            return ImmutableMap.of();
+            return result.buildOrThrow();
         }
 
         @Override
