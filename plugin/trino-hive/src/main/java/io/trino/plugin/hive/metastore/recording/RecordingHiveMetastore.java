@@ -41,6 +41,7 @@ import java.util.function.Function;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.hive.metastore.HivePartitionName.hivePartitionName;
 import static io.trino.plugin.hive.metastore.HiveTableName.hiveTableName;
+import static io.trino.plugin.hive.metastore.MetastoreUtil.makePartitionName;
 import static io.trino.plugin.hive.metastore.PartitionFilter.partitionFilter;
 import static java.util.Objects.requireNonNull;
 
@@ -93,7 +94,7 @@ public class RecordingHiveMetastore
     {
         return recording.getPartitionStatistics(
                 partitions.stream()
-                        .map(partition -> hivePartitionName(hiveTableName(table.getDatabaseName(), table.getTableName()), partition.getValues()))
+                        .map(partition -> hivePartitionName(hiveTableName(table.getDatabaseName(), table.getTableName()), makePartitionName(table, partition)))
                         .collect(toImmutableSet()),
                 () -> delegate.getPartitionStatistics(table, partitions));
     }
