@@ -111,6 +111,7 @@ public class Verifier
                             config.getControlTeardownRetries(),
                             config.getTestTeardownRetries(),
                             config.getRunTearDownOnResultMismatch(),
+                            config.isSkipControl(),
                             query);
                     completionService.submit(validator::valid, validator);
                     queriesSubmitted++;

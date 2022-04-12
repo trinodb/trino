@@ -88,6 +88,7 @@ public class VerifierConfig
     private String shadowTestTablePrefix = "tmp_verifier_";
     private String shadowControlTablePrefix = "tmp_verifier_";
     private boolean runTearDownOnResultMismatch;
+    private boolean skipControl;
 
     private Duration regressionMinCpuTime = new Duration(5, TimeUnit.MINUTES);
 
@@ -778,6 +779,18 @@ public class VerifierConfig
     public VerifierConfig setRunTearDownOnResultMismatch(boolean runTearDownOnResultMismatch)
     {
         this.runTearDownOnResultMismatch = runTearDownOnResultMismatch;
+        return this;
+    }
+
+    public boolean isSkipControl()
+    {
+        return skipControl;
+    }
+
+    @Config("skip-control")
+    public VerifierConfig setSkipControl(boolean skipControl)
+    {
+        this.skipControl = skipControl;
         return this;
     }
 }
