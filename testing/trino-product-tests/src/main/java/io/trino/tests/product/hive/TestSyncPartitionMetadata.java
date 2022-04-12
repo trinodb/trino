@@ -33,6 +33,7 @@ import static io.trino.tests.product.TestGroups.SMOKE;
 import static io.trino.tests.product.TestGroups.TRINO_JDBC;
 import static io.trino.tests.product.hive.HiveProductTest.ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE;
 import static io.trino.tests.product.hive.HiveProductTest.ERROR_COMMITTING_WRITE_TO_HIVE_MATCH;
+import static io.trino.tests.product.hive.util.TableLocationUtils.getTableLocation;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -69,25 +70,37 @@ public class TestSyncPartitionMetadata
     public void testAddPartitionContainingCharactersThatNeedUrlEncoding()
     {
         String tableName = "test_sync_partition_metadata_add_partition_urlencode";
+        String mirrorTableName = "test_sync_partition_metadata_add_partition_urlencode_mirror";
         onTrino().executeQuery("DROP TABLE IF EXISTS " + tableName);
+        onTrino().executeQuery("DROP TABLE IF EXISTS " + mirrorTableName);
 
-        onTrino().executeQuery("CREATE TABLE " + tableName + " (views bigint, col_issue varchar) WITH (format = 'ORC', partitioned_by = ARRAY['col_issue'])");
-        onTrino().executeQuery("INSERT INTO " + tableName + " VALUES (1024, '#8120')");
+        onTrino().executeQuery(format("" +
+                        "CREATE TABLE %s (payload bigint, col_date varchar, col_time varchar)" +
+                        "WITH (format = 'ORC', partitioned_by = ARRAY[ 'col_date', 'col_time' ])",
+                tableName));
+        onTrino().executeQuery("INSERT INTO " + tableName + " VALUES (1024, '2022-02-01', '19:00:15'), (1024, '2022-01-17', '20:00:12')");
+        String sharedTableLocation = getTableLocation(tableName, 2);
+        // avoid dealing with the intricacies of adding content on the file system level
+        // and possibly url encoding the file path by using
+        // an external table which mirrors the previously created table
+        onTrino().executeQuery(format("" +
+                        "CREATE TABLE %s (payload bigint, col_date varchar, col_time varchar)" +
+                        "WITH (external_location = '%s', format = 'ORC', partitioned_by = ARRAY[ 'col_date', 'col_time' ])",
+                mirrorTableName,
+                sharedTableLocation));
+        onTrino().executeQuery("CALL system.sync_partition_metadata('default', '" + mirrorTableName + "', 'ADD')");
 
-        String tableLocation = tableLocation(tableName);
-        // add partition directory col_issue=#9154 with single_int_column/data.orc file
-        hdfsClient.createDirectory(tableLocation + "/col_issue=#9154");
-        HiveDataSource dataSource = createResourceDataSource(tableName, "io/trino/tests/product/hive/data/single_int_column/data.orc");
-        hdfsDataSourceWriter.ensureDataOnHdfs(tableLocation + "/col_issue=#9154", dataSource);
+        assertPartitions(tableName, row("2022-01-17", "20:00:12"), row("2022-02-01", "19:00:15"));
+        assertPartitions(mirrorTableName, row("2022-01-17", "20:00:12"), row("2022-02-01", "19:00:15"));
 
-        QueryResult partitionListResult = onTrino().executeQuery("SELECT * FROM \"" + tableName + "$partitions\" ORDER BY 1");
-        assertThat(partitionListResult).containsExactlyInOrder(row("#8120"));
+        onTrino().executeQuery("INSERT INTO " + tableName + " VALUES (2048, '2022-04-04', '16:59:13')");
+        assertPartitions(tableName, row("2022-01-17", "20:00:12"), row("2022-02-01", "19:00:15"), row("2022-04-04", "16:59:13"));
+        assertPartitions(mirrorTableName, row("2022-01-17", "20:00:12"), row("2022-02-01", "19:00:15"));
 
-        onTrino().executeQuery("CALL system.sync_partition_metadata('default', '" + tableName + "', 'ADD')");
+        onTrino().executeQuery("CALL system.sync_partition_metadata('default', '" + mirrorTableName + "', 'ADD')");
+        assertPartitions(mirrorTableName, row("2022-01-17", "20:00:12"), row("2022-02-01", "19:00:15"), row("2022-04-04", "16:59:13"));
 
-        partitionListResult = onTrino().executeQuery("SELECT * FROM \"" + tableName + "$partitions\" ORDER BY 1");
-        assertThat(partitionListResult).containsExactlyInOrder(row("#8120"), row("#9154"));
-
+        cleanup(mirrorTableName);
         cleanup(tableName);
     }
 
@@ -110,23 +123,40 @@ public class TestSyncPartitionMetadata
     public void testDropPartitionContainingCharactersThatNeedUrlEncoding()
     {
         String tableName = "test_sync_partition_metadata_drop_partition_urlencode";
+        String mirrorTableName = "test_sync_partition_metadata_drop_partition_urlencode_mirror";
         onTrino().executeQuery("DROP TABLE IF EXISTS " + tableName);
+        onTrino().executeQuery("DROP TABLE IF EXISTS " + mirrorTableName);
 
-        onTrino().executeQuery("CREATE TABLE " + tableName + " (views bigint, col_issue varchar) WITH (format = 'ORC', partitioned_by = ARRAY['col_issue'])");
-        onTrino().executeQuery("INSERT INTO " + tableName + " VALUES (1024, '#8120'), (2048, '#9154')");
+        onTrino().executeQuery(format("" +
+                        "CREATE TABLE %s (payload bigint, col_date varchar, col_time varchar)" +
+                        "WITH (format = 'ORC', partitioned_by = ARRAY[ 'col_date', 'col_time' ])",
+                tableName));
+        onTrino().executeQuery("INSERT INTO " + tableName + " VALUES (1024, '2022-01-17', '20:00:12') , (4096, '2022-01-18', '10:40:16')");
 
-        String tableLocation = tableLocation(tableName);
-        // Delete partition directory col_issue=#8120 . Note that the partition directory location is sent to Web HDFS REST API and needs to be url encoded.
-        hdfsClient.delete(tableLocation + "/col_issue=%238120");
+        // avoid dealing with the intricacies of adding/removing content on the file system level
+        // and possibly url encoding the file path by using
+        // an external table which mirrors the previously created table
+        String sharedTableLocation = getTableLocation(tableName, 2);
+        onTrino().executeQuery(format("" +
+                        "CREATE TABLE %s (payload bigint, col_date varchar, col_time varchar)" +
+                        "WITH (external_location = '%s', format = 'ORC', partitioned_by = ARRAY[ 'col_date', 'col_time' ])",
+                mirrorTableName,
+                sharedTableLocation));
+        onTrino().executeQuery("CALL system.sync_partition_metadata('default', '" + mirrorTableName + "', 'ADD')");
 
-        QueryResult partitionListResult = onTrino().executeQuery("SELECT * FROM \"" + tableName + "$partitions\" ORDER BY 1");
-        assertThat(partitionListResult).containsExactlyInOrder(row("#8120"), row("#9154"));
+        assertPartitions(tableName, row("2022-01-17", "20:00:12"), row("2022-01-18", "10:40:16"));
+        assertPartitions(mirrorTableName, row("2022-01-17", "20:00:12"), row("2022-01-18", "10:40:16"));
 
-        onTrino().executeQuery("CALL system.sync_partition_metadata('default', '" + tableName + "', 'DROP')");
+        // remove a partition from the shared table location
+        onTrino().executeQuery("DELETE FROM " + tableName + " WHERE col_date = '2022-01-17' AND col_time='20:00:12'");
 
-        partitionListResult = onTrino().executeQuery("SELECT * FROM \"" + tableName + "$partitions\" ORDER BY 1");
-        assertThat(partitionListResult).containsExactlyInOrder(row("#9154"));
+        assertPartitions(tableName, row("2022-01-18", "10:40:16"));
+        assertPartitions(mirrorTableName, row("2022-01-17", "20:00:12"), row("2022-01-18", "10:40:16"));
 
+        onTrino().executeQuery("CALL system.sync_partition_metadata('default', '" + mirrorTableName + "', 'DROP')");
+        assertPartitions(mirrorTableName, row("2022-01-18", "10:40:16"));
+
+        cleanup(mirrorTableName);
         cleanup(tableName);
     }
 
