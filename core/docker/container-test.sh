@@ -8,7 +8,7 @@ function cleanup {
 
 function test_trino_starts {
     local QUERY_PERIOD=10
-    local QUERY_RETRIES=60
+    local QUERY_RETRIES=90
 
     CONTAINER_ID=
     trap cleanup EXIT
