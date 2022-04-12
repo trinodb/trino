@@ -89,6 +89,7 @@ public class Validator
     private final int controlTeardownRetries;
     private final int testTeardownRetries;
     private final boolean runTearDownOnResultMismatch;
+    private final boolean skipControl;
 
     private Boolean valid;
 
@@ -116,6 +117,7 @@ public class Validator
             int controlTeardownRetries,
             int testTeardownRetries,
             boolean runTearDownOnResultMismatch,
+            boolean skipControl,
             QueryPair queryPair)
     {
         this.testUsername = requireNonNull(queryPair.getTest().getUsername(), "test username is null");
@@ -135,6 +137,7 @@ public class Validator
         this.controlTeardownRetries = controlTeardownRetries;
         this.testTeardownRetries = testTeardownRetries;
         this.runTearDownOnResultMismatch = runTearDownOnResultMismatch;
+        this.skipControl = skipControl;
 
         this.queryPair = requireNonNull(queryPair, "queryPair is null");
         this.controlSessionProperties = queryPair.getControl().getSessionProperties();
@@ -147,7 +150,7 @@ public class Validator
             return true;
         }
 
-        if (getControlResult().getState() != State.SUCCESS) {
+        if (!skipControl && getControlResult().getState() != State.SUCCESS) {
             return true;
         }
 
@@ -213,7 +216,12 @@ public class Validator
         boolean tearDownControl = true;
         boolean tearDownTest = false;
         try {
-            controlResult = executePreAndMainForControl();
+            if (skipControl) {
+                controlResult = new QueryResult(State.SKIPPED, null, null, null, null, ImmutableList.of());
+            }
+            else {
+                controlResult = executePreAndMainForControl();
+            }
 
             // query has too many rows. Consider banning it.
             if (controlResult.getState() == State.TOO_MANY_ROWS) {
@@ -221,7 +229,7 @@ public class Validator
                 return false;
             }
             // query failed in the control
-            if (controlResult.getState() != State.SUCCESS) {
+            if (!skipControl && controlResult.getState() != State.SUCCESS) {
                 testResult = new QueryResult(State.INVALID, null, null, null, null, ImmutableList.of());
                 return true;
             }
@@ -229,11 +237,11 @@ public class Validator
             testResult = executePreAndMainForTest();
             tearDownTest = true;
 
-            if (controlResult.getState() != State.SUCCESS || testResult.getState() != State.SUCCESS) {
+            if ((!skipControl && controlResult.getState() != State.SUCCESS) || testResult.getState() != State.SUCCESS) {
                 return false;
             }
 
-            if (!checkCorrectness) {
+            if (skipControl || !checkCorrectness) {
                 return true;
             }
 
