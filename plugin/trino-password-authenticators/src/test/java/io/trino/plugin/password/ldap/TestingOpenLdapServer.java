@@ -31,7 +31,7 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.Map;
 
-import static io.trino.plugin.password.jndi.JndiUtils.createDirContext;
+import static io.trino.plugin.base.jndi.JndiUtils.createDirContext;
 import static io.trino.plugin.password.ldap.LdapUtil.MEMBER;
 import static io.trino.plugin.password.ldap.LdapUtil.addAttributesToExistingLdapObjects;
 import static io.trino.plugin.password.ldap.LdapUtil.addLdapDefinition;

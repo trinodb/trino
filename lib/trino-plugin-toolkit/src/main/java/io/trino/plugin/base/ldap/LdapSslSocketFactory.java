@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.password.ldap;
+package io.trino.plugin.base.ldap;
 
 import javax.net.SocketFactory;
 import javax.net.ssl.SSLContext;
