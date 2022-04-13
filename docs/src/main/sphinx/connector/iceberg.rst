@@ -416,13 +416,6 @@ The connector can read from or write to Hive tables that have been migrated to I
 There is no Trino support for migrating Hive tables to Iceberg, so you need to either use
 the Iceberg API or Apache Spark.
 
-System tables and columns
--------------------------
-
-The connector supports queries of the table partitions.  Given a table ``customer_orders``,
-``SELECT * FROM iceberg.testdb."customer_orders$partitions"`` shows the table partitions, including the minimum
-and maximum values for the partition columns.
-
 .. _iceberg-table-properties:
 
 Iceberg table properties
