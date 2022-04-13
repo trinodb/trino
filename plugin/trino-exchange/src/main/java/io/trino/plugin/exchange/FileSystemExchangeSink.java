@@ -28,10 +28,10 @@ import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 import javax.crypto.SecretKey;
 
-import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.net.URI;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Queue;
@@ -42,6 +42,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.addExceptionCallback;
 import static io.airlift.concurrent.MoreFutures.addSuccessCallback;
@@ -70,7 +72,9 @@ public class FileSystemExchangeSink
     private final URI outputDirectory;
     private final int outputPartitionCount;
     private final Optional<SecretKey> secretKey;
-    private final int maxPageStorageSize;
+    private final boolean preserveRecordsOrder;
+    private final int maxPageStorageSizeInBytes;
+    private final long maxFileSizeInBytes;
     private final BufferPool bufferPool;
 
     private final Map<Integer, BufferedStorageWriter> writersMap = new ConcurrentHashMap<>();
@@ -82,16 +86,24 @@ public class FileSystemExchangeSink
             URI outputDirectory,
             int outputPartitionCount,
             Optional<SecretKey> secretKey,
-            int maxPageStorageSize,
-            int exchangeSinkBufferPoolMinSize)
+            boolean preserveRecordsOrder,
+            int maxPageStorageSizeInBytes,
+            int exchangeSinkBufferPoolMinSize,
+            int exchangeSinkBuffersPerPartition,
+            long maxFileSizeInBytes)
     {
+        checkArgument(maxPageStorageSizeInBytes <= maxFileSizeInBytes,
+                format("maxPageStorageSizeInBytes %s exceeded maxFileSizeInBytes %s", succinctBytes(maxPageStorageSizeInBytes), succinctBytes(maxFileSizeInBytes)));
+
         this.exchangeStorage = requireNonNull(exchangeStorage, "exchangeStorage is null");
         this.outputDirectory = requireNonNull(outputDirectory, "outputDirectory is null");
         this.outputPartitionCount = outputPartitionCount;
         this.secretKey = requireNonNull(secretKey, "secretKey is null");
-        this.maxPageStorageSize = maxPageStorageSize;
-        // double buffering to overlap computation and I/O
-        this.bufferPool = new BufferPool(max(outputPartitionCount * 2, exchangeSinkBufferPoolMinSize), exchangeStorage.getWriteBufferSize());
+        this.preserveRecordsOrder = preserveRecordsOrder;
+        this.maxPageStorageSizeInBytes = maxPageStorageSizeInBytes;
+        this.maxFileSizeInBytes = maxFileSizeInBytes;
+        // buffer pooling to overlap computation and I/O
+        this.bufferPool = new BufferPool(max(outputPartitionCount * exchangeSinkBuffersPerPartition, exchangeSinkBufferPoolMinSize), exchangeStorage.getWriteBufferSize());
     }
 
     // The future returned by {@link #isBlocked()} should only be considered as a best-effort hint.
@@ -108,11 +120,6 @@ public class FileSystemExchangeSink
 
         checkArgument(partitionId < outputPartitionCount, "partition id is expected to be less than %s: %s", outputPartitionCount, partitionId);
 
-        int requiredPageStorageSize = data.length() + Integer.BYTES;
-        if (requiredPageStorageSize > maxPageStorageSize) {
-            throw new TrinoException(NOT_SUPPORTED, format("Max row size of %s exceeded: %s", succinctBytes(maxPageStorageSize), succinctBytes(requiredPageStorageSize)));
-        }
-
         // Ensure no new writers can be created after `closed` is set to true
         BufferedStorageWriter writer;
         synchronized (this) {
@@ -126,13 +133,16 @@ public class FileSystemExchangeSink
 
     private BufferedStorageWriter createWriter(int partitionId)
     {
-        URI outputPath = outputDirectory.resolve(partitionId + DATA_FILE_SUFFIX);
-        try {
-            return new BufferedStorageWriter(exchangeStorage.createExchangeStorageWriter(outputPath, secretKey), bufferPool, failure);
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
+        return new BufferedStorageWriter(
+                exchangeStorage,
+                outputDirectory,
+                secretKey,
+                preserveRecordsOrder,
+                partitionId,
+                bufferPool,
+                failure,
+                maxPageStorageSizeInBytes,
+                maxFileSizeInBytes);
     }
 
     @Override
@@ -213,40 +223,111 @@ public class FileSystemExchangeSink
     {
         private static final int INSTANCE_SIZE = ClassLayout.parseClass(BufferedStorageWriter.class).instanceSize();
 
-        private final ExchangeStorageWriter storageWriter;
+        private final FileSystemExchangeStorage exchangeStorage;
+        private final URI outputDirectory;
+        private final Optional<SecretKey> secretKey;
+        private final boolean preserveRecordsOrder;
+        private final int partitionId;
         private final BufferPool bufferPool;
         private final AtomicReference<Throwable> failure;
+        private final int maxPageStorageSizeInBytes;
+        private final long maxFileSizeInBytes;
 
         @GuardedBy("this")
+        private ExchangeStorageWriter currentWriter;
+        @GuardedBy("this")
+        private long currentFileSize;
+        @GuardedBy("this")
         private SliceOutput currentBuffer;
+        @GuardedBy("this")
+        private final List<ExchangeStorageWriter> writers = new ArrayList<>();
+        @GuardedBy("this")
+        private boolean closed;
 
-        public BufferedStorageWriter(ExchangeStorageWriter storageWriter, BufferPool bufferPool, AtomicReference<Throwable> failure)
+        public BufferedStorageWriter(
+                FileSystemExchangeStorage exchangeStorage,
+                URI outputDirectory,
+                Optional<SecretKey> secretKey,
+                boolean preserveRecordsOrder,
+                int partitionId,
+                BufferPool bufferPool,
+                AtomicReference<Throwable> failure,
+                int maxPageStorageSizeInBytes,
+                long maxFileSizeInBytes)
         {
-            this.storageWriter = requireNonNull(storageWriter, "storageWriter is null");
+            this.exchangeStorage = requireNonNull(exchangeStorage, "exchangeStorage is null");
+            this.outputDirectory = requireNonNull(outputDirectory, "outputDirectory is null");
+            this.secretKey = requireNonNull(secretKey, "secretKey is null");
+            this.preserveRecordsOrder = preserveRecordsOrder;
+            this.partitionId = partitionId;
             this.bufferPool = requireNonNull(bufferPool, "bufferPool is null");
             this.failure = requireNonNull(failure, "failure is null");
+            this.maxPageStorageSizeInBytes = maxPageStorageSizeInBytes;
+            this.maxFileSizeInBytes = maxFileSizeInBytes;
+
+            setupWriterForNextPart();
         }
 
         public synchronized void write(Slice data)
         {
+            if (closed) {
+                return;
+            }
+
+            int requiredPageStorageSize = Integer.BYTES + data.length();
+            if (requiredPageStorageSize > maxPageStorageSizeInBytes) {
+                throw new TrinoException(NOT_SUPPORTED, format("Max row size of %s exceeded: %s", succinctBytes(maxPageStorageSizeInBytes), succinctBytes(requiredPageStorageSize)));
+            }
+
+            if (currentFileSize + requiredPageStorageSize > maxFileSizeInBytes && !preserveRecordsOrder) {
+                flushIfNeeded(true);
+                setupWriterForNextPart();
+                currentFileSize = 0;
+                currentBuffer = null;
+            }
+
             writeInternal(Slices.wrappedIntArray(data.length()));
             writeInternal(data);
+
+            currentFileSize += requiredPageStorageSize;
         }
 
         public synchronized ListenableFuture<Void> finish()
         {
+            if (closed) {
+                return immediateFailedFuture(new IllegalStateException("BufferedStorageWriter has already closed"));
+            }
+
             flushIfNeeded(true);
-            return storageWriter.finish();
+            if (writers.size() == 1) {
+                return currentWriter.finish();
+            }
+            return asVoid(Futures.allAsList(writers.stream().map(ExchangeStorageWriter::finish).collect(toImmutableList())));
         }
 
         public synchronized ListenableFuture<Void> abort()
         {
-            return storageWriter.abort();
+            if (closed) {
+                return immediateVoidFuture();
+            }
+            closed = true;
+
+            if (writers.size() == 1) {
+                return currentWriter.abort();
+            }
+            return asVoid(Futures.allAsList(writers.stream().map(ExchangeStorageWriter::abort).collect(toImmutableList())));
         }
 
         public synchronized long getRetainedSize()
         {
-            return INSTANCE_SIZE + storageWriter.getRetainedSize();
+            return INSTANCE_SIZE + estimatedSizeOf(writers, ExchangeStorageWriter::getRetainedSize);
+        }
+
+        private void setupWriterForNextPart()
+        {
+            currentWriter = exchangeStorage.createExchangeStorageWriter(
+                    outputDirectory.resolve(partitionId + "_" + writers.size() + DATA_FILE_SUFFIX), secretKey);
+            writers.add(currentWriter);
         }
 
         private void writeInternal(Slice slice)
@@ -275,7 +356,7 @@ public class FileSystemExchangeSink
                 if (!buffer.isWritable()) {
                     currentBuffer = null;
                 }
-                ListenableFuture<Void> writeFuture = storageWriter.write(buffer.slice());
+                ListenableFuture<Void> writeFuture = currentWriter.write(buffer.slice());
                 writeFuture.addListener(() -> bufferPool.offer(buffer), directExecutor());
                 addExceptionCallback(writeFuture, throwable -> failure.compareAndSet(null, throwable));
             }

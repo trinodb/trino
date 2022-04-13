@@ -104,7 +104,7 @@ public class TestMemoryTracking
                 queryMaxSpillSize,
                 spillSpaceTracker);
         taskContext = queryContext.addTaskContext(
-                new TaskStateMachine(new TaskId(new StageId("query", 0), 0, 0), notificationExecutor),
+                new TaskStateMachine(new TaskId(new StageId("test_query", 0), 0, 0), notificationExecutor),
                 testSessionBuilder().build(),
                 () -> {},
                 true,
@@ -304,7 +304,8 @@ public class TestMemoryTracking
     {
         LocalMemoryContext localMemoryContext = operatorContext.localUserMemoryContext();
         // fill up the pool
-        memoryPool.reserve(new QueryId("test_query"), "test", memoryPool.getFreeBytes());
+        TaskId taskId = new TaskId(new StageId("test_query", 0), 0, 0);
+        memoryPool.reserve(taskId, "test", memoryPool.getFreeBytes());
         // try to reserve 0 bytes in the full pool
         assertTrue(localMemoryContext.trySetBytes(localMemoryContext.getBytes()));
     }

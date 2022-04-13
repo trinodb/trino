@@ -20,6 +20,7 @@ import io.airlift.units.DataSize;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
+import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
 public class FileSystemExchangeConfig
@@ -31,6 +32,8 @@ public class FileSystemExchangeConfig
     // Therefore, it's recommended to set `maxPageStorageSize` to be slightly larger than a multiple of part size.
     private DataSize maxPageStorageSize = DataSize.of(16, MEGABYTE);
     private int exchangeSinkBufferPoolMinSize = 10;
+    private int exchangeSinkBuffersPerPartition = 2;
+    private DataSize exchangeSinkMaxFileSize = DataSize.of(1, GIGABYTE);
     private int exchangeSourceConcurrentReaders = 4;
 
     @NotNull
@@ -82,6 +85,33 @@ public class FileSystemExchangeConfig
     public FileSystemExchangeConfig setExchangeSinkBufferPoolMinSize(int exchangeSinkBufferPoolMinSize)
     {
         this.exchangeSinkBufferPoolMinSize = exchangeSinkBufferPoolMinSize;
+        return this;
+    }
+
+    @Min(2)
+    public int getExchangeSinkBuffersPerPartition()
+    {
+        return exchangeSinkBuffersPerPartition;
+    }
+
+    @Config("exchange.sink-buffers-per-partition")
+    public FileSystemExchangeConfig setExchangeSinkBuffersPerPartition(int exchangeSinkBuffersPerPartition)
+    {
+        this.exchangeSinkBuffersPerPartition = exchangeSinkBuffersPerPartition;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getExchangeSinkMaxFileSize()
+    {
+        return exchangeSinkMaxFileSize;
+    }
+
+    @Config("exchange.sink-max-file-size")
+    @ConfigDescription("Max size of files written by exchange sinks")
+    public FileSystemExchangeConfig setExchangeSinkMaxFileSize(DataSize exchangeSinkMaxFileSize)
+    {
+        this.exchangeSinkMaxFileSize = exchangeSinkMaxFileSize;
         return this;
     }
 

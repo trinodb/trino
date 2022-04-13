@@ -84,6 +84,7 @@ import static io.trino.jdbc.ConnectionProperties.SSL_KEY_STORE_TYPE;
 import static io.trino.jdbc.ConnectionProperties.SSL_TRUST_STORE_PASSWORD;
 import static io.trino.jdbc.ConnectionProperties.SSL_TRUST_STORE_PATH;
 import static io.trino.jdbc.ConnectionProperties.SSL_TRUST_STORE_TYPE;
+import static io.trino.jdbc.ConnectionProperties.SSL_USE_SYSTEM_TRUST_STORE;
 import static io.trino.jdbc.ConnectionProperties.SSL_VERIFICATION;
 import static io.trino.jdbc.ConnectionProperties.SslVerificationMode;
 import static io.trino.jdbc.ConnectionProperties.SslVerificationMode.CA;
@@ -167,10 +168,16 @@ public final class TrinoDriverUri
         return buildHttpUri();
     }
 
-    public String getUser()
+    public String getRequiredUser()
             throws SQLException
     {
         return USER.getRequiredValue(properties);
+    }
+
+    public Optional<String> getUser()
+            throws SQLException
+    {
+        return USER.getValue(properties);
     }
 
     public Optional<String> getSessionUser()
@@ -258,7 +265,7 @@ public final class TrinoDriverUri
                 if (!useSecureConnection) {
                     throw new SQLException("Authentication using username/password requires SSL to be enabled");
                 }
-                builder.addInterceptor(basicAuth(getUser(), password));
+                builder.addInterceptor(basicAuth(getRequiredUser(), password));
             }
 
             if (useSecureConnection) {
@@ -271,7 +278,8 @@ public final class TrinoDriverUri
                             SSL_KEY_STORE_TYPE.getValue(properties),
                             SSL_TRUST_STORE_PATH.getValue(properties),
                             SSL_TRUST_STORE_PASSWORD.getValue(properties),
-                            SSL_TRUST_STORE_TYPE.getValue(properties));
+                            SSL_TRUST_STORE_TYPE.getValue(properties),
+                            SSL_USE_SYSTEM_TRUST_STORE.getValue(properties).orElse(false));
                 }
 
                 if (sslVerificationMode.equals(CA)) {

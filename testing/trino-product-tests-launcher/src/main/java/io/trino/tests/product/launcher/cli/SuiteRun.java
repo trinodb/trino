@@ -45,6 +45,7 @@ import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Future;
@@ -59,6 +60,7 @@ import static io.airlift.units.Duration.nanosSince;
 import static io.airlift.units.Duration.succinctNanos;
 import static io.trino.tests.product.launcher.cli.Commands.runCommand;
 import static io.trino.tests.product.launcher.cli.SuiteRun.TestRunResult.HEADER;
+import static io.trino.tests.product.launcher.cli.TestRun.Execution.ENVIRONMENT_SKIPPED_EXIT_CODE;
 import static java.lang.Math.max;
 import static java.lang.String.format;
 import static java.lang.management.ManagementFactory.getThreadMXBean;
@@ -123,6 +125,9 @@ public class SuiteRun
 
         @Option(names = "--cli-executable", paramLabel = "<jar>", description = "Path to CLI executable " + DEFAULT_VALUE, defaultValue = "${cli.bin}")
         public File cliJar;
+
+        @Option(names = "--impacted-features", paramLabel = "<file>", description = "Only run tests in environments with these features " + DEFAULT_VALUE)
+        public Optional<File> impactedFeatures;
 
         @Option(names = "--logs-dir", paramLabel = "<dir>", description = "Location of the exported logs directory " + DEFAULT_VALUE)
         public Optional<Path> logsDirBase;
@@ -266,6 +271,7 @@ public class SuiteRun
                         suiteTestRun,
                         environmentConfig,
                         new Duration(0, MILLISECONDS),
+                        OptionalInt.empty(),
                         Optional.of(new Exception("Test execution not attempted because suite total running time limit was exhausted")));
             }
 
@@ -273,8 +279,17 @@ public class SuiteRun
             log.info("Execute this test run using:\n%s test run %s", environmentOptions.launcherBin, OptionsPrinter.format(environmentOptions, testRunOptions));
 
             Stopwatch stopwatch = Stopwatch.createStarted();
-            Optional<Throwable> exception = runTest(runId, environmentConfig, testRunOptions);
-            return new TestRunResult(suiteName, runId, suiteTestRun, environmentConfig, succinctNanos(stopwatch.stop().elapsed(NANOSECONDS)), exception);
+            try {
+                int exitCode = runTest(runId, environmentConfig, testRunOptions);
+                Optional<Throwable> exception = Optional.empty();
+                if (exitCode != 0 && exitCode != ENVIRONMENT_SKIPPED_EXIT_CODE) {
+                    exception = Optional.of(new RuntimeException(format("Tests exited with code %d", exitCode)));
+                }
+                return new TestRunResult(suiteName, runId, suiteTestRun, environmentConfig, succinctNanos(stopwatch.stop().elapsed(NANOSECONDS)), OptionalInt.of(exitCode), exception);
+            }
+            catch (RuntimeException e) {
+                return new TestRunResult(suiteName, runId, suiteTestRun, environmentConfig, succinctNanos(stopwatch.stop().elapsed(NANOSECONDS)), OptionalInt.empty(), Optional.of(e));
+            }
         }
 
         private static String generateRandomRunId()
@@ -282,24 +297,15 @@ public class SuiteRun
             return UUID.randomUUID().toString().replace("-", "");
         }
 
-        private Optional<Throwable> runTest(String runId, EnvironmentConfig environmentConfig, TestRun.TestRunOptions testRunOptions)
+        private int runTest(String runId, EnvironmentConfig environmentConfig, TestRun.TestRunOptions testRunOptions)
         {
-            try {
-                TestRun.Execution execution = new TestRun.Execution(environmentFactory, environmentOptions, environmentConfig, testRunOptions);
+            TestRun.Execution execution = new TestRun.Execution(environmentFactory, environmentOptions, environmentConfig, testRunOptions);
 
-                log.info("Test run %s started", runId);
-                int exitCode = execution.call();
-                log.info("Test run %s finished", runId);
+            log.info("Test run %s started", runId);
+            int exitCode = execution.call();
+            log.info("Test run %s finished", runId);
 
-                if (exitCode > 0) {
-                    return Optional.of(new RuntimeException(format("Tests exited with code %d", exitCode)));
-                }
-
-                return Optional.empty();
-            }
-            catch (RuntimeException e) {
-                return Optional.of(e);
-            }
+            return exitCode;
         }
 
         private TestRun.TestRunOptions createTestRunOptions(String runId, String suiteName, SuiteTestRun suiteTestRun, EnvironmentConfig environmentConfig, Optional<Path> logsDirBase)
@@ -310,6 +316,7 @@ public class SuiteRun
             testRunOptions.testArguments = suiteTestRun.getTemptoRunArguments();
             testRunOptions.testJar = suiteRunOptions.testJar;
             testRunOptions.cliJar = suiteRunOptions.cliJar;
+            testRunOptions.impactedFeatures = suiteRunOptions.impactedFeatures;
             String suiteRunId = suiteRunId(runId, suiteName, suiteTestRun, environmentConfig);
             testRunOptions.reportsDir = Paths.get("testing/trino-product-tests/target/reports/" + suiteRunId);
             testRunOptions.logsDirBase = logsDirBase.map(dir -> dir.resolve(suiteRunId));
@@ -357,21 +364,28 @@ public class SuiteRun
         private final EnvironmentConfig environmentConfig;
         private final Duration duration;
         private final Optional<Throwable> throwable;
+        private final OptionalInt exitCode;
         private final String suiteName;
 
-        public TestRunResult(String suiteName, String runId, SuiteTestRun suiteRun, EnvironmentConfig environmentConfig, Duration duration, Optional<Throwable> throwable)
+        public TestRunResult(String suiteName, String runId, SuiteTestRun suiteRun, EnvironmentConfig environmentConfig, Duration duration, OptionalInt exitCode, Optional<Throwable> throwable)
         {
             this.suiteName = suiteName;
             this.runId = runId;
             this.suiteRun = requireNonNull(suiteRun, "suiteRun is null");
             this.environmentConfig = requireNonNull(environmentConfig, "environmentConfig is null");
             this.duration = requireNonNull(duration, "duration is null");
+            this.exitCode = exitCode;
             this.throwable = requireNonNull(throwable, "throwable is null");
         }
 
         public boolean hasFailed()
         {
             return this.throwable.isPresent();
+        }
+
+        public boolean wasSkipped()
+        {
+            return this.exitCode.orElse(0) == ENVIRONMENT_SKIPPED_EXIT_CODE;
         }
 
         @Override
@@ -395,9 +409,17 @@ public class SuiteRun
                     suiteRun.getEnvironmentName(),
                     environmentConfig.getConfigName(),
                     suiteRun.getExtraOptions(),
-                    hasFailed() ? "FAILED" : "SUCCESS",
+                    getStatusString(),
                     duration,
                     throwable.map(Throwable::getMessage).orElse("-")};
+        }
+
+        private String getStatusString()
+        {
+            if (wasSkipped()) {
+                return "SKIPPED";
+            }
+            return hasFailed() ? "FAILED" : "SUCCESS";
         }
     }
 }

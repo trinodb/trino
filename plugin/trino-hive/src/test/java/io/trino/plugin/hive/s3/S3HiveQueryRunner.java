@@ -15,6 +15,7 @@ package io.trino.plugin.hive.s3;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
+import io.airlift.units.Duration;
 import io.trino.plugin.hive.HdfsConfig;
 import io.trino.plugin.hive.HdfsConfigurationInitializer;
 import io.trino.plugin.hive.HdfsEnvironment;
@@ -34,6 +35,7 @@ import io.trino.testing.DistributedQueryRunner;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -90,6 +92,7 @@ public final class S3HiveQueryRunner
             extends HiveQueryRunner.Builder<Builder>
     {
         private HostAndPort hiveMetastoreEndpoint;
+        private Duration metastoreTimeout = new Duration(10, TimeUnit.SECONDS);
         private String s3Endpoint;
         private String s3AccessKey;
         private String s3SecretKey;
@@ -98,6 +101,12 @@ public final class S3HiveQueryRunner
         public Builder setHiveMetastoreEndpoint(HostAndPort hiveMetastoreEndpoint)
         {
             this.hiveMetastoreEndpoint = requireNonNull(hiveMetastoreEndpoint, "hiveMetastoreEndpoint is null");
+            return this;
+        }
+
+        public Builder setMetastoreTimeout(Duration metastoreTimeout)
+        {
+            this.metastoreTimeout = metastoreTimeout;
             return this;
         }
 
@@ -145,7 +154,8 @@ public final class S3HiveQueryRunner
                             new ThriftHiveMetastore(
                                     new TestingMetastoreLocator(
                                             Optional.empty(),
-                                            hiveMetastoreEndpoint),
+                                            hiveMetastoreEndpoint,
+                                            metastoreTimeout),
                                     new HiveConfig(),
                                     new MetastoreConfig(),
                                     new ThriftMetastoreConfig(),

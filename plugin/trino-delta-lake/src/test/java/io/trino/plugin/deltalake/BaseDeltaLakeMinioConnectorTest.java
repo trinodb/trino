@@ -217,7 +217,7 @@ public abstract class BaseDeltaLakeMinioConnectorTest
     }
 
     @Override
-    public void testDropNonEmptySchema()
+    public void testDropNonEmptySchemaWithTable()
     {
         String schemaName = "test_drop_non_empty_schema_" + randomTableSuffix();
         if (!hasBehavior(SUPPORTS_CREATE_SCHEMA)) {
@@ -240,34 +240,8 @@ public abstract class BaseDeltaLakeMinioConnectorTest
     }
 
     @Override
-    public void testCreateSchema()
+    protected String createSchemaSql(String schemaName)
     {
-        // override needed to provide valid location for schema (it needs to be s3:// based). By default schema is assigned hdfs:// location
-        // and test fails when schema is dropped with java.lang.RuntimeException: Error checking external files in 'hdfs://.... (test code cannot access hadoop-master:9000)
-        // TODO: better fix would be to configure hadoop container we use in test to use `s3://` filesystem by default
-
-        String schemaName = "test_schema_create_" + randomTableSuffix();
-        if (!hasBehavior(SUPPORTS_CREATE_SCHEMA)) {
-            assertQueryFails("CREATE SCHEMA " + schemaName, "This connector does not support creating schemas");
-            return;
-        }
-        assertThat(computeActual("SHOW SCHEMAS").getOnlyColumnAsSet()).doesNotContain(schemaName);
-        assertUpdate("CREATE SCHEMA " + schemaName + " WITH (location = 's3://" + bucketName + "/" + schemaName + "')");
-
-        // verify listing of new schema
-        assertThat(computeActual("SHOW SCHEMAS").getOnlyColumnAsSet()).contains(schemaName);
-
-        // verify SHOW CREATE SCHEMA works
-        assertThat((String) computeScalar("SHOW CREATE SCHEMA " + schemaName))
-                .startsWith(format("CREATE SCHEMA %s.%s", getSession().getCatalog().orElseThrow(), schemaName));
-
-        // try to create duplicate schema
-        assertQueryFails("CREATE SCHEMA " + schemaName, format("line 1:1: Schema '.*\\.%s' already exists", schemaName));
-
-        // cleanup
-        assertUpdate("DROP SCHEMA " + schemaName);
-
-        // verify DROP SCHEMA for non-existing schema
-        assertQueryFails("DROP SCHEMA " + schemaName, format("line 1:1: Schema '.*\\.%s' does not exist", schemaName));
+        return "CREATE SCHEMA " + schemaName + " WITH (location = 's3://" + bucketName + "/" + schemaName + "')";
     }
 }

@@ -17,6 +17,8 @@ import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
 import io.trino.plugin.base.CatalogName;
+import io.trino.plugin.hive.fs.DirectoryLister;
+import io.trino.plugin.hive.fs.TransactionScopeCachingDirectoryLister;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.MetastoreConfig;
 import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
@@ -68,7 +70,8 @@ public class HiveMetadataFactory
     private final Optional<Duration> hiveTransactionHeartbeatInterval;
     private final HiveTableRedirectionsProvider tableRedirectionsProvider;
     private final ScheduledExecutorService heartbeatService;
-    private final TableInvalidationCallback tableInvalidationCallback;
+    private final DirectoryLister directoryLister;
+    private final long perTransactionFileStatusCacheMaximumSize;
 
     @Inject
     public HiveMetadataFactory(
@@ -90,7 +93,7 @@ public class HiveMetadataFactory
             HiveMaterializedViewMetadataFactory hiveMaterializedViewMetadataFactory,
             AccessControlMetadataFactory accessControlMetadataFactory,
             HiveTableRedirectionsProvider tableRedirectionsProvider,
-            TableInvalidationCallback tableInvalidationCallback)
+            DirectoryLister directoryLister)
     {
         this(
                 catalogName,
@@ -121,7 +124,8 @@ public class HiveMetadataFactory
                 hiveMaterializedViewMetadataFactory,
                 accessControlMetadataFactory,
                 tableRedirectionsProvider,
-                tableInvalidationCallback);
+                directoryLister,
+                hiveConfig.getPerTransactionFileStatusCacheMaximumSize());
     }
 
     public HiveMetadataFactory(
@@ -153,7 +157,8 @@ public class HiveMetadataFactory
             HiveMaterializedViewMetadataFactory hiveMaterializedViewMetadataFactory,
             AccessControlMetadataFactory accessControlMetadataFactory,
             HiveTableRedirectionsProvider tableRedirectionsProvider,
-            TableInvalidationCallback tableInvalidationCallback)
+            DirectoryLister directoryLister,
+            long perTransactionFileStatusCacheMaximumSize)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.skipDeletionForAlter = skipDeletionForAlter;
@@ -190,7 +195,8 @@ public class HiveMetadataFactory
             updateExecutor = new BoundedExecutor(executorService, maxConcurrentMetastoreUpdates);
         }
         this.heartbeatService = requireNonNull(heartbeatService, "heartbeatService is null");
-        this.tableInvalidationCallback = requireNonNull(tableInvalidationCallback, "tableInvalidationCallback is null");
+        this.directoryLister = requireNonNull(directoryLister, "directoryLister is null");
+        this.perTransactionFileStatusCacheMaximumSize = perTransactionFileStatusCacheMaximumSize;
     }
 
     @Override
@@ -198,6 +204,8 @@ public class HiveMetadataFactory
     {
         HiveMetastoreClosure hiveMetastoreClosure = new HiveMetastoreClosure(
                 memoizeMetastore(metastoreFactory.createMetastore(Optional.of(identity)), perTransactionCacheMaximumSize)); // per-transaction cache
+
+        DirectoryLister directoryLister = new TransactionScopeCachingDirectoryLister(this.directoryLister, perTransactionFileStatusCacheMaximumSize);
 
         SemiTransactionalHiveMetastore metastore = new SemiTransactionalHiveMetastore(
                 hdfsEnvironment,
@@ -210,7 +218,7 @@ public class HiveMetadataFactory
                 deleteSchemaLocationsFallback,
                 hiveTransactionHeartbeatInterval,
                 heartbeatService,
-                tableInvalidationCallback);
+                directoryLister);
 
         return new HiveMetadata(
                 catalogName,
@@ -232,6 +240,7 @@ public class HiveMetadataFactory
                 systemTableProviders,
                 hiveMaterializedViewMetadataFactory.create(hiveMetastoreClosure),
                 accessControlMetadataFactory.create(metastore),
-                tableRedirectionsProvider);
+                tableRedirectionsProvider,
+                directoryLister);
     }
 }

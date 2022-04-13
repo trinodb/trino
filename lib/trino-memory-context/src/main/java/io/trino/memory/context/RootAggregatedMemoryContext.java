@@ -54,12 +54,6 @@ class RootAggregatedMemoryContext
     }
 
     @Override
-    synchronized AbstractAggregatedMemoryContext getParent()
-    {
-        return null;
-    }
-
-    @Override
     void closeContext()
     {
         reservationHandler.reserveMemory(FORCE_FREE_TAG, -getBytes());

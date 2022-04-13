@@ -15,10 +15,14 @@ package io.trino.plugin.iceberg.catalog.glue;
 
 import com.amazonaws.services.glue.model.TableInput;
 
+import javax.annotation.Nullable;
+
 import java.util.Map;
 import java.util.Optional;
 
+import static io.trino.plugin.hive.HiveMetadata.PRESTO_VIEW_EXPANDED_TEXT_MARKER;
 import static org.apache.hadoop.hive.metastore.TableType.EXTERNAL_TABLE;
+import static org.apache.hadoop.hive.metastore.TableType.VIRTUAL_VIEW;
 
 public final class GlueIcebergUtil
 {
@@ -32,5 +36,16 @@ public final class GlueIcebergUtil
                 .withParameters(parameters)
                 // Iceberg does not distinguish managed and external tables, all tables are treated the same and marked as EXTERNAL
                 .withTableType(EXTERNAL_TABLE.name());
+    }
+
+    public static TableInput getViewTableInput(String viewName, String viewOriginalText, @Nullable String owner, Map<String, String> parameters)
+    {
+        return new TableInput()
+                .withName(viewName)
+                .withTableType(VIRTUAL_VIEW.name())
+                .withViewOriginalText(viewOriginalText)
+                .withViewExpandedText(PRESTO_VIEW_EXPANDED_TEXT_MARKER)
+                .withOwner(owner)
+                .withParameters(parameters);
     }
 }

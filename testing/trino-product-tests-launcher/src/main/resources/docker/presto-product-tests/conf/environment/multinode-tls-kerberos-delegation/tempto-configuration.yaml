@@ -1,7 +1,6 @@
 databases:
   presto:
     jdbc_url: "jdbc:trino://${databases.presto.host}:${databases.presto.port}/hive/${databases.hive.schema}?\
-      user=${databases.presto.cli_kerberos_principal}&\
       SSL=true&\
       SSLTrustStorePath=${databases.presto.https_keystore_path}&\
       SSLTrustStorePassword=${databases.presto.https_keystore_password}&\

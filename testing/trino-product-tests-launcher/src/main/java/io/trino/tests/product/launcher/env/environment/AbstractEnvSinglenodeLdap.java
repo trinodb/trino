@@ -30,7 +30,6 @@ import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINA
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.LDAP;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.TESTS;
 import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_CONFIG_PROPERTIES;
-import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
 import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TEMPTO_PROFILE_CONFIG;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -58,12 +57,9 @@ public abstract class AbstractEnvSinglenodeLdap
     {
         String baseImage = format("ghcr.io/trinodb/testing/%s:%s", getBaseImage(), imagesVersion);
 
+        builder.addPasswordAuthenticator("ldap", forHostPath(dockerFiles.getDockerFilesHostPath(getPasswordAuthenticatorConfigPath())));
         builder.configureContainer(COORDINATOR, dockerContainer -> {
             dockerContainer.setDockerImageName(baseImage);
-
-            dockerContainer.withCopyFileToContainer(
-                    forHostPath(dockerFiles.getDockerFilesHostPath(getPasswordAuthenticatorConfigPath())),
-                    CONTAINER_PRESTO_ETC + "/password-authenticator.properties");
 
             dockerContainer.withCopyFileToContainer(
                     forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-ldap/config.properties")),

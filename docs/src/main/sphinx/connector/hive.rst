@@ -2,6 +2,10 @@
 Hive connector
 ==============
 
+.. raw:: html
+
+  <img src="../_static/img/hive.png" class="connector-logo">
+
 .. toctree::
     :maxdepth: 1
     :hidden:
@@ -422,6 +426,9 @@ with ORC files performed by the Hive connector.
         accessed by their ordinal position in the Hive table definition. The
         equivalent catalog session property is ``orc_use_column_names``.
       - ``false``
+    * - ``hive.orc.bloom-filters.enabled``
+      - Enable bloom filters for predicate pushdown.
+      - ``false``
 
 Parquet format configuration properties
 ---------------------------------------
@@ -555,7 +562,7 @@ Property Name                                        Description
                                                      where Trino is running, defaults to ``false``.
 
 ``hive.metastore.glue.max-connections``              Max number of concurrent connections to Glue,
-                                                     defaults to ``5``.
+                                                     defaults to ``30``.
 
 ``hive.metastore.glue.max-error-retries``            Maximum number of error retries for the Glue client,
                                                      defaults to ``10``.
@@ -681,6 +688,11 @@ features:
 
 * :ref:`sql-security-operations`, see also :ref:`hive-sql-standard-based-authorization`
 * :ref:`sql-transactions`
+
+Some :ref:`sql-data-management` statements may be affected by the
+Hive catalog's authorization check policy. In the default ``legacy`` policy,
+some statements are disabled by default. See :doc:`hive-security` for more
+information.
 
 Refer to :doc:`the migration guide </appendix/from-hive>` for practical advice on migrating from Hive to Trino.
 

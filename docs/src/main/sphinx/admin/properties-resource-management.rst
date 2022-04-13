@@ -24,6 +24,10 @@ by the hash tables built during execution, memory used during sorting, etc.
 When the user memory allocation of a query on any worker hits this limit,
 it is killed.
 
+.. note::
+
+    Does not apply for queries with task level retries enabled (``retry-policy=TASK``)
+
 ``query.max-memory``
 ^^^^^^^^^^^^^^^^^^^^
 
@@ -37,6 +41,10 @@ by the hash tables built during execution, memory used during sorting, etc.
 When the user memory allocation of a query across all workers hits this limit
 it is killed.
 
+.. note::
+
+    Does not apply for queries with task level retries enabled (``retry-policy=TASK``)
+
 ``query.max-total-memory``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -47,6 +55,10 @@ This is the max amount of memory a query can use across the entire cluster,
 including revocable memory. When the memory allocated by a query across all
 workers hits this limit it is killed. The value of ``query.max-total-memory``
 must be greater than ``query.max-memory``.
+
+.. note::
+
+    Does not apply for queries with task level retries enabled (``retry-policy=TASK``)
 
 ``memory.heap-headroom-per-node``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

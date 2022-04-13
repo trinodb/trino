@@ -2,6 +2,10 @@
 SQL Server connector
 ====================
 
+.. raw:: html
+
+  <img src="../_static/img/sqlserver.png" class="connector-logo">
+
 The SQL Server connector allows querying and creating tables in an external
 `Microsoft SQL Server <https://www.microsoft.com/sql-server/>`_ database. This
 can be used to join data between different systems like SQL Server and Hive, or
@@ -160,10 +164,50 @@ supports the following features:
 
 .. include:: alter-table-limitation.fragment
 
+
+Performance
+-----------
+
+The connector includes a number of performance improvements, detailed in the
+following sections.
+
+.. _sqlserver-table-statistics:
+
+Table statistics
+^^^^^^^^^^^^^^^^
+
+The SQL Server connector can use :doc:`table and column statistics
+</optimizer/statistics>` for :doc:`cost based optimizations
+</optimizer/cost-based-optimizations>`, to improve query processing performance
+based on the actual data in the data source.
+
+The statistics are collected by SQL Server and retrieved by the connector.
+
+The connector can use information stored in single-column statistics. SQL Server
+Database can automatically create column statistics for certain columns. If
+column statistics are not created automatically for a certain column, you can
+create them by executing the following statement in SQL Server Database.
+
+.. code-block:: sql
+
+    CREATE STATISTICS my_statistics_name ON table_schema.table_name (column_name);
+
+SQL Server Database routinely updates the statistics. In some cases, you may
+want to force statistics update (e.g. after defining new column statistics or
+after changing data in the table). You can do that by executing the following
+statement in SQL Server Database.
+
+.. code-block:: sql
+
+    UPDATE STATISTICS table_schema.table_name;
+
+Refer to SQL Server documentation for information about options, limitations and
+additional considerations.
+
 .. _sqlserver-pushdown:
 
 Pushdown
---------
+^^^^^^^^
 
 The connector supports pushdown for a number of operations:
 

@@ -100,6 +100,8 @@ public interface Metadata
 
     void finishTableExecute(Session session, TableExecuteHandle handle, Collection<Slice> fragments, List<Object> tableExecuteState);
 
+    void executeTableExecute(Session session, TableExecuteHandle handle);
+
     TableProperties getTableProperties(Session session, TableHandle handle);
 
     /**
@@ -142,7 +144,8 @@ public interface Metadata
     TableStatistics getTableStatistics(Session session, TableHandle tableHandle, Constraint constraint);
 
     /**
-     * Get the names that match the specified table prefix (never null).
+     * Get the relation names that match the specified table prefix (never null).
+     * This includes all relations (e.g. tables, views, materialized views).
      */
     List<QualifiedObjectName> listTables(Session session, QualifiedTablePrefix prefix);
 

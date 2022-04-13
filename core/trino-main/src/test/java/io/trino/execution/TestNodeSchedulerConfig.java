@@ -41,7 +41,7 @@ public class TestNodeSchedulerConfig
                 .setOptimizedLocalScheduling(true)
                 .setMaxAbsoluteFullNodesPerQuery(Integer.MAX_VALUE)
                 .setMaxFractionFullNodesPerQuery(0.5)
-                .setNodeAllocatorType("full_node_capable"));
+                .setNodeAllocatorType("bin_packing"));
     }
 
     @Test

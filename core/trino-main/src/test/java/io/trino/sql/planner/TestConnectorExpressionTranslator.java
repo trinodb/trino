@@ -25,13 +25,21 @@ import io.trino.spi.expression.FunctionName;
 import io.trino.spi.expression.StandardFunctions;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.VarcharType;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.ArithmeticUnaryExpression;
+import io.trino.sql.tree.BetweenPredicate;
+import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.ComparisonExpression;
+import io.trino.sql.tree.DoubleLiteral;
 import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.IsNotNullPredicate;
+import io.trino.sql.tree.IsNullPredicate;
 import io.trino.sql.tree.LikePredicate;
 import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.NotExpression;
+import io.trino.sql.tree.NullIfExpression;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.SubscriptExpression;
@@ -48,8 +56,15 @@ import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.spi.expression.StandardFunctions.AND_FUNCTION_NAME;
+import static io.trino.spi.expression.StandardFunctions.CAST_FUNCTION_NAME;
+import static io.trino.spi.expression.StandardFunctions.GREATER_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME;
+import static io.trino.spi.expression.StandardFunctions.IS_NULL_FUNCTION_NAME;
+import static io.trino.spi.expression.StandardFunctions.LESS_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.LIKE_PATTERN_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.NEGATE_FUNCTION_NAME;
+import static io.trino.spi.expression.StandardFunctions.NOT_FUNCTION_NAME;
+import static io.trino.spi.expression.StandardFunctions.NULLIF_FUNCTION_NAME;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DecimalType.createDecimalType;
@@ -61,6 +76,7 @@ import static io.trino.spi.type.RowType.rowType;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.planner.ConnectorExpressionTranslator.translate;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
@@ -74,7 +90,7 @@ public class TestConnectorExpressionTranslator
     private static final Session TEST_SESSION = TestingSession.testSessionBuilder().build();
     private static final TypeAnalyzer TYPE_ANALYZER = createTestingTypeAnalyzer(PLANNER_CONTEXT);
     private static final Type ROW_TYPE = rowType(field("int_symbol_1", INTEGER), field("varchar_symbol_1", createVarcharType(5)));
-    private static final Type VARCHAR_TYPE = createVarcharType(25);
+    private static final VarcharType VARCHAR_TYPE = createVarcharType(25);
     private static final LiteralEncoder LITERAL_ENCODER = new LiteralEncoder(PLANNER_CONTEXT);
 
     private static final Map<Symbol, Type> symbols = ImmutableMap.<Symbol, Type>builder()
@@ -82,6 +98,7 @@ public class TestConnectorExpressionTranslator
             .put(new Symbol("double_symbol_2"), DOUBLE)
             .put(new Symbol("row_symbol_1"), ROW_TYPE)
             .put(new Symbol("varchar_symbol_1"), VARCHAR_TYPE)
+            .put(new Symbol("boolean_symbol_1"), BOOLEAN)
             .buildOrThrow();
 
     private static final TypeProvider TYPE_PROVIDER = TypeProvider.copyOf(symbols);
@@ -216,6 +233,33 @@ public class TestConnectorExpressionTranslator
     }
 
     @Test
+    public void testTranslateBetween()
+    {
+        assertTranslationToConnectorExpression(
+                TEST_SESSION,
+                new BetweenPredicate(
+                        new SymbolReference("double_symbol_1"),
+                        new DoubleLiteral("1.2"),
+                        new SymbolReference("double_symbol_2")),
+                new Call(
+                        BOOLEAN,
+                        AND_FUNCTION_NAME,
+                        List.of(
+                                new Call(
+                                        BOOLEAN,
+                                        GREATER_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME,
+                                        List.of(
+                                                new Variable("double_symbol_1", DOUBLE),
+                                                new Constant(1.2d, DOUBLE))),
+                                new Call(
+                                        BOOLEAN,
+                                        LESS_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME,
+                                        List.of(
+                                                new Variable("double_symbol_1", DOUBLE),
+                                                new Variable("double_symbol_2", DOUBLE))))));
+    }
+
+    @Test
     public void testTranslateLike()
     {
         String pattern = "%pattern%";
@@ -241,6 +285,84 @@ public class TestConnectorExpressionTranslator
                                 new Variable("varchar_symbol_1", VARCHAR_TYPE),
                                 new Constant(Slices.wrappedBuffer(pattern.getBytes(UTF_8)), createVarcharType(pattern.length())),
                                 new Constant(Slices.wrappedBuffer(escape.getBytes(UTF_8)), createVarcharType(escape.length())))));
+    }
+
+    @Test
+    public void testTranslateIsNull()
+    {
+        assertTranslationRoundTrips(
+                new IsNullPredicate(new SymbolReference("varchar_symbol_1")),
+                new Call(
+                        BOOLEAN,
+                        IS_NULL_FUNCTION_NAME,
+                        List.of(new Variable("varchar_symbol_1", VARCHAR_TYPE))));
+    }
+
+    @Test
+    public void testTranslateNotExpression()
+    {
+        assertTranslationRoundTrips(
+                new NotExpression(new SymbolReference("boolean_symbol_1")),
+                new Call(
+                        BOOLEAN,
+                        NOT_FUNCTION_NAME,
+                        List.of(new Variable("boolean_symbol_1", BOOLEAN))));
+    }
+
+    @Test
+    public void testTranslateIsNotNull()
+    {
+        assertTranslationRoundTrips(
+                new IsNotNullPredicate(new SymbolReference("varchar_symbol_1")),
+                new Call(
+                        BOOLEAN,
+                        NOT_FUNCTION_NAME,
+                        List.of(new Call(BOOLEAN, IS_NULL_FUNCTION_NAME, List.of(new Variable("varchar_symbol_1", VARCHAR_TYPE))))));
+    }
+
+    @Test
+    public void testTranslateNullIf()
+    {
+        assertTranslationRoundTrips(
+                new NullIfExpression(
+                        new SymbolReference("varchar_symbol_1"),
+                        new SymbolReference("varchar_symbol_1")),
+                new Call(
+                        VARCHAR_TYPE,
+                        NULLIF_FUNCTION_NAME,
+                        List.of(new Variable("varchar_symbol_1", VARCHAR_TYPE),
+                                new Variable("varchar_symbol_1", VARCHAR_TYPE))));
+    }
+
+    @Test
+    public void testTranslateCast()
+    {
+        assertTranslationRoundTrips(
+                new Cast(new SymbolReference("varchar_symbol_1"), toSqlType(VARCHAR_TYPE)),
+                new Call(
+                        VARCHAR_TYPE,
+                        CAST_FUNCTION_NAME,
+                        List.of(new Variable("varchar_symbol_1", VARCHAR_TYPE))));
+
+        // type-only
+        VarcharType longerVarchar = createVarcharType(VARCHAR_TYPE.getBoundedLength() + 1);
+        assertTranslationToConnectorExpression(
+                TEST_SESSION,
+                new Cast(new SymbolReference("varchar_symbol_1"), toSqlType(longerVarchar), false, true),
+                new Call(
+                        longerVarchar,
+                        CAST_FUNCTION_NAME,
+                        List.of(new Variable("varchar_symbol_1", VARCHAR_TYPE))));
+
+        // TRY_CAST is not translated
+        assertTranslationToConnectorExpression(
+                TEST_SESSION,
+                new Cast(
+                        new SymbolReference("varchar_symbol_1"),
+                        toSqlType(BIGINT),
+                        true,
+                        true),
+                Optional.empty());
     }
 
     @Test

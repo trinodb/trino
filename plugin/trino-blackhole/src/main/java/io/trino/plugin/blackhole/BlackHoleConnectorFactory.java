@@ -22,6 +22,7 @@ import java.util.Map;
 
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.trino.plugin.base.Versions.checkSpiVersion;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 
 public class BlackHoleConnectorFactory
@@ -36,6 +37,8 @@ public class BlackHoleConnectorFactory
     @Override
     public Connector create(String catalogName, Map<String, String> requiredConfig, ConnectorContext context)
     {
+        checkSpiVersion(context, this);
+
         ListeningScheduledExecutorService executorService = listeningDecorator(newSingleThreadScheduledExecutor(daemonThreadsNamed("blackhole")));
         return new BlackHoleConnector(
                 new BlackHoleMetadata(),

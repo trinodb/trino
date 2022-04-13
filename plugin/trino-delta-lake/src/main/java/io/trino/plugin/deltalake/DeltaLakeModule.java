@@ -21,13 +21,15 @@ import com.google.inject.multibindings.MapBinder;
 import com.google.inject.multibindings.Multibinder;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.base.CatalogName;
+import io.trino.plugin.base.security.ConnectorAccessControlModule;
+import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.deltalake.metastore.DeltaLakeMetastore;
 import io.trino.plugin.deltalake.procedure.DropExtendedStatsProcedure;
 import io.trino.plugin.deltalake.procedure.VacuumProcedure;
-import io.trino.plugin.deltalake.statistics.CachingDeltaLakeStatisticsAccess;
-import io.trino.plugin.deltalake.statistics.CachingDeltaLakeStatisticsAccess.ForCachingDeltaLakeStatisticsAccess;
-import io.trino.plugin.deltalake.statistics.DeltaLakeStatistics;
-import io.trino.plugin.deltalake.statistics.DeltaLakeStatisticsAccess;
+import io.trino.plugin.deltalake.statistics.CachingExtendedStatisticsAccess;
+import io.trino.plugin.deltalake.statistics.CachingExtendedStatisticsAccess.ForCachingExtendedStatisticsAccess;
+import io.trino.plugin.deltalake.statistics.ExtendedStatistics;
+import io.trino.plugin.deltalake.statistics.ExtendedStatisticsAccess;
 import io.trino.plugin.deltalake.statistics.MetaDirStatisticsAccess;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointSchemaManager;
@@ -49,6 +51,7 @@ import io.trino.plugin.hive.PropertiesSystemTableProvider;
 import io.trino.plugin.hive.SystemTableProvider;
 import io.trino.plugin.hive.TransactionalMetadata;
 import io.trino.plugin.hive.TransactionalMetadataFactory;
+import io.trino.plugin.hive.fs.DirectoryLister;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.MetastoreConfig;
 import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
@@ -71,6 +74,7 @@ import java.util.function.BiFunction;
 
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
@@ -91,25 +95,31 @@ public class DeltaLakeModule
         configBinder(binder).bindConfig(ParquetReaderConfig.class);
         configBinder(binder).bindConfig(ParquetWriterConfig.class);
 
+        install(new ConnectorAccessControlModule());
+        newOptionalBinder(binder, DeltaLakeAccessControlMetadataFactory.class)
+                .setDefault().toInstance(DeltaLakeAccessControlMetadataFactory.SYSTEM);
+
         Multibinder<SystemTableProvider> systemTableProviders = newSetBinder(binder, SystemTableProvider.class);
         systemTableProviders.addBinding().to(PropertiesSystemTableProvider.class).in(Scopes.SINGLETON);
 
-        binder.bind(DeltaLakeSessionProperties.class).in(Scopes.SINGLETON);
+        newSetBinder(binder, SessionPropertiesProvider.class)
+                .addBinding().to(DeltaLakeSessionProperties.class).in(Scopes.SINGLETON);
         binder.bind(DeltaLakeTableProperties.class).in(Scopes.SINGLETON);
         binder.bind(DeltaLakeAnalyzeProperties.class).in(Scopes.SINGLETON);
 
         binder.bind(DeltaLakeTransactionManager.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorSplitManager.class).to(DeltaLakeSplitManager.class).in(Scopes.SINGLETON);
-        binder.bind(ConnectorPageSourceProvider.class).to(DeltaLakePageSourceProvider.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, ConnectorPageSourceProvider.class)
+                .setDefault().to(DeltaLakePageSourceProvider.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorPageSinkProvider.class).to(DeltaLakePageSinkProvider.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorNodePartitioningProvider.class).to(DeltaLakeNodePartitioningProvider.class).in(Scopes.SINGLETON);
 
         binder.bind(LocationService.class).to(HiveLocationService.class).in(Scopes.SINGLETON);
         binder.bind(DeltaLakeMetadataFactory.class).in(Scopes.SINGLETON);
-        binder.bind(CachingDeltaLakeStatisticsAccess.class).in(Scopes.SINGLETON);
-        binder.bind(DeltaLakeStatisticsAccess.class).to(CachingDeltaLakeStatisticsAccess.class).in(Scopes.SINGLETON);
-        binder.bind(DeltaLakeStatisticsAccess.class).annotatedWith(ForCachingDeltaLakeStatisticsAccess.class).to(MetaDirStatisticsAccess.class).in(Scopes.SINGLETON);
-        jsonCodecBinder(binder).bindJsonCodec(DeltaLakeStatistics.class);
+        binder.bind(CachingExtendedStatisticsAccess.class).in(Scopes.SINGLETON);
+        binder.bind(ExtendedStatisticsAccess.class).to(CachingExtendedStatisticsAccess.class).in(Scopes.SINGLETON);
+        binder.bind(ExtendedStatisticsAccess.class).annotatedWith(ForCachingExtendedStatisticsAccess.class).to(MetaDirStatisticsAccess.class).in(Scopes.SINGLETON);
+        jsonCodecBinder(binder).bindJsonCodec(ExtendedStatistics.class);
         binder.bind(HiveTransactionManager.class).in(Scopes.SINGLETON);
         binder.bind(CheckpointSchemaManager.class).in(Scopes.SINGLETON);
         jsonCodecBinder(binder).bindJsonCodec(LastCheckpoint.class);
@@ -130,6 +140,9 @@ public class DeltaLakeModule
         // Azure
         logSynchronizerMapBinder.addBinding("abfs").to(AzureTransactionLogSynchronizer.class).in(Scopes.SINGLETON);
         logSynchronizerMapBinder.addBinding("abfss").to(AzureTransactionLogSynchronizer.class).in(Scopes.SINGLETON);
+
+        newOptionalBinder(binder, DeltaLakeRedirectionsProvider.class)
+                .setDefault().toInstance(DeltaLakeRedirectionsProvider.NOOP);
 
         jsonCodecBinder(binder).bindJsonCodec(DataFileInfo.class);
         jsonCodecBinder(binder).bindJsonCodec(DeltaLakeUpdateResult.class);
@@ -174,6 +187,12 @@ public class DeltaLakeModule
             public SemiTransactionalHiveMetastore getMetastore()
             {
                 throw new RuntimeException("SemiTransactionalHiveMetastore is not used by Delta");
+            }
+
+            @Override
+            public DirectoryLister getDirectoryLister()
+            {
+                throw new RuntimeException("DirectoryLister is not used by Delta");
             }
 
             @Override

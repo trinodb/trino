@@ -56,10 +56,10 @@ Consider the following set of requirements:
 
 * All queries running under the ``global`` resource group must have an execution time limit of 8 hours.
 
-* All interactive queries are routed to subgroups under the ``global.interactive`` group, and have an execution time
+* All interactive queries are routed to sub-groups under the ``global.interactive`` group, and have an execution time
   limit of 1 hour (tighter than the constraint on ``global``).
 
-* All ETL queries (tagged with 'etl') are routed to subgroups under the ``global.pipeline`` group, and must be
+* All ETL queries (tagged with 'etl') are routed to sub-groups under the ``global.pipeline`` group, and must be
   configured with certain properties to control writer behavior and a hive catalog property.
 
 These requirements can be expressed with the following rules:

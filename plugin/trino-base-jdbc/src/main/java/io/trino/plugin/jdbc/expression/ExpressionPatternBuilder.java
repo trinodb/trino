@@ -13,19 +13,31 @@
  */
 package io.trino.plugin.jdbc.expression;
 
+import com.google.common.collect.ImmutableMap;
 import org.antlr.v4.runtime.ParserRuleContext;
 
 import javax.annotation.Nullable;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 public class ExpressionPatternBuilder
         extends ConnectorExpressionPatternBaseVisitor<Object>
 {
+    private final Map<String, Set<String>> typeClasses;
+
+    public ExpressionPatternBuilder(Map<String, Set<String>> typeClasses)
+    {
+        this.typeClasses = ImmutableMap.copyOf(requireNonNull(typeClasses, "typeClasses is null"));
+    }
+
     @Override
     public Object visitStandaloneExpression(ConnectorExpressionPatternParser.StandaloneExpressionContext context)
     {
@@ -56,11 +68,19 @@ public class ExpressionPatternBuilder
     }
 
     @Override
-    public Object visitType(ConnectorExpressionPatternParser.TypeContext context)
+    public TypePattern visitType(ConnectorExpressionPatternParser.TypeContext context)
     {
-        return new TypePattern(
-                visit(context.identifier(), String.class),
-                context.typeParameter().stream()
+        String baseName = visit(context.identifier(), String.class);
+        List<ConnectorExpressionPatternParser.TypeParameterContext> parameters = context.typeParameter();
+        Set<String> typeClass = typeClasses.get(baseName);
+        if (typeClass != null) {
+            checkArgument(parameters.isEmpty(), "parameters are not allowed for a type class");
+            return new TypeClassPattern(baseName, typeClass);
+        }
+
+        return new SimpleTypePattern(
+                baseName,
+                parameters.stream()
                         .map(parameter -> {
                             Object result = visit(parameter, Object.class);
                             if (result instanceof String) {

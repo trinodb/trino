@@ -173,6 +173,7 @@ public class TestingRemoteTaskFactory
                     DataSize.of(0, BYTE),
                     DataSize.of(0, BYTE),
                     DataSize.of(0, BYTE),
+                    DataSize.of(0, BYTE),
                     0,
                     new Duration(0, MILLISECONDS),
                     INITIAL_DYNAMIC_FILTERS_VERSION,

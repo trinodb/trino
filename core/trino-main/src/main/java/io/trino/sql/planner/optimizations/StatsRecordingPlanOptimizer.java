@@ -37,7 +37,7 @@ public final class StatsRecordingPlanOptimizer
     }
 
     @Override
-    public final PlanNode optimize(
+    public PlanNode optimize(
             PlanNode plan,
             Session session,
             TypeProvider types,

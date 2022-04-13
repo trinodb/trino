@@ -326,7 +326,7 @@ public class ColumnJdbcTable
                     null,
                     charOctetLength(column.getType()),
                     ordinalPosition,
-                    "",
+                    column.isNullable() ? "YES" : "NO",
                     null,
                     null,
                     null,

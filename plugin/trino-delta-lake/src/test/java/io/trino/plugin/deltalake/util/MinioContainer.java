@@ -14,6 +14,7 @@
 package io.trino.plugin.deltalake.util;
 
 import com.google.common.collect.ImmutableMap;
+import io.trino.testing.containers.wait.strategy.SelectedPortWaitStrategy;
 import org.testcontainers.containers.Network;
 import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
 

@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.deltalake;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.reflect.Reflection;
 import com.google.inject.Binder;
@@ -35,10 +34,6 @@ import io.trino.plugin.hive.metastore.thrift.ThriftMetastore;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreAuthenticationModule;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreClientFactory;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreConfig;
-import io.trino.spi.Plugin;
-import io.trino.spi.connector.Connector;
-import io.trino.spi.connector.ConnectorContext;
-import io.trino.spi.connector.ConnectorFactory;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.tpch.TpchEntity;
@@ -70,9 +65,7 @@ public class TestDeltaLakePerTransactionMetastoreCache
     private static final String BUCKET_NAME = "delta-lake-per-transaction-metastore-cache";
     private DockerizedMinioDataLake dockerizedMinioDataLake;
 
-    private static final String TEST_DELTA_CONNECTOR_NAME = "TEST_DELTA_LAKE";
-
-    private Map<String, Long> hiveMetastoreInvocationCounts = new ConcurrentHashMap<>();
+    private final Map<String, Long> hiveMetastoreInvocationCounts = new ConcurrentHashMap<>();
 
     @AfterClass(alwaysRun = true)
     public final void close()
@@ -104,70 +97,51 @@ public class TestDeltaLakePerTransactionMetastoreCache
 
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session).build();
 
-        queryRunner.installPlugin(new Plugin() {
-            @Override
-            public Iterable<ConnectorFactory> getConnectorFactories()
-            {
-                return ImmutableList.of(new ConnectorFactory() {
+        queryRunner.installPlugin(new TestingDeltaLakePlugin(
+                new AbstractConfigurationAwareModule()
+                {
                     @Override
-                    public String getName()
+                    protected void setup(Binder binder)
                     {
-                        return TEST_DELTA_CONNECTOR_NAME;
+                        newOptionalBinder(binder, ThriftMetastoreClientFactory.class).setDefault().to(DefaultThriftMetastoreClientFactory.class).in(Scopes.SINGLETON);
+                        binder.bind(MetastoreLocator.class).to(StaticMetastoreLocator.class).in(Scopes.SINGLETON);
+                        configBinder(binder).bindConfig(StaticMetastoreConfig.class);
+                        configBinder(binder).bindConfig(ThriftMetastoreConfig.class);
+                        binder.bind(ThriftMetastore.class).to(ThriftHiveMetastore.class).in(Scopes.SINGLETON);
+                        newExporter(binder).export(ThriftMetastore.class).as((generator) -> generator.generatedNameOf(ThriftHiveMetastore.class));
+                        install(new ThriftMetastoreAuthenticationModule());
+                        binder.bind(Boolean.class).annotatedWith(HideNonDeltaLakeTables.class).toInstance(false);
+                        binder.bind(BridgingHiveMetastoreFactory.class).in(Scopes.SINGLETON);
                     }
 
-                    @Override
-                    public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
+                    @Provides
+                    @Singleton
+                    @RawHiveMetastoreFactory
+                    public HiveMetastoreFactory getCountingHiveMetastoreFactory(BridgingHiveMetastoreFactory bridgingHiveMetastoreFactory)
                     {
-                        return InternalDeltaLakeConnectorFactory.createConnector(
-                                catalogName,
-                                config,
-                                context,
-                                new AbstractConfigurationAwareModule() {
-                                    @Override
-                                    protected void setup(Binder binder)
-                                    {
-                                        newOptionalBinder(binder, ThriftMetastoreClientFactory.class).setDefault().to(DefaultThriftMetastoreClientFactory.class).in(Scopes.SINGLETON);
-                                        binder.bind(MetastoreLocator.class).to(StaticMetastoreLocator.class).in(Scopes.SINGLETON);
-                                        configBinder(binder).bindConfig(StaticMetastoreConfig.class);
-                                        configBinder(binder).bindConfig(ThriftMetastoreConfig.class);
-                                        binder.bind(ThriftMetastore.class).to(ThriftHiveMetastore.class).in(Scopes.SINGLETON);
-                                        newExporter(binder).export(ThriftMetastore.class).as((generator) -> generator.generatedNameOf(ThriftHiveMetastore.class));
-                                        install(new ThriftMetastoreAuthenticationModule());
-                                        binder.bind(Boolean.class).annotatedWith(HideNonDeltaLakeTables.class).toInstance(false);
-                                        binder.bind(BridgingHiveMetastoreFactory.class).in(Scopes.SINGLETON);
-                                    }
+                        return new HiveMetastoreFactory()
+                        {
+                            @Override
+                            public boolean isImpersonationEnabled()
+                            {
+                                return false;
+                            }
 
-                                    @Provides
-                                    @Singleton
-                                    @RawHiveMetastoreFactory
-                                    public HiveMetastoreFactory getCountingHiveMetastoreFactory(BridgingHiveMetastoreFactory bridgingHiveMetastoreFactory)
-                                    {
-                                        return new HiveMetastoreFactory() {
-                                            @Override
-                                            public boolean isImpersonationEnabled()
-                                            {
-                                                return false;
-                                            }
-
-                                            @Override
-                                            public HiveMetastore createMetastore(Optional<ConnectorIdentity> identity)
-                                            {
-                                                HiveMetastore bridgingHiveMetastore = bridgingHiveMetastoreFactory.createMetastore(identity);
-                                                // bind HiveMetastore which counts method executions
-                                                return Reflection.newProxy(HiveMetastore.class, (proxy, method, args) -> {
-                                                    String methodName = method.getName();
-                                                    long count = hiveMetastoreInvocationCounts.getOrDefault(methodName, 0L);
-                                                    hiveMetastoreInvocationCounts.put(methodName, count + 1);
-                                                    return method.invoke(bridgingHiveMetastore, args);
-                                                });
-                                            }
-                                        };
-                                    }
+                            @Override
+                            public HiveMetastore createMetastore(Optional<ConnectorIdentity> identity)
+                            {
+                                HiveMetastore bridgingHiveMetastore = bridgingHiveMetastoreFactory.createMetastore(identity);
+                                // bind HiveMetastore which counts method executions
+                                return Reflection.newProxy(HiveMetastore.class, (proxy, method, args) -> {
+                                    String methodName = method.getName();
+                                    long count = hiveMetastoreInvocationCounts.getOrDefault(methodName, 0L);
+                                    hiveMetastoreInvocationCounts.put(methodName, count + 1);
+                                    return method.invoke(bridgingHiveMetastore, args);
                                 });
+                            }
+                        };
                     }
-                });
-            }
-        });
+                }));
 
         ImmutableMap.Builder<String, String> deltaLakeProperties = ImmutableMap.builder();
         deltaLakeProperties.put("hive.metastore.uri", dockerizedMinioDataLake.getTestingHadoop().getMetastoreAddress());
@@ -181,7 +155,7 @@ public class TestDeltaLakePerTransactionMetastoreCache
             deltaLakeProperties.put("hive.per-transaction-metastore-cache-maximum-size", "1");
         }
 
-        queryRunner.createCatalog(DELTA_CATALOG, TEST_DELTA_CONNECTOR_NAME, deltaLakeProperties.buildOrThrow());
+        queryRunner.createCatalog(DELTA_CATALOG, "delta-lake", deltaLakeProperties.buildOrThrow());
 
         if (createdDeltaLake) {
             List<TpchTable<? extends TpchEntity>> tpchTables = List.of(TpchTable.NATION, TpchTable.REGION);

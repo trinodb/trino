@@ -63,6 +63,7 @@ import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.SystemTable;
+import io.trino.spi.connector.TableColumnsMetadata;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Variable;
@@ -115,6 +116,7 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -125,6 +127,7 @@ import static io.trino.plugin.hive.HiveApplyProjectionUtil.replaceWithNewVariabl
 import static io.trino.plugin.hive.util.HiveUtil.isStructuralType;
 import static io.trino.plugin.iceberg.ColumnIdentity.primitiveColumnIdentity;
 import static io.trino.plugin.iceberg.ExpressionConverter.toIcebergExpression;
+import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isProjectionPushdownEnabled;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isStatisticsEnabled;
@@ -150,7 +153,6 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.lang.String.format;
-import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.joining;
@@ -205,7 +207,10 @@ public class IcebergMetadata
     public IcebergTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
     {
         IcebergTableName name = IcebergTableName.from(tableName.getTableName());
-        verify(name.getTableType() == DATA, "Wrong table type: " + name.getTableNameWithType());
+        if (name.getTableType() != DATA) {
+            // Pretend the table does not exist to produce better error message in case of table redirects to Hive
+            return null;
+        }
 
         Table table;
         try {
@@ -222,6 +227,7 @@ public class IcebergMetadata
                 name.getTableName(),
                 name.getTableType(),
                 snapshotId,
+                SchemaParser.toJson(table.schema()),
                 TupleDomain.all(),
                 TupleDomain.all(),
                 ImmutableSet.of(),
@@ -235,6 +241,7 @@ public class IcebergMetadata
                 .map(systemTable -> new ClassLoaderSafeSystemTable(systemTable, getClass().getClassLoader()));
     }
 
+    @SuppressWarnings("TryWithIdenticalCatches")
     private Optional<SystemTable> getRawSystemTable(ConnectorSession session, SchemaTableName tableName)
     {
         IcebergTableName name = IcebergTableName.from(tableName.getTableName());
@@ -248,6 +255,10 @@ public class IcebergMetadata
             table = catalog.loadTable(session, new SchemaTableName(tableName.getSchemaName(), name.getTableName()));
         }
         catch (TableNotFoundException e) {
+            return Optional.empty();
+        }
+        catch (UnknownTableTypeException e) {
+            // avoid dealing with non Iceberg tables
             return Optional.empty();
         }
 
@@ -394,27 +405,43 @@ public class IcebergMetadata
     @Override
     public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {
-        List<SchemaTableName> tables = prefix.getTable()
-                .map(ignored -> singletonList(prefix.toSchemaTableName()))
-                .orElseGet(() -> listTables(session, prefix.getSchema()));
+        throw new UnsupportedOperationException("The deprecated listTableColumns is not supported because streamTableColumns is implemented instead");
+    }
 
-        ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> columns = ImmutableMap.builder();
-        for (SchemaTableName table : tables) {
-            try {
-                columns.put(table, getTableMetadata(session, table).getColumns());
-            }
-            catch (TableNotFoundException e) {
-                // table disappeared during listing operation
-            }
-            catch (UnknownTableTypeException e) {
-                // ignore table of unknown type
-            }
-            catch (RuntimeException e) {
-                // Table can be being removed and this may cause all sorts of exceptions. Log, because we're catching broadly.
-                log.warn(e, "Failed to access metadata of table %s during column listing for %s", table, prefix);
-            }
+    @Override
+    @SuppressWarnings("TryWithIdenticalCatches")
+    public Stream<TableColumnsMetadata> streamTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
+    {
+        requireNonNull(prefix, "prefix is null");
+        List<SchemaTableName> schemaTableNames;
+        if (prefix.getTable().isEmpty()) {
+            schemaTableNames = catalog.listTables(session, prefix.getSchema());
         }
-        return columns.buildOrThrow();
+        else {
+            schemaTableNames = ImmutableList.of(prefix.toSchemaTableName());
+        }
+        return schemaTableNames.stream()
+                .flatMap(tableName -> {
+                    try {
+                        if (redirectTable(session, tableName).isPresent()) {
+                            return Stream.of(TableColumnsMetadata.forRedirectedTable(tableName));
+                        }
+                        return Stream.of(TableColumnsMetadata.forTable(tableName, getTableMetadata(session, tableName).getColumns()));
+                    }
+                    catch (TableNotFoundException e) {
+                        // Table disappeared during listing operation
+                        return Stream.empty();
+                    }
+                    catch (UnknownTableTypeException e) {
+                        // Skip unsupported table type in case that the table redirects are not enabled
+                        return Stream.empty();
+                    }
+                    catch (RuntimeException e) {
+                        // Table can be being removed and this may cause all sorts of exceptions. Log, because we're catching broadly.
+                        log.warn(e, "Failed to access metadata of table %s during streaming table columns for %s", tableName, prefix);
+                        return Stream.empty();
+                    }
+                });
     }
 
     @Override
@@ -629,7 +656,7 @@ public class IcebergMetadata
             }
         }
         catch (IOException e) {
-            throw new TrinoException(IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR,
+            throw new TrinoException(ICEBERG_FILESYSTEM_ERROR,
                     format("Could not clean up extraneous output files; remaining files: %s", filesToDelete), e);
         }
     }
@@ -1009,6 +1036,7 @@ public class IcebergMetadata
                         table.getTableName(),
                         table.getTableType(),
                         table.getSnapshotId(),
+                        table.getTableSchemaJson(),
                         newUnenforcedConstraint,
                         newEnforcedConstraint,
                         table.getProjectedColumns(),
@@ -1391,6 +1419,12 @@ public class IcebergMetadata
             }
         }
         return viewToken;
+    }
+
+    @Override
+    public Optional<CatalogSchemaTableName> redirectTable(ConnectorSession session, SchemaTableName tableName)
+    {
+        return catalog.redirectTable(session, tableName);
     }
 
     private static class TableToken

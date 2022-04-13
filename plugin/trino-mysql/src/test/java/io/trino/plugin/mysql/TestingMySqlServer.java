@@ -59,7 +59,11 @@ public class TestingMySqlServer
         execute(format("GRANT ALL PRIVILEGES ON *.* TO '%s'", container.getUsername()), "root", container.getPassword());
     }
 
-    protected void configureContainer(MySQLContainer<?> container) {}
+    private void configureContainer(MySQLContainer<?> container)
+    {
+        // MySQL configuration provided by default by testcontainers causes MySQL to produce poor estimates in CARDINALITY column of INFORMATION_SCHEMA.STATISTICS table.
+        container.addParameter("TC_MY_CNF", null);
+    }
 
     public Connection createConnection()
             throws SQLException

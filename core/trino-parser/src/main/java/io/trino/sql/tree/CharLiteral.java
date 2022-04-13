@@ -14,19 +14,17 @@
 package io.trino.sql.tree;
 
 import com.google.common.base.CharMatcher;
-import io.airlift.slice.Slice;
 
 import java.util.Objects;
 import java.util.Optional;
 
-import static io.airlift.slice.Slices.utf8Slice;
 import static java.util.Objects.requireNonNull;
 
 public class CharLiteral
         extends Literal
 {
     private final String value;
-    private final Slice slice;
+    private final int length;
 
     public CharLiteral(String value)
     {
@@ -42,8 +40,8 @@ public class CharLiteral
     {
         super(location);
         requireNonNull(value, "value is null");
-        this.value = value;
-        this.slice = utf8Slice(CharMatcher.is(' ').trimTrailingFrom(value));
+        this.length = value.length();
+        this.value = CharMatcher.is(' ').trimTrailingFrom(value);
     }
 
     public String getValue()
@@ -51,9 +49,9 @@ public class CharLiteral
         return value;
     }
 
-    public Slice getSlice()
+    public int length()
     {
-        return slice;
+        return length;
     }
 
     @Override

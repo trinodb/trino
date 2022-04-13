@@ -30,6 +30,7 @@ import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.spi.TrinoException;
 import io.trino.spi.classloader.ThreadContextClassLoader;
+import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.procedure.Procedure;
@@ -73,6 +74,7 @@ public class VacuumProcedure
             VacuumProcedure.class,
             "vacuum",
             ConnectorSession.class,
+            ConnectorAccessControl.class,
             String.class,
             String.class,
             String.class);
@@ -111,12 +113,13 @@ public class VacuumProcedure
 
     public void vacuum(
             ConnectorSession session,
+            ConnectorAccessControl accessControl,
             String schema,
             String table,
             String retention)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
-            doVacuum(session, schema, table, retention);
+            doVacuum(session, accessControl, schema, table, retention);
         }
         catch (TrinoException e) {
             throw e;
@@ -129,6 +132,7 @@ public class VacuumProcedure
 
     private void doVacuum(
             ConnectorSession session,
+            ConnectorAccessControl accessControl,
             String schema,
             String table,
             String retention)
@@ -158,6 +162,9 @@ public class VacuumProcedure
         SchemaTableName tableName = new SchemaTableName(schema, table);
         DeltaLakeTableHandle handle = metadata.getTableHandle(session, tableName);
         checkProcedureArgument(handle != null, "Table '%s' does not exist", tableName);
+
+        accessControl.checkCanInsertIntoTable(null, tableName);
+        accessControl.checkCanDeleteFromTable(null, tableName);
 
         TableSnapshot tableSnapshot = transactionLogAccess.loadSnapshot(tableName, new Path(handle.getLocation()), session);
         Path tableLocation = tableSnapshot.getTableLocation();

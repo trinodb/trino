@@ -2,6 +2,10 @@
 SingleStore (MemSQL) connector
 ==============================
 
+.. raw:: html
+
+  <img src="../_static/img/singlestore.png" class="connector-logo">
+
 The SingleStore (formerly known as MemSQL) connector allows querying and
 creating tables in an external SingleStore database.
 

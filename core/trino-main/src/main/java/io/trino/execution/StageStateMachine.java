@@ -374,9 +374,9 @@ public class StageStateMachine
 
         long cumulativeUserMemory = 0;
         long failedCumulativeUserMemory = 0;
-        long userMemoryReservation = 0;
-        long revocableMemoryReservation = 0;
-        long totalMemoryReservation = 0;
+        long userMemoryReservation = currentUserMemory.get();
+        long revocableMemoryReservation = currentRevocableMemory.get();
+        long totalMemoryReservation = currentTotalMemory.get();
         long peakUserMemoryReservation = peakUserMemory.get();
         long peakRevocableMemoryReservation = peakRevocableMemory.get();
 
@@ -408,11 +408,17 @@ public class StageStateMachine
         long processedInputPositions = 0;
         long failedProcessedInputPositions = 0;
 
+        long inputBlockedTime = 0;
+        long failedInputBlockedTime = 0;
+
         long bufferedDataSize = 0;
         long outputDataSize = 0;
         long failedOutputDataSize = 0;
         long outputPositions = 0;
         long failedOutputPositions = 0;
+
+        long outputBlockedTime = 0;
+        long failedOutputBlockedTime = 0;
 
         long physicalWrittenDataSize = 0;
         long failedPhysicalWrittenDataSize = 0;
@@ -453,12 +459,6 @@ public class StageStateMachine
                 failedCumulativeUserMemory += taskStats.getCumulativeUserMemory();
             }
 
-            long taskUserMemory = taskStats.getUserMemoryReservation().toBytes();
-            long taskRevocableMemory = taskStats.getRevocableMemoryReservation().toBytes();
-            userMemoryReservation += taskUserMemory;
-            revocableMemoryReservation += taskRevocableMemory;
-            totalMemoryReservation += taskUserMemory + taskRevocableMemory;
-
             totalScheduledTime += taskStats.getTotalScheduledTime().roundTo(NANOSECONDS);
             totalCpuTime += taskStats.getTotalCpuTime().roundTo(NANOSECONDS);
             totalBlockedTime += taskStats.getTotalBlockedTime().roundTo(NANOSECONDS);
@@ -484,9 +484,13 @@ public class StageStateMachine
             processedInputDataSize += taskStats.getProcessedInputDataSize().toBytes();
             processedInputPositions += taskStats.getProcessedInputPositions();
 
+            inputBlockedTime += taskStats.getInputBlockedTime().roundTo(NANOSECONDS);
+
             bufferedDataSize += taskInfo.getOutputBuffers().getTotalBufferedBytes();
             outputDataSize += taskStats.getOutputDataSize().toBytes();
             outputPositions += taskStats.getOutputPositions();
+
+            outputBlockedTime += taskStats.getOutputBlockedTime().roundTo(NANOSECONDS);
 
             physicalWrittenDataSize += taskStats.getPhysicalWrittenDataSize().toBytes();
 
@@ -504,10 +508,14 @@ public class StageStateMachine
                 failedProcessedInputDataSize += taskStats.getProcessedInputDataSize().toBytes();
                 failedProcessedInputPositions += taskStats.getProcessedInputPositions();
 
+                failedInputBlockedTime += taskStats.getInputBlockedTime().roundTo(NANOSECONDS);
+
                 failedOutputDataSize += taskStats.getOutputDataSize().toBytes();
                 failedOutputPositions += taskStats.getOutputPositions();
 
                 failedPhysicalWrittenDataSize += taskStats.getPhysicalWrittenDataSize().toBytes();
+
+                failedOutputBlockedTime += taskStats.getOutputBlockedTime().roundTo(NANOSECONDS);
             }
 
             fullGcCount += taskStats.getFullGcCount();
@@ -577,11 +585,15 @@ public class StageStateMachine
                 succinctBytes(failedProcessedInputDataSize),
                 processedInputPositions,
                 failedProcessedInputPositions,
+                succinctDuration(inputBlockedTime, NANOSECONDS),
+                succinctDuration(failedInputBlockedTime, NANOSECONDS),
                 succinctBytes(bufferedDataSize),
                 succinctBytes(outputDataSize),
                 succinctBytes(failedOutputDataSize),
                 outputPositions,
                 failedOutputPositions,
+                succinctDuration(outputBlockedTime, NANOSECONDS),
+                succinctDuration(failedOutputBlockedTime, NANOSECONDS),
                 succinctBytes(physicalWrittenDataSize),
                 succinctBytes(failedPhysicalWrittenDataSize),
 

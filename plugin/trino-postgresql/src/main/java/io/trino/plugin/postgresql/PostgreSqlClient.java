@@ -32,6 +32,7 @@ import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
 import io.trino.plugin.jdbc.JdbcJoinCondition;
 import io.trino.plugin.jdbc.JdbcSortItem;
+import io.trino.plugin.jdbc.JdbcStatisticsConfig;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.LongReadFunction;
@@ -75,10 +76,16 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.JoinCondition;
+import io.trino.spi.connector.JoinStatistics;
+import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.statistics.ColumnStatistics;
+import io.trino.spi.statistics.Estimate;
+import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
@@ -94,6 +101,8 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.VarcharType;
+import org.jdbi.v3.core.Handle;
+import org.jdbi.v3.core.Jdbi;
 import org.postgresql.core.TypeInfo;
 import org.postgresql.jdbc.PgConnection;
 
@@ -125,7 +134,9 @@ import java.util.function.BiFunction;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.base.util.JsonTypeUtil.jsonParse;
 import static io.trino.plugin.base.util.JsonTypeUtil.toJsonValue;
@@ -134,6 +145,7 @@ import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalDef
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalRounding;
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalRoundingMode;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
+import static io.trino.plugin.jdbc.JdbcJoinPushdownUtil.implementJoinCostAware;
 import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.getDomainCompactionThreshold;
 import static io.trino.plugin.jdbc.PredicatePushdownController.DISABLE_PUSHDOWN;
 import static io.trino.plugin.jdbc.PredicatePushdownController.FULL_PUSHDOWN;
@@ -216,6 +228,7 @@ import static java.lang.String.format;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.sql.DatabaseMetaData.columnNoNulls;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.joining;
 
 public class PostgreSqlClient
@@ -233,13 +246,6 @@ public class PostgreSqlClient
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("y-MM-dd[ G]");
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm:ss.SSSSSS");
-
-    private final Type jsonType;
-    private final Type uuidType;
-    private final MapType varcharMapType;
-    private final List<String> tableTypes;
-    private final ConnectorExpressionRewriter<String> connectorExpressionRewriter;
-    private final AggregateFunctionRewriter<JdbcExpression, String> aggregateFunctionRewriter;
 
     private static final PredicatePushdownController POSTGRESQL_STRING_COLLATION_AWARE_PUSHDOWN = (session, domain) -> {
         if (domain.isOnlyNull()) {
@@ -259,10 +265,19 @@ public class PostgreSqlClient
         return FULL_PUSHDOWN.apply(session, simplifiedDomain);
     };
 
+    private final Type jsonType;
+    private final Type uuidType;
+    private final MapType varcharMapType;
+    private final List<String> tableTypes;
+    private final boolean statisticsEnabled;
+    private final ConnectorExpressionRewriter<String> connectorExpressionRewriter;
+    private final AggregateFunctionRewriter<JdbcExpression, String> aggregateFunctionRewriter;
+
     @Inject
     public PostgreSqlClient(
             BaseJdbcConfig config,
             PostgreSqlConfig postgreSqlConfig,
+            JdbcStatisticsConfig statisticsConfig,
             ConnectionFactory connectionFactory,
             QueryBuilder queryBuilder,
             TypeManager typeManager,
@@ -280,12 +295,25 @@ public class PostgreSqlClient
         }
         this.tableTypes = tableTypes.build();
 
+        this.statisticsEnabled = requireNonNull(statisticsConfig, "statisticsConfig is null").isEnabled();
+
         this.connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder()
                 .addStandardRules(this::quoted)
                 // TODO allow all comparison operators for numeric types
                 .add(new RewriteComparison(RewriteComparison.ComparisonOperator.EQUAL, RewriteComparison.ComparisonOperator.NOT_EQUAL))
+                .withTypeClass("integer_type", ImmutableSet.of("tinyint", "smallint", "integer", "bigint"))
+                .map("$add(left: integer_type, right: integer_type)").to("left + right")
+                .map("$subtract(left: integer_type, right: integer_type)").to("left - right")
+                .map("$multiply(left: integer_type, right: integer_type)").to("left * right")
+                .map("$divide(left: integer_type, right: integer_type)").to("left / right")
+                .map("$modulus(left: integer_type, right: integer_type)").to("left % right")
+                .map("$negate(value: integer_type)").to("-value")
                 .map("$like_pattern(value: varchar, pattern: varchar): boolean").to("value LIKE pattern")
                 .map("$like_pattern(value: varchar, pattern: varchar, escape: varchar(1)): boolean").to("value LIKE pattern ESCAPE escape")
+                .map("$not($is_null(value))").to("value IS NOT NULL")
+                .map("$not(value: boolean)").to("NOT value")
+                .map("$is_null(value)").to("value IS NULL")
+                .map("$nullif(first, second)").to("NULLIF(first, second)")
                 .build();
 
         JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
@@ -811,7 +839,13 @@ public class PostgreSqlClient
         checkArgument(handle.getSortOrder().isEmpty(), "Unable to delete when sort order is set: %s", handle);
         try (Connection connection = connectionFactory.openConnection(session)) {
             verify(connection.getAutoCommit());
-            PreparedQuery preparedQuery = queryBuilder.prepareDeleteQuery(this, session, connection, handle.getRequiredNamedRelation(), handle.getConstraint());
+            PreparedQuery preparedQuery = queryBuilder.prepareDeleteQuery(
+                    this,
+                    session,
+                    connection,
+                    handle.getRequiredNamedRelation(),
+                    handle.getConstraint(),
+                    getAdditionalPredicate(handle.getConstraintExpressions(), Optional.empty()));
             try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(this, session, connection, preparedQuery)) {
                 int affectedRowsCount = preparedStatement.executeUpdate();
                 // In getPreparedStatement we set autocommit to false so here we need an explicit commit
@@ -822,6 +856,129 @@ public class PostgreSqlClient
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, e);
         }
+    }
+
+    @Override
+    public TableStatistics getTableStatistics(ConnectorSession session, JdbcTableHandle handle, TupleDomain<ColumnHandle> tupleDomain)
+    {
+        if (!statisticsEnabled) {
+            return TableStatistics.empty();
+        }
+        if (!handle.isNamedRelation()) {
+            return TableStatistics.empty();
+        }
+        try {
+            return readTableStatistics(session, handle);
+        }
+        catch (SQLException | RuntimeException e) {
+            throwIfInstanceOf(e, TrinoException.class);
+            throw new TrinoException(JDBC_ERROR, "Failed fetching statistics for table: " + handle, e);
+        }
+    }
+
+    private TableStatistics readTableStatistics(ConnectorSession session, JdbcTableHandle table)
+            throws SQLException
+    {
+        checkArgument(table.isNamedRelation(), "Relation is not a table: %s", table);
+
+        try (Connection connection = connectionFactory.openConnection(session);
+                Handle handle = Jdbi.open(connection)) {
+            StatisticsDao statisticsDao = new StatisticsDao(handle);
+
+            Optional<Long> optionalRowCount = readRowCountTableStat(statisticsDao, table);
+            if (optionalRowCount.isEmpty()) {
+                // Table not found
+                return TableStatistics.empty();
+            }
+            long rowCount = optionalRowCount.get();
+
+            TableStatistics.Builder tableStatistics = TableStatistics.builder();
+            tableStatistics.setRowCount(Estimate.of(rowCount));
+
+            if (rowCount == 0) {
+                return tableStatistics.build();
+            }
+
+            Map<String, ColumnStatisticsResult> columnStatistics = statisticsDao.getColumnStatistics(table.getSchemaName(), table.getTableName()).stream()
+                    .collect(toImmutableMap(ColumnStatisticsResult::getColumnName, identity()));
+
+            for (JdbcColumnHandle column : this.getColumns(session, table)) {
+                ColumnStatisticsResult result = columnStatistics.get(column.getColumnName());
+                if (result == null) {
+                    continue;
+                }
+
+                ColumnStatistics statistics = ColumnStatistics.builder()
+                        .setNullsFraction(result.getNullsFraction()
+                                .map(Estimate::of)
+                                .orElseGet(Estimate::unknown))
+                        .setDistinctValuesCount(result.getDistinctValuesIndicator()
+                                .map(distinctValuesIndicator -> {
+                                    if (distinctValuesIndicator >= 0.0) {
+                                        return distinctValuesIndicator;
+                                    }
+                                    return -distinctValuesIndicator * rowCount;
+                                })
+                                .map(Estimate::of)
+                                .orElseGet(Estimate::unknown))
+                        .setDataSize(result.getAverageColumnLength()
+                                .flatMap(averageColumnLength ->
+                                        result.getNullsFraction().map(nullsFraction ->
+                                                Estimate.of(1.0 * averageColumnLength * rowCount * (1 - nullsFraction))))
+                                .orElseGet(Estimate::unknown))
+                        .build();
+
+                tableStatistics.setColumnStatistics(column, statistics);
+            }
+
+            return tableStatistics.build();
+        }
+    }
+
+    private static Optional<Long> readRowCountTableStat(StatisticsDao statisticsDao, JdbcTableHandle table)
+    {
+        Optional<Long> rowCount = statisticsDao.getRowCountFromPgClass(table.getSchemaName(), table.getTableName());
+        if (rowCount.isEmpty()) {
+            // Table not found
+            return Optional.empty();
+        }
+
+        if (statisticsDao.isPartitionedTable(table.getSchemaName(), table.getTableName())) {
+            Optional<Long> partitionedTableRowCount = statisticsDao.getRowCountPartitionedTableFromPgClass(table.getSchemaName(), table.getTableName());
+            if (partitionedTableRowCount.isPresent()) {
+                return partitionedTableRowCount;
+            }
+
+            return statisticsDao.getRowCountPartitionedTableFromPgStats(table.getSchemaName(), table.getTableName());
+        }
+
+        if (rowCount.get() == 0) {
+            // `pg_class.reltuples = 0` may mean an empty table or a recently populated table (CTAS, LOAD or INSERT)
+            // `pg_stat_all_tables.n_live_tup` can be way off, so we use it only as a fallback
+            rowCount = statisticsDao.getRowCountFromPgStat(table.getSchemaName(), table.getTableName());
+        }
+
+        return rowCount;
+    }
+
+    @Override
+    public Optional<PreparedQuery> implementJoin(
+            ConnectorSession session,
+            JoinType joinType,
+            PreparedQuery leftSource,
+            PreparedQuery rightSource,
+            List<JdbcJoinCondition> joinConditions,
+            Map<JdbcColumnHandle, String> rightAssignments,
+            Map<JdbcColumnHandle, String> leftAssignments,
+            JoinStatistics statistics)
+    {
+        return implementJoinCostAware(
+                session,
+                joinType,
+                leftSource,
+                rightSource,
+                statistics,
+                () -> super.implementJoin(session, joinType, leftSource, rightSource, joinConditions, rightAssignments, leftAssignments, statistics));
     }
 
     @Override
@@ -1261,5 +1418,132 @@ public class PostgreSqlClient
                 uuidType,
                 (resultSet, columnIndex) -> javaUuidToTrinoUuid((UUID) resultSet.getObject(columnIndex)),
                 uuidWriteFunction());
+    }
+
+    private static class StatisticsDao
+    {
+        private final Handle handle;
+
+        public StatisticsDao(Handle handle)
+        {
+            this.handle = requireNonNull(handle, "handle is null");
+        }
+
+        Optional<Long> getRowCountFromPgClass(String schema, String tableName)
+        {
+            return handle.createQuery("" +
+                            "SELECT reltuples " +
+                            "FROM pg_class " +
+                            "WHERE relnamespace = (SELECT oid FROM pg_namespace WHERE nspname = :schema) " +
+                            "AND relname = :table_name")
+                    .bind("schema", schema)
+                    .bind("table_name", tableName)
+                    .mapTo(Long.class)
+                    .findOne();
+        }
+
+        Optional<Long> getRowCountFromPgStat(String schema, String tableName)
+        {
+            return handle.createQuery("SELECT n_live_tup FROM pg_stat_all_tables WHERE schemaname = :schema AND relname = :table_name")
+                    .bind("schema", schema)
+                    .bind("table_name", tableName)
+                    .mapTo(Long.class)
+                    .findOne();
+        }
+
+        Optional<Long> getRowCountPartitionedTableFromPgClass(String schema, String tableName)
+        {
+            return handle.createQuery("" +
+                            "SELECT SUM(child.reltuples) " +
+                            "FROM pg_inherits " +
+                            "JOIN pg_class parent ON pg_inherits.inhparent = parent.oid " +
+                            "JOIN pg_class child ON pg_inherits.inhrelid = child.oid " +
+                            "JOIN pg_namespace parent_ns ON parent_ns.oid = parent.relnamespace " +
+                            "JOIN pg_namespace child_ns ON child_ns.oid = child.relnamespace " +
+                            "WHERE parent.oid = :schema_table_name::regclass")
+                    .bind("schema_table_name", format("%s.%s", schema, tableName))
+                    .mapTo(Long.class)
+                    .findOne();
+        }
+
+        Optional<Long> getRowCountPartitionedTableFromPgStats(String schema, String tableName)
+        {
+            return handle.createQuery("" +
+                            "SELECT SUM(stat.n_live_tup) " +
+                            "FROM pg_inherits " +
+                            "JOIN pg_class parent ON pg_inherits.inhparent = parent.oid " +
+                            "JOIN pg_class child ON pg_inherits.inhrelid = child.oid " +
+                            "JOIN pg_namespace parent_ns ON parent_ns.oid = parent.relnamespace " +
+                            "JOIN pg_namespace child_ns ON child_ns.oid = child.relnamespace " +
+                            "JOIN pg_stat_all_tables stat ON stat.schemaname = child_ns.nspname AND stat.relname = child.relname " +
+                            "WHERE parent.oid = :schema_table_name::regclass")
+                    .bind("schema_table_name", format("%s.%s", schema, tableName))
+                    .mapTo(Long.class)
+                    .findOne();
+        }
+
+        List<ColumnStatisticsResult> getColumnStatistics(String schema, String tableName)
+        {
+            return handle.createQuery("SELECT attname, null_frac, n_distinct, avg_width FROM pg_stats WHERE schemaname = :schema AND tablename = :table_name")
+                    .bind("schema", schema)
+                    .bind("table_name", tableName)
+                    .map((rs, ctx) -> new ColumnStatisticsResult(
+                            requireNonNull(rs.getString("attname"), "attname is null"),
+                            Optional.ofNullable(rs.getObject("null_frac", Float.class)),
+                            Optional.ofNullable(rs.getObject("n_distinct", Float.class)),
+                            Optional.ofNullable(rs.getObject("avg_width", Integer.class))))
+                    .list();
+        }
+
+        boolean isPartitionedTable(String schema, String tableName)
+        {
+            return handle.createQuery("" +
+                            "SELECT true " +
+                            "FROM pg_class " +
+                            "WHERE relnamespace = (SELECT oid FROM pg_namespace WHERE nspname = :schema) " +
+                            "AND relname = :table_name " +
+                            "AND relkind = 'p'")
+                    .bind("schema", schema)
+                    .bind("table_name", tableName)
+                    .mapTo(Boolean.class)
+                    .findOne()
+                    .orElse(false);
+        }
+    }
+
+    private static class ColumnStatisticsResult
+    {
+        private final String columnName;
+        private final Optional<Float> nullsFraction;
+        private final Optional<Float> distinctValuesIndicator;
+        private final Optional<Integer> averageColumnLength;
+
+        public ColumnStatisticsResult(String columnName, Optional<Float> nullsFraction, Optional<Float> distinctValuesIndicator, Optional<Integer> averageColumnLength)
+        {
+            this.columnName = columnName;
+            this.nullsFraction = nullsFraction;
+            this.distinctValuesIndicator = distinctValuesIndicator;
+            this.averageColumnLength = averageColumnLength;
+        }
+
+        public String getColumnName()
+        {
+            return columnName;
+        }
+
+        public Optional<Float> getNullsFraction()
+        {
+            return nullsFraction;
+        }
+
+        public Optional<Float> getDistinctValuesIndicator()
+        {
+            return distinctValuesIndicator;
+        }
+
+        public Optional<Integer> getAverageColumnLength()
+        {
+            return averageColumnLength;
+        }
     }
 }

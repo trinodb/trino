@@ -20,6 +20,7 @@ import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.trino.Session;
 import io.trino.metadata.QualifiedObjectName;
+import io.trino.plugin.hive.fs.DirectoryLister;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.MetastoreConfig;
@@ -113,7 +114,7 @@ public final class HiveQueryRunner
                             .setMetastoreUser("test"));
         };
         private Module module = EMPTY_MODULE;
-        private Optional<CachingDirectoryLister> cachingDirectoryLister = Optional.empty();
+        private Optional<DirectoryLister> directoryLister = Optional.empty();
         private boolean tpcdsCatalogEnabled;
         private String security = SQL_STANDARD;
         private ColumnNaming tpchColumnNaming = SIMPLIFIED;
@@ -178,9 +179,9 @@ public final class HiveQueryRunner
             return self();
         }
 
-        public SELF setCachingDirectoryLister(CachingDirectoryLister cachingDirectoryLister)
+        public SELF setDirectoryLister(DirectoryLister directoryLister)
         {
-            this.cachingDirectoryLister = Optional.ofNullable(cachingDirectoryLister);
+            this.directoryLister = Optional.ofNullable(directoryLister);
             return self();
         }
 
@@ -230,7 +231,7 @@ public final class HiveQueryRunner
                 }
 
                 HiveMetastore metastore = this.metastore.apply(queryRunner);
-                queryRunner.installPlugin(new TestingHivePlugin(Optional.of(metastore), module, cachingDirectoryLister));
+                queryRunner.installPlugin(new TestingHivePlugin(Optional.of(metastore), module, directoryLister));
 
                 Map<String, String> hiveProperties = new HashMap<>();
                 if (!skipTimezoneSetup) {
@@ -299,8 +300,8 @@ public final class HiveQueryRunner
         return testSessionBuilder()
                 .setIdentity(Identity.forUser("hive")
                         .withConnectorRoles(role.map(selectedRole -> ImmutableMap.of(
-                                HIVE_CATALOG, selectedRole,
-                                HIVE_BUCKETED_CATALOG, selectedRole))
+                                        HIVE_CATALOG, selectedRole,
+                                        HIVE_BUCKETED_CATALOG, selectedRole))
                                 .orElse(ImmutableMap.of()))
                         .build())
                 .setCatalog(HIVE_CATALOG)
@@ -313,8 +314,8 @@ public final class HiveQueryRunner
         return testSessionBuilder()
                 .setIdentity(Identity.forUser("hive")
                         .withConnectorRoles(role.map(selectedRole -> ImmutableMap.of(
-                                HIVE_CATALOG, selectedRole,
-                                HIVE_BUCKETED_CATALOG, selectedRole))
+                                        HIVE_CATALOG, selectedRole,
+                                        HIVE_BUCKETED_CATALOG, selectedRole))
                                 .orElse(ImmutableMap.of()))
                         .build())
                 .setCatalog(HIVE_BUCKETED_CATALOG)

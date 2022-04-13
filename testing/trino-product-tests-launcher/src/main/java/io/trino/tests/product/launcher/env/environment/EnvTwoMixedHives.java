@@ -15,6 +15,7 @@ package io.trino.tests.product.launcher.env.environment;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.tests.product.launcher.docker.DockerFiles;
+import io.trino.tests.product.launcher.docker.DockerFiles.ResourceProvider;
 import io.trino.tests.product.launcher.env.DockerContainer;
 import io.trino.tests.product.launcher.env.Environment;
 import io.trino.tests.product.launcher.env.EnvironmentConfig;
@@ -26,7 +27,6 @@ import io.trino.tests.product.launcher.testcontainers.PortBinder;
 
 import javax.inject.Inject;
 
-import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.HADOOP;
 import static io.trino.tests.product.launcher.env.common.Hadoop.createHadoopContainer;
 import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
@@ -43,6 +43,7 @@ public final class EnvTwoMixedHives
         extends EnvironmentProvider
 {
     private final DockerFiles dockerFiles;
+    private final ResourceProvider configDir;
 
     private final String hadoopBaseImage;
     private final String hadoopImagesVersion;
@@ -58,6 +59,7 @@ public final class EnvTwoMixedHives
     {
         super(ImmutableList.of(standard, hadoopKerberos));
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
+        configDir = dockerFiles.getDockerFilesHostDirectory("conf/environment/two-mixed-hives");
         this.portBinder = requireNonNull(portBinder, "portBinder is null");
         hadoopBaseImage = requireNonNull(environmentConfig, "environmentConfig is null").getHadoopBaseImage();
         hadoopImagesVersion = requireNonNull(environmentConfig, "environmentConfig is null").getHadoopImagesVersion();
@@ -66,20 +68,10 @@ public final class EnvTwoMixedHives
     @Override
     public void extendEnvironment(Environment.Builder builder)
     {
-        builder.configureContainer(COORDINATOR, container -> {
-            container.withCopyFileToContainer(
-                    forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/two-mixed-hives/hive1.properties")),
-                    CONTAINER_PRESTO_ETC + "/catalog/hive1.properties");
-            container.withCopyFileToContainer(
-                    forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/two-mixed-hives/hive2.properties")),
-                    CONTAINER_PRESTO_ETC + "/catalog/hive2.properties");
-            container.withCopyFileToContainer(
-                    forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/two-mixed-hives/iceberg1.properties")),
-                    CONTAINER_PRESTO_ETC + "/catalog/iceberg1.properties");
-            container.withCopyFileToContainer(
-                    forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/two-mixed-hives/iceberg2.properties")),
-                    CONTAINER_PRESTO_ETC + "/catalog/iceberg2.properties");
-        });
+        builder.addConnector("hive", forHostPath(configDir.getPath("hive1.properties")), CONTAINER_PRESTO_ETC + "/catalog/hive1.properties");
+        builder.addConnector("hive", forHostPath(configDir.getPath("hive2.properties")), CONTAINER_PRESTO_ETC + "/catalog/hive2.properties");
+        builder.addConnector("iceberg", forHostPath(configDir.getPath("iceberg1.properties")), CONTAINER_PRESTO_ETC + "/catalog/iceberg1.properties");
+        builder.addConnector("iceberg", forHostPath(configDir.getPath("iceberg2.properties")), CONTAINER_PRESTO_ETC + "/catalog/iceberg2.properties");
 
         builder.addContainer(createHadoopMaster2());
     }
@@ -89,13 +81,13 @@ public final class EnvTwoMixedHives
     {
         return createHadoopContainer(dockerFiles, new PortBinder.ShiftingPortBinder(portBinder, 10000), hadoopBaseImage + ":" + hadoopImagesVersion, HADOOP + "-2")
                 .withCopyFileToContainer(
-                        forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/two-mixed-hives/hadoop-master-2/core-site.xml")),
+                        forHostPath(configDir.getPath("hadoop-master-2/core-site.xml")),
                         "/etc/hadoop/conf/core-site.xml")
                 .withCopyFileToContainer(
-                        forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/two-mixed-hives/hadoop-master-2/mapred-site.xml")),
+                        forHostPath(configDir.getPath("hadoop-master-2/mapred-site.xml")),
                         "/etc/hadoop/conf/mapred-site.xml")
                 .withCopyFileToContainer(
-                        forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/two-mixed-hives/hadoop-master-2/yarn-site.xml")),
+                        forHostPath(configDir.getPath("hadoop-master-2/yarn-site.xml")),
                         "/etc/hadoop/conf/yarn-site.xml");
     }
 }

@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Longs;
 import io.airlift.slice.Slice;
+import io.trino.hive.orc.util.Murmur3;
 import io.trino.orc.OrcWriterOptions.WriterIdentification;
 import io.trino.orc.metadata.ColumnMetadata;
 import io.trino.orc.metadata.CompressedMetadataWriter;
@@ -34,7 +35,6 @@ import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.RealType;
 import io.trino.spi.type.Type;
-import org.apache.orc.util.Murmur3;
 import org.testng.annotations.Test;
 
 import java.io.InputStream;
@@ -241,6 +241,7 @@ public class TestOrcBloomFilters
                 null,
                 null,
                 null,
+                null,
                 new Utf8BloomFilterBuilder(1000, 0.01)
                         .addLong(1234L)
                         .buildBloomFilter())));
@@ -256,6 +257,7 @@ public class TestOrcBloomFilters
                 null,
                 null,
                 null,
+                null,
                 new Utf8BloomFilterBuilder(1000, 0.01)
                         .buildBloomFilter())));
 
@@ -264,6 +266,7 @@ public class TestOrcBloomFilters
                 0,
                 null,
                 new IntegerStatistics(10L, 2000L, null),
+                null,
                 null,
                 null,
                 null,
@@ -299,6 +302,7 @@ public class TestOrcBloomFilters
                 null,
                 null,
                 null,
+                null,
                 new Utf8BloomFilterBuilder(1000, 0.01)
                         .addLong(1234L)
                         .buildBloomFilter())));
@@ -308,6 +312,7 @@ public class TestOrcBloomFilters
                 0,
                 null,
                 new IntegerStatistics(10L, 2000L, null),
+                null,
                 null,
                 null,
                 null,
@@ -330,6 +335,7 @@ public class TestOrcBloomFilters
                 0,
                 null,
                 new IntegerStatistics(10L, 2000L, null),
+                null,
                 null,
                 null,
                 null,
@@ -359,7 +365,7 @@ public class TestOrcBloomFilters
             int entries = ThreadLocalRandom.current().nextInt(size / 2, size);
 
             BloomFilter actual = new BloomFilter(size, fpp);
-            org.apache.orc.util.BloomFilter expected = new org.apache.orc.util.BloomFilter(size, fpp);
+            io.trino.hive.orc.util.BloomFilter expected = new io.trino.hive.orc.util.BloomFilter(size, fpp);
 
             assertFalse(actual.test(null));
             assertFalse(expected.test(null));

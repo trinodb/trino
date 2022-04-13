@@ -93,8 +93,12 @@ public class PipelineContext
     private final CounterStat processedInputDataSize = new CounterStat();
     private final CounterStat processedInputPositions = new CounterStat();
 
+    private final AtomicLong inputBlockedTime = new AtomicLong();
+
     private final CounterStat outputDataSize = new CounterStat();
     private final CounterStat outputPositions = new CounterStat();
+
+    private final AtomicLong outputBlockedTime = new AtomicLong();
 
     private final AtomicLong physicalWrittenDataSize = new AtomicLong();
 
@@ -219,8 +223,12 @@ public class PipelineContext
         processedInputDataSize.update(driverStats.getProcessedInputDataSize().toBytes());
         processedInputPositions.update(driverStats.getProcessedInputPositions());
 
+        inputBlockedTime.getAndAdd(driverStats.getInputBlockedTime().roundTo(NANOSECONDS));
+
         outputDataSize.update(driverStats.getOutputDataSize().toBytes());
         outputPositions.update(driverStats.getOutputPositions());
+
+        outputBlockedTime.getAndAdd(driverStats.getOutputBlockedTime().roundTo(NANOSECONDS));
 
         physicalWrittenDataSize.getAndAdd(driverStats.getPhysicalWrittenDataSize().toBytes());
     }
@@ -368,8 +376,12 @@ public class PipelineContext
         long processedInputPositions = this.processedInputPositions.getTotalCount();
         long physicalInputReadTime = this.physicalInputReadTime.get();
 
+        long inputBlockedTime = this.inputBlockedTime.get();
+
         long outputDataSize = this.outputDataSize.getTotalCount();
         long outputPositions = this.outputPositions.getTotalCount();
+
+        long outputBlockedTime = this.outputBlockedTime.get();
 
         long physicalWrittenDataSize = this.physicalWrittenDataSize.get();
 
@@ -415,8 +427,12 @@ public class PipelineContext
             processedInputDataSize += driverStats.getProcessedInputDataSize().toBytes();
             processedInputPositions += driverStats.getProcessedInputPositions();
 
+            inputBlockedTime += driverStats.getInputBlockedTime().roundTo(NANOSECONDS);
+
             outputDataSize += driverStats.getOutputDataSize().toBytes();
             outputPositions += driverStats.getOutputPositions();
+
+            outputBlockedTime += driverStats.getOutputBlockedTime().roundTo(NANOSECONDS);
 
             physicalWrittenDataSize += driverStats.getPhysicalWrittenDataSize().toBytes();
         }
@@ -489,8 +505,12 @@ public class PipelineContext
                 succinctBytes(processedInputDataSize),
                 processedInputPositions,
 
+                new Duration(inputBlockedTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
+
                 succinctBytes(outputDataSize),
                 outputPositions,
+
+                new Duration(outputBlockedTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
 
                 succinctBytes(physicalWrittenDataSize),
 

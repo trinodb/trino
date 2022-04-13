@@ -137,7 +137,13 @@ public class ManifestsTable
 
             BlockBuilder rowBuilder = singleArrayWriter.beginBlockEntry();
             BOOLEAN.writeBoolean(rowBuilder, summary.containsNull());
-            BOOLEAN.writeBoolean(rowBuilder, summary.containsNaN());
+            Boolean containsNan = summary.containsNaN();
+            if (containsNan == null) {
+                rowBuilder.appendNull();
+            }
+            else {
+                BOOLEAN.writeBoolean(rowBuilder, containsNan);
+            }
             VARCHAR.writeString(rowBuilder, field.transform().toHumanString(
                     Conversions.fromByteBuffer(nestedType, summary.lowerBound())));
             VARCHAR.writeString(rowBuilder, field.transform().toHumanString(

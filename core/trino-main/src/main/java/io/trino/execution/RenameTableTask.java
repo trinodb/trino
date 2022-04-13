@@ -13,28 +13,33 @@
  */
 package io.trino.execution;
 
+import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
+import io.trino.metadata.RedirectionAwareTableHandle;
 import io.trino.metadata.TableHandle;
 import io.trino.security.AccessControl;
+import io.trino.spi.TrinoException;
 import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.RenameTable;
 
 import javax.inject.Inject;
 
 import java.util.List;
-import java.util.Optional;
 
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.trino.spi.StandardErrorCode.CATALOG_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.StandardErrorCode.SYNTAX_ERROR;
 import static io.trino.spi.StandardErrorCode.TABLE_ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class RenameTableTask
@@ -86,28 +91,45 @@ public class RenameTableTask
             return immediateVoidFuture();
         }
 
-        Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
-        if (tableHandle.isEmpty()) {
+        RedirectionAwareTableHandle redirectionAwareTableHandle = metadata.getRedirectionAwareTableHandle(session, tableName);
+        if (redirectionAwareTableHandle.getTableHandle().isEmpty()) {
             if (!statement.isExists()) {
                 throw semanticException(TABLE_NOT_FOUND, statement, "Table '%s' does not exist", tableName);
             }
             return immediateVoidFuture();
         }
 
-        QualifiedObjectName target = createQualifiedObjectName(session, statement, statement.getTarget());
+        TableHandle tableHandle = redirectionAwareTableHandle.getTableHandle().get();
+        QualifiedObjectName source = redirectionAwareTableHandle.getRedirectedTableName().orElse(tableName);
+        QualifiedObjectName target = createTargetQualifiedObjectName(source, statement.getTarget());
         if (metadata.getCatalogHandle(session, target.getCatalogName()).isEmpty()) {
             throw semanticException(CATALOG_NOT_FOUND, statement, "Target catalog '%s' does not exist", target.getCatalogName());
         }
         if (metadata.getTableHandle(session, target).isPresent()) {
             throw semanticException(TABLE_ALREADY_EXISTS, statement, "Target table '%s' already exists", target);
         }
-        if (!tableName.getCatalogName().equals(target.getCatalogName())) {
+        if (!tableHandle.getCatalogName().getCatalogName().equals(target.getCatalogName())) {
             throw semanticException(NOT_SUPPORTED, statement, "Table rename across catalogs is not supported");
         }
-        accessControl.checkCanRenameTable(session.toSecurityContext(), tableName, target);
+        accessControl.checkCanRenameTable(session.toSecurityContext(), source, target);
 
-        metadata.renameTable(session, tableHandle.get(), target);
+        metadata.renameTable(session, tableHandle, target);
 
         return immediateVoidFuture();
+    }
+
+    private static QualifiedObjectName createTargetQualifiedObjectName(QualifiedObjectName source, QualifiedName target)
+    {
+        requireNonNull(target, "target is null");
+        if (target.getParts().size() > 3) {
+            throw new TrinoException(SYNTAX_ERROR, format("Too many dots in table name: %s", target));
+        }
+
+        List<String> parts = Lists.reverse(target.getParts());
+        String objectName = parts.get(0);
+        String schemaName = (parts.size() > 1) ? parts.get(1) : source.getSchemaName();
+        String catalogName = (parts.size() > 2) ? parts.get(2) : source.getCatalogName();
+
+        return new QualifiedObjectName(catalogName, schemaName, objectName);
     }
 }

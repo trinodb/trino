@@ -89,6 +89,9 @@ public abstract class BaseElasticsearchConnectorTest
             case SUPPORTS_CREATE_TABLE:
                 return false;
 
+            case SUPPORTS_ADD_COLUMN:
+                return false;
+
             case SUPPORTS_CREATE_SCHEMA:
                 return false;
 

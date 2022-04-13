@@ -46,6 +46,7 @@ import io.trino.sql.planner.plan.PlanNodeId;
 import org.openjdk.jol.info.ClassLayout;
 import org.testng.annotations.Test;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.IdentityHashMap;
 import java.util.List;
@@ -58,6 +59,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Multimaps.toMultimap;
+import static com.google.common.collect.Streams.findLast;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.units.DataSize.Unit.BYTE;
@@ -790,8 +792,49 @@ public class TestStageTaskSourceFactory
         assertTrue(taskSource.isFinished());
     }
 
+    @Test
+    public void testSourceDistributionTaskSourceLastIncompleteTaskAlwaysCreated()
+    {
+        for (int targetSplitsPerTask = 1; targetSplitsPerTask <= 21; targetSplitsPerTask += 5) {
+            List<Split> splits = new ArrayList<>();
+            for (int i = 0; i < targetSplitsPerTask + 1 /* to make last task incomplete with only a single split */; i++) {
+                splits.add(createWeightedSplit(i, STANDARD_WEIGHT));
+            }
+            for (int finishDelayIterations = 1; finishDelayIterations < 20; finishDelayIterations++) {
+                TaskSource taskSource = createSourceDistributionTaskSource(
+                        new TestingSplitSource(CATALOG, splits, finishDelayIterations),
+                        ImmutableListMultimap.of(),
+                        1,
+                        targetSplitsPerTask,
+                        STANDARD_WEIGHT * targetSplitsPerTask,
+                        targetSplitsPerTask);
+                List<TaskDescriptor> tasks = readAllTasks(taskSource);
+                assertThat(tasks).hasSize(2);
+                TaskDescriptor lastTask = findLast(tasks.stream()).orElseThrow();
+                assertThat(lastTask.getSplits()).hasSize(1);
+            }
+        }
+    }
+
     private static SourceDistributionTaskSource createSourceDistributionTaskSource(
             List<Split> splits,
+            ListMultimap<PlanNodeId, ExchangeSourceHandle> replicatedSources,
+            int splitBatchSize,
+            int minSplitsPerTask,
+            long splitWeightPerTask,
+            int maxSplitsPerTask)
+    {
+        return createSourceDistributionTaskSource(
+                new TestingSplitSource(CATALOG, splits),
+                replicatedSources,
+                splitBatchSize,
+                minSplitsPerTask,
+                splitWeightPerTask,
+                maxSplitsPerTask);
+    }
+
+    private static SourceDistributionTaskSource createSourceDistributionTaskSource(
+            SplitSource splitSource,
             ListMultimap<PlanNodeId, ExchangeSourceHandle> replicatedSources,
             int splitBatchSize,
             int minSplitsPerTask,
@@ -802,7 +845,7 @@ public class TestStageTaskSourceFactory
                 new QueryId("query"),
                 PLAN_NODE_1,
                 new TableExecuteContextManager(),
-                new TestingSplitSource(CATALOG, splits),
+                splitSource,
                 replicatedSources,
                 splitBatchSize,
                 getSplitsTime -> {},

@@ -14,13 +14,14 @@
 package io.trino.plugin.deltalake.transactionlog;
 
 import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.Weigher;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Ints;
+import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.jmx.CacheStatsMBean;
 import io.airlift.log.Logger;
+import io.trino.collect.cache.EvictableCacheBuilder;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.plugin.deltalake.DeltaLakeConfig;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator;
@@ -42,7 +43,6 @@ import io.trino.spi.type.VarbinaryType;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
@@ -59,11 +59,13 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
+import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
@@ -96,33 +98,28 @@ public class TransactionLogAccess
     public TransactionLogAccess(
             TypeManager typeManager,
             CheckpointSchemaManager checkpointSchemaManager,
-            DeltaLakeConfig config,
+            DeltaLakeConfig deltaLakeConfig,
             FileFormatDataSourceStats fileFormatDataSourceStats,
             HdfsEnvironment hdfsEnvironment,
-            ParquetReaderConfig parquetReaderConfig,
-            DeltaLakeConfig deltalakeConfig)
+            ParquetReaderConfig parquetReaderConfig)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.checkpointSchemaManager = requireNonNull(checkpointSchemaManager, "checkpointSchemaManager is null");
         this.fileFormatDataSourceStats = requireNonNull(fileFormatDataSourceStats, "fileFormatDataSourceStats is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.parquetReaderOptions = requireNonNull(parquetReaderConfig, "parquetReaderConfig is null").toParquetReaderOptions();
-        requireNonNull(deltalakeConfig, "deltalakeConfig is null");
-        this.checkpointRowStatisticsWritingEnabled = deltalakeConfig.isCheckpointRowStatisticsWritingEnabled();
+        requireNonNull(deltaLakeConfig, "deltaLakeConfig is null");
+        this.checkpointRowStatisticsWritingEnabled = deltaLakeConfig.isCheckpointRowStatisticsWritingEnabled();
 
-        tableSnapshots = buildUnsafeCache(CacheBuilder.newBuilder()
-                .expireAfterWrite(config.getMetadataCacheTtl().toMillis(), TimeUnit.MILLISECONDS)
-                .recordStats());
-        activeDataFileCache = buildUnsafeCache(CacheBuilder.newBuilder()
+        tableSnapshots = EvictableCacheBuilder.newBuilder()
+                .expireAfterWrite(deltaLakeConfig.getMetadataCacheTtl().toMillis(), TimeUnit.MILLISECONDS)
+                .recordStats()
+                .build();
+        activeDataFileCache = EvictableCacheBuilder.newBuilder()
                 .weigher((Weigher<String, DeltaLakeDataFileCacheEntry>) (key, value) -> Ints.saturatedCast(estimatedSizeOf(key) + value.getRetainedSizeInBytes()))
-                .maximumWeight(config.getDataFileCacheSize().toBytes())
-                .recordStats());
-    }
-
-    @SuppressModernizer // TODO the caches here are indeed unsafe and need to be fixed
-    private static <K, V> Cache<K, V> buildUnsafeCache(CacheBuilder<? super K, ? super V> cacheBuilder)
-    {
-        return cacheBuilder.build();
+                .maximumWeight(deltaLakeConfig.getDataFileCacheSize().toBytes())
+                .recordStats()
+                .build();
     }
 
     @Managed
@@ -147,19 +144,25 @@ public class TransactionLogAccess
         TableSnapshot snapshot;
         FileSystem fileSystem = getFileSystem(tableLocation, table, session);
         if (cachedSnapshot == null) {
-            snapshot = TableSnapshot.load(
-                    table,
-                    fileSystem,
-                    tableLocation,
-                    parquetReaderOptions,
-                    checkpointRowStatisticsWritingEnabled);
-            tableSnapshots.put(location, snapshot);
+            try {
+                snapshot = tableSnapshots.get(location, () ->
+                        TableSnapshot.load(
+                                table,
+                                fileSystem,
+                                tableLocation,
+                                parquetReaderOptions,
+                                checkpointRowStatisticsWritingEnabled));
+            }
+            catch (UncheckedExecutionException | ExecutionException e) {
+                throwIfUnchecked(e.getCause());
+                throw new RuntimeException(e);
+            }
         }
         else {
             Optional<TableSnapshot> updatedSnapshot = cachedSnapshot.getUpdatedSnapshot(fileSystem);
             if (updatedSnapshot.isPresent()) {
                 snapshot = updatedSnapshot.get();
-                tableSnapshots.put(location, snapshot);
+                tableSnapshots.asMap().replace(location, cachedSnapshot, snapshot);
             }
             else {
                 snapshot = cachedSnapshot;
@@ -196,50 +199,48 @@ public class TransactionLogAccess
 
     public List<AddFileEntry> getActiveFiles(TableSnapshot tableSnapshot, ConnectorSession session)
     {
-        String tableLocation = tableSnapshot.getTableLocation().toString();
-        DeltaLakeDataFileCacheEntry cachedTable = activeDataFileCache.getIfPresent(tableLocation);
-
-        if (cachedTable == null || cachedTable.getVersion() > tableSnapshot.getVersion()) {
+        try {
+            String tableLocation = tableSnapshot.getTableLocation().toString();
             FileSystem fileSystem = getFileSystem(tableSnapshot, session);
-            try (Stream<AddFileEntry> entries = getEntries(
-                    tableSnapshot,
-                    ImmutableSet.of(ADD),
-                    this::activeAddEntries,
-                    session,
-                    fileSystem,
-                    hdfsEnvironment,
-                    fileFormatDataSourceStats)) {
-                List<AddFileEntry> activeFiles = entries.collect(toImmutableList());
-                if (cachedTable == null) {
-                    DeltaLakeDataFileCacheEntry cache = new DeltaLakeDataFileCacheEntry(tableSnapshot.getVersion(), activeFiles);
-                    activeDataFileCache.put(tableLocation, cache);
-                }
-                else {
-                    log.warn("Query run with outdated Transaction Log Snapshot, retrieved stale table entries for table: %s and query %s",
-                            tableSnapshot.getTable(), session.getQueryId());
-                }
-                return activeFiles;
+            DeltaLakeDataFileCacheEntry cachedTable = activeDataFileCache.get(tableLocation, () -> {
+                List<AddFileEntry> activeFiles = loadActiveFiles(tableSnapshot, session, fileSystem);
+                return new DeltaLakeDataFileCacheEntry(tableSnapshot.getVersion(), activeFiles);
+            });
+            if (cachedTable.getVersion() > tableSnapshot.getVersion()) {
+                log.warn("Query run with outdated Transaction Log Snapshot, retrieved stale table entries for table: %s and query %s", tableSnapshot.getTable(), session.getQueryId());
+                return loadActiveFiles(tableSnapshot, session, fileSystem);
             }
-        }
-        else if (cachedTable.getVersion() < tableSnapshot.getVersion()) {
-            FileSystem fileSystem = getFileSystem(tableSnapshot, session);
-            try {
+            else if (cachedTable.getVersion() < tableSnapshot.getVersion()) {
                 List<DeltaLakeTransactionLogEntry> newEntries = getJsonEntries(
                         cachedTable.getVersion(),
                         tableSnapshot.getVersion(),
                         tableSnapshot,
                         fileSystem);
-
                 DeltaLakeDataFileCacheEntry updatedCacheEntry = cachedTable.withUpdatesApplied(newEntries, tableSnapshot.getVersion());
 
-                activeDataFileCache.put(tableLocation, updatedCacheEntry);
+                activeDataFileCache.asMap().replace(tableLocation, cachedTable, updatedCacheEntry);
                 cachedTable = updatedCacheEntry;
             }
-            catch (IOException e) {
-                throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Failed accessing transaction log for table: " + tableSnapshot.getTable(), e);
-            }
+            return cachedTable.getActiveFiles();
         }
-        return cachedTable.getActiveFiles();
+        catch (IOException | ExecutionException | UncheckedExecutionException e) {
+            throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Failed accessing transaction log for table: " + tableSnapshot.getTable(), e);
+        }
+    }
+
+    private List<AddFileEntry> loadActiveFiles(TableSnapshot tableSnapshot, ConnectorSession session, FileSystem fileSystem)
+    {
+        try (Stream<AddFileEntry> entries = getEntries(
+                tableSnapshot,
+                ImmutableSet.of(ADD),
+                this::activeAddEntries,
+                session,
+                fileSystem,
+                hdfsEnvironment,
+                fileFormatDataSourceStats)) {
+            List<AddFileEntry> activeFiles = entries.collect(toImmutableList());
+            return activeFiles;
+        }
     }
 
     public static List<ColumnMetadata> columnsWithStats(MetadataEntry metadataEntry, TypeManager typeManager)

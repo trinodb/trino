@@ -44,7 +44,7 @@ import static org.apache.zookeeper.KeeperException.Code.NONODE;
 
 public class ZooKeeperMetadataManager
 {
-    private static final String DEFAULT_SCHEMA = "default";
+    public static final String DEFAULT_SCHEMA = "default";
 
     private final CuratorFramework curator;
     private final ObjectMapper mapper;
@@ -89,6 +89,26 @@ public class ZooKeeperMetadataManager
         }
         catch (Exception e) {
             throw new TrinoException(ZOOKEEPER_ERROR, "ZK error checking/creating default schema", e);
+        }
+    }
+
+    public void createSchema(String schemaName)
+    {
+        try {
+            curator.create().forPath("/" + schemaName);
+        }
+        catch (Exception e) {
+            throw new TrinoException(ZOOKEEPER_ERROR, "ZK error creating schema: " + schemaName, e);
+        }
+    }
+
+    public void dropSchema(String schemaName)
+    {
+        try {
+            curator.delete().forPath("/" + schemaName);
+        }
+        catch (Exception e) {
+            throw new TrinoException(ZOOKEEPER_ERROR, "ZK error deleting schema: " + schemaName, e);
         }
     }
 

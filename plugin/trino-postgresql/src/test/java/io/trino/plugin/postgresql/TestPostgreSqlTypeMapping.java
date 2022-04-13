@@ -214,7 +214,7 @@ public class TestPostgreSqlTypeMapping
                 .addRoundTrip("smallserial", "32456", SMALLINT, "SMALLINT '32456'")
                 .addRoundTrip("smallserial", "32767", SMALLINT, "SMALLINT '32767'") // max value in PostgreSQL and Trino
                 .execute(getQueryRunner(), postgresCreateAndInsert("tpch.test_smallserial"))
-                .execute(getQueryRunner(), postgresCreateTrinoInsert("tpch.test_smallserial"));
+                .execute(getQueryRunner(), postgresCreateAndTrinoInsert("tpch.test_smallserial"));
     }
 
     @Test
@@ -252,7 +252,7 @@ public class TestPostgreSqlTypeMapping
                 .addRoundTrip("serial", "1234567890", INTEGER, "1234567890")
                 .addRoundTrip("serial", "2147483647", INTEGER, "2147483647") // max value in PostgreSQL and Trino
                 .execute(getQueryRunner(), postgresCreateAndInsert("tpch.test_serial"))
-                .execute(getQueryRunner(), postgresCreateTrinoInsert("tpch.test_serial"));
+                .execute(getQueryRunner(), postgresCreateAndTrinoInsert("tpch.test_serial"));
     }
 
     @Test
@@ -290,7 +290,7 @@ public class TestPostgreSqlTypeMapping
                 .addRoundTrip("bigserial", "123456789012", BIGINT, "123456789012")
                 .addRoundTrip("bigserial", "9223372036854775807", BIGINT, "9223372036854775807") // max value in PostgreSQL and Trino
                 .execute(getQueryRunner(), postgresCreateAndInsert("tpch.test_bigserial"))
-                .execute(getQueryRunner(), postgresCreateTrinoInsert("tpch.test_bigserial"));
+                .execute(getQueryRunner(), postgresCreateAndTrinoInsert("tpch.test_bigserial"));
     }
 
     @Test
@@ -1096,7 +1096,8 @@ public class TestPostgreSqlTypeMapping
                 .execute(getQueryRunner(), session, postgresCreateAndInsert("test_date"))
                 .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_date"))
                 .execute(getQueryRunner(), session, trinoCreateAsSelect("test_date"))
-                .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_date"));
+                .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_date"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert("test_date"));
 
         // min value
         SqlDataTypeTest.create()
@@ -1106,7 +1107,8 @@ public class TestPostgreSqlTypeMapping
                 .addRoundTrip("DATE", "DATE '-4712-01-01'", DATE, "DATE '-4712-01-01'")
                 .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_date_min"))
                 .execute(getQueryRunner(), session, trinoCreateAsSelect("test_date_min"))
-                .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_date_min"));
+                .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_date_min"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert("test_date_min"));
     }
 
     @Test
@@ -1161,10 +1163,11 @@ public class TestPostgreSqlTypeMapping
                 .addRoundTrip("time(6)", "TIME '23:59:59.999999'", createTimeType(6), "TIME '23:59:59.999999'")
                 .addRoundTrip("time(3)", "TIME '00:00:00.000'", createTimeType(3), "TIME '00:00:00.000'")
                 .addRoundTrip("time(3)", "TIME '00:12:34.567'", createTimeType(3), "TIME '00:12:34.567'")
+                .execute(getQueryRunner(), session, postgresCreateAndInsert("test_time"))
                 .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_time"))
                 .execute(getQueryRunner(), session, trinoCreateAsSelect("test_time"))
                 .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_time"))
-                .execute(getQueryRunner(), session, postgresCreateAndInsert("test_time"));
+                .execute(getQueryRunner(), session, trinoCreateAndInsert("test_time"));
     }
 
     /**
@@ -1339,10 +1342,11 @@ public class TestPostgreSqlTypeMapping
                 .addRoundTrip("timestamp(6)", "TIMESTAMP '1969-12-31 23:59:59.123000'", createTimestampType(6), "TIMESTAMP '1969-12-31 23:59:59.123000'")
                 .addRoundTrip("timestamp(6)", "TIMESTAMP '1969-12-31 23:59:59.123456'", createTimestampType(6), "TIMESTAMP '1969-12-31 23:59:59.123456'")
 
+                .execute(getQueryRunner(), session, postgresCreateAndInsert("test_timestamp"))
                 .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_timestamp"))
                 .execute(getQueryRunner(), session, trinoCreateAsSelect("test_timestamp"))
                 .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_timestamp"))
-                .execute(getQueryRunner(), session, postgresCreateAndInsert("test_timestamp"));
+                .execute(getQueryRunner(), session, trinoCreateAndInsert("test_timestamp"));
     }
 
     /**
@@ -1685,7 +1689,7 @@ public class TestPostgreSqlTypeMapping
                 .addRoundTrip("hstore", "MAP(ARRAY['key1','key2','key3'], ARRAY['value1','value2','value3'])", mapOfVarcharToVarchar, "CAST(MAP(ARRAY['key1','key2','key3'], ARRAY['value1','value2','value3']) AS MAP(VARCHAR, VARCHAR))")
                 .addRoundTrip("hstore", "MAP(ARRAY['key1','key2','key3'], ARRAY[' \" ',' '' ',' ]) '])", mapOfVarcharToVarchar, "CAST(MAP(ARRAY['key1','key2','key3'], ARRAY[' \" ',' '' ',' ]) ']) AS MAP(VARCHAR, VARCHAR))")
                 .addRoundTrip("hstore", "MAP(ARRAY['key1'], ARRAY[null])", mapOfVarcharToVarchar, "CAST(MAP(ARRAY['key1'], ARRAY[null]) AS MAP(VARCHAR, VARCHAR))")
-                .execute(getQueryRunner(), postgresCreateTrinoInsert("postgresql_test_hstore"));
+                .execute(getQueryRunner(), postgresCreateAndTrinoInsert("postgresql_test_hstore"));
     }
 
     @Test
@@ -1876,7 +1880,7 @@ public class TestPostgreSqlTypeMapping
         return new CreateAndInsertDataSetup(new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl(), postgreSqlServer.getProperties()), tableNamePrefix);
     }
 
-    private DataSetup postgresCreateTrinoInsert(String tableNamePrefix)
+    private DataSetup postgresCreateAndTrinoInsert(String tableNamePrefix)
     {
         return new CreateAndTrinoInsertDataSetup(new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl(), postgreSqlServer.getProperties()), new TrinoSqlExecutor(getQueryRunner()), tableNamePrefix);
     }

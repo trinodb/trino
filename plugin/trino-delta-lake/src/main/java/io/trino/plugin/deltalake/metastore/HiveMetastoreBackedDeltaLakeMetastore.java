@@ -15,9 +15,9 @@ package io.trino.plugin.deltalake.metastore;
 
 import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
 import io.trino.plugin.deltalake.DeltaLakeTableHandle;
-import io.trino.plugin.deltalake.statistics.CachingDeltaLakeStatisticsAccess;
+import io.trino.plugin.deltalake.statistics.CachingExtendedStatisticsAccess;
 import io.trino.plugin.deltalake.statistics.DeltaLakeColumnStatistics;
-import io.trino.plugin.deltalake.statistics.DeltaLakeStatistics;
+import io.trino.plugin.deltalake.statistics.ExtendedStatistics;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
@@ -78,13 +78,13 @@ public class HiveMetastoreBackedDeltaLakeMetastore
     private final HiveMetastore delegate;
     private final TransactionLogAccess transactionLogAccess;
     private final TypeManager typeManager;
-    private final CachingDeltaLakeStatisticsAccess statisticsAccess;
+    private final CachingExtendedStatisticsAccess statisticsAccess;
 
     public HiveMetastoreBackedDeltaLakeMetastore(
             HiveMetastore delegate,
             TransactionLogAccess transactionLogAccess,
             TypeManager typeManager,
-            CachingDeltaLakeStatisticsAccess statisticsAccess)
+            CachingExtendedStatisticsAccess statisticsAccess)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
         this.transactionLogAccess = requireNonNull(transactionLogAccess, "transactionLogSupport is null");
@@ -150,7 +150,7 @@ public class HiveMetastoreBackedDeltaLakeMetastore
                 throw new TrinoException(DELTA_LAKE_INVALID_TABLE, "Provided location did not contain a valid Delta Lake table: " + tableLocation);
             }
         }
-        catch (IOException e) {
+        catch (IOException | RuntimeException e) {
             throw new TrinoException(DELTA_LAKE_INVALID_TABLE, "Failed to access table location: " + tableLocation, e);
         }
         delegate.createTable(table, principalPrivileges);
@@ -318,9 +318,9 @@ public class HiveMetastoreBackedDeltaLakeMetastore
 
         TableStatistics.Builder statsBuilder = new TableStatistics.Builder().setRowCount(Estimate.of(numRecords));
 
-        Optional<DeltaLakeStatistics> statistics = Optional.empty();
+        Optional<ExtendedStatistics> statistics = Optional.empty();
         if (isExtendedStatisticsEnabled(session)) {
-            statistics = statisticsAccess.readDeltaLakeStatistics(session, tableHandle.getLocation());
+            statistics = statisticsAccess.readExtendedStatistics(session, tableHandle.getLocation());
         }
 
         for (DeltaLakeColumnHandle column : columns) {

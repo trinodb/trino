@@ -15,11 +15,14 @@ package io.trino.memory;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
+import io.trino.execution.StageId;
+import io.trino.execution.TaskId;
+import io.trino.plugin.blackhole.BlackHolePlugin;
 import io.trino.server.BasicQueryInfo;
 import io.trino.server.BasicQueryStats;
 import io.trino.server.testing.TestingTrinoServer;
-import io.trino.spi.QueryId;
 import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.tests.tpch.TpchQueryRunnerBuilder;
 import org.intellij.lang.annotations.Language;
@@ -31,21 +34,28 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletionService;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 
+import static com.google.common.base.Preconditions.checkState;
 import static io.trino.SystemSessionProperties.RESOURCE_OVERCOMMIT;
+import static io.trino.execution.QueryState.FAILED;
 import static io.trino.execution.QueryState.FINISHED;
 import static io.trino.operator.BlockedReason.WAITING_FOR_MEMORY;
 import static io.trino.spi.StandardErrorCode.CLUSTER_OUT_OF_MEMORY;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 // run single threaded to avoid creating multiple query runners at once
@@ -100,7 +110,7 @@ public class TestMemoryManager
         }
     }
 
-    @Test(timeOut = 240_000, expectedExceptions = ExecutionException.class, expectedExceptionsMessageRegExp = ".*Query killed because the cluster is out of memory. Please try again in a few minutes.")
+    @Test(timeOut = 240_000)
     public void testOutOfMemoryKiller()
             throws Exception
     {
@@ -110,17 +120,30 @@ public class TestMemoryManager
                 .buildOrThrow();
 
         try (DistributedQueryRunner queryRunner = createQueryRunner(TINY_SESSION, properties)) {
+            queryRunner.installPlugin(new BlackHolePlugin());
+            queryRunner.createCatalog("blackhole", "blackhole");
+            queryRunner.execute("" +
+                    "CREATE TABLE blackhole.default.take_30s(dummy varchar(10)) " +
+                    "WITH (split_count=1, pages_per_split=30, rows_per_page=1, page_processing_delay='1s')");
+
             // Reserve all the memory
-            QueryId fakeQueryId = new QueryId("fake");
+            TaskId fakeTaskId = new TaskId(new StageId("fake", 0), 0, 0);
             for (TestingTrinoServer server : queryRunner.getServers()) {
                 MemoryPool memoryPool = server.getLocalMemoryManager().getMemoryPool();
-                assertTrue(memoryPool.tryReserve(fakeQueryId, "test", memoryPool.getMaxBytes()));
+                assertTrue(memoryPool.tryReserve(fakeTaskId, "test", memoryPool.getMaxBytes()));
             }
 
-            List<Future<?>> queryFutures = new ArrayList<>();
-            for (int i = 0; i < 2; i++) {
-                queryFutures.add(executor.submit(() -> queryRunner.execute("SELECT COUNT(*), clerk FROM orders GROUP BY clerk")));
+            int queries = 2;
+            CompletionService<MaterializedResult> completionService = new ExecutorCompletionService<>(executor);
+            for (int i = 0; i < queries; i++) {
+                completionService.submit(() -> queryRunner.execute("" +
+                        "SELECT COUNT(*), clerk " +
+                        "FROM (SELECT clerk FROM orders UNION ALL SELECT dummy FROM blackhole.default.take_30s)" +
+                        "GROUP BY clerk"));
             }
+
+            // Wait for queries to start
+            assertEventually(() -> assertThat(queryRunner.getCoordinator().getQueryManager().getQueries()).hasSize(1 + queries));
 
             // Wait for one of the queries to die
             waitForQueryToBeKilled(queryRunner);
@@ -129,13 +152,17 @@ public class TestMemoryManager
                 MemoryPool pool = server.getLocalMemoryManager().getMemoryPool();
                 assertTrue(pool.getReservedBytes() > 0);
                 // Free up the entire pool
-                pool.free(fakeQueryId, "test", pool.getMaxBytes());
+                pool.free(fakeTaskId, "test", pool.getMaxBytes());
                 assertTrue(pool.getFreeBytes() > 0);
             }
 
-            for (Future<?> query : queryFutures) {
-                query.get();
-            }
+            assertThatThrownBy(() -> {
+                for (int i = 0; i < queries; i++) {
+                    completionService.take().get();
+                }
+            })
+                    .isInstanceOf(ExecutionException.class)
+                    .hasMessageMatching(".*Query killed because the cluster is out of memory. Please try again in a few minutes.");
         }
     }
 
@@ -143,13 +170,18 @@ public class TestMemoryManager
             throws InterruptedException
     {
         while (true) {
+            boolean hasRunningQuery = false;
             for (BasicQueryInfo info : queryRunner.getCoordinator().getQueryManager().getQueries()) {
-                if (info.getState().isDone()) {
-                    assertNotNull(info.getErrorCode());
+                if (info.getState() == FAILED) {
                     assertEquals(info.getErrorCode(), CLUSTER_OUT_OF_MEMORY.toErrorCode());
                     return;
                 }
+                assertNull(info.getErrorCode(), "errorCode unexpectedly present for " + info);
+                if (!info.getState().isDone()) {
+                    hasRunningQuery = true;
+                }
             }
+            checkState(hasRunningQuery, "All queries already completed without failure");
             MILLISECONDS.sleep(10);
         }
     }
@@ -194,10 +226,10 @@ public class TestMemoryManager
 
         try (DistributedQueryRunner queryRunner = createQueryRunner(TINY_SESSION, properties)) {
             // Reserve all the memory
-            QueryId fakeQueryId = new QueryId("fake");
+            TaskId fakeTaskId = new TaskId(new StageId("fake", 0), 0, 0);
             for (TestingTrinoServer server : queryRunner.getServers()) {
                 MemoryPool pool = server.getLocalMemoryManager().getMemoryPool();
-                assertTrue(pool.tryReserve(fakeQueryId, "test", pool.getMaxBytes()));
+                assertTrue(pool.tryReserve(fakeTaskId, "test", pool.getMaxBytes()));
             }
 
             List<Future<?>> queryFutures = new ArrayList<>();
@@ -239,7 +271,7 @@ public class TestMemoryManager
             for (TestingTrinoServer server : queryRunner.getServers()) {
                 MemoryPool pool = server.getLocalMemoryManager().getMemoryPool();
                 // Free up the entire pool
-                pool.free(fakeQueryId, "test", pool.getMaxBytes());
+                pool.free(fakeTaskId, "test", pool.getMaxBytes());
                 assertTrue(pool.getFreeBytes() > 0);
             }
 

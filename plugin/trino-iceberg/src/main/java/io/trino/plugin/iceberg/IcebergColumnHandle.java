@@ -26,6 +26,8 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
+import static org.apache.iceberg.MetadataColumns.IS_DELETED;
+import static org.apache.iceberg.MetadataColumns.ROW_POSITION;
 
 public class IcebergColumnHandle
         implements ColumnHandle
@@ -133,9 +135,25 @@ public class IcebergColumnHandle
         return String.join(".", pathNames.build());
     }
 
+    @JsonIgnore
     public boolean isBaseColumn()
     {
         return path.isEmpty();
+    }
+
+    @JsonIgnore
+    public boolean isRowPositionColumn()
+    {
+        return id == ROW_POSITION.fieldId();
+    }
+
+    /**
+     * Marker column used by the Iceberg DeleteFilter to indicate rows which are deleted by equality deletes.
+     */
+    @JsonIgnore
+    public boolean isIsDeletedColumn()
+    {
+        return id == IS_DELETED.fieldId();
     }
 
     @Override

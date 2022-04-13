@@ -13,8 +13,6 @@
  */
 package io.trino.plugin.iceberg;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.hive.HdfsConfig;
 import io.trino.plugin.hive.HdfsConfiguration;
@@ -41,12 +39,10 @@ import org.testng.annotations.Test;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
-import java.util.Optional;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.iceberg.DataFileRecord.toDataFileRecord;
-import static io.trino.plugin.iceberg.IcebergQueryRunner.createIcebergQueryRunner;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -80,11 +76,9 @@ public class TestIcebergTableWithExternalLocation
                 new MetastoreConfig(),
                 config);
 
-        return createIcebergQueryRunner(
-                ImmutableMap.of(),
-                ImmutableMap.of(),
-                ImmutableList.of(),
-                Optional.of(metastoreDir));
+        return IcebergQueryRunner.builder()
+                .setMetastoreDirectory(metastoreDir)
+                .build();
     }
 
     @AfterClass(alwaysRun = true)
@@ -115,7 +109,7 @@ public class TestIcebergTableWithExternalLocation
         assertTrue(fileSystem.exists(new Path(dataFile.getFilePath())), "The data file should exist");
 
         assertQuerySucceeds(format("DROP TABLE %s", tableName));
-        assertFalse(metastore.getTable("tpch", tableName).isPresent(), "Table should be dropped");
+        assertThat(metastore.getTable("tpch", tableName)).as("Table should be dropped").isEmpty();
         assertFalse(fileSystem.exists(new Path(dataFile.getFilePath())), "The data file should have been removed");
         assertFalse(fileSystem.exists(tableLocation), "The directory corresponding to the dropped Iceberg table should not be removed because it may be shared with other tables");
     }

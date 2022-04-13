@@ -176,3 +176,14 @@ conservative estimates by assuming a greater degree of correlation between the
 columns of the clauses in a join. A value of ``0`` results in the optimizer
 assuming that the columns of the join clauses are fully correlated and only
 the most selective clause drives the selectivity of the join.
+
+``optimizer.non-estimatable-predicate-approximation.enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** :ref:`prop-type-boolean`
+* **Default value:** ``true``
+
+Enables approximation of the output row count of filters whose costs cannot be
+accurately estimated even with complete statistics. This allows the optimizer to
+produce more efficient plans in the presence of filters which were previously
+not estimated.

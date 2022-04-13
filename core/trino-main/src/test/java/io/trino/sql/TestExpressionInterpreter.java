@@ -1895,14 +1895,7 @@ public class TestExpressionInterpreter
 
     private static StringLiteral rawStringLiteral(Slice slice)
     {
-        return new StringLiteral(slice.toStringUtf8())
-        {
-            @Override
-            public Slice getSlice()
-            {
-                return slice;
-            }
-        };
+        return new StringLiteral(slice.toStringUtf8());
     }
 
     private static void assertOptimizedEquals(@Language("SQL") String actual, @Language("SQL") String expected)

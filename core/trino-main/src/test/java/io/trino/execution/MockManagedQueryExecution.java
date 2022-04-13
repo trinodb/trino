@@ -229,10 +229,16 @@ public class MockManagedQueryExecution
                         28,
                         0,
 
+                        new Duration(221, NANOSECONDS),
+                        new Duration(222, NANOSECONDS),
+
                         DataSize.ofBytes(29),
                         DataSize.ofBytes(0),
                         30,
                         0,
+
+                        new Duration(223, NANOSECONDS),
+                        new Duration(224, NANOSECONDS),
 
                         DataSize.ofBytes(31),
                         DataSize.ofBytes(0),

@@ -13,9 +13,9 @@
  */
 package io.trino.plugin.iceberg;
 
+import io.trino.Session;
 import io.trino.operator.RetryPolicy;
 import io.trino.testing.BaseFailureRecoveryTest;
-import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -62,7 +62,7 @@ public abstract class BaseIcebergFailureRecoveryTest
     @Override
     protected void createPartitionedLineitemTable(String tableName, List<String> columns, String partitionColumn)
     {
-        @Language("SQL") String sql = format(
+        String sql = format(
                 "CREATE TABLE %s WITH (partitioning=array['%s']) AS SELECT %s FROM tpch.tiny.lineitem",
                 tableName,
                 partitionColumn,
@@ -109,5 +109,15 @@ public abstract class BaseIcebergFailureRecoveryTest
                 Optional.of("CREATE TABLE <table> WITH (partitioning = ARRAY['p']) AS SELECT *, 'partition1' p FROM orders"),
                 "INSERT INTO <table> SELECT *, 'partition1' p FROM orders",
                 Optional.of("DROP TABLE <table>"));
+    }
+
+    @Override
+    protected Session enableDynamicFiltering(boolean enabled)
+    {
+        Session session = super.enableDynamicFiltering(enabled);
+        return Session.builder(session)
+                // Ensure probe side scan wait until DF is collected
+                .setCatalogSessionProperty(session.getCatalog().orElseThrow(), "dynamic_filtering_wait_timeout", "1h")
+                .build();
     }
 }

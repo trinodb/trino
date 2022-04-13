@@ -15,6 +15,7 @@ package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import io.trino.Session;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.connector.ConnectorSession;
@@ -125,19 +126,19 @@ public final class LiteralInterpreter
         @Override
         protected Slice visitStringLiteral(StringLiteral node, Void context)
         {
-            return node.getSlice();
+            return Slices.utf8Slice(node.getValue());
         }
 
         @Override
         protected Object visitCharLiteral(CharLiteral node, Void context)
         {
-            return node.getSlice();
+            return Slices.utf8Slice(node.getValue());
         }
 
         @Override
         protected Slice visitBinaryLiteral(BinaryLiteral node, Void context)
         {
-            return node.getValue();
+            return Slices.wrappedBuffer(node.getValue());
         }
 
         @Override

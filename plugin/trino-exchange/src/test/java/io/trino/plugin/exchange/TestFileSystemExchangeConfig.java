@@ -22,6 +22,7 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
 public class TestFileSystemExchangeConfig
@@ -34,6 +35,8 @@ public class TestFileSystemExchangeConfig
                 .setExchangeEncryptionEnabled(true)
                 .setMaxPageStorageSize(DataSize.of(16, MEGABYTE))
                 .setExchangeSinkBufferPoolMinSize(10)
+                .setExchangeSinkBuffersPerPartition(2)
+                .setExchangeSinkMaxFileSize(DataSize.of(1, GIGABYTE))
                 .setExchangeSourceConcurrentReaders(4));
     }
 
@@ -45,6 +48,8 @@ public class TestFileSystemExchangeConfig
                 .put("exchange.encryption-enabled", "false")
                 .put("exchange.max-page-storage-size", "32MB")
                 .put("exchange.sink-buffer-pool-min-size", "20")
+                .put("exchange.sink-buffers-per-partition", "3")
+                .put("exchange.sink-max-file-size", "2GB")
                 .put("exchange.source-concurrent-readers", "10")
                 .buildOrThrow();
 
@@ -53,6 +58,8 @@ public class TestFileSystemExchangeConfig
                 .setExchangeEncryptionEnabled(false)
                 .setMaxPageStorageSize(DataSize.of(32, MEGABYTE))
                 .setExchangeSinkBufferPoolMinSize(20)
+                .setExchangeSinkBuffersPerPartition(3)
+                .setExchangeSinkMaxFileSize(DataSize.of(2, GIGABYTE))
                 .setExchangeSourceConcurrentReaders(10);
 
         assertFullMapping(properties, expected);

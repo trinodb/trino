@@ -293,10 +293,14 @@ public final class SqlStage
     {
         private long previousUserMemory;
         private long previousRevocableMemory;
+        private boolean finalUsageReported;
 
         @Override
         public synchronized void stateChanged(TaskStatus taskStatus)
         {
+            if (finalUsageReported) {
+                return;
+            }
             long currentUserMemory = taskStatus.getMemoryReservation().toBytes();
             long currentRevocableMemory = taskStatus.getRevocableMemoryReservation().toBytes();
             long deltaUserMemoryInBytes = currentUserMemory - previousUserMemory;
@@ -305,6 +309,14 @@ public final class SqlStage
             previousUserMemory = currentUserMemory;
             previousRevocableMemory = currentRevocableMemory;
             stateMachine.updateMemoryUsage(deltaUserMemoryInBytes, deltaRevocableMemoryInBytes, deltaTotalMemoryInBytes);
+
+            if (taskStatus.getState().isDone()) {
+                // if task is finished perform final memory update to 0
+                stateMachine.updateMemoryUsage(-currentUserMemory, -currentRevocableMemory, -(currentUserMemory + currentRevocableMemory));
+                previousUserMemory = 0;
+                previousRevocableMemory = 0;
+                finalUsageReported = true;
+            }
         }
     }
 }

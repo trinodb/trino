@@ -2,6 +2,10 @@
 Iceberg connector
 =================
 
+.. raw:: html
+
+  <img src="../_static/img/iceberg.png" class="connector-logo">
+
 Overview
 --------
 
@@ -659,9 +663,9 @@ You can retrieve the information about the partitions of the Iceberg table
 .. code-block:: text
 
      partition             | record_count  | file_count    | total_size    |  data
-    -----------------------+---------------+---------------+---------------+--------------------------------------
-    {c1=1, c2=2021-01-12}  |  2            | 2             |  884          | {c3={min=1.0, max=2.0, null_count=0}}
-    {c1=1, c2=2021-01-13}  |  1            | 1             |  442          | {c3={min=1.0, max=1.0, null_count=0}}
+    -----------------------+---------------+---------------+---------------+------------------------------------------------------
+    {c1=1, c2=2021-01-12}  |  2            | 2             |  884          | {c3={min=1.0, max=2.0, null_count=0, nan_count=NULL}}
+    {c1=1, c2=2021-01-13}  |  1            | 1             |  442          | {c3={min=1.0, max=1.0, null_count=0, nan_count=NULL}}
 
 
 The output of the query has the following columns:
@@ -686,7 +690,7 @@ The output of the query has the following columns:
     - ``bigint``
     - The size of all the files in the partition
   * - ``data``
-    - ``row(... row (min ..., max ... , null_count bigint))``
+    - ``row(... row (min ..., max ... , null_count bigint, nan_count bigint))``
     - Partition range metadata
 
 ``$files`` table
@@ -784,7 +788,12 @@ for the data files and partition the storage per day using the column
 Updating the data in the materialized view with
 :doc:`/sql/refresh-materialized-view` deletes the data from the storage table,
 and inserts the data that is the result of executing the materialized view
-query into the existing table.
+query into the existing table. Refreshing a materialized view also stores
+the snapshot-ids of all tables that are part of the materialized
+view's query in the materialized view metadata. When the materialized
+view is queried, the snapshot-ids are used to check if the data in the storage
+table is up to date. If the data is outdated, the materialized view behaves
+like a normal view, and the data is queried directly from the base tables.
 
 .. warning::
 

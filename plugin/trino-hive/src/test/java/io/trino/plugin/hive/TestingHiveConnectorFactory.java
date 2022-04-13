@@ -14,6 +14,7 @@
 package io.trino.plugin.hive;
 
 import com.google.inject.Module;
+import io.trino.plugin.hive.fs.DirectoryLister;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
@@ -31,18 +32,18 @@ public class TestingHiveConnectorFactory
 {
     private final Optional<HiveMetastore> metastore;
     private final Module module;
-    private final Optional<CachingDirectoryLister> cachingDirectoryLister;
+    private final Optional<DirectoryLister> directoryLister;
 
     public TestingHiveConnectorFactory(HiveMetastore metastore)
     {
         this(Optional.of(metastore), EMPTY_MODULE, Optional.empty());
     }
 
-    public TestingHiveConnectorFactory(Optional<HiveMetastore> metastore, Module module, Optional<CachingDirectoryLister> cachingDirectoryLister)
+    public TestingHiveConnectorFactory(Optional<HiveMetastore> metastore, Module module, Optional<DirectoryLister> directoryLister)
     {
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.module = requireNonNull(module, "module is null");
-        this.cachingDirectoryLister = requireNonNull(cachingDirectoryLister, "cachingDirectoryLister is null");
+        this.directoryLister = requireNonNull(directoryLister, "directoryLister is null");
     }
 
     @Override
@@ -54,6 +55,6 @@ public class TestingHiveConnectorFactory
     @Override
     public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
-        return createConnector(catalogName, config, context, module, metastore, cachingDirectoryLister);
+        return createConnector(catalogName, config, context, module, metastore, directoryLister);
     }
 }

@@ -68,7 +68,7 @@ public class TestTrinoDriverAuth
 
         URL resource = getClass().getClassLoader().getResource("33.privateKey");
         assertNotNull(resource, "key directory not found");
-        File keyDir = new File(resource.getFile()).getAbsoluteFile().getParentFile();
+        File keyDir = new File(resource.toURI()).getAbsoluteFile().getParentFile();
 
         defaultKey = hmacShaKeyFor(getMimeDecoder().decode(asCharSource(new File(keyDir, "default-key.key"), US_ASCII).read().getBytes(US_ASCII)));
         hmac222 = hmacShaKeyFor(getMimeDecoder().decode(asCharSource(new File(keyDir, "222.key"), US_ASCII).read().getBytes(US_ASCII)));
@@ -328,7 +328,6 @@ public class TestTrinoDriverAuth
     {
         String url = format("jdbc:trino://localhost:%s", server.getHttpsAddress().getPort());
         Properties properties = new Properties();
-        properties.setProperty("user", "test");
         properties.setProperty("SSL", "true");
         properties.setProperty("SSLTrustStorePath", new File(getResource("localhost.truststore").toURI()).getPath());
         properties.setProperty("SSLTrustStorePassword", "changeit");
@@ -341,7 +340,6 @@ public class TestTrinoDriverAuth
     {
         String url = format("jdbc:trino://localhost:%s", server.getHttpsAddress().getPort());
         Properties properties = new Properties();
-        properties.setProperty("user", "test");
         additionalProperties.forEach(properties::setProperty);
         return DriverManager.getConnection(url, properties);
     }

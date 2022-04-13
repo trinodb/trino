@@ -5,6 +5,10 @@ Elasticsearch connector
 Overview
 --------
 
+.. raw:: html
+
+  <img src="../_static/img/elasticsearch.png" class="connector-logo">
+
 The Elasticsearch Connector allows access to `Elasticsearch <https://www.elastic.co/products/elasticsearch>`_ data from Trino.
 This document describes how to setup the Elasticsearch Connector to run SQL queries against Elasticsearch.
 
@@ -251,7 +255,7 @@ Raw JSON transform
 ^^^^^^^^^^^^^^^^^^
 
 There are many occurrences where documents in Elasticsearch have more complex
-structures that are not represented in the mapping. For instance, a single
+structures that are not represented in the mapping. For example, a single
 ``keyword`` field can have widely different content including a single
 ``keyword`` value, an array, or a multidimensional ``keyword`` array with any
 level of nesting.

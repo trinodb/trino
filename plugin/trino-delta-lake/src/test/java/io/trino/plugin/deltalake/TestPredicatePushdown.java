@@ -205,17 +205,6 @@ public class TestPredicatePushdown
                 .getFullQueryInfo(query).getQueryStats().getProcessedInputPositions();
     }
 
-    // For checking preconditions in tests
-    private void checkSqlState(String actual, String expected, String message)
-    {
-        try {
-            assertQuery(actual, expected);
-        }
-        catch (AssertionError e) {
-            throw new IllegalStateException(message, e);
-        }
-    }
-
     /**
      * Represents a table stored as data in the test resources.
      */

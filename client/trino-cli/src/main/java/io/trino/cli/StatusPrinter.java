@@ -62,13 +62,15 @@ public class StatusPrinter
     private final ConsolePrinter console;
 
     private boolean debug;
+    private boolean checkInput;
 
-    public StatusPrinter(StatementClient client, PrintStream out, boolean debug)
+    public StatusPrinter(StatementClient client, PrintStream out, boolean debug, boolean checkInput)
     {
         this.client = client;
         this.out = out;
         this.console = new ConsolePrinter(out);
         this.debug = debug;
+        this.checkInput = checkInput;
     }
 
 /*
@@ -106,20 +108,22 @@ Spilled: 20GB
                     // check if time to update screen
                     boolean update = nanosSince(lastPrint).getValue(SECONDS) >= 0.5;
 
-                    // check for keyboard input
-                    int key = readKey(terminal);
-                    if (key == CTRL_P) {
-                        client.cancelLeafStage();
-                    }
-                    else if (key == CTRL_C) {
-                        updateScreen(warningsPrinter);
-                        update = false;
-                        client.close();
-                    }
-                    else if (toUpperCase(key) == 'D') {
-                        debug = !debug;
-                        console.resetScreen();
-                        update = true;
+                    if (checkInput) {
+                        // check for keyboard input
+                        int key = readKey(terminal);
+                        if (key == CTRL_P) {
+                            client.cancelLeafStage();
+                        }
+                        else if (key == CTRL_C) {
+                            updateScreen(warningsPrinter);
+                            update = false;
+                            client.close();
+                        }
+                        else if (toUpperCase(key) == 'D') {
+                            debug = !debug;
+                            console.resetScreen();
+                            update = true;
+                        }
                     }
 
                     // update screen
@@ -140,7 +144,9 @@ Spilled: 20GB
         }
         finally {
             console.resetScreen();
-            discardKeys(terminal);
+            if (checkInput) {
+                discardKeys(terminal);
+            }
             terminal.setAttributes(originalAttributes);
         }
     }

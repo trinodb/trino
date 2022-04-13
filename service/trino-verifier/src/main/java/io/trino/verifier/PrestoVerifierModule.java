@@ -14,16 +14,21 @@
 package io.trino.verifier;
 
 import com.google.inject.Binder;
+import com.google.inject.Inject;
 import com.google.inject.Scopes;
 import com.google.inject.multibindings.Multibinder;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.event.client.EventClient;
+import org.jdbi.v3.core.Jdbi;
+
+import javax.inject.Provider;
 
 import java.util.Set;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.event.client.EventBinder.eventBinder;
+import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 
 public class PrestoVerifierModule
         extends AbstractConfigurationAwareModule
@@ -37,11 +42,12 @@ public class PrestoVerifierModule
         Multibinder<String> supportedClients = newSetBinder(binder, String.class, SupportedEventClients.class);
         supportedClients.addBinding().toInstance("human-readable");
         supportedClients.addBinding().toInstance("file");
+        supportedClients.addBinding().toInstance("database");
         Set<String> eventClientTypes = buildConfigObject(VerifierConfig.class).getEventClients();
-        bindEventClientClasses(eventClientTypes, newSetBinder(binder, EventClient.class));
+        bindEventClientClasses(eventClientTypes, binder, newSetBinder(binder, EventClient.class));
     }
 
-    private static void bindEventClientClasses(Set<String> eventClientTypes, Multibinder<EventClient> multibinder)
+    private static void bindEventClientClasses(Set<String> eventClientTypes, Binder binder, Multibinder<EventClient> multibinder)
     {
         for (String eventClientType : eventClientTypes) {
             if (eventClientType.equals("human-readable")) {
@@ -50,6 +56,29 @@ public class PrestoVerifierModule
             else if (eventClientType.equals("file")) {
                 multibinder.addBinding().to(JsonEventClient.class).in(Scopes.SINGLETON);
             }
+            else if (eventClientType.equals("database")) {
+                jsonCodecBinder(binder).bindListJsonCodec(String.class);
+                binder.bind(VerifierQueryEventDao.class).toProvider(VerifierQueryEventDaoProvider.class);
+                multibinder.addBinding().to(DatabaseEventClient.class).in(Scopes.SINGLETON);
+            }
+        }
+    }
+
+    private static class VerifierQueryEventDaoProvider
+            implements Provider<VerifierQueryEventDao>
+    {
+        private final VerifierQueryEventDao dao;
+
+        @Inject
+        public VerifierQueryEventDaoProvider(Jdbi jdbi)
+        {
+            this.dao = jdbi.onDemand(VerifierQueryEventDao.class);
+        }
+
+        @Override
+        public VerifierQueryEventDao get()
+        {
+            return dao;
         }
     }
 }

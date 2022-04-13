@@ -32,12 +32,14 @@ public abstract class AbstractKuduWithStandardInferSchemaConnectorTest
     @Test
     public void testListingOfTableForDefaultSchema()
     {
-        assertEquals(computeActual("SHOW TABLES FROM default").getRowCount(), 0);
+        // The special $schemas table is created when listing schema names with schema emulation enabled
+        // Depending on test ordering, this table may or may not be created when this test runs, so filter it out
+        assertEquals(computeActual("SHOW TABLES FROM default LIKE '%$schemas'").getRowCount(), 0);
     }
 
     @Test
     @Override
-    public void testDropNonEmptySchema()
+    public void testDropNonEmptySchemaWithTable()
     {
         // Set column and table properties in CREATE TABLE statement
         String schemaName = "test_drop_non_empty_schema_" + randomTableSuffix();

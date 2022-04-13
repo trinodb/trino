@@ -23,6 +23,8 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertFullMappin
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static software.amazon.awssdk.services.s3.model.StorageClass.REDUCED_REDUNDANCY;
+import static software.amazon.awssdk.services.s3.model.StorageClass.STANDARD;
 
 public class TestExchangeS3Config
 {
@@ -34,8 +36,11 @@ public class TestExchangeS3Config
                 .setS3AwsSecretKey(null)
                 .setS3Region(null)
                 .setS3Endpoint(null)
+                .setS3UseWebIdentityTokenCredentials(false)
                 .setS3MaxErrorRetries(3)
-                .setS3UploadPartSize(DataSize.of(5, MEGABYTE)));
+                .setS3UploadPartSize(DataSize.of(5, MEGABYTE))
+                .setStorageClass(STANDARD)
+                .setAsyncClientConcurrency(500));
     }
 
     @Test
@@ -46,8 +51,11 @@ public class TestExchangeS3Config
                 .put("exchange.s3.aws-secret-key", "secret")
                 .put("exchange.s3.region", "us-west-1")
                 .put("exchange.s3.endpoint", "https://s3.us-east-1.amazonaws.com")
+                .put("exchange.s3.use-web-identity-token-credentials", "true")
                 .put("exchange.s3.max-error-retries", "8")
                 .put("exchange.s3.upload.part-size", "10MB")
+                .put("exchange.s3.storage-class", "REDUCED_REDUNDANCY")
+                .put("exchange.s3.async-client-concurrency", "202")
                 .buildOrThrow();
 
         ExchangeS3Config expected = new ExchangeS3Config()
@@ -55,8 +63,11 @@ public class TestExchangeS3Config
                 .setS3AwsSecretKey("secret")
                 .setS3Region("us-west-1")
                 .setS3Endpoint("https://s3.us-east-1.amazonaws.com")
+                .setS3UseWebIdentityTokenCredentials(true)
                 .setS3MaxErrorRetries(8)
-                .setS3UploadPartSize(DataSize.of(10, MEGABYTE));
+                .setS3UploadPartSize(DataSize.of(10, MEGABYTE))
+                .setStorageClass(REDUCED_REDUNDANCY)
+                .setAsyncClientConcurrency(202);
 
         assertFullMapping(properties, expected);
     }

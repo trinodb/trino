@@ -32,9 +32,11 @@ import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.auth.credentials.WebIdentityTokenFileCredentialsProvider;
 import software.amazon.awssdk.core.async.AsyncRequestBody;
 import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
 import software.amazon.awssdk.core.retry.RetryPolicy;
+import software.amazon.awssdk.http.nio.netty.NettyNioAsyncHttpClient;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
 import software.amazon.awssdk.services.s3.S3AsyncClientBuilder;
@@ -61,6 +63,7 @@ import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import software.amazon.awssdk.services.s3.model.ObjectIdentifier;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Object;
+import software.amazon.awssdk.services.s3.model.StorageClass;
 import software.amazon.awssdk.services.s3.model.UploadPartRequest;
 import software.amazon.awssdk.services.s3.paginators.ListObjectsV2Iterable;
 import software.amazon.awssdk.services.s3.paginators.ListObjectsV2Publisher;
@@ -110,6 +113,7 @@ public class S3FileSystemExchangeStorage
     private final int multiUploadPartSize;
     private final S3Client s3Client;
     private final S3AsyncClient s3AsyncClient;
+    private final StorageClass storageClass;
 
     @Inject
     public S3FileSystemExchangeStorage(ExchangeS3Config config)
@@ -118,6 +122,7 @@ public class S3FileSystemExchangeStorage
         this.region = config.getS3Region();
         this.endpoint = config.getS3Endpoint();
         this.multiUploadPartSize = toIntExact(config.getS3UploadPartSize().toBytes());
+        this.storageClass = config.getStorageClass();
 
         AwsCredentialsProvider credentialsProvider = createAwsCredentialsProvider(config);
         RetryPolicy retryPolicy = RetryPolicy.builder()
@@ -130,7 +135,7 @@ public class S3FileSystemExchangeStorage
                 .build();
 
         this.s3Client = createS3Client(credentialsProvider, overrideConfig);
-        this.s3AsyncClient = createS3AsyncClient(credentialsProvider, overrideConfig);
+        this.s3AsyncClient = createS3AsyncClient(credentialsProvider, overrideConfig, config.getAsyncClientConcurrency());
     }
 
     @Override
@@ -152,7 +157,7 @@ public class S3FileSystemExchangeStorage
         String bucketName = getBucketName(file);
         String key = keyFromUri(file);
 
-        return new S3ExchangeStorageWriter(s3AsyncClient, bucketName, key, multiUploadPartSize, secretKey);
+        return new S3ExchangeStorageWriter(s3AsyncClient, bucketName, key, multiUploadPartSize, secretKey, storageClass);
     }
 
     @Override
@@ -362,6 +367,11 @@ public class S3FileSystemExchangeStorage
         if (config.getS3AwsAccessKey() != null && config.getS3AwsSecretKey() != null) {
             return StaticCredentialsProvider.create(AwsBasicCredentials.create(config.getS3AwsAccessKey(), config.getS3AwsSecretKey()));
         }
+
+        if (config.isS3UseWebIdentityTokenCredentials()) {
+            return WebIdentityTokenFileCredentialsProvider.create();
+        }
+
         return DefaultCredentialsProvider.create();
     }
 
@@ -377,11 +387,13 @@ public class S3FileSystemExchangeStorage
         return clientBuilder.build();
     }
 
-    private S3AsyncClient createS3AsyncClient(AwsCredentialsProvider credentialsProvider, ClientOverrideConfiguration overrideConfig)
+    private S3AsyncClient createS3AsyncClient(AwsCredentialsProvider credentialsProvider, ClientOverrideConfiguration overrideConfig, int maxConcurrency)
     {
         S3AsyncClientBuilder clientBuilder = S3AsyncClient.builder()
                 .credentialsProvider(credentialsProvider)
-                .overrideConfiguration(overrideConfig);
+                .overrideConfiguration(overrideConfig)
+                .httpClientBuilder(NettyNioAsyncHttpClient.builder()
+                        .maxConcurrency(maxConcurrency));
 
         region.ifPresent(clientBuilder::region);
         endpoint.ifPresent(s3Endpoint -> clientBuilder.endpointOverride(URI.create(s3Endpoint)));
@@ -574,6 +586,7 @@ public class S3FileSystemExchangeStorage
         private final String key;
         private final int partSize;
         private final Optional<SecretKey> secretKey;
+        private final StorageClass storageClass;
 
         private int currentPartNumber;
         private ListenableFuture<Void> directUploadFuture;
@@ -581,13 +594,14 @@ public class S3FileSystemExchangeStorage
         private final List<ListenableFuture<CompletedPart>> multiPartUploadFutures = new ArrayList<>();
         private volatile boolean closed;
 
-        public S3ExchangeStorageWriter(S3AsyncClient s3AsyncClient, String bucketName, String key, int partSize, Optional<SecretKey> secretKey)
+        public S3ExchangeStorageWriter(S3AsyncClient s3AsyncClient, String bucketName, String key, int partSize, Optional<SecretKey> secretKey, StorageClass storageClass)
         {
             this.s3AsyncClient = requireNonNull(s3AsyncClient, "s3AsyncClient is null");
             this.bucketName = requireNonNull(bucketName, "bucketName is null");
             this.key = requireNonNull(key, "key is null");
             this.partSize = partSize;
             this.secretKey = requireNonNull(secretKey, "secretKey is null");
+            this.storageClass = requireNonNull(storageClass, "storageClass is null");
         }
 
         @Override
@@ -603,7 +617,8 @@ public class S3FileSystemExchangeStorage
             if (slice.length() < partSize && multiPartUploadIdFuture == null) {
                 PutObjectRequest.Builder putObjectRequestBuilder = PutObjectRequest.builder()
                         .bucket(bucketName)
-                        .key(key);
+                        .key(key)
+                        .storageClass(storageClass);
                 configureEncryption(secretKey, putObjectRequestBuilder);
                 directUploadFuture = transformFuture(toListenableFuture(s3AsyncClient.putObject(putObjectRequestBuilder.build(),
                         ByteBufferAsyncRequestBody.fromByteBuffer(slice.toByteBuffer()))));
@@ -682,7 +697,8 @@ public class S3FileSystemExchangeStorage
         {
             CreateMultipartUploadRequest.Builder createMultipartUploadRequestBuilder = CreateMultipartUploadRequest.builder()
                     .bucket(bucketName)
-                    .key(key);
+                    .key(key)
+                    .storageClass(storageClass);
             configureEncryption(secretKey, createMultipartUploadRequestBuilder);
             return toListenableFuture(s3AsyncClient.createMultipartUpload(createMultipartUploadRequestBuilder.build()));
         }

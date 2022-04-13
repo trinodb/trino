@@ -32,7 +32,6 @@ import static io.trino.tests.product.launcher.docker.ContainerUtil.forSelectedPo
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.isPrestoContainer;
 import static io.trino.tests.product.launcher.env.common.Kerberos.DEFAULT_WAIT_STRATEGY;
 import static io.trino.tests.product.launcher.env.common.Kerberos.KERBEROS;
-import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.containers.BindMode.READ_ONLY;
@@ -88,7 +87,8 @@ public class EnvMultinodeKerberosKudu
 
         builder.configureContainers(container -> {
             if (isPrestoContainer(container.getLogicalName())) {
-                configurePrestoContainer(container, kerberosCredentialsDirectory);
+                builder.addConnector("kudu", forHostPath(configDir.getPath("kudu.properties")));
+                container.withFileSystemBind(kerberosCredentialsDirectory.toString(), "/kerberos", READ_ONLY);
                 addKrb5(container);
             }
         });
@@ -139,14 +139,5 @@ public class EnvMultinodeKerberosKudu
                 .withCopyFileToContainer(
                         forHostPath(configDir.getPath("krb5.conf")),
                         "/etc/krb5.conf");
-    }
-
-    private void configurePrestoContainer(DockerContainer container, Path kerberosCredentialsDirectory)
-    {
-        container
-                .withCopyFileToContainer(
-                        forHostPath(configDir.getPath("kudu.properties")),
-                        CONTAINER_PRESTO_ETC + "/catalog/kudu.properties")
-                .withFileSystemBind(kerberosCredentialsDirectory.toString(), "/kerberos", READ_ONLY);
     }
 }

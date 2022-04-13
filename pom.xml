@@ -5,12 +5,12 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>122</version>
+        <version>123</version>
     </parent>
 
     <groupId>io.trino</groupId>
     <artifactId>trino-root</artifactId>
-    <version>375-SNAPSHOT</version>
+    <version>377-SNAPSHOT</version>
 
     <name>trino-root</name>
     <description>Trino</description>
@@ -67,7 +67,7 @@
         <dep.coral.version>2.0.55</dep.coral.version>
         <dep.confluent.version>5.5.2</dep.confluent.version>
 
-        <dep.docker.images.version>53</dep.docker.images.version>
+        <dep.docker.images.version>56</dep.docker.images.version>
 
         <!--
           America/Bahia_Banderas has:
@@ -158,6 +158,7 @@
         <module>service/trino-verifier</module>
         <module>testing/trino-benchmark</module>
         <module>testing/trino-benchto-benchmarks</module>
+        <module>testing/trino-plugin-reader</module>
         <module>testing/trino-product-tests</module>
         <module>testing/trino-product-tests-launcher</module>
         <module>testing/trino-server-dev</module>
@@ -231,6 +232,19 @@
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-collect</artifactId>
+                <type>test-jar</type>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-delta-lake</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-delta-lake</artifactId>
                 <type>test-jar</type>
                 <version>${project.version}</version>
             </dependency>
@@ -587,7 +601,7 @@
             <dependency>
                 <groupId>io.trino.hive</groupId>
                 <artifactId>hive-apache</artifactId>
-                <version>3.1.2-18</version>
+                <version>3.1.2-19</version>
             </dependency>
 
             <dependency>
@@ -1463,6 +1477,12 @@
             </dependency>
 
             <dependency>
+                <groupId>org.apache.maven</groupId>
+                <artifactId>maven-model</artifactId>
+                <version>3.8.4</version>
+            </dependency>
+
+            <dependency>
                 <groupId>org.apache.thrift</groupId>
                 <artifactId>libthrift</artifactId>
                 <version>0.9.3-1</version>
@@ -1514,6 +1534,12 @@
                 <groupId>org.checkerframework</groupId>
                 <artifactId>checker-qual</artifactId>
                 <version>3.20.0</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.codehaus.plexus</groupId>
+                <artifactId>plexus-utils</artifactId>
+                <version>3.4.1</version>
             </dependency>
 
             <dependency>
@@ -1917,9 +1943,9 @@
             <build>
                 <plugins>
                     <plugin>
-                        <groupId>com.vackosar.gitflowincrementalbuilder</groupId>
+                        <groupId>io.github.gitflow-incremental-builder</groupId>
                         <artifactId>gitflow-incremental-builder</artifactId>
-                        <version>3.15.0</version>
+                        <version>4.0.0</version>
                         <extensions>true</extensions>
                         <configuration>
                             <disableIfBranchMatches>master</disableIfBranchMatches>

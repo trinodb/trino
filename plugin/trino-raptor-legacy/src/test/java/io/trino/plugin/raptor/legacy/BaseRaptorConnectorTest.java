@@ -74,6 +74,7 @@ public abstract class BaseRaptorConnectorTest
             case SUPPORTS_RENAME_SCHEMA:
             case SUPPORTS_COMMENT_ON_TABLE:
             case SUPPORTS_COMMENT_ON_COLUMN:
+            case SUPPORTS_ADD_COLUMN_WITH_COMMENT:
             case SUPPORTS_NOT_NULL_CONSTRAINT:
             case SUPPORTS_TOPN_PUSHDOWN:
                 return false;
@@ -656,6 +657,24 @@ public abstract class BaseRaptorConnectorTest
 
         actualResult = computeActual("SHOW CREATE TABLE \"test_show_create_table\"\"2\"");
         assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), createTableSql);
+    }
+
+    @Test
+    @Override
+    public void testCreateTableSchemaNotFound()
+    {
+        // TODO (https://github.com/trinodb/trino/issues/11110) Raptor connector can create new tables in a schema where it doesn't exist
+        assertThatThrownBy(super::testCreateTableSchemaNotFound)
+                .hasMessageContaining("Expected query to fail: CREATE TABLE test_schema_");
+    }
+
+    @Test
+    @Override
+    public void testCreateTableAsSelectSchemaNotFound()
+    {
+        // TODO (https://github.com/trinodb/trino/issues/11110) Raptor connector can create new tables in a schema where it doesn't exist
+        assertThatThrownBy(super::testCreateTableAsSelectSchemaNotFound)
+                .hasMessageContaining("Expected query to fail: CREATE TABLE test_schema_");
     }
 
     @Test

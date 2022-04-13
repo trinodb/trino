@@ -13,6 +13,7 @@
  */
 package io.trino.spi;
 
+import static io.trino.spi.ErrorType.EXTERNAL;
 import static io.trino.spi.ErrorType.INSUFFICIENT_RESOURCES;
 import static io.trino.spi.ErrorType.INTERNAL_ERROR;
 import static io.trino.spi.ErrorType.USER_ERROR;
@@ -172,6 +173,7 @@ public enum StandardErrorCode
     EXCEEDED_SCAN_LIMIT(131081, INSUFFICIENT_RESOURCES),
     EXCEEDED_TASK_DESCRIPTOR_STORAGE_CAPACITY(131082, INSUFFICIENT_RESOURCES),
 
+    UNSUPPORTED_TABLE_TYPE(133001, EXTERNAL),
     /**/;
 
     // Connectors can use error codes starting at the range 0x0100_0000

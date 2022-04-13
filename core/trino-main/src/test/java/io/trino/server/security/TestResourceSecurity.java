@@ -146,7 +146,7 @@ public class TestResourceSecurity
 
     static {
         try {
-            JWK_PRIVATE_KEY = PemReader.loadPrivateKey(new File(Resources.getResource("jwk/jwk-rsa-private.pem").getPath()), Optional.empty());
+            JWK_PRIVATE_KEY = PemReader.loadPrivateKey(new File(Resources.getResource("jwk/jwk-rsa-private.pem").toURI()), Optional.empty());
         }
         catch (Exception e) {
             throw new RuntimeException(e);
@@ -169,7 +169,8 @@ public class TestResourceSecurity
                 Optional.empty(),
                 Optional.of(LOCALHOST_KEYSTORE),
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                false);
         client = clientBuilder.build();
 
         passwordConfigDummy = Files.createTempFile("passwordConfigDummy", "");
@@ -439,7 +440,8 @@ public class TestResourceSecurity
                     Optional.empty(),
                     Optional.of(LOCALHOST_KEYSTORE),
                     Optional.empty(),
-                    Optional.empty());
+                    Optional.empty(),
+                    false);
             OkHttpClient clientWithCert = clientBuilder.build();
             assertAuthenticationAutomatic(httpServerInfo.getHttpsUri(), clientWithCert);
         }

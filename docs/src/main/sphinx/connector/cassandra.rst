@@ -2,6 +2,10 @@
 Cassandra connector
 ===================
 
+.. raw:: html
+
+  <img src="../_static/img/cassandra.png" class="connector-logo">
+
 The Cassandra connector allows querying data stored in
 `Apache Cassandra <https://cassandra.apache.org/>`_.
 
@@ -62,8 +66,7 @@ Property Name                                      Description
                                                    ``EACH_QUORUM``, ``QUORUM``, ``LOCAL_QUORUM``, ``ONE``, ``TWO``,
                                                    ``THREE``, ``LOCAL_ONE``, ``ANY``, ``SERIAL``, ``LOCAL_SERIAL``.
 
-``cassandra.allow-drop-table``                     Set to ``true`` to allow dropping Cassandra tables from Trino
-                                                   via :doc:`/sql/drop-table`, defaults to ``false``.
+``cassandra.allow-drop-table``                     Enables :doc:`/sql/drop-table` operations. Defaults to ``false``.
 
 ``cassandra.username``                             Username used for authentication to the Cassandra cluster.
                                                    This is a global setting used for all connections, regardless
@@ -278,6 +281,18 @@ statements, the connector supports the following features:
 * :doc:`/sql/create-table`
 * :doc:`/sql/create-table-as`
 * :doc:`/sql/drop-table`
+
+DROP TABLE
+^^^^^^^^^^
+
+By default, ``DROP TABLE`` operations are disabled on Cassandra catalogs. To
+enable ``DROP TABLE``, set the ``cassandra.allow-drop-table`` catalog
+configuration property to ``true``:
+
+.. code-block:: properties
+
+  cassandra.allow-drop-table=true
+
 
 .. _sql-delete-limitation:
 

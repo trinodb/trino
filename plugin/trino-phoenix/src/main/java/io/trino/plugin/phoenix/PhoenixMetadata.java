@@ -67,7 +67,7 @@ public class PhoenixMetadata
     @Inject
     public PhoenixMetadata(PhoenixClient phoenixClient, IdentifierMapping identifierMapping)
     {
-        super(phoenixClient);
+        super(phoenixClient, false);
         this.phoenixClient = requireNonNull(phoenixClient, "phoenixClient is null");
         this.identifierMapping = requireNonNull(identifierMapping, "identifierMapping is null");
     }
@@ -197,6 +197,10 @@ public class PhoenixMetadata
     @Override
     public void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column)
     {
+        if (column.getComment() != null) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding columns with comments");
+        }
+
         JdbcTableHandle handle = (JdbcTableHandle) tableHandle;
         phoenixClient.execute(session, format(
                 "ALTER TABLE %s ADD %s %s",

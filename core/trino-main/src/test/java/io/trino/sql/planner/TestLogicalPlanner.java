@@ -34,7 +34,6 @@ import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.assertions.RowNumberSymbolMatcher;
 import io.trino.sql.planner.optimizations.AddLocalExchanges;
 import io.trino.sql.planner.optimizations.CheckSubqueryNodesAreRewritten;
-import io.trino.sql.planner.optimizations.PlanOptimizer;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.ApplyNode;
 import io.trino.sql.planner.plan.CorrelatedJoinNode;
@@ -66,7 +65,6 @@ import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.Row;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.tests.QueryTemplate;
-import io.trino.util.MorePredicates;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -162,7 +160,6 @@ import static io.trino.sql.tree.SortItem.Ordering.ASCENDING;
 import static io.trino.sql.tree.SortItem.Ordering.DESCENDING;
 import static io.trino.sql.tree.WindowFrame.Type.ROWS;
 import static io.trino.tests.QueryTemplate.queryTemplate;
-import static io.trino.util.MorePredicates.isInstanceOfAny;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -669,11 +666,12 @@ public class TestLogicalPlanner
         assertPlanDoesNotContain(sql, ApplyNode.class, JoinNode.class, IndexJoinNode.class, SemiJoinNode.class, CorrelatedJoinNode.class);
     }
 
-    private void assertPlanDoesNotContain(String sql, Class<?>... classes)
+    @SafeVarargs
+    private void assertPlanDoesNotContain(String sql, Class<? extends PlanNode>... classes)
     {
         assertFalse(
                 searchFrom(plan(sql, OPTIMIZED).getRoot())
-                        .where(isInstanceOfAny(classes))
+                        .whereIsInstanceOfAny(classes)
                         .matches(),
                 "Unexpected node for query: " + sql);
     }
@@ -938,7 +936,7 @@ public class TestLogicalPlanner
                                                 project(
                                                         any(
                                                                 tableScan("lineitem", ImmutableMap.of("L", "orderkey")))))))),
-                MorePredicates.<PlanOptimizer>isInstanceOfAny(AddLocalExchanges.class, CheckSubqueryNodesAreRewritten.class).negate());
+                optimizer -> !(optimizer instanceof AddLocalExchanges || optimizer instanceof CheckSubqueryNodesAreRewritten));
     }
 
     @Test
@@ -1447,7 +1445,7 @@ public class TestLogicalPlanner
         String query = "SELECT count(*) FROM orders ORDER BY 1";
         assertFalse(
                 searchFrom(plan(query, OPTIMIZED).getRoot())
-                        .where(isInstanceOfAny(SortNode.class))
+                        .whereIsInstanceOfAny(SortNode.class)
                         .matches(),
                 format("Unexpected sort node for query: '%s'", query));
 
@@ -1465,7 +1463,7 @@ public class TestLogicalPlanner
         String query = "SELECT count(*) FROM orders ORDER BY 1 LIMIT 10";
         assertFalse(
                 searchFrom(plan(query, OPTIMIZED).getRoot())
-                        .where(isInstanceOfAny(TopNNode.class, SortNode.class))
+                        .whereIsInstanceOfAny(TopNNode.class, SortNode.class)
                         .matches(),
                 format("Unexpected TopN node for query: '%s'", query));
 
@@ -1496,7 +1494,7 @@ public class TestLogicalPlanner
         String query = "SELECT distinct(c) FROM (SELECT count(*) as c FROM orders) LIMIT 10";
         assertFalse(
                 searchFrom(plan(query, OPTIMIZED).getRoot())
-                        .where(isInstanceOfAny(DistinctLimitNode.class))
+                        .whereIsInstanceOfAny(DistinctLimitNode.class)
                         .matches(),
                 format("Unexpected DistinctLimit node for query: '%s'", query));
 

@@ -86,6 +86,7 @@ import io.trino.sql.planner.plan.RemoteSourceNode;
 import io.trino.sql.planner.plan.RowNumberNode;
 import io.trino.sql.planner.plan.SampleNode;
 import io.trino.sql.planner.plan.SemiJoinNode;
+import io.trino.sql.planner.plan.SimpleTableExecuteNode;
 import io.trino.sql.planner.plan.SortNode;
 import io.trino.sql.planner.plan.SpatialJoinNode;
 import io.trino.sql.planner.plan.StatisticAggregations;
@@ -201,7 +202,11 @@ public class PlanPrinter
                 .mapToLong(planNode -> planNode.getPlanNodeCpuTime().toMillis())
                 .sum(), MILLISECONDS));
 
-        this.representation = new PlanRepresentation(planRoot, types, totalCpuTime, totalScheduledTime);
+        Optional<Duration> totalBlockedTime = stats.map(s -> new Duration(s.values().stream()
+                .mapToLong(planNode -> planNode.getPlanNodeBlockedTime().toMillis())
+                .sum(), MILLISECONDS));
+
+        this.representation = new PlanRepresentation(planRoot, types, totalCpuTime, totalScheduledTime, totalBlockedTime);
 
         Visitor visitor = new Visitor(stageExecutionStrategy, types, estimatedStatsAndCosts, stats);
         planRoot.accept(visitor, null);
@@ -333,9 +338,12 @@ public class PlanPrinter
             double sdAmongTasks = Math.sqrt(squaredDifferences / stageInfo.get().getTasks().size());
 
             builder.append(indentString(1))
-                    .append(format("CPU: %s, Scheduled: %s, Input: %s (%s); per task: avg.: %s std.dev.: %s, Output: %s (%s)\n",
+                    .append(format("CPU: %s, Scheduled: %s, Blocked %s (Input: %s, Output: %s), Input: %s (%s); per task: avg.: %s std.dev.: %s, Output: %s (%s)\n",
                             stageStats.getTotalCpuTime().convertToMostSuccinctTimeUnit(),
                             stageStats.getTotalScheduledTime().convertToMostSuccinctTimeUnit(),
+                            stageStats.getTotalBlockedTime().convertToMostSuccinctTimeUnit(),
+                            stageStats.getInputBlockedTime().convertToMostSuccinctTimeUnit(),
+                            stageStats.getOutputBlockedTime().convertToMostSuccinctTimeUnit(),
                             formatPositions(stageStats.getProcessedInputPositions()),
                             stageStats.getProcessedInputDataSize(),
                             formatDouble(avgPositionsPerTask),
@@ -1141,11 +1149,18 @@ public class PlanPrinter
                     .map(UnnestNode.Mapping::getInput)
                     .collect(toImmutableList());
 
+            Optional<String> replicate = node.getReplicateSymbols().isEmpty()
+                    ? Optional.empty()
+                    : Optional.of("replicate=" + formatOutputs(types, node.getReplicateSymbols()));
+            Optional<String> unnest = Optional.of("unnest=" + formatOutputs(types, unnestInputs));
+            Optional<String> filter = node.getFilter().map(filterExpression -> "filter=" + filterExpression);
             addNode(
                     node,
                     name,
-                    format("[replicate=%s, unnest=%s", formatOutputs(types, node.getReplicateSymbols()), formatOutputs(types, unnestInputs))
-                            + (node.getFilter().isPresent() ? format(", filter=%s]", node.getFilter().get()) : "]"));
+                    Stream.of(replicate, unnest, filter)
+                            .filter(Optional::isPresent)
+                            .map(Optional::get)
+                            .collect(joining(", ", "[", "]")));
             return processChildren(node, context);
         }
 
@@ -1385,6 +1400,14 @@ public class PlanPrinter
                 Symbol symbol = node.getColumns().get(i);
                 nodeOutput.appendDetailsLine("%s := %s", name, symbol);
             }
+
+            return processChildren(node, context);
+        }
+
+        @Override
+        public Void visitSimpleTableExecuteNode(SimpleTableExecuteNode node, Void context)
+        {
+            addNode(node, "SimpleTableExecute", format("[%s]", node.getExecuteHandle()));
 
             return processChildren(node, context);
         }

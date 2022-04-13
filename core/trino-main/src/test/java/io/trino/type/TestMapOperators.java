@@ -878,6 +878,14 @@ public class TestMapOperators
                         decimal("2.2", createDecimalType(2, 1)),
                         decimal("5.1", createDecimalType(2, 1)),
                         decimal("2.2", createDecimalType(2, 1))));
+
+        // Compare keys with IS DISTINCT semantics
+        assertFunction("MAP_CONCAT("
+                        + "MAP(ARRAY[NaN()], ARRAY[1]),"
+                        + "MAP(ARRAY[NaN()], ARRAY[2]),"
+                        + "MAP(ARRAY[NaN()], ARRAY[3]))",
+                mapType(DOUBLE, INTEGER),
+                ImmutableMap.of(Double.NaN, 3));
     }
 
     @Test
@@ -909,6 +917,7 @@ public class TestMapOperators
 
         assertInvalidCast("CAST(MAP(ARRAY[1, 2], ARRAY[6, 9]) AS MAP<boolean, bigint>)", "duplicate keys");
         assertInvalidCast("CAST(MAP(ARRAY[json 'null'], ARRAY[1]) AS MAP<bigint, bigint>)", "map key is null");
+        assertInvalidCast("CAST(MAP(ARRAY['NaN', ' NaN '], ARRAY[1, 2]) AS MAP<double, integer>)", "duplicate keys");
     }
 
     @Test
@@ -950,6 +959,8 @@ public class TestMapOperators
         assertInvalidFunction("map_from_entries(ARRAY[(1.0, 1), (1.0, 2)])", "Duplicate keys (1.0) are not allowed");
         assertInvalidFunction("map_from_entries(ARRAY[(ARRAY[1, 2], 1), (ARRAY[1, 2], 2)])", "Duplicate keys ([1, 2]) are not allowed");
         assertInvalidFunction("map_from_entries(ARRAY[(MAP(ARRAY[1], ARRAY[2]), 1), (MAP(ARRAY[1], ARRAY[2]), 2)])", "Duplicate keys ({1=2}) are not allowed");
+        assertInvalidFunction("map_from_entries(ARRAY[(NaN(), 1), (NaN(), 2)])", "Duplicate keys (NaN) are not allowed");
+
         assertInvalidFunction("map_from_entries(ARRAY[(null, 1), (null, 2)])", "map key cannot be null");
         assertInvalidFunction("map_from_entries(ARRAY[null])", "map entry cannot be null");
         assertInvalidFunction("map_from_entries(ARRAY[(1, 2), null])", "map entry cannot be null");
@@ -984,6 +995,11 @@ public class TestMapOperators
                         "x", ImmutableList.of(1.0, 1.5),
                         "y", ImmutableList.of(2.0, 2.5),
                         "z", singletonList(null)));
+
+        assertFunction(
+                "multimap_from_entries(ARRAY[(NaN(), 1), (NaN(), 2)])",
+                mapType(DOUBLE, new ArrayType(INTEGER)),
+                ImmutableMap.of(Double.NaN, ImmutableList.of(1, 2)));
 
         // invalid invocation
         assertInvalidFunction("multimap_from_entries(ARRAY[(null, 1), (null, 2)])", "map key cannot be null");

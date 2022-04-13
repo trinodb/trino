@@ -32,13 +32,13 @@ import io.trino.spi.type.Decimals;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
-import io.trino.spi.type.VarcharType;
 import io.trino.sql.DynamicFilters;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.TypeSignatureProvider;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.ArithmeticUnaryExpression;
 import io.trino.sql.tree.AstVisitor;
+import io.trino.sql.tree.BetweenPredicate;
 import io.trino.sql.tree.BinaryLiteral;
 import io.trino.sql.tree.BooleanLiteral;
 import io.trino.sql.tree.Cast;
@@ -49,11 +49,15 @@ import io.trino.sql.tree.DoubleLiteral;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.GenericLiteral;
+import io.trino.sql.tree.IsNotNullPredicate;
+import io.trino.sql.tree.IsNullPredicate;
 import io.trino.sql.tree.LikePredicate;
 import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeRef;
+import io.trino.sql.tree.NotExpression;
+import io.trino.sql.tree.NullIfExpression;
 import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.StringLiteral;
@@ -74,11 +78,13 @@ import static io.airlift.slice.SliceUtf8.countCodePoints;
 import static io.trino.SystemSessionProperties.isComplexExpressionPushdown;
 import static io.trino.spi.expression.StandardFunctions.ADD_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.AND_FUNCTION_NAME;
+import static io.trino.spi.expression.StandardFunctions.CAST_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.DIVIDE_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.EQUAL_OPERATOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.GREATER_THAN_OPERATOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.GREATER_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.IS_DISTINCT_FROM_OPERATOR_FUNCTION_NAME;
+import static io.trino.spi.expression.StandardFunctions.IS_NULL_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.LESS_THAN_OPERATOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.LESS_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.LIKE_PATTERN_FUNCTION_NAME;
@@ -86,10 +92,15 @@ import static io.trino.spi.expression.StandardFunctions.MODULUS_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.MULTIPLY_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.NEGATE_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.NOT_EQUAL_OPERATOR_FUNCTION_NAME;
+import static io.trino.spi.expression.StandardFunctions.NOT_FUNCTION_NAME;
+import static io.trino.spi.expression.StandardFunctions.NULLIF_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.OR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.SUBTRACT_FUNCTION_NAME;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.ExpressionUtils.isEffectivelyLiteral;
+import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.trino.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
 import static io.trino.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -202,6 +213,28 @@ public final class ConnectorExpressionTranslator
             if (OR_FUNCTION_NAME.equals(call.getFunctionName())) {
                 return translateLogicalExpression(LogicalExpression.Operator.OR, call.getArguments());
             }
+            if (NOT_FUNCTION_NAME.equals(call.getFunctionName()) && call.getArguments().size() == 1) {
+                ConnectorExpression expression = getOnlyElement(call.getArguments());
+
+                if (expression instanceof Call) {
+                    Call innerCall = (Call) expression;
+                    if (innerCall.getFunctionName().equals(IS_NULL_FUNCTION_NAME) && innerCall.getArguments().size() == 1) {
+                        return translateIsNotNull(innerCall.getArguments().get(0));
+                    }
+                }
+
+                return translateNot(expression);
+            }
+            if (IS_NULL_FUNCTION_NAME.equals(call.getFunctionName()) && call.getArguments().size() == 1) {
+                return translateIsNull(call.getArguments().get(0));
+            }
+
+            if (NULLIF_FUNCTION_NAME.equals(call.getFunctionName()) && call.getArguments().size() == 2) {
+                return translateNullIf(call.getArguments().get(0), call.getArguments().get(1));
+            }
+            if (CAST_FUNCTION_NAME.equals(call.getFunctionName()) && call.getArguments().size() == 1) {
+                return translateCast(call.getType(), call.getArguments().get(0));
+            }
 
             // comparisons
             if (call.getArguments().size() == 2) {
@@ -251,6 +284,46 @@ public final class ConnectorExpressionTranslator
             return Optional.of(builder.build());
         }
 
+        private Optional<Expression> translateIsNotNull(ConnectorExpression argument)
+        {
+            Optional<Expression> translatedArgument = translate(argument);
+            if (translatedArgument.isPresent()) {
+                return Optional.of(new IsNotNullPredicate(translatedArgument.get()));
+            }
+
+            return Optional.empty();
+        }
+
+        private Optional<Expression> translateIsNull(ConnectorExpression argument)
+        {
+            Optional<Expression> translatedArgument = translate(argument);
+            if (translatedArgument.isPresent()) {
+                return Optional.of(new IsNullPredicate(translatedArgument.get()));
+            }
+
+            return Optional.empty();
+        }
+
+        private Optional<Expression> translateNot(ConnectorExpression argument)
+        {
+            Optional<Expression> translatedArgument = translate(argument);
+            if (argument.getType().equals(BOOLEAN) && translatedArgument.isPresent()) {
+                return Optional.of(new NotExpression(translatedArgument.get()));
+            }
+            return Optional.empty();
+        }
+
+        private Optional<Expression> translateCast(Type type, ConnectorExpression expression)
+        {
+            Optional<Expression> translatedExpression = translate(expression);
+
+            if (translatedExpression.isPresent()) {
+                return Optional.of(new Cast(translatedExpression.get(), toSqlType(type)));
+            }
+
+            return Optional.empty();
+        }
+
         private Optional<Expression> translateLogicalExpression(LogicalExpression.Operator operator, List<ConnectorExpression> arguments)
         {
             ImmutableList.Builder<Expression> translatedArguments = ImmutableList.builderWithExpectedSize(arguments.size());
@@ -269,6 +342,17 @@ public final class ConnectorExpressionTranslator
             return translate(left).flatMap(leftTranslated ->
                     translate(right).map(rightTranslated ->
                             new ComparisonExpression(operator, leftTranslated, rightTranslated)));
+        }
+
+        private Optional<Expression> translateNullIf(ConnectorExpression first, ConnectorExpression second)
+        {
+            Optional<Expression> firstExpression = translate(first);
+            Optional<Expression> secondExpression = translate(second);
+            if (firstExpression.isPresent() && secondExpression.isPresent()) {
+                return Optional.of(new NullIfExpression(firstExpression.get(), secondExpression.get()));
+            }
+
+            return Optional.empty();
         }
 
         private Optional<ComparisonExpression.Operator> comparisonOperatorForFunctionName(FunctionName functionName)
@@ -375,7 +459,7 @@ public final class ConnectorExpressionTranslator
         @Override
         protected Optional<ConnectorExpression> visitStringLiteral(StringLiteral node, Void context)
         {
-            return Optional.of(new Constant(node.getSlice(), typeOf(node)));
+            return Optional.of(new Constant(Slices.utf8Slice(node.getValue()), typeOf(node)));
         }
 
         @Override
@@ -393,13 +477,13 @@ public final class ConnectorExpressionTranslator
         @Override
         protected Optional<ConnectorExpression> visitCharLiteral(CharLiteral node, Void context)
         {
-            return Optional.of(new Constant(node.getSlice(), typeOf(node)));
+            return Optional.of(new Constant(Slices.utf8Slice(node.getValue()), typeOf(node)));
         }
 
         @Override
         protected Optional<ConnectorExpression> visitBinaryLiteral(BinaryLiteral node, Void context)
         {
-            return Optional.of(new Constant(node.getValue(), typeOf(node)));
+            return Optional.of(new Constant(Slices.wrappedBuffer(node.getValue()), typeOf(node)));
         }
 
         @Override
@@ -469,6 +553,23 @@ public final class ConnectorExpressionTranslator
         }
 
         @Override
+        protected Optional<ConnectorExpression> visitBetweenPredicate(BetweenPredicate node, Void context)
+        {
+            if (!isComplexExpressionPushdown(session)) {
+                return Optional.empty();
+            }
+            return process(node.getValue()).flatMap(value ->
+                    process(node.getMin()).flatMap(min ->
+                            process(node.getMax()).map(max ->
+                                    new Call(
+                                            BOOLEAN,
+                                            AND_FUNCTION_NAME,
+                                            ImmutableList.of(
+                                                    new Call(BOOLEAN, GREATER_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME, ImmutableList.of(value, min)),
+                                                    new Call(BOOLEAN, LESS_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME, ImmutableList.of(value, max)))))));
+        }
+
+        @Override
         protected Optional<ConnectorExpression> visitArithmeticUnary(ArithmeticUnaryExpression node, Void context)
         {
             if (!isComplexExpressionPushdown(session)) {
@@ -489,6 +590,22 @@ public final class ConnectorExpressionTranslator
             if (isEffectivelyLiteral(plannerContext, session, node)) {
                 return Optional.of(constantFor(node));
             }
+
+            if (node.isSafe()) {
+                // try_cast would need to be modeled separately
+                return Optional.empty();
+            }
+
+            if (!isComplexExpressionPushdown(session)) {
+                return Optional.empty();
+            }
+
+            Optional<ConnectorExpression> translatedExpression = process(node.getExpression());
+            if (translatedExpression.isPresent()) {
+                Type type = plannerContext.getTypeManager().getType(toTypeSignature(node.getType()));
+                return Optional.of(new Call(type, CAST_FUNCTION_NAME, List.of(translatedExpression.get())));
+            }
+
             return Optional.empty();
         }
 
@@ -514,11 +631,11 @@ public final class ConnectorExpressionTranslator
                 Object value = evaluateConstant(node);
                 if (value instanceof JoniRegexp) {
                     Slice pattern = ((JoniRegexp) value).pattern();
-                    return Optional.of(new Constant(pattern, VarcharType.createVarcharType(countCodePoints(pattern))));
+                    return Optional.of(new Constant(pattern, createVarcharType(countCodePoints(pattern))));
                 }
                 if (value instanceof Re2JRegexp) {
                     Slice pattern = Slices.utf8Slice(((Re2JRegexp) value).pattern());
-                    return Optional.of(new Constant(pattern, VarcharType.createVarcharType(countCodePoints(pattern))));
+                    return Optional.of(new Constant(pattern, createVarcharType(countCodePoints(pattern))));
                 }
                 return Optional.of(new Constant(value, types.get(NodeRef.of(node))));
             }
@@ -536,6 +653,38 @@ public final class ConnectorExpressionTranslator
             // TODO Translate catalog/schema qualifier when available.
             FunctionName name = new FunctionName(functionName);
             return Optional.of(new Call(typeOf(node), name, arguments.build()));
+        }
+
+        @Override
+        protected Optional<ConnectorExpression> visitIsNullPredicate(IsNullPredicate node, Void context)
+        {
+            Optional<ConnectorExpression> translatedValue = process(node.getValue());
+            if (translatedValue.isPresent()) {
+                return Optional.of(new Call(BOOLEAN, IS_NULL_FUNCTION_NAME, ImmutableList.of(translatedValue.get())));
+            }
+            return Optional.empty();
+        }
+
+        @Override
+        protected Optional<ConnectorExpression> visitIsNotNullPredicate(IsNotNullPredicate node, Void context)
+        {
+            // IS NOT NULL is translated to $not($is_null(..))
+            Optional<ConnectorExpression> translatedValue = process(node.getValue());
+            if (translatedValue.isPresent()) {
+                Call isNullCall = new Call(typeOf(node), IS_NULL_FUNCTION_NAME, List.of(translatedValue.get()));
+                return Optional.of(new Call(BOOLEAN, NOT_FUNCTION_NAME, List.of(isNullCall)));
+            }
+            return Optional.empty();
+        }
+
+        @Override
+        protected Optional<ConnectorExpression> visitNotExpression(NotExpression node, Void context)
+        {
+            Optional<ConnectorExpression> translatedValue = process(node.getValue());
+            if (translatedValue.isPresent()) {
+                return Optional.of(new Call(BOOLEAN, NOT_FUNCTION_NAME, List.of(translatedValue.get())));
+            }
+            return Optional.empty();
         }
 
         private ConnectorExpression constantFor(Expression node)
@@ -565,6 +714,17 @@ public final class ConnectorExpressionTranslator
                 if (escape.isPresent()) {
                     return Optional.of(new Call(typeOf(node), LIKE_PATTERN_FUNCTION_NAME, List.of(value.get(), pattern.get(), escape.get())));
                 }
+            }
+            return Optional.empty();
+        }
+
+        @Override
+        protected Optional<ConnectorExpression> visitNullIfExpression(NullIfExpression node, Void context)
+        {
+            Optional<ConnectorExpression> firstValue = process(node.getFirst());
+            Optional<ConnectorExpression> secondValue = process(node.getSecond());
+            if (firstValue.isPresent() && secondValue.isPresent()) {
+                return Optional.of(new Call(typeOf(node), NULLIF_FUNCTION_NAME, ImmutableList.of(firstValue.get(), secondValue.get())));
             }
             return Optional.empty();
         }

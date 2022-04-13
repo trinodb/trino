@@ -64,7 +64,6 @@ public class PageProcessor
 
     private int projectBatchSize;
 
-    @VisibleForTesting
     public PageProcessor(Optional<PageFilter> filter, List<? extends PageProjection> projections, OptionalInt initialBatchSize)
     {
         this(filter, projections, initialBatchSize, new ExpressionProfiler());

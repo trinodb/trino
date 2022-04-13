@@ -1422,6 +1422,8 @@ public class TestArrayOperators
         assertFunction("ARRAY_UNION(ARRAY [8.3E0, 1.6E0, 4.1E0, 5.2E0], ARRAY [4.0E0, 5.2E0, 8.3E0, 9.7E0, 3.5E0])", new ArrayType(DOUBLE), ImmutableList.of(8.3, 1.6, 4.1, 5.2, 4.0, 9.7, 3.5));
         assertFunction("ARRAY_UNION(ARRAY [5.1E0, 7, 3.0E0, 4.8E0, 10], ARRAY [6.5E0, 10.0E0, 1.9E0, 5.1E0, 3.9E0, 4.8E0])", new ArrayType(DOUBLE), ImmutableList.of(5.1, 7.0, 3.0, 4.8, 10.0, 6.5, 1.9, 3.9));
         assertFunction("ARRAY_UNION(ARRAY [ARRAY [4, 5], ARRAY [6, 7]], ARRAY [ARRAY [4, 5], ARRAY [6, 8]])", new ArrayType(new ArrayType(INTEGER)), ImmutableList.of(ImmutableList.of(4, 5), ImmutableList.of(6, 7), ImmutableList.of(6, 8)));
+        assertFunction("ARRAY_UNION(ARRAY [NaN()], ARRAY [NaN()])", new ArrayType(DOUBLE), ImmutableList.of(NaN)); // results unique based on IS DISTINCT semantics
+        assertFunction("ARRAY_UNION(ARRAY [1, NaN(), 3], ARRAY [1, NaN()])", new ArrayType(DOUBLE), ImmutableList.of(1.0, NaN, 3.0));
     }
 
     @Test

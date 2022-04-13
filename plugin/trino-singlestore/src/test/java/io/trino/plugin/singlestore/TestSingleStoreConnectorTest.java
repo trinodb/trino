@@ -81,6 +81,7 @@ public class TestSingleStoreConnectorTest
 
             case SUPPORTS_COMMENT_ON_TABLE:
             case SUPPORTS_COMMENT_ON_COLUMN:
+            case SUPPORTS_ADD_COLUMN_WITH_COMMENT:
                 return false;
 
             case SUPPORTS_ARRAY:
@@ -174,6 +175,13 @@ public class TestSingleStoreConnectorTest
 
         assertUpdate("DROP TABLE test_drop");
         assertFalse(getQueryRunner().tableExists(getSession(), "test_drop"));
+    }
+
+    @Override
+    public void testDeleteWithLike()
+    {
+        assertThatThrownBy(super::testDeleteWithLike)
+                .hasStackTraceContaining("TrinoException: Unsupported delete");
     }
 
     @Test

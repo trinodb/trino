@@ -161,7 +161,8 @@ public class PartitionTable
                         RowType.from(ImmutableList.of(
                                 new RowType.Field(Optional.of("min"), toTrinoType(column.type(), typeManager)),
                                 new RowType.Field(Optional.of("max"), toTrinoType(column.type(), typeManager)),
-                                new RowType.Field(Optional.of("null_count"), BIGINT)))))
+                                new RowType.Field(Optional.of("null_count"), BIGINT),
+                                new RowType.Field(Optional.of("nan_count"), BIGINT)))))
                 .collect(toImmutableList());
         if (metricColumns.isEmpty()) {
             return Optional.empty();
@@ -248,13 +249,14 @@ public class PartitionTable
                     Object min = icebergStatistics.getMinValues().get(fieldId);
                     Object max = icebergStatistics.getMaxValues().get(fieldId);
                     Long nullCount = icebergStatistics.getNullCounts().get(fieldId);
+                    Long nanCount = icebergStatistics.getNanCounts().get(fieldId);
                     if (min == null && max == null && nullCount == null) {
                         row.add(null);
                         return;
                     }
 
                     RowType columnMetricType = columnMetricTypes.get(i);
-                    columnMetricType.writeObject(dataBlockBuilder, getColumnMetricBlock(columnMetricType, min, max, nullCount));
+                    columnMetricType.writeObject(dataBlockBuilder, getColumnMetricBlock(columnMetricType, min, max, nullCount, nanCount));
                 }
                 dataRowBlockBuilder.closeEntry();
                 row.add(dataColumnType.getObject(dataRowBlockBuilder, 0));
@@ -277,7 +279,7 @@ public class PartitionTable
         return partitionTypeBuilder.build();
     }
 
-    private static Block getColumnMetricBlock(RowType columnMetricType, Object min, Object max, Long nullCount)
+    private static Block getColumnMetricBlock(RowType columnMetricType, Object min, Object max, Long nullCount, Long nanCount)
     {
         BlockBuilder rowBlockBuilder = columnMetricType.createBlockBuilder(null, 1);
         BlockBuilder builder = rowBlockBuilder.beginBlockEntry();
@@ -285,6 +287,7 @@ public class PartitionTable
         writeNativeValue(fields.get(0).getType(), builder, min);
         writeNativeValue(fields.get(1).getType(), builder, max);
         writeNativeValue(fields.get(2).getType(), builder, nullCount);
+        writeNativeValue(fields.get(3).getType(), builder, nanCount);
 
         rowBlockBuilder.closeEntry();
         return columnMetricType.getObject(rowBlockBuilder, 0);

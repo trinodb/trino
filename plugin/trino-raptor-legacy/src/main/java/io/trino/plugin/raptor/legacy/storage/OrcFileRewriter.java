@@ -14,6 +14,7 @@
 package io.trino.plugin.raptor.legacy.storage;
 
 import io.airlift.log.Logger;
+import io.trino.hive.orc.NullMemoryManager;
 import io.trino.plugin.raptor.legacy.util.Closer;
 import io.trino.plugin.raptor.legacy.util.SyncingFileSystem;
 import org.apache.hadoop.conf.Configuration;
@@ -31,7 +32,6 @@ import org.apache.hadoop.io.BooleanWritable;
 import org.apache.hadoop.io.BytesWritable;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
-import org.apache.orc.NullMemoryManager;
 
 import java.io.File;
 import java.io.IOException;

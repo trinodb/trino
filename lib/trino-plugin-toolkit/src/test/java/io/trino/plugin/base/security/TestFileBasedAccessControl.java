@@ -26,18 +26,19 @@ import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.TrinoPrincipal;
+import io.trino.spi.type.Type;
 import org.testng.Assert.ThrowingRunnable;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.net.URISyntaxException;
 import java.util.EnumSet;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.io.Resources.getResource;
 import static io.trino.spi.security.Privilege.UPDATE;
 import static io.trino.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
@@ -258,8 +259,7 @@ public class TestFileBasedAccessControl
         return EnumSet.allOf(Privilege.class)
                 .stream()
                 .flatMap(privilege -> Stream.of(true, false).map(grantOption -> new Object[] {privilege, grantOption}))
-                .collect(toImmutableList())
-                .toArray(new Object[0][0]);
+                .toArray(Object[][]::new);
     }
 
     @Test
@@ -463,8 +463,11 @@ public class TestFileBasedAccessControl
 
     @Test
     public void testEverythingImplemented()
+            throws NoSuchMethodException
     {
-        assertAllMethodsOverridden(ConnectorAccessControl.class, FileBasedAccessControl.class);
+        assertAllMethodsOverridden(ConnectorAccessControl.class, FileBasedAccessControl.class, ImmutableSet.of(
+                FileBasedAccessControl.class.getMethod("getRowFilter", ConnectorSecurityContext.class, SchemaTableName.class),
+                FileBasedAccessControl.class.getMethod("getColumnMask", ConnectorSecurityContext.class, SchemaTableName.class, String.class, Type.class)));
     }
 
     private static ConnectorSecurityContext user(String name, Set<String> groups)
@@ -477,8 +480,13 @@ public class TestFileBasedAccessControl
 
     private static ConnectorAccessControl createAccessControl(String fileName)
     {
-        File configFile = new File(getResource(fileName).getPath());
-        return new FileBasedAccessControl(new CatalogName("test_catalog"), configFile);
+        try {
+            File configFile = new File(getResource(fileName).toURI());
+            return new FileBasedAccessControl(new CatalogName("test_catalog"), configFile);
+        }
+        catch (URISyntaxException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private static void assertDenied(ThrowingRunnable runnable)

@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import io.airlift.concurrent.MoreFutures;
 import io.airlift.log.Logger;
 import io.trino.Session;
 import io.trino.execution.ExecutionFailureInfo;
@@ -35,8 +36,10 @@ import io.trino.execution.TaskStatus;
 import io.trino.execution.buffer.OutputBuffers;
 import io.trino.execution.scheduler.PartitionMemoryEstimator.MemoryRequirements;
 import io.trino.failuredetector.FailureDetector;
+import io.trino.metadata.InternalNode;
 import io.trino.metadata.Split;
 import io.trino.spi.ErrorCode;
+import io.trino.spi.StandardErrorCode;
 import io.trino.spi.TrinoException;
 import io.trino.spi.exchange.Exchange;
 import io.trino.spi.exchange.ExchangeSinkHandle;
@@ -51,13 +54,16 @@ import io.trino.sql.planner.plan.RemoteSourceNode;
 import javax.annotation.concurrent.GuardedBy;
 
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Queue;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -96,6 +102,7 @@ public class FaultTolerantStageScheduler
     private final TaskDescriptorStorage taskDescriptorStorage;
     private final PartitionMemoryEstimator partitionMemoryEstimator;
     private final int maxRetryAttemptsPerTask;
+    private final int maxTasksWaitingForNodePerStage;
 
     private final TaskLifecycleListener taskLifecycleListener;
     // empty when the results are consumed via a direct exchange
@@ -109,8 +116,6 @@ public class FaultTolerantStageScheduler
     @GuardedBy("this")
     private ListenableFuture<Void> blocked = immediateVoidFuture();
 
-    @GuardedBy("this")
-    private NodeAllocator.NodeLease nodeLease;
     @GuardedBy("this")
     private SettableFuture<Void> taskFinishedFuture;
 
@@ -129,13 +134,15 @@ public class FaultTolerantStageScheduler
     @GuardedBy("this")
     private final Queue<Integer> queuedPartitions = new ArrayDeque<>();
     @GuardedBy("this")
+    private final Queue<PendingPartition> pendingPartitions = new ArrayDeque<>();
+    @GuardedBy("this")
     private final Set<Integer> finishedPartitions = new HashSet<>();
     @GuardedBy("this")
-    private int remainingRetryAttemptsOverall;
+    private final AtomicInteger remainingRetryAttemptsOverall;
     @GuardedBy("this")
     private final Map<Integer, Integer> remainingAttemptsPerTask = new HashMap<>();
     @GuardedBy("this")
-    private Map<Integer, MemoryRequirements> partitionMemoryRequirements = new HashMap<>();
+    private final Map<Integer, MemoryRequirements> partitionMemoryRequirements = new HashMap<>();
 
     @GuardedBy("this")
     private Throwable failure;
@@ -156,8 +163,9 @@ public class FaultTolerantStageScheduler
             Map<PlanFragmentId, Exchange> sourceExchanges,
             Optional<int[]> sourceBucketToPartitionMap,
             Optional<BucketNodeMap> sourceBucketNodeMap,
-            int taskRetryAttemptsOverall,
-            int taskRetryAttemptsPerTask)
+            AtomicInteger remainingRetryAttemptsOverall,
+            int taskRetryAttemptsPerTask,
+            int maxTasksWaitingForNodePerStage)
     {
         checkArgument(!stage.getFragment().getStageExecutionDescriptor().isStageGroupedExecution(), "grouped execution is expected to be disabled");
 
@@ -174,9 +182,9 @@ public class FaultTolerantStageScheduler
         this.sourceExchanges = ImmutableMap.copyOf(requireNonNull(sourceExchanges, "sourceExchanges is null"));
         this.sourceBucketToPartitionMap = requireNonNull(sourceBucketToPartitionMap, "sourceBucketToPartitionMap is null");
         this.sourceBucketNodeMap = requireNonNull(sourceBucketNodeMap, "sourceBucketNodeMap is null");
-        checkArgument(taskRetryAttemptsOverall >= 0, "taskRetryAttemptsOverall must be greater than or equal to 0: %s", taskRetryAttemptsOverall);
-        this.remainingRetryAttemptsOverall = taskRetryAttemptsOverall;
+        this.remainingRetryAttemptsOverall = requireNonNull(remainingRetryAttemptsOverall, "remainingRetryAttemptsOverall is null");
         this.maxRetryAttemptsPerTask = taskRetryAttemptsPerTask;
+        this.maxTasksWaitingForNodePerStage = maxTasksWaitingForNodePerStage;
     }
 
     public StageId getStageId()
@@ -235,8 +243,8 @@ public class FaultTolerantStageScheduler
                     sourceBucketNodeMap);
         }
 
-        while (!queuedPartitions.isEmpty() || !taskSource.isFinished()) {
-            while (queuedPartitions.isEmpty() && !taskSource.isFinished()) {
+        while (!pendingPartitions.isEmpty() || !queuedPartitions.isEmpty() || !taskSource.isFinished()) {
+            while (queuedPartitions.isEmpty() && pendingPartitions.size() < maxTasksWaitingForNodePerStage && !taskSource.isFinished()) {
                 List<TaskDescriptor> tasks = taskSource.getMoreTasks();
                 for (TaskDescriptor task : tasks) {
                     queuedPartitions.add(task.getPartitionId());
@@ -252,94 +260,120 @@ public class FaultTolerantStageScheduler
                 }
             }
 
-            if (queuedPartitions.isEmpty()) {
+            Iterator<PendingPartition> pendingPartitionsIterator = pendingPartitions.iterator();
+            boolean startedTask = false;
+            while (pendingPartitionsIterator.hasNext()) {
+                PendingPartition pendingPartition = pendingPartitionsIterator.next();
+                if (pendingPartition.getNodeLease().getNode().isDone()) {
+                    startTask(pendingPartition.getPartition(), pendingPartition.getNodeLease());
+                    startedTask = true;
+                    pendingPartitionsIterator.remove();
+                }
+            }
+
+            if (!startedTask && (queuedPartitions.isEmpty() || pendingPartitions.size() >= maxTasksWaitingForNodePerStage)) {
                 break;
             }
 
-            int partition = queuedPartitions.peek();
-            Optional<TaskDescriptor> taskDescriptorOptional = taskDescriptorStorage.get(stage.getStageId(), partition);
-            if (taskDescriptorOptional.isEmpty()) {
-                // query has been terminated
-                return;
-            }
-            TaskDescriptor taskDescriptor = taskDescriptorOptional.get();
+            while (pendingPartitions.size() < maxTasksWaitingForNodePerStage && !queuedPartitions.isEmpty()) {
+                int partition = queuedPartitions.poll();
+                Optional<TaskDescriptor> taskDescriptorOptional = taskDescriptorStorage.get(stage.getStageId(), partition);
+                if (taskDescriptorOptional.isEmpty()) {
+                    // query has been terminated
+                    return;
+                }
+                TaskDescriptor taskDescriptor = taskDescriptorOptional.get();
 
-            MemoryRequirements memoryRequirements = partitionMemoryRequirements.computeIfAbsent(partition, ignored -> partitionMemoryEstimator.getInitialMemoryRequirements(session, taskDescriptor.getNodeRequirements().getMemory()));
-            if (nodeLease == null) {
+                MemoryRequirements memoryRequirements = partitionMemoryRequirements.computeIfAbsent(partition, ignored -> partitionMemoryEstimator.getInitialMemoryRequirements(session, taskDescriptor.getNodeRequirements().getMemory()));
+                log.debug("Computed initial memory requirements for task from stage %s; requirements=%s; estimator=%s", stage.getStageId(), memoryRequirements, partitionMemoryEstimator);
                 NodeRequirements nodeRequirements = taskDescriptor.getNodeRequirements();
                 nodeRequirements = nodeRequirements.withMemory(memoryRequirements.getRequiredMemory());
-                nodeLease = nodeAllocator.acquire(nodeRequirements);
+                NodeAllocator.NodeLease nodeLease = nodeAllocator.acquire(nodeRequirements);
+
+                pendingPartitions.add(new PendingPartition(partition, nodeLease));
             }
-            if (!nodeLease.getNode().isDone()) {
-                blocked = asVoid(nodeLease.getNode());
-                return;
-            }
-            NodeInfo node = getFutureValue(nodeLease.getNode());
-
-            queuedPartitions.poll();
-
-            Multimap<PlanNodeId, Split> tableScanSplits = taskDescriptor.getSplits();
-            Multimap<PlanNodeId, Split> remoteSplits = createRemoteSplits(taskDescriptor.getExchangeSourceHandles());
-
-            Multimap<PlanNodeId, Split> taskSplits = ImmutableListMultimap.<PlanNodeId, Split>builder()
-                    .putAll(tableScanSplits)
-                    .putAll(remoteSplits)
-                    .build();
-
-            int attemptId = getNextAttemptIdForPartition(partition);
-
-            OutputBuffers outputBuffers;
-            Optional<ExchangeSinkInstanceHandle> exchangeSinkInstanceHandle;
-            if (sinkExchange.isPresent()) {
-                ExchangeSinkHandle sinkHandle = partitionToExchangeSinkHandleMap.get(partition);
-                exchangeSinkInstanceHandle = Optional.of(sinkExchange.get().instantiateSink(sinkHandle, attemptId));
-                outputBuffers = createSpoolingExchangeOutputBuffers(exchangeSinkInstanceHandle.get());
-            }
-            else {
-                exchangeSinkInstanceHandle = Optional.empty();
-                // stage will be consumed by the coordinator using direct exchange
-                outputBuffers = createInitialEmptyOutputBuffers(PARTITIONED)
-                        .withBuffer(new OutputBuffers.OutputBufferId(0), 0)
-                        .withNoMoreBufferIds();
-            }
-
-            Set<PlanNodeId> allSourcePlanNodeIds = ImmutableSet.<PlanNodeId>builder()
-                    .addAll(stage.getFragment().getPartitionedSources())
-                    .addAll(stage.getFragment()
-                            .getRemoteSourceNodes().stream()
-                            .map(RemoteSourceNode::getId)
-                            .iterator())
-                    .build();
-
-            RemoteTask task = stage.createTask(
-                    node.getNode(),
-                    partition,
-                    attemptId,
-                    sinkBucketToPartitionMap,
-                    outputBuffers,
-                    taskSplits,
-                    allSourcePlanNodeIds.stream()
-                            .collect(toImmutableListMultimap(Function.identity(), planNodeId -> Lifespan.taskWide())),
-                    allSourcePlanNodeIds).orElseThrow(() -> new VerifyException("stage execution is expected to be active"));
-
-            partitionToRemoteTaskMap.put(partition, task);
-            runningTasks.put(task.getTaskId(), task);
-            runningNodes.put(task.getTaskId(), nodeLease);
-            nodeLease = null;
-
-            if (taskFinishedFuture == null) {
-                taskFinishedFuture = SettableFuture.create();
-            }
-
-            taskLifecycleListener.taskCreated(stage.getFragment().getId(), task);
-
-            task.addStateChangeListener(taskStatus -> updateTaskStatus(taskStatus, exchangeSinkInstanceHandle));
-            task.start();
         }
 
+        List<ListenableFuture<?>> futures = new ArrayList<>();
         if (taskFinishedFuture != null && !taskFinishedFuture.isDone()) {
-            blocked = taskFinishedFuture;
+            futures.add(taskFinishedFuture);
         }
+        for (PendingPartition pendingPartition : pendingPartitions) {
+            futures.add(pendingPartition.getNodeLease().getNode());
+        }
+        if (!futures.isEmpty()) {
+            blocked = asVoid(MoreFutures.whenAnyComplete(futures));
+        }
+    }
+
+    private void startTask(int partition, NodeAllocator.NodeLease nodeLease)
+    {
+        Optional<TaskDescriptor> taskDescriptorOptional = taskDescriptorStorage.get(stage.getStageId(), partition);
+        if (taskDescriptorOptional.isEmpty()) {
+            // query has been terminated
+            return;
+        }
+        TaskDescriptor taskDescriptor = taskDescriptorOptional.get();
+
+        InternalNode node = getFutureValue(nodeLease.getNode());
+
+        Multimap<PlanNodeId, Split> tableScanSplits = taskDescriptor.getSplits();
+        Multimap<PlanNodeId, Split> remoteSplits = createRemoteSplits(taskDescriptor.getExchangeSourceHandles());
+
+        Multimap<PlanNodeId, Split> taskSplits = ImmutableListMultimap.<PlanNodeId, Split>builder()
+                .putAll(tableScanSplits)
+                .putAll(remoteSplits)
+                .build();
+
+        int attemptId = getNextAttemptIdForPartition(partition);
+
+        OutputBuffers outputBuffers;
+        Optional<ExchangeSinkInstanceHandle> exchangeSinkInstanceHandle;
+        if (sinkExchange.isPresent()) {
+            ExchangeSinkHandle sinkHandle = partitionToExchangeSinkHandleMap.get(partition);
+            exchangeSinkInstanceHandle = Optional.of(sinkExchange.get().instantiateSink(sinkHandle, attemptId));
+            outputBuffers = createSpoolingExchangeOutputBuffers(exchangeSinkInstanceHandle.get());
+        }
+        else {
+            exchangeSinkInstanceHandle = Optional.empty();
+            // stage will be consumed by the coordinator using direct exchange
+            outputBuffers = createInitialEmptyOutputBuffers(PARTITIONED)
+                    .withBuffer(new OutputBuffers.OutputBufferId(0), 0)
+                    .withNoMoreBufferIds();
+        }
+
+        Set<PlanNodeId> allSourcePlanNodeIds = ImmutableSet.<PlanNodeId>builder()
+                .addAll(stage.getFragment().getPartitionedSources())
+                .addAll(stage.getFragment()
+                        .getRemoteSourceNodes().stream()
+                        .map(RemoteSourceNode::getId)
+                        .iterator())
+                .build();
+
+        RemoteTask task = stage.createTask(
+                node,
+                partition,
+                attemptId,
+                sinkBucketToPartitionMap,
+                outputBuffers,
+                taskSplits,
+                allSourcePlanNodeIds.stream()
+                        .collect(toImmutableListMultimap(Function.identity(), planNodeId -> Lifespan.taskWide())),
+                allSourcePlanNodeIds).orElseThrow(() -> new VerifyException("stage execution is expected to be active"));
+
+        nodeLease.attachTaskId(task.getTaskId());
+        partitionToRemoteTaskMap.put(partition, task);
+        runningTasks.put(task.getTaskId(), task);
+        runningNodes.put(task.getTaskId(), nodeLease);
+
+        if (taskFinishedFuture == null) {
+            taskFinishedFuture = SettableFuture.create();
+        }
+
+        taskLifecycleListener.taskCreated(stage.getFragment().getId(), task);
+
+        task.addStateChangeListener(taskStatus -> updateTaskStatus(taskStatus, exchangeSinkInstanceHandle));
+        task.start();
     }
 
     public synchronized boolean isFinished()
@@ -381,7 +415,7 @@ public class FaultTolerantStageScheduler
         if (!closed) {
             cancelRunningTasks(abort);
             cancelBlockedFuture();
-            releaseAcquiredNode();
+            releasePendingNodes();
             closeTaskSource();
             closeSinkExchange();
         }
@@ -413,15 +447,17 @@ public class FaultTolerantStageScheduler
         }
     }
 
-    private void releaseAcquiredNode()
+    private void releasePendingNodes()
     {
         verify(!Thread.holdsLock(this));
-        NodeAllocator.NodeLease lease;
+        List<NodeAllocator.NodeLease> leases = new ArrayList<>();
         synchronized (this) {
-            lease = nodeLease;
-            nodeLease = null;
+            for (PendingPartition pendingPartition : pendingPartitions) {
+                leases.add(pendingPartition.getNodeLease());
+            }
+            pendingPartitions.clear();
         }
-        if (lease != null) {
+        for (NodeAllocator.NodeLease lease : leases) {
             lease.release();
         }
     }
@@ -514,6 +550,8 @@ public class FaultTolerantStageScheduler
                 int partitionId = taskId.getPartitionId();
 
                 if (!finishedPartitions.contains(partitionId) && !closed) {
+                    MemoryRequirements memoryLimits = partitionMemoryRequirements.get(partitionId);
+                    verify(memoryLimits != null);
                     switch (state) {
                         case FINISHED:
                             finishedPartitions.add(partitionId);
@@ -522,12 +560,15 @@ public class FaultTolerantStageScheduler
                                 sinkExchange.get().sinkFinished(exchangeSinkInstanceHandle.get());
                             }
                             partitionToRemoteTaskMap.get(partitionId).forEach(RemoteTask::abort);
+                            partitionMemoryEstimator.registerPartitionFinished(session, memoryLimits, taskStatus.getPeakMemoryReservation(), true, Optional.empty());
                             break;
                         case CANCELED:
                             log.debug("Task cancelled: %s", taskId);
+                            // no need for partitionMemoryEstimator.registerPartitionFinished; task cancelled mid-way
                             break;
                         case ABORTED:
                             log.debug("Task aborted: %s", taskId);
+                            // no need for partitionMemoryEstimator.registerPartitionFinished; task aborted mid-way
                             break;
                         case FAILED:
                             ExecutionFailureInfo failureInfo = taskStatus.getFailures().stream()
@@ -536,16 +577,25 @@ public class FaultTolerantStageScheduler
                                     .orElse(toFailure(new TrinoException(GENERIC_INTERNAL_ERROR, "A task failed for an unknown reason")));
                             log.warn(failureInfo.toException(), "Task failed: %s", taskId);
                             ErrorCode errorCode = failureInfo.getErrorCode();
+                            partitionMemoryEstimator.registerPartitionFinished(session, memoryLimits, taskStatus.getPeakMemoryReservation(), false, Optional.ofNullable(errorCode));
 
                             int taskRemainingAttempts = remainingAttemptsPerTask.getOrDefault(partitionId, maxRetryAttemptsPerTask);
-                            if (remainingRetryAttemptsOverall > 0 && taskRemainingAttempts > 0 && (errorCode == null || errorCode.getType() != USER_ERROR)) {
-                                remainingRetryAttemptsOverall--;
+                            if (remainingRetryAttemptsOverall.get() > 0
+                                    && taskRemainingAttempts > 0
+                                    && (errorCode == null || errorCode.getType() != USER_ERROR)) {
+                                remainingRetryAttemptsOverall.decrementAndGet();
                                 remainingAttemptsPerTask.put(partitionId, taskRemainingAttempts - 1);
 
                                 // update memory limits for next attempt
-                                MemoryRequirements memoryLimits = partitionMemoryRequirements.get(partitionId);
-                                verify(memoryLimits != null);
-                                MemoryRequirements newMemoryLimits = partitionMemoryEstimator.getNextRetryMemoryRequirements(session, memoryLimits, errorCode);
+                                MemoryRequirements newMemoryLimits = partitionMemoryEstimator.getNextRetryMemoryRequirements(session, memoryLimits, taskStatus.getPeakMemoryReservation(), errorCode);
+                                log.debug("Computed next memory requirements for task from stage %s; previous=%s; new=%s; peak=%s; estimator=%s", stage.getStageId(), memoryLimits, newMemoryLimits, taskStatus.getPeakMemoryReservation(), partitionMemoryEstimator);
+
+                                if (newMemoryLimits.getRequiredMemory().toBytes() * 0.99 <= taskStatus.getPeakMemoryReservation().toBytes()) {
+                                    ErrorCode finalErrorCode = errorCode != null ? errorCode : StandardErrorCode.CLUSTER_OUT_OF_MEMORY.toErrorCode();
+                                    failure = new TrinoException(() -> finalErrorCode, "Cannot allocate enough memory for task", failureInfo.toException());
+                                    break;
+                                }
+
                                 partitionMemoryRequirements.put(partitionId, newMemoryLimits);
 
                                 // reschedule
@@ -589,5 +639,27 @@ public class FaultTolerantStageScheduler
                 executionFailureInfo.getErrorLocation(),
                 REMOTE_HOST_GONE.toErrorCode(),
                 executionFailureInfo.getRemoteHost());
+    }
+
+    private static class PendingPartition
+    {
+        private final int partition;
+        private final NodeAllocator.NodeLease nodeLease;
+
+        public PendingPartition(int partition, NodeAllocator.NodeLease nodeLease)
+        {
+            this.partition = partition;
+            this.nodeLease = requireNonNull(nodeLease, "nodeLease is null");
+        }
+
+        public int getPartition()
+        {
+            return partition;
+        }
+
+        public NodeAllocator.NodeLease getNodeLease()
+        {
+            return nodeLease;
+        }
     }
 }

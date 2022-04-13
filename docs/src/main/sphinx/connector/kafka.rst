@@ -2,6 +2,10 @@
 Kafka connector
 ===============
 
+.. raw:: html
+
+  <img src="../_static/img/kafka.png" class="connector-logo">
+
 .. toctree::
     :maxdepth: 1
     :hidden:
@@ -39,13 +43,19 @@ Configuration
 
 To configure the Kafka connector, create a catalog properties file
 ``etc/catalog/kafka.properties`` with the following contents,
-replacing the properties as appropriate:
+replacing the properties as appropriate.
+
+In some cases, such as when using specialized authentication methods, it is necessary to specify
+additional Kafka client properties in order to access your Kafka cluster. To do so,
+add the ``kafka.config.resources`` property to reference your Kafka config files. Note that configs
+can be overwritten if defined explicitly in ``kafka.properties``:
 
 .. code-block:: text
 
     connector.name=kafka
     kafka.table-names=table1,table2
     kafka.nodes=host1:port,host2:port
+    kafka.config.resources=/etc/kafka-configuration.properties
 
 Multiple Kafka clusters
 ^^^^^^^^^^^^^^^^^^^^^^^
@@ -61,9 +71,9 @@ Configuration properties
 
 The following configuration properties are available:
 
-========================================================== ==============================================================================
+========================================================== ======================================================================================================
 Property Name                                              Description
-========================================================== ==============================================================================
+========================================================== ======================================================================================================
 ``kafka.default-schema``                                   Default schema name for tables
 ``kafka.nodes``                                            List of nodes in the Kafka cluster
 ``kafka.buffer-size``                                      Kafka read buffer size
@@ -79,7 +89,10 @@ Property Name                                              Description
 ``kafka.ssl.truststore.type``                              File format of the truststore file, defaults to ``JKS``
 ``kafka.ssl.key.password``                                 Password for the private key in the keystore file
 ``kafka.ssl.endpoint-identification-algorithm``            Endpoint identification algorithm used by clients to validate server host name, defaults to ``https``
-========================================================== ==============================================================================
+``kafka.config.resources``                                 A comma-separated list of Kafka client configuration files. These files must exist on the
+                                                           machines running Trino. Only specify this if absolutely necessary to access Kafka.
+                                                           Example: ``/etc/kafka-configuration.properties``
+========================================================== ======================================================================================================
 
 In addition, you need to configure :ref:`table schema and schema registry usage
 <kafka-table-schema-registry>` with the relevant properties.
@@ -382,12 +395,18 @@ Confluent table description supplier
 
 The Confluent table description supplier uses the `Confluent Schema Registry
 <https://docs.confluent.io/1.0/schema-registry/docs/intro.html>`_ to discover
-table definitions. Set ``kafka.table-description-supplier`` to ``CONFLUENT`` to
-use it and configure the additional properties in the following table.
+table definitions. It is only tested to work with the Confluent Schema
+Registry.
 
-The benefits of using the schema registry is that new tables can be defined
-without a cluster restart, schema updates are detected and there is no need to
-define tables manually.
+The benefits of using the Confluent table description supplier over the file
+table description supplier are:
+
+* New tables can be defined without a cluster restart.
+* Schema updates are detected automatically.
+* There is no need to define tables manually.
+
+Set ``kafka.table-description-supplier`` to ``CONFLUENT`` to use the
+schema registry and configure the additional properties in the following table:
 
 .. note::
 
@@ -570,7 +589,7 @@ message used for encoding.
 If only a start position is given:
 
 * For fixed width types, the appropriate number of bytes are used for the
-  specified ``dateFormat`` (see above).
+  specified ``dataFormat`` (see above).
 
 If both a start and end position are given, then:
 
@@ -1006,7 +1025,7 @@ message used for decoding. It can be one or two numbers separated by a colon (``
 
 If only a start position is given:
 
-* For fixed width types the column will use the appropriate number of bytes for the specified ``dateFormat`` (see above).
+* For fixed width types the column will use the appropriate number of bytes for the specified ``dataFormat`` (see above).
 * When ``VARCHAR`` value is decoded all bytes from start position till the end of the message will be used.
 
 If start and end position are given, then:

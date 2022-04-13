@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hive.metastore.glue;
 
+import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import com.amazonaws.services.glue.AWSGlueAsync;
 import com.amazonaws.services.glue.AWSGlueAsyncClientBuilder;
 import com.amazonaws.services.glue.model.CreateTableRequest;
@@ -104,6 +105,7 @@ import static io.trino.spi.statistics.ColumnStatisticType.NUMBER_OF_DISTINCT_VAL
 import static io.trino.spi.statistics.ColumnStatisticType.NUMBER_OF_NON_NULL_VALUES;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.lang.String.format;
 import static java.lang.System.currentTimeMillis;
 import static java.util.Locale.ENGLISH;
@@ -217,8 +219,9 @@ public class TestHiveGlueMetastore
         return new GlueHiveMetastore(
                 HDFS_ENVIRONMENT,
                 glueConfig,
+                DefaultAWSCredentialsProviderChain.getInstance(),
                 executor,
-                new DefaultGlueColumnStatisticsProviderFactory(glueConfig, executor, executor),
+                new DefaultGlueColumnStatisticsProviderFactory(executor, executor),
                 Optional.empty(),
                 new DefaultGlueMetastoreTableFilterProvider(
                         new MetastoreConfig()
@@ -307,6 +310,61 @@ public class TestHiveGlueMetastore
         }
         finally {
             dropTable(tablePartitionFormat);
+        }
+    }
+
+    @Test
+    public void testGetPartitionsWithFilterUsingReservedKeywordsAsColumnName()
+            throws Exception
+    {
+        SchemaTableName tableName = temporaryTable("get_partitions_with_filter_using_reserved_keyword_column_name");
+        try {
+            String reservedKeywordPartitionColumnName = "key";
+            String regularColumnPartitionName = "int_partition";
+            List<ColumnMetadata> columns = ImmutableList.<ColumnMetadata>builder()
+                    .add(new ColumnMetadata("t_string", createUnboundedVarcharType()))
+                    .add(new ColumnMetadata(reservedKeywordPartitionColumnName, createUnboundedVarcharType()))
+                    .add(new ColumnMetadata(regularColumnPartitionName, BIGINT))
+                    .build();
+            List<String> partitionedBy = ImmutableList.of(reservedKeywordPartitionColumnName, regularColumnPartitionName);
+
+            doCreateEmptyTable(tableName, ORC, columns, partitionedBy);
+
+            HiveMetastoreClosure metastoreClient = new HiveMetastoreClosure(getMetastoreClient());
+            Table table = metastoreClient.getTable(tableName.getSchemaName(), tableName.getTableName())
+                    .orElseThrow(() -> new TableNotFoundException(tableName));
+
+            String partitionName1 = makePartName(ImmutableList.of(reservedKeywordPartitionColumnName, regularColumnPartitionName), ImmutableList.of("value1", "1"));
+            String partitionName2 = makePartName(ImmutableList.of(reservedKeywordPartitionColumnName, regularColumnPartitionName), ImmutableList.of("value2", "2"));
+
+            List<PartitionWithStatistics> partitions = ImmutableList.of(partitionName1, partitionName2)
+                    .stream()
+                    .map(partitionName -> new PartitionWithStatistics(createDummyPartition(table, partitionName), partitionName, PartitionStatistics.empty()))
+                    .collect(toImmutableList());
+            metastoreClient.addPartitions(tableName.getSchemaName(), tableName.getTableName(), partitions);
+            metastoreClient.updatePartitionStatistics(tableName.getSchemaName(), tableName.getTableName(), partitionName1, currentStatistics -> EMPTY_TABLE_STATISTICS);
+            metastoreClient.updatePartitionStatistics(tableName.getSchemaName(), tableName.getTableName(), partitionName2, currentStatistics -> EMPTY_TABLE_STATISTICS);
+
+            Optional<List<String>> partitionNames = metastoreClient.getPartitionNamesByFilter(
+                    tableName.getSchemaName(),
+                    tableName.getTableName(),
+                    ImmutableList.of(reservedKeywordPartitionColumnName, regularColumnPartitionName),
+                    TupleDomain.withColumnDomains(ImmutableMap.of(regularColumnPartitionName, Domain.singleValue(BIGINT, 2L))));
+            assertTrue(partitionNames.isPresent());
+            assertEquals(partitionNames.get(), ImmutableList.of("key=value2/int_partition=2"));
+
+            // KEY is a reserved keyword in the grammar of the SQL parser used internally by Glue API
+            // and therefore should not be used in the partition filter
+            partitionNames = metastoreClient.getPartitionNamesByFilter(
+                    tableName.getSchemaName(),
+                    tableName.getTableName(),
+                    ImmutableList.of(reservedKeywordPartitionColumnName, regularColumnPartitionName),
+                    TupleDomain.withColumnDomains(ImmutableMap.of(reservedKeywordPartitionColumnName, Domain.singleValue(VARCHAR, utf8Slice("value1")))));
+            assertTrue(partitionNames.isPresent());
+            assertEquals(partitionNames.get(), ImmutableList.of("key=value1/int_partition=1", "key=value2/int_partition=2"));
+        }
+        finally {
+            dropTable(tableName);
         }
     }
 

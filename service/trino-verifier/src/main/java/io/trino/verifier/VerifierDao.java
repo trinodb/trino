@@ -32,6 +32,7 @@ public interface VerifierDao
             ", test_postqueries\n" +
             ", test_username\n" +
             ", test_password\n" +
+            ", test_session_properties_json\n" +
             ", control_catalog\n" +
             ", control_schema\n" +
             ", control_prequeries\n" +
@@ -39,7 +40,7 @@ public interface VerifierDao
             ", control_postqueries\n" +
             ", control_username\n" +
             ", control_password\n" +
-            ", session_properties_json\n" +
+            ", control_session_properties_json\n" +
             "FROM verifier_queries\n" +
             "WHERE suite = :suite\n" +
             "ORDER BY id\n" +

@@ -92,6 +92,9 @@ public class ClientOptions
     @Option(names = "--truststore-type", paramLabel = "<type>", description = "Truststore type")
     public Optional<String> truststoreType;
 
+    @Option(names = "--use-system-truststore", description = "Use default system (OS) truststore")
+    public boolean useSystemTruststore;
+
     @Option(names = "--insecure", description = "Skip validation of HTTP server certificates (should only be used for debugging)")
     public boolean insecure;
 
@@ -215,7 +218,7 @@ public class ClientOptions
     {
         return new ClientSession(
                 parseServer(server),
-                user.orElse(null),
+                user,
                 sessionUser,
                 source,
                 Optional.ofNullable(traceToken),

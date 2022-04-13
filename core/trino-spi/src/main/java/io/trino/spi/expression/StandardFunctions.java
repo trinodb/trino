@@ -27,6 +27,22 @@ public final class StandardFunctions
      */
     public static final FunctionName OR_FUNCTION_NAME = new FunctionName("$or");
 
+    /**
+     * $not is a function accepting boolean argument
+     */
+    public static final FunctionName NOT_FUNCTION_NAME = new FunctionName("$not");
+
+    public static final FunctionName IS_NULL_FUNCTION_NAME = new FunctionName("$is_null");
+    /**
+     * $nullif is a function accepting two arguments. Returns null if both values are the same, otherwise returns the first value.
+     */
+    public static final FunctionName NULLIF_FUNCTION_NAME = new FunctionName("$nullif");
+
+    /**
+     * $cast function result type is determined by the {@link Call#getType()}
+     */
+    public static final FunctionName CAST_FUNCTION_NAME = new FunctionName("$cast");
+
     public static final FunctionName EQUAL_OPERATOR_FUNCTION_NAME = new FunctionName("$equal");
     public static final FunctionName NOT_EQUAL_OPERATOR_FUNCTION_NAME = new FunctionName("$not_equal");
     public static final FunctionName LESS_THAN_OPERATOR_FUNCTION_NAME = new FunctionName("$less_than");
