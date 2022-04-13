@@ -35,10 +35,10 @@ public class StarburstSynapsePlugin
     }
 
     @VisibleForTesting
-    DynamicFilteringJdbcConnectorFactory getConnectorFactory(LicenseManager licenseManager, Module extensions)
+    ConnectorFactory getConnectorFactory(LicenseManager licenseManager, Module extensions)
     {
         requireNonNull(licenseManager, "licenseManager is null");
-        return new DynamicFilteringJdbcConnectorFactory(
+        return DynamicFilteringJdbcConnectorFactory.create(
                 "synapse",
                 combine(
                         binder -> binder.bind(LicenseManager.class).toInstance(licenseManager),
