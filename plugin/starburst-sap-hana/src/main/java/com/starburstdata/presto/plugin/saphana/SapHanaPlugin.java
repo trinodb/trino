@@ -37,7 +37,7 @@ public class SapHanaPlugin
     ConnectorFactory getConnectorFactory(LicenseManager licenseManager)
     {
         requireNonNull(licenseManager, "licenseManager is null");
-        return new DynamicFilteringJdbcConnectorFactory(
+        return DynamicFilteringJdbcConnectorFactory.create(
                 CONNECTOR_NAME,
                 combine(
                         binder -> binder.bind(LicenseManager.class).toInstance(licenseManager),
