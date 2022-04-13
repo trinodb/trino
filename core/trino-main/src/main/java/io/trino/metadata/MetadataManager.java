@@ -2247,10 +2247,6 @@ public final class MetadataManager
     }
 
     //
-    // Blocks
-    //
-
-    //
     // Helpers
     //
 
