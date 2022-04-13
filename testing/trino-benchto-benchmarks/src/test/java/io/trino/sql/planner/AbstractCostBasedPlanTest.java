@@ -16,9 +16,8 @@ package io.trino.sql.planner;
 
 import com.google.common.base.VerifyException;
 import com.google.common.io.Resources;
-import io.trino.plugin.tpcds.TpcdsTableHandle;
-import io.trino.plugin.tpch.TpchTableHandle;
-import io.trino.spi.connector.ConnectorTableHandle;
+import io.trino.metadata.TableHandle;
+import io.trino.metadata.TableMetadata;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.ExchangeNode;
@@ -26,6 +25,7 @@ import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.SemiJoinNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.ValuesNode;
+import io.trino.testing.QueryRunner;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -44,6 +44,7 @@ import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
 import static io.trino.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
 import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
 import static io.trino.testing.DataProviders.toDataProvider;
+import static io.trino.transaction.TransactionBuilder.transaction;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.nio.file.Files.isDirectory;
@@ -138,7 +139,7 @@ public abstract class AbstractCostBasedPlanTest
         }
     }
 
-    private static class JoinOrderPrinter
+    private class JoinOrderPrinter
             extends SimplePlanVisitor<Integer>
     {
         private final StringBuilder result = new StringBuilder();
@@ -210,18 +211,22 @@ public abstract class AbstractCostBasedPlanTest
         @Override
         public Void visitTableScan(TableScanNode node, Integer indent)
         {
-            ConnectorTableHandle connectorTableHandle = node.getTable().getConnectorHandle();
-            if (connectorTableHandle instanceof TpcdsTableHandle) {
-                output(indent, "scan %s", ((TpcdsTableHandle) connectorTableHandle).getTableName());
-            }
-            else if (connectorTableHandle instanceof TpchTableHandle) {
-                output(indent, "scan %s", ((TpchTableHandle) connectorTableHandle).getTableName());
-            }
-            else {
-                throw new IllegalStateException(format("Unexpected ConnectorTableHandle: %s", connectorTableHandle.getClass()));
-            }
+            TableMetadata tableMetadata = getTableMetadata(node.getTable());
+            output(indent, "scan %s", tableMetadata.getTable().getTableName());
 
             return null;
+        }
+
+        private TableMetadata getTableMetadata(TableHandle tableHandle)
+        {
+            QueryRunner queryRunner = getQueryRunner();
+            return transaction(queryRunner.getTransactionManager(), queryRunner.getAccessControl())
+                    .singleStatement()
+                    .execute(queryRunner.getDefaultSession(), transactionSession -> {
+                        // metadata.getCatalogHandle() registers the catalog for the transaction
+                        queryRunner.getMetadata().getCatalogHandle(transactionSession, tableHandle.getCatalogName().getCatalogName());
+                        return queryRunner.getMetadata().getTableMetadata(transactionSession, tableHandle);
+                    });
         }
 
         @Override
