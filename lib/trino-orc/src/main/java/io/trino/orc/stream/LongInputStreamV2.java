@@ -423,7 +423,10 @@ public class LongInputStreamV2
             int chunkSize = min(numLiterals - used, items);
             for (int i = 0; i < chunkSize; i++) {
                 long literal = literals[used + i];
-                byte value = SignedBytes.saturatedCast(literal);
+                byte value = (byte) literal;
+                if (literal != value) {
+                    throw new OrcCorruptionException(input.getOrcDataSourceId(), "Decoded value out of range for a 8bit number");
+                }
                 values[offset + i] = value;
             }
             used += chunkSize;

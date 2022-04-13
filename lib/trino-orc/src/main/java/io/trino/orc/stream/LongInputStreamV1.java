@@ -216,14 +216,20 @@ public class LongInputStreamV1
             if (repeat) {
                 for (int i = 0; i < chunkSize; i++) {
                     long literal = literals[0] + ((long) (used + i) * delta);
-                    byte value = SignedBytes.saturatedCast(literal);
+                    byte value = (byte) literal;
+                    if (literal != value) {
+                        throw new OrcCorruptionException(input.getOrcDataSourceId(), "Decoded value out of range for a 8bit number");
+                    }
                     values[offset + i] = value;
                 }
             }
             else {
                 for (int i = 0; i < chunkSize; i++) {
                     long literal = literals[used + i];
-                    byte value = SignedBytes.saturatedCast(literal);
+                    byte value = (byte) literal;
+                    if (literal != value) {
+                        throw new OrcCorruptionException(input.getOrcDataSourceId(), "Decoded value out of range for a 8bit number");
+                    }
                     values[offset + i] = value;
                 }
             }
