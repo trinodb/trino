@@ -670,7 +670,8 @@ public class DynamoDbJdbcClient
 
     private static LongReadFunction dateReadFunctionUsingString()
     {
-        return new LongReadFunction() {
+        return new LongReadFunction()
+        {
             @Override
             public boolean isNull(ResultSet resultSet, int columnIndex)
                     throws SQLException
