@@ -229,7 +229,6 @@ public class DistributedQueryRunner
     {
         long start = System.nanoTime();
         ImmutableMap.Builder<String, String> propertiesBuilder = ImmutableMap.<String, String>builder()
-                .put("internal-communication.shared-secret", "test-secret")
                 .put("query.client.timeout", "10m")
                 // Use few threads in tests to preserve resources on CI
                 .put("discovery.http-client.min-threads", "1") // default 8
