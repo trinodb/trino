@@ -1286,7 +1286,8 @@ public abstract class AbstractTestHive
         for (HivePartition expectedPartition : expectedPartitions) {
             HivePartition actualPartition = actualById.get(expectedPartition.getPartitionId());
             assertEquals(actualPartition, expectedPartition);
-            assertNotNull(actualPartition, "partition " + expectedPartition.getPartitionId());
+            assertNotNull(actualPartition); // just to keep IDE happy
+            // HivePartition.equals doesn't compare all the fields, so let's check them
             assertEquals(actualPartition.getPartitionId(), expectedPartition.getPartitionId());
             assertEquals(actualPartition.getKeys(), expectedPartition.getKeys());
             assertEquals(actualPartition.getTableName(), expectedPartition.getTableName());
