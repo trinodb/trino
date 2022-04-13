@@ -39,7 +39,6 @@ import io.trino.failuredetector.FailureDetector;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.Split;
 import io.trino.spi.ErrorCode;
-import io.trino.spi.StandardErrorCode;
 import io.trino.spi.TrinoException;
 import io.trino.spi.exchange.Exchange;
 import io.trino.spi.exchange.ExchangeSinkHandle;
@@ -82,6 +81,7 @@ import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static io.trino.execution.buffer.OutputBuffers.BufferType.PARTITIONED;
 import static io.trino.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
 import static io.trino.execution.buffer.OutputBuffers.createSpoolingExchangeOutputBuffers;
+import static io.trino.execution.scheduler.ErrorCodes.isOutOfMemoryError;
 import static io.trino.failuredetector.FailureDetector.State.GONE;
 import static io.trino.operator.ExchangeOperator.REMOTE_CONNECTOR_ID;
 import static io.trino.spi.ErrorType.USER_ERROR;
@@ -590,9 +590,8 @@ public class FaultTolerantStageScheduler
                                 MemoryRequirements newMemoryLimits = partitionMemoryEstimator.getNextRetryMemoryRequirements(session, memoryLimits, taskStatus.getPeakMemoryReservation(), errorCode);
                                 log.debug("Computed next memory requirements for task from stage %s; previous=%s; new=%s; peak=%s; estimator=%s", stage.getStageId(), memoryLimits, newMemoryLimits, taskStatus.getPeakMemoryReservation(), partitionMemoryEstimator);
 
-                                if (newMemoryLimits.getRequiredMemory().toBytes() * 0.99 <= taskStatus.getPeakMemoryReservation().toBytes()) {
-                                    ErrorCode finalErrorCode = errorCode != null ? errorCode : StandardErrorCode.CLUSTER_OUT_OF_MEMORY.toErrorCode();
-                                    failure = new TrinoException(() -> finalErrorCode, "Cannot allocate enough memory for task", failureInfo.toException());
+                                if (errorCode != null && isOutOfMemoryError(errorCode) && newMemoryLimits.getRequiredMemory().toBytes() * 0.99 <= taskStatus.getPeakMemoryReservation().toBytes()) {
+                                    failure = new TrinoException(() -> errorCode, "Cannot allocate enough memory for task", failureInfo.toException());
                                     break;
                                 }
 
