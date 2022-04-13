@@ -68,7 +68,7 @@ public interface GroupByHash
             while (!pageBuilder.isFull() && groupIds.hasNext()) {
                 int groupId = groupIds.nextInt();
 
-                appendValuesTo(groupId, pageBuilder, 0);
+                appendValuesTo(groupId, pageBuilder);
 
                 pageBuilder.declarePosition();
                 for (int i = 0; i < groupedAggregators.size(); i++) {

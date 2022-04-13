@@ -763,7 +763,7 @@ public class TestHashAggregationOperator
                 Optional.empty(),
                 100,
                 Optional.of(DataSize.ofBytes(1)), // this setting makes operator to flush after each page
-                joinCompiler,
+                groupByHashFactory,
                 blockTypeOperators,
                 // use 5 rows threshold to trigger adaptive partial aggregation after each page flush
                 Optional.of(partialAggregationController));
@@ -816,7 +816,7 @@ public class TestHashAggregationOperator
                 Optional.empty(),
                 10,
                 Optional.of(DataSize.of(16, MEGABYTE)), // this setting makes operator to flush only after all pages
-                joinCompiler,
+                groupByHashFactory,
                 blockTypeOperators,
                 // use 5 rows threshold to trigger adaptive partial aggregation after each page flush
                 Optional.of(partialAggregationController));

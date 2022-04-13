@@ -1000,8 +1000,6 @@ public class LocalExecutionPlanner
                     node.getMaxRowCountPerPartition(),
                     hashChannel,
                     10_000,
-                    joinCompiler,
-                    blockTypeOperators,
                     groupByHashFactory);
             return new PhysicalOperation(operatorFactory, outputMappings.buildOrThrow(), context, source);
         }
@@ -3796,7 +3794,7 @@ public class LocalExecutionPlanner
                     0,
                     mappings,
                     10_000,
-                    Optional.of(getMaxPartialAggregationMemoryUsage(context.taskContext.getSession()));
+                    Optional.of(getMaxPartialAggregationMemoryUsage(context.taskContext.getSession())));
             return new PhysicalOperation(operatorFactory, mappings.buildOrThrow(), context, source);
         }
 

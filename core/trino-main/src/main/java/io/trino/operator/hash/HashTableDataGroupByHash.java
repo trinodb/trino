@@ -152,9 +152,9 @@ public class HashTableDataGroupByHash
     }
 
     @Override
-    public void appendValuesTo(int groupId, PageBuilder pageBuilder, int outputChannelOffset)
+    public void appendValuesTo(int groupId, PageBuilder pageBuilder)
     {
-        hashTableManager.valuesAppender().appendValuesTo(hashTableData, groupId, pageBuilder, outputChannelOffset, inputHashChannel.isPresent());
+        hashTableManager.valuesAppender().appendValuesTo(hashTableData, groupId, pageBuilder, 0, inputHashChannel.isPresent());
     }
 
     @Override

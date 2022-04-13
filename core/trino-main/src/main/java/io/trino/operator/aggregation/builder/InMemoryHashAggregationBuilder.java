@@ -278,29 +278,27 @@ public class InMemoryHashAggregationBuilder
     private WorkProcessor<Page> buildResult(IntIterator groupIds)
     {
         PageBuilder pageBuilder = new PageBuilder(buildTypes());
-        return groupByHash.buildResult(groupIds, pageBuilder, groupedAggregators);
+        return groupByHash.buildResult(groupIds, pageBuilder, groupedAggregators)
+                .map(page -> {
+                    if (partial) {
+                        // only from partial step output raw input columns
+                        Block[] finalPage = new Block[page.getChannelCount() + maskChannelCount + aggregationInputTypes.size() + 1];
+                        for (int i = 0; i < page.getChannelCount(); i++) {
+                            finalPage[i] = page.getBlock(i);
+                        }
+                        int positionCount = page.getPositionCount();
+                        for (int i = 0; i < maskChannelCount; i++) {
+                            finalPage[page.getChannelCount() + i] = nullRle(BOOLEAN, positionCount);
+                        }
+                        for (int i = 0; i < aggregationInputTypes.size(); i++) {
+                            finalPage[page.getChannelCount() + maskChannelCount + i] = nullRle(aggregationInputTypes.get(i), positionCount);
+                        }
+                        finalPage[finalPage.length - 1] = nullRle(BOOLEAN, positionCount);
 
-        result.map(page -> )
-        Page page = pageBuilder.build();
-        if (partial) {
-            // only from partial step output raw input columns
-            Block[] finalPage = new Block[page.getChannelCount() + maskChannelCount + aggregationInputTypes.size() + 1];
-            for (int i = 0; i < page.getChannelCount(); i++) {
-                finalPage[i] = page.getBlock(i);
-            }
-            int positionCount = page.getPositionCount();
-            for (int i = 0; i < maskChannelCount; i++) {
-                finalPage[page.getChannelCount() + i] = nullRle(BOOLEAN, positionCount);
-            }
-            for (int i = 0; i < aggregationInputTypes.size(); i++) {
-                finalPage[page.getChannelCount() + maskChannelCount + i] = nullRle(aggregationInputTypes.get(i), positionCount);
-            }
-            finalPage[finalPage.length - 1] = nullRle(BOOLEAN, positionCount);
-
-            page = Page.wrapBlocksWithoutCopy(positionCount, finalPage);
-        }
-
-        return ProcessState.ofResult(page)
+                        page = Page.wrapBlocksWithoutCopy(positionCount, finalPage);
+                    }
+                    return page;
+                });
     }
 
     public static RunLengthEncodedBlock nullRle(Type type, int positionCount)
