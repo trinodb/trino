@@ -16,6 +16,7 @@ package io.trino.execution.scheduler;
 import io.trino.spi.ErrorCode;
 
 import static io.trino.spi.StandardErrorCode.CLUSTER_OUT_OF_MEMORY;
+import static io.trino.spi.StandardErrorCode.EXCEEDED_GLOBAL_MEMORY_LIMIT;
 import static io.trino.spi.StandardErrorCode.EXCEEDED_LOCAL_MEMORY_LIMIT;
 
 public final class ErrorCodes
@@ -24,7 +25,8 @@ public final class ErrorCodes
 
     public static boolean isOutOfMemoryError(ErrorCode errorCode)
     {
-        return EXCEEDED_LOCAL_MEMORY_LIMIT.toErrorCode().equals(errorCode) // too many tasks from single query on a node
-                || CLUSTER_OUT_OF_MEMORY.toErrorCode().equals(errorCode); // too many tasks in general on a node
+        return EXCEEDED_LOCAL_MEMORY_LIMIT.toErrorCode().equals(errorCode)
+                || EXCEEDED_GLOBAL_MEMORY_LIMIT.toErrorCode().equals(errorCode)
+                || CLUSTER_OUT_OF_MEMORY.toErrorCode().equals(errorCode);
     }
 }
