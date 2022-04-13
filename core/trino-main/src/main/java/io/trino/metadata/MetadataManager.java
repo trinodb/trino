@@ -2255,8 +2255,8 @@ public final class MetadataManager
         if (catalogMetadata.getSecurityManagement() == SecurityManagement.CONNECTOR) {
             return Optional.empty();
         }
-        ConnectorTableSchema tableSchema = catalogMetadata.getMetadata(session).getTableSchema(session.toConnectorSession(tableHandle.getCatalogName()), tableHandle.getConnectorHandle());
-        return Optional.of(new CatalogSchemaTableName(tableHandle.getCatalogName().getCatalogName(), tableSchema.getTable()));
+        SchemaTableName schemaTableName = catalogMetadata.getMetadata(session).getSchemaTableName(session.toConnectorSession(tableHandle.getCatalogName()), tableHandle.getConnectorHandle());
+        return Optional.of(new CatalogSchemaTableName(tableHandle.getCatalogName().getCatalogName(), schemaTableName));
     }
 
     private Optional<CatalogMetadata> getOptionalCatalogMetadata(Session session, String catalogName)
