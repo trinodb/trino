@@ -201,6 +201,44 @@ public class LongInputStreamV1
     }
 
     @Override
+    public void next(byte[] values, int items) throws IOException
+    {
+        int offset = 0;
+        while (items > 0) {
+            if (used == numLiterals) {
+                numLiterals = 0;
+                used = 0;
+                readValues();
+            }
+
+            int chunkSize = min(numLiterals - used, items);
+            if (repeat) {
+                for (int i = 0; i < chunkSize; i++) {
+                    long literal = literals[0] + ((long) (used + i) * delta);
+                    byte value = (byte) literal;
+                    if (literal != value) {
+                        throw new OrcCorruptionException(input.getOrcDataSourceId(), "Decoded value out of range for a 8bit number");
+                    }
+                    values[offset + i] = value;
+                }
+            }
+            else {
+                for (int i = 0; i < chunkSize; i++) {
+                    long literal = literals[used + i];
+                    byte value = (byte) literal;
+                    if (literal != value) {
+                        throw new OrcCorruptionException(input.getOrcDataSourceId(), "Decoded value out of range for a 8bit number");
+                    }
+                    values[offset + i] = value;
+                }
+            }
+            used += chunkSize;
+            offset += chunkSize;
+            items -= chunkSize;
+        }
+    }
+
+    @Override
     public void seekToCheckpoint(LongStreamCheckpoint checkpoint)
             throws IOException
     {

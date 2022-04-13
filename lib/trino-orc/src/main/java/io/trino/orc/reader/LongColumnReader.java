@@ -23,15 +23,18 @@ import io.trino.orc.stream.InputStreamSource;
 import io.trino.orc.stream.InputStreamSources;
 import io.trino.orc.stream.LongInputStream;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.ByteArrayBlock;
 import io.trino.spi.block.IntArrayBlock;
 import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.block.ShortArrayBlock;
 import io.trino.spi.type.BigintType;
+import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.DateType;
 import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.SmallintType;
 import io.trino.spi.type.TimeType;
+import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -47,6 +50,7 @@ import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.orc.metadata.Stream.StreamKind.DATA;
 import static io.trino.orc.metadata.Stream.StreamKind.PRESENT;
 import static io.trino.orc.reader.ReaderUtils.minNonNullValueSize;
+import static io.trino.orc.reader.ReaderUtils.unpackByteNulls;
 import static io.trino.orc.reader.ReaderUtils.unpackIntNulls;
 import static io.trino.orc.reader.ReaderUtils.unpackLongNulls;
 import static io.trino.orc.reader.ReaderUtils.unpackShortNulls;
@@ -76,6 +80,7 @@ public class LongColumnReader
     private boolean rowGroupOpen;
 
     // only one of the three arrays will be used
+    private byte[] byteNonNullValueTemp = new byte[0];
     private short[] shortNonNullValueTemp = new short[0];
     private int[] intNonNullValueTemp = new int[0];
     private long[] longNonNullValueTemp = new long[0];
@@ -86,7 +91,7 @@ public class LongColumnReader
             throws OrcCorruptionException
     {
         requireNonNull(type, "type is null");
-        verifyStreamType(column, type, t -> t instanceof BigintType || t instanceof IntegerType || t instanceof SmallintType || t instanceof DateType || t instanceof TimeType);
+        verifyStreamType(column, type, t -> t instanceof BigintType || t instanceof IntegerType || t instanceof SmallintType || t instanceof DateType || t instanceof TimeType || t instanceof BooleanType || t instanceof TinyintType);
         this.type = type;
 
         this.column = requireNonNull(column, "column is null");
@@ -178,6 +183,11 @@ public class LongColumnReader
             dataStream.next(values, nextBatchSize);
             return new ShortArrayBlock(nextBatchSize, Optional.empty(), values);
         }
+        if (type instanceof BooleanType || type instanceof TinyintType) {
+            byte[] values = new byte[nextBatchSize];
+            dataStream.next(values, nextBatchSize);
+            return new ByteArrayBlock(nextBatchSize, Optional.empty(), values);
+        }
         throw new VerifyError("Unsupported type " + type);
     }
 
@@ -194,6 +204,9 @@ public class LongColumnReader
         }
         if (type instanceof SmallintType) {
             return shortReadNullBlock(isNull, nonNullCount);
+        }
+        if (type instanceof BooleanType || type instanceof TinyintType) {
+            return byteReadNullBlock(isNull, nonNullCount);
         }
         throw new VerifyError("Unsupported type " + type);
     }
@@ -247,6 +260,23 @@ public class LongColumnReader
         short[] result = unpackShortNulls(shortNonNullValueTemp, isNull);
 
         return new ShortArrayBlock(nextBatchSize, Optional.of(isNull), result);
+    }
+
+    private Block byteReadNullBlock(boolean[] isNull, int nonNullCount)
+            throws IOException
+    {
+        verifyNotNull(dataStream);
+        int minNonNullValueSize = minNonNullValueSize(nonNullCount);
+        if (byteNonNullValueTemp.length < minNonNullValueSize) {
+            byteNonNullValueTemp = new byte[minNonNullValueSize];
+            memoryContext.setBytes(sizeOf(byteNonNullValueTemp));
+        }
+
+        dataStream.next(byteNonNullValueTemp, nonNullCount);
+
+        byte[] result = unpackByteNulls(byteNonNullValueTemp, isNull);
+
+        return new ByteArrayBlock(nextBatchSize, Optional.of(isNull), result);
     }
 
     private void openRowGroup()
