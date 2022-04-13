@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>377</version>
+        <version>378-SNAPSHOT</version>
     </parent>
 
     <artifactId>trino-docs</artifactId>
