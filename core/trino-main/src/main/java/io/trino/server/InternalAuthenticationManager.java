@@ -13,6 +13,7 @@
  */
 package io.trino.server;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.hash.Hashing;
 import io.airlift.http.client.HttpRequestFilter;
 import io.airlift.http.client.Request;
@@ -21,6 +22,7 @@ import io.airlift.node.NodeInfo;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.JwtParser;
 import io.trino.server.security.InternalPrincipal;
+import io.trino.server.security.SecurityConfig;
 import io.trino.spi.security.Identity;
 
 import javax.inject.Inject;
@@ -53,12 +55,12 @@ public class InternalAuthenticationManager
     private final JwtParser jwtParser;
 
     @Inject
-    public InternalAuthenticationManager(InternalCommunicationConfig internalCommunicationConfig, NodeInfo nodeInfo)
+    public InternalAuthenticationManager(InternalCommunicationConfig internalCommunicationConfig, SecurityConfig securityConfig, NodeInfo nodeInfo)
     {
-        this(getSharedSecret(internalCommunicationConfig, nodeInfo), nodeInfo.getNodeId());
+        this(getSharedSecret(internalCommunicationConfig, nodeInfo, !securityConfig.getAuthenticationTypes().equals(ImmutableList.of("insecure"))), nodeInfo.getNodeId());
     }
 
-    private static String getSharedSecret(InternalCommunicationConfig internalCommunicationConfig, NodeInfo nodeInfo)
+    private static String getSharedSecret(InternalCommunicationConfig internalCommunicationConfig, NodeInfo nodeInfo, boolean authenticationEnabled)
     {
         requireNonNull(internalCommunicationConfig, "internalCommunicationConfig is null");
         requireNonNull(nodeInfo, "nodeInfo is null");
@@ -66,7 +68,11 @@ public class InternalAuthenticationManager
         // This check should not be required (as bean validation already checked it),
         // but be extra careful to not use a known secret for authentication.
         if (!internalCommunicationConfig.isRequiredSharedSecretSet()) {
-            throw new IllegalArgumentException("Shared secret is required when internal communications uses https");
+            throw new IllegalArgumentException("Shared secret (internal-communication.shared-secret) is required when internal communications uses HTTPS");
+        }
+
+        if (internalCommunicationConfig.getSharedSecret().isEmpty() && authenticationEnabled) {
+            throw new IllegalArgumentException("Shared secret (internal-communication.shared-secret) is required when authentication is enabled");
         }
 
         return internalCommunicationConfig.getSharedSecret().orElseGet(nodeInfo::getEnvironment);
