@@ -135,24 +135,24 @@ queries/tasks are no longer retried in the event of repeated failures:
      - ``4``
      - Only ``TASK``
    * - ``retry-initial-delay``
-     - Minimum time that a failed query must wait before it is retried. May be
+     - Minimum time that a failed query or task must wait before it is retried. May be
        overridden with the ``retry_initial_delay`` :ref:`session property
        <session-properties-definition>`.
      - ``10s``
-     - Only ``QUERY``
+     - ``QUERY`` and ``TASK``
    * - ``retry-max-delay``
-     - Maximum time that a failed query must wait before it is retried.
-       Wait time is increased on each subsequent query failure. May be
+     - Maximum time that a failed query or task must wait before it is retried.
+       Wait time is increased on each subsequent  failure. May be
        overridden with the ``retry_max_delay`` :ref:`session property
        <session-properties-definition>`.
      - ``1m``
-     - Only ``QUERY``
+     - ``QUERY`` and ``TASK``
    * - ``retry-delay-scale-factor``
-     - Factor by which retry delay is increased on each query failure. May be
+     - Factor by which retry delay is increased on each query or task failure. May be
        overridden with the ``retry_delay_scale_factor`` :ref:`session property
        <session-properties-definition>`.
      - ``2.0``
-     - Only ``QUERY``
+     - ``QUERY`` and ``TASK``
 
 Task sizing
 ^^^^^^^^^^^

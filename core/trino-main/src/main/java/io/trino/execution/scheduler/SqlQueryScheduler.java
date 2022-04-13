@@ -108,6 +108,7 @@ import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Ticker.systemTicker;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -1831,6 +1832,8 @@ public class SqlQueryScheduler
                             taskDescriptorStorage,
                             partitionMemoryEstimatorFactory.createPartitionMemoryEstimator(),
                             taskLifecycleListener,
+                            (future, delay) -> scheduledExecutorService.schedule(() -> future.set(null), delay.toMillis(), MILLISECONDS),
+                            systemTicker(),
                             exchange,
                             bucketToPartitionCache.apply(fragment.getPartitioningScheme().getPartitioning().getHandle()).getBucketToPartitionMap(),
                             sourceExchanges.buildOrThrow(),
