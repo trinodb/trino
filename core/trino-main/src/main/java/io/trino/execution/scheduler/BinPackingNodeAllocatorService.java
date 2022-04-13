@@ -71,8 +71,7 @@ import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionTaskMemoryEstimationQuantile;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionTaskMemoryGrowthFactor;
-import static io.trino.spi.StandardErrorCode.CLUSTER_OUT_OF_MEMORY;
-import static io.trino.spi.StandardErrorCode.EXCEEDED_LOCAL_MEMORY_LIMIT;
+import static io.trino.execution.scheduler.ErrorCodes.isOutOfMemoryError;
 import static io.trino.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static java.lang.Math.max;
 import static java.lang.Thread.currentThread;
@@ -627,12 +626,6 @@ public class BinPackingNodeAllocatorService
                 return memory;
             }
             return Ordering.natural().min(memory, currentMaxNodePoolSize.get());
-        }
-
-        private boolean isOutOfMemoryError(ErrorCode errorCode)
-        {
-            return EXCEEDED_LOCAL_MEMORY_LIMIT.toErrorCode().equals(errorCode) // too many tasks from single query on a node
-                    || CLUSTER_OUT_OF_MEMORY.toErrorCode().equals(errorCode); // too many tasks in general on a node
         }
 
         @Override
