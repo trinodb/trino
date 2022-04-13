@@ -1282,16 +1282,10 @@ public abstract class AbstractTestHive
     protected void assertExpectedPartitions(ConnectorTableHandle table, Iterable<HivePartition> expectedPartitions)
     {
         Iterable<HivePartition> actualPartitions = ((HiveTableHandle) table).getPartitions().orElseThrow(AssertionError::new);
-        Map<String, ?> actualById = uniqueIndex(actualPartitions, HivePartition::getPartitionId);
-        for (Object expected : expectedPartitions) {
-            assertInstanceOf(expected, HivePartition.class);
-            HivePartition expectedPartition = (HivePartition) expected;
-
-            Object actual = actualById.get(expectedPartition.getPartitionId());
-            assertEquals(actual, expected);
-            assertInstanceOf(actual, HivePartition.class);
-            HivePartition actualPartition = (HivePartition) actual;
-
+        Map<String, HivePartition> actualById = uniqueIndex(actualPartitions, HivePartition::getPartitionId);
+        for (HivePartition expectedPartition : expectedPartitions) {
+            HivePartition actualPartition = actualById.get(expectedPartition.getPartitionId());
+            assertEquals(actualPartition, expectedPartition);
             assertNotNull(actualPartition, "partition " + expectedPartition.getPartitionId());
             assertEquals(actualPartition.getPartitionId(), expectedPartition.getPartitionId());
             assertEquals(actualPartition.getKeys(), expectedPartition.getKeys());
