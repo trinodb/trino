@@ -20,6 +20,7 @@ import io.trino.metadata.SessionPropertyManager;
 import io.trino.spi.security.Identity;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.sql.SqlPath;
+import io.trino.transaction.TransactionId;
 
 import java.util.Optional;
 
@@ -60,5 +61,38 @@ public final class TestingSession
                 .setLocale(ENGLISH)
                 .setRemoteUserAddress("address")
                 .setUserAgent("agent");
+    }
+
+    public static SessionBuilder testSessionBuilder(SessionPropertyManager sessionPropertyManager, Session session, Optional<TransactionId> transactionId)
+    {
+        SessionBuilder builder = TestingSession.testSessionBuilder(sessionPropertyManager)
+                .setQueryId(session.getQueryId())
+                .setIdentity(session.getIdentity())
+                .setSource(session.getSource())
+                .setCatalog(session.getCatalog())
+                .setSchema(session.getSchema())
+                .setPath(session.getPath())
+                .setTraceToken(session.getTraceToken())
+                .setTimeZoneKey(session.getTimeZoneKey())
+                .setLocale(session.getLocale())
+                .setRemoteUserAddress(session.getRemoteUserAddress())
+                .setUserAgent(session.getUserAgent())
+                .setClientInfo(session.getClientInfo())
+                .setClientTags(session.getClientTags())
+                .setClientCapabilities(session.getClientCapabilities())
+                .setResourceEstimates(session.getResourceEstimates())
+                .setStart(session.getStart())
+                .setSystemProperties(session.getSystemProperties())
+                .setCatalogProperties(session.getCatalogProperties())
+                .setProtocolHeaders(session.getProtocolHeaders());
+
+        session.getPreparedStatements().forEach(builder::addPreparedStatement);
+        transactionId.ifPresent(builder::setTransactionId);
+
+        if (session.isClientTransactionSupport()) {
+            builder.setClientTransactionSupport();
+        }
+
+        return builder;
     }
 }
