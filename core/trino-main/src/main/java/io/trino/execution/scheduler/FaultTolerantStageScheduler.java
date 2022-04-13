@@ -13,6 +13,8 @@
  */
 package io.trino.execution.scheduler;
 
+import com.google.common.base.Stopwatch;
+import com.google.common.base.Ticker;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
@@ -20,6 +22,7 @@ import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
+import com.google.common.collect.Ordering;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.concurrent.MoreFutures;
@@ -52,6 +55,7 @@ import io.trino.sql.planner.plan.RemoteSourceNode;
 
 import javax.annotation.concurrent.GuardedBy;
 
+import java.time.Duration;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -66,6 +70,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.propagateIfPossible;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -78,12 +83,17 @@ import static com.google.common.util.concurrent.Futures.nonCancellationPropagati
 import static io.airlift.concurrent.MoreFutures.asVoid;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
+import static io.trino.SystemSessionProperties.getRetryDelayScaleFactor;
+import static io.trino.SystemSessionProperties.getRetryInitialDelay;
+import static io.trino.SystemSessionProperties.getRetryMaxDelay;
 import static io.trino.execution.buffer.OutputBuffers.BufferType.PARTITIONED;
 import static io.trino.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
 import static io.trino.execution.buffer.OutputBuffers.createSpoolingExchangeOutputBuffers;
 import static io.trino.execution.scheduler.ErrorCodes.isOutOfMemoryError;
 import static io.trino.failuredetector.FailureDetector.State.GONE;
 import static io.trino.operator.ExchangeOperator.REMOTE_CONNECTOR_ID;
+import static io.trino.spi.ErrorType.EXTERNAL;
+import static io.trino.spi.ErrorType.INTERNAL_ERROR;
 import static io.trino.spi.ErrorType.USER_ERROR;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.REMOTE_HOST_GONE;
@@ -113,11 +123,24 @@ public class FaultTolerantStageScheduler
     private final Optional<int[]> sourceBucketToPartitionMap;
     private final Optional<BucketNodeMap> sourceBucketNodeMap;
 
+    private final DelayedFutureCompletor futureCompletor;
+
     @GuardedBy("this")
     private ListenableFuture<Void> blocked = immediateVoidFuture();
 
     @GuardedBy("this")
     private SettableFuture<Void> taskFinishedFuture;
+
+    private final Duration minRetryDelay;
+    private final Duration maxRetryDelay;
+    private final double retryDelayScaleFactor;
+
+    @GuardedBy("this")
+    private Optional<Duration> delaySchedulingDuration = Optional.empty();
+    @GuardedBy("this")
+    private final Stopwatch delayStopwatch;
+    @GuardedBy("this")
+    private SettableFuture<Void> delaySchedulingFuture;
 
     @GuardedBy("this")
     private TaskSource taskSource;
@@ -158,6 +181,8 @@ public class FaultTolerantStageScheduler
             TaskDescriptorStorage taskDescriptorStorage,
             PartitionMemoryEstimator partitionMemoryEstimator,
             TaskLifecycleListener taskLifecycleListener,
+            DelayedFutureCompletor futureCompletor,
+            Ticker ticker,
             Optional<Exchange> sinkExchange,
             Optional<int[]> sinkBucketToPartitionMap,
             Map<PlanFragmentId, Exchange> sourceExchanges,
@@ -177,6 +202,7 @@ public class FaultTolerantStageScheduler
         this.taskDescriptorStorage = requireNonNull(taskDescriptorStorage, "taskDescriptorStorage is null");
         this.partitionMemoryEstimator = requireNonNull(partitionMemoryEstimator, "partitionMemoryEstimator is null");
         this.taskLifecycleListener = requireNonNull(taskLifecycleListener, "taskLifecycleListener is null");
+        this.futureCompletor = requireNonNull(futureCompletor, "futureCompletor is null");
         this.sinkExchange = requireNonNull(sinkExchange, "sinkExchange is null");
         this.sinkBucketToPartitionMap = requireNonNull(sinkBucketToPartitionMap, "sinkBucketToPartitionMap is null");
         this.sourceExchanges = ImmutableMap.copyOf(requireNonNull(sourceExchanges, "sourceExchanges is null"));
@@ -185,6 +211,10 @@ public class FaultTolerantStageScheduler
         this.remainingRetryAttemptsOverall = requireNonNull(remainingRetryAttemptsOverall, "remainingRetryAttemptsOverall is null");
         this.maxRetryAttemptsPerTask = taskRetryAttemptsPerTask;
         this.maxTasksWaitingForNodePerStage = maxTasksWaitingForNodePerStage;
+        this.minRetryDelay = Duration.ofMillis(getRetryInitialDelay(session).toMillis());
+        this.maxRetryDelay = Duration.ofMillis(getRetryMaxDelay(session).toMillis());
+        this.retryDelayScaleFactor = getRetryDelayScaleFactor(session);
+        this.delayStopwatch = Stopwatch.createUnstarted(ticker);
     }
 
     public StageId getStageId()
@@ -214,6 +244,12 @@ public class FaultTolerantStageScheduler
         }
 
         if (!blocked.isDone()) {
+            return;
+        }
+
+        if (delaySchedulingFuture != null && !delaySchedulingFuture.isDone()) {
+            // let's wait a bit more
+            blocked = delaySchedulingFuture;
             return;
         }
 
@@ -531,12 +567,13 @@ public class FaultTolerantStageScheduler
 
         try {
             RuntimeException failure = null;
-            SettableFuture<Void> future;
+            SettableFuture<Void> previousTaskFinishedFuture;
+            SettableFuture<Void> previousDelaySchedulingFuture = null;
             synchronized (this) {
                 TaskId taskId = taskStatus.getTaskId();
 
                 runningTasks.remove(taskId);
-                future = taskFinishedFuture;
+                previousTaskFinishedFuture = taskFinishedFuture;
                 if (!runningTasks.isEmpty()) {
                     taskFinishedFuture = SettableFuture.create();
                 }
@@ -561,6 +598,15 @@ public class FaultTolerantStageScheduler
                             }
                             partitionToRemoteTaskMap.get(partitionId).forEach(RemoteTask::abort);
                             partitionMemoryEstimator.registerPartitionFinished(session, memoryLimits, taskStatus.getPeakMemoryReservation(), true, Optional.empty());
+
+                            if (delayStopwatch.isRunning()) {
+                                // task completed successfully; reset delay
+                                previousDelaySchedulingFuture = delaySchedulingFuture;
+                                delayStopwatch.reset();
+                                delaySchedulingDuration = Optional.empty();
+                                delaySchedulingFuture = null;
+                            }
+
                             break;
                         case CANCELED:
                             log.debug("Task cancelled: %s", taskId);
@@ -600,6 +646,35 @@ public class FaultTolerantStageScheduler
                                 // reschedule
                                 queuedPartitions.add(partitionId);
                                 log.debug("Retrying partition %s for stage %s", partitionId, stage.getStageId());
+
+                                if (errorCode != null && shouldDelayScheduling(errorCode)) {
+                                    if (delayStopwatch.isRunning()) {
+                                        // we are currently delaying tasks scheduling
+                                        checkState(delaySchedulingDuration.isPresent());
+
+                                        if (delayStopwatch.elapsed().compareTo(delaySchedulingDuration.get()) > 0) {
+                                            // we are past previous delay period and still getting failures; let's make it longer
+                                            delayStopwatch.reset().start();
+                                            delaySchedulingDuration = delaySchedulingDuration.map(duration ->
+                                                    Ordering.natural().min(
+                                                            Duration.ofMillis((long) (duration.toMillis() * retryDelayScaleFactor)),
+                                                            maxRetryDelay));
+
+                                            // create new future
+                                            previousDelaySchedulingFuture = delaySchedulingFuture;
+                                            SettableFuture<Void> newDelaySchedulingFuture = SettableFuture.create();
+                                            delaySchedulingFuture = newDelaySchedulingFuture;
+                                            futureCompletor.completeFuture(newDelaySchedulingFuture, delaySchedulingDuration.get());
+                                        }
+                                    }
+                                    else {
+                                        // initialize delaying of tasks scheduling
+                                        delayStopwatch.start();
+                                        delaySchedulingDuration = Optional.of(minRetryDelay);
+                                        delaySchedulingFuture = SettableFuture.create();
+                                        futureCompletor.completeFuture(delaySchedulingFuture, delaySchedulingDuration.get());
+                                    }
+                                }
                             }
                             else {
                                 failure = failureInfo.toException();
@@ -614,13 +689,21 @@ public class FaultTolerantStageScheduler
                 // must be called outside the lock
                 fail(failure);
             }
-            if (future != null && !future.isDone()) {
-                future.set(null);
+            if (previousTaskFinishedFuture != null && !previousTaskFinishedFuture.isDone()) {
+                previousTaskFinishedFuture.set(null);
+            }
+            if (previousDelaySchedulingFuture != null && !previousDelaySchedulingFuture.isDone()) {
+                previousDelaySchedulingFuture.set(null);
             }
         }
         catch (Throwable t) {
             fail(t);
         }
+    }
+
+    private boolean shouldDelayScheduling(ErrorCode errorCode)
+    {
+        return errorCode.getType() == INTERNAL_ERROR || errorCode.getType() == EXTERNAL;
     }
 
     private ExecutionFailureInfo rewriteTransportFailure(ExecutionFailureInfo executionFailureInfo)
@@ -660,5 +743,10 @@ public class FaultTolerantStageScheduler
         {
             return nodeLease;
         }
+    }
+
+    public interface DelayedFutureCompletor
+    {
+        void completeFuture(SettableFuture<Void> future, Duration delay);
     }
 }
