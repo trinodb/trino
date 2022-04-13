@@ -489,13 +489,17 @@ public class Validator
         ExecutorService executor = newSingleThreadExecutor();
         TimeLimiter limiter = SimpleTimeLimiter.create(executor);
 
+        long start = System.nanoTime();
         String queryId = null;
+        Duration queryCpuTime = null;
         try (Connection connection = DriverManager.getConnection(url, username, password)) {
             trySetConnectionProperties(query, connection);
             for (Map.Entry<String, String> entry : sessionProperties.entrySet()) {
                 connection.unwrap(TrinoConnection.class).setSessionProperty(entry.getKey(), entry.getValue());
             }
 
+            ProgressMonitor progressMonitor = new ProgressMonitor();
+            List<List<Object>> results;
             try (Statement statement = connection.createStatement()) {
                 Stopwatch stopwatch = Stopwatch.createStarted();
                 Statement limitedStatement = limiter.newProxy(statement, Statement.class, timeout.toMillis(), MILLISECONDS);
@@ -503,13 +507,10 @@ public class Validator
                     sql = "EXPLAIN " + sql;
                 }
 
-                long start = System.nanoTime();
                 TrinoStatement trinoStatement = limitedStatement.unwrap(TrinoStatement.class);
-                ProgressMonitor progressMonitor = new ProgressMonitor();
                 trinoStatement.setProgressMonitor(progressMonitor);
                 boolean isSelectQuery = limitedStatement.execute(sql);
 
-                List<List<Object>> results;
                 if (isSelectQuery) {
                     ResultSetConverter converter = limiter.newProxy(
                             this::convertJdbcResultSet,
@@ -523,14 +524,19 @@ public class Validator
                 }
 
                 trinoStatement.clearProgressMonitor();
-                QueryStats queryStats = progressMonitor.getFinalQueryStats();
-                if (queryStats == null) {
+                if (progressMonitor.getFinalQueryStats() == null) {
                     throw new VerifierException("Cannot fetch query stats");
                 }
-                Duration queryCpuTime = new Duration(queryStats.getCpuTimeMillis(), MILLISECONDS);
-                queryId = queryStats.getQueryId();
-                return new QueryResult(State.SUCCESS, null, nanosSince(start), queryCpuTime, queryId, results);
             }
+            finally {
+                QueryStats queryStats = progressMonitor.getFinalQueryStats();
+                if (queryStats != null) {
+                    queryCpuTime = new Duration(queryStats.getCpuTimeMillis(), MILLISECONDS);
+                    queryId = queryStats.getQueryId();
+                }
+            }
+
+            return new QueryResult(State.SUCCESS, null, nanosSince(start), queryCpuTime, queryId, results);
         }
         catch (SQLException e) {
             Exception exception = e;
@@ -539,13 +545,13 @@ public class Validator
                 exception = (Exception) e.getCause();
             }
             State state = isPrestoQueryInvalid(e) ? State.INVALID : State.FAILED;
-            return new QueryResult(state, exception, null, null, queryId, ImmutableList.of());
+            return new QueryResult(state, exception, nanosSince(start), queryCpuTime, queryId, ImmutableList.of());
         }
         catch (VerifierException e) {
-            return new QueryResult(State.TOO_MANY_ROWS, e, null, null, queryId, ImmutableList.of());
+            return new QueryResult(State.TOO_MANY_ROWS, e, nanosSince(start), queryCpuTime, queryId, ImmutableList.of());
         }
         catch (UncheckedTimeoutException e) {
-            return new QueryResult(State.TIMEOUT, e, null, null, queryId, ImmutableList.of());
+            return new QueryResult(State.TIMEOUT, e, nanosSince(start), queryCpuTime, queryId, ImmutableList.of());
         }
         finally {
             executor.shutdownNow();
