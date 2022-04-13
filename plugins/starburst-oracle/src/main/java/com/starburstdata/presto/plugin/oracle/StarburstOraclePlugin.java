@@ -20,6 +20,6 @@ public class StarburstOraclePlugin
     @Override
     public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        return ImmutableList.of(new OracleConnectorFactory(new LicenseManagerProvider().get()));
+        return ImmutableList.of(OracleConnectorFactory.create(new LicenseManagerProvider().get()));
     }
 }
