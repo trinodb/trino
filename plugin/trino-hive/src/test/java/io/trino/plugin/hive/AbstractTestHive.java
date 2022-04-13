@@ -26,6 +26,7 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.operator.GroupByHashPageIndexerFactory;
 import io.trino.plugin.base.CatalogName;
+import io.trino.plugin.base.security.AllowAllAccessControl;
 import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.trino.plugin.hive.LocationService.WriteInfo;
 import io.trino.plugin.hive.authentication.HiveIdentity;
@@ -57,6 +58,7 @@ import io.trino.plugin.hive.metastore.thrift.ThriftHiveMetastore;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreConfig;
 import io.trino.plugin.hive.orc.OrcPageSource;
 import io.trino.plugin.hive.parquet.ParquetPageSource;
+import io.trino.plugin.hive.procedure.SyncPartitionMetadataProcedure;
 import io.trino.plugin.hive.rcfile.RcFilePageSource;
 import io.trino.plugin.hive.s3.HiveS3Config;
 import io.trino.plugin.hive.s3.TrinoS3ConfigurationInitializer;
@@ -134,18 +136,21 @@ import io.trino.testing.MaterializedRow;
 import io.trino.testing.TestingConnectorSession;
 import io.trino.testing.TestingNodeManager;
 import io.trino.type.BlockTypeOperators;
+import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RemoteIterator;
 import org.apache.hadoop.hive.metastore.TableType;
+import org.apache.hadoop.io.IOUtils;
 import org.joda.time.DateTime;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -188,6 +193,7 @@ import static com.google.common.collect.Sets.difference;
 import static com.google.common.hash.Hashing.sha256;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
+import static com.google.common.io.Resources.getResource;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -5567,6 +5573,104 @@ public abstract class AbstractTestHive
         }
         finally {
             dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testSyncPartitionMetadata()
+            throws Exception
+    {
+        MaterializedResult data =
+                MaterializedResult.resultBuilder(SESSION, BIGINT, createUnboundedVarcharType(), createUnboundedVarcharType())
+                        .row(110L, "2022-01-01", "10:00:45")
+                        .row(120L, "2022-01-02", "15:30:14")
+                        .build();
+
+        SchemaTableName temporarySyncPartitionTable = temporaryTable("sync_partition_metadata");
+        try {
+            createEmptyTable(
+                    temporarySyncPartitionTable,
+                    ORC,
+                    ImmutableList.of(new Column("col1", HIVE_LONG, Optional.empty())),
+                    ImmutableList.of(new Column("col_date", HIVE_STRING, Optional.empty()), new Column("col_time", HIVE_STRING, Optional.empty())));
+            insertData(temporarySyncPartitionTable, data);
+
+            SyncPartitionMetadataProcedure syncPartitionMetadataProcedure = new SyncPartitionMetadataProcedure(metadataFactory, hdfsEnvironment);
+
+            syncPartitionMetadataProcedure.syncPartitionMetadata(newSession(), new AllowAllAccessControl(), temporarySyncPartitionTable.getSchemaName(), temporarySyncPartitionTable.getTableName(), "ADD", true);
+
+            HiveColumnHandle dateColumn = createBaseColumn("col_date", -1, HIVE_STRING, VARCHAR, PARTITION_KEY, Optional.empty());
+            HiveColumnHandle timeColumn = createBaseColumn("col_time", -1, HIVE_STRING, VARCHAR, PARTITION_KEY, Optional.empty());
+
+            HivePartition partition1 = new HivePartition(temporarySyncPartitionTable,
+                    "col_date=2022-01-01/col_time=10%3A00%3A45",
+                    ImmutableMap.<ColumnHandle, NullableValue>builder()
+                            .put(dateColumn, NullableValue.of(VARCHAR, utf8Slice("2022-01-01")))
+                            .put(timeColumn, NullableValue.of(VARCHAR, utf8Slice("10:00:45")))
+                            .buildOrThrow());
+            HivePartition partition2 = new HivePartition(temporarySyncPartitionTable,
+                    "col_date=2022-01-02/col_time=15%3A30%3A14",
+                    ImmutableMap.<ColumnHandle, NullableValue>builder()
+                            .put(dateColumn, NullableValue.of(VARCHAR, utf8Slice("2022-01-02")))
+                            .put(timeColumn, NullableValue.of(VARCHAR, utf8Slice("15:30:14")))
+                            .buildOrThrow());
+            List<HivePartition> expectedPartitions = ImmutableList.<HivePartition>builder()
+                    .add(partition1, partition2)
+                    .build();
+
+            String tableLocation;
+            try (Transaction transaction = newTransaction()) {
+                ConnectorMetadata metadata = transaction.getMetadata();
+                tableLocation = transaction.getMetastore()
+                        .getTable(temporarySyncPartitionTable.getSchemaName(), temporarySyncPartitionTable.getTableName())
+                        .orElseThrow()
+                        .getStorage()
+                        .getLocation();
+                HiveTableHandle tableHandle = (HiveTableHandle) applyFilter(metadata, getTableHandle(metadata, temporarySyncPartitionTable), Constraint.alwaysTrue());
+                assertExpectedPartitions(tableHandle, expectedPartitions);
+            }
+
+            // Simulate file system operation which adds a new partition to the Hive table
+            HdfsContext context = new HdfsContext(newSession());
+            try (FileSystem fs = hdfsEnvironment.getFileSystem(context, new Path(tableLocation))) {
+                Path hdfsWritePath = new Path(new Path(tableLocation), new Path("col_date=2022-03-01/col_time=14%3A00%3A47/data.orc"));
+                try (InputStream inputStream = getResource("data/single_int_column/data.orc").openStream();
+                        FSDataOutputStream fsDataOutputStream = fs.create(hdfsWritePath, true)) {
+                    IOUtils.copyBytes(inputStream, fsDataOutputStream, 4096, false);
+                }
+            }
+            syncPartitionMetadataProcedure.syncPartitionMetadata(newSession(), new AllowAllAccessControl(), temporarySyncPartitionTable.getSchemaName(), temporarySyncPartitionTable.getTableName(), "ADD", true);
+            HivePartition partition3 = new HivePartition(temporarySyncPartitionTable,
+                    "col_date=2022-03-01/col_time=14%3A00%3A47",
+                    ImmutableMap.<ColumnHandle, NullableValue>builder()
+                            .put(dateColumn, NullableValue.of(VARCHAR, utf8Slice("2022-03-01")))
+                            .put(timeColumn, NullableValue.of(VARCHAR, utf8Slice("14:00:47")))
+                            .buildOrThrow());
+            expectedPartitions = ImmutableList.<HivePartition>builder()
+                    .add(partition1, partition2, partition3)
+                    .build();
+            try (Transaction transaction = newTransaction()) {
+                ConnectorMetadata metadata = transaction.getMetadata();
+                HiveTableHandle tableHandle = (HiveTableHandle) applyFilter(metadata, getTableHandle(metadata, temporarySyncPartitionTable), Constraint.alwaysTrue());
+                assertExpectedPartitions(tableHandle, expectedPartitions);
+            }
+
+            // Simulate file system operation which deletes an existing partition from the Hive table
+            try (FileSystem fs = hdfsEnvironment.getFileSystem(context, new Path(tableLocation))) {
+                fs.delete(new Path(new Path(tableLocation), "col_date=2022-01-01/col_time=10%3A00%3A45"), true);
+            }
+            syncPartitionMetadataProcedure.syncPartitionMetadata(newSession(), new AllowAllAccessControl(), temporarySyncPartitionTable.getSchemaName(), temporarySyncPartitionTable.getTableName(), "DROP", true);
+            expectedPartitions = ImmutableList.<HivePartition>builder()
+                    .add(partition2, partition3)
+                    .build();
+            try (Transaction transaction = newTransaction()) {
+                ConnectorMetadata metadata = transaction.getMetadata();
+                HiveTableHandle tableHandle = (HiveTableHandle) applyFilter(metadata, getTableHandle(metadata, temporarySyncPartitionTable), Constraint.alwaysTrue());
+                assertExpectedPartitions(tableHandle, expectedPartitions);
+            }
+        }
+        finally {
+            dropTable(temporarySyncPartitionTable);
         }
     }
 
