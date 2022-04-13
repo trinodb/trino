@@ -19,6 +19,7 @@ import com.google.common.collect.MoreCollectors;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.airlift.units.Duration;
 import io.trino.Session;
+import io.trino.execution.QueryIdGenerator;
 import io.trino.execution.QueryState;
 import io.trino.execution.QueryStats;
 import io.trino.execution.warnings.WarningCollector;
@@ -81,6 +82,8 @@ import static org.testng.Assert.fail;
 
 public abstract class AbstractTestQueryFramework
 {
+    private static final QueryIdGenerator queryIdGenerator = new QueryIdGenerator();
+
     private QueryRunner queryRunner;
     private H2QueryRunner h2QueryRunner;
     private SqlParser sqlParser;
@@ -190,7 +193,9 @@ public abstract class AbstractTestQueryFramework
 
     protected Session getSession()
     {
-        return queryRunner.getDefaultSession();
+        return Session.builder(queryRunner.getDefaultSession())
+                .setQueryId(queryIdGenerator.createNextQueryId())
+                .build();
     }
 
     protected final int getNodeCount()
