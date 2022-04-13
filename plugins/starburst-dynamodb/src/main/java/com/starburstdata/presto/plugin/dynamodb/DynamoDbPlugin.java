@@ -35,7 +35,7 @@ public class DynamoDbPlugin
     ConnectorFactory getConnectorFactory(LicenseManager licenseManager, boolean enableWrites)
     {
         requireNonNull(licenseManager, "licenseManager is null");
-        return new DynamicFilteringJdbcConnectorFactory(
+        return DynamicFilteringJdbcConnectorFactory.create(
                 "dynamodb",
                 combine(
                         binder -> binder.bind(LicenseManager.class).toInstance(licenseManager),
