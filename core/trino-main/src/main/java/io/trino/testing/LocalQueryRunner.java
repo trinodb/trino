@@ -55,6 +55,7 @@ import io.trino.execution.DynamicFilterConfig;
 import io.trino.execution.FailureInjector.InjectedFailureType;
 import io.trino.execution.Lifespan;
 import io.trino.execution.NodeTaskMap;
+import io.trino.execution.QueryIdGenerator;
 import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.QueryPreparer;
 import io.trino.execution.QueryPreparer.PreparedQuery;
@@ -230,6 +231,8 @@ import static java.util.concurrent.Executors.newScheduledThreadPool;
 public class LocalQueryRunner
         implements QueryRunner
 {
+    private static final QueryIdGenerator queryIdGenerator = new QueryIdGenerator();
+
     private final EventListenerManager eventListenerManager = new EventListenerManager(new EventListenerConfig());
 
     private final Session defaultSession;
@@ -691,7 +694,10 @@ public class LocalQueryRunner
     @Override
     public Session getDefaultSession()
     {
-        return defaultSession;
+        return TestingSession
+                .testSessionBuilder(sessionPropertyManager, defaultSession, Optional.empty())
+                .setQueryId(queryIdGenerator.createNextQueryId())
+                .build();
     }
 
     public ExpressionCompiler getExpressionCompiler()

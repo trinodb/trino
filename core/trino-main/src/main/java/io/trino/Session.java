@@ -752,6 +752,17 @@ public final class Session
         }
 
         /**
+         * Sets catalog session properties, discarding any catalog properties previously set.
+         */
+        public SessionBuilder setCatalogProperties(Map<String, Map<String, String>> catalogProperties)
+        {
+            requireNonNull(catalogProperties, "catalogProperties is null");
+            this.catalogSessionProperties.clear();
+            this.catalogSessionProperties.putAll(catalogProperties);
+            return this;
+        }
+
+        /**
          * Sets a catalog property for the session.  The property name and value must
          * only contain characters from US-ASCII and must not be for '='.
          */
