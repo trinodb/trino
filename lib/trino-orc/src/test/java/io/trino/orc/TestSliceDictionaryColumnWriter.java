@@ -62,17 +62,22 @@ public class TestSliceDictionaryColumnWriter
         assertFalse(writer.tryConvertToDirect(megabytes(64)).isPresent());
     }
 
-    public static Slice createRandomUtf8Slice(int[] codePointSet, int approximateLengthInBytes)
+    public static Slice createRandomUtf8Slice(int[] codePointSet, int lengthInBytes)
     {
-        approximateLengthInBytes += 64;
-        int[] codePoints = new int[approximateLengthInBytes];
+        int[] codePoints = new int[lengthInBytes];
         ThreadLocalRandom random = ThreadLocalRandom.current();
         int totalLength = 0;
         int offset = 0;
-        while (totalLength < approximateLengthInBytes) {
+        while (totalLength + 4 <= lengthInBytes) {
             int codePoint = codePointSet[random.nextInt(codePointSet.length)];
             codePoints[offset] = codePoint;
             totalLength += lengthOfCodePoint(codePoint);
+            offset++;
+        }
+        // Fill last 0-3 bytes with some 1-byte characters
+        while (totalLength < lengthInBytes) {
+            codePoints[offset] = random.nextInt('a', 'z');
+            totalLength++;
             offset++;
         }
         return utf8Slice(new String(codePoints, 0, offset));
