@@ -1283,11 +1283,14 @@ public abstract class AbstractTestHive
     {
         Iterable<HivePartition> actualPartitions = ((HiveTableHandle) table).getPartitions().orElseThrow(AssertionError::new);
         Map<String, HivePartition> actualById = uniqueIndex(actualPartitions, HivePartition::getPartitionId);
-        for (HivePartition expectedPartition : expectedPartitions) {
-            HivePartition actualPartition = actualById.get(expectedPartition.getPartitionId());
-            assertEquals(actualPartition, expectedPartition);
-            assertNotNull(actualPartition); // just to keep IDE happy
-            // HivePartition.equals doesn't compare all the fields, so let's check them
+        Map<String, HivePartition> expectedById = uniqueIndex(expectedPartitions, HivePartition::getPartitionId);
+
+        assertThat(actualById).isEqualTo(expectedById);
+
+        // HivePartition.equals doesn't compare all the fields, so let's check them
+        for (Map.Entry<String, HivePartition> expected : expectedById.entrySet()) {
+            HivePartition actualPartition = actualById.get(expected.getKey());
+            HivePartition expectedPartition = expected.getValue();
             assertEquals(actualPartition.getPartitionId(), expectedPartition.getPartitionId());
             assertEquals(actualPartition.getKeys(), expectedPartition.getKeys());
             assertEquals(actualPartition.getTableName(), expectedPartition.getTableName());
