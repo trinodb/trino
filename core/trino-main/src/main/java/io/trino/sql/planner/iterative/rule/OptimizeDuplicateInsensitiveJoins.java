@@ -28,9 +28,12 @@ import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanVisitor;
 import io.trino.sql.planner.plan.ProjectNode;
+import io.trino.sql.planner.plan.UnionNode;
 
+import java.util.List;
 import java.util.Optional;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.SystemSessionProperties.isOptimizeDuplicateInsensitiveJoins;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
 import static io.trino.sql.planner.plan.Patterns.aggregation;
@@ -119,6 +122,20 @@ public class OptimizeDuplicateInsensitiveJoins
 
             return node.getSource().accept(this, null)
                     .map(source -> node.replaceChildren(ImmutableList.of(source)));
+        }
+
+        @Override
+        public Optional<PlanNode> visitUnion(UnionNode node, Void context)
+        {
+            List<PlanNode> rewrittenSources = node.getSources().stream()
+                    .map(source -> source.accept(this, null).orElse(source))
+                    .collect(toImmutableList());
+
+            if (rewrittenSources.equals(node.getSources())) {
+                return Optional.empty();
+            }
+
+            return Optional.of(node.replaceChildren(rewrittenSources));
         }
 
         @Override
