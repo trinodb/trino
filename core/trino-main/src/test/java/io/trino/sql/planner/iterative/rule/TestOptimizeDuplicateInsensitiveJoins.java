@@ -14,6 +14,7 @@
 package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
@@ -29,6 +30,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.union;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static io.trino.sql.planner.plan.Assignments.identity;
@@ -200,5 +202,40 @@ public class TestOptimizeDuplicateInsensitiveJoins
                                             p.values(symbolB)))));
                 })
                 .doesNotFire();
+    }
+
+    @Test
+    public void testUnion()
+    {
+        tester().assertThat(new OptimizeDuplicateInsensitiveJoins(tester().getMetadata()))
+                .on(p -> {
+                    Symbol symbolA = p.symbol("a");
+                    Symbol symbolB = p.symbol("b");
+                    Symbol symbolC = p.symbol("c");
+                    Symbol symbolD = p.symbol("d");
+                    Symbol symbolE = p.symbol("e");
+                    return p.aggregation(a -> a
+                            .singleGroupingSet(symbolE)
+                            .source(p.union(
+                                    ImmutableListMultimap.<Symbol, Symbol>builder()
+                                            .put(symbolE, symbolA)
+                                            .put(symbolE, symbolC)
+                                            .build(),
+                                    ImmutableList.of(
+                                            p.join(
+                                                    INNER,
+                                                    p.values(symbolA),
+                                                    p.values(symbolB)),
+                                            p.join(
+                                                    INNER,
+                                                    p.values(symbolC),
+                                                    p.values(symbolD))))));
+                })
+                .matches(
+                        aggregation(ImmutableMap.of(), union(
+                                join(INNER, ImmutableList.of(), values("A"), values("B"))
+                                        .with(JoinNode.class, JoinNode::isMaySkipOutputDuplicates),
+                                join(INNER, ImmutableList.of(), values("C"), values("D"))
+                                        .with(JoinNode.class, JoinNode::isMaySkipOutputDuplicates))));
     }
 }
