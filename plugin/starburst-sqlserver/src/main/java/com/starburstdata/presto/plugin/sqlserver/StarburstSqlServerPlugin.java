@@ -30,10 +30,10 @@ public class StarburstSqlServerPlugin
     }
 
     @VisibleForTesting
-    DynamicFilteringJdbcConnectorFactory getConnectorFactory(LicenseManager licenseManager)
+    ConnectorFactory getConnectorFactory(LicenseManager licenseManager)
     {
         requireNonNull(licenseManager, "licenseManager is null");
-        return new DynamicFilteringJdbcConnectorFactory(
+        return DynamicFilteringJdbcConnectorFactory.create(
                 "sqlserver",
                 combine(
                         binder -> binder.bind(LicenseManager.class).toInstance(licenseManager),
