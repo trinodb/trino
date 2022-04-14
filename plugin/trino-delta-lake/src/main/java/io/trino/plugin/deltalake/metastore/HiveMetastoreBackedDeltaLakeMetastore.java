@@ -61,6 +61,7 @@ import static io.trino.plugin.deltalake.DeltaLakeMetadata.PATH_PROPERTY;
 import static io.trino.plugin.deltalake.DeltaLakeMetadata.createStatisticsPredicate;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isExtendedStatisticsEnabled;
 import static io.trino.plugin.deltalake.DeltaLakeSplitManager.partitionMatchesPredicate;
+import static io.trino.plugin.hive.ViewReaderUtil.isHiveOrPrestoView;
 import static io.trino.spi.statistics.StatsUtil.toStatsRepresentation;
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.NaN;
@@ -117,6 +118,10 @@ public class HiveMetastoreBackedDeltaLakeMetastore
     {
         Optional<Table> candidate = delegate.getTable(databaseName, tableName);
         candidate.ifPresent(table -> {
+            if (isHiveOrPrestoView(table)) {
+                // this is a Hive view, hence not a table
+                throw new NotADeltaLakeTableException(databaseName, tableName);
+            }
             if (!TABLE_PROVIDER_VALUE.equalsIgnoreCase(table.getParameters().get(TABLE_PROVIDER_PROPERTY))) {
                 throw new NotADeltaLakeTableException(databaseName, tableName);
             }
