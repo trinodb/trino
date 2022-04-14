@@ -377,8 +377,37 @@ Number to decimal configuration properties
 
     - ``UNNECESSARY``
 
+.. _oracle-sql-support:
+
+SQL support
+-----------
+
+The connector provides read access and write access to data and metadata in
+Oracle. In addition to the :ref:`globally available <sql-globally-available>`
+and :ref:`read operation <sql-read-operations>` statements, the connector
+supports the following statements:
+
+* :doc:`/sql/insert`
+* :doc:`/sql/delete`
+* :doc:`/sql/truncate`
+* :doc:`/sql/create-table`
+* :doc:`/sql/create-table-as`
+* :doc:`/sql/drop-table`
+* :doc:`/sql/alter-table`
+* :doc:`/sql/comment`
+
+.. include:: sql-delete-limitation.fragment
+
+.. include:: alter-table-limitation.fragment
+
+Performance
+-----------
+
+The connector includes a number of performance improvements, detailed in the
+following sections.
+
 Synonyms
---------
+^^^^^^^^
 
 Based on performance reasons, Trino disables support for Oracle ``SYNONYM``. To
 include ``SYNONYM``, add the following configuration property:
@@ -390,7 +419,7 @@ include ``SYNONYM``, add the following configuration property:
 .. _oracle-pushdown:
 
 Pushdown
---------
+^^^^^^^^
 
 The connector supports pushdown for a number of operations:
 
@@ -421,10 +450,12 @@ with the following functions:
 * :func:`covar_samp()`
 * :func:`covar_pop()`
 
+.. include:: join-pushdown-enabled-false.fragment
+
 .. _oracle-predicate-pushdown:
 
 Predicate pushdown support
-^^^^^^^^^^^^^^^^^^^^^^^^^^
+""""""""""""""""""""""""""
 
 The connector does not support pushdown of any predicates on columns that use
 the ``CLOB``, ``NCLOB``, ``BLOB``, or ``RAW(n)`` Oracle database types, or Trino
@@ -465,26 +496,3 @@ since ``name`` is a column of type ``VARCHAR(25)``, which maps to
 
     SELECT * FROM nation WHERE name > 'CANADA';
     SELECT * FROM nation WHERE name = 'CANADA';
-
-.. _oracle-sql-support:
-
-SQL support
------------
-
-The connector provides read access and write access to data and metadata in
-Oracle. In addition to the :ref:`globally available <sql-globally-available>`
-and :ref:`read operation <sql-read-operations>` statements, the connector
-supports the following statements:
-
-* :doc:`/sql/insert`
-* :doc:`/sql/delete`
-* :doc:`/sql/truncate`
-* :doc:`/sql/create-table`
-* :doc:`/sql/create-table-as`
-* :doc:`/sql/drop-table`
-* :doc:`/sql/alter-table`
-* :doc:`/sql/comment`
-
-.. include:: sql-delete-limitation.fragment
-
-.. include:: alter-table-limitation.fragment

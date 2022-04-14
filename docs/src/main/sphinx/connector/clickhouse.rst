@@ -191,25 +191,6 @@ ClickHouse        Trino             Notes
 
 .. include:: jdbc-type-mapping.fragment
 
-.. _clickhouse-pushdown:
-
-Pushdown
---------
-
-The connector supports pushdown for a number of operations:
-
-* :ref:`limit-pushdown`
-
-:ref:`Aggregate pushdown <aggregation-pushdown>` for the following functions:
-
-* :func:`avg`
-* :func:`count`
-* :func:`max`
-* :func:`min`
-* :func:`sum`
-
-.. include:: no-pushdown-text-type.fragment
-
 .. _clickhouse-sql-support:
 
 SQL support
@@ -225,3 +206,28 @@ statements, the connector supports the following features:
 * :ref:`sql-schema-table-management`
 
 .. include:: alter-schema-limitation.fragment
+
+Performance
+-----------
+
+The connector includes a number of performance improvements, detailed in the
+following sections.
+
+.. _clickhouse-pushdown:
+
+Pushdown
+^^^^^^^^
+
+The connector supports pushdown for a number of operations:
+
+* :ref:`limit-pushdown`
+
+:ref:`Aggregate pushdown <aggregation-pushdown>` for the following functions:
+
+* :func:`avg`
+* :func:`count`
+* :func:`max`
+* :func:`min`
+* :func:`sum`
+
+.. include:: no-pushdown-text-type.fragment
