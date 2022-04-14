@@ -147,6 +147,12 @@ queries/tasks are no longer retried in the event of repeated failures:
        <session-properties-definition>`.
      - ``1m``
      - Only ``QUERY``
+   * - ``retry-delay-scale-factor``
+     - Factor by which retry delay is increased on each query failure. May be
+       overridden with the ``retry_delay_scale_factor`` :ref:`session property
+       <session-properties-definition>`.
+     - ``2.0``
+     - Only ``QUERY``
 
 Task sizing
 ^^^^^^^^^^^

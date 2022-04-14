@@ -29,6 +29,7 @@ import javax.validation.constraints.NotNull;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -81,6 +82,7 @@ public class QueryManagerConfig
     private int taskRetryAttemptsOverall = Integer.MAX_VALUE;
     private Duration retryInitialDelay = new Duration(10, SECONDS);
     private Duration retryMaxDelay = new Duration(1, MINUTES);
+    private double retryDelayScaleFactor = 2.0;
 
     private int maxTasksWaitingForNodePerStage = 5;
 
@@ -482,6 +484,21 @@ public class QueryManagerConfig
     public QueryManagerConfig setRetryMaxDelay(Duration retryMaxDelay)
     {
         this.retryMaxDelay = retryMaxDelay;
+        return this;
+    }
+
+    @NotNull
+    public double getRetryDelayScaleFactor()
+    {
+        return retryDelayScaleFactor;
+    }
+
+    @Config("retry-delay-scale-factor")
+    @ConfigDescription("Factor by which retry delay is scaled on subsequent failures")
+    public QueryManagerConfig setRetryDelayScaleFactor(double retryDelayScaleFactor)
+    {
+        checkArgument(retryDelayScaleFactor >= 1.0, "retry-delay-scale-factor must be greater or equal to 1");
+        this.retryDelayScaleFactor = retryDelayScaleFactor;
         return this;
     }
 
