@@ -13,6 +13,8 @@
  */
 package io.trino.sql.analyzer;
 
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -152,6 +154,8 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.collect.cache.CacheUtils.uncheckedCacheGet;
+import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.spi.StandardErrorCode.AMBIGUOUS_NAME;
 import static io.trino.spi.StandardErrorCode.COLUMN_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.EXPRESSION_NOT_CONSTANT;
@@ -250,6 +254,9 @@ public class ExpressionAnalyzer
     private final BiFunction<Node, CorrelationSupport, StatementAnalyzer> statementAnalyzerFactory;
     private final TypeProvider symbolTypes;
     private final boolean isDescribe;
+
+    // Cache from SQL type name to Type; every Type in the cache has a CAST defined from VARCHAR
+    private final Cache<String, Type> varcharCastableTypeCache = buildNonEvictableCache(CacheBuilder.newBuilder().maximumSize(1000));
 
     private final Map<NodeRef<Expression>, ResolvedFunction> resolvedFunctions = new LinkedHashMap<>();
     private final Set<NodeRef<SubqueryExpression>> subqueries = new LinkedHashSet<>();
@@ -1031,22 +1038,25 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitGenericLiteral(GenericLiteral node, StackableAstVisitorContext<Context> context)
         {
-            Type type;
-            try {
-                type = plannerContext.getTypeManager().fromSqlType(node.getType());
-            }
-            catch (TypeNotFoundException e) {
-                throw semanticException(TYPE_NOT_FOUND, node, "Unknown type: %s", node.getType());
-            }
-
-            if (!JSON.equals(type)) {
+            Type type = uncheckedCacheGet(varcharCastableTypeCache, node.getType(), () -> {
+                Type resolvedType;
                 try {
-                    plannerContext.getMetadata().getCoercion(session, VARCHAR, type);
+                    resolvedType = plannerContext.getTypeManager().fromSqlType(node.getType());
                 }
-                catch (IllegalArgumentException e) {
-                    throw semanticException(INVALID_LITERAL, node, "No literal form for type %s", type);
+                catch (TypeNotFoundException e) {
+                    throw semanticException(TYPE_NOT_FOUND, node, "Unknown resolvedType: %s", node.getType());
                 }
-            }
+
+                if (!JSON.equals(resolvedType)) {
+                    try {
+                        plannerContext.getMetadata().getCoercion(session, VARCHAR, resolvedType);
+                    }
+                    catch (IllegalArgumentException e) {
+                        throw semanticException(INVALID_LITERAL, node, "No literal form for resolvedType %s", resolvedType);
+                    }
+                }
+                return resolvedType;
+            });
             try {
                 LiteralInterpreter.evaluate(plannerContext, session, ImmutableMap.of(NodeRef.of(node), type), node);
             }
