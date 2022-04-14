@@ -231,18 +231,17 @@ public class HeartbeatFailureDetector
         // make sure only one thread is updating the registrations
         synchronized (tasks) {
             // 1. remove expired tasks
-            List<UUID> expiredIds = tasks.values().stream()
-                    .filter(MonitoringTask::isExpired)
-                    .map(MonitoringTask::getService)
-                    .map(ServiceDescriptor::getId)
-                    .collect(toImmutableList());
-
-            tasks.keySet().removeAll(expiredIds);
+            tasks.entrySet().removeIf(entry -> entry.getValue().isExpired());
 
             // 2. disable offline services
             tasks.values().stream()
                     .filter(task -> !onlineIds.contains(task.getService().getId()))
                     .forEach(MonitoringTask::disable);
+
+            // 3. create tasks for new services
+            Set<ServiceDescriptor> newServices = online.stream()
+                    .filter(service -> !tasks.containsKey(service.getId()))
+                    .collect(toImmutableSet());
 
             // 3. create tasks for new services
             Set<ServiceDescriptor> newServices = online.stream()
