@@ -13,8 +13,8 @@
  */
 package io.trino.plugin.base;
 
+import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
-import io.trino.spi.connector.ConnectorFactory;
 
 import java.util.Optional;
 
@@ -32,10 +32,10 @@ public final class Versions
      * chooses not to maintain compatibility with older SPI versions, as happens for plugins maintained together with
      * the Trino project.
      */
-    public static void checkSpiVersion(ConnectorContext context, ConnectorFactory connectorFactory)
+    public static void checkSpiVersion(ConnectorContext context, String connectorName, Class<? extends Connector> connectorClass)
     {
         String spiVersion = context.getSpiVersion();
-        Optional<String> pluginVersion = getPluginMavenVersion(connectorFactory);
+        Optional<String> pluginVersion = getPluginMavenVersion(connectorClass);
 
         if (pluginVersion.isEmpty()) {
             // Assume we're in tests. In tests, plugin version is unknown and SPI version may be known, e.g. when running single module's tests from maven.
@@ -47,14 +47,14 @@ public final class Versions
                 format(
                         "Trino SPI version %s does not match %s connector version %s. The connector cannot be used with SPI version other than it was compiled for.",
                         spiVersion,
-                        connectorFactory.getName(),
+                        connectorName,
                         pluginVersion.get()));
     }
 
-    private static Optional<String> getPluginMavenVersion(ConnectorFactory connectorFactory)
+    private static Optional<String> getPluginMavenVersion(Class<? extends Connector> connectorClass)
     {
-        String specificationVersion = connectorFactory.getClass().getPackage().getSpecificationVersion();
-        String implementationVersion = connectorFactory.getClass().getPackage().getImplementationVersion();
+        String specificationVersion = connectorClass.getPackage().getSpecificationVersion();
+        String implementationVersion = connectorClass.getPackage().getImplementationVersion();
         if (specificationVersion == null && implementationVersion == null) {
             // The information comes from jar's Manifest and is not present e.g. when running tests, or from an IDE.
             return Optional.empty();

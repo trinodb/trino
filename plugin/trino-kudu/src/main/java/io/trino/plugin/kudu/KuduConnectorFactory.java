@@ -42,7 +42,7 @@ public class KuduConnectorFactory
     public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
         requireNonNull(config, "config is null");
-        checkSpiVersion(context, this);
+        checkSpiVersion(context, getName(), KuduConnector.class);
 
         Bootstrap app = new Bootstrap(
                 new JsonModule(),

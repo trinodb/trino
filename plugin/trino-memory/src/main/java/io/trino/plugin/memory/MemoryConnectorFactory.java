@@ -38,7 +38,7 @@ public class MemoryConnectorFactory
     public Connector create(String catalogName, Map<String, String> requiredConfig, ConnectorContext context)
     {
         requireNonNull(requiredConfig, "requiredConfig is null");
-        checkSpiVersion(context, this);
+        checkSpiVersion(context, getName(), MemoryConnector.class);
 
         // A plugin is not required to use Guice; it is just very convenient
         Bootstrap app = new Bootstrap(

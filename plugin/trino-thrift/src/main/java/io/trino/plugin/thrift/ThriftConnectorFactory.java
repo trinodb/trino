@@ -51,7 +51,7 @@ public class ThriftConnectorFactory
     @Override
     public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
-        checkSpiVersion(context, this);
+        checkSpiVersion(context, getName(), ThriftConnector.class);
 
         Bootstrap app = new Bootstrap(
                 new MBeanModule(),

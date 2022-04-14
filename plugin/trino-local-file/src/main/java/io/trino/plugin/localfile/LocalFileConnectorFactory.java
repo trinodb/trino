@@ -38,7 +38,7 @@ public class LocalFileConnectorFactory
     public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
         requireNonNull(config, "config is null");
-        checkSpiVersion(context, this);
+        checkSpiVersion(context, getName(), LocalFileConnector.class);
 
         Bootstrap app = new Bootstrap(
                 binder -> binder.bind(NodeManager.class).toInstance(context.getNodeManager()),

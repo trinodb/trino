@@ -41,7 +41,7 @@ public class BigQueryConnectorFactory
     {
         requireNonNull(catalogName, "catalogName is null");
         requireNonNull(config, "config is null");
-        checkSpiVersion(context, this);
+        checkSpiVersion(context, getName(), BigQueryConnector.class);
 
         Bootstrap app = new Bootstrap(
                 new JsonModule(),

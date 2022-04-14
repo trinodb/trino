@@ -46,7 +46,7 @@ public class KinesisConnectorFactory
     {
         requireNonNull(catalogName, "catalogName is null");
         requireNonNull(config, "config is null");
-        checkSpiVersion(context, this);
+        checkSpiVersion(context, getName(), KinesisConnector.class);
 
         try {
             Bootstrap app = new Bootstrap(

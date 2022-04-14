@@ -59,7 +59,7 @@ public class TpcdsConnectorFactory
     @Override
     public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
-        checkSpiVersion(context, this);
+        checkSpiVersion(context, getName(), TpcdsConnector.class);
         return new TpcdsConnector(config, context);
     }
 

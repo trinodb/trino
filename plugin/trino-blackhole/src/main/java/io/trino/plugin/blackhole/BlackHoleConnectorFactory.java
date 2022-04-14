@@ -37,7 +37,7 @@ public class BlackHoleConnectorFactory
     @Override
     public Connector create(String catalogName, Map<String, String> requiredConfig, ConnectorContext context)
     {
-        checkSpiVersion(context, this);
+        checkSpiVersion(context, getName(), BlackHoleConnector.class);
 
         ListeningScheduledExecutorService executorService = listeningDecorator(newSingleThreadScheduledExecutor(daemonThreadsNamed("blackhole")));
         return new BlackHoleConnector(

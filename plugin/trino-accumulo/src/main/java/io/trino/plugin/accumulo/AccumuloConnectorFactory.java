@@ -43,7 +43,7 @@ public class AccumuloConnectorFactory
         requireNonNull(catalogName, "catalogName is null");
         requireNonNull(config, "config is null");
         requireNonNull(context, "context is null");
-        checkSpiVersion(context, this);
+        checkSpiVersion(context, CONNECTOR_NAME, AccumuloConnector.class);
 
         Bootstrap app = new Bootstrap(
                 new JsonModule(),

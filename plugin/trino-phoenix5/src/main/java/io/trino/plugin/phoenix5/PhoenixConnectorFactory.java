@@ -48,7 +48,7 @@ public class PhoenixConnectorFactory
     public Connector create(String catalogName, Map<String, String> requiredConfig, ConnectorContext context)
     {
         requireNonNull(requiredConfig, "requiredConfig is null");
-        checkSpiVersion(context, this);
+        checkSpiVersion(context, getName(), PhoenixConnector.class);
 
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             Bootstrap app = new Bootstrap(

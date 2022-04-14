@@ -63,7 +63,7 @@ public class RaptorConnectorFactory
     @Override
     public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
-        checkSpiVersion(context, this);
+        checkSpiVersion(context, getName(), RaptorConnector.class);
 
         Bootstrap app = new Bootstrap(
                 new CatalogNameModule(catalogName),

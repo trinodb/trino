@@ -52,7 +52,7 @@ public class PinotConnectorFactory
     {
         requireNonNull(catalogName, "catalogName is null");
         requireNonNull(config, "config is null");
-        checkSpiVersion(context, this);
+        checkSpiVersion(context, getName(), PinotConnector.class);
 
         ImmutableList.Builder<Module> modulesBuilder = ImmutableList.<Module>builder()
                 .add(new JsonModule())

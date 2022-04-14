@@ -40,7 +40,7 @@ public class CassandraConnectorFactory
     public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
         requireNonNull(config, "config is null");
-        checkSpiVersion(context, this);
+        checkSpiVersion(context, getName(), CassandraConnector.class);
 
         Bootstrap app = new Bootstrap(
                 new MBeanModule(),

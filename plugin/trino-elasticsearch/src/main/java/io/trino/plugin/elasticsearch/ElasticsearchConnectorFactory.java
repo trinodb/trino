@@ -46,7 +46,7 @@ public class ElasticsearchConnectorFactory
     {
         requireNonNull(catalogName, "catalogName is null");
         requireNonNull(config, "config is null");
-        checkSpiVersion(context, this);
+        checkSpiVersion(context, getName(), ElasticsearchConnector.class);
 
         Bootstrap app = new Bootstrap(
                 new MBeanModule(),

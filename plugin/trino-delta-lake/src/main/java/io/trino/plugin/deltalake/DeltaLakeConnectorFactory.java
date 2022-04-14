@@ -46,7 +46,7 @@ public class DeltaLakeConnectorFactory
     @Override
     public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
-        checkSpiVersion(context, this);
+        checkSpiVersion(context, getName(), DeltaLakeConnector.class);
 
         ClassLoader classLoader = context.duplicatePluginClassLoader();
         try {

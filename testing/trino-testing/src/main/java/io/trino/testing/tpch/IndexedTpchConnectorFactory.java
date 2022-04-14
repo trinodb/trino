@@ -61,7 +61,7 @@ public class IndexedTpchConnectorFactory
     @Override
     public Connector create(String catalogName, Map<String, String> properties, ConnectorContext context)
     {
-        checkSpiVersion(context, this);
+        checkSpiVersion(context, getName(), IndexedTpchConnector.class);
         return new IndexedTpchConnector(properties, context);
     }
 

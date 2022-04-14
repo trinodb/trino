@@ -51,7 +51,7 @@ public class IcebergConnectorFactory
     @Override
     public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
-        checkSpiVersion(context, this);
+        checkSpiVersion(context, getName(), IcebergConnector.class);
 
         ClassLoader classLoader = context.duplicatePluginClassLoader();
         try {
