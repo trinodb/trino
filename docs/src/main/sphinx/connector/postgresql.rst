@@ -265,6 +265,8 @@ The connector supports pushdown for a number of operations:
 * :func:`regr_intercept`
 * :func:`regr_slope`
 
+.. include:: join-pushdown-enabled-true.fragment
+
 Predicate pushdown support
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 

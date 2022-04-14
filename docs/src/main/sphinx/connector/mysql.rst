@@ -285,6 +285,27 @@ Finally, you can access the ``clicks`` table in the ``web`` database::
 If you used a different name for your catalog properties file, use
 that catalog name instead of ``mysql`` in the above examples.
 
+.. _mysql-sql-support:
+
+SQL support
+-----------
+
+The connector provides read access and write access to data and metadata in the
+MySQL database. In addition to the :ref:`globally available <sql-globally-available>` and
+:ref:`read operation <sql-read-operations>` statements, the connector supports
+the following statements:
+
+* :doc:`/sql/insert`
+* :doc:`/sql/delete`
+* :doc:`/sql/truncate`
+* :doc:`/sql/create-table`
+* :doc:`/sql/create-table-as`
+* :doc:`/sql/drop-table`
+* :doc:`/sql/create-schema`
+* :doc:`/sql/drop-schema`
+
+.. include:: sql-delete-limitation.fragment
+
 Performance
 -----------
 
@@ -361,25 +382,6 @@ The connector supports pushdown for a number of operations:
 * :func:`var_pop`
 * :func:`var_samp`
 
+.. include:: join-pushdown-enabled-true.fragment
+
 .. include:: no-pushdown-text-type.fragment
-
-.. _mysql-sql-support:
-
-SQL support
------------
-
-The connector provides read access and write access to data and metadata in the
-MySQL database. In addition to the :ref:`globally available <sql-globally-available>` and
-:ref:`read operation <sql-read-operations>` statements, the connector supports
-the following statements:
-
-* :doc:`/sql/insert`
-* :doc:`/sql/delete`
-* :doc:`/sql/truncate`
-* :doc:`/sql/create-table`
-* :doc:`/sql/create-table-as`
-* :doc:`/sql/drop-table`
-* :doc:`/sql/create-schema`
-* :doc:`/sql/drop-schema`
-
-.. include:: sql-delete-limitation.fragment

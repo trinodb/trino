@@ -42,8 +42,3 @@ connector:
       Do not change this setting from the default. Non-default values may
       negatively impact performance.
     - ``1000``
-  * - ``join-pushdown.enabled``
-    - Enable :ref:`join pushdown <join-pushdown>`. Equivalent :doc:`catalog
-      session property </sql/set-session>` is ``join_pushdown_enabled``.  Enabling
-      this may negatively impact performance for some queries.
-    - ``false``

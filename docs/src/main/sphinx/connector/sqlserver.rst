@@ -164,7 +164,6 @@ supports the following features:
 
 .. include:: alter-table-limitation.fragment
 
-
 Performance
 -----------
 
@@ -228,6 +227,8 @@ The connector supports pushdown for a number of operations:
 * :func:`variance`
 * :func:`var_pop`
 * :func:`var_samp`
+
+.. include:: join-pushdown-enabled-true.fragment
 
 .. include:: no-pushdown-text-type.fragment
 
