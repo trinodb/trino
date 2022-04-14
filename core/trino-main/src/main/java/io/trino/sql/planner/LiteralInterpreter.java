@@ -65,31 +65,34 @@ import static java.util.Objects.requireNonNull;
 
 public final class LiteralInterpreter
 {
-    private LiteralInterpreter() {}
+    private final PlannerContext plannerContext;
+    private final Session session;
+    private final ConnectorSession connectorSession;
+    private final InterpretedFunctionInvoker functionInvoker;
 
-    public static Object evaluate(PlannerContext plannerContext, Session session, Map<NodeRef<Expression>, Type> types, Expression node)
+    public LiteralInterpreter(PlannerContext plannerContext, Session session)
+    {
+        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
+        this.session = requireNonNull(session, "session is null");
+        this.connectorSession = session.toConnectorSession();
+        this.functionInvoker = new InterpretedFunctionInvoker(plannerContext.getFunctionManager());
+    }
+
+    public Object evaluate(Map<NodeRef<Expression>, Type> types, Expression node)
     {
         if (!(node instanceof Literal)) {
             throw new IllegalArgumentException("node must be a Literal");
         }
-        return new LiteralVisitor(session, plannerContext, types).process(node, null);
+        return new LiteralVisitor(types).process(node, null);
     }
 
-    private static class LiteralVisitor
+    private class LiteralVisitor
             extends AstVisitor<Object, Void>
     {
-        private final Session session;
-        private final ConnectorSession connectorSession;
-        private final PlannerContext plannerContext;
-        private final InterpretedFunctionInvoker functionInvoker;
         private final Map<NodeRef<Expression>, Type> types;
 
-        private LiteralVisitor(Session session, PlannerContext plannerContext, Map<NodeRef<Expression>, Type> types)
+        private LiteralVisitor(Map<NodeRef<Expression>, Type> types)
         {
-            this.session = requireNonNull(session, "session is null");
-            this.connectorSession = session.toConnectorSession();
-            this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
-            this.functionInvoker = new InterpretedFunctionInvoker(plannerContext.getFunctionManager());
             this.types = requireNonNull(types, "types is null");
         }
 
