@@ -633,6 +633,14 @@ public class ExpressionInterpreter
 
             ResolvedFunction equalsOperator = metadata.resolveOperator(session, OperatorType.EQUAL, types(node.getValue(), valueList));
             for (Expression expression : valueList.getValues()) {
+                if (value instanceof Expression && expression instanceof Literal) {
+                    // skip interpreting of literal IN term since it cannot be compared
+                    // with unresolved "value" and it cannot be simplified further
+                    values.add(expression);
+                    types.add(type(expression));
+                    continue;
+                }
+
                 // Use process() instead of processWithExceptionHandling() for processing in-list items.
                 // Do not handle exceptions thrown while processing a single in-list expression,
                 // but fail the whole in-predicate evaluation.
