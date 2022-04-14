@@ -80,7 +80,7 @@ public class StarburstSqlServerClient
             QueryBuilder queryBuilder,
             IdentifierMapping identifierMapping)
     {
-        super(config, sqlServerConfig, connectionFactory, queryBuilder, identifierMapping);
+        super(config, sqlServerConfig, statisticsConfig, connectionFactory, queryBuilder, identifierMapping);
         this.statisticsEnabled = requireNonNull(statisticsConfig, "statisticsConfig is null").isEnabled();
         this.tableScanRedirection = requireNonNull(tableScanRedirection, "tableScanRedirection is null");
     }
