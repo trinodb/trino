@@ -243,11 +243,6 @@ public class HeartbeatFailureDetector
                     .filter(service -> !tasks.containsKey(service.getId()))
                     .collect(toImmutableSet());
 
-            // 3. create tasks for new services
-            Set<ServiceDescriptor> newServices = online.stream()
-                    .filter(service -> !tasks.keySet().contains(service.getId()))
-                    .collect(toImmutableSet());
-
             for (ServiceDescriptor service : newServices) {
                 URI uri = getHttpUri(service);
 
