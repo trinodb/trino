@@ -27,6 +27,7 @@ import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.ExpressionAnalyzer;
 import io.trino.sql.analyzer.Scope;
 import io.trino.sql.planner.ExpressionInterpreter;
+import io.trino.sql.planner.LiteralInterpreter;
 import io.trino.sql.planner.NoOpSymbolResolver;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeAnalyzer;
@@ -53,7 +54,6 @@ import static io.trino.spi.statistics.StatsUtil.toStatsRepresentation;
 import static io.trino.sql.ExpressionUtils.getExpressionTypes;
 import static io.trino.sql.ExpressionUtils.isEffectivelyLiteral;
 import static io.trino.sql.analyzer.ExpressionAnalyzer.createConstantAnalyzer;
-import static io.trino.sql.planner.LiteralInterpreter.evaluate;
 import static io.trino.util.MoreMath.max;
 import static io.trino.util.MoreMath.min;
 import static java.lang.Double.NaN;
@@ -84,12 +84,14 @@ public class ScalarStatsCalculator
     {
         private final PlanNodeStatsEstimate input;
         private final Session session;
+        private final LiteralInterpreter literalInterpreter;
         private final TypeProvider types;
 
         Visitor(PlanNodeStatsEstimate input, Session session, TypeProvider types)
         {
             this.input = input;
             this.session = session;
+            this.literalInterpreter = new LiteralInterpreter(plannerContext, session);
             this.types = types;
         }
 
@@ -116,7 +118,7 @@ public class ScalarStatsCalculator
         {
             ExpressionAnalyzer analyzer = createConstantAnalyzer(plannerContext, new AllowAllAccessControl(), session, ImmutableMap.of(), WarningCollector.NOOP);
             Type type = analyzer.analyze(node, Scope.create());
-            Object value = evaluate(plannerContext, session, analyzer.getExpressionTypes(), node);
+            Object value = literalInterpreter.evaluate(analyzer.getExpressionTypes(), node);
 
             OptionalDouble doubleValue = toStatsRepresentation(type, value);
             SymbolStatsEstimate.Builder estimate = SymbolStatsEstimate.builder()
