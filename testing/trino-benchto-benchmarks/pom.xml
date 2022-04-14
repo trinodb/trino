@@ -107,7 +107,7 @@
                     <descriptors>
                         <descriptor>src/assembly/benchmarks.xml</descriptor>
                     </descriptors>
-                    <finalName>presto-benchto-benchmarks-package-${project.version}</finalName>
+                    <finalName>presto-benchto-benchmarks-package-${dep.trino.version}</finalName>
                     <appendAssemblyId>false</appendAssemblyId>
                 </configuration>
                 <executions>

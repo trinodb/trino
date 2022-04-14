@@ -91,7 +91,7 @@ public class SuiteDescribe
         @Option(names = "--suite", paramLabel = "<suite>", description = "Name of the suite to describe", required = true)
         public String suite;
 
-        @Option(names = "--test-jar", paramLabel = "<jar>", description = "Path to test JAR " + DEFAULT_VALUE, defaultValue = "${product-tests.module}/target/${product-tests.name}-${project.version}-executable.jar")
+        @Option(names = "--test-jar", paramLabel = "<jar>", description = "Path to test JAR " + DEFAULT_VALUE, defaultValue = "${product-tests.module}/target/${product-tests.name}-${dep.trino.version}-executable.jar")
         public File testJar;
 
         public Module toModule()

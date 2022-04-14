@@ -2,7 +2,7 @@
 
     <!-- Bring server tar.gz over for the RPM -->
     <artifactSet to="/">
-        <artifact id="${project.groupId}:trino-server:tar.gz:${project.version}">
+        <artifact id="${project.groupId}:trino-server:tar.gz:${dep.trino.version}">
             <unpack useRoot="true" />
         </artifact>
     </artifactSet>

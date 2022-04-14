@@ -23,7 +23,7 @@
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-accumulo-iterators</artifactId>
-            <version>${project.version}</version>
+            <version>${dep.trino.version}</version>
         </dependency>
 
         <dependency>
@@ -337,7 +337,7 @@
                                 <artifactItem>
                                     <groupId>io.trino</groupId>
                                     <artifactId>trino-accumulo-iterators</artifactId>
-                                    <version>${project.version}</version>
+                                    <version>${dep.trino.version}</version>
                                     <type>jar</type>
                                 </artifactItem>
                             </artifactItems>

@@ -27,7 +27,7 @@
             <groupId>io.trino</groupId>
             <artifactId>trino-jdbc</artifactId>
             <type>test-jar</type>
-            <version>${project.version}</version>
+            <version>${dep.trino.version}</version>
             <scope>test</scope>
         </dependency>
 

@@ -120,7 +120,7 @@ public class SuiteRun
         @Option(names = "--suite", paramLabel = "<suite>", description = "Name of the suite(s) to run (comma separated)", required = true, split = ",")
         public List<String> suites;
 
-        @Option(names = "--test-jar", paramLabel = "<jar>", description = "Path to test JAR " + DEFAULT_VALUE, defaultValue = "${product-tests.module}/target/${product-tests.name}-${project.version}-executable.jar")
+        @Option(names = "--test-jar", paramLabel = "<jar>", description = "Path to test JAR " + DEFAULT_VALUE, defaultValue = "${product-tests.module}/target/${product-tests.name}-${dep.trino.version}-executable.jar")
         public File testJar;
 
         @Option(names = "--cli-executable", paramLabel = "<jar>", description = "Path to CLI executable " + DEFAULT_VALUE, defaultValue = "${cli.bin}")

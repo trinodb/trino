@@ -46,6 +46,7 @@
 
         <air.release.preparation-goals>clean verify -DskipTests</air.release.preparation-goals>
 
+        <dep.trino.version>378-SNAPSHOT</dep.trino.version>
         <dep.accumulo.version>1.7.4</dep.accumulo.version>
         <dep.accumulo-hadoop.version>2.7.7-1</dep.accumulo-hadoop.version>
         <dep.antlr.version>4.9.3</dep.antlr.version>
@@ -177,406 +178,406 @@
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-array</artifactId>
-                <version>${project.version}</version>
+                <version>${dep.trino.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-base-jdbc</artifactId>
-                <version>${project.version}</version>
+                <version>${dep.trino.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-base-jdbc</artifactId>
                 <type>test-jar</type>
-                <version>${project.version}</version>
+                <version>${dep.trino.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-benchmark</artifactId>
-                <version>${project.version}</version>
+                <version>${dep.trino.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-benchto-benchmarks</artifactId>
-                <version>${project.version}</version>
+                <version>${dep.trino.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-blackhole</artifactId>
-                <version>${project.version}</version>
+                <version>${dep.trino.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-cli</artifactId>
-                <version>${project.version}</version>
+                <version>${dep.trino.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-client</artifactId>
-                <version>${project.version}</version>
+                <version>${dep.trino.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-collect</artifactId>
-                <version>${project.version}</version>
+                <version>${dep.trino.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-collect</artifactId>
                 <type>test-jar</type>
-                <version>${project.version}</version>
+                <version>${dep.trino.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-delta-lake</artifactId>
-                <version>${project.version}</version>
+                <version>${dep.trino.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-delta-lake</artifactId>
                 <type>test-jar</type>
-                <version>${project.version}</version>
+                <version>${dep.trino.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-elasticsearch</artifactId>
-                <version>${project.version}</version>
+                <version>${dep.trino.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-example-http</artifactId>
                 <type>zip</type>
-                <version>${project.version}</version>
+                <version>${dep.trino.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-exchange</artifactId>
-                <version>${project.version}</version>
+                <version>${dep.trino.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-exchange</artifactId>
                 <type>test-jar</type>
-                <version>${project.version}</version>
+                <version>${dep.trino.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-geospatial</artifactId>
-                <version>${project.version}</version>
+                <version>${dep.trino.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-geospatial-toolkit</artifactId>
-                <version>${project.version}</version>
+                <version>${dep.trino.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-hive</artifactId>
-                <version>${project.version}</version>
+                <version>${dep.trino.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-hive</artifactId>
                 <type>test-jar</type>
-                <version>${project.version}</version>
+                <version>${dep.trino.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-hive-hadoop2</artifactId>
-                <version>${project.version}</version>
+                <version>${dep.trino.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-iceberg</artifactId>
-                <version>${project.version}</version>
+                <version>${dep.trino.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-jdbc</artifactId>
-                <version>${project.version}</version>
+                <version>${dep.trino.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-jmx</artifactId>
-                <version>${project.version}</version>
+                <version>${dep.trino.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-local-file</artifactId>
-                <version>${project.version}</version>
+                <version>${dep.trino.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-main</artifactId>
-                <version>${project.version}</version>
+                <version>${dep.trino.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-main</artifactId>
                 <type>test-jar</type>
-                <version>${project.version}</version>
+                <version>${dep.trino.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-matching</artifactId>
-                <version>${project.version}</version>
+                <version>${dep.trino.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-memory</artifactId>
-                <version>${project.version}</version>
+                <version>${dep.trino.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-memory</artifactId>
                 <type>test-jar</type>
-                <version>${project.version}</version>
+                <version>${dep.trino.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-memory-context</artifactId>
-                <version>${project.version}</version>
+                <version>${dep.trino.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-mongodb</artifactId>
-                <version>${project.version}</version>
+                <version>${dep.trino.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-mysql</artifactId>
-                <version>${project.version}</version>
+                <version>${dep.trino.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-orc</artifactId>
-                <version>${project.version}</version>
+                <version>${dep.trino.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-parquet</artifactId>
-                <version>${project.version}</version>
+                <version>${dep.trino.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-parser</artifactId>
-                <version>${project.version}</version>
+                <version>${dep.trino.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-parser</artifactId>
                 <type>test-jar</type>
-                <version>${project.version}</version>
+                <version>${dep.trino.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-password-authenticators</artifactId>
-                <version>${project.version}</version>
+                <version>${dep.trino.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-pinot</artifactId>
-                <version>${project.version}</version>
+                <version>${dep.trino.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-plugin-toolkit</artifactId>
-                <version>${project.version}</version>
+                <version>${dep.trino.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-plugin-toolkit</artifactId>
                 <type>test-jar</type>
-                <version>${project.version}</version>
+                <version>${dep.trino.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-product-tests</artifactId>
-                <version>${project.version}</version>
+                <version>${dep.trino.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-raptor-legacy</artifactId>
-                <version>${project.version}</version>
+                <version>${dep.trino.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-rcfile</artifactId>
-                <version>${project.version}</version>
+                <version>${dep.trino.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-record-decoder</artifactId>
-                <version>${project.version}</version>
+                <version>${dep.trino.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-resource-group-managers</artifactId>
-                <version>${project.version}</version>
+                <version>${dep.trino.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-resource-group-managers</artifactId>
                 <type>test-jar</type>
-                <version>${project.version}</version>
+                <version>${dep.trino.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-server</artifactId>
-                <version>${project.version}</version>
+                <version>${dep.trino.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-server-rpm</artifactId>
-                <version>${project.version}</version>
+                <version>${dep.trino.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-session-property-managers</artifactId>
-                <version>${project.version}</version>
+                <version>${dep.trino.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-session-property-managers</artifactId>
                 <type>test-jar</type>
-                <version>${project.version}</version>
+                <version>${dep.trino.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-spi</artifactId>
-                <version>${project.version}</version>
+                <version>${dep.trino.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-spi</artifactId>
                 <type>test-jar</type>
-                <version>${project.version}</version>
+                <version>${dep.trino.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-sqlserver</artifactId>
-                <version>${project.version}</version>
+                <version>${dep.trino.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-testing</artifactId>
-                <version>${project.version}</version>
+                <version>${dep.trino.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-testing-containers</artifactId>
-                <version>${project.version}</version>
+                <version>${dep.trino.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-testing-kafka</artifactId>
-                <version>${project.version}</version>
+                <version>${dep.trino.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-testing-services</artifactId>
-                <version>${project.version}</version>
+                <version>${dep.trino.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-tests</artifactId>
-                <version>${project.version}</version>
+                <version>${dep.trino.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-thrift</artifactId>
                 <type>zip</type>
-                <version>${project.version}</version>
+                <version>${dep.trino.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-thrift-api</artifactId>
-                <version>${project.version}</version>
+                <version>${dep.trino.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-thrift-api</artifactId>
                 <type>test-jar</type>
-                <version>${project.version}</version>
+                <version>${dep.trino.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-thrift-testing-server</artifactId>
-                <version>${project.version}</version>
+                <version>${dep.trino.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-tpcds</artifactId>
-                <version>${project.version}</version>
+                <version>${dep.trino.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-tpch</artifactId>
-                <version>${project.version}</version>
+                <version>${dep.trino.version}</version>
             </dependency>
 
             <!-- Trino external -->

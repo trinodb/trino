@@ -16,7 +16,7 @@
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
 
-        <server.tar.package>trino-server-${project.version}</server.tar.package>
+        <server.tar.package>trino-server-${dep.trino.version}</server.tar.package>
     </properties>
 
     <dependencies>
@@ -146,8 +146,8 @@
                     <packages>
                         <package>
                             <name>trino-server-rpm</name>
-                            <nameOverride>trino-server-rpm-${project.version}.noarch.rpm</nameOverride>
-                            <version>${project.version}</version>
+                            <nameOverride>trino-server-rpm-${dep.trino.version}.noarch.rpm</nameOverride>
+                            <version>${dep.trino.version}</version>
                             <release>1</release>
 
                             <group>Applications/Databases</group>

@@ -56,7 +56,7 @@
                     <dependency>
                         <groupId>io.trino</groupId>
                         <artifactId>trino-thrift-api</artifactId>
-                        <version>${project.version}</version>
+                        <version>${dep.trino.version}</version>
                     </dependency>
                 </dependencies>
             </plugin>
@@ -114,7 +114,7 @@
                     <dependency>
                         <groupId>io.trino</groupId>
                         <artifactId>trino-parser</artifactId>
-                        <version>${project.version}</version>
+                        <version>${dep.trino.version}</version>
                     </dependency>
                 </dependencies>
             </plugin>

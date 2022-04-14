@@ -37,7 +37,7 @@
                             <!-- Maven Central has a 1GB limit -->
                             <maxsize>1073741824</maxsize>
                             <files>
-                                <file>${project.build.directory}/${project.artifactId}-${project.version}.tar.gz</file>
+                                <file>${project.build.directory}/${project.artifactId}-${dep.trino.version}.tar.gz</file>
                             </files>
                         </requireFilesSize>
                     </rules>
