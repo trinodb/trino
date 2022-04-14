@@ -125,6 +125,7 @@ import static io.trino.SystemSessionProperties.getConcurrentLifespansPerNode;
 import static io.trino.SystemSessionProperties.getHashPartitionCount;
 import static io.trino.SystemSessionProperties.getMaxTasksWaitingForNodePerStage;
 import static io.trino.SystemSessionProperties.getQueryRetryAttempts;
+import static io.trino.SystemSessionProperties.getRetryDelayScaleFactor;
 import static io.trino.SystemSessionProperties.getRetryInitialDelay;
 import static io.trino.SystemSessionProperties.getRetryMaxDelay;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
@@ -203,6 +204,7 @@ public class SqlQueryScheduler
     private final AtomicInteger currentAttempt = new AtomicInteger();
     private final Duration retryInitialDelay;
     private final Duration retryMaxDelay;
+    private final double retryDelayScaleFactor;
 
     @GuardedBy("this")
     private boolean started;
@@ -282,6 +284,7 @@ public class SqlQueryScheduler
         maxTasksWaitingForNodePerStage = getMaxTasksWaitingForNodePerStage(queryStateMachine.getSession());
         retryInitialDelay = getRetryInitialDelay(queryStateMachine.getSession());
         retryMaxDelay = getRetryMaxDelay(queryStateMachine.getSession());
+        retryDelayScaleFactor = getRetryDelayScaleFactor(queryStateMachine.getSession());
     }
 
     public synchronized void start()
@@ -411,7 +414,7 @@ public class SqlQueryScheduler
                         .orElseGet(() -> new StageFailureInfo(toFailure(new VerifyException("distributedStagesScheduler failed but failure cause is not present")), Optional.empty()));
                 ErrorCode errorCode = stageFailureInfo.getFailureInfo().getErrorCode();
                 if (shouldRetry(errorCode)) {
-                    long delayInMillis = min(retryInitialDelay.toMillis() * ((long) pow(2, currentAttempt.get())), retryMaxDelay.toMillis());
+                    long delayInMillis = min(retryInitialDelay.toMillis() * ((long) pow(retryDelayScaleFactor, currentAttempt.get())), retryMaxDelay.toMillis());
                     currentAttempt.incrementAndGet();
                     scheduleRetryWithDelay(delayInMillis);
                 }

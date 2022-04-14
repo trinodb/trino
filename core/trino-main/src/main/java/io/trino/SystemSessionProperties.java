@@ -156,6 +156,7 @@ public final class SystemSessionProperties
     public static final String MAX_TASKS_WAITING_FOR_NODE_PER_STAGE = "max_tasks_waiting_for_node_per_stage";
     public static final String RETRY_INITIAL_DELAY = "retry_initial_delay";
     public static final String RETRY_MAX_DELAY = "retry_max_delay";
+    public static final String RETRY_DELAY_SCALE_FACTOR = "retry_delay_scale_factor";
     public static final String HIDE_INACCESSIBLE_COLUMNS = "hide_inaccessible_columns";
     public static final String FAULT_TOLERANT_EXECUTION_TARGET_TASK_INPUT_SIZE = "fault_tolerant_execution_target_task_input_size";
     public static final String FAULT_TOLERANT_EXECUTION_MIN_TASK_SPLIT_COUNT = "fault_tolerant_execution_min_task_split_count";
@@ -747,6 +748,18 @@ public final class SystemSessionProperties
                         RETRY_MAX_DELAY,
                         "Maximum delay before initiating a retry attempt. Delay increases exponentially for each subsequent attempt starting from 'retry_initial_delay'",
                         queryManagerConfig.getRetryMaxDelay(),
+                        false),
+                doubleProperty(
+                        RETRY_DELAY_SCALE_FACTOR,
+                        "Maximum delay before initiating a retry attempt. Delay increases exponentially for each subsequent attempt starting from 'retry_initial_delay'",
+                        queryManagerConfig.getRetryDelayScaleFactor(),
+                        value -> {
+                            if (value < 1.0) {
+                                throw new TrinoException(
+                                        INVALID_SESSION_PROPERTY,
+                                        format("%s must be greater or equal to 1.0", RETRY_MAX_DELAY));
+                            }
+                        },
                         false),
                 booleanProperty(
                         HIDE_INACCESSIBLE_COLUMNS,
@@ -1395,6 +1408,11 @@ public final class SystemSessionProperties
     public static Duration getRetryMaxDelay(Session session)
     {
         return session.getSystemProperty(RETRY_MAX_DELAY, Duration.class);
+    }
+
+    public static double getRetryDelayScaleFactor(Session session)
+    {
+        return session.getSystemProperty(RETRY_DELAY_SCALE_FACTOR, Double.class);
     }
 
     public static boolean isHideInaccessibleColumns(Session session)
