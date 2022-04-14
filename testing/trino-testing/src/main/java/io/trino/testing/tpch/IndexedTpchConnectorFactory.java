@@ -62,55 +62,64 @@ public class IndexedTpchConnectorFactory
     public Connector create(String catalogName, Map<String, String> properties, ConnectorContext context)
     {
         checkSpiVersion(context, this);
+        return new IndexedTpchConnector(properties, context);
+    }
 
-        int splitsPerNode = getSplitsPerNode(properties);
-        TpchIndexedData indexedData = new TpchIndexedData(indexSpec);
-        NodeManager nodeManager = context.getNodeManager();
+    private class IndexedTpchConnector
+            implements Connector
+    {
+        private final int splitsPerNode;
+        private final TpchIndexedData indexedData;
+        private final NodeManager nodeManager;
 
-        return new Connector()
+        IndexedTpchConnector(Map<String, String> properties, ConnectorContext context)
         {
-            @Override
-            public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly, boolean autoCommit)
-            {
-                return TpchTransactionHandle.INSTANCE;
-            }
+            this.splitsPerNode = getSplitsPerNode(properties);
+            this.indexedData = new TpchIndexedData(indexSpec);
+            this.nodeManager = context.getNodeManager();
+        }
 
-            @Override
-            public ConnectorMetadata getMetadata(ConnectorSession session, ConnectorTransactionHandle transactionHandle)
-            {
-                return new TpchIndexMetadata(indexedData);
-            }
+        @Override
+        public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly, boolean autoCommit)
+        {
+            return TpchTransactionHandle.INSTANCE;
+        }
 
-            @Override
-            public ConnectorSplitManager getSplitManager()
-            {
-                return new TpchSplitManager(nodeManager, splitsPerNode);
-            }
+        @Override
+        public ConnectorMetadata getMetadata(ConnectorSession session, ConnectorTransactionHandle transactionHandle)
+        {
+            return new TpchIndexMetadata(indexedData);
+        }
 
-            @Override
-            public ConnectorRecordSetProvider getRecordSetProvider()
-            {
-                return new TpchRecordSetProvider(DecimalTypeMapping.DOUBLE);
-            }
+        @Override
+        public ConnectorSplitManager getSplitManager()
+        {
+            return new TpchSplitManager(nodeManager, splitsPerNode);
+        }
 
-            @Override
-            public ConnectorIndexProvider getIndexProvider()
-            {
-                return new TpchIndexProvider(indexedData);
-            }
+        @Override
+        public ConnectorRecordSetProvider getRecordSetProvider()
+        {
+            return new TpchRecordSetProvider(DecimalTypeMapping.DOUBLE);
+        }
 
-            @Override
-            public Set<SystemTable> getSystemTables()
-            {
-                return ImmutableSet.of(new ExampleSystemTable());
-            }
+        @Override
+        public ConnectorIndexProvider getIndexProvider()
+        {
+            return new TpchIndexProvider(indexedData);
+        }
 
-            @Override
-            public ConnectorNodePartitioningProvider getNodePartitioningProvider()
-            {
-                return new TpchNodePartitioningProvider(nodeManager, splitsPerNode);
-            }
-        };
+        @Override
+        public Set<SystemTable> getSystemTables()
+        {
+            return ImmutableSet.of(new ExampleSystemTable());
+        }
+
+        @Override
+        public ConnectorNodePartitioningProvider getNodePartitioningProvider()
+        {
+            return new TpchNodePartitioningProvider(nodeManager, splitsPerNode);
+        }
     }
 
     private int getSplitsPerNode(Map<String, String> properties)

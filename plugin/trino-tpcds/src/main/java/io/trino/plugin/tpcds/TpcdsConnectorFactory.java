@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.tpcds;
 
+import com.google.common.collect.ImmutableMap;
 import io.trino.spi.NodeManager;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
@@ -59,41 +60,52 @@ public class TpcdsConnectorFactory
     public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
         checkSpiVersion(context, this);
+        return new TpcdsConnector(config, context);
+    }
 
-        int splitsPerNode = getSplitsPerNode(config);
-        NodeManager nodeManager = context.getNodeManager();
-        return new Connector()
+    private class TpcdsConnector
+            implements Connector
+    {
+        private final int splitsPerNode;
+        private final NodeManager nodeManager;
+        private final Map<String, String> config;
+
+        public TpcdsConnector(Map<String, String> config, ConnectorContext context)
         {
-            @Override
-            public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly, boolean autoCommit)
-            {
-                return TpcdsTransactionHandle.INSTANCE;
-            }
+            this.splitsPerNode = getSplitsPerNode(config);
+            this.nodeManager = context.getNodeManager();
+            this.config = ImmutableMap.copyOf(config);
+        }
 
-            @Override
-            public ConnectorMetadata getMetadata(ConnectorSession session, ConnectorTransactionHandle transactionHandle)
-            {
-                return new TpcdsMetadata();
-            }
+        @Override
+        public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly, boolean autoCommit)
+        {
+            return TpcdsTransactionHandle.INSTANCE;
+        }
 
-            @Override
-            public ConnectorSplitManager getSplitManager()
-            {
-                return new TpcdsSplitManager(nodeManager, splitsPerNode, isWithNoSexism(config));
-            }
+        @Override
+        public ConnectorMetadata getMetadata(ConnectorSession session, ConnectorTransactionHandle transactionHandle)
+        {
+            return new TpcdsMetadata();
+        }
 
-            @Override
-            public ConnectorRecordSetProvider getRecordSetProvider()
-            {
-                return new TpcdsRecordSetProvider();
-            }
+        @Override
+        public ConnectorSplitManager getSplitManager()
+        {
+            return new TpcdsSplitManager(nodeManager, splitsPerNode, isWithNoSexism(config));
+        }
 
-            @Override
-            public ConnectorNodePartitioningProvider getNodePartitioningProvider()
-            {
-                return new TpcdsNodePartitioningProvider(nodeManager, splitsPerNode);
-            }
-        };
+        @Override
+        public ConnectorRecordSetProvider getRecordSetProvider()
+        {
+            return new TpcdsRecordSetProvider();
+        }
+
+        @Override
+        public ConnectorNodePartitioningProvider getNodePartitioningProvider()
+        {
+            return new TpcdsNodePartitioningProvider(nodeManager, splitsPerNode);
+        }
     }
 
     private int getSplitsPerNode(Map<String, String> properties)

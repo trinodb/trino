@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.tpch;
 
+import com.google.common.collect.ImmutableMap;
 import io.trino.spi.NodeManager;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
@@ -78,64 +79,76 @@ public class TpchConnectorFactory
     public Connector create(String catalogName, Map<String, String> properties, ConnectorContext context)
     {
         checkSpiVersion(context, this);
+        return new TpchConnector(properties, context);
+    }
 
-        int splitsPerNode = getSplitsPerNode(properties);
-        ColumnNaming columnNaming = ColumnNaming.valueOf(properties.getOrDefault(TPCH_COLUMN_NAMING_PROPERTY, ColumnNaming.SIMPLIFIED.name()).toUpperCase(ENGLISH));
-        DecimalTypeMapping decimalTypeMapping = DecimalTypeMapping.valueOf(properties.getOrDefault(TPCH_DOUBLE_TYPE_MAPPING_PROPERTY, DecimalTypeMapping.DOUBLE.name()).toUpperCase(ENGLISH));
-        NodeManager nodeManager = context.getNodeManager();
+    private class TpchConnector
+            implements Connector
+    {
+        private final int splitsPerNode;
+        private final ColumnNaming columnNaming;
+        private final DecimalTypeMapping decimalTypeMapping;
+        private final NodeManager nodeManager;
+        private final Map<String, String> properties;
 
-        return new Connector()
+        public TpchConnector(Map<String, String> properties, ConnectorContext context)
         {
-            @Override
-            public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly, boolean autoCommit)
-            {
-                return TpchTransactionHandle.INSTANCE;
+            this.splitsPerNode = getSplitsPerNode(properties);
+            this.columnNaming = ColumnNaming.valueOf(properties.getOrDefault(TPCH_COLUMN_NAMING_PROPERTY, ColumnNaming.SIMPLIFIED.name()).toUpperCase(ENGLISH));
+            this.decimalTypeMapping = DecimalTypeMapping.valueOf(properties.getOrDefault(TPCH_DOUBLE_TYPE_MAPPING_PROPERTY, DecimalTypeMapping.DOUBLE.name()).toUpperCase(ENGLISH));
+            this.nodeManager = context.getNodeManager();
+            this.properties = ImmutableMap.copyOf(properties);
+        }
+
+        @Override
+        public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly, boolean autoCommit)
+        {
+            return TpchTransactionHandle.INSTANCE;
+        }
+
+        @Override
+        public ConnectorMetadata getMetadata(ConnectorSession session, ConnectorTransactionHandle transaction)
+        {
+            return new TpchMetadata(
+                    columnNaming,
+                    decimalTypeMapping,
+                    predicatePushdownEnabled,
+                    partitioningEnabled,
+                    getTpchTableScanRedirectionCatalog(properties),
+                    getTpchTableScanRedirectionSchema(properties));
+        }
+
+        @Override
+        public ConnectorSplitManager getSplitManager()
+        {
+            return new TpchSplitManager(nodeManager, splitsPerNode);
+        }
+
+        @Override
+        public ConnectorPageSourceProvider getPageSourceProvider()
+        {
+            if (isProducePages(properties)) {
+                return new TpchPageSourceProvider(getMaxRowsPerPage(properties), decimalTypeMapping);
             }
 
-            @Override
-            public ConnectorMetadata getMetadata(ConnectorSession session, ConnectorTransactionHandle transaction)
-            {
-                return new TpchMetadata(
-                        columnNaming,
-                        decimalTypeMapping,
-                        predicatePushdownEnabled,
-                        partitioningEnabled,
-                        getTpchTableScanRedirectionCatalog(properties),
-                        getTpchTableScanRedirectionSchema(properties));
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public ConnectorRecordSetProvider getRecordSetProvider()
+        {
+            if (!isProducePages(properties)) {
+                return new TpchRecordSetProvider(decimalTypeMapping);
             }
 
-            @Override
-            public ConnectorSplitManager getSplitManager()
-            {
-                return new TpchSplitManager(nodeManager, splitsPerNode);
-            }
+            throw new UnsupportedOperationException();
+        }
 
-            @Override
-            public ConnectorPageSourceProvider getPageSourceProvider()
-            {
-                if (isProducePages(properties)) {
-                    return new TpchPageSourceProvider(getMaxRowsPerPage(properties), decimalTypeMapping);
-                }
-
-                throw new UnsupportedOperationException();
-            }
-
-            @Override
-            public ConnectorRecordSetProvider getRecordSetProvider()
-            {
-                if (!isProducePages(properties)) {
-                    return new TpchRecordSetProvider(decimalTypeMapping);
-                }
-
-                throw new UnsupportedOperationException();
-            }
-
-            @Override
-            public ConnectorNodePartitioningProvider getNodePartitioningProvider()
-            {
-                return new TpchNodePartitioningProvider(nodeManager, splitsPerNode);
-            }
-        };
+        @Override
+        public ConnectorNodePartitioningProvider getNodePartitioningProvider()
+        {
+            return new TpchNodePartitioningProvider(nodeManager, splitsPerNode);
+        }
     }
 
     private int getSplitsPerNode(Map<String, String> properties)
