@@ -37,7 +37,7 @@ public class TestExchangeS3Config
                 .setS3Region(null)
                 .setS3Endpoint(null)
                 .setS3UseWebIdentityTokenCredentials(false)
-                .setS3MaxErrorRetries(3)
+                .setS3MaxErrorRetries(10)
                 .setS3UploadPartSize(DataSize.of(5, MEGABYTE))
                 .setStorageClass(STANDARD)
                 .setAsyncClientConcurrency(500));
