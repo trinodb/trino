@@ -252,6 +252,7 @@ public class ExpressionAnalyzer
     private final PlannerContext plannerContext;
     private final AccessControl accessControl;
     private final BiFunction<Node, CorrelationSupport, StatementAnalyzer> statementAnalyzerFactory;
+    private final LiteralInterpreter literalInterpreter;
     private final TypeProvider symbolTypes;
     private final boolean isDescribe;
 
@@ -345,6 +346,7 @@ public class ExpressionAnalyzer
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.statementAnalyzerFactory = requireNonNull(statementAnalyzerFactory, "statementAnalyzerFactory is null");
+        this.literalInterpreter = new LiteralInterpreter(plannerContext, session);
         this.session = requireNonNull(session, "session is null");
         this.symbolTypes = requireNonNull(symbolTypes, "symbolTypes is null");
         this.parameters = requireNonNull(parameters, "parameters is null");
@@ -1058,7 +1060,7 @@ public class ExpressionAnalyzer
                 return resolvedType;
             });
             try {
-                LiteralInterpreter.evaluate(plannerContext, session, ImmutableMap.of(NodeRef.of(node), type), node);
+                literalInterpreter.evaluate(ImmutableMap.of(NodeRef.of(node), type), node);
             }
             catch (RuntimeException e) {
                 throw semanticException(INVALID_LITERAL, node, e, "'%s' is not a valid %s literal", node.getValue(), type.getDisplayName());
@@ -1130,7 +1132,7 @@ public class ExpressionAnalyzer
                 type = INTERVAL_DAY_TIME;
             }
             try {
-                LiteralInterpreter.evaluate(plannerContext, session, ImmutableMap.of(NodeRef.of(node), type), node);
+                literalInterpreter.evaluate(ImmutableMap.of(NodeRef.of(node), type), node);
             }
             catch (RuntimeException e) {
                 throw semanticException(INVALID_LITERAL, node, e, "'%s' is not a valid interval literal", node.getValue());

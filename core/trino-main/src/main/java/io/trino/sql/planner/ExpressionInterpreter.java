@@ -161,6 +161,7 @@ public class ExpressionInterpreter
     private final Expression expression;
     private final PlannerContext plannerContext;
     private final Metadata metadata;
+    private final LiteralInterpreter literalInterpreter;
     private final LiteralEncoder literalEncoder;
     private final Session session;
     private final ConnectorSession connectorSession;
@@ -177,6 +178,7 @@ public class ExpressionInterpreter
         this.expression = requireNonNull(expression, "expression is null");
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.metadata = plannerContext.getMetadata();
+        this.literalInterpreter = new LiteralInterpreter(plannerContext, session);
         this.literalEncoder = new LiteralEncoder(plannerContext);
         this.session = requireNonNull(session, "session is null");
         this.connectorSession = session.toConnectorSession();
@@ -387,7 +389,7 @@ public class ExpressionInterpreter
         @Override
         protected Object visitLiteral(Literal node, Object context)
         {
-            return LiteralInterpreter.evaluate(plannerContext, session, expressionTypes, node);
+            return literalInterpreter.evaluate(expressionTypes, node);
         }
 
         @Override
