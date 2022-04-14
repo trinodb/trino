@@ -81,6 +81,7 @@ import static io.trino.testing.TestingConnectorSession.SESSION;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static org.apache.hadoop.hive.metastore.TableType.EXTERNAL_TABLE;
+import static org.apache.hadoop.hive.metastore.TableType.VIRTUAL_VIEW;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -173,6 +174,7 @@ public class TestDeltaLakeGlueMetastore
         SchemaTableName deltaLakeTable = new SchemaTableName(databaseName, "delta_lake_table_" + randomName());
         SchemaTableName nonDeltaLakeTable1 = new SchemaTableName(databaseName, "hive_table_" + randomName());
         SchemaTableName nonDeltaLakeTable2 = new SchemaTableName(databaseName, "hive_table_" + randomName());
+        SchemaTableName nonDeltaLakeView1 = new SchemaTableName(databaseName, "hive_view_" + randomName());
 
         String deltaLakeTableLocation = tableLocation(deltaLakeTable);
         createTable(deltaLakeTable, deltaLakeTableLocation, tableBuilder -> {
@@ -188,6 +190,7 @@ public class TestDeltaLakeGlueMetastore
 
         createTable(nonDeltaLakeTable1, tableLocation(nonDeltaLakeTable1), tableBuilder -> {});
         createTable(nonDeltaLakeTable2, tableLocation(nonDeltaLakeTable2), tableBuilder -> tableBuilder.setParameter(TABLE_PROVIDER_PROPERTY, "foo"));
+        createView(nonDeltaLakeView1, tableLocation(nonDeltaLakeTable1), tableBuilder -> {});
 
         DeltaLakeMetadata metadata = metadataFactory.create(SESSION.getIdentity());
 
@@ -229,6 +232,8 @@ public class TestDeltaLakeGlueMetastore
         assertThat(listTableColumns(metadata, new SchemaTablePrefix(databaseName, nonDeltaLakeTable1.getTableName())))
                 .isEmpty();
         assertThat(listTableColumns(metadata, new SchemaTablePrefix(databaseName, nonDeltaLakeTable2.getTableName())))
+                .isEmpty();
+        assertThat(listTableColumns(metadata, new SchemaTablePrefix(databaseName, nonDeltaLakeView1.getTableName())))
                 .isEmpty();
     }
 
@@ -275,6 +280,25 @@ public class TestDeltaLakeGlueMetastore
                 .setTableName(tableName.getTableName())
                 .setOwner(Optional.of(session.getUser()))
                 .setTableType(EXTERNAL_TABLE.name())
+                .setDataColumns(List.of(new Column("a_column", HIVE_STRING, Optional.empty())));
+
+        table.getStorageBuilder()
+                .setStorageFormat(fromHiveStorageFormat(PARQUET))
+                .setLocation(tableLocation);
+
+        tableConfiguration.accept(table);
+
+        PrincipalPrivileges principalPrivileges = new PrincipalPrivileges(ImmutableMultimap.of(), ImmutableMultimap.of());
+        metastoreClient.createTable(table.build(), principalPrivileges);
+    }
+
+    private void createView(SchemaTableName viewName, String tableLocation, Consumer<Table.Builder> tableConfiguration)
+    {
+        Table.Builder table = Table.builder()
+                .setDatabaseName(viewName.getSchemaName())
+                .setTableName(viewName.getTableName())
+                .setOwner(Optional.of(session.getUser()))
+                .setTableType(VIRTUAL_VIEW.name())
                 .setDataColumns(List.of(new Column("a_column", HIVE_STRING, Optional.empty())));
 
         table.getStorageBuilder()
