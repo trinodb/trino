@@ -79,6 +79,7 @@ import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RemoteIterator;
 import org.apache.iceberg.AppendFiles;
+import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.DataFile;
 import org.apache.iceberg.DataFiles;
 import org.apache.iceberg.FileScanTask;
@@ -163,6 +164,7 @@ public class IcebergMetadata
     private static final Logger log = Logger.get(IcebergMetadata.class);
 
     private static final Pattern PATH_PATTERN = Pattern.compile("(.*)/[^/]+");
+    private static final int OPTIMIZE_MAX_SUPPORTED_TABLE_VERSION = 1;
 
     private final TypeManager typeManager;
     private final JsonCodec<CommitTaskData> commitTaskCodec;
@@ -773,6 +775,17 @@ public class IcebergMetadata
     {
         IcebergOptimizeHandle optimizeHandle = (IcebergOptimizeHandle) executeHandle.getProcedureHandle();
         Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
+
+        int tableFormatVersion = ((BaseTable) icebergTable).operations().current().formatVersion();
+        if (tableFormatVersion > OPTIMIZE_MAX_SUPPORTED_TABLE_VERSION) {
+            // Currently, Optimize would fail when position deletes files are present in Iceberg table
+            throw new TrinoException(NOT_SUPPORTED, format(
+                    "%s is not supported for Iceberg table format version > %d. Table %s format version is %s.",
+                    OPTIMIZE.name(),
+                    OPTIMIZE_MAX_SUPPORTED_TABLE_VERSION,
+                    table.getSchemaTableName(),
+                    tableFormatVersion));
+        }
 
         verify(transaction == null, "transaction already set");
         transaction = icebergTable.newTransaction();

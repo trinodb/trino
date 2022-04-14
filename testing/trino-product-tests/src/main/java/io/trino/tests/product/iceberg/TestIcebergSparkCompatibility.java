@@ -1469,6 +1469,22 @@ public class TestIcebergSparkCompatibility
         onSpark().executeQuery("DROP TABLE " + sparkTableName);
     }
 
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
+    public void testOptimizeFailsOnV2IcebergTable()
+    {
+        String tableName = format("test_optimize_fails_on_v2_iceberg_table_%s", randomTableSuffix());
+        String sparkTableName = sparkTableName(tableName);
+        String trinoTableName = trinoTableName(tableName);
+
+        onSpark().executeQuery("CREATE TABLE " + sparkTableName + "(a INT, b INT) " +
+                "USING ICEBERG PARTITIONED BY (b) " +
+                "TBLPROPERTIES ('format-version'='2', 'write.delete.mode'='merge-on-read')");
+        onSpark().executeQuery("INSERT INTO " + sparkTableName + " VALUES (1, 2), (2, 2), (3, 2), (11, 12), (12, 12), (13, 12)");
+
+        assertQueryFailure(() -> onTrino().executeQuery(format("ALTER TABLE %s EXECUTE OPTIMIZE", trinoTableName)))
+                .hasMessageContaining("is not supported for Iceberg table format version > 1");
+    }
+
     private static String escapeSparkString(String value)
     {
         return value.replace("\\", "\\\\").replace("'", "\\'");
