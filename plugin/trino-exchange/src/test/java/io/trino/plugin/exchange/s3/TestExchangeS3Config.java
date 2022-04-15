@@ -15,6 +15,7 @@ package io.trino.plugin.exchange.s3;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 import software.amazon.awssdk.core.retry.RetryMode;
 import software.amazon.awssdk.services.s3.model.StorageClass;
@@ -25,6 +26,7 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertFullMappin
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class TestExchangeS3Config
 {
@@ -41,7 +43,9 @@ public class TestExchangeS3Config
                 .setS3UploadPartSize(DataSize.of(5, MEGABYTE))
                 .setStorageClass(StorageClass.STANDARD)
                 .setRetryMode(RetryMode.ADAPTIVE)
-                .setAsyncClientConcurrency(500));
+                .setAsyncClientConcurrency(500)
+                .setAsyncClientMaxPendingConnectionAcquires(10000)
+                .setConnectionAcquisitionTimeout(new Duration(1, MINUTES)));
     }
 
     @Test
@@ -58,6 +62,8 @@ public class TestExchangeS3Config
                 .put("exchange.s3.storage-class", "REDUCED_REDUNDANCY")
                 .put("exchange.s3.retry-mode", "STANDARD")
                 .put("exchange.s3.async-client-concurrency", "202")
+                .put("exchange.s3.async-client-max-pending-connection-acquires", "999")
+                .put("exchange.s3.async-client-connection-acquisition-timeout", "5m")
                 .buildOrThrow();
 
         ExchangeS3Config expected = new ExchangeS3Config()
@@ -70,7 +76,9 @@ public class TestExchangeS3Config
                 .setS3UploadPartSize(DataSize.of(10, MEGABYTE))
                 .setStorageClass(StorageClass.REDUCED_REDUNDANCY)
                 .setRetryMode(RetryMode.STANDARD)
-                .setAsyncClientConcurrency(202);
+                .setAsyncClientConcurrency(202)
+                .setAsyncClientMaxPendingConnectionAcquires(999)
+                .setConnectionAcquisitionTimeout(new Duration(5, MINUTES));
 
         assertFullMapping(properties, expected);
     }
