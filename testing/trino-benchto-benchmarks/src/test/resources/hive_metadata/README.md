@@ -10,10 +10,10 @@ So, there are no min/max statistics for char-based columns as hive connector doe
     - The tpcds tables for unpartitioned/partitioned data should be under `tpcds_sf1000_orc` and `tpcds_sf1000_orc_part` respective schemas.
 3. To create tpch/tpcds data, you could use builtin TPCH/TPCDS connectors using `CREATE TABLE AS SELECT` (CTAS) command.
 4. If you want to use some other schemas with different scale factor, you can configure it in
-   `HiveMetadataRecorder.UpdateMetadataFiles.main()`.
+   `HiveMetadataRecorder.main()`.
 
 ### Generating files
 1. If you are using glue metastore, then you need to be logged into your AWS account. For example if you use 
    MFA authentication, you can use`gimme-aws-creds --mfa-code <code>`.
 2. Otherwise, for normal hive metastore, you can set the appropriate config in `test/resources/hive.properties`.
-2. Run `HiveMetadataRecorder.UpdateMetadataFiles.main()`
+2. Run `HiveMetadataRecorder.main()`
