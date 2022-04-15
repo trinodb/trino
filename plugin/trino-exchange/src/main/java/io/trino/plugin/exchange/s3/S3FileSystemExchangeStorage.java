@@ -125,7 +125,7 @@ public class S3FileSystemExchangeStorage
         this.storageClass = config.getStorageClass();
 
         AwsCredentialsProvider credentialsProvider = createAwsCredentialsProvider(config);
-        RetryPolicy retryPolicy = RetryPolicy.builder()
+        RetryPolicy retryPolicy = RetryPolicy.builder(config.getRetryMode())
                 .numRetries(config.getS3MaxErrorRetries())
                 .build();
         ClientOverrideConfiguration overrideConfig = ClientOverrideConfiguration.builder()

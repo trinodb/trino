@@ -16,6 +16,8 @@ package io.trino.plugin.exchange.s3;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
+import software.amazon.awssdk.core.retry.RetryMode;
+import software.amazon.awssdk.services.s3.model.StorageClass;
 
 import java.util.Map;
 
@@ -23,8 +25,6 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertFullMappin
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
-import static software.amazon.awssdk.services.s3.model.StorageClass.REDUCED_REDUNDANCY;
-import static software.amazon.awssdk.services.s3.model.StorageClass.STANDARD;
 
 public class TestExchangeS3Config
 {
@@ -39,7 +39,8 @@ public class TestExchangeS3Config
                 .setS3UseWebIdentityTokenCredentials(false)
                 .setS3MaxErrorRetries(10)
                 .setS3UploadPartSize(DataSize.of(5, MEGABYTE))
-                .setStorageClass(STANDARD)
+                .setStorageClass(StorageClass.STANDARD)
+                .setRetryMode(RetryMode.ADAPTIVE)
                 .setAsyncClientConcurrency(500));
     }
 
@@ -55,6 +56,7 @@ public class TestExchangeS3Config
                 .put("exchange.s3.max-error-retries", "8")
                 .put("exchange.s3.upload.part-size", "10MB")
                 .put("exchange.s3.storage-class", "REDUCED_REDUNDANCY")
+                .put("exchange.s3.retry-mode", "STANDARD")
                 .put("exchange.s3.async-client-concurrency", "202")
                 .buildOrThrow();
 
@@ -66,7 +68,8 @@ public class TestExchangeS3Config
                 .setS3UseWebIdentityTokenCredentials(true)
                 .setS3MaxErrorRetries(8)
                 .setS3UploadPartSize(DataSize.of(10, MEGABYTE))
-                .setStorageClass(REDUCED_REDUNDANCY)
+                .setStorageClass(StorageClass.REDUCED_REDUNDANCY)
+                .setRetryMode(RetryMode.STANDARD)
                 .setAsyncClientConcurrency(202);
 
         assertFullMapping(properties, expected);
