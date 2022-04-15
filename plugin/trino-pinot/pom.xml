@@ -440,6 +440,13 @@
         </dependency>
 
         <dependency>
+            <groupId>org.apache.httpcomponents</groupId>
+            <artifactId>httpcore</artifactId>
+            <version>4.4.11</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
             <groupId>org.apache.pinot</groupId>
             <artifactId>pinot-yammer</artifactId>
             <version>${dep.pinot.version}</version>

@@ -1,0 +1,56 @@
+{
+    "tableName": "hybrid",
+    "tableType": "REALTIME",
+    "segmentsConfig": {
+        "timeColumnName": "updatedAtSeconds",
+        "retentionTimeUnit": "DAYS",
+        "retentionTimeValue": "365",
+        "segmentPushType": "APPEND",
+        "segmentPushFrequency": "daily",
+        "segmentAssignmentStrategy": "BalanceNumSegmentAssignmentStrategy",
+        "replicasPerPartition": "1"
+    },
+    "tenants": {
+        "broker": "DefaultTenant",
+        "server": "DefaultTenant"
+    },
+    "tableIndexConfig": {
+        "loadMode": "MMAP",
+        "invertedIndexColumns": ["stringCol"],
+        "noDictionaryColumns": ["longCol"],
+        "sortedColumn": ["updatedAtSeconds"],
+        "starTreeIndexConfigs": [
+            {
+                "dimensionsSplitOrder": ["stringCol"],
+                "functionColumnPairs": [
+                    "COUNT__longCol",
+                    "MIN__longCol",
+                    "MAX__longCol",
+                    "AVG__longCol",
+                    "SUM__longCol"
+                ]
+            }
+        ],
+        "aggregateMetrics": "true",
+        "nullHandlingEnabled": "true",
+        "streamConfigs": {
+            "streamType": "kafka",
+            "stream.kafka.consumer.type": "LowLevel",
+            "stream.kafka.topic.name": "hybrid",
+            "stream.kafka.decoder.class.name": "org.apache.pinot.plugin.inputformat.avro.confluent.KafkaConfluentSchemaRegistryAvroMessageDecoder",
+            "stream.kafka.consumer.factory.class.name": "org.apache.pinot.plugin.stream.kafka20.KafkaConsumerFactory",
+            "stream.kafka.decoder.prop.schema.registry.rest.url": "http://schema-registry:8081",
+            "stream.kafka.zk.broker.url": "zookeeper:2181/",
+            "stream.kafka.broker.list": "kafka:9092",
+            "realtime.segment.flush.threshold.time": "1m",
+            "realtime.segment.flush.threshold.size": "0",
+            "realtime.segment.flush.desired.size": "1M",
+            "isolation.level": "read_committed",
+            "stream.kafka.consumer.prop.auto.offset.reset": "smallest",
+            "stream.kafka.consumer.prop.group.id": "pinot_mixedCase"
+        }
+    },
+    "metadata": {
+        "customConfigs": {}
+    }
+}
