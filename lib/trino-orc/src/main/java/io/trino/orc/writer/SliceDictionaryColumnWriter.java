@@ -479,6 +479,10 @@ public class SliceDictionaryColumnWriter
     public List<StreamDataOutput> getBloomFilters(CompressedMetadataWriter metadataWriter)
             throws IOException
     {
+        if (directEncoded) {
+            return directColumnWriter.getBloomFilters(metadataWriter);
+        }
+
         List<BloomFilter> bloomFilters = rowGroups.stream()
                 .map(rowGroup -> rowGroup.getColumnStatistics().getBloomFilter())
                 .filter(Objects::nonNull)
