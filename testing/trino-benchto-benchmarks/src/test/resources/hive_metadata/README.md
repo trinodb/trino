@@ -16,4 +16,4 @@ So, there are no min/max statistics for char-based columns as hive connector doe
 1. If you are using glue metastore, then you need to be logged into your AWS account. For example if you use 
    MFA authentication, you can use`gimme-aws-creds --mfa-code <code>`.
 2. Otherwise, for normal hive metastore, you can set the appropriate config in `test/resources/hive.properties`.
-2. Run `HiveMetadataRecorder.UpdateMetadataFiles.main()`
+2. Run `HiveMetadataRecorder.main()`
