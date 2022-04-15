@@ -162,7 +162,7 @@ public class FunctionManager
 
         int parameterIndex = 0;
         if (functionInvoker.getInstanceFactory().isPresent()) {
-            verifyFunctionSignature(convention.supportsInstanceFactor(), "Method requires instance factory, but calling convention does not support an instance factory");
+            verifyFunctionSignature(convention.supportsInstanceFactory(), "Method requires instance factory, but calling convention does not support an instance factory");
             MethodHandle factoryMethod = functionInvoker.getInstanceFactory().orElseThrow();
             verifyFunctionSignature(methodType.parameterType(parameterIndex).equals(factoryMethod.type().returnType()), "Invalid return type");
             parameterIndex++;
