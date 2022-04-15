@@ -43,7 +43,7 @@ public class TestExchangeS3Config
                 .setS3UploadPartSize(DataSize.of(5, MEGABYTE))
                 .setStorageClass(StorageClass.STANDARD)
                 .setRetryMode(RetryMode.ADAPTIVE)
-                .setAsyncClientConcurrency(500)
+                .setAsyncClientConcurrency(100)
                 .setAsyncClientMaxPendingConnectionAcquires(10000)
                 .setConnectionAcquisitionTimeout(new Duration(1, MINUTES)));
     }
