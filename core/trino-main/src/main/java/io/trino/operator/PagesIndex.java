@@ -229,14 +229,14 @@ public class PagesIndex
             pagesMemorySize += block.getRetainedSizeInBytes();
         }
 
-        for (int position = 0; position < page.getPositionCount(); position++) {
-            long sliceAddress = encodeSyntheticAddress(pageIndex, position);
+        // this uses a long[] internally, so cap size to a nice round number for safety
+        int resultingSize = valueAddresses.size() + page.getPositionCount();
+        if (resultingSize < 0 || resultingSize >= 2_000_000_000) {
+            throw new TrinoException(GENERIC_INSUFFICIENT_RESOURCES, "Size of pages index cannot exceed 2 billion entries");
+        }
 
-            // this uses a long[] internally, so cap size to a nice round number for safety
-            if (valueAddresses.size() >= 2_000_000_000) {
-                throw new TrinoException(GENERIC_INSUFFICIENT_RESOURCES, "Size of pages index cannot exceed 2 billion entries");
-            }
-            valueAddresses.add(sliceAddress);
+        for (int position = 0; position < page.getPositionCount(); position++) {
+            valueAddresses.add(encodeSyntheticAddress(pageIndex, position));
         }
         estimatedSize = calculateEstimatedSize();
     }
