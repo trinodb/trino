@@ -62,6 +62,7 @@ import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.connector.EmptyPageSource;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.ConnectorIdentity;
@@ -224,6 +225,9 @@ public class IcebergPageSourceProvider
         TupleDomain<IcebergColumnHandle> effectivePredicate = table.getUnenforcedPredicate()
                 .intersect(dynamicFilter.getCurrentPredicate().transformKeys(IcebergColumnHandle.class::cast))
                 .simplify(ICEBERG_DOMAIN_COMPACTION_THRESHOLD);
+        if (effectivePredicate.isNone()) {
+            return new EmptyPageSource();
+        }
 
         ReaderPageSource dataPageSource = createDataPageSource(
                 session,
