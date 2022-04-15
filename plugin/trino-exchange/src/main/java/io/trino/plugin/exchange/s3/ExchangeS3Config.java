@@ -17,6 +17,7 @@ import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 import io.airlift.units.MaxDataSize;
 import io.airlift.units.MinDataSize;
 import software.amazon.awssdk.core.retry.RetryMode;
@@ -30,6 +31,7 @@ import java.util.Optional;
 
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Locale.ENGLISH;
+import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class ExchangeS3Config
 {
@@ -44,6 +46,8 @@ public class ExchangeS3Config
     private StorageClass storageClass = StorageClass.STANDARD;
     private RetryMode retryMode = RetryMode.ADAPTIVE;
     private int asyncClientConcurrency = 500;
+    private int asyncClientMaxPendingConnectionAcquires = 10000;
+    private Duration connectionAcquisitionTimeout = new Duration(1, MINUTES);
 
     public String getS3AwsAccessKey()
     {
@@ -174,6 +178,31 @@ public class ExchangeS3Config
     public ExchangeS3Config setAsyncClientConcurrency(int asyncClientConcurrency)
     {
         this.asyncClientConcurrency = asyncClientConcurrency;
+        return this;
+    }
+
+    @Min(1)
+    public int getAsyncClientMaxPendingConnectionAcquires()
+    {
+        return asyncClientMaxPendingConnectionAcquires;
+    }
+
+    @Config("exchange.s3.async-client-max-pending-connection-acquires")
+    public ExchangeS3Config setAsyncClientMaxPendingConnectionAcquires(int asyncClientMaxPendingConnectionAcquires)
+    {
+        this.asyncClientMaxPendingConnectionAcquires = asyncClientMaxPendingConnectionAcquires;
+        return this;
+    }
+
+    public Duration getConnectionAcquisitionTimeout()
+    {
+        return connectionAcquisitionTimeout;
+    }
+
+    @Config("exchange.s3.async-client-connection-acquisition-timeout")
+    public ExchangeS3Config setConnectionAcquisitionTimeout(Duration connectionAcquisitionTimeout)
+    {
+        this.connectionAcquisitionTimeout = connectionAcquisitionTimeout;
         return this;
     }
 }

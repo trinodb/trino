@@ -22,6 +22,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.Slices;
+import io.airlift.units.Duration;
 import io.trino.plugin.exchange.ExchangeSourceFile;
 import io.trino.plugin.exchange.ExchangeStorageReader;
 import io.trino.plugin.exchange.ExchangeStorageWriter;
@@ -135,7 +136,12 @@ public class S3FileSystemExchangeStorage
                 .build();
 
         this.s3Client = createS3Client(credentialsProvider, overrideConfig);
-        this.s3AsyncClient = createS3AsyncClient(credentialsProvider, overrideConfig, config.getAsyncClientConcurrency());
+        this.s3AsyncClient = createS3AsyncClient(
+                credentialsProvider,
+                overrideConfig,
+                config.getAsyncClientConcurrency(),
+                config.getAsyncClientMaxPendingConnectionAcquires(),
+                config.getConnectionAcquisitionTimeout());
     }
 
     @Override
@@ -387,13 +393,20 @@ public class S3FileSystemExchangeStorage
         return clientBuilder.build();
     }
 
-    private S3AsyncClient createS3AsyncClient(AwsCredentialsProvider credentialsProvider, ClientOverrideConfiguration overrideConfig, int maxConcurrency)
+    private S3AsyncClient createS3AsyncClient(
+            AwsCredentialsProvider credentialsProvider,
+            ClientOverrideConfiguration overrideConfig,
+            int maxConcurrency,
+            int maxPendingConnectionAcquires,
+            Duration connectionAcquisitionTimeout)
     {
         S3AsyncClientBuilder clientBuilder = S3AsyncClient.builder()
                 .credentialsProvider(credentialsProvider)
                 .overrideConfiguration(overrideConfig)
                 .httpClientBuilder(NettyNioAsyncHttpClient.builder()
-                        .maxConcurrency(maxConcurrency));
+                        .maxConcurrency(maxConcurrency)
+                        .maxPendingConnectionAcquires(maxPendingConnectionAcquires)
+                        .connectionAcquisitionTimeout(java.time.Duration.ofMillis(connectionAcquisitionTimeout.toMillis())));
 
         region.ifPresent(clientBuilder::region);
         endpoint.ifPresent(s3Endpoint -> clientBuilder.endpointOverride(URI.create(s3Endpoint)));
