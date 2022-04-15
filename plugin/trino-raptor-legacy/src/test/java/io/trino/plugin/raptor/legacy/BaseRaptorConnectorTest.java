@@ -16,6 +16,7 @@ package io.trino.plugin.raptor.legacy;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.SetMultimap;
+import io.trino.Session;
 import io.trino.spi.type.ArrayType;
 import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
@@ -111,16 +112,16 @@ public abstract class BaseRaptorConnectorTest
 
         String schemaName = "test_schema_" + randomTableSuffix();
 
-        String renamedTable = schemaName + ".test_rename_new_" + randomTableSuffix();
-        assertUpdate("ALTER TABLE " + tableName + " RENAME TO " + renamedTable);
+        String renamedTable = "test_rename_new_" + randomTableSuffix();
+        assertUpdate("ALTER TABLE " + tableName + " RENAME TO " + schemaName + "." + renamedTable);
 
         assertFalse(getQueryRunner().tableExists(getSession(), tableName));
-        assertQuery("SELECT x FROM " + renamedTable, "VALUES 123");
+        assertQuery("SELECT x FROM " + schemaName + "." + renamedTable, "VALUES 123");
 
-        assertUpdate("DROP TABLE " + renamedTable);
+        assertUpdate("DROP TABLE " + schemaName + "." + renamedTable);
 
         assertFalse(getQueryRunner().tableExists(getSession(), tableName));
-        assertFalse(getQueryRunner().tableExists(getSession(), renamedTable));
+        assertFalse(getQueryRunner().tableExists(Session.builder(getSession()).setSchema(schemaName).build(), renamedTable));
     }
 
     @Override
