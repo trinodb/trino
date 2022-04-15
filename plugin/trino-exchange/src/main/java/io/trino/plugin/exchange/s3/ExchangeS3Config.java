@@ -19,6 +19,7 @@ import io.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.units.DataSize;
 import io.airlift.units.MaxDataSize;
 import io.airlift.units.MinDataSize;
+import software.amazon.awssdk.core.retry.RetryMode;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.model.StorageClass;
 
@@ -29,7 +30,6 @@ import java.util.Optional;
 
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Locale.ENGLISH;
-import static software.amazon.awssdk.services.s3.model.StorageClass.STANDARD;
 
 public class ExchangeS3Config
 {
@@ -41,7 +41,8 @@ public class ExchangeS3Config
     private int s3MaxErrorRetries = 10;
     // Default to S3 multi-part upload minimum size to avoid excessive memory consumption from buffering
     private DataSize s3UploadPartSize = DataSize.of(5, MEGABYTE);
-    private StorageClass storageClass = STANDARD;
+    private StorageClass storageClass = StorageClass.STANDARD;
+    private RetryMode retryMode = RetryMode.ADAPTIVE;
     private int asyncClientConcurrency = 500;
 
     public String getS3AwsAccessKey()
@@ -147,6 +148,19 @@ public class ExchangeS3Config
     public ExchangeS3Config setStorageClass(StorageClass storageClass)
     {
         this.storageClass = storageClass;
+        return this;
+    }
+
+    @NotNull
+    public RetryMode getRetryMode()
+    {
+        return retryMode;
+    }
+
+    @Config("exchange.s3.retry-mode")
+    public ExchangeS3Config setRetryMode(RetryMode retryMode)
+    {
+        this.retryMode = retryMode;
         return this;
     }
 
