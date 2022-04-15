@@ -45,7 +45,7 @@ public class ExchangeS3Config
     private DataSize s3UploadPartSize = DataSize.of(5, MEGABYTE);
     private StorageClass storageClass = StorageClass.STANDARD;
     private RetryMode retryMode = RetryMode.ADAPTIVE;
-    private int asyncClientConcurrency = 500;
+    private int asyncClientConcurrency = 100;
     private int asyncClientMaxPendingConnectionAcquires = 10000;
     private Duration connectionAcquisitionTimeout = new Duration(1, MINUTES);
 
