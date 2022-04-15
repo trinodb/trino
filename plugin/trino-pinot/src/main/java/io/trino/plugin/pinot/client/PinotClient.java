@@ -424,12 +424,12 @@ public class PinotClient
 
         @JsonCreator
         public TimeBoundary(
-                @JsonProperty String timeColumnName,
-                @JsonProperty String timeColumnValue)
+                @JsonProperty String timeColumn,
+                @JsonProperty String timeValue)
         {
-            if (timeColumnName != null && timeColumnValue != null) {
-                offlineTimePredicate = Optional.of(format("%s < %s", timeColumnName, timeColumnValue));
-                onlineTimePredicate = Optional.of(format("%s >= %s", timeColumnName, timeColumnValue));
+            if (timeColumn != null && timeValue != null) {
+                offlineTimePredicate = Optional.of(format("%s < %s", timeColumn, timeValue));
+                onlineTimePredicate = Optional.of(format("%s >= %s", timeColumn, timeValue));
             }
             else {
                 onlineTimePredicate = Optional.empty();
