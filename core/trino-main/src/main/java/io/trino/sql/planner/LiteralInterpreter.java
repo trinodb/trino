@@ -28,7 +28,6 @@ import io.trino.spi.type.TimeWithTimeZoneType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeNotFoundException;
 import io.trino.sql.InterpretedFunctionInvoker;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.tree.AstVisitor;
@@ -42,20 +41,17 @@ import io.trino.sql.tree.GenericLiteral;
 import io.trino.sql.tree.IntervalLiteral;
 import io.trino.sql.tree.Literal;
 import io.trino.sql.tree.LongLiteral;
-import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.TimeLiteral;
 import io.trino.sql.tree.TimestampLiteral;
 
-import java.util.Map;
 import java.util.function.Function;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.spi.StandardErrorCode.INVALID_LITERAL;
-import static io.trino.spi.StandardErrorCode.TYPE_NOT_FOUND;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
@@ -75,7 +71,7 @@ public final class LiteralInterpreter
     private final ConnectorSession connectorSession;
     private final InterpretedFunctionInvoker functionInvoker;
 
-    private final Cache<String, Function<GenericLiteral, Object>> genericLiteralEvaluatorCache = buildNonEvictableCache(CacheBuilder.newBuilder().maximumSize(1000));
+    private final Cache<Type, Function<GenericLiteral, Object>> genericLiteralEvaluatorCache = buildNonEvictableCache(CacheBuilder.newBuilder().maximumSize(1000));
 
     public LiteralInterpreter(PlannerContext plannerContext, Session session)
     {
@@ -85,22 +81,22 @@ public final class LiteralInterpreter
         this.functionInvoker = new InterpretedFunctionInvoker(plannerContext.getFunctionManager());
     }
 
-    public Object evaluate(Map<NodeRef<Expression>, Type> types, Expression node)
+    public Object evaluate(Expression node, Type type)
     {
         if (!(node instanceof Literal)) {
             throw new IllegalArgumentException("node must be a Literal");
         }
-        return new LiteralVisitor(types).process(node, null);
+        return new LiteralVisitor(type).process(node, null);
     }
 
     private class LiteralVisitor
             extends AstVisitor<Object, Void>
     {
-        private final Map<NodeRef<Expression>, Type> types;
+        private final Type type;
 
-        private LiteralVisitor(Map<NodeRef<Expression>, Type> types)
+        private LiteralVisitor(Type type)
         {
-            this.types = requireNonNull(types, "types is null");
+            this.type = requireNonNull(type, "type is null");
         }
 
         @Override
@@ -154,14 +150,7 @@ public final class LiteralInterpreter
         @Override
         protected Object visitGenericLiteral(GenericLiteral node, Void context)
         {
-            Function<GenericLiteral, Object> evaluator = CacheUtils.uncheckedCacheGet(genericLiteralEvaluatorCache, node.getType(), () -> {
-                Type type;
-                try {
-                    type = plannerContext.getTypeManager().fromSqlType(node.getType());
-                }
-                catch (TypeNotFoundException e) {
-                    throw semanticException(TYPE_NOT_FOUND, node, "Unknown type: %s", node.getType());
-                }
+            Function<GenericLiteral, Object> evaluator = CacheUtils.uncheckedCacheGet(genericLiteralEvaluatorCache, type, () -> {
                 boolean isJson = JSON.equals(type);
                 ResolvedFunction resolvedFunction;
                 if (isJson) {
@@ -189,8 +178,6 @@ public final class LiteralInterpreter
         @Override
         protected Object visitTimeLiteral(TimeLiteral node, Void session)
         {
-            Type type = types.get(NodeRef.of(node));
-
             if (type instanceof TimeType) {
                 return parseTime(node.getValue());
             }
@@ -204,8 +191,6 @@ public final class LiteralInterpreter
         @Override
         protected Object visitTimestampLiteral(TimestampLiteral node, Void session)
         {
-            Type type = types.get(NodeRef.of(node));
-
             if (type instanceof TimestampType) {
                 int precision = ((TimestampType) type).getPrecision();
                 return parseTimestamp(precision, node.getValue());

@@ -1062,7 +1062,7 @@ public class ExpressionAnalyzer
                 return resolvedType;
             });
             try {
-                literalInterpreter.evaluate(ImmutableMap.of(NodeRef.of(node), type), node);
+                literalInterpreter.evaluate(node, type);
             }
             catch (RuntimeException e) {
                 throw semanticException(INVALID_LITERAL, node, e, "'%s' is not a valid %s literal", node.getValue(), type.getDisplayName());
@@ -1134,7 +1134,7 @@ public class ExpressionAnalyzer
                 type = INTERVAL_DAY_TIME;
             }
             try {
-                literalInterpreter.evaluate(ImmutableMap.of(NodeRef.of(node), type), node);
+                literalInterpreter.evaluate(node, type);
             }
             catch (RuntimeException e) {
                 throw semanticException(INVALID_LITERAL, node, e, "'%s' is not a valid interval literal", node.getValue());
