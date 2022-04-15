@@ -389,7 +389,7 @@ public class ExpressionInterpreter
         @Override
         protected Object visitLiteral(Literal node, Object context)
         {
-            return literalInterpreter.evaluate(expressionTypes, node);
+            return literalInterpreter.evaluate(node, type(node));
         }
 
         @Override

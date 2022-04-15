@@ -118,7 +118,7 @@ public class ScalarStatsCalculator
         {
             ExpressionAnalyzer analyzer = createConstantAnalyzer(plannerContext, new AllowAllAccessControl(), session, ImmutableMap.of(), WarningCollector.NOOP);
             Type type = analyzer.analyze(node, Scope.create());
-            Object value = literalInterpreter.evaluate(analyzer.getExpressionTypes(), node);
+            Object value = literalInterpreter.evaluate(node, type);
 
             OptionalDouble doubleValue = toStatsRepresentation(type, value);
             SymbolStatsEstimate.Builder estimate = SymbolStatsEstimate.builder()
