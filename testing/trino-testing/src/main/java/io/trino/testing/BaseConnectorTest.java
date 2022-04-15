@@ -2115,17 +2115,17 @@ public abstract class BaseConnectorTest
         String schemaName = "test_schema_" + randomTableSuffix();
         assertUpdate("CREATE SCHEMA " + schemaName);
 
-        String renamedTable = schemaName + ".test_rename_new_" + randomTableSuffix();
-        assertUpdate("ALTER TABLE " + tableName + " RENAME TO " + renamedTable);
+        String renamedTable = "test_rename_new_" + randomTableSuffix();
+        assertUpdate("ALTER TABLE " + tableName + " RENAME TO " + schemaName + "." + renamedTable);
 
         assertFalse(getQueryRunner().tableExists(getSession(), tableName));
-        assertQuery("SELECT x FROM " + renamedTable, "VALUES 123");
+        assertQuery("SELECT x FROM " + schemaName + "." + renamedTable, "VALUES 123");
 
-        assertUpdate("DROP TABLE " + renamedTable);
+        assertUpdate("DROP TABLE " + schemaName + "." + renamedTable);
         assertUpdate("DROP SCHEMA " + schemaName);
 
         assertFalse(getQueryRunner().tableExists(getSession(), tableName));
-        assertFalse(getQueryRunner().tableExists(getSession(), renamedTable));
+        assertFalse(getQueryRunner().tableExists(Session.builder(getSession()).setSchema(schemaName).build(), renamedTable));
     }
 
     @Test
