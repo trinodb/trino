@@ -23,11 +23,12 @@ import io.trino.plugin.exchange.s3.S3FileSystemExchangeStorage;
 import io.trino.spi.TrinoException;
 
 import java.net.URI;
+import java.util.List;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.trino.spi.StandardErrorCode.CONFIGURATION_INVALID;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
-import static java.util.Objects.requireNonNull;
 
 public class FileSystemExchangeModule
         extends AbstractConfigurationAwareModule
@@ -37,8 +38,11 @@ public class FileSystemExchangeModule
     {
         binder.bind(FileSystemExchangeManager.class).in(Scopes.SINGLETON);
 
-        FileSystemExchangeConfig fileSystemExchangeConfig = buildConfigObject(FileSystemExchangeConfig.class);
-        String scheme = URI.create(requireNonNull(fileSystemExchangeConfig.getBaseDirectory(), "baseDirectory is null")).getScheme();
+        List<URI> baseDirectories = buildConfigObject(FileSystemExchangeConfig.class).getBaseDirectories();
+        if (baseDirectories.stream().map(URI::getScheme).distinct().count() != 1) {
+            throw new TrinoException(CONFIGURATION_INVALID, "Multiple schemes in exchange base directories");
+        }
+        String scheme = baseDirectories.get(0).getScheme();
         if (scheme == null || scheme.equals("file")) {
             binder.bind(FileSystemExchangeStorage.class).to(LocalFileSystemExchangeStorage.class).in(Scopes.SINGLETON);
         }

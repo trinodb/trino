@@ -33,6 +33,8 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.URI;
 import java.security.Key;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -59,7 +61,7 @@ public class FileSystemExchange
 {
     private static final Pattern PARTITION_FILE_NAME_PATTERN = Pattern.compile("(\\d+)_(\\d+)\\.data");
 
-    private final URI baseDirectory;
+    private final List<URI> baseDirectories;
     private final FileSystemExchangeStorage exchangeStorage;
     private final ExchangeContext exchangeContext;
     private final int outputPartitionCount;
@@ -78,14 +80,17 @@ public class FileSystemExchange
     private final CompletableFuture<List<ExchangeSourceHandle>> exchangeSourceHandlesFuture = new CompletableFuture<>();
 
     public FileSystemExchange(
-            URI baseDirectory,
+            List<URI> baseDirectories,
             FileSystemExchangeStorage exchangeStorage,
             ExchangeContext exchangeContext,
             int outputPartitionCount,
             Optional<SecretKey> secretKey,
             ExecutorService executor)
     {
-        this.baseDirectory = requireNonNull(baseDirectory, "baseDirectory is null");
+        List<URI> directories = new ArrayList<>(requireNonNull(baseDirectories, "baseDirectories is null"));
+        Collections.shuffle(directories);
+
+        this.baseDirectories = ImmutableList.copyOf(directories);
         this.exchangeStorage = requireNonNull(exchangeStorage, "exchangeStorage is null");
         this.exchangeContext = requireNonNull(exchangeContext, "exchangeContext is null");
         this.outputPartitionCount = outputPartitionCount;
@@ -95,11 +100,13 @@ public class FileSystemExchange
 
     public void initialize()
     {
-        try {
-            exchangeStorage.createDirectories(getExchangeDirectory());
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
+        for (int i = 0; i < baseDirectories.size(); ++i) {
+            try {
+                exchangeStorage.createDirectories(getExchangeDirectory(i));
+            }
+            catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
         }
     }
 
@@ -124,8 +131,9 @@ public class FileSystemExchange
     public ExchangeSinkInstanceHandle instantiateSink(ExchangeSinkHandle sinkHandle, int taskAttemptId)
     {
         FileSystemExchangeSinkHandle fileSystemExchangeSinkHandle = (FileSystemExchangeSinkHandle) sinkHandle;
-        URI outputDirectory = getExchangeDirectory()
-                .resolve(fileSystemExchangeSinkHandle.getPartitionId() + PATH_SEPARATOR)
+        int taskPartitionId = fileSystemExchangeSinkHandle.getPartitionId();
+        URI outputDirectory = getExchangeDirectory(taskPartitionId)
+                .resolve(taskPartitionId + PATH_SEPARATOR)
                 .resolve(taskAttemptId + PATH_SEPARATOR);
         try {
             exchangeStorage.createDirectories(outputDirectory);
@@ -193,9 +201,9 @@ public class FileSystemExchange
         return result.build();
     }
 
-    private URI getCommittedAttemptPath(Integer taskPartition)
+    private URI getCommittedAttemptPath(int taskPartitionId)
     {
-        URI sinkOutputBasePath = getExchangeDirectory().resolve(taskPartition + PATH_SEPARATOR);
+        URI sinkOutputBasePath = getExchangeDirectory(taskPartitionId).resolve(taskPartitionId + PATH_SEPARATOR);
         try {
             List<URI> attemptPaths = exchangeStorage.listDirectories(sinkOutputBasePath);
             checkState(!attemptPaths.isEmpty(), "No attempts found under sink output path %s", sinkOutputBasePath);
@@ -242,8 +250,9 @@ public class FileSystemExchange
         }
     }
 
-    private URI getExchangeDirectory()
+    private URI getExchangeDirectory(int taskPartitionId)
     {
+        URI baseDirectory = baseDirectories.get(taskPartitionId % baseDirectories.size());
         return baseDirectory.resolve(exchangeContext.getQueryId() + "." + exchangeContext.getExchangeId() + PATH_SEPARATOR);
     }
 
@@ -294,6 +303,8 @@ public class FileSystemExchange
     @Override
     public void close()
     {
-        exchangeStorage.deleteRecursively(getExchangeDirectory());
+        for (int i = 0; i < baseDirectories.size(); ++i) {
+            exchangeStorage.deleteRecursively(getExchangeDirectory(i));
+        }
     }
 }
