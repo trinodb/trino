@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.exchange;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.spi.TrinoException;
 import io.trino.spi.exchange.Exchange;
 import io.trino.spi.exchange.ExchangeContext;
@@ -49,7 +50,7 @@ public class FileSystemExchangeManager
     private static final int KEY_BITS = 256;
 
     private final FileSystemExchangeStorage exchangeStorage;
-    private final URI baseDirectory;
+    private final List<URI> baseDirectories;
     private final boolean exchangeEncryptionEnabled;
     private final int maxPageStorageSizeInBytes;
     private final int exchangeSinkBufferPoolMinSize;
@@ -64,12 +65,7 @@ public class FileSystemExchangeManager
         requireNonNull(fileSystemExchangeConfig, "fileSystemExchangeConfig is null");
 
         this.exchangeStorage = requireNonNull(exchangeStorage, "exchangeStorage is null");
-        String baseDirectory = requireNonNull(fileSystemExchangeConfig.getBaseDirectory(), "baseDirectory is null");
-        if (!baseDirectory.endsWith(PATH_SEPARATOR)) {
-            // This is needed as URI's resolve method expects directories to end with '/'
-            baseDirectory += PATH_SEPARATOR;
-        }
-        this.baseDirectory = URI.create(baseDirectory);
+        this.baseDirectories = ImmutableList.copyOf(requireNonNull(fileSystemExchangeConfig.getBaseDirectories(), "baseDirectories is null"));
         this.exchangeEncryptionEnabled = fileSystemExchangeConfig.isExchangeEncryptionEnabled();
         this.maxPageStorageSizeInBytes = toIntExact(fileSystemExchangeConfig.getMaxPageStorageSize().toBytes());
         this.exchangeSinkBufferPoolMinSize = fileSystemExchangeConfig.getExchangeSinkBufferPoolMinSize();
@@ -93,7 +89,7 @@ public class FileSystemExchangeManager
                 throw new TrinoException(GENERIC_INTERNAL_ERROR, "Failed to generate new secret key: " + e.getMessage(), e);
             }
         }
-        FileSystemExchange exchange = new FileSystemExchange(baseDirectory, exchangeStorage, context, outputPartitionCount, secretKey, executor);
+        FileSystemExchange exchange = new FileSystemExchange(baseDirectories, exchangeStorage, context, outputPartitionCount, secretKey, executor);
         exchange.initialize();
         return exchange;
     }
