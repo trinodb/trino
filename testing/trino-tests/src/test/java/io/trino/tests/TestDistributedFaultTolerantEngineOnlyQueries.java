@@ -35,7 +35,7 @@ public class TestDistributedFaultTolerantEngineOnlyQueries
             throws Exception
     {
         ImmutableMap<String, String> exchangeManagerProperties = ImmutableMap.<String, String>builder()
-                .put("exchange.base-directory", System.getProperty("java.io.tmpdir") + "/trino-local-file-system-exchange-manager")
+                .put("exchange.base-directories", System.getProperty("java.io.tmpdir") + "/trino-local-file-system-exchange-manager")
                 .buildOrThrow();
 
         DistributedQueryRunner queryRunner = MemoryQueryRunner.builder()
