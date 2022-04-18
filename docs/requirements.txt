@@ -8,12 +8,12 @@ lxml==4.5.2
 markdown-it-py==0.5.6
 myst-parser==0.12.10
 packaging==20.3
-Pillow==7.0.0
+Pillow==9.0.0
 Pygments==2.5.2
 pyparsing==2.4.6
 python-slugify==4.0.1
 pytz==2019.3
-PyYAML==5.3.1
+PyYAML==5.4
 requests==2.23.0
 six==1.14.0
 soupsieve==2.0.1
