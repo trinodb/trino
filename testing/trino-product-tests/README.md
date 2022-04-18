@@ -52,7 +52,7 @@ The Trino product tests must be run explicitly because they do not run
 as part of the Maven build like the unit tests do. Note that the product
 tests cannot be run in parallel. This means that only one instance of a
 test can be run at once in a given environment. To run all product
-tests and exclude the `quarantine`, `big_query` and `profile_specific_tests`
+tests and exclude the `quarantine`, `large_query` and `profile_specific_tests`
 groups run the following command:
 
 ```
