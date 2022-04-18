@@ -62,7 +62,7 @@ public final class TestGroups
     public static final String TLS = "tls";
     public static final String ROLES = "roles";
     public static final String CANCEL_QUERY = "cancel_query";
-    public static final String BIG_QUERY = "big_query";
+    public static final String LARGE_QUERY = "large_query";
     public static final String KAFKA = "kafka";
     public static final String TWO_HIVES = "two_hives";
     public static final String ICEBERG = "iceberg";
