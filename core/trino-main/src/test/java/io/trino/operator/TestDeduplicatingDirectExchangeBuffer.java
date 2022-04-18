@@ -67,7 +67,7 @@ public class TestDeduplicatingDirectExchangeBuffer
         exchangeManagerRegistry = new ExchangeManagerRegistry(new ExchangeHandleResolver());
         exchangeManagerRegistry.addExchangeManagerFactory(new FileSystemExchangeManagerFactory());
         exchangeManagerRegistry.loadExchangeManager("filesystem", ImmutableMap.of(
-                "exchange.base-directory", System.getProperty("java.io.tmpdir") + "/trino-local-file-system-exchange-manager"));
+                "exchange.base-directories", System.getProperty("java.io.tmpdir") + "/trino-local-file-system-exchange-manager"));
     }
 
     @AfterClass(alwaysRun = true)
