@@ -293,7 +293,7 @@ for your storage solution.
    * - Property name
      - Description
      - Default value
-   * - ``exchange.base-directory``
+   * - ``exchange.base-directories``
      - The base directory URI location that the exchange manager uses to store
        spooling data. Only supports S3 and local filesystems.
      -
@@ -346,7 +346,7 @@ does not have to be in AWS, but can be any S3-compatible storage system.
 .. code-block:: properties
 
     exchange-manager.name=filesystem
-    exchange.base-directory=s3n://trino-exchange-manager
+    exchange.base-directories=s3n://trino-exchange-manager
     exchange.encryption-enabled=true
     exchange.s3.region=us-west-1
     exchange.s3.aws-access-key=example-access-key
@@ -366,4 +366,4 @@ destination.
 .. code-block:: properties
 
     exchange-manager.name=filesystem
-    exchange.base-directory=/tmp/trino-exchange-manager
+    exchange.base-directories=/tmp/trino-exchange-manager
