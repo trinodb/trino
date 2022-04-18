@@ -89,9 +89,7 @@ public class FileSystemExchangeManager
                 throw new TrinoException(GENERIC_INTERNAL_ERROR, "Failed to generate new secret key: " + e.getMessage(), e);
             }
         }
-        FileSystemExchange exchange = new FileSystemExchange(baseDirectories, exchangeStorage, context, outputPartitionCount, secretKey, executor);
-        exchange.initialize();
-        return exchange;
+        return new FileSystemExchange(baseDirectories, exchangeStorage, context, outputPartitionCount, secretKey, executor);
     }
 
     @Override
