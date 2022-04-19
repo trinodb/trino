@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hive.fs;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
@@ -64,15 +65,26 @@ public class TrinoFileSystemCache
 
     private final AtomicLong unique = new AtomicLong();
 
+    private final TrinoFileSystemCacheStats stats;
+
     @GuardedBy("this")
     private final Map<FileSystemKey, FileSystemHolder> map = new HashMap<>();
 
-    private TrinoFileSystemCache() {}
+    @VisibleForTesting
+    TrinoFileSystemCache()
+    {
+        this.stats = new TrinoFileSystemCacheStats(() -> {
+            synchronized (this) {
+                return map.size();
+            }
+        });
+    }
 
     @Override
     public FileSystem get(URI uri, Configuration conf)
             throws IOException
     {
+        stats.newGetCall();
         return getInternal(uri, conf, 0);
     }
 
@@ -80,7 +92,14 @@ public class TrinoFileSystemCache
     public FileSystem getUnique(URI uri, Configuration conf)
             throws IOException
     {
+        stats.newGetUniqueCall();
         return getInternal(uri, conf, unique.incrementAndGet());
+    }
+
+    @VisibleForTesting
+    int getCacheSize()
+    {
+        return map.size();
     }
 
     private synchronized FileSystem getInternal(URI uri, Configuration conf, long unique)
@@ -94,11 +113,18 @@ public class TrinoFileSystemCache
         if (fileSystemHolder == null) {
             int maxSize = conf.getInt("fs.cache.max-size", 1000);
             if (map.size() >= maxSize) {
+                stats.newGetCallFailed();
                 throw new IOException(format("FileSystem max cache size has been reached: %s", maxSize));
             }
-            FileSystem fileSystem = createFileSystem(uri, conf);
-            fileSystemHolder = new FileSystemHolder(fileSystem, privateCredentials);
-            map.put(key, fileSystemHolder);
+            try {
+                FileSystem fileSystem = createFileSystem(uri, conf);
+                fileSystemHolder = new FileSystemHolder(fileSystem, privateCredentials);
+                map.put(key, fileSystemHolder);
+            }
+            catch (IOException e) {
+                stats.newGetCallFailed();
+                throw e;
+            }
         }
 
         // Update file system instance when credentials change.
@@ -113,9 +139,15 @@ public class TrinoFileSystemCache
         if ((isHdfs(uri) && !fileSystemHolder.getPrivateCredentials().equals(privateCredentials)) ||
                 extraCredentialsChanged(fileSystemHolder.getFileSystem(), conf)) {
             map.remove(key);
-            FileSystem fileSystem = createFileSystem(uri, conf);
-            fileSystemHolder = new FileSystemHolder(fileSystem, privateCredentials);
-            map.put(key, fileSystemHolder);
+            try {
+                FileSystem fileSystem = createFileSystem(uri, conf);
+                fileSystemHolder = new FileSystemHolder(fileSystem, privateCredentials);
+                map.put(key, fileSystemHolder);
+            }
+            catch (IOException e) {
+                stats.newGetCallFailed();
+                throw e;
+            }
         }
 
         return fileSystemHolder.getFileSystem();
@@ -145,6 +177,7 @@ public class TrinoFileSystemCache
     @Override
     public synchronized void remove(FileSystem fileSystem)
     {
+        stats.newRemoveCall();
         map.values().removeIf(holder -> holder.getFileSystem().equals(fileSystem));
     }
 
@@ -380,5 +413,10 @@ public class TrinoFileSystemCache
         {
             return ((FSDataInputStream) super.getWrappedStream()).getWrappedStream();
         }
+    }
+
+    public TrinoFileSystemCacheStats getFileSystemCacheStats()
+    {
+        return stats;
     }
 }
