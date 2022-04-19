@@ -767,10 +767,12 @@ jobs:
       - name: Build PT matrix (all)
         if: steps.filter.outputs.product-tests == 'true' || contains(github.event.pull_request.labels.*.name, 'tests:all') || contains(github.event.pull_request.labels.*.name, 'tests:all-product')
         run: |
+          # converts entire YAML file into JSON - no filtering since we want all PTs to run
           ./.github/bin/build-pt-matrix-from-impacted-connectors.py -v -m .github/test-pt-matrix.yaml -o matrix.json
       - name: Build PT matrix (impacted-features)
         if: steps.filter.outputs.product-tests == 'false' && !contains(github.event.pull_request.labels.*.name, 'tests:all') && !contains(github.event.pull_request.labels.*.name, 'product-tests:all')
         run: |
+          # converts filtered YAML file into JSON
           ./.github/bin/build-pt-matrix-from-impacted-connectors.py -v -m .github/test-pt-matrix.yaml -i impacted-features.log -o matrix.json
       - id: set-matrix
         run: |
