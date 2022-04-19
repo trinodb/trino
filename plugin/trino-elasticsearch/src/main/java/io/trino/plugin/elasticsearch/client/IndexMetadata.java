@@ -15,6 +15,7 @@ package io.trino.plugin.elasticsearch.client;
 
 import com.google.common.collect.ImmutableList;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -42,7 +43,15 @@ public class IndexMetadata
         private final String name;
         private final Type type;
 
+        // support multi-field, see https://github.com/trinodb/trino/issues/8358
+        private final List<Field> multiFields;
+
         public Field(boolean asRawJson, boolean isArray, String name, Type type)
+        {
+            this(asRawJson, isArray, name, type, new ArrayList<>());
+        }
+
+        public Field(boolean asRawJson, boolean isArray, String name, Type type, List<Field> multiFields)
         {
             checkArgument(!asRawJson || !isArray,
                     format("A column, (%s) cannot be declared as a Trino array and also be rendered as json.", name));
@@ -50,6 +59,7 @@ public class IndexMetadata
             this.isArray = isArray;
             this.name = requireNonNull(name, "name is null");
             this.type = requireNonNull(type, "type is null");
+            this.multiFields = requireNonNull(multiFields, "multi-fields is null");
         }
 
         public boolean asRawJson()
@@ -70,6 +80,11 @@ public class IndexMetadata
         public Type getType()
         {
             return type;
+        }
+
+        public List<Field> getMultiFields()
+        {
+            return multiFields;
         }
     }
 

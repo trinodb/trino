@@ -65,7 +65,7 @@ public final class ElasticsearchQueryBuilder
 
                 checkArgument(!domain.isNone(), "Unexpected NONE domain for %s", column.getName());
                 if (!domain.isAll()) {
-                    queryBuilder.filter(new BoolQueryBuilder().must(buildPredicate(column.getName(), domain, column.getType())));
+                    queryBuilder.filter(new BoolQueryBuilder().must(buildPredicate(column.getPredicateName(), domain, column.getType())));
                 }
             }
         }

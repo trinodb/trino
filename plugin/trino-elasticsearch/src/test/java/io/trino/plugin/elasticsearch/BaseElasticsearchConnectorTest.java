@@ -1710,6 +1710,37 @@ public abstract class BaseElasticsearchConnectorTest
     }
 
     @Test
+    public void testMultiFields()
+            throws IOException
+    {
+        String indexName = "multi_fields";
+        @Language("JSON")
+        String properties = "" +
+                "{" +
+                "  \"properties\":{" +
+                "    \"textField\":   { " +
+                "        \"type\": \"text\"," +
+                "        \"fields\": {" +
+                "            \"raw\": { \"type\": \"keyword\" }" +
+                "        } " +
+                "    }" +
+                "  }" +
+                "}";
+        createIndex(indexName, properties);
+        index(indexName, ImmutableMap.<String, Object>builder()
+                .put("textField", "xxx")
+                .buildOrThrow());
+
+        assertQuery(
+                "SELECT textField FROM multi_fields",
+                "VALUES \'xxx\'");
+        assertQuery(
+                "SELECT textField FROM multi_fields WHERE textField=\'xxx\'",
+                "VALUES \'xxx\'");
+        assertThat(query("SELECT textField FROM multi_fields WHERE textField=\'xxx\'")).isFullyPushedDown();
+    }
+
+    @Test
     public void testQueryStringError()
     {
         assertQueryFails("SELECT orderkey FROM \"orders: ++foo AND\"", "\\QFailed to parse query [ ++foo and]\\E");

@@ -268,15 +268,30 @@ public class ElasticsearchMetadata
         }
 
         for (IndexMetadata.Field field : fields) {
-            TypeAndDecoder converted = toTrino(field);
-            result.put(field.getName(), new ElasticsearchColumnHandle(
-                    field.getName(),
-                    converted.getType(),
-                    converted.getDecoderDescriptor(),
-                    supportsPredicates(field.getType())));
+            result.put(field.getName(), field2Column(field));
         }
 
         return result.buildOrThrow();
+    }
+
+    private ElasticsearchColumnHandle field2Column(IndexMetadata.Field field)
+    {
+        List<ElasticsearchColumnHandle> multiFields = new ArrayList<>();
+        for (IndexMetadata.Field subField : field.getMultiFields()) {
+            ElasticsearchColumnHandle ch = field2Column(subField);
+            if (ch != null) {
+                multiFields.add(ch);
+            }
+        }
+
+        TypeAndDecoder converted = toTrino(field);
+        return new ElasticsearchColumnHandle(
+                field.getName(),
+                converted.getType(),
+                converted.getDecoderDescriptor(),
+                supportsPredicates(field.getType()),
+                field.asRawJson(),
+                multiFields);
     }
 
     private static boolean supportsPredicates(IndexMetadata.Type type)
@@ -529,7 +544,7 @@ public class ElasticsearchMetadata
             for (Map.Entry<ColumnHandle, Domain> entry : constraint.getSummary().getDomains().get().entrySet()) {
                 ElasticsearchColumnHandle column = (ElasticsearchColumnHandle) entry.getKey();
 
-                if (column.isSupportsPredicates()) {
+                if (column.isPredicateWithSubFields()) {
                     supported.put(column, entry.getValue());
                 }
                 else {

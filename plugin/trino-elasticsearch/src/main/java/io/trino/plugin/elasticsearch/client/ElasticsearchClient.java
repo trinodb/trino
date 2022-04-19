@@ -73,6 +73,7 @@ import javax.net.ssl.SSLContext;
 import java.io.File;
 import java.io.IOException;
 import java.security.GeneralSecurityException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
@@ -499,6 +500,17 @@ public class ElasticsearchClient
                         format("A column, (%s) cannot be declared as a Trino array and also be rendered as json.", name));
             }
 
+            List<IndexMetadata.Field> multiFields = new ArrayList<>();
+            if (!isArray && !asRawJson && value.has("fields")) {    // array and json does not support multi-fields
+                Iterator<Map.Entry<String, JsonNode>> iterator = value.get("fields").fields();
+                while (iterator.hasNext()) {
+                    Map.Entry<String, JsonNode> tmp = iterator.next();
+                    String fieldKey = tmp.getKey();
+                    JsonNode fieldValue = tmp.getValue();
+                    multiFields.add(new IndexMetadata.Field(asRawJson, false, fieldKey, new IndexMetadata.PrimitiveType(fieldValue.get("type").asText())));
+                }
+            }
+
             switch (type) {
                 case "date":
                     List<String> formats = ImmutableList.of();
@@ -521,7 +533,7 @@ public class ElasticsearchClient
                     break;
 
                 default:
-                    result.add(new IndexMetadata.Field(asRawJson, isArray, name, new IndexMetadata.PrimitiveType(type)));
+                    result.add(new IndexMetadata.Field(asRawJson, isArray, name, new IndexMetadata.PrimitiveType(type), multiFields));
             }
         }
 

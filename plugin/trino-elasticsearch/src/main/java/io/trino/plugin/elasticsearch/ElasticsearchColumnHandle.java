@@ -16,8 +16,11 @@ package io.trino.plugin.elasticsearch;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
@@ -29,18 +32,35 @@ public final class ElasticsearchColumnHandle
     private final Type type;
     private final DecoderDescriptor decoderDescriptor;
     private final boolean supportsPredicates;
+    private final boolean asRawJson;
+
+    // support for multi-fields
+    private final List<ElasticsearchColumnHandle> multiFields;
+
+    public ElasticsearchColumnHandle(
+            String name,
+            Type type,
+            DecoderDescriptor decoderDescriptor,
+            boolean supportsPredicates)
+    {
+        this(name, type, decoderDescriptor, supportsPredicates, false, new ArrayList<>());
+    }
 
     @JsonCreator
     public ElasticsearchColumnHandle(
             @JsonProperty("name") String name,
             @JsonProperty("type") Type type,
             @JsonProperty("decoderDescriptor") DecoderDescriptor decoderDescriptor,
-            @JsonProperty("supportsPredicates") boolean supportsPredicates)
+            @JsonProperty("supportsPredicates") boolean supportsPredicates,
+            @JsonProperty("asRawJson") boolean asRawJson,
+            @JsonProperty("multiFields") List<ElasticsearchColumnHandle> multiFields)
     {
         this.name = requireNonNull(name, "name is null");
         this.type = requireNonNull(type, "type is null");
         this.decoderDescriptor = requireNonNull(decoderDescriptor, "decoderDescriptor is null");
         this.supportsPredicates = supportsPredicates;
+        this.asRawJson = asRawJson;
+        this.multiFields = requireNonNull(multiFields, "multi-fields is null");
     }
 
     @JsonProperty
@@ -67,10 +87,58 @@ public final class ElasticsearchColumnHandle
         return supportsPredicates;
     }
 
+    @JsonProperty
+    public boolean asRawJson()
+    {
+        return asRawJson;
+    }
+
+    @JsonProperty
+    public boolean isArray()
+    {
+        return type instanceof ArrayType;
+    }
+
+    @JsonProperty
+    public List<ElasticsearchColumnHandle> getMultiFields()
+    {
+        return multiFields;
+    }
+
+    public boolean isPredicateWithSubFields()
+    {
+        if (supportsPredicates) {
+            return true;
+        }
+
+        for (ElasticsearchColumnHandle ch : multiFields) {
+            if (ch.isSupportsPredicates()) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public String getPredicateName()
+    {
+        if (supportsPredicates) {
+            return name;
+        }
+
+        for (ElasticsearchColumnHandle ch : multiFields) {
+            if (ch.isSupportsPredicates()) {
+                return name + "." + ch.getPredicateName();
+            }
+        }
+
+        return null;
+    }
+
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, type, decoderDescriptor, supportsPredicates);
+        return Objects.hash(name, type, decoderDescriptor, supportsPredicates, asRawJson, multiFields);
     }
 
     @Override
@@ -87,7 +155,9 @@ public final class ElasticsearchColumnHandle
         return this.supportsPredicates == other.supportsPredicates &&
                 Objects.equals(this.getName(), other.getName()) &&
                 Objects.equals(this.getType(), other.getType()) &&
-                Objects.equals(this.getDecoderDescriptor(), other.getDecoderDescriptor());
+                Objects.equals(this.getDecoderDescriptor(), other.getDecoderDescriptor()) &&
+                this.asRawJson == other.asRawJson &&
+                Objects.equals(this.multiFields, other.multiFields);
     }
 
     @Override

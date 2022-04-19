@@ -27,22 +27,25 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.common.document.DocumentField;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.SearchHits;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.Set;
 import java.util.function.Supplier;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.elasticsearch.BuiltinColumns.SOURCE;
 import static io.trino.plugin.elasticsearch.BuiltinColumns.isBuiltinColumn;
 import static io.trino.plugin.elasticsearch.ElasticsearchQueryBuilder.buildSearchQuery;
-import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Predicate.isEqual;
 import static java.util.stream.Collectors.toList;
@@ -83,10 +86,18 @@ public class ScanQueryPageSource
         // Columns to fetch as doc_fields instead of pulling them out of the JSON source
         // This is convenient for types such as DATE, TIMESTAMP, etc, which have multiple possible
         // representations in JSON, but a single normalized representation as doc_field.
-        List<String> documentFields = flattenFields(columns).entrySet().stream()
-                .filter(entry -> entry.getValue().equals(TIMESTAMP_MILLIS))
-                .map(Map.Entry::getKey)
-                .collect(toImmutableList());
+        List<String> documentFields = new ArrayList<>();
+        Set<String> docFieldsToRemove = new HashSet<>();
+        columns.stream()
+                .filter(ch -> ch.isSupportsPredicates() || ch.isPredicateWithSubFields())
+                // array and json does not support documnet fields,
+                // The order of the two results is inconsistent between the source field and the docvalue field
+                // see https://discuss.elastic.co/t/query-array-of-keyword-responce-different-in-source-and-docfields/302389
+                .filter(ch -> !ch.isArray() && !ch.asRawJson())
+                .forEach(ch -> {
+                    documentFields.add(ch.getPredicateName());
+                    docFieldsToRemove.add(ch.getName());
+                });
 
         columnBuilders = columns.stream()
                 .map(ElasticsearchColumnHandle::getType)
@@ -96,6 +107,7 @@ public class ScanQueryPageSource
         List<String> requiredFields = columns.stream()
                 .map(ElasticsearchColumnHandle::getName)
                 .filter(name -> !isBuiltinColumn(name))
+                .filter(name -> !docFieldsToRemove.contains(name))
                 .collect(toList());
 
         // sorting by _doc (index order) get special treatment in Elasticsearch and is more efficient
@@ -157,10 +169,17 @@ public class ScanQueryPageSource
         while (size < PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES && iterator.hasNext()) {
             SearchHit hit = iterator.next();
             Map<String, Object> document = hit.getSourceAsMap();
+            Map<String, DocumentField> docFields = hit.getFields();
 
             for (int i = 0; i < decoders.size(); i++) {
-                String field = columns.get(i).getName();
-                decoders.get(i).decode(hit, () -> getField(document, field), columnBuilders[i]);
+                ElasticsearchColumnHandle ch = columns.get(i);
+                if (!ch.asRawJson() && !ch.isArray() && columns.get(i).isPredicateWithSubFields()) {
+                    decoders.get(i).decode(hit, () -> getDocValueField(docFields, ch.getPredicateName(), false), columnBuilders[i]);
+                }
+                else {
+                    String field = ch.getName();
+                    decoders.get(i).decode(hit, () -> getField(document, field), columnBuilders[i]);
+                }
             }
 
             if (hit.getSourceRef() != null) {
@@ -200,6 +219,17 @@ public class ScanQueryPageSource
         }
 
         return value;
+    }
+
+    public static Object getDocValueField(Map<String, DocumentField> docValueFields, String field, boolean isArray)
+    {
+        if (docValueFields.containsKey(field)) {
+            if (isArray) {
+                return docValueFields.get(field).getValues();
+            }
+            return docValueFields.get(field).getValue();
+        }
+        return null;
     }
 
     private Map<String, Type> flattenFields(List<ElasticsearchColumnHandle> columns)
