@@ -152,6 +152,7 @@ import static io.trino.plugin.iceberg.IcebergSessionProperties.getExpireSnapshot
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isProjectionPushdownEnabled;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isStatisticsEnabled;
 import static io.trino.plugin.iceberg.IcebergTableProperties.FILE_FORMAT_PROPERTY;
+import static io.trino.plugin.iceberg.IcebergTableProperties.FORMAT_VERSION_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.LOCATION_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.PARTITIONING_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getPartitioning;
@@ -1180,6 +1181,9 @@ public class IcebergMetadata
         if (!icebergTable.location().isEmpty()) {
             properties.put(LOCATION_PROPERTY, icebergTable.location());
         }
+
+        int formatVersion = ((BaseTable) icebergTable).operations().current().formatVersion();
+        properties.put(FORMAT_VERSION_PROPERTY, formatVersion);
 
         return new ConnectorTableMetadata(table, columns.build(), properties.buildOrThrow(), getTableComment(icebergTable));
     }
