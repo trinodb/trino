@@ -86,6 +86,8 @@ public class OptimizerConfig
     private long adaptivePartialAggregationMinRows = 100_000;
     private double adaptivePartialAggregationUniqueRowsRatioThreshold = 0.8;
 
+    private int explainValuesLimit = 5;
+
     public enum JoinReorderingStrategy
     {
         NONE,
@@ -711,6 +713,20 @@ public class OptimizerConfig
     public OptimizerConfig setAdaptivePartialAggregationUniqueRowsRatioThreshold(double adaptivePartialAggregationUniqueRowsRatioThreshold)
     {
         this.adaptivePartialAggregationUniqueRowsRatioThreshold = adaptivePartialAggregationUniqueRowsRatioThreshold;
+        return this;
+    }
+
+    @Min(1)
+    public int getExplainValuesLimit()
+    {
+        return explainValuesLimit;
+    }
+
+    @Config("explain.values-limit")
+    @ConfigDescription("The length of the limit when values exist in Explain")
+    public OptimizerConfig setExplainValuesLimit(int explainValuesLimit)
+    {
+        this.explainValuesLimit = explainValuesLimit;
         return this;
     }
 }

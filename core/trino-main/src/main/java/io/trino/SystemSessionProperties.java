@@ -168,6 +168,7 @@ public final class SystemSessionProperties
     public static final String ADAPTIVE_PARTIAL_AGGREGATION_ENABLED = "adaptive_partial_aggregation_enabled";
     public static final String ADAPTIVE_PARTIAL_AGGREGATION_MIN_ROWS = "adaptive_partial_aggregation_min_rows";
     public static final String ADAPTIVE_PARTIAL_AGGREGATION_UNIQUE_ROWS_RATIO_THRESHOLD = "adaptive_partial_aggregation_unique_rows_ratio_threshold";
+    public static final String EXPLAIN_VALUES_LIMIT = "explain_values_limit";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -817,7 +818,14 @@ public final class SystemSessionProperties
                         ADAPTIVE_PARTIAL_AGGREGATION_UNIQUE_ROWS_RATIO_THRESHOLD,
                         "Ratio between aggregation output and input rows above which partial aggregation might be adaptively turned off",
                         optimizerConfig.getAdaptivePartialAggregationUniqueRowsRatioThreshold(),
-                        false));
+                        false),
+                integerProperty(
+                        EXPLAIN_VALUES_LIMIT,
+                        "The length of the limit when values exist in Explain",
+                        optimizerConfig.getExplainValuesLimit(),
+                        false
+
+                ));
     }
 
     @Override
@@ -1468,5 +1476,10 @@ public final class SystemSessionProperties
     public static double getAdaptivePartialAggregationUniqueRowsRatioThreshold(Session session)
     {
         return session.getSystemProperty(ADAPTIVE_PARTIAL_AGGREGATION_UNIQUE_ROWS_RATIO_THRESHOLD, Double.class);
+    }
+
+    public static int getExplainValuesLimit(Session session)
+    {
+        return session.getSystemProperty(EXPLAIN_VALUES_LIMIT, Integer.class);
     }
 }

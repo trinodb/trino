@@ -59,4 +59,8 @@ public final class ValuePrinter
         Slice coerced = (Slice) new InterpretedFunctionInvoker(functionManager).invoke(coercion, session.toConnectorSession(), value);
         return coerced.toStringUtf8();
     }
+
+    public Session getSession() {
+        return this.session;
+    }
 }

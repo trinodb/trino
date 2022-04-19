@@ -141,6 +141,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.trino.SystemSessionProperties.getExplainValuesLimit;
 import static io.trino.execution.StageInfo.getAllStages;
 import static io.trino.metadata.ResolvedFunction.extractFunctionName;
 import static io.trino.operator.StageExecutionDescriptor.ungroupedExecution;
@@ -170,6 +171,7 @@ public class PlanPrinter
     private final Function<TableScanNode, TableInfo> tableInfoSupplier;
     private final Map<DynamicFilterId, DynamicFilterDomainStats> dynamicFilterDomainStats;
     private final ValuePrinter valuePrinter;
+    private final Session session;
 
     // NOTE: do NOT add Metadata or Session to this class.  The plan printer must be usable outside of a transaction.
     private PlanPrinter(
@@ -180,7 +182,8 @@ public class PlanPrinter
             Map<DynamicFilterId, DynamicFilterDomainStats> dynamicFilterDomainStats,
             ValuePrinter valuePrinter,
             StatsAndCosts estimatedStatsAndCosts,
-            Optional<Map<PlanNodeId, PlanNodeStats>> stats)
+            Optional<Map<PlanNodeId, PlanNodeStats>> stats,
+            Session session)
     {
         requireNonNull(planRoot, "planRoot is null");
         requireNonNull(types, "types is null");
@@ -189,10 +192,12 @@ public class PlanPrinter
         requireNonNull(valuePrinter, "valuePrinter is null");
         requireNonNull(estimatedStatsAndCosts, "estimatedStatsAndCosts is null");
         requireNonNull(stats, "stats is null");
+        requireNonNull(session, "session is null");
 
         this.tableInfoSupplier = tableInfoSupplier;
         this.dynamicFilterDomainStats = ImmutableMap.copyOf(dynamicFilterDomainStats);
         this.valuePrinter = valuePrinter;
+        this.session = session;
 
         Optional<Duration> totalScheduledTime = stats.map(s -> new Duration(s.values().stream()
                 .mapToLong(planNode -> planNode.getPlanNodeScheduledTime().toMillis())
@@ -230,7 +235,16 @@ public class PlanPrinter
 
         TableInfoSupplier tableInfoSupplier = new TableInfoSupplier(metadata, session);
         ValuePrinter valuePrinter = new ValuePrinter(metadata, functionManager, session);
-        return new PlanPrinter(root, typeProvider, Optional.empty(), tableInfoSupplier, ImmutableMap.of(), valuePrinter, StatsAndCosts.empty(), Optional.empty()).toJson();
+        return new PlanPrinter(
+                root,
+                typeProvider,
+                Optional.empty(),
+                tableInfoSupplier,
+                ImmutableMap.of(),
+                valuePrinter,
+                StatsAndCosts.empty(),
+                Optional.empty(),
+                session).toJson();
     }
 
     public static String textLogicalPlan(
@@ -245,7 +259,16 @@ public class PlanPrinter
     {
         TableInfoSupplier tableInfoSupplier = new TableInfoSupplier(metadata, session);
         ValuePrinter valuePrinter = new ValuePrinter(metadata, functionManager, session);
-        return new PlanPrinter(plan, types, Optional.empty(), tableInfoSupplier, ImmutableMap.of(), valuePrinter, estimatedStatsAndCosts, Optional.empty()).toText(verbose, level);
+        return new PlanPrinter(
+                plan,
+                types,
+                Optional.empty(),
+                tableInfoSupplier,
+                ImmutableMap.of(),
+                valuePrinter,
+                estimatedStatsAndCosts,
+                Optional.empty(),
+                session).toText(verbose, level);
     }
 
     public static String textDistributedPlan(
@@ -392,7 +415,8 @@ public class PlanPrinter
                         dynamicFilterDomainStats,
                         valuePrinter,
                         fragment.getStatsAndCosts(),
-                        planNodeStats).toText(verbose, 1))
+                        planNodeStats,
+                        valuePrinter.getSession()).toText(verbose, 1))
                 .append("\n");
 
         return builder.toString();
@@ -918,14 +942,12 @@ public class PlanPrinter
         {
             TableHandle table = node.getTable();
             NodeRepresentation nodeOutput;
-            if (stageExecutionStrategy.isPresent()) {
-                nodeOutput = addNode(node,
-                        "TableScan",
-                        format("[%s, grouped = %s]", table, stageExecutionStrategy.get().isScanGroupedExecution(node.getId())));
-            }
-            else {
-                nodeOutput = addNode(node, "TableScan", format("[%s]", table));
-            }
+            nodeOutput = stageExecutionStrategy
+                    .map(stageExecutionDescriptor ->
+                            addNode(node,
+                                    "TableScan",
+                                    format("[%s, grouped = %s]", table, stageExecutionDescriptor.isScanGroupedExecution(node.getId()))))
+                    .orElseGet(() -> addNode(node, "TableScan", format("[%s]", table)));
             printTableScanInfo(nodeOutput, node);
             return null;
         }
@@ -935,12 +957,11 @@ public class PlanPrinter
         {
             NodeRepresentation nodeOutput = addNode(node, "Values");
             if (node.getRows().isEmpty()) {
-                for (int i = 0; i < node.getRowCount(); i++) {
-                    nodeOutput.appendDetailsLine("()");
-                }
+                nodeOutput.appendDetailsLine("()");
                 return null;
             }
-            List<String> rows = node.getRows().get().stream()
+            int valuesLimit = Math.min(getExplainValuesLimit(session), node.getRows().get().size());
+            List<String> rows = node.getRows().get().subList(0, valuesLimit).stream()
                     .map(row -> {
                         if (row instanceof Row) {
                             return ((Row) row).getItems().stream()
@@ -953,6 +974,9 @@ public class PlanPrinter
                     .collect(toImmutableList());
             for (String row : rows) {
                 nodeOutput.appendDetailsLine(row);
+            }
+            if (rows.size() == getExplainValuesLimit(session)) {
+                nodeOutput.appendDetails("...");
             }
             return null;
         }
