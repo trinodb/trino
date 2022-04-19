@@ -16,11 +16,8 @@ package io.trino.plugin.base;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
 
-import java.util.Optional;
-
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
-import static java.util.Objects.requireNonNull;
 
 public final class Versions
 {
@@ -35,39 +32,10 @@ public final class Versions
     public static void checkSpiVersion(ConnectorContext context, ConnectorFactory connectorFactory)
     {
         String spiVersion = context.getSpiVersion();
-        Optional<String> pluginVersion = getPluginMavenVersion(connectorFactory);
-
-        if (pluginVersion.isEmpty()) {
-            // Assume we're in tests. In tests, plugin version is unknown and SPI version may be known, e.g. when running single module's tests from maven.
-            return;
-        }
+        String compileTimeSpiVersion = SpiVersionHolder.SPI_COMPILE_TIME_VERSION;
 
         checkState(
-                spiVersion.equals(pluginVersion.get()),
-                format(
-                        "Trino SPI version %s does not match %s connector version %s. The connector cannot be used with SPI version other than it was compiled for.",
-                        spiVersion,
-                        connectorFactory.getName(),
-                        pluginVersion.get()));
-    }
-
-    private static Optional<String> getPluginMavenVersion(ConnectorFactory connectorFactory)
-    {
-        String specificationVersion = connectorFactory.getClass().getPackage().getSpecificationVersion();
-        String implementationVersion = connectorFactory.getClass().getPackage().getImplementationVersion();
-        if (specificationVersion == null && implementationVersion == null) {
-            // The information comes from jar's Manifest and is not present e.g. when running tests, or from an IDE.
-            return Optional.empty();
-        }
-
-        requireNonNull(specificationVersion, "specificationVersion not present when implementationVersion is present");
-        requireNonNull(implementationVersion, "implementationVersion not present when specificationVersion is present");
-
-        // Implementation version comes from Manifest and is defined in Airbase as equivalent to `git describe` output.
-        if (implementationVersion.matches(".*-(\\d+)-g([0-9a-f]+)(-dirty)?$")) {
-            // Specification version comes from Manifest and is the project version with `-SNAPSHOT` stripped, and .0 added (if not present).
-            return Optional.of(specificationVersion.replaceAll("\\.0$", "") + "-SNAPSHOT");
-        }
-        return Optional.of(implementationVersion);
+                spiVersion.equals(compileTimeSpiVersion),
+                format("Trino SPI version %s does not match the version %s connector %s was compiled for", spiVersion, compileTimeSpiVersion, connectorFactory.getName()));
     }
 }

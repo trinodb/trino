@@ -152,4 +152,23 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+
+    <build>
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+                <filtering>true</filtering>
+                <includes>
+                    <include>io/trino/plugin/base/trino-spi-compile-time-version.txt</include>
+                </includes>
+            </resource>
+            <resource>
+                <directory>src/main/resources</directory>
+                <filtering>false</filtering>
+                <excludes>
+                    <exclude>io/trino/plugin/base/trino-spi-compile-time-version.txt</exclude>
+                </excludes>
+            </resource>
+        </resources>
+    </build>
 </project>
