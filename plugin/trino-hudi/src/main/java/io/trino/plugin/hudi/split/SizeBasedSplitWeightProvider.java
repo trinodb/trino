@@ -28,13 +28,12 @@ public class SizeBasedSplitWeightProvider
 
     public SizeBasedSplitWeightProvider(double minimumWeight, DataSize standardSplitSize)
     {
-        checkArgument(Double.isFinite(minimumWeight) && minimumWeight > 0 && minimumWeight <= 1,
+        checkArgument(
+                Double.isFinite(minimumWeight) && minimumWeight > 0 && minimumWeight <= 1,
                 "minimumWeight must be > 0 and <= 1, found: %s", minimumWeight);
         this.minimumWeight = minimumWeight;
-        long standardSplitSizeInBytesLong = requireNonNull(
-                standardSplitSize, "standardSplitSize is null").toBytes();
-        checkArgument(standardSplitSizeInBytesLong > 0,
-                "standardSplitSize must be > 0, found: %s", standardSplitSize);
+        long standardSplitSizeInBytesLong = requireNonNull(standardSplitSize, "standardSplitSize is null").toBytes();
+        checkArgument(standardSplitSizeInBytesLong > 0, "standardSplitSize must be > 0, found: %s", standardSplitSize);
         this.standardSplitSizeInBytes = (double) standardSplitSizeInBytesLong;
     }
 

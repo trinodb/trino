@@ -16,6 +16,7 @@ package io.trino.plugin.hudi;
 
 import com.google.inject.Binder;
 import com.google.inject.Module;
+import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import io.trino.plugin.base.security.AllowAllAccessControl;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
@@ -32,9 +33,15 @@ import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
 
+import javax.inject.Singleton;
+
+import java.util.concurrent.ExecutorService;
+
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class HudiModule
@@ -66,5 +73,13 @@ public class HudiModule
         newExporter(binder).export(FileFormatDataSourceStats.class).withGeneratedName();
 
         newOptionalBinder(binder, ConnectorAccessControl.class).setDefault().to(AllowAllAccessControl.class).in(Scopes.SINGLETON);
+    }
+
+    @ForHudiSplitManager
+    @Singleton
+    @Provides
+    public ExecutorService createExecutorService()
+    {
+        return newCachedThreadPool(daemonThreadsNamed("hudi-split-manager-%d"));
     }
 }

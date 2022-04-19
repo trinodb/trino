@@ -39,6 +39,8 @@ public class HudiConfig
     private boolean sizeBasedSplitWeightsEnabled = true;
     private DataSize standardSplitWeightSize = DataSize.of(128, MEGABYTE);
     private double minimumAssignedSplitWeight = 0.05;
+    private int maxSplitsPerSecond = Integer.MAX_VALUE;
+    private int maxOutstandingSplits = 1000;
 
     @NotNull
     public String getBaseFileFormat()
@@ -193,5 +195,31 @@ public class HudiConfig
     public double getMinimumAssignedSplitWeight()
     {
         return minimumAssignedSplitWeight;
+    }
+
+    @Min(1)
+    public int getMaxSplitsPerSecond()
+    {
+        return maxSplitsPerSecond;
+    }
+
+    @Config("hudi.max-splits-per-second")
+    public HudiConfig setMaxSplitsPerSecond(int maxSplitsPerSecond)
+    {
+        this.maxSplitsPerSecond = maxSplitsPerSecond;
+        return this;
+    }
+
+    @Min(1)
+    public int getMaxOutstandingSplits()
+    {
+        return maxOutstandingSplits;
+    }
+
+    @Config("hudi.max-outstanding-splits")
+    public HudiConfig setMaxOutstandingSplits(int maxOutstandingSplits)
+    {
+        this.maxOutstandingSplits = maxOutstandingSplits;
+        return this;
     }
 }

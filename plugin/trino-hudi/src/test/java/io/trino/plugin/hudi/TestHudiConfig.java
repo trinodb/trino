@@ -43,7 +43,9 @@ public class TestHudiConfig
                 .setMaxPartitionBatchSize(100)
                 .setSizeBasedSplitWeightsEnabled(true)
                 .setStandardSplitWeightSize(DataSize.of(128, MEGABYTE))
-                .setMinimumAssignedSplitWeight(0.05));
+                .setMinimumAssignedSplitWeight(0.05)
+                .setMaxSplitsPerSecond(Integer.MAX_VALUE)
+                .setMaxOutstandingSplits(1000));
     }
 
     @Test
@@ -61,6 +63,8 @@ public class TestHudiConfig
                 .put("hudi.size-based-split-weights-enabled", "false")
                 .put("hudi.standard-split-weight-size", "64MB")
                 .put("hudi.minimum-assigned-split-weight", "0.1")
+                .put("hudi.max-splits-per-second", "100")
+                .put("hudi.max-outstanding-splits", "100")
                 .buildOrThrow();
 
         HudiConfig expected = new HudiConfig()
@@ -74,7 +78,9 @@ public class TestHudiConfig
                 .setMaxPartitionBatchSize(50)
                 .setSizeBasedSplitWeightsEnabled(false)
                 .setStandardSplitWeightSize(DataSize.of(64, MEGABYTE))
-                .setMinimumAssignedSplitWeight(0.1);
+                .setMinimumAssignedSplitWeight(0.1)
+                .setMaxSplitsPerSecond(100)
+                .setMaxOutstandingSplits(100);
 
         assertFullMapping(properties, expected);
     }

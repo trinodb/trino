@@ -30,7 +30,7 @@ import java.util.Map;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 
-public class AbstractHudiTestQueryFramework
+public abstract class AbstractHudiTestQueryFramework
         extends AbstractTestQueryFramework
 {
     public static final String HUDI_CATALOG = "hudi";

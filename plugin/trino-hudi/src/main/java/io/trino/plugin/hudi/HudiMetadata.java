@@ -20,7 +20,6 @@ import com.google.common.collect.Sets;
 import io.airlift.log.Logger;
 import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.HiveColumnHandle;
-import io.trino.plugin.hive.HivePartition;
 import io.trino.plugin.hive.acid.AcidSchema;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.HiveMetastore;
@@ -32,23 +31,23 @@ import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
-import io.trino.spi.connector.ConnectorTableProperties;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
+import io.trino.spi.connector.TableColumnsMetadata;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.TypeManager;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hudi.common.model.HoodieTableType;
-import org.apache.hudi.common.table.HoodieTableMetaClient;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
+import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -67,7 +66,6 @@ import static io.trino.plugin.hive.util.HiveUtil.columnExtraInfo;
 import static io.trino.plugin.hive.util.HiveUtil.hiveColumnHandles;
 import static io.trino.plugin.hive.util.HiveUtil.isHiveSystemSchema;
 import static io.trino.plugin.hudi.HudiErrorCode.HUDI_UNKNOWN_TABLE_TYPE;
-import static io.trino.plugin.hudi.HudiUtil.splitPredicate;
 import static io.trino.spi.connector.SchemaTableName.schemaTableName;
 import static java.lang.String.format;
 import static java.util.Collections.singletonList;
@@ -120,8 +118,7 @@ public class HudiMetadata
                 table.get().getStorage().getLocation(),
                 HoodieTableType.COPY_ON_WRITE,
                 TupleDomain.all(),
-                TupleDomain.all(),
-                Optional.of(getTableMetaClient(session, table.get())));
+                TupleDomain.all());
     }
 
     @Override
@@ -135,12 +132,14 @@ public class HudiMetadata
     public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle tableHandle, Constraint constraint)
     {
         HudiTableHandle handle = (HudiTableHandle) tableHandle;
-        HudiPredicates predicates = splitPredicate(constraint.getSummary());
-        HudiTableHandle newHudiTableHandle = handle.withPredicates(predicates);
+        HudiPredicates predicates = HudiPredicates.from(constraint.getSummary());
+        HudiTableHandle newHudiTableHandle = handle.withPredicates(
+                predicates.getPartitionColumnPredicates(),
+                predicates.getRegularColumnPredicates());
 
         if (handle.getPartitionPredicates().equals(newHudiTableHandle.getPartitionPredicates())
                 && handle.getRegularPredicates().equals(newHudiTableHandle.getRegularPredicates())) {
-            log.info("No new predicates to apply");
+            log.debug("No new predicates to apply");
             return Optional.empty();
         }
 
@@ -148,12 +147,6 @@ public class HudiMetadata
                 newHudiTableHandle,
                 newHudiTableHandle.getRegularPredicates().transformKeys(ColumnHandle.class::cast),
                 false));
-    }
-
-    @Override
-    public ConnectorTableProperties getTableProperties(ConnectorSession session, ConnectorTableHandle tableHandle)
-    {
-        return new ConnectorTableProperties();
     }
 
     @Override
@@ -175,11 +168,8 @@ public class HudiMetadata
     @Override
     public Optional<Object> getInfo(ConnectorTableHandle table)
     {
-        return ((HudiTableHandle) table).getPartitions()
-                .map(partitions -> new HudiInputInfo(
-                        partitions.stream()
-                                .map(HivePartition::getPartitionId)
-                                .collect(toImmutableList())));
+        HudiTableHandle hudiTable = (HudiTableHandle) table;
+        return Optional.of(HudiTableInfo.from(hudiTable));
     }
 
     @Override
@@ -191,38 +181,24 @@ public class HudiMetadata
                 tableNames.add(schemaTableName(schemaName, tableName));
             }
         }
-
-        tableNames.addAll(listMaterializedViews(session, optionalSchemaName));
         return tableNames.build();
     }
 
     @Override
-    public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
+    public Stream<TableColumnsMetadata> streamTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {
         List<SchemaTableName> tables = prefix.getTable()
                 .map(ignored -> singletonList(prefix.toSchemaTableName()))
                 .orElseGet(() -> listTables(session, prefix.getSchema()));
-
-        ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> columns = ImmutableMap.builder();
-        for (SchemaTableName table : tables) {
-            try {
-                columns.put(table, getTableMetadata(table).getColumns());
-            }
-            catch (TableNotFoundException e) {
-                // table disappeared during listing operation
-            }
-        }
-        return columns.buildOrThrow();
+        return tables.stream().map(table -> {
+            List<ColumnMetadata> columns = getTableMetadata(table).getColumns();
+            return TableColumnsMetadata.forTable(table, columns);
+        });
     }
 
     HiveMetastore getMetastore()
     {
         return metastore;
-    }
-
-    void rollback()
-    {
-        // TODO: cleanup open transaction when write will be supported
     }
 
     private static Function<HiveColumnHandle, ColumnMetadata> columnMetadataGetter(Table table)
@@ -286,13 +262,6 @@ public class HudiMetadata
             return false;
         }
         return true;
-    }
-
-    private HoodieTableMetaClient getTableMetaClient(ConnectorSession session, Table table)
-    {
-        String basePath = table.getStorage().getLocation();
-        Configuration conf = hdfsEnvironment.getConfiguration(new HdfsEnvironment.HdfsContext(session), new Path(basePath));
-        return HoodieTableMetaClient.builder().setConf(conf).setBasePath(basePath).build();
     }
 
     private ConnectorTableMetadata getTableMetadata(SchemaTableName tableName)

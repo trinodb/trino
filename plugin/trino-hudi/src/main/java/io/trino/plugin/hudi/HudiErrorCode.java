@@ -33,7 +33,7 @@ public enum HudiErrorCode
 
     HudiErrorCode(int code, ErrorType type)
     {
-        errorCode = new ErrorCode(code + 0x0100_0000, name(), type);
+        errorCode = new ErrorCode(code + 0x0507_0000, name(), type);
     }
 
     @Override

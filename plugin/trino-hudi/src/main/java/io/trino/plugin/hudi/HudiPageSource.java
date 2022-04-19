@@ -25,6 +25,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
+import static io.trino.plugin.base.util.Closables.closeAllSuppress;
 import static io.trino.plugin.hudi.HudiErrorCode.HUDI_BAD_DATA;
 import static java.util.Objects.requireNonNull;
 
@@ -89,11 +90,11 @@ public class HudiPageSource
             return new Page(positionCount, blocksWithPartitionColumns);
         }
         catch (TrinoException e) {
-            closeWithSuppression(e);
+            closeAllSuppress(e, this);
             throw e;
         }
         catch (RuntimeException e) {
-            closeWithSuppression(e);
+            closeAllSuppress(e, this);
             throw new TrinoException(HUDI_BAD_DATA, e);
         }
     }
@@ -109,19 +110,5 @@ public class HudiPageSource
             throws IOException
     {
         dataPageSource.close();
-    }
-
-    private void closeWithSuppression(Throwable throwable)
-    {
-        requireNonNull(throwable, "throwable is null");
-        try {
-            close();
-        }
-        catch (Exception e) {
-            // Self-suppression not permitted
-            if (e != throwable) {
-                throwable.addSuppressed(e);
-            }
-        }
     }
 }

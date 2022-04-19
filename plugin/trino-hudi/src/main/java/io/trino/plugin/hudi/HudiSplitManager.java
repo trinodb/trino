@@ -30,9 +30,11 @@ import io.trino.spi.connector.TableNotFoundException;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 
+import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
 
 import static io.trino.spi.connector.SchemaTableName.schemaTableName;
@@ -44,12 +46,28 @@ public class HudiSplitManager
 {
     private final HudiTransactionManager transactionManager;
     private final HdfsEnvironment hdfsEnvironment;
+    private final ExecutorService executor;
+    private final int maxSplitsPerSecond;
+    private final int maxOutstandingSplits;
 
     @Inject
-    public HudiSplitManager(HudiTransactionManager transactionManager, HdfsEnvironment hdfsEnvironment)
+    public HudiSplitManager(
+            HudiTransactionManager transactionManager,
+            HdfsEnvironment hdfsEnvironment,
+            HudiConfig hudiConfig,
+            @ForHudiSplitManager ExecutorService executor)
     {
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
+        this.executor = requireNonNull(executor, "executor is null");
+        this.maxSplitsPerSecond = requireNonNull(hudiConfig, "hudiConfig is null").getMaxSplitsPerSecond();
+        this.maxOutstandingSplits = hudiConfig.getMaxOutstandingSplits();
+    }
+
+    @PreDestroy
+    public void destroy()
+    {
+        this.executor.shutdown();
     }
 
     @Override
@@ -74,7 +92,15 @@ public class HudiSplitManager
         Configuration conf = hdfsEnvironment.getConfiguration(
                 context, new Path(table.getStorage().getLocation()));
         HudiSplitSource splitSource = new HudiSplitSource(
-                session, metastore, table, hudiTableHandle, conf, partitionColumnHandles);
+                session,
+                metastore,
+                table,
+                hudiTableHandle,
+                conf,
+                partitionColumnHandles,
+                executor,
+                maxSplitsPerSecond,
+                maxOutstandingSplits);
         return new ClassLoaderSafeConnectorSplitSource(splitSource, Thread.currentThread().getContextClassLoader());
     }
 }

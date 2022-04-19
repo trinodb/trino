@@ -14,14 +14,20 @@
 
 package io.trino.plugin.hudi;
 
-import io.airlift.log.Logger;
+import com.google.common.util.concurrent.Futures;
+import io.airlift.units.DataSize;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.Table;
+import io.trino.plugin.hive.util.AsyncQueue;
+import io.trino.plugin.hive.util.ThrottledAsyncQueue;
 import io.trino.plugin.hudi.query.HudiFileListing;
 import io.trino.plugin.hudi.query.HudiFileListingFactory;
 import io.trino.plugin.hudi.query.HudiQueryMode;
 import io.trino.plugin.hudi.split.HudiSplitBackgroundLoader;
+import io.trino.plugin.hudi.split.HudiSplitWeightProvider;
+import io.trino.plugin.hudi.split.SizeBasedSplitWeightProvider;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorPartitionHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
@@ -31,36 +37,30 @@ import org.apache.hudi.common.config.HoodieMetadataConfig;
 import org.apache.hudi.common.engine.HoodieEngineContext;
 import org.apache.hudi.common.engine.HoodieLocalEngineContext;
 import org.apache.hudi.common.table.HoodieTableMetaClient;
-import org.apache.hudi.common.util.HoodieTimer;
 
-import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.Deque;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.ExecutorService;
 
+import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static io.airlift.concurrent.MoreFutures.toCompletableFuture;
+import static io.trino.plugin.hudi.HudiSessionProperties.getMinimumAssignedSplitWeight;
+import static io.trino.plugin.hudi.HudiSessionProperties.getStandardSplitWeightSize;
 import static io.trino.plugin.hudi.HudiSessionProperties.isHudiMetadataEnabled;
+import static io.trino.plugin.hudi.HudiSessionProperties.isSizeBasedSplitWeightsEnabled;
 import static io.trino.plugin.hudi.HudiSessionProperties.shouldSkipMetaStoreForPartition;
-import static io.trino.plugin.hudi.HudiUtil.getMetaClient;
-import static java.lang.String.format;
-import static java.lang.Thread.currentThread;
-import static java.lang.Thread.sleep;
-import static java.util.concurrent.CompletableFuture.completedFuture;
+import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.stream.Collectors.toList;
 
 public class HudiSplitSource
         implements ConnectorSplitSource
 {
-    private static final Logger log = Logger.get(HudiSplitSource.class);
-    private static final long IDLE_WAIT_TIME_MS = 10;
-    private final HudiFileListing hudiFileListing;
-    private final Deque<ConnectorSplit> connectorSplitQueue;
-    private final ScheduledFuture splitLoaderFuture;
+    private final AsyncQueue<ConnectorSplit> queue;
+
+    private TrinoException trinoException;
 
     public HudiSplitSource(
             ConnectorSession session,
@@ -68,19 +68,23 @@ public class HudiSplitSource
             Table table,
             HudiTableHandle tableHandle,
             Configuration conf,
-            Map<String, HiveColumnHandle> partitionColumnHandleMap)
+            Map<String, HiveColumnHandle> partitionColumnHandleMap,
+            ExecutorService executor,
+            int maxSplitsPerSecond,
+            int maxOutstandingSplits)
     {
         boolean metadataEnabled = isHudiMetadataEnabled(session);
         boolean shouldSkipMetastoreForPartition = shouldSkipMetaStoreForPartition(session);
-        HoodieTableMetaClient metaClient = tableHandle.getMetaClient().orElseGet(() -> getMetaClient(conf, tableHandle.getBasePath()));
+        HoodieTableMetaClient metaClient = buildTableMetaClient(conf, tableHandle.getBasePath());
         HoodieEngineContext engineContext = new HoodieLocalEngineContext(conf);
         HoodieMetadataConfig metadataConfig = HoodieMetadataConfig.newBuilder()
                 .enable(metadataEnabled)
                 .build();
         List<HiveColumnHandle> partitionColumnHandles = table.getPartitionColumns().stream()
                 .map(column -> partitionColumnHandleMap.get(column.getName())).collect(toList());
+
         // TODO: fetch the query mode from config / query context
-        this.hudiFileListing = HudiFileListingFactory.get(
+        HudiFileListing hudiFileListing = HudiFileListingFactory.get(
                 HudiQueryMode.READ_OPTIMIZED,
                 metadataConfig,
                 engineContext,
@@ -90,57 +94,67 @@ public class HudiSplitSource
                 table,
                 partitionColumnHandles,
                 shouldSkipMetastoreForPartition);
-        this.connectorSplitQueue = new ArrayDeque<>();
+
+        this.queue = new ThrottledAsyncQueue<>(maxSplitsPerSecond, maxOutstandingSplits, executor);
         HudiSplitBackgroundLoader splitLoader = new HudiSplitBackgroundLoader(
                 session,
                 tableHandle,
                 metaClient,
                 hudiFileListing,
-                connectorSplitQueue);
-        ScheduledExecutorService splitLoaderExecutorService = Executors.newSingleThreadScheduledExecutor();
-        this.splitLoaderFuture = splitLoaderExecutorService.schedule(
-                splitLoader, 0, TimeUnit.MILLISECONDS);
+                queue,
+                executor,
+                createSplitWeightProvider(session));
+        runAsync(splitLoader, executor)
+                .exceptionally(throwable -> {
+                    trinoException = new TrinoException(GENERIC_INTERNAL_ERROR,
+                            "Failed to generate splits for " + table.getTableName(), throwable);
+                    queue.finish();
+                    return null;
+                });
     }
 
     @Override
     public CompletableFuture<ConnectorSplitBatch> getNextBatch(ConnectorPartitionHandle partitionHandle, int maxSize)
     {
-        if (isFinished()) {
-            return completedFuture(new ConnectorSplitBatch(new ArrayList<>(), true));
+        boolean noMoreSplits = isFinished();
+        if (trinoException != null) {
+            return toCompletableFuture(immediateFailedFuture(trinoException));
         }
 
-        HoodieTimer timer = new HoodieTimer().startTimer();
-        List<ConnectorSplit> connectorSplits = new ArrayList<>();
-
-        while (!splitLoaderFuture.isDone() && connectorSplitQueue.isEmpty()) {
-            try {
-                sleep(IDLE_WAIT_TIME_MS);
-            }
-            catch (InterruptedException e) {
-                currentThread().interrupt();
-                throw new RuntimeException(e);
-            }
-        }
-
-        synchronized (connectorSplitQueue) {
-            while (connectorSplits.size() < maxSize && !connectorSplitQueue.isEmpty()) {
-                connectorSplits.add(connectorSplitQueue.pollFirst());
-            }
-        }
-
-        log.debug(format("Get the next batch of %d splits in %d ms", connectorSplits.size(), timer.endTimer()));
-        return completedFuture(new ConnectorSplitBatch(connectorSplits, isFinished()));
+        return toCompletableFuture(Futures.transform(
+                queue.getBatchAsync(maxSize),
+                splits -> {
+                    return new ConnectorSplitBatch(splits, noMoreSplits);
+                },
+                directExecutor()));
     }
 
     @Override
     public void close()
     {
-        hudiFileListing.close();
+        queue.finish();
     }
 
     @Override
     public boolean isFinished()
     {
-        return splitLoaderFuture.isDone() && connectorSplitQueue.isEmpty();
+        return queue.isFinished();
+    }
+
+    private static HoodieTableMetaClient buildTableMetaClient(Configuration conf, String basePath)
+    {
+        HoodieTableMetaClient client = HoodieTableMetaClient.builder().setConf(conf).setBasePath(basePath).build();
+        client.getTableConfig().setValue("hoodie.bootstrap.index.enable", "false");
+        return client;
+    }
+
+    private static HudiSplitWeightProvider createSplitWeightProvider(ConnectorSession session)
+    {
+        if (isSizeBasedSplitWeightsEnabled(session)) {
+            DataSize standardSplitWeightSize = getStandardSplitWeightSize(session);
+            double minimumAssignedSplitWeight = getMinimumAssignedSplitWeight(session);
+            return new SizeBasedSplitWeightProvider(minimumAssignedSplitWeight, standardSplitWeightSize);
+        }
+        return HudiSplitWeightProvider.uniformStandardWeightProvider();
     }
 }

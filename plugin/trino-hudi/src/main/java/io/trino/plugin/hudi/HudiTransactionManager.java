@@ -57,11 +57,6 @@ public class HudiTransactionManager
     {
         MemoizedMetadata transactionalMetadata = transactions.remove(transaction);
         checkArgument(transactionalMetadata != null, "no such transaction: %s", transaction);
-        transactionalMetadata.optionalGet().ifPresent(metadata -> {
-            try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
-                metadata.rollback();
-            }
-        });
     }
 
     public void put(ConnectorTransactionHandle transaction)

@@ -14,27 +14,55 @@
 
 package io.trino.plugin.hudi;
 
+import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
 
 public class HudiPredicates
 {
-    private final TupleDomain<ColumnHandle> partitionColumnPredicates;
-    private final TupleDomain<ColumnHandle> regularColumnPredicates;
+    private final TupleDomain<HiveColumnHandle> partitionColumnPredicates;
+    private final TupleDomain<HiveColumnHandle> regularColumnPredicates;
 
-    public HudiPredicates(TupleDomain<ColumnHandle> partitionColumnPredicates,
-                          TupleDomain<ColumnHandle> regularColumnPredicates)
+    public static HudiPredicates from(TupleDomain<ColumnHandle> predicate)
+    {
+        Map<HiveColumnHandle, Domain> partitionColumnPredicates = new HashMap<>();
+        Map<HiveColumnHandle, Domain> regularColumnPredicates = new HashMap<>();
+
+        Optional<Map<ColumnHandle, Domain>> domains = predicate.getDomains();
+        domains.ifPresent(columnHandleDomainMap -> columnHandleDomainMap.forEach((key, value) -> {
+            HiveColumnHandle columnHandle = (HiveColumnHandle) key;
+            if (columnHandle.isPartitionKey()) {
+                partitionColumnPredicates.put(columnHandle, value);
+            }
+            else {
+                regularColumnPredicates.put(columnHandle, value);
+            }
+        }));
+
+        return new HudiPredicates(
+                TupleDomain.withColumnDomains(partitionColumnPredicates),
+                TupleDomain.withColumnDomains(regularColumnPredicates));
+    }
+
+    private HudiPredicates(
+            TupleDomain<HiveColumnHandle> partitionColumnPredicates,
+            TupleDomain<HiveColumnHandle> regularColumnPredicates)
     {
         this.partitionColumnPredicates = partitionColumnPredicates;
         this.regularColumnPredicates = regularColumnPredicates;
     }
 
-    public TupleDomain<ColumnHandle> getPartitionColumnPredicates()
+    public TupleDomain<HiveColumnHandle> getPartitionColumnPredicates()
     {
         return partitionColumnPredicates;
     }
 
-    public TupleDomain<ColumnHandle> getRegularColumnPredicates()
+    public TupleDomain<HiveColumnHandle> getRegularColumnPredicates()
     {
         return regularColumnPredicates;
     }

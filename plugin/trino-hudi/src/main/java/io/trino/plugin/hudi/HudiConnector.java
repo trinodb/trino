@@ -50,7 +50,6 @@ public class HudiConnector
 
     private final LifeCycleManager lifeCycleManager;
     private final HudiTransactionManager transactionManager;
-    private final HudiMetadataFactory metadataFactory;
     private final ConnectorSplitManager splitManager;
     private final ConnectorPageSourceProvider pageSourceProvider;
     private final ConnectorNodePartitioningProvider nodePartitioningProvider;
@@ -62,7 +61,6 @@ public class HudiConnector
     public HudiConnector(
             LifeCycleManager lifeCycleManager,
             HudiTransactionManager transactionManager,
-            HudiMetadataFactory metadataFactory,
             ConnectorSplitManager splitManager,
             ConnectorPageSourceProvider pageSourceProvider,
             ConnectorNodePartitioningProvider nodePartitioningProvider,
@@ -73,7 +71,6 @@ public class HudiConnector
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
-        this.metadataFactory = requireNonNull(metadataFactory, "metadataFactory is null");
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
         this.nodePartitioningProvider = requireNonNull(nodePartitioningProvider, "nodePartitioningProvider is null");
