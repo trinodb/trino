@@ -514,7 +514,6 @@ table ``test_table`` by using the following query::
      key                   | value    |
     -----------------------+----------+
     write.format.default   | PARQUET  |
-    format-version         | 2        |
 
 ``$history`` table
 ^^^^^^^^^^^^^^^^^^
