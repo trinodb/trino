@@ -693,7 +693,24 @@ public class ExpressionInterpreter
                     return new ComparisonExpression(ComparisonExpression.Operator.EQUAL, toExpression(value, type), simplifiedExpressionValues.get(0));
                 }
 
-                return new InPredicate(toExpression(value, type), new InListExpression(simplifiedExpressionValues));
+                Expression simplifiedValue = toExpression(value, type);
+                if (simplifiedValue.equals(node.getValue())) {
+                    simplifiedValue = node.getValue();
+                }
+
+                Expression simplifiedValueList = new InListExpression(simplifiedExpressionValues);
+                if (simplifiedValueList.equals(node.getValueList())) {
+                    simplifiedValueList = node.getValueList();
+                }
+
+                if (simplifiedValue == node.getValue() && simplifiedValueList == node.getValueList()) {
+                    // Do not create a new instance of InPredicate expression if it would be same as original expression.
+                    // Creating a new instance of InPredicate would cause inListCache cache miss, which is using node
+                    // reference as a cache key.
+                    return node;
+                }
+
+                return new InPredicate(simplifiedValue, simplifiedValueList);
             }
             if (hasNullValue) {
                 return null;
