@@ -20,6 +20,7 @@ import io.trino.spi.type.Type;
 import io.trino.sql.analyzer.Analysis;
 import io.trino.sql.analyzer.Analyzer;
 import io.trino.sql.analyzer.AnalyzerFactory;
+import io.trino.sql.analyzer.QueryAnalyzerFactory;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.tree.AstVisitor;
 import io.trino.sql.tree.DescribeInput;
@@ -74,9 +75,10 @@ public final class DescribeInputRewrite
             Statement node,
             List<Expression> parameters,
             Map<NodeRef<Parameter>, Expression> parameterLookup,
-            WarningCollector warningCollector)
+            WarningCollector warningCollector,
+            QueryAnalyzerFactory queryAnalyzerFactory)
     {
-        return (Statement) new Visitor(session, parser, analyzerFactory, parameters, parameterLookup, warningCollector).process(node, null);
+        return (Statement) new Visitor(session, parser, analyzerFactory, parameters, parameterLookup, warningCollector, queryAnalyzerFactory).process(node, null);
     }
 
     private static final class Visitor
@@ -88,6 +90,7 @@ public final class DescribeInputRewrite
         private final List<Expression> parameters;
         private final Map<NodeRef<Parameter>, Expression> parameterLookup;
         private final WarningCollector warningCollector;
+        private final QueryAnalyzerFactory queryAnalyzerFactory;
 
         public Visitor(
                 Session session,
@@ -95,7 +98,8 @@ public final class DescribeInputRewrite
                 AnalyzerFactory analyzerFactory,
                 List<Expression> parameters,
                 Map<NodeRef<Parameter>, Expression> parameterLookup,
-                WarningCollector warningCollector)
+                WarningCollector warningCollector,
+                QueryAnalyzerFactory queryAnalyzerFactory)
         {
             this.session = requireNonNull(session, "session is null");
             this.parser = requireNonNull(parser, "parser is null");
@@ -103,6 +107,7 @@ public final class DescribeInputRewrite
             this.parameters = parameters;
             this.parameterLookup = parameterLookup;
             this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
+            this.queryAnalyzerFactory = requireNonNull(queryAnalyzerFactory, "queryAnalyzerFactory is null");
         }
 
         @Override
@@ -112,7 +117,7 @@ public final class DescribeInputRewrite
             Statement statement = parser.createStatement(sqlString, createParsingOptions(session));
 
             // create  analysis for the query we are describing.
-            Analyzer analyzer = analyzerFactory.createAnalyzer(session, parameters, parameterLookup, warningCollector);
+            Analyzer analyzer = analyzerFactory.createAnalyzer(session, parameters, parameterLookup, warningCollector, queryAnalyzerFactory);
             Analysis analysis = analyzer.analyze(statement, DESCRIBE);
 
             // get all parameters in query

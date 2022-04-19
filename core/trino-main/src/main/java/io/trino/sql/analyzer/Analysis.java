@@ -211,7 +211,7 @@ public class Analysis
     private Optional<Insert> insert = Optional.empty();
     private Optional<RefreshMaterializedViewAnalysis> refreshMaterializedView = Optional.empty();
     private Optional<QualifiedObjectName> delegatedRefreshMaterializedView = Optional.empty();
-    private Optional<TableHandle> analyzeTarget = Optional.empty();
+    private Optional<List<TableHandle>> analyzeTargets = Optional.empty();
     private Optional<List<ColumnSchema>> updatedColumns = Optional.empty();
 
     private final QueryType queryType;
@@ -611,6 +611,11 @@ public class Analysis
                 .collect(toImmutableList());
     }
 
+    public Collection<NodeRef<Table>> getTableNodeRefs()
+    {
+        return ImmutableList.copyOf(tables.keySet());
+    }
+
     public void registerTable(
             Table table,
             Optional<TableHandle> handle,
@@ -722,14 +727,14 @@ public class Analysis
         return columns.get(field);
     }
 
-    public Optional<TableHandle> getAnalyzeTarget()
+    public Optional<List<TableHandle>> getAnalyzeTargets()
     {
-        return analyzeTarget;
+        return analyzeTargets;
     }
 
-    public void setAnalyzeTarget(TableHandle analyzeTarget)
+    public void setAnalyzeTargets(List<TableHandle> analyzeTargets)
     {
-        this.analyzeTarget = Optional.of(analyzeTarget);
+        this.analyzeTargets = Optional.of(analyzeTargets);
     }
 
     public void setCreate(Create create)

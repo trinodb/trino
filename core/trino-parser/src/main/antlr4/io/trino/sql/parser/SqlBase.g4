@@ -78,6 +78,7 @@ statement
         ('(' (callArgument (',' callArgument)*)? ')')?
         (WHERE where=booleanExpression)?                               #tableExecute
     | ANALYZE qualifiedName (WITH properties)?                         #analyze
+    | ANALYZE FOR (query | '('query')')?                               #analyzeForQuery
     | CREATE (OR REPLACE)? MATERIALIZED VIEW
         (IF NOT EXISTS)? qualifiedName
         (COMMENT string)?

@@ -18,6 +18,7 @@ import io.trino.execution.QueryPreparer;
 import io.trino.execution.QueryPreparer.PreparedQuery;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.sql.analyzer.AnalyzerFactory;
+import io.trino.sql.analyzer.QueryAnalyzerFactory;
 import io.trino.sql.analyzer.QueryExplainer;
 import io.trino.sql.analyzer.QueryExplainerFactory;
 import io.trino.sql.tree.AstVisitor;
@@ -65,7 +66,8 @@ public final class ExplainRewrite
             Statement node,
             List<Expression> parameter,
             Map<NodeRef<Parameter>, Expression> parameterLookup,
-            WarningCollector warningCollector)
+            WarningCollector warningCollector,
+            QueryAnalyzerFactory queryAnalyzerFactory)
     {
         return (Statement) new Visitor(session, queryPreparer, queryExplainerFactory.createQueryExplainer(analyzerFactory), warningCollector).process(node, null);
     }

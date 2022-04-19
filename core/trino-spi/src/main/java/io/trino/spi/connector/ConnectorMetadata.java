@@ -93,6 +93,16 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Returns a table handle for the specified table name, or null if the connector does not contain the table.
+     * The returned table handle can contain information in tupleDomain.
+     */
+    @Nullable
+    default ConnectorTableHandle getTableHandleForStatisticsCollection(ConnectorSession session, SchemaTableName tableName, TupleDomain<ColumnHandle> tupleDomain)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support analyze");
+    }
+
+    /**
      * Create initial handle for execution of table procedure. The handle will be used through planning process. It will be converted to final
      * handle used for execution via @{link {@link ConnectorMetadata#beginTableExecute}
      *

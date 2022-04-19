@@ -309,6 +309,29 @@ public final class MetadataManager
     }
 
     @Override
+    public Optional<TableHandle> getTableHandleForStatisticsCollection(Session session, QualifiedObjectName tableName, TupleDomain<ColumnHandle> tupleDomain)
+    {
+        requireNonNull(tableName, "tableName is null");
+        requireNonNull(tupleDomain, "tupleDomain is null");
+
+        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, tableName.getCatalogName());
+        if (catalog.isPresent()) {
+            CatalogMetadata catalogMetadata = catalog.get();
+            CatalogName catalogName = catalogMetadata.getConnectorId(session, tableName);
+            ConnectorMetadata metadata = catalogMetadata.getMetadataFor(session, catalogName);
+
+            ConnectorTableHandle tableHandle = metadata.getTableHandleForStatisticsCollection(session.toConnectorSession(catalogName), tableName.asSchemaTableName(), tupleDomain);
+            if (tableHandle != null) {
+                return Optional.of(new TableHandle(
+                        catalogName,
+                        tableHandle,
+                        catalogMetadata.getTransactionHandleFor(catalogName)));
+            }
+        }
+        return Optional.empty();
+    }
+
+    @Override
     public Optional<TableExecuteHandle> getTableHandleForExecute(Session session, TableHandle tableHandle, String procedure, Map<String, Object> executeProperties)
     {
         requireNonNull(session, "session is null");

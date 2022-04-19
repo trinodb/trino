@@ -16,52 +16,41 @@ package io.trino.sql.analyzer;
 import io.trino.cost.CostCalculator;
 import io.trino.cost.StatsCalculator;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.planner.PlanFragmenter;
 import io.trino.sql.planner.PlanOptimizersFactory;
 
 import javax.inject.Inject;
 
 import static java.util.Objects.requireNonNull;
 
-public class QueryExplainerFactory
+public class QueryAnalyzerFactory
 {
     private final PlanOptimizersFactory planOptimizersFactory;
-    private final PlanFragmenter planFragmenter;
     private final PlannerContext plannerContext;
-    private final StatementAnalyzerFactory statementAnalyzerFactory;
     private final StatsCalculator statsCalculator;
     private final CostCalculator costCalculator;
-    private final QueryAnalyzerFactory queryAnalyzerFactory;
 
     @Inject
-    public QueryExplainerFactory(
+    public QueryAnalyzerFactory(
             PlanOptimizersFactory planOptimizersFactory,
-            PlanFragmenter planFragmenter,
             PlannerContext plannerContext,
-            StatementAnalyzerFactory statementAnalyzerFactory,
             StatsCalculator statsCalculator,
-            CostCalculator costCalculator,
-            QueryAnalyzerFactory queryAnalyzerFactory)
+            CostCalculator costCalculator)
     {
         this.planOptimizersFactory = requireNonNull(planOptimizersFactory, "planOptimizersFactory is null");
-        this.planFragmenter = requireNonNull(planFragmenter, "planFragmenter is null");
         this.plannerContext = requireNonNull(plannerContext, "metadata is null");
-        this.statementAnalyzerFactory = requireNonNull(statementAnalyzerFactory, "statementAnalyzerFactory is null");
         this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
         this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
-        this.queryAnalyzerFactory = requireNonNull(queryAnalyzerFactory, "queryAnalyzerFactory is null");
     }
 
-    public QueryExplainer createQueryExplainer(AnalyzerFactory analyzerFactory)
+    public QueryAnalyzer createQueryAnalyzer(AnalyzerFactory analyzerFactory, StatementAnalyzerFactory statementAnalyzerFactory)
     {
-        return new QueryExplainer(
+        return new QueryAnalyzer(
+                this,
                 planOptimizersFactory,
-                planFragmenter,
                 plannerContext,
                 analyzerFactory,
                 statementAnalyzerFactory,
                 statsCalculator,
-                costCalculator,
-                queryAnalyzerFactory);
+                costCalculator);
     }
 }

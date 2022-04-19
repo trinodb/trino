@@ -95,6 +95,7 @@ import io.trino.server.ui.WorkerResource;
 import io.trino.spi.VersionEmbedder;
 import io.trino.spi.memory.ClusterMemoryPoolManager;
 import io.trino.sql.analyzer.AnalyzerFactory;
+import io.trino.sql.analyzer.QueryAnalyzerFactory;
 import io.trino.sql.analyzer.QueryExplainerFactory;
 import io.trino.sql.planner.OptimizerStatsMBeanExporter;
 import io.trino.sql.planner.PlanFragmenter;
@@ -274,6 +275,9 @@ public class CoordinatorModule
 
         // query explainer
         binder.bind(QueryExplainerFactory.class).in(Scopes.SINGLETON);
+
+        // query analyzer
+        binder.bind(QueryAnalyzerFactory.class).in(Scopes.SINGLETON);
 
         // explain analyze
         binder.bind(ExplainAnalyzeContext.class).in(Scopes.SINGLETON);

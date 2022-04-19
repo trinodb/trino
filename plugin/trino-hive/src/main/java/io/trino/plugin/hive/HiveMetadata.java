@@ -521,6 +521,28 @@ public class HiveMetadata
     }
 
     @Override
+    public ConnectorTableHandle getTableHandleForStatisticsCollection(ConnectorSession session, SchemaTableName tableName, TupleDomain<ColumnHandle> tupleDomain)
+    {
+        HiveTableHandle hiveTable = getTableHandle(session, tableName);
+        if (hiveTable == null) {
+            return null;
+        }
+        if (hiveTable.getPartitionColumns().isEmpty()) {
+            return hiveTable;
+        }
+
+        HivePartitionResult partitions = partitionManager.getPartitions(metastore, hiveTable, new Constraint(tupleDomain));
+        hiveTable = partitionManager.applyPartitionResult(hiveTable, partitions, alwaysTrue());
+        hiveTable.getPartitionNames();
+
+        return hiveTable.withAnalyzePartitionValues(
+                ImmutableList.copyOf(partitions.getPartitions()).stream()
+                        .map(HivePartition::getPartitionId)
+                        .map(HivePartitionManager::extractPartitionValues)
+                        .collect(toImmutableList()));
+    }
+
+    @Override
     public Optional<SystemTable> getSystemTable(ConnectorSession session, SchemaTableName tableName)
     {
         for (SystemTableProvider systemTableProvider : systemTableProviders) {

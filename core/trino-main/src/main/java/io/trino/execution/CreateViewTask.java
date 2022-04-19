@@ -24,6 +24,7 @@ import io.trino.security.AccessControl;
 import io.trino.spi.security.Identity;
 import io.trino.sql.analyzer.Analysis;
 import io.trino.sql.analyzer.AnalyzerFactory;
+import io.trino.sql.analyzer.QueryAnalyzerFactory;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.tree.CreateView;
 import io.trino.sql.tree.Expression;
@@ -50,14 +51,16 @@ public class CreateViewTask
     private final AccessControl accessControl;
     private final SqlParser sqlParser;
     private final AnalyzerFactory analyzerFactory;
+    private final QueryAnalyzerFactory queryAnalyzerFactory;
 
     @Inject
-    public CreateViewTask(Metadata metadata, AccessControl accessControl, SqlParser sqlParser, AnalyzerFactory analyzerFactory)
+    public CreateViewTask(Metadata metadata, AccessControl accessControl, SqlParser sqlParser, AnalyzerFactory analyzerFactory, QueryAnalyzerFactory queryAnalyzerFactory)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.analyzerFactory = requireNonNull(analyzerFactory, "analyzerFactory is null");
+        this.queryAnalyzerFactory = requireNonNull(queryAnalyzerFactory, "queryAnalyzerFactory is null");
     }
 
     @Override
@@ -92,7 +95,7 @@ public class CreateViewTask
 
         String sql = getFormattedSql(statement.getQuery(), sqlParser);
 
-        Analysis analysis = analyzerFactory.createAnalyzer(session, parameters, parameterExtractor(statement, parameters), stateMachine.getWarningCollector())
+        Analysis analysis = analyzerFactory.createAnalyzer(session, parameters, parameterExtractor(statement, parameters), stateMachine.getWarningCollector(), queryAnalyzerFactory)
                 .analyze(statement);
 
         List<ViewColumn> columns = analysis.getOutputDescriptor(statement.getQuery())

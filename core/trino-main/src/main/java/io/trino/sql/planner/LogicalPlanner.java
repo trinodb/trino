@@ -14,7 +14,9 @@
 package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import io.airlift.log.Logger;
 import io.trino.Session;
 import io.trino.cost.CachingCostProvider;
@@ -67,11 +69,13 @@ import io.trino.sql.planner.plan.TableExecuteNode;
 import io.trino.sql.planner.plan.TableFinishNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableWriterNode;
+import io.trino.sql.planner.plan.UnionNode;
 import io.trino.sql.planner.plan.UpdateNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.planprinter.PlanPrinter;
 import io.trino.sql.planner.sanity.PlanSanityChecker;
 import io.trino.sql.tree.Analyze;
+import io.trino.sql.tree.AnalyzeForQuery;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.CoalesceExpression;
 import io.trino.sql.tree.ComparisonExpression;
@@ -291,6 +295,9 @@ public class LogicalPlanner
         if (statement instanceof Analyze) {
             return createAnalyzePlan(analysis, (Analyze) statement);
         }
+        if (statement instanceof AnalyzeForQuery) {
+            return createAnalyzeForQueryPlan(analysis, ((AnalyzeForQuery) statement));
+        }
         if (statement instanceof Insert) {
             checkState(analysis.getInsert().isPresent(), "Insert handle is missing");
             return createInsertPlan(analysis, (Insert) statement);
@@ -336,8 +343,57 @@ public class LogicalPlanner
 
     private RelationPlan createAnalyzePlan(Analysis analysis, Analyze analyzeStatement)
     {
-        TableHandle targetTable = analysis.getAnalyzeTarget().orElseThrow();
+        TableHandle targetTable = Iterables.getOnlyElement(analysis.getAnalyzeTargets().orElseThrow());
+        PlanNode planNode = createStatisticsWriterNode(targetTable);
+        return new RelationPlan(planNode, analysis.getScope(analyzeStatement), planNode.getOutputSymbols(), Optional.empty());
+    }
 
+    private RelationPlan createAnalyzeForQueryPlan(Analysis analysis, AnalyzeForQuery analyzeForQueryStatement)
+    {
+        List<TableHandle> targetTables = analysis.getAnalyzeTargets().orElseThrow();
+
+        List<PlanNode> statisticsWriterNodes = targetTables.stream()
+                .map(this::createStatisticsWriterNode)
+                .collect(toImmutableList());
+
+        PlanNode planNode;
+        switch (statisticsWriterNodes.size()) {
+            case 0:
+                planNode = new ValuesNode(idAllocator.getNextId(), ImmutableList.of(symbolAllocator.newSymbol("rows", BIGINT)), ImmutableList.of(new Row(ImmutableList.of(new GenericLiteral("BIGINT", "0")))));
+                break;
+            case 1:
+                planNode = statisticsWriterNodes.get(0);
+                break;
+            default:
+                ImmutableListMultimap.Builder<Symbol, Symbol> outputToInputs = ImmutableListMultimap.builder();
+                Symbol unionRowSymbol = symbolAllocator.newSymbol("rows", BIGINT);
+                statisticsWriterNodes.forEach(statisticsWriterNode -> outputToInputs.put(unionRowSymbol, statisticsWriterNode.getOutputSymbols().get(0)));
+                UnionNode unionNode = new UnionNode(idAllocator.getNextId(), statisticsWriterNodes, outputToInputs.build(), ImmutableList.of(unionRowSymbol));
+
+                Symbol aggregationRowSymbol = symbolAllocator.newSymbol("rows", BIGINT);
+                AggregationNode.Aggregation aggregation = new AggregationNode.Aggregation(
+                        metadata.resolveFunction(session, QualifiedName.of("sum"), fromTypes(BIGINT)),
+                        ImmutableList.of(unionRowSymbol.toSymbolReference()),
+                        false,
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty());
+                planNode = new AggregationNode(
+                        idAllocator.getNextId(),
+                        unionNode,
+                        ImmutableMap.of(aggregationRowSymbol, aggregation),
+                        singleGroupingSet(ImmutableList.of()),
+                        ImmutableList.of(),
+                        AggregationNode.Step.SINGLE,
+                        Optional.empty(),
+                        Optional.empty());
+        }
+
+        return new RelationPlan(planNode, analysis.getScope(analyzeForQueryStatement), planNode.getOutputSymbols(), Optional.empty());
+    }
+
+    private StatisticsWriterNode createStatisticsWriterNode(TableHandle targetTable)
+    {
         // Plan table scan
         Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, targetTable);
         ImmutableList.Builder<Symbol> tableScanOutputs = ImmutableList.builder();
@@ -360,7 +416,7 @@ public class LogicalPlanner
         StatisticAggregations statisticAggregations = tableStatisticAggregation.getAggregations();
         List<Symbol> groupingSymbols = statisticAggregations.getGroupingSymbols();
 
-        PlanNode planNode = new StatisticsWriterNode(
+        return new StatisticsWriterNode(
                 idAllocator.getNextId(),
                 new AggregationNode(
                         idAllocator.getNextId(),
@@ -375,7 +431,6 @@ public class LogicalPlanner
                 symbolAllocator.newSymbol("rows", BIGINT),
                 tableStatisticsMetadata.getTableStatistics().contains(ROW_COUNT),
                 tableStatisticAggregation.getDescriptor());
-        return new RelationPlan(planNode, analysis.getScope(analyzeStatement), planNode.getOutputSymbols(), Optional.empty());
     }
 
     private RelationPlan createTableCreationPlan(Analysis analysis, Query query)

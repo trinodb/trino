@@ -139,6 +139,12 @@ public class CountingAccessMetadata
     }
 
     @Override
+    public Optional<TableHandle> getTableHandleForStatisticsCollection(Session session, QualifiedObjectName tableName, TupleDomain<ColumnHandle> tupleDomain)
+    {
+        return delegate.getTableHandleForStatisticsCollection(session, tableName, tupleDomain);
+    }
+
+    @Override
     public Optional<TableExecuteHandle> getTableHandleForExecute(Session session, TableHandle tableHandle, String procedureName, Map<String, Object> executeProperties)
     {
         return delegate.getTableHandleForExecute(session, tableHandle, procedureName, executeProperties);

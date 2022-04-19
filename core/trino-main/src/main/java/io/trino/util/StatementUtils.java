@@ -59,6 +59,7 @@ import io.trino.execution.UseTask;
 import io.trino.spi.resourcegroups.QueryType;
 import io.trino.sql.tree.AddColumn;
 import io.trino.sql.tree.Analyze;
+import io.trino.sql.tree.AnalyzeForQuery;
 import io.trino.sql.tree.Call;
 import io.trino.sql.tree.Comment;
 import io.trino.sql.tree.Commit;
@@ -177,6 +178,7 @@ public final class StatementUtils
             .add(basicStatement(Update.class, UPDATE))
             .add(basicStatement(Delete.class, DELETE))
             .add(basicStatement(Analyze.class, ANALYZE))
+            .add(basicStatement(AnalyzeForQuery.class, ANALYZE))
             // DDL
             .add(dataDefinitionStatement(AddColumn.class, AddColumnTask.class))
             .add(dataDefinitionStatement(Call.class, CallTask.class))

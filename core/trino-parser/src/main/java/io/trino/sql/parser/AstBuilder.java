@@ -17,11 +17,13 @@ package io.trino.sql.parser;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
+import io.trino.sql.parser.SqlBaseParser.AnalyzeForQueryContext;
 import io.trino.sql.tree.AddColumn;
 import io.trino.sql.tree.AliasedRelation;
 import io.trino.sql.tree.AllColumns;
 import io.trino.sql.tree.AllRows;
 import io.trino.sql.tree.Analyze;
+import io.trino.sql.tree.AnalyzeForQuery;
 import io.trino.sql.tree.AnchorPattern;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.ArithmeticUnaryExpression;
@@ -643,6 +645,12 @@ class AstBuilder
                 getLocation(context),
                 getQualifiedName(context.qualifiedName()),
                 properties);
+    }
+
+    @Override
+    public Node visitAnalyzeForQuery(AnalyzeForQueryContext context)
+    {
+        return new AnalyzeForQuery(getLocation(context), (Query) visit(context.query()));
     }
 
     @Override

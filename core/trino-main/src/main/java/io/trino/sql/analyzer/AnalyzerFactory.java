@@ -43,7 +43,8 @@ public class AnalyzerFactory
             Session session,
             List<Expression> parameters,
             Map<NodeRef<Parameter>, Expression> parameterLookup,
-            WarningCollector warningCollector)
+            WarningCollector warningCollector,
+            QueryAnalyzerFactory queryAnalyzerFactory)
     {
         return new Analyzer(
                 session,
@@ -52,6 +53,7 @@ public class AnalyzerFactory
                 parameters,
                 parameterLookup,
                 warningCollector,
-                statementRewrite);
+                statementRewrite,
+                queryAnalyzerFactory);
     }
 }

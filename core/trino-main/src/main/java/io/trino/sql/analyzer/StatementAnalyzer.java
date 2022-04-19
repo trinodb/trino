@@ -67,6 +67,7 @@ import io.trino.spi.connector.PointerType;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableProcedureMetadata;
 import io.trino.spi.function.OperatorType;
+import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.ptf.Argument;
 import io.trino.spi.ptf.ArgumentSpecification;
 import io.trino.spi.ptf.ConnectorTableFunction;
@@ -106,14 +107,17 @@ import io.trino.sql.parser.ParsingException;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.DeterminismEvaluator;
 import io.trino.sql.planner.ExpressionInterpreter;
+import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.ScopeAware;
 import io.trino.sql.planner.SymbolsExtractor;
 import io.trino.sql.planner.TypeProvider;
+import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.tree.AddColumn;
 import io.trino.sql.tree.AliasedRelation;
 import io.trino.sql.tree.AllColumns;
 import io.trino.sql.tree.AllRows;
 import io.trino.sql.tree.Analyze;
+import io.trino.sql.tree.AnalyzeForQuery;
 import io.trino.sql.tree.AstVisitor;
 import io.trino.sql.tree.Call;
 import io.trino.sql.tree.CallArgument;
@@ -327,6 +331,7 @@ import static io.trino.sql.analyzer.ScopeReferenceExtractor.getReferencesToScope
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
+import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.DereferenceExpression.getQualifiedName;
 import static io.trino.sql.tree.Join.Type.FULL;
@@ -362,6 +367,7 @@ class StatementAnalyzer
     private final TablePropertyManager tablePropertyManager;
     private final AnalyzePropertyManager analyzePropertyManager;
     private final TableProceduresPropertyManager tableProceduresPropertyManager;
+    private final Optional<QueryAnalyzer> queryAnalyzer;
 
     private final WarningCollector warningCollector;
     private final CorrelationSupport correlationSupport;
@@ -381,6 +387,7 @@ class StatementAnalyzer
             TablePropertyManager tablePropertyManager,
             AnalyzePropertyManager analyzePropertyManager,
             TableProceduresPropertyManager tableProceduresPropertyManager,
+            Optional<QueryAnalyzer> queryAnalyzer,
             WarningCollector warningCollector,
             CorrelationSupport correlationSupport)
     {
@@ -400,6 +407,7 @@ class StatementAnalyzer
         this.tablePropertyManager = requireNonNull(tablePropertyManager, "tablePropertyManager is null");
         this.analyzePropertyManager = requireNonNull(analyzePropertyManager, "analyzePropertyManager is null");
         this.tableProceduresPropertyManager = tableProceduresPropertyManager;
+        this.queryAnalyzer = requireNonNull(queryAnalyzer, "queryAnalyzer is null");
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
         this.correlationSupport = requireNonNull(correlationSupport, "correlationSupport is null");
     }
@@ -755,7 +763,7 @@ class StatementAnalyzer
             // TODO: we shouldn't need to create a new analyzer. The access control should be carried in the context object
             StatementAnalyzer analyzer = statementAnalyzerFactory
                     .withSpecializedAccessControl(new AllowAllAccessControl())
-                    .createStatementAnalyzer(analysis, session, warningCollector, CorrelationSupport.ALLOWED);
+                    .createStatementAnalyzer(analysis, session, queryAnalyzer, warningCollector, CorrelationSupport.ALLOWED);
 
             Scope tableScope = analyzer.analyzeForUpdate(table, scope, UpdateKind.DELETE);
             node.getWhere().ifPresent(where -> analyzeWhere(node, tableScope, where));
@@ -807,7 +815,87 @@ class StatementAnalyzer
                 throw new AccessDeniedException(format("Cannot ANALYZE (missing insert privilege) table %s", tableName));
             }
 
-            analysis.setAnalyzeTarget(tableHandle);
+            analysis.setAnalyzeTargets(ImmutableList.of(tableHandle));
+            return createAndAssignScope(node, scope, Field.newUnqualified("rows", BIGINT));
+        }
+
+        @Override
+        protected Scope visitAnalyzeForQuery(AnalyzeForQuery node, Optional<Scope> scope)
+        {
+            analysis.setUpdateType("ANALYZE");
+
+            checkState(queryAnalyzer.isPresent(), "Query analyzer must be provided for ANALYZE FOR QUERY");
+
+            Query query = node.getQuery();
+
+            // analyze statement
+            Analysis queryAnalysis = queryAnalyzer.get().analyze(session, query, ImmutableList.copyOf(analysis.getParameters().values()), warningCollector);
+
+            ImmutableSet.Builder<QualifiedObjectName> tableNameBuilder = ImmutableSet.builder();
+            ImmutableSet.Builder<QualifiedObjectName> viewNameBuilder = ImmutableSet.builder();
+            queryAnalysis.getTableNodeRefs().stream()
+                    .map(NodeRef::getNode)
+                    .forEach(table -> {
+                        QualifiedObjectName tableName = createQualifiedObjectName(session, table, table.getName());
+                        if (metadata.getView(session, tableName).isPresent()) {
+                            viewNameBuilder.add(tableName);
+                        }
+                        else {
+                            tableNameBuilder.add(tableName);
+                        }
+                    });
+            Set<QualifiedObjectName> viewNames = viewNameBuilder.build();
+            Set<QualifiedObjectName> tableNames = tableNameBuilder.build();
+
+            // verify the target tables exists, and it's not all views
+            if (tableNames.isEmpty()) {
+                throw semanticException(NOT_SUPPORTED, node, "Analyzing views is not supported");
+            }
+
+            // plan statement
+            Plan plan = queryAnalyzer.get().getLogicalPlan(session, queryAnalysis, warningCollector);
+            List<TableScanNode> tableScanNodes = searchFrom(plan.getRoot())
+                    .where(TableScanNode.class::isInstance)
+                    .findAll();
+
+            Map<QualifiedObjectName, TupleDomain<ColumnHandle>> unionTupleDomains = new HashMap<>();
+            tableScanNodes.stream()
+                    .map(TableScanNode::getTable)
+                    .forEach(tableHandle -> {
+                        QualifiedObjectName tableName = metadata.getTableMetadata(session, tableHandle).getQualifiedName();
+                        if (!viewNames.contains(tableName)) {
+                            TupleDomain<ColumnHandle> current = metadata.getTableProperties(session, tableHandle).getPredicate();
+                            unionTupleDomains.compute(tableName, (ignored, previous) -> {
+                                if (previous == null) {
+                                    return current;
+                                }
+                                return TupleDomain.columnWiseUnion(previous, current);
+                            });
+                        }
+                    });
+
+            ImmutableList.Builder<TableHandle> tableHandles = ImmutableList.builder();
+            for (QualifiedObjectName tableName : unionTupleDomains.keySet()) {
+                TableHandle tableHandle = metadata.getTableHandleForStatisticsCollection(session, tableName, unionTupleDomains.get(tableName))
+                        .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, node, "Table '%s' does not exist", tableName));
+                tableHandles.add(tableHandle);
+
+                // user must have read and insert permission in order to analyze stats of a table
+                analysis.addTableColumnReferences(
+                        accessControl,
+                        session.getIdentity(),
+                        ImmutableMultimap.<QualifiedObjectName, String>builder()
+                                .putAll(tableName, metadata.getColumnHandles(session, tableHandle).keySet())
+                                .build());
+                try {
+                    accessControl.checkCanInsertIntoTable(session.toSecurityContext(), tableName);
+                }
+                catch (AccessDeniedException exception) {
+                    throw new AccessDeniedException(format("Cannot ANALYZE (missing insert privilege) table %s", tableName));
+                }
+            }
+
+            analysis.setAnalyzeTargets(tableHandles.build());
             return createAndAssignScope(node, scope, Field.newUnqualified("rows", BIGINT));
         }
 
@@ -922,7 +1010,7 @@ class StatementAnalyzer
             QualifiedObjectName viewName = createQualifiedObjectName(session, node, node.getName());
 
             // analyze the query that creates the view
-            StatementAnalyzer analyzer = statementAnalyzerFactory.createStatementAnalyzer(analysis, session, warningCollector, CorrelationSupport.ALLOWED);
+            StatementAnalyzer analyzer = statementAnalyzerFactory.createStatementAnalyzer(analysis, session, queryAnalyzer, warningCollector, CorrelationSupport.ALLOWED);
 
             Scope queryScope = analyzer.analyze(node.getQuery(), scope);
 
@@ -1269,7 +1357,7 @@ class StatementAnalyzer
             }
 
             // analyze the query that creates the view
-            StatementAnalyzer analyzer = statementAnalyzerFactory.createStatementAnalyzer(analysis, session, warningCollector, CorrelationSupport.ALLOWED);
+            StatementAnalyzer analyzer = statementAnalyzerFactory.createStatementAnalyzer(analysis, session, queryAnalyzer, warningCollector, CorrelationSupport.ALLOWED);
 
             Scope queryScope = analyzer.analyze(node.getQuery(), scope);
 
@@ -1463,7 +1551,7 @@ class StatementAnalyzer
         @Override
         protected Scope visitLateral(Lateral node, Optional<Scope> scope)
         {
-            StatementAnalyzer analyzer = statementAnalyzerFactory.createStatementAnalyzer(analysis, session, warningCollector, CorrelationSupport.ALLOWED);
+            StatementAnalyzer analyzer = statementAnalyzerFactory.createStatementAnalyzer(analysis, session, queryAnalyzer, warningCollector, CorrelationSupport.ALLOWED);
             Scope queryScope = analyzer.analyze(node.getQuery(), scope);
             return createAndAssignScope(node, scope, queryScope.getRelationType());
         }
@@ -2282,6 +2370,7 @@ class StatementAnalyzer
                     scope,
                     analysis,
                     expression,
+                    queryAnalyzer,
                     warningCollector,
                     labels);
         }
@@ -2338,6 +2427,7 @@ class StatementAnalyzer
                     plannerContext,
                     statementAnalyzerFactory,
                     accessControl,
+                    queryAnalyzer,
                     TypeProvider.empty(),
                     ImmutableList.of(samplePercentage),
                     analysis.getParameters(),
@@ -2384,7 +2474,7 @@ class StatementAnalyzer
         @Override
         protected Scope visitTableSubquery(TableSubquery node, Optional<Scope> scope)
         {
-            StatementAnalyzer analyzer = statementAnalyzerFactory.createStatementAnalyzer(analysis, session, warningCollector, CorrelationSupport.ALLOWED);
+            StatementAnalyzer analyzer = statementAnalyzerFactory.createStatementAnalyzer(analysis, session, queryAnalyzer, warningCollector, CorrelationSupport.ALLOWED);
             Scope queryScope = analyzer.analyze(node.getQuery(), scope);
             return createAndAssignScope(node, scope, queryScope.getRelationType());
         }
@@ -2706,7 +2796,7 @@ class StatementAnalyzer
             // Analyzer checks for select permissions but UPDATE has a separate permission, so disable access checks
             StatementAnalyzer analyzer = statementAnalyzerFactory
                     .withSpecializedAccessControl(new AllowAllAccessControl())
-                    .createStatementAnalyzer(analysis, session, warningCollector, CorrelationSupport.ALLOWED);
+                    .createStatementAnalyzer(analysis, session, queryAnalyzer, warningCollector, CorrelationSupport.ALLOWED);
 
             Scope tableScope = analyzer.analyzeForUpdate(table, scope, UpdateKind.UPDATE);
             update.getWhere().ifPresent(where -> analyzeWhere(update, tableScope, where));
@@ -3029,6 +3119,7 @@ class StatementAnalyzer
                     accessControl,
                     scope,
                     analysis,
+                    queryAnalyzer,
                     WarningCollector.NOOP,
                     correlationSupport,
                     window,
@@ -3732,7 +3823,7 @@ class StatementAnalyzer
 
                 StatementAnalyzer analyzer = statementAnalyzerFactory
                         .withSpecializedAccessControl(viewAccessControl)
-                        .createStatementAnalyzer(analysis, viewSession, warningCollector, CorrelationSupport.ALLOWED);
+                        .createStatementAnalyzer(analysis, viewSession, queryAnalyzer, warningCollector, CorrelationSupport.ALLOWED);
                 Scope queryScope = analyzer.analyze(query, Scope.create());
                 return queryScope.getRelationType().withAlias(name.getObjectName(), null);
             }
@@ -3815,6 +3906,7 @@ class StatementAnalyzer
                     scope,
                     analysis,
                     expression,
+                    queryAnalyzer,
                     warningCollector,
                     correlationSupport);
         }
@@ -3829,6 +3921,7 @@ class StatementAnalyzer
                     scope,
                     analysis,
                     expression,
+                    queryAnalyzer,
                     warningCollector,
                     correlationSupport);
         }
@@ -3861,6 +3954,7 @@ class StatementAnalyzer
                         scope,
                         analysis,
                         expression,
+                        queryAnalyzer,
                         warningCollector,
                         correlationSupport);
             }
@@ -3916,6 +4010,7 @@ class StatementAnalyzer
                         scope,
                         analysis,
                         expression,
+                        queryAnalyzer,
                         warningCollector,
                         correlationSupport);
             }
@@ -4346,6 +4441,7 @@ class StatementAnalyzer
                         orderByScope,
                         analysis,
                         expression,
+                        queryAnalyzer,
                         WarningCollector.NOOP,
                         correlationSupport);
                 analysis.recordSubqueries(node, expressionAnalysis);

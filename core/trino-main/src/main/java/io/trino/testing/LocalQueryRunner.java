@@ -147,6 +147,7 @@ import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.Analysis;
 import io.trino.sql.analyzer.Analyzer;
 import io.trino.sql.analyzer.AnalyzerFactory;
+import io.trino.sql.analyzer.QueryAnalyzerFactory;
 import io.trino.sql.analyzer.QueryExplainer;
 import io.trino.sql.analyzer.QueryExplainerFactory;
 import io.trino.sql.analyzer.StatementAnalyzerFactory;
@@ -610,8 +611,11 @@ public class LocalQueryRunner
     @Override
     public QueryExplainer getQueryExplainer()
     {
-        QueryExplainerFactory queryExplainerFactory = createQueryExplainerFactory(getPlanOptimizers(true));
+        List<PlanOptimizer> planOptimizers = getPlanOptimizers(true);
+        QueryAnalyzerFactory queryAnalyzerFactory = createQueryAnalyzerFactory(planOptimizers);
+        QueryExplainerFactory queryExplainerFactory = createQueryExplainerFactory(planOptimizers, queryAnalyzerFactory);
         AnalyzerFactory analyzerFactory = createAnalyzerFactory(queryExplainerFactory);
+
         return queryExplainerFactory.createQueryExplainer(analyzerFactory);
     }
 
@@ -1059,12 +1063,15 @@ public class LocalQueryRunner
 
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
 
-        AnalyzerFactory analyzerFactory = createAnalyzerFactory(createQueryExplainerFactory(optimizers));
+        QueryAnalyzerFactory queryAnalyzerFactory = createQueryAnalyzerFactory(optimizers);
+        QueryExplainerFactory queryExplainerFactory = createQueryExplainerFactory(optimizers, queryAnalyzerFactory);
+        AnalyzerFactory analyzerFactory = createAnalyzerFactory(queryExplainerFactory);
         Analyzer analyzer = analyzerFactory.createAnalyzer(
                 session,
                 preparedQuery.getParameters(),
                 parameterExtractor(preparedQuery.getStatement(), preparedQuery.getParameters()),
-                warningCollector);
+                warningCollector,
+                queryAnalyzerFactory);
 
         LogicalPlanner logicalPlanner = new LogicalPlanner(
                 session,
@@ -1082,7 +1089,7 @@ public class LocalQueryRunner
         return logicalPlanner.plan(analysis, stage);
     }
 
-    private QueryExplainerFactory createQueryExplainerFactory(List<PlanOptimizer> optimizers)
+    private QueryExplainerFactory createQueryExplainerFactory(List<PlanOptimizer> optimizers, QueryAnalyzerFactory queryAnalyzerFactory)
     {
         return new QueryExplainerFactory(
                 () -> optimizers,
@@ -1090,7 +1097,8 @@ public class LocalQueryRunner
                 plannerContext,
                 statementAnalyzerFactory,
                 statsCalculator,
-                costCalculator);
+                costCalculator,
+                queryAnalyzerFactory);
     }
 
     private AnalyzerFactory createAnalyzerFactory(QueryExplainerFactory queryExplainerFactory)
@@ -1112,6 +1120,11 @@ public class LocalQueryRunner
                                 materializedViewPropertyManager),
                         new ShowStatsRewrite(queryExplainerFactory, statsCalculator),
                         new ExplainRewrite(queryExplainerFactory, new QueryPreparer(sqlParser)))));
+    }
+
+    private QueryAnalyzerFactory createQueryAnalyzerFactory(List<PlanOptimizer> planOptimizers)
+    {
+        return new QueryAnalyzerFactory(() -> planOptimizers, plannerContext, statsCalculator, costCalculator);
     }
 
     private static List<Split> getNextBatch(SplitSource splitSource)

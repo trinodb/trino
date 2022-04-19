@@ -29,6 +29,7 @@ import io.trino.sql.tree.NodeRef;
 import javax.inject.Inject;
 
 import java.util.Map;
+import java.util.Optional;
 
 import static io.trino.sql.analyzer.ExpressionAnalyzer.analyzeExpressions;
 import static io.trino.sql.analyzer.QueryType.OTHERS;
@@ -59,6 +60,7 @@ public class TypeAnalyzer
                 plannerContext,
                 statementAnalyzerFactory,
                 new AllowAllAccessControl(),
+                Optional.empty(),
                 inputTypes,
                 expressions,
                 ImmutableMap.of(),

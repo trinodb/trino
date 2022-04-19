@@ -25,6 +25,7 @@ import io.trino.security.AccessControl;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.Analysis;
 import io.trino.sql.analyzer.AnalyzerFactory;
+import io.trino.sql.analyzer.QueryAnalyzerFactory;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.tree.CreateMaterializedView;
 import io.trino.sql.tree.Expression;
@@ -53,6 +54,7 @@ public class CreateMaterializedViewTask
     private final SqlParser sqlParser;
     private final AnalyzerFactory analyzerFactory;
     private final MaterializedViewPropertyManager materializedViewPropertyManager;
+    private final QueryAnalyzerFactory queryAnalyzerFactory;
 
     @Inject
     public CreateMaterializedViewTask(
@@ -60,13 +62,15 @@ public class CreateMaterializedViewTask
             AccessControl accessControl,
             SqlParser sqlParser,
             AnalyzerFactory analyzerFactory,
-            MaterializedViewPropertyManager materializedViewPropertyManager)
+            MaterializedViewPropertyManager materializedViewPropertyManager,
+            QueryAnalyzerFactory queryAnalyzerFactory)
     {
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.analyzerFactory = requireNonNull(analyzerFactory, "analyzerFactory is null");
         this.materializedViewPropertyManager = requireNonNull(materializedViewPropertyManager, "materializedViewPropertyManager is null");
+        this.queryAnalyzerFactory = requireNonNull(queryAnalyzerFactory, "queryAnalyzerFactory is null");
     }
 
     @Override
@@ -88,7 +92,7 @@ public class CreateMaterializedViewTask
 
         String sql = getFormattedSql(statement.getQuery(), sqlParser);
 
-        Analysis analysis = analyzerFactory.createAnalyzer(session, parameters, parameterLookup, stateMachine.getWarningCollector())
+        Analysis analysis = analyzerFactory.createAnalyzer(session, parameters, parameterLookup, stateMachine.getWarningCollector(), queryAnalyzerFactory)
                 .analyze(statement);
 
         List<ViewColumn> columns = analysis.getOutputDescriptor(statement.getQuery())

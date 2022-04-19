@@ -47,6 +47,7 @@ public class Analyzer
     private final Map<NodeRef<Parameter>, Expression> parameterLookup;
     private final WarningCollector warningCollector;
     private final StatementRewrite statementRewrite;
+    private final QueryAnalyzerFactory queryAnalyzerFactory;
 
     Analyzer(
             Session session,
@@ -55,7 +56,8 @@ public class Analyzer
             List<Expression> parameters,
             Map<NodeRef<Parameter>, Expression> parameterLookup,
             WarningCollector warningCollector,
-            StatementRewrite statementRewrite)
+            StatementRewrite statementRewrite,
+            QueryAnalyzerFactory queryAnalyzerFactory)
     {
         this.session = requireNonNull(session, "session is null");
         this.analyzerFactory = requireNonNull(analyzerFactory, "analyzerFactory is null");
@@ -64,6 +66,7 @@ public class Analyzer
         this.parameterLookup = parameterLookup;
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
         this.statementRewrite = requireNonNull(statementRewrite, "statementRewrite is null");
+        this.queryAnalyzerFactory = requireNonNull(queryAnalyzerFactory, "queryAnalyzerFactory is null");
     }
 
     public Analysis analyze(Statement statement)
@@ -73,9 +76,9 @@ public class Analyzer
 
     public Analysis analyze(Statement statement, QueryType queryType)
     {
-        Statement rewrittenStatement = statementRewrite.rewrite(analyzerFactory, session, statement, parameters, parameterLookup, warningCollector);
+        Statement rewrittenStatement = statementRewrite.rewrite(analyzerFactory, session, statement, parameters, parameterLookup, warningCollector, queryAnalyzerFactory);
         Analysis analysis = new Analysis(rewrittenStatement, parameterLookup, queryType);
-        StatementAnalyzer analyzer = statementAnalyzerFactory.createStatementAnalyzer(analysis, session, warningCollector, CorrelationSupport.ALLOWED);
+        StatementAnalyzer analyzer = statementAnalyzerFactory.createStatementAnalyzer(analysis, session, Optional.of(queryAnalyzerFactory.createQueryAnalyzer(analyzerFactory, statementAnalyzerFactory)), warningCollector, CorrelationSupport.ALLOWED);
         analyzer.analyze(rewrittenStatement, Optional.empty());
 
         // check column access permissions for each table

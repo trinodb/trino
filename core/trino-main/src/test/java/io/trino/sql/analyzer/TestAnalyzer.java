@@ -207,6 +207,7 @@ public class TestAnalyzer
     private PlannerContext plannerContext;
     private TablePropertyManager tablePropertyManager;
     private AnalyzePropertyManager analyzePropertyManager;
+    private QueryAnalyzerFactory queryAnalyzerFactory;
 
     @Test
     public void testTooManyArguments()
@@ -5322,6 +5323,8 @@ public class TestAnalyzer
         tablePropertyManager = queryRunner.getTablePropertyManager();
         analyzePropertyManager = queryRunner.getAnalyzePropertyManager();
 
+        queryAnalyzerFactory = new QueryAnalyzerFactory(() -> queryRunner.getPlanOptimizers(true), plannerContext, queryRunner.getStatsCalculator(), queryRunner.getCostCalculator());
+
         queryRunner.createCatalog(SECOND_CATALOG, MockConnectorFactory.create("second"), ImmutableMap.of());
         queryRunner.createCatalog(THIRD_CATALOG, MockConnectorFactory.create("third"), ImmutableMap.of());
 
@@ -5661,7 +5664,8 @@ public class TestAnalyzer
                 session,
                 emptyList(),
                 emptyMap(),
-                WarningCollector.NOOP);
+                WarningCollector.NOOP,
+                queryAnalyzerFactory);
     }
 
     private Analysis analyze(@Language("SQL") String query)

@@ -313,6 +313,7 @@ public class ExpressionAnalyzer
             StatementAnalyzerFactory statementAnalyzerFactory,
             Analysis analysis,
             Session session,
+            Optional<QueryAnalyzer> queryAnalyzer,
             TypeProvider types,
             WarningCollector warningCollector)
     {
@@ -322,6 +323,7 @@ public class ExpressionAnalyzer
                 (node, correlationSupport) -> statementAnalyzerFactory.createStatementAnalyzer(
                         analysis,
                         session,
+                        queryAnalyzer,
                         warningCollector,
                         correlationSupport),
                 session,
@@ -2759,10 +2761,11 @@ public class ExpressionAnalyzer
             Scope scope,
             Analysis analysis,
             Expression expression,
+            Optional<QueryAnalyzer> queryAnalyzer,
             WarningCollector warningCollector,
             Set<String> labels)
     {
-        ExpressionAnalyzer analyzer = new ExpressionAnalyzer(plannerContext, accessControl, statementAnalyzerFactory, analysis, session, TypeProvider.empty(), warningCollector);
+        ExpressionAnalyzer analyzer = new ExpressionAnalyzer(plannerContext, accessControl, statementAnalyzerFactory, analysis, session, queryAnalyzer, TypeProvider.empty(), warningCollector);
         analyzer.analyze(expression, scope, labels);
 
         updateAnalysis(analysis, analyzer, session, accessControl);
@@ -2784,6 +2787,7 @@ public class ExpressionAnalyzer
             PlannerContext plannerContext,
             StatementAnalyzerFactory statementAnalyzerFactory,
             AccessControl accessControl,
+            Optional<QueryAnalyzer> queryAnalyzer,
             TypeProvider types,
             Iterable<Expression> expressions,
             Map<NodeRef<Parameter>, Expression> parameters,
@@ -2791,7 +2795,7 @@ public class ExpressionAnalyzer
             QueryType queryType)
     {
         Analysis analysis = new Analysis(null, parameters, queryType);
-        ExpressionAnalyzer analyzer = new ExpressionAnalyzer(plannerContext, accessControl, statementAnalyzerFactory, analysis, session, types, warningCollector);
+        ExpressionAnalyzer analyzer = new ExpressionAnalyzer(plannerContext, accessControl, statementAnalyzerFactory, analysis, session, queryAnalyzer, types, warningCollector);
         for (Expression expression : expressions) {
             analyzer.analyze(
                     expression,
@@ -2820,10 +2824,11 @@ public class ExpressionAnalyzer
             Scope scope,
             Analysis analysis,
             Expression expression,
+            Optional<QueryAnalyzer> queryAnalyzer,
             WarningCollector warningCollector,
             CorrelationSupport correlationSupport)
     {
-        ExpressionAnalyzer analyzer = new ExpressionAnalyzer(plannerContext, accessControl, statementAnalyzerFactory, analysis, session, TypeProvider.empty(), warningCollector);
+        ExpressionAnalyzer analyzer = new ExpressionAnalyzer(plannerContext, accessControl, statementAnalyzerFactory, analysis, session, queryAnalyzer, TypeProvider.empty(), warningCollector);
         analyzer.analyze(expression, scope, correlationSupport);
 
         updateAnalysis(analysis, analyzer, session, accessControl);
@@ -2848,12 +2853,13 @@ public class ExpressionAnalyzer
             AccessControl accessControl,
             Scope scope,
             Analysis analysis,
+            Optional<QueryAnalyzer> queryAnalyzer,
             WarningCollector warningCollector,
             CorrelationSupport correlationSupport,
             ResolvedWindow window,
             Node originalNode)
     {
-        ExpressionAnalyzer analyzer = new ExpressionAnalyzer(plannerContext, accessControl, statementAnalyzerFactory, analysis, session, TypeProvider.empty(), warningCollector);
+        ExpressionAnalyzer analyzer = new ExpressionAnalyzer(plannerContext, accessControl, statementAnalyzerFactory, analysis, session, queryAnalyzer, TypeProvider.empty(), warningCollector);
         analyzer.analyzeWindow(window, scope, originalNode, correlationSupport);
 
         updateAnalysis(analysis, analyzer, session, accessControl);

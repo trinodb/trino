@@ -47,6 +47,7 @@ import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.Analysis;
 import io.trino.sql.analyzer.Analyzer;
 import io.trino.sql.analyzer.AnalyzerFactory;
+import io.trino.sql.analyzer.QueryAnalyzerFactory;
 import io.trino.sql.planner.InputExtractor;
 import io.trino.sql.planner.LogicalPlanner;
 import io.trino.sql.planner.NodePartitioningManager;
@@ -135,6 +136,7 @@ public class SqlQueryExecution
             Slug slug,
             PlannerContext plannerContext,
             AnalyzerFactory analyzerFactory,
+            QueryAnalyzerFactory queryAnalyzerFactory,
             SplitSourceFactory splitSourceFactory,
             NodePartitioningManager nodePartitioningManager,
             NodeScheduler nodeScheduler,
@@ -190,7 +192,7 @@ public class SqlQueryExecution
             this.stateMachine = requireNonNull(stateMachine, "stateMachine is null");
 
             // analyze query
-            this.analysis = analyze(preparedQuery, stateMachine, warningCollector, analyzerFactory);
+            this.analysis = analyze(preparedQuery, stateMachine, warningCollector, analyzerFactory, queryAnalyzerFactory);
 
             stateMachine.addStateChangeListener(state -> {
                 if (!state.isDone()) {
@@ -254,7 +256,8 @@ public class SqlQueryExecution
             PreparedQuery preparedQuery,
             QueryStateMachine stateMachine,
             WarningCollector warningCollector,
-            AnalyzerFactory analyzerFactory)
+            AnalyzerFactory analyzerFactory,
+            QueryAnalyzerFactory queryAnalyzerFactory)
     {
         stateMachine.beginAnalysis();
 
@@ -263,7 +266,8 @@ public class SqlQueryExecution
                 stateMachine.getSession(),
                 preparedQuery.getParameters(),
                 parameterExtractor(preparedQuery.getStatement(), preparedQuery.getParameters()),
-                warningCollector);
+                warningCollector,
+                queryAnalyzerFactory);
         Analysis analysis;
         try {
             analysis = analyzer.analyze(preparedQuery.getStatement());
@@ -710,6 +714,7 @@ public class SqlQueryExecution
         private final int scheduleSplitBatchSize;
         private final PlannerContext plannerContext;
         private final AnalyzerFactory analyzerFactory;
+        private final QueryAnalyzerFactory queryAnalyzerFactory;
         private final SplitSourceFactory splitSourceFactory;
         private final NodePartitioningManager nodePartitioningManager;
         private final NodeScheduler nodeScheduler;
@@ -739,6 +744,7 @@ public class SqlQueryExecution
                 QueryManagerConfig config,
                 PlannerContext plannerContext,
                 AnalyzerFactory analyzerFactory,
+                QueryAnalyzerFactory queryAnalyzerFactory,
                 SplitSourceFactory splitSourceFactory,
                 NodePartitioningManager nodePartitioningManager,
                 NodeScheduler nodeScheduler,
@@ -769,6 +775,7 @@ public class SqlQueryExecution
             this.scheduleSplitBatchSize = config.getScheduleSplitBatchSize();
             this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
             this.analyzerFactory = requireNonNull(analyzerFactory, "analyzerFactory is null");
+            this.queryAnalyzerFactory = requireNonNull(queryAnalyzerFactory, "queryAnalyzerFactory is null");
             this.splitSourceFactory = requireNonNull(splitSourceFactory, "splitSourceFactory is null");
             this.nodePartitioningManager = requireNonNull(nodePartitioningManager, "nodePartitioningManager is null");
             this.nodeScheduler = requireNonNull(nodeScheduler, "nodeScheduler is null");
@@ -811,6 +818,7 @@ public class SqlQueryExecution
                     slug,
                     plannerContext,
                     analyzerFactory,
+                    queryAnalyzerFactory,
                     splitSourceFactory,
                     nodePartitioningManager,
                     nodeScheduler,

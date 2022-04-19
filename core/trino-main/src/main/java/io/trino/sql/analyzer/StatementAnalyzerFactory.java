@@ -31,6 +31,8 @@ import io.trino.transaction.TransactionManager;
 
 import javax.inject.Inject;
 
+import java.util.Optional;
+
 import static java.util.Objects.requireNonNull;
 
 public class StatementAnalyzerFactory
@@ -93,6 +95,7 @@ public class StatementAnalyzerFactory
     public StatementAnalyzer createStatementAnalyzer(
             Analysis analysis,
             Session session,
+            Optional<QueryAnalyzer> queryAnalyzer,
             WarningCollector warningCollector,
             CorrelationSupport correlationSupport)
     {
@@ -111,6 +114,7 @@ public class StatementAnalyzerFactory
                 tablePropertyManager,
                 analyzePropertyManager,
                 tableProceduresPropertyManager,
+                queryAnalyzer,
                 warningCollector,
                 correlationSupport);
     }

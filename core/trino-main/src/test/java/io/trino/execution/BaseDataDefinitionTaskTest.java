@@ -92,7 +92,7 @@ public abstract class BaseDataDefinitionTaskTest
     protected static final String MATERIALIZED_VIEW_PROPERTY_2_NAME = "property2";
     protected static final String MATERIALIZED_VIEW_PROPERTY_2_DEFAULT_VALUE = "defaultProperty2Value";
 
-    private LocalQueryRunner queryRunner;
+    protected LocalQueryRunner queryRunner;
     protected Session testSession;
     protected MockMetadata metadata;
     protected PlannerContext plannerContext;

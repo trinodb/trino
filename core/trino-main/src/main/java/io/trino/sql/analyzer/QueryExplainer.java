@@ -60,6 +60,7 @@ public class QueryExplainer
     private final StatementAnalyzerFactory statementAnalyzerFactory;
     private final StatsCalculator statsCalculator;
     private final CostCalculator costCalculator;
+    private final QueryAnalyzerFactory queryAnalyzerFactory;
 
     QueryExplainer(
             PlanOptimizersFactory planOptimizersFactory,
@@ -68,7 +69,8 @@ public class QueryExplainer
             AnalyzerFactory analyzerFactory,
             StatementAnalyzerFactory statementAnalyzerFactory,
             StatsCalculator statsCalculator,
-            CostCalculator costCalculator)
+            CostCalculator costCalculator,
+            QueryAnalyzerFactory queryAnalyzerFactory)
     {
         this.planOptimizers = requireNonNull(planOptimizersFactory.get(), "planOptimizers is null");
         this.planFragmenter = requireNonNull(planFragmenter, "planFragmenter is null");
@@ -77,6 +79,7 @@ public class QueryExplainer
         this.statementAnalyzerFactory = requireNonNull(statementAnalyzerFactory, "statementAnalyzerFactory is null");
         this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
         this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
+        this.queryAnalyzerFactory = requireNonNull(queryAnalyzerFactory, "queryAnalyzerFactory is null");
     }
 
     public void validate(Session session, Statement statement, List<Expression> parameters, WarningCollector warningCollector)
@@ -172,7 +175,7 @@ public class QueryExplainer
 
     private Analysis analyze(Session session, Statement statement, List<Expression> parameters, WarningCollector warningCollector)
     {
-        Analyzer analyzer = analyzerFactory.createAnalyzer(session, parameters, parameterExtractor(statement, parameters), warningCollector);
+        Analyzer analyzer = analyzerFactory.createAnalyzer(session, parameters, parameterExtractor(statement, parameters), warningCollector, queryAnalyzerFactory);
         return analyzer.analyze(statement, EXPLAIN);
     }
 

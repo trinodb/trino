@@ -744,6 +744,14 @@ public abstract class DefaultTraversalVisitor<C>
     }
 
     @Override
+    protected Void visitAnalyzeForQuery(AnalyzeForQuery node, C context)
+    {
+        process(node.getQuery(), context);
+
+        return null;
+    }
+
+    @Override
     protected Void visitCreateView(CreateView node, C context)
     {
         process(node.getQuery(), context);

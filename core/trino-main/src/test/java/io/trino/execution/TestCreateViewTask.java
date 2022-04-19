@@ -22,6 +22,7 @@ import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TablePropertyManager;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.sql.analyzer.AnalyzerFactory;
+import io.trino.sql.analyzer.QueryAnalyzerFactory;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.rewrite.StatementRewrite;
 import io.trino.sql.tree.AllColumns;
@@ -49,6 +50,7 @@ public class TestCreateViewTask
     private static final String CATALOG_NAME = "catalog";
     private SqlParser parser;
     private AnalyzerFactory analyzerFactory;
+    private QueryAnalyzerFactory queryAnalyzerFactory;
 
     @Override
     @BeforeMethod
@@ -57,6 +59,7 @@ public class TestCreateViewTask
         super.setUp();
         parser = new SqlParser();
         analyzerFactory = new AnalyzerFactory(createTestingStatementAnalyzerFactory(plannerContext, new AllowAllAccessControl(), new TablePropertyManager(), new AnalyzePropertyManager()), new StatementRewrite(ImmutableSet.of()));
+        queryAnalyzerFactory = new QueryAnalyzerFactory(() -> queryRunner.getPlanOptimizers(true), plannerContext, queryRunner.getStatsCalculator(), queryRunner.getCostCalculator());
         QualifiedObjectName tableName = qualifiedObjectName("mock_table");
         metadata.createTable(testSession, CATALOG_NAME, someTable(tableName), false);
     }
@@ -132,6 +135,6 @@ public class TestCreateViewTask
                 replace,
                 Optional.empty(),
                 Optional.empty());
-        return new CreateViewTask(metadata, new AllowAllAccessControl(), parser, analyzerFactory).execute(statement, queryStateMachine, ImmutableList.of(), WarningCollector.NOOP);
+        return new CreateViewTask(metadata, new AllowAllAccessControl(), parser, analyzerFactory, queryAnalyzerFactory).execute(statement, queryStateMachine, ImmutableList.of(), WarningCollector.NOOP);
     }
 }
