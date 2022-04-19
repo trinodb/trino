@@ -165,7 +165,11 @@ public class TrinoConnection
     public CallableStatement prepareCall(String sql)
             throws SQLException
     {
-        throw new NotImplementedException("Connection", "prepareCall");
+        checkOpen();
+        String name = "call" + nextStatementId.getAndIncrement();
+        TrinoCallableStatement statement = new TrinoCallableStatement(this, this::unregisterStatement, name, sql);
+        registerStatement(statement);
+        return statement;
     }
 
     @Override
