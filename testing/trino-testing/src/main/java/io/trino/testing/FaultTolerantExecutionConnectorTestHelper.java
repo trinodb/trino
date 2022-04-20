@@ -30,8 +30,6 @@ public final class FaultTolerantExecutionConnectorTestHelper
                 .put("fault-tolerant-execution-target-task-split-count", "4")
                 // to trigger spilling
                 .put("exchange.deduplication-buffer-size", "1kB")
-                // TODO: re-enable once failure recover supported for this functionality
-                .put("enable-dynamic-filtering", "false")
                 .put("distributed-sort", "false")
                 .put("fault-tolerant-execution-task-memory", "1GB")
                 .buildOrThrow();

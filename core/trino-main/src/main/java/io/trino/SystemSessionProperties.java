@@ -1276,6 +1276,10 @@ public final class SystemSessionProperties
 
     public static boolean isEnableDynamicFiltering(Session session)
     {
+        if (getRetryPolicy(session) == RetryPolicy.TASK) {
+            // dynamic filtering is not supported with task level failure recovery enabled
+            return false;
+        }
         return session.getSystemProperty(ENABLE_DYNAMIC_FILTERING, Boolean.class);
     }
 
@@ -1367,11 +1371,6 @@ public final class SystemSessionProperties
     public static RetryPolicy getRetryPolicy(Session session)
     {
         RetryPolicy retryPolicy = session.getSystemProperty(RETRY_POLICY, RetryPolicy.class);
-        if (retryPolicy != RetryPolicy.NONE) {
-            if (retryPolicy != RetryPolicy.QUERY && isEnableDynamicFiltering(session)) {
-                throw new TrinoException(NOT_SUPPORTED, "Dynamic filtering is not supported with automatic task retries enabled");
-            }
-        }
         if (retryPolicy == RetryPolicy.TASK) {
             if (isGroupedExecutionEnabled(session) || isDynamicScheduleForGroupedExecution(session)) {
                 throw new TrinoException(NOT_SUPPORTED, "Grouped execution is not supported with task level retries enabled");

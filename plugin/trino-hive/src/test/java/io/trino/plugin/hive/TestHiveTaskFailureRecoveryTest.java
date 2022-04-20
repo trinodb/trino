@@ -58,11 +58,7 @@ public class TestHiveTaskFailureRecoveryTest
 
         return S3HiveQueryRunner.builder(dockerizedS3DataLake)
                 .setInitialTables(requiredTpchTables)
-                .setExtraProperties(ImmutableMap.<String, String>builder()
-                        .putAll(configProperties)
-                        // currently not supported for fault tolerant execution mode
-                        .put("enable-dynamic-filtering", "false")
-                        .buildOrThrow())
+                .setExtraProperties(configProperties)
                 .setCoordinatorProperties(coordinatorProperties)
                 .setAdditionalSetup(runner -> {
                     runner.installPlugin(new FileSystemExchangePlugin());
@@ -81,7 +77,7 @@ public class TestHiveTaskFailureRecoveryTest
     public void testJoinDynamicFilteringEnabled()
     {
         assertThatThrownBy(super::testJoinDynamicFilteringEnabled)
-                .hasMessageContaining("Dynamic filtering is not supported with automatic task retries enabled");
+                .hasMessageContaining("Dynamic filter is missing");
     }
 
     @AfterClass(alwaysRun = true)
