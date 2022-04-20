@@ -47,7 +47,7 @@ public class IcebergConfig
     private boolean tableStatisticsEnabled = true;
     private boolean projectionPushdownEnabled = true;
     private Optional<String> hiveCatalogName = Optional.empty();
-    private int formatVersion = FORMAT_VERSION_SUPPORT_MIN;
+    private int formatVersion = FORMAT_VERSION_SUPPORT_MAX;
     private Duration expireSnapshotsMinRetention = new Duration(7, DAYS);
     private Duration deleteOrphanFilesMinRetention = new Duration(7, DAYS);
 

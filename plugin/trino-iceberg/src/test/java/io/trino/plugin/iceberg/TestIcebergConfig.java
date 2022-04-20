@@ -48,7 +48,7 @@ public class TestIcebergConfig
                 .setTableStatisticsEnabled(true)
                 .setProjectionPushdownEnabled(true)
                 .setHiveCatalogName(null)
-                .setFormatVersion(1)
+                .setFormatVersion(2)
                 .setExpireSnapshotsMinRetention(new Duration(7, DAYS))
                 .setDeleteOrphanFilesMinRetention(new Duration(7, DAYS)));
     }
@@ -67,7 +67,7 @@ public class TestIcebergConfig
                 .put("iceberg.table-statistics-enabled", "false")
                 .put("iceberg.projection-pushdown-enabled", "false")
                 .put("iceberg.hive-catalog-name", "hive")
-                .put("iceberg.format-version", "2")
+                .put("iceberg.format-version", "1")
                 .put("iceberg.expire_snapshots.min-retention", "13h")
                 .put("iceberg.delete_orphan_files.min-retention", "14h")
                 .buildOrThrow();
@@ -83,7 +83,7 @@ public class TestIcebergConfig
                 .setTableStatisticsEnabled(false)
                 .setProjectionPushdownEnabled(false)
                 .setHiveCatalogName("hive")
-                .setFormatVersion(2)
+                .setFormatVersion(1)
                 .setExpireSnapshotsMinRetention(new Duration(13, HOURS))
                 .setDeleteOrphanFilesMinRetention(new Duration(14, HOURS));
 
