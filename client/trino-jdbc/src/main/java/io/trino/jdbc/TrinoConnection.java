@@ -363,7 +363,7 @@ public class TrinoConnection
             throws SQLException
     {
         checkResultSet(resultSetType, resultSetConcurrency);
-        throw new SQLFeatureNotSupportedException("prepareCall");
+        return prepareCall(sql);
     }
 
     @Override
