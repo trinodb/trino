@@ -95,7 +95,11 @@ import io.trino.sql.tree.IsNullPredicate;
 import io.trino.sql.tree.Isolation;
 import io.trino.sql.tree.Join;
 import io.trino.sql.tree.JoinOn;
+import io.trino.sql.tree.JsonArray;
+import io.trino.sql.tree.JsonArrayElement;
 import io.trino.sql.tree.JsonExists;
+import io.trino.sql.tree.JsonObject;
+import io.trino.sql.tree.JsonObjectMember;
 import io.trino.sql.tree.JsonPathInvocation;
 import io.trino.sql.tree.JsonPathParameter;
 import io.trino.sql.tree.JsonQuery;
@@ -4121,6 +4125,115 @@ public class TestSqlParser
                         Optional.of(JsonQuery.QuotesBehavior.OMIT),
                         JsonQuery.EmptyOrErrorBehavior.EMPTY_ARRAY,
                         JsonQuery.EmptyOrErrorBehavior.ERROR));
+    }
+
+    @Test
+    public void testJsonObject()
+    {
+        // test create empty JSON object
+        assertThat(expression("JSON_OBJECT()"))
+                .isEqualTo(new JsonObject(
+                        Optional.of(location(1, 1)),
+                        ImmutableList.of(),
+                        true,
+                        false,
+                        Optional.empty(),
+                        Optional.empty()));
+
+        // test defaults
+        assertThat(expression("JSON_OBJECT(key_column : value_column)"))
+                .isEqualTo(new JsonObject(
+                        Optional.of(location(1, 1)),
+                        ImmutableList.of(new JsonObjectMember(
+                                location(1, 13),
+                                new Identifier(location(1, 13), "key_column", false),
+                                new Identifier(location(1, 26), "value_column", false),
+                                Optional.empty())),
+                        true,
+                        false,
+                        Optional.empty(),
+                        Optional.empty()));
+
+        assertThat(expression("JSON_OBJECT( " +
+                "                               key_column_1 VALUE value_column FORMAT JSON ENCODING UTF16, " +
+                "                               KEY 'key_literal' VALUE 5, " +
+                "                               key_column_2 : null " +
+                "                               ABSENT ON NULL " +
+                "                               WITH UNIQUE KEYS " +
+                "                               RETURNING varbinary FORMAT JSON ENCODING UTF32 " +
+                "                              )"))
+                .isEqualTo(new JsonObject(
+                        Optional.of(location(1, 1)),
+                        ImmutableList.of(
+                                new JsonObjectMember(
+                                        location(1, 45),
+                                        new Identifier(location(1, 45), "key_column_1", false),
+                                        new Identifier(location(1, 64), "value_column", false),
+                                        Optional.of(UTF16)),
+                                new JsonObjectMember(
+                                        location(1, 136),
+                                        new StringLiteral(location(1, 140), "key_literal"),
+                                        new LongLiteral(location(1, 160), "5"),
+                                        Optional.empty()),
+                                new JsonObjectMember(
+                                        location(1, 194),
+                                        new Identifier(location(1, 194), "key_column_2", false),
+                                        new NullLiteral(location(1, 209)),
+                                        Optional.empty())),
+                        false,
+                        true,
+                        Optional.of(new GenericDataType(location(1, 349), new Identifier(location(1, 349), "varbinary", false), ImmutableList.of())),
+                        Optional.of(UTF32)));
+    }
+
+    @Test
+    public void testJsonArray()
+    {
+        // test create empty JSON array
+        assertThat(expression("JSON_ARRAY()"))
+                .isEqualTo(new JsonArray(
+                        Optional.of(location(1, 1)),
+                        ImmutableList.of(),
+                        false,
+                        Optional.empty(),
+                        Optional.empty()));
+
+        // test defaults
+        assertThat(expression("JSON_ARRAY(value_column)"))
+                .isEqualTo(new JsonArray(
+                        Optional.of(location(1, 1)),
+                        ImmutableList.of(new JsonArrayElement(
+                                location(1, 12),
+                                new Identifier(location(1, 12), "value_column", false),
+                                Optional.empty())),
+                        false,
+                        Optional.empty(),
+                        Optional.empty()));
+
+        assertThat(expression("JSON_ARRAY(value_column FORMAT JSON ENCODING UTF16, " +
+                "                               5, " +
+                "                               null " +
+                "                               NULL ON NULL " +
+                "                               RETURNING varbinary FORMAT JSON ENCODING UTF32 " +
+                "                              )"))
+                .isEqualTo(new JsonArray(
+                        Optional.of(location(1, 1)),
+                        ImmutableList.of(
+                                new JsonArrayElement(
+                                        location(1, 12),
+                                        new Identifier(location(1, 12), "value_column", false),
+                                        Optional.of(UTF16)),
+                                new JsonArrayElement(
+                                        location(1, 84),
+                                        new LongLiteral(location(1, 84), "5"),
+                                        Optional.empty()),
+                                new JsonArrayElement(
+                                        location(1, 118),
+                                        new NullLiteral(location(1, 118)),
+                                        Optional.empty())),
+                        true,
+                        Optional.of(new GenericDataType(location(1, 208), new Identifier(location(1, 208), "varbinary", false), ImmutableList.of())),
+                        Optional.of(UTF32)));
     }
 
     private static QualifiedName makeQualifiedName(String tableName)
