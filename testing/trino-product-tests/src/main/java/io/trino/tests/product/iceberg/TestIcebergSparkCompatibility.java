@@ -1640,7 +1640,7 @@ public class TestIcebergSparkCompatibility
         String sparkTableName = sparkTableName(baseTableName);
         onTrino().executeQuery("DROP TABLE IF EXISTS " + trinoTableName);
 
-        onTrino().executeQuery(format("CREATE TABLE %s (_string VARCHAR, _bigint BIGINT) WITH (partitioning = ARRAY['_string'], format = '%s')", trinoTableName, storageFormat));
+        onTrino().executeQuery(format("CREATE TABLE %s (_string VARCHAR, _bigint BIGINT) WITH (partitioning = ARRAY['_string'], format = '%s', format_version = 1)", trinoTableName, storageFormat));
         // separate inserts give us snapshot per insert
         onTrino().executeQuery(format("INSERT INTO %s VALUES ('a', 1001)", trinoTableName));
         onTrino().executeQuery(format("INSERT INTO %s VALUES ('a', 1002)", trinoTableName));
@@ -1684,7 +1684,7 @@ public class TestIcebergSparkCompatibility
         String sparkTableName = sparkTableName(baseTableName);
         onTrino().executeQuery("DROP TABLE IF EXISTS " + trinoTableName);
 
-        onTrino().executeQuery(format("CREATE TABLE %s (_string VARCHAR, _bigint BIGINT) WITH (partitioning = ARRAY['_string'], format = '%s')", trinoTableName, storageFormat));
+        onTrino().executeQuery(format("CREATE TABLE %s (_string VARCHAR, _bigint BIGINT) WITH (partitioning = ARRAY['_string'], format = '%s', format_version = 1)", trinoTableName, storageFormat));
         // separate inserts give us snapshot per insert
         onTrino().executeQuery(format("INSERT INTO %s VALUES ('a', 1001)", trinoTableName));
         onTrino().executeQuery(format("INSERT INTO %s VALUES ('a', 1002)", trinoTableName));
