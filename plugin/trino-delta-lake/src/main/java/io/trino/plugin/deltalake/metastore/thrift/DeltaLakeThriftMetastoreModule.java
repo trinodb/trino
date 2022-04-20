@@ -29,7 +29,7 @@ public class DeltaLakeThriftMetastoreModule
         install(new ThriftMetastoreModule());
     }
 
-    // TODO support delta.hide-non-delta-lake-tables with thrift metastore
+    // TODO support delta.hide-non-delta-lake-tables with thrift metastore (https://github.com/trinodb/trino/issues/12014)
     @Provides
     @Singleton
     @HideNonDeltaLakeTables
