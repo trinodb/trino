@@ -81,10 +81,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.function.BiFunction;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.starburstdata.presto.license.StarburstFeature.ORACLE_EXTENSIONS;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
@@ -350,14 +350,9 @@ public class StarburstOracleClient
     }
 
     @Override
-    protected Optional<BiFunction<String, Long, String>> limitFunction()
-    {
-        return Optional.of((sql, limit) -> format("SELECT * FROM (%s) WHERE ROWNUM <= %s", sql, limit));
-    }
-
-    @Override
     public boolean isLimitGuaranteed(ConnectorSession session)
     {
+        verify(super.isLimitGuaranteed(session), "Super implementation changed");
         return StarburstOracleSessionProperties.getParallelismType(session) == OracleParallelismType.NO_PARALLELISM;
     }
 
