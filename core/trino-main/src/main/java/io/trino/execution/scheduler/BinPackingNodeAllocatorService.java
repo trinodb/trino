@@ -211,12 +211,12 @@ public class BinPackingNodeAllocatorService
                 case RESERVED:
                     InternalNode reservedNode = result.getNode().orElseThrow();
                     fulfilledAcquires.add(pendingAcquire.getLease());
+                    updateAllocatedMemory(reservedNode, pendingAcquire.getMemoryLease());
                     pendingAcquire.getFuture().set(reservedNode);
-                    if (!pendingAcquire.getFuture().isCancelled()) {
-                        updateAllocatedMemory(reservedNode, pendingAcquire.getMemoryLease());
-                    }
-                    else {
-                        // request was cancelled in the meantime
+                    if (pendingAcquire.getFuture().isCancelled()) {
+                        // completing future was unsuccessful - request was cancelled in the meantime
+                        pendingAcquire.getLease().deallocateMemory(reservedNode);
+
                         fulfilledAcquires.remove(pendingAcquire.getLease());
 
                         // run once again when we are done
@@ -316,6 +316,7 @@ public class BinPackingNodeAllocatorService
     {
         private final SettableFuture<InternalNode> node = SettableFuture.create();
         private final AtomicBoolean released = new AtomicBoolean();
+        private final AtomicBoolean memoryDeallocated = new AtomicBoolean();
         private final long memoryLease;
         private final AtomicReference<TaskId> taskId = new AtomicReference<>();
 
@@ -369,13 +370,20 @@ public class BinPackingNodeAllocatorService
             if (released.compareAndSet(false, true)) {
                 node.cancel(true);
                 if (node.isDone() && !node.isCancelled()) {
-                    updateAllocatedMemory(getFutureValue(node), -memoryLease);
+                    deallocateMemory(getFutureValue(node));
                     wakeupProcessPendingAcquires();
                     checkState(fulfilledAcquires.remove(this), "node lease %s not found in fulfilledAcquires %s", this, fulfilledAcquires);
                 }
             }
             else {
                 throw new IllegalStateException("Node " + node + " already released");
+            }
+        }
+
+        public void deallocateMemory(InternalNode node)
+        {
+            if (memoryDeallocated.compareAndSet(false, true)) {
+                updateAllocatedMemory(node, -memoryLease);
             }
         }
     }

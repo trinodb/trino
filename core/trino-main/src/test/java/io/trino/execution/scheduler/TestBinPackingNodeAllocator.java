@@ -580,6 +580,20 @@ public class TestBinPackingNodeAllocator
         }
     }
 
+    @Test
+    public void testStressAcquireRelease()
+    {
+        InMemoryNodeManager nodeManager = testingNodeManager(basicNodesMap(NODE_1));
+        setupNodeAllocatorService(nodeManager, DataSize.of(4, GIGABYTE));
+
+        try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION)) {
+            for (int i = 0; i < 10_000_000; ++i) {
+                NodeAllocator.NodeLease lease = nodeAllocator.acquire(REQ_32);
+                lease.release();
+            }
+        }
+    }
+
     private TaskId taskId(int partition)
     {
         return new TaskId(new StageId("test_query", 0), partition, 0);
