@@ -69,4 +69,36 @@ public class TestVariableWidthBlockBuilder
         assertEquals(blockBuilder.getPositionCount(), EXPECTED_ENTRY_COUNT);
         assertEquals(pageBuilderStatus.isFull(), true);
     }
+
+    @Test
+    public void testBuilderProducesNullRleForNullRows()
+    {
+        // empty block
+        assertIsNullRle(blockBuilder().build(), 0);
+
+        // single null
+        assertIsNullRle(blockBuilder().appendNull().build(), 1);
+
+        // multiple nulls
+        assertIsNullRle(blockBuilder().appendNull().appendNull().build(), 2);
+
+        BlockBuilder blockBuilder = blockBuilder().appendNull().appendNull();
+        assertIsNullRle(blockBuilder.copyPositions(new int[] {0}, 0, 1), 1);
+        assertIsNullRle(blockBuilder.getRegion(0, 1), 1);
+        assertIsNullRle(blockBuilder.copyRegion(0, 1), 1);
+    }
+
+    private static BlockBuilder blockBuilder()
+    {
+        return new VariableWidthBlockBuilder(null, 10, 0);
+    }
+
+    private void assertIsNullRle(Block block, int expectedPositionCount)
+    {
+        assertEquals(block.getPositionCount(), expectedPositionCount);
+        assertEquals(block.getClass(), RunLengthEncodedBlock.class);
+        if (expectedPositionCount > 0) {
+            assertTrue(block.isNull(0));
+        }
+    }
 }
