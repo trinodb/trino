@@ -23,6 +23,7 @@ import io.trino.Session;
 import io.trino.execution.QueryManager;
 import io.trino.operator.OperatorStats;
 import io.trino.plugin.deltalake.util.DockerizedDataLake;
+import io.trino.plugin.deltalake.util.TestingHadoop;
 import io.trino.plugin.hive.TestingHivePlugin;
 import io.trino.spi.QueryId;
 import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
@@ -183,6 +184,46 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                 return super.hasBehavior(connectorBehavior);
         }
     }
+
+    @Test
+    public void testDropSchemaExternalFiles()
+    {
+        String schemaName = "externalFileSchema";
+        String schemaDir = bucketUrl() + "drop-schema-with-external-files/";
+        String subDir = schemaDir + "subdir/";
+        String externalFile = subDir + "external-file";
+
+        TestingHadoop hadoopContainer = dockerizedDataLake.getTestingHadoop();
+
+        // Create file in a subdirectory of the schema directory before creating schema
+        hadoopContainer.runCommandInContainer("hdfs", "dfs", "-mkdir", "-p", subDir);
+        hadoopContainer.runCommandInContainer("hdfs", "dfs", "-touchz", externalFile);
+
+        query(format("CREATE SCHEMA %s WITH (location = '%s')", schemaName, schemaDir));
+        assertThat(hadoopContainer.executeInContainer("hdfs", "dfs", "-test", "-e", externalFile).getExitCode())
+                .as("external file exists after creating schema")
+                .isEqualTo(0);
+
+        query("DROP SCHEMA " + schemaName);
+        assertThat(hadoopContainer.executeInContainer("hdfs", "dfs", "-test", "-e", externalFile).getExitCode())
+                .as("external file exists after dropping schema")
+                .isEqualTo(0);
+
+        // Test behavior without external file
+        hadoopContainer.runCommandInContainer("hdfs", "dfs", "-rm", "-r", subDir);
+
+        query(format("CREATE SCHEMA %s WITH (location = '%s')", schemaName, schemaDir));
+        assertThat(hadoopContainer.executeInContainer("hdfs", "dfs", "-test", "-d", schemaDir).getExitCode())
+                .as("schema directory exists after creating schema")
+                .isEqualTo(0);
+
+        query("DROP SCHEMA " + schemaName);
+        assertThat(hadoopContainer.executeInContainer("hdfs", "dfs", "-test", "-e", externalFile).getExitCode())
+                .as("schema directory deleted after dropping schema without external file")
+                .isEqualTo(1);
+    }
+
+    protected abstract String bucketUrl();
 
     @Test
     public void testCharTypeIsNotSupported()

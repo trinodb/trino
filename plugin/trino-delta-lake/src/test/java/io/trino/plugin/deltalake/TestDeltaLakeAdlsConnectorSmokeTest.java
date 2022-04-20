@@ -23,11 +23,9 @@ import com.google.common.io.ByteSource;
 import com.google.common.io.Resources;
 import com.google.common.reflect.ClassPath;
 import io.trino.plugin.deltalake.util.DockerizedDataLake;
-import io.trino.plugin.deltalake.util.TestingHadoop;
 import io.trino.testing.QueryRunner;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Parameters;
-import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -76,46 +74,6 @@ public class TestDeltaLakeAdlsConnectorSmokeTest
         BlobServiceClient blobServiceClient = new BlobServiceClientBuilder().connectionString(connectionString).buildClient();
         this.azureContainerClient = blobServiceClient.getBlobContainerClient(container);
         this.adlsDirectory = format("abfs://%s@%s.dfs.core.windows.net/%s/", container, account, bucketName);
-    }
-
-    @Test
-    public void testDropSchemaExternalFiles()
-    {
-        // TODO move this test to base class, so it's exercised for S3 too
-
-        String schemaName = "externalFileSchema";
-        String schemaDir = fullAdlsUrl() + "drop-schema-with-external-files/";
-        String subDir = schemaDir + "subdir/";
-        String externalFile = subDir + "external-file";
-
-        TestingHadoop hadoopContainer = dockerizedDataLake.getTestingHadoop();
-
-        // Create file in a subdirectory of the schema directory before creating schema
-        hadoopContainer.runCommandInContainer("hdfs", "dfs", "-mkdir", "-p", subDir);
-        hadoopContainer.runCommandInContainer("hdfs", "dfs", "-touchz", externalFile);
-
-        query(format("CREATE SCHEMA %s WITH (location = '%s')", schemaName, schemaDir));
-        assertThat(hadoopContainer.executeInContainer("hdfs", "dfs", "-test", "-e", externalFile).getExitCode())
-                .as("external file exists after creating schema")
-                .isEqualTo(0);
-
-        query("DROP SCHEMA " + schemaName);
-        assertThat(hadoopContainer.executeInContainer("hdfs", "dfs", "-test", "-e", externalFile).getExitCode())
-                .as("external file exists after dropping schema")
-                .isEqualTo(0);
-
-        // Test behavior without external file
-        hadoopContainer.runCommandInContainer("hdfs", "dfs", "-rm", "-r", subDir);
-
-        query(format("CREATE SCHEMA %s WITH (location = '%s')", schemaName, schemaDir));
-        assertThat(hadoopContainer.executeInContainer("hdfs", "dfs", "-test", "-d", schemaDir).getExitCode())
-                .as("schema directory exists after creating schema")
-                .isEqualTo(0);
-
-        query("DROP SCHEMA " + schemaName);
-        assertThat(hadoopContainer.executeInContainer("hdfs", "dfs", "-test", "-e", externalFile).getExitCode())
-                .as("schema directory deleted after dropping schema without external file")
-                .isEqualTo(1);
     }
 
     @Override
@@ -186,7 +144,7 @@ public class TestDeltaLakeAdlsConnectorSmokeTest
     @Override
     String getLocationForTable(String bucketName, String tableName)
     {
-        return fullAdlsUrl() + tableName;
+        return bucketUrl() + tableName;
     }
 
     @Override
@@ -221,7 +179,8 @@ public class TestDeltaLakeAdlsConnectorSmokeTest
                 .collect(toImmutableList());
     }
 
-    private String fullAdlsUrl()
+    @Override
+    protected String bucketUrl()
     {
         return format("abfs://%s@%s.dfs.core.windows.net/%s/", container, account, bucketName);
     }
