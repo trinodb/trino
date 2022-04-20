@@ -205,6 +205,18 @@ public abstract class BaseDeltaLakeMinioConnectorTest
                         ")");
     }
 
+    // not pushdownable means not convertible to a tuple domain
+    @Test
+    public void testQueryNullPartitionWithNotPushdownablePredicate()
+    {
+        String tableName = "test_null_partitions_" + randomTableSuffix();
+        assertUpdate("" +
+                        "CREATE TABLE " + tableName + " (a, b, c) WITH (location = '" + format("s3://%s/%s", bucketName, tableName) + "', partitioned_by = ARRAY['c']) " +
+                        "AS VALUES (1, 1, 1), (2, 2, 2), (3, 3, 3), (null, null, null), (4, 4, 4)",
+                "VALUES 5");
+        assertQuery("SELECT a FROM " + tableName + " WHERE c % 5 = 1", "VALUES (1)");
+    }
+
     @Override
     public void testShowCreateSchema()
     {
