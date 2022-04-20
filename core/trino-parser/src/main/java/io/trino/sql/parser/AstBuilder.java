@@ -113,7 +113,11 @@ import io.trino.sql.tree.Join;
 import io.trino.sql.tree.JoinCriteria;
 import io.trino.sql.tree.JoinOn;
 import io.trino.sql.tree.JoinUsing;
+import io.trino.sql.tree.JsonArray;
+import io.trino.sql.tree.JsonArrayElement;
 import io.trino.sql.tree.JsonExists;
+import io.trino.sql.tree.JsonObject;
+import io.trino.sql.tree.JsonObjectMember;
 import io.trino.sql.tree.JsonPathInvocation;
 import io.trino.sql.tree.JsonPathParameter;
 import io.trino.sql.tree.JsonPathParameter.JsonFormat;
@@ -2469,6 +2473,72 @@ class AstBuilder
                 (Identifier) visit(context.identifier()),
                 (Expression) visit(context.jsonValueExpression().expression()),
                 Optional.ofNullable(context.jsonValueExpression().jsonRepresentation())
+                        .map(this::getJsonFormat));
+    }
+
+    @Override
+    public Node visitJsonObject(SqlBaseParser.JsonObjectContext context)
+    {
+        List<JsonObjectMember> members = visit(context.jsonObjectMember(), JsonObjectMember.class);
+
+        boolean nullOnNull = true;
+        if (context.ABSENT() != null) {
+            nullOnNull = false;
+        }
+
+        boolean uniqueKeys = false;
+        if (context.WITH() != null) {
+            uniqueKeys = true;
+        }
+
+        Optional<DataType> returnedType = visitIfPresent(context.type(), DataType.class);
+
+        Optional<JsonFormat> jsonOutputFormat = Optional.empty();
+        if (context.FORMAT() != null) {
+            jsonOutputFormat = Optional.of(getJsonFormat(context.jsonRepresentation()));
+        }
+
+        return new JsonObject(Optional.of(getLocation(context)), members, nullOnNull, uniqueKeys, returnedType, jsonOutputFormat);
+    }
+
+    @Override
+    public Node visitJsonObjectMember(SqlBaseParser.JsonObjectMemberContext context)
+    {
+        return new JsonObjectMember(
+                getLocation(context),
+                (Expression) visit(context.expression()),
+                (Expression) visit(context.jsonValueExpression().expression()),
+                Optional.ofNullable(context.jsonValueExpression().jsonRepresentation())
+                        .map(this::getJsonFormat));
+    }
+
+    @Override
+    public Node visitJsonArray(SqlBaseParser.JsonArrayContext context)
+    {
+        List<JsonArrayElement> elements = visit(context.jsonValueExpression(), JsonArrayElement.class);
+
+        boolean nullOnNull = false;
+        if (context.NULL(0) != null && context.NULL(1) != null) { // "NULL ON NULL"
+            nullOnNull = true;
+        }
+
+        Optional<DataType> returnedType = visitIfPresent(context.type(), DataType.class);
+
+        Optional<JsonFormat> jsonOutputFormat = Optional.empty();
+        if (context.FORMAT() != null) {
+            jsonOutputFormat = Optional.of(getJsonFormat(context.jsonRepresentation()));
+        }
+
+        return new JsonArray(Optional.of(getLocation(context)), elements, nullOnNull, returnedType, jsonOutputFormat);
+    }
+
+    @Override
+    public Node visitJsonValueExpression(SqlBaseParser.JsonValueExpressionContext context)
+    {
+        return new JsonArrayElement(
+                getLocation(context),
+                (Expression) visit(context.expression()),
+                Optional.ofNullable(context.jsonRepresentation())
                         .map(this::getJsonFormat));
     }
 

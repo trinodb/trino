@@ -541,6 +541,21 @@ primaryExpression
         (emptyBehavior=jsonQueryBehavior ON EMPTY)?
         (errorBehavior=jsonQueryBehavior ON ERROR)?
       ')'                                                                                 #jsonQuery
+    | JSON_OBJECT '('
+        (
+          jsonObjectMember (',' jsonObjectMember)*
+          (NULL ON NULL | ABSENT ON NULL)?
+          (WITH UNIQUE KEYS? | WITHOUT UNIQUE KEYS?)?
+        )?
+        (RETURNING type (FORMAT jsonRepresentation)?)?
+      ')'                                                                                 #jsonObject
+    | JSON_ARRAY '('
+        (
+          jsonValueExpression (',' jsonValueExpression)*
+          (NULL ON NULL | ABSENT ON NULL)?
+        )?
+        (RETURNING type (FORMAT jsonRepresentation)?)?
+     ')'                                                                                  #jsonArray
     ;
 
 jsonPathInvocation
@@ -583,6 +598,11 @@ jsonQueryBehavior
     | NULL
     | EMPTY ARRAY
     | EMPTY OBJECT
+    ;
+
+jsonObjectMember
+    : KEY? expression VALUE jsonValueExpression
+    | expression ':' jsonValueExpression
     ;
 
 processingMode
@@ -807,7 +827,7 @@ number
 
 nonReserved
     // IMPORTANT: this rule must only contain tokens. Nested rules are not supported. See SqlParser.exitNonReserved
-    : ADD | ADMIN | AFTER | ALL | ANALYZE | ANY | ARRAY | ASC | AT | AUTHORIZATION
+    : ABSENT | ADD | ADMIN | AFTER | ALL | ANALYZE | ANY | ARRAY | ASC | AT | AUTHORIZATION
     | BERNOULLI | BOTH
     | CALL | CASCADE | CATALOGS | COLUMN | COLUMNS | COMMENT | COMMIT | COMMITTED | CONDITIONAL | COPARTITION | COUNT | CURRENT
     | DATA | DATE | DAY | DEFAULT | DEFINE | DEFINER | DESC | DESCRIPTOR | DISTRIBUTED | DOUBLE
@@ -817,7 +837,7 @@ nonReserved
     | HOUR
     | IF | IGNORE | INCLUDING | INITIAL | INPUT | INTERVAL | INVOKER | IO | ISOLATION
     | JSON
-    | KEEP
+    | KEEP | KEY | KEYS
     | LAST | LATERAL | LEADING | LEVEL | LIMIT | LOCAL | LOGICAL
     | MAP | MATCH | MATCHED | MATCHES | MATCH_RECOGNIZE | MATERIALIZED | MEASURES | MERGE | MINUTE | MONTH
     | NEXT | NFC | NFD | NFKC | NFKD | NO | NONE | NULLIF | NULLS
@@ -828,13 +848,14 @@ nonReserved
     | SCALAR | SCHEMA | SCHEMAS | SECOND | SECURITY | SEEK | SERIALIZABLE | SESSION | SET | SETS
     | SHOW | SOME | START | STATS | SUBSET | SUBSTRING | SYSTEM
     | TABLES | TABLESAMPLE | TEXT | TEXT_STRING | TIES | TIME | TIMESTAMP | TO | TRAILING | TRANSACTION | TRUNCATE | TRY_CAST | TYPE
-    | UNBOUNDED | UNCOMMITTED | UNCONDITIONAL | UNKNOWN | UNMATCHED | UPDATE | USE | USER | UTF16 | UTF32 | UTF8
-    | VALIDATE | VERBOSE | VERSION | VIEW
+    | UNBOUNDED | UNCOMMITTED | UNCONDITIONAL | UNIQUE | UNKNOWN | UNMATCHED | UPDATE | USE | USER | UTF16 | UTF32 | UTF8
+    | VALIDATE | VALUE | VERBOSE | VERSION | VIEW
     | WINDOW | WITHIN | WITHOUT | WORK | WRAPPER | WRITE
     | YEAR
     | ZONE
     ;
 
+ABSENT: 'ABSENT';
 ADD: 'ADD';
 ADMIN: 'ADMIN';
 AFTER: 'AFTER';
@@ -943,10 +964,14 @@ IS: 'IS';
 ISOLATION: 'ISOLATION';
 JOIN: 'JOIN';
 JSON: 'JSON';
+JSON_ARRAY: 'JSON_ARRAY';
 JSON_EXISTS: 'JSON_EXISTS';
+JSON_OBJECT: 'JSON_OBJECT';
 JSON_QUERY: 'JSON_QUERY';
 JSON_VALUE: 'JSON_VALUE';
 KEEP: 'KEEP';
+KEY: 'KEY';
+KEYS: 'KEYS';
 LAST: 'LAST';
 LATERAL: 'LATERAL';
 LEADING: 'LEADING';
@@ -1073,6 +1098,7 @@ UNBOUNDED: 'UNBOUNDED';
 UNCOMMITTED: 'UNCOMMITTED';
 UNCONDITIONAL: 'UNCONDITIONAL';
 UNION: 'UNION';
+UNIQUE: 'UNIQUE';
 UNKNOWN: 'UNKNOWN';
 UNMATCHED: 'UNMATCHED';
 UNNEST: 'UNNEST';
@@ -1084,6 +1110,7 @@ UTF16: 'UTF16';
 UTF32: 'UTF32';
 UTF8: 'UTF8';
 VALIDATE: 'VALIDATE';
+VALUE: 'VALUE';
 VALUES: 'VALUES';
 VERBOSE: 'VERBOSE';
 VERSION: 'VERSION';

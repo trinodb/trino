@@ -97,7 +97,9 @@ import io.trino.sql.tree.InPredicate;
 import io.trino.sql.tree.IntervalLiteral;
 import io.trino.sql.tree.IsNotNullPredicate;
 import io.trino.sql.tree.IsNullPredicate;
+import io.trino.sql.tree.JsonArray;
 import io.trino.sql.tree.JsonExists;
+import io.trino.sql.tree.JsonObject;
 import io.trino.sql.tree.JsonPathInvocation;
 import io.trino.sql.tree.JsonPathParameter;
 import io.trino.sql.tree.JsonPathParameter.JsonFormat;
@@ -2907,6 +2909,18 @@ public class ExpressionAnalyzer
             catch (TrinoException e) {
                 throw new TrinoException(TYPE_MISMATCH, extractLocation(node), format("Cannot output JSON value as %s using formatting %s", type, format), e);
             }
+        }
+
+        @Override
+        protected Type visitJsonObject(JsonObject node, StackableAstVisitorContext<Context> context)
+        {
+            throw new TrinoException(NOT_SUPPORTED, "JSON_OBJECT function is not yet supported");
+        }
+
+        @Override
+        protected Type visitJsonArray(JsonArray node, StackableAstVisitorContext<Context> context)
+        {
+            throw new TrinoException(NOT_SUPPORTED, "JSON_ARRAY function is not yet supported");
         }
 
         private Type getOperator(StackableAstVisitorContext<Context> context, Expression node, OperatorType operatorType, Expression... arguments)

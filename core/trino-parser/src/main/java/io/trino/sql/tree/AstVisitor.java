@@ -1136,4 +1136,14 @@ public abstract class AstVisitor<R, C>
     {
         return visitNode(node, context);
     }
+
+    protected R visitJsonObject(JsonObject node, C context)
+    {
+        return visitExpression(node, context);
+    }
+
+    protected R visitJsonArray(JsonArray node, C context)
+    {
+        return visitExpression(node, context);
+    }
 }
