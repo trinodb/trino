@@ -24,7 +24,6 @@ import io.trino.SystemSessionProperties;
 import io.trino.cost.CachingStatsProvider;
 import io.trino.cost.StatsCalculator;
 import io.trino.cost.StatsProvider;
-import io.trino.execution.warnings.WarningCollector;
 import io.trino.spi.connector.GroupingProperty;
 import io.trino.spi.connector.LocalProperty;
 import io.trino.sql.PlannerContext;
@@ -133,9 +132,11 @@ public class AddExchanges
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
+    public PlanNode optimize(PlanNode plan, Context context)
     {
-        PlanWithProperties result = plan.accept(new Rewriter(idAllocator, symbolAllocator, session), PreferredProperties.any());
+        PlanWithProperties result = plan.accept(
+                new Rewriter(context.getIdAllocator(), context.getSymbolAllocator(), context.getSession()),
+                PreferredProperties.any());
         return result.getNode();
     }
 

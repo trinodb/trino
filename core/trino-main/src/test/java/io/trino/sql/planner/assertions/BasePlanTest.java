@@ -22,8 +22,10 @@ import io.trino.execution.warnings.WarningCollector;
 import io.trino.plugin.tpch.TpchConnectorFactory;
 import io.trino.sql.planner.LogicalPlanner;
 import io.trino.sql.planner.Plan;
+import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.RuleStatsRecorder;
 import io.trino.sql.planner.SubPlan;
+import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.iterative.IterativeOptimizer;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
@@ -225,5 +227,38 @@ public class BasePlanTest
         catch (RuntimeException e) {
             throw new AssertionError("Planning failed for SQL: " + sql, e);
         }
+    }
+
+    protected PlanOptimizer.Context createOptimizerContext(
+            Session session,
+            SymbolAllocator symbolAllocator,
+            PlanNodeIdAllocator idAllocator)
+    {
+        return new PlanOptimizer.Context()
+        {
+            @Override
+            public Session getSession()
+            {
+                return session;
+            }
+
+            @Override
+            public SymbolAllocator getSymbolAllocator()
+            {
+                return symbolAllocator;
+            }
+
+            @Override
+            public PlanNodeIdAllocator getIdAllocator()
+            {
+                return idAllocator;
+            }
+
+            @Override
+            public WarningCollector getWarningCollector()
+            {
+                return WarningCollector.NOOP;
+            }
+        };
     }
 }

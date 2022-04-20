@@ -32,7 +32,6 @@ import java.util.List;
 import java.util.function.Function;
 
 import static io.trino.metadata.FunctionManager.createTestingFunctionManager;
-import static io.trino.sql.planner.TypeProvider.empty;
 import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThatCode;
@@ -132,14 +131,38 @@ public class TestBeginTableWrite
     private void applyOptimization(Function<PlanBuilder, PlanNode> planProvider)
     {
         Metadata metadata = new MockMetadata();
-        new BeginTableWrite(metadata, createTestingFunctionManager())
-                .optimize(
-                        planProvider.apply(new PlanBuilder(new PlanNodeIdAllocator(), metadata, testSessionBuilder().build())),
-                        testSessionBuilder().build(),
-                        empty(),
-                        new SymbolAllocator(),
-                        new PlanNodeIdAllocator(),
-                        WarningCollector.NOOP);
+        Session session = testSessionBuilder().build();
+        SymbolAllocator symbolAllocator = new SymbolAllocator();
+        PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
+
+        new BeginTableWrite(metadata, createTestingFunctionManager()).optimize(
+                planProvider.apply(new PlanBuilder(new PlanNodeIdAllocator(), metadata, testSessionBuilder().build())),
+                new PlanOptimizer.Context()
+                {
+                    @Override
+                    public Session getSession()
+                    {
+                        return session;
+                    }
+
+                    @Override
+                    public SymbolAllocator getSymbolAllocator()
+                    {
+                        return symbolAllocator;
+                    }
+
+                    @Override
+                    public PlanNodeIdAllocator getIdAllocator()
+                    {
+                        return idAllocator;
+                    }
+
+                    @Override
+                    public WarningCollector getWarningCollector()
+                    {
+                        return WarningCollector.NOOP;
+                    }
+                });
     }
 
     private static class MockMetadata

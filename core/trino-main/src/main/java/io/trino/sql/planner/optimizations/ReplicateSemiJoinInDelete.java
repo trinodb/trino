@@ -13,11 +13,6 @@
  */
 package io.trino.sql.planner.optimizations;
 
-import io.trino.Session;
-import io.trino.execution.warnings.WarningCollector;
-import io.trino.sql.planner.PlanNodeIdAllocator;
-import io.trino.sql.planner.SymbolAllocator;
-import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.plan.DeleteNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.SemiJoinNode;
@@ -30,7 +25,7 @@ public class ReplicateSemiJoinInDelete
         implements PlanOptimizer
 {
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
+    public PlanNode optimize(PlanNode plan, Context context)
     {
         requireNonNull(plan, "plan is null");
         return SimplePlanRewriter.rewriteWith(new Rewriter(), plan);
