@@ -5,9 +5,6 @@ Accumulo connector
 
   <img src="../_static/img/accumulo.png" class="connector-logo">
 
-Overview
---------
-
 The Accumulo connector supports reading and writing data from
 `Apache Accumulo <https://accumulo.apache.org/>`_.
 Please read this page thoroughly to understand the capabilities and features of the connector.

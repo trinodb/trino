@@ -2,9 +2,6 @@
 Elasticsearch connector
 =======================
 
-Overview
---------
-
 .. raw:: html
 
   <img src="../_static/img/elasticsearch.png" class="connector-logo">
