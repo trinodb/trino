@@ -377,12 +377,14 @@ above, this SQL will delete all partitions for which ``country`` is ``US``::
     DELETE FROM iceberg.testdb.customer_orders
     WHERE country = 'US'
 
-Currently, the Iceberg connector only supports deletion by partition.
-This SQL below will fail because the ``WHERE`` clause selects only some of the rows
-in the partition::
+Tables using either v1 or v2 of the Iceberg specification will perform a partition
+delete if the ``WHERE`` clause meets these conditions.
 
-    DELETE FROM iceberg.testdb.customer_orders
-    WHERE country = 'US' AND customer = 'Freds Foods'
+Row level deletion
+^^^^^^^^^^^^^^^^^^
+
+Tables using v2 of the Iceberg specification support deletion of individual rows
+by writing position delete files.
 
 Rolling back to a previous snapshot
 -----------------------------------
@@ -437,7 +439,7 @@ Property Name                                      Description
 
 ``format_version``                                 Optionally specifies the format version of the Iceberg
                                                    specification to use for new tables; either ``1`` or ``2``.
-                                                   Defaults to ``1``. Version ``2`` is required for row level deletes.
+                                                   Defaults to ``2``. Version ``2`` is required for row level deletes.
 ================================================== ================================================================
 
 The table definition below specifies format Parquet, partitioning by columns ``c1`` and ``c2``,
