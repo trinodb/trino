@@ -116,7 +116,7 @@ public class TestIcebergV2
     {
         String tableName = "test_default_format_version_" + randomTableSuffix();
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.tiny.nation", 25);
-        assertThat(loadTable(tableName).operations().current().formatVersion()).isEqualTo(1);
+        assertThat(loadTable(tableName).operations().current().formatVersion()).isEqualTo(2);
         assertUpdate("DROP TABLE " + tableName);
     }
 
