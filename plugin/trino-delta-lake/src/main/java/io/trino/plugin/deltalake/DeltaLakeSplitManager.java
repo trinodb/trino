@@ -186,7 +186,7 @@ public class DeltaLakeSplitManager
                                     DeltaLakeColumnHandle deltaLakeColumn = (DeltaLakeColumnHandle) column;
                                     return new NullableValue(
                                             deltaLakeColumn.getType(),
-                                            deserializePartitionValue(deltaLakeColumn, addAction.getCanonicalPartitionValues().get(deltaLakeColumn.getName())));
+                                            deserializePartitionValue(deltaLakeColumn, partitionValues.get(deltaLakeColumn.getName())));
                                 }));
                         if (!constraint.predicate().get().test(deserializedValues)) {
                             return Stream.empty();
