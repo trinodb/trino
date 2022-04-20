@@ -1239,6 +1239,72 @@ public final class ExpressionTreeRewriter<C>
             return node;
         }
 
+        @Override
+        protected Expression visitJsonObject(JsonObject node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteJsonObject(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            List<JsonObjectMember> members = node.getMembers().stream()
+                    .map(member -> {
+                        Expression key = rewrite(member.getKey(), context.get());
+                        Expression value = rewrite(member.getValue(), context.get());
+                        if (member.getKey() == key && member.getValue() == value) {
+                            return member;
+                        }
+                        return new JsonObjectMember(key, value, member.getFormat());
+                    })
+                    .collect(toImmutableList());
+
+            if (!sameElements(node.getMembers(), members)) {
+                return new JsonObject(
+                        node.getLocation(),
+                        members,
+                        node.isNullOnNull(),
+                        node.isUniqueKeys(),
+                        node.getReturnedType(),
+                        node.getOutputFormat());
+            }
+
+            return node;
+        }
+
+        @Override
+        protected Expression visitJsonArray(JsonArray node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteJsonArray(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            List<JsonArrayElement> elements = node.getElements().stream()
+                    .map(element -> {
+                        Expression value = rewrite(element.getValue(), context.get());
+                        if (element.getValue() == value) {
+                            return element;
+                        }
+                        return new JsonArrayElement(value, element.getFormat());
+                    })
+                    .collect(toImmutableList());
+
+            if (!sameElements(node.getElements(), elements)) {
+                return new JsonArray(
+                        node.getLocation(),
+                        elements,
+                        node.isNullOnNull(),
+                        node.getReturnedType(),
+                        node.getOutputFormat());
+            }
+
+            return node;
+        }
+
         private JsonPathInvocation rewriteJsonPathInvocation(JsonPathInvocation pathInvocation, Context<C> context)
         {
             Expression inputExpression = rewrite(pathInvocation.getInputExpression(), context.get());

@@ -1,4 +1,3 @@
-
 =================
 Reserved keywords
 =================
@@ -55,7 +54,9 @@ Keyword                        SQL:2016      SQL-92
 ``INTO``                       reserved      reserved
 ``IS``                         reserved      reserved
 ``JOIN``                       reserved      reserved
+``JSON_ARRAY``                 reserved
 ``JSON_EXISTS``                reserved
+``JSON_OBJECT``                reserved
 ``JSON_QUERY``                 reserved
 ``JSON_VALUE``                 reserved
 ``LEFT``                       reserved      reserved
