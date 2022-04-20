@@ -33,6 +33,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Stream;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.difference;
 import static java.lang.ClassLoader.getPlatformClassLoader;
 import static java.lang.ClassLoader.getSystemClassLoader;
@@ -110,7 +111,11 @@ public class TestSpiBackwardCompatibility
             Class<?> clazz = classInfo.load();
             addClassEntities(entities, clazz, includeDeprecated);
         }
-        return entities.build();
+        return entities.build().stream()
+                // Ignore `final` so that we can e.g. remove final from a SPI method.
+                // While adding `final` can be a breaking change, we currently ignore such breakages.
+                .map(entity -> entity.replace(" final ", " "))
+                .collect(toImmutableSet());
     }
 
     private static void addClassEntities(ImmutableSet.Builder<String> entities, Class<?> clazz, boolean includeDeprecated)
