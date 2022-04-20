@@ -72,6 +72,13 @@ public interface GroupByHash
 
     Work<?> addPage(Page page);
 
+    /**
+     * The order of new group ids need to be the same as the order of incoming rows,
+     * i.e. new group ids should be assigned in rows iteration order
+     * Example:
+     * rows:      A B C B D A E
+     * group ids: 1 2 3 2 4 1 5
+     */
     Work<GroupByIdBlock> getGroupIds(Page page);
 
     boolean contains(int position, Page page, int[] hashChannels);
