@@ -12,9 +12,6 @@ Kafka connector
 
     Tutorial <kafka-tutorial>
 
-Overview
---------
-
 This connector allows the use of `Apache Kafka <https://kafka.apache.org/>`_
 topics as tables in Trino. Each message is presented as a row in Trino.
 
