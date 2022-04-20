@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.iceberg;
 
-import com.google.common.collect.ImmutableMap;
 import io.trino.operator.RetryPolicy;
 import io.trino.plugin.exchange.FileSystemExchangePlugin;
 import io.trino.plugin.exchange.containers.MinioStorage;
@@ -51,11 +50,7 @@ public class TestIcebergTaskFailureRecoveryTest
         return IcebergQueryRunner.builder()
                 .setInitialTables(requiredTpchTables)
                 .setCoordinatorProperties(coordinatorProperties)
-                .setExtraProperties(ImmutableMap.<String, String>builder()
-                        .putAll(configProperties)
-                        // currently not supported for fault tolerant execution mode
-                        .put("enable-dynamic-filtering", "false")
-                        .buildOrThrow())
+                .setExtraProperties(configProperties)
                 .setAdditionalSetup(runner -> {
                     runner.installPlugin(new FileSystemExchangePlugin());
                     runner.loadExchangeManager("filesystem", getExchangeManagerProperties(minioStorage));
@@ -67,7 +62,7 @@ public class TestIcebergTaskFailureRecoveryTest
     public void testJoinDynamicFilteringEnabled()
     {
         assertThatThrownBy(super::testJoinDynamicFilteringEnabled)
-                .hasMessageContaining("Dynamic filtering is not supported with automatic task retries enabled");
+                .hasMessageContaining("Dynamic filter is missing");
     }
 
     @AfterClass(alwaysRun = true)
