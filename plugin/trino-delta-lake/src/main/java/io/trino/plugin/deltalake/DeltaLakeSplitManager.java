@@ -184,7 +184,7 @@ public class DeltaLakeSplitManager
                                 .filter(column -> partitionValues.containsKey(((DeltaLakeColumnHandle) column).getName()))
                                 .collect(toImmutableMap(identity(), column -> {
                                     DeltaLakeColumnHandle deltaLakeColumn = (DeltaLakeColumnHandle) column;
-                                    return NullableValue.of(
+                                    return new NullableValue(
                                             deltaLakeColumn.getType(),
                                             deserializePartitionValue(deltaLakeColumn, addAction.getCanonicalPartitionValues().get(deltaLakeColumn.getName())));
                                 }));
