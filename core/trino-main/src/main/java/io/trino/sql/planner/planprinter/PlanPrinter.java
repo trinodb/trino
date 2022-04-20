@@ -156,6 +156,8 @@ import static io.trino.sql.planner.planprinter.TextRenderer.indentString;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch.WINDOW;
 import static java.lang.Math.abs;
+import static java.lang.Math.max;
+import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Arrays.stream;
 import static java.util.Objects.requireNonNull;
@@ -180,7 +182,8 @@ public class PlanPrinter
             Map<DynamicFilterId, DynamicFilterDomainStats> dynamicFilterDomainStats,
             ValuePrinter valuePrinter,
             StatsAndCosts estimatedStatsAndCosts,
-            Optional<Map<PlanNodeId, PlanNodeStats>> stats)
+            Optional<Map<PlanNodeId, PlanNodeStats>> stats,
+            boolean verbose)
     {
         requireNonNull(planRoot, "planRoot is null");
         requireNonNull(types, "types is null");
@@ -208,7 +211,7 @@ public class PlanPrinter
 
         this.representation = new PlanRepresentation(planRoot, types, totalCpuTime, totalScheduledTime, totalBlockedTime);
 
-        Visitor visitor = new Visitor(stageExecutionStrategy, types, estimatedStatsAndCosts, stats);
+        Visitor visitor = new Visitor(stageExecutionStrategy, types, estimatedStatsAndCosts, stats, verbose);
         planRoot.accept(visitor, null);
     }
 
@@ -230,7 +233,18 @@ public class PlanPrinter
 
         TableInfoSupplier tableInfoSupplier = new TableInfoSupplier(metadata, session);
         ValuePrinter valuePrinter = new ValuePrinter(metadata, functionManager, session);
-        return new PlanPrinter(root, typeProvider, Optional.empty(), tableInfoSupplier, ImmutableMap.of(), valuePrinter, StatsAndCosts.empty(), Optional.empty()).toJson();
+        return new PlanPrinter(
+                root,
+                typeProvider,
+                Optional.empty(),
+                tableInfoSupplier,
+                ImmutableMap.of(),
+                valuePrinter,
+                StatsAndCosts.empty(),
+                Optional.empty(),
+                // Verbose indicates whether truncate visitValues output. The default value is not truncate.
+                false)
+                .toJson();
     }
 
     public static String textLogicalPlan(
@@ -245,7 +259,17 @@ public class PlanPrinter
     {
         TableInfoSupplier tableInfoSupplier = new TableInfoSupplier(metadata, session);
         ValuePrinter valuePrinter = new ValuePrinter(metadata, functionManager, session);
-        return new PlanPrinter(plan, types, Optional.empty(), tableInfoSupplier, ImmutableMap.of(), valuePrinter, estimatedStatsAndCosts, Optional.empty()).toText(verbose, level);
+        return new PlanPrinter(
+                plan,
+                types,
+                Optional.empty(),
+                tableInfoSupplier,
+                ImmutableMap.of(),
+                valuePrinter,
+                estimatedStatsAndCosts,
+                Optional.empty(),
+                verbose)
+                .toText(verbose, level);
     }
 
     public static String textDistributedPlan(
@@ -392,7 +416,9 @@ public class PlanPrinter
                         dynamicFilterDomainStats,
                         valuePrinter,
                         fragment.getStatsAndCosts(),
-                        planNodeStats).toText(verbose, 1))
+                        planNodeStats,
+                        verbose)
+                        .toText(verbose, 1))
                 .append("\n");
 
         return builder.toString();
@@ -430,17 +456,26 @@ public class PlanPrinter
     private class Visitor
             extends PlanVisitor<Void, Void>
     {
+        private static final int VALUES_TRUNCATION_ROW_COUNT = 10;
+
         private final Optional<StageExecutionDescriptor> stageExecutionStrategy;
         private final TypeProvider types;
         private final StatsAndCosts estimatedStatsAndCosts;
         private final Optional<Map<PlanNodeId, PlanNodeStats>> stats;
+        private final boolean verbose;
 
-        public Visitor(Optional<StageExecutionDescriptor> stageExecutionStrategy, TypeProvider types, StatsAndCosts estimatedStatsAndCosts, Optional<Map<PlanNodeId, PlanNodeStats>> stats)
+        public Visitor(
+                Optional<StageExecutionDescriptor> stageExecutionStrategy,
+                TypeProvider types,
+                StatsAndCosts estimatedStatsAndCosts,
+                Optional<Map<PlanNodeId, PlanNodeStats>> stats,
+                boolean verbose)
         {
             this.stageExecutionStrategy = requireNonNull(stageExecutionStrategy, "stageExecutionStrategy is null");
             this.types = requireNonNull(types, "types is null");
             this.estimatedStatsAndCosts = requireNonNull(estimatedStatsAndCosts, "estimatedStatsAndCosts is null");
             this.stats = requireNonNull(stats, "stats is null");
+            this.verbose = verbose;
         }
 
         @Override
@@ -940,21 +975,52 @@ public class PlanPrinter
                 }
                 return null;
             }
-            List<String> rows = node.getRows().get().stream()
-                    .map(row -> {
-                        if (row instanceof Row) {
-                            return ((Row) row).getItems().stream()
-                                    .map(PlanPrinter::unresolveFunctions)
-                                    .map(Expression::toString)
-                                    .collect(joining(", ", "(", ")"));
-                        }
-                        return unresolveFunctions(row).toString();
-                    })
-                    .collect(toImmutableList());
-            for (String row : rows) {
-                nodeOutput.appendDetailsLine(row);
+
+            if (verbose) {
+                List<String> rows = node.getRows().get().stream()
+                        .map(this::expressionRepresentation)
+                        .collect(toImmutableList());
+                for (String row : rows) {
+                    nodeOutput.appendDetailsLine(row);
+                }
+            }
+            else {
+                // non-existent rows should not be rendered
+                if (node.getRows().get().isEmpty()) {
+                    return null;
+                }
+                int rowCount = node.getRows().get().size();
+                int valuesLimit = min(VALUES_TRUNCATION_ROW_COUNT, rowCount);
+                // Print first (limit - 1) elements, followed by last element
+                // to provide a readable summary of the contents
+                Stream<String> prefix = Stream.concat(
+                        node.getRows().get().subList(0, valuesLimit - 1)
+                                .stream()
+                                .map(this::expressionRepresentation),
+                        valuesLimit < rowCount ? Stream.of("...") : Stream.of());
+
+                // If truncate, we should print rowCount.
+                if (valuesLimit < rowCount) {
+                    prefix = Stream.concat(Stream.of(format("Row count: %s", rowCount)), prefix);
+                }
+
+                String suffix = expressionRepresentation(node.getRows().get().get(rowCount - 1));
+
+                nodeOutput.appendDetailsLine(Stream.concat(prefix, Stream.of(suffix))
+                        .collect(joining(", ", "{", "}")));
             }
             return null;
+        }
+
+        private String expressionRepresentation(Expression row)
+        {
+            if (row instanceof Row) {
+                return ((Row) row).getItems().stream()
+                        .map(PlanPrinter::unresolveFunctions)
+                        .map(Expression::toString)
+                        .collect(joining(", ", "(", ")"));
+            }
+            return unresolveFunctions(row).toString();
         }
 
         @Override

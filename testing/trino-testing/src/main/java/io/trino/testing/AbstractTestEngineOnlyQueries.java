@@ -6050,6 +6050,42 @@ public abstract class AbstractTestEngineOnlyQueries
     }
 
     @Test
+    public void testExplainExecuteWithShow()
+    {
+        // case1: The output line is larger than the clipping threshold
+        String largerValuesThresholdQuery = "SHOW FUNCTIONS";
+        String explainOutput = (String) computeActual("EXPLAIN " + largerValuesThresholdQuery).getOnlyValue();
+        String expected1 = getExplainPlan(largerValuesThresholdQuery, DISTRIBUTED);
+        assertThat(explainOutput).isEqualTo(expected1);
+        assertThat(explainOutput).contains("...");
+        assertThat(explainOutput).contains("Row count: ");
+
+        // case2: The output line is smaller than the clipping threshold
+        String smallerValuesThresholdQuery = "" +
+                "SELECT * FROM ( " +
+                "         VALUES" +
+                "             (1, 'a')," +
+                "             (2, 'b')," +
+                "             (3, 'c')" +
+                "    )";
+        String explainOutput2 = (String) computeActual("EXPLAIN " + smallerValuesThresholdQuery).getOnlyValue();
+        String expected2 = getExplainPlan(smallerValuesThresholdQuery, DISTRIBUTED);
+        assertThat(explainOutput2).isEqualTo(expected2);
+        // No truncation
+        assertThat(explainOutput2).doesNotContain("...");
+
+        // case3: ValuesNode with 0 rows.
+        String emptyValuesQuery = "SHOW ROLE GRANTS";
+        String explainOutput3 = (String) computeActual("EXPLAIN " + emptyValuesQuery).getOnlyValue();
+        String expected3 = getExplainPlan(emptyValuesQuery, DISTRIBUTED);
+        assertThat(explainOutput3).isEqualTo(expected3);
+
+        // case4: ValuesNode without output symbols
+
+        // case5: ValuesNode without output symbols and ValuesNode with 0 rows
+    }
+
+    @Test
     public void testExplainSetSessionWithUsing()
     {
         Session session = Session.builder(getSession())
