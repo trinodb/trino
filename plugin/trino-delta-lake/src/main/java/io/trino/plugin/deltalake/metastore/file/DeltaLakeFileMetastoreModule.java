@@ -29,7 +29,6 @@ public class DeltaLakeFileMetastoreModule
         install(new FileMetastoreModule());
     }
 
-    // TODO support delta.hide-non-delta-lake-tables with file metastore
     @Provides
     @Singleton
     @HideNonDeltaLakeTables

@@ -27,7 +27,7 @@ import java.net.URI;
 import java.util.HashMap;
 import java.util.Map;
 
-// TODO: Test with InterfaceTestUtils after merging: https://github.com/trinodb/trino/pull/3034
+// TODO: Test with InterfaceTestUtils(https://github.com/trinodb/trino/issues/12034) after merging: https://github.com/trinodb/trino/pull/3034
 public class AccessTrackingFileSystem
         extends FileSystem
 {
