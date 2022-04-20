@@ -83,6 +83,7 @@ import static io.trino.plugin.hive.ViewReaderUtil.isPrestoView;
 import static io.trino.plugin.hive.ViewReaderUtil.isTrinoMaterializedView;
 import static io.trino.plugin.hive.metastore.glue.AwsSdkUtil.getPaginatedResults;
 import static io.trino.plugin.hive.util.HiveUtil.isHiveSystemSchema;
+import static io.trino.plugin.hive.util.HiveUtil.isIcebergTable;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_CATALOG_ERROR;
 import static io.trino.plugin.iceberg.IcebergMaterializedViewDefinition.encodeMaterializedViewData;
@@ -102,8 +103,6 @@ import static io.trino.spi.connector.SchemaTableName.schemaTableName;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.apache.hadoop.hive.metastore.TableType.VIRTUAL_VIEW;
-import static org.apache.iceberg.BaseMetastoreTableOperations.ICEBERG_TABLE_TYPE_VALUE;
-import static org.apache.iceberg.BaseMetastoreTableOperations.TABLE_TYPE_PROP;
 import static org.apache.iceberg.CatalogUtil.dropTableData;
 
 public class TrinoGlueCatalog
@@ -794,15 +793,10 @@ public class TrinoGlueCatalog
         if (table.isEmpty() || VIRTUAL_VIEW.name().equals(table.get().getTableType())) {
             return Optional.empty();
         }
-        if (!isIcebergTable(table.get())) {
+        if (!isIcebergTable(table.get().getParameters())) {
             // After redirecting, use the original table name, with "$partitions" and similar suffixes
             return targetCatalogName.map(catalog -> new CatalogSchemaTableName(catalog, tableName));
         }
         return Optional.empty();
-    }
-
-    private static boolean isIcebergTable(com.amazonaws.services.glue.model.Table table)
-    {
-        return ICEBERG_TABLE_TYPE_VALUE.equalsIgnoreCase(table.getParameters().get(TABLE_TYPE_PROP));
     }
 }
