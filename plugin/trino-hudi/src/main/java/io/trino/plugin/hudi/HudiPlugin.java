@@ -15,15 +15,34 @@
 package io.trino.plugin.hudi;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.spi.Plugin;
 import io.trino.spi.connector.ConnectorFactory;
+
+import java.util.Optional;
+
+import static java.util.Objects.requireNonNull;
 
 public class HudiPlugin
         implements Plugin
 {
+    public static final String CONNECTOR_NAME = "hudi";
+
+    private final Optional<HiveMetastore> metastore;
+
+    public HudiPlugin()
+    {
+        this.metastore = Optional.empty();
+    }
+
+    public HudiPlugin(Optional<HiveMetastore> metastore)
+    {
+        this.metastore = requireNonNull(metastore, "metastore is null");
+    }
+
     @Override
     public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        return ImmutableList.of(new HudiConnectorFactory("hudi"));
+        return ImmutableList.of(new HudiConnectorFactory(CONNECTOR_NAME, metastore));
     }
 }

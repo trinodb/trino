@@ -62,6 +62,20 @@ public class HudiPartitionInfoLoader
         HoodieTimer timer = new HoodieTimer().startTimer();
         List<HudiPartitionInfo> hudiPartitionInfoList = hudiFileListing.getPartitionsToScan().stream()
                 .sorted(Comparator.comparing(HudiPartitionInfo::getComparingKey)).collect(Collectors.toList());
+
+        // empty partitioned table
+        if (hudiPartitionInfoList.isEmpty()) {
+            return;
+        }
+
+        // non-partitioned table
+        if (hudiPartitionInfoList.size() == 1 && hudiPartitionInfoList.get(0).getHivePartitionName().isEmpty()) {
+            synchronized (partitionQueue) {
+                partitionQueue.addAll(hudiPartitionInfoList);
+            }
+            return;
+        }
+
         boolean shouldUseHiveMetastore =
                 !hudiPartitionInfoList.isEmpty() && hudiPartitionInfoList.get(0) instanceof HudiPartitionHiveInfo;
         Iterator<HudiPartitionInfo> iterator = hudiPartitionInfoList.iterator();

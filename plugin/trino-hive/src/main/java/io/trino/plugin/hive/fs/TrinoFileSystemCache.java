@@ -130,6 +130,9 @@ public class TrinoFileSystemCache
         }
         FileSystem original = (FileSystem) ReflectionUtils.newInstance(clazz, conf);
         original.initialize(uri, conf);
+        if (original.getClass().getSimpleName().equals("HoodieWrapperFileSystem")) {
+            return original;
+        }
         FilterFileSystem wrapper = new FileSystemWrapper(original);
         FileSystemFinalizerService.getInstance().addFinalizer(wrapper, () -> {
             try {
@@ -298,6 +301,12 @@ public class TrinoFileSystemCache
         public FileSystemWrapper(FileSystem fs)
         {
             super(fs);
+        }
+
+        @Override
+        public String getScheme()
+        {
+            return getRawFileSystem().getScheme();
         }
 
         @Override

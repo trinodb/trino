@@ -118,7 +118,7 @@ public class HudiReadOptimizedFileListing
         }
 
         List<HudiPartitionInfo> filteredPartitionInfoList = allPartitionInfoList.stream()
-                .filter(HudiPartitionInfo::doesMatchPredicates)
+                .filter(partitionInfo -> partitionInfo.getHivePartitionKeys().isEmpty() || partitionInfo.doesMatchPredicates())
                 .collect(Collectors.toList());
 
         log.debug(format(
