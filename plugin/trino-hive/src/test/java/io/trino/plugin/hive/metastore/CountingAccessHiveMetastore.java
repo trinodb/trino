@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.iceberg;
+package io.trino.plugin.hive.metastore;
 
 import com.google.common.collect.ConcurrentHashMultiset;
 import com.google.common.collect.ImmutableMultiset;
@@ -19,15 +19,7 @@ import com.google.common.collect.Multiset;
 import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.PartitionStatistics;
 import io.trino.plugin.hive.acid.AcidTransaction;
-import io.trino.plugin.hive.metastore.Database;
-import io.trino.plugin.hive.metastore.HiveMetastore;
-import io.trino.plugin.hive.metastore.HivePrincipal;
-import io.trino.plugin.hive.metastore.HivePrivilegeInfo;
 import io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege;
-import io.trino.plugin.hive.metastore.Partition;
-import io.trino.plugin.hive.metastore.PartitionWithStatistics;
-import io.trino.plugin.hive.metastore.PrincipalPrivileges;
-import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.RoleGrant;
 import io.trino.spi.statistics.ColumnStatisticType;
@@ -42,7 +34,7 @@ import java.util.Set;
 import java.util.function.Function;
 
 @ThreadSafe
-public class CountingAccessFileHiveMetastore
+public class CountingAccessHiveMetastore
         implements HiveMetastore
 {
     public enum Methods
@@ -60,7 +52,7 @@ public class CountingAccessFileHiveMetastore
     private final HiveMetastore delegate;
     private final ConcurrentHashMultiset<Methods> methodInvocations = ConcurrentHashMultiset.create();
 
-    public CountingAccessFileHiveMetastore(HiveMetastore delegate)
+    public CountingAccessHiveMetastore(HiveMetastore delegate)
     {
         this.delegate = delegate;
     }
