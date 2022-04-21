@@ -1662,11 +1662,11 @@
                 </exclusions>
             </dependency>
 
-            <!-- Transitive dependency. Avoid different versions being used -->
+            <!-- Transitive dependency from jackson-dataformat-yaml. Avoid different versions being used -->
             <dependency>
                 <groupId>org.yaml</groupId>
                 <artifactId>snakeyaml</artifactId>
-                <version>1.26</version>
+                <version>1.28</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
