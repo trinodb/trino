@@ -403,8 +403,8 @@ public class TestPostgreSqlClient
         assertThat(JDBC_CLIENT.convertPredicate(SESSION,
                 translateToConnectorExpression(
                         new NotExpression(
-                            new IsNotNullPredicate(
-                                    new SymbolReference("c_varchar_symbol"))),
+                                new IsNotNullPredicate(
+                                        new SymbolReference("c_varchar_symbol"))),
                         Map.of("c_varchar_symbol", VARCHAR_COLUMN.getColumnType())),
                 Map.of("c_varchar_symbol", VARCHAR_COLUMN)))
                 .hasValue("NOT ((\"c_varchar\") IS NOT NULL)");
