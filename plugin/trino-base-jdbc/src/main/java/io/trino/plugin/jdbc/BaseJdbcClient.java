@@ -793,7 +793,7 @@ public abstract class BaseJdbcClient
     public ResultSet getTables(Connection connection, Optional<String> remoteSchemaName, Optional<String> remoteTableName)
             throws SQLException
     {
-        // this method is called by IdentifierMapping, so cannot use IdentifierMapping here as this woudl cause an endless loop
+        // this method is called by IdentifierMapping, so cannot use IdentifierMapping here as this would cause an endless loop
         DatabaseMetaData metadata = connection.getMetaData();
         return metadata.getTables(
                 connection.getCatalog(),
