@@ -412,9 +412,10 @@ public abstract class BaseJdbcClient
         if (constraintExpressions.isEmpty() && splitPredicate.isEmpty()) {
             return Optional.empty();
         }
+
         return Optional.of(
                 Stream.concat(constraintExpressions.stream(), splitPredicate.stream())
-                        .collect(joining(" AND ")));
+                        .collect(joining(") AND (", "(", ")")));
     }
 
     @Override
