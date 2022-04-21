@@ -17,17 +17,6 @@
         <main-class>io.trino.tests.product.launcher.cli.Launcher</main-class>
     </properties>
 
-    <dependencyManagement>
-        <dependencies>
-            <!-- Trino -->
-            <dependency>
-                <groupId>org.yaml</groupId>
-                <artifactId>snakeyaml</artifactId>
-                <version>1.28</version>
-            </dependency>
-        </dependencies>
-    </dependencyManagement>
-
     <dependencies>
         <dependency>
             <groupId>io.trino</groupId>
