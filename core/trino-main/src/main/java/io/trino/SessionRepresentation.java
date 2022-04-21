@@ -32,7 +32,6 @@ import io.trino.transaction.TransactionId;
 import java.time.Instant;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 
@@ -93,7 +92,7 @@ public final class SessionRepresentation
             @JsonProperty("resourceEstimates") ResourceEstimates resourceEstimates,
             @JsonProperty("start") Instant start,
             @JsonProperty("systemProperties") Map<String, String> systemProperties,
-            @JsonProperty("catalogProperties") Table<String, String, String> catalogProperties,
+            @JsonProperty("catalogProperties") Map<String, Map<String, String>> catalogProperties,
             @JsonProperty("catalogRoles") Map<String, SelectedRole> catalogRoles,
             @JsonProperty("preparedStatements") Map<String, String> preparedStatements,
             @JsonProperty("protocolName") String protocolName)
@@ -124,7 +123,13 @@ public final class SessionRepresentation
         this.preparedStatements = ImmutableMap.copyOf(preparedStatements);
         this.protocolName = requireNonNull(protocolName, "protocolName is null");
 
-        this.catalogProperties = ImmutableTable.copyOf(catalogProperties);
+        ImmutableTable.Builder<String, String, String> builder = ImmutableTable.builder();
+        catalogProperties.forEach((k, v) -> {
+            v.forEach((k1, v1) -> {
+                builder.put(k, k1, v1);
+            });
+        });
+        this.catalogProperties = builder.buildOrThrow();
     }
 
     @JsonProperty

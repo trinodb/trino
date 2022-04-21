@@ -442,7 +442,7 @@ public final class Session
                 resourceEstimates,
                 start,
                 systemProperties,
-                catalogProperties,
+                catalogProperties.rowMap(),
                 identity.getCatalogRoles(),
                 preparedStatements,
                 protocolHeaders.getProtocolName());
