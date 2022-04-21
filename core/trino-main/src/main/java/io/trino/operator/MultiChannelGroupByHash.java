@@ -232,7 +232,7 @@ public class MultiChannelGroupByHash
             return new AddLowCardinalityDictionaryPageWork(page);
         }
 
-        return new AddNonDictionaryPageWork(page);
+        return new AddPageWork(page);
     }
 
     @Override
@@ -249,7 +249,7 @@ public class MultiChannelGroupByHash
             return new GetLowCardinalityDictionaryGroupIdsWork(page);
         }
 
-        return new GetNonDictionaryGroupIdsWork(page);
+        return new GetGroupIdsWork(page);
     }
 
     @Override
@@ -593,14 +593,14 @@ public class MultiChannelGroupByHash
     }
 
     @VisibleForTesting
-    class AddNonDictionaryPageWork
+    class AddPageWork
             implements Work<Void>
     {
         private final Page page;
 
         private int lastPosition;
 
-        public AddNonDictionaryPageWork(Page page)
+        public AddPageWork(Page page)
         {
             this.page = requireNonNull(page, "page is null");
         }
@@ -773,7 +773,7 @@ public class MultiChannelGroupByHash
     }
 
     @VisibleForTesting
-    class GetNonDictionaryGroupIdsWork
+    class GetGroupIdsWork
             implements Work<GroupByIdBlock>
     {
         private final long[] groupIds;
@@ -782,7 +782,7 @@ public class MultiChannelGroupByHash
         private boolean finished;
         private int lastPosition;
 
-        public GetNonDictionaryGroupIdsWork(Page page)
+        public GetGroupIdsWork(Page page)
         {
             this.page = requireNonNull(page, "page is null");
             // we know the exact size required for the block
