@@ -13,13 +13,13 @@
  */
 package io.trino.plugin.jdbc.expression;
 
-import static io.trino.spi.expression.StandardFunctions.OR_FUNCTION_NAME;
+import static io.trino.spi.expression.StandardFunctions.AND_FUNCTION_NAME;
 
-public class RewriteOr
+public class RewriteAnd
         extends RewriteLogicalExpression
 {
-    public RewriteOr()
+    public RewriteAnd()
     {
-        super(OR_FUNCTION_NAME, "OR");
+        super(AND_FUNCTION_NAME, "AND");
     }
 }
