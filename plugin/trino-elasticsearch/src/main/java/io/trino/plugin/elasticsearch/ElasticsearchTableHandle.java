@@ -16,6 +16,7 @@ package io.trino.plugin.elasticsearch;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableMap;
+import io.trino.plugin.elasticsearch.expression.TopN;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.predicate.TupleDomain;
@@ -23,7 +24,6 @@ import io.trino.spi.predicate.TupleDomain;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.OptionalLong;
 import java.util.stream.Collectors;
 
 import static java.util.Objects.requireNonNull;
@@ -42,7 +42,7 @@ public final class ElasticsearchTableHandle
     private final TupleDomain<ColumnHandle> constraint;
     private final Map<String, String> regexes;
     private final Optional<String> query;
-    private final OptionalLong limit;
+    private final Optional<TopN> topN;
 
     public ElasticsearchTableHandle(Type type, String schema, String index, Optional<String> query)
     {
@@ -53,7 +53,7 @@ public final class ElasticsearchTableHandle
 
         constraint = TupleDomain.all();
         regexes = ImmutableMap.of();
-        limit = OptionalLong.empty();
+        topN = Optional.empty();
     }
 
     @JsonCreator
@@ -64,7 +64,7 @@ public final class ElasticsearchTableHandle
             @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint,
             @JsonProperty("regexes") Map<String, String> regexes,
             @JsonProperty("query") Optional<String> query,
-            @JsonProperty("limit") OptionalLong limit)
+            @JsonProperty("topN") Optional<TopN> topN)
     {
         this.type = requireNonNull(type, "type is null");
         this.schema = requireNonNull(schema, "schema is null");
@@ -72,7 +72,7 @@ public final class ElasticsearchTableHandle
         this.constraint = requireNonNull(constraint, "constraint is null");
         this.regexes = ImmutableMap.copyOf(requireNonNull(regexes, "regexes is null"));
         this.query = requireNonNull(query, "query is null");
-        this.limit = requireNonNull(limit, "limit is null");
+        this.topN = requireNonNull(topN, "topN is null");
     }
 
     @JsonProperty
@@ -106,15 +106,15 @@ public final class ElasticsearchTableHandle
     }
 
     @JsonProperty
-    public OptionalLong getLimit()
-    {
-        return limit;
-    }
-
-    @JsonProperty
     public Optional<String> getQuery()
     {
         return query;
+    }
+
+    @JsonProperty
+    public Optional<TopN> getTopN()
+    {
+        return topN;
     }
 
     @Override
@@ -133,13 +133,13 @@ public final class ElasticsearchTableHandle
                 constraint.equals(that.constraint) &&
                 regexes.equals(that.regexes) &&
                 query.equals(that.query) &&
-                limit.equals(that.limit);
+                topN.equals(that.topN);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(type, schema, index, constraint, regexes, query, limit);
+        return Objects.hash(type, schema, index, constraint, regexes, query, topN);
     }
 
     @Override
@@ -156,8 +156,8 @@ public final class ElasticsearchTableHandle
                     .collect(Collectors.joining(", ")));
             attributes.append("]");
         }
-        limit.ifPresent(value -> attributes.append("limit=" + value));
-        query.ifPresent(value -> attributes.append("query" + value));
+        query.ifPresent(value -> attributes.append("query=" + value));
+        topN.ifPresent(value -> attributes.append("topN=" + value));
 
         if (attributes.length() > 0) {
             builder.append("(");

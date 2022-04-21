@@ -45,8 +45,8 @@ class CountQueryPageSource
                 buildSearchQuery(table.getConstraint().transformKeys(ElasticsearchColumnHandle.class::cast), table.getQuery(), table.getRegexes()));
         readTimeNanos = System.nanoTime() - start;
 
-        if (table.getLimit().isPresent()) {
-            count = Math.min(table.getLimit().getAsLong(), count);
+        if (table.getTopN().isPresent()) {
+            count = Math.min(table.getTopN().get().getLimit(), count);
         }
 
         remaining = count;

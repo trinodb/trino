@@ -20,6 +20,7 @@ import com.google.common.io.BaseEncoding;
 import com.google.common.net.HostAndPort;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.planner.plan.LimitNode;
+import io.trino.sql.planner.plan.TopNNode;
 import io.trino.testing.AbstractTestQueries;
 import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
@@ -39,6 +40,7 @@ import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 
 import static io.trino.plugin.elasticsearch.ElasticsearchQueryRunner.createElasticsearchQueryRunner;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -57,6 +59,8 @@ import static org.testng.Assert.assertTrue;
 public abstract class BaseElasticsearchConnectorTest
         extends BaseConnectorTest
 {
+    private static final String CONSTANT_CHARS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+
     private final String image;
     private ElasticsearchServer elasticsearch;
     protected RestHighLevelClient client;
@@ -1508,6 +1512,66 @@ public abstract class BaseElasticsearchConnectorTest
     }
 
     @Test
+    public void testTopNPushdown()
+            throws IOException
+    {
+        assertThat(query("SELECT name FROM nation ORDER BY name LIMIT 20")).isNotFullyPushedDown(TopNNode.class);
+        assertThat(query("SELECT custkey FROM orders ORDER BY custkey LIMIT 10")).isNotFullyPushedDown(TopNNode.class);
+        assertThat(query("SELECT * FROM orders ORDER BY orderkey LIMIT 10")).isNotFullyPushedDown(TopNNode.class);
+        assertThat(query("SELECT * FROM orders ORDER BY orderkey desc LIMIT 10")).isNotFullyPushedDown(TopNNode.class);
+
+        String indexName = "test_topn_pushdown";
+        @Language("JSON")
+        String properties = "" +
+                "{" +
+                "  \"properties\":{" +
+                "    \"timestamp_column\":   { \"type\": \"date\" }," +
+                "    \"keyword_column\": { \"type\": \"keyword\"}," +
+                "    \"long_column\": { \"type\": \"long\"}," +
+                "    \"double_column\": { \"type\": \"double\"}," +
+                "    \"scaled_float_column\": { \"type\": \"scaled_float\", \"scaling_factor\": 100 }" +
+                "  }" +
+                "}";
+        createIndex(indexName, properties);
+
+        Random random = new Random();
+        for (int i = 0; i < 100; i++) {
+            index(indexName, ImmutableMap.<String, Object>builder()
+                    .put("timestamp_column", 1420070400001L + i)
+                    .put("keyword_column", createRandomString(32))
+                    .put("long_column", random.nextLong())
+                    .put("double_column", random.nextDouble())
+                    .put("scaled_float_column", random.nextDouble())
+                    .buildOrThrow());
+        }
+        // add a null document for nulls first or last testing
+        index(indexName, ImmutableMap.<String, Object>builder().buildOrThrow());
+
+        assertThat(query(format("SELECT * FROM %s ORDER BY timestamp_column LIMIT 10", indexName))).isNotFullyPushedDown(TopNNode.class);
+        assertThat(query(format("SELECT * FROM %s ORDER BY timestamp_column DESC LIMIT 10", indexName))).isNotFullyPushedDown(TopNNode.class);
+        assertThat(query(format("SELECT * FROM %s ORDER BY keyword_column LIMIT 10", indexName))).isNotFullyPushedDown(TopNNode.class);
+        assertThat(query(format("SELECT * FROM %s ORDER BY keyword_column DESC LIMIT 10", indexName))).isNotFullyPushedDown(TopNNode.class);
+        assertThat(query(format("SELECT * FROM %s ORDER BY long_column LIMIT 10", indexName))).isNotFullyPushedDown(TopNNode.class);
+        assertThat(query(format("SELECT * FROM %s ORDER BY long_column DESC LIMIT 10", indexName))).isNotFullyPushedDown(TopNNode.class);
+        assertThat(query(format("SELECT * FROM %s ORDER BY double_column LIMIT 10", indexName))).isNotFullyPushedDown(TopNNode.class);
+        assertThat(query(format("SELECT * FROM %s ORDER BY double_column DESC LIMIT 10", indexName))).isNotFullyPushedDown(TopNNode.class);
+        assertThat(query(format("SELECT * FROM %s ORDER BY scaled_float_column LIMIT 10", indexName))).isNotFullyPushedDown(TopNNode.class);
+        assertThat(query(format("SELECT * FROM %s ORDER BY scaled_float_column DESC LIMIT 10", indexName))).isNotFullyPushedDown(TopNNode.class);
+
+        // test nulls. Default is nulls last, so test nulls first only
+        assertThat(query(format("SELECT * FROM %s ORDER BY timestamp_column NULLS FIRST LIMIT 10", indexName))).isNotFullyPushedDown(TopNNode.class);
+        assertThat(query(format("SELECT * FROM %s ORDER BY timestamp_column DESC NULLS FIRST LIMIT 10", indexName))).isNotFullyPushedDown(TopNNode.class);
+        assertThat(query(format("SELECT * FROM %s ORDER BY keyword_column NULLS FIRST LIMIT 10", indexName))).isNotFullyPushedDown(TopNNode.class);
+        assertThat(query(format("SELECT * FROM %s ORDER BY keyword_column DESC NULLS FIRST LIMIT 10", indexName))).isNotFullyPushedDown(TopNNode.class);
+        assertThat(query(format("SELECT * FROM %s ORDER BY long_column NULLS FIRST LIMIT 10", indexName))).isNotFullyPushedDown(TopNNode.class);
+        assertThat(query(format("SELECT * FROM %s ORDER BY long_column DESC NULLS FIRST LIMIT 10", indexName))).isNotFullyPushedDown(TopNNode.class);
+        assertThat(query(format("SELECT * FROM %s ORDER BY double_column NULLS FIRST LIMIT 10", indexName))).isNotFullyPushedDown(TopNNode.class);
+        assertThat(query(format("SELECT * FROM %s ORDER BY double_column DESC NULLS FIRST LIMIT 10", indexName))).isNotFullyPushedDown(TopNNode.class);
+        assertThat(query(format("SELECT * FROM %s ORDER BY scaled_float_column NULLS FIRST LIMIT 10", indexName))).isNotFullyPushedDown(TopNNode.class);
+        assertThat(query(format("SELECT * FROM %s ORDER BY scaled_float_column DESC NULLS FIRST LIMIT 10", indexName))).isNotFullyPushedDown(TopNNode.class);
+    }
+
+    @Test
     public void testLimitPushdown()
             throws IOException
     {
@@ -1884,5 +1948,16 @@ public abstract class BaseElasticsearchConnectorTest
     {
         client.getLowLevelClient()
                 .performRequest("DELETE", "/" + indexName);
+    }
+
+    public static String createRandomString(int length)
+    {
+        Random random = new Random();
+        StringBuilder builder = new StringBuilder();
+        for (int i = 0; i < length; i++) {
+            int number = random.nextInt(CONSTANT_CHARS.length());
+            builder.append(CONSTANT_CHARS.charAt(number));
+        }
+        return builder.toString();
     }
 }

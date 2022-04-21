@@ -42,6 +42,7 @@ import io.trino.plugin.elasticsearch.decoders.TimestampDecoder;
 import io.trino.plugin.elasticsearch.decoders.TinyintDecoder;
 import io.trino.plugin.elasticsearch.decoders.VarbinaryDecoder;
 import io.trino.plugin.elasticsearch.decoders.VarcharDecoder;
+import io.trino.plugin.elasticsearch.expression.TopN;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
@@ -55,6 +56,8 @@ import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
+import io.trino.spi.connector.SortItem;
+import io.trino.spi.connector.TopNApplicationResult;
 import io.trino.spi.expression.Call;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Constant;
@@ -75,7 +78,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.OptionalLong;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -488,6 +490,45 @@ public class ElasticsearchMetadata
     }
 
     @Override
+    public Optional<TopNApplicationResult<ConnectorTableHandle>> applyTopN(
+            ConnectorSession session,
+            ConnectorTableHandle table,
+            long topNCount,
+            List<SortItem> sortItems,
+            Map<String, ColumnHandle> assignments)
+    {
+        ElasticsearchTableHandle handle = (ElasticsearchTableHandle) table;
+
+        if (isPassthroughQuery(handle)) {
+            // topN pushdown currently not supported passthrough query
+            return Optional.empty();
+        }
+        if (handle.getTopN().isPresent()) {
+            return Optional.empty();
+        }
+
+        TopN topN = TopN.fromLimit(topNCount);
+        for (SortItem sortItem : sortItems) {
+            ElasticsearchColumnHandle ch = (ElasticsearchColumnHandle) assignments.get(sortItem.getName());
+            if (!ch.isSupportsPredicates()) {
+                return Optional.empty();
+            }
+            topN.addSortItem(TopN.TopNSortItem.sortBy(ch.getName(), sortItem.getSortOrder()));
+        }
+
+        ElasticsearchTableHandle newHandle = new ElasticsearchTableHandle(
+                handle.getType(),
+                handle.getSchema(),
+                handle.getIndex(),
+                handle.getConstraint(),
+                handle.getRegexes(),
+                handle.getQuery(),
+                Optional.of(topN));
+
+        return Optional.of(new TopNApplicationResult<>(newHandle, false, false));
+    }
+
+    @Override
     public Optional<LimitApplicationResult<ConnectorTableHandle>> applyLimit(ConnectorSession session, ConnectorTableHandle table, long limit)
     {
         ElasticsearchTableHandle handle = (ElasticsearchTableHandle) table;
@@ -497,9 +538,11 @@ public class ElasticsearchMetadata
             return Optional.empty();
         }
 
-        if (handle.getLimit().isPresent() && handle.getLimit().getAsLong() <= limit) {
+        if (handle.getTopN().isPresent() && handle.getTopN().get().getLimit() <= limit) {
             return Optional.empty();
         }
+
+        TopN topN = TopN.fromLimit(limit);
 
         handle = new ElasticsearchTableHandle(
                 handle.getType(),
@@ -508,7 +551,7 @@ public class ElasticsearchMetadata
                 handle.getConstraint(),
                 handle.getRegexes(),
                 handle.getQuery(),
-                OptionalLong.of(limit));
+                Optional.of(topN));
 
         return Optional.of(new LimitApplicationResult<>(handle, false, false));
     }
@@ -586,7 +629,7 @@ public class ElasticsearchMetadata
                 newDomain,
                 newRegexes,
                 handle.getQuery(),
-                handle.getLimit());
+                handle.getTopN());
 
         return Optional.of(new ConstraintApplicationResult<>(handle, TupleDomain.withColumnDomains(unsupported), newExpression, false));
     }
