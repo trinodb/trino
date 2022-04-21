@@ -158,14 +158,14 @@ public class DruidJdbcClient
         }
     }
 
-    /*
+    /**
      * Overridden since the {@link BaseJdbcClient#getTables(Connection, Optional, Optional)}
      * method uses character escaping that doesn't work well with Druid's Avatica handler.
      * Unfortunately, because we can't escape search characters like '_' and '%", this call
      * ends up retrieving metadata for all tables that match the search
      * pattern. For ex - LIKE some_table matches somertable, somextable and some_table.
      *
-     * See getTableHandle(JdbcIdentity, SchemaTableName)} to look at
+     * See {@link DruidJdbcClient#getTableHandle(ConnectorSession, SchemaTableName)} to look at
      * how tables are filtered.
      */
     @Override
@@ -306,14 +306,15 @@ public class DruidJdbcClient
         return table;
     }
 
-    /*
+    /**
      * Overridden since the {@link BaseJdbcClient#getColumns(JdbcTableHandle, DatabaseMetaData)}
      * method uses character escaping that doesn't work well with Druid's Avatica handler.
      * Unfortunately, because we can't escape search characters like '_' and '%",
      * this call ends up retrieving columns for all tables that match the search
      * pattern. For ex - LIKE some_table matches somertable, somextable and some_table.
      *
-     * See getColumns(ConnectorSession, JdbcTableHandle)} to look at tables are filtered.
+     * See {@link BaseJdbcClient#getColumns(ConnectorSession, JdbcTableHandle)} to look at
+     * how columns are filtered.
      */
     @Override
     protected ResultSet getColumns(JdbcTableHandle tableHandle, DatabaseMetaData metadata)
