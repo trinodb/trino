@@ -46,6 +46,7 @@ import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.SymbolReference;
 import io.trino.testing.TestingSession;
 import io.trino.transaction.TestingTransactionManager;
+import io.trino.type.JoniRegexpType;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -56,6 +57,7 @@ import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.operator.scalar.JoniRegexpCasts.joniRegexp;
 import static io.trino.spi.expression.StandardFunctions.AND_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.CAST_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.GREATER_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME;
@@ -380,6 +382,31 @@ public class TestConnectorExpressionTranslator
                             new Call(VARCHAR_TYPE,
                                     new FunctionName("lower"),
                                     List.of(new Variable("varchar_symbol_1", VARCHAR_TYPE))));
+                });
+    }
+
+    @Test
+    public void testTranslateRegularExpression()
+    {
+        // Regular expression types (JoniRegexpType, Re2JRegexpType) are considered implementation detail of the engine
+        // and are not exposed to connectors within ConnectorExpression. Instead, they are replaced with a varchar pattern.
+
+        transaction(new TestingTransactionManager(), new AllowAllAccessControl())
+                .readOnly()
+                .execute(TEST_SESSION, transactionSession -> {
+                    assertTranslationToConnectorExpression(
+                            transactionSession,
+                            FunctionCallBuilder.resolve(TEST_SESSION, PLANNER_CONTEXT.getMetadata())
+                                    .setName(QualifiedName.of(("regexp_like")))
+                                    .addArgument(VARCHAR_TYPE, new SymbolReference("varchar_symbol_1"))
+                                    .addArgument(JoniRegexpType.JONI_REGEXP, LITERAL_ENCODER.toExpression(TEST_SESSION, joniRegexp(utf8Slice("a+")), JoniRegexpType.JONI_REGEXP))
+                                    .build(),
+                            new Call(
+                                    BOOLEAN,
+                                    new FunctionName("regexp_like"),
+                                    List.of(
+                                            new Variable("varchar_symbol_1", VARCHAR_TYPE),
+                                            new Constant(utf8Slice("a+"), createVarcharType(2)))));
                 });
     }
 
