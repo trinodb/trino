@@ -123,7 +123,7 @@ public class TestIcebergMetastoreAccessOperations
 
         assertMetastoreInvocations("SELECT * FROM test_select_from",
                 ImmutableMultiset.builder()
-                        .add(GET_TABLE)
+                        .addCopies(GET_TABLE, 2)
                         .build());
     }
 
@@ -134,7 +134,7 @@ public class TestIcebergMetastoreAccessOperations
 
         assertMetastoreInvocations("SELECT * FROM test_select_from_where WHERE age = 2",
                 ImmutableMultiset.builder()
-                        .add(GET_TABLE)
+                        .addCopies(GET_TABLE, 2)
                         .build());
     }
 
@@ -146,7 +146,7 @@ public class TestIcebergMetastoreAccessOperations
 
         assertMetastoreInvocations("SELECT * FROM test_select_view_view",
                 ImmutableMultiset.builder()
-                        .addCopies(GET_TABLE, 2)
+                        .addCopies(GET_TABLE, 3)
                         .build());
     }
 
@@ -158,7 +158,7 @@ public class TestIcebergMetastoreAccessOperations
 
         assertMetastoreInvocations("SELECT * FROM test_select_view_where_view WHERE age = 2",
                 ImmutableMultiset.builder()
-                        .addCopies(GET_TABLE, 2)
+                        .addCopies(GET_TABLE, 3)
                         .build());
     }
 
@@ -170,7 +170,7 @@ public class TestIcebergMetastoreAccessOperations
 
         assertMetastoreInvocations("SELECT * FROM test_select_mview_view",
                 ImmutableMultiset.builder()
-                        .addCopies(GET_TABLE, 3)
+                        .addCopies(GET_TABLE, 4)
                         .build());
     }
 
@@ -182,7 +182,7 @@ public class TestIcebergMetastoreAccessOperations
 
         assertMetastoreInvocations("SELECT * FROM test_select_mview_where_view WHERE age = 2",
                 ImmutableMultiset.builder()
-                        .addCopies(GET_TABLE, 3)
+                        .addCopies(GET_TABLE, 4)
                         .build());
     }
 
@@ -194,7 +194,7 @@ public class TestIcebergMetastoreAccessOperations
 
         assertMetastoreInvocations("REFRESH MATERIALIZED VIEW test_refresh_mview_view",
                 ImmutableMultiset.builder()
-                        .addCopies(GET_TABLE, 5)
+                        .addCopies(GET_TABLE, 12)
                         .addCopies(REPLACE_TABLE, 2)
                         .build());
     }
@@ -207,7 +207,7 @@ public class TestIcebergMetastoreAccessOperations
 
         assertMetastoreInvocations("SELECT name, age FROM test_join_t1 JOIN test_join_t2 ON test_join_t2.id = test_join_t1.id",
                 ImmutableMultiset.builder()
-                        .addCopies(GET_TABLE, 2)
+                        .addCopies(GET_TABLE, 4)
                         .build());
     }
 
@@ -218,7 +218,7 @@ public class TestIcebergMetastoreAccessOperations
 
         assertMetastoreInvocations("SELECT child.age, parent.age FROM test_self_join_table child JOIN test_self_join_table parent ON child.parent = parent.id",
                 ImmutableMultiset.builder()
-                        .add(GET_TABLE)
+                        .addCopies(GET_TABLE, 2)
                         .build());
     }
 
@@ -229,7 +229,7 @@ public class TestIcebergMetastoreAccessOperations
 
         assertMetastoreInvocations("EXPLAIN SELECT * FROM test_explain",
                 ImmutableMultiset.builder()
-                        .add(GET_TABLE)
+                        .addCopies(GET_TABLE, 2)
                         .build());
     }
 
@@ -240,7 +240,7 @@ public class TestIcebergMetastoreAccessOperations
 
         assertMetastoreInvocations("SHOW STATS FOR test_show_stats",
                 ImmutableMultiset.builder()
-                        .add(GET_TABLE)
+                        .addCopies(GET_TABLE, 2)
                         .build());
     }
 
@@ -251,7 +251,7 @@ public class TestIcebergMetastoreAccessOperations
 
         assertMetastoreInvocations("SHOW STATS FOR (SELECT * FROM test_show_stats_with_filter where age >= 2)",
                 ImmutableMultiset.builder()
-                        .add(GET_TABLE)
+                        .addCopies(GET_TABLE, 2)
                         .build());
     }
 
