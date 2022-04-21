@@ -176,52 +176,52 @@ public class TestListagg
     {
         // missing WITHIN GROUP (ORDER BY ...)
         assertThatThrownBy(() -> assertions.query(
-                "SELECT listagg(value, ',') " +
-                        "FROM (VALUES 'a') t(value)"))
+                "SELECT listagg(v, ',') " +
+                        "FROM (VALUES 'a') t(v)"))
                 .isInstanceOf(ParsingException.class)
-                .hasMessage("line 1:28: mismatched input 'FROM'. Expecting: 'WITHIN'");
+                .hasMessage("line 1:24: mismatched input 'FROM'. Expecting: 'WITHIN'");
 
         // missing WITHIN GROUP (ORDER BY ...)
         assertThatThrownBy(() -> assertions.query(
-                "SELECT listagg(value) " +
-                        "FROM (VALUES 'a') t(value)"))
+                "SELECT listagg(v) " +
+                        "FROM (VALUES 'a') t(v)"))
                 .isInstanceOf(ParsingException.class)
-                .hasMessage("line 1:23: mismatched input 'FROM'. Expecting: 'WITHIN'");
+                .hasMessage("line 1:19: mismatched input 'FROM'. Expecting: 'WITHIN'");
 
         // too many arguments
         assertThatThrownBy(() -> assertions.query(
-                "SELECT listagg(value, ',', '...') WITHIN GROUP (ORDER BY value)" +
-                        "FROM (VALUES 'a') t(value)"))
+                "SELECT listagg(v, ',', '...') WITHIN GROUP (ORDER BY v)" +
+                        "FROM (VALUES 'a') t(v)"))
                 .isInstanceOf(ParsingException.class)
-                .hasMessage("line 1:26: mismatched input ','. Expecting: ')', 'ON'");
+                .hasMessage("line 1:22: mismatched input ','. Expecting: ')', 'ON'");
 
         // window frames are not supported
         assertThatThrownBy(() -> assertions.query(
-                "SELECT listagg(value, ',') WITHIN GROUP (ORDER BY value) OVER (PARTITION BY id)" +
-                        "FROM (VALUES (1, 'a')) t(id, value)"))
+                "SELECT listagg(v, ',') WITHIN GROUP (ORDER BY v) OVER (PARTITION BY id)" +
+                        "FROM (VALUES (1, 'a')) t(id, v)"))
                 .isInstanceOf(ParsingException.class)
-                .hasMessage("line 1:63: mismatched input '('. Expecting: ',', 'EXCEPT', 'FETCH', 'FROM', 'GROUP', 'HAVING', 'INTERSECT', 'LIMIT', 'OFFSET', 'ORDER', 'UNION', 'WHERE', 'WINDOW', <EOF>");
+                .hasMessage("line 1:55: mismatched input '('. Expecting: ',', 'EXCEPT', 'FETCH', 'FROM', 'GROUP', 'HAVING', 'INTERSECT', 'LIMIT', 'OFFSET', 'ORDER', 'UNION', 'WHERE', 'WINDOW', <EOF>");
 
         // invalid argument for ON OVERFLOW clause
         assertThatThrownBy(() -> assertions.query(
-                "SELECT listagg(value, ',' ON OVERFLOW COLLAPSE) WITHIN GROUP (ORDER BY value)" +
-                        "FROM (VALUES 'a') t(value)"))
+                "SELECT listagg(v, ',' ON OVERFLOW COLLAPSE) WITHIN GROUP (ORDER BY v)" +
+                        "FROM (VALUES 'a') t(v)"))
                 .isInstanceOf(ParsingException.class)
-                .hasMessage("line 1:39: mismatched input 'COLLAPSE'. Expecting: 'ERROR', 'TRUNCATE'");
+                .hasMessage("line 1:35: mismatched input 'COLLAPSE'. Expecting: 'ERROR', 'TRUNCATE'");
 
         // invalid separator type (integer instead of varchar)
         assertThatThrownBy(() -> assertions.query(
-                "SELECT LISTAGG(value, 123) WITHIN GROUP (ORDER BY value) " +
-                        "FROM (VALUES 'Trino', 'SQL', 'everything') t(value) "))
+                "SELECT LISTAGG(v, 123) WITHIN GROUP (ORDER BY v) " +
+                        "FROM (VALUES 'Trino', 'SQL', 'everything') t(v) "))
                 .isInstanceOf(ParsingException.class)
-                .hasMessage("line 1:23: mismatched input '123'. Expecting: <string>");
+                .hasMessage("line 1:19: mismatched input '123'. Expecting: <string>");
 
         // invalid truncation filler type (integer instead of varchar)
         assertThatThrownBy(() -> assertions.query(
-                "SELECT LISTAGG(value, ',' ON OVERFLOW TRUNCATE 1234567890 WITHOUT COUNT) WITHIN GROUP (ORDER BY value) " +
-                        "FROM (VALUES 'Trino', 'SQL', 'everything') t(value) "))
+                "SELECT LISTAGG(v, ',' ON OVERFLOW TRUNCATE 1234567890 WITHOUT COUNT) WITHIN GROUP (ORDER BY v) " +
+                        "FROM (VALUES 'Trino', 'SQL', 'everything') t(v) "))
                 .isInstanceOf(ParsingException.class)
-                .hasMessage("line 1:48: mismatched input '1234567890'. Expecting: 'WITH', 'WITHOUT', <string>");
+                .hasMessage("line 1:44: mismatched input '1234567890'. Expecting: 'WITH', 'WITHOUT', <string>");
     }
 
     @Test
