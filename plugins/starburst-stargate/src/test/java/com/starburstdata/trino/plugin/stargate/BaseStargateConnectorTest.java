@@ -74,9 +74,7 @@ public abstract class BaseStargateConnectorTest
     {
         assertThat(query("SELECT approx_distinct(regionkey) FROM nation")).isFullyPushedDown();
         assertThat(query("SELECT approx_distinct(name) FROM nation GROUP BY regionkey")).isFullyPushedDown();
-
-        // TODO fix https://github.com/trinodb/trino/issues/9592
-        //  assertThat(query("SELECT max_by(name, nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
+        assertThat(query("SELECT max_by(name, nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
 
         // checksum returns varbinary
         assertThat(query("SELECT checksum(nationkey) FROM nation")).isFullyPushedDown();
