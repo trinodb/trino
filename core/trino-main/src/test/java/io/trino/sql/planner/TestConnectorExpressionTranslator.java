@@ -260,34 +260,6 @@ public class TestConnectorExpressionTranslator
     }
 
     @Test
-    public void testTranslateLike()
-    {
-        String pattern = "%pattern%";
-        assertTranslationRoundTrips(
-                new LikePredicate(
-                        new SymbolReference("varchar_symbol_1"),
-                        new StringLiteral(pattern),
-                        Optional.empty()),
-                new Call(BOOLEAN,
-                        LIKE_PATTERN_FUNCTION_NAME,
-                        List.of(new Variable("varchar_symbol_1", VARCHAR_TYPE),
-                                new Constant(Slices.wrappedBuffer(pattern.getBytes(UTF_8)), createVarcharType(pattern.length())))));
-
-        String escape = "\\";
-        assertTranslationRoundTrips(
-                new LikePredicate(
-                        new SymbolReference("varchar_symbol_1"),
-                        new StringLiteral(pattern),
-                        Optional.of(new StringLiteral(escape))),
-                new Call(BOOLEAN,
-                        LIKE_PATTERN_FUNCTION_NAME,
-                        List.of(
-                                new Variable("varchar_symbol_1", VARCHAR_TYPE),
-                                new Constant(Slices.wrappedBuffer(pattern.getBytes(UTF_8)), createVarcharType(pattern.length())),
-                                new Constant(Slices.wrappedBuffer(escape.getBytes(UTF_8)), createVarcharType(escape.length())))));
-    }
-
-    @Test
     public void testTranslateIsNull()
     {
         assertTranslationRoundTrips(
@@ -321,20 +293,6 @@ public class TestConnectorExpressionTranslator
     }
 
     @Test
-    public void testTranslateNullIf()
-    {
-        assertTranslationRoundTrips(
-                new NullIfExpression(
-                        new SymbolReference("varchar_symbol_1"),
-                        new SymbolReference("varchar_symbol_1")),
-                new Call(
-                        VARCHAR_TYPE,
-                        NULLIF_FUNCTION_NAME,
-                        List.of(new Variable("varchar_symbol_1", VARCHAR_TYPE),
-                                new Variable("varchar_symbol_1", VARCHAR_TYPE))));
-    }
-
-    @Test
     public void testTranslateCast()
     {
         assertTranslationRoundTrips(
@@ -363,6 +321,48 @@ public class TestConnectorExpressionTranslator
                         true,
                         true),
                 Optional.empty());
+    }
+
+    @Test
+    public void testTranslateLike()
+    {
+        String pattern = "%pattern%";
+        assertTranslationRoundTrips(
+                new LikePredicate(
+                        new SymbolReference("varchar_symbol_1"),
+                        new StringLiteral(pattern),
+                        Optional.empty()),
+                new Call(BOOLEAN,
+                        LIKE_PATTERN_FUNCTION_NAME,
+                        List.of(new Variable("varchar_symbol_1", VARCHAR_TYPE),
+                                new Constant(Slices.wrappedBuffer(pattern.getBytes(UTF_8)), createVarcharType(pattern.length())))));
+
+        String escape = "\\";
+        assertTranslationRoundTrips(
+                new LikePredicate(
+                        new SymbolReference("varchar_symbol_1"),
+                        new StringLiteral(pattern),
+                        Optional.of(new StringLiteral(escape))),
+                new Call(BOOLEAN,
+                        LIKE_PATTERN_FUNCTION_NAME,
+                        List.of(
+                                new Variable("varchar_symbol_1", VARCHAR_TYPE),
+                                new Constant(Slices.wrappedBuffer(pattern.getBytes(UTF_8)), createVarcharType(pattern.length())),
+                                new Constant(Slices.wrappedBuffer(escape.getBytes(UTF_8)), createVarcharType(escape.length())))));
+    }
+
+    @Test
+    public void testTranslateNullIf()
+    {
+        assertTranslationRoundTrips(
+                new NullIfExpression(
+                        new SymbolReference("varchar_symbol_1"),
+                        new SymbolReference("varchar_symbol_1")),
+                new Call(
+                        VARCHAR_TYPE,
+                        NULLIF_FUNCTION_NAME,
+                        List.of(new Variable("varchar_symbol_1", VARCHAR_TYPE),
+                                new Variable("varchar_symbol_1", VARCHAR_TYPE))));
     }
 
     @Test
