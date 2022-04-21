@@ -291,6 +291,14 @@ public class TestStargateWithHiveConnectorTest
     }
 
     @Test
+    public void testSubstringPredicatePushdown()
+    {
+        assertThat(query("SELECT nationkey, name FROM nation WHERE substring(name, 3, 1) = 'P'"))
+                .isFullyPushedDown()
+                .matches("VALUES (BIGINT '12', CAST('JAPAN' AS varchar(25)))");
+    }
+
+    @Test
     public void testLikePredicatePushdown()
     {
         assertThat(query("SELECT nationkey FROM nation WHERE name LIKE '%A%'"))
@@ -333,6 +341,14 @@ public class TestStargateWithHiveConnectorTest
             assertThat(query("SELECT id FROM " + table.getName() + " WHERE a_varchar LIKE '%ą\\%%' ESCAPE '\\'"))
                     .isFullyPushedDown();
         }
+    }
+
+    @Test
+    public void testRegexpLikePredicatePushdown()
+    {
+        assertThat(query("SELECT nationkey FROM nation WHERE regexp_like(name, '.*[PF].*')"))
+                // TODO (https://github.com/trinodb/trino/pull/12085) fix regexp translation to connector expressions
+                .isNotFullyPushedDown(FilterNode.class);
     }
 
     @Test

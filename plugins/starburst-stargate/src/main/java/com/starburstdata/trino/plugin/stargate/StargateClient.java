@@ -157,6 +157,7 @@ public class StargateClient
 
     private final boolean enableWrites;
     private final Type jsonType;
+    private final NonEvictableCache<FunctionsCacheKey, Set<String>> supportedScalarFunctions;
     private final NonEvictableCache<FunctionsCacheKey, Set<String>> supportedAggregateFunctions;
     private final ConnectorExpressionRewriter<String> connectorExpressionRewriter;
     private final AggregateFunctionRewriter<JdbcExpression, String> aggregateFunctionRewriter;
@@ -178,9 +179,8 @@ public class StargateClient
         this.enableWrites = enableWrites;
         this.jsonType = requireNonNull(typeManager, "typeManager is null").getType(new TypeSignature(JSON));
 
-        this.supportedAggregateFunctions = buildNonEvictableCache(
-                CacheBuilder.newBuilder()
-                        .expireAfterWrite(30, MINUTES));
+        this.supportedScalarFunctions = buildNonEvictableCache(CacheBuilder.newBuilder().expireAfterWrite(30, MINUTES));
+        this.supportedAggregateFunctions = buildNonEvictableCache(CacheBuilder.newBuilder().expireAfterWrite(30, MINUTES));
         JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
         this.connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder()
                 .addStandardRules(this::quoted)
@@ -196,6 +196,7 @@ public class StargateClient
                 .map("$not(value: boolean)").to("NOT value")
                 .map("$is_null(value)").to("value IS NULL")
                 .map("$nullif(first, second)").to("NULLIF(first, second)")
+                .add(new StargateRewriteScalar(this::getSupportedScalarFunctions))
                 .build();
         this.aggregateFunctionRewriter = new AggregateFunctionRewriter<>(connectorExpressionRewriter, Set.of(
                 new StargateAggregateFunctionRewriteRule(
@@ -589,6 +590,33 @@ public class StargateClient
         return connectorExpressionRewriter.rewrite(session, expression, assignments);
     }
 
+    private Set<String> getSupportedScalarFunctions(ConnectorSession session)
+    {
+        try {
+            return supportedScalarFunctions.get(FunctionsCacheKey.SINGLETON, () -> {
+                try {
+                    return listScalarFunctions(session);
+                }
+                catch (SQLException e) {
+                    log.warn(e, "Failed to list scalar functions");
+                    // If we reached aggregation pushdown, the remote cluster is likely up & running and so it may not
+                    // be safe to retry the listing immediately. Cache the failure.
+                    return Set.of();
+                }
+            });
+        }
+        catch (ExecutionException e) {
+            // Impossible, as the loader does not throw checked exceptions
+            throw new RuntimeException(e);
+        }
+    }
+
+    private Set<String> listScalarFunctions(ConnectorSession session)
+            throws SQLException
+    {
+        return listFunctions(session, "scalar");
+    }
+
     @Override
     public Optional<JdbcExpression> implementAggregation(ConnectorSession session, AggregateFunction aggregate, Map<String, ColumnHandle> assignments)
     {
@@ -603,7 +631,6 @@ public class StargateClient
                 try {
                     return listAggregateFunctions(session);
                 }
-                // Catch exceptions from the driver only. Any other exception is likely bug in the code.
                 catch (SQLException e) {
                     log.warn(e, "Failed to list aggregate functions");
                     // If we reached aggregation pushdown, the remote cluster is likely up & running and so it may not
@@ -621,12 +648,18 @@ public class StargateClient
     private Set<String> listAggregateFunctions(ConnectorSession session)
             throws SQLException
     {
+        return listFunctions(session, "aggregate");
+    }
+
+    private Set<String> listFunctions(ConnectorSession session, String functionType)
+            throws SQLException
+    {
         try (Connection connection = connectionFactory.openConnection(session);
                 Statement statement = connection.createStatement();
                 ResultSet resultSet = statement.executeQuery("SHOW FUNCTIONS")) {
             ImmutableSet.Builder<String> functions = ImmutableSet.builder();
             while (resultSet.next()) {
-                if ("aggregate".equals(resultSet.getString("Function Type"))) {
+                if (functionType.equals(resultSet.getString("Function Type"))) {
                     functions.add(resultSet.getString("Function"));
                 }
             }
