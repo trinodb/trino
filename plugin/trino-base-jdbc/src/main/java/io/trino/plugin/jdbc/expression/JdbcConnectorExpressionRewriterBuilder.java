@@ -43,6 +43,7 @@ public class JdbcConnectorExpressionRewriterBuilder
         add(new RewriteVariable(identifierQuote));
         add(new RewriteVarcharConstant());
         add(new RewriteExactNumericConstant());
+        add(new RewriteAnd());
         add(new RewriteOr());
 
         return this;
