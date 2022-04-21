@@ -1929,7 +1929,12 @@ public class TestDomainTranslator
         return transaction(new TestingTransactionManager(), new AllowAllAccessControl())
                 .singleStatement()
                 .execute(TEST_SESSION, transactionSession -> {
-                    return DomainTranslator.getExtractionResult(functionResolution.getPlannerContext(), transactionSession, originalPredicate, TYPES);
+                    return DomainTranslator.getExtractionResult(
+                            functionResolution.getPlannerContext(),
+                            transactionSession,
+                            originalPredicate,
+                            TYPES,
+                            new ExpressionInterpreter(functionResolution.getPlannerContext(), transactionSession));
                 });
     }
 

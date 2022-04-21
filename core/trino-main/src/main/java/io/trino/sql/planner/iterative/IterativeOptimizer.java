@@ -31,6 +31,7 @@ import io.trino.matching.Match;
 import io.trino.matching.Pattern;
 import io.trino.spi.TrinoException;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.planner.ExpressionInterpreter;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.RuleStatsRecorder;
 import io.trino.sql.planner.SymbolAllocator;
@@ -120,7 +121,8 @@ public class IterativeOptimizer
                 nanoTime(),
                 timeout.toMillis(),
                 optimizerContext.getSession(),
-                optimizerContext.getWarningCollector());
+                optimizerContext.getWarningCollector(),
+                optimizerContext.getExpressionInterpreter());
         exploreGroup(memo.getRootGroup(), context);
 
         return memo.extract();
@@ -317,6 +319,12 @@ public class IterativeOptimizer
             {
                 return context.warningCollector;
             }
+
+            @Override
+            public ExpressionInterpreter getExpressionInterpreter()
+            {
+                return context.expressionInterpreter;
+            }
         };
     }
 
@@ -330,6 +338,7 @@ public class IterativeOptimizer
         private final long timeoutInMilliseconds;
         private final Session session;
         private final WarningCollector warningCollector;
+        private final ExpressionInterpreter expressionInterpreter;
 
         private final Map<Rule<?>, RuleInvocationStats> ruleStats = new HashMap<>();
 
@@ -341,7 +350,8 @@ public class IterativeOptimizer
                 long startTimeInNanos,
                 long timeoutInMilliseconds,
                 Session session,
-                WarningCollector warningCollector)
+                WarningCollector warningCollector,
+                ExpressionInterpreter expressionInterpreter)
         {
             checkArgument(timeoutInMilliseconds >= 0, "Timeout has to be a non-negative number [milliseconds]");
 
@@ -353,6 +363,7 @@ public class IterativeOptimizer
             this.timeoutInMilliseconds = timeoutInMilliseconds;
             this.session = session;
             this.warningCollector = warningCollector;
+            this.expressionInterpreter = expressionInterpreter;
         }
 
         public void checkTimeoutNotExhausted()

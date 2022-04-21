@@ -1926,8 +1926,8 @@ public class TestExpressionInterpreter
     static Object optimize(Expression parsedExpression)
     {
         Map<NodeRef<Expression>, Type> expressionTypes = getTypes(TEST_SESSION, PLANNER_CONTEXT, SYMBOL_TYPES, parsedExpression);
-        ExpressionInterpreter interpreter = new ExpressionInterpreter(parsedExpression, PLANNER_CONTEXT, TEST_SESSION, expressionTypes);
-        return interpreter.optimize(INPUTS);
+        ExpressionInterpreter interpreter = new ExpressionInterpreter(PLANNER_CONTEXT, TEST_SESSION);
+        return interpreter.optimize(parsedExpression, expressionTypes, INPUTS);
     }
 
     // TODO replace that method with io.trino.sql.ExpressionTestUtils.planExpression
@@ -1974,8 +1974,8 @@ public class TestExpressionInterpreter
     private static Object evaluate(Expression expression)
     {
         Map<NodeRef<Expression>, Type> expressionTypes = getTypes(TEST_SESSION, PLANNER_CONTEXT, SYMBOL_TYPES, expression);
-        ExpressionInterpreter interpreter = new ExpressionInterpreter(expression, PLANNER_CONTEXT, TEST_SESSION, expressionTypes);
+        ExpressionInterpreter interpreter = new ExpressionInterpreter(PLANNER_CONTEXT, TEST_SESSION);
 
-        return interpreter.evaluate(INPUTS);
+        return interpreter.evaluate(expression, expressionTypes, INPUTS);
     }
 }

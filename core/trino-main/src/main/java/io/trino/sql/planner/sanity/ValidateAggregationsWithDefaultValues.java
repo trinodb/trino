@@ -16,6 +16,7 @@ package io.trino.sql.planner.sanity;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.planner.ExpressionInterpreter;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.optimizations.ActualProperties;
@@ -77,6 +78,7 @@ public class ValidateAggregationsWithDefaultValues
         final PlannerContext plannerContext;
         final TypeAnalyzer typeAnalyzer;
         final TypeProvider types;
+        final ExpressionInterpreter expressionInterpreter;
 
         Visitor(Session session, PlannerContext plannerContext, TypeAnalyzer typeAnalyzer, TypeProvider types)
         {
@@ -84,6 +86,7 @@ public class ValidateAggregationsWithDefaultValues
             this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
             this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
             this.types = requireNonNull(types, "types is null");
+            this.expressionInterpreter = new ExpressionInterpreter(plannerContext, session);
         }
 
         @Override
@@ -120,14 +123,26 @@ public class ValidateAggregationsWithDefaultValues
 
             // No remote repartition exchange between final and partial aggregation.
             // Make sure that final aggregation operators are executed on a single node.
-            ActualProperties globalProperties = PropertyDerivations.derivePropertiesRecursively(node, plannerContext, session, types, typeAnalyzer);
+            ActualProperties globalProperties = PropertyDerivations.derivePropertiesRecursively(
+                    node,
+                    plannerContext,
+                    session,
+                    types,
+                    typeAnalyzer,
+                    expressionInterpreter);
             checkArgument(forceSingleNode || globalProperties.isSingleNode(),
                     "Final aggregation with default value not separated from partial aggregation by remote hash exchange");
 
             if (!seenExchanges.localRepartitionExchange) {
                 // No local repartition exchange between final and partial aggregation.
                 // Make sure that final aggregation operators are executed by single thread.
-                StreamProperties localProperties = StreamPropertyDerivations.derivePropertiesRecursively(node, plannerContext, session, types, typeAnalyzer);
+                StreamProperties localProperties = StreamPropertyDerivations.derivePropertiesRecursively(
+                        node,
+                        plannerContext,
+                        session,
+                        types,
+                        typeAnalyzer,
+                        expressionInterpreter);
                 checkArgument(localProperties.isSingleStream(),
                         "Final aggregation with default value not separated from partial aggregation by local hash exchange");
             }

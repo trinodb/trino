@@ -158,14 +158,12 @@ import static java.util.stream.Collectors.toList;
 
 public class ExpressionInterpreter
 {
-    private final Expression expression;
     private final PlannerContext plannerContext;
     private final Metadata metadata;
     private final LiteralInterpreter literalInterpreter;
     private final LiteralEncoder literalEncoder;
     private final Session session;
     private final ConnectorSession connectorSession;
-    private final Map<NodeRef<Expression>, Type> expressionTypes;
     private final InterpretedFunctionInvoker functionInvoker;
     private final TypeCoercion typeCoercion;
 
@@ -173,17 +171,14 @@ public class ExpressionInterpreter
     private final IdentityHashMap<LikePredicate, JoniRegexp> likePatternCache = new IdentityHashMap<>();
     private final IdentityHashMap<InListExpression, Set<?>> inListCache = new IdentityHashMap<>();
 
-    public ExpressionInterpreter(Expression expression, PlannerContext plannerContext, Session session, Map<NodeRef<Expression>, Type> expressionTypes)
+    public ExpressionInterpreter(PlannerContext plannerContext, Session session)
     {
-        this.expression = requireNonNull(expression, "expression is null");
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.metadata = plannerContext.getMetadata();
         this.literalInterpreter = new LiteralInterpreter(plannerContext, session);
         this.literalEncoder = new LiteralEncoder(plannerContext);
         this.session = requireNonNull(session, "session is null");
         this.connectorSession = session.toConnectorSession();
-        this.expressionTypes = ImmutableMap.copyOf(requireNonNull(expressionTypes, "expressionTypes is null"));
-        verify((expressionTypes.containsKey(NodeRef.of(expression))));
         this.functionInvoker = new InterpretedFunctionInvoker(plannerContext.getFunctionManager());
         this.typeCoercion = new TypeCoercion(plannerContext.getTypeManager()::getType);
     }
@@ -258,40 +253,46 @@ public class ExpressionInterpreter
         analyzer.analyze(resolved, Scope.create());
 
         // evaluate the expression
-        return new ExpressionInterpreter(resolved, plannerContext, session, analyzer.getExpressionTypes()).evaluate();
+        return new ExpressionInterpreter(plannerContext, session).evaluate(resolved, analyzer.getExpressionTypes());
     }
 
-    public Type getType()
+    public Object evaluate(Expression expression, Map<NodeRef<Expression>, Type> expressionTypes)
     {
-        return expressionTypes.get(NodeRef.of(expression));
-    }
+        requireNonNull(expression, "expression is null");
+        verify((expressionTypes.containsKey(NodeRef.of(expression))));
 
-    public Object evaluate()
-    {
-        Object result = new Visitor(false).processWithExceptionHandling(expression, new NoPagePositionContext());
+        Object result = new Visitor(expressionTypes, false).processWithExceptionHandling(expression, new NoPagePositionContext());
         verify(!(result instanceof Expression), "Expression interpreter returned an unresolved expression");
         return result;
     }
 
-    public Object evaluate(SymbolResolver inputs)
+    public Object evaluate(Expression expression, Map<NodeRef<Expression>, Type> expressionTypes, SymbolResolver inputs)
     {
-        Object result = new Visitor(false).processWithExceptionHandling(expression, inputs);
+        requireNonNull(expression, "expression is null");
+        verify((expressionTypes.containsKey(NodeRef.of(expression))));
+
+        Object result = new Visitor(expressionTypes, false).processWithExceptionHandling(expression, inputs);
         verify(!(result instanceof Expression), "Expression interpreter returned an unresolved expression");
         return result;
     }
 
-    public Object optimize(SymbolResolver inputs)
+    public Object optimize(Expression expression, Map<NodeRef<Expression>, Type> expressionTypes, SymbolResolver inputs)
     {
-        return new Visitor(true).processWithExceptionHandling(expression, inputs);
+        requireNonNull(expression, "expression is null");
+        verify((expressionTypes.containsKey(NodeRef.of(expression))));
+
+        return new Visitor(expressionTypes, true).processWithExceptionHandling(expression, inputs);
     }
 
     private class Visitor
             extends AstVisitor<Object, Object>
     {
         private final boolean optimize;
+        private final Map<NodeRef<Expression>, Type> expressionTypes;
 
-        private Visitor(boolean optimize)
+        private Visitor(Map<NodeRef<Expression>, Type> expressionTypes, boolean optimize)
         {
+            this.expressionTypes = requireNonNull(expressionTypes, "expressionTypes is null");
             this.optimize = optimize;
         }
 

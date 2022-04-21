@@ -20,6 +20,7 @@ import io.trino.Session;
 import io.trino.connector.CatalogName;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.plugin.tpch.TpchConnectorFactory;
+import io.trino.sql.planner.ExpressionInterpreter;
 import io.trino.sql.planner.LogicalPlanner;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.PlanNodeIdAllocator;
@@ -232,7 +233,8 @@ public class BasePlanTest
     protected PlanOptimizer.Context createOptimizerContext(
             Session session,
             SymbolAllocator symbolAllocator,
-            PlanNodeIdAllocator idAllocator)
+            PlanNodeIdAllocator idAllocator,
+            ExpressionInterpreter interpreter)
     {
         return new PlanOptimizer.Context()
         {
@@ -258,6 +260,12 @@ public class BasePlanTest
             public WarningCollector getWarningCollector()
             {
                 return WarningCollector.NOOP;
+            }
+
+            @Override
+            public ExpressionInterpreter getExpressionInterpreter()
+            {
+                return interpreter;
             }
         };
     }

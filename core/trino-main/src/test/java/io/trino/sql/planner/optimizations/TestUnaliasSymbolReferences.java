@@ -25,6 +25,7 @@ import io.trino.plugin.tpch.TpchTableHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.type.BigintType;
 import io.trino.sql.ExpressionUtils;
+import io.trino.sql.planner.ExpressionInterpreter;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
@@ -126,7 +127,11 @@ public class TestUnaliasSymbolReferences
             PlanNode plan = planCreator.create(planBuilder, session, metadata);
             PlanNode optimized = optimizer.optimize(
                     plan,
-                    createOptimizerContext(session, symbolAllocator, idAllocator));
+                    createOptimizerContext(
+                            session,
+                            symbolAllocator,
+                            idAllocator,
+                            new ExpressionInterpreter(queryRunner.getPlannerContext(), session)));
 
             Plan actual = new Plan(optimized, planBuilder.getTypes(), StatsAndCosts.empty());
             PlanAssert.assertPlan(session, queryRunner.getMetadata(), queryRunner.getFunctionManager(), queryRunner.getStatsCalculator(), actual, pattern);

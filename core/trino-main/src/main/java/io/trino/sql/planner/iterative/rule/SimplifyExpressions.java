@@ -38,10 +38,17 @@ import static java.util.Objects.requireNonNull;
 public class SimplifyExpressions
         extends ExpressionRewriteRuleSet
 {
-    public static Expression rewrite(Expression expression, Session session, SymbolAllocator symbolAllocator, PlannerContext plannerContext, TypeAnalyzer typeAnalyzer)
+    public static Expression rewrite(
+            Expression expression,
+            Session session,
+            SymbolAllocator symbolAllocator,
+            PlannerContext plannerContext,
+            TypeAnalyzer typeAnalyzer,
+            ExpressionInterpreter expressionInterpreter)
     {
         requireNonNull(plannerContext, "plannerContext is null");
         requireNonNull(typeAnalyzer, "typeAnalyzer is null");
+        requireNonNull(expressionInterpreter, "expressionInterpreter is null");
         if (expression instanceof SymbolReference) {
             return expression;
         }
@@ -50,8 +57,7 @@ public class SimplifyExpressions
         expression = extractCommonPredicates(plannerContext.getMetadata(), expression);
         expression = normalizeOrExpression(expression);
         expressionTypes = typeAnalyzer.getTypes(session, symbolAllocator.getTypes(), expression);
-        ExpressionInterpreter interpreter = new ExpressionInterpreter(expression, plannerContext, session, expressionTypes);
-        Object optimized = interpreter.optimize(NoOpSymbolResolver.INSTANCE);
+        Object optimized = expressionInterpreter.optimize(expression, expressionTypes, NoOpSymbolResolver.INSTANCE);
         return new LiteralEncoder(plannerContext).toExpression(session, optimized, expressionTypes.get(NodeRef.of(expression)));
     }
 
@@ -76,6 +82,12 @@ public class SimplifyExpressions
         requireNonNull(plannerContext, "plannerContext is null");
         requireNonNull(typeAnalyzer, "typeAnalyzer is null");
 
-        return (expression, context) -> rewrite(expression, context.getSession(), context.getSymbolAllocator(), plannerContext, typeAnalyzer);
+        return (expression, context) -> rewrite(
+                expression,
+                context.getSession(),
+                context.getSymbolAllocator(),
+                plannerContext,
+                typeAnalyzer,
+                context.getExpressionInterpreter());
     }
 }

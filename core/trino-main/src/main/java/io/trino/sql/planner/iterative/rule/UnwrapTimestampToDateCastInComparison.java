@@ -111,8 +111,8 @@ public class UnwrapTimestampToDateCastInComparison
                 return expression;
             }
 
-            Object right = new ExpressionInterpreter(expression.getRight(), plannerContext, session, typeAnalyzer.getTypes(session, types, expression.getRight()))
-                    .optimize(NoOpSymbolResolver.INSTANCE);
+            Object right = new ExpressionInterpreter(plannerContext, session)
+                    .optimize(expression.getRight(), typeAnalyzer.getTypes(session, types, expression.getRight()), NoOpSymbolResolver.INSTANCE);
 
             Cast cast = (Cast) expression.getLeft();
             ComparisonExpression.Operator operator = expression.getOperator();

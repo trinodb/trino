@@ -22,6 +22,7 @@ import io.trino.metadata.TableHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.BigintType;
+import io.trino.sql.planner.ExpressionInterpreter;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
@@ -32,6 +33,7 @@ import java.util.List;
 import java.util.function.Function;
 
 import static io.trino.metadata.FunctionManager.createTestingFunctionManager;
+import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
 import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThatCode;
@@ -134,6 +136,7 @@ public class TestBeginTableWrite
         Session session = testSessionBuilder().build();
         SymbolAllocator symbolAllocator = new SymbolAllocator();
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
+        ExpressionInterpreter interpreter = new ExpressionInterpreter(plannerContextBuilder().withMetadata(metadata).build(), session);
 
         new BeginTableWrite(metadata, createTestingFunctionManager()).optimize(
                 planProvider.apply(new PlanBuilder(new PlanNodeIdAllocator(), metadata, testSessionBuilder().build())),
@@ -161,6 +164,12 @@ public class TestBeginTableWrite
                     public WarningCollector getWarningCollector()
                     {
                         return WarningCollector.NOOP;
+                    }
+
+                    @Override
+                    public ExpressionInterpreter getExpressionInterpreter()
+                    {
+                        return interpreter;
                     }
                 });
     }

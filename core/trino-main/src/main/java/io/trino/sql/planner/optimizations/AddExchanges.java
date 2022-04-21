@@ -28,6 +28,7 @@ import io.trino.spi.connector.GroupingProperty;
 import io.trino.spi.connector.LocalProperty;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.DomainTranslator;
+import io.trino.sql.planner.ExpressionInterpreter;
 import io.trino.sql.planner.Partitioning;
 import io.trino.sql.planner.PartitioningScheme;
 import io.trino.sql.planner.PlanNodeIdAllocator;
@@ -135,7 +136,11 @@ public class AddExchanges
     public PlanNode optimize(PlanNode plan, Context context)
     {
         PlanWithProperties result = plan.accept(
-                new Rewriter(context.getIdAllocator(), context.getSymbolAllocator(), context.getSession()),
+                new Rewriter(
+                        context.getIdAllocator(),
+                        context.getSymbolAllocator(),
+                        context.getSession(),
+                        context.getExpressionInterpreter()),
                 PreferredProperties.any());
         return result.getNode();
     }
@@ -148,19 +153,25 @@ public class AddExchanges
         private final TypeProvider types;
         private final StatsProvider statsProvider;
         private final Session session;
+        private final ExpressionInterpreter expressionInterpreter;
         private final DomainTranslator domainTranslator;
         private final boolean distributedIndexJoins;
         private final boolean preferStreamingOperators;
         private final boolean redistributeWrites;
         private final boolean scaleWriters;
 
-        public Rewriter(PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Session session)
+        public Rewriter(
+                PlanNodeIdAllocator idAllocator,
+                SymbolAllocator symbolAllocator,
+                Session session,
+                ExpressionInterpreter expressionInterpreter)
         {
             this.idAllocator = idAllocator;
             this.symbolAllocator = symbolAllocator;
             this.types = symbolAllocator.getTypes();
             this.statsProvider = new CachingStatsProvider(statsCalculator, session, types);
             this.session = session;
+            this.expressionInterpreter = expressionInterpreter;
             this.domainTranslator = new DomainTranslator(plannerContext);
             this.distributedIndexJoins = SystemSessionProperties.isDistributedIndexJoinEnabled(session);
             this.redistributeWrites = SystemSessionProperties.isRedistributeWrites(session);
@@ -569,7 +580,8 @@ public class AddExchanges
                         plannerContext,
                         typeAnalyzer,
                         statsProvider,
-                        domainTranslator);
+                        domainTranslator,
+                        expressionInterpreter);
                 if (plan.isPresent()) {
                     return new PlanWithProperties(plan.get(), derivePropertiesRecursively(plan.get()));
                 }
@@ -1309,7 +1321,14 @@ public class AddExchanges
         private ActualProperties deriveProperties(PlanNode result, List<ActualProperties> inputProperties)
         {
             // TODO: move this logic to PlanSanityChecker once PropertyDerivations.deriveProperties fully supports local exchanges
-            ActualProperties outputProperties = PropertyDerivations.deriveProperties(result, inputProperties, plannerContext, session, types, typeAnalyzer);
+            ActualProperties outputProperties = PropertyDerivations.deriveProperties(
+                    result,
+                    inputProperties,
+                    plannerContext,
+                    session,
+                    types,
+                    typeAnalyzer,
+                    expressionInterpreter);
             verify(result instanceof SemiJoinNode || inputProperties.stream().noneMatch(ActualProperties::isNullsAndAnyReplicated) || outputProperties.isNullsAndAnyReplicated(),
                     "SemiJoinNode is the only node that can strip null replication");
             return outputProperties;
@@ -1317,7 +1336,13 @@ public class AddExchanges
 
         private ActualProperties derivePropertiesRecursively(PlanNode result)
         {
-            return PropertyDerivations.derivePropertiesRecursively(result, plannerContext, session, types, typeAnalyzer);
+            return PropertyDerivations.derivePropertiesRecursively(
+                    result,
+                    plannerContext,
+                    session,
+                    types,
+                    typeAnalyzer,
+                    expressionInterpreter);
         }
 
         private PreferredProperties computePreference(PreferredProperties preferredProperties, PreferredProperties parentPreferredProperties)

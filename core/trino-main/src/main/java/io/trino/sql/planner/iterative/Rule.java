@@ -19,6 +19,7 @@ import io.trino.cost.StatsProvider;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
+import io.trino.sql.planner.ExpressionInterpreter;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.plan.PlanNode;
@@ -58,6 +59,8 @@ public interface Rule<T>
         void checkTimeoutNotExhausted();
 
         WarningCollector getWarningCollector();
+
+        ExpressionInterpreter getExpressionInterpreter();
     }
 
     final class Result

@@ -90,7 +90,12 @@ public class PushdownFilterIntoWindow
 
         WindowNode windowNode = captures.get(childCapture);
 
-        DomainTranslator.ExtractionResult extractionResult = DomainTranslator.getExtractionResult(plannerContext, session, node.getPredicate(), types);
+        DomainTranslator.ExtractionResult extractionResult = DomainTranslator.getExtractionResult(
+                plannerContext,
+                session,
+                node.getPredicate(),
+                types,
+                context.getExpressionInterpreter());
         TupleDomain<Symbol> tupleDomain = extractionResult.getTupleDomain();
 
         Optional<RankingType> rankingType = toTopNRankingType(windowNode);

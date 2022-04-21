@@ -154,6 +154,7 @@ public class PredicatePushDown
                         typeAnalyzer,
                         context.getSession(),
                         context.getSymbolAllocator().getTypes(),
+                        context.getExpressionInterpreter(),
                         useTableProperties,
                         dynamicFiltering),
                 plan,
@@ -170,6 +171,7 @@ public class PredicatePushDown
         private final TypeAnalyzer typeAnalyzer;
         private final Session session;
         private final TypeProvider types;
+        private final ExpressionInterpreter expressionInterpreter;
         private final ExpressionEquivalence expressionEquivalence;
         private final boolean dynamicFiltering;
         private final LiteralEncoder literalEncoder;
@@ -182,6 +184,7 @@ public class PredicatePushDown
                 TypeAnalyzer typeAnalyzer,
                 Session session,
                 TypeProvider types,
+                ExpressionInterpreter expressionInterpreter,
                 boolean useTableProperties,
                 boolean dynamicFiltering)
         {
@@ -192,6 +195,7 @@ public class PredicatePushDown
             this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
             this.session = requireNonNull(session, "session is null");
             this.types = requireNonNull(types, "types is null");
+            this.expressionInterpreter = requireNonNull(expressionInterpreter, "expressionInterpreter is null");
             this.expressionEquivalence = new ExpressionEquivalence(plannerContext.getMetadata(), plannerContext.getFunctionManager(), typeAnalyzer);
             this.dynamicFiltering = dynamicFiltering;
 
@@ -300,7 +304,7 @@ public class PredicatePushDown
             List<Expression> inlinedDeterministicConjuncts = inlineConjuncts.get(true).stream()
                     .map(entry -> inlineSymbols(node.getAssignments().getMap(), entry))
                     .map(conjunct -> canonicalizeExpression(conjunct, typeAnalyzer.getTypes(session, types, conjunct), plannerContext, session)) // normalize expressions to a form that unwrapCasts understands
-                    .map(conjunct -> unwrapCasts(session, plannerContext, typeAnalyzer, types, conjunct))
+                    .map(conjunct -> unwrapCasts(session, plannerContext, typeAnalyzer, types, conjunct, expressionInterpreter))
                     .collect(Collectors.toList());
 
             PlanNode rewrittenNode = context.defaultRewrite(node, combineConjuncts(metadata, inlinedDeterministicConjuncts));
@@ -430,8 +434,18 @@ public class PredicatePushDown
             // See if we can rewrite outer joins in terms of a plain inner join
             node = tryNormalizeToOuterToInnerJoin(node, inheritedPredicate);
 
-            Expression leftEffectivePredicate = effectivePredicateExtractor.extract(session, node.getLeft(), types, typeAnalyzer);
-            Expression rightEffectivePredicate = effectivePredicateExtractor.extract(session, node.getRight(), types, typeAnalyzer);
+            Expression leftEffectivePredicate = effectivePredicateExtractor.extract(
+                    session,
+                    node.getLeft(),
+                    types,
+                    typeAnalyzer,
+                    expressionInterpreter);
+            Expression rightEffectivePredicate = effectivePredicateExtractor.extract(
+                    session,
+                    node.getRight(),
+                    types,
+                    typeAnalyzer,
+                    expressionInterpreter);
             Expression joinPredicate = extractJoinPredicate(node);
 
             Expression leftPredicate;
@@ -752,8 +766,18 @@ public class PredicatePushDown
                 node = new SpatialJoinNode(node.getId(), SpatialJoinNode.Type.INNER, node.getLeft(), node.getRight(), node.getOutputSymbols(), node.getFilter(), node.getLeftPartitionSymbol(), node.getRightPartitionSymbol(), node.getKdbTree());
             }
 
-            Expression leftEffectivePredicate = effectivePredicateExtractor.extract(session, node.getLeft(), types, typeAnalyzer);
-            Expression rightEffectivePredicate = effectivePredicateExtractor.extract(session, node.getRight(), types, typeAnalyzer);
+            Expression leftEffectivePredicate = effectivePredicateExtractor.extract(
+                    session,
+                    node.getLeft(),
+                    types,
+                    typeAnalyzer,
+                    expressionInterpreter);
+            Expression rightEffectivePredicate = effectivePredicateExtractor.extract(
+                    session,
+                    node.getRight(),
+                    types,
+                    typeAnalyzer,
+                    expressionInterpreter);
             Expression joinPredicate = node.getFilter();
 
             Expression leftPredicate;
@@ -1225,8 +1249,10 @@ public class PredicatePushDown
         private Expression simplifyExpression(Expression expression)
         {
             Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(session, symbolAllocator.getTypes(), expression);
-            ExpressionInterpreter optimizer = new ExpressionInterpreter(expression, plannerContext, session, expressionTypes);
-            return literalEncoder.toExpression(session, optimizer.optimize(NoOpSymbolResolver.INSTANCE), expressionTypes.get(NodeRef.of(expression)));
+            return literalEncoder.toExpression(
+                    session,
+                    expressionInterpreter.optimize(expression, expressionTypes, NoOpSymbolResolver.INSTANCE),
+                    expressionTypes.get(NodeRef.of(expression)));
         }
 
         private boolean areExpressionsEquivalent(Expression leftExpression, Expression rightExpression)
@@ -1240,8 +1266,8 @@ public class PredicatePushDown
         private Object nullInputEvaluator(Collection<Symbol> nullSymbols, Expression expression)
         {
             Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(session, symbolAllocator.getTypes(), expression);
-            return new ExpressionInterpreter(expression, plannerContext, session, expressionTypes)
-                    .optimize(symbol -> nullSymbols.contains(symbol) ? null : symbol.toSymbolReference());
+            return expressionInterpreter
+                    .optimize(expression, expressionTypes, symbol -> nullSymbols.contains(symbol) ? null : symbol.toSymbolReference());
         }
 
         private boolean joinEqualityExpression(Expression expression, Collection<Symbol> leftSymbols, Collection<Symbol> rightSymbols)
@@ -1363,8 +1389,12 @@ public class PredicatePushDown
         {
             Expression inheritedPredicate = context.get();
             Expression deterministicInheritedPredicate = filterDeterministicConjuncts(metadata, inheritedPredicate);
-            Expression sourceEffectivePredicate = filterDeterministicConjuncts(metadata, effectivePredicateExtractor.extract(session, node.getSource(), types, typeAnalyzer));
-            Expression filteringSourceEffectivePredicate = filterDeterministicConjuncts(metadata, effectivePredicateExtractor.extract(session, node.getFilteringSource(), types, typeAnalyzer));
+            Expression sourceEffectivePredicate = filterDeterministicConjuncts(
+                    metadata,
+                    effectivePredicateExtractor.extract(session, node.getSource(), types, typeAnalyzer, expressionInterpreter));
+            Expression filteringSourceEffectivePredicate = filterDeterministicConjuncts(
+                    metadata,
+                    effectivePredicateExtractor.extract(session, node.getFilteringSource(), types, typeAnalyzer, expressionInterpreter));
             Expression joinExpression = new ComparisonExpression(
                     EQUAL,
                     node.getSourceJoinSymbol().toSymbolReference(),

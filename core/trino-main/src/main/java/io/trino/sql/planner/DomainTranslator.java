@@ -301,7 +301,12 @@ public final class DomainTranslator
      * 2) An Expression fragment which represents the part of the original Expression that will need to be re-evaluated
      * after filtering with the TupleDomain.
      */
-    public static ExtractionResult getExtractionResult(PlannerContext plannerContext, Session session, Expression predicate, TypeProvider types)
+    public static ExtractionResult getExtractionResult(
+            PlannerContext plannerContext,
+            Session session,
+            Expression predicate,
+            TypeProvider types,
+            ExpressionInterpreter expressionInterpreter)
     {
         // This is a limited type analyzer for the simple expressions used in this method
         TypeAnalyzer typeAnalyzer = new TypeAnalyzer(
@@ -316,7 +321,7 @@ public final class DomainTranslator
                         new TablePropertyManager(),
                         new AnalyzePropertyManager(),
                         new TableProceduresPropertyManager()));
-        return new Visitor(plannerContext, session, types, typeAnalyzer).process(predicate, false);
+        return new Visitor(plannerContext, session, types, typeAnalyzer, expressionInterpreter).process(predicate, false);
     }
 
     private static class Visitor
@@ -326,16 +331,23 @@ public final class DomainTranslator
         private final LiteralEncoder literalEncoder;
         private final Session session;
         private final TypeProvider types;
+        private final ExpressionInterpreter expressionInterpreter;
         private final InterpretedFunctionInvoker functionInvoker;
         private final TypeAnalyzer typeAnalyzer;
         private final TypeCoercion typeCoercion;
 
-        private Visitor(PlannerContext plannerContext, Session session, TypeProvider types, TypeAnalyzer typeAnalyzer)
+        private Visitor(
+                PlannerContext plannerContext,
+                Session session,
+                TypeProvider types,
+                TypeAnalyzer typeAnalyzer,
+                ExpressionInterpreter expressionInterpreter)
         {
             this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
             this.literalEncoder = new LiteralEncoder(plannerContext);
             this.session = requireNonNull(session, "session is null");
             this.types = requireNonNull(types, "types is null");
+            this.expressionInterpreter = requireNonNull(expressionInterpreter, "expressionInterpreter is null");
             this.functionInvoker = new InterpretedFunctionInvoker(plannerContext.getFunctionManager());
             this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
             this.typeCoercion = new TypeCoercion(plannerContext.getTypeManager()::getType);
@@ -539,8 +551,8 @@ public final class DomainTranslator
         private Optional<NormalizedSimpleComparison> toNormalizedSimpleComparison(ComparisonExpression comparison)
         {
             Map<NodeRef<Expression>, Type> expressionTypes = analyzeExpression(comparison);
-            Object left = new ExpressionInterpreter(comparison.getLeft(), plannerContext, session, expressionTypes).optimize(NoOpSymbolResolver.INSTANCE);
-            Object right = new ExpressionInterpreter(comparison.getRight(), plannerContext, session, expressionTypes).optimize(NoOpSymbolResolver.INSTANCE);
+            Object left = expressionInterpreter.optimize(comparison.getLeft(), expressionTypes, NoOpSymbolResolver.INSTANCE);
+            Object right = expressionInterpreter.optimize(comparison.getRight(), expressionTypes, NoOpSymbolResolver.INSTANCE);
 
             Type leftType = expressionTypes.get(NodeRef.of(comparison.getLeft()));
             Type rightType = expressionTypes.get(NodeRef.of(comparison.getRight()));
@@ -908,8 +920,7 @@ public final class DomainTranslator
             List<Expression> excludedExpressions = new ArrayList<>();
 
             for (Expression expression : valueList.getValues()) {
-                Object value = new ExpressionInterpreter(expression, plannerContext, session, expressionTypes)
-                        .optimize(NoOpSymbolResolver.INSTANCE);
+                Object value = expressionInterpreter.optimize(expression, expressionTypes, NoOpSymbolResolver.INSTANCE);
                 if (value == null || value instanceof NullLiteral) {
                     if (!complement) {
                         // in case of IN, NULL on the right results with NULL comparison result (effectively false in predicate context), so can be ignored, as the

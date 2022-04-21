@@ -235,7 +235,7 @@ public class LogicalPlanner
         planSanityChecker.validateIntermediatePlan(root, session, plannerContext, typeAnalyzer, symbolAllocator.getTypes(), warningCollector);
 
         if (stage.ordinal() >= OPTIMIZED.ordinal()) {
-            PlanOptimizer.Context context = createOptimizerContext();
+            PlanOptimizer.Context context = createOptimizerContext(new ExpressionInterpreter(plannerContext, session));
             for (PlanOptimizer optimizer : planOptimizers) {
                 root = optimizer.optimize(root, context);
                 requireNonNull(root, format("%s returned a null plan", optimizer.getClass().getName()));
@@ -270,7 +270,7 @@ public class LogicalPlanner
         return new Plan(root, types, statsAndCosts);
     }
 
-    private PlanOptimizer.Context createOptimizerContext()
+    private PlanOptimizer.Context createOptimizerContext(ExpressionInterpreter interpreter)
     {
         return new PlanOptimizer.Context()
         {
@@ -296,6 +296,12 @@ public class LogicalPlanner
             public WarningCollector getWarningCollector()
             {
                 return warningCollector;
+            }
+
+            @Override
+            public ExpressionInterpreter getExpressionInterpreter()
+            {
+                return interpreter;
             }
         };
     }

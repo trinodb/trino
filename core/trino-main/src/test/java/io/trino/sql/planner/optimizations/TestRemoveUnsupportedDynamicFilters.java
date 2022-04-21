@@ -23,6 +23,7 @@ import io.trino.metadata.TableHandle;
 import io.trino.plugin.tpch.TpchColumnHandle;
 import io.trino.plugin.tpch.TpchTableHandle;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.planner.ExpressionInterpreter;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
@@ -479,7 +480,11 @@ public class TestRemoveUnsupportedDynamicFilters
             session.getCatalog().ifPresent(catalog -> metadata.getCatalogHandle(session, catalog));
             PlanNode rewrittenPlan = new RemoveUnsupportedDynamicFilters(plannerContext).optimize(
                     root,
-                    createOptimizerContext(session, new SymbolAllocator(builder.getTypes().allTypes()), new PlanNodeIdAllocator()));
+                    createOptimizerContext(
+                            session,
+                            new SymbolAllocator(builder.getTypes().allTypes()),
+                            new PlanNodeIdAllocator(),
+                            new ExpressionInterpreter(plannerContext, session)));
             new DynamicFiltersChecker().validate(rewrittenPlan,
                     session,
                     plannerContext, createTestingTypeAnalyzer(plannerContext),
