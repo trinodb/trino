@@ -95,10 +95,10 @@ public final class JoniRegexpFunctions
     @Description("Replaces substrings matching a regular expression by given string")
     @ScalarFunction
     @LiteralParameters({"x", "y", "z"})
-    // Longest possible output is when the pattern is empty, than the replacement will be placed in between
+    // Longest possible output is when the pattern is empty, then the replacement will be placed in between
     // any two letters of source (x + 1) times. As the replacement may be wildcard and the wildcard input that takes two letters
     // can produce (x) length output it max length is (x * y / 2) however for (x < 2), (y) itself (without wildcards)
-    // may be longer, so we choose max of (x * y / 2) and (y). We than add the length we've added to basic length of source (x)
+    // may be longer, so we choose max of (x * y / 2) and (y). We then add the length we've added to basic length of source (x)
     // to get the formula: x + max(x * y / 2, y) * (x + 1)
     @Constraint(variable = "z", expression = "min(2147483647, x + max(x * y / 2, y) * (x + 1))")
     @SqlType("varchar(z)")
