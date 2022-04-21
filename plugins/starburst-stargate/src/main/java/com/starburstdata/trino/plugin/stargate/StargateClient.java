@@ -38,6 +38,7 @@ import io.trino.plugin.jdbc.SliceWriteFunction;
 import io.trino.plugin.jdbc.WriteMapping;
 import io.trino.plugin.jdbc.aggregation.ImplementCountDistinct;
 import io.trino.plugin.jdbc.expression.JdbcConnectorExpressionRewriterBuilder;
+import io.trino.plugin.jdbc.expression.RewriteComparison;
 import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
@@ -49,6 +50,7 @@ import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
+import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.statistics.ColumnStatistics;
 import io.trino.spi.statistics.DoubleRange;
@@ -156,6 +158,7 @@ public class StargateClient
     private final boolean enableWrites;
     private final Type jsonType;
     private final NonEvictableCache<FunctionsCacheKey, Set<String>> supportedAggregateFunctions;
+    private final ConnectorExpressionRewriter<String> connectorExpressionRewriter;
     private final AggregateFunctionRewriter<JdbcExpression, String> aggregateFunctionRewriter;
     private final boolean statisticsEnabled;
     private final TableScanRedirection tableScanRedirection;
@@ -179,8 +182,20 @@ public class StargateClient
                 CacheBuilder.newBuilder()
                         .expireAfterWrite(30, MINUTES));
         JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
-        ConnectorExpressionRewriter<String> connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder()
+        this.connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder()
                 .addStandardRules(this::quoted)
+                .add(new RewriteComparison(RewriteComparison.ComparisonOperator.values()))
+                .map("$add(left, right)").to("left + right")
+                .map("$subtract(left, right)").to("left - right")
+                .map("$multiply(left, right)").to("left * right")
+                .map("$divide(left, right)").to("left / right")
+                .map("$modulus(left, right)").to("left % right")
+                .map("$negate(value)").to("-value")
+                .map("$like_pattern(value: varchar, pattern: varchar): boolean").to("value LIKE pattern")
+                .map("$like_pattern(value: varchar, pattern: varchar, escape: varchar(1)): boolean").to("value LIKE pattern ESCAPE escape")
+                .map("$not(value: boolean)").to("NOT value")
+                .map("$is_null(value)").to("value IS NULL")
+                .map("$nullif(first, second)").to("NULLIF(first, second)")
                 .build();
         this.aggregateFunctionRewriter = new AggregateFunctionRewriter<>(connectorExpressionRewriter, Set.of(
                 new StargateAggregateFunctionRewriteRule(
@@ -566,6 +581,12 @@ public class StargateClient
         }
 
         throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
+    }
+
+    @Override
+    public Optional<String> convertPredicate(ConnectorSession session, ConnectorExpression expression, Map<String, ColumnHandle> assignments)
+    {
+        return connectorExpressionRewriter.rewrite(session, expression, assignments);
     }
 
     @Override

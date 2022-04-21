@@ -35,6 +35,7 @@ public abstract class BaseStargateConnectorTest
     {
         Session remoteSession = Session.builder(remoteStarburst.getDefaultSession())
                 .setCatalog(getRemoteCatalogName())
+                .setSchema(getSession().getSchema().orElseThrow())
                 .build();
         return sql -> remoteStarburst.execute(remoteSession, sql);
     }
@@ -44,6 +45,9 @@ public abstract class BaseStargateConnectorTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
+            case SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN:
+                return true;
+
             case SUPPORTS_AGGREGATION_PUSHDOWN_STDDEV:
             case SUPPORTS_AGGREGATION_PUSHDOWN_VARIANCE:
             case SUPPORTS_AGGREGATION_PUSHDOWN_COVARIANCE:
