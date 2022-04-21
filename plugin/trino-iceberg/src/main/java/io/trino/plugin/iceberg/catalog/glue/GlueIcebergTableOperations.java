@@ -69,7 +69,7 @@ public class GlueIcebergTableOperations
     }
 
     @Override
-    protected String getRefreshedLocation()
+    protected String getRefreshedLocation(boolean invalidateCaches)
     {
         Table table = getTable();
 

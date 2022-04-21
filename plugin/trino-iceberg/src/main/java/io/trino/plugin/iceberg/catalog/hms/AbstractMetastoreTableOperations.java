@@ -13,10 +13,10 @@
  */
 package io.trino.plugin.iceberg.catalog.hms;
 
-import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.MetastoreUtil;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.Table;
+import io.trino.plugin.hive.metastore.cache.CachingHiveMetastore;
 import io.trino.plugin.iceberg.UnknownTableTypeException;
 import io.trino.plugin.iceberg.catalog.AbstractIcebergTableOperations;
 import io.trino.spi.TrinoException;
@@ -46,11 +46,11 @@ import static org.apache.iceberg.BaseMetastoreTableOperations.TABLE_TYPE_PROP;
 public abstract class AbstractMetastoreTableOperations
         extends AbstractIcebergTableOperations
 {
-    protected final HiveMetastore metastore;
+    protected final CachingHiveMetastore metastore;
 
     protected AbstractMetastoreTableOperations(
             FileIO fileIo,
-            HiveMetastore metastore,
+            CachingHiveMetastore metastore,
             ConnectorSession session,
             String database,
             String table,
@@ -62,8 +62,11 @@ public abstract class AbstractMetastoreTableOperations
     }
 
     @Override
-    protected final String getRefreshedLocation()
+    protected final String getRefreshedLocation(boolean invalidateCaches)
     {
+        if (invalidateCaches) {
+            metastore.invalidateTable(database, tableName);
+        }
         Table table = getTable();
 
         if (isPrestoView(table) && isHiveOrPrestoView(table)) {
