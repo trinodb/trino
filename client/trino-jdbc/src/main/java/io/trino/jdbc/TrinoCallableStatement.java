@@ -991,12 +991,14 @@ public class TrinoCallableStatement
         throw new NotImplementedException("CallableStatement", "setObject");
     }
 
+    /*
     @Override
     public boolean execute()
             throws SQLException
     {
         throw new NotImplementedException("CallableStatement", "execute");
     }
+     */
 
     @Override
     public void addBatch()
