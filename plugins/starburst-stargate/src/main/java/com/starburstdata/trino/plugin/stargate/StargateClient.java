@@ -148,14 +148,13 @@ public class StargateClient
 {
     private static final Logger log = Logger.get(StargateClient.class);
 
-    private final Type jsonType;
-
     private enum FunctionsCacheKey
     {
         SINGLETON
     }
 
     private final boolean enableWrites;
+    private final Type jsonType;
     private final NonEvictableCache<FunctionsCacheKey, Set<String>> supportedAggregateFunctions;
     private final AggregateFunctionRewriter<JdbcExpression, String> aggregateFunctionRewriter;
     private final boolean statisticsEnabled;
