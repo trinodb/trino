@@ -13,6 +13,8 @@
  */
 package io.trino.spi.session;
 
+import com.google.common.collect.Table;
+
 import java.util.Map;
 
 /**
@@ -27,5 +29,5 @@ public interface SessionPropertyConfigurationManager
 {
     Map<String, String> getSystemSessionProperties(SessionConfigurationContext context);
 
-    Map<String, Map<String, String>> getCatalogSessionProperties(SessionConfigurationContext context);
+    Table<String, String, String> getCatalogSessionProperties(SessionConfigurationContext context);
 }

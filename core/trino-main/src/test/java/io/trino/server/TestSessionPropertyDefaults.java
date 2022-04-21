@@ -15,6 +15,7 @@ package io.trino.server;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableTable;
 import io.airlift.node.NodeInfo;
 import io.trino.Session;
 import io.trino.connector.CatalogName;
@@ -56,12 +57,10 @@ public class TestSessionPropertyDefaults
                         .put(QUERY_MAX_MEMORY, "2GB") //Will be overridden
                         .put(QUERY_MAX_TOTAL_MEMORY, "2GB") //Will remain default
                         .buildOrThrow(),
-                ImmutableMap.of(
-                        "testCatalog",
-                        ImmutableMap.<String, String>builder()
-                                .put("explicit_set", "override") // Will be overridden
-                                .put("catalog_default", "catalog_default") // Will remain default
-                                .buildOrThrow()));
+                ImmutableTable.<String, String, String>builder()
+                        .put("testCatalog", "explicit_set", "override")
+                        .put("testCatalog", "catalog_default", "catalog_default")
+                        .buildOrThrow());
         sessionPropertyDefaults.addConfigurationManagerFactory(factory);
         sessionPropertyDefaults.setConfigurationManager(factory.getName(), ImmutableMap.of());
 

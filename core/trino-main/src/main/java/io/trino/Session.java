@@ -14,9 +14,12 @@
 package io.trino;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.HashBasedTable;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableTable;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Table;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.client.ProtocolHeaders;
@@ -76,8 +79,7 @@ public final class Session
     private final ResourceEstimates resourceEstimates;
     private final Instant start;
     private final Map<String, String> systemProperties;
-    // TODO use Table
-    private final Map<String, Map<String, String>> catalogProperties;
+    private final Table<String, String, String> catalogProperties;
     private final SessionPropertyManager sessionPropertyManager;
     private final Map<String, String> preparedStatements;
     private final ProtocolHeaders protocolHeaders;
@@ -102,7 +104,7 @@ public final class Session
             ResourceEstimates resourceEstimates,
             Instant start,
             Map<String, String> systemProperties,
-            Map<String, Map<String, String>> catalogProperties,
+            Table<String, String, String> catalogProperties,
             SessionPropertyManager sessionPropertyManager,
             Map<String, String> preparedStatements,
             ProtocolHeaders protocolHeaders)
@@ -131,11 +133,7 @@ public final class Session
         this.protocolHeaders = requireNonNull(protocolHeaders, "protocolHeaders is null");
 
         requireNonNull(catalogProperties, "catalogProperties is null");
-        ImmutableMap.Builder<String, Map<String, String>> catalogPropertiesBuilder = ImmutableMap.builder();
-        catalogProperties.entrySet().stream()
-                .map(entry -> Maps.immutableEntry(entry.getKey(), ImmutableMap.copyOf(entry.getValue())))
-                .forEach(catalogPropertiesBuilder::put);
-        this.catalogProperties = catalogPropertiesBuilder.buildOrThrow();
+        this.catalogProperties = ImmutableTable.copyOf(catalogProperties);
 
         checkArgument(catalog.isPresent() || schema.isEmpty(), "schema is set but catalog is not");
     }
@@ -246,14 +244,14 @@ public final class Session
         return sessionPropertyManager.decodeSystemPropertyValue(name, systemProperties.get(name), type);
     }
 
-    public Map<String, Map<String, String>> getCatalogProperties()
+    public Table<String, String, String> getCatalogProperties()
     {
         return catalogProperties;
     }
 
     public Map<String, String> getCatalogProperties(String catalogName)
     {
-        return catalogProperties.getOrDefault(catalogName, ImmutableMap.of());
+        return catalogProperties.row(catalogName);
     }
 
     public Map<String, String> getSystemProperties()
@@ -293,10 +291,9 @@ public final class Session
         validateSystemProperties(accessControl, this.systemProperties);
 
         // Now that there is a transaction, the catalog name can be resolved to a connector, and the catalog properties can be validated
-        ImmutableMap.Builder<String, Map<String, String>> connectorProperties = ImmutableMap.builder();
-        for (Entry<String, Map<String, String>> catalogEntry : this.catalogProperties.entrySet()) {
-            String catalogName = catalogEntry.getKey();
-            Map<String, String> catalogProperties = catalogEntry.getValue();
+        ImmutableTable.Builder<String, String, String> connectorProperties = ImmutableTable.builder();
+        for (String catalogName : this.catalogProperties.rowKeySet()) {
+            Map<String, String> catalogProperties = this.catalogProperties.row(catalogName);
             if (catalogProperties.isEmpty()) {
                 continue;
             }
@@ -304,7 +301,7 @@ public final class Session
                     .orElseThrow(() -> new TrinoException(NOT_FOUND, "Session property catalog does not exist: " + catalogName));
 
             validateCatalogProperties(Optional.of(transactionId), accessControl, catalog, catalogProperties);
-            connectorProperties.put(catalogName, catalogProperties);
+            catalogProperties.forEach((key, value) -> connectorProperties.put(catalogName, key, value));
         }
 
         ImmutableMap.Builder<String, SelectedRole> connectorRoles = ImmutableMap.builder();
@@ -348,7 +345,7 @@ public final class Session
                 protocolHeaders);
     }
 
-    public Session withDefaultProperties(Map<String, String> systemPropertyDefaults, Map<String, Map<String, String>> catalogPropertyDefaults, AccessControl accessControl)
+    public Session withDefaultProperties(Map<String, String> systemPropertyDefaults, Table<String, String, String> catalogPropertyDefaults, AccessControl accessControl)
     {
         requireNonNull(systemPropertyDefaults, "systemPropertyDefaults is null");
         requireNonNull(catalogPropertyDefaults, "catalogPropertyDefaults is null");
@@ -360,13 +357,16 @@ public final class Session
         systemProperties.putAll(systemPropertyDefaults);
         systemProperties.putAll(this.systemProperties);
 
-        Map<String, Map<String, String>> catalogProperties = catalogPropertyDefaults.entrySet().stream()
+        Map<String, Map<String, String>> catalogProperties = catalogPropertyDefaults.rowMap().entrySet().stream()
                 .map(entry -> Maps.immutableEntry(entry.getKey(), new HashMap<>(entry.getValue())))
                 .collect(Collectors.toMap(Entry::getKey, Entry::getValue));
-        for (Entry<String, Map<String, String>> catalogEntry : this.catalogProperties.entrySet()) {
-            catalogProperties.computeIfAbsent(catalogEntry.getKey(), id -> new HashMap<>())
-                    .putAll(catalogEntry.getValue());
+        for (String catalogName : this.catalogProperties.rowKeySet()) {
+            catalogProperties.computeIfAbsent(catalogName, id -> new HashMap<>())
+                    .putAll(this.catalogProperties.row(catalogName));
         }
+
+        ImmutableTable.Builder<String, String, String> catalogPropertiesTable = ImmutableTable.builder();
+        catalogProperties.forEach((key1, value1) -> value1.forEach((key, value) -> catalogPropertiesTable.put(key1, key, value)));
 
         return new Session(
                 queryId,
@@ -388,7 +388,7 @@ public final class Session
                 resourceEstimates,
                 start,
                 systemProperties,
-                catalogProperties,
+                catalogPropertiesTable.buildOrThrow(),
                 sessionPropertyManager,
                 preparedStatements,
                 protocolHeaders);
@@ -411,7 +411,7 @@ public final class Session
         return new FullConnectorSession(
                 this,
                 identity.toConnectorIdentity(catalogName.getCatalogName()),
-                catalogProperties.getOrDefault(catalogName.getCatalogName(), ImmutableMap.of()),
+                catalogProperties.row(catalogName.getCatalogName()),
                 catalogName,
                 catalogName.getCatalogName(),
                 sessionPropertyManager);
@@ -535,7 +535,7 @@ public final class Session
         private ResourceEstimates resourceEstimates;
         private Instant start = Instant.now();
         private final Map<String, String> systemProperties = new HashMap<>();
-        private final Map<String, Map<String, String>> catalogSessionProperties = new HashMap<>();
+        private final Table<String, String, String> catalogSessionProperties = HashBasedTable.create();
         private final SessionPropertyManager sessionPropertyManager;
         private final Map<String, String> preparedStatements = new HashMap<>();
         private ProtocolHeaders protocolHeaders = TRINO_HEADERS;
@@ -567,8 +567,7 @@ public final class Session
             this.clientTags = ImmutableSet.copyOf(session.clientTags);
             this.start = session.start;
             this.systemProperties.putAll(session.systemProperties);
-            session.catalogProperties
-                    .forEach((catalog, properties) -> catalogSessionProperties.put(catalog, new HashMap<>(properties)));
+            catalogSessionProperties.putAll(session.catalogProperties);
             this.preparedStatements.putAll(session.preparedStatements);
             this.protocolHeaders = session.protocolHeaders;
         }
@@ -758,7 +757,9 @@ public final class Session
         public SessionBuilder setCatalogSessionProperty(String catalogName, String propertyName, String propertyValue)
         {
             checkArgument(transactionId == null, "Catalog session properties cannot be set if there is an open transaction");
-            catalogSessionProperties.computeIfAbsent(catalogName, id -> new HashMap<>()).put(propertyName, propertyValue);
+            if (!catalogSessionProperties.containsRow(catalogName)) {
+                catalogSessionProperties.put(catalogName, propertyName, propertyValue);
+            }
             return this;
         }
 

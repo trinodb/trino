@@ -14,6 +14,7 @@
 package io.trino.server;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.Table;
 import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
 import io.trino.Session;
@@ -121,7 +122,7 @@ public class SessionPropertyDefaults
                 resourceGroupId);
 
         Map<String, String> systemPropertyOverrides = configurationManager.getSystemSessionProperties(context);
-        Map<String, Map<String, String>> catalogPropertyOverrides = configurationManager.getCatalogSessionProperties(context);
+        Table<String, String, String> catalogPropertyOverrides = configurationManager.getCatalogSessionProperties(context);
         return session.withDefaultProperties(systemPropertyOverrides, catalogPropertyOverrides, accessControl);
     }
 }

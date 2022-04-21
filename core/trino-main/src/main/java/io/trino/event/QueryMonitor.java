@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Multimaps;
+import com.google.common.collect.Table;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
@@ -481,9 +482,10 @@ public class QueryMonitor
     {
         Map<String, String> mergedProperties = new LinkedHashMap<>(session.getSystemProperties());
 
-        for (Map.Entry<String, Map<String, String>> catalogEntry : session.getCatalogProperties().entrySet()) {
-            for (Map.Entry<String, String> entry : catalogEntry.getValue().entrySet()) {
-                mergedProperties.put(catalogEntry.getKey() + "." + entry.getKey(), entry.getValue());
+        Table<String, String, String> catalogProperties = session.getCatalogProperties();
+        for (String catalogName : catalogProperties.rowKeySet()) {
+            for (Map.Entry<String, String> entry : catalogProperties.row(catalogName).entrySet()) {
+                mergedProperties.put(catalogName + "." + entry.getKey(), entry.getValue());
             }
         }
         return ImmutableMap.copyOf(mergedProperties);

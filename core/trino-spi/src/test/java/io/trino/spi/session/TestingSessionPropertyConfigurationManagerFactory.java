@@ -13,6 +13,7 @@
  */
 package io.trino.spi.session;
 
+import com.google.common.collect.Table;
 import io.trino.spi.resourcegroups.SessionPropertyConfigurationManagerContext;
 
 import java.util.Map;
@@ -23,9 +24,9 @@ public class TestingSessionPropertyConfigurationManagerFactory
         implements SessionPropertyConfigurationManagerFactory
 {
     private final Map<String, String> systemProperties;
-    private final Map<String, Map<String, String>> catalogProperties;
+    private final Table<String, String, String> catalogProperties;
 
-    public TestingSessionPropertyConfigurationManagerFactory(Map<String, String> systemProperties, Map<String, Map<String, String>> catalogProperties)
+    public TestingSessionPropertyConfigurationManagerFactory(Map<String, String> systemProperties, Table<String, String, String> catalogProperties)
     {
         this.systemProperties = requireNonNull(systemProperties, "systemProperties is null");
         this.catalogProperties = requireNonNull(catalogProperties, "catalogProperties is null");

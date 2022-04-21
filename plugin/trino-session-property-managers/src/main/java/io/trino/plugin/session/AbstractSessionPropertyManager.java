@@ -38,7 +38,7 @@ public abstract class AbstractSessionPropertyManager
     }
 
     @Override
-    public final Map<String, Map<String, String>> getCatalogSessionProperties(SessionConfigurationContext context)
+    public final Table<String, String, String> getCatalogSessionProperties(SessionConfigurationContext context)
     {
         Map<String, String> sessionProperties = getSessionProperties(context);
         Table<String, String, String> catalogsSessionProperties = sessionProperties.entrySet().stream()
@@ -47,7 +47,7 @@ public abstract class AbstractSessionPropertyManager
                         catalogProperty -> catalogProperty.getKey().split("\\.", 2)[0],
                         catalogProperty -> catalogProperty.getKey().split("\\.", 2)[1],
                         Entry::getValue));
-        return catalogsSessionProperties.rowMap();
+        return catalogsSessionProperties;
     }
 
     protected abstract List<SessionMatchSpec> getSessionMatchSpecs();
