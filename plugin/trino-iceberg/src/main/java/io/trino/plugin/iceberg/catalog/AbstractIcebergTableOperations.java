@@ -107,7 +107,7 @@ public abstract class AbstractIcebergTableOperations
     public TableMetadata current()
     {
         if (shouldRefresh) {
-            return refresh();
+            return refresh(false);
         }
         return currentMetadata;
     }
@@ -115,11 +115,16 @@ public abstract class AbstractIcebergTableOperations
     @Override
     public TableMetadata refresh()
     {
+        return refresh(true);
+    }
+
+    public TableMetadata refresh(boolean invalidateCaches)
+    {
         if (location.isPresent()) {
             refreshFromMetadataLocation(null);
             return currentMetadata;
         }
-        refreshFromMetadataLocation(getRefreshedLocation());
+        refreshFromMetadataLocation(getRefreshedLocation(invalidateCaches));
         return currentMetadata;
     }
 
@@ -148,7 +153,7 @@ public abstract class AbstractIcebergTableOperations
         shouldRefresh = true;
     }
 
-    protected abstract String getRefreshedLocation();
+    protected abstract String getRefreshedLocation(boolean invalidateCaches);
 
     protected abstract void commitNewTable(TableMetadata metadata);
 
