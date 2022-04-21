@@ -222,6 +222,39 @@ public class TestPostgreSqlClient
                 .hasValue("((\"c_bigint\") = (42)) OR ((\"c_bigint\") = (415))");
     }
 
+    @Test
+    public void testConvertOrWithAnd()
+    {
+        assertThat(JDBC_CLIENT.convertPredicate(
+                SESSION,
+                translateToConnectorExpression(
+                        new LogicalExpression(
+                                LogicalExpression.Operator.OR,
+                                List.of(
+                                        new ComparisonExpression(
+                                                ComparisonExpression.Operator.EQUAL,
+                                                new SymbolReference("c_bigint_symbol"),
+                                                LITERAL_ENCODER.toExpression(TEST_SESSION, 42L, BIGINT)),
+                                        new LogicalExpression(
+                                                LogicalExpression.Operator.AND,
+                                                List.of(
+                                                        new ComparisonExpression(
+                                                                ComparisonExpression.Operator.EQUAL,
+                                                                new SymbolReference("c_bigint_symbol"),
+                                                                LITERAL_ENCODER.toExpression(TEST_SESSION, 43L, BIGINT)),
+                                                        new ComparisonExpression(
+                                                                ComparisonExpression.Operator.EQUAL,
+                                                                new SymbolReference("c_bigint_symbol_2"),
+                                                                LITERAL_ENCODER.toExpression(TEST_SESSION, 44L, BIGINT)))))),
+                        Map.of(
+                                "c_bigint_symbol", BIGINT,
+                                "c_bigint_symbol_2", BIGINT)),
+                Map.of(
+                        "c_bigint_symbol", BIGINT_COLUMN,
+                        "c_bigint_symbol_2", BIGINT_COLUMN)))
+                .hasValue("((\"c_bigint\") = (42)) OR (((\"c_bigint\") = (43)) AND ((\"c_bigint\") = (44)))");
+    }
+
     @Test(dataProvider = "testConvertComparisonDataProvider")
     public void testConvertComparison(ComparisonExpression.Operator operator)
     {
