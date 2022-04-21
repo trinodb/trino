@@ -36,6 +36,7 @@ public class Suite3
         return ImmutableList.of(
                 testOnEnvironment(EnvMultinodeTls.class)
                         .withGroups("configured_features", "smoke", "cli", "group-by", "join", "tls")
+                        .withExcludedGroups("abfs")
                         .build(),
                 testOnEnvironment(EnvMultinodeTlsKerberos.class)
                         .withGroups("configured_features", "cli", "group-by", "join", "tls")

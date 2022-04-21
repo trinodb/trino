@@ -51,6 +51,7 @@ public final class TestGroups
     public static final String HIVE_ICEBERG_REDIRECTIONS = "hive_iceberg_redirections";
     public static final String AUTHORIZATION = "authorization";
     public static final String HIVE_COERCION = "hive_coercion";
+    public static final String ABFS = "abfs";
     public static final String CASSANDRA = "cassandra";
     public static final String SQL_SERVER = "sqlserver";
     public static final String LDAP = "ldap";
