@@ -599,8 +599,8 @@ public class FaultTolerantStageScheduler
                             partitionToRemoteTaskMap.get(partitionId).forEach(RemoteTask::abort);
                             partitionMemoryEstimator.registerPartitionFinished(session, memoryLimits, taskStatus.getPeakMemoryReservation(), true, Optional.empty());
 
-                            if (delayStopwatch.isRunning()) {
-                                // task completed successfully; reset delay
+                            if (delayStopwatch.isRunning() && delayStopwatch.elapsed().compareTo(delaySchedulingDuration.get()) > 0) {
+                                // we are past delay period and task completed successfully; reset delay
                                 previousDelaySchedulingFuture = delaySchedulingFuture;
                                 delayStopwatch.reset();
                                 delaySchedulingDuration = Optional.empty();
