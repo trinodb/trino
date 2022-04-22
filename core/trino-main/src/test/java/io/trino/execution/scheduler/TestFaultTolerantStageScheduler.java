@@ -927,6 +927,7 @@ public class TestFaultTolerantStageScheduler
                 nodeAllocator,
                 taskDescriptorStorage,
                 new ConstantPartitionMemoryEstimator(),
+                new TaskExecutionStats(),
                 taskLifecycleListener,
                 futureCompletor,
                 ticker,
