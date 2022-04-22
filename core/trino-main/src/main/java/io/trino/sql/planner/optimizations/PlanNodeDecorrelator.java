@@ -436,18 +436,14 @@ public class PlanNodeDecorrelator
                 return Optional.empty();
             }
 
-            AggregationNode newAggregation = new AggregationNode(
-                    decorrelatedAggregation.getId(),
-                    decorrelatedAggregation.getSource(),
-                    decorrelatedAggregation.getAggregations(),
-                    AggregationNode.singleGroupingSet(ImmutableList.<Symbol>builder()
-                            .addAll(node.getGroupingKeys())
-                            .addAll(symbolsToAdd)
-                            .build()),
-                    ImmutableList.of(),
-                    decorrelatedAggregation.getStep(),
-                    decorrelatedAggregation.getHashSymbol(),
-                    decorrelatedAggregation.getGroupIdSymbol());
+            AggregationNode newAggregation = AggregationNode.builderFrom(decorrelatedAggregation)
+                    .setGroupingSets(
+                            AggregationNode.singleGroupingSet(ImmutableList.<Symbol>builder()
+                                    .addAll(node.getGroupingKeys())
+                                    .addAll(symbolsToAdd)
+                                    .build()))
+                    .setPreGroupedSymbols(ImmutableList.of())
+                    .build();
 
             return Optional.of(new DecorrelationResult(
                     newAggregation,

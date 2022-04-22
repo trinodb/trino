@@ -209,15 +209,9 @@ public class ExpressionRewriteRuleSet
                 }
             }
             if (anyRewritten) {
-                return Result.ofPlanNode(new AggregationNode(
-                        aggregationNode.getId(),
-                        aggregationNode.getSource(),
-                        aggregations.buildOrThrow(),
-                        aggregationNode.getGroupingSets(),
-                        aggregationNode.getPreGroupedSymbols(),
-                        aggregationNode.getStep(),
-                        aggregationNode.getHashSymbol(),
-                        aggregationNode.getGroupIdSymbol()));
+                return Result.ofPlanNode(AggregationNode.builderFrom(aggregationNode)
+                        .setAggregations(aggregations.buildOrThrow())
+                        .build());
             }
             return Result.empty();
         }

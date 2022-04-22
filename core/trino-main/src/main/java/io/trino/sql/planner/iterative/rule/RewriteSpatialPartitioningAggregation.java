@@ -133,22 +133,17 @@ public class RewriteSpatialPartitioningAggregation
             partitionCount = getHashPartitionCount(context.getSession());
         }
         return Result.ofPlanNode(
-                new AggregationNode(
-                        node.getId(),
-                        new ProjectNode(
+                AggregationNode.builderFrom(node)
+                        .setSource(new ProjectNode(
                                 context.getIdAllocator().getNextId(),
                                 node.getSource(),
                                 Assignments.builder()
                                         .putIdentities(node.getSource().getOutputSymbols())
                                         .put(partitionCountSymbol, new LongLiteral(Integer.toString(partitionCount)))
                                         .putAll(envelopeAssignments.buildOrThrow())
-                                        .build()),
-                        aggregations.buildOrThrow(),
-                        node.getGroupingSets(),
-                        node.getPreGroupedSymbols(),
-                        node.getStep(),
-                        node.getHashSymbol(),
-                        node.getGroupIdSymbol()));
+                                        .build()))
+                        .setAggregations(aggregations.buildOrThrow())
+                        .build());
     }
 
     private boolean isStEnvelopeFunctionCall(Expression expression, ResolvedFunction stEnvelopeFunction)

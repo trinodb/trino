@@ -194,18 +194,16 @@ public class TransformCorrelatedGroupedAggregationWithProjection
 
         // restore grouped aggregation
         AggregationNode groupedAggregation = captures.get(AGGREGATION);
-        groupedAggregation = new AggregationNode(
-                groupedAggregation.getId(),
-                distinct != null ? distinct : join,
-                groupedAggregation.getAggregations(),
-                singleGroupingSet(ImmutableList.<Symbol>builder()
+        groupedAggregation = AggregationNode.builderFrom(groupedAggregation)
+                .setSource(distinct != null ? distinct : join)
+                .setGroupingSets(singleGroupingSet(ImmutableList.<Symbol>builder()
                         .addAll(join.getLeftOutputSymbols())
                         .addAll(groupedAggregation.getGroupingKeys())
-                        .build()),
-                ImmutableList.of(),
-                groupedAggregation.getStep(),
-                Optional.empty(),
-                Optional.empty());
+                        .build()))
+                .setPreGroupedSymbols(ImmutableList.of())
+                .setHashSymbol(Optional.empty())
+                .setGroupIdSymbol(Optional.empty())
+                .build();
 
         // restrict outputs and apply projection
         Set<Symbol> outputSymbols = new HashSet<>(correlatedJoinNode.getOutputSymbols());

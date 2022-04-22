@@ -158,15 +158,11 @@ public class PushPartialAggregationThroughJoin
             PlanNode source,
             List<Symbol> groupingKeys)
     {
-        return new AggregationNode(
-                aggregation.getId(),
-                source,
-                aggregation.getAggregations(),
-                singleGroupingSet(groupingKeys),
-                ImmutableList.of(),
-                aggregation.getStep(),
-                aggregation.getHashSymbol(),
-                aggregation.getGroupIdSymbol());
+        return AggregationNode.builderFrom(aggregation)
+                .setSource(source)
+                .setGroupingSets(singleGroupingSet(groupingKeys))
+                .setPreGroupedSymbols(ImmutableList.of())
+                .build();
     }
 
     private PlanNode pushPartialToJoin(
