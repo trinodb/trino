@@ -43,6 +43,9 @@ public class RewriteVarcharConstant
             return Optional.empty();
         }
         Slice slice = (Slice) constant.getValue();
+        if (slice == null) {
+            return Optional.empty();
+        }
         return Optional.of("'" + slice.toStringUtf8().replace("'", "''") + "'");
     }
 }
