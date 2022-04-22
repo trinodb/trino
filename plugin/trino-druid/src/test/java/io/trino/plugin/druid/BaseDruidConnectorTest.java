@@ -38,6 +38,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public abstract class BaseDruidConnectorTest
         extends BaseJdbcConnectorTest
@@ -290,5 +291,13 @@ public abstract class BaseDruidConnectorTest
     public void testDateYearOfEraPredicate()
     {
         throw new SkipException("Druid connector does not map 'orderdate' column to date type");
+    }
+
+    @Override
+    public void testCharTrailingSpace()
+    {
+        assertThatThrownBy(super::testCharTrailingSpace)
+                .hasMessageContaining("Error while executing SQL \"CREATE TABLE druid.char_trailing_space");
+        throw new SkipException("Implement test for Druid");
     }
 }

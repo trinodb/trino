@@ -274,6 +274,14 @@ public class TestPhoenixConnectorTest
         }
     }
 
+    @Override
+    public void testCharTrailingSpace()
+    {
+        assertThatThrownBy(super::testCharTrailingSpace)
+                .hasMessageContaining("The table does not have a primary key. tableName=TPCH.CHAR_TRAILING_SPACE");
+        throw new SkipException("Implement test for Phoenix");
+    }
+
     // Overridden because Phoenix requires a ROWID column
     @Override
     public void testCountDistinctWithStringTypes()
