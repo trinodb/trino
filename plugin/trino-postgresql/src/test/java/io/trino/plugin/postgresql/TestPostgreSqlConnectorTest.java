@@ -70,7 +70,6 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
@@ -681,21 +680,6 @@ public class TestPostgreSqlConnectorTest
                     .matches("VALUES (CHAR'0', CHAR'0    ', CHAR'0         ')")
                     .isFullyPushedDown();
         }
-    }
-
-    @Test
-    public void testCharTrailingSpace()
-    {
-        onRemoteDatabase().execute("CREATE TABLE char_trailing_space (x char(10))");
-        assertUpdate("INSERT INTO char_trailing_space VALUES ('test')", 1);
-
-        assertQuery("SELECT * FROM char_trailing_space WHERE x = char 'test'", "VALUES 'test'");
-        assertQuery("SELECT * FROM char_trailing_space WHERE x = char 'test  '", "VALUES 'test'");
-        assertQuery("SELECT * FROM char_trailing_space WHERE x = char 'test        '", "VALUES 'test'");
-
-        assertEquals(getQueryRunner().execute("SELECT * FROM char_trailing_space WHERE x = char ' test'").getRowCount(), 0);
-
-        assertUpdate("DROP TABLE char_trailing_space");
     }
 
     @Test

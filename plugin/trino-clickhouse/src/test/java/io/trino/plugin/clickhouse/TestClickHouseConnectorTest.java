@@ -586,6 +586,14 @@ public class TestClickHouseConnectorTest
     }
 
     @Override
+    public void testCharTrailingSpace()
+    {
+        assertThatThrownBy(super::testCharTrailingSpace)
+                .hasMessageStartingWith("Failed to execute statement: CREATE TABLE tpch.char_trailing_space");
+        throw new SkipException("Implement test for ClickHouse");
+    }
+
+    @Override
     protected SqlExecutor onRemoteDatabase()
     {
         return clickhouseServer::execute;
