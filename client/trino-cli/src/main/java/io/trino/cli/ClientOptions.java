@@ -148,6 +148,9 @@ public class ClientOptions
     @Option(names = "--output-format", paramLabel = "<format>", defaultValue = "CSV", description = "Output format for batch mode [${COMPLETION-CANDIDATES}] " + DEFAULT_VALUE)
     public OutputFormat outputFormat;
 
+    @Option(names = "--output-format-interactive", paramLabel = "<format>", defaultValue = "ALIGNED", description = "Output format for interactive mode [${COMPLETION-CANDIDATES}] " + DEFAULT_VALUE)
+    public OutputFormat outputFormatInteractive;
+
     @Option(names = "--resource-estimate", paramLabel = "<estimate>", description = "Resource estimate (property can be used multiple times; format is key=value)")
     public final List<ClientResourceEstimate> resourceEstimates = new ArrayList<>();
 
@@ -186,6 +189,7 @@ public class ClientOptions
 
     public enum OutputFormat
     {
+        AUTO,
         ALIGNED,
         VERTICAL,
         TSV,

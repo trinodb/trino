@@ -162,7 +162,7 @@ public class Query
         if (client.isRunning() || (client.isFinished() && client.finalStatusInfo().getError() == null)) {
             QueryStatusInfo results = client.isRunning() ? client.currentStatusInfo() : client.finalStatusInfo();
             if (results.getUpdateType() != null) {
-                renderUpdate(errorChannel, results, outputFormat, usePager);
+                renderUpdate(terminal, errorChannel, results, outputFormat, usePager);
             }
             // TODO once https://github.com/trinodb/trino/issues/14253 is done this else here should be needed
             // and should be replaced with just simple:
@@ -173,7 +173,7 @@ public class Query
                 return false;
             }
             else {
-                renderResults(out, outputFormat, usePager, results.getColumns());
+                renderResults(terminal, out, outputFormat, usePager, results.getColumns());
             }
         }
 
@@ -224,7 +224,7 @@ public class Query
         warningsPrinter.print(warnings, false, true);
     }
 
-    private void renderUpdate(PrintStream out, QueryStatusInfo results, OutputFormat outputFormat, boolean usePager)
+    private void renderUpdate(Terminal terminal, PrintStream out, QueryStatusInfo results, OutputFormat outputFormat, boolean usePager)
     {
         String status = results.getUpdateType();
         if (results.getUpdateCount() != null) {
@@ -234,7 +234,7 @@ public class Query
         }
         else if (results.getColumns() != null && !results.getColumns().isEmpty()) {
             out.println(status);
-            renderResults(out, outputFormat, usePager, results.getColumns());
+            renderResults(terminal, out, outputFormat, usePager, results.getColumns());
         }
         else {
             out.println(status);
@@ -252,10 +252,10 @@ public class Query
         }
     }
 
-    private void renderResults(PrintStream out, OutputFormat outputFormat, boolean interactive, List<Column> columns)
+    private void renderResults(Terminal terminal, PrintStream out, OutputFormat outputFormat, boolean interactive, List<Column> columns)
     {
         try {
-            doRenderResults(out, outputFormat, interactive, columns);
+            doRenderResults(terminal, out, outputFormat, interactive, columns);
         }
         catch (QueryAbortedException e) {
             System.out.println("(query aborted by user)");
@@ -266,24 +266,24 @@ public class Query
         }
     }
 
-    private void doRenderResults(PrintStream out, OutputFormat format, boolean interactive, List<Column> columns)
+    private void doRenderResults(Terminal terminal, PrintStream out, OutputFormat format, boolean interactive, List<Column> columns)
             throws IOException
     {
         if (interactive) {
-            pageOutput(format, columns);
+            pageOutput(format, terminal.getWidth(), columns);
         }
         else {
-            sendOutput(out, format, columns);
+            sendOutput(out, format, terminal.getWidth(), columns);
         }
     }
 
-    private void pageOutput(OutputFormat format, List<Column> columns)
+    private void pageOutput(OutputFormat format, int maxWidth, List<Column> columns)
             throws IOException
     {
         try (Pager pager = Pager.create();
                 ThreadInterruptor clientThread = new ThreadInterruptor();
                 Writer writer = createWriter(pager);
-                OutputHandler handler = createOutputHandler(format, writer, columns)) {
+                OutputHandler handler = createOutputHandler(format, maxWidth, writer, columns)) {
             if (!pager.isNullPager()) {
                 // ignore the user pressing ctrl-C while in the pager
                 ignoreUserInterrupt.set(true);
@@ -303,25 +303,27 @@ public class Query
         }
     }
 
-    private void sendOutput(PrintStream out, OutputFormat format, List<Column> fieldNames)
+    private void sendOutput(PrintStream out, OutputFormat format, int maxWidth, List<Column> fieldNames)
             throws IOException
     {
-        try (OutputHandler handler = createOutputHandler(format, createWriter(out), fieldNames)) {
+        try (OutputHandler handler = createOutputHandler(format, maxWidth, createWriter(out), fieldNames)) {
             handler.processRows(client);
         }
     }
 
-    private static OutputHandler createOutputHandler(OutputFormat format, Writer writer, List<Column> columns)
+    private static OutputHandler createOutputHandler(OutputFormat format, int maxWidth, Writer writer, List<Column> columns)
     {
-        return new OutputHandler(createOutputPrinter(format, writer, columns));
+        return new OutputHandler(createOutputPrinter(format, maxWidth, writer, columns));
     }
 
-    private static OutputPrinter createOutputPrinter(OutputFormat format, Writer writer, List<Column> columns)
+    private static OutputPrinter createOutputPrinter(OutputFormat format, int maxWidth, Writer writer, List<Column> columns)
     {
         List<String> fieldNames = columns.stream()
                 .map(Column::getName)
                 .collect(toImmutableList());
         switch (format) {
+            case AUTO:
+                return new AutoTablePrinter(columns, writer, maxWidth);
             case ALIGNED:
                 return new AlignedTablePrinter(columns, writer);
             case VERTICAL:
