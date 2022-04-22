@@ -410,6 +410,7 @@
                                 <exclude>**/TestDeltaLakeAdlsStorage.java</exclude>
                                 <exclude>**/TestDeltaLakeAdlsConnectorSmokeTest.java</exclude>
                                 <exclude>**/TestDeltaLakeGlueMetastore.java</exclude>
+                                <exclude>**/TestDeltaLakeCleanUpGlueMetastore.java</exclude>
                                 <exclude>**/TestDelta*FailureRecoveryTest.java</exclude>
                             </excludes>
                         </configuration>
@@ -442,6 +443,7 @@
                                 <include>**/TestDeltaLakeAdlsStorage.java</include>
                                 <include>**/TestDeltaLakeAdlsConnectorSmokeTest.java</include>
                                 <include>**/TestDeltaLakeGlueMetastore.java</include>
+                                <include>**/TestDeltaLakeCleanUpGlueMetastore.java</include>
                             </includes>
                         </configuration>
                     </plugin>
