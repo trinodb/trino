@@ -35,7 +35,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.sql.planner.plan.AggregationNode.singleAggregation;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static io.trino.sql.planner.plan.Patterns.aggregation;
-import static java.util.Collections.emptyList;
 
 /**
  * Implements distinct aggregations with similar inputs by transforming plans of the following shape:
@@ -122,27 +121,25 @@ public class SingleDistinctAggregationToGroupBy
                 .collect(Collectors.toSet());
 
         return Result.ofPlanNode(
-                new AggregationNode(
-                        aggregation.getId(),
-                        singleAggregation(
-                                context.getIdAllocator().getNextId(),
-                                aggregation.getSource(),
-                                ImmutableMap.of(),
-                                singleGroupingSet(ImmutableList.<Symbol>builder()
-                                        .addAll(aggregation.getGroupingKeys())
-                                        .addAll(symbols)
-                                        .build())),
-                        // remove DISTINCT flag from function calls
-                        aggregation.getAggregations()
-                                .entrySet().stream()
-                                .collect(Collectors.toMap(
-                                        Map.Entry::getKey,
-                                        e -> removeDistinct(e.getValue()))),
-                        aggregation.getGroupingSets(),
-                        emptyList(),
-                        aggregation.getStep(),
-                        aggregation.getHashSymbol(),
-                        aggregation.getGroupIdSymbol()));
+                AggregationNode.builderFrom(aggregation)
+                        .setSource(
+                                singleAggregation(
+                                        context.getIdAllocator().getNextId(),
+                                        aggregation.getSource(),
+                                        ImmutableMap.of(),
+                                        singleGroupingSet(ImmutableList.<Symbol>builder()
+                                                .addAll(aggregation.getGroupingKeys())
+                                                .addAll(symbols)
+                                                .build())))
+                        .setAggregations(
+                                // remove DISTINCT flag from function calls
+                                aggregation.getAggregations()
+                                        .entrySet().stream()
+                                        .collect(Collectors.toMap(
+                                                Map.Entry::getKey,
+                                                e -> removeDistinct(e.getValue()))))
+                        .setPreGroupedSymbols(ImmutableList.of())
+                        .build());
     }
 
     private static Aggregation removeDistinct(Aggregation aggregation)

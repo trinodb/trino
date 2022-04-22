@@ -1509,14 +1509,10 @@ public class PredicatePushDown
 
             PlanNode output = node;
             if (rewrittenSource != node.getSource()) {
-                output = new AggregationNode(node.getId(),
-                        rewrittenSource,
-                        node.getAggregations(),
-                        node.getGroupingSets(),
-                        ImmutableList.of(),
-                        node.getStep(),
-                        node.getHashSymbol(),
-                        node.getGroupIdSymbol());
+                output = AggregationNode.builderFrom(node)
+                        .setSource(rewrittenSource)
+                        .setPreGroupedSymbols(ImmutableList.of())
+                        .build();
             }
             if (!postAggregationConjuncts.isEmpty()) {
                 output = new FilterNode(idAllocator.getNextId(), output, combineConjuncts(metadata, postAggregationConjuncts));
