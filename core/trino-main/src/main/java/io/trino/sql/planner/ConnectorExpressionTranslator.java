@@ -278,8 +278,11 @@ public final class ConnectorExpressionTranslator
                     .setName(name);
             for (int i = 0; i < call.getArguments().size(); i++) {
                 Type type = resolved.getSignature().getArgumentTypes().get(i);
-                Expression expression = ConnectorExpressionTranslator.translate(session, call.getArguments().get(i), plannerContext, variableMappings, literalEncoder);
-                builder.addArgument(type, expression);
+                Optional<Expression> translated = translate(call.getArguments().get(i));
+                if (translated.isEmpty()) {
+                    return Optional.empty();
+                }
+                builder.addArgument(type, translated.get());
             }
             return Optional.of(builder.build());
         }
