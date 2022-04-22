@@ -22,6 +22,7 @@ import io.trino.execution.QueryInfo;
 import io.trino.execution.QueryState;
 import io.trino.execution.QueryStats;
 import io.trino.execution.resourcegroups.InternalResourceGroup;
+import io.trino.operator.RetryPolicy;
 import io.trino.spi.QueryId;
 import io.trino.spi.resourcegroups.QueryType;
 import org.joda.time.DateTime;
@@ -198,6 +199,7 @@ public class TestQueryStateInfo
                 ImmutableList.of(),
                 false,
                 Optional.empty(),
-                Optional.of(QueryType.SELECT));
+                Optional.of(QueryType.SELECT),
+                RetryPolicy.NONE);
     }
 }

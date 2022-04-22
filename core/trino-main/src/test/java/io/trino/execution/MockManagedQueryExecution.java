@@ -20,6 +20,7 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.execution.StateMachine.StateChangeListener;
+import io.trino.operator.RetryPolicy;
 import io.trino.server.BasicQueryInfo;
 import io.trino.server.BasicQueryStats;
 import io.trino.spi.ErrorCode;
@@ -267,7 +268,8 @@ public class MockManagedQueryExecution
                 ImmutableList.of(),
                 state.isDone(),
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                RetryPolicy.NONE);
     }
 
     @Override

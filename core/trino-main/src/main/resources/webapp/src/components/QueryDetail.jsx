@@ -410,7 +410,6 @@ class StageSummary extends React.Component {
                                             {stage.stageStats.failedCpuTime}
                                         </td>
                                     </tr>
-
                                     </tbody>
                                 </table>
                             </td>
@@ -1171,7 +1170,6 @@ export class QueryDetail extends React.Component {
 
     render() {
         const query = this.state.query;
-
         if (query === null || this.state.initialized === false) {
             let label = (<div className="loader">Loading...</div>);
             if (this.state.initialized) {
@@ -1183,6 +1181,8 @@ export class QueryDetail extends React.Component {
                 </div>
             );
         }
+
+        const taskRetriesEnabled = query.retryPolicy == "TASK";
 
         return (
             <div>
@@ -1368,9 +1368,11 @@ export class QueryDetail extends React.Component {
                                         <td className="info-text">
                                             {query.queryStats.totalCpuTime}
                                         </td>
+                                        {taskRetriesEnabled &&
                                         <td className="info-failed">
                                             {query.queryStats.failedCpuTime}
                                         </td>
+                                        }
                                     </tr>
                                     <tr>
                                         <td className="info-title">
@@ -1379,9 +1381,11 @@ export class QueryDetail extends React.Component {
                                         <td className="info-text">
                                             {query.queryStats.totalScheduledTime}
                                         </td>
+                                        {taskRetriesEnabled &&
                                         <td className="info-failed">
                                             {query.queryStats.failedScheduledTime}
                                         </td>
+                                        }
                                     </tr>
                                     <tr>
                                         <td className="info-title">
@@ -1390,9 +1394,11 @@ export class QueryDetail extends React.Component {
                                         <td className="info-text">
                                             {formatCount(query.queryStats.processedInputPositions)}
                                         </td>
+                                        {taskRetriesEnabled &&
                                         <td className="info-failed">
                                             {query.queryStats.failedProcessedInputPositions}
                                         </td>
+                                        }
                                     </tr>
                                     <tr>
                                         <td className="info-title">
@@ -1401,9 +1407,11 @@ export class QueryDetail extends React.Component {
                                         <td className="info-text">
                                             {parseAndFormatDataSize(query.queryStats.processedInputDataSize)}
                                         </td>
+                                        {taskRetriesEnabled &&
                                         <td className="info-failed">
                                             {query.queryStats.failedProcessedInputDataSize}
                                         </td>
+                                        }
                                     </tr>
                                     <tr>
                                         <td className="info-title">
@@ -1412,9 +1420,11 @@ export class QueryDetail extends React.Component {
                                         <td className="info-text">
                                             {formatCount(query.queryStats.physicalInputPositions)}
                                         </td>
+                                        {taskRetriesEnabled &&
                                         <td className="info-failed">
                                             {formatCount(query.queryStats.failedPhysicalInputPositions)}
                                         </td>
+                                        }
                                     </tr>
                                     <tr>
                                         <td className="info-title">
@@ -1423,9 +1433,11 @@ export class QueryDetail extends React.Component {
                                         <td className="info-text">
                                             {parseAndFormatDataSize(query.queryStats.physicalInputDataSize)}
                                         </td>
+                                        {taskRetriesEnabled &&
                                         <td className="info-failed">
                                             {parseAndFormatDataSize(query.queryStats.failedPhysicalInputDataSize)}
                                         </td>
+                                        }
                                     </tr>
                                     <tr>
                                         <td className="info-title">
@@ -1434,9 +1446,11 @@ export class QueryDetail extends React.Component {
                                         <td className="info-text">
                                             {query.queryStats.physicalInputReadTime}
                                         </td>
+                                        {taskRetriesEnabled &&
                                         <td className="info-failed">
                                             {query.queryStats.failedPhysicalInputReadTime}
                                         </td>
+                                        }
                                     </tr>
                                     <tr>
                                         <td className="info-title">
@@ -1445,9 +1459,11 @@ export class QueryDetail extends React.Component {
                                         <td className="info-text">
                                             {formatCount(query.queryStats.internalNetworkInputPositions)}
                                         </td>
+                                        {taskRetriesEnabled &&
                                         <td className="info-failed">
                                             {formatCount(query.queryStats.failedInternalNetworkInputPositions)}
                                         </td>
+                                        }
                                     </tr>
                                     <tr>
                                         <td className="info-title">
@@ -1456,9 +1472,11 @@ export class QueryDetail extends React.Component {
                                         <td className="info-text">
                                             {parseAndFormatDataSize(query.queryStats.internalNetworkInputDataSize)}
                                         </td>
+                                        {taskRetriesEnabled &&
                                         <td className="info-failed">
                                             {parseAndFormatDataSize(query.queryStats.failedInternalNetworkInputDataSize)}
                                         </td>
+                                        }
                                     </tr>
                                     <tr>
                                         <td className="info-title">
@@ -1493,9 +1511,11 @@ export class QueryDetail extends React.Component {
                                         <td className="info-text">
                                             {formatDataSizeBytes(query.queryStats.cumulativeUserMemory / 1000.0) + " seconds"}
                                         </td>
+                                        {taskRetriesEnabled &&
                                         <td className="info-failed">
                                             {formatDataSizeBytes(query.queryStats.failedCumulativeUserMemory / 1000.0) + " seconds"}
                                         </td>
+                                        }
                                     </tr>
                                     <tr>
                                         <td className="info-title">
@@ -1504,9 +1524,11 @@ export class QueryDetail extends React.Component {
                                         <td className="info-text">
                                             {formatCount(query.queryStats.outputPositions)}
                                         </td>
+                                        {taskRetriesEnabled &&
                                         <td className="info-failed">
                                             {formatCount(query.queryStats.failedOutputPositions)}
                                         </td>
+                                        }
                                     </tr>
                                     <tr>
                                         <td className="info-title">
@@ -1515,9 +1537,11 @@ export class QueryDetail extends React.Component {
                                         <td className="info-text">
                                             {parseAndFormatDataSize(query.queryStats.outputDataSize)}
                                         </td>
+                                        {taskRetriesEnabled &&
                                         <td className="info-failed">
                                             {parseAndFormatDataSize(query.queryStats.failedOutputDataSize)}
                                         </td>
+                                        }
                                     </tr>
                                     <tr>
                                         <td className="info-title">
@@ -1542,9 +1566,11 @@ export class QueryDetail extends React.Component {
                                         <td className="info-text">
                                             {parseAndFormatDataSize(query.queryStats.physicalWrittenDataSize)}
                                         </td>
+                                        {taskRetriesEnabled &&
                                         <td className="info-failed">
                                             {parseAndFormatDataSize(query.queryStats.failedPhysicalWrittenDataSize)}
                                         </td>
+                                        }
                                     </tr>
                                     {parseDataSize(query.queryStats.spilledDataSize) > 0 &&
                                     <tr>

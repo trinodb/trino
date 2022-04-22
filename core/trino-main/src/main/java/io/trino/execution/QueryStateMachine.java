@@ -25,6 +25,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.Session;
+import io.trino.SystemSessionProperties;
 import io.trino.execution.QueryExecution.QueryOutputInfo;
 import io.trino.execution.StateMachine.StateChangeListener;
 import io.trino.execution.warnings.WarningCollector;
@@ -466,7 +467,8 @@ public class QueryStateMachine
                 routines.get(),
                 completeInfo,
                 Optional.of(resourceGroup),
-                queryType);
+                queryType,
+                SystemSessionProperties.getRetryPolicy(session));
     }
 
     private QueryStats getQueryStats(Optional<StageInfo> rootStage)
@@ -1186,7 +1188,8 @@ public class QueryStateMachine
                 queryInfo.getRoutines(),
                 queryInfo.isCompleteInfo(),
                 queryInfo.getResourceGroupId(),
-                queryInfo.getQueryType());
+                queryInfo.getQueryType(),
+                queryInfo.getRetryPolicy());
         finalQueryInfo.compareAndSet(finalInfo, Optional.of(prunedQueryInfo));
     }
 

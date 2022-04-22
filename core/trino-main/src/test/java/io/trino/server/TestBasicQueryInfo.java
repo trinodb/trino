@@ -21,6 +21,7 @@ import io.airlift.units.Duration;
 import io.trino.execution.QueryInfo;
 import io.trino.execution.QueryStats;
 import io.trino.operator.BlockedReason;
+import io.trino.operator.RetryPolicy;
 import io.trino.spi.QueryId;
 import io.trino.spi.StandardErrorCode;
 import io.trino.spi.eventlistener.StageGcStatistics;
@@ -154,7 +155,8 @@ public class TestBasicQueryInfo
                         ImmutableList.of(),
                         false,
                         Optional.empty(),
-                        Optional.of(QueryType.SELECT)));
+                        Optional.of(QueryType.SELECT),
+                        RetryPolicy.NONE));
 
         assertEquals(basicInfo.getQueryId().getId(), "0");
         assertEquals(basicInfo.getState(), RUNNING);
