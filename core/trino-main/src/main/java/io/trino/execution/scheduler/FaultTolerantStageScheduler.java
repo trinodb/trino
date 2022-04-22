@@ -302,7 +302,9 @@ public class FaultTolerantStageScheduler
             while (pendingPartitionsIterator.hasNext()) {
                 PendingPartition pendingPartition = pendingPartitionsIterator.next();
                 if (pendingPartition.getNodeLease().getNode().isDone()) {
-                    startTask(pendingPartition.getPartition(), pendingPartition.getNodeLease());
+                    MemoryRequirements memoryRequirements = partitionMemoryRequirements.get(pendingPartition.getPartition());
+                    verify(memoryRequirements != null, "no entry for %s.%s in partitionMemoryRequirements", stage.getStageId(), pendingPartition.getPartition());
+                    startTask(pendingPartition.getPartition(), pendingPartition.getNodeLease(), memoryRequirements);
                     startedTask = true;
                     pendingPartitionsIterator.remove();
                 }
@@ -343,7 +345,7 @@ public class FaultTolerantStageScheduler
         }
     }
 
-    private void startTask(int partition, NodeAllocator.NodeLease nodeLease)
+    private void startTask(int partition, NodeAllocator.NodeLease nodeLease, MemoryRequirements memoryRequirements)
     {
         Optional<TaskDescriptor> taskDescriptorOptional = taskDescriptorStorage.get(stage.getStageId(), partition);
         if (taskDescriptorOptional.isEmpty()) {
@@ -396,7 +398,8 @@ public class FaultTolerantStageScheduler
                 taskSplits,
                 allSourcePlanNodeIds.stream()
                         .collect(toImmutableListMultimap(Function.identity(), planNodeId -> Lifespan.taskWide())),
-                allSourcePlanNodeIds).orElseThrow(() -> new VerifyException("stage execution is expected to be active"));
+                allSourcePlanNodeIds,
+                Optional.of(memoryRequirements.getRequiredMemory())).orElseThrow(() -> new VerifyException("stage execution is expected to be active"));
 
         nodeLease.attachTaskId(task.getTaskId());
         partitionToRemoteTaskMap.put(partition, task);
