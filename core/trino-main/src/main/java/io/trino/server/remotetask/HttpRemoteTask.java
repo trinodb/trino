@@ -30,6 +30,7 @@ import io.airlift.http.client.HttpUriBuilder;
 import io.airlift.http.client.Request;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.execution.DynamicFiltersCollector;
@@ -200,7 +201,8 @@ public final class HttpRemoteTask
             PartitionedSplitCountTracker partitionedSplitCountTracker,
             RemoteTaskStats stats,
             DynamicFilterService dynamicFilterService,
-            Set<DynamicFilterId> outboundDynamicFilterIds)
+            Set<DynamicFilterId> outboundDynamicFilterIds,
+            Optional<DataSize> estimatedMemory)
     {
         requireNonNull(session, "session is null");
         requireNonNull(taskId, "taskId is null");
@@ -216,6 +218,7 @@ public final class HttpRemoteTask
         requireNonNull(partitionedSplitCountTracker, "partitionedSplitCountTracker is null");
         requireNonNull(stats, "stats is null");
         requireNonNull(outboundDynamicFilterIds, "outboundDynamicFilterIds is null");
+        requireNonNull(estimatedMemory, "estimatedMemory is null");
 
         try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
             this.taskId = taskId;
@@ -297,7 +300,8 @@ public final class HttpRemoteTask
                     executor,
                     updateScheduledExecutor,
                     errorScheduledExecutor,
-                    stats);
+                    stats,
+                    estimatedMemory);
 
             taskStatusFetcher.addStateChangeListener(newStatus -> {
                 TaskState state = newStatus.getState();

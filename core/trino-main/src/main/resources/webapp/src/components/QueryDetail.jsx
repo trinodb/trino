@@ -99,6 +99,7 @@ class TaskList extends React.Component {
 
     render() {
         const tasks = this.props.tasks;
+        const taskRetriesEnabled = this.props.taskRetriesEnabled;
 
         if (tasks === undefined || tasks.length === 0) {
             return (
@@ -163,6 +164,17 @@ class TaskList extends React.Component {
                     <Td column="bufferedBytes" value={task.outputBuffers.totalBufferedBytes}>
                         {formatDataSizeBytes(task.outputBuffers.totalBufferedBytes)}
                     </Td>
+                    <Td column="memory" value={parseDataSize(task.stats.userMemoryReservation)}>
+                        {parseAndFormatDataSize(task.stats.userMemoryReservation)}
+                    </Td>
+                    <Td column="peakMemory" value={parseDataSize(task.stats.peakUserMemoryReservation)}>
+                        {parseAndFormatDataSize(task.stats.peakUserMemoryReservation)}
+                    </Td>
+                    {taskRetriesEnabled &&
+                    <Td column="estimatedMemory" value={parseDataSize(task.estimatedMemory)}>
+                        {parseAndFormatDataSize(task.estimatedMemory)}
+                    </Td>
+                    }
                 </Tr>
             );
         });
@@ -187,6 +199,9 @@ class TaskList extends React.Component {
                     'elapsedTime',
                     'cpuTime',
                     'bufferedBytes',
+                    'memory',
+                    'peakMemory',
+                    'estimatedMemory',
                 ]}
                    defaultSort={{column: 'id', direction: 'asc'}}>
                 <Thead>
@@ -207,7 +222,11 @@ class TaskList extends React.Component {
                 <Th column="bytesSec">Bytes/s</Th>
                 <Th column="elapsedTime">Elapsed</Th>
                 <Th column="cpuTime">CPU Time</Th>
-                <Th column="bufferedBytes">Buffered</Th>
+                <Th column="memory">Mem</Th>
+                <Th column="peakMemory">Peak Mem</Th>
+                {taskRetriesEnabled &&
+                <Th column="estimatedMemory">Est Mem</Th>
+                }
                 </Thead>
                 {renderedTasks}
             </Table>
@@ -938,7 +957,7 @@ export class QueryDetail extends React.Component {
         new window.ClipboardJS('.copy-button');
     }
 
-    renderTasks() {
+    renderTasks(taskRetriesEnabled) {
         if (this.state.lastSnapshotTasks === null) {
             return;
         }
@@ -978,7 +997,7 @@ export class QueryDetail extends React.Component {
                 </div>
                 <div className="row">
                     <div className="col-xs-12">
-                        <TaskList key={this.state.query.queryId} tasks={tasks}/>
+                        <TaskList key={this.state.query.queryId} tasks={tasks} taskRetriesEnabled={taskRetriesEnabled}/>
                     </div>
                 </div>
             </div>
@@ -1705,7 +1724,7 @@ export class QueryDetail extends React.Component {
                     {this.renderPreparedQuery()}
                 </div>
                 {this.renderStages()}
-                {this.renderTasks()}
+                {this.renderTasks(taskRetriesEnabled)}
             </div>
         );
     }
