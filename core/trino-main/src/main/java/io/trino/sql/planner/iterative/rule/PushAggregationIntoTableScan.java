@@ -127,6 +127,9 @@ public class PushAggregationIntoTableScan
             Map<Symbol, AggregationNode.Aggregation> aggregations,
             List<Symbol> groupingKeys)
     {
+        LiteralEncoder literalEncoder = new LiteralEncoder(plannerContext);
+        Session session = context.getSession();
+
         Map<String, ColumnHandle> assignments = tableScan.getAssignments()
                 .entrySet().stream()
                 .collect(toImmutableMap(entry -> entry.getKey().getName(), Entry::getValue));
@@ -149,7 +152,7 @@ public class PushAggregationIntoTableScan
                 .collect(toImmutableList());
 
         Optional<AggregationApplicationResult<TableHandle>> aggregationPushdownResult = plannerContext.getMetadata().applyAggregation(
-                context.getSession(),
+                session,
                 tableScan.getTable(),
                 aggregateFunctions,
                 assignments,
@@ -179,7 +182,7 @@ public class PushAggregationIntoTableScan
         }
 
         List<Expression> newProjections = result.getProjections().stream()
-                .map(expression -> ConnectorExpressionTranslator.translate(context.getSession(), expression, plannerContext, variableMappings, new LiteralEncoder(plannerContext)))
+                .map(expression -> ConnectorExpressionTranslator.translate(session, expression, plannerContext, variableMappings, literalEncoder))
                 .collect(toImmutableList());
 
         verify(aggregationOutputSymbols.size() == newProjections.size());
@@ -209,7 +212,7 @@ public class PushAggregationIntoTableScan
                                 newScanOutputs.build(),
                                 scanAssignments,
                                 TupleDomain.all(),
-                                deriveTableStatisticsForPushdown(context.getStatsProvider(), context.getSession(), result.isPrecalculateStatistics(), aggregationNode),
+                                deriveTableStatisticsForPushdown(context.getStatsProvider(), session, result.isPrecalculateStatistics(), aggregationNode),
                                 tableScan.isUpdateTarget(),
                                 // table scan partitioning might have changed with new table handle
                                 Optional.empty()),
