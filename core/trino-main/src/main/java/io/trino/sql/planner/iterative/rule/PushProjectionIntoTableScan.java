@@ -72,12 +72,14 @@ public class PushProjectionIntoTableScan
 
     private final PlannerContext plannerContext;
     private final TypeAnalyzer typeAnalyzer;
+    private final LiteralEncoder literalEncoder;
     private final ScalarStatsCalculator scalarStatsCalculator;
 
     public PushProjectionIntoTableScan(PlannerContext plannerContext, TypeAnalyzer typeAnalyzer, ScalarStatsCalculator scalarStatsCalculator)
     {
         this.plannerContext = plannerContext;
         this.typeAnalyzer = typeAnalyzer;
+        this.literalEncoder = new LiteralEncoder(plannerContext);
         this.scalarStatsCalculator = requireNonNull(scalarStatsCalculator, "scalarStatsCalculator is null");
     }
 
@@ -98,13 +100,15 @@ public class PushProjectionIntoTableScan
     {
         TableScanNode tableScan = captures.get(TABLE_SCAN);
 
+        Session session = context.getSession();
+
         // Extract translatable components from projection expressions. Prepare a mapping from these internal
         // expression nodes to corresponding ConnectorExpression translations.
         Map<NodeRef<Expression>, ConnectorExpression> partialTranslations = project.getAssignments().getMap().entrySet().stream()
                 .flatMap(expression ->
                         extractPartialTranslations(
                                 expression.getValue(),
-                                context.getSession(),
+                                session,
                                 typeAnalyzer,
                                 context.getSymbolAllocator().getTypes(),
                                 plannerContext).entrySet().stream())
@@ -119,7 +123,7 @@ public class PushProjectionIntoTableScan
         Map<String, ColumnHandle> assignments = inputVariableMappings.entrySet().stream()
                 .collect(toImmutableMap(Entry::getKey, entry -> tableScan.getAssignments().get(entry.getValue())));
 
-        Optional<ProjectionApplicationResult<TableHandle>> result = plannerContext.getMetadata().applyProjection(context.getSession(), tableScan.getTable(), connectorPartialProjections, assignments);
+        Optional<ProjectionApplicationResult<TableHandle>> result = plannerContext.getMetadata().applyProjection(session, tableScan.getTable(), connectorPartialProjections, assignments);
 
         if (result.isEmpty()) {
             return Result.empty();
@@ -144,7 +148,7 @@ public class PushProjectionIntoTableScan
 
         // Translate partial connector projections back to new partial projections
         List<Expression> newPartialProjections = newConnectorPartialProjections.stream()
-                .map(expression -> ConnectorExpressionTranslator.translate(context.getSession(), expression, plannerContext, variableMappings, new LiteralEncoder(plannerContext)))
+                .map(expression -> ConnectorExpressionTranslator.translate(session, expression, plannerContext, variableMappings, literalEncoder))
                 .collect(toImmutableList());
 
         // Map internal node references to new partial projections
@@ -171,8 +175,8 @@ public class PushProjectionIntoTableScan
                     continue;
                 }
                 String resultVariableName = ((Variable) resultConnectorExpression).getName();
-                Expression inputExpression = ConnectorExpressionTranslator.translate(context.getSession(), inputConnectorExpression, plannerContext, inputVariableMappings, new LiteralEncoder(plannerContext));
-                SymbolStatsEstimate symbolStatistics = scalarStatsCalculator.calculate(inputExpression, statistics, context.getSession(), context.getSymbolAllocator().getTypes());
+                Expression inputExpression = ConnectorExpressionTranslator.translate(session, inputConnectorExpression, plannerContext, inputVariableMappings, literalEncoder);
+                SymbolStatsEstimate symbolStatistics = scalarStatsCalculator.calculate(inputExpression, statistics, session, context.getSymbolAllocator().getTypes());
                 builder.addSymbolStatistics(variableMappings.get(resultVariableName), symbolStatistics);
             }
             return builder.build();
