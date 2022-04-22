@@ -191,7 +191,13 @@ public class Console
                         clientOptions.progress.orElse(false));
             }
 
-            runConsole(queryRunner, exiting, clientOptions.editingMode, clientOptions.progress.orElse(true), clientOptions.disableAutoSuggestion);
+            runConsole(
+                    queryRunner,
+                    exiting,
+                    clientOptions.outputFormatInteractive,
+                    clientOptions.editingMode,
+                    clientOptions.progress.orElse(true),
+                    clientOptions.disableAutoSuggestion);
             return true;
         }
         finally {
@@ -221,7 +227,13 @@ public class Console
         return reader.readLine("Password: ", (char) 0);
     }
 
-    private static void runConsole(QueryRunner queryRunner, AtomicBoolean exiting, ClientOptions.EditingMode editingMode, boolean progress, boolean disableAutoSuggestion)
+    private static void runConsole(
+            QueryRunner queryRunner,
+            AtomicBoolean exiting,
+            OutputFormat outputFormat,
+            ClientOptions.EditingMode editingMode,
+            boolean progress,
+            boolean disableAutoSuggestion)
     {
         try (TableNameCompleter tableNameCompleter = new TableNameCompleter(queryRunner);
                 InputReader reader = new InputReader(editingMode, getHistoryFile(), disableAutoSuggestion, commandCompleter(), tableNameCompleter)) {
@@ -284,12 +296,12 @@ public class Console
                 // execute any complete statements
                 StatementSplitter splitter = new StatementSplitter(line, STATEMENT_DELIMITERS);
                 for (Statement split : splitter.getCompleteStatements()) {
-                    OutputFormat outputFormat = OutputFormat.ALIGNED;
+                    OutputFormat currentOutputFormat = outputFormat;
                     if (split.terminator().equals("\\G")) {
-                        outputFormat = OutputFormat.VERTICAL;
+                        currentOutputFormat = OutputFormat.VERTICAL;
                     }
 
-                    process(queryRunner, split.statement(), outputFormat, tableNameCompleter::populateCache, true, progress, reader.getTerminal(), System.out, System.out);
+                    process(queryRunner, split.statement(), currentOutputFormat, tableNameCompleter::populateCache, true, progress, reader.getTerminal(), System.out, System.out);
                 }
 
                 // replace remaining with trailing partial statement
