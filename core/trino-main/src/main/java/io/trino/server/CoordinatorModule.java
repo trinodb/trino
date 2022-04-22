@@ -71,6 +71,7 @@ import io.trino.execution.scheduler.PartitionMemoryEstimatorFactory;
 import io.trino.execution.scheduler.SplitSchedulerStats;
 import io.trino.execution.scheduler.StageTaskSourceFactory;
 import io.trino.execution.scheduler.TaskDescriptorStorage;
+import io.trino.execution.scheduler.TaskExecutionStats;
 import io.trino.execution.scheduler.TaskSourceFactory;
 import io.trino.execution.scheduler.policy.AllAtOnceExecutionPolicy;
 import io.trino.execution.scheduler.policy.ExecutionPolicy;
@@ -325,6 +326,9 @@ public class CoordinatorModule
         binder.bind(TaskSourceFactory.class).to(StageTaskSourceFactory.class).in(Scopes.SINGLETON);
         binder.bind(TaskDescriptorStorage.class).in(Scopes.SINGLETON);
         newExporter(binder).export(TaskDescriptorStorage.class).withGeneratedName();
+
+        binder.bind(TaskExecutionStats.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(TaskExecutionStats.class).withGeneratedName();
 
         MapBinder<String, ExecutionPolicy> executionPolicyBinder = newMapBinder(binder, String.class, ExecutionPolicy.class);
         executionPolicyBinder.addBinding("all-at-once").to(AllAtOnceExecutionPolicy.class);

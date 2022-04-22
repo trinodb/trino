@@ -112,6 +112,7 @@ public class FaultTolerantStageScheduler
     private final NodeAllocator nodeAllocator;
     private final TaskDescriptorStorage taskDescriptorStorage;
     private final PartitionMemoryEstimator partitionMemoryEstimator;
+    private final TaskExecutionStats taskExecutionStats;
     private final int maxRetryAttemptsPerTask;
     private final int maxTasksWaitingForNodePerStage;
 
@@ -181,6 +182,7 @@ public class FaultTolerantStageScheduler
             NodeAllocator nodeAllocator,
             TaskDescriptorStorage taskDescriptorStorage,
             PartitionMemoryEstimator partitionMemoryEstimator,
+            TaskExecutionStats taskExecutionStats,
             TaskLifecycleListener taskLifecycleListener,
             DelayedFutureCompletor futureCompletor,
             Ticker ticker,
@@ -202,6 +204,7 @@ public class FaultTolerantStageScheduler
         this.nodeAllocator = requireNonNull(nodeAllocator, "nodeAllocator is null");
         this.taskDescriptorStorage = requireNonNull(taskDescriptorStorage, "taskDescriptorStorage is null");
         this.partitionMemoryEstimator = requireNonNull(partitionMemoryEstimator, "partitionMemoryEstimator is null");
+        this.taskExecutionStats = requireNonNull(taskExecutionStats, "taskExecutionStats is null");
         this.taskLifecycleListener = requireNonNull(taskLifecycleListener, "taskLifecycleListener is null");
         this.futureCompletor = requireNonNull(futureCompletor, "futureCompletor is null");
         this.sinkExchange = requireNonNull(sinkExchange, "sinkExchange is null");
@@ -410,6 +413,7 @@ public class FaultTolerantStageScheduler
         taskLifecycleListener.taskCreated(stage.getFragment().getId(), task);
 
         task.addStateChangeListener(taskStatus -> updateTaskStatus(taskStatus, exchangeSinkInstanceHandle));
+        task.addFinalTaskInfoListener(taskExecutionStats::update);
         task.start();
     }
 
