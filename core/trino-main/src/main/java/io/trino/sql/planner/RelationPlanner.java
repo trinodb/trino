@@ -33,7 +33,6 @@ import io.trino.sql.analyzer.Analysis.UnnestAnalysis;
 import io.trino.sql.analyzer.Field;
 import io.trino.sql.analyzer.RelationType;
 import io.trino.sql.analyzer.Scope;
-import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.CorrelatedJoinNode;
 import io.trino.sql.planner.plan.ExceptNode;
@@ -122,6 +121,7 @@ import static io.trino.sql.planner.QueryPlanner.coerceIfNecessary;
 import static io.trino.sql.planner.QueryPlanner.extractPatternRecognitionExpressions;
 import static io.trino.sql.planner.QueryPlanner.planWindowSpecification;
 import static io.trino.sql.planner.QueryPlanner.pruneInvisibleFields;
+import static io.trino.sql.planner.plan.AggregationNode.singleAggregation;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.Join.Type.CROSS;
@@ -1160,14 +1160,10 @@ class RelationPlanner
 
     private PlanNode distinct(PlanNode node)
     {
-        return new AggregationNode(idAllocator.getNextId(),
+        return singleAggregation(idAllocator.getNextId(),
                 node,
                 ImmutableMap.of(),
-                singleGroupingSet(node.getOutputSymbols()),
-                ImmutableList.of(),
-                AggregationNode.Step.SINGLE,
-                Optional.empty(),
-                Optional.empty());
+                singleGroupingSet(node.getOutputSymbols()));
     }
 
     private static final class SetOperationPlan

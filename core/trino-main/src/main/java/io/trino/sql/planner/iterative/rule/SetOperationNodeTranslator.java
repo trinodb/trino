@@ -49,6 +49,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.trino.sql.planner.plan.AggregationNode.singleAggregation;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.FrameBound.Type.UNBOUNDED_FOLLOWING;
@@ -180,14 +181,10 @@ public class SetOperationNodeTranslator
                     Optional.empty()));
         }
 
-        return new AggregationNode(idAllocator.getNextId(),
+        return singleAggregation(idAllocator.getNextId(),
                 sourceNode,
                 aggregations.buildOrThrow(),
-                singleGroupingSet(originalColumns),
-                ImmutableList.of(),
-                AggregationNode.Step.SINGLE,
-                Optional.empty(),
-                Optional.empty());
+                singleGroupingSet(originalColumns));
     }
 
     private WindowNode appendCounts(UnionNode sourceNode, List<Symbol> originalColumns, List<Symbol> markers, List<Symbol> countOutputs, Symbol rowNumberSymbol)

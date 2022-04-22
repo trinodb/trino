@@ -128,6 +128,7 @@ import static io.trino.sql.planner.OrderingScheme.sortItemToSortOrder;
 import static io.trino.sql.planner.PlanBuilder.newPlanBuilder;
 import static io.trino.sql.planner.ScopeAware.scopeAwareKey;
 import static io.trino.sql.planner.plan.AggregationNode.groupingSets;
+import static io.trino.sql.planner.plan.AggregationNode.singleAggregation;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static io.trino.sql.planner.plan.WindowNode.Frame.DEFAULT_FRAME;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
@@ -333,15 +334,11 @@ class QueryPlanner
         PlanNode result = new UnionNode(idAllocator.getNextId(), nodesToUnion, unionSymbolMapping.build(), unionOutputSymbols);
 
         if (union.isDistinct()) {
-            result = new AggregationNode(
+            result = singleAggregation(
                     idAllocator.getNextId(),
                     result,
                     ImmutableMap.of(),
-                    singleGroupingSet(result.getOutputSymbols()),
-                    ImmutableList.of(),
-                    AggregationNode.Step.SINGLE,
-                    Optional.empty(),
-                    Optional.empty());
+                    singleGroupingSet(result.getOutputSymbols()));
         }
 
         return new RelationPlan(result, anchorPlan.getScope(), unionOutputSymbols, outerContext);
@@ -1654,15 +1651,11 @@ class QueryPlanner
                     .collect(Collectors.toList());
 
             return subPlan.withNewRoot(
-                    new AggregationNode(
+                    singleAggregation(
                             idAllocator.getNextId(),
                             subPlan.getRoot(),
                             ImmutableMap.of(),
-                            singleGroupingSet(symbols),
-                            ImmutableList.of(),
-                            AggregationNode.Step.SINGLE,
-                            Optional.empty(),
-                            Optional.empty()));
+                            singleGroupingSet(symbols)));
         }
 
         return subPlan;
