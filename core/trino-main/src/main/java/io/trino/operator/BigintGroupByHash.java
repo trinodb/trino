@@ -15,7 +15,6 @@ package io.trino.operator;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import io.trino.array.LongBigArray;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
@@ -67,7 +66,7 @@ public class BigintGroupByHash
     private int nullGroupId = -1;
 
     // reverse index from the groupId back to the value
-    private final LongBigArray valuesByGroupId;
+    private long[] valuesByGroupId;
 
     private int nextGroupId;
     private DictionaryLookBack dictionaryLookBack;
@@ -95,8 +94,7 @@ public class BigintGroupByHash
         groupIds = new int[hashCapacity];
         Arrays.fill(groupIds, -1);
 
-        valuesByGroupId = new LongBigArray();
-        valuesByGroupId.ensureCapacity(maxFill);
+        valuesByGroupId = new long[maxFill];
 
         // This interface is used for actively reserving memory (push model) for rehash.
         // The caller can also query memory usage on this object (pull model)
@@ -109,7 +107,7 @@ public class BigintGroupByHash
         return INSTANCE_SIZE +
                 sizeOf(groupIds) +
                 sizeOf(values) +
-                valuesByGroupId.sizeOf() +
+                sizeOf(valuesByGroupId) +
                 preallocatedMemoryInBytes;
     }
 
@@ -146,7 +144,7 @@ public class BigintGroupByHash
             blockBuilder.appendNull();
         }
         else {
-            BIGINT.writeLong(blockBuilder, valuesByGroupId.get(groupId));
+            BIGINT.writeLong(blockBuilder, valuesByGroupId[groupId]);
         }
 
         if (outputRawHash) {
@@ -155,7 +153,7 @@ public class BigintGroupByHash
                 BIGINT.writeLong(hashBlockBuilder, NULL_HASH_CODE);
             }
             else {
-                BIGINT.writeLong(hashBlockBuilder, AbstractLongType.hash(valuesByGroupId.get(groupId)));
+                BIGINT.writeLong(hashBlockBuilder, AbstractLongType.hash(valuesByGroupId[groupId]));
             }
         }
     }
@@ -219,7 +217,7 @@ public class BigintGroupByHash
     @Override
     public long getRawHash(int groupId)
     {
-        return BigintType.hash(valuesByGroupId.get(groupId));
+        return BigintType.hash(valuesByGroupId[groupId]);
     }
 
     @VisibleForTesting
@@ -268,7 +266,7 @@ public class BigintGroupByHash
         int groupId = nextGroupId++;
 
         values[hashPosition] = value;
-        valuesByGroupId.set(groupId, value);
+        valuesByGroupId[groupId] = value;
         groupIds[hashPosition] = groupId;
 
         // increase capacity, if necessary
@@ -327,7 +325,7 @@ public class BigintGroupByHash
         values = newValues;
         groupIds = newGroupIds;
 
-        this.valuesByGroupId.ensureCapacity(maxFill);
+        this.valuesByGroupId = Arrays.copyOf(valuesByGroupId, maxFill);
         return true;
     }
 
