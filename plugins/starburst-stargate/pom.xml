@@ -251,6 +251,11 @@
                     <groupId>org.checkerframework</groupId>
                     <artifactId>checker-qual</artifactId>
                 </exclusion>
+                <!-- TODO: Remove exclusion once Trino is updated to 42.3.4 (https://starburstdata.atlassian.net/browse/SEP-8875) -->
+                <exclusion>
+                    <groupId>org.postgresql</groupId>
+                    <artifactId>postgresql</artifactId>
+                </exclusion>
             </exclusions>
         </dependency>
 
