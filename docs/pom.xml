@@ -27,6 +27,7 @@
                             <exclude>**/*.conf</exclude>
                             <exclude>**/*.css</exclude>
                             <exclude>**/*.js</exclude>
+                            <exclude>**/*.fragment</exclude>
                         </excludes>
                     </configuration>
                 </plugin>
