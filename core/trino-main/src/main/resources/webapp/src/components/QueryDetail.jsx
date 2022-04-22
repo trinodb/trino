@@ -394,6 +394,23 @@ class StageSummary extends React.Component {
                                             {stage.stageStats.totalCpuTime}
                                         </td>
                                     </tr>
+                                    <tr>
+                                        <td className="stage-table-stat-title">
+                                            Failed
+                                        </td>
+                                        <td className="stage-table-stat-text">
+                                            {stage.stageStats.failedScheduledTime}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="stage-table-stat-title">
+                                            CPU Failed
+                                        </td>
+                                        <td className="stage-table-stat-text">
+                                            {stage.stageStats.failedCpuTime}
+                                        </td>
+                                    </tr>
+
                                     </tbody>
                                 </table>
                             </td>
@@ -440,6 +457,14 @@ class StageSummary extends React.Component {
                                             {parseAndFormatDataSize(stage.stageStats.peakUserMemoryReservation)}
                                         </td>
                                     </tr>
+                                    <tr>
+                                        <td className="stage-table-stat-title">
+                                            Failed
+                                        </td>
+                                        <td className="stage-table-stat-text">
+                                            {formatDataSizeBytes(stage.stageStats.failedCumulativeUserMemory / 1000)}
+                                        </td>
+                                    </tr>
                                     </tbody>
                                 </table>
                             </td>
@@ -476,6 +501,14 @@ class StageSummary extends React.Component {
                                         </td>
                                         <td className="stage-table-stat-text">
                                             {stage.tasks.filter(task => task.stats.fullyBlocked).length}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="stage-table-stat-title">
+                                            Failed
+                                        </td>
+                                        <td className="stage-table-stat-text">
+                                            {stage.tasks.filter(task => task.taskStatus.state === "FAILED").length}
                                         </td>
                                     </tr>
                                     <tr>
