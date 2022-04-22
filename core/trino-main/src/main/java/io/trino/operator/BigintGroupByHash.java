@@ -96,7 +96,7 @@ public class BigintGroupByHash
         Arrays.fill(groupIds, -1);
 
         valuesByGroupId = new LongBigArray();
-        valuesByGroupId.ensureCapacity(hashCapacity);
+        valuesByGroupId.ensureCapacity(maxFill);
 
         // This interface is used for actively reserving memory (push model) for rehash.
         // The caller can also query memory usage on this object (pull model)
