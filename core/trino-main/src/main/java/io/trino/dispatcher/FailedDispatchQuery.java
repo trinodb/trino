@@ -25,6 +25,7 @@ import io.trino.execution.QueryInfo;
 import io.trino.execution.QueryState;
 import io.trino.execution.QueryStats;
 import io.trino.execution.StateMachine.StateChangeListener;
+import io.trino.operator.RetryPolicy;
 import io.trino.server.BasicQueryInfo;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.QueryId;
@@ -240,7 +241,8 @@ public class FailedDispatchQuery
                 ImmutableList.of(),
                 true,
                 resourceGroupId,
-                Optional.empty());
+                Optional.empty(),
+                RetryPolicy.NONE);
 
         return queryInfo;
     }

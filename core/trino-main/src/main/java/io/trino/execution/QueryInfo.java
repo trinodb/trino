@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.SessionRepresentation;
+import io.trino.operator.RetryPolicy;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.ErrorType;
 import io.trino.spi.QueryId;
@@ -79,6 +80,7 @@ public class QueryInfo
     private final boolean completeInfo;
     private final Optional<ResourceGroupId> resourceGroupId;
     private final Optional<QueryType> queryType;
+    private final RetryPolicy retryPolicy;
 
     @JsonCreator
     public QueryInfo(
@@ -112,7 +114,8 @@ public class QueryInfo
             @JsonProperty("routines") List<RoutineInfo> routines,
             @JsonProperty("completeInfo") boolean completeInfo,
             @JsonProperty("resourceGroupId") Optional<ResourceGroupId> resourceGroupId,
-            @JsonProperty("queryType") Optional<QueryType> queryType)
+            @JsonProperty("queryType") Optional<QueryType> queryType,
+            @JsonProperty("retryPolicy") RetryPolicy retryPolicy)
     {
         requireNonNull(queryId, "queryId is null");
         requireNonNull(session, "session is null");
@@ -138,6 +141,7 @@ public class QueryInfo
         requireNonNull(resourceGroupId, "resourceGroupId is null");
         requireNonNull(warnings, "warnings is null");
         requireNonNull(queryType, "queryType is null");
+        requireNonNull(retryPolicy, "retryPolicy is null");
 
         this.queryId = queryId;
         this.session = session;
@@ -171,6 +175,7 @@ public class QueryInfo
         this.completeInfo = completeInfo;
         this.resourceGroupId = resourceGroupId;
         this.queryType = queryType;
+        this.retryPolicy = retryPolicy;
     }
 
     @JsonProperty
@@ -367,6 +372,12 @@ public class QueryInfo
     public Optional<QueryType> getQueryType()
     {
         return queryType;
+    }
+
+    @JsonProperty
+    public RetryPolicy getRetryPolicy()
+    {
+        return retryPolicy;
     }
 
     @Override
