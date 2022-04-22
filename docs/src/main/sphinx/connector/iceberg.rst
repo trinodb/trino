@@ -201,6 +201,24 @@ to the filter:
     ALTER TABLE test_partitioned_table EXECUTE optimize
     WHERE partition_key = 1
 
+expire_snapshots
+~~~~~~~~~~~~~~~~
+
+The ``expire_snapshots`` command removes all snapshots and all related metadata and data files.
+Regularly expiring snapshots is recommended to delete data files that are no longer needed,
+and to keep the size of table metadata small.
+The procedure affects all snapshots that are older than the time period configured with the ``retention_threshold`` parameter.
+
+``expire_snapshots`` can be run as follows:
+
+.. code-block:: sql
+
+  ALTER TABLE test_table EXECUTE expire_snapshots(retention_threshold => '7d')
+
+The ``iceberg.expire_snapshots.min-retention`` catalog configuration property prevents from running
+``expire_snapshots`` with ``retention_threshold`` set to value lower than ``iceberg.expire_snapshots.min-retention``.
+The default value for this property is ``7d``.
+
 .. _iceberg-type-mapping:
 
 Type mapping
