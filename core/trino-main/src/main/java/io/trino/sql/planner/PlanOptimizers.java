@@ -601,8 +601,8 @@ public class PlanOptimizers
                 .add(new PushLimitIntoTableScan(metadata))
                 .add(new PushPredicateIntoTableScan(plannerContext, typeAnalyzer))
                 .add(new PushSampleIntoTableScan(metadata))
-                .add(new PushAggregationIntoTableScan(plannerContext))
-                .add(new PushDistinctLimitIntoTableScan(plannerContext))
+                .add(new PushAggregationIntoTableScan(plannerContext, typeAnalyzer))
+                .add(new PushDistinctLimitIntoTableScan(plannerContext, typeAnalyzer))
                 .add(new PushTopNIntoTableScan(metadata))
                 .build();
         IterativeOptimizer pushIntoTableScanOptimizer = new IterativeOptimizer(
