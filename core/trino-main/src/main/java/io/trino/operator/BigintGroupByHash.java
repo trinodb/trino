@@ -21,6 +21,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.DictionaryBlock;
+import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.AbstractLongType;
 import io.trino.spi.type.BigintType;
@@ -29,6 +30,7 @@ import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -501,7 +503,7 @@ public class BigintGroupByHash
     class GetGroupIdsWork
             implements Work<GroupByIdBlock>
     {
-        private final BlockBuilder blockBuilder;
+        private final long[] groupIds;
         private final Block block;
 
         private boolean finished;
@@ -510,8 +512,7 @@ public class BigintGroupByHash
         public GetGroupIdsWork(Block block)
         {
             this.block = requireNonNull(block, "block is null");
-            // we know the exact size required for the block
-            this.blockBuilder = BIGINT.createFixedSizeBlockBuilder(block.getPositionCount());
+            this.groupIds = new long[block.getPositionCount()];
         }
 
         @Override
@@ -531,7 +532,7 @@ public class BigintGroupByHash
             // Therefore needRehash will not generally return true even if we have just crossed the capacity boundary.
             while (lastPosition < positionCount && !needRehash()) {
                 // output the group id for this row
-                BIGINT.writeLong(blockBuilder, putIfAbsent(lastPosition, block));
+                groupIds[lastPosition] = putIfAbsent(lastPosition, block);
                 lastPosition++;
             }
             return lastPosition == positionCount;
@@ -543,7 +544,7 @@ public class BigintGroupByHash
             checkState(lastPosition == block.getPositionCount(), "process has not yet finished");
             checkState(!finished, "result has produced");
             finished = true;
-            return new GroupByIdBlock(nextGroupId, blockBuilder.build());
+            return new GroupByIdBlock(nextGroupId, new LongArrayBlock(block.getPositionCount(), Optional.empty(), groupIds));
         }
     }
 
@@ -551,7 +552,7 @@ public class BigintGroupByHash
     class GetDictionaryGroupIdsWork
             implements Work<GroupByIdBlock>
     {
-        private final BlockBuilder blockBuilder;
+        private final long[] groupIds;
         private final Block dictionary;
         private final DictionaryBlock block;
 
@@ -564,8 +565,7 @@ public class BigintGroupByHash
             this.dictionary = block.getDictionary();
             updateDictionaryLookBack(dictionary);
 
-            // we know the exact size required for the block
-            this.blockBuilder = BIGINT.createFixedSizeBlockBuilder(block.getPositionCount());
+            this.groupIds = new long[block.getPositionCount()];
         }
 
         @Override
@@ -586,7 +586,7 @@ public class BigintGroupByHash
             while (lastPosition < positionCount && !needRehash()) {
                 int positionInDictionary = block.getId(lastPosition);
                 int groupId = registerGroupId(dictionary, positionInDictionary);
-                BIGINT.writeLong(blockBuilder, groupId);
+                groupIds[lastPosition] = groupId;
                 lastPosition++;
             }
             return lastPosition == positionCount;
@@ -598,7 +598,7 @@ public class BigintGroupByHash
             checkState(lastPosition == block.getPositionCount(), "process has not yet finished");
             checkState(!finished, "result has produced");
             finished = true;
-            return new GroupByIdBlock(nextGroupId, blockBuilder.build());
+            return new GroupByIdBlock(nextGroupId, new LongArrayBlock(block.getPositionCount(), Optional.empty(), groupIds));
         }
     }
 
