@@ -14,6 +14,7 @@
 package io.trino.execution;
 
 import com.google.common.collect.Multimap;
+import io.airlift.units.DataSize;
 import io.trino.Session;
 import io.trino.execution.NodeTaskMap.PartitionedSplitCountTracker;
 import io.trino.execution.buffer.OutputBuffers;
@@ -23,6 +24,7 @@ import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.PlanNodeId;
 
+import java.util.Optional;
 import java.util.Set;
 
 public interface RemoteTaskFactory
@@ -36,5 +38,6 @@ public interface RemoteTaskFactory
             OutputBuffers outputBuffers,
             PartitionedSplitCountTracker partitionedSplitCountTracker,
             Set<DynamicFilterId> outboundDynamicFilterIds,
+            Optional<DataSize> estimatedMemory,
             boolean summarizeTaskInfo);
 }
