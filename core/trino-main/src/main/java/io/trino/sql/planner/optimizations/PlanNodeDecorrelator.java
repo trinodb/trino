@@ -64,6 +64,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
 import static io.trino.sql.planner.optimizations.SymbolMapper.symbolMapper;
+import static io.trino.sql.planner.plan.AggregationNode.singleAggregation;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static io.trino.sql.planner.plan.TopNRankingNode.RankingType.ROW_NUMBER;
 import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
@@ -229,15 +230,11 @@ public class PlanNodeDecorrelator
             }
 
             // rewrite Limit to aggregation on constant symbols
-            AggregationNode aggregationNode = new AggregationNode(
+            AggregationNode aggregationNode = singleAggregation(
                     nodeId,
                     decorrelatedChildNode,
                     ImmutableMap.of(),
-                    singleGroupingSet(decorrelatedChildNode.getOutputSymbols()),
-                    ImmutableList.of(),
-                    AggregationNode.Step.SINGLE,
-                    Optional.empty(),
-                    Optional.empty());
+                    singleGroupingSet(decorrelatedChildNode.getOutputSymbols()));
 
             return Optional.of(new DecorrelationResult(
                     aggregationNode,

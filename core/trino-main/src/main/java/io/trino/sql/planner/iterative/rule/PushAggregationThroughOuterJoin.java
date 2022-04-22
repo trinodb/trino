@@ -55,6 +55,7 @@ import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.planner.optimizations.DistinctOutputQueryUtil.isDistinct;
 import static io.trino.sql.planner.optimizations.SymbolMapper.symbolMapper;
 import static io.trino.sql.planner.plan.AggregationNode.globalAggregation;
+import static io.trino.sql.planner.plan.AggregationNode.singleAggregation;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static io.trino.sql.planner.plan.Patterns.aggregation;
 import static io.trino.sql.planner.plan.Patterns.join;
@@ -309,15 +310,11 @@ public class PushAggregationThroughOuterJoin
         Map<Symbol, Symbol> aggregationsSymbolMapping = aggregationsSymbolMappingBuilder.buildOrThrow();
 
         // create an aggregation node whose source is the null row.
-        AggregationNode aggregationOverNullRow = new AggregationNode(
+        AggregationNode aggregationOverNullRow = singleAggregation(
                 idAllocator.getNextId(),
                 nullRow,
                 aggregationsOverNullBuilder.buildOrThrow(),
-                globalAggregation(),
-                ImmutableList.of(),
-                AggregationNode.Step.SINGLE,
-                Optional.empty(),
-                Optional.empty());
+                globalAggregation());
 
         return new MappedAggregationInfo(aggregationOverNullRow, aggregationsSymbolMapping);
     }

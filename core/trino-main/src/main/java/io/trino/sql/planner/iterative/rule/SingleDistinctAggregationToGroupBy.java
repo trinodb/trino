@@ -27,13 +27,12 @@ import io.trino.sql.tree.Expression;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
+import static io.trino.sql.planner.plan.AggregationNode.singleAggregation;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static io.trino.sql.planner.plan.Patterns.aggregation;
 import static java.util.Collections.emptyList;
@@ -125,18 +124,14 @@ public class SingleDistinctAggregationToGroupBy
         return Result.ofPlanNode(
                 new AggregationNode(
                         aggregation.getId(),
-                        new AggregationNode(
+                        singleAggregation(
                                 context.getIdAllocator().getNextId(),
                                 aggregation.getSource(),
                                 ImmutableMap.of(),
                                 singleGroupingSet(ImmutableList.<Symbol>builder()
                                         .addAll(aggregation.getGroupingKeys())
                                         .addAll(symbols)
-                                        .build()),
-                                ImmutableList.of(),
-                                SINGLE,
-                                Optional.empty(),
-                                Optional.empty()),
+                                        .build())),
                         // remove DISTINCT flag from function calls
                         aggregation.getAggregations()
                                 .entrySet().stream()
