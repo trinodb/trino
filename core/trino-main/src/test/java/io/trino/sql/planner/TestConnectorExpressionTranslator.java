@@ -33,6 +33,7 @@ import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.DoubleLiteral;
 import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.IsNotNullPredicate;
 import io.trino.sql.tree.IsNullPredicate;
 import io.trino.sql.tree.LikePredicate;
@@ -46,7 +47,6 @@ import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.SymbolReference;
 import io.trino.testing.TestingSession;
 import io.trino.transaction.TestingTransactionManager;
-import io.trino.type.JoniRegexpType;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -84,6 +84,7 @@ import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.testing.DataProviders.toDataProvider;
 import static io.trino.transaction.TransactionBuilder.transaction;
+import static io.trino.type.JoniRegexpType.JONI_REGEXP;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testng.Assert.assertEquals;
 
@@ -394,19 +395,26 @@ public class TestConnectorExpressionTranslator
         transaction(new TestingTransactionManager(), new AllowAllAccessControl())
                 .readOnly()
                 .execute(TEST_SESSION, transactionSession -> {
-                    assertTranslationToConnectorExpression(
-                            transactionSession,
-                            FunctionCallBuilder.resolve(TEST_SESSION, PLANNER_CONTEXT.getMetadata())
-                                    .setName(QualifiedName.of(("regexp_like")))
-                                    .addArgument(VARCHAR_TYPE, new SymbolReference("varchar_symbol_1"))
-                                    .addArgument(JoniRegexpType.JONI_REGEXP, LITERAL_ENCODER.toExpression(TEST_SESSION, joniRegexp(utf8Slice("a+")), JoniRegexpType.JONI_REGEXP))
-                                    .build(),
-                            new Call(
-                                    BOOLEAN,
-                                    new FunctionName("regexp_like"),
-                                    List.of(
-                                            new Variable("varchar_symbol_1", VARCHAR_TYPE),
-                                            new Constant(utf8Slice("a+"), createVarcharType(2)))));
+                    FunctionCall input = FunctionCallBuilder.resolve(TEST_SESSION, PLANNER_CONTEXT.getMetadata())
+                            .setName(QualifiedName.of(("regexp_like")))
+                            .addArgument(VARCHAR_TYPE, new SymbolReference("varchar_symbol_1"))
+                            .addArgument(JONI_REGEXP, LITERAL_ENCODER.toExpression(TEST_SESSION, joniRegexp(utf8Slice("a+")), JONI_REGEXP))
+                            .build();
+                    Call translated = new Call(
+                            BOOLEAN,
+                            new FunctionName("regexp_like"),
+                            List.of(
+                                    new Variable("varchar_symbol_1", VARCHAR_TYPE),
+                                    new Constant(utf8Slice("a+"), createVarcharType(2))));
+                    FunctionCall translatedBack = FunctionCallBuilder.resolve(TEST_SESSION, PLANNER_CONTEXT.getMetadata())
+                            .setName(QualifiedName.of(("regexp_like")))
+                            .addArgument(VARCHAR_TYPE, new SymbolReference("varchar_symbol_1"))
+                            // Note: The result is not an optimized expression
+                            .addArgument(JONI_REGEXP, new Cast(new StringLiteral("a+"), toSqlType(JONI_REGEXP)))
+                            .build();
+
+                    assertTranslationToConnectorExpression(transactionSession, input, translated);
+                    assertTranslationFromConnectorExpression(transactionSession, translated, translatedBack);
                 });
     }
 
