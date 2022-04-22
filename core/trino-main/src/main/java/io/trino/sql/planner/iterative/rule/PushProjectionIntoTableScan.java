@@ -30,9 +30,12 @@ import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.ConnectorExpressionTranslator;
+import io.trino.sql.planner.ExpressionInterpreter;
 import io.trino.sql.planner.LiteralEncoder;
+import io.trino.sql.planner.NoOpSymbolResolver;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.iterative.Rule;
@@ -148,7 +151,18 @@ public class PushProjectionIntoTableScan
 
         // Translate partial connector projections back to new partial projections
         List<Expression> newPartialProjections = newConnectorPartialProjections.stream()
-                .map(expression -> ConnectorExpressionTranslator.translate(session, expression, plannerContext, variableMappings, literalEncoder))
+                .map(expression -> {
+                    Expression translated = ConnectorExpressionTranslator.translate(session, expression, plannerContext, variableMappings, literalEncoder);
+                    // ConnectorExpressionTranslator may or may not preserve optimized form of expressions during round-trip. Avoid potential optimizer loop
+                    // by ensuring expression is optimized.
+                    Map<NodeRef<Expression>, Type> translatedExpressionTypes = typeAnalyzer.getTypes(session, context.getSymbolAllocator().getTypes(), translated);
+                    translated = literalEncoder.toExpression(
+                            session,
+                            new ExpressionInterpreter(translated, plannerContext, session, translatedExpressionTypes)
+                                    .optimize(NoOpSymbolResolver.INSTANCE),
+                            translatedExpressionTypes.get(NodeRef.of(translated)));
+                    return translated;
+                })
                 .collect(toImmutableList());
 
         // Map internal node references to new partial projections

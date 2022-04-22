@@ -32,6 +32,7 @@ import io.trino.spi.type.Decimals;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.VarcharType;
 import io.trino.sql.DynamicFilters;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.TypeSignatureProvider;
@@ -105,6 +106,7 @@ import static io.trino.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
 import static io.trino.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
 import static io.trino.type.JoniRegexpType.JONI_REGEXP;
 import static java.lang.Math.toIntExact;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public final class ConnectorExpressionTranslator
@@ -279,12 +281,23 @@ public final class ConnectorExpressionTranslator
             FunctionCallBuilder builder = FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
                     .setName(name);
             for (int i = 0; i < call.getArguments().size(); i++) {
-                Type type = resolved.getSignature().getArgumentTypes().get(i);
-                Optional<Expression> translated = translate(call.getArguments().get(i));
+                ConnectorExpression argument = call.getArguments().get(i);
+                Type formalType = resolved.getSignature().getArgumentTypes().get(i);
+                Type argumentType = argument.getType();
+                Optional<Expression> translated = translate(argument);
                 if (translated.isEmpty()) {
                     return Optional.empty();
                 }
-                builder.addArgument(type, translated.get());
+                Expression expression = translated.get();
+                if ((formalType == JONI_REGEXP || formalType instanceof Re2JRegexpType) && argumentType instanceof VarcharType) {
+                    // These types are not used in connector expressions, so require special handling when translating back to expressions.
+                    expression = new Cast(expression, toSqlType(formalType));
+                }
+                else if (!argumentType.equals(formalType)) {
+                    // There are no implicit coercions in connector expressions except for engine types that are not exposed in connector expressions.
+                    throw new IllegalArgumentException(format("Unexpected type %s for argument %s of type %s of %s", argumentType, formalType, i, name));
+                }
+                builder.addArgument(formalType, expression);
             }
             return Optional.of(builder.build());
         }
