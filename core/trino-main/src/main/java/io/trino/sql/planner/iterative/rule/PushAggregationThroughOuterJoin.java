@@ -138,15 +138,11 @@ public class PushAggregationThroughOuterJoin
         List<Symbol> groupingKeys = join.getCriteria().stream()
                 .map(join.getType() == JoinNode.Type.RIGHT ? JoinNode.EquiJoinClause::getLeft : JoinNode.EquiJoinClause::getRight)
                 .collect(toImmutableList());
-        AggregationNode rewrittenAggregation = new AggregationNode(
-                aggregation.getId(),
-                getInnerTable(join),
-                aggregation.getAggregations(),
-                singleGroupingSet(groupingKeys),
-                ImmutableList.of(),
-                aggregation.getStep(),
-                aggregation.getHashSymbol(),
-                aggregation.getGroupIdSymbol());
+        AggregationNode rewrittenAggregation = AggregationNode.builderFrom(aggregation)
+                .setSource(getInnerTable(join))
+                .setGroupingSets(singleGroupingSet(groupingKeys))
+                .setPreGroupedSymbols(ImmutableList.of())
+                .build();
 
         JoinNode rewrittenJoin;
         if (join.getType() == JoinNode.Type.LEFT) {

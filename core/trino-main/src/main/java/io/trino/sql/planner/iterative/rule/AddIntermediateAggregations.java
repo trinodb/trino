@@ -153,15 +153,12 @@ public class AddIntermediateAggregations
     {
         verify(aggregation.getGroupingKeys().isEmpty(), "Should be an un-grouped aggregation");
         ExchangeNode gatheringExchange = ExchangeNode.gatheringExchange(idAllocator.getNextId(), ExchangeNode.Scope.LOCAL, aggregation);
-        return new AggregationNode(
-                idAllocator.getNextId(),
-                gatheringExchange,
-                outputsAsInputs(aggregation.getAggregations()),
-                aggregation.getGroupingSets(),
-                aggregation.getPreGroupedSymbols(),
-                AggregationNode.Step.INTERMEDIATE,
-                aggregation.getHashSymbol(),
-                aggregation.getGroupIdSymbol());
+        return AggregationNode.builderFrom(aggregation)
+                .setId(idAllocator.getNextId())
+                .setSource(gatheringExchange)
+                .setAggregations(outputsAsInputs(aggregation.getAggregations()))
+                .setStep(AggregationNode.Step.INTERMEDIATE)
+                .build();
     }
 
     /**
