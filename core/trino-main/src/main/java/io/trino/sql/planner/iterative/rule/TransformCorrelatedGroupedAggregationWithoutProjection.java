@@ -36,6 +36,7 @@ import static io.trino.matching.Capture.newCapture;
 import static io.trino.matching.Pattern.nonEmpty;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.iterative.rule.AggregationDecorrelation.isDistinctOperator;
+import static io.trino.sql.planner.iterative.rule.AggregationDecorrelation.restoreDistinctAggregation;
 import static io.trino.sql.planner.iterative.rule.Util.restrictOutputs;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static io.trino.sql.planner.plan.CorrelatedJoinNode.Type.INNER;
@@ -173,18 +174,13 @@ public class TransformCorrelatedGroupedAggregationWithoutProjection
 
         // restore distinct aggregation
         if (distinct != null) {
-            distinct = new AggregationNode(
-                    distinct.getId(),
+            distinct = restoreDistinctAggregation(
+                    distinct,
                     join,
-                    distinct.getAggregations(),
-                    singleGroupingSet(ImmutableList.<Symbol>builder()
+                    ImmutableList.<Symbol>builder()
                             .addAll(join.getLeftOutputSymbols())
                             .addAll(distinct.getGroupingKeys())
-                            .build()),
-                    ImmutableList.of(),
-                    distinct.getStep(),
-                    Optional.empty(),
-                    Optional.empty());
+                            .build());
         }
 
         // restore grouped aggregation

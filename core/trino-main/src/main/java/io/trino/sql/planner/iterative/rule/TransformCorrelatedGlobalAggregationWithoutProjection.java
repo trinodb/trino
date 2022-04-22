@@ -45,6 +45,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.ExpressionUtils.and;
 import static io.trino.sql.planner.iterative.rule.AggregationDecorrelation.isDistinctOperator;
+import static io.trino.sql.planner.iterative.rule.AggregationDecorrelation.restoreDistinctAggregation;
 import static io.trino.sql.planner.iterative.rule.AggregationDecorrelation.rewriteWithMasks;
 import static io.trino.sql.planner.iterative.rule.Util.restrictOutputs;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
@@ -197,19 +198,14 @@ public class TransformCorrelatedGlobalAggregationWithoutProjection
 
         // restore distinct aggregation
         if (distinct != null) {
-            root = new AggregationNode(
-                    distinct.getId(),
+            root = restoreDistinctAggregation(
+                    distinct,
                     join,
-                    distinct.getAggregations(),
-                    singleGroupingSet(ImmutableList.<Symbol>builder()
+                    ImmutableList.<Symbol>builder()
                             .addAll(join.getLeftOutputSymbols())
                             .add(nonNull)
                             .addAll(distinct.getGroupingKeys())
-                            .build()),
-                    ImmutableList.of(),
-                    distinct.getStep(),
-                    Optional.empty(),
-                    Optional.empty());
+                            .build());
         }
 
         // prepare mask symbols for aggregations
