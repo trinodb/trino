@@ -40,6 +40,9 @@ public class RewriteVarcharConstant
     public Optional<String> rewrite(Constant constant, Captures captures, RewriteContext<String> context)
     {
         Slice slice = (Slice) constant.getValue();
+        if (slice == null) {
+            return Optional.empty();
+        }
         return Optional.of("'" + slice.toStringUtf8().replace("'", "''") + "'");
     }
 }

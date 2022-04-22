@@ -46,6 +46,10 @@ public class RewriteExactNumericConstant
     @Override
     public Optional<String> rewrite(Constant constant, Captures captures, RewriteContext<String> context)
     {
+        if (constant.getValue() == null) {
+            return Optional.empty();
+        }
+
         Type type = constant.getType();
         if (type == TINYINT || type == SMALLINT || type == INTEGER || type == BIGINT) {
             return Optional.of(Long.toString((long) constant.getValue()));
