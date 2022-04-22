@@ -1368,12 +1368,7 @@ export class QueryDetail extends React.Component {
                                         <td className="info-text">
                                             {query.queryStats.totalCpuTime}
                                         </td>
-                                    </tr>
-                                    <tr>
-                                        <td className="info-title">
-                                            CPU Time (failed tasks)
-                                        </td>
-                                        <td className="info-text">
+                                        <td className="info-failed">
                                             {query.queryStats.failedCpuTime}
                                         </td>
                                     </tr>
@@ -1384,12 +1379,7 @@ export class QueryDetail extends React.Component {
                                         <td className="info-text">
                                             {query.queryStats.totalScheduledTime}
                                         </td>
-                                    </tr>
-                                    <tr>
-                                        <td className="info-title">
-                                            Scheduled Time (failed tasks)
-                                        </td>
-                                        <td className="info-text">
+                                        <td className="info-failed">
                                             {query.queryStats.failedScheduledTime}
                                         </td>
                                     </tr>
@@ -1400,6 +1390,9 @@ export class QueryDetail extends React.Component {
                                         <td className="info-text">
                                             {formatCount(query.queryStats.processedInputPositions)}
                                         </td>
+                                        <td className="info-failed">
+                                            {query.queryStats.failedProcessedInputPositions}
+                                        </td>
                                     </tr>
                                     <tr>
                                         <td className="info-title">
@@ -1407,6 +1400,9 @@ export class QueryDetail extends React.Component {
                                         </td>
                                         <td className="info-text">
                                             {parseAndFormatDataSize(query.queryStats.processedInputDataSize)}
+                                        </td>
+                                        <td className="info-failed">
+                                            {query.queryStats.failedProcessedInputDataSize}
                                         </td>
                                     </tr>
                                     <tr>
@@ -1416,6 +1412,9 @@ export class QueryDetail extends React.Component {
                                         <td className="info-text">
                                             {formatCount(query.queryStats.physicalInputPositions)}
                                         </td>
+                                        <td className="info-failed">
+                                            {formatCount(query.queryStats.failedPhysicalInputPositions)}
+                                        </td>
                                     </tr>
                                     <tr>
                                         <td className="info-title">
@@ -1423,6 +1422,9 @@ export class QueryDetail extends React.Component {
                                         </td>
                                         <td className="info-text">
                                             {parseAndFormatDataSize(query.queryStats.physicalInputDataSize)}
+                                        </td>
+                                        <td className="info-failed">
+                                            {parseAndFormatDataSize(query.queryStats.failedPhysicalInputDataSize)}
                                         </td>
                                     </tr>
                                     <tr>
@@ -1432,6 +1434,9 @@ export class QueryDetail extends React.Component {
                                         <td className="info-text">
                                             {query.queryStats.physicalInputReadTime}
                                         </td>
+                                        <td className="info-failed">
+                                            {query.queryStats.failedPhysicalInputReadTime}
+                                        </td>
                                     </tr>
                                     <tr>
                                         <td className="info-title">
@@ -1440,6 +1445,9 @@ export class QueryDetail extends React.Component {
                                         <td className="info-text">
                                             {formatCount(query.queryStats.internalNetworkInputPositions)}
                                         </td>
+                                        <td className="info-failed">
+                                            {formatCount(query.queryStats.failedInternalNetworkInputPositions)}
+                                        </td>
                                     </tr>
                                     <tr>
                                         <td className="info-title">
@@ -1447,6 +1455,9 @@ export class QueryDetail extends React.Component {
                                         </td>
                                         <td className="info-text">
                                             {parseAndFormatDataSize(query.queryStats.internalNetworkInputDataSize)}
+                                        </td>
+                                        <td className="info-failed">
+                                            {parseAndFormatDataSize(query.queryStats.failedInternalNetworkInputDataSize)}
                                         </td>
                                     </tr>
                                     <tr>
@@ -1482,12 +1493,7 @@ export class QueryDetail extends React.Component {
                                         <td className="info-text">
                                             {formatDataSizeBytes(query.queryStats.cumulativeUserMemory / 1000.0) + " seconds"}
                                         </td>
-                                    </tr>
-                                    <tr>
-                                        <td className="info-title">
-                                            Cumulative User Memory (failed tasks)
-                                        </td>
-                                        <td className="info-text">
+                                        <td className="info-failed">
                                             {formatDataSizeBytes(query.queryStats.failedCumulativeUserMemory / 1000.0) + " seconds"}
                                         </td>
                                     </tr>
@@ -1498,6 +1504,9 @@ export class QueryDetail extends React.Component {
                                         <td className="info-text">
                                             {formatCount(query.queryStats.outputPositions)}
                                         </td>
+                                        <td className="info-failed">
+                                            {formatCount(query.queryStats.failedOutputPositions)}
+                                        </td>
                                     </tr>
                                     <tr>
                                         <td className="info-title">
@@ -1505,6 +1514,9 @@ export class QueryDetail extends React.Component {
                                         </td>
                                         <td className="info-text">
                                             {parseAndFormatDataSize(query.queryStats.outputDataSize)}
+                                        </td>
+                                        <td className="info-failed">
+                                            {parseAndFormatDataSize(query.queryStats.failedOutputDataSize)}
                                         </td>
                                     </tr>
                                     <tr>
@@ -1529,6 +1541,9 @@ export class QueryDetail extends React.Component {
                                         </td>
                                         <td className="info-text">
                                             {parseAndFormatDataSize(query.queryStats.physicalWrittenDataSize)}
+                                        </td>
+                                        <td className="info-failed">
+                                            {parseAndFormatDataSize(query.queryStats.failedPhysicalWrittenDataSize)}
                                         </td>
                                     </tr>
                                     {parseDataSize(query.queryStats.spilledDataSize) > 0 &&

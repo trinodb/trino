@@ -556,6 +556,10 @@ pre {
     color: #fff;
 }
 
+.info-failed {
+    color: #aaa;
+}
+
 .table > tbody > tr > .info-sparkline-text {
     color: #fff;
     border-top: none;
