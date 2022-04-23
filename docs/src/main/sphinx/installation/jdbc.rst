@@ -158,6 +158,11 @@ Name                                                         Description
 ``SSLTrustStorePassword``                                    The password for the TrustStore.
 ``SSLTrustStoreType``                                        The type of the TrustStore. The default type is provided by the Java
                                                              ``keystore.type`` security property or ``jks`` if none exists.
+``SSLUseSystemTrustStore``                                   Set ``true`` to automatically use the system TrustStore based on the operating system.
+                                                             The supported OSes are Windows and macOS. For Windows, the ``Windows-ROOT``
+                                                             TrustStore is selected. For macOS, the ``KeychainStore`` TrustStore is selected.
+                                                             For other OSes, the default Java TrustStore is loaded.
+                                                             The TrustStore specification can be overridden using ``SSLTrustStoreType``.
 ``KerberosRemoteServiceName``                                Trino coordinator Kerberos service name. This parameter is
                                                              required for Kerberos authentication.
 ``KerberosPrincipal``                                        The principal to use when authenticating to the Trino coordinator.

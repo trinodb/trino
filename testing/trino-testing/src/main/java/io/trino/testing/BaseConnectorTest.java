@@ -2115,17 +2115,17 @@ public abstract class BaseConnectorTest
         String schemaName = "test_schema_" + randomTableSuffix();
         assertUpdate("CREATE SCHEMA " + schemaName);
 
-        String renamedTable = schemaName + ".test_rename_new_" + randomTableSuffix();
-        assertUpdate("ALTER TABLE " + tableName + " RENAME TO " + renamedTable);
+        String renamedTable = "test_rename_new_" + randomTableSuffix();
+        assertUpdate("ALTER TABLE " + tableName + " RENAME TO " + schemaName + "." + renamedTable);
 
         assertFalse(getQueryRunner().tableExists(getSession(), tableName));
-        assertQuery("SELECT x FROM " + renamedTable, "VALUES 123");
+        assertQuery("SELECT x FROM " + schemaName + "." + renamedTable, "VALUES 123");
 
-        assertUpdate("DROP TABLE " + renamedTable);
+        assertUpdate("DROP TABLE " + schemaName + "." + renamedTable);
         assertUpdate("DROP SCHEMA " + schemaName);
 
         assertFalse(getQueryRunner().tableExists(getSession(), tableName));
-        assertFalse(getQueryRunner().tableExists(getSession(), renamedTable));
+        assertFalse(getQueryRunner().tableExists(Session.builder(getSession()).setSchema(schemaName).build(), renamedTable));
     }
 
     @Test
@@ -2453,7 +2453,7 @@ public abstract class BaseConnectorTest
     @Test
     public void testDelete()
     {
-        skipTestUnlessSupportsDeletes();
+        skipTestUnless(hasBehavior(SUPPORTS_DELETE));
 
         // delete successive parts of the table
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_", "AS SELECT * FROM orders")) {
@@ -2497,7 +2497,7 @@ public abstract class BaseConnectorTest
     @Test
     public void testDeleteWithLike()
     {
-        skipTestUnlessSupportsDeletes();
+        skipTestUnless(hasBehavior(SUPPORTS_DELETE));
 
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_with_like_", "AS SELECT * FROM nation")) {
             assertUpdate("DELETE FROM " + table.getName() + " WHERE name LIKE '%a%'", "VALUES 0");
@@ -2508,7 +2508,7 @@ public abstract class BaseConnectorTest
     @Test
     public void testDeleteWithComplexPredicate()
     {
-        skipTestUnlessSupportsDeletes();
+        skipTestUnless(hasBehavior(SUPPORTS_DELETE));
 
         // TODO (https://github.com/trinodb/trino/issues/5901) Use longer table name once Oracle version is updated
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_complex_", "AS SELECT * FROM orders")) {
@@ -2526,7 +2526,7 @@ public abstract class BaseConnectorTest
     @Test
     public void testDeleteWithSubquery()
     {
-        skipTestUnlessSupportsDeletes();
+        skipTestUnless(hasBehavior(SUPPORTS_DELETE));
 
         // TODO (https://github.com/trinodb/trino/issues/5901) Use longer table name once Oracle version is updated
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_subquery", "AS SELECT * FROM nation")) {
@@ -2550,7 +2550,7 @@ public abstract class BaseConnectorTest
     @Test
     public void testExplainAnalyzeWithDeleteWithSubquery()
     {
-        skipTestUnlessSupportsDeletes();
+        skipTestUnless(hasBehavior(SUPPORTS_DELETE));
 
         String tableName = "test_delete_" + randomTableSuffix();
 
@@ -2564,7 +2564,7 @@ public abstract class BaseConnectorTest
     @Test
     public void testDeleteWithSemiJoin()
     {
-        skipTestUnlessSupportsDeletes();
+        skipTestUnless(hasBehavior(SUPPORTS_DELETE));
 
         // TODO (https://github.com/trinodb/trino/issues/5901) Use longer table name once Oracle version is updated
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_semijoin", "AS SELECT * FROM nation")) {
@@ -2599,22 +2599,11 @@ public abstract class BaseConnectorTest
     @Test
     public void testDeleteWithVarcharPredicate()
     {
-        skipTestUnlessSupportsDeletes();
+        skipTestUnless(hasBehavior(SUPPORTS_DELETE));
 
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_with_varchar_predicate_", "AS SELECT * FROM orders")) {
             assertUpdate("DELETE FROM " + table.getName() + " WHERE orderstatus = 'O'", "SELECT count(*) FROM orders WHERE orderstatus = 'O'");
             assertQuery("SELECT * FROM " + table.getName(), "SELECT * FROM orders WHERE orderstatus <> 'O'");
-        }
-    }
-
-    protected void skipTestUnlessSupportsDeletes()
-    {
-        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_supports_delete", "(col varchar(1))")) {
-            if (!hasBehavior(SUPPORTS_DELETE)) {
-                assertQueryFails("DELETE FROM " + table.getName(), "This connector does not support deletes");
-                throw new SkipException("This connector does not support deletes");
-            }
         }
     }
 

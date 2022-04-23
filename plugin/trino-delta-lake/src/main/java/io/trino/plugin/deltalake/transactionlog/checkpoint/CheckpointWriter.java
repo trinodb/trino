@@ -146,7 +146,7 @@ public class CheckpointWriter
 
     private static Properties buildSchemaProperties(List<String> columnNames, List<Type> columnTypes)
     {
-        // TODO copied out from DeltaLakePageSink. Extrat to utility class
+        // TODO copied out from DeltaLakePageSink. Extrat to utility class (https://github.com/trinodb/trino/issues/12030)
         Properties schema = new Properties();
         schema.setProperty(IOConstants.COLUMNS, String.join(",", columnNames));
         schema.setProperty(IOConstants.COLUMNS_TYPES, columnTypes.stream()
@@ -219,7 +219,7 @@ public class CheckpointWriter
         writeLong(entryBlockBuilder, entryType, 2, "size", addFileEntry.getSize());
         writeLong(entryBlockBuilder, entryType, 3, "modificationTime", addFileEntry.getModificationTime());
         writeBoolean(entryBlockBuilder, entryType, 4, "dataChange", addFileEntry.isDataChange());
-        // TODO: determine stats format in checkpoint based on table configuration;
+        // TODO: determine stats format in checkpoint based on table configuration; (https://github.com/trinodb/trino/issues/12031)
         // currently if addFileEntry contains JSON stats we will write JSON
         // stats to checkpoint and if addEntryFile contains parsed stats, we
         // will write parsed stats to the checkpoint.

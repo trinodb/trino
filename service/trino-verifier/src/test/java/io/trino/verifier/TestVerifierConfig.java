@@ -81,7 +81,8 @@ public class TestVerifierConfig
                 .setShadowControlTablePrefix("tmp_verifier_")
                 .setControlTeardownRetries(1)
                 .setTestTeardownRetries(1)
-                .setRunTearDownOnResultMismatch(false));
+                .setRunTearDownOnResultMismatch(false)
+                .setSkipControl(false));
     }
 
     @Test
@@ -135,6 +136,7 @@ public class TestVerifierConfig
                 .put("control.teardown-retries", "5")
                 .put("test.teardown-retries", "7")
                 .put("run-teardown-on-result-mismatch", "true")
+                .put("skip-control", "true")
                 .buildOrThrow();
 
         VerifierConfig expected = new VerifierConfig().setTestUsernameOverride("verifier-test")
@@ -184,7 +186,8 @@ public class TestVerifierConfig
                 .setShadowControlTablePrefix("schema.tmp_")
                 .setControlTeardownRetries(5)
                 .setTestTeardownRetries(7)
-                .setRunTearDownOnResultMismatch(true);
+                .setRunTearDownOnResultMismatch(true)
+                .setSkipControl(true);
 
         assertFullMapping(properties, expected);
     }

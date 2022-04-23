@@ -62,7 +62,7 @@ public class ReadSessionCreator
         TableInfo actualTable = getActualTable(client, tableDetails, selectedFields);
 
         List<String> filteredSelectedFields = selectedFields.stream()
-                .filter(BigQueryUtil::validColumnName)
+                .map(BigQueryUtil::toBigQueryColumnName)
                 .collect(toList());
 
         try (BigQueryReadClient bigQueryReadClient = bigQueryReadClientFactory.create(session)) {

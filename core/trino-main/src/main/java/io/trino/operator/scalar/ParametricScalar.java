@@ -20,6 +20,7 @@ import io.trino.metadata.FunctionDependencies;
 import io.trino.metadata.FunctionDependencyDeclaration;
 import io.trino.metadata.FunctionDependencyDeclaration.FunctionDependencyDeclarationBuilder;
 import io.trino.metadata.FunctionMetadata;
+import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SignatureBinder;
 import io.trino.metadata.SqlScalarFunction;
@@ -32,7 +33,6 @@ import io.trino.spi.TrinoException;
 import java.util.Collection;
 import java.util.Optional;
 
-import static io.trino.metadata.FunctionKind.SCALAR;
 import static io.trino.spi.StandardErrorCode.AMBIGUOUS_FUNCTION_IMPLEMENTATION;
 import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
@@ -51,16 +51,38 @@ public class ParametricScalar
             ParametricImplementationsGroup<ParametricScalarImplementation> implementations,
             boolean deprecated)
     {
-        super(new FunctionMetadata(
-                signature,
-                signature.getName(),
-                implementations.getFunctionNullability(),
-                details.isHidden(),
-                details.isDeterministic(),
-                details.getDescription().orElse(""),
-                SCALAR,
-                deprecated));
+        super(createFunctionMetadata(signature, details, deprecated, implementations.getFunctionNullability()));
         this.implementations = requireNonNull(implementations);
+    }
+
+    private static FunctionMetadata createFunctionMetadata(Signature signature, ScalarHeader details, boolean deprecated, FunctionNullability functionNullability)
+    {
+        FunctionMetadata.Builder functionMetadata = FunctionMetadata.scalarBuilder()
+                .signature(signature);
+
+        if (details.getDescription().isPresent()) {
+            functionMetadata.description(details.getDescription().get());
+        }
+        else {
+            functionMetadata.noDescription();
+        }
+
+        if (details.isHidden()) {
+            functionMetadata.hidden();
+        }
+        if (!details.isDeterministic()) {
+            functionMetadata.nondeterministic();
+        }
+        if (deprecated) {
+            functionMetadata.deprecated();
+        }
+
+        if (functionNullability.isReturnNullable()) {
+            functionMetadata.nullable();
+        }
+        functionMetadata.argumentNullability(functionNullability.getArgumentNullable());
+
+        return functionMetadata.build();
     }
 
     @VisibleForTesting

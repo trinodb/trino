@@ -52,7 +52,7 @@ The Trino product tests must be run explicitly because they do not run
 as part of the Maven build like the unit tests do. Note that the product
 tests cannot be run in parallel. This means that only one instance of a
 test can be run at once in a given environment. To run all product
-tests and exclude the `quarantine`, `big_query` and `profile_specific_tests`
+tests and exclude the `quarantine`, `large_query` and `profile_specific_tests`
 groups run the following command:
 
 ```
@@ -243,6 +243,32 @@ IntelliJ of type **Remote JVM Debug** with the following configuration:
 You can now start the debug configuration that you just created and IntelliJ
 will attach to the remote JVM and you can use the debugger from within
 IntelliJ.
+
+## Skipping unrelated tests
+
+Test environments track which Trino features they enable, like connectors or password authenticators.
+This can be used to skip running product tests on environments that don't use specific features, by passing
+`--impacted-features=<file>` to the product test launcher. The file should contain a list of features to test,
+one per line, as `feature-kind:feature-name`, e.g., `connector:hive`.
+
+Such a file can be generated from a list of Maven modules that are Trino plugins
+by running the `testing/trino-plugin-reader` utility:
+```bash
+testing/trino-plugin-reader/target/trino-plugin-reader-*-executable.jar \
+    -i modules.txt \
+    -p core/trino-server/target/trino-server-*-hardlinks/plugin
+```
+
+A list of modules modified on a particular Git branch can be obtained by enabling the `gib` profile
+when building Trino. It's saved as `gib-impacted.log`.
+
+> Note: all product tests should be run when there are changes in any common files, including:
+> any modules from `core` or `trino-server`, product tests or product tests launcher itself,
+> or CI workflows in `.github`.
+
+Skipping unrelated product tests is enabled by default in the CI workflows run for pull requests.
+On the master branch (after merging pull requests), the CI workflow always runs all product tests.
+To force running all tests in a pull request, label it with `tests:all` or `tests:all-product`.
 
 ## Known issues
 

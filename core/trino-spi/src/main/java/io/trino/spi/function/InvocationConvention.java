@@ -63,7 +63,14 @@ public class InvocationConvention
         return supportsSession;
     }
 
+    // TODO remove some time after nearest release
+    @Deprecated
     public boolean supportsInstanceFactor()
+    {
+        return supportsInstanceFactory();
+    }
+
+    public boolean supportsInstanceFactory()
     {
         return supportsInstanceFactory;
     }

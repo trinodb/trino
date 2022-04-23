@@ -27,7 +27,7 @@ import io.trino.execution.QueryPreparer.PreparedQuery;
 import io.trino.execution.StateMachine.StateChangeListener;
 import io.trino.execution.scheduler.NodeAllocatorService;
 import io.trino.execution.scheduler.NodeScheduler;
-import io.trino.execution.scheduler.PartitionMemoryEstimator;
+import io.trino.execution.scheduler.PartitionMemoryEstimatorFactory;
 import io.trino.execution.scheduler.SplitSchedulerStats;
 import io.trino.execution.scheduler.SqlQueryScheduler;
 import io.trino.execution.scheduler.TaskDescriptorStorage;
@@ -102,7 +102,7 @@ public class SqlQueryExecution
     private final NodePartitioningManager nodePartitioningManager;
     private final NodeScheduler nodeScheduler;
     private final NodeAllocatorService nodeAllocatorService;
-    private final PartitionMemoryEstimator partitionMemoryEstimator;
+    private final PartitionMemoryEstimatorFactory partitionMemoryEstimatorFactory;
     private final List<PlanOptimizer> planOptimizers;
     private final PlanFragmenter planFragmenter;
     private final RemoteTaskFactory remoteTaskFactory;
@@ -137,7 +137,7 @@ public class SqlQueryExecution
             NodePartitioningManager nodePartitioningManager,
             NodeScheduler nodeScheduler,
             NodeAllocatorService nodeAllocatorService,
-            PartitionMemoryEstimator partitionMemoryEstimator,
+            PartitionMemoryEstimatorFactory partitionMemoryEstimatorFactory,
             List<PlanOptimizer> planOptimizers,
             PlanFragmenter planFragmenter,
             RemoteTaskFactory remoteTaskFactory,
@@ -166,7 +166,7 @@ public class SqlQueryExecution
             this.nodePartitioningManager = requireNonNull(nodePartitioningManager, "nodePartitioningManager is null");
             this.nodeScheduler = requireNonNull(nodeScheduler, "nodeScheduler is null");
             this.nodeAllocatorService = requireNonNull(nodeAllocatorService, "nodeAllocatorService is null");
-            this.partitionMemoryEstimator = requireNonNull(partitionMemoryEstimator, "partitionMemoryEstimator is null");
+            this.partitionMemoryEstimatorFactory = requireNonNull(partitionMemoryEstimatorFactory, "partitionMemoryEstimatorFactory is null");
             this.planOptimizers = requireNonNull(planOptimizers, "planOptimizers is null");
             this.planFragmenter = requireNonNull(planFragmenter, "planFragmenter is null");
             this.queryExecutor = requireNonNull(queryExecutor, "queryExecutor is null");
@@ -506,7 +506,7 @@ public class SqlQueryExecution
                 nodePartitioningManager,
                 nodeScheduler,
                 nodeAllocatorService,
-                partitionMemoryEstimator,
+                partitionMemoryEstimatorFactory,
                 remoteTaskFactory,
                 plan.isSummarizeTaskInfos(),
                 scheduleSplitBatchSize,
@@ -709,7 +709,7 @@ public class SqlQueryExecution
         private final NodePartitioningManager nodePartitioningManager;
         private final NodeScheduler nodeScheduler;
         private final NodeAllocatorService nodeAllocatorService;
-        private final PartitionMemoryEstimator partitionMemoryEstimator;
+        private final PartitionMemoryEstimatorFactory partitionMemoryEstimatorFactory;
         private final List<PlanOptimizer> planOptimizers;
         private final PlanFragmenter planFragmenter;
         private final RemoteTaskFactory remoteTaskFactory;
@@ -737,7 +737,7 @@ public class SqlQueryExecution
                 NodePartitioningManager nodePartitioningManager,
                 NodeScheduler nodeScheduler,
                 NodeAllocatorService nodeAllocatorService,
-                PartitionMemoryEstimator partitionMemoryEstimator,
+                PartitionMemoryEstimatorFactory partitionMemoryEstimatorFactory,
                 PlanOptimizersFactory planOptimizersFactory,
                 PlanFragmenter planFragmenter,
                 RemoteTaskFactory remoteTaskFactory,
@@ -766,7 +766,7 @@ public class SqlQueryExecution
             this.nodePartitioningManager = requireNonNull(nodePartitioningManager, "nodePartitioningManager is null");
             this.nodeScheduler = requireNonNull(nodeScheduler, "nodeScheduler is null");
             this.nodeAllocatorService = requireNonNull(nodeAllocatorService, "nodeAllocatorService is null");
-            this.partitionMemoryEstimator = requireNonNull(partitionMemoryEstimator, "partitionMemoryEstimator is null");
+            this.partitionMemoryEstimatorFactory = requireNonNull(partitionMemoryEstimatorFactory, "partitionMemoryEstimatorFactory is null");
             this.planFragmenter = requireNonNull(planFragmenter, "planFragmenter is null");
             this.remoteTaskFactory = requireNonNull(remoteTaskFactory, "remoteTaskFactory is null");
             this.queryExecutor = requireNonNull(queryExecutor, "queryExecutor is null");
@@ -807,7 +807,7 @@ public class SqlQueryExecution
                     nodePartitioningManager,
                     nodeScheduler,
                     nodeAllocatorService,
-                    partitionMemoryEstimator,
+                    partitionMemoryEstimatorFactory,
                     planOptimizers,
                     planFragmenter,
                     remoteTaskFactory,

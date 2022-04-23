@@ -54,7 +54,7 @@ public class RedisRecordCursor
     private final List<RedisColumnHandle> columnHandles;
     private final RedisJedisManager redisJedisManager;
     private final JedisPool jedisPool;
-    private final ScanParams scanParms;
+    private final ScanParams scanParams;
 
     private ScanResult<String> redisCursor;
     private Iterator<String> keysIterator;
@@ -82,7 +82,7 @@ public class RedisRecordCursor
         this.columnHandles = columnHandles;
         this.redisJedisManager = redisJedisManager;
         this.jedisPool = redisJedisManager.getJedisPool(split.getNodes().get(0));
-        this.scanParms = setScanParms();
+        this.scanParams = setScanParams();
         this.currentRowValues = new FieldValueProvider[columnHandles.size()];
 
         fetchKeys();
@@ -255,11 +255,11 @@ public class RedisRecordCursor
     {
     }
 
-    private ScanParams setScanParms()
+    private ScanParams setScanParams()
     {
         if (split.getKeyDataType() == RedisDataType.STRING) {
-            ScanParams scanParms = new ScanParams();
-            scanParms.count(redisJedisManager.getRedisConnectorConfig().getRedisScanCount());
+            ScanParams scanParams = new ScanParams();
+            scanParams.count(redisJedisManager.getRedisConnectorConfig().getRedisScanCount());
 
             // when Redis key string follows "schema:table:*" format
             // scan command can efficiently query tables
@@ -274,12 +274,12 @@ public class RedisRecordCursor
             if (redisJedisManager.getRedisConnectorConfig().isKeyPrefixSchemaTable()) {
                 String keyMatch = "";
                 if (!split.getSchemaName().equals("default")) {
-                    keyMatch = split.getSchemaName() + Character.toString(redisJedisManager.getRedisConnectorConfig().getRedisKeyDelimiter());
+                    keyMatch = split.getSchemaName() + redisJedisManager.getRedisConnectorConfig().getRedisKeyDelimiter();
                 }
-                keyMatch = keyMatch + split.getTableName() + Character.toString(redisJedisManager.getRedisConnectorConfig().getRedisKeyDelimiter()) + "*";
-                scanParms.match(keyMatch);
+                keyMatch = keyMatch + split.getTableName() + redisJedisManager.getRedisConnectorConfig().getRedisKeyDelimiter() + "*";
+                scanParams.match(keyMatch);
             }
-            return scanParms;
+            return scanParams;
         }
 
         return null;
@@ -287,7 +287,7 @@ public class RedisRecordCursor
 
     // Redis keys can be contained in the user-provided ZSET
     // Otherwise they need to be found by scanning Redis
-    private boolean fetchKeys()
+    private void fetchKeys()
     {
         try (Jedis jedis = jedisPool.getResource()) {
             switch (split.getKeyDataType()) {
@@ -299,7 +299,7 @@ public class RedisRecordCursor
 
                     log.debug("Scanning new Redis keys from cursor %s . %d values read so far", cursor, totalValues);
 
-                    redisCursor = jedis.scan(cursor, scanParms);
+                    redisCursor = jedis.scan(cursor, scanParams);
                     List<String> keys = redisCursor.getResult();
                     keysIterator = keys.iterator();
                 }
@@ -309,14 +309,12 @@ public class RedisRecordCursor
                     keysIterator = keys.iterator();
                     break;
                 default:
-                    log.debug("Redis type of key %s is unsupported", split.getKeyDataFormat());
-                    return false;
+                    log.debug("Redis key of type %s is unsupported", split.getKeyDataFormat());
             }
         }
-        return true;
     }
 
-    private boolean fetchData(String keyString)
+    private void fetchData(String keyString)
     {
         valueString = null;
         valueMap = null;
@@ -330,22 +328,18 @@ public class RedisRecordCursor
                 case STRING:
                     valueString = jedis.get(keyString);
                     if (valueString == null) {
-                        log.warn("Redis data modified while query was running, string value at key %s deleted", keyString);
-                        return false;
+                        log.warn("Redis data modified while query was running, string value at key %s may be deleted", keyString);
                     }
                     break;
                 case HASH:
                     valueMap = jedis.hgetAll(keyString);
                     if (valueMap == null) {
-                        log.warn("Redis data modified while query was running, hash value at key %s deleted", keyString);
-                        return false;
+                        log.warn("Redis data modified while query was running, hash value at key %s may be deleted", keyString);
                     }
                     break;
                 default:
-                    log.debug("Redis type for key %s is unsupported", keyString);
-                    return false;
+                    log.debug("Redis value of type %s is unsupported", split.getValueDataType());
             }
         }
-        return true;
     }
 }

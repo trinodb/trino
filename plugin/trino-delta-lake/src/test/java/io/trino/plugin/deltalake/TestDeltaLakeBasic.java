@@ -34,6 +34,7 @@ import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createDeltaLakeQueryRunner;
 import static java.lang.String.format;
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
+import static org.testng.Assert.assertFalse;
 
 public class TestDeltaLakeBasic
         extends AbstractTestQueryFramework
@@ -127,7 +128,8 @@ public class TestDeltaLakeBasic
         deleteRecursively(tableLocation, ALLOW_INSECURE);
 
         // try to drop table
-        assertQueryFails("DROP TABLE " + tableName, ".*\\bMetadata not found in transaction log for bad_person\\b.*");
+        getQueryRunner().execute("DROP TABLE " + tableName);
+        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
     }
 
     private void copyDirectoryContents(Path source, Path destination)

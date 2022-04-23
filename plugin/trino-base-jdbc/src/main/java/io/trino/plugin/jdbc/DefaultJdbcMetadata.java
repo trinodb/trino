@@ -811,10 +811,11 @@ public class DefaultJdbcMetadata
     }
 
     @Override
-    public TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle, Constraint constraint)
+    public TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         JdbcTableHandle handle = (JdbcTableHandle) tableHandle;
-        return jdbcClient.getTableStatistics(session, handle, constraint.getSummary());
+        // TODO passing constraint to getTableStatistics is deprecated, remove it from the JdbcClient interface
+        return jdbcClient.getTableStatistics(session, handle, Constraint.alwaysTrue().getSummary());
     }
 
     @Override

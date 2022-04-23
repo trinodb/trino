@@ -1004,10 +1004,11 @@ public final class DomainTranslator
             VarcharType varcharType = (VarcharType) type;
 
             Symbol symbol = Symbol.from(node.getValue());
-            Slice pattern = ((StringLiteral) node.getPattern()).getSlice();
+            Slice pattern = Slices.utf8Slice(((StringLiteral) node.getPattern()).getValue());
             Optional<Slice> escape = node.getEscape()
                     .map(StringLiteral.class::cast)
-                    .map(StringLiteral::getSlice);
+                    .map(StringLiteral::getValue)
+                    .map(Slices::utf8Slice);
 
             int patternConstantPrefixBytes = LikeFunctions.patternConstantPrefixBytes(pattern, escape);
             if (patternConstantPrefixBytes == pattern.length()) {
@@ -1077,7 +1078,7 @@ public final class DomainTranslator
             }
 
             Symbol symbol = Symbol.from(target);
-            Slice constantPrefix = ((StringLiteral) prefix).getSlice();
+            Slice constantPrefix = Slices.utf8Slice(((StringLiteral) prefix).getValue());
 
             return createRangeDomain(type, constantPrefix).map(domain -> new ExtractionResult(TupleDomain.withColumnDomains(ImmutableMap.of(symbol, domain)), node));
         }

@@ -166,7 +166,9 @@ public abstract class BaseFailureRecoveryTest
                 Optional.of(enableDynamicFiltering(true)),
                 queryId -> {
                     DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(queryId);
-                    assertThat(dynamicFiltersStats.getLazyDynamicFilters()).isEqualTo(1);
+                    assertThat(dynamicFiltersStats.getLazyDynamicFilters())
+                            .as("Dynamic filter is missing")
+                            .isEqualTo(1);
                     DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
                     assertThat(domainStats.getSimplifiedDomain())
                             .isEqualTo(singleValue(BIGINT, 1L).toString(getSession().toConnectorSession()));

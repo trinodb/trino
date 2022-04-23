@@ -33,6 +33,7 @@ import static io.trino.tests.product.TestGroups.SMOKE;
 import static io.trino.tests.product.TestGroups.TRINO_JDBC;
 import static io.trino.tests.product.hive.HiveProductTest.ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE;
 import static io.trino.tests.product.hive.HiveProductTest.ERROR_COMMITTING_WRITE_TO_HIVE_MATCH;
+import static io.trino.tests.product.hive.util.TableLocationUtils.getTableLocation;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -64,6 +65,45 @@ public class TestSyncPartitionMetadata
         cleanup(tableName);
     }
 
+    @Test(groups = {HIVE_PARTITIONING, SMOKE, TRINO_JDBC})
+    @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
+    public void testAddPartitionContainingCharactersThatNeedUrlEncoding()
+    {
+        String tableName = "test_sync_partition_metadata_add_partition_urlencode";
+        String mirrorTableName = "test_sync_partition_metadata_add_partition_urlencode_mirror";
+        onTrino().executeQuery("DROP TABLE IF EXISTS " + tableName);
+        onTrino().executeQuery("DROP TABLE IF EXISTS " + mirrorTableName);
+
+        onTrino().executeQuery(format("" +
+                        "CREATE TABLE %s (payload bigint, col_date varchar, col_time varchar)" +
+                        "WITH (format = 'ORC', partitioned_by = ARRAY[ 'col_date', 'col_time' ])",
+                tableName));
+        onTrino().executeQuery("INSERT INTO " + tableName + " VALUES (1024, '2022-02-01', '19:00:15'), (1024, '2022-01-17', '20:00:12')");
+        String sharedTableLocation = getTableLocation(tableName, 2);
+        // avoid dealing with the intricacies of adding content on the file system level
+        // and possibly url encoding the file path by using
+        // an external table which mirrors the previously created table
+        onTrino().executeQuery(format("" +
+                        "CREATE TABLE %s (payload bigint, col_date varchar, col_time varchar)" +
+                        "WITH (external_location = '%s', format = 'ORC', partitioned_by = ARRAY[ 'col_date', 'col_time' ])",
+                mirrorTableName,
+                sharedTableLocation));
+        onTrino().executeQuery("CALL system.sync_partition_metadata('default', '" + mirrorTableName + "', 'ADD')");
+
+        assertPartitions(tableName, row("2022-01-17", "20:00:12"), row("2022-02-01", "19:00:15"));
+        assertPartitions(mirrorTableName, row("2022-01-17", "20:00:12"), row("2022-02-01", "19:00:15"));
+
+        onTrino().executeQuery("INSERT INTO " + tableName + " VALUES (2048, '2022-04-04', '16:59:13')");
+        assertPartitions(tableName, row("2022-01-17", "20:00:12"), row("2022-02-01", "19:00:15"), row("2022-04-04", "16:59:13"));
+        assertPartitions(mirrorTableName, row("2022-01-17", "20:00:12"), row("2022-02-01", "19:00:15"));
+
+        onTrino().executeQuery("CALL system.sync_partition_metadata('default', '" + mirrorTableName + "', 'ADD')");
+        assertPartitions(mirrorTableName, row("2022-01-17", "20:00:12"), row("2022-02-01", "19:00:15"), row("2022-04-04", "16:59:13"));
+
+        cleanup(mirrorTableName);
+        cleanup(tableName);
+    }
+
     @Test(groups = {HIVE_PARTITIONING, SMOKE})
     @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testDropPartition()
@@ -75,6 +115,48 @@ public class TestSyncPartitionMetadata
         assertPartitions(tableName, row("a", "1"));
         assertData(tableName, row(1, "a", "1"));
 
+        cleanup(tableName);
+    }
+
+    @Test(groups = {HIVE_PARTITIONING, SMOKE, TRINO_JDBC})
+    @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
+    public void testDropPartitionContainingCharactersThatNeedUrlEncoding()
+    {
+        String tableName = "test_sync_partition_metadata_drop_partition_urlencode";
+        String mirrorTableName = "test_sync_partition_metadata_drop_partition_urlencode_mirror";
+        onTrino().executeQuery("DROP TABLE IF EXISTS " + tableName);
+        onTrino().executeQuery("DROP TABLE IF EXISTS " + mirrorTableName);
+
+        onTrino().executeQuery(format("" +
+                        "CREATE TABLE %s (payload bigint, col_date varchar, col_time varchar)" +
+                        "WITH (format = 'ORC', partitioned_by = ARRAY[ 'col_date', 'col_time' ])",
+                tableName));
+        onTrino().executeQuery("INSERT INTO " + tableName + " VALUES (1024, '2022-01-17', '20:00:12') , (4096, '2022-01-18', '10:40:16')");
+
+        // avoid dealing with the intricacies of adding/removing content on the file system level
+        // and possibly url encoding the file path by using
+        // an external table which mirrors the previously created table
+        String sharedTableLocation = getTableLocation(tableName, 2);
+        onTrino().executeQuery(format("" +
+                        "CREATE TABLE %s (payload bigint, col_date varchar, col_time varchar)" +
+                        "WITH (external_location = '%s', format = 'ORC', partitioned_by = ARRAY[ 'col_date', 'col_time' ])",
+                mirrorTableName,
+                sharedTableLocation));
+        onTrino().executeQuery("CALL system.sync_partition_metadata('default', '" + mirrorTableName + "', 'ADD')");
+
+        assertPartitions(tableName, row("2022-01-17", "20:00:12"), row("2022-01-18", "10:40:16"));
+        assertPartitions(mirrorTableName, row("2022-01-17", "20:00:12"), row("2022-01-18", "10:40:16"));
+
+        // remove a partition from the shared table location
+        onTrino().executeQuery("DELETE FROM " + tableName + " WHERE col_date = '2022-01-17' AND col_time='20:00:12'");
+
+        assertPartitions(tableName, row("2022-01-18", "10:40:16"));
+        assertPartitions(mirrorTableName, row("2022-01-17", "20:00:12"), row("2022-01-18", "10:40:16"));
+
+        onTrino().executeQuery("CALL system.sync_partition_metadata('default', '" + mirrorTableName + "', 'DROP')");
+        assertPartitions(mirrorTableName, row("2022-01-18", "10:40:16"));
+
+        cleanup(mirrorTableName);
         cleanup(tableName);
     }
 

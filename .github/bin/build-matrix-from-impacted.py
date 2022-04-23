@@ -86,7 +86,10 @@ def build(matrix_file, impacted_file, output_file):
         item["modules"] = modules
         include.append(item)
     if "include" in matrix:
-        matrix["include"] = include
+        if include:
+            matrix["include"] = include
+        else:
+            del matrix["include"]
 
     json.dump(matrix, output_file)
     output_file.write("\n")

@@ -236,7 +236,8 @@ public class TestingTrinoServer
                 .put("coordinator", String.valueOf(coordinator))
                 .put("task.concurrency", "4")
                 .put("task.max-worker-threads", "4")
-                .put("exchange.client-threads", "4");
+                .put("exchange.client-threads", "4")
+                .put("internal-communication.shared-secret", "internal-shared-secret");
 
         if (coordinator) {
             // TODO: enable failure detector

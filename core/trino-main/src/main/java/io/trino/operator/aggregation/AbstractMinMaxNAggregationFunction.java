@@ -19,7 +19,6 @@ import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionDependencies;
 import io.trino.metadata.FunctionDependencyDeclaration;
 import io.trino.metadata.FunctionMetadata;
-import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlAggregationFunction;
 import io.trino.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
@@ -37,8 +36,6 @@ import io.trino.util.MinMaxCompare;
 import java.lang.invoke.MethodHandle;
 import java.util.Optional;
 
-import static io.trino.metadata.FunctionKind.AGGREGATE;
-import static io.trino.metadata.Signature.orderableTypeParameter;
 import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.BLOCK_INDEX;
 import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.BLOCK_INPUT_CHANNEL;
 import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.INPUT_CHANNEL;
@@ -49,6 +46,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.TypeSignature.arrayType;
 import static io.trino.util.Failures.checkCondition;
 import static io.trino.util.MinMaxCompare.getMinMaxCompare;
 import static io.trino.util.Reflection.methodHandle;
@@ -67,23 +65,20 @@ public abstract class AbstractMinMaxNAggregationFunction
     protected AbstractMinMaxNAggregationFunction(String name, boolean min, String description)
     {
         super(
-                new FunctionMetadata(
-                        new Signature(
-                                name,
-                                ImmutableList.of(orderableTypeParameter("E")),
-                                ImmutableList.of(),
-                                TypeSignature.arrayType(new TypeSignature("E")),
-                                ImmutableList.of(new TypeSignature("E"), BIGINT.getTypeSignature()),
-                                false),
-                        new FunctionNullability(true, ImmutableList.of(false, false)),
-                        false,
-                        true,
-                        description,
-                        AGGREGATE),
-                new AggregationFunctionMetadata(
-                        false,
-                        BIGINT.getTypeSignature(),
-                        TypeSignature.arrayType(new TypeSignature("E"))));
+                FunctionMetadata.aggregateBuilder()
+                        .signature(Signature.builder()
+                                .name(name)
+                                .orderableTypeParameter("E")
+                                .returnType(arrayType(new TypeSignature("E")))
+                                .argumentType(new TypeSignature("E"))
+                                .argumentType(BIGINT)
+                                .build())
+                        .description(description)
+                        .build(),
+                AggregationFunctionMetadata.builder()
+                        .intermediateType(BIGINT)
+                        .intermediateType(arrayType(new TypeSignature("E")))
+                        .build());
         this.min = min;
     }
 

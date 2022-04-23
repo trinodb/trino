@@ -151,6 +151,7 @@ import static io.trino.sql.planner.plan.TopNRankingNode.RankingType.ROW_NUMBER;
 import static io.trino.sql.planner.rowpattern.ir.IrQuantifier.oneOrMore;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
+import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
 import static io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN;
 import static io.trino.sql.tree.FrameBound.Type.CURRENT_ROW;
 import static io.trino.sql.tree.FrameBound.Type.UNBOUNDED_FOLLOWING;
@@ -943,23 +944,25 @@ public class TestLogicalPlanner
     public void testCorrelatedScalarAggregationRewriteToLeftOuterJoin()
     {
         assertPlan(
-                "SELECT orderkey FROM orders WHERE EXISTS(SELECT 1 WHERE orderkey = 3)", // EXISTS maps to count(*) > 0
-                anyTree(
-                        filter("FINAL_COUNT > BIGINT '0'",
-                                project(
-                                        aggregation(
-                                                singleGroupingSet("ORDERKEY", "UNIQUE"),
-                                                ImmutableMap.of(Optional.of("FINAL_COUNT"), functionCall("count", ImmutableList.of())),
-                                                ImmutableList.of("ORDERKEY", "UNIQUE"),
-                                                ImmutableList.of("NON_NULL"),
-                                                Optional.empty(),
-                                                SINGLE,
-                                                join(LEFT, ImmutableList.of(), Optional.of("BIGINT '3' = ORDERKEY"),
-                                                        assignUniqueId(
-                                                                "UNIQUE",
-                                                                tableScan("orders", ImmutableMap.of("ORDERKEY", "orderkey"))),
-                                                        project(ImmutableMap.of("NON_NULL", expression("true")),
-                                                                node(ValuesNode.class))))))));
+                "SELECT orderkey, EXISTS(SELECT 1 WHERE orderkey = 3) FROM orders", // EXISTS maps to count(*) > 0
+                output(
+                        strictProject(
+                                ImmutableMap.of(
+                                        "ORDERKEY", expression("ORDERKEY"),
+                                        "exists", expression("FINAL_COUNT > BIGINT '0'")),
+                                aggregation(
+                                        singleGroupingSet("ORDERKEY", "UNIQUE"),
+                                        ImmutableMap.of(Optional.of("FINAL_COUNT"), functionCall("count", ImmutableList.of())),
+                                        ImmutableList.of("ORDERKEY", "UNIQUE"),
+                                        ImmutableList.of("NON_NULL"),
+                                        Optional.empty(),
+                                        SINGLE,
+                                        join(LEFT, ImmutableList.of(), Optional.of("BIGINT '3' = ORDERKEY"),
+                                                assignUniqueId(
+                                                        "UNIQUE",
+                                                        tableScan("orders", ImmutableMap.of("ORDERKEY", "orderkey"))),
+                                                project(ImmutableMap.of("NON_NULL", expression("true")),
+                                                        node(ValuesNode.class)))))));
     }
 
     @Test
@@ -1210,32 +1213,38 @@ public class TestLogicalPlanner
     {
         assertPlan(
                 "SELECT name FROM region r WHERE regionkey IN (SELECT regionkey FROM nation WHERE name < r.name)",
-                anyTree(
-                        filter(
-                                "count_matches > BIGINT '0'",
-                                project(
-                                        aggregation(
-                                                singleGroupingSet("region_regionkey", "region_name", "unique"),
-                                                ImmutableMap.of(Optional.of("count_matches"), functionCall("count", ImmutableList.of())),
-                                                ImmutableList.of("region_regionkey", "region_name", "unique"),
-                                                ImmutableList.of("mask"),
-                                                Optional.empty(),
-                                                SINGLE,
-                                                project(
-                                                        ImmutableMap.of("mask", expression("((NOT (region_regionkey IS NULL)) AND (NOT (nation_regionkey IS NULL)))")),
+                output(
+                        project(
+                                ImmutableMap.of("region_name", expression("region_name")),
+                                aggregation(
+                                        singleGroupingSet("region_regionkey", "region_name", "unique"),
+                                        ImmutableMap.of(),
+                                        Optional.empty(),
+                                        SINGLE,
+                                        project(
+                                                ImmutableMap.of(
+                                                        "region_regionkey", expression("region_regionkey"),
+                                                        "region_name", expression("region_name"),
+                                                        "unique", expression("unique")),
+                                                filter(
+                                                        "(region_regionkey IS NULL OR region_regionkey = nation_regionkey OR nation_regionkey IS NULL) AND nation_name < region_name",
                                                         join(
-                                                                LEFT,
+                                                                INNER,
                                                                 ImmutableList.of(),
-                                                                Optional.of("(region_regionkey IS NULL OR region_regionkey = nation_regionkey OR nation_regionkey IS NULL) AND nation_name < region_name"),
+                                                                ImmutableList.of(new PlanMatchPattern.DynamicFilterPattern("region_name", GREATER_THAN, "nation_name")),
                                                                 assignUniqueId(
                                                                         "unique",
-                                                                        tableScan("region", ImmutableMap.of(
-                                                                                "region_regionkey", "regionkey",
-                                                                                "region_name", "name"))),
+                                                                        filter(
+                                                                                "NOT (region_regionkey IS NULL)",
+                                                                                tableScan("region", ImmutableMap.of(
+                                                                                        "region_regionkey", "regionkey",
+                                                                                        "region_name", "name")))),
                                                                 any(
-                                                                        tableScan("nation", ImmutableMap.of(
-                                                                                "nation_name", "name",
-                                                                                "nation_regionkey", "regionkey"))))))))));
+                                                                        filter(
+                                                                                "NOT (nation_regionkey IS NULL)",
+                                                                                tableScan("nation", ImmutableMap.of(
+                                                                                        "nation_name", "name",
+                                                                                        "nation_regionkey", "regionkey")))))))))));
     }
 
     @Test
@@ -1243,29 +1252,28 @@ public class TestLogicalPlanner
     {
         assertPlan(
                 "SELECT regionkey, name FROM region r WHERE EXISTS(SELECT regionkey FROM nation WHERE name < r.name)",
-                anyTree(
-                        filter(
-                                "count_matches > BIGINT '0'",
-                                project(
-                                        aggregation(
-                                                singleGroupingSet("region_regionkey", "region_name", "unique"),
-                                                ImmutableMap.of(Optional.of("count_matches"), functionCall("count", ImmutableList.of())),
-                                                ImmutableList.of("region_regionkey", "region_name", "unique"),
-                                                ImmutableList.of("mask"),
-                                                Optional.empty(),
-                                                SINGLE,
-                                                join(
-                                                        LEFT,
-                                                        ImmutableList.of(),
-                                                        Optional.of("nation_name < region_name"),
-                                                        assignUniqueId(
-                                                                "unique",
-                                                                tableScan("region", ImmutableMap.of(
-                                                                        "region_regionkey", "regionkey",
-                                                                        "region_name", "name"))),
-                                                        any(
-                                                                project(
-                                                                        ImmutableMap.of("mask", expression("true")),
+                output(
+                        project(
+                                aggregation(
+                                        singleGroupingSet("region_regionkey", "region_name", "unique"),
+                                        ImmutableMap.of(),
+                                        Optional.empty(),
+                                        SINGLE,
+                                        project(
+                                                filter(
+                                                        "nation_name < region_name",
+                                                        join(
+                                                                INNER,
+                                                                ImmutableList.of(),
+                                                                ImmutableList.of(new PlanMatchPattern.DynamicFilterPattern("region_name", GREATER_THAN, "nation_name")),
+                                                                assignUniqueId(
+                                                                        "unique",
+                                                                        filter(
+                                                                                "true",
+                                                                                tableScan("region", ImmutableMap.of(
+                                                                                        "region_regionkey", "regionkey",
+                                                                                        "region_name", "name")))),
+                                                                any(
                                                                         tableScan("nation", ImmutableMap.of("nation_name", "name"))))))))));
     }
 

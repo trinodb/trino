@@ -139,9 +139,9 @@ public interface Metadata
     TableMetadata getTableMetadata(Session session, TableHandle tableHandle);
 
     /**
-     * Return statistics for specified table for given filtering contraint.
+     * Return statistics for specified table.
      */
-    TableStatistics getTableStatistics(Session session, TableHandle tableHandle, Constraint constraint);
+    TableStatistics getTableStatistics(Session session, TableHandle tableHandle);
 
     /**
      * Get the relation names that match the specified table prefix (never null).
@@ -602,7 +602,7 @@ public interface Metadata
     // Functions
     //
 
-    Collection<FunctionMetadata> listFunctions();
+    Collection<FunctionMetadata> listFunctions(Session session);
 
     ResolvedFunction decodeFunction(QualifiedName name);
 
@@ -624,11 +624,11 @@ public interface Metadata
      * Is the named function an aggregation function?  This does not need type parameters
      * because overloads between aggregation and other function types are not allowed.
      */
-    boolean isAggregationFunction(QualifiedName name);
+    boolean isAggregationFunction(Session session, QualifiedName name);
 
-    FunctionMetadata getFunctionMetadata(ResolvedFunction resolvedFunction);
+    FunctionMetadata getFunctionMetadata(Session session, ResolvedFunction resolvedFunction);
 
-    AggregationFunctionMetadata getAggregationFunctionMetadata(ResolvedFunction resolvedFunction);
+    AggregationFunctionMetadata getAggregationFunctionMetadata(Session session, ResolvedFunction resolvedFunction);
 
     /**
      * Creates the specified materialized view with the specified view definition.

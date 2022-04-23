@@ -29,7 +29,7 @@ public final class DecimalToDecimalCasts
 {
     public static final Signature SIGNATURE = Signature.builder()
             .operatorType(CAST)
-            .argumentTypes(parseTypeSignature("decimal(from_precision,from_scale)", ImmutableSet.of("from_precision", "from_scale")))
+            .argumentType(parseTypeSignature("decimal(from_precision,from_scale)", ImmutableSet.of("from_precision", "from_scale")))
             .returnType(parseTypeSignature("decimal(to_precision,to_scale)", ImmutableSet.of("to_precision", "to_scale")))
             .build();
 

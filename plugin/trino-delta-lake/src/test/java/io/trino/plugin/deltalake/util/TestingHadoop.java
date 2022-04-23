@@ -17,6 +17,7 @@ import com.github.dockerjava.api.command.CreateContainerCmd;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
+import io.trino.testing.containers.wait.strategy.SelectedPortWaitStrategy;
 import net.jodah.failsafe.Failsafe;
 import net.jodah.failsafe.RetryPolicy;
 import org.apache.hadoop.net.NetUtils;

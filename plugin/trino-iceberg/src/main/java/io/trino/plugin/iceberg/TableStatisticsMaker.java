@@ -16,15 +16,12 @@ package io.trino.plugin.iceberg;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.connector.ColumnHandle;
-import io.trino.spi.connector.Constraint;
-import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.statistics.ColumnStatistics;
 import io.trino.spi.statistics.DoubleRange;
 import io.trino.spi.statistics.Estimate;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.type.TypeManager;
-import org.apache.iceberg.DataFile;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.Schema;
@@ -39,9 +36,7 @@ import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Map;
 
-import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.iceberg.ExpressionConverter.toIcebergExpression;
-import static io.trino.plugin.iceberg.IcebergTypes.convertIcebergValueToTrino;
 import static io.trino.plugin.iceberg.IcebergUtil.getColumns;
 import static io.trino.plugin.iceberg.IcebergUtil.primitiveFieldTypes;
 import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
@@ -60,22 +55,20 @@ public class TableStatisticsMaker
         this.icebergTable = icebergTable;
     }
 
-    public static TableStatistics getTableStatistics(TypeManager typeManager, Constraint constraint, IcebergTableHandle tableHandle, Table icebergTable)
+    public static TableStatistics getTableStatistics(TypeManager typeManager, IcebergTableHandle tableHandle, Table icebergTable)
     {
-        return new TableStatisticsMaker(typeManager, icebergTable).makeTableStatistics(tableHandle, constraint);
+        return new TableStatisticsMaker(typeManager, icebergTable).makeTableStatistics(tableHandle);
     }
 
-    private TableStatistics makeTableStatistics(IcebergTableHandle tableHandle, Constraint constraint)
+    private TableStatistics makeTableStatistics(IcebergTableHandle tableHandle)
     {
-        if (tableHandle.getSnapshotId().isEmpty() || constraint.getSummary().isNone()) {
+        if (tableHandle.getSnapshotId().isEmpty()) {
             return TableStatistics.empty();
         }
 
-        TupleDomain<IcebergColumnHandle> intersection = constraint.getSummary()
-                .transformKeys(IcebergColumnHandle.class::cast)
-                .intersect(tableHandle.getEnforcedPredicate());
+        TupleDomain<IcebergColumnHandle> enforcedPredicate = tableHandle.getEnforcedPredicate();
 
-        if (intersection.isNone()) {
+        if (enforcedPredicate.isNone()) {
             return TableStatistics.empty();
         }
 
@@ -101,27 +94,15 @@ public class TableStatisticsMaker
                     toTrinoType(type, typeManager),
                     type.typeId().javaClass()));
         }
-        Map<Integer, ColumnFieldDetails> idToDetails = idToDetailsBuilder.buildOrThrow();
 
         TableScan tableScan = icebergTable.newScan()
-                .filter(toIcebergExpression(intersection))
+                .filter(toIcebergExpression(enforcedPredicate))
                 .useSnapshot(tableHandle.getSnapshotId().get())
                 .includeColumnStats();
 
         IcebergStatistics.Builder icebergStatisticsBuilder = new IcebergStatistics.Builder(columns, typeManager);
         try (CloseableIterable<FileScanTask> fileScanTasks = tableScan.planFiles()) {
-            for (FileScanTask fileScanTask : fileScanTasks) {
-                DataFile dataFile = fileScanTask.file();
-                if (!dataFileMatches(
-                        dataFile,
-                        constraint,
-                        partitionFields,
-                        idToDetails)) {
-                    continue;
-                }
-
-                icebergStatisticsBuilder.acceptDataFile(dataFile, fileScanTask.spec());
-            }
+            fileScanTasks.forEach(fileScanTask -> icebergStatisticsBuilder.acceptDataFile(fileScanTask.file(), fileScanTask.spec()));
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
@@ -156,35 +137,6 @@ public class TableStatisticsMaker
             columnHandleBuilder.put(columnHandle, columnBuilder.build());
         }
         return new TableStatistics(Estimate.of(recordCount), columnHandleBuilder.buildOrThrow());
-    }
-
-    private boolean dataFileMatches(
-            DataFile dataFile,
-            Constraint constraint,
-            List<PartitionField> partitionFields,
-            Map<Integer, ColumnFieldDetails> fieldDetails)
-    {
-        // Currently this method is used only for IcebergMetadata.getTableStatistics and there Constraint never carries a predicate.
-        // TODO support pruning with constraint when this changes.
-        verify(constraint.predicate().isEmpty(), "Unexpected Constraint predicate");
-
-        TupleDomain<ColumnHandle> constraintSummary = constraint.getSummary();
-
-        Map<ColumnHandle, Domain> domains = constraintSummary.getDomains().get();
-
-        for (int index = 0; index < partitionFields.size(); index++) {
-            PartitionField field = partitionFields.get(index);
-            int fieldId = field.fieldId();
-            ColumnFieldDetails details = fieldDetails.get(fieldId);
-            IcebergColumnHandle column = details.getColumnHandle();
-            Object value = convertIcebergValueToTrino(details.getIcebergType(), dataFile.partition().get(index, details.getJavaClass()));
-            Domain allowedDomain = domains.get(column);
-            if (allowedDomain != null && !allowedDomain.includesNullableValue(value)) {
-                return false;
-            }
-        }
-
-        return true;
     }
 
     public List<Type> partitionTypes(List<PartitionField> partitionFields, Map<Integer, Type.PrimitiveType> idToTypeMapping)

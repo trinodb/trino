@@ -100,7 +100,7 @@ public class TestTableSnapshot
         assertEquals(accessTrackingFileSystem.getOpenCount(), expectedFileAccess);
     }
 
-    // TODO: Can't test the FileSystem access here because the DeltaLakePageSourceProvider doesn't use the FileSystem passed into the TableSnapshot.
+    // TODO: Can't test the FileSystem access here because the DeltaLakePageSourceProvider doesn't use the FileSystem passed into the TableSnapshot. (https://github.com/trinodb/trino/issues/12040)
     @Test
     public void readsCheckpointFile()
             throws IOException

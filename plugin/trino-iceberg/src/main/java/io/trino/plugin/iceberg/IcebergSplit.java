@@ -18,6 +18,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.SizeOf;
+import io.trino.plugin.iceberg.delete.TrinoDeleteFile;
 import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ConnectorSplit;
 import org.openjdk.jol.info.ClassLayout;
@@ -43,6 +44,7 @@ public class IcebergSplit
     private final IcebergFileFormat fileFormat;
     private final List<HostAddress> addresses;
     private final Map<Integer, Optional<String>> partitionKeys;
+    private final List<TrinoDeleteFile> deletes;
 
     @JsonCreator
     public IcebergSplit(
@@ -52,7 +54,8 @@ public class IcebergSplit
             @JsonProperty("fileSize") long fileSize,
             @JsonProperty("fileFormat") IcebergFileFormat fileFormat,
             @JsonProperty("addresses") List<HostAddress> addresses,
-            @JsonProperty("partitionKeys") Map<Integer, Optional<String>> partitionKeys)
+            @JsonProperty("partitionKeys") Map<Integer, Optional<String>> partitionKeys,
+            @JsonProperty("deletes") List<TrinoDeleteFile> deletes)
     {
         this.path = requireNonNull(path, "path is null");
         this.start = start;
@@ -61,6 +64,7 @@ public class IcebergSplit
         this.fileFormat = requireNonNull(fileFormat, "fileFormat is null");
         this.addresses = ImmutableList.copyOf(requireNonNull(addresses, "addresses is null"));
         this.partitionKeys = ImmutableMap.copyOf(requireNonNull(partitionKeys, "partitionKeys is null"));
+        this.deletes = ImmutableList.copyOf(requireNonNull(deletes, "deletes is null"));
     }
 
     @Override
@@ -112,6 +116,12 @@ public class IcebergSplit
         return partitionKeys;
     }
 
+    @JsonProperty
+    public List<TrinoDeleteFile> getDeletes()
+    {
+        return deletes;
+    }
+
     @Override
     public Object getInfo()
     {
@@ -128,7 +138,8 @@ public class IcebergSplit
         return INSTANCE_SIZE
                 + estimatedSizeOf(path)
                 + estimatedSizeOf(addresses, HostAddress::getRetainedSizeInBytes)
-                + estimatedSizeOf(partitionKeys, SizeOf::sizeOf, valueOptional -> sizeOf(valueOptional, SizeOf::estimatedSizeOf));
+                + estimatedSizeOf(partitionKeys, SizeOf::sizeOf, valueOptional -> sizeOf(valueOptional, SizeOf::estimatedSizeOf))
+                + estimatedSizeOf(deletes, TrinoDeleteFile::getRetainedSizeInBytes);
     }
 
     @Override

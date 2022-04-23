@@ -154,6 +154,7 @@ import io.trino.sql.planner.iterative.rule.PushDownDereferencesThroughTopN;
 import io.trino.sql.planner.iterative.rule.PushDownDereferencesThroughTopNRanking;
 import io.trino.sql.planner.iterative.rule.PushDownDereferencesThroughWindow;
 import io.trino.sql.planner.iterative.rule.PushDownProjectionsFromPatternRecognition;
+import io.trino.sql.planner.iterative.rule.PushFilterThroughCountAggregation;
 import io.trino.sql.planner.iterative.rule.PushJoinIntoTableScan;
 import io.trino.sql.planner.iterative.rule.PushLimitIntoTableScan;
 import io.trino.sql.planner.iterative.rule.PushLimitThroughMarkDistinct;
@@ -560,9 +561,19 @@ public class PlanOptimizers
                                 new RemoveEmptyUnionBranches(),
                                 new EvaluateEmptyIntersect(),
                                 new RemoveEmptyExceptBranches(),
-                                new TransformFilteringSemiJoinToInnerJoin(),
-                                new InlineProjectIntoFilter(metadata),
-                                new SimplifyFilterPredicate(metadata)))); // must run after PredicatePushDown
+                                new TransformFilteringSemiJoinToInnerJoin())), // must run after PredicatePushDown
+                new IterativeOptimizer(
+                        plannerContext,
+                        ruleStats,
+                        statsCalculator,
+                        costCalculator,
+                        ImmutableSet.<Rule<?>>builder()
+                                .add(new InlineProjectIntoFilter(metadata))
+                                .add(new SimplifyFilterPredicate(metadata))
+                                .addAll(columnPruningRules)
+                                .add(new InlineProjections(plannerContext, typeAnalyzer))
+                                .addAll(new PushFilterThroughCountAggregation(plannerContext).rules()) // must run after PredicatePushDown and after TransformFilteringSemiJoinToInnerJoin
+                                .build()));
 
         // Perform redirection before CBO rules to ensure stats from destination connector are used
         // Perform redirection before agg, topN, limit, sample etc. push down into table scan as the destination connector may support a different set of push downs

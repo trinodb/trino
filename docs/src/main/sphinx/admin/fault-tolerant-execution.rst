@@ -132,21 +132,27 @@ queries/tasks are no longer retried in the event of repeated failures:
    * - ``task-retry-attempts-per-task``
      - Maximum number of times Trino may attempt to retry a single task before
        declaring the query as failed.
-     - ``2``
+     - ``4``
      - Only ``TASK``
    * - ``retry-initial-delay``
-     - Minimum time that a failed query must wait before it is retried. May be
+     - Minimum time that a failed query or task must wait before it is retried. May be
        overridden with the ``retry_initial_delay`` :ref:`session property
        <session-properties-definition>`.
      - ``10s``
-     - Only ``QUERY``
+     - ``QUERY`` and ``TASK``
    * - ``retry-max-delay``
-     - Maximum time that a failed query must wait before it is retried.
-       Wait time is increased on each subsequent query failure. May be
+     - Maximum time that a failed query or task must wait before it is retried.
+       Wait time is increased on each subsequent  failure. May be
        overridden with the ``retry_max_delay`` :ref:`session property
        <session-properties-definition>`.
      - ``1m``
-     - Only ``QUERY``
+     - ``QUERY`` and ``TASK``
+   * - ``retry-delay-scale-factor``
+     - Factor by which retry delay is increased on each query or task failure. May be
+       overridden with the ``retry_delay_scale_factor`` :ref:`session property
+       <session-properties-definition>`.
+     - ``2.0``
+     - ``QUERY`` and ``TASK``
 
 Task sizing
 ^^^^^^^^^^^
@@ -258,6 +264,11 @@ fault-tolerant execution:
        reschedule tasks in case of a failure.
      - (JVM heap size * 0.15)
      - Only ``TASK``
+   * - ``max-tasks-waiting-for-node-per-stage``
+     - Allow for up to configured number of tasks to wait for node allocation
+       per stage, before pausing scheduling for other tasks from this stage.
+     - 5
+     - Only ``TASK``
 
 .. _fte-exchange-manager:
 
@@ -282,7 +293,7 @@ for your storage solution.
    * - Property name
      - Description
      - Default value
-   * - ``exchange.base-directory``
+   * - ``exchange.base-directories``
      - The base directory URI location that the exchange manager uses to store
        spooling data. Only supports S3 and local filesystems.
      -
@@ -335,7 +346,7 @@ does not have to be in AWS, but can be any S3-compatible storage system.
 .. code-block:: properties
 
     exchange-manager.name=filesystem
-    exchange.base-directory=s3n://trino-exchange-manager
+    exchange.base-directories=s3n://trino-exchange-manager
     exchange.encryption-enabled=true
     exchange.s3.region=us-west-1
     exchange.s3.aws-access-key=example-access-key
@@ -355,4 +366,4 @@ destination.
 .. code-block:: properties
 
     exchange-manager.name=filesystem
-    exchange.base-directory=/tmp/trino-exchange-manager
+    exchange.base-directories=/tmp/trino-exchange-manager

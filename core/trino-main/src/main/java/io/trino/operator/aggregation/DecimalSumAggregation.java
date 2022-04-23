@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import io.trino.metadata.AggregationFunctionMetadata;
 import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionMetadata;
-import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlAggregationFunction;
 import io.trino.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
@@ -37,7 +36,6 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
-import static io.trino.metadata.FunctionKind.AGGREGATE;
 import static io.trino.spi.type.Int128Math.addWithOverflow;
 import static io.trino.spi.type.TypeSignatureParameter.numericParameter;
 import static io.trino.spi.type.TypeSignatureParameter.typeVariable;
@@ -59,19 +57,17 @@ public class DecimalSumAggregation
     public DecimalSumAggregation()
     {
         super(
-                new FunctionMetadata(
-                        new Signature(
-                                NAME,
-                                new TypeSignature("decimal", numericParameter(38), typeVariable("s")),
-                                ImmutableList.of(new TypeSignature("decimal", typeVariable("p"), typeVariable("s")))),
-                        new FunctionNullability(true, ImmutableList.of(false)),
-                        false,
-                        true,
-                        "Calculates the sum over the input values",
-                        AGGREGATE),
-                new AggregationFunctionMetadata(
-                        false,
-                        VARBINARY.getTypeSignature()));
+                FunctionMetadata.aggregateBuilder()
+                        .signature(Signature.builder()
+                                .name(NAME)
+                                .returnType(new TypeSignature("decimal", numericParameter(38), typeVariable("s")))
+                                .argumentType(new TypeSignature("decimal", typeVariable("p"), typeVariable("s")))
+                                .build())
+                        .description("Calculates the sum over the input values")
+                        .build(),
+                AggregationFunctionMetadata.builder()
+                        .intermediateType(VARBINARY)
+                        .build());
     }
 
     @Override

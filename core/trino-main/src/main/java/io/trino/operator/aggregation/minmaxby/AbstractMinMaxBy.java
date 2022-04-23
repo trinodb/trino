@@ -20,7 +20,6 @@ import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionDependencies;
 import io.trino.metadata.FunctionDependencyDeclaration;
 import io.trino.metadata.FunctionMetadata;
-import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlAggregationFunction;
 import io.trino.operator.aggregation.AggregationMetadata;
@@ -46,9 +45,6 @@ import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.util.Optional;
 
-import static io.trino.metadata.FunctionKind.AGGREGATE;
-import static io.trino.metadata.Signature.orderableTypeParameter;
-import static io.trino.metadata.Signature.typeVariable;
 import static io.trino.operator.aggregation.state.StateCompiler.generateStateFactory;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
@@ -69,23 +65,22 @@ public abstract class AbstractMinMaxBy
     protected AbstractMinMaxBy(boolean min, String description)
     {
         super(
-                new FunctionMetadata(
-                        new Signature(
-                                (min ? "min" : "max") + "_by",
-                                ImmutableList.of(orderableTypeParameter("K"), typeVariable("V")),
-                                ImmutableList.of(),
-                                new TypeSignature("V"),
-                                ImmutableList.of(new TypeSignature("V"), new TypeSignature("K")),
-                                false),
-                        new FunctionNullability(true, ImmutableList.of(true, false)),
-                        false,
-                        true,
-                        description,
-                        AGGREGATE),
-                new AggregationFunctionMetadata(
-                        false,
-                        new TypeSignature("K"),
-                        new TypeSignature("V")));
+                FunctionMetadata.aggregateBuilder()
+                        .signature(Signature.builder()
+                                .name((min ? "min" : "max") + "_by")
+                                .orderableTypeParameter("K")
+                                .typeVariable("V")
+                                .returnType(new TypeSignature("V"))
+                                .argumentType(new TypeSignature("V"))
+                                .argumentType(new TypeSignature("K"))
+                                .build())
+                        .argumentNullability(true, false)
+                        .description(description)
+                        .build(),
+                AggregationFunctionMetadata.builder()
+                        .intermediateType(new TypeSignature("K"))
+                        .intermediateType(new TypeSignature("V"))
+                        .build());
         this.min = min;
     }
 

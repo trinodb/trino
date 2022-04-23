@@ -190,6 +190,17 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Return schema table name for the specified table handle.
+     * This method is useful when requiring only {@link SchemaTableName} without other objects.
+     *
+     * @throws RuntimeException if table handle is no longer valid
+     */
+    default SchemaTableName getSchemaTableName(ConnectorSession session, ConnectorTableHandle table)
+    {
+        return getTableSchema(session, table).getTable();
+    }
+
+    /**
      * Return table schema definition for the specified table handle.
      * This method is useful when getting full table metadata is expensive.
      *
@@ -266,10 +277,21 @@ public interface ConnectorMetadata
 
     /**
      * Get statistics for table for given filtering constraint.
+     *
+     * @deprecated Use {@link #getTableStatistics(ConnectorSession, ConnectorTableHandle)}
      */
+    @Deprecated
     default TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle, Constraint constraint)
     {
         return TableStatistics.empty();
+    }
+
+    /**
+     * Get statistics for table.
+     */
+    default TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return getTableStatistics(session, tableHandle, Constraint.alwaysTrue());
     }
 
     /**

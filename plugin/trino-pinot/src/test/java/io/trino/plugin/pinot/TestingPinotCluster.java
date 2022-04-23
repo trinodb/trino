@@ -15,6 +15,7 @@ package io.trino.plugin.pinot;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableList;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.Closer;
 import com.google.common.net.HostAndPort;
@@ -25,6 +26,16 @@ import io.airlift.http.client.StaticBodyGenerator;
 import io.airlift.http.client.jetty.JettyHttpClient;
 import io.airlift.json.JsonCodec;
 import okhttp3.Credentials;
+import org.apache.http.Header;
+import org.apache.http.NameValuePair;
+import org.apache.http.message.BasicHeader;
+import org.apache.http.message.BasicNameValuePair;
+import org.apache.pinot.common.exception.HttpErrorStatusException;
+import org.apache.pinot.common.utils.FileUploadDownloadClient;
+import org.apache.pinot.common.utils.SimpleHttpResponse;
+import org.apache.pinot.spi.ingestion.batch.spec.Constants;
+import org.apache.pinot.spi.utils.builder.TableNameBuilder;
+import org.apache.pinot.spi.utils.retry.RetryPolicies;
 import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
@@ -32,11 +43,15 @@ import org.testcontainers.containers.Network;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.function.Supplier;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.http.client.JsonResponseHandler.createJsonResponseHandler;
 import static io.airlift.json.JsonCodec.jsonCodec;
@@ -44,6 +59,7 @@ import static io.airlift.json.JsonCodec.listJsonCodec;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
+import static org.apache.pinot.common.utils.FileUploadDownloadClient.DEFAULT_SOCKET_TIMEOUT_MS;
 import static org.testcontainers.containers.KafkaContainer.ZOOKEEPER_PORT;
 import static org.testcontainers.utility.DockerImageName.parse;
 
@@ -54,6 +70,7 @@ public class TestingPinotCluster
     private static final String ZOOKEEPER_INTERNAL_HOST = "zookeeper";
     private static final JsonCodec<List<String>> LIST_JSON_CODEC = listJsonCodec(String.class);
     private static final JsonCodec<PinotSuccessResponse> PINOT_SUCCESS_RESPONSE_JSON_CODEC = jsonCodec(PinotSuccessResponse.class);
+    private static final FileUploadDownloadClient FILE_UPLOAD_DOWNLOAD_CLIENT = new FileUploadDownloadClient();
 
     public static final int CONTROLLER_PORT = 9000;
     public static final int BROKER_PORT = 8099;
@@ -196,6 +213,73 @@ public class TestingPinotCluster
         PinotSuccessResponse response = doWithRetries(() -> httpClient.execute(request, createJsonResponseHandler(PINOT_SUCCESS_RESPONSE_JSON_CODEC)), 10);
         // Typo in response: https://github.com/apache/incubator-pinot/issues/5566
         checkState(response.getStatus().equals(format("Table %s_REALTIME succesfully added", tableName)), "Unexpected response: '%s'", response.getStatus());
+    }
+
+    public void addOfflineTable(InputStream offlineSpec, String tableName)
+            throws Exception
+    {
+        byte[] bytes = ByteStreams.toByteArray(offlineSpec);
+        Request request = Request.Builder.preparePost()
+                .setUri(getControllerUri("tables"))
+                .setHeader(HttpHeaders.ACCEPT, APPLICATION_JSON)
+                .setHeader(HttpHeaders.CONTENT_TYPE, APPLICATION_JSON)
+                .addHeader(HttpHeaders.AUTHORIZATION, secured ? controllerAuthToken() : "")
+                .setBodyGenerator(StaticBodyGenerator.createStaticBodyGenerator(bytes))
+                .build();
+
+        PinotSuccessResponse response = doWithRetries(() -> httpClient.execute(request, createJsonResponseHandler(PINOT_SUCCESS_RESPONSE_JSON_CODEC)), 10);
+        // Typo in response: https://github.com/apache/incubator-pinot/issues/5566
+        checkState(response.getStatus().equals(format("Table %s_OFFLINE succesfully added", tableName)), "Unexpected response: '%s'", response.getStatus());
+    }
+
+    public void publishOfflineSegment(String tableName, Path segmentPath)
+    {
+        try {
+            String rawTableName = TableNameBuilder.extractRawTableName(tableName);
+            String fileName = segmentPath.toFile().getName();
+            checkArgument(fileName.endsWith(Constants.TAR_GZ_FILE_EXT));
+            String segmentName = fileName.substring(0, fileName.length() - Constants.TAR_GZ_FILE_EXT.length());
+            List<NameValuePair> parameters = ImmutableList.<NameValuePair>builder()
+                    .add(new BasicNameValuePair(FileUploadDownloadClient.QueryParameters.TABLE_NAME, rawTableName))
+                    .build();
+            List<Header> headers = ImmutableList.<Header>builder()
+                    .add(new BasicHeader(HttpHeaders.AUTHORIZATION, secured ? controllerAuthToken() : ""))
+                    .build();
+            RetryPolicies.exponentialBackoffRetryPolicy(3, 1000, 5).attempt(() -> {
+                try (InputStream inputStream = Files.newInputStream(segmentPath)) {
+                    SimpleHttpResponse response = FILE_UPLOAD_DOWNLOAD_CLIENT.uploadSegment(
+                            getControllerUri("v2/segments"),
+                            segmentName,
+                            inputStream,
+                            headers,
+                            parameters,
+                            DEFAULT_SOCKET_TIMEOUT_MS);
+                    // TODO: {"status":"Successfully uploaded segment: myTable2_2020-09-09_2020-09-09 of table: myTable2"}
+                    checkState(response.getStatusCode() == 200, "Unexpected response: '%s'", response.getResponse());
+                    return true;
+                }
+                catch (HttpErrorStatusException e) {
+                    int statusCode = e.getStatusCode();
+                    if (statusCode >= 500) {
+                        return false;
+                    }
+                    else {
+                        throw e;
+                    }
+                }
+            });
+        }
+        catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+        finally {
+            try {
+                Files.deleteIfExists(segmentPath);
+            }
+            catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+        }
     }
 
     private static <T> T doWithRetries(Supplier<T> supplier, int retries)

@@ -118,18 +118,11 @@ public class TestIcebergGlueCatalogConnectorSmokeTest
                                 ")\n" +
                                 "WITH (\n" +
                                 "   format = 'ORC',\n" +
+                                "   format_version = 1,\n" +
                                 "   location = '%2$s/%1$s.db/region'\n" +
                                 ")",
                         schemaName,
                         schemaPath()));
-    }
-
-    @Test
-    @Override
-    public void testMaterializedView()
-    {
-        assertThatThrownBy(super::testMaterializedView)
-                .hasStackTraceContaining("createMaterializedView is not supported for Iceberg Glue catalogs");
     }
 
     @Test

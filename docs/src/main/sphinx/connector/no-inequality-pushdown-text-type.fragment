@@ -1,5 +1,5 @@
 Predicate pushdown support
-^^^^^^^^^^^^^^^^^^^^^^^^^^
+""""""""""""""""""""""""""
 
 The connector does not support pushdown of inequality predicates, such as
 ``!=``, and range predicates such as ``>``, or ``BETWEEN``, on columns with

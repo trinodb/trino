@@ -164,7 +164,7 @@ public class TestConnectorPushdownRulesWithIceberg
                 BIGINT,
                 Optional.empty());
 
-        IcebergTableHandle icebergTable = new IcebergTableHandle(SCHEMA_NAME, tableName, DATA, Optional.of(1L), TupleDomain.all(), TupleDomain.all(), ImmutableSet.of(), Optional.empty());
+        IcebergTableHandle icebergTable = new IcebergTableHandle(SCHEMA_NAME, tableName, DATA, Optional.of(1L), "", TupleDomain.all(), TupleDomain.all(), ImmutableSet.of(), Optional.empty());
         TableHandle table = new TableHandle(new CatalogName(ICEBERG_CATALOG_NAME), icebergTable, new HiveTransactionHandle(false));
 
         IcebergColumnHandle fullColumn = partialColumn.getBaseColumn();
@@ -228,7 +228,7 @@ public class TestConnectorPushdownRulesWithIceberg
 
         PushPredicateIntoTableScan pushPredicateIntoTableScan = new PushPredicateIntoTableScan(tester().getPlannerContext(), tester().getTypeAnalyzer());
 
-        IcebergTableHandle icebergTable = new IcebergTableHandle(SCHEMA_NAME, tableName, DATA, Optional.of(1L), TupleDomain.all(), TupleDomain.all(), ImmutableSet.of(), Optional.empty());
+        IcebergTableHandle icebergTable = new IcebergTableHandle(SCHEMA_NAME, tableName, DATA, Optional.of(1L), "", TupleDomain.all(), TupleDomain.all(), ImmutableSet.of(), Optional.empty());
         TableHandle table = new TableHandle(new CatalogName(ICEBERG_CATALOG_NAME), icebergTable, new HiveTransactionHandle(false));
 
         IcebergColumnHandle column = new IcebergColumnHandle(primitiveColumnIdentity(1, "a"), INTEGER, ImmutableList.of(), INTEGER, Optional.empty());
@@ -260,7 +260,7 @@ public class TestConnectorPushdownRulesWithIceberg
 
         PruneTableScanColumns pruneTableScanColumns = new PruneTableScanColumns(tester().getMetadata());
 
-        IcebergTableHandle icebergTable = new IcebergTableHandle(SCHEMA_NAME, tableName, DATA, Optional.empty(), TupleDomain.all(), TupleDomain.all(), ImmutableSet.of(), Optional.empty());
+        IcebergTableHandle icebergTable = new IcebergTableHandle(SCHEMA_NAME, tableName, DATA, Optional.empty(), "", TupleDomain.all(), TupleDomain.all(), ImmutableSet.of(), Optional.empty());
         TableHandle table = new TableHandle(new CatalogName(ICEBERG_CATALOG_NAME), icebergTable, new HiveTransactionHandle(false));
 
         IcebergColumnHandle columnA = new IcebergColumnHandle(primitiveColumnIdentity(0, "a"), INTEGER, ImmutableList.of(), INTEGER, Optional.empty());
@@ -303,7 +303,7 @@ public class TestConnectorPushdownRulesWithIceberg
                 tester().getTypeAnalyzer(),
                 new ScalarStatsCalculator(tester().getPlannerContext(), tester().getTypeAnalyzer()));
 
-        IcebergTableHandle icebergTable = new IcebergTableHandle(SCHEMA_NAME, tableName, DATA, Optional.of(1L), TupleDomain.all(), TupleDomain.all(), ImmutableSet.of(), Optional.empty());
+        IcebergTableHandle icebergTable = new IcebergTableHandle(SCHEMA_NAME, tableName, DATA, Optional.of(1L), "", TupleDomain.all(), TupleDomain.all(), ImmutableSet.of(), Optional.empty());
         TableHandle table = new TableHandle(new CatalogName(ICEBERG_CATALOG_NAME), icebergTable, new HiveTransactionHandle(false));
 
         IcebergColumnHandle bigintColumn = new IcebergColumnHandle(primitiveColumnIdentity(1, "just_bigint"), BIGINT, ImmutableList.of(), BIGINT, Optional.empty());

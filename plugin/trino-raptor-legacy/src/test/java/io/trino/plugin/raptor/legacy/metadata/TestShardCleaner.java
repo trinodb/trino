@@ -415,7 +415,7 @@ public class TestShardCleaner
     }
 
     @SafeVarargs
-    private final void assertQuery(@Language("SQL") String sql, List<Object>... rows)
+    private void assertQuery(@Language("SQL") String sql, List<Object>... rows)
     {
         assertEqualsIgnoreOrder(select(sql), asList(rows));
     }

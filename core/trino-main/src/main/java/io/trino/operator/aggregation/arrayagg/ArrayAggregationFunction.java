@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import io.trino.metadata.AggregationFunctionMetadata;
 import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionMetadata;
-import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlAggregationFunction;
 import io.trino.operator.aggregation.AggregationMetadata;
@@ -30,8 +29,6 @@ import io.trino.spi.type.TypeSignature;
 import java.lang.invoke.MethodHandle;
 import java.util.Optional;
 
-import static io.trino.metadata.FunctionKind.AGGREGATE;
-import static io.trino.metadata.Signature.typeVariable;
 import static io.trino.spi.type.TypeSignature.arrayType;
 import static io.trino.util.Reflection.methodHandle;
 
@@ -47,22 +44,20 @@ public class ArrayAggregationFunction
     private ArrayAggregationFunction()
     {
         super(
-                new FunctionMetadata(
-                        new Signature(
-                                NAME,
-                                ImmutableList.of(typeVariable("T")),
-                                ImmutableList.of(),
-                                arrayType(new TypeSignature("T")),
-                                ImmutableList.of(new TypeSignature("T")),
-                                false),
-                        new FunctionNullability(true, ImmutableList.of(true)),
-                        false,
-                        true,
-                        "return an array of values",
-                        AGGREGATE),
-                new AggregationFunctionMetadata(
-                        true,
-                        arrayType(new TypeSignature("T"))));
+                FunctionMetadata.aggregateBuilder()
+                        .signature(Signature.builder()
+                                .name(NAME)
+                                .typeVariable("T")
+                                .returnType(arrayType(new TypeSignature("T")))
+                                .argumentType(new TypeSignature("T"))
+                                .build())
+                        .argumentNullability(true)
+                        .description("return an array of values")
+                        .build(),
+                AggregationFunctionMetadata.builder()
+                        .orderSensitive()
+                        .intermediateType(arrayType(new TypeSignature("T")))
+                        .build());
     }
 
     @Override

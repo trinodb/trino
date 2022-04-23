@@ -227,7 +227,7 @@ public class VacuumProcedure
 
             // Ignore directories (and symlinks, etc.). If a partition directory is old and empty (or made empty by us), removing it could break concurrent writes
             // on file systems with directories (e.g. HDFS).
-            // TODO Note: Databricks can delete directories during vacuum on s3. This might need to be revisited.
+            // TODO Note: Databricks can delete directories during vacuum on s3. This might need to be revisited. (https://github.com/trinodb/trino/issues/12018)
             if (!fileStatus.isFile()) {
                 nonFiles++;
                 continue;

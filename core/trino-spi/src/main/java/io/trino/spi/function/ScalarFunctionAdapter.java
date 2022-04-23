@@ -81,7 +81,7 @@ public final class ScalarFunctionAdapter
             return false;
         }
 
-        if (actualConvention.supportsInstanceFactor() && !expectedConvention.supportsInstanceFactor()) {
+        if (actualConvention.supportsInstanceFactory() && !expectedConvention.supportsInstanceFactory()) {
             return false;
         }
 
@@ -197,7 +197,7 @@ public final class ScalarFunctionAdapter
         if (actualConvention.supportsSession() && !expectedConvention.supportsSession()) {
             throw new IllegalArgumentException("Session method can not be adapted to no session");
         }
-        if (!(expectedConvention.supportsInstanceFactor() || !actualConvention.supportsInstanceFactor())) {
+        if (!(expectedConvention.supportsInstanceFactory() || !actualConvention.supportsInstanceFactory())) {
             throw new IllegalArgumentException("Instance method can not be adapted to no instance");
         }
 
@@ -207,7 +207,7 @@ public final class ScalarFunctionAdapter
         // adapt parameters one at a time
         int parameterIndex = 0;
 
-        if (actualConvention.supportsInstanceFactor()) {
+        if (actualConvention.supportsInstanceFactory()) {
             parameterIndex++;
         }
         if (actualConvention.supportsSession()) {

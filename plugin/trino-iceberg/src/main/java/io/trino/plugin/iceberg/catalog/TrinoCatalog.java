@@ -108,14 +108,14 @@ public interface TrinoCatalog
 
     void createMaterializedView(
             ConnectorSession session,
-            SchemaTableName schemaViewName,
+            SchemaTableName viewName,
             ConnectorMaterializedViewDefinition definition,
             boolean replace,
             boolean ignoreExisting);
 
-    void dropMaterializedView(ConnectorSession session, SchemaTableName schemaViewName);
+    void dropMaterializedView(ConnectorSession session, SchemaTableName viewName);
 
-    Optional<ConnectorMaterializedViewDefinition> getMaterializedView(ConnectorSession session, SchemaTableName schemaViewName);
+    Optional<ConnectorMaterializedViewDefinition> getMaterializedView(ConnectorSession session, SchemaTableName viewName);
 
     void renameMaterializedView(ConnectorSession session, SchemaTableName source, SchemaTableName target);
 

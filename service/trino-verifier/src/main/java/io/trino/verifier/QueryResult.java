@@ -26,7 +26,7 @@ public class QueryResult
 {
     public enum State
     {
-        INVALID, FAILED, SUCCESS, TOO_MANY_ROWS, TIMEOUT, FAILED_TO_SETUP, FAILED_TO_TEARDOWN
+        INVALID, FAILED, SUCCESS, TOO_MANY_ROWS, TIMEOUT, FAILED_TO_SETUP, FAILED_TO_TEARDOWN, SKIPPED
     }
 
     private final State state;

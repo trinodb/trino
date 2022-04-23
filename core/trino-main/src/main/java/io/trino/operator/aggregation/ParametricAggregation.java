@@ -16,12 +16,14 @@ package io.trino.operator.aggregation;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import io.trino.metadata.AggregationFunctionMetadata;
+import io.trino.metadata.AggregationFunctionMetadata.AggregationFunctionMetadataBuilder;
 import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionBinding;
 import io.trino.metadata.FunctionDependencies;
 import io.trino.metadata.FunctionDependencyDeclaration;
 import io.trino.metadata.FunctionDependencyDeclaration.FunctionDependencyDeclarationBuilder;
 import io.trino.metadata.FunctionMetadata;
+import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SignatureBinder;
 import io.trino.metadata.SqlAggregationFunction;
@@ -39,7 +41,6 @@ import java.util.Optional;
 import java.util.StringJoiner;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.metadata.FunctionKind.AGGREGATE;
 import static io.trino.operator.ParametricFunctionHelpers.bindDependencies;
 import static io.trino.operator.aggregation.AggregationFunctionAdapter.normalizeInputMethod;
 import static io.trino.operator.aggregation.state.StateCompiler.generateStateFactory;
@@ -63,21 +64,51 @@ public class ParametricAggregation
             ParametricImplementationsGroup<AggregationImplementation> implementations)
     {
         super(
-                new FunctionMetadata(
-                        signature,
-                        details.getName(),
-                        implementations.getFunctionNullability(),
-                        details.isHidden(),
-                        true,
-                        details.getDescription().orElse(""),
-                        AGGREGATE,
-                        details.isDeprecated()),
-                new AggregationFunctionMetadata(
-                        details.isOrderSensitive(),
-                        details.isDecomposable() ? ImmutableList.of(getSerializedType(stateClass).getTypeSignature()) : ImmutableList.of()));
+                createFunctionMetadata(signature, details, implementations.getFunctionNullability()),
+                createAggregationFunctionMetadata(details, stateClass));
         this.stateClass = requireNonNull(stateClass, "stateClass is null");
         checkArgument(implementations.getFunctionNullability().isReturnNullable(), "currently aggregates are required to be nullable");
         this.implementations = requireNonNull(implementations, "implementations is null");
+    }
+
+    private static FunctionMetadata createFunctionMetadata(Signature signature, AggregationHeader details, FunctionNullability functionNullability)
+    {
+        FunctionMetadata.Builder functionMetadata = FunctionMetadata.aggregateBuilder()
+                .signature(signature)
+                .canonicalName(details.getName());
+
+        if (details.getDescription().isPresent()) {
+            functionMetadata.description(details.getDescription().get());
+        }
+        else {
+            functionMetadata.noDescription();
+        }
+
+        if (details.isHidden()) {
+            functionMetadata.hidden();
+        }
+        if (details.isDeprecated()) {
+            functionMetadata.deprecated();
+        }
+
+        if (functionNullability.isReturnNullable()) {
+            functionMetadata.nullable();
+        }
+        functionMetadata.argumentNullability(functionNullability.getArgumentNullable());
+
+        return functionMetadata.build();
+    }
+
+    private static AggregationFunctionMetadata createAggregationFunctionMetadata(AggregationHeader details, Class<? extends AccumulatorState> stateClass)
+    {
+        AggregationFunctionMetadataBuilder builder = AggregationFunctionMetadata.builder();
+        if (details.isOrderSensitive()) {
+            builder.orderSensitive();
+        }
+        if (details.isDecomposable()) {
+            builder.intermediateType(getSerializedType(stateClass).getTypeSignature());
+        }
+        return builder.build();
     }
 
     @Override

@@ -17,6 +17,8 @@ To connect to MongoDB, you need:
 * MongoDB 4.0 or higher.
 * Network access from the Trino coordinator and workers to MongoDB.
   Port 27017 is the default port.
+* Write access to the :ref:`schema information collection <table-definition-label>`
+  in MongoDB.
 
 Configuration
 -------------
@@ -75,9 +77,14 @@ This property is deprecated and will be removed in a future release. Use ``mongo
 ``mongodb.connection-url``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-A string containing the protocol, credential and host info for use in connection to your MongoDB deployment.
+A connection string containing the protocol, credential, and host info for use
+inconnection to your MongoDB deployment.
 
-This could be ``mongodb://<user>:<pass>@<host>:<port>/?<options>`` or ``mongodb+srv://<user>:<pass>@<host>/?<options>``.
+For example, the connection string may use the format
+``mongodb://<user>:<pass>@<host>:<port>/?<options>`` or
+``mongodb+srv://<user>:<pass>@<host>/?<options>``, depending on the protocol
+used. The user/pass credentials must be for a user with write access to the
+:ref:`schema information collection <table-definition-label>`.
 
 See the `MongoDB Connection URI <https://docs.mongodb.com/drivers/java/sync/current/fundamentals/connection/#connection-uri>`_ for more information.
 

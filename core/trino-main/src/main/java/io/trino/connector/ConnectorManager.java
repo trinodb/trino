@@ -33,7 +33,7 @@ import io.trino.metadata.ColumnPropertyManager;
 import io.trino.metadata.HandleResolver;
 import io.trino.metadata.InternalNodeManager;
 import io.trino.metadata.MaterializedViewPropertyManager;
-import io.trino.metadata.MetadataManager;
+import io.trino.metadata.Metadata;
 import io.trino.metadata.ProcedureRegistry;
 import io.trino.metadata.SchemaPropertyManager;
 import io.trino.metadata.SessionPropertyManager;
@@ -99,7 +99,7 @@ public class ConnectorManager
 {
     private static final Logger log = Logger.get(ConnectorManager.class);
 
-    private final MetadataManager metadataManager;
+    private final Metadata metadata;
     private final CatalogManager catalogManager;
     private final AccessControlManager accessControlManager;
     private final SplitManager splitManager;
@@ -139,7 +139,7 @@ public class ConnectorManager
 
     @Inject
     public ConnectorManager(
-            MetadataManager metadataManager,
+            Metadata metadata,
             CatalogManager catalogManager,
             AccessControlManager accessControlManager,
             SplitManager splitManager,
@@ -167,7 +167,7 @@ public class ConnectorManager
             TableProceduresPropertyManager tableProceduresPropertyManager,
             NodeSchedulerConfig nodeSchedulerConfig)
     {
-        this.metadataManager = metadataManager;
+        this.metadata = metadata;
         this.catalogManager = catalogManager;
         this.accessControlManager = accessControlManager;
         this.splitManager = splitManager;
@@ -254,7 +254,7 @@ public class ConnectorManager
 
         MaterializedConnector informationSchemaConnector = new MaterializedConnector(
                 createInformationSchemaCatalogName(catalogName),
-                new InformationSchemaConnector(catalogName.getCatalogName(), nodeManager, metadataManager, accessControlManager),
+                new InformationSchemaConnector(catalogName.getCatalogName(), nodeManager, metadata, accessControlManager),
                 () -> {});
 
         CatalogName systemId = createSystemTablesCatalogName(catalogName);
@@ -263,7 +263,7 @@ public class ConnectorManager
         if (nodeManager.getCurrentNode().isCoordinator()) {
             systemTablesProvider = new CoordinatorSystemTablesProvider(
                     transactionManager,
-                    metadataManager,
+                    metadata,
                     catalogName.getCatalogName(),
                     new StaticSystemTablesProvider(connector.getSystemTables()));
         }
@@ -394,7 +394,7 @@ public class ConnectorManager
                 new ConnectorAwareNodeManager(nodeManager, nodeInfo.getEnvironment(), catalogName, schedulerIncludeCoordinator),
                 versionEmbedder,
                 typeManager,
-                new InternalMetadataProvider(metadataManager, typeManager),
+                new InternalMetadataProvider(metadata, typeManager),
                 pageSorter,
                 pageIndexerFactory,
                 duplicatePluginClassLoaderFactory);

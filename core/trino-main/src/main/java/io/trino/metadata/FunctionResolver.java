@@ -20,7 +20,9 @@ import io.trino.Session;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
+import io.trino.sql.SqlPathElement;
 import io.trino.sql.analyzer.TypeSignatureProvider;
+import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.QualifiedName;
 
 import java.util.ArrayList;
@@ -28,6 +30,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -35,7 +38,10 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.metadata.FunctionKind.AGGREGATE;
 import static io.trino.metadata.FunctionKind.SCALAR;
+import static io.trino.metadata.GlobalFunctionCatalog.GLOBAL_CATALOG;
+import static io.trino.metadata.GlobalFunctionCatalog.GLOBAL_SCHEMA;
 import static io.trino.spi.StandardErrorCode.AMBIGUOUS_FUNCTION_CALL;
 import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
@@ -55,24 +61,40 @@ public class FunctionResolver
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }
 
-    FunctionBinding resolveCoercion(Session session, Collection<FunctionMetadata> allCandidates, Signature signature)
+    boolean isAggregationFunction(Session session, QualifiedName name, Function<CatalogSchemaFunctionName, Collection<FunctionMetadata>> candidateLoader)
     {
-        List<FunctionMetadata> exactCandidates = allCandidates.stream()
-                .filter(function -> possibleExactCastMatch(signature, function.getSignature()))
-                .collect(Collectors.toList());
-        for (FunctionMetadata candidate : exactCandidates) {
-            if (canBindSignature(session, candidate.getSignature(), signature)) {
-                return toFunctionBinding(candidate, signature);
+        for (CatalogSchemaFunctionName catalogSchemaFunctionName : toPath(session, name)) {
+            Collection<FunctionMetadata> candidates = candidateLoader.apply(catalogSchemaFunctionName);
+            if (!candidates.isEmpty()) {
+                return candidates.stream()
+                        .map(FunctionMetadata::getKind)
+                        .anyMatch(AGGREGATE::equals);
             }
         }
+        return false;
+    }
 
-        // only consider generic genericCandidates
-        List<FunctionMetadata> genericCandidates = allCandidates.stream()
-                .filter(function -> !function.getSignature().getTypeVariableConstraints().isEmpty())
-                .collect(Collectors.toList());
-        for (FunctionMetadata candidate : genericCandidates) {
-            if (canBindSignature(session, candidate.getSignature(), signature)) {
-                return toFunctionBinding(candidate, signature);
+    FunctionBinding resolveCoercion(Session session, QualifiedName name, Signature signature, Function<CatalogSchemaFunctionName, Collection<FunctionMetadata>> candidateLoader)
+    {
+        for (CatalogSchemaFunctionName catalogSchemaFunctionName : toPath(session, name)) {
+            Collection<FunctionMetadata> candidates = candidateLoader.apply(catalogSchemaFunctionName);
+            List<FunctionMetadata> exactCandidates = candidates.stream()
+                    .filter(function -> possibleExactCastMatch(signature, function.getSignature()))
+                    .collect(toImmutableList());
+            for (FunctionMetadata candidate : exactCandidates) {
+                if (canBindSignature(session, candidate.getSignature(), signature)) {
+                    return toFunctionBinding(candidate, signature);
+                }
+            }
+
+            // only consider generic genericCandidates
+            List<FunctionMetadata> genericCandidates = candidates.stream()
+                    .filter(function -> !function.getSignature().getTypeVariableConstraints().isEmpty())
+                    .collect(toImmutableList());
+            for (FunctionMetadata candidate : genericCandidates) {
+                if (canBindSignature(session, candidate.getSignature(), signature)) {
+                    return toFunctionBinding(candidate, signature);
+                }
             }
         }
 
@@ -113,37 +135,48 @@ public class FunctionResolver
         return true;
     }
 
-    FunctionBinding resolveFunction(Session session, Collection<FunctionMetadata> allCandidates, QualifiedName name, List<TypeSignatureProvider> parameterTypes)
+    FunctionBinding resolveFunction(
+            Session session,
+            QualifiedName name,
+            List<TypeSignatureProvider> parameterTypes,
+            Function<CatalogSchemaFunctionName, Collection<FunctionMetadata>> candidateLoader)
     {
-        if (allCandidates.isEmpty()) {
+        ImmutableList.Builder<FunctionMetadata> allCandidates = ImmutableList.builder();
+        for (CatalogSchemaFunctionName catalogSchemaFunctionName : toPath(session, name)) {
+            Collection<FunctionMetadata> candidates = candidateLoader.apply(catalogSchemaFunctionName);
+            List<FunctionMetadata> exactCandidates = candidates.stream()
+                    .filter(function -> function.getSignature().getTypeVariableConstraints().isEmpty())
+                    .collect(toImmutableList());
+
+            Optional<FunctionBinding> match = matchFunctionExact(session, exactCandidates, parameterTypes);
+            if (match.isPresent()) {
+                return match.get();
+            }
+
+            List<FunctionMetadata> genericCandidates = candidates.stream()
+                    .filter(function -> !function.getSignature().getTypeVariableConstraints().isEmpty())
+                    .collect(toImmutableList());
+
+            match = matchFunctionExact(session, genericCandidates, parameterTypes);
+            if (match.isPresent()) {
+                return match.get();
+            }
+
+            match = matchFunctionWithCoercion(session, candidates, parameterTypes);
+            if (match.isPresent()) {
+                return match.get();
+            }
+
+            allCandidates.addAll(candidates);
+        }
+
+        List<FunctionMetadata> candidates = allCandidates.build();
+        if (candidates.isEmpty()) {
             throw new TrinoException(FUNCTION_NOT_FOUND, format("Function '%s' not registered", name));
         }
 
-        List<FunctionMetadata> exactCandidates = allCandidates.stream()
-                .filter(function -> function.getSignature().getTypeVariableConstraints().isEmpty())
-                .collect(toImmutableList());
-
-        Optional<FunctionBinding> match = matchFunctionExact(session, exactCandidates, parameterTypes);
-        if (match.isPresent()) {
-            return match.get();
-        }
-
-        List<FunctionMetadata> genericCandidates = allCandidates.stream()
-                .filter(function -> !function.getSignature().getTypeVariableConstraints().isEmpty())
-                .collect(toImmutableList());
-
-        match = matchFunctionExact(session, genericCandidates, parameterTypes);
-        if (match.isPresent()) {
-            return match.get();
-        }
-
-        match = matchFunctionWithCoercion(session, allCandidates, parameterTypes);
-        if (match.isPresent()) {
-            return match.get();
-        }
-
         List<String> expectedParameters = new ArrayList<>();
-        for (FunctionMetadata function : allCandidates) {
+        for (FunctionMetadata function : candidates) {
             String arguments = Joiner.on(", ").join(function.getSignature().getArgumentTypes());
             String constraints = Joiner.on(", ").join(function.getSignature().getTypeVariableConstraints());
             expectedParameters.add(format("%s(%s) %s", name, arguments, constraints).stripTrailing());
@@ -153,6 +186,35 @@ public class FunctionResolver
         String expected = Joiner.on(", ").join(expectedParameters);
         String message = format("Unexpected parameters (%s) for function %s. Expected: %s", parameters, name, expected);
         throw new TrinoException(FUNCTION_NOT_FOUND, message);
+    }
+
+    private static List<CatalogSchemaFunctionName> toPath(Session session, QualifiedName name)
+    {
+        List<String> parts = name.getParts();
+        checkArgument(parts.size() <= 3, "Function name can only have 3 parts: " + name);
+        if (parts.size() == 3) {
+            return ImmutableList.of(new CatalogSchemaFunctionName(parts.get(0), parts.get(1), parts.get(2)));
+        }
+
+        if (parts.size() == 2) {
+            String currentCatalog = session.getCatalog()
+                    .orElseThrow(() -> new IllegalArgumentException("Session default catalog must be set to resolve a partial function name: " + name));
+            return ImmutableList.of(new CatalogSchemaFunctionName(currentCatalog, parts.get(0), parts.get(1)));
+        }
+
+        ImmutableList.Builder<CatalogSchemaFunctionName> names = ImmutableList.builder();
+        String functionName = parts.get(0);
+
+        // global namespace
+        names.add(new CatalogSchemaFunctionName(GLOBAL_CATALOG, GLOBAL_SCHEMA, functionName));
+
+        // add resolved path items
+        for (SqlPathElement sqlPathElement : session.getPath().getParsedPath()) {
+            String catalog = sqlPathElement.getCatalog().map(Identifier::getCanonicalValue).or(session::getCatalog)
+                    .orElseThrow(() -> new IllegalArgumentException("Session default catalog must be set to resolve a partial function name: " + name));
+            names.add(new CatalogSchemaFunctionName(catalog, sqlPathElement.getSchema().getCanonicalValue(), functionName));
+        }
+        return names.build();
     }
 
     private Optional<FunctionBinding> matchFunctionExact(Session session, List<FunctionMetadata> candidates, List<TypeSignatureProvider> actualParameters)

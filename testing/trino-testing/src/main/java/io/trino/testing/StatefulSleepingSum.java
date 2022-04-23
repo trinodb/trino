@@ -13,10 +13,8 @@
  */
 package io.trino.testing;
 
-import com.google.common.collect.ImmutableList;
 import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionMetadata;
-import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.operator.scalar.ChoicesScalarFunctionImplementation;
@@ -27,8 +25,6 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.trino.metadata.FunctionKind.SCALAR;
-import static io.trino.metadata.Signature.typeVariable;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -44,19 +40,19 @@ public class StatefulSleepingSum
 
     private StatefulSleepingSum()
     {
-        super(new FunctionMetadata(
-                new Signature(
-                        "stateful_sleeping_sum",
-                        ImmutableList.of(typeVariable("bigint")),
-                        ImmutableList.of(),
-                        BIGINT.getTypeSignature(),
-                        ImmutableList.of(DOUBLE.getTypeSignature(), BIGINT.getTypeSignature(), BIGINT.getTypeSignature(), BIGINT.getTypeSignature()),
-                        false),
-                new FunctionNullability(false, ImmutableList.of(false, false, false, false)),
-                true,
-                true,
-                "testing not thread safe function",
-                SCALAR));
+        super(FunctionMetadata.scalarBuilder()
+                .signature(Signature.builder()
+                        .name("stateful_sleeping_sum")
+                        .typeVariable("bigint")
+                        .returnType(BIGINT)
+                        .argumentType(DOUBLE)
+                        .argumentType(BIGINT)
+                        .argumentType(BIGINT)
+                        .argumentType(BIGINT)
+                        .build())
+                .hidden()
+                .description("testing not thread safe function")
+                .build());
     }
 
     @Override

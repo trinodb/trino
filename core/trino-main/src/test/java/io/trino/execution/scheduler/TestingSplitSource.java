@@ -33,11 +33,18 @@ public class TestingSplitSource
 {
     private final CatalogName catalogName;
     private final Iterator<Split> splits;
+    private int finishDelayRemainingIterations;
 
     public TestingSplitSource(CatalogName catalogName, List<Split> splits)
     {
+        this(catalogName, splits, 0);
+    }
+
+    public TestingSplitSource(CatalogName catalogName, List<Split> splits, int finishDelayIterations)
+    {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.splits = ImmutableList.copyOf(requireNonNull(splits, "splits is null")).iterator();
+        this.finishDelayRemainingIterations = finishDelayIterations;
     }
 
     @Override
@@ -70,7 +77,7 @@ public class TestingSplitSource
     @Override
     public boolean isFinished()
     {
-        return !splits.hasNext();
+        return !splits.hasNext() && finishDelayRemainingIterations-- <= 0;
     }
 
     @Override

@@ -221,7 +221,7 @@ public class TestHiveGlueMetastore
                 glueConfig,
                 DefaultAWSCredentialsProviderChain.getInstance(),
                 executor,
-                new DefaultGlueColumnStatisticsProviderFactory(glueConfig, executor, executor),
+                new DefaultGlueColumnStatisticsProviderFactory(executor, executor),
                 Optional.empty(),
                 new DefaultGlueMetastoreTableFilterProvider(
                         new MetastoreConfig()

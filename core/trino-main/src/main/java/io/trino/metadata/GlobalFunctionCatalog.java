@@ -21,9 +21,7 @@ import io.trino.operator.aggregation.AggregationMetadata;
 import io.trino.operator.window.WindowFunctionSupplier;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.OperatorType;
-import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
-import io.trino.sql.tree.QualifiedName;
 
 import javax.annotation.concurrent.ThreadSafe;
 
@@ -37,17 +35,18 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.metadata.FunctionKind.AGGREGATE;
-import static io.trino.metadata.Signature.comparableTypeParameter;
 import static io.trino.metadata.Signature.isOperatorName;
-import static io.trino.metadata.Signature.orderableTypeParameter;
 import static io.trino.metadata.Signature.unmangleOperator;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static java.util.Locale.ENGLISH;
 
 @ThreadSafe
 public class GlobalFunctionCatalog
 {
+    public static final String GLOBAL_CATALOG = "system";
+    public static final String GLOBAL_SCHEMA = "global";
     private volatile FunctionMap functions = new FunctionMap();
 
     public final synchronized void addFunctions(FunctionBundle functionBundle)
@@ -80,42 +79,37 @@ public class GlobalFunctionCatalog
         // The trick here is the Generic*Operator implementations implement these exact signatures,
         // so we only these exact signatures to be registered.  Since, only a single function with
         // a specific signature can be registered, it prevents others from being registered.
-        Type expectedReturnType;
-        TypeVariableConstraint typeParameter;
+        Signature.Builder expectedSignature = Signature.builder()
+                .name(signature.getName())
+                .argumentTypes(Collections.nCopies(operatorType.getArgumentCount(), new TypeSignature("T")));
+
         switch (operatorType) {
             case EQUAL:
             case IS_DISTINCT_FROM:
             case INDETERMINATE:
-                expectedReturnType = BOOLEAN;
-                typeParameter = comparableTypeParameter("T");
+                expectedSignature.returnType(BOOLEAN);
+                expectedSignature.comparableTypeParameter("T");
                 break;
             case HASH_CODE:
             case XX_HASH_64:
-                expectedReturnType = BIGINT;
-                typeParameter = comparableTypeParameter("T");
+                expectedSignature.returnType(BIGINT);
+                expectedSignature.comparableTypeParameter("T");
                 break;
             case COMPARISON_UNORDERED_FIRST:
             case COMPARISON_UNORDERED_LAST:
-                expectedReturnType = INTEGER;
-                typeParameter = orderableTypeParameter("T");
+                expectedSignature.returnType(INTEGER);
+                expectedSignature.orderableTypeParameter("T");
                 break;
             case LESS_THAN:
             case LESS_THAN_OR_EQUAL:
-                expectedReturnType = BOOLEAN;
-                typeParameter = orderableTypeParameter("T");
+                expectedSignature.returnType(BOOLEAN);
+                expectedSignature.orderableTypeParameter("T");
                 break;
             default:
                 return;
         }
 
-        Signature expectedSignature = new Signature(
-                signature.getName(),
-                ImmutableList.of(typeParameter),
-                ImmutableList.of(),
-                expectedReturnType.getTypeSignature(),
-                Collections.nCopies(operatorType.getArgumentCount(), new TypeSignature("T")),
-                false);
-        checkArgument(signature.equals(expectedSignature), "Can not register %s functionMetadata: %s", operatorType, signature);
+        checkArgument(signature.equals(expectedSignature.build()), "Can not register %s functionMetadata: %s", operatorType, signature);
     }
 
     public List<FunctionMetadata> listFunctions()
@@ -123,9 +117,12 @@ public class GlobalFunctionCatalog
         return functions.list();
     }
 
-    public Collection<FunctionMetadata> getFunctions(QualifiedName name)
+    public Collection<FunctionMetadata> getFunctions(SchemaFunctionName name)
     {
-        return functions.get(name);
+        if (!GLOBAL_SCHEMA.equals(name.getSchemaName())) {
+            return ImmutableList.of();
+        }
+        return functions.get(name.getFunctionName());
     }
 
     public FunctionMetadata getFunctionMetadata(FunctionId functionId)
@@ -166,13 +163,14 @@ public class GlobalFunctionCatalog
     {
         private final Map<FunctionId, FunctionBundle> functionBundlesById;
         private final Map<FunctionId, FunctionMetadata> functionsById;
-        private final Multimap<QualifiedName, FunctionMetadata> functionsByName;
+        // function names are currently lower cased
+        private final Multimap<String, FunctionMetadata> functionsByLowerCaseName;
 
         public FunctionMap()
         {
             functionBundlesById = ImmutableMap.of();
             functionsById = ImmutableMap.of();
-            functionsByName = ImmutableListMultimap.of();
+            functionsByLowerCaseName = ImmutableListMultimap.of();
         }
 
         public FunctionMap(FunctionMap map, FunctionBundle functionBundle)
@@ -189,14 +187,14 @@ public class GlobalFunctionCatalog
                             .collect(toImmutableMap(FunctionMetadata::getFunctionId, Function.identity())))
                     .buildOrThrow();
 
-            ImmutableListMultimap.Builder<QualifiedName, FunctionMetadata> functionsByName = ImmutableListMultimap.<QualifiedName, FunctionMetadata>builder()
-                    .putAll(map.functionsByName);
+            ImmutableListMultimap.Builder<String, FunctionMetadata> functionsByName = ImmutableListMultimap.<String, FunctionMetadata>builder()
+                    .putAll(map.functionsByLowerCaseName);
             functionBundle.getFunctions()
-                    .forEach(functionMetadata -> functionsByName.put(QualifiedName.of(functionMetadata.getSignature().getName()), functionMetadata));
-            this.functionsByName = functionsByName.build();
+                    .forEach(functionMetadata -> functionsByName.put(functionMetadata.getSignature().getName().toLowerCase(ENGLISH), functionMetadata));
+            this.functionsByLowerCaseName = functionsByName.build();
 
             // Make sure all functions with the same name are aggregations or none of them are
-            for (Map.Entry<QualifiedName, Collection<FunctionMetadata>> entry : this.functionsByName.asMap().entrySet()) {
+            for (Map.Entry<String, Collection<FunctionMetadata>> entry : this.functionsByLowerCaseName.asMap().entrySet()) {
                 Collection<FunctionMetadata> values = entry.getValue();
                 long aggregations = values.stream()
                         .map(FunctionMetadata::getKind)
@@ -208,12 +206,12 @@ public class GlobalFunctionCatalog
 
         public List<FunctionMetadata> list()
         {
-            return ImmutableList.copyOf(functionsByName.values());
+            return ImmutableList.copyOf(functionsByLowerCaseName.values());
         }
 
-        public Collection<FunctionMetadata> get(QualifiedName name)
+        public Collection<FunctionMetadata> get(String functionName)
         {
-            return functionsByName.get(name);
+            return functionsByLowerCaseName.get(functionName.toLowerCase(ENGLISH));
         }
 
         public FunctionMetadata get(FunctionId functionId)

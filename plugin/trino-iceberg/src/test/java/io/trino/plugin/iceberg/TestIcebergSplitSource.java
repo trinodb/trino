@@ -40,6 +40,7 @@ import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.TestingTypeManager;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
+import org.apache.iceberg.SchemaParser;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.types.Conversions;
 import org.apache.iceberg.types.Type;
@@ -118,16 +119,17 @@ public class TestIcebergSplitSource
     {
         long startMillis = System.currentTimeMillis();
         SchemaTableName schemaTableName = new SchemaTableName("tpch", "nation");
+        Table nationTable = catalog.loadTable(SESSION, schemaTableName);
         IcebergTableHandle tableHandle = new IcebergTableHandle(
                 schemaTableName.getSchemaName(),
                 schemaTableName.getTableName(),
                 TableType.DATA,
                 Optional.empty(),
+                SchemaParser.toJson(nationTable.schema()),
                 TupleDomain.all(),
                 TupleDomain.all(),
                 ImmutableSet.of(),
                 Optional.empty());
-        Table nationTable = catalog.loadTable(SESSION, schemaTableName);
 
         IcebergSplitSource splitSource = new IcebergSplitSource(
                 tableHandle,

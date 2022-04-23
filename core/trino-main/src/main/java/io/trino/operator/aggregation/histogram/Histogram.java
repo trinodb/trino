@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import io.trino.metadata.AggregationFunctionMetadata;
 import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionMetadata;
-import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlAggregationFunction;
 import io.trino.operator.aggregation.AggregationMetadata;
@@ -33,8 +32,6 @@ import io.trino.type.BlockTypeOperators.BlockPositionHashCode;
 import java.lang.invoke.MethodHandle;
 import java.util.Optional;
 
-import static io.trino.metadata.FunctionKind.AGGREGATE;
-import static io.trino.metadata.Signature.comparableTypeParameter;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.TypeSignature.mapType;
 import static io.trino.util.Reflection.methodHandle;
@@ -54,22 +51,18 @@ public class Histogram
     public Histogram(BlockTypeOperators blockTypeOperators)
     {
         super(
-                new FunctionMetadata(
-                        new Signature(
-                                NAME,
-                                ImmutableList.of(comparableTypeParameter("K")),
-                                ImmutableList.of(),
-                                mapType(new TypeSignature("K"), BIGINT.getTypeSignature()),
-                                ImmutableList.of(new TypeSignature("K")),
-                                false),
-                        new FunctionNullability(true, ImmutableList.of(false)),
-                        false,
-                        true,
-                        "Count the number of times each value occurs",
-                        AGGREGATE),
-                new AggregationFunctionMetadata(
-                        false,
-                        mapType(new TypeSignature("K"), BIGINT.getTypeSignature())));
+                FunctionMetadata.aggregateBuilder()
+                        .signature(Signature.builder()
+                                .name(NAME)
+                                .comparableTypeParameter("K")
+                                .returnType(mapType(new TypeSignature("K"), BIGINT.getTypeSignature()))
+                                .argumentType(new TypeSignature("K"))
+                                .build())
+                        .description("Count the number of times each value occurs")
+                        .build(),
+                AggregationFunctionMetadata.builder()
+                        .intermediateType(mapType(new TypeSignature("K"), BIGINT.getTypeSignature()))
+                        .build());
         this.blockTypeOperators = blockTypeOperators;
     }
 

@@ -858,7 +858,10 @@ public class TrinoS3FileSystem
     public static String keyFromPath(Path path)
     {
         checkArgument(path.isAbsolute(), "Path is not absolute: %s", path);
-        String key = nullToEmpty(path.toUri().getPath());
+        // hack to use path from fragment -- see IcebergSplitSource#hadoopPath()
+        String key = Optional.ofNullable(path.toUri().getFragment())
+                .or(() -> Optional.ofNullable(path.toUri().getPath()))
+                .orElse("");
         if (key.startsWith(PATH_SEPARATOR)) {
             key = key.substring(PATH_SEPARATOR.length());
         }

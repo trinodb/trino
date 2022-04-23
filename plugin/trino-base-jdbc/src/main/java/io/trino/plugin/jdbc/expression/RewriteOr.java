@@ -13,53 +13,13 @@
  */
 package io.trino.plugin.jdbc.expression;
 
-import io.trino.matching.Captures;
-import io.trino.matching.Pattern;
-import io.trino.plugin.base.expression.ConnectorExpressionRule;
-import io.trino.spi.expression.Call;
-import io.trino.spi.expression.ConnectorExpression;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-import java.util.stream.Collectors;
-
-import static com.google.common.base.Verify.verify;
-import static io.trino.plugin.base.expression.ConnectorExpressionPatterns.call;
-import static io.trino.plugin.base.expression.ConnectorExpressionPatterns.functionName;
-import static io.trino.plugin.base.expression.ConnectorExpressionPatterns.type;
 import static io.trino.spi.expression.StandardFunctions.OR_FUNCTION_NAME;
-import static io.trino.spi.type.BooleanType.BOOLEAN;
 
 public class RewriteOr
-        implements ConnectorExpressionRule<Call, String>
+        extends RewriteLogicalExpression
 {
-    private static final Pattern<Call> PATTERN = call()
-            .with(functionName().equalTo(OR_FUNCTION_NAME))
-            .with(type().equalTo(BOOLEAN));
-
-    @Override
-    public Pattern<Call> getPattern()
+    public RewriteOr()
     {
-        return PATTERN;
-    }
-
-    @Override
-    public Optional<String> rewrite(Call call, Captures captures, RewriteContext<String> context)
-    {
-        List<ConnectorExpression> arguments = call.getArguments();
-        verify(!arguments.isEmpty(), "no arguments");
-        List<String> terms = new ArrayList<>(arguments.size());
-        for (ConnectorExpression argument : arguments) {
-            verify(argument.getType() == BOOLEAN, "Unexpected type of OR argument: %s", argument.getType());
-            Optional<String> rewritten = context.defaultRewrite(argument);
-            if (rewritten.isEmpty()) {
-                return Optional.empty();
-            }
-            terms.add(rewritten.get());
-        }
-
-        return Optional.of(terms.stream()
-                .collect(Collectors.joining(") OR (", "(", ")")));
+        super(OR_FUNCTION_NAME, "OR");
     }
 }

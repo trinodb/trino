@@ -62,13 +62,12 @@ import io.trino.execution.resourcegroups.LegacyResourceGroupConfigurationManager
 import io.trino.execution.resourcegroups.ResourceGroupManager;
 import io.trino.execution.scheduler.BinPackingNodeAllocatorService;
 import io.trino.execution.scheduler.ConstantPartitionMemoryEstimator;
-import io.trino.execution.scheduler.ExponentialGrowthPartitionMemoryEstimator;
 import io.trino.execution.scheduler.FallbackToFullNodePartitionMemoryEstimator;
 import io.trino.execution.scheduler.FixedCountNodeAllocatorService;
 import io.trino.execution.scheduler.FullNodeCapableNodeAllocatorService;
 import io.trino.execution.scheduler.NodeAllocatorService;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
-import io.trino.execution.scheduler.PartitionMemoryEstimator;
+import io.trino.execution.scheduler.PartitionMemoryEstimatorFactory;
 import io.trino.execution.scheduler.SplitSchedulerStats;
 import io.trino.execution.scheduler.StageTaskSourceFactory;
 import io.trino.execution.scheduler.TaskDescriptorStorage;
@@ -227,21 +226,22 @@ public class CoordinatorModule
                 config -> FIXED_COUNT == config.getNodeAllocatorType(),
                 innerBinder -> {
                     innerBinder.bind(NodeAllocatorService.class).to(FixedCountNodeAllocatorService.class).in(Scopes.SINGLETON);
-                    innerBinder.bind(PartitionMemoryEstimator.class).to(ConstantPartitionMemoryEstimator.class).in(Scopes.SINGLETON);
+                    innerBinder.bind(PartitionMemoryEstimatorFactory.class).toInstance(ConstantPartitionMemoryEstimator::new);
                 }));
         install(conditionalModule(
                 NodeSchedulerConfig.class,
                 config -> FULL_NODE_CAPABLE == config.getNodeAllocatorType(),
                 innerBinder -> {
                     innerBinder.bind(NodeAllocatorService.class).to(FullNodeCapableNodeAllocatorService.class).in(Scopes.SINGLETON);
-                    innerBinder.bind(PartitionMemoryEstimator.class).to(FallbackToFullNodePartitionMemoryEstimator.class).in(Scopes.SINGLETON);
+                    innerBinder.bind(PartitionMemoryEstimatorFactory.class).toInstance(FallbackToFullNodePartitionMemoryEstimator::new);
                 }));
         install(conditionalModule(
                 NodeSchedulerConfig.class,
                 config -> BIN_PACKING == config.getNodeAllocatorType(),
                 innerBinder -> {
-                    innerBinder.bind(NodeAllocatorService.class).to(BinPackingNodeAllocatorService.class).in(Scopes.SINGLETON);
-                    innerBinder.bind(PartitionMemoryEstimator.class).to(ExponentialGrowthPartitionMemoryEstimator.class).in(Scopes.SINGLETON);
+                    innerBinder.bind(BinPackingNodeAllocatorService.class).in(Scopes.SINGLETON);
+                    innerBinder.bind(NodeAllocatorService.class).to(BinPackingNodeAllocatorService.class);
+                    innerBinder.bind(PartitionMemoryEstimatorFactory.class).to(BinPackingNodeAllocatorService.class);
                 }));
 
         // node monitor

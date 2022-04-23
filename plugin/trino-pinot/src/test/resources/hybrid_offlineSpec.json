@@ -1,0 +1,39 @@
+{
+    "tableName": "hybrid",
+    "tableType": "OFFLINE",
+    "segmentsConfig": {
+        "timeColumnName": "updatedAtSeconds",
+        "retentionTimeUnit": "DAYS",
+        "retentionTimeValue": "365",
+        "segmentPushType": "APPEND",
+        "segmentPushFrequency": "daily",
+        "segmentAssignmentStrategy": "BalanceNumSegmentAssignmentStrategy",
+        "replication": "1"
+    },
+    "tenants": {
+        "broker": "DefaultTenant",
+        "server": "DefaultTenant"
+    },
+    "tableIndexConfig": {
+        "loadMode": "MMAP",
+        "invertedIndexColumns": ["stringCol"],
+        "noDictionaryColumns": ["longCol"],
+        "sortedColumn": ["updatedAtSeconds"],
+        "starTreeIndexConfigs": [
+            {
+                "dimensionsSplitOrder": ["stringCol"],
+                "functionColumnPairs": [
+                    "COUNT__longCol",
+                    "MIN__longCol",
+                    "MAX__longCol",
+                    "AVG__longCol",
+                    "SUM__longCol"
+                ]
+            }
+        ],
+        "nullHandlingEnabled": "true"
+    },
+    "metadata": {
+        "customConfigs": {}
+    }
+}

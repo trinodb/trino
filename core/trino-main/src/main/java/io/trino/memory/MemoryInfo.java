@@ -15,10 +15,6 @@ package io.trino.memory;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.collect.ImmutableListMultimap;
-import com.google.common.collect.ListMultimap;
-import io.trino.TaskMemoryInfo;
-import io.trino.spi.QueryId;
 import io.trino.spi.memory.MemoryPoolInfo;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -28,24 +24,14 @@ public class MemoryInfo
 {
     private final int availableProcessors;
     private final MemoryPoolInfo pool;
-    private final ListMultimap<QueryId, TaskMemoryInfo> tasksMemoryInfo;
-
-    public MemoryInfo(
-            int availableProcessors,
-            MemoryPoolInfo pool)
-    {
-        this(availableProcessors, pool, ImmutableListMultimap.of());
-    }
 
     @JsonCreator
     public MemoryInfo(
             @JsonProperty("availableProcessors") int availableProcessors,
-            @JsonProperty("pool") MemoryPoolInfo pool,
-            @JsonProperty("tasksMemoryInfo") ListMultimap<QueryId, TaskMemoryInfo> tasksMemoryInfo)
+            @JsonProperty("pool") MemoryPoolInfo pool)
     {
         this.availableProcessors = availableProcessors;
         this.pool = requireNonNull(pool, "pool is null");
-        this.tasksMemoryInfo = ImmutableListMultimap.copyOf(requireNonNull(tasksMemoryInfo, "tasksMemoryInfo is null"));
     }
 
     @JsonProperty
@@ -60,24 +46,12 @@ public class MemoryInfo
         return pool;
     }
 
-    @JsonProperty
-    public ListMultimap<QueryId, TaskMemoryInfo> getTasksMemoryInfo()
-    {
-        return tasksMemoryInfo;
-    }
-
     @Override
     public String toString()
     {
         return toStringHelper(this)
                 .add("availableProcessors", availableProcessors)
                 .add("pool", pool)
-                .add("tasksMemoryInfo", tasksMemoryInfo)
                 .toString();
-    }
-
-    public MemoryInfo withTasksMemoryInfo(ListMultimap<QueryId, TaskMemoryInfo> tasksMemoryInfo)
-    {
-        return new MemoryInfo(availableProcessors, pool, tasksMemoryInfo);
     }
 }

@@ -22,6 +22,8 @@ import io.trino.connector.CatalogName;
 import io.trino.execution.Lifespan;
 import io.trino.execution.ScheduledSplit;
 import io.trino.execution.SplitAssignment;
+import io.trino.execution.StageId;
+import io.trino.execution.TaskId;
 import io.trino.metadata.Split;
 import io.trino.operator.Driver;
 import io.trino.operator.DriverContext;
@@ -62,6 +64,7 @@ import static org.testng.Assert.assertTrue;
 public class TestMemoryBlocking
 {
     private static final QueryId QUERY_ID = new QueryId("test_query");
+    private static final TaskId TASK_ID = new TaskId(new StageId(QUERY_ID, 0), 0, 0);
 
     private ExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;
@@ -131,7 +134,7 @@ public class TestMemoryBlocking
         }
 
         // free up some memory
-        memoryPool.free(QUERY_ID, "test", memoryPool.getReservedBytes());
+        memoryPool.free(TASK_ID, "test", memoryPool.getReservedBytes());
 
         // the operator should be unblocked
         assertTrue(source.getOperatorContext().isWaitingForMemory().isDone());

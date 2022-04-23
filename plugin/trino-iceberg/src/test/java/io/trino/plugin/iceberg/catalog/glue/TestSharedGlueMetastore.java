@@ -108,7 +108,7 @@ public class TestSharedGlueMetastore
                 new GlueHiveMetastoreConfig(),
                 DefaultAWSCredentialsProviderChain.getInstance(),
                 directExecutor(),
-                new DefaultGlueColumnStatisticsProviderFactory(new GlueHiveMetastoreConfig(), directExecutor(), directExecutor()),
+                new DefaultGlueColumnStatisticsProviderFactory(directExecutor(), directExecutor()),
                 Optional.empty(),
                 table -> true);
         queryRunner.installPlugin(new TestingHivePlugin(glueMetastore));

@@ -95,6 +95,7 @@ Spilled: 20GB
     public void printInitialStatusUpdates(Terminal terminal)
     {
         Attributes originalAttributes = terminal.enterRawMode();
+        long start = System.nanoTime();
         long lastPrint = System.nanoTime();
         try {
             WarningsPrinter warningsPrinter = new ConsoleWarningsPrinter(console);
@@ -108,7 +109,8 @@ Spilled: 20GB
                     // check if time to update screen
                     boolean update = nanosSince(lastPrint).getValue(SECONDS) >= 0.5;
 
-                    if (checkInput) {
+                    // start checking for input after 300ms to avoid delaying short queries
+                    if (checkInput && nanosSince(start).getValue(SECONDS) >= 0.3) {
                         // check for keyboard input
                         int key = readKey(terminal);
                         if (key == CTRL_P) {

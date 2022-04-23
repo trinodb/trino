@@ -15,6 +15,7 @@ package io.trino.tests.product.launcher.env.environment;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.tests.product.launcher.docker.DockerFiles;
+import io.trino.tests.product.launcher.docker.DockerFiles.ResourceProvider;
 import io.trino.tests.product.launcher.env.Environment;
 import io.trino.tests.product.launcher.env.EnvironmentProvider;
 import io.trino.tests.product.launcher.env.common.HadoopKerberos;
@@ -25,7 +26,6 @@ import javax.inject.Inject;
 
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.HADOOP;
-import static io.trino.tests.product.launcher.env.common.Hadoop.CONTAINER_PRESTO_HIVE_PROPERTIES;
 import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
@@ -34,13 +34,13 @@ import static org.testcontainers.utility.MountableFile.forHostPath;
 public final class EnvSinglenodeKerberosHdfsImpersonationWithDataProtection
         extends EnvironmentProvider
 {
-    private final DockerFiles dockerFiles;
+    private final ResourceProvider configDir;
 
     @Inject
     public EnvSinglenodeKerberosHdfsImpersonationWithDataProtection(DockerFiles dockerFiles, Standard standard, HadoopKerberos hadoopKerberos)
     {
         super(ImmutableList.of(standard, hadoopKerberos));
-        this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
+        configDir = requireNonNull(dockerFiles, "dockerFiles is null").getDockerFilesHostDirectory("conf/environment/singlenode-kerberos-hdfs-impersonation-with-data-protection");
     }
 
     @Override
@@ -49,22 +49,14 @@ public final class EnvSinglenodeKerberosHdfsImpersonationWithDataProtection
     {
         builder.configureContainer(HADOOP, container -> {
             container
-                    .withCopyFileToContainer(
-                            forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-kerberos-hdfs-impersonation-with-data-protection/core-site.xml")),
-                            "/etc/hadoop/conf/core-site.xml")
-                    .withCopyFileToContainer(
-                            forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-kerberos-hdfs-impersonation-with-data-protection/hdfs-site.xml")),
-                            "/etc/hadoop/conf/hdfs-site.xml");
+                    .withCopyFileToContainer(forHostPath(configDir.getPath("core-site.xml")), "/etc/hadoop/conf/core-site.xml")
+                    .withCopyFileToContainer(forHostPath(configDir.getPath("hdfs-site.xml")), "/etc/hadoop/conf/hdfs-site.xml");
         });
 
         builder.configureContainer(COORDINATOR, container -> {
             container
-                    .withCopyFileToContainer(
-                            forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-kerberos-hdfs-impersonation-with-data-protection/hive.properties")),
-                            CONTAINER_PRESTO_HIVE_PROPERTIES)
-                    .withCopyFileToContainer(
-                            forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-kerberos-hdfs-impersonation-with-data-protection/hive-data-protection-site.xml")),
-                            CONTAINER_PRESTO_ETC + "/hive-data-protection-site.xml");
+                    .withCopyFileToContainer(forHostPath(configDir.getPath("hive-data-protection-site.xml")), CONTAINER_PRESTO_ETC + "/hive-data-protection-site.xml");
         });
+        builder.addConnector("hive", forHostPath(configDir.getPath("hive.properties")));
     }
 }

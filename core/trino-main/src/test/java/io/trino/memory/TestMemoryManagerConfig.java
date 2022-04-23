@@ -24,6 +24,7 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertFullMappin
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.memory.MemoryManagerConfig.LowMemoryKillerPolicy.NONE;
 import static io.trino.memory.MemoryManagerConfig.LowMemoryKillerPolicy.TOTAL_RESERVATION_ON_BLOCKED_NODES;
 import static java.util.concurrent.TimeUnit.MINUTES;
@@ -40,7 +41,9 @@ public class TestMemoryManagerConfig
                 .setMaxQueryMemory(DataSize.of(20, GIGABYTE))
                 .setMaxQueryTotalMemory(DataSize.of(40, GIGABYTE))
                 .setFaultTolerantExecutionTaskMemory(DataSize.of(4, GIGABYTE))
-                .setFaultTolerantExecutionTaskMemoryGrowthFactor(2.0));
+                .setFaultTolerantExecutionTaskRuntimeMemoryEstimationOverhead(DataSize.of(1, GIGABYTE))
+                .setFaultTolerantExecutionTaskMemoryGrowthFactor(3.0)
+                .setFaultTolerantExecutionTaskMemoryEstimationQuantile(0.9));
     }
 
     @Test
@@ -52,7 +55,9 @@ public class TestMemoryManagerConfig
                 .put("query.max-memory", "2GB")
                 .put("query.max-total-memory", "3GB")
                 .put("fault-tolerant-execution-task-memory", "2GB")
+                .put("fault-tolerant-execution-task-runtime-memory-estimation-overhead", "300MB")
                 .put("fault-tolerant-execution-task-memory-growth-factor", "17.3")
+                .put("fault-tolerant-execution-task-memory-estimation-quantile", "0.7")
                 .buildOrThrow();
 
         MemoryManagerConfig expected = new MemoryManagerConfig()
@@ -61,7 +66,9 @@ public class TestMemoryManagerConfig
                 .setMaxQueryMemory(DataSize.of(2, GIGABYTE))
                 .setMaxQueryTotalMemory(DataSize.of(3, GIGABYTE))
                 .setFaultTolerantExecutionTaskMemory(DataSize.of(2, GIGABYTE))
-                .setFaultTolerantExecutionTaskMemoryGrowthFactor(17.3);
+                .setFaultTolerantExecutionTaskRuntimeMemoryEstimationOverhead(DataSize.of(300, MEGABYTE))
+                .setFaultTolerantExecutionTaskMemoryGrowthFactor(17.3)
+                .setFaultTolerantExecutionTaskMemoryEstimationQuantile(0.7);
 
         assertFullMapping(properties, expected);
     }

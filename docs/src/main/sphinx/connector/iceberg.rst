@@ -6,9 +6,6 @@ Iceberg connector
 
   <img src="../_static/img/iceberg.png" class="connector-logo">
 
-Overview
---------
-
 Apache Iceberg is an open table format for huge analytic datasets.
 The Iceberg connector allows querying data stored in
 files written in Iceberg format, as defined in the
@@ -416,13 +413,6 @@ The connector can read from or write to Hive tables that have been migrated to I
 There is no Trino support for migrating Hive tables to Iceberg, so you need to either use
 the Iceberg API or Apache Spark.
 
-System tables and columns
--------------------------
-
-The connector supports queries of the table partitions.  Given a table ``customer_orders``,
-``SELECT * FROM iceberg.testdb."customer_orders$partitions"`` shows the table partitions, including the minimum
-and maximum values for the partition columns.
-
 .. _iceberg-table-properties:
 
 Iceberg table properties
@@ -441,6 +431,10 @@ Property Name                                      Description
 
 ``location``                                       Optionally specifies the file system location URI for
                                                    the table.
+
+``format_version``                                 Optionally specifies the format version of the Iceberg
+                                                   specification to use for new tables; either ``1`` or ``2``.
+                                                   Defaults to ``1``. Version ``2`` is required for row level deletes.
 ================================================== ================================================================
 
 The table definition below specifies format Parquet, partitioning by columns ``c1`` and ``c2``,
@@ -454,6 +448,29 @@ and a file system location of ``/var/my_tables/test_table``::
         format = 'PARQUET',
         partitioning = ARRAY['c1', 'c2'],
         location = '/var/my_tables/test_table')
+
+.. _iceberg_metadata_columns:
+
+Metadata columns
+----------------
+
+In addition to the defined columns, the Iceberg connector automatically exposes
+path metadata as a hidden column in each table:
+
+* ``$path``: Full file system path name of the file for this row
+
+You can use this column in your SQL statements like any other column. This
+can be selected directly, or used in conditional statements. For example, you
+can inspect the file path for each record::
+
+    SELECT *, "$path"
+    FROM iceberg.web.page_views;
+
+Retrieve all records that belong to a specific file using ``"$path"`` filter::
+
+    SELECT *
+    FROM iceberg.web.page_views
+    WHERE "$path" = '/usr/iceberg/table/web.page_views/data/file_01.parquet'
 
 .. _iceberg-metadata-tables:
 
@@ -497,7 +514,6 @@ table ``test_table`` by using the following query::
      key                   | value    |
     -----------------------+----------+
     write.format.default   | PARQUET  |
-    format-version         | 2        |
 
 ``$history`` table
 ^^^^^^^^^^^^^^^^^^
@@ -788,7 +804,12 @@ for the data files and partition the storage per day using the column
 Updating the data in the materialized view with
 :doc:`/sql/refresh-materialized-view` deletes the data from the storage table,
 and inserts the data that is the result of executing the materialized view
-query into the existing table.
+query into the existing table. Refreshing a materialized view also stores
+the snapshot-ids of all tables that are part of the materialized
+view's query in the materialized view metadata. When the materialized
+view is queried, the snapshot-ids are used to check if the data in the storage
+table is up to date. If the data is outdated, the materialized view behaves
+like a normal view, and the data is queried directly from the base tables.
 
 .. warning::
 

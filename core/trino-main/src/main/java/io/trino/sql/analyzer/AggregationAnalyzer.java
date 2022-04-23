@@ -14,6 +14,7 @@
 package io.trino.sql.analyzer;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.spi.StandardErrorCode;
 import io.trino.sql.planner.ScopeAware;
@@ -59,6 +60,7 @@ import io.trino.sql.tree.SimpleCaseExpression;
 import io.trino.sql.tree.SortItem;
 import io.trino.sql.tree.SubqueryExpression;
 import io.trino.sql.tree.SubscriptExpression;
+import io.trino.sql.tree.Trim;
 import io.trino.sql.tree.TryExpression;
 import io.trino.sql.tree.VariableDefinition;
 import io.trino.sql.tree.WhenClause;
@@ -110,6 +112,7 @@ class AggregationAnalyzer
     private final Set<ScopeAware<Expression>> expressions;
     private final Map<NodeRef<Expression>, FieldId> columnReferences;
 
+    private final Session session;
     private final Metadata metadata;
     private final Analysis analysis;
 
@@ -120,10 +123,11 @@ class AggregationAnalyzer
             List<Expression> groupByExpressions,
             Scope sourceScope,
             Expression expression,
+            Session session,
             Metadata metadata,
             Analysis analysis)
     {
-        AggregationAnalyzer analyzer = new AggregationAnalyzer(groupByExpressions, sourceScope, Optional.empty(), metadata, analysis);
+        AggregationAnalyzer analyzer = new AggregationAnalyzer(groupByExpressions, sourceScope, Optional.empty(), session, metadata, analysis);
         analyzer.analyze(expression);
     }
 
@@ -132,23 +136,32 @@ class AggregationAnalyzer
             Scope sourceScope,
             Scope orderByScope,
             Expression expression,
+            Session session,
             Metadata metadata,
             Analysis analysis)
     {
-        AggregationAnalyzer analyzer = new AggregationAnalyzer(groupByExpressions, sourceScope, Optional.of(orderByScope), metadata, analysis);
+        AggregationAnalyzer analyzer = new AggregationAnalyzer(groupByExpressions, sourceScope, Optional.of(orderByScope), session, metadata, analysis);
         analyzer.analyze(expression);
     }
 
-    private AggregationAnalyzer(List<Expression> groupByExpressions, Scope sourceScope, Optional<Scope> orderByScope, Metadata metadata, Analysis analysis)
+    private AggregationAnalyzer(
+            List<Expression> groupByExpressions,
+            Scope sourceScope,
+            Optional<Scope> orderByScope,
+            Session session,
+            Metadata metadata,
+            Analysis analysis)
     {
         requireNonNull(groupByExpressions, "groupByExpressions is null");
         requireNonNull(sourceScope, "sourceScope is null");
         requireNonNull(orderByScope, "orderByScope is null");
+        requireNonNull(session, "session is null");
         requireNonNull(metadata, "metadata is null");
         requireNonNull(analysis, "analysis is null");
 
         this.sourceScope = sourceScope;
         this.orderByScope = orderByScope;
+        this.session = session;
         this.metadata = metadata;
         this.analysis = analysis;
         this.expressions = groupByExpressions.stream()
@@ -329,6 +342,12 @@ class AggregationAnalyzer
         }
 
         @Override
+        protected Boolean visitTrim(Trim node, Void context)
+        {
+            return process(node.getTrimSource(), context) && (node.getTrimCharacter().isEmpty() || process(node.getTrimCharacter().get(), context));
+        }
+
+        @Override
         protected Boolean visitFormat(Format node, Void context)
         {
             return node.getArguments().stream().allMatch(expression -> process(expression, context));
@@ -337,9 +356,9 @@ class AggregationAnalyzer
         @Override
         protected Boolean visitFunctionCall(FunctionCall node, Void context)
         {
-            if (metadata.isAggregationFunction(node.getName())) {
+            if (metadata.isAggregationFunction(session, node.getName())) {
                 if (node.getWindow().isEmpty()) {
-                    List<FunctionCall> aggregateFunctions = extractAggregateFunctions(node.getArguments(), metadata);
+                    List<FunctionCall> aggregateFunctions = extractAggregateFunctions(node.getArguments(), session, metadata);
                     List<Expression> windowExpressions = extractWindowExpressions(node.getArguments());
 
                     if (!aggregateFunctions.isEmpty()) {

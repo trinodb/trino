@@ -93,7 +93,11 @@ public class TestLiteralEncoder
 
     private final ResolvedFunction base64Function = new ResolvedFunction(
             new BoundSignature("from_base64", VARBINARY, ImmutableList.of(VARCHAR)),
-            toFunctionId(new Signature("from_base64", VARBINARY.getTypeSignature(), ImmutableList.of(new TypeSignature("varchar", typeVariable("x"))))),
+            toFunctionId(Signature.builder()
+                    .name("from_base64")
+                    .returnType(VARBINARY)
+                    .argumentType(new TypeSignature("varchar", typeVariable("x")))
+                    .build()),
             SCALAR,
             true,
             new FunctionNullability(false, ImmutableList.of(false)),

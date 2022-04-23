@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import io.trino.metadata.AggregationFunctionMetadata;
 import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionMetadata;
-import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlAggregationFunction;
 import io.trino.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
@@ -41,7 +40,6 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
-import static io.trino.metadata.FunctionKind.AGGREGATE;
 import static io.trino.spi.type.Decimals.overflows;
 import static io.trino.spi.type.Decimals.writeShortDecimal;
 import static io.trino.spi.type.Int128Math.addWithOverflow;
@@ -71,19 +69,17 @@ public class DecimalAverageAggregation
     public DecimalAverageAggregation()
     {
         super(
-                new FunctionMetadata(
-                        new Signature(
-                                NAME,
-                                new TypeSignature("decimal", typeVariable("p"), typeVariable("s")),
-                                ImmutableList.of(new TypeSignature("decimal", typeVariable("p"), typeVariable("s")))),
-                        new FunctionNullability(true, ImmutableList.of(false)),
-                        false,
-                        true,
-                        "Calculates the average value",
-                        AGGREGATE),
-                new AggregationFunctionMetadata(
-                        false,
-                        VARBINARY.getTypeSignature()));
+                FunctionMetadata.aggregateBuilder()
+                        .signature(Signature.builder()
+                                .name(NAME)
+                                .returnType(new TypeSignature("decimal", typeVariable("p"), typeVariable("s")))
+                                .argumentType(new TypeSignature("decimal", typeVariable("p"), typeVariable("s")))
+                                .build())
+                        .description("Calculates the average value")
+                        .build(),
+                AggregationFunctionMetadata.builder()
+                        .intermediateType(VARBINARY)
+                        .build());
     }
 
     @Override

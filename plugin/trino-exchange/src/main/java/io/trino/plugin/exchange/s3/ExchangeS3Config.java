@@ -17,8 +17,10 @@ import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 import io.airlift.units.MaxDataSize;
 import io.airlift.units.MinDataSize;
+import software.amazon.awssdk.core.retry.RetryMode;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.model.StorageClass;
 
@@ -29,7 +31,7 @@ import java.util.Optional;
 
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Locale.ENGLISH;
-import static software.amazon.awssdk.services.s3.model.StorageClass.STANDARD;
+import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class ExchangeS3Config
 {
@@ -38,11 +40,14 @@ public class ExchangeS3Config
     private Optional<Region> s3Region = Optional.empty();
     private Optional<String> s3Endpoint = Optional.empty();
     private boolean s3UseWebIdentityTokenCredentials;
-    private int s3MaxErrorRetries = 3;
+    private int s3MaxErrorRetries = 10;
     // Default to S3 multi-part upload minimum size to avoid excessive memory consumption from buffering
     private DataSize s3UploadPartSize = DataSize.of(5, MEGABYTE);
-    private StorageClass storageClass = STANDARD;
-    private int asyncClientConcurrency = 500;
+    private StorageClass storageClass = StorageClass.STANDARD;
+    private RetryMode retryMode = RetryMode.ADAPTIVE;
+    private int asyncClientConcurrency = 100;
+    private int asyncClientMaxPendingConnectionAcquires = 10000;
+    private Duration connectionAcquisitionTimeout = new Duration(1, MINUTES);
 
     public String getS3AwsAccessKey()
     {
@@ -150,6 +155,19 @@ public class ExchangeS3Config
         return this;
     }
 
+    @NotNull
+    public RetryMode getRetryMode()
+    {
+        return retryMode;
+    }
+
+    @Config("exchange.s3.retry-mode")
+    public ExchangeS3Config setRetryMode(RetryMode retryMode)
+    {
+        this.retryMode = retryMode;
+        return this;
+    }
+
     @Min(1)
     public int getAsyncClientConcurrency()
     {
@@ -160,6 +178,31 @@ public class ExchangeS3Config
     public ExchangeS3Config setAsyncClientConcurrency(int asyncClientConcurrency)
     {
         this.asyncClientConcurrency = asyncClientConcurrency;
+        return this;
+    }
+
+    @Min(1)
+    public int getAsyncClientMaxPendingConnectionAcquires()
+    {
+        return asyncClientMaxPendingConnectionAcquires;
+    }
+
+    @Config("exchange.s3.async-client-max-pending-connection-acquires")
+    public ExchangeS3Config setAsyncClientMaxPendingConnectionAcquires(int asyncClientMaxPendingConnectionAcquires)
+    {
+        this.asyncClientMaxPendingConnectionAcquires = asyncClientMaxPendingConnectionAcquires;
+        return this;
+    }
+
+    public Duration getConnectionAcquisitionTimeout()
+    {
+        return connectionAcquisitionTimeout;
+    }
+
+    @Config("exchange.s3.async-client-connection-acquisition-timeout")
+    public ExchangeS3Config setConnectionAcquisitionTimeout(Duration connectionAcquisitionTimeout)
+    {
+        this.connectionAcquisitionTimeout = connectionAcquisitionTimeout;
         return this;
     }
 }

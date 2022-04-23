@@ -86,10 +86,12 @@ public final class DynamicTableBuilder
         BrokerRequest request = REQUEST_COMPILER.compileToBrokerRequest(query);
         PinotQuery pinotQuery = request.getPinotQuery();
         QueryContext queryContext = BrokerRequestToQueryContextConverter.convert(request);
-        String pinotTableName = stripSuffix(request.getQuerySource().getTableName());
-        Optional<String> suffix = getSuffix(request.getQuerySource().getTableName());
+        String tableName = request.getQuerySource().getTableName();
+        String trinoTableName = stripSuffix(tableName).toLowerCase(ENGLISH);
+        String pinotTableName = pinotClient.getPinotTableNameFromTrinoTableName(trinoTableName);
+        Optional<String> suffix = getSuffix(tableName);
 
-        Map<String, ColumnHandle> columnHandles = pinotMetadata.getPinotColumnHandles(pinotTableName);
+        Map<String, ColumnHandle> columnHandles = pinotMetadata.getPinotColumnHandles(trinoTableName);
         List<OrderByExpression> orderBy = ImmutableList.of();
         PinotTypeResolver pinotTypeResolver = new PinotTypeResolver(pinotClient, pinotTableName);
         List<PinotColumnHandle> selectColumns = ImmutableList.of();
