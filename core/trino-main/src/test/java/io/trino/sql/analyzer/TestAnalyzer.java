@@ -5639,6 +5639,139 @@ public class TestAnalyzer
                 .hasMessage("line 1:8: 'JSON_QUERY(b FORMAT JSON, 'lax $.abs() + $some_number' PASSING c AS \"some_number\" WITHOUT ARRAY WRAPPER NULL ON EMPTY NULL ON ERROR)' must be an aggregate expression or appear in GROUP BY clause");
     }
 
+    @Test
+    public void testJsonObjectInputTypes()
+    {
+        analyze("SELECT JSON_OBJECT(VARCHAR 'key' : 1)");
+        analyze("SELECT JSON_OBJECT(CAST('key' AS varchar(100)) : 1)");
+        analyze("SELECT JSON_OBJECT(CAST('key' AS char(100)) : 1)");
+
+        assertFails("SELECT JSON_OBJECT(null : 1)")
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("line 1:20: Invalid type of JSON object key: unknown");
+
+        assertFails("SELECT JSON_OBJECT(0 : 1)")
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("line 1:20: Invalid type of JSON object key: integer");
+
+        analyze("SELECT JSON_OBJECT('key' : 1)");
+        analyze("SELECT JSON_OBJECT('key' : true)");
+        analyze("SELECT JSON_OBJECT('key' : 'value')");
+
+        // date can be cast to varchar
+        analyze("SELECT JSON_OBJECT('key' : DATE '2001-01-31')");
+
+        // HyperLogLog cannot be cast to varchar
+        assertFails("SELECT JSON_OBJECT('key' : approx_set(1))")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:8: Unsupported type of value passed to JSON_OBJECT function: HyperLogLog");
+    }
+
+    @Test
+    public void testJsonObjectValueWithFormat()
+    {
+        analyze("SELECT JSON_OBJECT('key' : '[1, 2, 3]' FORMAT JSON)");
+
+        assertFails("SELECT JSON_OBJECT('key' : 1e0 FORMAT JSON)")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:28: Cannot read input of type double as JSON using formatting JSON");
+
+        analyze("SELECT JSON_OBJECT('key' : '[1, 2, 3]' FORMAT JSON WITHOUT UNIQUE KEYS)");
+
+        assertFails("SELECT JSON_OBJECT('key' : '[1, 2, 3]' FORMAT JSON WITH UNIQUE KEYS)")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:8: WITH UNIQUE KEYS behavior is not supported for JSON_OBJECT function when input expression has FORMAT");
+    }
+
+    @Test
+    public void testJsonObjectReturnedTypeAndFormat()
+    {
+        analyze("SELECT JSON_OBJECT('key' : 1 RETURNING varchar)");
+
+        assertFails("SELECT JSON_OBJECT('key' : 1 RETURNING some_type)")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:8: Unknown type: some_type");
+
+        assertFails("SELECT JSON_OBJECT('key' : 1 RETURNING integer)")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:8: Cannot output JSON value as integer using formatting JSON");
+
+        assertFails("SELECT JSON_OBJECT('key' : 1 RETURNING integer FORMAT JSON ENCODING UTF16)")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:8: Cannot output JSON value as integer using formatting JSON ENCODING UTF16");
+    }
+
+    @Test
+    public void testJsonObjectInAggregationContext()
+    {
+        analyze("SELECT JSON_OBJECT('key' : 1) FROM (VALUES ('x', 1), ('y', 2)) t(a, b) GROUP BY a");
+        analyze("SELECT JSON_OBJECT(a : 1) FROM (VALUES ('x', 1), ('y', 2)) t(a, b) GROUP BY a");
+        analyze("SELECT JSON_OBJECT('key' : a) FROM (VALUES ('x', 1), ('y', 2)) t(a, b) GROUP BY a");
+
+        assertFails("SELECT JSON_OBJECT('key' : a) FROM (VALUES ('x', 1), ('y', 2)) t(a, b) GROUP BY b")
+                .hasErrorCode(EXPRESSION_NOT_AGGREGATE)
+                .hasMessage("line 1:8: 'JSON_OBJECT(KEY 'key' VALUE a NULL ON NULL WITHOUT UNIQUE KEYS)' must be an aggregate expression or appear in GROUP BY clause");
+
+        assertFails("SELECT JSON_OBJECT(a : 1) FROM (VALUES ('x', 1), ('y', 2)) t(a, b) GROUP BY b")
+                .hasErrorCode(EXPRESSION_NOT_AGGREGATE)
+                .hasMessage("line 1:8: 'JSON_OBJECT(KEY a VALUE 1 NULL ON NULL WITHOUT UNIQUE KEYS)' must be an aggregate expression or appear in GROUP BY clause");
+    }
+
+    @Test
+    public void testJsonArrayInputTypes()
+    {
+        analyze("SELECT JSON_ARRAY(1)");
+        analyze("SELECT JSON_ARRAY(true)");
+        analyze("SELECT JSON_ARRAY('element')");
+
+        // date can be cast to varchar
+        analyze("SELECT JSON_ARRAY(DATE '2001-01-31')");
+
+        // HyperLogLog cannot be cast to varchar
+        assertFails("SELECT JSON_ARRAY(approx_set(1))")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:8: Unsupported type of value passed to JSON_ARRAY function: HyperLogLog");
+    }
+
+    @Test
+    public void testJsonArrayElementWithFormat()
+    {
+        analyze("SELECT JSON_ARRAY('{\"key\" : 1}' FORMAT JSON)");
+
+        assertFails("SELECT JSON_ARRAY(1e0 FORMAT JSON)")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:19: Cannot read input of type double as JSON using formatting JSON");
+    }
+
+    @Test
+    public void testJsonArrayReturnedTypeAndFormat()
+    {
+        analyze("SELECT JSON_ARRAY(true RETURNING varchar)");
+
+        assertFails("SELECT JSON_ARRAY(true RETURNING some_type)")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:8: Unknown type: some_type");
+
+        assertFails("SELECT JSON_ARRAY(true RETURNING integer)")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:8: Cannot output JSON value as integer using formatting JSON");
+
+        assertFails("SELECT JSON_ARRAY(true RETURNING integer FORMAT JSON ENCODING UTF16)")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:8: Cannot output JSON value as integer using formatting JSON ENCODING UTF16");
+    }
+
+    @Test
+    public void testJsonArrayInAggregationContext()
+    {
+        analyze("SELECT JSON_ARRAY(true) FROM (VALUES ('x', 1), ('y', 2)) t(a, b) GROUP BY a");
+        analyze("SELECT JSON_ARRAY(a) FROM (VALUES ('x', 1), ('y', 2)) t(a, b) GROUP BY a");
+
+        assertFails("SELECT JSON_ARRAY(b) FROM (VALUES ('x', 1), ('y', 2)) t(a, b) GROUP BY a")
+                .hasErrorCode(EXPRESSION_NOT_AGGREGATE)
+                .hasMessage("line 1:8: 'JSON_ARRAY(b ABSENT ON NULL)' must be an aggregate expression or appear in GROUP BY clause");
+    }
+
     @BeforeClass
     public void setup()
     {
