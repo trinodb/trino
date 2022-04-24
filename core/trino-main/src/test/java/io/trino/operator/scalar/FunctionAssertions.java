@@ -15,6 +15,7 @@ package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
 import com.google.common.util.concurrent.UncheckedExecutionException;
@@ -98,11 +99,13 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.testing.Assertions.assertInstanceOf;
@@ -344,6 +347,19 @@ public final class FunctionAssertions
         assertEquals(resultSet.size(), 1, "Expected only one result unique result, but got " + resultSet);
 
         return Iterables.getOnlyElement(resultSet);
+    }
+
+    public void assertAmbiguousFunction(String projection, Type expectedType, Set<Object> expected)
+    {
+        expected = expected.stream()
+                .map(expectedValue -> expectedValue instanceof Slice ? ((Slice) expectedValue).toStringUtf8() : expectedValue)
+                .collect(toImmutableSet());
+
+        Set<Object> actual = ImmutableSet.copyOf(executeProjectionWithAll(projection, expectedType, session, runner.getExpressionCompiler()));
+
+        for (Object actualValue : actual) {
+            assertTrue(expected.contains(actualValue));
+        }
     }
 
     public void assertInvalidFunction(String projection, ErrorCodeSupplier errorCode, String message)
