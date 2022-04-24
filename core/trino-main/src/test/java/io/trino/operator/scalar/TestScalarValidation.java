@@ -30,7 +30,7 @@ import javax.annotation.Nullable;
 @SuppressWarnings("UtilityClassWithoutPrivateConstructor")
 public class TestScalarValidation
 {
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Parametric class method .* is annotated with @ScalarFunction")
+    @Test(expectedExceptions = TrinoException.class, expectedExceptionsMessageRegExp = "Parametric class .* does not have any annotated methods")
     public void testBogusParametricMethodAnnotation()
     {
         extractParametricScalar(BogusParametricMethodAnnotation.class);
