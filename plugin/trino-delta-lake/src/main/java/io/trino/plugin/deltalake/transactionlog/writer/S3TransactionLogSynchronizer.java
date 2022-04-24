@@ -50,7 +50,7 @@ public class S3TransactionLogSynchronizer
 {
     public static final Logger LOG = Logger.get(S3TransactionLogSynchronizer.class);
 
-    // TODO: add refreshing of log expiration time
+    // TODO: add refreshing of log expiration time (https://github.com/trinodb/trino/issues/12008)
     private static final Duration EXPIRATION_DURATION = Duration.of(5, MINUTES);
     private static final String LOCK_DIRECTORY = "_sb_lock";
     private static final String LOCK_INFIX = "sb-lock_";

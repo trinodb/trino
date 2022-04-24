@@ -140,8 +140,8 @@ public class ClientOptions
     @Option(names = "--network-logging", paramLabel = "<level>", defaultValue = "NONE", description = "Network logging level [${COMPLETION-CANDIDATES}] " + DEFAULT_VALUE)
     public HttpLoggingInterceptor.Level networkLogging;
 
-    @Option(names = "--progress", paramLabel = "<progress>", description = "Show query progress in batch mode")
-    public boolean progress;
+    @Option(names = "--progress", paramLabel = "<progress>", description = "Show query progress", negatable = true)
+    public Optional<Boolean> progress;
 
     @Option(names = "--execute", paramLabel = "<execute>", description = "Execute specified statements and exit")
     public String execute;

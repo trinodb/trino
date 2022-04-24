@@ -18,7 +18,6 @@ import io.trino.array.ObjectBigArray;
 import io.trino.metadata.AggregationFunctionMetadata;
 import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionMetadata;
-import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlAggregationFunction;
 import io.trino.operator.aggregation.AggregationMetadata;
@@ -37,9 +36,6 @@ import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.util.Optional;
 
-import static io.trino.metadata.FunctionKind.AGGREGATE;
-import static io.trino.metadata.Signature.comparableTypeParameter;
-import static io.trino.metadata.Signature.typeVariable;
 import static io.trino.operator.aggregation.TypedSet.createDistinctTypedSet;
 import static io.trino.spi.type.TypeSignature.arrayType;
 import static io.trino.spi.type.TypeSignature.mapType;
@@ -80,22 +76,22 @@ public class MultimapAggregationFunction
     public MultimapAggregationFunction(BlockTypeOperators blockTypeOperators)
     {
         super(
-                new FunctionMetadata(
-                        new Signature(
-                                NAME,
-                                ImmutableList.of(comparableTypeParameter("K"), typeVariable("V")),
-                                ImmutableList.of(),
-                                mapType(new TypeSignature("K"), arrayType(new TypeSignature("V"))),
-                                ImmutableList.of(new TypeSignature("K"), new TypeSignature("V")),
-                                false),
-                        new FunctionNullability(true, ImmutableList.of(false, true)),
-                        false,
-                        true,
-                        "Aggregates all the rows (key/value pairs) into a single multimap",
-                        AGGREGATE),
-                new AggregationFunctionMetadata(
-                        true,
-                        arrayType(rowType(anonymousField(new TypeSignature("V")), anonymousField(new TypeSignature("K"))))));
+                FunctionMetadata.aggregateBuilder()
+                        .signature(Signature.builder()
+                                .name(NAME)
+                                .comparableTypeParameter("K")
+                                .typeVariable("V")
+                                .returnType(mapType(new TypeSignature("K"), arrayType(new TypeSignature("V"))))
+                                .argumentType(new TypeSignature("K"))
+                                .argumentType(new TypeSignature("V"))
+                                .build())
+                        .argumentNullability(false, true)
+                        .description("Aggregates all the rows (key/value pairs) into a single multimap")
+                        .build(),
+                AggregationFunctionMetadata.builder()
+                        .orderSensitive()
+                        .intermediateType(arrayType(rowType(anonymousField(new TypeSignature("V")), anonymousField(new TypeSignature("K")))))
+                        .build());
         this.blockTypeOperators = requireNonNull(blockTypeOperators, "blockTypeOperators is null");
     }
 

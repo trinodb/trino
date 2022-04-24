@@ -57,11 +57,7 @@ public class TestDeltaTaskFailureRecoveryTest
         DistributedQueryRunner queryRunner = DeltaLakeQueryRunner.createS3DeltaLakeQueryRunner(
                 DELTA_CATALOG,
                 SCHEMA,
-                ImmutableMap.<String, String>builder()
-                        .putAll(configProperties)
-                        // currently not supported for fault tolerant execution mode
-                        .put("enable-dynamic-filtering", "false")
-                        .buildOrThrow(),
+                configProperties,
                 coordinatorProperties,
                 ImmutableMap.of("delta.enable-non-concurrent-writes", "true"),
                 dockerizedMinioDataLake.getMinioAddress(),
@@ -80,6 +76,6 @@ public class TestDeltaTaskFailureRecoveryTest
     public void testJoinDynamicFilteringEnabled()
     {
         assertThatThrownBy(super::testJoinDynamicFilteringEnabled)
-                .hasMessageContaining("Dynamic filtering is not supported with automatic task retries enabled");
+                .hasMessageContaining("Dynamic filter is missing");
     }
 }

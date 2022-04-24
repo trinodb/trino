@@ -71,4 +71,10 @@ public abstract class BaseDeltaLakeAwsConnectorSmokeTest
                 .map(path -> format("s3://%s/%s", bucketName, path))
                 .collect(toImmutableList());
     }
+
+    @Override
+    protected String bucketUrl()
+    {
+        return format("s3://%s/", bucketName);
+    }
 }

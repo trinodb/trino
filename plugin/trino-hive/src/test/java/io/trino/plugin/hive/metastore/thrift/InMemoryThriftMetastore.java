@@ -137,7 +137,7 @@ public class InMemoryThriftMetastore
         if (!databases.containsKey(databaseName)) {
             throw new SchemaNotFoundException(databaseName);
         }
-        if (!getAllTables(databaseName).isEmpty()) {
+        if (!getAllTables(identity, databaseName).isEmpty()) {
             throw new TrinoException(SCHEMA_NOT_EMPTY, "Schema not empty: " + databaseName);
         }
         databases.remove(databaseName);
@@ -171,7 +171,7 @@ public class InMemoryThriftMetastore
     }
 
     @Override
-    public synchronized List<String> getAllDatabases()
+    public synchronized List<String> getAllDatabases(HiveIdentity identity)
     {
         return ImmutableList.copyOf(databases.keySet());
     }
@@ -292,7 +292,7 @@ public class InMemoryThriftMetastore
     }
 
     @Override
-    public synchronized List<String> getAllTables(String databaseName)
+    public synchronized List<String> getAllTables(HiveIdentity identity, String databaseName)
     {
         ImmutableList.Builder<String> tables = ImmutableList.builder();
         for (SchemaTableName schemaTableName : this.relations.keySet()) {
@@ -304,7 +304,7 @@ public class InMemoryThriftMetastore
     }
 
     @Override
-    public synchronized List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue)
+    public synchronized List<String> getTablesWithParameter(HiveIdentity identity, String databaseName, String parameterKey, String parameterValue)
     {
         requireNonNull(parameterKey, "parameterKey is null");
         requireNonNull(parameterValue, "parameterValue is null");
@@ -317,7 +317,7 @@ public class InMemoryThriftMetastore
     }
 
     @Override
-    public synchronized List<String> getAllViews(String databaseName)
+    public synchronized List<String> getAllViews(HiveIdentity identity, String databaseName)
     {
         ImmutableList.Builder<String> tables = ImmutableList.builder();
         for (SchemaTableName schemaTableName : this.views.keySet()) {
@@ -329,7 +329,7 @@ public class InMemoryThriftMetastore
     }
 
     @Override
-    public synchronized Optional<Database> getDatabase(String databaseName)
+    public synchronized Optional<Database> getDatabase(HiveIdentity identity, String databaseName)
     {
         return Optional.ofNullable(databases.get(databaseName));
     }
@@ -495,61 +495,61 @@ public class InMemoryThriftMetastore
     }
 
     @Override
-    public void createRole(String role, String grantor)
+    public void createRole(HiveIdentity identity, String role, String grantor)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public void dropRole(String role)
+    public void dropRole(HiveIdentity identity, String role)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public Set<String> listRoles()
+    public Set<String> listRoles(HiveIdentity identity)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public void grantRoles(Set<String> roles, Set<HivePrincipal> grantees, boolean adminOption, HivePrincipal grantor)
+    public void grantRoles(HiveIdentity identity, Set<String> roles, Set<HivePrincipal> grantees, boolean adminOption, HivePrincipal grantor)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public void revokeRoles(Set<String> roles, Set<HivePrincipal> grantees, boolean adminOption, HivePrincipal grantor)
+    public void revokeRoles(HiveIdentity identity, Set<String> roles, Set<HivePrincipal> grantees, boolean adminOption, HivePrincipal grantor)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public Set<RoleGrant> listGrantedPrincipals(String role)
+    public Set<RoleGrant> listGrantedPrincipals(HiveIdentity identity, String role)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public Set<RoleGrant> listRoleGrants(HivePrincipal principal)
+    public Set<RoleGrant> listRoleGrants(HiveIdentity identity, HivePrincipal principal)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, Optional<String> tableOwner, Optional<HivePrincipal> principal)
+    public Set<HivePrivilegeInfo> listTablePrivileges(HiveIdentity identity, String databaseName, String tableName, Optional<String> tableOwner, Optional<HivePrincipal> principal)
     {
         return ImmutableSet.of();
     }
 
     @Override
-    public void grantTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal grantee, HivePrincipal grantor, Set<HivePrivilege> privileges, boolean grantOption)
+    public void grantTablePrivileges(HiveIdentity identity, String databaseName, String tableName, String tableOwner, HivePrincipal grantee, HivePrincipal grantor, Set<HivePrivilege> privileges, boolean grantOption)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public void revokeTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal grantee, HivePrincipal grantor, Set<HivePrivilege> privileges, boolean grantOption)
+    public void revokeTablePrivileges(HiveIdentity identity, String databaseName, String tableName, String tableOwner, HivePrincipal grantee, HivePrincipal grantor, Set<HivePrivilege> privileges, boolean grantOption)
     {
         throw new UnsupportedOperationException();
     }

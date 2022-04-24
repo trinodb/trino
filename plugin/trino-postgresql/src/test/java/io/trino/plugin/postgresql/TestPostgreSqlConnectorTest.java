@@ -632,10 +632,11 @@ public class TestPostgreSqlConnectorTest
     @Test
     public void testDecimalPredicatePushdown()
     {
-        try (TestTable table = new TestTable(onRemoteDatabase(), "test_decimal_pushdown",
-                "(short_decimal decimal(9, 3), long_decimal decimal(30, 10))")) {
-            onRemoteDatabase().execute("INSERT INTO " + table.getName() + " VALUES (123.321, 123456789.987654321)");
-
+        try (TestTable table = new TestTable(
+                onRemoteDatabase(),
+                "test_decimal_pushdown",
+                "(short_decimal decimal(9, 3), long_decimal decimal(30, 10))",
+                List.of("123.321, 123456789.987654321"))) {
             assertThat(query("SELECT * FROM " + table.getName() + " WHERE short_decimal <= 124"))
                     .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))")
                     .isFullyPushedDown();
@@ -663,12 +664,13 @@ public class TestPostgreSqlConnectorTest
     @Test
     public void testCharPredicatePushdown()
     {
-        try (TestTable table = new TestTable(onRemoteDatabase(), "test_char_pushdown",
-                "(char_1 char(1), char_5 char(5), char_10 char(10))")) {
-            onRemoteDatabase().execute("INSERT INTO " + table.getName() + " VALUES" +
-                    "('0', '0'    , '0'         )," +
-                    "('1', '12345', '1234567890')");
-
+        try (TestTable table = new TestTable(
+                onRemoteDatabase(),
+                "test_char_pushdown",
+                "(char_1 char(1), char_5 char(5), char_10 char(10))",
+                List.of(
+                        "'0', '0', '0'",
+                        "'1', '12345', '1234567890'"))) {
             assertThat(query("SELECT * FROM " + table.getName() + " WHERE char_1 = '0' AND char_5 = '0'"))
                     .matches("VALUES (CHAR'0', CHAR'0    ', CHAR'0         ')")
                     .isFullyPushedDown();

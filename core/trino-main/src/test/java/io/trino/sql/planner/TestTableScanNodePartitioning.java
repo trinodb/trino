@@ -47,6 +47,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.ToIntFunction;
 
+import static io.trino.SystemSessionProperties.TASK_CONCURRENCY;
 import static io.trino.SystemSessionProperties.USE_TABLE_SCAN_NODE_PARTITIONING;
 import static io.trino.spi.connector.ConnectorBucketNodeMap.createBucketNodeMap;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -78,11 +79,13 @@ public class TestTableScanNodePartitioning
             .setCatalog(MOCK_CATALOG)
             .setSchema(TEST_SCHEMA)
             .setSystemProperty(USE_TABLE_SCAN_NODE_PARTITIONING, "true")
+            .setSystemProperty(TASK_CONCURRENCY, "2") // force parallel plan even on test nodes with single CPU
             .build();
     public static final Session DISABLE_PLAN_WITH_TABLE_NODE_PARTITIONING = testSessionBuilder()
             .setCatalog(MOCK_CATALOG)
             .setSchema(TEST_SCHEMA)
             .setSystemProperty(USE_TABLE_SCAN_NODE_PARTITIONING, "false")
+            .setSystemProperty(TASK_CONCURRENCY, "2") // force parallel plan even on test nodes with single CPU
             .build();
 
     public static final int BUCKET_COUNT = 10;
@@ -121,7 +124,8 @@ public class TestTableScanNodePartitioning
     {
         Session.SessionBuilder sessionBuilder = testSessionBuilder()
                 .setCatalog(MOCK_CATALOG)
-                .setSchema(TEST_SCHEMA);
+                .setSchema(TEST_SCHEMA)
+                .setSystemProperty(TASK_CONCURRENCY, "2"); // force parallel plan even on test nodes with single CPU
 
         LocalQueryRunner queryRunner = LocalQueryRunner.builder(sessionBuilder.build())
                 .withNodeCountForStats(10)

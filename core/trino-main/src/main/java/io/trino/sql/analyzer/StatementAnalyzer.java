@@ -2213,7 +2213,7 @@ class StatementAnalyzer
             if (analysis.isAggregation(node) && node.getOrderBy().isPresent()) {
                 ImmutableList.Builder<Expression> aggregates = ImmutableList.<Expression>builder()
                         .addAll(groupByAnalysis.getOriginalExpressions())
-                        .addAll(extractAggregateFunctions(orderByExpressions, metadata))
+                        .addAll(extractAggregateFunctions(orderByExpressions, session, metadata))
                         .addAll(extractExpressions(orderByExpressions, GroupingOperation.class));
 
                 analysis.setOrderByAggregates(node.getOrderBy().get(), aggregates.build());
@@ -2374,7 +2374,7 @@ class StatementAnalyzer
             }
             if (criteria instanceof JoinOn) {
                 Expression expression = ((JoinOn) criteria).getExpression();
-                verifyNoAggregateWindowOrGroupingFunctions(metadata, expression, "JOIN clause");
+                verifyNoAggregateWindowOrGroupingFunctions(session, metadata, expression, "JOIN clause");
 
                 // Need to register coercions in case when join criteria requires coercion (e.g. join on char(1) = char(2))
                 // Correlations are only currently support in the join criteria for INNER joins
@@ -2822,7 +2822,7 @@ class StatementAnalyzer
         private List<FunctionCall> analyzeWindowFunctions(QuerySpecification node, List<Expression> expressions)
         {
             for (Expression expression : expressions) {
-                new WindowFunctionValidator(metadata).process(expression, analysis);
+                new WindowFunctionValidator(session, metadata).process(expression, analysis);
             }
 
             List<FunctionCall> windowFunctions = extractWindowFunctions(expressions);
@@ -2865,7 +2865,7 @@ class StatementAnalyzer
                 List<Type> argumentTypes = mappedCopy(windowFunction.getArguments(), analysis::getType);
 
                 ResolvedFunction resolvedFunction = metadata.resolveFunction(session, windowFunction.getName(), fromTypes(argumentTypes));
-                FunctionKind kind = metadata.getFunctionMetadata(resolvedFunction).getKind();
+                FunctionKind kind = metadata.getFunctionMetadata(session, resolvedFunction).getKind();
                 if (kind != AGGREGATE && kind != WINDOW) {
                     throw semanticException(FUNCTION_NOT_WINDOW, node, "Not a window function: %s", windowFunction.getName());
                 }
@@ -2956,10 +2956,10 @@ class StatementAnalyzer
                                 }
 
                                 column = outputExpressions.get(toIntExact(ordinal - 1));
-                                verifyNoAggregateWindowOrGroupingFunctions(metadata, column, "GROUP BY clause");
+                                verifyNoAggregateWindowOrGroupingFunctions(session, metadata, column, "GROUP BY clause");
                             }
                             else {
-                                verifyNoAggregateWindowOrGroupingFunctions(metadata, column, "GROUP BY clause");
+                                verifyNoAggregateWindowOrGroupingFunctions(session, metadata, column, "GROUP BY clause");
                                 analyzeExpression(column, scope);
                             }
 
@@ -3047,7 +3047,7 @@ class StatementAnalyzer
                     .addAll(getSortItemsFromOrderBy(node.getOrderBy()))
                     .build();
 
-            List<FunctionCall> aggregates = extractAggregateFunctions(toExtract, metadata);
+            List<FunctionCall> aggregates = extractAggregateFunctions(toExtract, session, metadata);
 
             return !aggregates.isEmpty();
         }
@@ -3380,7 +3380,7 @@ class StatementAnalyzer
 
         private void analyzeWhere(Node node, Scope scope, Expression predicate)
         {
-            verifyNoAggregateWindowOrGroupingFunctions(metadata, predicate, "WHERE clause");
+            verifyNoAggregateWindowOrGroupingFunctions(session, metadata, predicate, "WHERE clause");
 
             ExpressionAnalysis expressionAnalysis = analyzeExpression(predicate, scope);
             analysis.recordSubqueries(node, expressionAnalysis);
@@ -3433,7 +3433,7 @@ class StatementAnalyzer
         {
             checkState(orderByExpressions.isEmpty() || orderByScope.isPresent(), "non-empty orderByExpressions list without orderByScope provided");
 
-            List<FunctionCall> aggregates = extractAggregateFunctions(Iterables.concat(outputExpressions, orderByExpressions), metadata);
+            List<FunctionCall> aggregates = extractAggregateFunctions(Iterables.concat(outputExpressions, orderByExpressions), session, metadata);
             analysis.setAggregates(node, aggregates);
 
             if (analysis.isAggregation(node)) {
@@ -3445,11 +3445,11 @@ class StatementAnalyzer
                 List<Expression> distinctGroupingColumns = ImmutableSet.copyOf(groupByAnalysis.getOriginalExpressions()).asList();
 
                 for (Expression expression : outputExpressions) {
-                    verifySourceAggregations(distinctGroupingColumns, sourceScope, expression, metadata, analysis);
+                    verifySourceAggregations(distinctGroupingColumns, sourceScope, expression, session, metadata, analysis);
                 }
 
                 for (Expression expression : orderByExpressions) {
-                    verifyOrderByAggregations(distinctGroupingColumns, sourceScope, orderByScope.orElseThrow(), expression, metadata, analysis);
+                    verifyOrderByAggregations(distinctGroupingColumns, sourceScope, orderByScope.orElseThrow(), expression, session, metadata, analysis);
                 }
             }
         }
@@ -3593,7 +3593,7 @@ class StatementAnalyzer
 
             analysis.registerTableForRowFiltering(name, currentIdentity);
 
-            verifyNoAggregateWindowOrGroupingFunctions(metadata, expression, format("Row filter for '%s'", name));
+            verifyNoAggregateWindowOrGroupingFunctions(session, metadata, expression, format("Row filter for '%s'", name));
 
             ExpressionAnalysis expressionAnalysis;
             try {
@@ -3649,7 +3649,7 @@ class StatementAnalyzer
             ExpressionAnalysis expressionAnalysis;
             analysis.registerTableForColumnMasking(tableName, column, currentIdentity);
 
-            verifyNoAggregateWindowOrGroupingFunctions(metadata, expression, format("Column mask for '%s.%s'", table.getName(), column));
+            verifyNoAggregateWindowOrGroupingFunctions(session, metadata, expression, format("Column mask for '%s.%s'", table.getName(), column));
 
             try {
                 expressionAnalysis = ExpressionAnalyzer.analyzeExpression(

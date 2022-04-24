@@ -7,9 +7,10 @@
 
 ## Hive connector
 
-* Add support for partition names that include special characters. ({issue}`11719`)
 * Add support for `date` type partition names with timestamp formatting. ({issue}`11873`)
 * Improve performance of queries that use Glue metadata. ({issue}`11869`)
+* Fix failure of the `sync_partition_metadata` procedure when partition names
+  differ from partition paths on the file system. ({issue}`11864`)
 
 ## Iceberg connector
 

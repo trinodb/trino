@@ -10,7 +10,7 @@
 
     <groupId>io.trino</groupId>
     <artifactId>trino-root</artifactId>
-    <version>378-SNAPSHOT</version>
+    <version>379-SNAPSHOT</version>
 
     <name>trino-root</name>
     <description>Trino</description>
@@ -1621,7 +1621,7 @@
             <dependency>
                 <groupId>org.postgresql</groupId>
                 <artifactId>postgresql</artifactId>
-                <version>42.3.3</version>
+                <version>42.3.4</version>
             </dependency>
 
             <dependency>

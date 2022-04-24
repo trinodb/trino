@@ -412,9 +412,10 @@ public abstract class BaseJdbcClient
         if (constraintExpressions.isEmpty() && splitPredicate.isEmpty()) {
             return Optional.empty();
         }
+
         return Optional.of(
                 Stream.concat(constraintExpressions.stream(), splitPredicate.stream())
-                        .collect(joining(" AND ")));
+                        .collect(joining(") AND (", "(", ")")));
     }
 
     @Override
@@ -793,7 +794,7 @@ public abstract class BaseJdbcClient
     public ResultSet getTables(Connection connection, Optional<String> remoteSchemaName, Optional<String> remoteTableName)
             throws SQLException
     {
-        // this method is called by IdentifierMapping, so cannot use IdentifierMapping here as this woudl cause an endless loop
+        // this method is called by IdentifierMapping, so cannot use IdentifierMapping here as this would cause an endless loop
         DatabaseMetaData metadata = connection.getMetaData();
         return metadata.getTables(
                 connection.getCatalog(),

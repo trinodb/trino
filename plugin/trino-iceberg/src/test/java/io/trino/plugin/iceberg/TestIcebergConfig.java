@@ -28,6 +28,8 @@ import static io.trino.plugin.iceberg.CatalogType.GLUE;
 import static io.trino.plugin.iceberg.CatalogType.HIVE_METASTORE;
 import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
 import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
+import static java.util.concurrent.TimeUnit.DAYS;
+import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class TestIcebergConfig
@@ -46,7 +48,9 @@ public class TestIcebergConfig
                 .setTableStatisticsEnabled(true)
                 .setProjectionPushdownEnabled(true)
                 .setHiveCatalogName(null)
-                .setFormatVersion(1));
+                .setFormatVersion(1)
+                .setExpireSnapshotsMinRetention(new Duration(7, DAYS))
+                .setDeleteOrphanFilesMinRetention(new Duration(7, DAYS)));
     }
 
     @Test
@@ -64,6 +68,8 @@ public class TestIcebergConfig
                 .put("iceberg.projection-pushdown-enabled", "false")
                 .put("iceberg.hive-catalog-name", "hive")
                 .put("iceberg.format-version", "2")
+                .put("iceberg.expire_snapshots.min-retention", "13h")
+                .put("iceberg.delete_orphan_files.min-retention", "14h")
                 .buildOrThrow();
 
         IcebergConfig expected = new IcebergConfig()
@@ -77,7 +83,9 @@ public class TestIcebergConfig
                 .setTableStatisticsEnabled(false)
                 .setProjectionPushdownEnabled(false)
                 .setHiveCatalogName("hive")
-                .setFormatVersion(2);
+                .setFormatVersion(2)
+                .setExpireSnapshotsMinRetention(new Duration(13, HOURS))
+                .setDeleteOrphanFilesMinRetention(new Duration(14, HOURS));
 
         assertFullMapping(properties, expected);
     }

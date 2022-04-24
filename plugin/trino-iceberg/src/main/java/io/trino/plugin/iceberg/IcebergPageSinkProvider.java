@@ -124,8 +124,10 @@ public class IcebergPageSinkProvider
                         optimizeHandle.getFileFormat(),
                         optimizeHandle.getTableStorageProperties(),
                         maxOpenPartitions);
+            case EXPIRE_SNAPSHOTS:
+            case DELETE_ORPHAN_FILES:
+                // handled via ConnectorMetadata.executeTableExecute
         }
-
         throw new IllegalArgumentException("Unknown procedure: " + executeHandle.getProcedureId());
     }
 }

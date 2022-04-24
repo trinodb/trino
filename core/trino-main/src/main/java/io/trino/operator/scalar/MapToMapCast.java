@@ -19,8 +19,10 @@ import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionDependencies;
 import io.trino.metadata.FunctionDependencyDeclaration;
+import io.trino.metadata.FunctionMetadata;
 import io.trino.metadata.FunctionNullability;
-import io.trino.metadata.SqlOperator;
+import io.trino.metadata.Signature;
+import io.trino.metadata.SqlScalarFunction;
 import io.trino.operator.aggregation.TypedSet;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
@@ -39,8 +41,6 @@ import java.lang.invoke.MethodHandles;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static io.trino.metadata.Signature.castableToTypeParameter;
-import static io.trino.metadata.Signature.typeVariable;
 import static io.trino.operator.aggregation.TypedSet.createDistinctTypedSet;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.block.MethodHandleUtil.compose;
@@ -58,7 +58,7 @@ import static java.lang.invoke.MethodType.methodType;
 import static java.util.Objects.requireNonNull;
 
 public final class MapToMapCast
-        extends SqlOperator
+        extends SqlScalarFunction
 {
     private static final MethodHandle METHOD_HANDLE = methodHandle(
             MapToMapCast.class,
@@ -81,16 +81,18 @@ public final class MapToMapCast
 
     public MapToMapCast(BlockTypeOperators blockTypeOperators)
     {
-        super(CAST,
-                ImmutableList.of(
-                        castableToTypeParameter("FK", new TypeSignature("TK")),
-                        castableToTypeParameter("FV", new TypeSignature("TV")),
-                        typeVariable("TK"),
-                        typeVariable("TV")),
-                ImmutableList.of(),
-                mapType(new TypeSignature("TK"), new TypeSignature("TV")),
-                ImmutableList.of(mapType(new TypeSignature("FK"), new TypeSignature("FV"))),
-                true);
+        super(FunctionMetadata.scalarBuilder()
+                .signature(Signature.builder()
+                        .operatorType(CAST)
+                        .castableToTypeParameter("FK", new TypeSignature("TK"))
+                        .castableToTypeParameter("FV", new TypeSignature("TV"))
+                        .typeVariable("TK")
+                        .typeVariable("TV")
+                        .returnType(mapType(new TypeSignature("TK"), new TypeSignature("TV")))
+                        .argumentType(mapType(new TypeSignature("FK"), new TypeSignature("FV")))
+                        .build())
+                .nullable()
+                .build());
         this.blockTypeOperators = requireNonNull(blockTypeOperators, "blockTypeOperators is null");
     }
 

@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
 import io.airlift.concurrent.MoreFutures;
 import io.trino.tempto.ProductTest;
+import io.trino.tempto.hadoop.hdfs.HdfsClient;
 import io.trino.tempto.query.QueryExecutionException;
 import io.trino.tempto.query.QueryExecutor;
 import io.trino.tempto.query.QueryResult;
@@ -25,7 +26,10 @@ import org.assertj.core.api.Assertions;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import javax.inject.Inject;
+
 import java.math.BigDecimal;
+import java.net.URI;
 import java.sql.Date;
 import java.sql.SQLException;
 import java.sql.Timestamp;
@@ -67,6 +71,9 @@ import static org.testng.Assert.assertTrue;
 public class TestIcebergSparkCompatibility
         extends ProductTest
 {
+    @Inject
+    private HdfsClient hdfsClient;
+
     // see spark-defaults.conf
     private static final String SPARK_CATALOG = "iceberg_test";
     private static final String TRINO_CATALOG = "iceberg";
@@ -359,14 +366,14 @@ public class TestIcebergSparkCompatibility
         onTrino().executeQuery(format("CREATE TABLE %s (_string VARCHAR, _varbinary VARBINARY, _bigint BIGINT) WITH (partitioning = ARRAY['_string', '_varbinary'], format = '%s')", trinoTableName, storageFormat));
         onTrino().executeQuery(format("INSERT INTO %s VALUES ('a', X'0ff102f0feff', 1001), ('b', X'0ff102f0fefe', 1002), ('c', X'0ff102fdfeff', 1003)", trinoTableName));
 
-        Row row1 = row("b", new byte[]{15, -15, 2, -16, -2, -2}, 1002);
+        Row row1 = row("b", new byte[] {15, -15, 2, -16, -2, -2}, 1002);
         String selectByString = "SELECT * FROM %s WHERE _string = 'b'";
         assertThat(onTrino().executeQuery(format(selectByString, trinoTableName)))
                 .containsOnly(row1);
         assertThat(onSpark().executeQuery(format(selectByString, sparkTableName)))
                 .containsOnly(row1);
 
-        Row row2 = row("a", new byte[]{15, -15, 2, -16, -2, -1}, 1001);
+        Row row2 = row("a", new byte[] {15, -15, 2, -16, -2, -1}, 1001);
         String selectByVarbinary = "SELECT * FROM %s WHERE _varbinary = X'0ff102f0feff'";
         assertThat(onTrino().executeQuery(format(selectByVarbinary, trinoTableName)))
                 .containsOnly(row2);
@@ -391,14 +398,14 @@ public class TestIcebergSparkCompatibility
                 specVersion));
         onSpark().executeQuery(format("INSERT INTO %s VALUES ('a', X'0ff102f0feff', 1001), ('b', X'0ff102f0fefe', 1002), ('c', X'0ff102fdfeff', 1003)", sparkTableName));
 
-        Row row1 = row("a", new byte[]{15, -15, 2, -16, -2, -1}, 1001);
+        Row row1 = row("a", new byte[] {15, -15, 2, -16, -2, -1}, 1001);
         String select = "SELECT * FROM %s WHERE _string = 'a'";
         assertThat(onSpark().executeQuery(format(select, sparkTableName)))
                 .containsOnly(row1);
         assertThat(onTrino().executeQuery(format(select, trinoTableName)))
                 .containsOnly(row1);
 
-        Row row2 = row("c", new byte[]{15, -15, 2, -3, -2, -1}, 1003);
+        Row row2 = row("c", new byte[] {15, -15, 2, -3, -2, -1}, 1003);
         String selectByVarbinary = "SELECT * FROM %s WHERE _varbinary = X'0ff102fdfeff'";
         assertThat(onTrino().executeQuery(format(selectByVarbinary, trinoTableName)))
                 .containsOnly(row2);
@@ -1065,35 +1072,35 @@ public class TestIcebergSparkCompatibility
             QueryExecutor onTrino = onTrino();
             QueryExecutor onSpark = onSpark();
             List<Row> allInserted = executor.invokeAll(
-                            Stream.of(Engine.TRINO, Engine.SPARK)
-                                    .map(engine -> (Callable<List<Row>>) () -> {
-                                        List<Row> inserted = new ArrayList<>();
-                                        for (int i = 0; i < insertsPerEngine; i++) {
-                                            barrier.await(20, SECONDS);
-                                            String engineName = engine.name().toLowerCase(ENGLISH);
-                                            long value = i;
-                                            switch (engine) {
-                                                case TRINO:
-                                                    try {
-                                                        onTrino.executeQuery(format("INSERT INTO %s VALUES ('%s', %d)", trinoTableName, engineName, value));
-                                                    }
-                                                    catch (QueryExecutionException queryExecutionException) {
-                                                        // failed to insert
-                                                        continue; // next loop iteration
-                                                    }
-                                                    break;
-                                                case SPARK:
-                                                    onSpark.executeQuery(format("INSERT INTO %s VALUES ('%s', %d)", sparkTableName, engineName, value));
-                                                    break;
-                                                default:
-                                                    throw new UnsupportedOperationException("Unexpected engine: " + engine);
+                    Stream.of(Engine.TRINO, Engine.SPARK)
+                            .map(engine -> (Callable<List<Row>>) () -> {
+                                List<Row> inserted = new ArrayList<>();
+                                for (int i = 0; i < insertsPerEngine; i++) {
+                                    barrier.await(20, SECONDS);
+                                    String engineName = engine.name().toLowerCase(ENGLISH);
+                                    long value = i;
+                                    switch (engine) {
+                                        case TRINO:
+                                            try {
+                                                onTrino.executeQuery(format("INSERT INTO %s VALUES ('%s', %d)", trinoTableName, engineName, value));
                                             }
+                                            catch (QueryExecutionException queryExecutionException) {
+                                                // failed to insert
+                                                continue; // next loop iteration
+                                            }
+                                            break;
+                                        case SPARK:
+                                            onSpark.executeQuery(format("INSERT INTO %s VALUES ('%s', %d)", sparkTableName, engineName, value));
+                                            break;
+                                        default:
+                                            throw new UnsupportedOperationException("Unexpected engine: " + engine);
+                                    }
 
-                                            inserted.add(row(engineName, value));
-                                        }
-                                        return inserted;
-                                    })
-                                    .collect(toImmutableList())).stream()
+                                    inserted.add(row(engineName, value));
+                                }
+                                return inserted;
+                            })
+                            .collect(toImmutableList())).stream()
                     .map(MoreFutures::getDone)
                     .flatMap(List::stream)
                     .collect(toImmutableList());
@@ -1469,6 +1476,22 @@ public class TestIcebergSparkCompatibility
         onSpark().executeQuery("DROP TABLE " + sparkTableName);
     }
 
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
+    public void testOptimizeFailsOnV2IcebergTable()
+    {
+        String tableName = format("test_optimize_fails_on_v2_iceberg_table_%s", randomTableSuffix());
+        String sparkTableName = sparkTableName(tableName);
+        String trinoTableName = trinoTableName(tableName);
+
+        onSpark().executeQuery("CREATE TABLE " + sparkTableName + "(a INT, b INT) " +
+                "USING ICEBERG PARTITIONED BY (b) " +
+                "TBLPROPERTIES ('format-version'='2', 'write.delete.mode'='merge-on-read')");
+        onSpark().executeQuery("INSERT INTO " + sparkTableName + " VALUES (1, 2), (2, 2), (3, 2), (11, 12), (12, 12), (13, 12)");
+
+        assertQueryFailure(() -> onTrino().executeQuery(format("ALTER TABLE %s EXECUTE OPTIMIZE", trinoTableName)))
+                .hasMessageContaining("is not supported for Iceberg table format version > 1");
+    }
+
     private static String escapeSparkString(String value)
     {
         return value.replace("\\", "\\\\").replace("'", "\\'");
@@ -1521,7 +1544,7 @@ public class TestIcebergSparkCompatibility
         return Stream.of(StorageFormat.values())
                 .filter(StorageFormat::isSupportedInTrino)
                 .flatMap(tableStorageFormat -> Arrays.stream(StorageFormat.values())
-                        .map(deleteFileStorageFormat -> new Object[]{tableStorageFormat, deleteFileStorageFormat}))
+                        .map(deleteFileStorageFormat -> new Object[] {tableStorageFormat, deleteFileStorageFormat}))
                 .toArray(Object[][]::new);
     }
 
@@ -1567,5 +1590,168 @@ public class TestIcebergSparkCompatibility
         CREATE_TABLE_AND_INSERT,
         CREATE_TABLE_AS_SELECT,
         CREATE_TABLE_WITH_NO_DATA_AND_INSERT,
+    }
+
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormats")
+    public void testSparkReadsTrinoTableAfterCleaningUp(StorageFormat storageFormat)
+    {
+        String baseTableName = "test_spark_reads_trino_partitioned_table_after_expiring_snapshots" + storageFormat;
+        String trinoTableName = trinoTableName(baseTableName);
+        String sparkTableName = sparkTableName(baseTableName);
+        onTrino().executeQuery("DROP TABLE IF EXISTS " + trinoTableName);
+
+        onTrino().executeQuery(format("CREATE TABLE %s (_string VARCHAR, _bigint BIGINT) WITH (partitioning = ARRAY['_string'], format = '%s')", trinoTableName, storageFormat));
+        // separate inserts give us snapshot per insert
+        onTrino().executeQuery(format("INSERT INTO %s VALUES ('a', 1001)", trinoTableName));
+        onTrino().executeQuery(format("INSERT INTO %s VALUES ('a', 1002)", trinoTableName));
+        onTrino().executeQuery(format("INSERT INTO %s VALUES ('a', 1003)", trinoTableName));
+        onTrino().executeQuery(format("INSERT INTO %s VALUES ('b', 1004)", trinoTableName));
+        onTrino().executeQuery(format("INSERT INTO %s VALUES ('b', 1005)", trinoTableName));
+        onTrino().executeQuery(format("INSERT INTO %s VALUES ('b', 1006)", trinoTableName));
+        onTrino().executeQuery(format("INSERT INTO %s VALUES ('c', 1007)", trinoTableName));
+        onTrino().executeQuery(format("INSERT INTO %s VALUES ('c', 1008)", trinoTableName));
+        onTrino().executeQuery(format("INSERT INTO %s VALUES ('c', 1009)", trinoTableName));
+        onTrino().executeQuery((format("DELETE FROM %s WHERE _string = '%s'", trinoTableName, 'b')));
+        int initialNumberOfMetadataFiles = calculateMetadataFilesForPartitionedTable(baseTableName);
+
+        onTrino().executeQuery("SET SESSION iceberg.expire_snapshots_min_retention = '0s'");
+        onTrino().executeQuery("SET SESSION iceberg.delete_orphan_files_min_retention = '0s'");
+        onTrino().executeQuery(format("ALTER TABLE %s EXECUTE EXPIRE_SNAPSHOTS (retention_threshold => '0s')", trinoTableName));
+        onTrino().executeQuery(format("ALTER TABLE %s EXECUTE DELETE_ORPHAN_FILES (retention_threshold => '0s')", trinoTableName));
+
+        int updatedNumberOfMetadataFiles = calculateMetadataFilesForPartitionedTable(baseTableName);
+        Assertions.assertThat(updatedNumberOfMetadataFiles).isLessThan(initialNumberOfMetadataFiles);
+
+        Row row = row(3006);
+        String selectByString = "SELECT SUM(_bigint) FROM %s WHERE _string = 'a'";
+        assertThat(onTrino().executeQuery(format(selectByString, trinoTableName)))
+                .containsOnly(row);
+        assertThat(onSpark().executeQuery(format(selectByString, sparkTableName)))
+                .containsOnly(row);
+
+        onTrino().executeQuery("DROP TABLE " + trinoTableName);
+    }
+
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormats")
+    public void testSparkReadsTrinoTableAfterOptimizeAndCleaningUp(StorageFormat storageFormat)
+    {
+        String baseTableName = "test_spark_reads_trino_partitioned_table_after_expiring_snapshots_after_optimize" + storageFormat;
+        String trinoTableName = trinoTableName(baseTableName);
+        String sparkTableName = sparkTableName(baseTableName);
+        onTrino().executeQuery("DROP TABLE IF EXISTS " + trinoTableName);
+
+        onTrino().executeQuery(format("CREATE TABLE %s (_string VARCHAR, _bigint BIGINT) WITH (partitioning = ARRAY['_string'], format = '%s')", trinoTableName, storageFormat));
+        // separate inserts give us snapshot per insert
+        onTrino().executeQuery(format("INSERT INTO %s VALUES ('a', 1001)", trinoTableName));
+        onTrino().executeQuery(format("INSERT INTO %s VALUES ('a', 1002)", trinoTableName));
+        onTrino().executeQuery(format("INSERT INTO %s VALUES ('a', 1003)", trinoTableName));
+        onTrino().executeQuery(format("INSERT INTO %s VALUES ('b', 1004)", trinoTableName));
+        onTrino().executeQuery(format("INSERT INTO %s VALUES ('b', 1005)", trinoTableName));
+        onTrino().executeQuery(format("INSERT INTO %s VALUES ('b', 1006)", trinoTableName));
+        onTrino().executeQuery(format("INSERT INTO %s VALUES ('c', 1007)", trinoTableName));
+        onTrino().executeQuery(format("INSERT INTO %s VALUES ('c', 1008)", trinoTableName));
+        onTrino().executeQuery(format("INSERT INTO %s VALUES ('c', 1009)", trinoTableName));
+        onTrino().executeQuery((format("DELETE FROM %s WHERE _string = '%s'", trinoTableName, 'b')));
+        int initialNumberOfFiles = onTrino().executeQuery(format("SELECT * FROM iceberg.default.\"%s$files\"", baseTableName)).getRowsCount();
+        int initialNumberOfMetadataFiles = calculateMetadataFilesForPartitionedTable(baseTableName);
+
+        onTrino().executeQuery(format("ALTER TABLE %s EXECUTE OPTIMIZE", trinoTableName));
+        onTrino().executeQuery("SET SESSION iceberg.expire_snapshots_min_retention = '0s'");
+        onTrino().executeQuery("SET SESSION iceberg.delete_orphan_files_min_retention = '0s'");
+        onTrino().executeQuery(format("ALTER TABLE %s EXECUTE EXPIRE_SNAPSHOTS (retention_threshold => '0s')", trinoTableName));
+        onTrino().executeQuery(format("ALTER TABLE %s EXECUTE DELETE_ORPHAN_FILES (retention_threshold => '0s')", trinoTableName));
+
+        int updatedNumberOfFiles = onTrino().executeQuery(format("SELECT * FROM iceberg.default.\"%s$files\"", baseTableName)).getRowsCount();
+        Assertions.assertThat(updatedNumberOfFiles).isLessThan(initialNumberOfFiles);
+        int updatedNumberOfMetadataFiles = calculateMetadataFilesForPartitionedTable(baseTableName);
+        Assertions.assertThat(updatedNumberOfMetadataFiles).isLessThan(initialNumberOfMetadataFiles);
+
+        Row row = row(3006);
+        String selectByString = "SELECT SUM(_bigint) FROM %s WHERE _string = 'a'";
+        assertThat(onTrino().executeQuery(format(selectByString, trinoTableName)))
+                .containsOnly(row);
+        assertThat(onSpark().executeQuery(format(selectByString, sparkTableName)))
+                .containsOnly(row);
+
+        onTrino().executeQuery("DROP TABLE " + trinoTableName);
+    }
+
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormats")
+    public void testTrinoReadsTrinoTableWithSparkDeletesAfterOptimizeAndCleanUp(StorageFormat storageFormat)
+    {
+        String baseTableName = "test_spark_reads_trino_partitioned_table_with_deletes_after_expiring_snapshots_after_optimize" + storageFormat;
+        String trinoTableName = trinoTableName(baseTableName);
+        String sparkTableName = sparkTableName(baseTableName);
+        onTrino().executeQuery("DROP TABLE IF EXISTS " + trinoTableName);
+
+        onTrino().executeQuery(format("CREATE TABLE %s (_string VARCHAR, _bigint BIGINT) WITH (partitioning = ARRAY['_string'], format = '%s')", trinoTableName, storageFormat));
+        // separate inserts give us snapshot per insert
+        onTrino().executeQuery(format("INSERT INTO %s VALUES ('a', 1001)", trinoTableName));
+        onTrino().executeQuery(format("INSERT INTO %s VALUES ('a', 1002)", trinoTableName));
+        onSpark().executeQuery(format("DELETE FROM %s WHERE _bigint = 1002", sparkTableName));
+        onTrino().executeQuery(format("INSERT INTO %s VALUES ('a', 1003)", trinoTableName));
+        onTrino().executeQuery(format("INSERT INTO %s VALUES ('a', 1004)", trinoTableName));
+
+        onTrino().executeQuery(format("ALTER TABLE %s EXECUTE OPTIMIZE", trinoTableName));
+        onTrino().executeQuery("SET SESSION iceberg.expire_snapshots_min_retention = '0s'");
+        onTrino().executeQuery("SET SESSION iceberg.delete_orphan_files_min_retention = '0s'");
+        onTrino().executeQuery(format("ALTER TABLE %s EXECUTE EXPIRE_SNAPSHOTS (retention_threshold => '0s')", trinoTableName));
+        onTrino().executeQuery(format("ALTER TABLE %s EXECUTE DELETE_ORPHAN_FILES (retention_threshold => '0s')", trinoTableName));
+
+        Row row = row(3008);
+        String selectByString = "SELECT SUM(_bigint) FROM %s WHERE _string = 'a'";
+        assertThat(onTrino().executeQuery(format(selectByString, trinoTableName)))
+                .containsOnly(row);
+        assertThat(onSpark().executeQuery(format(selectByString, sparkTableName)))
+                .containsOnly(row);
+
+        onTrino().executeQuery("DROP TABLE " + trinoTableName);
+    }
+
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "tableFormatWithDeleteFormat")
+    public void testCleaningUpIcebergTableWithRowLevelDeletes(StorageFormat tableStorageFormat, StorageFormat deleteFileStorageFormat)
+    {
+        String baseTableName = "test_cleaning_up_iceberg_table_fails_for_table_v2" + tableStorageFormat;
+        String trinoTableName = trinoTableName(baseTableName);
+        String sparkTableName = sparkTableName(baseTableName);
+        onTrino().executeQuery("DROP TABLE IF EXISTS " + trinoTableName);
+
+        onSpark().executeQuery("CREATE TABLE " + sparkTableName + "(part_key INT, int_t INT, row_t STRUCT<a:INT, b:INT>) " +
+                "USING ICEBERG PARTITIONED BY (part_key) " +
+                "TBLPROPERTIES ('format-version'='2', 'write.delete.mode'='merge-on-read'," +
+                "'write.format.default'='" + tableStorageFormat.name() + "'," +
+                "'write.delete.format.default'='" + deleteFileStorageFormat.name() + "')");
+        onSpark().executeQuery("INSERT INTO " + sparkTableName + " VALUES " +
+                "(1, 1, named_struct('a', 1, 'b', 2)), (1, 2, named_struct('a', 3, 'b', 4)), (1, 3, named_struct('a', 5, 'b', 6)), (2, 4, named_struct('a', 1, 'b', 2)), (2, 2, named_struct('a', 2, 'b', 3))");
+        // Spark inserts may create multiple files. rewrite_data_files ensures it is compacted to one file so a row level delete occurs.
+        onSpark().executeQuery("CALL " + SPARK_CATALOG + ".system.rewrite_data_files(table=>'" + TEST_SCHEMA_NAME + "." + baseTableName + "', options => map('min-input-files','1'))");
+        onSpark().executeQuery("DELETE FROM " + sparkTableName + " WHERE int_t = 2");
+
+        Row row = row(4);
+        String selectByString = "SELECT SUM(int_t) FROM %s WHERE part_key = 1";
+        assertThat(onTrino().executeQuery(format(selectByString, trinoTableName)))
+                .containsOnly(row);
+        assertThat(onSpark().executeQuery(format(selectByString, sparkTableName)))
+                .containsOnly(row);
+
+        onTrino().executeQuery("SET SESSION iceberg.expire_snapshots_min_retention = '0s'");
+        onTrino().executeQuery(format("ALTER TABLE %s EXECUTE EXPIRE_SNAPSHOTS (retention_threshold => '0s')", trinoTableName));
+        onTrino().executeQuery("SET SESSION iceberg.delete_orphan_files_min_retention = '0s'");
+        onTrino().executeQuery(format("ALTER TABLE %s EXECUTE DELETE_ORPHAN_FILES (retention_threshold => '0s')", trinoTableName));
+
+        assertThat(onTrino().executeQuery(format(selectByString, trinoTableName)))
+                .containsOnly(row);
+        assertThat(onSpark().executeQuery(format(selectByString, sparkTableName)))
+                .containsOnly(row);
+    }
+
+    private int calculateMetadataFilesForPartitionedTable(String tableName)
+    {
+        String dataFilePath = onTrino().executeQuery(format("SELECT file_path FROM iceberg.default.\"%s$files\" limit 1", tableName)).row(0).get(0).toString();
+        String partitionPath = dataFilePath.substring(0, dataFilePath.lastIndexOf("/"));
+        String dataFolderPath = partitionPath.substring(0, partitionPath.lastIndexOf("/"));
+        String tableFolderPath = dataFolderPath.substring(0, dataFolderPath.lastIndexOf("/"));
+        String metadataFolderPath = tableFolderPath + "/metadata";
+        return hdfsClient.listDirectory(URI.create(metadataFolderPath).getPath()).size();
     }
 }

@@ -32,7 +32,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-// TODO add tests
+// TODO add tests (https://github.com/trinodb/trino/issues/12010)
 // This not only adds "wait for selected port" functionality (https://github.com/testcontainers/testcontainers-java/issues/2227),
 // but also addresses (https://github.com/testcontainers/testcontainers-java/issues/2225)
 public final class SelectedPortWaitStrategy

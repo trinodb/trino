@@ -368,6 +368,12 @@ public class DeltaLakeMetadata
     }
 
     @Override
+    public SchemaTableName getSchemaTableName(ConnectorSession session, ConnectorTableHandle table)
+    {
+        return ((DeltaLakeTableHandle) table).getSchemaTableName();
+    }
+
+    @Override
     public ConnectorTableProperties getTableProperties(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         return new ConnectorTableProperties();
@@ -1066,7 +1072,7 @@ public class DeltaLakeMetadata
         }
         catch (Exception e) {
             if (!writeCommitted) {
-                // TODO perhaps it should happen in a background thread
+                // TODO perhaps it should happen in a background thread (https://github.com/trinodb/trino/issues/12011)
                 cleanupFailedWrite(session, handle.getLocation(), dataFileInfos);
             }
             throw new TrinoException(DELTA_LAKE_BAD_WRITE, "Failed to write Delta Lake transaction log entry", e);
@@ -1358,7 +1364,7 @@ public class DeltaLakeMetadata
         }
         catch (Exception e) {
             if (!writeCommitted) {
-                // TODO perhaps it should happen in a background thread
+                // TODO perhaps it should happen in a background thread (https://github.com/trinodb/trino/issues/12011)
                 cleanupFailedWrite(session, tableLocation, dataFileInfos);
             }
             throw new TrinoException(DELTA_LAKE_BAD_WRITE, "Failed to write Delta Lake transaction log entry", e);
@@ -1451,7 +1457,7 @@ public class DeltaLakeMetadata
                             0, // TODO Insert fills this in with, probably should do so here too
                             ISOLATION_LEVEL,
                             true));
-            // TODO: Delta writes another field "operationMetrics" that I haven't
+            // TODO: Delta writes another field "operationMetrics" that I haven't (https://github.com/trinodb/trino/issues/12005)
             //   seen before. It contains delete/update metrics. Investigate/include it.
 
             long writeTimestamp = Instant.now().toEpochMilli();
@@ -1475,7 +1481,7 @@ public class DeltaLakeMetadata
         }
         catch (Exception e) {
             if (!writeCommitted) {
-                // TODO perhaps it should happen in a background thread
+                // TODO perhaps it should happen in a background thread (https://github.com/trinodb/trino/issues/12011)
                 cleanupFailedWrite(session, tableLocation, updateResults.stream()
                         .map(DeltaLakeUpdateResult::getNewFile)
                         .filter(Optional::isPresent)
@@ -1497,7 +1503,8 @@ public class DeltaLakeMetadata
                 return;
             }
 
-            // TODO: There is a race possibility here, which may result in us not writing checkpoints at exactly the planned frequency.
+            // TODO: There is a race possibility here(https://github.com/trinodb/trino/issues/12004),
+            // which may result in us not writing checkpoints at exactly the planned frequency.
             // The snapshot obtained above may already be on a version higher than `newVersion` because some other transaction could have just been commited.
             // This does not pose correctness issue but may be confusing if someone looks into transaction log.
             // To fix that we should allow for getting snapshot for given version.

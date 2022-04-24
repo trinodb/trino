@@ -27,12 +27,15 @@ import java.util.Optional;
 import static io.trino.plugin.hive.HiveCompressionCodec.ZSTD;
 import static io.trino.plugin.iceberg.CatalogType.HIVE_METASTORE;
 import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
+import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class IcebergConfig
 {
     public static final int FORMAT_VERSION_SUPPORT_MIN = 1;
     public static final int FORMAT_VERSION_SUPPORT_MAX = 2;
+    public static final String EXPIRE_SNAPSHOTS_MIN_RETENTION = "iceberg.expire_snapshots.min-retention";
+    public static final String DELETE_ORPHAN_FILES_MIN_RETENTION = "iceberg.delete_orphan_files.min-retention";
 
     private IcebergFileFormat fileFormat = ORC;
     private HiveCompressionCodec compressionCodec = ZSTD;
@@ -45,6 +48,8 @@ public class IcebergConfig
     private boolean projectionPushdownEnabled = true;
     private Optional<String> hiveCatalogName = Optional.empty();
     private int formatVersion = FORMAT_VERSION_SUPPORT_MIN;
+    private Duration expireSnapshotsMinRetention = new Duration(7, DAYS);
+    private Duration deleteOrphanFilesMinRetention = new Duration(7, DAYS);
 
     public CatalogType getCatalogType()
     {
@@ -200,6 +205,34 @@ public class IcebergConfig
     public IcebergConfig setFormatVersion(int formatVersion)
     {
         this.formatVersion = formatVersion;
+        return this;
+    }
+
+    @NotNull
+    public Duration getExpireSnapshotsMinRetention()
+    {
+        return expireSnapshotsMinRetention;
+    }
+
+    @Config(EXPIRE_SNAPSHOTS_MIN_RETENTION)
+    @ConfigDescription("Minimal retention period for expire_snapshot procedure")
+    public IcebergConfig setExpireSnapshotsMinRetention(Duration expireSnapshotsMinRetention)
+    {
+        this.expireSnapshotsMinRetention = expireSnapshotsMinRetention;
+        return this;
+    }
+
+    @NotNull
+    public Duration getDeleteOrphanFilesMinRetention()
+    {
+        return deleteOrphanFilesMinRetention;
+    }
+
+    @Config(DELETE_ORPHAN_FILES_MIN_RETENTION)
+    @ConfigDescription("Minimal retention period for delete_orphan_files procedure")
+    public IcebergConfig setDeleteOrphanFilesMinRetention(Duration deleteOrphanFilesMinRetention)
+    {
+        this.deleteOrphanFilesMinRetention = deleteOrphanFilesMinRetention;
         return this;
     }
 }

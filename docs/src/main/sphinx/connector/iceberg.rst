@@ -6,9 +6,6 @@ Iceberg connector
 
   <img src="../_static/img/iceberg.png" class="connector-logo">
 
-Overview
---------
-
 Apache Iceberg is an open table format for huge analytic datasets.
 The Iceberg connector allows querying data stored in
 files written in Iceberg format, as defined in the
@@ -517,7 +514,6 @@ table ``test_table`` by using the following query::
      key                   | value    |
     -----------------------+----------+
     write.format.default   | PARQUET  |
-    format-version         | 2        |
 
 ``$history`` table
 ^^^^^^^^^^^^^^^^^^

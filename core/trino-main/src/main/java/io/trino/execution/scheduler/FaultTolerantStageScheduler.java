@@ -98,6 +98,7 @@ import static io.trino.spi.ErrorType.USER_ERROR;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.REMOTE_HOST_GONE;
 import static io.trino.util.Failures.toFailure;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class FaultTolerantStageScheduler
@@ -599,8 +600,8 @@ public class FaultTolerantStageScheduler
                             partitionToRemoteTaskMap.get(partitionId).forEach(RemoteTask::abort);
                             partitionMemoryEstimator.registerPartitionFinished(session, memoryLimits, taskStatus.getPeakMemoryReservation(), true, Optional.empty());
 
-                            if (delayStopwatch.isRunning()) {
-                                // task completed successfully; reset delay
+                            if (delayStopwatch.isRunning() && delayStopwatch.elapsed().compareTo(delaySchedulingDuration.get()) > 0) {
+                                // we are past delay period and task completed successfully; reset delay
                                 previousDelaySchedulingFuture = delaySchedulingFuture;
                                 delayStopwatch.reset();
                                 delaySchedulingDuration = Optional.empty();
@@ -637,7 +638,12 @@ public class FaultTolerantStageScheduler
                                 log.debug("Computed next memory requirements for task from stage %s; previous=%s; new=%s; peak=%s; estimator=%s", stage.getStageId(), memoryLimits, newMemoryLimits, taskStatus.getPeakMemoryReservation(), partitionMemoryEstimator);
 
                                 if (errorCode != null && isOutOfMemoryError(errorCode) && newMemoryLimits.getRequiredMemory().toBytes() * 0.99 <= taskStatus.getPeakMemoryReservation().toBytes()) {
-                                    failure = new TrinoException(() -> errorCode, "Cannot allocate enough memory for task", failureInfo.toException());
+                                    String message = format(
+                                            "Cannot allocate enough memory for task %s. Reported peak memory reservation: %s. Maximum possible reservation: %s.",
+                                            taskId,
+                                            taskStatus.getPeakMemoryReservation(),
+                                            newMemoryLimits.getRequiredMemory());
+                                    failure = new TrinoException(() -> errorCode, message, failureInfo.toException());
                                     break;
                                 }
 

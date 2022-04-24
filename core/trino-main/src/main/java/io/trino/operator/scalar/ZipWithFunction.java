@@ -16,7 +16,6 @@ package io.trino.operator.scalar;
 import com.google.common.collect.ImmutableList;
 import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionMetadata;
-import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.PageBuilder;
@@ -31,8 +30,6 @@ import java.lang.invoke.MethodHandle;
 import java.util.Optional;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
-import static io.trino.metadata.FunctionKind.SCALAR;
-import static io.trino.metadata.Signature.typeVariable;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.FUNCTION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
@@ -53,22 +50,20 @@ public final class ZipWithFunction
 
     private ZipWithFunction()
     {
-        super(new FunctionMetadata(
-                new Signature(
-                        "zip_with",
-                        ImmutableList.of(typeVariable("T"), typeVariable("U"), typeVariable("R")),
-                        ImmutableList.of(),
-                        arrayType(new TypeSignature("R")),
-                        ImmutableList.of(
-                                arrayType(new TypeSignature("T")),
-                                arrayType(new TypeSignature("U")),
-                                functionType(new TypeSignature("T"), new TypeSignature("U"), new TypeSignature("R"))),
-                        false),
-                new FunctionNullability(false, ImmutableList.of(false, false, false)),
-                false,
-                false,
-                "Merge two arrays, element-wise, into a single array using the lambda function",
-                SCALAR));
+        super(FunctionMetadata.scalarBuilder()
+                .signature(Signature.builder()
+                        .name("zip_with")
+                        .typeVariable("T")
+                        .typeVariable("U")
+                        .typeVariable("R")
+                        .returnType(arrayType(new TypeSignature("R")))
+                        .argumentType(arrayType(new TypeSignature("T")))
+                        .argumentType(arrayType(new TypeSignature("U")))
+                        .argumentType(functionType(new TypeSignature("T"), new TypeSignature("U"), new TypeSignature("R")))
+                        .build())
+                .nondeterministic()
+                .description("Merge two arrays, element-wise, into a single array using the lambda function")
+                .build());
     }
 
     @Override

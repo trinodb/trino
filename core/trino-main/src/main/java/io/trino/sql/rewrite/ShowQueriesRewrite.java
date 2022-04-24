@@ -770,7 +770,7 @@ public final class ShowQueriesRewrite
         @Override
         protected Node visitShowFunctions(ShowFunctions node, Void context)
         {
-            List<Expression> rows = metadata.listFunctions().stream()
+            List<Expression> rows = metadata.listFunctions(session).stream()
                     .filter(function -> !function.isHidden())
                     .map(function -> row(
                             new StringLiteral(function.getSignature().getName()),

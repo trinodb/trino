@@ -39,7 +39,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.trino.operator.ParametricFunctionHelpers.signatureWithName;
 import static io.trino.operator.aggregation.AggregationImplementation.Parser.parseImplementation;
 import static io.trino.operator.annotations.FunctionsParserHelper.parseDescription;
 import static java.util.Objects.requireNonNull;
@@ -113,7 +112,7 @@ public final class AggregationFromAnnotationsParser
         // create a separate function for each exact implementation
         for (AggregationImplementation exactImplementation : exactImplementations) {
             functions.add(new ParametricAggregation(
-                    signatureWithName(name, exactImplementation.getSignature()),
+                    exactImplementation.getSignature().withName(name),
                     header,
                     stateClass,
                     ParametricImplementationsGroup.of(exactImplementation).withAlias(name)));
@@ -125,7 +124,7 @@ public final class AggregationFromAnnotationsParser
             nonExactImplementations.forEach(implementationsBuilder::addImplementation);
             ParametricImplementationsGroup<AggregationImplementation> implementations = implementationsBuilder.build();
             functions.add(new ParametricAggregation(
-                    signatureWithName(name, implementations.getSignature()),
+                    implementations.getSignature().withName(name),
                     header,
                     stateClass,
                     implementations.withAlias(name)));

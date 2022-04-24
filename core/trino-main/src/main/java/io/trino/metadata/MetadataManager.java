@@ -27,6 +27,7 @@ import io.trino.FeaturesConfig;
 import io.trino.Session;
 import io.trino.collect.cache.NonEvictableCache;
 import io.trino.connector.CatalogName;
+import io.trino.metadata.AggregationFunctionMetadata.AggregationFunctionMetadataBuilder;
 import io.trino.metadata.Catalog.SecurityManagement;
 import io.trino.metadata.ResolvedFunction.ResolvedFunctionDecoder;
 import io.trino.spi.QueryId;
@@ -132,7 +133,7 @@ import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.client.NodeVersion.UNKNOWN;
 import static io.trino.collect.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
-import static io.trino.metadata.FunctionKind.AGGREGATE;
+import static io.trino.metadata.GlobalFunctionCatalog.GLOBAL_CATALOG;
 import static io.trino.metadata.QualifiedObjectName.convertFromSchemaTableName;
 import static io.trino.metadata.RedirectionAwareTableHandle.noRedirection;
 import static io.trino.metadata.RedirectionAwareTableHandle.withRedirectionTo;
@@ -2018,7 +2019,7 @@ public final class MetadataManager
     //
 
     @Override
-    public Collection<FunctionMetadata> listFunctions()
+    public Collection<FunctionMetadata> listFunctions(Session session)
     {
         return functions.listFunctions();
     }
@@ -2062,7 +2063,7 @@ public final class MetadataManager
     private ResolvedFunction resolvedFunctionInternal(Session session, QualifiedName name, List<TypeSignatureProvider> parameterTypes)
     {
         return functionDecoder.fromQualifiedName(name)
-                .orElseGet(() -> resolve(session, functionResolver.resolveFunction(session, functions.getFunctions(name), name, parameterTypes)));
+                .orElseGet(() -> resolve(session, functionResolver.resolveFunction(session, name, parameterTypes, this::getFunctions)));
     }
 
     @Override
@@ -2075,8 +2076,13 @@ public final class MetadataManager
                 String name = mangleOperatorName(operatorType);
                 FunctionBinding functionBinding = functionResolver.resolveCoercion(
                         session,
-                        functions.getFunctions(QualifiedName.of(name)),
-                        new Signature(name, toType.getTypeSignature(), ImmutableList.of(fromType.getTypeSignature())));
+                        QualifiedName.of(name),
+                        Signature.builder()
+                                .name(name)
+                                .returnType(toType)
+                                .argumentType(fromType)
+                                .build(),
+                        this::getFunctions);
                 return resolve(session, functionBinding);
             });
         }
@@ -2097,8 +2103,13 @@ public final class MetadataManager
     {
         FunctionBinding functionBinding = functionResolver.resolveCoercion(
                 session,
-                functions.getFunctions(name),
-                new Signature(name.getSuffix(), toType.getTypeSignature(), ImmutableList.of(fromType.getTypeSignature())));
+                name,
+                Signature.builder()
+                        .name(name.getSuffix())
+                        .returnType(toType)
+                        .argumentType(fromType)
+                        .build(),
+                this::getFunctions);
         return resolve(session, functionBinding);
     }
 
@@ -2177,15 +2188,21 @@ public final class MetadataManager
     }
 
     @Override
-    public boolean isAggregationFunction(QualifiedName name)
+    public boolean isAggregationFunction(Session session, QualifiedName name)
     {
-        return functions.getFunctions(name).stream()
-                .map(FunctionMetadata::getKind)
-                .anyMatch(AGGREGATE::equals);
+        return functionResolver.isAggregationFunction(session, name, this::getFunctions);
+    }
+
+    private Collection<FunctionMetadata> getFunctions(CatalogSchemaFunctionName name)
+    {
+        if (name.getCatalogName().equals(GLOBAL_CATALOG)) {
+            return functions.getFunctions(name.getSchemaFunctionName());
+        }
+        return ImmutableList.of();
     }
 
     @Override
-    public FunctionMetadata getFunctionMetadata(ResolvedFunction resolvedFunction)
+    public FunctionMetadata getFunctionMetadata(Session session, ResolvedFunction resolvedFunction)
     {
         return getFunctionMetadata(resolvedFunction.getFunctionId(), resolvedFunction.getSignature());
     }
@@ -2193,6 +2210,31 @@ public final class MetadataManager
     private FunctionMetadata getFunctionMetadata(FunctionId functionId, BoundSignature signature)
     {
         FunctionMetadata functionMetadata = functions.getFunctionMetadata(functionId);
+
+        FunctionMetadata.Builder newMetadata = FunctionMetadata.builder(functionMetadata.getKind())
+                .functionId(functionMetadata.getFunctionId())
+                .signature(signature.toSignature())
+                .canonicalName(functionMetadata.getCanonicalName());
+
+        if (functionMetadata.getDescription().isEmpty()) {
+            newMetadata.noDescription();
+        }
+        else {
+            newMetadata.description(functionMetadata.getDescription());
+        }
+
+        if (functionMetadata.isHidden()) {
+            newMetadata.hidden();
+        }
+        if (!functionMetadata.isDeterministic()) {
+            newMetadata.nondeterministic();
+        }
+        if (functionMetadata.isDeprecated()) {
+            newMetadata.deprecated();
+        }
+        if (functionMetadata.getFunctionNullability().isReturnNullable()) {
+            newMetadata.nullable();
+        }
 
         // specialize function metadata to resolvedFunction
         List<Boolean> argumentNullability = functionMetadata.getFunctionNullability().getArgumentNullable();
@@ -2204,31 +2246,29 @@ public final class MetadataManager
                     .addAll(nCopies(variableArgumentCount, argumentNullability.get(argumentNullability.size() - 1)))
                     .build();
         }
+        newMetadata.argumentNullability(argumentNullability);
 
-        return new FunctionMetadata(
-                functionMetadata.getFunctionId(),
-                signature.toSignature(),
-                functionMetadata.getCanonicalName(),
-                new FunctionNullability(functionMetadata.getFunctionNullability().isReturnNullable(), argumentNullability),
-                functionMetadata.isHidden(),
-                functionMetadata.isDeterministic(),
-                functionMetadata.getDescription(),
-                functionMetadata.getKind(),
-                functionMetadata.isDeprecated());
+        return newMetadata.build();
     }
 
     @Override
-    public AggregationFunctionMetadata getAggregationFunctionMetadata(ResolvedFunction resolvedFunction)
+    public AggregationFunctionMetadata getAggregationFunctionMetadata(Session session, ResolvedFunction resolvedFunction)
     {
         AggregationFunctionMetadata aggregationFunctionMetadata = functions.getAggregationFunctionMetadata(resolvedFunction.getFunctionId());
-        List<TypeSignature> intermediateTypes = aggregationFunctionMetadata.getIntermediateTypes();
-        if (!intermediateTypes.isEmpty()) {
-            FunctionBinding functionBinding = toFunctionBinding(resolvedFunction);
-            intermediateTypes = aggregationFunctionMetadata.getIntermediateTypes().stream()
-                    .map(typeSignature -> applyBoundVariables(typeSignature, functionBinding))
-                    .collect(toImmutableList());
+
+        AggregationFunctionMetadataBuilder builder = AggregationFunctionMetadata.builder();
+        if (aggregationFunctionMetadata.isOrderSensitive()) {
+            builder.orderSensitive();
         }
-        return new AggregationFunctionMetadata(aggregationFunctionMetadata.isOrderSensitive(), intermediateTypes);
+
+        if (!aggregationFunctionMetadata.getIntermediateTypes().isEmpty()) {
+            FunctionBinding functionBinding = toFunctionBinding(resolvedFunction);
+            aggregationFunctionMetadata.getIntermediateTypes().stream()
+                    .map(typeSignature -> applyBoundVariables(typeSignature, functionBinding))
+                    .forEach(builder::intermediateType);
+        }
+
+        return builder.build();
     }
 
     private FunctionBinding toFunctionBinding(ResolvedFunction resolvedFunction)
@@ -2255,8 +2295,8 @@ public final class MetadataManager
         if (catalogMetadata.getSecurityManagement() == SecurityManagement.CONNECTOR) {
             return Optional.empty();
         }
-        ConnectorTableSchema tableSchema = catalogMetadata.getMetadata(session).getTableSchema(session.toConnectorSession(tableHandle.getCatalogName()), tableHandle.getConnectorHandle());
-        return Optional.of(new CatalogSchemaTableName(tableHandle.getCatalogName().getCatalogName(), tableSchema.getTable()));
+        SchemaTableName schemaTableName = catalogMetadata.getMetadata(session).getSchemaTableName(session.toConnectorSession(tableHandle.getCatalogName()), tableHandle.getConnectorHandle());
+        return Optional.of(new CatalogSchemaTableName(tableHandle.getCatalogName().getCatalogName(), schemaTableName));
     }
 
     private Optional<CatalogMetadata> getOptionalCatalogMetadata(Session session, String catalogName)

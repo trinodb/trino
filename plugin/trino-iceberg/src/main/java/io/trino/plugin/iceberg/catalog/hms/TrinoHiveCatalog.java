@@ -597,13 +597,4 @@ public class TrinoHiveCatalog
         }
         return Optional.empty();
     }
-
-    private static class MaterializedViewMayBeBeingRemovedException
-            extends RuntimeException
-    {
-        public MaterializedViewMayBeBeingRemovedException(Throwable cause)
-        {
-            super(requireNonNull(cause, "cause is null"));
-        }
-    }
 }

@@ -61,15 +61,15 @@ public interface ThriftMetastore
 
     void alterTransactionalTable(HiveIdentity identity, Table table, long transactionId, long writeId);
 
-    List<String> getAllDatabases();
+    List<String> getAllDatabases(HiveIdentity identity);
 
-    List<String> getAllTables(String databaseName);
+    List<String> getAllTables(HiveIdentity identity, String databaseName);
 
-    List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue);
+    List<String> getTablesWithParameter(HiveIdentity identity, String databaseName, String parameterKey, String parameterValue);
 
-    List<String> getAllViews(String databaseName);
+    List<String> getAllViews(HiveIdentity identity, String databaseName);
 
-    Optional<Database> getDatabase(String databaseName);
+    Optional<Database> getDatabase(HiveIdentity identity, String databaseName);
 
     void addPartitions(HiveIdentity identity, String databaseName, String tableName, List<PartitionWithStatistics> partitions);
 
@@ -95,29 +95,29 @@ public interface ThriftMetastore
 
     void updatePartitionStatistics(HiveIdentity identity, Table table, String partitionName, Function<PartitionStatistics, PartitionStatistics> update);
 
-    void createRole(String role, String grantor);
+    void createRole(HiveIdentity identity, String role, String grantor);
 
-    void dropRole(String role);
+    void dropRole(HiveIdentity identity, String role);
 
-    Set<String> listRoles();
+    Set<String> listRoles(HiveIdentity identity);
 
-    void grantRoles(Set<String> roles, Set<HivePrincipal> grantees, boolean adminOption, HivePrincipal grantor);
+    void grantRoles(HiveIdentity identity, Set<String> roles, Set<HivePrincipal> grantees, boolean adminOption, HivePrincipal grantor);
 
-    void revokeRoles(Set<String> roles, Set<HivePrincipal> grantees, boolean adminOption, HivePrincipal grantor);
+    void revokeRoles(HiveIdentity identity, Set<String> roles, Set<HivePrincipal> grantees, boolean adminOption, HivePrincipal grantor);
 
-    Set<RoleGrant> listGrantedPrincipals(String role);
+    Set<RoleGrant> listGrantedPrincipals(HiveIdentity identity, String role);
 
-    Set<RoleGrant> listRoleGrants(HivePrincipal principal);
+    Set<RoleGrant> listRoleGrants(HiveIdentity identity, HivePrincipal principal);
 
-    void grantTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal grantee, HivePrincipal grantor, Set<HivePrivilege> privileges, boolean grantOption);
+    void grantTablePrivileges(HiveIdentity identity, String databaseName, String tableName, String tableOwner, HivePrincipal grantee, HivePrincipal grantor, Set<HivePrivilege> privileges, boolean grantOption);
 
-    void revokeTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal grantee, HivePrincipal grantor, Set<HivePrivilege> privileges, boolean grantOption);
+    void revokeTablePrivileges(HiveIdentity identity, String databaseName, String tableName, String tableOwner, HivePrincipal grantee, HivePrincipal grantor, Set<HivePrivilege> privileges, boolean grantOption);
 
     /**
      * @param tableOwner
      * @param principal when empty, all table privileges are returned
      */
-    Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, Optional<String> tableOwner, Optional<HivePrincipal> principal);
+    Set<HivePrivilegeInfo> listTablePrivileges(HiveIdentity identity, String databaseName, String tableName, Optional<String> tableOwner, Optional<HivePrincipal> principal);
 
     boolean isImpersonationEnabled();
 
@@ -171,7 +171,7 @@ public interface ThriftMetastore
         throw new UnsupportedOperationException();
     }
 
-    default Optional<String> getConfigValue(String name)
+    default Optional<String> getConfigValue(HiveIdentity identity, String name)
     {
         return Optional.empty();
     }

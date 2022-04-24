@@ -4,17 +4,9 @@ local exchange (GATHER, SINGLE, [])
             local exchange (GATHER, SINGLE, [])
                 remote exchange (REPARTITION, HASH, ["i_product_name"])
                     partial aggregation over (i_product_name)
-                        cross join (can skip output duplicates):
-                            join (LEFT, REPLICATED, can skip output duplicates):
+                        single aggregation over (i_manufact, i_manufact_id, i_product_name, unique)
+                            join (INNER, REPLICATED, can skip output duplicates):
                                 scan item
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPLICATE, BROADCAST, [])
-                                        final aggregation over (i_manufact_14)
-                                            local exchange (GATHER, SINGLE, [])
-                                                remote exchange (REPARTITION, HASH, ["i_manufact_14"])
-                                                    partial aggregation over (i_manufact_14)
-                                                        scan item
-                            local exchange (GATHER, SINGLE, [])
-                                remote exchange (REPLICATE, BROADCAST, [])
-                                    single aggregation over ()
-                                        values (1 rows)
+                                        scan item

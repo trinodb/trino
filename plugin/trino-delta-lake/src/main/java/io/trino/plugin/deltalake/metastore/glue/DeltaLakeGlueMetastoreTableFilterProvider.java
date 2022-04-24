@@ -51,7 +51,7 @@ public class DeltaLakeGlueMetastoreTableFilterProvider
         if (parameters == null) {
             return false;
         }
-        // todo; add parameters == null check to DefaultGlueMetastoreTableFilterProvider.isDeltaLakeTable
+        // todo; add parameters == null check to DefaultGlueMetastoreTableFilterProvider.isDeltaLakeTable (https://github.com/trinodb/trino/issues/12013)
         return DefaultGlueMetastoreTableFilterProvider.isDeltaLakeTable(table);
     }
 }

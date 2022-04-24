@@ -118,6 +118,7 @@ public class TestIcebergGlueCatalogConnectorSmokeTest
                                 ")\n" +
                                 "WITH (\n" +
                                 "   format = 'ORC',\n" +
+                                "   format_version = 1,\n" +
                                 "   location = '%2$s/%1$s.db/region'\n" +
                                 ")",
                         schemaName,

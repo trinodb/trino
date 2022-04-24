@@ -13,19 +13,26 @@
  */
 package io.trino.plugin.exchange;
 
+import com.google.common.collect.ImmutableList;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 
 import javax.validation.constraints.Min;
+import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
+
+import java.net.URI;
+import java.util.List;
 
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.trino.plugin.exchange.FileSystemExchangeManager.PATH_SEPARATOR;
 
 public class FileSystemExchangeConfig
 {
-    private String baseDirectory;
+    private List<URI> baseDirectories = ImmutableList.of();
     private boolean exchangeEncryptionEnabled = true;
     // For S3, we make read requests aligned with part boundaries. Incomplete slice at the end of the buffer is
     // possible and will be copied to the beginning of the new buffer, and we need to make room for that.
@@ -37,15 +44,28 @@ public class FileSystemExchangeConfig
     private int exchangeSourceConcurrentReaders = 4;
 
     @NotNull
-    public String getBaseDirectory()
+    @NotEmpty(message = "At least one base directory needs to be configured")
+    public List<URI> getBaseDirectories()
     {
-        return baseDirectory;
+        return baseDirectories;
     }
 
-    @Config("exchange.base-directory")
-    public FileSystemExchangeConfig setBaseDirectory(String baseDirectory)
+    @Config("exchange.base-directories")
+    @LegacyConfig("exchange.base-directory")
+    @ConfigDescription("List of base directories separated by commas")
+    public FileSystemExchangeConfig setBaseDirectories(String baseDirectories)
     {
-        this.baseDirectory = baseDirectory;
+        if (baseDirectories != null) {
+            ImmutableList.Builder<URI> builder = ImmutableList.builder();
+            for (String baseDirectory : baseDirectories.split(",")) {
+                if (!baseDirectory.endsWith(PATH_SEPARATOR)) {
+                    // This is needed as URI's resolve method expects directories to end with '/'
+                    baseDirectory += PATH_SEPARATOR;
+                }
+                builder.add(URI.create(baseDirectory));
+            }
+            this.baseDirectories = builder.build();
+        }
         return this;
     }
 
