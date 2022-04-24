@@ -17,10 +17,12 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.BooleanNode;
 import com.fasterxml.jackson.databind.node.DoubleNode;
+import com.fasterxml.jackson.databind.node.IntNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.NullNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
 import java.nio.charset.Charset;
@@ -225,5 +227,18 @@ public class TestJsonInputFunctions
                 "\"$varchar_to_json\"(null, true)",
                 JSON_2016,
                 null);
+    }
+
+    @Test
+    public void testDuplicateObjectKeys()
+    {
+        // A duplicate key does not cause error. The resulting object has one member with that key, chosen arbitrarily from the input entries.
+        // According to the SQL standard, this behavior is a correct implementation of the 'WITHOUT UNIQUE KEYS' option.
+        assertAmbiguousFunction(
+                "\"$varchar_to_json\"('{\"key\" : 1, \"key\" : 2}', true)",
+                JSON_2016,
+                ImmutableSet.of(
+                        new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of("key", IntNode.valueOf(1))),
+                        new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of("key", IntNode.valueOf(2)))));
     }
 }
