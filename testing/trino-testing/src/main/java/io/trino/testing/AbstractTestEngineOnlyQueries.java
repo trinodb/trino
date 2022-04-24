@@ -6474,6 +6474,62 @@ public abstract class AbstractTestEngineOnlyQueries
                 .matches("VALUES VARCHAR '0', '1', '2', 'x', 'x'");
     }
 
+    @Test
+    public void testJsonObjectFunction()
+    {
+        assertThat(query("SELECT json_object(name : regionkey) result " +
+                "              FROM region"))
+                .matches("VALUES (VARCHAR '{\"AFRICA\":0}'), ('{\"AMERICA\":1}'), ('{\"ASIA\":2}'), ('{\"EUROPE\":3}'), ('{\"MIDDLE EAST\":4}')");
+
+        assertThat(query("SELECT json_object(name : IF(regionkey < 3, regionkey, null) NULL ON NULL) result " +
+                "              FROM region"))
+                .matches("VALUES (VARCHAR '{\"AFRICA\":0}'), ('{\"AMERICA\":1}'), ('{\"ASIA\":2}'), ('{\"EUROPE\":null}'), ('{\"MIDDLE EAST\":null}')");
+
+        assertThat(query("SELECT json_object(name : IF(regionkey < 3, regionkey, null) ABSENT ON NULL) result " +
+                "              FROM region"))
+                .matches("VALUES (VARCHAR '{\"AFRICA\":0}'), ('{\"AMERICA\":1}'), ('{\"ASIA\":2}'), ('{}'), ('{}')");
+
+        assertThat(query("SELECT json_object((SELECT name) : (SELECT regionkey)) result " +
+                "              FROM region"))
+                .matches("VALUES (VARCHAR '{\"AFRICA\":0}'), ('{\"AMERICA\":1}'), ('{\"ASIA\":2}'), ('{\"EUROPE\":3}'), ('{\"MIDDLE EAST\":4}')");
+
+        assertThat(query("SELECT json_object(name : format('\"%s\"', lower(name)) FORMAT JSON) result " +
+                "              FROM region"))
+                .matches("VALUES (VARCHAR '{\"AFRICA\":\"africa\"}'), ('{\"AMERICA\":\"america\"}'), ('{\"ASIA\":\"asia\"}'), ('{\"EUROPE\":\"europe\"}'), ('{\"MIDDLE EAST\":\"middle east\"}')");
+
+        assertThat(query("SELECT json_object(name : regionkey RETURNING varchar(100) FORMAT JSON) result " +
+                "              FROM region"))
+                .matches("VALUES (CAST('{\"AFRICA\":0}' AS varchar(100))), ('{\"AMERICA\":1}'), ('{\"ASIA\":2}'), ('{\"EUROPE\":3}'), ('{\"MIDDLE EAST\":4}')");
+    }
+
+    @Test
+    public void testJsonArrayFunction()
+    {
+        assertThat(query("SELECT json_array(name, regionkey) result " +
+                "              FROM region"))
+                .matches("VALUES (VARCHAR '[\"AFRICA\",0]'), ('[\"AMERICA\",1]'), ('[\"ASIA\",2]'), ('[\"EUROPE\",3]'), ('[\"MIDDLE EAST\",4]')");
+
+        assertThat(query("SELECT json_array(name, IF(regionkey < 3, regionkey, null) NULL ON NULL) result " +
+                "              FROM region"))
+                .matches("VALUES (VARCHAR '[\"AFRICA\",0]'), ('[\"AMERICA\",1]'), ('[\"ASIA\",2]'), ('[\"EUROPE\",null]'), ('[\"MIDDLE EAST\",null]')");
+
+        assertThat(query("SELECT json_array(name, IF(regionkey < 3, regionkey, null) ABSENT ON NULL) result " +
+                "              FROM region"))
+                .matches("VALUES (VARCHAR '[\"AFRICA\",0]'), ('[\"AMERICA\",1]'), ('[\"ASIA\",2]'), ('[\"EUROPE\"]'), ('[\"MIDDLE EAST\"]')");
+
+        assertThat(query("SELECT json_array((SELECT name), (SELECT regionkey)) result " +
+                "              FROM region"))
+                .matches("VALUES (VARCHAR '[\"AFRICA\",0]'), ('[\"AMERICA\",1]'), ('[\"ASIA\",2]'), ('[\"EUROPE\",3]'), ('[\"MIDDLE EAST\",4]')");
+
+        assertThat(query("SELECT json_array(name, format('\"%s\"', lower(name)) FORMAT JSON) result " +
+                "              FROM region"))
+                .matches("VALUES (VARCHAR '[\"AFRICA\",\"africa\"]'), ('[\"AMERICA\",\"america\"]'), ('[\"ASIA\",\"asia\"]'), ('[\"EUROPE\",\"europe\"]'), ('[\"MIDDLE EAST\",\"middle east\"]')");
+
+        assertThat(query("SELECT json_array(name, regionkey RETURNING varchar(100) FORMAT JSON) result " +
+                "              FROM region"))
+                .matches("VALUES (CAST('[\"AFRICA\",0]' AS varchar(100))), ('[\"AMERICA\",1]'), ('[\"ASIA\",2]'), ('[\"EUROPE\",3]'), ('[\"MIDDLE EAST\",4]')");
+    }
+
     private static ZonedDateTime zonedDateTime(String value)
     {
         return ZONED_DATE_TIME_FORMAT.parse(value, ZonedDateTime::from);
