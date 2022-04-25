@@ -50,6 +50,7 @@ public class FileSystemExchangeManager
     private static final int KEY_BITS = 256;
 
     private final FileSystemExchangeStorage exchangeStorage;
+    private final FileSystemExchangeStats stats;
     private final List<URI> baseDirectories;
     private final boolean exchangeEncryptionEnabled;
     private final int maxPageStorageSizeInBytes;
@@ -60,11 +61,15 @@ public class FileSystemExchangeManager
     private final ExecutorService executor;
 
     @Inject
-    public FileSystemExchangeManager(FileSystemExchangeStorage exchangeStorage, FileSystemExchangeConfig fileSystemExchangeConfig)
+    public FileSystemExchangeManager(
+            FileSystemExchangeStorage exchangeStorage,
+            FileSystemExchangeStats stats,
+            FileSystemExchangeConfig fileSystemExchangeConfig)
     {
         requireNonNull(fileSystemExchangeConfig, "fileSystemExchangeConfig is null");
 
         this.exchangeStorage = requireNonNull(exchangeStorage, "exchangeStorage is null");
+        this.stats = requireNonNull(stats, "stats is null");
         this.baseDirectories = ImmutableList.copyOf(requireNonNull(fileSystemExchangeConfig.getBaseDirectories(), "baseDirectories is null"));
         this.exchangeEncryptionEnabled = fileSystemExchangeConfig.isExchangeEncryptionEnabled();
         this.maxPageStorageSizeInBytes = toIntExact(fileSystemExchangeConfig.getMaxPageStorageSize().toBytes());
@@ -89,7 +94,14 @@ public class FileSystemExchangeManager
                 throw new TrinoException(GENERIC_INTERNAL_ERROR, "Failed to generate new secret key: " + e.getMessage(), e);
             }
         }
-        return new FileSystemExchange(baseDirectories, exchangeStorage, context, outputPartitionCount, secretKey, executor);
+        return new FileSystemExchange(
+                baseDirectories,
+                exchangeStorage,
+                stats,
+                context,
+                outputPartitionCount,
+                secretKey,
+                executor);
     }
 
     @Override
@@ -98,6 +110,7 @@ public class FileSystemExchangeManager
         FileSystemExchangeSinkInstanceHandle instanceHandle = (FileSystemExchangeSinkInstanceHandle) handle;
         return new FileSystemExchangeSink(
                 exchangeStorage,
+                stats,
                 instanceHandle.getOutputDirectory(),
                 instanceHandle.getOutputPartitionCount(),
                 instanceHandle.getSinkHandle().getSecretKey().map(key -> new SecretKeySpec(key, 0, key.length, "AES")),
@@ -123,6 +136,11 @@ public class FileSystemExchangeManager
                                 entry.getValue(),
                                 fileStatus.getFileSize())))
                 .collect(toImmutableList());
-        return new FileSystemExchangeSource(exchangeStorage, sourceFiles, maxPageStorageSizeInBytes, exchangeSourceConcurrentReaders);
+        return new FileSystemExchangeSource(
+                exchangeStorage,
+                stats,
+                sourceFiles,
+                maxPageStorageSizeInBytes,
+                exchangeSourceConcurrentReaders);
     }
 }

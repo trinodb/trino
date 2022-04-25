@@ -109,6 +109,7 @@ public class S3FileSystemExchangeStorage
 {
     private static final String DIRECTORY_SUFFIX = "_$folder$";
 
+    private final S3FileSystemExchangeStorageStats stats;
     private final Optional<Region> region;
     private final Optional<String> endpoint;
     private final int multiUploadPartSize;
@@ -117,8 +118,9 @@ public class S3FileSystemExchangeStorage
     private final StorageClass storageClass;
 
     @Inject
-    public S3FileSystemExchangeStorage(ExchangeS3Config config)
+    public S3FileSystemExchangeStorage(S3FileSystemExchangeStorageStats stats, ExchangeS3Config config)
     {
+        this.stats = requireNonNull(stats, "stats is null");
         requireNonNull(config, "config is null");
         this.region = config.getS3Region();
         this.endpoint = config.getS3Endpoint();
@@ -154,7 +156,7 @@ public class S3FileSystemExchangeStorage
     @Override
     public ExchangeStorageReader createExchangeStorageReader(Queue<ExchangeSourceFile> sourceFiles, int maxPageStorageSize)
     {
-        return new S3ExchangeStorageReader(s3AsyncClient, sourceFiles, multiUploadPartSize, maxPageStorageSize);
+        return new S3ExchangeStorageReader(stats, s3AsyncClient, sourceFiles, multiUploadPartSize, maxPageStorageSize);
     }
 
     @Override
@@ -163,7 +165,7 @@ public class S3FileSystemExchangeStorage
         String bucketName = getBucketName(file);
         String key = keyFromUri(file);
 
-        return new S3ExchangeStorageWriter(s3AsyncClient, bucketName, key, multiUploadPartSize, secretKey, storageClass);
+        return new S3ExchangeStorageWriter(stats, s3AsyncClient, bucketName, key, multiUploadPartSize, secretKey, storageClass);
     }
 
     @Override
@@ -182,7 +184,7 @@ public class S3FileSystemExchangeStorage
                 .key(keyFromUri(file))
                 .build();
 
-        return transformFuture(toListenableFuture(s3AsyncClient.putObject(request, AsyncRequestBody.empty())));
+        return stats.getCreateEmptyFile().record(transformFuture(toListenableFuture(s3AsyncClient.putObject(request, AsyncRequestBody.empty()))));
     }
 
     @Override
@@ -191,14 +193,14 @@ public class S3FileSystemExchangeStorage
         checkArgument(isDirectory(uri), "deleteRecursively called on file uri");
 
         ImmutableList.Builder<String> keys = ImmutableList.builder();
-        return transformFuture(Futures.transformAsync(
+        return stats.getDeleteRecursively().record(transformFuture(Futures.transformAsync(
                 toListenableFuture((listObjectsRecursively(uri).subscribe(listObjectsV2Response ->
                         listObjectsV2Response.contents().stream().map(S3Object::key).forEach(keys::add)))),
                 ignored -> {
                     keys.add(keyFromUri(uri) + DIRECTORY_SUFFIX);
                     return deleteObjects(getBucketName(uri), keys.build());
                 },
-                directExecutor()));
+                directExecutor())));
     }
 
     @Override
@@ -207,17 +209,22 @@ public class S3FileSystemExchangeStorage
     {
         ImmutableList.Builder<FileStatus> builder = ImmutableList.builder();
         try {
-            for (S3Object object : listObjects(dir).contents()) {
-                builder.add(new FileStatus(
-                        new URI(dir.getScheme(), dir.getHost(), PATH_SEPARATOR + object.key(), dir.getFragment()).toString(),
-                        object.size()));
-            }
+            stats.getListFiles().record(() -> {
+                for (S3Object object : listObjects(dir).contents()) {
+                    URI uri;
+                    try {
+                        uri = new URI(dir.getScheme(), dir.getHost(), PATH_SEPARATOR + object.key(), dir.getFragment());
+                    }
+                    catch (URISyntaxException e) {
+                        throw new IllegalArgumentException(e);
+                    }
+                    builder.add(new FileStatus(uri.toString(), object.size()));
+                }
+                return null;
+            });
         }
         catch (RuntimeException e) {
             throw new IOException(e);
-        }
-        catch (URISyntaxException e) {
-            throw new IllegalArgumentException(e);
         }
         return builder.build();
     }
@@ -228,15 +235,22 @@ public class S3FileSystemExchangeStorage
     {
         ImmutableList.Builder<URI> builder = ImmutableList.builder();
         try {
-            for (CommonPrefix prefix : listObjects(dir).commonPrefixes()) {
-                builder.add(new URI(dir.getScheme(), dir.getHost(), PATH_SEPARATOR + prefix.prefix(), dir.getFragment()));
-            }
+            stats.getListDirectories().record(() -> {
+                for (CommonPrefix prefix : listObjects(dir).commonPrefixes()) {
+                    URI uri;
+                    try {
+                        uri = new URI(dir.getScheme(), dir.getHost(), PATH_SEPARATOR + prefix.prefix(), dir.getFragment());
+                    }
+                    catch (URISyntaxException e) {
+                        throw new IllegalArgumentException(e);
+                    }
+                    builder.add(uri);
+                }
+                return null;
+            });
         }
         catch (RuntimeException e) {
             throw new IOException(e);
-        }
-        catch (URISyntaxException e) {
-            throw new IllegalArgumentException(e);
         }
         return builder.build();
     }
@@ -267,7 +281,7 @@ public class S3FileSystemExchangeStorage
         configureEncryption(secretKey, headObjectRequestBuilder);
 
         try {
-            return s3Client.headObject(headObjectRequestBuilder.build());
+            return stats.getHeadObject().record(() -> s3Client.headObject(headObjectRequestBuilder.build()));
         }
         catch (RuntimeException e) {
             if (e instanceof NoSuchKeyException) {
@@ -306,13 +320,14 @@ public class S3FileSystemExchangeStorage
     private ListenableFuture<List<DeleteObjectsResponse>> deleteObjects(String bucketName, List<String> keys)
     {
         List<List<String>> subList = Lists.partition(keys, 1000); //  deleteObjects has a limit of 1000
-        return Futures.allAsList(subList.stream().map(list -> {
+        stats.getDeleteObjectsEntriesCount().add(keys.size());
+        return stats.getDeleteObjects().record(Futures.allAsList(subList.stream().map(list -> {
             DeleteObjectsRequest request = DeleteObjectsRequest.builder()
                     .bucket(bucketName)
                     .delete(Delete.builder().objects(list.stream().map(key -> ObjectIdentifier.builder().key(key).build()).collect(toImmutableList())).build())
                     .build();
             return toListenableFuture(s3AsyncClient.deleteObjects(request));
-        }).collect(toImmutableList()));
+        }).collect(toImmutableList())));
     }
 
     /**
@@ -420,6 +435,7 @@ public class S3FileSystemExchangeStorage
     {
         private static final int INSTANCE_SIZE = ClassLayout.parseClass(S3ExchangeStorageReader.class).instanceSize();
 
+        private final S3FileSystemExchangeStorageStats stats;
         private final S3AsyncClient s3AsyncClient;
         private final Queue<ExchangeSourceFile> sourceFiles;
         private final int partSize;
@@ -438,11 +454,13 @@ public class S3FileSystemExchangeStorage
         private volatile ListenableFuture<Void> inProgressReadFuture = immediateVoidFuture();
 
         public S3ExchangeStorageReader(
+                S3FileSystemExchangeStorageStats stats,
                 S3AsyncClient s3AsyncClient,
                 Queue<ExchangeSourceFile> sourceFiles,
                 int partSize,
                 int maxPageStorageSize)
         {
+            this.stats = requireNonNull(stats, "stats is null");
             this.s3AsyncClient = requireNonNull(s3AsyncClient, "s3AsyncClient is null");
             this.sourceFiles = requireNonNull(sourceFiles, "sourceFiles is null");
             this.partSize = partSize;
@@ -567,8 +585,11 @@ public class S3FileSystemExchangeStorage
                             .partNumber(partNumber);
                     configureEncryption(secretKey, getObjectRequestBuilder);
 
-                    getObjectFutures.add(toListenableFuture(s3AsyncClient.getObject(getObjectRequestBuilder.build(),
-                            BufferWriteAsyncResponseTransformer.toBufferWrite(buffer, bufferFill))));
+                    ListenableFuture<GetObjectResponse> getObjectFuture = toListenableFuture(s3AsyncClient.getObject(getObjectRequestBuilder.build(),
+                            BufferWriteAsyncResponseTransformer.toBufferWrite(buffer, bufferFill)));
+                    stats.getGetObject().record(getObjectFuture);
+                    stats.getGetObjectDataSizeInBytes().add(length);
+                    getObjectFutures.add(getObjectFuture);
                     bufferFill += length;
                     fileOffset += length;
                 }
@@ -594,6 +615,7 @@ public class S3FileSystemExchangeStorage
     {
         private static final int INSTANCE_SIZE = ClassLayout.parseClass(S3ExchangeStorageWriter.class).instanceSize();
 
+        private final S3FileSystemExchangeStorageStats stats;
         private final S3AsyncClient s3AsyncClient;
         private final String bucketName;
         private final String key;
@@ -607,8 +629,16 @@ public class S3FileSystemExchangeStorage
         private final List<ListenableFuture<CompletedPart>> multiPartUploadFutures = new ArrayList<>();
         private volatile boolean closed;
 
-        public S3ExchangeStorageWriter(S3AsyncClient s3AsyncClient, String bucketName, String key, int partSize, Optional<SecretKey> secretKey, StorageClass storageClass)
+        public S3ExchangeStorageWriter(
+                S3FileSystemExchangeStorageStats stats,
+                S3AsyncClient s3AsyncClient,
+                String bucketName,
+                String key,
+                int partSize,
+                Optional<SecretKey> secretKey,
+                StorageClass storageClass)
         {
+            this.stats = requireNonNull(stats, "stats is null");
             this.s3AsyncClient = requireNonNull(s3AsyncClient, "s3AsyncClient is null");
             this.bucketName = requireNonNull(bucketName, "bucketName is null");
             this.key = requireNonNull(key, "key is null");
@@ -635,6 +665,8 @@ public class S3FileSystemExchangeStorage
                 configureEncryption(secretKey, putObjectRequestBuilder);
                 directUploadFuture = transformFuture(toListenableFuture(s3AsyncClient.putObject(putObjectRequestBuilder.build(),
                         ByteBufferAsyncRequestBody.fromByteBuffer(slice.toByteBuffer()))));
+                stats.getPutObject().record(directUploadFuture);
+                stats.getPutObjectDataSizeInBytes().add(slice.length());
                 return directUploadFuture;
             }
 
@@ -713,7 +745,7 @@ public class S3FileSystemExchangeStorage
                     .key(key)
                     .storageClass(storageClass);
             configureEncryption(secretKey, createMultipartUploadRequestBuilder);
-            return toListenableFuture(s3AsyncClient.createMultipartUpload(createMultipartUploadRequestBuilder.build()));
+            return stats.getCreateMultipartUpload().record(toListenableFuture(s3AsyncClient.createMultipartUpload(createMultipartUploadRequestBuilder.build())));
         }
 
         private ListenableFuture<CompletedPart> uploadPart(String uploadId, Slice slice, int partNumber)
@@ -725,8 +757,9 @@ public class S3FileSystemExchangeStorage
                     .partNumber(partNumber);
             configureEncryption(secretKey, uploadPartRequestBuilder);
             UploadPartRequest uploadPartRequest = uploadPartRequestBuilder.build();
-            return Futures.transform(toListenableFuture(s3AsyncClient.uploadPart(uploadPartRequest, ByteBufferAsyncRequestBody.fromByteBuffer(slice.toByteBuffer()))),
-                    uploadPartResponse -> CompletedPart.builder().eTag(uploadPartResponse.eTag()).partNumber(partNumber).build(), directExecutor());
+            stats.getUploadPartDataSizeInBytes().add(slice.length());
+            return stats.getUploadPart().record(Futures.transform(toListenableFuture(s3AsyncClient.uploadPart(uploadPartRequest, ByteBufferAsyncRequestBody.fromByteBuffer(slice.toByteBuffer()))),
+                    uploadPartResponse -> CompletedPart.builder().eTag(uploadPartResponse.eTag()).partNumber(partNumber).build(), directExecutor()));
         }
 
         private ListenableFuture<CompleteMultipartUploadResponse> completeMultipartUpload(String uploadId, List<CompletedPart> completedParts)
@@ -740,7 +773,8 @@ public class S3FileSystemExchangeStorage
                     .uploadId(uploadId)
                     .multipartUpload(completedMultipartUpload)
                     .build();
-            return toListenableFuture(s3AsyncClient.completeMultipartUpload(completeMultipartUploadRequest));
+            stats.getCompleteMultipartUploadPartsCount().add(completedParts.size());
+            return stats.getCompleteMultipartUpload().record(toListenableFuture(s3AsyncClient.completeMultipartUpload(completeMultipartUploadRequest)));
         }
 
         private ListenableFuture<AbortMultipartUploadResponse> abortMultipartUpload(String uploadId)
@@ -750,7 +784,7 @@ public class S3FileSystemExchangeStorage
                     .key(key)
                     .uploadId(uploadId)
                     .build();
-            return toListenableFuture(s3AsyncClient.abortMultipartUpload(abortMultipartUploadRequest));
+            return stats.getAbortMultipartUpload().record(toListenableFuture(s3AsyncClient.abortMultipartUpload(abortMultipartUploadRequest)));
         }
     }
 }
