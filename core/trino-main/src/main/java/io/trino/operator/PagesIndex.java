@@ -515,16 +515,21 @@ public class PagesIndex
             // This code path will trigger only for OUTER joins. To fix that we need to add support for
             //        OUTER joins into NestedLoopsJoin and remove "type == INNER" condition in LocalExecutionPlanner.visitJoin()
 
-            LookupSourceSupplierFactory lookupSourceFactory = joinCompiler.compileLookupSourceFactory(types, joinChannels, sortChannel, outputChannels);
-            return lookupSourceFactory.createLookupSourceSupplier(
-                    session,
-                    valueAddresses,
-                    channels,
-                    hashChannel,
-                    filterFunctionFactory,
-                    sortChannel,
-                    searchFunctionFactories,
-                    hashArraySizeSupplier);
+            try {
+                LookupSourceSupplierFactory lookupSourceFactory = joinCompiler.compileLookupSourceFactory(types, joinChannels, sortChannel, outputChannels);
+                return lookupSourceFactory.createLookupSourceSupplier(
+                        session,
+                        valueAddresses,
+                        channels,
+                        hashChannel,
+                        filterFunctionFactory,
+                        sortChannel,
+                        searchFunctionFactories,
+                        hashArraySizeSupplier);
+            }
+            catch (Exception e) {
+                log.error(e, "Lookup source compile failed for types=%s error=%s", types, e);
+            }
         }
 
         PagesHashStrategy hashStrategy = new SimplePagesHashStrategy(
