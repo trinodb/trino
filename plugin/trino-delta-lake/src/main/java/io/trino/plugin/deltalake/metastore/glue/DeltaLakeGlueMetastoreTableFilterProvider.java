@@ -19,7 +19,6 @@ import io.trino.plugin.hive.metastore.glue.DefaultGlueMetastoreTableFilterProvid
 import javax.inject.Inject;
 import javax.inject.Provider;
 
-import java.util.Map;
 import java.util.function.Predicate;
 
 import static java.util.Objects.requireNonNull;
@@ -40,18 +39,8 @@ public class DeltaLakeGlueMetastoreTableFilterProvider
     public Predicate<Table> get()
     {
         if (hideNonDeltaLakeTables) {
-            return DeltaLakeGlueMetastoreTableFilterProvider::isDeltaLakeTable;
+            return DefaultGlueMetastoreTableFilterProvider::isDeltaLakeTable;
         }
         return table -> true;
-    }
-
-    private static boolean isDeltaLakeTable(Table table)
-    {
-        Map<String, String> parameters = table.getParameters();
-        if (parameters == null) {
-            return false;
-        }
-        // todo; add parameters == null check to DefaultGlueMetastoreTableFilterProvider.isDeltaLakeTable (https://github.com/trinodb/trino/issues/12013)
-        return DefaultGlueMetastoreTableFilterProvider.isDeltaLakeTable(table);
     }
 }
