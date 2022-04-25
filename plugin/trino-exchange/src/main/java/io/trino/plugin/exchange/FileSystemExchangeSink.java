@@ -69,6 +69,7 @@ public class FileSystemExchangeSink
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(FileSystemExchangeSink.class).instanceSize();
 
     private final FileSystemExchangeStorage exchangeStorage;
+    private final FileSystemExchangeStats stats;
     private final URI outputDirectory;
     private final int outputPartitionCount;
     private final Optional<SecretKey> secretKey;
@@ -83,6 +84,7 @@ public class FileSystemExchangeSink
 
     public FileSystemExchangeSink(
             FileSystemExchangeStorage exchangeStorage,
+            FileSystemExchangeStats stats,
             URI outputDirectory,
             int outputPartitionCount,
             Optional<SecretKey> secretKey,
@@ -96,6 +98,7 @@ public class FileSystemExchangeSink
                 format("maxPageStorageSizeInBytes %s exceeded maxFileSizeInBytes %s", succinctBytes(maxPageStorageSizeInBytes), succinctBytes(maxFileSizeInBytes)));
 
         this.exchangeStorage = requireNonNull(exchangeStorage, "exchangeStorage is null");
+        this.stats = requireNonNull(stats, "stats is null");
         this.outputDirectory = requireNonNull(outputDirectory, "outputDirectory is null");
         this.outputPartitionCount = outputPartitionCount;
         this.secretKey = requireNonNull(secretKey, "secretKey is null");
@@ -103,7 +106,7 @@ public class FileSystemExchangeSink
         this.maxPageStorageSizeInBytes = maxPageStorageSizeInBytes;
         this.maxFileSizeInBytes = maxFileSizeInBytes;
         // buffer pooling to overlap computation and I/O
-        this.bufferPool = new BufferPool(max(outputPartitionCount * exchangeSinkBuffersPerPartition, exchangeSinkBufferPoolMinSize), exchangeStorage.getWriteBufferSize());
+        this.bufferPool = new BufferPool(stats, max(outputPartitionCount * exchangeSinkBuffersPerPartition, exchangeSinkBufferPoolMinSize), exchangeStorage.getWriteBufferSize());
     }
 
     // The future returned by {@link #isBlocked()} should only be considered as a best-effort hint.
@@ -135,6 +138,7 @@ public class FileSystemExchangeSink
     {
         return new BufferedStorageWriter(
                 exchangeStorage,
+                stats,
                 outputDirectory,
                 secretKey,
                 preserveRecordsOrder,
@@ -182,7 +186,7 @@ public class FileSystemExchangeSink
             }
         }, directExecutor());
 
-        return toCompletableFuture(finishFuture);
+        return stats.getExchangeSinkFinish().record(toCompletableFuture(finishFuture));
     }
 
     @Override
@@ -197,10 +201,10 @@ public class FileSystemExchangeSink
                 writersMap.values().stream().map(BufferedStorageWriter::abort).collect(toImmutableList())));
         addSuccessCallback(abortFuture, this::destroy);
 
-        return toCompletableFuture(Futures.transformAsync(
+        return stats.getExchangeSinkAbort().record(toCompletableFuture(Futures.transformAsync(
                 abortFuture,
                 ignored -> exchangeStorage.deleteRecursively(outputDirectory),
-                directExecutor()));
+                directExecutor())));
     }
 
     private void throwIfFailed()
@@ -224,6 +228,7 @@ public class FileSystemExchangeSink
         private static final int INSTANCE_SIZE = ClassLayout.parseClass(BufferedStorageWriter.class).instanceSize();
 
         private final FileSystemExchangeStorage exchangeStorage;
+        private final FileSystemExchangeStats stats;
         private final URI outputDirectory;
         private final Optional<SecretKey> secretKey;
         private final boolean preserveRecordsOrder;
@@ -246,6 +251,7 @@ public class FileSystemExchangeSink
 
         public BufferedStorageWriter(
                 FileSystemExchangeStorage exchangeStorage,
+                FileSystemExchangeStats stats,
                 URI outputDirectory,
                 Optional<SecretKey> secretKey,
                 boolean preserveRecordsOrder,
@@ -256,6 +262,7 @@ public class FileSystemExchangeSink
                 long maxFileSizeInBytes)
         {
             this.exchangeStorage = requireNonNull(exchangeStorage, "exchangeStorage is null");
+            this.stats = requireNonNull(stats, "stats is null");
             this.outputDirectory = requireNonNull(outputDirectory, "outputDirectory is null");
             this.secretKey = requireNonNull(secretKey, "secretKey is null");
             this.preserveRecordsOrder = preserveRecordsOrder;
@@ -280,6 +287,7 @@ public class FileSystemExchangeSink
             }
 
             if (currentFileSize + requiredPageStorageSize > maxFileSizeInBytes && !preserveRecordsOrder) {
+                stats.getFileSizeInBytes().add(currentFileSize);
                 flushIfNeeded(true);
                 setupWriterForNextPart();
                 currentFileSize = 0;
@@ -298,6 +306,7 @@ public class FileSystemExchangeSink
                 return immediateFailedFuture(new IllegalStateException("BufferedStorageWriter has already closed"));
             }
 
+            stats.getFileSizeInBytes().add(currentFileSize);
             flushIfNeeded(true);
             if (writers.size() == 1) {
                 return currentWriter.finish();
@@ -368,6 +377,7 @@ public class FileSystemExchangeSink
     {
         private static final int INSTANCE_SIZE = ClassLayout.parseClass(BufferPool.class).instanceSize();
 
+        private final FileSystemExchangeStats stats;
         private final int numBuffers;
         private final long bufferRetainedSize;
         @GuardedBy("this")
@@ -377,8 +387,9 @@ public class FileSystemExchangeSink
         @GuardedBy("this")
         private boolean closed;
 
-        public BufferPool(int numBuffers, int writeBufferSize)
+        public BufferPool(FileSystemExchangeStats stats, int numBuffers, int writeBufferSize)
         {
+            this.stats = requireNonNull(stats, "stats is null");
             checkArgument(numBuffers >= 1, "numBuffers must be at least one");
 
             this.numBuffers = numBuffers;
@@ -394,6 +405,7 @@ public class FileSystemExchangeSink
             if (freeBuffersQueue.isEmpty()) {
                 if (blockedFuture.isDone()) {
                     blockedFuture = new CompletableFuture<>();
+                    stats.getExchangeSinkBlocked().record(blockedFuture);
                 }
                 return blockedFuture;
             }

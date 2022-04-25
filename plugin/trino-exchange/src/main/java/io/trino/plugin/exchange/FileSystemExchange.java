@@ -17,6 +17,8 @@ import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimap;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.spi.exchange.Exchange;
 import io.trino.spi.exchange.ExchangeContext;
 import io.trino.spi.exchange.ExchangeSinkHandle;
@@ -66,6 +68,7 @@ public class FileSystemExchange
 
     private final List<URI> baseDirectories;
     private final FileSystemExchangeStorage exchangeStorage;
+    private final FileSystemExchangeStats stats;
     private final ExchangeContext exchangeContext;
     private final int outputPartitionCount;
     private final Optional<SecretKey> secretKey;
@@ -87,6 +90,7 @@ public class FileSystemExchange
     public FileSystemExchange(
             List<URI> baseDirectories,
             FileSystemExchangeStorage exchangeStorage,
+            FileSystemExchangeStats stats,
             ExchangeContext exchangeContext,
             int outputPartitionCount,
             Optional<SecretKey> secretKey,
@@ -97,6 +101,7 @@ public class FileSystemExchange
 
         this.baseDirectories = ImmutableList.copyOf(directories);
         this.exchangeStorage = requireNonNull(exchangeStorage, "exchangeStorage is null");
+        this.stats = requireNonNull(stats, "stats is null");
         this.exchangeContext = requireNonNull(exchangeContext, "exchangeContext is null");
         this.outputPartitionCount = outputPartitionCount;
         this.secretKey = requireNonNull(secretKey, "secretKey is null");
@@ -157,7 +162,9 @@ public class FileSystemExchange
             if (noMoreSinks && finishedSinks.containsAll(allSinks)) {
                 // input is ready, create exchange source handles
                 exchangeSourceHandlesCreationStarted = true;
-                exchangeSourceHandlesCreationFuture = supplyAsync(this::createExchangeSourceHandles, executor);
+                exchangeSourceHandlesCreationFuture = supplyAsync(
+                        () -> stats.getCreateExchangeSourceHandles().record(this::createExchangeSourceHandles),
+                        executor);
             }
         }
         if (exchangeSourceHandlesCreationFuture != null) {
@@ -180,8 +187,8 @@ public class FileSystemExchange
             finishedTaskPartitions = ImmutableList.copyOf(finishedSinks);
         }
         for (Integer taskPartition : finishedTaskPartitions) {
-            URI committedAttemptPath = getCommittedAttemptPath(taskPartition);
-            Multimap<Integer, FileStatus> partitions = getCommittedPartitions(committedAttemptPath);
+            URI committedAttemptPath = stats.getGetCommittedAttemptPath().record(() -> getCommittedAttemptPath(taskPartition));
+            Multimap<Integer, FileStatus> partitions = stats.getGetCommittedPartitions().record(() -> getCommittedPartitions(committedAttemptPath));
             partitions.forEach(partitionFiles::put);
         }
 
@@ -298,8 +305,10 @@ public class FileSystemExchange
     @Override
     public void close()
     {
+        ImmutableList.Builder<ListenableFuture<Void>> futures = ImmutableList.builder();
         for (Integer taskPartitionId : allSinks) {
-            exchangeStorage.deleteRecursively(getTaskOutputDirectory(taskPartitionId));
+            futures.add(exchangeStorage.deleteRecursively(getTaskOutputDirectory(taskPartitionId)));
         }
+        stats.getCloseExchange().record(Futures.allAsList(futures.build()));
     }
 }
