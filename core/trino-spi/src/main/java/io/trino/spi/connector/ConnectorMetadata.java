@@ -1370,4 +1370,12 @@ public interface ConnectorMetadata
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support versioned tables");
     }
+
+    /**
+     * Checks if the object exists.
+     */
+    default boolean doesObjectExist(ConnectorSession session, String name)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support relations check");
+    }
 }

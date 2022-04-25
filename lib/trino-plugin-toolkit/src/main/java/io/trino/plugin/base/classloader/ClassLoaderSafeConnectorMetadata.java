@@ -1062,4 +1062,12 @@ public class ClassLoaderSafeConnectorMetadata
             return delegate.isSupportedVersionType(session, tableName, pointerType, versioning);
         }
     }
+
+    @Override
+    public boolean doesObjectExist(ConnectorSession session, String name)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader((classLoader))) {
+            return delegate.doesObjectExist(session, name);
+        }
+    }
 }
