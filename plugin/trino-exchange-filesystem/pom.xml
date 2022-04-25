@@ -8,7 +8,7 @@
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
-    <artifactId>trino-exchange</artifactId>
+    <artifactId>trino-exchange-filesystem</artifactId>
     <description>Trino - Exchange</description>
     <packaging>trino-plugin</packaging>
 
