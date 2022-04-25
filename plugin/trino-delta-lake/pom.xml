@@ -199,13 +199,13 @@
         <!-- for testing -->
         <dependency>
             <groupId>io.trino</groupId>
-            <artifactId>trino-exchange</artifactId>
+            <artifactId>trino-exchange-filesystem</artifactId>
             <scope>test</scope>
         </dependency>
 
         <dependency>
             <groupId>io.trino</groupId>
-            <artifactId>trino-exchange</artifactId>
+            <artifactId>trino-exchange-filesystem</artifactId>
             <type>test-jar</type>
             <scope>test</scope>
         </dependency>
@@ -309,12 +309,12 @@
             <scope>test</scope>
             <exclusions>
                 <exclusion>
-                    <!-- conflicts with newer version of netty coming from AWS S3 cli via trino-exchange -->
+                    <!-- conflicts with newer version of netty coming from AWS S3 cli via trino-exchange-filesystem -->
                     <groupId>io.netty</groupId>
                     <artifactId>netty-transport-classes-epoll</artifactId>
                 </exclusion>
                 <exclusion>
-                    <!-- conflicts with newer version of netty coming from AWS S3 cli via trino-exchange -->
+                    <!-- conflicts with newer version of netty coming from AWS S3 cli via trino-exchange-filesystem -->
                     <groupId>io.netty</groupId>
                     <artifactId>netty-transport-native-epoll</artifactId>
                 </exclusion>
