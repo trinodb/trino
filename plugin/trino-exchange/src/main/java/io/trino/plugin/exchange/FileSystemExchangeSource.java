@@ -36,16 +36,20 @@ import static java.util.Objects.requireNonNull;
 public class FileSystemExchangeSource
         implements ExchangeSource
 {
+    private final FileSystemExchangeStats stats;
     private final List<ExchangeStorageReader> readers;
+    private volatile CompletableFuture<Void> blocked;
     private volatile boolean closed;
 
     public FileSystemExchangeSource(
             FileSystemExchangeStorage exchangeStorage,
+            FileSystemExchangeStats stats,
             List<ExchangeSourceFile> sourceFiles,
             int maxPageStorageSize,
             int exchangeSourceConcurrentReaders)
     {
         requireNonNull(exchangeStorage, "exchangeStorage is null");
+        this.stats = requireNonNull(stats, "stats is null");
         Queue<ExchangeSourceFile> sourceFileQueue = new ArrayBlockingQueue<>(sourceFiles.size());
         sourceFileQueue.addAll(sourceFiles);
 
@@ -61,16 +65,25 @@ public class FileSystemExchangeSource
     @Override
     public CompletableFuture<Void> isBlocked()
     {
+        CompletableFuture<Void> blocked = this.blocked;
+        if (blocked != null && !blocked.isDone()) {
+            return blocked;
+        }
         for (ExchangeStorageReader reader : readers) {
             if (reader.isBlocked().isDone()) {
                 return NOT_BLOCKED;
             }
         }
-        return toCompletableFuture(
-                nonCancellationPropagating(
-                        whenAnyComplete(readers.stream()
-                                .map(ExchangeStorageReader::isBlocked)
-                                .collect(toImmutableList()))));
+        synchronized (this) {
+            if (this.blocked == null || this.blocked.isDone()) {
+                this.blocked = stats.getExchangeSourceBlocked().record(toCompletableFuture(
+                        nonCancellationPropagating(
+                                whenAnyComplete(readers.stream()
+                                        .map(ExchangeStorageReader::isBlocked)
+                                        .collect(toImmutableList())))));
+            }
+            return this.blocked;
+        }
     }
 
     @Override

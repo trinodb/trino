@@ -15,11 +15,14 @@ package io.trino.plugin.exchange;
 
 import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
+import io.trino.plugin.base.jmx.MBeanServerModule;
+import io.trino.plugin.base.jmx.PrefixObjectNameGeneratorModule;
 import io.trino.spi.exchange.ExchangeManager;
 import io.trino.spi.exchange.ExchangeManagerFactory;
 import io.trino.spi.exchange.ExchangeManagerHandleResolver;
 import io.trino.spi.exchange.ExchangeSinkInstanceHandle;
 import io.trino.spi.exchange.ExchangeSourceHandle;
+import org.weakref.jmx.guice.MBeanModule;
 
 import java.util.Map;
 
@@ -39,7 +42,11 @@ public class FileSystemExchangeManagerFactory
     {
         requireNonNull(config, "config is null");
 
-        Bootstrap app = new Bootstrap(new FileSystemExchangeModule());
+        Bootstrap app = new Bootstrap(
+                new MBeanModule(),
+                new MBeanServerModule(),
+                new PrefixObjectNameGeneratorModule("io.trino.plugin.exchange", "trino.plugin.exchange"),
+                new FileSystemExchangeModule());
 
         Injector injector = app
                 .doNotInitializeLogging()

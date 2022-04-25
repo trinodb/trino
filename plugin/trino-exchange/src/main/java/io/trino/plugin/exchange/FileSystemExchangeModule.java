@@ -20,6 +20,7 @@ import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.exchange.local.LocalFileSystemExchangeStorage;
 import io.trino.plugin.exchange.s3.ExchangeS3Config;
 import io.trino.plugin.exchange.s3.S3FileSystemExchangeStorage;
+import io.trino.plugin.exchange.s3.S3FileSystemExchangeStorageStats;
 import io.trino.spi.TrinoException;
 
 import java.net.URI;
@@ -29,6 +30,7 @@ import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.spi.StandardErrorCode.CONFIGURATION_INVALID;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
+import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class FileSystemExchangeModule
         extends AbstractConfigurationAwareModule
@@ -36,6 +38,9 @@ public class FileSystemExchangeModule
     @Override
     protected void setup(Binder binder)
     {
+        binder.bind(FileSystemExchangeStats.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(FileSystemExchangeStats.class).withGeneratedName();
+
         binder.bind(FileSystemExchangeManager.class).in(Scopes.SINGLETON);
 
         List<URI> baseDirectories = buildConfigObject(FileSystemExchangeConfig.class).getBaseDirectories();
@@ -47,6 +52,8 @@ public class FileSystemExchangeModule
             binder.bind(FileSystemExchangeStorage.class).to(LocalFileSystemExchangeStorage.class).in(Scopes.SINGLETON);
         }
         else if (ImmutableSet.of("s3", "s3a", "s3n").contains(scheme)) {
+            binder.bind(S3FileSystemExchangeStorageStats.class).in(Scopes.SINGLETON);
+            newExporter(binder).export(S3FileSystemExchangeStorageStats.class).withGeneratedName();
             binder.bind(FileSystemExchangeStorage.class).to(S3FileSystemExchangeStorage.class).in(Scopes.SINGLETON);
             configBinder(binder).bindConfig(ExchangeS3Config.class);
         }
