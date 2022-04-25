@@ -11,28 +11,35 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-FROM registry.access.redhat.com/ubi8/ubi
+FROM registry.access.redhat.com/ubi8/ubi:8.5
 
 ENV JAVA_HOME /usr/lib/jvm/zulu11
 RUN \
     set -xeu && \
     yum -y -q install https://cdn.azul.com/zulu/bin/zulu-repo-1.0.0-1.noarch.rpm && \
     yum -y -q install python3 zulu11-jdk less && \
+    yum update -q -y && \
     yum -q clean all && \
     rm -rf /var/cache/yum && \
     alternatives --set python /usr/bin/python3 && \
-    groupadd trino --gid 1000 && \
-    useradd trino --uid 1000 --gid 1000 && \
-    mkdir -p /usr/lib/trino /data/trino && \
-    chown -R "trino:trino" /usr/lib/trino /data/trino
+    #groupadd trino --gid 1000 && \
+    #useradd trino --uid 1000 --gid 1000 && \
+    mkdir -p /usr/lib/trino /data/trino/ && \
+    chown -R 1001:0 /usr/lib/trino /data/trino && \
+    chmod -R ug+rwX /usr/lib/trino /data/trino
+    #chown -R "trino:trino" /usr/lib/trino /data/trino
 
 ARG TRINO_VERSION
 COPY trino-cli-${TRINO_VERSION}-executable.jar /usr/bin/trino
-COPY --chown=trino:trino trino-server-${TRINO_VERSION} /usr/lib/trino
-COPY --chown=trino:trino default/etc /etc/trino
+COPY --chown=1001:0 trino-server-${TRINO_VERSION} /usr/lib/trino
+COPY --chown=1001:0 jmx_prometheus_javaagent-0.16.1.jar /usr/lib/trino/lib
+COPY --chown=1001:0 default/etc /etc/trino
 
-EXPOSE 8080
-USER trino:trino
+RUN chmod +x /usr/lib/trino/bin/run-trino
+
+
+EXPOSE 8080 9000
+USER 1001
 ENV LANG en_US.UTF-8
 CMD ["/usr/lib/trino/bin/run-trino"]
 HEALTHCHECK --interval=10s --timeout=5s --start-period=10s \
