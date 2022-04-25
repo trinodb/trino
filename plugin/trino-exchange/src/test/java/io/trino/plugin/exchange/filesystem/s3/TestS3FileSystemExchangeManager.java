@@ -11,46 +11,37 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hive;
+package io.trino.plugin.exchange.filesystem.s3;
 
-import io.trino.plugin.exchange.filesystem.FileSystemExchangePlugin;
+import io.trino.plugin.exchange.filesystem.AbstractTestExchangeManager;
+import io.trino.plugin.exchange.filesystem.FileSystemExchangeManagerFactory;
 import io.trino.plugin.exchange.filesystem.containers.MinioStorage;
-import io.trino.testing.AbstractTestFaultTolerantExecutionJoinQueries;
-import io.trino.testing.QueryRunner;
+import io.trino.spi.exchange.ExchangeManager;
 import org.testng.annotations.AfterClass;
 
-import java.util.Map;
-
 import static io.trino.plugin.exchange.filesystem.containers.MinioStorage.getExchangeManagerProperties;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
-import static io.trino.tpch.TpchTable.getTables;
+import static java.util.UUID.randomUUID;
 
-public class TestHiveFaultTolerantExecutionJoinQueries
-        extends AbstractTestFaultTolerantExecutionJoinQueries
+public class TestS3FileSystemExchangeManager
+        extends AbstractTestExchangeManager
 {
     private MinioStorage minioStorage;
 
     @Override
-    protected QueryRunner createQueryRunner(Map<String, String> extraProperties)
-            throws Exception
+    protected ExchangeManager createExchangeManager()
     {
-        this.minioStorage = new MinioStorage("test-exchange-spooling-" + randomTableSuffix());
+        this.minioStorage = new MinioStorage("test-exchange-spooling-" + randomUUID());
         minioStorage.start();
 
-        return HiveQueryRunner.builder()
-                .setExtraProperties(extraProperties)
-                .setAdditionalSetup(runner -> {
-                    runner.installPlugin(new FileSystemExchangePlugin());
-                    runner.loadExchangeManager("filesystem", getExchangeManagerProperties(minioStorage));
-                })
-                .setInitialTables(getTables())
-                .build();
+        return new FileSystemExchangeManagerFactory().create(getExchangeManagerProperties(minioStorage));
     }
 
+    @Override
     @AfterClass(alwaysRun = true)
     public void destroy()
             throws Exception
     {
+        super.destroy();
         if (minioStorage != null) {
             minioStorage.close();
             minioStorage = null;

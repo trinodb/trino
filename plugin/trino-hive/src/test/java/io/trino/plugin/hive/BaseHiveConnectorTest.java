@@ -31,7 +31,7 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableMetadata;
-import io.trino.plugin.exchange.FileSystemExchangePlugin;
+import io.trino.plugin.exchange.filesystem.FileSystemExchangePlugin;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
