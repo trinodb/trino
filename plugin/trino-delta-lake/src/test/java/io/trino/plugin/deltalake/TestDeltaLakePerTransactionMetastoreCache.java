@@ -110,7 +110,6 @@ public class TestDeltaLakePerTransactionMetastoreCache
                         binder.bind(ThriftMetastore.class).to(ThriftHiveMetastore.class).in(Scopes.SINGLETON);
                         newExporter(binder).export(ThriftMetastore.class).as((generator) -> generator.generatedNameOf(ThriftHiveMetastore.class));
                         install(new ThriftMetastoreAuthenticationModule());
-                        binder.bind(Boolean.class).annotatedWith(HideNonDeltaLakeTables.class).toInstance(false);
                         binder.bind(BridgingHiveMetastoreFactory.class).in(Scopes.SINGLETON);
                     }
 
