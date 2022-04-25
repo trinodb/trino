@@ -118,7 +118,7 @@
         <module>plugin/trino-druid</module>
         <module>plugin/trino-elasticsearch</module>
         <module>plugin/trino-example-http</module>
-        <module>plugin/trino-exchange</module>
+        <module>plugin/trino-exchange-filesystem</module>
         <module>plugin/trino-geospatial</module>
         <module>plugin/trino-google-sheets</module>
         <module>plugin/trino-hive</module>
@@ -265,13 +265,13 @@
 
             <dependency>
                 <groupId>io.trino</groupId>
-                <artifactId>trino-exchange</artifactId>
+                <artifactId>trino-exchange-filesystem</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.trino</groupId>
-                <artifactId>trino-exchange</artifactId>
+                <artifactId>trino-exchange-filesystem</artifactId>
                 <type>test-jar</type>
                 <version>${project.version}</version>
             </dependency>

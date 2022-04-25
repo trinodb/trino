@@ -283,8 +283,8 @@
         </artifact>
     </artifactSet>
 
-    <artifactSet to="plugin/exchange">
-        <artifact id="${project.groupId}:trino-exchange:zip:${project.version}">
+    <artifactSet to="plugin/exchange-filesystem">
+        <artifact id="${project.groupId}:trino-exchange-filesystem:zip:${project.version}">
             <unpack />
         </artifact>
     </artifactSet>
