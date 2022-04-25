@@ -268,7 +268,8 @@ class StageSummary extends React.Component {
         super(props);
         this.state = {
             expanded: false,
-            lastRender: null
+            lastRender: null,
+            taskFilter: TASK_FILTER.ALL
         };
     }
 
@@ -354,8 +355,61 @@ class StageSummary extends React.Component {
         }
     }
 
+    renderTaskList(taskRetriesEnabled) {
+        let tasks = this.state.expanded ? this.props.stage.tasks : [];
+        tasks = tasks.filter(task => this.state.taskFilter(task.taskStatus.state), this);
+        return (<TaskList tasks={tasks} taskRetriesEnabled={taskRetriesEnabled}/>);
+    }
+
+    handleTaskFilterClick(filter, event) {
+        this.setState({
+            taskFilter: filter
+        });
+        event.preventDefault();
+    }
+
+    renderTaskFilterListItem(taskFilter, taskFilterText) {
+        return (
+            <li><a href="#" className={this.state.taskFilter === taskFilter ? "selected" : ""} onClick={this.handleTaskFilterClick.bind(this, taskFilter)}>{taskFilterText}</a></li>
+        );
+    }
+
+    renderTaskFilter() {
+        return (<div className="row">
+                            <div className="col-xs-6">
+                                <h3>Tasks</h3>
+                            </div>
+                            <div className="col-xs-6">
+                                <table className="header-inline-links">
+                                    <tbody>
+                                    <tr>
+                                        <td>
+                                            <div className="input-group-btn text-right">
+                                                <button type="button" className="btn btn-default dropdown-toggle pull-right text-right" data-toggle="dropdown" aria-haspopup="true"
+                                                        aria-expanded="false">
+                                                    Show <span className="caret"/>
+                                                </button>
+                                                <ul className="dropdown-menu">
+                                                    {this.renderTaskFilterListItem(TASK_FILTER.ALL, "All")}
+                                                    {this.renderTaskFilterListItem(TASK_FILTER.PLANNED, "Planned")}
+                                                    {this.renderTaskFilterListItem(TASK_FILTER.RUNNING, "Running")}
+                                                    {this.renderTaskFilterListItem(TASK_FILTER.FINISHED, "Finished")}
+                                                    {this.renderTaskFilterListItem(TASK_FILTER.FAILED, "Aborted/Canceled/Failed")}
+                                                </ul>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+        );
+    }
+
     render() {
         const stage = this.props.stage;
+        const taskRetriesEnabled = this.props.taskRetriesEnabled;
+
         if (stage === undefined || !stage.hasOwnProperty('plan')) {
             return (
                 <tr>
@@ -614,6 +668,16 @@ class StageSummary extends React.Component {
                                 </table>
                             </td>
                         </tr>
+                        <tr style={this.getExpandedStyle()}>
+                            <td colSpan="6">
+                                {this.renderTaskFilter()}
+                            </td>
+                        </tr>
+                        <tr style={this.getExpandedStyle()}>
+                            <td colSpan="6">
+                                {this.renderTaskList(taskRetriesEnabled)}
+                            </td>
+                        </tr>
                         </tbody>
                     </table>
                 </td>
@@ -632,6 +696,7 @@ class StageList extends React.Component {
 
     render() {
         const stages = this.getStages(this.props.outputStage);
+        const taskRetriesEnabled = this.props.taskRetriesEnabled;
 
         if (stages === undefined || stages.length === 0) {
             return (
@@ -643,7 +708,7 @@ class StageList extends React.Component {
             );
         }
 
-        const renderedStages = stages.map(stage => <StageSummary key={stage.stageId} stage={stage}/>);
+        const renderedStages = stages.map(stage => <StageSummary key={stage.stageId} stage={stage} taskRetriesEnabled={taskRetriesEnabled}/>);
 
         return (
             <div className="row">
@@ -852,29 +917,6 @@ export class QueryDetail extends React.Component {
             });
     }
 
-    handleTaskRefreshClick() {
-        if (this.state.taskRefresh) {
-            this.setState({
-                taskRefresh: false,
-                lastSnapshotTasks: this.state.query.outputStage,
-            });
-        }
-        else {
-            this.setState({
-                taskRefresh: true,
-            });
-        }
-    }
-
-    renderTaskRefreshButton() {
-        if (this.state.taskRefresh) {
-            return <button className="btn btn-info live-button" onClick={this.handleTaskRefreshClick.bind(this)}>Auto-Refresh: On</button>
-        }
-        else {
-            return <button className="btn btn-info live-button" onClick={this.handleTaskRefreshClick.bind(this)}>Auto-Refresh: Off</button>
-        }
-    }
-
     handleStageRefreshClick() {
         if (this.state.stageRefresh) {
             this.setState({
@@ -896,27 +938,6 @@ export class QueryDetail extends React.Component {
         else {
             return <button className="btn btn-info live-button" onClick={this.handleStageRefreshClick.bind(this)}>Auto-Refresh: Off</button>
         }
-    }
-
-    renderTaskFilterListItem(taskFilter, taskFilterText) {
-        return (
-            <li><a href="#" className={this.state.taskFilter === taskFilter ? "selected" : ""} onClick={this.handleTaskFilterClick.bind(this, taskFilter)}>{taskFilterText}</a></li>
-        );
-    }
-
-    handleTaskFilterClick(filter, event) {
-        this.setState({
-            taskFilter: filter
-        });
-        event.preventDefault();
-    }
-
-    getTasksFromStage(stage) {
-        if (stage === undefined || !stage.hasOwnProperty('subStages') || !stage.hasOwnProperty('tasks')) {
-            return []
-        }
-
-        return [].concat.apply(stage.tasks, stage.subStages.map(this.getTasksFromStage, this));
     }
 
     componentDidMount() {
@@ -957,54 +978,7 @@ export class QueryDetail extends React.Component {
         new window.ClipboardJS('.copy-button');
     }
 
-    renderTasks(taskRetriesEnabled) {
-        if (this.state.lastSnapshotTasks === null) {
-            return;
-        }
-
-        const tasks = this.getTasksFromStage(this.state.lastSnapshotTasks).filter(task => this.state.taskFilter(task.taskStatus.state), this);
-
-        return (
-            <div>
-                <div className="row">
-                    <div className="col-xs-9">
-                        <h3>Tasks</h3>
-                    </div>
-                    <div className="col-xs-3">
-                        <table className="header-inline-links">
-                            <tbody>
-                            <tr>
-                                <td>
-                                    <div className="input-group-btn text-right">
-                                        <button type="button" className="btn btn-default dropdown-toggle pull-right text-right" data-toggle="dropdown" aria-haspopup="true"
-                                                aria-expanded="false">
-                                            Show <span className="caret"/>
-                                        </button>
-                                        <ul className="dropdown-menu">
-                                            {this.renderTaskFilterListItem(TASK_FILTER.ALL, "All")}
-                                            {this.renderTaskFilterListItem(TASK_FILTER.PLANNED, "Planned")}
-                                            {this.renderTaskFilterListItem(TASK_FILTER.RUNNING, "Running")}
-                                            {this.renderTaskFilterListItem(TASK_FILTER.FINISHED, "Finished")}
-                                            {this.renderTaskFilterListItem(TASK_FILTER.FAILED, "Aborted/Canceled/Failed")}
-                                        </ul>
-                                    </div>
-                                </td>
-                                <td>&nbsp;&nbsp;{this.renderTaskRefreshButton()}</td>
-                            </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-                <div className="row">
-                    <div className="col-xs-12">
-                        <TaskList key={this.state.query.queryId} tasks={tasks} taskRetriesEnabled={taskRetriesEnabled}/>
-                    </div>
-                </div>
-            </div>
-        );
-    }
-
-    renderStages() {
+    renderStages(taskRetriesEnabled) {
         if (this.state.lastSnapshotStage === null) {
             return;
         }
@@ -1029,7 +1003,7 @@ export class QueryDetail extends React.Component {
                 </div>
                 <div className="row">
                     <div className="col-xs-12">
-                        <StageList key={this.state.query.queryId} outputStage={this.state.lastSnapshotStage}/>
+                        <StageList key={this.state.query.queryId} outputStage={this.state.lastSnapshotStage} taskRetriesEnabled={taskRetriesEnabled} />
                     </div>
                 </div>
             </div>
@@ -1723,8 +1697,7 @@ export class QueryDetail extends React.Component {
                     </div>
                     {this.renderPreparedQuery()}
                 </div>
-                {this.renderStages()}
-                {this.renderTasks(taskRetriesEnabled)}
+                {this.renderStages(taskRetriesEnabled)}
             </div>
         );
     }
