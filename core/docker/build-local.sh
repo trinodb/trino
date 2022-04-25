@@ -11,6 +11,7 @@ cd ${SCRIPT_DIR}
 # Move to the root directory to run maven for current version.
 pushd ${SOURCE_DIR}
 TRINO_VERSION=$(./mvnw --quiet help:evaluate -Dexpression=project.version -DforceStdout)
+#TRINO_VERSION="LV-trino-0.1.1"
 popd
 
 WORK_DIR="$(mktemp -d)"

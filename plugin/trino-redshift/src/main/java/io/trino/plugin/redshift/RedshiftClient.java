@@ -39,6 +39,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
+import java.util.List;
 import java.util.Optional;
 import java.util.function.BiFunction;
 
@@ -123,10 +124,16 @@ public class RedshiftClient
         // In PostgreSQL, fetch-size is ignored when connection is in auto-commit. Redshift JDBC documentation does not state this requirement
         // but it still links to https://jdbc.postgresql.org/documentation/head/query.html#query-with-cursor for more information, which states
         // that.
-        connection.setAutoCommit(false);
+        // connection.setAutoCommit(false);
         PreparedStatement statement = connection.prepareStatement(sql);
         statement.setFetchSize(1000);
         return statement;
+    }
+
+    @Override
+    protected Optional<List<String>> getTableTypes()
+    {
+        return Optional.of(List.of("TABLE", "VIEW", "EXTERNAL TABLE", "EXTERNAL VIEW"));
     }
 
     @Override
