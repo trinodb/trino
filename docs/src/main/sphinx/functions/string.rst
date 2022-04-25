@@ -31,6 +31,10 @@ String functions
     some languages. Specifically, this will return incorrect results for
     Lithuanian, Turkish and Azeri.
 
+.. function:: ascii(string) -> integer
+
+    Returns the numeric value of the leftmost character of the ``string`` str. Returns 0 if str is the empty string. Returns NULL if str is NULL. ASCII() works for 8-bit characters.
+
 .. function:: chr(n) -> varchar
 
     Returns the Unicode code point ``n`` as a single character string.

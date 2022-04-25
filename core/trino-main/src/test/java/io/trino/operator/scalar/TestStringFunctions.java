@@ -77,6 +77,17 @@ public class TestStringFunctions
     }
 
     @Test
+    public void testAscii()
+    {
+        assertFunction("ASCII('x')", INTEGER, 120);
+        // only left-most character
+        assertFunction("ASCII('xabcd')", INTEGER, 120);
+        // Return 0 if input is empty
+        assertFunction("ASCII('')", INTEGER, 0);
+        assertFunction("ASCII(null)", INTEGER, null);
+    }
+
+    @Test
     public void testChr()
     {
         assertFunction("CHR(65)", createVarcharType(1), "A");

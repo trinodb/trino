@@ -68,6 +68,20 @@ public final class StringFunctions
 {
     private StringFunctions() {}
 
+    @Description("Return numeric value of left-most character")
+    @ScalarFunction("ascii")
+    @LiteralParameters("x")
+    @SqlType(StandardTypes.INTEGER)
+    public static long ascii(@SqlType("varchar(x)") Slice slice)
+    {
+        // If slice is empty, return ascii 0 directly.
+        if (slice.length() == 0) {
+            return 0;
+        }
+
+        return slice.getByte(0);
+    }
+
     @Description("Convert Unicode code point to a string")
     @ScalarFunction
     @SqlType("varchar(1)")
