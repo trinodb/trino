@@ -584,6 +584,10 @@ pre {
     text-align: right;
 }
 
+#stage-list #tasks {
+    text-align: left;
+}
+
 .stage-id {
     font-size: 90px;
     color: #b5b5b5;
