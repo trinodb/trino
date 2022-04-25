@@ -18,6 +18,7 @@ import com.amazonaws.services.glue.model.Partition;
 import com.amazonaws.services.glue.model.StorageDescriptor;
 import com.amazonaws.services.glue.model.Table;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.hive.HiveBucketProperty;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.Storage;
@@ -39,6 +40,10 @@ import static io.trino.plugin.hive.metastore.glue.TestingMetastoreObjects.getGlu
 import static io.trino.plugin.hive.metastore.glue.TestingMetastoreObjects.getGlueTestPartition;
 import static io.trino.plugin.hive.metastore.glue.TestingMetastoreObjects.getGlueTestStorageDescriptor;
 import static io.trino.plugin.hive.metastore.glue.TestingMetastoreObjects.getGlueTestTable;
+import static io.trino.plugin.hive.util.HiveUtil.DELTA_LAKE_PROVIDER;
+import static io.trino.plugin.hive.util.HiveUtil.ICEBERG_TABLE_TYPE_NAME;
+import static io.trino.plugin.hive.util.HiveUtil.ICEBERG_TABLE_TYPE_VALUE;
+import static io.trino.plugin.hive.util.HiveUtil.SPARK_TABLE_PROVIDER_KEY;
 import static org.apache.hadoop.hive.metastore.TableType.EXTERNAL_TABLE;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
@@ -208,6 +213,24 @@ public class TestGlueToTrinoConverter
         io.trino.plugin.hive.metastore.Table trinoTable = GlueToTrinoConverter.convertTable(testTable, testDatabase.getName());
         assertNotNull(trinoTable.getParameters());
         assertNotNull(trinoTable.getStorage().getSerdeParameters());
+    }
+
+    @Test
+    public void testIcebergTableNonNullStorageDescriptor()
+    {
+        testTable.setParameters(ImmutableMap.of(ICEBERG_TABLE_TYPE_NAME, ICEBERG_TABLE_TYPE_VALUE));
+        assertNotNull(testTable.getStorageDescriptor());
+        io.trino.plugin.hive.metastore.Table trinoTable = GlueToTrinoConverter.convertTable(testTable, testDatabase.getName());
+        assertEquals(trinoTable.getDataColumns().size(), 1);
+    }
+
+    @Test
+    public void testDeltaTableNonNullStorageDescriptor()
+    {
+        testTable.setParameters(ImmutableMap.of(SPARK_TABLE_PROVIDER_KEY, DELTA_LAKE_PROVIDER));
+        assertNotNull(testTable.getStorageDescriptor());
+        io.trino.plugin.hive.metastore.Table trinoTable = GlueToTrinoConverter.convertTable(testTable, testDatabase.getName());
+        assertEquals(trinoTable.getDataColumns().size(), 1);
     }
 
     @Test
