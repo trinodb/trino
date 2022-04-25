@@ -241,7 +241,6 @@ public class DeltaLakeMetadata
     private final long defaultCheckpointInterval;
     private final boolean ignoreCheckpointWriteFailures;
     private final int domainCompactionThreshold;
-    private final boolean hideNonDeltaLakeTables;
     private final boolean unsafeWritesEnabled;
     private final JsonCodec<DataFileInfo> dataFileInfoCodec;
     private final JsonCodec<DeltaLakeUpdateResult> updateResultJsonCodec;
@@ -259,7 +258,6 @@ public class DeltaLakeMetadata
             TypeManager typeManager,
             AccessControlMetadata accessControlMetadata,
             int domainCompactionThreshold,
-            boolean hideNonDeltaLakeTables,
             boolean unsafeWritesEnabled,
             JsonCodec<DataFileInfo> dataFileInfoCodec,
             JsonCodec<DeltaLakeUpdateResult> updateResultJsonCodec,
@@ -277,7 +275,6 @@ public class DeltaLakeMetadata
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.accessControlMetadata = requireNonNull(accessControlMetadata, "accessControlMetadata is null");
         this.domainCompactionThreshold = domainCompactionThreshold;
-        this.hideNonDeltaLakeTables = hideNonDeltaLakeTables;
         this.unsafeWritesEnabled = unsafeWritesEnabled;
         this.dataFileInfoCodec = requireNonNull(dataFileInfoCodec, "dataFileInfoCodec is null");
         this.updateResultJsonCodec = requireNonNull(updateResultJsonCodec, "updateResultJsonCodec is null");
@@ -500,9 +497,6 @@ public class DeltaLakeMetadata
                 });
             }
             catch (NotADeltaLakeTableException e) {
-                if (!hideNonDeltaLakeTables) {
-                    throw e;
-                }
                 return Stream.empty();
             }
             catch (RuntimeException e) {
