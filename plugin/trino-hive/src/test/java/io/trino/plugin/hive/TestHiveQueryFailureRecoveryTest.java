@@ -15,8 +15,8 @@ package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.operator.RetryPolicy;
-import io.trino.plugin.exchange.FileSystemExchangePlugin;
-import io.trino.plugin.exchange.containers.MinioStorage;
+import io.trino.plugin.exchange.filesystem.FileSystemExchangePlugin;
+import io.trino.plugin.exchange.filesystem.containers.MinioStorage;
 import io.trino.plugin.hive.containers.HiveHadoop;
 import io.trino.plugin.hive.containers.HiveMinioDataLake;
 import io.trino.plugin.hive.s3.S3HiveQueryRunner;
@@ -27,7 +27,7 @@ import org.testng.annotations.AfterClass;
 import java.util.List;
 import java.util.Map;
 
-import static io.trino.plugin.exchange.containers.MinioStorage.getExchangeManagerProperties;
+import static io.trino.plugin.exchange.filesystem.containers.MinioStorage.getExchangeManagerProperties;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 
 public class TestHiveQueryFailureRecoveryTest
