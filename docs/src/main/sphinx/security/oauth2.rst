@@ -21,6 +21,9 @@ Set the callback/redirect URL to ``https://<trino-coordinator-domain-name>/oauth
 when configuring an OAuth 2.0 authorization server like an OpenID-connect
 provider.
 
+Using :doc:`TLS <tls>` and :doc:`a configured shared secret
+</security/internal-communication>` is required for OAuth 2.0 authentication.
+
 Trino server configuration
 --------------------------
 

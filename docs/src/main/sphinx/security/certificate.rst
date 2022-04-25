@@ -16,6 +16,9 @@ Trino server on initial connection.
     client certificates in order to use this authentication type. Consider
     instead using another :ref:`authentication type <cl-access-auth>`.
 
+Using :doc:`TLS <tls>` and :doc:`a configured shared secret
+</security/internal-communication>` is required for certificate authentication.
+
 Using certificate authentication
 --------------------------------
 

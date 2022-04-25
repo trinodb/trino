@@ -9,11 +9,11 @@ username and password is supported. The Trino client sends a username
 and password to the coordinator, and the coordinator validates these
 credentials using an external LDAP service.
 
-To enable LDAP authentication for Trino, configuration changes are made on
-the Trino coordinator. No changes are required to the worker configuration;
-only the communication from the clients to the coordinator is authenticated.
-However, if you want to secure the communication between
-Trino nodes with SSL/TLS configure :doc:`/security/internal-communication`.
+To enable LDAP authentication for Trino, LDAP-related configuration changes are
+made on the Trino coordinator.
+
+Using :doc:`TLS <tls>` and :doc:`a configured shared secret
+</security/internal-communication>` is required for LDAP authentication.
 
 Trino server configuration
 ---------------------------

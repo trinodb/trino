@@ -6,12 +6,13 @@ The Trino cluster can be configured to use secured communication with internal
 authentication of the nodes in the cluster, and optionally added security with
 :ref:`TLS <glossTLS>`.
 
-Internal authentication
------------------------
+Shared secret for internal authentication
+-----------------------------------------
 
 Requests between Trino nodes are authenticated using a shared secret. For secure
-internal communication, the shared secret must be set to the same value on all
-nodes in the cluster:
+internal communication, and for any :ref:`external authentication
+<security-authentication>`, the shared secret must be set to the same value in
+:ref:`config.properties <config_properties>` on all nodes in the cluster:
 
 .. code-block:: text
 
