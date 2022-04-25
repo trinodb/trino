@@ -11,8 +11,9 @@
 
 ## Security
 
-* Require value for the ``internal-communication.shared-secret`` configuration
-  property when authentication is enabled. ({issue}`11944`)
+* Require value for [the shared secret configuration for internal
+  communication](/security/internal-communication) when any authentication is
+  enabled. ({issue}`11944`)
 
 ## CLI
 

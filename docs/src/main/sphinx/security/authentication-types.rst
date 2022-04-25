@@ -4,7 +4,8 @@ Authentication types
 
 Trino supports multiple authentication types to ensure all users of the system
 are authenticated. Different authenticators allow user management in one or more
-systems. Using :doc:`TLS <tls>` is required for all authentications types.
+systems. Using :doc:`TLS <tls>` and :doc:`a configured shared secret
+</security/internal-communication>` are required for all authentications types.
 
 You can configure one or more authentication types with the
 ``http-server.authentication.type`` property. The following authentication types
