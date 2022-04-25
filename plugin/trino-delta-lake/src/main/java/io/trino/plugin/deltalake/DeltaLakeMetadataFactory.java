@@ -49,7 +49,6 @@ public class DeltaLakeMetadataFactory
     private final DeltaLakeRedirectionsProvider deltaLakeRedirectionsProvider;
     private final CachingExtendedStatisticsAccess statisticsAccess;
     private final int domainCompactionThreshold;
-    private final boolean hideNonDeltaLakeTables;
     private final boolean unsafeWritesEnabled;
     private final long checkpointWritingInterval;
     private final boolean ignoreCheckpointWriteFailures;
@@ -64,7 +63,6 @@ public class DeltaLakeMetadataFactory
             TypeManager typeManager,
             DeltaLakeAccessControlMetadataFactory accessControlMetadataFactory,
             DeltaLakeConfig deltaLakeConfig,
-            @HideNonDeltaLakeTables boolean hideNonDeltaLakeTables,
             JsonCodec<DataFileInfo> dataFileInfoCodec,
             JsonCodec<DeltaLakeUpdateResult> updateResultJsonCodec,
             TransactionLogWriterFactory transactionLogWriterFactory,
@@ -88,7 +86,6 @@ public class DeltaLakeMetadataFactory
         this.statisticsAccess = requireNonNull(statisticsAccess, "statisticsAccess is null");
         requireNonNull(deltaLakeConfig, "deltaLakeConfig is null");
         this.domainCompactionThreshold = deltaLakeConfig.getDomainCompactionThreshold();
-        this.hideNonDeltaLakeTables = hideNonDeltaLakeTables;
         this.unsafeWritesEnabled = deltaLakeConfig.getUnsafeWritesEnabled();
         this.checkpointWritingInterval = deltaLakeConfig.getDefaultCheckpointWritingInterval();
         this.ignoreCheckpointWriteFailures = deltaLakeConfig.isIgnoreCheckpointWriteFailures();
@@ -113,7 +110,6 @@ public class DeltaLakeMetadataFactory
                 typeManager,
                 accessControlMetadataFactory.create(cachingHiveMetastore),
                 domainCompactionThreshold,
-                hideNonDeltaLakeTables,
                 unsafeWritesEnabled,
                 dataFileInfoCodec,
                 updateResultJsonCodec,
