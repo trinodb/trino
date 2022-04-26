@@ -54,6 +54,8 @@ import org.apache.kudu.client.KuduTable;
 import org.apache.kudu.client.PartialRow;
 import org.apache.kudu.client.PartitionSchema.HashBucketSchema;
 
+import javax.annotation.PreDestroy;
+
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -618,5 +620,12 @@ public class KuduClientSession
         catch (IOException e) {
             throw new TrinoException(GENERIC_INTERNAL_ERROR, e);
         }
+    }
+
+    @PreDestroy
+    public void close()
+            throws KuduException
+    {
+        this.client.close();
     }
 }
