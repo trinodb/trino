@@ -57,15 +57,6 @@ public class TestStarburstSqlServerConnectorTest
         return sessionMutator.getSession();
     }
 
-    @Override
-    protected Session joinPushdownEnabled(Session session)
-    {
-        return Session.builder(super.joinPushdownEnabled(session))
-                // strategy is AUTOMATIC by default and would not work for certain test cases (even if statistics are collected)
-                .setCatalogSessionProperty(session.getCatalog().orElseThrow(), "join_pushdown_strategy", "EAGER")
-                .build();
-    }
-
     @Flaky(issue = "fn_dblog() returns information only about the active portion of the transaction log, therefore it is flaky", match = ".*")
     @Test(dataProviderClass = DataProviders.class, dataProvider = "doubleTrueFalse")
     public void testCreateTableAsSelectWriteBulkiness(boolean bulkCopyForWrite, boolean bulkCopyForWriteLockDestinationTable)
