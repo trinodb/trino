@@ -30,6 +30,7 @@ import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.LongWriteFunction;
 import io.trino.plugin.jdbc.PreparedQuery;
 import io.trino.plugin.jdbc.QueryBuilder;
+import io.trino.plugin.jdbc.RemoteTableName;
 import io.trino.plugin.jdbc.WriteMapping;
 import io.trino.plugin.jdbc.aggregation.ImplementAvgDecimal;
 import io.trino.plugin.jdbc.aggregation.ImplementAvgFloatingPoint;
@@ -47,6 +48,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.JoinCondition;
 import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
@@ -75,6 +77,8 @@ import java.util.Optional;
 import java.util.function.BiFunction;
 import java.util.stream.Stream;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.jdbc.DecimalConfig.DecimalMapping.ALLOW_OVERFLOW;
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalDefaultScale;
@@ -125,6 +129,7 @@ import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.String.format;
+import static java.lang.String.join;
 import static java.util.stream.Collectors.joining;
 
 public class MariaDbClient
@@ -135,6 +140,9 @@ public class MariaDbClient
     private static final int ZERO_PRECISION_TIME_COLUMN_SIZE = 10;
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("uuuu-MM-dd");
+
+    // An empty character means that the table doesn't have a comment in MariaDB
+    private static final String NO_COMMENT = "";
 
     private final AggregateFunctionRewriter<JdbcExpression, String> aggregateFunctionRewriter;
 
@@ -242,9 +250,20 @@ public class MariaDbClient
 
     @Override
     public Optional<String> getTableComment(ResultSet resultSet)
+            throws SQLException
     {
-        // Don't return a comment until the connector supports creating tables with comment
-        return Optional.empty();
+        // Empty remarks means that the table doesn't have a comment in MariaDB
+        return Optional.ofNullable(emptyToNull(resultSet.getString("REMARKS")));
+    }
+
+    @Override
+    public void setTableComment(ConnectorSession session, JdbcTableHandle handle, Optional<String> comment)
+    {
+        String sql = format(
+                "ALTER TABLE %s COMMENT = '%s'",
+                quoted(handle.asPlainTable().getRemoteTableName()),
+                comment.orElse(NO_COMMENT)); // An empty character removes the existing comment in MariaDB
+        execute(session, sql);
     }
 
     @Override
@@ -431,6 +450,13 @@ public class MariaDbClient
                 quoted(catalogName, schemaName, newTableName),
                 quoted(catalogName, schemaName, tableName));
         execute(connection, sql);
+    }
+
+    @Override
+    protected String createTableSql(RemoteTableName remoteTableName, List<String> columns, ConnectorTableMetadata tableMetadata)
+    {
+        checkArgument(tableMetadata.getProperties().isEmpty(), "Unsupported table properties: %s", tableMetadata.getProperties());
+        return format("CREATE TABLE %s (%s) COMMENT '%s'", quoted(remoteTableName), join(", ", columns), tableMetadata.getComment().orElse(NO_COMMENT));
     }
 
     @Override
