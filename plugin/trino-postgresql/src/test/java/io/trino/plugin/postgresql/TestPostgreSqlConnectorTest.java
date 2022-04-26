@@ -70,7 +70,6 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 public class TestPostgreSqlConnectorTest
@@ -161,16 +160,6 @@ public class TestPostgreSqlConnectorTest
                 onRemoteDatabase(),
                 "test_unsupported_column_present",
                 "(one bigint, two decimal(50,0), three varchar(10))");
-    }
-
-    @Test
-    public void testDropTable()
-    {
-        assertUpdate("CREATE TABLE test_drop AS SELECT 123 x", 1);
-        assertTrue(getQueryRunner().tableExists(getSession(), "test_drop"));
-
-        assertUpdate("DROP TABLE test_drop");
-        assertFalse(getQueryRunner().tableExists(getSession(), "test_drop"));
     }
 
     @Test

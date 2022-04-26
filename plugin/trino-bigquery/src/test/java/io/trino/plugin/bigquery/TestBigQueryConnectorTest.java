@@ -37,8 +37,6 @@ import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 public class TestBigQueryConnectorTest
         extends BaseConnectorTest
@@ -244,17 +242,6 @@ public class TestBigQueryConnectorTest
     {
         assertThatThrownBy(super::testCreateTableAsSelectWithUnicode)
                 .hasStackTraceContaining("This connector does not support creating tables with data");
-    }
-
-    @Test
-    public void testDropTable()
-    {
-        String tableName = "test_drop_table_" + randomTableSuffix();
-        assertUpdate("CREATE TABLE " + tableName + "(col bigint)");
-        assertTrue(getQueryRunner().tableExists(getSession(), tableName));
-
-        assertUpdate("DROP TABLE " + tableName);
-        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
     }
 
     @Test

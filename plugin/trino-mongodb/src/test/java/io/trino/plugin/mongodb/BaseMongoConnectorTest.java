@@ -509,14 +509,6 @@ public abstract class BaseMongoConnectorTest
     }
 
     @Test
-    public void testDropTable()
-    {
-        assertUpdate("CREATE TABLE test.drop_table(col bigint)");
-        assertUpdate("DROP TABLE test.drop_table");
-        assertQueryFails("SELECT * FROM test.drop_table", ".*Table 'mongodb.test.drop_table' does not exist");
-    }
-
-    @Test
     public void testBooleanPredicates()
     {
         assertUpdate("CREATE TABLE boolean_predicates(id integer, value boolean)");
