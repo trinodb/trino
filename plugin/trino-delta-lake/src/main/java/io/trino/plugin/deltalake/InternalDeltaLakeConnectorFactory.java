@@ -38,6 +38,7 @@ import io.trino.plugin.hive.HiveHdfsModule;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.authentication.HdfsAuthenticationModule;
 import io.trino.plugin.hive.azure.HiveAzureModule;
+import io.trino.plugin.hive.gcs.HiveGcsModule;
 import io.trino.plugin.hive.s3.HiveS3Module;
 import io.trino.spi.NodeManager;
 import io.trino.spi.PageIndexerFactory;
@@ -83,6 +84,7 @@ public final class InternalDeltaLakeConnectorFactory
                     new HiveHdfsModule(),
                     new HiveS3Module(),
                     new HiveAzureModule(),
+                    new HiveGcsModule(),
                     new HdfsAuthenticationModule(),
                     new CatalogNameModule(catalogName),
                     new DeltaLakeMetastoreModule(),
