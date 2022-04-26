@@ -271,10 +271,13 @@ public class IcebergPageSourceProvider
                         column -> ((IcebergColumnHandle) column).getType(),
                         IcebergPageSourceProvider::applyProjection));
 
+        List<IcebergColumnHandle> readColumns = dataPageSource.getReaderColumns()
+                .map(readerColumns -> readerColumns.get().stream().map(IcebergColumnHandle.class::cast).collect(toList()))
+                .orElse(requiredColumns);
         DeleteFilter<TrinoRow> deleteFilter = new TrinoDeleteFilter(
                 dummyFileScanTask,
                 tableSchema,
-                requiredColumns,
+                readColumns,
                 fileIO);
 
         Optional<PartitionData> partition = partitionSpec.isUnpartitioned() ? Optional.empty() : Optional.of(partitionData);
@@ -294,6 +297,7 @@ public class IcebergPageSourceProvider
         return new IcebergPageSource(
                 icebergColumns,
                 requiredColumns,
+                readColumns,
                 dataPageSource.get(),
                 projectionsAdapter,
                 Optional.of(deleteFilter).filter(filter -> filter.hasPosDeletes() || filter.hasEqDeletes()),

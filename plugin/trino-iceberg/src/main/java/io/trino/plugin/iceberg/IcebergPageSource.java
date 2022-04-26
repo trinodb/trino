@@ -60,6 +60,7 @@ public class IcebergPageSource
     public IcebergPageSource(
             List<IcebergColumnHandle> expectedColumns,
             List<IcebergColumnHandle> requiredColumns,
+            List<IcebergColumnHandle> readColumns,
             ConnectorPageSource delegate,
             Optional<ReaderProjectionsAdapter> projectionsAdapter,
             Optional<DeleteFilter<TrinoRow>> deleteFilter,
@@ -75,7 +76,7 @@ public class IcebergPageSource
             expectedColumnIndexes[i] = i;
         }
 
-        this.columnTypes = requiredColumns.stream()
+        this.columnTypes = readColumns.stream()
                 .map(IcebergColumnHandle::getType)
                 .toArray(Type[]::new);
         this.delegate = requireNonNull(delegate, "delegate is null");
@@ -113,9 +114,6 @@ public class IcebergPageSource
     {
         try {
             Page dataPage = delegate.getNextPage();
-            if (projectionsAdapter.isPresent()) {
-                dataPage = projectionsAdapter.get().adaptPage(dataPage);
-            }
             if (dataPage == null) {
                 return null;
             }
@@ -134,6 +132,10 @@ public class IcebergPageSource
                 catch (IOException e) {
                     throw new TrinoException(ICEBERG_BAD_DATA, "Failed to filter rows during merge-on-read operation", e);
                 }
+            }
+
+            if (projectionsAdapter.isPresent()) {
+                dataPage = projectionsAdapter.get().adaptPage(dataPage);
             }
 
             return dataPage;
