@@ -71,6 +71,12 @@ public class FileMetastoreTableOperations
 
         // todo privileges should not be replaced for an alter
         PrincipalPrivileges privileges = table.getOwner().map(MetastoreUtil::buildInitialPrivilegeSet).orElse(NO_PRIVILEGES);
-        metastore.replaceTable(database, tableName, table, privileges);
+
+        try {
+            metastore.replaceTable(database, tableName, table, privileges);
+        }
+        catch (RuntimeException e) {
+            throw new CommitFailedException(e, "Failed to commit transaction to FileHiveMetastore");
+        }
     }
 }

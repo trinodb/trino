@@ -295,6 +295,20 @@ public abstract class BaseHiveConnectorTest
     }
 
     @Override
+    public void testUpdateWithPredicates()
+    {
+        assertThatThrownBy(super::testUpdateWithPredicates)
+                .hasMessage("Hive update is only supported for ACID transactional tables");
+    }
+
+    @Override
+    public void testUpdateAllValues()
+    {
+        assertThatThrownBy(super::testUpdateAllValues)
+                .hasMessage("Hive update is only supported for ACID transactional tables");
+    }
+
+    @Override
     public void testExplainAnalyzeWithDeleteWithSubquery()
     {
         assertThatThrownBy(super::testExplainAnalyzeWithDeleteWithSubquery)

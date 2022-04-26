@@ -63,6 +63,7 @@ import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 /**
@@ -1848,6 +1849,81 @@ public class TestIcebergSparkCompatibility
                 .containsOnly(row);
         assertThat(onSpark().executeQuery(format(selectByString, sparkTableName)))
                 .containsOnly(row);
+    }
+
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
+    public void testUpdateAfterSchemaEvolution()
+    {
+        String baseTableName = "test_update_after_schema_evolution_" + randomTableSuffix();
+        String trinoTableName = trinoTableName(baseTableName);
+        String sparkTableName = sparkTableName(baseTableName);
+        onTrino().executeQuery("DROP TABLE IF EXISTS " + trinoTableName);
+
+        onSpark().executeQuery("CREATE TABLE " + sparkTableName + "(part_key INT, a INT, b INT, c INT) " +
+                "USING ICEBERG PARTITIONED BY (part_key) " +
+                "TBLPROPERTIES ('format-version'='2', 'write.delete.mode'='merge-on-read')");
+        onSpark().executeQuery("INSERT INTO " + sparkTableName + " VALUES (1, 2, 3, 4), (11, 12, 13, 14)");
+
+        onSpark().executeQuery("ALTER TABLE " + sparkTableName + " DROP PARTITION FIELD part_key");
+        onSpark().executeQuery("ALTER TABLE " + sparkTableName + " ADD PARTITION FIELD a");
+
+        onSpark().executeQuery("ALTER TABLE " + sparkTableName + " DROP COLUMN b");
+        onSpark().executeQuery("ALTER TABLE " + sparkTableName + " DROP COLUMN c");
+        onSpark().executeQuery("ALTER TABLE " + sparkTableName + " ADD COLUMN c INT");
+
+        List<Row> expected = ImmutableList.of(row(1, 2, null), row(11, 12, null));
+        assertThat(onTrino().executeQuery("SELECT * FROM " + trinoTableName)).containsOnly(expected);
+        assertThat(onSpark().executeQuery("SELECT * FROM " + sparkTableName)).containsOnly(expected);
+
+        // Because of the DROP/ADD on column c these two should be no-op updates
+        onTrino().executeQuery("UPDATE " + trinoTableName + " SET c = c + 1");
+        onTrino().executeQuery("UPDATE " + trinoTableName + " SET a = a + 1 WHERE c = 4");
+        assertThat(onTrino().executeQuery("SELECT * FROM " + trinoTableName)).containsOnly(expected);
+        assertThat(onSpark().executeQuery("SELECT * FROM " + sparkTableName)).containsOnly(expected);
+
+        // Check the new data files are using the updated partition scheme
+        List<Object> filePaths = onTrino().executeQuery("SELECT DISTINCT file_path FROM " + TRINO_CATALOG + "." + TEST_SCHEMA_NAME + ".\"" + baseTableName + "$files\"").column(1);
+        assertEquals(
+                filePaths.stream()
+                        .map(String::valueOf)
+                        .filter(path -> path.contains("/a=") && !path.contains("/part_key="))
+                        .count(),
+                2);
+
+        onSpark().executeQuery("DROP TABLE " + sparkTableName);
+    }
+
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
+    public void testUpdateOnPartitionColumn()
+    {
+        String baseTableName = "test_update_on_partition_column" + randomTableSuffix();
+        String trinoTableName = trinoTableName(baseTableName);
+        String sparkTableName = sparkTableName(baseTableName);
+        onTrino().executeQuery("DROP TABLE IF EXISTS " + trinoTableName);
+
+        onSpark().executeQuery("CREATE TABLE " + sparkTableName + "(a INT, b STRING) " +
+                "USING ICEBERG PARTITIONED BY (a) " +
+                "TBLPROPERTIES ('format-version'='2', 'write.delete.mode'='merge-on-read')");
+        onTrino().executeQuery("INSERT INTO " + trinoTableName + " VALUES (1, 'first'), (1, 'second'), (2, 'third'), (2, 'forth'), (2, 'fifth')");
+
+        onTrino().executeQuery("UPDATE " + trinoTableName + " SET a = a + 1");
+        List<Row> expected = ImmutableList.of(row(2, "first"), row(2, "second"), row(3, "third"), row(3, "forth"), row(3, "fifth"));
+        assertThat(onTrino().executeQuery("SELECT * FROM " + trinoTableName)).containsOnly(expected);
+        assertThat(onSpark().executeQuery("SELECT * FROM " + sparkTableName)).containsOnly(expected);
+
+        onTrino().executeQuery("UPDATE " + trinoTableName + " SET a = a + (CASE b WHEN 'first' THEN 1 ELSE 0 END)");
+        expected = ImmutableList.of(row(3, "first"), row(2, "second"), row(3, "third"), row(3, "forth"), row(3, "fifth"));
+        assertThat(onTrino().executeQuery("SELECT * FROM " + trinoTableName)).containsOnly(expected);
+        assertThat(onSpark().executeQuery("SELECT * FROM " + sparkTableName)).containsOnly(expected);
+
+        // Test moving rows from one file into different partitions, compact first
+        onSpark().executeQuery("CALL " + SPARK_CATALOG + ".system.rewrite_data_files(table=>'" + TEST_SCHEMA_NAME + "." + baseTableName + "', options => map('min-input-files','1'))");
+        onTrino().executeQuery("UPDATE " + trinoTableName + " SET a = a + (CASE b WHEN 'forth' THEN -1 ELSE 1 END)");
+        expected = ImmutableList.of(row(4, "first"), row(3, "second"), row(4, "third"), row(2, "forth"), row(4, "fifth"));
+        assertThat(onTrino().executeQuery("SELECT * FROM " + trinoTableName)).containsOnly(expected);
+        assertThat(onSpark().executeQuery("SELECT * FROM " + sparkTableName)).containsOnly(expected);
+
+        onSpark().executeQuery("DROP TABLE " + sparkTableName);
     }
 
     private int calculateMetadataFilesForPartitionedTable(String tableName)

@@ -136,7 +136,7 @@ public abstract class BaseIcebergFailureRecoveryTest
                 .withCleanupQuery(cleanupQuery)
                 .experiencing(TASK_MANAGEMENT_REQUEST_TIMEOUT)
                 .at(boundaryDistributedStage())
-                .failsWithoutRetries(failure -> failure.hasMessageContaining("Encountered too many errors talking to a worker node"))
+                .failsWithoutRetries(failure -> failure.hasMessageFindingMatch("Encountered too many errors talking to a worker node|Error closing remote buffer"))
                 .finishesSuccessfully();
 
         assertThatQuery(deleteQuery)
@@ -144,22 +144,92 @@ public abstract class BaseIcebergFailureRecoveryTest
                 .withCleanupQuery(cleanupQuery)
                 .experiencing(TASK_GET_RESULTS_REQUEST_TIMEOUT)
                 .at(boundaryDistributedStage())
-                .failsWithoutRetries(failure -> failure.hasMessageContaining("Encountered too many errors talking to a worker node"))
+                .failsWithoutRetries(failure -> failure.hasMessageFindingMatch("Encountered too many errors talking to a worker node|Error closing remote buffer"))
                 .finishesSuccessfully();
     }
 
+    // Copied from BaseDeltaFailureRecoveryTest
     @Override
     public void testUpdate()
     {
-        assertThatThrownBy(super::testUpdate)
-                .hasMessageContaining("This connector does not support updates");
-    }
+        // Test method is overriden because method from superclass assumes more complex plan for `UPDATE` query.
+        // Assertions do not play well if plan consists of just two fragments.
 
-    @Override
-    public void testUpdateWithSubquery()
-    {
-        assertThatThrownBy(super::testUpdateWithSubquery)
-                .hasMessageContaining("This connector does not support updates");
+        Optional<String> setupQuery = Optional.of("CREATE TABLE <table> AS SELECT * FROM orders");
+        Optional<String> cleanupQuery = Optional.of("DROP TABLE <table>");
+        String updateQuery = "UPDATE <table> SET shippriority = 101 WHERE custkey = 1";
+
+        assertThatQuery(updateQuery)
+                .withSetupQuery(setupQuery)
+                .withCleanupQuery(cleanupQuery)
+                .experiencing(TASK_FAILURE, Optional.of(ErrorType.INTERNAL_ERROR))
+                .at(boundaryCoordinatorStage())
+                .failsAlways(failure -> failure.hasMessageContaining(FAILURE_INJECTION_MESSAGE));
+
+        assertThatQuery(updateQuery)
+                .withSetupQuery(setupQuery)
+                .withCleanupQuery(cleanupQuery)
+                .experiencing(TASK_FAILURE, Optional.of(ErrorType.INTERNAL_ERROR))
+                .at(rootStage())
+                .failsAlways(failure -> failure.hasMessageContaining(FAILURE_INJECTION_MESSAGE));
+
+        assertThatQuery(updateQuery)
+                .withSetupQuery(setupQuery)
+                .withCleanupQuery(cleanupQuery)
+                .experiencing(TASK_FAILURE, Optional.of(ErrorType.INTERNAL_ERROR))
+                .at(leafStage())
+                .failsWithoutRetries(failure -> failure.hasMessageContaining(FAILURE_INJECTION_MESSAGE))
+                .finishesSuccessfully();
+
+        assertThatQuery(updateQuery)
+                .withSetupQuery(setupQuery)
+                .withCleanupQuery(cleanupQuery)
+                .experiencing(TASK_FAILURE, Optional.of(ErrorType.INTERNAL_ERROR))
+                .at(boundaryDistributedStage())
+                .failsWithoutRetries(failure -> failure.hasMessageContaining(FAILURE_INJECTION_MESSAGE))
+                .finishesSuccessfully();
+
+        // UPDATE plan is too simplistic for testing with `intermediateDistributedStage`
+        assertThatThrownBy(() ->
+                assertThatQuery(updateQuery)
+                        .withSetupQuery(setupQuery)
+                        .withCleanupQuery(cleanupQuery)
+                        .experiencing(TASK_FAILURE, Optional.of(ErrorType.INTERNAL_ERROR))
+                        .at(intermediateDistributedStage())
+                        .failsWithoutRetries(failure -> failure.hasMessageContaining(FAILURE_INJECTION_MESSAGE)))
+                .hasMessageContaining("stage not found");
+
+        assertThatQuery(updateQuery)
+                .withSetupQuery(setupQuery)
+                .withCleanupQuery(cleanupQuery)
+                .experiencing(TASK_MANAGEMENT_REQUEST_FAILURE)
+                .at(boundaryDistributedStage())
+                .failsWithoutRetries(failure -> failure.hasMessageFindingMatch("Error 500 Internal Server Error|Error closing remote buffer, expected 204 got 500"))
+                .finishesSuccessfully();
+
+        assertThatQuery(updateQuery)
+                .withSetupQuery(setupQuery)
+                .withCleanupQuery(cleanupQuery)
+                .experiencing(TASK_GET_RESULTS_REQUEST_FAILURE)
+                .at(boundaryDistributedStage())
+                .failsWithoutRetries(failure -> failure.hasMessageFindingMatch("Error 500 Internal Server Error|Error closing remote buffer, expected 204 got 500"))
+                .finishesSuccessfully();
+
+        assertThatQuery(updateQuery)
+                .withSetupQuery(setupQuery)
+                .withCleanupQuery(cleanupQuery)
+                .experiencing(TASK_MANAGEMENT_REQUEST_TIMEOUT)
+                .at(boundaryDistributedStage())
+                .failsWithoutRetries(failure -> failure.hasMessageFindingMatch("Encountered too many errors talking to a worker node|Error closing remote buffer"))
+                .finishesSuccessfully();
+
+        assertThatQuery(updateQuery)
+                .withSetupQuery(setupQuery)
+                .withCleanupQuery(cleanupQuery)
+                .experiencing(TASK_GET_RESULTS_REQUEST_TIMEOUT)
+                .at(boundaryDistributedStage())
+                .failsWithoutRetries(failure -> failure.hasMessageFindingMatch("Encountered too many errors talking to a worker node|Error closing remote buffer"))
+                .finishesSuccessfully();
     }
 
     @Test(invocationCount = INVOCATION_COUNT)
