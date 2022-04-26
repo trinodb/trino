@@ -40,6 +40,7 @@ import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.TestingTypeManager;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
+import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.SchemaParser;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.types.Conversions;
@@ -127,6 +128,7 @@ public class TestIcebergSplitSource
                 TableType.DATA,
                 Optional.empty(),
                 SchemaParser.toJson(nationTable.schema()),
+                PartitionSpecParser.toJson(nationTable.spec()),
                 1,
                 TupleDomain.all(),
                 TupleDomain.all(),
@@ -134,7 +136,8 @@ public class TestIcebergSplitSource
                 Optional.empty(),
                 nationTable.location(),
                 nationTable.properties(),
-                NO_RETRIES);
+                NO_RETRIES,
+                ImmutableList.of());
 
         IcebergSplitSource splitSource = new IcebergSplitSource(
                 tableHandle,

@@ -59,6 +59,7 @@ public abstract class BaseIcebergConnectorSmokeTest
                 return true;
 
             case SUPPORTS_DELETE:
+            case SUPPORTS_UPDATE:
                 return true;
             default:
                 return super.hasBehavior(connectorBehavior);

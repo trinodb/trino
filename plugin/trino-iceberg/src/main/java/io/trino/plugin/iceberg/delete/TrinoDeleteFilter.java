@@ -25,6 +25,8 @@ import org.apache.iceberg.types.Types;
 import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.iceberg.IcebergColumnHandle.TRINO_UPDATE_ROW_ID_COLUMN_ID;
+import static io.trino.plugin.iceberg.IcebergColumnHandle.TRINO_UPDATE_ROW_ID_COLUMN_NAME;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.MetadataColumns.FILE_PATH;
 import static org.apache.iceberg.MetadataColumns.IS_DELETED;
@@ -68,6 +70,9 @@ public class TrinoDeleteFilter
         }
         if (columnHandle.isPathColumn()) {
             return FILE_PATH;
+        }
+        if (columnHandle.isUpdateRowIdColumn()) {
+            return Types.NestedField.of(TRINO_UPDATE_ROW_ID_COLUMN_ID, false, TRINO_UPDATE_ROW_ID_COLUMN_NAME, Types.StructType.of());
         }
 
         return tableSchema.findField(columnHandle.getId());

@@ -20,6 +20,7 @@ import io.airlift.json.JsonCodecFactory;
 import io.airlift.testing.TempFile;
 import io.trino.connector.CatalogName;
 import io.trino.metadata.TableHandle;
+import io.trino.operator.GroupByHashPageIndexerFactory;
 import io.trino.orc.OrcWriteValidation;
 import io.trino.orc.OrcWriter;
 import io.trino.orc.OrcWriterOptions;
@@ -43,7 +44,9 @@ import io.trino.spi.connector.RetryMode;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
+import io.trino.sql.gen.JoinCompiler;
 import io.trino.testing.TestingConnectorSession;
+import io.trino.type.BlockTypeOperators;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.Schema;
@@ -169,6 +172,7 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                         TableType.DATA,
                         Optional.empty(),
                         SchemaParser.toJson(TABLE_SCHEMA),
+                        PartitionSpecParser.toJson(PartitionSpec.unpartitioned()),
                         2,
                         TupleDomain.withColumnDomains(ImmutableMap.of(KEY_ICEBERG_COLUMN_HANDLE, Domain.singleValue(INTEGER, (long) KEY_COLUMN_VALUE))),
                         TupleDomain.all(),
@@ -176,7 +180,8 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                         Optional.empty(),
                         outputFile.getParentFile().getAbsolutePath(),
                         ImmutableMap.of(),
-                        RetryMode.NO_RETRIES),
+                        RetryMode.NO_RETRIES,
+                        ImmutableList.of()),
                 transaction);
 
         FileFormatDataSourceStats stats = new FileFormatDataSourceStats();
@@ -188,7 +193,9 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                 TESTING_TYPE_MANAGER,
                 new HdfsFileIoProvider(HDFS_ENVIRONMENT),
                 new JsonCodecFactory().jsonCodec(CommitTaskData.class),
-                new IcebergFileWriterFactory(HDFS_ENVIRONMENT, TESTING_TYPE_MANAGER, new NodeVersion("trino_test"), stats, ORC_WRITER_CONFIG));
+                new IcebergFileWriterFactory(HDFS_ENVIRONMENT, TESTING_TYPE_MANAGER, new NodeVersion("trino_test"), stats, ORC_WRITER_CONFIG),
+                new GroupByHashPageIndexerFactory(new JoinCompiler(TESTING_TYPE_MANAGER.getTypeOperators()), new BlockTypeOperators()),
+                icebergConfig);
 
         return provider.createPageSource(
                 transaction,
