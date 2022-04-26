@@ -21,10 +21,15 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import io.airlift.log.Logger;
-import io.minio.errors.InvalidEndpointException;
-import io.minio.errors.InvalidPortException;
-import io.minio.notification.NotificationEvent;
-import io.minio.notification.NotificationInfo;
+import io.minio.BucketExistsArgs;
+import io.minio.CloseableIterator;
+import io.minio.ListObjectsArgs;
+import io.minio.ListenBucketNotificationArgs;
+import io.minio.MakeBucketArgs;
+import io.minio.PutObjectArgs;
+import io.minio.Result;
+import io.minio.messages.Event;
+import io.minio.messages.NotificationRecords;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -72,12 +77,10 @@ class MinioClient
 
     public MinioClient(String endpoint, String accessKey, String secretKey)
     {
-        try {
-            client = new io.minio.MinioClient(endpoint, accessKey, secretKey);
-        }
-        catch (InvalidPortException | InvalidEndpointException e) {
-            throw new RuntimeException(e);
-        }
+        client = io.minio.MinioClient.builder()
+                .endpoint(endpoint)
+                .credentials(accessKey, secretKey)
+                .build();
     }
 
     public void copyResourcePath(String bucket, String resourcePath, String target)
@@ -106,13 +109,14 @@ class MinioClient
         putObject(bucket, ByteSource.wrap(contents), targetPath);
     }
 
-    public void captureBucketNotifications(String bucket, Consumer<NotificationEvent> consumer)
+    public void captureBucketNotifications(String bucket, Consumer<Event> consumer)
     {
         ensureBucketExists(bucket);
 
         ListenableFuture<?> future = executor.submit(new NotificationListener(client, bucket, consumer));
 
-        addCallback(future, new FutureCallback<Object>() {
+        addCallback(future, new FutureCallback<Object>()
+        {
             @Override
             public void onSuccess(Object result)
             {
@@ -130,16 +134,21 @@ class MinioClient
     public List<String> listObjects(String bucket, String path)
     {
         try {
-            return stream(client.listObjects(bucket, path)).map(
-                    result -> {
+            return stream(client.listObjects(
+                    ListObjectsArgs.builder()
+                            .bucket(bucket)
+                            .prefix(path)
+                            .recursive(true)
+                            .useUrlEncodingType(false)
+                            .build()))
+                    .map(result -> {
                         try {
                             return result.get().objectName();
                         }
                         catch (Exception e) {
                             throw new RuntimeException(e);
                         }
-                    }
-            ).collect(toImmutableList());
+                    }).collect(toImmutableList());
         }
         catch (Exception e) {
             throw new RuntimeException(e);
@@ -156,7 +165,10 @@ class MinioClient
             throw new IllegalArgumentException("Bucket " + bucketName + " already created in this classloader");
         }
         try {
-            client.makeBucket(bucketName);
+            client.makeBucket(
+                    MakeBucketArgs.builder()
+                            .bucket(bucketName)
+                            .build());
         }
         catch (Exception e) {
             // revert bucket registration so we can retry the call on transient errors
@@ -168,7 +180,9 @@ class MinioClient
     public void ensureBucketExists(String bucketName)
     {
         try {
-            if (!client.bucketExists(bucketName)) {
+            if (!client.bucketExists(BucketExistsArgs.builder()
+                    .bucket(bucketName)
+                    .build())) {
                 makeBucket(bucketName);
             }
         }
@@ -181,7 +195,12 @@ class MinioClient
     {
         try {
             try (InputStream inputStream = byteSource.openStream()) {
-                client.putObject(bucket, targetPath, inputStream, null, null, null, null);
+                client.putObject(
+                        PutObjectArgs.builder()
+                                .bucket(bucket)
+                                .object(targetPath)
+                                .stream(inputStream, byteSource.size(), -1)
+                                .build());
             }
         }
         catch (Exception e) {
@@ -198,12 +217,11 @@ class MinioClient
     private static class NotificationListener
             implements Runnable
     {
-        private final Logger logger = Logger.get(MinioClient.NotificationListener.class);
         private final io.minio.MinioClient client;
         private final String bucket;
-        private final Consumer<NotificationEvent> consumer;
+        private final Consumer<Event> consumer;
 
-        private NotificationListener(io.minio.MinioClient client, String bucket, Consumer<NotificationEvent> consumer)
+        private NotificationListener(io.minio.MinioClient client, String bucket, Consumer<Event> consumer)
         {
             this.client = requireNonNull(client, "client is null");
             this.bucket = requireNonNull(bucket, "bucket is null");
@@ -213,23 +231,20 @@ class MinioClient
         @Override
         public void run()
         {
-            try {
-                client.listenBucketNotification(bucket, "*", "*", ALL_MINIO_EVENTS, this::processNotificationInfo);
+            try (CloseableIterator<Result<NotificationRecords>> iterator = client.listenBucketNotification(
+                    ListenBucketNotificationArgs.builder()
+                            .bucket(bucket)
+                            .prefix("*")
+                            .suffix("*")
+                            .events(ALL_MINIO_EVENTS)
+                            .build())) {
+                while (iterator.hasNext()) {
+                    NotificationRecords records = iterator.next().get();
+                    records.events().forEach(consumer);
+                }
             }
             catch (Exception e) {
                 throw new RuntimeException(e);
-            }
-        }
-
-        private void processNotificationInfo(NotificationInfo notificationInfo)
-        {
-            for (int i = 0; i < notificationInfo.records.length; i++) {
-                try {
-                    consumer.accept(notificationInfo.records[i]);
-                }
-                catch (Exception e) {
-                    logger.warn(e, "Notification was not accepted");
-                }
             }
         }
     }
