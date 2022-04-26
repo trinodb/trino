@@ -145,9 +145,9 @@ public class SimpleFilterProjectSemiJoinStatsRule
 
     private static boolean isSemiJoinOutputReference(Expression conjunct, Symbol semiJoinOutput)
     {
-        SymbolReference semiJoinOuputSymbolReference = semiJoinOutput.toSymbolReference();
-        return conjunct.equals(semiJoinOuputSymbolReference) ||
-                (conjunct instanceof NotExpression && ((NotExpression) conjunct).getValue().equals(semiJoinOuputSymbolReference));
+        SymbolReference semiJoinOutputSymbolReference = semiJoinOutput.toSymbolReference();
+        return conjunct.equals(semiJoinOutputSymbolReference) ||
+                (conjunct instanceof NotExpression && ((NotExpression) conjunct).getValue().equals(semiJoinOutputSymbolReference));
     }
 
     private static class SemiJoinOutputFilter
