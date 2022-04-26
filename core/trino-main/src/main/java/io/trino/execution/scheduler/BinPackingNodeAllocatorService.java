@@ -350,7 +350,7 @@ public class BinPackingNodeAllocatorService
         public void attachTaskId(TaskId taskId)
         {
             if (!this.taskId.compareAndSet(null, taskId)) {
-                throw new IllegalStateException("cannot attach taskId " + taskId + "; alrady attached to " + this.taskId.get());
+                throw new IllegalStateException("cannot attach taskId " + taskId + "; already attached to " + this.taskId.get());
             }
         }
 
