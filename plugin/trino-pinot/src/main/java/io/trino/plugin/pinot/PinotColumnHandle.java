@@ -24,6 +24,7 @@ import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.RealType;
+import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
@@ -131,6 +132,8 @@ public class PinotColumnHandle
                 return VarcharType.VARCHAR;
             case BYTES:
                 return VarbinaryType.VARBINARY;
+            case TIMESTAMP:
+                return TimestampType.TIMESTAMP_MILLIS;
             default:
                 break;
         }

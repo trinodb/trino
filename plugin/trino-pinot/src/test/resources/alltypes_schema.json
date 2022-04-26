@@ -43,6 +43,10 @@
             "name": "long_array_col",
             "dataType": "LONG",
             "singleValueField": false
+        },
+        {
+            "name": "timestamp_col",
+            "dataType": "TIMESTAMP"
         }
     ],
     "metricFieldSpecs": [

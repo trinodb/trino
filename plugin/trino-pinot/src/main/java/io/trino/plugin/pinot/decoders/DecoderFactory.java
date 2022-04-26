@@ -21,6 +21,7 @@ import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.FixedWidthType;
 import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.RealType;
+import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarbinaryType;
 
@@ -53,6 +54,9 @@ public class DecoderFactory
             }
             else if (type instanceof BooleanType) {
                 return new BooleanDecoder();
+            }
+            else if (type instanceof TimestampType) {
+                return new TimestampDecoder();
             }
             else {
                 throw new PinotException(PINOT_UNSUPPORTED_COLUMN_TYPE, Optional.empty(), "type '" + type + "' not supported");

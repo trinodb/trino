@@ -57,6 +57,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
@@ -146,6 +147,8 @@ public final class DynamicTableBuilder
                 return VARCHAR;
             case BYTES:
                 return VARBINARY;
+            case TIMESTAMP:
+                return TIMESTAMP_MILLIS;
             case INT_ARRAY:
                 return new ArrayType(INTEGER);
             case LONG_ARRAY:

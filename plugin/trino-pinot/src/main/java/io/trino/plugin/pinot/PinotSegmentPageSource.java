@@ -17,6 +17,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.plugin.pinot.client.PinotDataFetcher;
 import io.trino.plugin.pinot.client.PinotDataTableWithSize;
+import io.trino.plugin.pinot.conversion.PinotTimestamps;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
@@ -165,6 +166,7 @@ public class PinotSegmentPageSource
             writeBooleanBlock(blockBuilder, columnType, columnIdx);
         }
         else if (javaType.equals(long.class)) {
+            // Applies to timestamp as well since precision is milliseconds
             writeLongBlock(blockBuilder, columnType, columnIdx);
         }
         else if (javaType.equals(double.class)) {
@@ -253,6 +255,8 @@ public class PinotSegmentPageSource
                 return floatToIntBits(currentDataTable.getDataTable().getFloat(rowIndex, columnIndex));
             case LONG:
                 return currentDataTable.getDataTable().getLong(rowIndex, columnIndex);
+            case TIMESTAMP:
+                return PinotTimestamps.toMicros(currentDataTable.getDataTable().getLong(rowIndex, columnIndex));
             default:
                 throw new PinotException(PINOT_DECODE_ERROR, Optional.empty(), format("Unexpected pinot type: '%s'", dataType));
         }

@@ -25,6 +25,7 @@ import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.RealType;
+import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
@@ -124,6 +125,9 @@ public class PinotTypeResolver
         }
         if (type instanceof VarbinaryType) {
             return FieldSpec.DataType.BYTES;
+        }
+        if (type instanceof TimestampType) {
+            return FieldSpec.DataType.TIMESTAMP;
         }
         throw new PinotException(PINOT_UNSUPPORTED_COLUMN_TYPE, Optional.empty(), "Unsupported column data type: " + type);
     }

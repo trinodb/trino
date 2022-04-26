@@ -158,21 +158,22 @@ Data types
 
 Pinot does not allow null values in any data type and supports the following primitive types:
 
-==========================   ============
+==========================   ==============
 Pinot                        Trino
-==========================   ============
+==========================   ==============
 ``INT``                      ``INTEGER``
 ``LONG``                     ``BIGINT``
 ``FLOAT``                    ``REAL``
 ``DOUBLE``                   ``DOUBLE``
 ``STRING``                   ``VARCHAR``
 ``BYTES``                    ``VARBINARY``
+``TIMESTAMP``                ``TIMESTAMP``
 ``INT_ARRAY``                ``VARCHAR``
 ``LONG_ARRAY``               ``VARCHAR``
 ``FLOAT_ARRAY``              ``VARCHAR``
 ``DOUBLE_ARRAY``             ``VARCHAR``
 ``STRING_ARRAY``             ``VARCHAR``
-==========================   ============
+==========================   ==============
 
 .. _pinot-sql-support:
 
