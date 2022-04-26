@@ -171,7 +171,8 @@ public class TestIcebergV2
         Table icebergTable = updateTableToV2(tableName);
         writeEqualityDeleteToNationTable(icebergTable);
         assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE regionkey != 1");
-        assertQuery("SELECT nationkey FROM " + tableName, "SELECT nationkey FROM nation WHERE regionkey != 1");
+        // natiokey is before the equality delete column in the table schema, comment is after
+        assertQuery("SELECT nationkey, comment FROM " + tableName, "SELECT nationkey, comment FROM nation WHERE regionkey != 1");
     }
 
     @Test
