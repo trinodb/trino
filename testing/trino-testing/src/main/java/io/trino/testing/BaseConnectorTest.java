@@ -2748,6 +2748,18 @@ public abstract class BaseConnectorTest
     }
 
     @Test
+    public void testDropTable()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
+        String tableName = "test_drop_table_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + "(col bigint)");
+        assertTrue(getQueryRunner().tableExists(getSession(), tableName));
+
+        assertUpdate("DROP TABLE " + tableName);
+        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+    }
+
+    @Test
     public void testDropTableIfExists()
     {
         assertFalse(getQueryRunner().tableExists(getSession(), "test_drop_if_exists"));

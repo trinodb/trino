@@ -37,8 +37,6 @@ import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 public abstract class BaseOracleConnectorTest
         extends BaseJdbcConnectorTest
@@ -305,17 +303,6 @@ public abstract class BaseOracleConnectorTest
     protected TestTable createAggregationTestTable(String name, List<String> rows)
     {
         return new TestTable(onRemoteDatabase(), name, "(short_decimal number(9, 3), long_decimal number(30, 10), a_bigint number(19), t_double binary_double)", rows);
-    }
-
-    @Test
-    public void testDropTable()
-    {
-        String tableName = "test_drop" + randomTableSuffix();
-        assertUpdate(format("CREATE TABLE %s AS SELECT 1 test_drop", tableName), 1);
-        assertTrue(getQueryRunner().tableExists(getSession(), tableName));
-
-        assertUpdate("DROP TABLE " + tableName);
-        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
     }
 
     @Override
