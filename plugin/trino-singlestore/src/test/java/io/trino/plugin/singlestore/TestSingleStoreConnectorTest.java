@@ -167,16 +167,6 @@ public class TestSingleStoreConnectorTest
         throw new SkipException("SingleStore doesn't support utf8mb4");
     }
 
-    @Test
-    public void testDropTable()
-    {
-        assertUpdate("CREATE TABLE test_drop AS SELECT 123 x", 1);
-        assertTrue(getQueryRunner().tableExists(getSession(), "test_drop"));
-
-        assertUpdate("DROP TABLE test_drop");
-        assertFalse(getQueryRunner().tableExists(getSession(), "test_drop"));
-    }
-
     @Override
     public void testDeleteWithLike()
     {
