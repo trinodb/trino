@@ -623,6 +623,7 @@ public class StageStats
 
         return new BasicStageStats(
                 isScheduled,
+                failedTasks,
                 totalDrivers,
                 queuedDrivers,
                 runningDrivers,

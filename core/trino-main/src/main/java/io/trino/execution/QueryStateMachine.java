@@ -25,7 +25,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.Session;
-import io.trino.SystemSessionProperties;
 import io.trino.execution.QueryExecution.QueryOutputInfo;
 import io.trino.execution.StateMachine.StateChangeListener;
 import io.trino.execution.warnings.WarningCollector;
@@ -77,6 +76,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.succinctBytes;
+import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.execution.BasicStageStats.EMPTY_STAGE_STATS;
 import static io.trino.execution.QueryState.DISPATCHING;
 import static io.trino.execution.QueryState.FAILED;
@@ -374,6 +374,8 @@ public class QueryStateMachine
                 queryStateTimer.getElapsedTime(),
                 queryStateTimer.getExecutionTime(),
 
+                stageStats.getFailedTasks(),
+
                 stageStats.getTotalDrivers(),
                 stageStats.getQueuedDrivers(),
                 stageStats.getRunningDrivers(),
@@ -412,7 +414,8 @@ public class QueryStateMachine
                 queryStats,
                 errorCode == null ? null : errorCode.getType(),
                 errorCode,
-                queryType);
+                queryType,
+                getRetryPolicy(session));
     }
 
     @VisibleForTesting
@@ -468,7 +471,7 @@ public class QueryStateMachine
                 completeInfo,
                 Optional.of(resourceGroup),
                 queryType,
-                SystemSessionProperties.getRetryPolicy(session));
+                getRetryPolicy(session));
     }
 
     private QueryStats getQueryStats(Optional<StageInfo> rootStage)

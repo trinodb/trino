@@ -15,6 +15,7 @@ package io.trino.server.ui;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.execution.QueryState;
+import io.trino.operator.RetryPolicy;
 import io.trino.server.BasicQueryInfo;
 import io.trino.server.BasicQueryStats;
 import io.trino.spi.ErrorCode;
@@ -51,6 +52,7 @@ public class TrimmedBasicQueryInfo
     private final Optional<ErrorType> errorType;
     private final Optional<ErrorCode> errorCode;
     private final Optional<QueryType> queryType;
+    private final RetryPolicy retryPolicy;
 
     public TrimmedBasicQueryInfo(BasicQueryInfo queryInfo)
     {
@@ -75,6 +77,7 @@ public class TrimmedBasicQueryInfo
         this.preparedQuery = requireNonNull(queryInfo.getPreparedQuery(), "preparedQuery is null");
         this.queryStats = requireNonNull(queryInfo.getQueryStats(), "queryStats is null");
         this.queryType = requireNonNull(queryInfo.getQueryType(), "queryType is null");
+        this.retryPolicy = requireNonNull(queryInfo.getRetryPolicy(), " is null");
     }
 
     @JsonProperty
@@ -165,6 +168,12 @@ public class TrimmedBasicQueryInfo
     public Optional<QueryType> getQueryType()
     {
         return queryType;
+    }
+
+    @JsonProperty
+    public RetryPolicy getRetryPolicy()
+    {
+        return retryPolicy;
     }
 
     @Override
