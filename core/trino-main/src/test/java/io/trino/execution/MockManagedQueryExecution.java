@@ -124,6 +124,7 @@ public class MockManagedQueryExecution
                         new Duration(3, NANOSECONDS),
                         new Duration(4, NANOSECONDS),
                         new Duration(5, NANOSECONDS),
+                        99,
                         6,
                         7,
                         8,
@@ -146,7 +147,8 @@ public class MockManagedQueryExecution
                         OptionalDouble.empty()),
                 null,
                 null,
-                Optional.empty());
+                Optional.empty(),
+                RetryPolicy.NONE);
     }
 
     @Override

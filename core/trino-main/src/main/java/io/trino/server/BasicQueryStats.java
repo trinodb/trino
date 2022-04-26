@@ -45,6 +45,8 @@ public class BasicQueryStats
     private final Duration elapsedTime;
     private final Duration executionTime;
 
+    private final int failedTasks;
+
     private final int totalDrivers;
     private final int queuedDrivers;
     private final int runningDrivers;
@@ -77,6 +79,7 @@ public class BasicQueryStats
             @JsonProperty("queuedTime") Duration queuedTime,
             @JsonProperty("elapsedTime") Duration elapsedTime,
             @JsonProperty("executionTime") Duration executionTime,
+            @JsonProperty("failedTasks") int failedTasks,
             @JsonProperty("totalDrivers") int totalDrivers,
             @JsonProperty("queuedDrivers") int queuedDrivers,
             @JsonProperty("runningDrivers") int runningDrivers,
@@ -104,6 +107,9 @@ public class BasicQueryStats
         this.queuedTime = requireNonNull(queuedTime, "queuedTime is null");
         this.elapsedTime = requireNonNull(elapsedTime, "elapsedTime is null");
         this.executionTime = requireNonNull(executionTime, "executionTime is null");
+
+        checkArgument(failedTasks >= 0, "failedTasks is negative");
+        this.failedTasks = failedTasks;
 
         checkArgument(totalDrivers >= 0, "totalDrivers is negative");
         this.totalDrivers = totalDrivers;
@@ -142,6 +148,7 @@ public class BasicQueryStats
                 queryStats.getQueuedTime(),
                 queryStats.getElapsedTime(),
                 queryStats.getExecutionTime(),
+                queryStats.getFailedTasks(),
                 queryStats.getTotalDrivers(),
                 queryStats.getQueuedDrivers(),
                 queryStats.getRunningDrivers(),
@@ -173,6 +180,7 @@ public class BasicQueryStats
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
+                0,
                 0,
                 0,
                 0,
@@ -223,6 +231,12 @@ public class BasicQueryStats
     public Duration getExecutionTime()
     {
         return executionTime;
+    }
+
+    @JsonProperty
+    public int getFailedTasks()
+    {
+        return failedTasks;
     }
 
     @JsonProperty
