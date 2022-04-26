@@ -324,6 +324,7 @@ public class WorkProcessorPipelineSourceOperator
 
                         succinctBytes(context.physicalInputDataSize.get()),
                         context.physicalInputPositions.get(),
+                        new Duration(context.operatorTiming.getWallNanos(), NANOSECONDS),
 
                         succinctBytes(context.internalNetworkInputDataSize.get()),
                         context.internalNetworkInputPositions.get(),

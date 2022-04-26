@@ -245,7 +245,8 @@ public class TestWorkProcessorPipelineSourceOperator
         assertEquals(sourceOperatorStats.getInputDataSize(), pipelineStats.getProcessedInputDataSize());
         assertEquals(sourceOperatorStats.getInputPositions(), pipelineStats.getProcessedInputPositions());
 
-        assertEquals(sourceOperatorStats.getAddInputWall(), pipelineStats.getPhysicalInputReadTime());
+        assertThat(sourceOperatorStats.getPhysicalInputReadTime().convertToMostSuccinctTimeUnit())
+                .isEqualTo(pipelineStats.getPhysicalInputReadTime().convertToMostSuccinctTimeUnit());
 
         // assert pipeline metrics
         List<OperatorStats> operatorSummaries = pipelineStats.getOperatorSummaries();
