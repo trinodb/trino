@@ -157,10 +157,17 @@ public abstract class BaseIcebergConnectorTest
                 return false;
 
             case SUPPORTS_DELETE:
+            case SUPPORTS_UPDATE:
                 return true;
             default:
                 return super.hasBehavior(connectorBehavior);
         }
+    }
+
+    @Override
+    protected void verifyConcurrentUpdateFailurePermissible(Exception e)
+    {
+        assertThat(e).hasMessageContaining("Failed to commit Iceberg update to table");
     }
 
     @Test
