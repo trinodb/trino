@@ -20,6 +20,7 @@ import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.RealType;
+import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeSignature;
@@ -95,6 +96,8 @@ public class PinotTypeConverter
                 return jsonTypeSupplier.get();
             case BYTES:
                 return VarbinaryType.VARBINARY;
+            case TIMESTAMP:
+                return TimestampType.TIMESTAMP_MILLIS;
             default:
                 break;
         }

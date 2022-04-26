@@ -23,6 +23,8 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.RealType;
+import io.trino.spi.type.TimestampType;
+import io.trino.spi.type.Timestamps;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
@@ -167,7 +169,18 @@ public final class PinotQueryBuilder
         if (type instanceof VarbinaryType) {
             return Hex.encodeHexString(((Slice) value).getBytes());
         }
+        if (type instanceof TimestampType) {
+            return toMillis((Long) value);
+        }
         return value;
+    }
+
+    private static Long toMillis(Long value)
+    {
+        if (value == null) {
+            return null;
+        }
+        return Timestamps.epochMicrosToMillisWithRounding(value);
     }
 
     private static String toConjunct(String columnName, String operator, Object value)
