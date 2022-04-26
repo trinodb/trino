@@ -524,7 +524,7 @@ public class ConnectorManager
             this.procedures = ImmutableSet.copyOf(procedures);
 
             Set<TableProcedureMetadata> tableProcedures = connector.getTableProcedures();
-            requireNonNull(procedures, format("Connector '%s' returned a null table procedures set", catalogName));
+            requireNonNull(tableProcedures, format("Connector '%s' returned a null table procedures set", catalogName));
             this.tableProcedures = ImmutableSet.copyOf(tableProcedures);
 
             ConnectorSplitManager splitManager = null;
