@@ -236,6 +236,8 @@ public class StageStateMachine
 
         List<TaskInfo> taskInfos = ImmutableList.copyOf(taskInfosSupplier.get());
 
+        int failedTasks = 0;
+
         int totalDrivers = 0;
         int queuedDrivers = 0;
         int runningDrivers = 0;
@@ -267,6 +269,10 @@ public class StageStateMachine
         for (TaskInfo taskInfo : taskInfos) {
             TaskState taskState = taskInfo.getTaskStatus().getState();
             TaskStats taskStats = taskInfo.getStats();
+
+            if (taskState == TaskState.FAILED) {
+                failedTasks++;
+            }
 
             totalDrivers += taskStats.getTotalDrivers();
             queuedDrivers += taskStats.getQueuedDrivers();
@@ -314,6 +320,8 @@ public class StageStateMachine
 
         return new BasicStageStats(
                 isScheduled,
+
+                failedTasks,
 
                 totalDrivers,
                 queuedDrivers,
