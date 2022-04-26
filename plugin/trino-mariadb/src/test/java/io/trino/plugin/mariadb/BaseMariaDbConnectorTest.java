@@ -49,7 +49,6 @@ public abstract class BaseMariaDbConnectorTest
             case SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY:
             case SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY:
             case SUPPORTS_RENAME_SCHEMA:
-            case SUPPORTS_COMMENT_ON_TABLE:
             case SUPPORTS_COMMENT_ON_COLUMN:
             case SUPPORTS_ARRAY:
             case SUPPORTS_ROW_TYPE:
