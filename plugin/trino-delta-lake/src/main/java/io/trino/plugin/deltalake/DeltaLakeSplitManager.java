@@ -180,14 +180,11 @@ public class DeltaLakeSplitManager
                     if (constraint.predicate().isPresent()) {
                         Map<String, Optional<String>> partitionValues = addAction.getCanonicalPartitionValues();
                         Map<ColumnHandle, NullableValue> deserializedValues = constraint.getPredicateColumns().orElseThrow().stream()
-                                .filter(column -> column instanceof DeltaLakeColumnHandle)
-                                .filter(column -> partitionValues.containsKey(((DeltaLakeColumnHandle) column).getName()))
-                                .collect(toImmutableMap(identity(), column -> {
-                                    DeltaLakeColumnHandle deltaLakeColumn = (DeltaLakeColumnHandle) column;
-                                    return new NullableValue(
-                                            deltaLakeColumn.getType(),
-                                            deserializePartitionValue(deltaLakeColumn, addAction.getCanonicalPartitionValues().get(deltaLakeColumn.getName())));
-                                }));
+                                .map(DeltaLakeColumnHandle.class::cast)
+                                .filter(column -> partitionValues.containsKey(column.getName()))
+                                .collect(toImmutableMap(identity(), column -> new NullableValue(
+                                        column.getType(),
+                                        deserializePartitionValue(column, partitionValues.get(column.getName())))));
                         if (!constraint.predicate().get().test(deserializedValues)) {
                             return Stream.empty();
                         }

@@ -24,7 +24,6 @@ import io.trino.plugin.hive.TableAlreadyExistsException;
 import io.trino.plugin.hive.ViewAlreadyExistsException;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.Database;
-import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HivePrincipal;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.cache.CachingHiveMetastore;
@@ -126,7 +125,7 @@ public class TrinoHiveCatalog
         this.deleteSchemaLocationsFallback = deleteSchemaLocationsFallback;
     }
 
-    public HiveMetastore getMetastore()
+    public CachingHiveMetastore getMetastore()
     {
         return metastore;
     }

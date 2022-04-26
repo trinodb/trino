@@ -1434,6 +1434,12 @@ public class TestIcebergSparkCompatibility
         assertThat(onTrino().executeQuery("SELECT * FROM " + trinoTableName)).containsOnly(expected);
         assertThat(onSpark().executeQuery("SELECT * FROM " + sparkTableName)).containsOnly(expected);
 
+        // Delete to a file that already has deleted rows
+        onSpark().executeQuery("DELETE FROM " + sparkTableName + " WHERE a = 12");
+        expected = ImmutableList.of(row(11, 12));
+        assertThat(onTrino().executeQuery("SELECT * FROM " + trinoTableName)).containsOnly(expected);
+        assertThat(onSpark().executeQuery("SELECT * FROM " + sparkTableName)).containsOnly(expected);
+
         onSpark().executeQuery("DROP TABLE " + sparkTableName);
     }
 
@@ -1458,6 +1464,105 @@ public class TestIcebergSparkCompatibility
         List<Row> expected = ImmutableList.of(row(1, 2), row(1, 6), row(2, 2));
         assertThat(onTrino().executeQuery("SELECT part_key, row_t.b FROM " + trinoTableName)).containsOnly(expected);
         assertThat(onSpark().executeQuery("SELECT part_key, row_t.b FROM " + sparkTableName)).containsOnly(expected);
+
+        onSpark().executeQuery("DROP TABLE " + sparkTableName);
+    }
+
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormats")
+    public void testSparkReadsTrinoRowLevelDeletes(StorageFormat storageFormat)
+    {
+        String tableName = format("test_spark_reads_trino_row_level_deletes_%s_%s", storageFormat.name(), randomTableSuffix());
+        String sparkTableName = sparkTableName(tableName);
+        String trinoTableName = trinoTableName(tableName);
+
+        onTrino().executeQuery("CREATE TABLE " + trinoTableName + "(a INT, b INT) WITH(partitioning = ARRAY['b'], format_version = 2, format = '" + storageFormat.name() + "')");
+        onTrino().executeQuery("INSERT INTO " + trinoTableName + " VALUES (1, 2), (2, 2), (3, 2), (11, 12), (12, 12), (13, 12)");
+        // Delete one row in a file
+        onTrino().executeQuery("DELETE FROM " + trinoTableName + " WHERE a = 13");
+        // Delete an entire partition
+        onTrino().executeQuery("DELETE FROM " + trinoTableName + " WHERE b = 2");
+
+        List<Row> expected = ImmutableList.of(row(11, 12), row(12, 12));
+        assertThat(onTrino().executeQuery("SELECT * FROM " + trinoTableName)).containsOnly(expected);
+        assertThat(onSpark().executeQuery("SELECT * FROM " + sparkTableName)).containsOnly(expected);
+
+        // Delete to a file that already has deleted rows
+        onTrino().executeQuery("DELETE FROM " + trinoTableName + " WHERE a = 12");
+        expected = ImmutableList.of(row(11, 12));
+        assertThat(onTrino().executeQuery("SELECT * FROM " + trinoTableName)).containsOnly(expected);
+        assertThat(onSpark().executeQuery("SELECT * FROM " + sparkTableName)).containsOnly(expected);
+
+        onSpark().executeQuery("DROP TABLE " + sparkTableName);
+    }
+
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormats")
+    public void testSparkReadsTrinoRowLevelDeletesWithRowTypes(StorageFormat storageFormat)
+    {
+        String tableName = format("test_spark_reads_trino_row_level_deletes_row_types_%s_%s", storageFormat.name(), randomTableSuffix());
+        String sparkTableName = sparkTableName(tableName);
+        String trinoTableName = trinoTableName(tableName);
+
+        onTrino().executeQuery("CREATE TABLE " + trinoTableName + "(part_key INT, int_t INT, row_t ROW(a INT, b INT)) " +
+                "WITH(partitioning = ARRAY['part_key'], format_version = 2, format = '" + storageFormat.name() + "') ");
+        onTrino().executeQuery("INSERT INTO " + trinoTableName + " VALUES (1, 1, row(1, 2)), (1, 2, row(3, 4)), (1, 3, row(5, 6)), (2, 4, row(1, 2))");
+        onTrino().executeQuery("DELETE FROM " + trinoTableName + " WHERE int_t = 2");
+
+        List<Row> expected = ImmutableList.of(row(1, 2), row(1, 6), row(2, 2));
+        assertThat(onTrino().executeQuery("SELECT part_key, row_t.b FROM " + trinoTableName)).containsOnly(expected);
+        assertThat(onSpark().executeQuery("SELECT part_key, row_t.b FROM " + sparkTableName)).containsOnly(expected);
+
+        onSpark().executeQuery("DROP TABLE " + sparkTableName);
+    }
+
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormats")
+    public void testDeleteAfterPartitionEvolution(StorageFormat storageFormat)
+    {
+        String baseTableName = "test_delete_after_partition_evolution_" + storageFormat + randomTableSuffix();
+        String trinoTableName = trinoTableName(baseTableName);
+        String sparkTableName = sparkTableName(baseTableName);
+
+        onSpark().executeQuery("DROP TABLE IF EXISTS " + sparkTableName);
+        onSpark().executeQuery(format(
+                "CREATE TABLE %s (" +
+                        "col0 BIGINT, " +
+                        "col1 BIGINT, " +
+                        "col2 BIGINT) "
+                        + " USING ICEBERG"
+                        + " TBLPROPERTIES ('write.format.default' = '%s', 'format-version' = 2, 'write.delete.mode' = 'merge-on-read')",
+                sparkTableName,
+                storageFormat));
+        onSpark().executeQuery("INSERT INTO " + sparkTableName + " VALUES (1, 11, 21)");
+
+        onSpark().executeQuery("ALTER TABLE " + sparkTableName + " ADD PARTITION FIELD bucket(3, col0)");
+        onSpark().executeQuery("INSERT INTO " + sparkTableName + " VALUES (2, 12, 22)");
+
+        onSpark().executeQuery("ALTER TABLE " + sparkTableName + " ADD PARTITION FIELD col1");
+        onSpark().executeQuery("INSERT INTO " + sparkTableName + " VALUES (3, 13, 23)");
+
+        onSpark().executeQuery("ALTER TABLE " + sparkTableName + " DROP PARTITION FIELD col1");
+        onSpark().executeQuery("ALTER TABLE " + sparkTableName + " ADD PARTITION FIELD col2");
+        onSpark().executeQuery("INSERT INTO " + sparkTableName + " VALUES (4, 14, 24)");
+
+        onSpark().executeQuery("ALTER TABLE " + sparkTableName + " DROP PARTITION FIELD bucket(3, col0)");
+        onSpark().executeQuery("ALTER TABLE " + sparkTableName + " DROP PARTITION FIELD col2");
+        onSpark().executeQuery("ALTER TABLE " + sparkTableName + " ADD PARTITION FIELD col0");
+        onSpark().executeQuery("INSERT INTO " + sparkTableName + " VALUES (5, 15, 25)");
+
+        List<Row> expected = new ArrayList<>();
+        expected.add(row(1, 11, 21));
+        expected.add(row(2, 12, 22));
+        expected.add(row(3, 13, 23));
+        expected.add(row(4, 14, 24));
+        expected.add(row(5, 15, 25));
+        assertThat(onTrino().executeQuery("SELECT * FROM " + trinoTableName)).containsOnly(expected);
+
+        for (int columnValue = 1; columnValue <= 5; columnValue++) {
+            onTrino().executeQuery("DELETE FROM " + trinoTableName + " WHERE col0 = " + columnValue);
+            // Rows are in order so removing the first one always matches columnValue
+            expected.remove(0);
+            assertThat(onTrino().executeQuery("SELECT * FROM " + trinoTableName)).containsOnly(expected);
+            assertThat(onSpark().executeQuery("SELECT * FROM " + sparkTableName)).containsOnly(expected);
+        }
 
         onSpark().executeQuery("DROP TABLE " + sparkTableName);
     }
@@ -1640,7 +1745,7 @@ public class TestIcebergSparkCompatibility
         String sparkTableName = sparkTableName(baseTableName);
         onTrino().executeQuery("DROP TABLE IF EXISTS " + trinoTableName);
 
-        onTrino().executeQuery(format("CREATE TABLE %s (_string VARCHAR, _bigint BIGINT) WITH (partitioning = ARRAY['_string'], format = '%s')", trinoTableName, storageFormat));
+        onTrino().executeQuery(format("CREATE TABLE %s (_string VARCHAR, _bigint BIGINT) WITH (partitioning = ARRAY['_string'], format = '%s', format_version = 1)", trinoTableName, storageFormat));
         // separate inserts give us snapshot per insert
         onTrino().executeQuery(format("INSERT INTO %s VALUES ('a', 1001)", trinoTableName));
         onTrino().executeQuery(format("INSERT INTO %s VALUES ('a', 1002)", trinoTableName));
@@ -1684,7 +1789,7 @@ public class TestIcebergSparkCompatibility
         String sparkTableName = sparkTableName(baseTableName);
         onTrino().executeQuery("DROP TABLE IF EXISTS " + trinoTableName);
 
-        onTrino().executeQuery(format("CREATE TABLE %s (_string VARCHAR, _bigint BIGINT) WITH (partitioning = ARRAY['_string'], format = '%s')", trinoTableName, storageFormat));
+        onTrino().executeQuery(format("CREATE TABLE %s (_string VARCHAR, _bigint BIGINT) WITH (partitioning = ARRAY['_string'], format = '%s', format_version = 1)", trinoTableName, storageFormat));
         // separate inserts give us snapshot per insert
         onTrino().executeQuery(format("INSERT INTO %s VALUES ('a', 1001)", trinoTableName));
         onTrino().executeQuery(format("INSERT INTO %s VALUES ('a', 1002)", trinoTableName));

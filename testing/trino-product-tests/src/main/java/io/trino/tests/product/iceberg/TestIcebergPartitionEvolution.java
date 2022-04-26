@@ -32,7 +32,7 @@ public class TestIcebergPartitionEvolution
     {
         onTrino().executeQuery("USE iceberg.default");
         onTrino().executeQuery("DROP TABLE IF EXISTS test_dropped_partition_field");
-        onTrino().executeQuery("CREATE TABLE test_dropped_partition_field(a varchar, b varchar, c varchar) WITH (partitioning = ARRAY['a','b'])");
+        onTrino().executeQuery("CREATE TABLE test_dropped_partition_field(a varchar, b varchar, c varchar) WITH (format_version = 1, partitioning = ARRAY['a','b'])");
         onTrino().executeQuery("INSERT INTO test_dropped_partition_field VALUES " +
                 "('one', 'small', 'snake')," +
                 "('one', 'small', 'rabbit')," +

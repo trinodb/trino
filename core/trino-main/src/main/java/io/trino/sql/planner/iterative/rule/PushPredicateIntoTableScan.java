@@ -36,8 +36,10 @@ import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.ConnectorExpressionTranslator;
 import io.trino.sql.planner.DomainTranslator;
+import io.trino.sql.planner.ExpressionInterpreter;
 import io.trino.sql.planner.LayoutConstraintEvaluator;
 import io.trino.sql.planner.LiteralEncoder;
+import io.trino.sql.planner.NoOpSymbolResolver;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.TypeAnalyzer;
@@ -280,7 +282,16 @@ public class PushPredicateIntoTableScan
         else {
             Map<String, Symbol> variableMappings = assignments.values().stream()
                     .collect(toImmutableMap(Symbol::getName, Function.identity()));
-            Expression translatedExpression = ConnectorExpressionTranslator.translate(session, remainingConnectorExpression.get(), plannerContext, variableMappings, new LiteralEncoder(plannerContext));
+            LiteralEncoder literalEncoder = new LiteralEncoder(plannerContext);
+            Expression translatedExpression = ConnectorExpressionTranslator.translate(session, remainingConnectorExpression.get(), plannerContext, variableMappings, literalEncoder);
+            // ConnectorExpressionTranslator may or may not preserve optimized form of expressions during round-trip. Avoid potential optimizer loop
+            // by ensuring expression is optimized.
+            Map<NodeRef<Expression>, Type> translatedExpressionTypes = typeAnalyzer.getTypes(session, symbolAllocator.getTypes(), translatedExpression);
+            translatedExpression = literalEncoder.toExpression(
+                    session,
+                    new ExpressionInterpreter(translatedExpression, plannerContext, session, translatedExpressionTypes)
+                            .optimize(NoOpSymbolResolver.INSTANCE),
+                    translatedExpressionTypes.get(NodeRef.of(translatedExpression)));
             remainingDecomposedPredicate = combineConjuncts(plannerContext.getMetadata(), translatedExpression, expressionTranslation.getRemainingExpression());
         }
 

@@ -25,10 +25,10 @@
 * Improve query planning performance. ({issue}`11858`)
 * Fix failure when reading from `information_schema.columns` when metastore
   contains views. ({issue}`11946`)
+* Add support for dropping tables with invalid metadata. ({issue}`11924`)
 
 ## Hive connector
 
-* Add support for dropping tables with invalid metadata. ({issue}`11924`)
 * Improve query planning performance. ({issue}`11858`)
 * Fix query failure when partition column has a `null` value and query has a
   complex predicate on that partition column. ({issue}`12056`)
