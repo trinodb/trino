@@ -185,6 +185,9 @@ import static java.util.stream.Collectors.joining;
 import static org.apache.iceberg.MetadataColumns.ROW_POSITION;
 import static org.apache.iceberg.ReachableFileUtil.metadataFileLocations;
 import static org.apache.iceberg.ReachableFileUtil.versionHintLocation;
+import static org.apache.iceberg.SnapshotSummary.DELETED_RECORDS_PROP;
+import static org.apache.iceberg.SnapshotSummary.REMOVED_EQ_DELETES_PROP;
+import static org.apache.iceberg.SnapshotSummary.REMOVED_POS_DELETES_PROP;
 import static org.apache.iceberg.TableProperties.DELETE_ISOLATION_LEVEL;
 import static org.apache.iceberg.TableProperties.DELETE_ISOLATION_LEVEL_DEFAULT;
 import static org.apache.iceberg.TableProperties.WRITE_LOCATION_PROVIDER_IMPL;
@@ -1345,8 +1348,16 @@ public class IcebergMetadata
                 .deleteFromRowFilter(toIcebergExpression(handle.getEnforcedPredicate()))
                 .commit();
 
-        // TODO: it should be possible to return number of deleted records. https://github.com/trinodb/trino/issues/12055
-        return OptionalLong.empty();
+        Map<String, String> summary = icebergTable.currentSnapshot().summary();
+        String deletedRowsStr = summary.get(DELETED_RECORDS_PROP);
+        if (deletedRowsStr == null) {
+            // TODO Iceberg should guarantee this is always present (https://github.com/apache/iceberg/issues/4647)
+            return OptionalLong.empty();
+        }
+        long deletedRecords = Long.parseLong(deletedRowsStr);
+        long removedPositionDeletes = Long.parseLong(summary.getOrDefault(REMOVED_POS_DELETES_PROP, "0"));
+        long removedEqualityDeletes = Long.parseLong(summary.getOrDefault(REMOVED_EQ_DELETES_PROP, "0"));
+        return OptionalLong.of(deletedRecords - removedPositionDeletes - removedEqualityDeletes);
     }
 
     public void rollback()
