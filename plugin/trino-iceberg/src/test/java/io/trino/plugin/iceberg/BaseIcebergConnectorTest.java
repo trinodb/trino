@@ -94,7 +94,6 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.BROADCAST;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
-import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DELETE;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.assertions.Assert.assertEquals;
 import static io.trino.testing.assertions.Assert.assertEventually;
@@ -3437,6 +3436,35 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate("DELETE FROM " + tableName + " WHERE key = 'one'"); // TODO change this when iceberg will guarantee to always return this (https://github.com/apache/iceberg/issues/4647)
         assertUpdate("DELETE FROM " + tableName + " WHERE key = 'three'");
         assertUpdate("DELETE FROM " + tableName + " WHERE key = 'two'", 2);
+    }
+
+    @Test
+    public void testUpdatingFileFormat()
+    {
+        String tableName = "test_updating_file_format_" + randomTableSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName + " WITH (format = 'orc') AS SELECT * FROM nation WHERE nationkey < 10", "SELECT count(*) FROM nation WHERE nationkey < 10");
+        assertQuery("SELECT value FROM \"" + tableName + "$properties\" WHERE key = 'write.format.default'", "VALUES 'ORC'");
+
+        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES format = 'parquet'");
+        assertQuery("SELECT value FROM \"" + tableName + "$properties\" WHERE key = 'write.format.default'", "VALUES 'PARQUET'");
+        assertUpdate("INSERT INTO " + tableName + " SELECT * FROM nation WHERE nationkey >= 10", "SELECT count(*) FROM nation WHERE nationkey >= 10");
+
+        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation");
+        assertQuery("SELECT count(*) FROM \"" + tableName + "$files\" WHERE file_path LIKE '%.orc'", "VALUES 1");
+        assertQuery("SELECT count(*) FROM \"" + tableName + "$files\" WHERE file_path LIKE '%.parquet'", "VALUES 1");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testUpdatingInvalidTableProperty()
+    {
+        String tableName = "test_updating_invalid_table_property_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (a INT, b INT)");
+        assertThatThrownBy(() -> query("ALTER TABLE " + tableName + " SET PROPERTIES not_a_valid_table_property = 'a value'"))
+                .hasMessage("Catalog 'iceberg' table property 'not_a_valid_table_property' does not exist");
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     private Session prepareCleanUpSession()

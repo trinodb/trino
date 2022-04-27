@@ -238,6 +238,25 @@ otherwise the procedure will fail with similar message:
 ``Retention specified (1.00d) is shorter than the minimum retention configured in the system (7.00d)``.
 The default value for this property is ``7d``.
 
+.. _iceberg-alter-table-set-properties:
+
+ALTER TABLE SET PROPERTIES
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The connector supports modifying the properties on existing tables using
+:ref:`ALTER TABLE SET PROPERTIES <alter-table-set-properties>`.
+
+The following table properties can be updated after a table is created:
+
+* ``format``
+* ``format_version``
+
+For example, to update a table from v1 of the Iceberg specification to v2:
+
+.. code-block:: sql
+
+    ALTER TABLE table_name SET PROPERTIES format_version = 2;
+
 .. _iceberg-type-mapping:
 
 Type mapping
