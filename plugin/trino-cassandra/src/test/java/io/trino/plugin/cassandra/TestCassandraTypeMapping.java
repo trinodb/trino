@@ -16,6 +16,7 @@ package io.trino.plugin.cassandra;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
+import io.trino.plugin.cassandra.TestCassandraTable.ColumnDefinition;
 import io.trino.spi.type.RowType.Field;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.testing.AbstractTestQueryFramework;
@@ -26,6 +27,7 @@ import io.trino.testing.datatype.CreateAsSelectDataSetup;
 import io.trino.testing.datatype.DataSetup;
 import io.trino.testing.datatype.SqlDataTypeTest;
 import io.trino.testing.sql.TrinoSqlExecutor;
+import org.intellij.lang.annotations.Language;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -35,6 +37,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 import java.util.Optional;
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -42,6 +45,8 @@ import java.util.function.Function;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.cassandra.CassandraQueryRunner.createCassandraQueryRunner;
+import static io.trino.plugin.cassandra.TestCassandraTable.generalColumn;
+import static io.trino.plugin.cassandra.TestCassandraTable.partitionColumn;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
@@ -59,6 +64,7 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestCassandraTypeMapping
         extends AbstractTestQueryFramework
@@ -163,6 +169,22 @@ public class TestCassandraTypeMapping
     }
 
     @Test
+    public void testUnsupportedTinyint()
+    {
+        try (TestCassandraTable table = testTable(
+                "test_unsupported_tinyint",
+                ImmutableList.of(partitionColumn("id", "tinyint"), generalColumn("data", "tinyint")),
+                ImmutableList.of())) {
+            assertCassandraQueryFails(
+                    "INSERT INTO " + table.getTableName() + " (id, data) VALUES (1, -129)", // min - 1
+                    "Unable to make byte from '-129'");
+            assertCassandraQueryFails(
+                    "INSERT INTO " + table.getTableName() + " (id, data) VALUES (2, 128)", // max + 1
+                    "Unable to make byte from '128'");
+        }
+    }
+
+    @Test
     public void testSmallint()
     {
         SqlDataTypeTest.create()
@@ -173,6 +195,22 @@ public class TestCassandraTypeMapping
                 .execute(getQueryRunner(), cassandraCreateAndInsert("tpch.test_smallint"))
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_smallint"))
                 .execute(getQueryRunner(), trinoCreateAndInsert("test_smallint"));
+    }
+
+    @Test
+    public void testUnsupportedSmallint()
+    {
+        try (TestCassandraTable table = testTable(
+                "test_unsupported_smallint",
+                ImmutableList.of(partitionColumn("id", "smallint"), generalColumn("data", "smallint")),
+                ImmutableList.of())) {
+            assertCassandraQueryFails(
+                    "INSERT INTO " + table.getTableName() + " (id, data) VALUES (1, -32769)", // min - 1
+                    "Unable to make short from '-32769'");
+            assertCassandraQueryFails(
+                    "INSERT INTO " + table.getTableName() + " (id, data) VALUES (2, 32768)", // max + 1
+                    "Unable to make short from '32768'");
+        }
     }
 
     @Test
@@ -189,6 +227,22 @@ public class TestCassandraTypeMapping
     }
 
     @Test
+    public void testUnsupportedInt()
+    {
+        try (TestCassandraTable table = testTable(
+                "test_unsupported_int",
+                ImmutableList.of(partitionColumn("id", "int"), generalColumn("data", "int")),
+                ImmutableList.of())) {
+            assertCassandraQueryFails(
+                    "INSERT INTO " + table.getTableName() + " (id, data) VALUES (1, -2147483649)", // min - 1
+                    "Unable to make int from '-2147483649'");
+            assertCassandraQueryFails(
+                    "INSERT INTO " + table.getTableName() + " (id, data) VALUES (2, 2147483648)", // max + 1
+                    "Unable to make int from '2147483648'");
+        }
+    }
+
+    @Test
     public void testBigint()
     {
         SqlDataTypeTest.create()
@@ -199,6 +253,22 @@ public class TestCassandraTypeMapping
                 .execute(getQueryRunner(), cassandraCreateAndInsert("tpch.test_bigint"))
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_bigint"))
                 .execute(getQueryRunner(), trinoCreateAndInsert("test_bigint"));
+    }
+
+    @Test
+    public void testUnsupportedBigint()
+    {
+        try (TestCassandraTable table = testTable(
+                "test_unsupported_bigint",
+                ImmutableList.of(partitionColumn("id", "bigint"), generalColumn("data", "bigint")),
+                ImmutableList.of())) {
+            assertCassandraQueryFails(
+                    "INSERT INTO " + table.getTableName() + " (id, data) VALUES (1, -9223372036854775809)", // min - 1
+                    "Unable to make long from '-9223372036854775809'");
+            assertCassandraQueryFails(
+                    "INSERT INTO " + table.getTableName() + " (id, data) VALUES (2, 9223372036854775808)", // max + 1
+                    "Unable to make long from '9223372036854775808'");
+        }
     }
 
     @Test
@@ -556,6 +626,16 @@ public class TestCassandraTypeMapping
     private DataSetup cassandraCreateAndInsert(String tableNamePrefix)
     {
         return new CassandraCreateAndInsertDataSetup(session::execute, tableNamePrefix, server);
+    }
+
+    private TestCassandraTable testTable(String namePrefix, List<ColumnDefinition> columnDefinitions, List<String> rowsToInsert)
+    {
+        return new TestCassandraTable(session::execute, server, "tpch", namePrefix, columnDefinitions, rowsToInsert);
+    }
+
+    private void assertCassandraQueryFails(@Language("SQL") String sql, String expectedMessage)
+    {
+        assertThatThrownBy(() -> session.execute(sql)).hasMessageContaining(expectedMessage);
     }
 
     private static BiFunction<LocalDateTime, ZoneId, String> cassandraTimestampInputLiteralFactory()
