@@ -17,11 +17,14 @@ import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
 import io.airlift.configuration.LegacyConfig;
+import io.airlift.units.Duration;
 
 import javax.validation.constraints.DecimalMax;
 import javax.validation.constraints.DecimalMin;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
+
+import java.util.concurrent.TimeUnit;
 
 import static java.util.Locale.ENGLISH;
 
@@ -48,6 +51,7 @@ public class NodeSchedulerConfig
     private int maxUnacknowledgedSplitsPerTask = 500;
     private int maxAbsoluteFullNodesPerQuery = Integer.MAX_VALUE;
     private double maxFractionFullNodesPerQuery = 0.5;
+    private Duration allowedNoMatchingNodePeriod = new Duration(2, TimeUnit.MINUTES);
     private NodeAllocatorType nodeAllocatorType = NodeAllocatorType.BIN_PACKING;
 
     @NotNull
@@ -193,6 +197,19 @@ public class NodeSchedulerConfig
     public double getMaxFractionFullNodesPerQuery()
     {
         return maxFractionFullNodesPerQuery;
+    }
+
+    @Config("node-scheduler.allowed-no-matching-node-period")
+    @ConfigDescription("How long scheduler should wait before failing a query for which hard task requirements (e.g. node exposing specific catalog) cannot be satisfied")
+    public NodeSchedulerConfig setAllowedNoMatchingNodePeriod(Duration allowedNoMatchingNodePeriod)
+    {
+        this.allowedNoMatchingNodePeriod = allowedNoMatchingNodePeriod;
+        return this;
+    }
+
+    public Duration getAllowedNoMatchingNodePeriod()
+    {
+        return allowedNoMatchingNodePeriod;
     }
 
     public enum NodeAllocatorType

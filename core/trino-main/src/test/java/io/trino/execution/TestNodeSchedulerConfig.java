@@ -14,6 +14,7 @@
 package io.trino.execution;
 
 import com.google.common.collect.ImmutableMap;
+import io.airlift.units.Duration;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
 import org.testng.annotations.Test;
 
@@ -24,6 +25,7 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDe
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.trino.execution.scheduler.NodeSchedulerConfig.NodeSchedulerPolicy.UNIFORM;
 import static io.trino.execution.scheduler.NodeSchedulerConfig.SplitsBalancingPolicy.NODE;
+import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class TestNodeSchedulerConfig
 {
@@ -41,6 +43,7 @@ public class TestNodeSchedulerConfig
                 .setOptimizedLocalScheduling(true)
                 .setMaxAbsoluteFullNodesPerQuery(Integer.MAX_VALUE)
                 .setMaxFractionFullNodesPerQuery(0.5)
+                .setAllowedNoMatchingNodePeriod(new Duration(2, MINUTES))
                 .setNodeAllocatorType("bin_packing"));
     }
 
@@ -58,6 +61,7 @@ public class TestNodeSchedulerConfig
                 .put("node-scheduler.optimized-local-scheduling", "false")
                 .put("node-scheduler.max-absolute-full-nodes-per-query", "17")
                 .put("node-scheduler.max-fraction-full-nodes-per-query", "0.3")
+                .put("node-scheduler.allowed-no-matching-node-period", "1m")
                 .put("node-scheduler.allocator-type", "fixed_count")
                 .buildOrThrow();
 
@@ -72,6 +76,7 @@ public class TestNodeSchedulerConfig
                 .setOptimizedLocalScheduling(false)
                 .setMaxAbsoluteFullNodesPerQuery(17)
                 .setMaxFractionFullNodesPerQuery(0.3)
+                .setAllowedNoMatchingNodePeriod(new Duration(1, MINUTES))
                 .setNodeAllocatorType("fixed_count");
 
         assertFullMapping(properties, expected);
