@@ -143,6 +143,7 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.security.PrincipalType.USER;
 import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.Predicate.not;
 import static java.util.function.UnaryOperator.identity;
 import static java.util.stream.Collectors.toCollection;
 import static java.util.stream.Collectors.toMap;
@@ -578,9 +579,10 @@ public class GlueHiveMetastore
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
 
-        String tableLocation = table.getStorage().getLocation();
-        if (deleteData && isManagedTable(table) && !isNullOrEmpty(tableLocation)) {
-            deleteDir(hdfsContext, hdfsEnvironment, new Path(tableLocation), true);
+        Optional<String> location = table.getStorage().getOptionalLocation()
+                .filter(not(String::isEmpty));
+        if (deleteData && isManagedTable(table) && location.isPresent()) {
+            deleteDir(hdfsContext, hdfsEnvironment, new Path(location.get()), true);
         }
     }
 
