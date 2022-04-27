@@ -64,6 +64,8 @@ import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static io.trino.tpch.TpchTable.NATION;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.testng.Assert.assertEquals;
 
 public class TestIcebergV2
         extends AbstractTestQueryFramework
@@ -170,6 +172,39 @@ public class TestIcebergV2
         writeEqualityDeleteToNationTable(icebergTable);
         assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE regionkey != 1");
         assertQuery("SELECT nationkey FROM " + tableName, "SELECT nationkey FROM nation WHERE regionkey != 1");
+    }
+
+    @Test
+    public void testUpgradeTableToV2FromTrino()
+    {
+        String tableName = "test_upgrade_table_to_v2_from_trino_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " WITH (format_version = 1) AS SELECT * FROM tpch.tiny.nation", 25);
+        assertEquals(loadTable(tableName).operations().current().formatVersion(), 1);
+        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES format_version = 2");
+        assertEquals(loadTable(tableName).operations().current().formatVersion(), 2);
+        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation");
+    }
+
+    @Test
+    public void testDowngradingV2TableToV1Fails()
+    {
+        String tableName = "test_downgrading_v2_table_to_v1_fails_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " WITH (format_version = 2) AS SELECT * FROM tpch.tiny.nation", 25);
+        assertEquals(loadTable(tableName).operations().current().formatVersion(), 2);
+        assertThatThrownBy(() -> query("ALTER TABLE " + tableName + " SET PROPERTIES format_version = 1"))
+                .hasMessage("Failed to commit new table properties")
+                .getRootCause()
+                .hasMessage("Cannot downgrade v2 table to v1");
+    }
+
+    @Test
+    public void testUpgradingToInvalidVersionFails()
+    {
+        String tableName = "test_upgrading_to_invalid_version_fails_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " WITH (format_version = 2) AS SELECT * FROM tpch.tiny.nation", 25);
+        assertEquals(loadTable(tableName).operations().current().formatVersion(), 2);
+        assertThatThrownBy(() -> query("ALTER TABLE " + tableName + " SET PROPERTIES format_version = 42"))
+                .hasMessage("Unable to set catalog 'iceberg' table property 'format_version' to [42]: format_version must be between 1 and 2");
     }
 
     private void writeEqualityDeleteToNationTable(Table icebergTable)
