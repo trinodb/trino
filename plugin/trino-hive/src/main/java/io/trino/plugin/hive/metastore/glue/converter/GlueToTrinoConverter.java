@@ -83,14 +83,15 @@ public final class GlueToTrinoConverter
                 .setViewOriginalText(Optional.ofNullable(glueTable.getViewOriginalText()))
                 .setViewExpandedText(Optional.ofNullable(glueTable.getViewExpandedText()));
 
-        if (isIcebergTable(tableParameters) || isDeltaLakeTable(tableParameters)) {
-            // Iceberg and Delta Lake tables do not use the StorageDescriptor field, but we need to return a Table so the caller can check that
-            // the table is an Iceberg/Delta table and decide whether to redirect or fail.
+        StorageDescriptor sd = glueTable.getStorageDescriptor();
+
+        if (isIcebergTable(tableParameters) || (sd == null && isDeltaLakeTable(tableParameters))) {
+            // Iceberg tables do not need to read the StorageDescriptor field, but we still need to return dummy properties for compatibility
+            // Delta Lake tables only need to provide a dummy properties if a StorageDescriptor was not explicitly configured.
             tableBuilder.setDataColumns(ImmutableList.of(new Column("dummy", HIVE_INT, Optional.empty())));
             tableBuilder.getStorageBuilder().setStorageFormat(StorageFormat.fromHiveStorageFormat(HiveStorageFormat.PARQUET));
         }
         else {
-            StorageDescriptor sd = glueTable.getStorageDescriptor();
             if (sd == null) {
                 throw new TrinoException(HIVE_UNSUPPORTED_FORMAT, format("Table StorageDescriptor is null for table %s.%s (%s)", dbName, glueTable.getName(), glueTable));
             }
