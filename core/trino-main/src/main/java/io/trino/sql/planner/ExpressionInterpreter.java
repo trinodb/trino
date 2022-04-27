@@ -170,6 +170,7 @@ public class ExpressionInterpreter
     // weak reference based cache for LIKE expressions with constant pattern and escape char
     private final Map<LikePredicate, JoniRegexp> likePatternCache;
     private final Map<InListExpression, Set<?>> inListCache;
+    private final Map<Expression, Object> optimizationCache;
 
     public ExpressionInterpreter(PlannerContext plannerContext, Session session)
     {
@@ -185,6 +186,7 @@ public class ExpressionInterpreter
         MapMaker mapMaker = new MapMaker().weakKeys().concurrencyLevel(1);
         this.likePatternCache = mapMaker.makeMap();
         this.inListCache = mapMaker.makeMap();
+        this.optimizationCache = mapMaker.makeMap();
     }
 
     public static Object evaluateConstantExpression(
@@ -307,7 +309,7 @@ public class ExpressionInterpreter
             }
 
             try {
-                return process(expression, resolver);
+                return processWithCaching(expression, resolver);
             }
             catch (TrinoException e) {
                 if (optimize) {
@@ -320,6 +322,19 @@ public class ExpressionInterpreter
                 // Do not suppress exceptions during expression execution.
                 throw e;
             }
+        }
+
+        private Object processWithCaching(Expression expression, SymbolResolver resolver)
+        {
+            if (optimize && resolver instanceof NoOpSymbolResolver) {
+                // We are using weak reference map as cache, that's why we can't depend on an intermediate object
+                // that consists of expression as well as symbolResolver as a key. This is because intermediate object could
+                // get GCed even when expression still exists which will cause cache miss. So, to solve this problem we
+                // can only cache when context is noop. It'll also give us good performance benefits because in most of
+                // places optimize is called with noop symbol resolver.
+                return optimizationCache.computeIfAbsent(expression, key -> process(key, resolver));
+            }
+            return process(expression, resolver);
         }
 
         @Override
