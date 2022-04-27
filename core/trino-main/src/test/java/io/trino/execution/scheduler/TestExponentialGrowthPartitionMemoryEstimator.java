@@ -13,6 +13,7 @@
  */
 package io.trino.execution.scheduler;
 
+import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.trino.Session;
@@ -28,6 +29,7 @@ import io.trino.testing.TestingSession;
 import org.testng.annotations.Test;
 
 import java.net.URI;
+import java.time.Duration;
 import java.util.Optional;
 
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
@@ -35,6 +37,7 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.spi.StandardErrorCode.ADMINISTRATIVELY_PREEMPTED;
 import static io.trino.spi.StandardErrorCode.CLUSTER_OUT_OF_MEMORY;
 import static io.trino.spi.StandardErrorCode.EXCEEDED_LOCAL_MEMORY_LIMIT;
+import static java.time.temporal.ChronoUnit.MINUTES;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestExponentialGrowthPartitionMemoryEstimator
@@ -49,7 +52,9 @@ public class TestExponentialGrowthPartitionMemoryEstimator
                 nodeManager,
                 () -> ImmutableMap.of(new InternalNode("a-node", URI.create("local://blah"), NodeVersion.UNKNOWN, false).getNodeIdentifier(), Optional.of(buildWorkerMemoryInfo(DataSize.ofBytes(0)))),
                 false,
-                DataSize.ofBytes(0));
+                Duration.of(1, MINUTES),
+                DataSize.ofBytes(0),
+                Ticker.systemTicker());
         nodeAllocatorService.refreshNodePoolMemoryInfos();
         PartitionMemoryEstimator estimator = nodeAllocatorService.createPartitionMemoryEstimator();
 

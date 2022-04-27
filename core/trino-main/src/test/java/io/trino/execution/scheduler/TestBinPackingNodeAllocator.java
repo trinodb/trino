@@ -16,6 +16,7 @@ package io.trino.execution.scheduler;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.Futures;
+import io.airlift.testing.TestingTicker;
 import io.airlift.units.DataSize;
 import io.trino.Session;
 import io.trino.client.NodeVersion;
@@ -32,18 +33,21 @@ import org.testng.annotations.AfterMethod;
 import org.testng.annotations.Test;
 
 import java.net.URI;
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static java.time.temporal.ChronoUnit.MINUTES;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -82,6 +86,7 @@ public class TestBinPackingNodeAllocator
 
     private BinPackingNodeAllocatorService nodeAllocatorService;
     private ConcurrentHashMap<String, Optional<MemoryInfo>> workerMemoryInfos;
+    private final TestingTicker ticker = new TestingTicker();
 
     private void setupNodeAllocatorService(InMemoryNodeManager nodeManager)
     {
@@ -103,7 +108,9 @@ public class TestBinPackingNodeAllocator
                 nodeManager,
                 () -> workerMemoryInfos,
                 false,
-                taskRuntimeMemoryEstimationOverhead);
+                Duration.of(1, MINUTES),
+                taskRuntimeMemoryEstimationOverhead,
+                ticker);
         nodeAllocatorService.start();
     }
 
@@ -314,7 +321,14 @@ public class TestBinPackingNodeAllocator
 
         try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION)) {
             // request a node with specific catalog (not present)
-            assertThatThrownBy(() -> Futures.getUnchecked(nodeAllocator.acquire(REQ_CATALOG_1_32.withMemory(DataSize.of(64, GIGABYTE))).getNode()))
+            NodeAllocator.NodeLease acquireNoMatching = nodeAllocator.acquire(REQ_CATALOG_1_32.withMemory(DataSize.of(64, GIGABYTE)));
+            assertNotAcquired(acquireNoMatching);
+            ticker.increment(59, TimeUnit.SECONDS); // still below timeout
+            nodeAllocatorService.processPendingAcquires();
+            assertNotAcquired(acquireNoMatching);
+            ticker.increment(2, TimeUnit.SECONDS); // past 1 minute timeout
+            nodeAllocatorService.processPendingAcquires();
+            assertThatThrownBy(() -> Futures.getUnchecked(acquireNoMatching.getNode()))
                     .hasMessageContaining("No nodes available to run query");
 
             // add node with specific catalog
@@ -331,6 +345,8 @@ public class TestBinPackingNodeAllocator
             // remove node with catalog
             nodeManager.removeNode(NODE_2);
             // TODO: make FullNodeCapableNodeAllocatorService react on node removed automatically
+            nodeAllocatorService.processPendingAcquires();
+            ticker.increment(61, TimeUnit.SECONDS); // wait past the timeout
             nodeAllocatorService.processPendingAcquires();
 
             // pending acquire2 should be completed now but with an exception

@@ -13,6 +13,8 @@
  */
 package io.trino.execution.scheduler;
 
+import com.google.common.base.Stopwatch;
+import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -42,6 +44,7 @@ import javax.annotation.PreDestroy;
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
+import java.time.Duration;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -98,10 +101,12 @@ public class BinPackingNodeAllocatorService
     private final AtomicReference<Optional<DataSize>> maxNodePoolSize = new AtomicReference<>(Optional.empty());
     private final boolean scheduleOnCoordinator;
     private final DataSize taskRuntimeMemoryEstimationOverhead;
+    private final Ticker ticker;
 
     private final ConcurrentMap<String, Long> allocatedMemory = new ConcurrentHashMap<>();
     private final Deque<PendingAcquire> pendingAcquires = new ConcurrentLinkedDeque<>();
     private final Set<BinPackingNodeLease> fulfilledAcquires = newConcurrentHashSet();
+    private final Duration allowedNoMatchingNodePeriod;
 
     @Inject
     public BinPackingNodeAllocatorService(
@@ -113,7 +118,9 @@ public class BinPackingNodeAllocatorService
         this(nodeManager,
                 requireNonNull(clusterMemoryManager, "clusterMemoryManager is null")::getWorkerMemoryInfo,
                 nodeSchedulerConfig.isIncludeCoordinator(),
-                memoryManagerConfig.getFaultTolerantExecutionTaskRuntimeMemoryEstimationOverhead());
+                Duration.ofMillis(nodeSchedulerConfig.getAllowedNoMatchingNodePeriod().toMillis()),
+                memoryManagerConfig.getFaultTolerantExecutionTaskRuntimeMemoryEstimationOverhead(),
+                Ticker.systemTicker());
     }
 
     @VisibleForTesting
@@ -121,12 +128,16 @@ public class BinPackingNodeAllocatorService
             InternalNodeManager nodeManager,
             Supplier<Map<String, Optional<MemoryInfo>>> workerMemoryInfoSupplier,
             boolean scheduleOnCoordinator,
-            DataSize taskRuntimeMemoryEstimationOverhead)
+            Duration allowedNoMatchingNodePeriod,
+            DataSize taskRuntimeMemoryEstimationOverhead,
+            Ticker ticker)
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.workerMemoryInfoSupplier = requireNonNull(workerMemoryInfoSupplier, "workerMemoryInfoSupplier is null");
         this.scheduleOnCoordinator = scheduleOnCoordinator;
+        this.allowedNoMatchingNodePeriod = requireNonNull(allowedNoMatchingNodePeriod, "allowedNoMatchingNodePeriod is null");
         this.taskRuntimeMemoryEstimationOverhead = requireNonNull(taskRuntimeMemoryEstimationOverhead, "taskRuntimeMemoryEstimationOverhead is null");
+        this.ticker = requireNonNull(ticker, "ticker is null");
     }
 
     @PostConstruct
@@ -225,6 +236,13 @@ public class BinPackingNodeAllocatorService
                     iterator.remove();
                     break;
                 case NONE_MATCHING:
+                    Duration noMatchingNodePeriod = pendingAcquire.markNoMatchingNodeFound();
+
+                    if (noMatchingNodePeriod.compareTo(allowedNoMatchingNodePeriod) <= 0) {
+                        // wait some more time
+                        break;
+                    }
+
                     pendingAcquire.getFuture().setException(new TrinoException(NO_NODES_AVAILABLE, "No nodes available to run query"));
                     iterator.remove();
                     break;
@@ -251,7 +269,7 @@ public class BinPackingNodeAllocatorService
     public NodeLease acquire(NodeRequirements requirements)
     {
         BinPackingNodeLease nodeLease = new BinPackingNodeLease(requirements.getMemory().toBytes());
-        PendingAcquire pendingAcquire = new PendingAcquire(requirements, nodeLease);
+        PendingAcquire pendingAcquire = new PendingAcquire(requirements, nodeLease, ticker);
         pendingAcquires.add(pendingAcquire);
         wakeupProcessPendingAcquires();
         return nodeLease;
@@ -283,11 +301,13 @@ public class BinPackingNodeAllocatorService
     {
         private final NodeRequirements nodeRequirements;
         private final BinPackingNodeLease lease;
+        private final Stopwatch noMatchingNodeStopwatch;
 
-        private PendingAcquire(NodeRequirements nodeRequirements, BinPackingNodeLease lease)
+        private PendingAcquire(NodeRequirements nodeRequirements, BinPackingNodeLease lease, Ticker ticker)
         {
             this.nodeRequirements = requireNonNull(nodeRequirements, "nodeRequirements is null");
             this.lease = requireNonNull(lease, "lease is null");
+            this.noMatchingNodeStopwatch = Stopwatch.createUnstarted(ticker);
         }
 
         public NodeRequirements getNodeRequirements()
@@ -308,6 +328,14 @@ public class BinPackingNodeAllocatorService
         public long getMemoryLease()
         {
             return nodeRequirements.getMemory().toBytes();
+        }
+
+        public Duration markNoMatchingNodeFound()
+        {
+            if (!noMatchingNodeStopwatch.isRunning()) {
+                noMatchingNodeStopwatch.start();
+            }
+            return noMatchingNodeStopwatch.elapsed();
         }
     }
 
