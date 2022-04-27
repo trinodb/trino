@@ -136,10 +136,10 @@ public abstract class BaseSqlServerTypeMapping
     {
         try (TestTable table = new TestTable(onRemoteDatabase(), "test_unsupported_tinyint", "(data tinyint)")) {
             assertSqlServerQueryFails(
-                    format("INSERT INTO %s VALUES (-1)", table.getName()), // min - 1
+                    "INSERT INTO " + table.getName() + " VALUES (-1)", // min - 1
                     "Arithmetic overflow error for data type tinyint, value = -1");
             assertSqlServerQueryFails(
-                    format("INSERT INTO %s VALUES (256)", table.getName()), // max + 1
+                    "INSERT INTO " + table.getName() + " VALUES (256)", // max + 1
                     "Arithmetic overflow error for data type tinyint, value = 256.");
         }
     }
@@ -162,10 +162,10 @@ public abstract class BaseSqlServerTypeMapping
     {
         try (TestTable table = new TestTable(onRemoteDatabase(), "test_unsupported_smallint", "(data smallint)")) {
             assertSqlServerQueryFails(
-                    format("INSERT INTO %s VALUES (-32769)", table.getName()), // min - 1
+                    "INSERT INTO " + table.getName() + " VALUES (-32769)", // min - 1
                     "Arithmetic overflow error for data type smallint, value = -32769.");
             assertSqlServerQueryFails(
-                    format("INSERT INTO %s VALUES (32768)", table.getName()), // max + 1
+                    "INSERT INTO " + table.getName() + " VALUES (32768)", // max + 1
                     "Arithmetic overflow error for data type smallint, value = 32768.");
         }
     }
@@ -188,10 +188,10 @@ public abstract class BaseSqlServerTypeMapping
     {
         try (TestTable table = new TestTable(onRemoteDatabase(), "test_unsupported_integer", "(data integer)")) {
             assertSqlServerQueryFails(
-                    format("INSERT INTO %s VALUES (-2147483649)", table.getName()), // min - 1
+                    "INSERT INTO " + table.getName() + " VALUES (-2147483649)", // min - 1
                     "Arithmetic overflow error converting expression to data type int.");
             assertSqlServerQueryFails(
-                    format("INSERT INTO %s VALUES (2147483648)", table.getName()), // max + 1
+                    "INSERT INTO " + table.getName() + " VALUES (2147483648)", // max + 1
                     "Arithmetic overflow error converting expression to data type int.");
         }
     }
@@ -214,10 +214,10 @@ public abstract class BaseSqlServerTypeMapping
     {
         try (TestTable table = new TestTable(onRemoteDatabase(), "test_unsupported_bigint", "(data bigint)")) {
             assertSqlServerQueryFails(
-                    format("INSERT INTO %s VALUES (-9223372036854775809)", table.getName()), // min - 1
+                    "INSERT INTO " + table.getName() + " VALUES (-9223372036854775809)", // min - 1
                     "Arithmetic overflow error converting expression to data type bigint.");
             assertSqlServerQueryFails(
-                    format("INSERT INTO %s VALUES (9223372036854775808)", table.getName()), // max + 1
+                    "INSERT INTO " + table.getName() + " VALUES (9223372036854775808)", // max + 1
                     "Arithmetic overflow error converting expression to data type bigint.");
         }
     }

@@ -148,10 +148,10 @@ public class TestPhoenixTypeMapping
     {
         try (TestTable table = new TestTable(new PhoenixSqlExecutor(phoenixServer.getJdbcUrl()), "tpch.test_unsupported_tinyint", "(data tinyint, pk tinyint primary key)")) {
             assertPhoenixQueryFails(
-                    format("INSERT INTO %s VALUES (-129, 1)", table.getName()), // min - 1
+                    "INSERT INTO " + table.getName() + " VALUES (-129, 1)", // min - 1
                     "ERROR 203 (22005): Type mismatch. BIGINT and TINYINT for expression: -129 in column 0.DATA");
             assertPhoenixQueryFails(
-                    format("INSERT INTO %s VALUES (128, 2)", table.getName()), // max + 1
+                    "INSERT INTO " + table.getName() + " VALUES (128, 2)", // max + 1
                     "ERROR 203 (22005): Type mismatch. TINYINT and INTEGER for 128");
         }
     }
@@ -187,10 +187,10 @@ public class TestPhoenixTypeMapping
     {
         try (TestTable table = new TestTable(new PhoenixSqlExecutor(phoenixServer.getJdbcUrl()), "tpch.test_unsupported_smallint", "(data smallint, pk smallint primary key)")) {
             assertPhoenixQueryFails(
-                    format("INSERT INTO %s VALUES (-32769, 1)", table.getName()), // min - 1
+                    "INSERT INTO " + table.getName() + " VALUES (-32769, 1)", // min - 1
                     "ERROR 203 (22005): Type mismatch. BIGINT and SMALLINT for expression: -32769 in column 0.DATA");
             assertPhoenixQueryFails(
-                    format("INSERT INTO %s VALUES (32768, 2)", table.getName()), // max + 1
+                    "INSERT INTO " + table.getName() + " VALUES (32768, 2)", // max + 1
                     "ERROR 203 (22005): Type mismatch. SMALLINT and INTEGER for 32768");
         }
     }
@@ -226,10 +226,10 @@ public class TestPhoenixTypeMapping
     {
         try (TestTable table = new TestTable(new PhoenixSqlExecutor(phoenixServer.getJdbcUrl()), "tpch.test_unsupported_integer", "(data integer, pk integer primary key)")) {
             assertPhoenixQueryFails(
-                    format("INSERT INTO %s VALUES (-2147483649, 1)", table.getName()), // min - 1
+                    "INSERT INTO " + table.getName() + " VALUES (-2147483649, 1)", // min - 1
                     "ERROR 203 (22005): Type mismatch. BIGINT and INTEGER for expression: -2147483649 in column 0.DATA");
             assertPhoenixQueryFails(
-                    format("INSERT INTO %s VALUES (2147483648, 2)", table.getName()), // max + 1
+                    "INSERT INTO " + table.getName() + " VALUES (2147483648, 2)", // max + 1
                     "ERROR 203 (22005): Type mismatch. INTEGER and BIGINT for 2147483648");
         }
     }
@@ -265,7 +265,7 @@ public class TestPhoenixTypeMapping
     {
         try (TestTable table = new TestTable(new PhoenixSqlExecutor(phoenixServer.getJdbcUrl()), "tpch.test_unsupported_bigint", "(data bigint, pk bigint primary key)")) {
             assertPhoenixQueryFails(
-                    format("INSERT INTO %s VALUES (-9223372036854775809, 1)", table.getName()), // min - 1
+                    "INSERT INTO " + table.getName() + " VALUES (-9223372036854775809, 1)", // min - 1
                     "ERROR 203 (22005): Type mismatch. DECIMAL and BIGINT for expression: -9223372036854775809 in column 0.DATA");
 
             // Phoenix JDBC driver throws ArithmeticException instead of SQLException when the value is larger than max of bigint
