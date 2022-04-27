@@ -30,8 +30,11 @@ public class DefaultHiveTableRedirectionsProvider
     @Override
     public Optional<CatalogSchemaTableName> redirectTable(ConnectorSession session, Table table)
     {
-        return redirectTableToIceberg(session, table)
-                .or(() -> redirectTableToDeltaLake(session, table));
+        Optional<CatalogSchemaTableName> catalogSchemaTableName = redirectTableToIceberg(session, table);
+        if (catalogSchemaTableName.isEmpty()) {
+            catalogSchemaTableName = redirectTableToDeltaLake(session, table);
+        }
+        return catalogSchemaTableName;
     }
 
     private Optional<CatalogSchemaTableName> redirectTableToIceberg(ConnectorSession session, Table table)
