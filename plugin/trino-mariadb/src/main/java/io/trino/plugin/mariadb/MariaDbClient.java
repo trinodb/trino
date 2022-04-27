@@ -87,6 +87,7 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.booleanWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.charWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.dateReadFunctionUsingLocalDate;
 import static io.trino.plugin.jdbc.StandardColumnMappings.decimalColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.defaultCharColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.defaultVarcharColumnMapping;
@@ -300,8 +301,7 @@ public class MariaDbClient
             case Types.DATE:
                 return Optional.of(ColumnMapping.longMapping(
                         DATE,
-                        // Use StandardColumnMappings.java.dateReadFunctionUsingLocalDate after merged https://github.com/trinodb/trino/pull/10054
-                        (resultSet, index) -> resultSet.getObject(index, LocalDate.class).toEpochDay(),
+                        dateReadFunctionUsingLocalDate(),
                         dateWriteFunction()));
             case Types.TIME:
                 TimeType timeType = createTimeType(getTimePrecision(typeHandle.getRequiredColumnSize()));
