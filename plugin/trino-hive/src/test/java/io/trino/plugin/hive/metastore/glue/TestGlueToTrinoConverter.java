@@ -34,6 +34,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.amazonaws.util.CollectionUtils.isNullOrEmpty;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.hive.HiveType.HIVE_STRING;
 import static io.trino.plugin.hive.metastore.glue.TestingMetastoreObjects.getGlueTestColumn;
 import static io.trino.plugin.hive.metastore.glue.TestingMetastoreObjects.getGlueTestDatabase;
@@ -216,10 +217,28 @@ public class TestGlueToTrinoConverter
     }
 
     @Test
+    public void testIcebergTableNullStorageDescriptor()
+    {
+        testTable.setParameters(ImmutableMap.of(ICEBERG_TABLE_TYPE_NAME, ICEBERG_TABLE_TYPE_VALUE));
+        testTable.setStorageDescriptor(null);
+        io.trino.plugin.hive.metastore.Table trinoTable = GlueToTrinoConverter.convertTable(testTable, testDatabase.getName());
+        assertEquals(trinoTable.getDataColumns().size(), 1);
+    }
+
+    @Test
     public void testIcebergTableNonNullStorageDescriptor()
     {
         testTable.setParameters(ImmutableMap.of(ICEBERG_TABLE_TYPE_NAME, ICEBERG_TABLE_TYPE_VALUE));
         assertNotNull(testTable.getStorageDescriptor());
+        io.trino.plugin.hive.metastore.Table trinoTable = GlueToTrinoConverter.convertTable(testTable, testDatabase.getName());
+        assertEquals(trinoTable.getDataColumns().size(), 1);
+    }
+
+    @Test
+    public void testDeltaTableNullStorageDescriptor()
+    {
+        testTable.setParameters(ImmutableMap.of(SPARK_TABLE_PROVIDER_KEY, DELTA_LAKE_PROVIDER));
+        testTable.setStorageDescriptor(null);
         io.trino.plugin.hive.metastore.Table trinoTable = GlueToTrinoConverter.convertTable(testTable, testDatabase.getName());
         assertEquals(trinoTable.getDataColumns().size(), 1);
     }
@@ -230,7 +249,13 @@ public class TestGlueToTrinoConverter
         testTable.setParameters(ImmutableMap.of(SPARK_TABLE_PROVIDER_KEY, DELTA_LAKE_PROVIDER));
         assertNotNull(testTable.getStorageDescriptor());
         io.trino.plugin.hive.metastore.Table trinoTable = GlueToTrinoConverter.convertTable(testTable, testDatabase.getName());
-        assertEquals(trinoTable.getDataColumns().size(), 1);
+        assertEquals(
+                trinoTable.getDataColumns().stream()
+                        .map(Column::getName)
+                        .collect(toImmutableSet()),
+                testTable.getStorageDescriptor().getColumns().stream()
+                        .map(com.amazonaws.services.glue.model.Column::getName)
+                        .collect(toImmutableSet()));
     }
 
     @Test
