@@ -399,8 +399,8 @@ public final class HiveQueryRunner
                 .setSecurity(ALLOW_ALL)
                 // Uncomment to enable standard column naming (column names to be prefixed with the first letter of the table name, e.g.: o_orderkey vs orderkey)
                 // and standard column types (decimals vs double for some columns). This will allow running unmodified tpch queries on the cluster.
-                // .setTpchColumnNaming(STANDARD)
-                // .setTpchDecimalTypeMapping(DECIMAL)
+                //.setTpchColumnNaming(ColumnNaming.STANDARD)
+                //.setTpchDecimalTypeMapping(DecimalTypeMapping.DECIMAL)
                 .build();
         Thread.sleep(10);
         log.info("======== SERVER STARTED ========");
