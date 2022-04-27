@@ -16,6 +16,7 @@ package io.trino.sql.planner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.MapMaker;
 import com.google.common.primitives.Primitives;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -104,7 +105,6 @@ import java.lang.invoke.MethodHandles;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
-import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -167,9 +167,9 @@ public class ExpressionInterpreter
     private final InterpretedFunctionInvoker functionInvoker;
     private final TypeCoercion typeCoercion;
 
-    // identity-based cache for LIKE expressions with constant pattern and escape char
-    private final IdentityHashMap<LikePredicate, JoniRegexp> likePatternCache = new IdentityHashMap<>();
-    private final IdentityHashMap<InListExpression, Set<?>> inListCache = new IdentityHashMap<>();
+    // weak reference based cache for LIKE expressions with constant pattern and escape char
+    private final Map<LikePredicate, JoniRegexp> likePatternCache;
+    private final Map<InListExpression, Set<?>> inListCache;
 
     public ExpressionInterpreter(PlannerContext plannerContext, Session session)
     {
@@ -181,6 +181,10 @@ public class ExpressionInterpreter
         this.connectorSession = session.toConnectorSession();
         this.functionInvoker = new InterpretedFunctionInvoker(plannerContext.getFunctionManager());
         this.typeCoercion = new TypeCoercion(plannerContext.getTypeManager()::getType);
+
+        MapMaker mapMaker = new MapMaker().weakKeys().concurrencyLevel(1);
+        this.likePatternCache = mapMaker.makeMap();
+        this.inListCache = mapMaker.makeMap();
     }
 
     public static Object evaluateConstantExpression(
@@ -612,7 +616,7 @@ public class ExpressionInterpreter
                 // We use the presence of the node in the map to indicate that we've already done
                 // the analysis below. If the value is null, it means that we can't apply the HashSet
                 // optimization
-                if (!inListCache.containsKey(valueList)) {
+                if (set == null) {
                     if (valueList.getValues().stream().allMatch(Literal.class::isInstance) &&
                             valueList.getValues().stream().noneMatch(NullLiteral.class::isInstance)) {
                         Set<Object> objectSet = valueList.getValues().stream().map(expression -> processWithExceptionHandling(expression, resolver)).collect(Collectors.toSet());
@@ -622,8 +626,8 @@ public class ExpressionInterpreter
                                 type,
                                 plannerContext.getFunctionManager().getScalarFunctionInvoker(metadata.resolveOperator(session, HASH_CODE, ImmutableList.of(type)), simpleConvention(FAIL_ON_NULL, NEVER_NULL)).getMethodHandle(),
                                 plannerContext.getFunctionManager().getScalarFunctionInvoker(metadata.resolveOperator(session, EQUAL, ImmutableList.of(type, type)), simpleConvention(NULLABLE_RETURN, NEVER_NULL, NEVER_NULL)).getMethodHandle());
+                        inListCache.put(valueList, set);
                     }
-                    inListCache.put(valueList, set);
                 }
 
                 if (set != null) {
