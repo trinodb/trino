@@ -605,14 +605,6 @@ public class Validator
             List<Object> row = new ArrayList<>();
             for (int i = 1; i <= columnCount; i++) {
                 Object object = resultSet.getObject(i);
-                if (object instanceof BigDecimal) {
-                    if (((BigDecimal) object).scale() <= 0) {
-                        object = ((BigDecimal) object).longValueExact();
-                    }
-                    else {
-                        object = ((BigDecimal) object).doubleValue();
-                    }
-                }
                 if (object instanceof Array) {
                     object = ((Array) object).getArray();
                 }
@@ -709,11 +701,15 @@ public class Validator
                 Number y = (Number) b;
                 boolean bothReal = isReal(x) && isReal(y);
                 boolean bothIntegral = isIntegral(x) && isIntegral(y);
-                if (!(bothReal || bothIntegral)) {
+                boolean bothDecimals = isDecimal(x) && isDecimal(y);
+                if (!(bothReal || bothIntegral || bothDecimals)) {
                     throw new TypesDoNotMatchException(format("item types do not match: %s vs %s", a.getClass().getName(), b.getClass().getName()));
                 }
                 if (isIntegral(x)) {
                     return Long.compare(x.longValue(), y.longValue());
+                }
+                if (isDecimal(x)) {
+                    return ((BigDecimal) x).compareTo((BigDecimal) y);
                 }
                 return precisionCompare(x.doubleValue(), y.doubleValue(), precision);
             }
@@ -793,6 +789,11 @@ public class Validator
     private static boolean isIntegral(Number x)
     {
         return x instanceof Byte || x instanceof Short || x instanceof Integer || x instanceof Long;
+    }
+
+    private static boolean isDecimal(Number x)
+    {
+        return x instanceof BigDecimal;
     }
 
     //adapted from http://floating-point-gui.de/errors/comparison/
