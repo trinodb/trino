@@ -18,6 +18,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.microsoft.sqlserver.jdbc.SQLServerConnection;
 import com.microsoft.sqlserver.jdbc.SQLServerException;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
@@ -31,6 +32,7 @@ import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
 import io.trino.plugin.jdbc.JdbcJoinCondition;
+import io.trino.plugin.jdbc.JdbcOutputTableHandle;
 import io.trino.plugin.jdbc.JdbcSortItem;
 import io.trino.plugin.jdbc.JdbcStatisticsConfig;
 import io.trino.plugin.jdbc.JdbcTableHandle;
@@ -138,6 +140,8 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.varcharReadFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
 import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.getUnsupportedTypeHandling;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
+import static io.trino.plugin.sqlserver.SqlServerSessionProperties.isBulkCopyForWrite;
+import static io.trino.plugin.sqlserver.SqlServerSessionProperties.isBulkCopyForWriteLockDestinationTable;
 import static io.trino.plugin.sqlserver.SqlServerTableProperties.DATA_COMPRESSION;
 import static io.trino.plugin.sqlserver.SqlServerTableProperties.getDataCompression;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -229,6 +233,49 @@ public class SqlServerClient
                         .add(new ImplementSqlServerVariancePop())
                         // SQL Server doesn't have covar_samp and covar_pop functions so we can't implement pushdown for them
                         .build());
+    }
+
+    @Override
+    public JdbcOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    {
+        JdbcOutputTableHandle table = super.beginCreateTable(session, tableMetadata);
+        enableTableLockOnBulkLoadTableOption(session, table);
+        return table;
+    }
+
+    @Override
+    public JdbcOutputTableHandle beginInsertTable(ConnectorSession session, JdbcTableHandle tableHandle, List<JdbcColumnHandle> columns)
+    {
+        JdbcOutputTableHandle table = super.beginInsertTable(session, tableHandle, columns);
+        enableTableLockOnBulkLoadTableOption(session, table);
+        return table;
+    }
+
+    protected void enableTableLockOnBulkLoadTableOption(ConnectorSession session, JdbcOutputTableHandle table)
+    {
+        if (!isTableLockNeeded(session)) {
+            return;
+        }
+        try (Connection connection = connectionFactory.openConnection(session)) {
+            // 'table lock on bulk load' table option causes the bulk load processes on user-defined tables to obtain a bulk update lock
+            // note: this is not a request to lock a table immediately
+            String sql = format("EXEC sp_tableoption '%s', 'table lock on bulk load', '1'",
+                    quoted(table.getCatalogName(), table.getSchemaName(), table.getTemporaryTableName()));
+            execute(connection, sql);
+        }
+        catch (SQLException e) {
+            throw new TrinoException(JDBC_ERROR, e);
+        }
+    }
+
+    /**
+     * Table lock is a prerequisite for `minimal logging` in SQL Server
+     *
+     * @see <a href="https://docs.microsoft.com/en-us/sql/relational-databases/import-export/prerequisites-for-minimal-logging-in-bulk-import">minimal logging</a>
+     */
+    protected boolean isTableLockNeeded(ConnectorSession session)
+    {
+        return isBulkCopyForWrite(session) && isBulkCopyForWriteLockDestinationTable(session);
     }
 
     @Override
@@ -821,6 +868,20 @@ public class SqlServerClient
     }
 
     @Override
+    protected String buildInsertSql(ConnectorSession session, RemoteTableName targetTable, RemoteTableName sourceTable, List<String> columnNames)
+    {
+        String columns = columnNames.stream()
+                .map(this::quoted)
+                .collect(joining(", "));
+        return format("INSERT INTO %s %s (%s) SELECT %s FROM %s",
+                targetTable,
+                isTableLockNeeded(session) ? "WITH (TABLOCK)" : "", // TABLOCK is a prerequisite for minimal logging in SQL Server
+                columns,
+                columns,
+                sourceTable);
+    }
+
+    @Override
     public Map<String, Object> getTableProperties(ConnectorSession session, JdbcTableHandle tableHandle)
     {
         if (!tableHandle.isNamedRelation()) {
@@ -846,6 +907,22 @@ public class SqlServerClient
             // attempts to drain the connection by reading all the results.
             connection.abort(directExecutor());
         }
+    }
+
+    @Override
+    public Connection getConnection(ConnectorSession session, JdbcOutputTableHandle handle)
+            throws SQLException
+    {
+        Connection connection = super.getConnection(session, handle);
+        try {
+            connection.unwrap(SQLServerConnection.class)
+                    .setUseBulkCopyForBatchInsert(isBulkCopyForWrite(session));
+        }
+        catch (SQLException e) {
+            connection.close();
+            throw e;
+        }
+        return connection;
     }
 
     private static String singleQuote(String... objects)

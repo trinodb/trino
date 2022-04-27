@@ -28,6 +28,8 @@ public class TestSqlServerConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(SqlServerConfig.class)
+                .setBulkCopyForWrite(false)
+                .setBulkCopyForWriteLockDestinationTable(false)
                 .setSnapshotIsolationDisabled(false));
     }
 
@@ -35,10 +37,14 @@ public class TestSqlServerConfig
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
+                .put("sqlserver.bulk-copy-for-write.enabled", "true")
+                .put("sqlserver.bulk-copy-for-write.lock-destination-table", "true")
                 .put("sqlserver.snapshot-isolation.disabled", "true")
                 .buildOrThrow();
 
         SqlServerConfig expected = new SqlServerConfig()
+                .setBulkCopyForWrite(true)
+                .setBulkCopyForWriteLockDestinationTable(true)
                 .setSnapshotIsolationDisabled(true);
 
         assertFullMapping(properties, expected);
