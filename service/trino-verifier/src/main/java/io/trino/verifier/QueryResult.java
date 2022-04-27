@@ -34,15 +34,17 @@ public class QueryResult
     private final Duration wallTime;
     private final Duration cpuTime;
     private final String queryId;
+    private final List<String> columnTypes;
     private final List<List<Object>> results;
 
-    public QueryResult(State state, Exception exception, Duration wallTime, Duration cpuTime, String queryId, List<List<Object>> results)
+    public QueryResult(State state, Exception exception, Duration wallTime, Duration cpuTime, String queryId, List<String> columnTypes, List<List<Object>> results)
     {
         this.state = requireNonNull(state, "state is null");
         this.exception = exception;
         this.wallTime = wallTime;
         this.cpuTime = cpuTime;
         this.queryId = queryId;
+        this.columnTypes = ImmutableList.copyOf(columnTypes);
         this.results = (results != null) ? ImmutableList.copyOf(results) : null;
     }
 
@@ -69,6 +71,11 @@ public class QueryResult
     public String getQueryId()
     {
         return queryId;
+    }
+
+    public List<String> getColumnTypes()
+    {
+        return columnTypes;
     }
 
     public List<List<Object>> getResults()

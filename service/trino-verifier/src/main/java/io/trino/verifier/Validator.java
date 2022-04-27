@@ -40,6 +40,7 @@ import java.sql.Array;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLClientInfoException;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -217,7 +218,7 @@ public class Validator
         boolean tearDownTest = false;
         try {
             if (skipControl) {
-                controlResult = new QueryResult(State.SKIPPED, null, null, null, null, ImmutableList.of());
+                controlResult = new QueryResult(State.SKIPPED, null, null, null, null, ImmutableList.of(), ImmutableList.of());
             }
             else {
                 controlResult = executePreAndMainForControl();
@@ -225,12 +226,12 @@ public class Validator
 
             // query has too many rows. Consider banning it.
             if (controlResult.getState() == State.TOO_MANY_ROWS) {
-                testResult = new QueryResult(State.INVALID, null, null, null, null, ImmutableList.of());
+                testResult = new QueryResult(State.INVALID, null, null, null, null, ImmutableList.of(), ImmutableList.of());
                 return false;
             }
             // query failed in the control
             if (!skipControl && controlResult.getState() != State.SUCCESS) {
-                testResult = new QueryResult(State.INVALID, null, null, null, null, ImmutableList.of());
+                testResult = new QueryResult(State.INVALID, null, null, null, null, ImmutableList.of(), ImmutableList.of());
                 return true;
             }
 
@@ -304,11 +305,11 @@ public class Validator
             QueryResult queryResult = executor.apply(postqueryString);
             postQueryResults.add(queryResult);
             if (queryResult.getState() != State.SUCCESS) {
-                return new QueryResult(State.FAILED_TO_TEARDOWN, queryResult.getException(), queryResult.getWallTime(), queryResult.getCpuTime(), queryResult.getQueryId(), ImmutableList.of());
+                return new QueryResult(State.FAILED_TO_TEARDOWN, queryResult.getException(), queryResult.getWallTime(), queryResult.getCpuTime(), queryResult.getQueryId(), ImmutableList.of(), ImmutableList.of());
             }
         }
 
-        return new QueryResult(State.SUCCESS, null, null, null, null, ImmutableList.of());
+        return new QueryResult(State.SUCCESS, null, null, null, null, ImmutableList.of(), ImmutableList.of());
     }
 
     private static QueryResult setup(Query query, List<QueryResult> preQueryResults, Function<String, QueryResult> executor)
@@ -321,11 +322,11 @@ public class Validator
                 return queryResult;
             }
             else if (queryResult.getState() != State.SUCCESS) {
-                return new QueryResult(State.FAILED_TO_SETUP, queryResult.getException(), queryResult.getWallTime(), queryResult.getCpuTime(), queryResult.getQueryId(), ImmutableList.of());
+                return new QueryResult(State.FAILED_TO_SETUP, queryResult.getException(), queryResult.getWallTime(), queryResult.getCpuTime(), queryResult.getQueryId(), ImmutableList.of(), ImmutableList.of());
             }
         }
 
-        return new QueryResult(State.SUCCESS, null, null, null, null, ImmutableList.of());
+        return new QueryResult(State.SUCCESS, null, null, null, null, ImmutableList.of(), ImmutableList.of());
     }
 
     private boolean checkForDeterministicAndRerunTestQueriesIfNeeded()
@@ -500,6 +501,7 @@ public class Validator
 
             ProgressMonitor progressMonitor = new ProgressMonitor();
             List<List<Object>> results;
+            List<String> columnTypes;
             try (Statement statement = connection.createStatement()) {
                 Stopwatch stopwatch = Stopwatch.createStarted();
                 Statement limitedStatement = limiter.newProxy(statement, Statement.class, timeout.toMillis(), MILLISECONDS);
@@ -517,10 +519,13 @@ public class Validator
                             ResultSetConverter.class,
                             timeout.toMillis() - stopwatch.elapsed(MILLISECONDS),
                             MILLISECONDS);
-                    results = converter.convert(limitedStatement.getResultSet());
+                    ResultSet resultSet = limitedStatement.getResultSet();
+                    results = converter.convert(resultSet);
+                    columnTypes = getColumnTypes(resultSet);
                 }
                 else {
                     results = ImmutableList.of(ImmutableList.of(limitedStatement.getLargeUpdateCount()));
+                    columnTypes = ImmutableList.of("BIGINT");
                 }
 
                 trinoStatement.clearProgressMonitor();
@@ -536,7 +541,7 @@ public class Validator
                 }
             }
 
-            return new QueryResult(State.SUCCESS, null, nanosSince(start), queryCpuTime, queryId, results);
+            return new QueryResult(State.SUCCESS, null, nanosSince(start), queryCpuTime, queryId, columnTypes, results);
         }
         catch (SQLException e) {
             Exception exception = e;
@@ -545,13 +550,13 @@ public class Validator
                 exception = (Exception) e.getCause();
             }
             State state = isPrestoQueryInvalid(e) ? State.INVALID : State.FAILED;
-            return new QueryResult(state, exception, nanosSince(start), queryCpuTime, queryId, ImmutableList.of());
+            return new QueryResult(state, exception, nanosSince(start), queryCpuTime, queryId, ImmutableList.of(), ImmutableList.of());
         }
         catch (VerifierException e) {
-            return new QueryResult(State.TOO_MANY_ROWS, e, nanosSince(start), queryCpuTime, queryId, ImmutableList.of());
+            return new QueryResult(State.TOO_MANY_ROWS, e, nanosSince(start), queryCpuTime, queryId, ImmutableList.of(), ImmutableList.of());
         }
         catch (UncheckedTimeoutException e) {
-            return new QueryResult(State.TIMEOUT, e, nanosSince(start), queryCpuTime, queryId, ImmutableList.of());
+            return new QueryResult(State.TIMEOUT, e, nanosSince(start), queryCpuTime, queryId, ImmutableList.of(), ImmutableList.of());
         }
         finally {
             executor.shutdownNow();
@@ -817,6 +822,17 @@ public class Validator
     {
         //we don't care whether a is smaller than b or not when they are not close since we will fail verification anyway
         return isClose(a, b, Math.pow(10, -1 * (precision - 1))) ? 0 : -1;
+    }
+
+    private static List<String> getColumnTypes(ResultSet resultSet)
+            throws SQLException
+    {
+        ResultSetMetaData metadata = resultSet.getMetaData();
+        ImmutableList.Builder<String> builder = ImmutableList.builder();
+        for (int column = 1; column <= metadata.getColumnCount(); column++) {
+            builder.add(metadata.getColumnTypeName(column));
+        }
+        return builder.build();
     }
 
     public static class ChangedRow
