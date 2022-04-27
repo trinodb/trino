@@ -22,6 +22,7 @@ import io.trino.metadata.ViewInfo;
 import io.trino.security.AccessControl;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
@@ -59,6 +60,7 @@ import static io.trino.metadata.MetadataListing.listTableColumns;
 import static io.trino.metadata.MetadataListing.listTablePrivileges;
 import static io.trino.metadata.MetadataListing.listTables;
 import static io.trino.metadata.MetadataListing.listViews;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.security.PrincipalType.USER;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.type.TypeUtils.getDisplayLabel;
@@ -105,6 +107,10 @@ public class InformationSchemaPageSource
         table = tableHandle.getTable();
         prefixIterator = Suppliers.memoize(() -> {
             Set<QualifiedTablePrefix> prefixes = tableHandle.getPrefixes();
+            if (table == InformationSchemaTable.COLUMNS && prefixes.equals(defaultPrefixes("hive"))) {
+                throw new TrinoException(NOT_SUPPORTED, "Queries which scan all table columns in Hive are expensive " +
+                        "and will eventually fail, so they are not supported. See PRESTO-1822 for more info");
+            }
             if (tableHandle.getLimit().isEmpty()) {
                 // no limit is used, therefore it doesn't make sense to split information schema query into smaller ones
                 return prefixes.iterator();
