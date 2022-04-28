@@ -82,7 +82,9 @@ public class TestVerifierConfig
                 .setControlTeardownRetries(1)
                 .setTestTeardownRetries(1)
                 .setRunTearDownOnResultMismatch(false)
-                .setSkipControl(false));
+                .setSkipControl(false)
+                .setSimplifiedControlQueriesGenerationEnabled(false)
+                .setSimplifiedControlQueriesOutputDirectory("/tmp/verifier/generated-control-queries"));
     }
 
     @Test
@@ -137,6 +139,8 @@ public class TestVerifierConfig
                 .put("test.teardown-retries", "7")
                 .put("run-teardown-on-result-mismatch", "true")
                 .put("skip-control", "true")
+                .put("simplified-control-queries-generation-enabled", "true")
+                .put("simplified-control-queries-output-directory", "/tmp/some/directory")
                 .buildOrThrow();
 
         VerifierConfig expected = new VerifierConfig().setTestUsernameOverride("verifier-test")
@@ -187,7 +191,9 @@ public class TestVerifierConfig
                 .setControlTeardownRetries(5)
                 .setTestTeardownRetries(7)
                 .setRunTearDownOnResultMismatch(true)
-                .setSkipControl(true);
+                .setSkipControl(true)
+                .setSimplifiedControlQueriesGenerationEnabled(true)
+                .setSimplifiedControlQueriesOutputDirectory("/tmp/some/directory");
 
         assertFullMapping(properties, expected);
     }
