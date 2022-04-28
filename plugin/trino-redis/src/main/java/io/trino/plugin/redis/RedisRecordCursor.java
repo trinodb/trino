@@ -18,6 +18,7 @@ import io.airlift.slice.Slice;
 import io.trino.decoder.DecoderColumnHandle;
 import io.trino.decoder.FieldValueProvider;
 import io.trino.decoder.RowDecoder;
+import io.trino.plugin.redis.decoder.RedisRowDecoder;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.type.Type;
@@ -200,10 +201,13 @@ public class RedisRecordCursor
     {
         byte[] keyData = keyString.getBytes(StandardCharsets.UTF_8);
         byte[] stringValueData = valueString.getBytes(StandardCharsets.UTF_8);
+        // Redis connector supports two types of Redis values: STRING and HASH. HASH type requires hash row decoder to
+        // decode a row from map, whereas for the STRING type decoders are optional. The redis keyData is always byte array,
+        // so the decoder of key always decodes a row from bytes.
         Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodedKey = keyDecoder.decodeRow(keyData);
-        Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodedValue = valueDecoder.decodeRow(
-                stringValueData,
-                hashValueMap);
+        Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodedValue = valueDecoder instanceof RedisRowDecoder
+                ? ((RedisRowDecoder) valueDecoder).decodeRow(hashValueMap)
+                : valueDecoder.decodeRow(stringValueData);
 
         totalBytes += stringValueData.length;
         totalValues++;
@@ -367,11 +371,6 @@ public class RedisRecordCursor
     {
         stringValues = null;
         hashValues = null;
-        // Redis connector supports two types of Redis
-        // values: STRING and HASH
-        // HASH types requires hash row decoder to
-        // fill in the columns
-        // whereas for the STRING type decoders are optional
         try (Jedis jedis = jedisPool.getResource()) {
             switch (split.getValueDataType()) {
                 case STRING:
