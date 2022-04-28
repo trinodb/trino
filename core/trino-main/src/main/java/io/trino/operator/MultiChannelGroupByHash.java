@@ -16,7 +16,6 @@ package io.trino.operator;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import io.trino.array.LongBigArray;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
@@ -41,8 +40,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.SizeOf.sizeOf;
-import static io.trino.operator.SyntheticAddress.decodePosition;
-import static io.trino.operator.SyntheticAddress.decodeSliceIndex;
 import static io.trino.operator.SyntheticAddress.encodeSyntheticAddress;
 import static io.trino.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -62,6 +59,9 @@ public class MultiChannelGroupByHash
     private static final float FILL_RATIO = 0.75f;
     // Max (page value count / cumulative dictionary size) to trigger the low cardinality case
     private static final double SMALL_DICTIONARIES_MAX_CARDINALITY_RATIO = .25;
+    private static final int VALUES_PAGE_BITS = 14; // 16k positions
+    private static final int VALUES_PAGE_MAX_ROW_COUNT = 1 << VALUES_PAGE_BITS;
+    private static final int VALUES_PAGE_MASK = VALUES_PAGE_MAX_ROW_COUNT - 1;
 
     private final List<Type> types;
     private final List<Type> hashTypes;
@@ -80,11 +80,10 @@ public class MultiChannelGroupByHash
     private int hashCapacity;
     private int maxFill;
     private int mask;
-    private long[] groupAddressByHash;
+    // Group ids are assigned incrementally. Therefore, since values page size is constant and power of two,
+    // the group id is also an address (slice index and position within slice) to group row in channelBuilders.
     private int[] groupIdsByHash;
     private byte[] rawHashByHashPosition;
-
-    private final LongBigArray groupAddressByGroupId;
 
     private int nextGroupId;
     private DictionaryLookBack dictionaryLookBack;
@@ -147,15 +146,9 @@ public class MultiChannelGroupByHash
 
         maxFill = calculateMaxFill(hashCapacity);
         mask = hashCapacity - 1;
-        groupAddressByHash = new long[hashCapacity];
-        Arrays.fill(groupAddressByHash, -1);
-
         rawHashByHashPosition = new byte[hashCapacity];
-
         groupIdsByHash = new int[hashCapacity];
-
-        groupAddressByGroupId = new LongBigArray();
-        groupAddressByGroupId.ensureCapacity(maxFill);
+        Arrays.fill(groupIdsByHash, -1);
 
         // This interface is used for actively reserving memory (push model) for rehash.
         // The caller can also query memory usage on this object (pull model)
@@ -165,9 +158,8 @@ public class MultiChannelGroupByHash
     @Override
     public long getRawHash(int groupId)
     {
-        long address = groupAddressByGroupId.get(groupId);
-        int blockIndex = decodeSliceIndex(address);
-        int position = decodePosition(address);
+        int blockIndex = groupId >> VALUES_PAGE_BITS;
+        int position = groupId & VALUES_PAGE_MASK;
         return hashStrategy.hashPosition(blockIndex, position);
     }
 
@@ -178,9 +170,7 @@ public class MultiChannelGroupByHash
                 (sizeOf(channelBuilders.get(0).elements()) * channelBuilders.size()) +
                 completedPagesMemorySize +
                 currentPageBuilder.getRetainedSizeInBytes() +
-                sizeOf(groupAddressByHash) +
                 sizeOf(groupIdsByHash) +
-                groupAddressByGroupId.sizeOf() +
                 sizeOf(rawHashByHashPosition) +
                 preallocatedMemoryInBytes;
     }
@@ -212,9 +202,8 @@ public class MultiChannelGroupByHash
     @Override
     public void appendValuesTo(int groupId, PageBuilder pageBuilder)
     {
-        long address = groupAddressByGroupId.get(groupId);
-        int blockIndex = decodeSliceIndex(address);
-        int position = decodePosition(address);
+        int blockIndex = groupId >> VALUES_PAGE_BITS;
+        int position = groupId & VALUES_PAGE_MASK;
         hashStrategy.appendTo(blockIndex, position, pageBuilder, 0);
     }
 
@@ -265,8 +254,8 @@ public class MultiChannelGroupByHash
         int hashPosition = getHashPosition(rawHash, mask);
 
         // look for a slot containing this key
-        while (groupAddressByHash[hashPosition] != -1) {
-            if (positionNotDistinctFromCurrentRow(groupAddressByHash[hashPosition], hashPosition, position, page, (byte) rawHash, hashChannels)) {
+        while (groupIdsByHash[hashPosition] != -1) {
+            if (positionNotDistinctFromCurrentRow(groupIdsByHash[hashPosition], hashPosition, position, page, (byte) rawHash, hashChannels)) {
                 // found an existing slot for this key
                 return true;
             }
@@ -296,8 +285,8 @@ public class MultiChannelGroupByHash
 
         // look for an empty slot or a slot containing this key
         int groupId = -1;
-        while (groupAddressByHash[hashPosition] != -1) {
-            if (positionNotDistinctFromCurrentRow(groupAddressByHash[hashPosition], hashPosition, position, page, (byte) rawHash, channels)) {
+        while (groupIdsByHash[hashPosition] != -1) {
+            if (positionNotDistinctFromCurrentRow(groupIdsByHash[hashPosition], hashPosition, position, page, (byte) rawHash, channels)) {
                 // found an existing slot for this key
                 groupId = groupIdsByHash[hashPosition];
 
@@ -336,13 +325,11 @@ public class MultiChannelGroupByHash
         // record group id in hash
         int groupId = nextGroupId++;
 
-        groupAddressByHash[hashPosition] = address;
         rawHashByHashPosition[hashPosition] = (byte) rawHash;
         groupIdsByHash[hashPosition] = groupId;
-        groupAddressByGroupId.set(groupId, address);
 
         // create new page builder if this page is full
-        if (currentPageBuilder.isFull()) {
+        if (currentPageBuilder.getPositionCount() == VALUES_PAGE_MAX_ROW_COUNT) {
             startNewPage();
         }
 
@@ -362,6 +349,7 @@ public class MultiChannelGroupByHash
     {
         if (currentPageBuilder != null) {
             completedPagesMemorySize += currentPageBuilder.getRetainedSizeInBytes();
+            // TODO: (https://github.com/trinodb/trino/issues/12484) pre-size new PageBuilder to OUTPUT_PAGE_SIZE
             currentPageBuilder = currentPageBuilder.newPageBuilderLike();
         }
         else {
@@ -382,10 +370,9 @@ public class MultiChannelGroupByHash
         int newCapacity = toIntExact(newCapacityLong);
 
         // An estimate of how much extra memory is needed before we can go ahead and expand the hash table.
-        // This includes the new capacity for groupAddressByHash, rawHashByHashPosition, groupIdsByHash, and groupAddressByGroupId as well as the size of the current page
-        preallocatedMemoryInBytes = (newCapacity - hashCapacity) * (long) (Long.BYTES + Integer.BYTES + Byte.BYTES) +
-                (long) (calculateMaxFill(newCapacity) - maxFill) * Long.BYTES +
-                currentPageSizeInBytes;
+        // This includes the new capacity for rawHashByHashPosition, groupIdsByHash as well as the size of the current page
+        preallocatedMemoryInBytes = (newCapacity - hashCapacity) * (long) (Integer.BYTES + Byte.BYTES)
+                + currentPageSizeInBytes;
         if (!updateMemory.update()) {
             // reserved memory but has exceeded the limit
             return false;
@@ -395,54 +382,46 @@ public class MultiChannelGroupByHash
         expectedHashCollisions += estimateNumberOfHashCollisions(getGroupCount(), hashCapacity);
 
         int newMask = newCapacity - 1;
-        long[] newKey = new long[newCapacity];
         byte[] rawHashes = new byte[newCapacity];
-        Arrays.fill(newKey, -1);
-        int[] newValue = new int[newCapacity];
+        int[] newGroupIdByHash = new int[newCapacity];
+        Arrays.fill(newGroupIdByHash, -1);
 
-        int oldIndex = 0;
-        for (int groupId = 0; groupId < nextGroupId; groupId++) {
+        for (int i = 0; i < hashCapacity; i++) {
             // seek to the next used slot
-            while (groupAddressByHash[oldIndex] == -1) {
-                oldIndex++;
+            int groupId = groupIdsByHash[i];
+            if (groupId == -1) {
+                continue;
             }
 
-            // get the address for this slot
-            long address = groupAddressByHash[oldIndex];
-
-            long rawHash = hashPosition(address);
+            long rawHash = hashPosition(groupId);
             // find an empty slot for the address
             int pos = getHashPosition(rawHash, newMask);
-            while (newKey[pos] != -1) {
+            while (newGroupIdByHash[pos] != -1) {
                 pos = (pos + 1) & newMask;
                 hashCollisions++;
             }
 
             // record the mapping
-            newKey[pos] = address;
             rawHashes[pos] = (byte) rawHash;
-            newValue[pos] = groupIdsByHash[oldIndex];
-            oldIndex++;
+            newGroupIdByHash[pos] = groupId;
         }
 
         this.mask = newMask;
         this.hashCapacity = newCapacity;
         this.maxFill = calculateMaxFill(newCapacity);
-        this.groupAddressByHash = newKey;
         this.rawHashByHashPosition = rawHashes;
-        this.groupIdsByHash = newValue;
-        groupAddressByGroupId.ensureCapacity(maxFill);
+        this.groupIdsByHash = newGroupIdByHash;
         return true;
     }
 
-    private long hashPosition(long sliceAddress)
+    private long hashPosition(int groupId)
     {
-        int sliceIndex = decodeSliceIndex(sliceAddress);
-        int position = decodePosition(sliceAddress);
+        int blockIndex = groupId >> VALUES_PAGE_BITS;
+        int blockPosition = groupId & VALUES_PAGE_MASK;
         if (precomputedHashChannel.isPresent()) {
-            return getRawHash(sliceIndex, position, precomputedHashChannel.getAsInt());
+            return getRawHash(blockIndex, blockPosition, precomputedHashChannel.getAsInt());
         }
-        return hashStrategy.hashPosition(sliceIndex, position);
+        return hashStrategy.hashPosition(blockIndex, blockPosition);
     }
 
     private long getRawHash(int sliceIndex, int position, int hashChannel)
@@ -450,12 +429,14 @@ public class MultiChannelGroupByHash
         return channelBuilders.get(hashChannel).get(sliceIndex).getLong(position, 0);
     }
 
-    private boolean positionNotDistinctFromCurrentRow(long address, int hashPosition, int position, Page page, byte rawHash, int[] hashChannels)
+    private boolean positionNotDistinctFromCurrentRow(int groupId, int hashPosition, int position, Page page, byte rawHash, int[] hashChannels)
     {
         if (rawHashByHashPosition[hashPosition] != rawHash) {
             return false;
         }
-        return hashStrategy.positionNotDistinctFromRow(decodeSliceIndex(address), decodePosition(address), position, page, hashChannels);
+        int blockIndex = groupId >> VALUES_PAGE_BITS;
+        int blockPosition = groupId & VALUES_PAGE_MASK;
+        return hashStrategy.positionNotDistinctFromRow(blockIndex, blockPosition, position, page, hashChannels);
     }
 
     private static int getHashPosition(long rawHash, int mask)
