@@ -50,21 +50,21 @@ Configuration properties
 
 The following configuration properties are available:
 
-=================================   ==============================================================
-Property Name                       Description
-=================================   ==============================================================
-``redis.table-names``               List of all tables provided by the catalog
-``redis.default-schema``            Default schema name for tables
-``redis.nodes``                     Location of the Redis server
-``redis.scan-count``                Redis parameter for scanning of the keys
-``redis.max-keys-per-fetch``        Get values associated with the specified number of keys in the redis command such as MGET(key...)
-``redis.key-prefix-schema-table``   Redis keys have schema-name:table-name prefix
-``redis.key-delimiter``             Delimiter separating schema_name and table_name if redis.key-prefix-schema-table is used
-``redis.table-description-dir``     Directory containing table description files
-``redis.hide-internal-columns``     Controls whether internal columns are part of the table schema or not
-``redis.database-index``            Redis database index
-``redis.password``                  Redis server password
-=================================   ==============================================================
+======================================  ==============================================================
+Property Name                           Description
+======================================  ==============================================================
+``redis.table-names``                   List of all tables provided by the catalog
+``redis.default-schema``                Default schema name for tables
+``redis.nodes``                         Location of the Redis server
+``redis.scan-count``                    Redis parameter for scanning of the keys
+``redis.max-keys-per-fetch``            Get values associated with the specified number of keys in the redis command such as MGET(key...)
+``redis.key-prefix-schema-table``       Redis keys have schema-name:table-name prefix
+``redis.key-delimiter``                 Delimiter separating schema_name and table_name if redis.key-prefix-schema-table is used
+``redis.table-description-dir``         Directory containing table description files
+``redis.hide-internal-columns``         Controls whether internal columns are part of the table schema or not
+``redis.database-index``                Redis database index
+``redis.password``                      Redis server password
+======================================  ==============================================================
 
 ``redis.table-names``
 ^^^^^^^^^^^^^^^^^^^^^
