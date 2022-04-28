@@ -68,6 +68,12 @@
             <artifactId>joda-time</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>com.treasuredata</groupId>
+            <artifactId>td-logger</artifactId>
+            <version>0.2.3</version>
+        </dependency>
+
         <!-- for testing -->
         <dependency>
             <groupId>io.trino</groupId>

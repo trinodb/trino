@@ -82,6 +82,7 @@ import static java.lang.String.format;
 import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE;
 import static java.time.format.DateTimeFormatter.ISO_LOCAL_TIME;
 import static java.util.Objects.requireNonNull;
+import static io.trino.jdbc.TDLogger.*;
 
 public class TrinoPreparedStatement
         extends TrinoStatement
@@ -123,6 +124,7 @@ public class TrinoPreparedStatement
     public void close()
             throws SQLException
     {
+        logger.logMethodCall("PreparedStatement", "close");
         optionalConnection().ifPresent(x -> x.removePreparedStatement(statementName));
         super.close();
     }
@@ -131,6 +133,7 @@ public class TrinoPreparedStatement
     public ResultSet executeQuery()
             throws SQLException
     {
+        logger.logMethodCall("PreparedStatement", "executeQuery");
         requireNonBatchStatement();
         if (!super.execute(getExecuteSql(statementName, toValues(parameters)))) {
             throw new SQLException("Prepared SQL statement is not a query: " + originalSql);
@@ -142,6 +145,7 @@ public class TrinoPreparedStatement
     public int executeUpdate()
             throws SQLException
     {
+        logger.logMethodCall("PreparedStatement", "executeUpdate");
         requireNonBatchStatement();
         return Ints.saturatedCast(executeLargeUpdate());
     }
@@ -150,6 +154,7 @@ public class TrinoPreparedStatement
     public long executeLargeUpdate()
             throws SQLException
     {
+        logger.logMethodCall("PreparedStatement", "executeLargeUpdate");
         requireNonBatchStatement();
         if (super.execute(getExecuteSql(statementName, toValues(parameters)))) {
             throw new SQLException("Prepared SQL is not an update statement: " + originalSql);
@@ -161,6 +166,7 @@ public class TrinoPreparedStatement
     public boolean execute()
             throws SQLException
     {
+        logger.logMethodCall("PreparedStatement", "execute");
         requireNonBatchStatement();
         return super.execute(getExecuteSql(statementName, toValues(parameters)));
     }
@@ -169,6 +175,7 @@ public class TrinoPreparedStatement
     public void setNull(int parameterIndex, int sqlType)
             throws SQLException
     {
+        logger.logMethodCall("PreparedStatement", "setNull");
         checkOpen();
         setParameter(parameterIndex, typedNull(sqlType));
     }
@@ -177,6 +184,7 @@ public class TrinoPreparedStatement
     public void setBoolean(int parameterIndex, boolean x)
             throws SQLException
     {
+        logger.logMethodCall("PreparedStatement", "setBoolean");
         checkOpen();
         setParameter(parameterIndex, formatBooleanLiteral(x));
     }
@@ -185,6 +193,7 @@ public class TrinoPreparedStatement
     public void setByte(int parameterIndex, byte x)
             throws SQLException
     {
+        logger.logMethodCall("PreparedStatement", "setByte");
         checkOpen();
         setParameter(parameterIndex, formatLiteral("TINYINT", Byte.toString(x)));
     }
@@ -193,6 +202,7 @@ public class TrinoPreparedStatement
     public void setShort(int parameterIndex, short x)
             throws SQLException
     {
+        logger.logMethodCall("PreparedStatement", "setShort");
         checkOpen();
         setParameter(parameterIndex, formatLiteral("SMALLINT", Short.toString(x)));
     }
@@ -201,6 +211,7 @@ public class TrinoPreparedStatement
     public void setInt(int parameterIndex, int x)
             throws SQLException
     {
+        logger.logMethodCall("PreparedStatement", "setInt");
         checkOpen();
         setParameter(parameterIndex, formatLiteral("INTEGER", Integer.toString(x)));
     }
@@ -209,6 +220,7 @@ public class TrinoPreparedStatement
     public void setLong(int parameterIndex, long x)
             throws SQLException
     {
+        logger.logMethodCall("PreparedStatement", "setLong");
         checkOpen();
         setParameter(parameterIndex, formatLiteral("BIGINT", Long.toString(x)));
     }
@@ -217,6 +229,7 @@ public class TrinoPreparedStatement
     public void setFloat(int parameterIndex, float x)
             throws SQLException
     {
+        logger.logMethodCall("PreparedStatement", "setFloat");
         checkOpen();
         setParameter(parameterIndex, formatLiteral("REAL", Float.toString(x)));
     }
@@ -225,6 +238,7 @@ public class TrinoPreparedStatement
     public void setDouble(int parameterIndex, double x)
             throws SQLException
     {
+        logger.logMethodCall("PreparedStatement", "setDouble");
         checkOpen();
         setParameter(parameterIndex, formatLiteral("DOUBLE", Double.toString(x)));
     }
@@ -233,6 +247,7 @@ public class TrinoPreparedStatement
     public void setBigDecimal(int parameterIndex, BigDecimal x)
             throws SQLException
     {
+        logger.logMethodCall("PreparedStatement", "setBigDecimal");
         checkOpen();
         if (x == null) {
             setNull(parameterIndex, Types.DECIMAL);
@@ -246,6 +261,7 @@ public class TrinoPreparedStatement
     public void setString(int parameterIndex, String x)
             throws SQLException
     {
+        logger.logMethodCall("PreparedStatement", "setString");
         checkOpen();
         if (x == null) {
             setNull(parameterIndex, Types.VARCHAR);
@@ -259,6 +275,7 @@ public class TrinoPreparedStatement
     public void setBytes(int parameterIndex, byte[] x)
             throws SQLException
     {
+        logger.logMethodCall("PreparedStatement", "setBytes");
         checkOpen();
         if (x == null) {
             setNull(parameterIndex, Types.VARBINARY);
@@ -272,6 +289,7 @@ public class TrinoPreparedStatement
     public void setDate(int parameterIndex, Date x)
             throws SQLException
     {
+        logger.logMethodCall("PreparedStatement", "setDate");
         checkOpen();
         if (x == null) {
             setNull(parameterIndex, Types.DATE);
@@ -284,6 +302,7 @@ public class TrinoPreparedStatement
     private void setAsDate(int parameterIndex, Object value)
             throws SQLException
     {
+        logger.logMethodCall("PreparedStatement", "setAsDate");
         requireNonNull(value, "value is null");
 
         String literal = toDateLiteral(value);
@@ -293,6 +312,7 @@ public class TrinoPreparedStatement
     private String toDateLiteral(Object value)
             throws SQLException
     {
+        logger.logMethodCall("PreparedStatement", "toDateLiteral");
         requireNonNull(value, "value is null");
         if (value instanceof java.util.Date) {
             return DATE_FORMATTER.print(((java.util.Date) value).getTime());
@@ -314,6 +334,7 @@ public class TrinoPreparedStatement
     public void setTime(int parameterIndex, Time x)
             throws SQLException
     {
+        logger.logMethodCall("PreparedStatement", "setTime");
         checkOpen();
         if (x == null) {
             setNull(parameterIndex, Types.TIME);
@@ -377,6 +398,7 @@ public class TrinoPreparedStatement
     public void setTimestamp(int parameterIndex, Timestamp x)
             throws SQLException
     {
+        logger.logMethodCall("PreparedStatement", "setTimestamp");
         checkOpen();
         if (x == null) {
             setNull(parameterIndex, Types.TIMESTAMP);
@@ -435,6 +457,7 @@ public class TrinoPreparedStatement
     public void setTimestamp(int parameterIndex, Timestamp x, Calendar cal)
             throws SQLException
     {
+        logger.logMethodCall("PreparedStatement", "setTimestamp");
         checkOpen();
         if (x == null || cal == null) {
             setTimestamp(parameterIndex, x);
@@ -449,6 +472,7 @@ public class TrinoPreparedStatement
     public void setAsciiStream(int parameterIndex, InputStream x, int length)
             throws SQLException
     {
+        logger.logMethodCall("PreparedStatement", "setAsciiStream");
         throw new NotImplementedException("PreparedStatement", "setAsciiStream");
     }
 
@@ -456,6 +480,7 @@ public class TrinoPreparedStatement
     public void setUnicodeStream(int parameterIndex, InputStream x, int length)
             throws SQLException
     {
+        logger.logMethodCall("PreparedStatement", "setUnicodeStream");
         throw new SQLFeatureNotSupportedException("setUnicodeStream");
     }
 
@@ -463,6 +488,7 @@ public class TrinoPreparedStatement
     public void setBinaryStream(int parameterIndex, InputStream x, int length)
             throws SQLException
     {
+        logger.logMethodCall("PreparedStatement", "setBinaryStream");
         throw new NotImplementedException("PreparedStatement", "setBinaryStream");
     }
 
@@ -470,6 +496,7 @@ public class TrinoPreparedStatement
     public void clearParameters()
             throws SQLException
     {
+        logger.logMethodCall("PreparedStatement", "clearParameters");
         checkOpen();
         parameters.clear();
     }
@@ -478,6 +505,7 @@ public class TrinoPreparedStatement
     public void setObject(int parameterIndex, Object x, int targetSqlType)
             throws SQLException
     {
+        logger.logMethodCall("PreparedStatement", "setObject");
         checkOpen();
         if (x == null) {
             setNull(parameterIndex, targetSqlType);
@@ -547,6 +575,7 @@ public class TrinoPreparedStatement
     public void setObject(int parameterIndex, Object x, SQLType targetSqlType)
             throws SQLException
     {
+        logger.logMethodCall("PreparedStatement", "setObject");
         setObject(parameterIndex, x, targetSqlType.getVendorTypeNumber());
     }
 
@@ -554,6 +583,7 @@ public class TrinoPreparedStatement
     public void setObject(int parameterIndex, Object x)
             throws SQLException
     {
+        logger.logMethodCall("PreparedStatement", "setObject");
         checkOpen();
         if (x == null) {
             setNull(parameterIndex, Types.NULL);
@@ -613,6 +643,7 @@ public class TrinoPreparedStatement
     public void addBatch()
             throws SQLException
     {
+        logger.logMethodCall("PreparedStatement", "addBatch");
         checkOpen();
         batchValues.add(toValues(parameters));
         isBatch = true;
@@ -622,6 +653,7 @@ public class TrinoPreparedStatement
     public void clearBatch()
             throws SQLException
     {
+        logger.logMethodCall("PreparedStatement", "clearBatch");
         checkOpen();
         batchValues.clear();
         isBatch = false;
@@ -631,6 +663,7 @@ public class TrinoPreparedStatement
     public int[] executeBatch()
             throws SQLException
     {
+        logger.logMethodCall("PreparedStatement", "executeBatch");
         try {
             int[] batchUpdateCounts = new int[batchValues.size()];
             for (int i = 0; i < batchValues.size(); i++) {
@@ -648,6 +681,7 @@ public class TrinoPreparedStatement
     public void setCharacterStream(int parameterIndex, Reader reader, int length)
             throws SQLException
     {
+        logger.logMethodCall("PreparedStatement", "setCharacterStream");
         throw new NotImplementedException("PreparedStatement", "setCharacterStream");
     }
 
@@ -655,6 +689,7 @@ public class TrinoPreparedStatement
     public void setRef(int parameterIndex, Ref x)
             throws SQLException
     {
+        logger.logMethodCall("PreparedStatement", "setRef");
         throw new SQLFeatureNotSupportedException("setRef");
     }
 
@@ -662,6 +697,7 @@ public class TrinoPreparedStatement
     public void setBlob(int parameterIndex, Blob x)
             throws SQLException
     {
+        logger.logMethodCall("PreparedStatement", "setBlob");
         throw new SQLFeatureNotSupportedException("setBlob");
     }
 
@@ -669,6 +705,7 @@ public class TrinoPreparedStatement
     public void setClob(int parameterIndex, Clob x)
             throws SQLException
     {
+        logger.logMethodCall("PreparedStatement", "setClob");
         throw new SQLFeatureNotSupportedException("setClob");
     }
 
@@ -676,6 +713,7 @@ public class TrinoPreparedStatement
     public void setArray(int parameterIndex, Array x)
             throws SQLException
     {
+        logger.logMethodCall("PreparedStatement", "setArray");
         throw new SQLFeatureNotSupportedException("setArray");
     }
 
@@ -683,6 +721,7 @@ public class TrinoPreparedStatement
     public ResultSetMetaData getMetaData()
             throws SQLException
     {
+        logger.logMethodCall("PreparedStatement", "getMetaData");
         try (Statement statement = connection().createStatement(); ResultSet resultSet = statement.executeQuery("DESCRIBE OUTPUT " + statementName)) {
             return new TrinoResultSetMetaData(getDescribeOutputColumnInfoList(resultSet));
         }
@@ -692,6 +731,7 @@ public class TrinoPreparedStatement
     public void setDate(int parameterIndex, Date x, Calendar cal)
             throws SQLException
     {
+        logger.logMethodCall("PreparedStatement", "setDate");
         throw new NotImplementedException("PreparedStatement", "setDate");
     }
 
@@ -699,6 +739,7 @@ public class TrinoPreparedStatement
     public void setTime(int parameterIndex, Time x, Calendar cal)
             throws SQLException
     {
+        logger.logMethodCall("PreparedStatement", "setTime");
         throw new NotImplementedException("PreparedStatement", "setTime");
     }
 
@@ -706,6 +747,7 @@ public class TrinoPreparedStatement
     public void setNull(int parameterIndex, int sqlType, String typeName)
             throws SQLException
     {
+        logger.logMethodCall("PreparedStatement", "setNull");
         setNull(parameterIndex, sqlType);
     }
 
@@ -713,6 +755,7 @@ public class TrinoPreparedStatement
     public void setURL(int parameterIndex, URL x)
             throws SQLException
     {
+        logger.logMethodCall("PreparedStatement", "setURL");
         throw new SQLFeatureNotSupportedException("setURL");
     }
 
@@ -720,6 +763,7 @@ public class TrinoPreparedStatement
     public ParameterMetaData getParameterMetaData()
             throws SQLException
     {
+        logger.logMethodCall("PreparedStatement", "getParameterMetaData");
         try (Statement statement = connection().createStatement(); ResultSet resultSet = statement.executeQuery("DESCRIBE INPUT " + statementName)) {
             return new TrinoParameterMetaData(getParamerters(resultSet));
         }
@@ -729,6 +773,7 @@ public class TrinoPreparedStatement
     public void setRowId(int parameterIndex, RowId x)
             throws SQLException
     {
+        logger.logMethodCall("PreparedStatement", "setRowId");
         throw new SQLFeatureNotSupportedException("setRowId");
     }
 
@@ -736,6 +781,7 @@ public class TrinoPreparedStatement
     public void setNString(int parameterIndex, String value)
             throws SQLException
     {
+        logger.logMethodCall("PreparedStatement", "setNString");
         setString(parameterIndex, value);
     }
 
@@ -743,6 +789,7 @@ public class TrinoPreparedStatement
     public void setNCharacterStream(int parameterIndex, Reader value, long length)
             throws SQLException
     {
+        logger.logMethodCall("PreparedStatement", "setNCharacterStream");
         throw new SQLFeatureNotSupportedException("setNCharacterStream");
     }
 
@@ -750,6 +797,7 @@ public class TrinoPreparedStatement
     public void setNClob(int parameterIndex, NClob value)
             throws SQLException
     {
+        logger.logMethodCall("PreparedStatement", "setNClob");
         throw new SQLFeatureNotSupportedException("setNClob");
     }
 
@@ -757,6 +805,7 @@ public class TrinoPreparedStatement
     public void setClob(int parameterIndex, Reader reader, long length)
             throws SQLException
     {
+        logger.logMethodCall("PreparedStatement", "setClob");
         throw new SQLFeatureNotSupportedException("setClob");
     }
 
@@ -764,6 +813,7 @@ public class TrinoPreparedStatement
     public void setBlob(int parameterIndex, InputStream inputStream, long length)
             throws SQLException
     {
+        logger.logMethodCall("PreparedStatement", "setBlob");
         throw new SQLFeatureNotSupportedException("setBlob");
     }
 
@@ -771,6 +821,7 @@ public class TrinoPreparedStatement
     public void setNClob(int parameterIndex, Reader reader, long length)
             throws SQLException
     {
+        logger.logMethodCall("PreparedStatement", "setNClob");
         throw new SQLFeatureNotSupportedException("setNClob");
     }
 
@@ -778,6 +829,7 @@ public class TrinoPreparedStatement
     public void setSQLXML(int parameterIndex, SQLXML xmlObject)
             throws SQLException
     {
+        logger.logMethodCall("PreparedStatement", "setSQLXML");
         throw new SQLFeatureNotSupportedException("setSQLXML");
     }
 
@@ -785,6 +837,7 @@ public class TrinoPreparedStatement
     public void setObject(int parameterIndex, Object x, int targetSqlType, int scaleOrLength)
             throws SQLException
     {
+        logger.logMethodCall("PreparedStatement", "setObject");
         throw new SQLFeatureNotSupportedException("setObject");
     }
 
@@ -792,6 +845,7 @@ public class TrinoPreparedStatement
     public void setAsciiStream(int parameterIndex, InputStream x, long length)
             throws SQLException
     {
+        logger.logMethodCall("PreparedStatement", "setAsciiStream");
         throw new NotImplementedException("PreparedStatement", "setAsciiStream");
     }
 
@@ -799,6 +853,7 @@ public class TrinoPreparedStatement
     public void setBinaryStream(int parameterIndex, InputStream x, long length)
             throws SQLException
     {
+        logger.logMethodCall("PreparedStatement", "setBinaryStream");
         throw new NotImplementedException("PreparedStatement", "setBinaryStream");
     }
 
@@ -806,6 +861,7 @@ public class TrinoPreparedStatement
     public void setCharacterStream(int parameterIndex, Reader reader, long length)
             throws SQLException
     {
+        logger.logMethodCall("PreparedStatement", "setCharacterStream");
         throw new NotImplementedException("PreparedStatement", "setCharacterStream");
     }
 
@@ -813,6 +869,7 @@ public class TrinoPreparedStatement
     public void setAsciiStream(int parameterIndex, InputStream x)
             throws SQLException
     {
+        logger.logMethodCall("PreparedStatement", "setAsciiStream");
         throw new SQLFeatureNotSupportedException("setAsciiStream");
     }
 
@@ -820,6 +877,7 @@ public class TrinoPreparedStatement
     public void setBinaryStream(int parameterIndex, InputStream x)
             throws SQLException
     {
+        logger.logMethodCall("PreparedStatement", "setBinaryStream");
         throw new SQLFeatureNotSupportedException("setBinaryStream");
     }
 
@@ -827,6 +885,7 @@ public class TrinoPreparedStatement
     public void setCharacterStream(int parameterIndex, Reader reader)
             throws SQLException
     {
+        logger.logMethodCall("PreparedStatement", "setCharacterStream");
         throw new SQLFeatureNotSupportedException("setCharacterStream");
     }
 
@@ -834,6 +893,7 @@ public class TrinoPreparedStatement
     public void setNCharacterStream(int parameterIndex, Reader value)
             throws SQLException
     {
+        logger.logMethodCall("PreparedStatement", "setNCharacterStream");
         throw new SQLFeatureNotSupportedException("setNCharacterStream");
     }
 
@@ -841,6 +901,7 @@ public class TrinoPreparedStatement
     public void setClob(int parameterIndex, Reader reader)
             throws SQLException
     {
+        logger.logMethodCall("PreparedStatement", "setClob");
         throw new SQLFeatureNotSupportedException("setClob");
     }
 
@@ -848,6 +909,7 @@ public class TrinoPreparedStatement
     public void setBlob(int parameterIndex, InputStream inputStream)
             throws SQLException
     {
+        logger.logMethodCall("PreparedStatement", "setBlob");
         throw new SQLFeatureNotSupportedException("setBlob");
     }
 
@@ -855,6 +917,7 @@ public class TrinoPreparedStatement
     public void setNClob(int parameterIndex, Reader reader)
             throws SQLException
     {
+        logger.logMethodCall("PreparedStatement", "setNClob");
         throw new SQLFeatureNotSupportedException("setNClob");
     }
 
@@ -862,6 +925,7 @@ public class TrinoPreparedStatement
     public ResultSet executeQuery(String sql)
             throws SQLException
     {
+        logger.logMethodCall("PreparedStatement", "executeQuery");
         throw new SQLException("This method cannot be called on PreparedStatement");
     }
 
@@ -869,6 +933,7 @@ public class TrinoPreparedStatement
     public int executeUpdate(String sql)
             throws SQLException
     {
+        logger.logMethodCall("PreparedStatement", "executeUpdate");
         throw new SQLException("This method cannot be called on PreparedStatement");
     }
 
@@ -876,6 +941,7 @@ public class TrinoPreparedStatement
     public int executeUpdate(String sql, int autoGeneratedKeys)
             throws SQLException
     {
+        logger.logMethodCall("PreparedStatement", "executeUpdate");
         throw new SQLException("This method cannot be called on PreparedStatement");
     }
 
@@ -883,6 +949,7 @@ public class TrinoPreparedStatement
     public int executeUpdate(String sql, int[] columnIndexes)
             throws SQLException
     {
+        logger.logMethodCall("PreparedStatement", "executeUpdate");
         throw new SQLException("This method cannot be called on PreparedStatement");
     }
 
@@ -890,6 +957,7 @@ public class TrinoPreparedStatement
     public int executeUpdate(String sql, String[] columnNames)
             throws SQLException
     {
+        logger.logMethodCall("PreparedStatement", "executeUpdate");
         throw new SQLException("This method cannot be called on PreparedStatement");
     }
 
@@ -897,6 +965,7 @@ public class TrinoPreparedStatement
     public long executeLargeUpdate(String sql)
             throws SQLException
     {
+        logger.logMethodCall("PreparedStatement", "executeLargeUpdate");
         throw new SQLException("This method cannot be called on PreparedStatement");
     }
 
@@ -904,6 +973,7 @@ public class TrinoPreparedStatement
     public long executeLargeUpdate(String sql, int autoGeneratedKeys)
             throws SQLException
     {
+        logger.logMethodCall("PreparedStatement", "executeLargeUpdate");
         throw new SQLException("This method cannot be called on PreparedStatement");
     }
 
@@ -911,6 +981,7 @@ public class TrinoPreparedStatement
     public long executeLargeUpdate(String sql, int[] columnIndexes)
             throws SQLException
     {
+        logger.logMethodCall("PreparedStatement", "executeLargeUpdate");
         throw new SQLException("This method cannot be called on PreparedStatement");
     }
 
@@ -918,20 +989,25 @@ public class TrinoPreparedStatement
     public long executeLargeUpdate(String sql, String[] columnNames)
             throws SQLException
     {
+        logger.logMethodCall("PreparedStatement", "executeLargeUpdate");
         throw new SQLException("This method cannot be called on PreparedStatement");
     }
 
+    /*
     @Override
     public boolean execute(String sql)
             throws SQLException
     {
+        logger.logMethodCall("PreparedStatement", "execute(String)");
         throw new SQLException("This method cannot be called on PreparedStatement");
     }
+     */
 
     @Override
     public boolean execute(String sql, int autoGeneratedKeys)
             throws SQLException
     {
+        logger.logMethodCall("PreparedStatement", "execute");
         throw new SQLException("This method cannot be called on PreparedStatement");
     }
 
@@ -939,6 +1015,7 @@ public class TrinoPreparedStatement
     public boolean execute(String sql, int[] columnIndexes)
             throws SQLException
     {
+        logger.logMethodCall("PreparedStatement", "execute");
         throw new SQLException("This method cannot be called on PreparedStatement");
     }
 
@@ -946,6 +1023,7 @@ public class TrinoPreparedStatement
     public boolean execute(String sql, String[] columnNames)
             throws SQLException
     {
+        logger.logMethodCall("PreparedStatement", "execute");
         throw new SQLException("This method cannot be called on PreparedStatement");
     }
 
@@ -953,6 +1031,7 @@ public class TrinoPreparedStatement
     public void addBatch(String sql)
             throws SQLException
     {
+        logger.logMethodCall("PreparedStatement", "addBatch");
         throw new SQLException("This method cannot be called on PreparedStatement");
     }
 

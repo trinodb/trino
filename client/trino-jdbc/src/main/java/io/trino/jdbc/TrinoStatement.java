@@ -36,6 +36,7 @@ import java.util.function.Consumer;
 import static io.trino.jdbc.AbstractTrinoResultSet.resultsException;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
+import static io.trino.jdbc.TDLogger.*;
 
 public class TrinoStatement
         implements Statement
@@ -75,6 +76,7 @@ public class TrinoStatement
     public ResultSet executeQuery(String sql)
             throws SQLException
     {
+        logger.logMethodCall("Statement", "executeQuery");
         if (!execute(sql)) {
             throw new SQLException("SQL statement is not a query: " + sql);
         }
@@ -85,6 +87,7 @@ public class TrinoStatement
     public void close()
             throws SQLException
     {
+        logger.logMethodCall("Statement", "close");
         TrinoConnection connection = this.connection.getAndSet(null);
         if (connection == null) {
             return;
@@ -104,6 +107,7 @@ public class TrinoStatement
     public int getMaxFieldSize()
             throws SQLException
     {
+        logger.logMethodCall("Statement", "getMaxFieldSize");
         checkOpen();
         return 0;
     }
@@ -112,6 +116,7 @@ public class TrinoStatement
     public void setMaxFieldSize(int max)
             throws SQLException
     {
+        logger.logMethodCall("Statement", "setMaxFieldSize");
         checkOpen();
         if (max < 0) {
             throw new SQLException("Max field size must be positive");
@@ -123,6 +128,7 @@ public class TrinoStatement
     public int getMaxRows()
             throws SQLException
     {
+        logger.logMethodCall("Statement", "getMaxRows");
         long result = getLargeMaxRows();
         if (result > Integer.MAX_VALUE) {
             throw new SQLException("Max rows exceeds limit of 2147483647");
@@ -134,6 +140,7 @@ public class TrinoStatement
     public long getLargeMaxRows()
             throws SQLException
     {
+        logger.logMethodCall("Statement", "getLargeMaxRows");
         checkOpen();
         return maxRows.get();
     }
@@ -142,6 +149,7 @@ public class TrinoStatement
     public void setMaxRows(int max)
             throws SQLException
     {
+        logger.logMethodCall("Statement", "setMaxRows");
         setLargeMaxRows(max);
     }
 
@@ -149,6 +157,7 @@ public class TrinoStatement
     public void setLargeMaxRows(long max)
             throws SQLException
     {
+        logger.logMethodCall("Statement", "setLargeMaxRows");
         checkOpen();
         if (max < 0) {
             throw new SQLException("Max rows must be positive");
@@ -160,6 +169,7 @@ public class TrinoStatement
     public void setEscapeProcessing(boolean enable)
             throws SQLException
     {
+        logger.logMethodCall("Statement", "setEscapeProcessing");
         checkOpen();
         escapeProcessing.set(enable);
     }
@@ -168,6 +178,7 @@ public class TrinoStatement
     public int getQueryTimeout()
             throws SQLException
     {
+        logger.logMethodCall("Statement", "getQueryTimeout");
         checkOpen();
         return queryTimeoutSeconds.get();
     }
@@ -176,6 +187,7 @@ public class TrinoStatement
     public void setQueryTimeout(int seconds)
             throws SQLException
     {
+        logger.logMethodCall("Statement", "setQueryTimeout");
         checkOpen();
         if (seconds < 0) {
             throw new SQLException("Query timeout seconds must be positive");
@@ -187,6 +199,7 @@ public class TrinoStatement
     public void cancel()
             throws SQLException
     {
+        logger.logMethodCall("Statement", "cancel");
         checkOpen();
 
         StatementClient client = executingClient.get();
@@ -201,6 +214,7 @@ public class TrinoStatement
     public SQLWarning getWarnings()
             throws SQLException
     {
+        logger.logMethodCall("Statement", "getWarnings");
         checkOpen();
         return currentWarningsManager.get().map(WarningsManager::getWarnings).orElse(null);
     }
@@ -209,6 +223,7 @@ public class TrinoStatement
     public void clearWarnings()
             throws SQLException
     {
+        logger.logMethodCall("Statement", "clearWarnings");
         checkOpen();
         currentWarningsManager.get().ifPresent(WarningsManager::clearWarnings);
     }
@@ -217,6 +232,7 @@ public class TrinoStatement
     public void setCursorName(String name)
             throws SQLException
     {
+        logger.logMethodCall("Statement", "setCursorName");
         checkOpen();
         // ignore: positioned modifications not supported
     }
@@ -234,6 +250,7 @@ public class TrinoStatement
     public boolean execute(String sql)
             throws SQLException
     {
+        logger.logMethodCall("Statement", "execute(String)", sql);
         if (connection().shouldStartTransaction()) {
             internalExecute(connection().getStartTransactionSql());
         }
@@ -311,6 +328,7 @@ public class TrinoStatement
     public ResultSet getResultSet()
             throws SQLException
     {
+        logger.logMethodCall("Statement", "getResultSet");
         checkOpen();
         return currentResult.get();
     }
@@ -319,6 +337,7 @@ public class TrinoStatement
     public int getUpdateCount()
             throws SQLException
     {
+        logger.logMethodCall("Statement", "getUpdateCount");
         return Ints.saturatedCast(getLargeUpdateCount());
     }
 
@@ -326,6 +345,7 @@ public class TrinoStatement
     public long getLargeUpdateCount()
             throws SQLException
     {
+        logger.logMethodCall("Statement", "getLargeUpdateCount");
         checkOpen();
         return currentUpdateCount.get();
     }
@@ -334,6 +354,7 @@ public class TrinoStatement
     public boolean getMoreResults()
             throws SQLException
     {
+        logger.logMethodCall("Statement", "getMoreResults");
         return getMoreResults(CLOSE_CURRENT_RESULT);
     }
 
@@ -341,6 +362,7 @@ public class TrinoStatement
     public void setFetchDirection(int direction)
             throws SQLException
     {
+        logger.logMethodCall("Statement", "setFetchDirection");
         checkOpen();
         if (!validFetchDirection(direction)) {
             throw new SQLException("Invalid fetch direction");
@@ -352,6 +374,7 @@ public class TrinoStatement
     public int getFetchDirection()
             throws SQLException
     {
+        logger.logMethodCall("Statement", "getFetchDirection");
         checkOpen();
         return ResultSet.FETCH_FORWARD;
     }
@@ -360,6 +383,7 @@ public class TrinoStatement
     public void setFetchSize(int rows)
             throws SQLException
     {
+        logger.logMethodCall("Statement", "setFetchSize");
         checkOpen();
         if (rows < 0) {
             throw new SQLException("Fetch size must be positive");
@@ -371,6 +395,7 @@ public class TrinoStatement
     public int getFetchSize()
             throws SQLException
     {
+        logger.logMethodCall("Statement", "getFetchSize");
         checkOpen();
         return fetchSize.get();
     }
@@ -379,6 +404,7 @@ public class TrinoStatement
     public int getResultSetConcurrency()
             throws SQLException
     {
+        logger.logMethodCall("Statement", "getResultSetConcurrency");
         checkOpen();
         return ResultSet.CONCUR_READ_ONLY;
     }
@@ -387,6 +413,7 @@ public class TrinoStatement
     public int getResultSetType()
             throws SQLException
     {
+        logger.logMethodCall("Statement", "getResultSetType");
         checkOpen();
         return ResultSet.TYPE_FORWARD_ONLY;
     }
@@ -395,6 +422,7 @@ public class TrinoStatement
     public void addBatch(String sql)
             throws SQLException
     {
+        logger.logMethodCall("Statement", "addBatch");
         checkOpen();
         throw new SQLFeatureNotSupportedException("Batches not supported");
     }
@@ -403,6 +431,7 @@ public class TrinoStatement
     public void clearBatch()
             throws SQLException
     {
+        logger.logMethodCall("Statement", "clearBatch");
         checkOpen();
         throw new SQLFeatureNotSupportedException("Batches not supported");
     }
@@ -411,6 +440,7 @@ public class TrinoStatement
     public int[] executeBatch()
             throws SQLException
     {
+        logger.logMethodCall("Statement", "executeBatch");
         checkOpen();
         throw new SQLFeatureNotSupportedException("Batches not supported");
     }
@@ -419,6 +449,7 @@ public class TrinoStatement
     public Connection getConnection()
             throws SQLException
     {
+        logger.logMethodCall("Statement", "getConnection");
         return connection();
     }
 
@@ -426,6 +457,7 @@ public class TrinoStatement
     public boolean getMoreResults(int current)
             throws SQLException
     {
+        logger.logMethodCall("Statement", "getMoreResults");
         checkOpen();
 
         currentUpdateCount.set(-1);
@@ -447,6 +479,7 @@ public class TrinoStatement
     public ResultSet getGeneratedKeys()
             throws SQLException
     {
+        logger.logMethodCall("Statement", "getGeneratedKeys");
         throw new SQLFeatureNotSupportedException("getGeneratedKeys");
     }
 
@@ -454,6 +487,7 @@ public class TrinoStatement
     public int executeUpdate(String sql)
             throws SQLException
     {
+        logger.logMethodCall("Statement", "executeUpdate");
         return Ints.saturatedCast(executeLargeUpdate(sql));
     }
 
@@ -461,6 +495,7 @@ public class TrinoStatement
     public int executeUpdate(String sql, int autoGeneratedKeys)
             throws SQLException
     {
+        logger.logMethodCall("Statement", "executeUpdate");
         return executeUpdate(sql);
     }
 
@@ -468,6 +503,7 @@ public class TrinoStatement
     public int executeUpdate(String sql, int[] columnIndexes)
             throws SQLException
     {
+        logger.logMethodCall("Statement", "executeUpdate");
         return executeUpdate(sql);
     }
 
@@ -475,6 +511,7 @@ public class TrinoStatement
     public int executeUpdate(String sql, String[] columnNames)
             throws SQLException
     {
+        logger.logMethodCall("Statement", "executeUpdate");
         return executeUpdate(sql);
     }
 
@@ -482,6 +519,7 @@ public class TrinoStatement
     public long executeLargeUpdate(String sql)
             throws SQLException
     {
+        logger.logMethodCall("Statement", "executeLargeUpdate");
         if (execute(sql)) {
             throw new SQLException("SQL is not an update statement: " + sql);
         }
@@ -492,6 +530,7 @@ public class TrinoStatement
     public long executeLargeUpdate(String sql, int autoGeneratedKeys)
             throws SQLException
     {
+        logger.logMethodCall("Statement", "executeLargeUpdate");
         return executeLargeUpdate(sql);
     }
 
@@ -499,6 +538,7 @@ public class TrinoStatement
     public long executeLargeUpdate(String sql, int[] columnIndexes)
             throws SQLException
     {
+        logger.logMethodCall("Statement", "executeLargeUpdate");
         return executeLargeUpdate(sql);
     }
 
@@ -506,6 +546,7 @@ public class TrinoStatement
     public long executeLargeUpdate(String sql, String[] columnNames)
             throws SQLException
     {
+        logger.logMethodCall("Statement", "executeLargeUpdate");
         return executeLargeUpdate(sql);
     }
 
@@ -513,6 +554,7 @@ public class TrinoStatement
     public boolean execute(String sql, int autoGeneratedKeys)
             throws SQLException
     {
+        logger.logMethodCall("Statement", "execute(String, int)");
         return execute(sql);
     }
 
@@ -520,6 +562,7 @@ public class TrinoStatement
     public boolean execute(String sql, int[] columnIndexes)
             throws SQLException
     {
+        logger.logMethodCall("Statement", "execute(String, int[])");
         return execute(sql);
     }
 
@@ -527,6 +570,7 @@ public class TrinoStatement
     public boolean execute(String sql, String[] columnNames)
             throws SQLException
     {
+        logger.logMethodCall("Statement", "execute(String, String[])");
         return execute(sql);
     }
 
@@ -534,6 +578,7 @@ public class TrinoStatement
     public int getResultSetHoldability()
             throws SQLException
     {
+        logger.logMethodCall("Statement", "getResultSetHoldability");
         return ResultSet.CLOSE_CURSORS_AT_COMMIT;
     }
 
@@ -541,6 +586,7 @@ public class TrinoStatement
     public boolean isClosed()
             throws SQLException
     {
+        logger.logMethodCall("Statement", "isClosed");
         return connection.get() == null;
     }
 
@@ -548,6 +594,7 @@ public class TrinoStatement
     public void setPoolable(boolean poolable)
             throws SQLException
     {
+        logger.logMethodCall("Statement", "setPoolable");
         checkOpen();
         // ignore: statement pooling not supported
     }
@@ -556,6 +603,7 @@ public class TrinoStatement
     public boolean isPoolable()
             throws SQLException
     {
+        logger.logMethodCall("Statement", "isPoolable");
         checkOpen();
         return false;
     }
@@ -564,6 +612,7 @@ public class TrinoStatement
     public void closeOnCompletion()
             throws SQLException
     {
+        logger.logMethodCall("Statement", "closeOnCompletion");
         checkOpen();
         closeOnCompletion.set(true);
     }
@@ -572,6 +621,7 @@ public class TrinoStatement
     public boolean isCloseOnCompletion()
             throws SQLException
     {
+        logger.logMethodCall("Statement", "isCloseOnCompletion");
         checkOpen();
         return closeOnCompletion.get();
     }
@@ -581,6 +631,7 @@ public class TrinoStatement
     public <T> T unwrap(Class<T> iface)
             throws SQLException
     {
+        logger.logMethodCall("Statement", "unwrap");
         if (isWrapperFor(iface)) {
             return (T) this;
         }
@@ -591,6 +642,7 @@ public class TrinoStatement
     public boolean isWrapperFor(Class<?> iface)
             throws SQLException
     {
+        logger.logMethodCall("Statement", "isWrapperFor");
         return iface.isInstance(this);
     }
 

@@ -68,6 +68,7 @@ import static io.trino.jdbc.ClientInfoProperty.APPLICATION_NAME;
 import static io.trino.jdbc.ClientInfoProperty.CLIENT_INFO;
 import static io.trino.jdbc.ClientInfoProperty.CLIENT_TAGS;
 import static io.trino.jdbc.ClientInfoProperty.TRACE_TOKEN;
+import static io.trino.jdbc.TDLogger.*;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.util.Collections.newSetFromMap;
@@ -132,12 +133,16 @@ public class TrinoConnection
         timeZoneId.set(ZoneId.systemDefault());
         locale.set(Locale.getDefault());
         sessionProperties.putAll(uri.getSessionProperties());
+
+        initLogger(uri.getProperties().get("user").toString());
+        logger.logMethodCall("Connection", "init");
     }
 
     @Override
     public Statement createStatement()
             throws SQLException
     {
+        logger.logMethodCall("Connection", "createStatement");
         return doCreateStatement();
     }
 
@@ -154,6 +159,7 @@ public class TrinoConnection
     public PreparedStatement prepareStatement(String sql)
             throws SQLException
     {
+        logger.logMethodCall("Connection", "prepareStatement", sql);
         checkOpen();
         String name = "statement" + nextStatementId.getAndIncrement();
         TrinoPreparedStatement statement = new TrinoPreparedStatement(this, this::unregisterStatement, name, sql);
@@ -165,6 +171,7 @@ public class TrinoConnection
     public CallableStatement prepareCall(String sql)
             throws SQLException
     {
+        logger.logMethodCall("Connection", "prepareCall", sql);
         checkOpen();
         String name = "call" + nextStatementId.getAndIncrement();
         TrinoCallableStatement statement = new TrinoCallableStatement(this, this::unregisterStatement, name, sql);
@@ -176,6 +183,7 @@ public class TrinoConnection
     public String nativeSQL(String sql)
             throws SQLException
     {
+        logger.logMethodCall("Connection", "nativeSQL", sql);
         checkOpen();
         return sql;
     }
@@ -184,6 +192,7 @@ public class TrinoConnection
     public void setAutoCommit(boolean autoCommit)
             throws SQLException
     {
+        logger.logMethodCall("Connection", "setAutoCommit");
         checkOpen();
         if (autoCommit && !getAutoCommit()) {
             commit();
@@ -195,6 +204,7 @@ public class TrinoConnection
     public boolean getAutoCommit()
             throws SQLException
     {
+        logger.logMethodCall("Connection", "getAutoCommit");
         checkOpen();
         return autoCommit.get();
     }
@@ -203,6 +213,7 @@ public class TrinoConnection
     public void commit()
             throws SQLException
     {
+        logger.logMethodCall("Connection", "commit");
         checkOpen();
         if (getAutoCommit()) {
             throw new SQLException("Connection is in auto-commit mode");
@@ -220,6 +231,7 @@ public class TrinoConnection
     public void rollback()
             throws SQLException
     {
+        logger.logMethodCall("Connection", "rollback");
         checkOpen();
         if (getAutoCommit()) {
             throw new SQLException("Connection is in auto-commit mode");
@@ -237,6 +249,7 @@ public class TrinoConnection
     public void close()
             throws SQLException
     {
+        logger.logMethodCall("Connection", "close");
         try {
             if (!closed.get()) {
                 SqlExceptionHolder heldException = new SqlExceptionHolder();
@@ -268,6 +281,7 @@ public class TrinoConnection
     public boolean isClosed()
             throws SQLException
     {
+        logger.logMethodCall("Connection", "isClosed");
         return closed.get();
     }
 
@@ -275,6 +289,7 @@ public class TrinoConnection
     public DatabaseMetaData getMetaData()
             throws SQLException
     {
+        logger.logMethodCall("Connection", "getMetaData");
         return new TrinoDatabaseMetaData(this, assumeLiteralNamesInMetadataCallsForNonConformingClients);
     }
 
@@ -282,6 +297,7 @@ public class TrinoConnection
     public void setReadOnly(boolean readOnly)
             throws SQLException
     {
+        logger.logMethodCall("Connection", "setReadOnly");
         checkOpen();
         this.readOnly.set(readOnly);
     }
@@ -290,6 +306,7 @@ public class TrinoConnection
     public boolean isReadOnly()
             throws SQLException
     {
+        logger.logMethodCall("Connection", "isReadOnly");
         return readOnly.get();
     }
 
@@ -297,6 +314,7 @@ public class TrinoConnection
     public void setCatalog(String catalog)
             throws SQLException
     {
+        logger.logMethodCall("Connection", "setCatalog");
         checkOpen();
         this.catalog.set(catalog);
     }
@@ -305,6 +323,7 @@ public class TrinoConnection
     public String getCatalog()
             throws SQLException
     {
+        logger.logMethodCall("Connection", "getCatalog");
         checkOpen();
         return catalog.get();
     }
@@ -313,6 +332,7 @@ public class TrinoConnection
     public void setTransactionIsolation(int level)
             throws SQLException
     {
+        logger.logMethodCall("Connection", "setTransactionIsolation");
         checkOpen();
         getIsolationLevel(level);
         isolationLevel.set(level);
@@ -323,6 +343,7 @@ public class TrinoConnection
     public int getTransactionIsolation()
             throws SQLException
     {
+        logger.logMethodCall("Connection", "getTransactionIsolation");
         checkOpen();
         return isolationLevel.get();
     }
@@ -331,6 +352,7 @@ public class TrinoConnection
     public SQLWarning getWarnings()
             throws SQLException
     {
+        logger.logMethodCall("Connection", "getWarnings");
         checkOpen();
         return null;
     }
@@ -339,6 +361,7 @@ public class TrinoConnection
     public void clearWarnings()
             throws SQLException
     {
+        logger.logMethodCall("Connection", "clearWarnings");
         checkOpen();
     }
 
@@ -346,6 +369,7 @@ public class TrinoConnection
     public Statement createStatement(int resultSetType, int resultSetConcurrency)
             throws SQLException
     {
+        logger.logMethodCall("Connection", "createStatement");
         checkResultSet(resultSetType, resultSetConcurrency);
         return createStatement();
     }
@@ -354,6 +378,7 @@ public class TrinoConnection
     public PreparedStatement prepareStatement(String sql, int resultSetType, int resultSetConcurrency)
             throws SQLException
     {
+        logger.logMethodCall("Connection", "prepareStatement");
         checkResultSet(resultSetType, resultSetConcurrency);
         return prepareStatement(sql);
     }
@@ -362,6 +387,7 @@ public class TrinoConnection
     public CallableStatement prepareCall(String sql, int resultSetType, int resultSetConcurrency)
             throws SQLException
     {
+        logger.logMethodCall("Connection", "prepareCall");
         checkResultSet(resultSetType, resultSetConcurrency);
         return prepareCall(sql);
     }
@@ -370,6 +396,7 @@ public class TrinoConnection
     public Map<String, Class<?>> getTypeMap()
             throws SQLException
     {
+        logger.logMethodCall("Connection", "getTypeMap");
         throw new SQLFeatureNotSupportedException("getTypeMap");
     }
 
@@ -377,6 +404,7 @@ public class TrinoConnection
     public void setTypeMap(Map<String, Class<?>> map)
             throws SQLException
     {
+        logger.logMethodCall("Connection", "setTypeMap");
         throw new SQLFeatureNotSupportedException("setTypeMap");
     }
 
@@ -384,6 +412,7 @@ public class TrinoConnection
     public void setHoldability(int holdability)
             throws SQLException
     {
+        logger.logMethodCall("Connection", "setHoldability");
         checkOpen();
         if (holdability != ResultSet.HOLD_CURSORS_OVER_COMMIT) {
             throw new SQLFeatureNotSupportedException("Changing holdability not supported");
@@ -394,6 +423,7 @@ public class TrinoConnection
     public int getHoldability()
             throws SQLException
     {
+        logger.logMethodCall("Connection", "getHoldability");
         checkOpen();
         return ResultSet.HOLD_CURSORS_OVER_COMMIT;
     }
@@ -402,6 +432,7 @@ public class TrinoConnection
     public Savepoint setSavepoint()
             throws SQLException
     {
+        logger.logMethodCall("Connection", "setSavepoint");
         throw new SQLFeatureNotSupportedException("setSavepoint");
     }
 
@@ -409,6 +440,7 @@ public class TrinoConnection
     public Savepoint setSavepoint(String name)
             throws SQLException
     {
+        logger.logMethodCall("Connection", "setSavepoint");
         throw new SQLFeatureNotSupportedException("setSavepoint");
     }
 
@@ -416,6 +448,7 @@ public class TrinoConnection
     public void rollback(Savepoint savepoint)
             throws SQLException
     {
+        logger.logMethodCall("Connection", "rollback");
         throw new SQLFeatureNotSupportedException("rollback");
     }
 
@@ -423,6 +456,7 @@ public class TrinoConnection
     public void releaseSavepoint(Savepoint savepoint)
             throws SQLException
     {
+        logger.logMethodCall("Connection", "releaseSavepoint");
         throw new SQLFeatureNotSupportedException("releaseSavepoint");
     }
 
@@ -430,6 +464,7 @@ public class TrinoConnection
     public Statement createStatement(int resultSetType, int resultSetConcurrency, int resultSetHoldability)
             throws SQLException
     {
+        logger.logMethodCall("Connection", "createStatement");
         checkHoldability(resultSetHoldability);
         return createStatement(resultSetType, resultSetConcurrency);
     }
@@ -438,6 +473,7 @@ public class TrinoConnection
     public PreparedStatement prepareStatement(String sql, int resultSetType, int resultSetConcurrency, int resultSetHoldability)
             throws SQLException
     {
+        logger.logMethodCall("Connection", "prepareStatement");
         checkHoldability(resultSetHoldability);
         return prepareStatement(sql, resultSetType, resultSetConcurrency);
     }
@@ -446,6 +482,7 @@ public class TrinoConnection
     public CallableStatement prepareCall(String sql, int resultSetType, int resultSetConcurrency, int resultSetHoldability)
             throws SQLException
     {
+        logger.logMethodCall("Connection", "prepareCall");
         checkHoldability(resultSetHoldability);
         return prepareCall(sql, resultSetType, resultSetConcurrency);
     }
@@ -454,6 +491,7 @@ public class TrinoConnection
     public PreparedStatement prepareStatement(String sql, int autoGeneratedKeys)
             throws SQLException
     {
+        logger.logMethodCall("Connection", "prepareStatement");
         if (autoGeneratedKeys != Statement.RETURN_GENERATED_KEYS) {
             throw new SQLFeatureNotSupportedException("Auto generated keys must be NO_GENERATED_KEYS");
         }
@@ -464,6 +502,7 @@ public class TrinoConnection
     public PreparedStatement prepareStatement(String sql, int[] columnIndexes)
             throws SQLException
     {
+        logger.logMethodCall("Connection", "prepareStatement");
         throw new SQLFeatureNotSupportedException("prepareStatement");
     }
 
@@ -471,6 +510,7 @@ public class TrinoConnection
     public PreparedStatement prepareStatement(String sql, String[] columnNames)
             throws SQLException
     {
+        logger.logMethodCall("Connection", "prepareStatement");
         throw new SQLFeatureNotSupportedException("prepareStatement");
     }
 
@@ -478,6 +518,7 @@ public class TrinoConnection
     public Clob createClob()
             throws SQLException
     {
+        logger.logMethodCall("Connection", "createClob");
         throw new SQLFeatureNotSupportedException("createClob");
     }
 
@@ -485,6 +526,7 @@ public class TrinoConnection
     public Blob createBlob()
             throws SQLException
     {
+        logger.logMethodCall("Connection", "createBlob");
         throw new SQLFeatureNotSupportedException("createBlob");
     }
 
@@ -492,6 +534,7 @@ public class TrinoConnection
     public NClob createNClob()
             throws SQLException
     {
+        logger.logMethodCall("Connection", "createNClob");
         throw new SQLFeatureNotSupportedException("createNClob");
     }
 
@@ -499,6 +542,7 @@ public class TrinoConnection
     public SQLXML createSQLXML()
             throws SQLException
     {
+        logger.logMethodCall("Connection", "createSQLXML");
         throw new SQLFeatureNotSupportedException("createSQLXML");
     }
 
@@ -506,6 +550,7 @@ public class TrinoConnection
     public boolean isValid(int timeout)
             throws SQLException
     {
+        logger.logMethodCall("Connection", "isValid");
         if (timeout < 0) {
             throw new SQLException("Timeout is negative");
         }
@@ -516,6 +561,7 @@ public class TrinoConnection
     public void setClientInfo(String name, String value)
             throws SQLClientInfoException
     {
+        logger.logMethodCall("Connection", "setClientInfo");
         requireNonNull(name, "name is null");
 
         Optional<ClientInfoProperty> clientInfoProperty = ClientInfoProperty.forName(name);
@@ -536,6 +582,7 @@ public class TrinoConnection
     public void setClientInfo(Properties properties)
             throws SQLClientInfoException
     {
+        logger.logMethodCall("Connection", "setClientInfo");
         for (Map.Entry<String, String> entry : fromProperties(properties).entrySet()) {
             setClientInfo(entry.getKey(), entry.getValue());
         }
@@ -545,6 +592,7 @@ public class TrinoConnection
     public String getClientInfo(String name)
             throws SQLException
     {
+        logger.logMethodCall("Connection", "getClientInfo");
         return Optional.ofNullable(name)
                 .flatMap(ClientInfoProperty::forName)
                 .map(clientInfo::get)
@@ -555,6 +603,7 @@ public class TrinoConnection
     public Properties getClientInfo()
             throws SQLException
     {
+        logger.logMethodCall("Connection", "getClientInfo");
         Properties properties = new Properties();
         for (Map.Entry<ClientInfoProperty, String> entry : clientInfo.entrySet()) {
             properties.setProperty(entry.getKey().getPropertyName(), entry.getValue());
@@ -566,6 +615,7 @@ public class TrinoConnection
     public Array createArrayOf(String typeName, Object[] elements)
             throws SQLException
     {
+        logger.logMethodCall("Connection", "createArrayOf");
         throw new SQLFeatureNotSupportedException("createArrayOf");
     }
 
@@ -573,6 +623,7 @@ public class TrinoConnection
     public Struct createStruct(String typeName, Object[] attributes)
             throws SQLException
     {
+        logger.logMethodCall("Connection", "createStruct");
         throw new SQLFeatureNotSupportedException("createStruct");
     }
 
@@ -580,6 +631,7 @@ public class TrinoConnection
     public void setSchema(String schema)
             throws SQLException
     {
+        logger.logMethodCall("Connection", "setSchema");
         checkOpen();
         this.schema.set(schema);
     }
@@ -588,27 +640,32 @@ public class TrinoConnection
     public String getSchema()
             throws SQLException
     {
+        logger.logMethodCall("Connection", "getSchema");
         checkOpen();
         return schema.get();
     }
 
     public String getTimeZoneId()
     {
+        logger.logMethodCall("Connection", "getTimeZoneId");
         return timeZoneId.get().getId();
     }
 
     public void setTimeZoneId(String timeZoneId)
     {
+        logger.logMethodCall("Connection", "setTimeZoneId");
         this.timeZoneId.set(ZoneId.of(timeZoneId));
     }
 
     public Locale getLocale()
     {
+        logger.logMethodCall("Connection", "getLocale");
         return locale.get();
     }
 
     public void setLocale(Locale locale)
     {
+        logger.logMethodCall("Connection", "setLocale");
         this.locale.set(locale);
     }
 
@@ -617,6 +674,7 @@ public class TrinoConnection
      */
     public void setSessionProperty(String name, String value)
     {
+        logger.logMethodCall("Connection", "setSessionProperty");
         requireNonNull(name, "name is null");
         requireNonNull(value, "value is null");
         checkArgument(!name.isEmpty(), "name is empty");
@@ -632,6 +690,7 @@ public class TrinoConnection
     @VisibleForTesting
     Map<String, ClientSelectedRole> getRoles()
     {
+        logger.logMethodCall("Connection", "getRoles");
         return ImmutableMap.copyOf(roles);
     }
 
@@ -639,6 +698,7 @@ public class TrinoConnection
     public void abort(Executor executor)
             throws SQLException
     {
+        logger.logMethodCall("Connection", "abort");
         close();
     }
 
@@ -646,6 +706,7 @@ public class TrinoConnection
     public void setNetworkTimeout(Executor executor, int milliseconds)
             throws SQLException
     {
+        logger.logMethodCall("Connection", "setNetworkTimeout");
         checkOpen();
         if (milliseconds < 0) {
             throw new SQLException("Timeout is negative");
@@ -657,6 +718,7 @@ public class TrinoConnection
     public int getNetworkTimeout()
             throws SQLException
     {
+        logger.logMethodCall("Connection", "getCatalog");
         checkOpen();
         return networkTimeoutMillis.get();
     }
@@ -666,6 +728,7 @@ public class TrinoConnection
     public <T> T unwrap(Class<T> iface)
             throws SQLException
     {
+        logger.logMethodCall("Connection", "unwrap");
         if (isWrapperFor(iface)) {
             return (T) this;
         }
@@ -676,6 +739,7 @@ public class TrinoConnection
     public boolean isWrapperFor(Class<?> iface)
             throws SQLException
     {
+        logger.logMethodCall("Connection", "isWrapperFor");
         return iface.isInstance(this);
     }
 

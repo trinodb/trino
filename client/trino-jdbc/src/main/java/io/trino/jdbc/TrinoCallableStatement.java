@@ -36,14 +36,28 @@ import java.util.Calendar;
 import java.util.Map;
 import java.util.function.Consumer;
 
+import static io.trino.jdbc.TDLogger.*;
+
 public class TrinoCallableStatement
         extends TrinoPreparedStatement
         implements CallableStatement
 {
+
+    class NotImplementedException
+        extends io.trino.jdbc.NotImplementedException
+    {
+        public NotImplementedException(String clazz, String method)
+        {
+            super(clazz, method);
+            logger.logMethodCall(clazz, method);
+        }
+    }
+
     public TrinoCallableStatement(TrinoConnection connection, Consumer<TrinoStatement> onClose, String statementName, String sql)
             throws SQLException
     {
         super(connection, onClose, statementName, sql);
+        logger.logMethodCall("CallableStatement", "init");
     }
 
     @Override
@@ -855,7 +869,7 @@ public class TrinoCallableStatement
     public void setNull(int parameterIndex, int sqlType)
             throws SQLException
     {
-        throw new NotImplementedException("CallableStatement", "executeQuery");
+        throw new NotImplementedException("CallableStatement", "setNull");
     }
 
     @Override
@@ -991,14 +1005,13 @@ public class TrinoCallableStatement
         throw new NotImplementedException("CallableStatement", "setObject");
     }
 
-    /*
     @Override
     public boolean execute()
             throws SQLException
     {
-        throw new NotImplementedException("CallableStatement", "execute");
+        logger.logMethodCall("CallableStatement", "execute");
+        return super.execute();
     }
-     */
 
     @Override
     public void addBatch()
