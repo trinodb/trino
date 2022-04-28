@@ -16,33 +16,23 @@ package io.trino.plugin.deltalake;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
-import io.trino.plugin.deltalake.util.DockerizedMinioDataLake;
 import io.trino.plugin.hive.TestingHivePlugin;
+import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
 import org.testng.annotations.AfterClass;
 
-import java.util.Map;
-import java.util.Optional;
+import java.nio.file.Path;
 
-import static io.trino.plugin.deltalake.DeltaLakeDockerizedMinioDataLake.createDockerizedMinioDataLakeForDeltaLake;
-import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createS3DeltaLakeQueryRunner;
-import static io.trino.plugin.deltalake.util.MinioContainer.MINIO_ACCESS_KEY;
-import static io.trino.plugin.deltalake.util.MinioContainer.MINIO_SECRET_KEY;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 
 public class TestDeltaLakeSharedHiveMetastore
         extends BaseDeltaLakeSharedMetastoreTest
 {
-    private final String bucketName = "delta-lake-shared-hive-" + randomTableSuffix();
-
-    private DockerizedMinioDataLake dockerizedMinioDataLake;
-
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
@@ -56,40 +46,41 @@ public class TestDeltaLakeSharedHiveMetastore
                 .setSchema(schema)
                 .build();
 
-        this.dockerizedMinioDataLake = closeAfterClass(createDockerizedMinioDataLakeForDeltaLake(bucketName, Optional.empty()));
+        DistributedQueryRunner.Builder<?> builder = DistributedQueryRunner.builder(deltaLakeSession);
+        DistributedQueryRunner queryRunner = builder.build();
 
-        DistributedQueryRunner queryRunner = createS3DeltaLakeQueryRunner(
+        queryRunner.installPlugin(new TpchPlugin());
+        queryRunner.createCatalog("tpch", "tpch");
+
+        Path dataDir = queryRunner.getCoordinator().getBaseDataDir().resolve("delta");
+
+        queryRunner.installPlugin(new TestingDeltaLakePlugin());
+        queryRunner.createCatalog(
                 "delta",
-                schema,
+                "delta-lake",
                 ImmutableMap.<String, String>builder()
-                        .put("delta.enable-non-concurrent-writes", "true")
-                        .buildOrThrow(),
-                dockerizedMinioDataLake.getMinioAddress(),
-                dockerizedMinioDataLake.getTestingHadoop());
-        queryRunner.execute("CREATE SCHEMA " + schema + " WITH (location = 's3://" + bucketName + "/" + schema + "')");
+                        .put("hive.metastore", "file")
+                        .put("hive.metastore.catalog.dir", dataDir.toString())
+                        .buildOrThrow());
+
+        queryRunner.execute("CREATE SCHEMA " + schema);
 
         queryRunner.installPlugin(new TestingHivePlugin());
-        Map<String, String> s3Properties = ImmutableMap.<String, String>builder()
-                .put("hive.s3.aws-access-key", MINIO_ACCESS_KEY)
-                .put("hive.s3.aws-secret-key", MINIO_SECRET_KEY)
-                .put("hive.s3.endpoint", dockerizedMinioDataLake.getMinioAddress())
-                .put("hive.s3.path-style-access", "true")
-                .buildOrThrow();
         queryRunner.createCatalog(
                 "hive",
                 "hive",
                 ImmutableMap.<String, String>builder()
-                        .put("hive.metastore.uri", dockerizedMinioDataLake.getTestingHadoop().getMetastoreAddress())
+                        .put("hive.metastore", "file")
+                        .put("hive.metastore.catalog.dir", dataDir.toString())
                         .put("hive.allow-drop-table", "true")
-                        .putAll(s3Properties)
                         .buildOrThrow());
 
         queryRunner.createCatalog(
                 "delta_with_redirections",
                 "delta-lake",
                 ImmutableMap.<String, String>builder()
-                        .put("hive.metastore.uri", dockerizedMinioDataLake.getTestingHadoop().getMetastoreAddress())
-                        .putAll(s3Properties)
+                        .put("hive.metastore", "file")
+                        .put("hive.metastore.catalog.dir", dataDir.toString())
                         .put("delta.hive-catalog-name", "hive")
                         .buildOrThrow());
 
@@ -97,8 +88,8 @@ public class TestDeltaLakeSharedHiveMetastore
                 "hive_with_redirections",
                 "hive",
                 ImmutableMap.<String, String>builder()
-                        .put("hive.metastore.uri", dockerizedMinioDataLake.getTestingHadoop().getMetastoreAddress())
-                        .putAll(s3Properties)
+                        .put("hive.metastore", "file")
+                        .put("hive.metastore.catalog.dir", dataDir.toString())
                         .put("hive.delta-lake-catalog-name", "delta")
                         .buildOrThrow());
 
@@ -119,21 +110,23 @@ public class TestDeltaLakeSharedHiveMetastore
     @Override
     protected String getExpectedHiveCreateSchema(String catalogName)
     {
+        Path dataDir = getDistributedQueryRunner().getCoordinator().getBaseDataDir().resolve("delta");
         String expectedHiveCreateSchema = "CREATE SCHEMA %s.%s\n" +
                 "AUTHORIZATION USER user\n" +
                 "WITH (\n" +
-                "   location = 's3://%s/%s'\n" +
+                "   location = '%s/%s'\n" +
                 ")";
-        return format(expectedHiveCreateSchema, catalogName, schema, bucketName, schema);
+        return format(expectedHiveCreateSchema, catalogName, schema, dataDir, schema);
     }
 
     @Override
     protected String getExpectedDeltaLakeCreateSchema(String catalogName)
     {
+        Path dataDir = getDistributedQueryRunner().getCoordinator().getBaseDataDir().resolve("delta");
         String expectedDeltaLakeCreateSchema = "CREATE SCHEMA %s.%s\n" +
                 "WITH (\n" +
-                "   location = 's3://%s/%s'\n" +
+                "   location = '%s/%s'\n" +
                 ")";
-        return format(expectedDeltaLakeCreateSchema, catalogName, schema, bucketName, schema);
+        return format(expectedDeltaLakeCreateSchema, catalogName, schema, dataDir, schema);
     }
 }
