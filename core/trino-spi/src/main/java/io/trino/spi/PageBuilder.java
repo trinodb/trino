@@ -58,6 +58,11 @@ public class PageBuilder
         this(initialExpectedEntries, DEFAULT_MAX_PAGE_SIZE_IN_BYTES, types, Optional.empty());
     }
 
+    public PageBuilder(int initialExpectedEntries, int maxPageBytes, List<? extends Type> types)
+    {
+        this(initialExpectedEntries, maxPageBytes, types, Optional.empty());
+    }
+
     public static PageBuilder withMaxPageSize(int maxPageBytes, List<? extends Type> types)
     {
         return new PageBuilder(DEFAULT_INITIAL_EXPECTED_ENTRIES, maxPageBytes, types, Optional.empty());
