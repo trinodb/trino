@@ -42,6 +42,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 /**
  * Manages the Redis connector specific metadata information. The Connector provides an additional set of columns
@@ -67,7 +68,10 @@ public class RedisMetadata
 
         log.debug("Loading redis table definitions from %s", redisConnectorConfig.getTableDescriptionDir().getAbsolutePath());
 
-        this.redisTableDescriptionSupplier = Suppliers.memoize(redisTableDescriptionSupplier::get)::get;
+        this.redisTableDescriptionSupplier = Suppliers.memoizeWithExpiration(
+                redisTableDescriptionSupplier::get,
+                redisConnectorConfig.getTableDescriptionCacheDuration().toMillis(),
+                MILLISECONDS);
     }
 
     @Override
