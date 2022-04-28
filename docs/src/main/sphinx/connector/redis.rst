@@ -57,6 +57,7 @@ Property Name                       Description
 ``redis.default-schema``            Default schema name for tables
 ``redis.nodes``                     Location of the Redis server
 ``redis.scan-count``                Redis parameter for scanning of the keys
+``redis.max-keys-per-fetch``        Get values associated with the specified number of keys in the redis command such as MGET(key...)
 ``redis.key-prefix-schema-table``   Redis keys have schema-name:table-name prefix
 ``redis.key-delimiter``             Delimiter separating schema_name and table_name if redis.key-prefix-schema-table is used
 ``redis.table-description-dir``     Directory containing table description files
@@ -102,6 +103,15 @@ Redis Cluster is not supported.
 The internal COUNT parameter for the Redis SCAN command when connector is using
 SCAN to find keys for the data. This parameter can be used to tune performance
 of the Redis connector.
+
+This property is optional; the default is ``100``.
+
+``redis.max-keys-per-fetch``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The internal number of keys for the Redis MGET command and Pipeline HGETALL command
+when connector is using these commands to find values of keys. This parameter can be
+used to tune performance of the Redis connector.
 
 This property is optional; the default is ``100``.
 
