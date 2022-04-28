@@ -21,6 +21,8 @@ import io.airlift.units.Duration;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.TrinoException;
 
+import javax.annotation.Nullable;
+
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.PrintStream;
@@ -30,15 +32,19 @@ import java.nio.file.Paths;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalDouble;
 import java.util.Set;
 import java.util.concurrent.CompletionService;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.ExecutorService;
+import java.util.function.Function;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Throwables.getStackTraceAsString;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Streams.concat;
 import static io.trino.spi.StandardErrorCode.PAGE_TRANSPORT_TIMEOUT;
 import static io.trino.spi.StandardErrorCode.REMOTE_TASK_MISMATCH;
 import static io.trino.spi.StandardErrorCode.TOO_MANY_REQUESTS_FAILED;
@@ -237,6 +243,9 @@ public class Verifier
             }
         }
 
+        Stream<QueryResult> controlQueries = concat(Stream.of(control), validator.getControlPreQueryResults().stream(), validator.getControlPostQueryResults().stream());
+        Stream<QueryResult> testQueries = concat(Stream.of(test), validator.getTestPreQueryResults().stream(), validator.getTestPostQueryResults().stream());
+
         return new VerifierQueryEvent(
                 queryPair.getSuite(),
                 config.getRunId(),
@@ -257,8 +266,8 @@ public class Verifier
                         .map(QueryResult::getQueryId)
                         .filter(Objects::nonNull)
                         .collect(toImmutableList()),
-                optionalDurationToSeconds(test.getCpuTime()),
-                optionalDurationToSeconds(test.getWallTime()),
+                getTotalDurationInSeconds(testQueries, QueryResult::getCpuTime),
+                getTotalDurationInSeconds(testQueries, QueryResult::getWallTime),
                 queryPair.getControl().getCatalog(),
                 queryPair.getControl().getSchema(),
                 queryPair.getControl().getPreQueries(),
@@ -273,14 +282,23 @@ public class Verifier
                         .map(QueryResult::getQueryId)
                         .filter(Objects::nonNull)
                         .collect(toImmutableList()),
-                optionalDurationToSeconds(control.getCpuTime()),
-                optionalDurationToSeconds(control.getWallTime()),
+                getTotalDurationInSeconds(controlQueries, QueryResult::getCpuTime),
+                getTotalDurationInSeconds(controlQueries, QueryResult::getWallTime),
                 errorMessage);
     }
 
-    private static Double optionalDurationToSeconds(Duration duration)
+    @Nullable
+    private static Double getTotalDurationInSeconds(Stream<QueryResult> queries, Function<QueryResult, Duration> metric)
     {
-        return duration != null ? duration.convertTo(SECONDS).getValue() : null;
+        OptionalDouble result = queries
+                .map(metric)
+                .filter(Objects::nonNull)
+                .mapToDouble(duration -> duration.getValue(SECONDS))
+                .reduce(Double::sum);
+        if (result.isEmpty()) {
+            return null;
+        }
+        return result.getAsDouble();
     }
 
     private static <T> T takeUnchecked(CompletionService<T> completionService)

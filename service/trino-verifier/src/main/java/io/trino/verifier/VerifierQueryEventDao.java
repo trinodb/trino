@@ -30,11 +30,15 @@ public interface VerifierQueryEventDao
             "  test_setup_query_ids_json VARCHAR(255) NULL,\n" +
             "  test_query_id VARCHAR(255) NULL,\n" +
             "  test_teardown_query_ids_json VARCHAR(255) NULL,\n" +
+            "  test_cpu_time_seconds DOUBLE NULL,\n" +
+            "  test_wall_time_seconds DOUBLE NULL,\n" +
             "  control_catalog VARCHAR(255) NULL,\n" +
             "  control_schema VARCHAR(255) NULL,\n" +
             "  control_setup_query_ids_json VARCHAR(255) NULL,\n" +
             "  control_query_id VARCHAR(255) NULL,\n" +
             "  control_teardown_query_ids_json VARCHAR(255) NULL,\n" +
+            "  control_cpu_time_seconds DOUBLE NULL,\n" +
+            "  control_wall_time_seconds DOUBLE NULL,\n" +
             "  error_message TEXT NULL,\n" +
             "  PRIMARY KEY (id),\n" +
             "  INDEX run_id_name_index(run_id, name)\n" +
@@ -52,11 +56,15 @@ public interface VerifierQueryEventDao
             "  test_setup_query_ids_json,\n" +
             "  test_query_id,\n" +
             "  test_teardown_query_ids_json,\n" +
+            "  test_cpu_time_seconds,\n" +
+            "  test_wall_time_seconds,\n" +
             "  control_catalog,\n" +
             "  control_schema,\n" +
             "  control_setup_query_ids_json,\n" +
             "  control_query_id,\n" +
             "  control_teardown_query_ids_json,\n" +
+            "  control_cpu_time_seconds,\n" +
+            "  control_wall_time_seconds,\n" +
             "  error_message\n" +
             ")\n" +
             "VALUES (\n" +
@@ -70,11 +78,15 @@ public interface VerifierQueryEventDao
             "  :testSetupQueryIdsJson,\n" +
             "  :testQueryId,\n" +
             "  :testTeardownQueryIdsJson,\n" +
+            "  :testCpuTimeSeconds,\n" +
+            "  :testWallTimeSeconds,\n" +
             "  :controlCatalog,\n" +
             "  :controlSchema,\n" +
             "  :controlSetupQueryIdsJson,\n" +
             "  :controlQueryId,\n" +
             "  :controlTeardownQueryIdsJson,\n" +
+            "  :controlCpuTimeSeconds,\n" +
+            "  :controlWallTimeSeconds,\n" +
             "  :errorMessage\n" +
             ")")
     void store(@BindBean VerifierQueryEventEntity entity);
