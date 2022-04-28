@@ -11,21 +11,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.decoder;
+package io.trino.plugin.redis.decoder;
+
+import io.trino.decoder.DecoderColumnHandle;
+import io.trino.decoder.FieldValueProvider;
+import io.trino.decoder.RowDecoder;
+
+import javax.annotation.Nullable;
 
 import java.util.Map;
 import java.util.Optional;
 
 /**
- * Implementations decode a row from bytes and add field value providers for all decodable columns.
+ * Implementations decode a row from map and add field value providers for all decodable columns.
  */
-public interface RowDecoder
+public interface RedisRowDecoder
+        extends RowDecoder
 {
     /**
-     * Decodes a given sequence of bytes into field values.
+     * Decodes a given map into field values.
      *
-     * @param data The row data to decode.
+     * @param dataMap The row data as fields map
      * @return Returns mapping from column handle to decoded value. Unmapped columns will be reported as null. Optional.empty() signals decoding error.
      */
-    Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodeRow(byte[] data);
+    Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodeRow(@Nullable Map<String, String> dataMap);
 }
