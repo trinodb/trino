@@ -38,7 +38,6 @@ import java.util.concurrent.ScheduledExecutorService;
 
 import static com.google.common.collect.Iterables.concat;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.airlift.testing.Assertions.assertGreaterThan;
 import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
 import static io.trino.RowPagesBuilder.rowPagesBuilder;
 import static io.trino.SessionTestUtils.TEST_SESSION;
@@ -244,10 +243,10 @@ public class TestHashSemiJoinOperator
                 type,
                 setBuilderOperatorFactory,
                 operator -> ((SetBuilderOperator) operator).getCapacity(),
-                1_400_000);
+                450_000);
 
-        assertGreaterThanOrEqual(result.getYieldCount(), 5);
-        assertGreaterThan(result.getMaxReservedBytes(), 20L << 20);
+        assertGreaterThanOrEqual(result.getYieldCount(), 4);
+        assertGreaterThanOrEqual(result.getMaxReservedBytes(), 20L << 19);
         assertEquals(result.getOutput().stream().mapToInt(Page::getPositionCount).sum(), 0);
     }
 
