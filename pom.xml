@@ -1682,6 +1682,14 @@
                 <artifactId>snakeyaml</artifactId>
                 <version>1.28</version>
             </dependency>
+
+            <dependency>
+                <groupId>software.amazon.awssdk</groupId>
+                <artifactId>bom</artifactId>
+                <type>pom</type>
+                <version>2.17.151</version>
+                <scope>import</scope>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
