@@ -14,6 +14,7 @@
 package io.trino.verifier;
 
 import java.util.Optional;
+import java.util.OptionalDouble;
 
 import static java.util.Objects.requireNonNull;
 
@@ -30,12 +31,16 @@ public class VerifierQueryEventEntity
     private final Optional<String> testSetupQueryIdsJson;
     private final Optional<String> testQueryId;
     private final Optional<String> testTeardownQueryIdsJson;
+    private final OptionalDouble testCpuTimeSeconds;
+    private final OptionalDouble testWallTimeSeconds;
 
     private final Optional<String> controlCatalog;
     private final Optional<String> controlSchema;
     private final Optional<String> controlSetupQueryIdsJson;
     private final Optional<String> controlQueryId;
     private final Optional<String> controlTeardownQueryIdsJson;
+    private final OptionalDouble controlCpuTimeSeconds;
+    private final OptionalDouble controlWallTimeSeconds;
 
     private final Optional<String> errorMessage;
 
@@ -50,11 +55,15 @@ public class VerifierQueryEventEntity
             Optional<String> testSetupQueryIdsJson,
             Optional<String> testQueryId,
             Optional<String> testTeardownQueryIdsJson,
+            OptionalDouble testCpuTimeSeconds,
+            OptionalDouble testWallTimeSeconds,
             Optional<String> controlCatalog,
             Optional<String> controlSchema,
             Optional<String> controlSetupQueryIdsJson,
             Optional<String> controlQueryId,
             Optional<String> controlTeardownQueryIdsJson,
+            OptionalDouble controlCpuTimeSeconds,
+            OptionalDouble controlWallTimeSeconds,
             Optional<String> errorMessage)
     {
         this.suite = requireNonNull(suite, "suite is null");
@@ -67,11 +76,15 @@ public class VerifierQueryEventEntity
         this.testSetupQueryIdsJson = requireNonNull(testSetupQueryIdsJson, "testSetupQueryIdsJson is null");
         this.testQueryId = requireNonNull(testQueryId, "testQueryId is null");
         this.testTeardownQueryIdsJson = requireNonNull(testTeardownQueryIdsJson, "testTeardownQueryIdsJson is null");
+        this.testCpuTimeSeconds = requireNonNull(testCpuTimeSeconds, "testCpuTimeSeconds is null");
+        this.testWallTimeSeconds = requireNonNull(testWallTimeSeconds, "testWallTimeSeconds is null");
         this.controlCatalog = requireNonNull(controlCatalog, "controlCatalog is null");
         this.controlSchema = requireNonNull(controlSchema, "controlSchema is null");
         this.controlSetupQueryIdsJson = requireNonNull(controlSetupQueryIdsJson, "controlSetupQueryIdsJson is null");
         this.controlQueryId = requireNonNull(controlQueryId, "controlQueryId is null");
         this.controlTeardownQueryIdsJson = requireNonNull(controlTeardownQueryIdsJson, "controlTeardownQueryIdsJson is null");
+        this.controlCpuTimeSeconds = requireNonNull(controlCpuTimeSeconds, "controlCpuTimeSeconds is null");
+        this.controlWallTimeSeconds = requireNonNull(controlWallTimeSeconds, "controlWallTimeSeconds is null");
         this.errorMessage = requireNonNull(errorMessage, "errorMessage is null");
     }
 
@@ -125,6 +138,16 @@ public class VerifierQueryEventEntity
         return testTeardownQueryIdsJson;
     }
 
+    public OptionalDouble getTestCpuTimeSeconds()
+    {
+        return testCpuTimeSeconds;
+    }
+
+    public OptionalDouble getTestWallTimeSeconds()
+    {
+        return testWallTimeSeconds;
+    }
+
     public Optional<String> getControlCatalog()
     {
         return controlCatalog;
@@ -148,6 +171,16 @@ public class VerifierQueryEventEntity
     public Optional<String> getControlTeardownQueryIdsJson()
     {
         return controlTeardownQueryIdsJson;
+    }
+
+    public OptionalDouble getControlCpuTimeSeconds()
+    {
+        return controlCpuTimeSeconds;
+    }
+
+    public OptionalDouble getControlWallTimeSeconds()
+    {
+        return controlWallTimeSeconds;
     }
 
     public Optional<String> getErrorMessage()
