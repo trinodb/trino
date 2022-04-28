@@ -132,7 +132,7 @@ public class CreateTableTask
         }
         catch (TrinoException e) {
             if (e.getErrorCode().equals(UNSUPPORTED_TABLE_TYPE.toErrorCode())) {
-                throw semanticException(TABLE_ALREADY_EXISTS, statement, "Table '%s' of unsupported type already exists", tableName);
+                throw new TrinoException(UNSUPPORTED_TABLE_TYPE, format("The type of table '%s' is unsupported", tableName));
             }
             throw e;
         }
