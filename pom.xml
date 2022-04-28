@@ -49,7 +49,7 @@
         <dep.accumulo.version>1.7.4</dep.accumulo.version>
         <dep.accumulo-hadoop.version>2.7.7-1</dep.accumulo-hadoop.version>
         <dep.antlr.version>4.9.3</dep.antlr.version>
-        <dep.airlift.version>214</dep.airlift.version>
+        <dep.airlift.version>215</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
         <dep.aws-sdk.version>1.12.172</dep.aws-sdk.version>
         <dep.okhttp.version>3.14.9</dep.okhttp.version>
@@ -118,7 +118,7 @@
         <module>plugin/trino-druid</module>
         <module>plugin/trino-elasticsearch</module>
         <module>plugin/trino-example-http</module>
-        <module>plugin/trino-exchange</module>
+        <module>plugin/trino-exchange-filesystem</module>
         <module>plugin/trino-geospatial</module>
         <module>plugin/trino-google-sheets</module>
         <module>plugin/trino-hive</module>
@@ -265,13 +265,13 @@
 
             <dependency>
                 <groupId>io.trino</groupId>
-                <artifactId>trino-exchange</artifactId>
+                <artifactId>trino-exchange-filesystem</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.trino</groupId>
-                <artifactId>trino-exchange</artifactId>
+                <artifactId>trino-exchange-filesystem</artifactId>
                 <type>test-jar</type>
                 <version>${project.version}</version>
             </dependency>

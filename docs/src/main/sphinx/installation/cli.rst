@@ -154,6 +154,8 @@ mode:
     - Configures the level of detail provided for network logging of the CLI.
       Defaults to ``NONE``, other options are ``BASIC``, ``HEADERS``, or
       ``BODY``.
+  * - ``--no-progress``
+    - Do not show query processing progress.
   * - ``--password``
     - Prompts for a password. Use if your Trino server requires password
       authentication. You can set the ``TRINO_PASSWORD`` environment variable
@@ -366,7 +368,8 @@ The following table list the available options for Kerberos authentication:
   * - ``--krb5-remote-service-name``
     - Trino coordinator Kerberos service name.
   * - ``--krb5-service-principal-pattern``
-    - Remote kerberos service principal pattern (default: ${SERVICE}@${HOST})
+    - Remote kerberos service principal pattern. Defaults to
+      ``${SERVICE}@${HOST}``.
 
 See :doc:`/security/cli` for more information on configuring and using Kerberos
 with the CLI.
@@ -391,14 +394,47 @@ press :kbd:`Enter`.
 By default, you can locate the Trino history file in ``~/.trino_history``.
 Use the ``TRINO_HISTORY_FILE`` environment variable to change the default.
 
+Batch mode
+----------
+
+Running the Trino CLI with the ``--execute``, ``--file``, or passing queries to
+the standard input uses the batch (non-interactive) mode. In this mode
+the CLI does not report progress, and exits after processing the supplied
+queries. Results are printed in ``CSV`` format by default. You can configure
+other formats and redirect the output to a file.
+
+The following options are available to further configure the CLI in batch
+mode:
+
+.. list-table::
+  :widths: 40, 60
+  :header-rows: 1
+
+  * - Option
+    - Description
+  * - ``--execute=<execute>``
+    - Execute specified statements and exit.
+  * - ``-f``, ``--file=<file>``
+    - Execute statements from file and exit.
+  * - ``--ignore-errors``
+    - Continue processing in batch mode when an error occurs. Default is to
+      exit immediately.
+  * - ``--output-format=<format>``
+    - Specify the :ref:`format <cli-output-format>` to use
+      for printing query results.
+  * - ``--progress``
+    - Show query progress in batch mode. It does not affect the output,
+      which, for example can be safely redirected to a file.
+
 .. _cli-output-format:
 
-Output Formats
---------------
+Output formats
+^^^^^^^^^^^^^^
 
 The Trino CLI provides the option ``--output-format`` to control how the output
-is displayed when running in noninteractive mode. The available options shown in
-the following table must be entered in uppercase. The default value is ``CSV``.
+is displayed when running in non-interactive mode. The available options
+shown in the following table must be entered in uppercase. The default value
+is ``CSV``.
 
 .. list-table:: Output format options
   :widths: 25, 75

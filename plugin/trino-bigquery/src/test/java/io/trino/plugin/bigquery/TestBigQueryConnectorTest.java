@@ -37,8 +37,6 @@ import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 public class TestBigQueryConnectorTest
         extends BaseConnectorTest
@@ -80,33 +78,6 @@ public class TestBigQueryConnectorTest
             default:
                 return super.hasBehavior(connectorBehavior);
         }
-    }
-
-    @Test
-    @Override
-    public void testCreateSchema()
-    {
-        String schemaName = "test_schema_create_" + randomTableSuffix();
-        assertThat(computeActual("SHOW SCHEMAS").getOnlyColumnAsSet()).doesNotContain(schemaName);
-        assertUpdate("CREATE SCHEMA " + schemaName);
-        assertUpdate("CREATE SCHEMA IF NOT EXISTS " + schemaName);
-
-        // verify listing of new schema
-        assertThat(computeActual("SHOW SCHEMAS").getOnlyColumnAsSet()).contains(schemaName);
-
-        // verify SHOW CREATE SCHEMA works
-        assertThat((String) computeScalar("SHOW CREATE SCHEMA " + schemaName))
-                .startsWith(format("CREATE SCHEMA %s.%s", getSession().getCatalog().orElseThrow(), schemaName));
-
-        // try to create duplicate schema
-        assertQueryFails("CREATE SCHEMA " + schemaName, format("line 1:1: Schema '.*\\.%s' already exists", schemaName));
-
-        // cleanup
-        assertUpdate("DROP SCHEMA " + schemaName);
-
-        // verify DROP SCHEMA for non-existing schema
-        assertQueryFails("DROP SCHEMA " + schemaName, format("line 1:1: Schema '.*\\.%s' does not exist", schemaName));
-        assertUpdate("DROP SCHEMA IF EXISTS " + schemaName);
     }
 
     @Test
@@ -244,17 +215,6 @@ public class TestBigQueryConnectorTest
     {
         assertThatThrownBy(super::testCreateTableAsSelectWithUnicode)
                 .hasStackTraceContaining("This connector does not support creating tables with data");
-    }
-
-    @Test
-    public void testDropTable()
-    {
-        String tableName = "test_drop_table_" + randomTableSuffix();
-        assertUpdate("CREATE TABLE " + tableName + "(col bigint)");
-        assertTrue(getQueryRunner().tableExists(getSession(), tableName));
-
-        assertUpdate("DROP TABLE " + tableName);
-        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
     }
 
     @Test

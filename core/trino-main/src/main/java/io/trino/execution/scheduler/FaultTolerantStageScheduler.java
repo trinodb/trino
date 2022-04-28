@@ -112,6 +112,7 @@ public class FaultTolerantStageScheduler
     private final NodeAllocator nodeAllocator;
     private final TaskDescriptorStorage taskDescriptorStorage;
     private final PartitionMemoryEstimator partitionMemoryEstimator;
+    private final TaskExecutionStats taskExecutionStats;
     private final int maxRetryAttemptsPerTask;
     private final int maxTasksWaitingForNodePerStage;
 
@@ -181,6 +182,7 @@ public class FaultTolerantStageScheduler
             NodeAllocator nodeAllocator,
             TaskDescriptorStorage taskDescriptorStorage,
             PartitionMemoryEstimator partitionMemoryEstimator,
+            TaskExecutionStats taskExecutionStats,
             TaskLifecycleListener taskLifecycleListener,
             DelayedFutureCompletor futureCompletor,
             Ticker ticker,
@@ -202,6 +204,7 @@ public class FaultTolerantStageScheduler
         this.nodeAllocator = requireNonNull(nodeAllocator, "nodeAllocator is null");
         this.taskDescriptorStorage = requireNonNull(taskDescriptorStorage, "taskDescriptorStorage is null");
         this.partitionMemoryEstimator = requireNonNull(partitionMemoryEstimator, "partitionMemoryEstimator is null");
+        this.taskExecutionStats = requireNonNull(taskExecutionStats, "taskExecutionStats is null");
         this.taskLifecycleListener = requireNonNull(taskLifecycleListener, "taskLifecycleListener is null");
         this.futureCompletor = requireNonNull(futureCompletor, "futureCompletor is null");
         this.sinkExchange = requireNonNull(sinkExchange, "sinkExchange is null");
@@ -302,7 +305,9 @@ public class FaultTolerantStageScheduler
             while (pendingPartitionsIterator.hasNext()) {
                 PendingPartition pendingPartition = pendingPartitionsIterator.next();
                 if (pendingPartition.getNodeLease().getNode().isDone()) {
-                    startTask(pendingPartition.getPartition(), pendingPartition.getNodeLease());
+                    MemoryRequirements memoryRequirements = partitionMemoryRequirements.get(pendingPartition.getPartition());
+                    verify(memoryRequirements != null, "no entry for %s.%s in partitionMemoryRequirements", stage.getStageId(), pendingPartition.getPartition());
+                    startTask(pendingPartition.getPartition(), pendingPartition.getNodeLease(), memoryRequirements);
                     startedTask = true;
                     pendingPartitionsIterator.remove();
                 }
@@ -343,7 +348,7 @@ public class FaultTolerantStageScheduler
         }
     }
 
-    private void startTask(int partition, NodeAllocator.NodeLease nodeLease)
+    private void startTask(int partition, NodeAllocator.NodeLease nodeLease, MemoryRequirements memoryRequirements)
     {
         Optional<TaskDescriptor> taskDescriptorOptional = taskDescriptorStorage.get(stage.getStageId(), partition);
         if (taskDescriptorOptional.isEmpty()) {
@@ -396,7 +401,8 @@ public class FaultTolerantStageScheduler
                 taskSplits,
                 allSourcePlanNodeIds.stream()
                         .collect(toImmutableListMultimap(Function.identity(), planNodeId -> Lifespan.taskWide())),
-                allSourcePlanNodeIds).orElseThrow(() -> new VerifyException("stage execution is expected to be active"));
+                allSourcePlanNodeIds,
+                Optional.of(memoryRequirements.getRequiredMemory())).orElseThrow(() -> new VerifyException("stage execution is expected to be active"));
 
         nodeLease.attachTaskId(task.getTaskId());
         partitionToRemoteTaskMap.put(partition, task);
@@ -410,6 +416,7 @@ public class FaultTolerantStageScheduler
         taskLifecycleListener.taskCreated(stage.getFragment().getId(), task);
 
         task.addStateChangeListener(taskStatus -> updateTaskStatus(taskStatus, exchangeSinkInstanceHandle));
+        task.addFinalTaskInfoListener(taskExecutionStats::update);
         task.start();
     }
 

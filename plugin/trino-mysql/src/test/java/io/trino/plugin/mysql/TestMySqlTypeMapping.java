@@ -145,10 +145,10 @@ public class TestMySqlTypeMapping
     {
         try (TestTable table = new TestTable(mySqlServer::execute, "tpch.test_unsupported_tinyint", "(data tinyint)")) {
             assertMySqlQueryFails(
-                    format("INSERT INTO %s VALUES (-129)", table.getName()), // min - 1
+                    "INSERT INTO " + table.getName() + " VALUES (-129)", // min - 1
                     "Data truncation: Out of range value for column 'data' at row 1");
             assertMySqlQueryFails(
-                    format("INSERT INTO %s VALUES (128)", table.getName()), // max + 1
+                    "INSERT INTO " + table.getName() + " VALUES (128)", // max + 1
                     "Data truncation: Out of range value for column 'data' at row 1");
         }
     }
@@ -171,7 +171,7 @@ public class TestMySqlTypeMapping
     {
         try (TestTable table = new TestTable(mySqlServer::execute, "tpch.test_unsupported_smallint", "(data smallint)")) {
             assertMySqlQueryFails(
-                    format("INSERT INTO %s VALUES (-32769)", table.getName()), // min - 1
+                    "INSERT INTO " + table.getName() + " VALUES (-32769)", // min - 1
                     "Data truncation: Out of range value for column 'data' at row 1");
             assertMySqlQueryFails(
                     format("INSERT INTO %s VALUES (32768)", table.getName()), // max + 1
@@ -197,10 +197,10 @@ public class TestMySqlTypeMapping
     {
         try (TestTable table = new TestTable(mySqlServer::execute, "tpch.test_unsupported_integer", "(data integer)")) {
             assertMySqlQueryFails(
-                    format("INSERT INTO %s VALUES (-2147483649)", table.getName()), // min - 1
+                    "INSERT INTO " + table.getName() + " VALUES (-2147483649)", // min - 1
                     "Data truncation: Out of range value for column 'data' at row 1");
             assertMySqlQueryFails(
-                    format("INSERT INTO %s VALUES (2147483648)", table.getName()), // max + 1
+                    "INSERT INTO " + table.getName() + " VALUES (2147483648)", // max + 1
                     "Data truncation: Out of range value for column 'data' at row 1");
         }
     }
@@ -223,10 +223,10 @@ public class TestMySqlTypeMapping
     {
         try (TestTable table = new TestTable(mySqlServer::execute, "tpch.test_unsupported_bigint", "(data bigint)")) {
             assertMySqlQueryFails(
-                    format("INSERT INTO %s VALUES (-9223372036854775809)", table.getName()), // min - 1
+                    "INSERT INTO " + table.getName() + " VALUES (-9223372036854775809)", // min - 1
                     "Data truncation: Out of range value for column 'data' at row 1");
             assertMySqlQueryFails(
-                    format("INSERT INTO %s VALUES (9223372036854775808)", table.getName()), // max + 1
+                    "INSERT INTO " + table.getName() + " VALUES (9223372036854775808)", // max + 1
                     "Data truncation: Out of range value for column 'data' at row 1");
         }
     }

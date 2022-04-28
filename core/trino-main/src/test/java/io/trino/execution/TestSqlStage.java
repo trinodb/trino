@@ -136,7 +136,8 @@ public class TestSqlStage
                             createInitialEmptyOutputBuffers(ARBITRARY),
                             ImmutableMultimap.of(),
                             ImmutableMultimap.of(),
-                            ImmutableSet.of());
+                            ImmutableSet.of(),
+                            Optional.empty());
                     latch.countDown();
                 }
             }
@@ -155,7 +156,7 @@ public class TestSqlStage
         // once the final stage info is available, verify that it is complete
         StageInfo stageInfo = finalStageInfo.get(1, MINUTES);
         assertFalse(stageInfo.getTasks().isEmpty());
-        assertTrue(stageInfo.isCompleteInfo());
+        assertTrue(stageInfo.isFinalStageInfo());
         assertSame(stage.getStageInfo(), stageInfo);
 
         // cancel the background thread adding tasks

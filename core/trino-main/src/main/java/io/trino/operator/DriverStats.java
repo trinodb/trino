@@ -59,7 +59,6 @@ public class DriverStats
 
     private final DataSize internalNetworkInputDataSize;
     private final long internalNetworkInputPositions;
-    private final Duration internalNetworkInputReadTime;
 
     private final DataSize rawInputDataSize;
     private final long rawInputPositions;
@@ -104,7 +103,6 @@ public class DriverStats
 
         this.internalNetworkInputDataSize = DataSize.ofBytes(0);
         this.internalNetworkInputPositions = 0;
-        this.internalNetworkInputReadTime = new Duration(0, MILLISECONDS);
 
         this.rawInputDataSize = DataSize.ofBytes(0);
         this.rawInputPositions = 0;
@@ -150,7 +148,6 @@ public class DriverStats
 
             @JsonProperty("internalNetworkInputDataSize") DataSize internalNetworkInputDataSize,
             @JsonProperty("internalNetworkInputPositions") long internalNetworkInputPositions,
-            @JsonProperty("internalNetworkInputReadTime") Duration internalNetworkInputReadTime,
 
             @JsonProperty("rawInputDataSize") DataSize rawInputDataSize,
             @JsonProperty("rawInputPositions") long rawInputPositions,
@@ -195,7 +192,6 @@ public class DriverStats
         this.internalNetworkInputDataSize = requireNonNull(internalNetworkInputDataSize, "internalNetworkInputDataSize is null");
         checkArgument(internalNetworkInputPositions >= 0, "internalNetworkInputPositions is negative");
         this.internalNetworkInputPositions = internalNetworkInputPositions;
-        this.internalNetworkInputReadTime = requireNonNull(internalNetworkInputReadTime, "internalNetworkInputReadTime is null");
 
         this.rawInputDataSize = requireNonNull(rawInputDataSize, "rawInputDataSize is null");
         checkArgument(rawInputPositions >= 0, "rawInputPositions is negative");
@@ -327,12 +323,6 @@ public class DriverStats
     public long getInternalNetworkInputPositions()
     {
         return internalNetworkInputPositions;
-    }
-
-    @JsonProperty
-    public Duration getInternalNetworkInputReadTime()
-    {
-        return internalNetworkInputReadTime;
     }
 
     @JsonProperty

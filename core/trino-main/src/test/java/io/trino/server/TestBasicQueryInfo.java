@@ -21,6 +21,7 @@ import io.airlift.units.Duration;
 import io.trino.execution.QueryInfo;
 import io.trino.execution.QueryStats;
 import io.trino.operator.BlockedReason;
+import io.trino.operator.RetryPolicy;
 import io.trino.spi.QueryId;
 import io.trino.spi.StandardErrorCode;
 import io.trino.spi.eventlistener.StageGcStatistics;
@@ -38,6 +39,7 @@ import static io.trino.server.DynamicFilterService.DynamicFiltersStats;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 public class TestBasicQueryInfo
 {
@@ -49,7 +51,6 @@ public class TestBasicQueryInfo
                         new QueryId("0"),
                         TEST_SESSION.toSessionRepresentation(),
                         RUNNING,
-                        false,
                         URI.create("1"),
                         ImmutableList.of("2", "3"),
                         "SELECT 4",
@@ -154,11 +155,12 @@ public class TestBasicQueryInfo
                         ImmutableList.of(),
                         false,
                         Optional.empty(),
-                        Optional.of(QueryType.SELECT)));
+                        Optional.of(QueryType.SELECT),
+                        RetryPolicy.NONE));
 
         assertEquals(basicInfo.getQueryId().getId(), "0");
         assertEquals(basicInfo.getState(), RUNNING);
-        assertEquals(basicInfo.isScheduled(), false);
+        assertTrue(basicInfo.isScheduled()); // from query stats
         assertEquals(basicInfo.getQuery(), "SELECT 4");
         assertEquals(basicInfo.getQueryType().get(), QueryType.SELECT);
 

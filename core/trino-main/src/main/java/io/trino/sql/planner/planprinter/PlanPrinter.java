@@ -269,14 +269,14 @@ public class PlanPrinter
             ValuePrinter valuePrinter,
             boolean verbose)
     {
-        Map<PlanNodeId, TableInfo> tableInfos = getAllStages(Optional.of(outputStageInfo)).stream()
+        List<StageInfo> allStages = getAllStages(Optional.of(outputStageInfo));
+        Map<PlanNodeId, TableInfo> tableInfos = allStages.stream()
                 .map(StageInfo::getTables)
                 .map(Map::entrySet)
                 .flatMap(Collection::stream)
                 .collect(toImmutableMap(Entry::getKey, Entry::getValue));
 
         StringBuilder builder = new StringBuilder();
-        List<StageInfo> allStages = getAllStages(Optional.of(outputStageInfo));
         List<PlanFragment> allFragments = allStages.stream()
                 .map(StageInfo::getPlan)
                 .collect(toImmutableList());

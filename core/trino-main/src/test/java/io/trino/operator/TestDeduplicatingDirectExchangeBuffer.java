@@ -26,7 +26,7 @@ import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
 import io.trino.metadata.ExchangeHandleResolver;
-import io.trino.plugin.exchange.FileSystemExchangeManagerFactory;
+import io.trino.plugin.exchange.filesystem.FileSystemExchangeManagerFactory;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
 import org.testng.annotations.AfterClass;

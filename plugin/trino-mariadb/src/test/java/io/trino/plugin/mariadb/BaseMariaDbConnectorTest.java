@@ -29,8 +29,6 @@ import static io.trino.testing.assertions.Assert.assertEquals;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 public abstract class BaseMariaDbConnectorTest
         extends BaseJdbcConnectorTest
@@ -51,7 +49,6 @@ public abstract class BaseMariaDbConnectorTest
             case SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY:
             case SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY:
             case SUPPORTS_RENAME_SCHEMA:
-            case SUPPORTS_COMMENT_ON_TABLE:
             case SUPPORTS_COMMENT_ON_COLUMN:
             case SUPPORTS_ARRAY:
             case SUPPORTS_ROW_TYPE:
@@ -168,16 +165,6 @@ public abstract class BaseMariaDbConnectorTest
                         "   shippriority integer,\n" +
                         "   comment varchar(255)\n" +
                         ")");
-    }
-
-    @Test
-    public void testDropTable()
-    {
-        assertUpdate("CREATE TABLE test_drop AS SELECT 123 x", 1);
-        assertTrue(getQueryRunner().tableExists(getSession(), "test_drop"));
-
-        assertUpdate("DROP TABLE test_drop");
-        assertFalse(getQueryRunner().tableExists(getSession(), "test_drop"));
     }
 
     @Test

@@ -18,7 +18,6 @@ import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
-import io.trino.metadata.TableHandle;
 import io.trino.security.AccessControl;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.RenameMaterializedView;
@@ -26,7 +25,6 @@ import io.trino.sql.tree.RenameMaterializedView;
 import javax.inject.Inject;
 
 import java.util.List;
-import java.util.Optional;
 
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
@@ -70,15 +68,14 @@ public class RenameMaterializedViewTask
                 throw semanticException(
                         TABLE_NOT_FOUND,
                         statement,
-                        "Materialized View '%s' does not exist, but a view with that name exists. Did you mean ALTER VIEW %s RENAME ...?", materializedViewName, materializedViewName);
+                        "Materialized View '%s' does not exist, but a view with that name exists. Did you mean ALTER VIEW %s RENAME TO ...?", materializedViewName, materializedViewName);
             }
 
-            Optional<TableHandle> table = metadata.getTableHandle(session, materializedViewName);
-            if (table.isPresent()) {
+            if (metadata.getTableHandle(session, materializedViewName).isPresent()) {
                 throw semanticException(
                         TABLE_NOT_FOUND,
                         statement,
-                        "Materialized View '%s' does not exist, but a table with that name exists. Did you mean ALTER TABLE %s RENAME ...?", materializedViewName, materializedViewName);
+                        "Materialized View '%s' does not exist, but a table with that name exists. Did you mean ALTER TABLE %s RENAME TO ...?", materializedViewName, materializedViewName);
             }
 
             if (statement.isExists()) {

@@ -21,7 +21,6 @@ import com.google.common.collect.Sets;
 import com.google.inject.Binder;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.Session;
-import io.trino.plugin.deltalake.HideNonDeltaLakeTables;
 import io.trino.plugin.deltalake.TestingDeltaLakePlugin;
 import io.trino.plugin.hive.HdfsConfig;
 import io.trino.plugin.hive.HdfsConfiguration;
@@ -109,7 +108,6 @@ public class TestDeltaLakeMetastoreAccessOperations
         protected void setup(Binder binder)
         {
             binder.bind(HiveMetastoreFactory.class).annotatedWith(RawHiveMetastoreFactory.class).toInstance(HiveMetastoreFactory.ofInstance(metastore));
-            binder.bind(Boolean.class).annotatedWith(HideNonDeltaLakeTables.class).toInstance(false);
         }
     }
 

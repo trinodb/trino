@@ -297,7 +297,7 @@ public class QueryMonitor
                 queryStats.getFailedCumulativeUserMemory(),
                 queryStats.getStageGcStatistics(),
                 queryStats.getCompletedDrivers(),
-                queryInfo.isCompleteInfo(),
+                queryInfo.isFinalQueryInfo(),
                 getCpuDistributions(queryInfo),
                 operatorSummaries.build(),
                 serializedPlanNodeStatsAndCosts);

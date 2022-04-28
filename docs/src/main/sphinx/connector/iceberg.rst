@@ -201,6 +201,43 @@ to the filter:
     ALTER TABLE test_partitioned_table EXECUTE optimize
     WHERE partition_key = 1
 
+expire_snapshots
+~~~~~~~~~~~~~~~~
+
+The ``expire_snapshots`` command removes all snapshots and all related metadata and data files.
+Regularly expiring snapshots is recommended to delete data files that are no longer needed,
+and to keep the size of table metadata small.
+The procedure affects all snapshots that are older than the time period configured with the ``retention_threshold`` parameter.
+
+``expire_snapshots`` can be run as follows:
+
+.. code-block:: sql
+
+  ALTER TABLE test_table EXECUTE expire_snapshots(retention_threshold => '7d')
+
+The value for ``retention_threshold`` must be higher than ``iceberg.expire_snapshots.min-retention`` in the catalog
+otherwise the procedure will fail with similar message:
+``Retention specified (1.00d) is shorter than the minimum retention configured in the system (7.00d)``.
+The default value for this property is ``7d``.
+
+delete_orphan_files
+~~~~~~~~~~~~~~~~~~~
+
+The ``delete_orphan_files`` command removes all files from table's data directory which are
+not linked from metadata files and that are older than the value of ``retention_threshold`` parameter.
+Deleting orphan files from time to time is recommended to keep size of table's data directory under control.
+
+``delete_orphan_files`` can be run as follows:
+
+.. code-block:: sql
+
+  ALTER TABLE test_table EXECUTE delete_orphan_files(retention_threshold => '7d')
+
+The value for ``retention_threshold`` must be higher than ``iceberg.delete_orphan_files.min-retention`` in the catalog
+otherwise the procedure will fail with similar message:
+``Retention specified (1.00d) is shorter than the minimum retention configured in the system (7.00d)``.
+The default value for this property is ``7d``.
+
 .. _iceberg-type-mapping:
 
 Type mapping
@@ -374,12 +411,14 @@ above, this SQL will delete all partitions for which ``country`` is ``US``::
     DELETE FROM iceberg.testdb.customer_orders
     WHERE country = 'US'
 
-Currently, the Iceberg connector only supports deletion by partition.
-This SQL below will fail because the ``WHERE`` clause selects only some of the rows
-in the partition::
+Tables using either v1 or v2 of the Iceberg specification will perform a partition
+delete if the ``WHERE`` clause meets these conditions.
 
-    DELETE FROM iceberg.testdb.customer_orders
-    WHERE country = 'US' AND customer = 'Freds Foods'
+Row level deletion
+^^^^^^^^^^^^^^^^^^
+
+Tables using v2 of the Iceberg specification support deletion of individual rows
+by writing position delete files.
 
 Rolling back to a previous snapshot
 -----------------------------------
@@ -434,7 +473,7 @@ Property Name                                      Description
 
 ``format_version``                                 Optionally specifies the format version of the Iceberg
                                                    specification to use for new tables; either ``1`` or ``2``.
-                                                   Defaults to ``1``. Version ``2`` is required for row level deletes.
+                                                   Defaults to ``2``. Version ``2`` is required for row level deletes.
 ================================================== ================================================================
 
 The table definition below specifies format Parquet, partitioning by columns ``c1`` and ``c2``,
