@@ -2,8 +2,12 @@
 MariaDB connector
 =================
 
-The MariaDB connector allows querying and
-creating tables in an external MariaDB database.
+.. raw:: html
+
+  <img src="../_static/img/mariadb.png" class="connector-logo">
+
+The MariaDB connector allows querying and creating tables in an external MariaDB
+database.
 
 Requirements
 ------------
