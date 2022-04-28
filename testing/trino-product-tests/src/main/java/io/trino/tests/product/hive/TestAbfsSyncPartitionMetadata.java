@@ -24,18 +24,12 @@ public class TestAbfsSyncPartitionMetadata
         extends BaseTestSyncPartitionMetadata
 {
     private final String schema = "test_" + randomTableSuffix();
-    private final String container;
-    private final String account;
-
-    public TestAbfsSyncPartitionMetadata()
-    {
-        this.container = requireNonNull(System.getenv("ABFS_CONTAINER"), "Environment variable not set: ABFS_CONTAINER");
-        this.account = requireNonNull(System.getenv("ABFS_ACCOUNT"), "Environment variable not set: ABFS_ACCOUNT");
-    }
 
     @Override
     protected String schemaLocation()
     {
+        String container = requireNonNull(System.getenv("ABFS_CONTAINER"), "Environment variable not set: ABFS_CONTAINER");
+        String account = requireNonNull(System.getenv("ABFS_ACCOUNT"), "Environment variable not set: ABFS_ACCOUNT");
         return format("abfs://%s@%s.dfs.core.windows.net/%s", container, account, schema);
     }
 

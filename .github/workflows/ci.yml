@@ -525,6 +525,8 @@ jobs:
 
   build-pt:
     runs-on: ubuntu-latest
+    outputs:
+      have_secrets: ${{ steps.check-secrets.outputs.have_secrets }}
     steps:
       - uses: actions/checkout@v2
         with:
@@ -536,6 +538,20 @@ jobs:
           distribution: 'zulu'
           java-version: 11
           cache: 'maven'
+      - name: Check secrets
+        run: |
+          if [[ "${{ secrets.ABFS_CONTAINER }}" != "" && \
+                "${{ secrets.ABFS_ACCOUNT }}" != "" && \
+                "${{ secrets.ABFS_ACCESS_KEY }}" != ""
+          ]]; \
+          then
+            echo "Secrets to run product tests were configured in the repo"
+            echo "::set-output name=have_secrets::true"
+          else
+            echo "Secrets to run product tests were not configured in the repo"
+            echo "::set-output name=have_secrets::false"
+          fi
+        id: check-secrets
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
@@ -721,7 +737,8 @@ jobs:
 
   azure-pt:
     runs-on: ubuntu-latest
-    name: pt (${{ matrix.config }}, ${{ matrix.suite }}, ${{ matrix.jdk }})
+    needs: build-pt
+    if: needs.build-pt.outputs.have_secrets == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -732,7 +749,6 @@ jobs:
         jdk:
           - 11
     timeout-minutes: 30
-    needs: build-pt
     steps:
       - uses: actions/checkout@v2
         with:
@@ -753,7 +769,6 @@ jobs:
           ABFS_CONTAINER: ${{ secrets.AZURE_ABFS_CONTAINER }}
           ABFS_ACCOUNT: ${{ secrets.AZURE_ABFS_ACCOUNT }}
           ABFS_ACCESS_KEY: ${{ secrets.AZURE_ABFS_ACCESSKEY }}
-        if: env.ABFS_CONTAINER != '' && env.ABFS_ACCOUNT != '' && env.ABFS_ACCESS_KEY != ''
         run: |
           testing/bin/ptl suite run \
             --suite ${{ matrix.suite }} \
