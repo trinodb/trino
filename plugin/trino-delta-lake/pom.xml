@@ -105,11 +105,6 @@
 
         <dependency>
             <groupId>com.amazonaws</groupId>
-            <artifactId>aws-java-sdk-core</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.amazonaws</groupId>
             <artifactId>aws-java-sdk-glue</artifactId>
         </dependency>
 
@@ -431,18 +426,6 @@
                                 <ignoredResourcePattern>mime.types</ignoredResourcePattern>
                                 <ignoredResourcePattern>about.html</ignoredResourcePattern>
                             </ignoredResourcePatterns>
-                        </configuration>
-                    </plugin>
-
-                    <plugin>
-                        <artifactId>maven-dependency-plugin</artifactId>
-                        <configuration>
-                            <ignoredNonTestScopedDependencies>
-                                <!-- dependency plugin fails to recognize aws-java-sdk-core as a compile-time dependency, because
-                                     we only explicitly use a class from aws-java-sdk-glue, which in turn extends from a class from
-                                     aws-java-sdk-core -->
-                                <ignoredDependency>com.amazonaws:aws-java-sdk-core</ignoredDependency>
-                            </ignoredNonTestScopedDependencies>
                         </configuration>
                     </plugin>
                 </plugins>
