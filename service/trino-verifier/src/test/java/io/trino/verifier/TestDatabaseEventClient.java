@@ -153,11 +153,15 @@ public class TestDatabaseEventClient
                     assertEquals(resultSet.getString("test_setup_query_ids_json"), codec.toJson(FULL_EVENT.getTestSetupQueryIds()));
                     assertEquals(resultSet.getString("test_query_id"), "TEST_QUERY_ID");
                     assertEquals(resultSet.getString("test_teardown_query_ids_json"), codec.toJson(FULL_EVENT.getTestTeardownQueryIds()));
+                    assertEquals(resultSet.getDouble("test_cpu_time_seconds"), 1.1);
+                    assertEquals(resultSet.getDouble("test_wall_time_seconds"), 2.2);
                     assertEquals(resultSet.getString("control_catalog"), "controlcatalog");
                     assertEquals(resultSet.getString("control_schema"), "controlschema");
                     assertEquals(resultSet.getString("control_setup_query_ids_json"), codec.toJson(FULL_EVENT.getControlSetupQueryIds()));
                     assertEquals(resultSet.getString("control_query_id"), "CONTROL_QUERY_ID");
                     assertEquals(resultSet.getString("control_teardown_query_ids_json"), codec.toJson(FULL_EVENT.getControlTeardownQueryIds()));
+                    assertEquals(resultSet.getDouble("control_cpu_time_seconds"), 3.3);
+                    assertEquals(resultSet.getDouble("control_wall_time_seconds"), 4.4);
                     assertEquals(resultSet.getString("error_message"), "error message");
                     assertFalse(resultSet.next());
                 }
@@ -186,11 +190,15 @@ public class TestDatabaseEventClient
                     assertNull(resultSet.getString("test_setup_query_ids_json"));
                     assertNull(resultSet.getString("test_query_id"));
                     assertNull(resultSet.getString("test_teardown_query_ids_json"));
+                    assertNull(resultSet.getObject("test_cpu_time_seconds"));
+                    assertNull(resultSet.getObject("test_wall_time_seconds"));
                     assertNull(resultSet.getString("control_catalog"));
                     assertNull(resultSet.getString("control_schema"));
                     assertNull(resultSet.getString("control_setup_query_ids_json"));
                     assertNull(resultSet.getString("control_query_id"));
                     assertNull(resultSet.getString("control_teardown_query_ids_json"));
+                    assertNull(resultSet.getObject("control_cpu_time_seconds"));
+                    assertNull(resultSet.getObject("control_wall_time_seconds"));
                     assertNull(resultSet.getString("error_message"));
                     assertFalse(resultSet.next());
                 }
