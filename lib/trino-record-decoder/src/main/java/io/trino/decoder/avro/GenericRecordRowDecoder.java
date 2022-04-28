@@ -44,7 +44,7 @@ class GenericRecordRowDecoder
     }
 
     @Override
-    public Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodeRow(byte[] data, Map<String, String> dataMap)
+    public Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodeRow(byte[] data)
     {
         GenericRecord avroRecord = deserializer.deserialize(data);
         return Optional.of(columnDecoders.stream()
