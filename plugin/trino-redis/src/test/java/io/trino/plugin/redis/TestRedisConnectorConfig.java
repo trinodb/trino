@@ -14,6 +14,7 @@
 package io.trino.plugin.redis;
 
 import com.google.common.collect.ImmutableMap;
+import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
 import java.io.File;
@@ -22,6 +23,8 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class TestRedisConnectorConfig
 {
@@ -33,6 +36,7 @@ public class TestRedisConnectorConfig
                 .setDefaultSchema("default")
                 .setTableNames("")
                 .setTableDescriptionDir(new File("etc/redis/"))
+                .setTableDescriptionCacheDuration(new Duration(5, MINUTES))
                 .setKeyPrefixSchemaTable(false)
                 .setRedisKeyDelimiter(":")
                 .setRedisConnectTimeout("2000ms")
@@ -48,6 +52,7 @@ public class TestRedisConnectorConfig
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("redis.table-description-dir", "/var/lib/redis")
+                .put("redis.table-description-cache-ttl", "30s")
                 .put("redis.table-names", "table1, table2, table3")
                 .put("redis.default-schema", "redis")
                 .put("redis.nodes", "localhost:12345,localhost:23456")
@@ -63,6 +68,7 @@ public class TestRedisConnectorConfig
 
         RedisConnectorConfig expected = new RedisConnectorConfig()
                 .setTableDescriptionDir(new File("/var/lib/redis"))
+                .setTableDescriptionCacheDuration(new Duration(30, SECONDS))
                 .setTableNames("table1, table2, table3")
                 .setDefaultSchema("redis")
                 .setNodes("localhost:12345, localhost:23456")
