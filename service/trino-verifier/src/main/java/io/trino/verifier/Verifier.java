@@ -119,7 +119,7 @@ public class Verifier
                             config.isExplainOnly(),
                             config.getDoublePrecision(),
                             isCheckCorrectness(query),
-                            true,
+                            config.isCheckDeterminismEnabled(),
                             config.isVerboseResultsComparison(),
                             config.getControlTeardownRetries(),
                             config.getTestTeardownRetries(),
