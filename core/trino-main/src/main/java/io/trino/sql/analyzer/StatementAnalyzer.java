@@ -208,6 +208,7 @@ import io.trino.sql.tree.WindowReference;
 import io.trino.sql.tree.WindowSpecification;
 import io.trino.sql.tree.With;
 import io.trino.sql.tree.WithQuery;
+import io.trino.transaction.TransactionManager;
 import io.trino.type.TypeCoercion;
 
 import java.util.ArrayList;
@@ -331,6 +332,7 @@ class StatementAnalyzer
     private final SqlParser sqlParser;
     private final GroupProvider groupProvider;
     private final AccessControl accessControl;
+    private final TransactionManager transactionManager;
     private final TableProceduresRegistry tableProceduresRegistry;
     private final SessionPropertyManager sessionPropertyManager;
     private final TablePropertyManager tablePropertyManager;
@@ -347,6 +349,7 @@ class StatementAnalyzer
             SqlParser sqlParser,
             GroupProvider groupProvider,
             AccessControl accessControl,
+            TransactionManager transactionManager,
             Session session,
             TableProceduresRegistry tableProceduresRegistry,
             SessionPropertyManager sessionPropertyManager,
@@ -364,6 +367,7 @@ class StatementAnalyzer
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.groupProvider = requireNonNull(groupProvider, "groupProvider is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
+        this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.session = requireNonNull(session, "session is null");
         this.tableProceduresRegistry = requireNonNull(tableProceduresRegistry, "tableProceduresRegistry is null");
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");

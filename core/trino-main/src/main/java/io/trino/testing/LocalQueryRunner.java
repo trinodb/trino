@@ -382,6 +382,7 @@ public class LocalQueryRunner
                 plannerContext,
                 sqlParser,
                 accessControl,
+                transactionManager,
                 groupProvider,
                 tableProceduresRegistry,
                 sessionPropertyManager,
