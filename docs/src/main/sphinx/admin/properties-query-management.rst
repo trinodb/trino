@@ -46,6 +46,28 @@ memory availability. Supports the following values:
 * ``total-reservation-on-blocked-nodes`` - Kill the query currently using the
   most memory specifically on nodes that are now out of memory.
 
+.. note::
+
+    Only applies for queries with task level retries disabled (``retry-policy`` set to ``NONE`` or ``QUERY``)
+
+``query.low-memory-task-killer.policy``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** :ref:`prop-type-string`
+* **Default value:** ``total-reservation-on-blocked-nodes``
+
+Configures the behavior to handle killing running tasks in the event of low
+memory availability. Supports the following values:
+
+* ``none`` - Do not kill any tasks in the event of low memory.
+* ``total-reservation-on-blocked-nodes`` - Kill the tasks which are part of the queries
+  which has task retries enabled and are currently using the most memory specifically
+  on nodes that are now out of memory.
+
+.. note::
+
+    Only applies for queries with task level retries enabled (``retry-policy=TASK``)
+
 ``query.low-memory-killer.delay``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -53,8 +75,8 @@ memory availability. Supports the following values:
 * **Default value:** ``5m``
 
 The amount of time a query is allowed to recover between running out of memory
-and being killed, if ``query.low-memory-killer.policy`` is set to
-``total-reservation`` or ``total-reservation-on-blocked-nodes``.
+and being killed, if ``query.low-memory-query-killer.policy`` or
+``query.low-memory-task-killer.policy`` is set to value differnt than ``none``.
 
 ``query.max-execution-time``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^

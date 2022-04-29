@@ -17,10 +17,18 @@ package io.trino.memory;
 import io.trino.operator.RetryPolicy;
 import io.trino.spi.QueryId;
 
+import javax.inject.Qualifier;
+
+import java.lang.annotation.Retention;
+import java.lang.annotation.Target;
 import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.lang.annotation.ElementType.FIELD;
+import static java.lang.annotation.ElementType.METHOD;
+import static java.lang.annotation.ElementType.PARAMETER;
+import static java.lang.annotation.RetentionPolicy.RUNTIME;
 import static java.util.Objects.requireNonNull;
 
 public interface LowMemoryKiller
@@ -65,4 +73,14 @@ public interface LowMemoryKiller
                     .toString();
         }
     }
+
+    @Retention(RUNTIME)
+    @Target({FIELD, PARAMETER, METHOD})
+    @Qualifier
+    @interface ForQueryLowMemoryKiller {}
+
+    @Retention(RUNTIME)
+    @Target({FIELD, PARAMETER, METHOD})
+    @Qualifier
+    @interface ForTaskLowMemoryKiller {}
 }
