@@ -84,6 +84,23 @@ catalog named ``sales`` using the configured connector.
 
 .. include:: jdbc-common-configurations.fragment
 
+Specific configuration properties
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The SQL Server connector supports additional catalog properties to configure the
+behavior of the connector and the issues queries to the database.
+
+.. list-table::
+  :widths: 45, 55
+  :header-rows: 1
+
+  * - Property name
+    - Description
+  * - ``sqlserver.snapshot-isolation.disabled``
+    - Control the automatic use of snapshot isolation for transactions issued by
+      Trino in SQL Server. Defaults to ``false``, which means that snapshot
+      isolation is enabled.
+
 .. include:: jdbc-procedures.fragment
 
 .. include:: jdbc-case-insensitive-matching.fragment

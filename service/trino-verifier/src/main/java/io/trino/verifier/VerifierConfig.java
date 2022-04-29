@@ -89,6 +89,8 @@ public class VerifierConfig
     private String shadowControlTablePrefix = "tmp_verifier_";
     private boolean runTearDownOnResultMismatch;
     private boolean skipControl;
+    private boolean simplifiedControlQueriesGenerationEnabled;
+    private String simplifiedControlQueriesOutputDirectory = "/tmp/verifier/generated-control-queries";
 
     private Duration regressionMinCpuTime = new Duration(5, TimeUnit.MINUTES);
 
@@ -791,6 +793,31 @@ public class VerifierConfig
     public VerifierConfig setSkipControl(boolean skipControl)
     {
         this.skipControl = skipControl;
+        return this;
+    }
+
+    public boolean isSimplifiedControlQueriesGenerationEnabled()
+    {
+        return simplifiedControlQueriesGenerationEnabled;
+    }
+
+    @Config("simplified-control-queries-generation-enabled")
+    public VerifierConfig setSimplifiedControlQueriesGenerationEnabled(boolean simplifiedControlQueriesGenerationEnabled)
+    {
+        this.simplifiedControlQueriesGenerationEnabled = simplifiedControlQueriesGenerationEnabled;
+        return this;
+    }
+
+    @NotNull
+    public String getSimplifiedControlQueriesOutputDirectory()
+    {
+        return simplifiedControlQueriesOutputDirectory;
+    }
+
+    @Config("simplified-control-queries-output-directory")
+    public VerifierConfig setSimplifiedControlQueriesOutputDirectory(String simplifiedControlQueriesOutputDirectory)
+    {
+        this.simplifiedControlQueriesOutputDirectory = simplifiedControlQueriesOutputDirectory;
         return this;
     }
 }

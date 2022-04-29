@@ -33,7 +33,6 @@ import org.apache.hadoop.mapred.JobConf;
 import org.apache.iceberg.FileContent;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
-import org.apache.iceberg.Schema;
 import org.apache.iceberg.io.LocationProvider;
 
 import java.util.ArrayList;
@@ -50,13 +49,10 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.iceberg.io.DeleteSchemaUtil.pathPosSchema;
 
 public class IcebergPositionDeletePageSink
         implements ConnectorPageSink
 {
-    private static final Schema POSITION_DELETE_SCHEMA = pathPosSchema();
-
     private final String dataFilePath;
     private final PartitionSpec partitionSpec;
     private final Optional<PartitionData> partition;
@@ -92,7 +88,7 @@ public class IcebergPositionDeletePageSink
                 .map(partitionData -> locationProvider.newDataLocation(partitionSpec, partitionData, fileName))
                 .orElseGet(() -> locationProvider.newDataLocation(fileName));
         JobConf jobConf = toJobConf(hdfsEnvironment.getConfiguration(hdfsContext, new Path(outputPath)));
-        this.writer = fileWriterFactory.createPositionDeleteWriter(new Path(outputPath), POSITION_DELETE_SCHEMA, jobConf, session, hdfsContext, fileFormat);
+        this.writer = fileWriterFactory.createPositionDeleteWriter(new Path(outputPath), jobConf, session, hdfsContext, fileFormat);
     }
 
     @Override
