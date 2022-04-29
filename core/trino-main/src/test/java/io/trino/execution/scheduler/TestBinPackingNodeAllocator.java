@@ -184,7 +184,7 @@ public class TestBinPackingNodeAllocator
 
             // add new node
             addNode(nodeManager, NODE_3);
-            // TODO: make FullNodeCapableNodeAllocatorService react on new node added automatically
+            // TODO: make BinPackingNodeAllocatorService react on new node added automatically
             nodeAllocatorService.processPendingAcquires();
 
             // new node should be assigned
@@ -344,7 +344,7 @@ public class TestBinPackingNodeAllocator
 
             // remove node with catalog
             nodeManager.removeNode(NODE_2);
-            // TODO: make FullNodeCapableNodeAllocatorService react on node removed automatically
+            // TODO: make BinPackingNodeAllocatorService react on node removed automatically
             nodeAllocatorService.processPendingAcquires();
             ticker.increment(61, TimeUnit.SECONDS); // wait past the timeout
             nodeAllocatorService.processPendingAcquires();
