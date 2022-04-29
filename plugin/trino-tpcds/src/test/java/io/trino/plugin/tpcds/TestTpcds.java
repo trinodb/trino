@@ -86,6 +86,13 @@ public class TestTpcds
         assertQueryFails("SHOW TABLES FROM sf0", "line 1:1: Schema 'sf0' does not exist");
     }
 
+    @Test
+    public void testDateColumnValuesCorrectness()
+    {
+        // make sure date values are correct regardless of the system timezone selected (test are executed with the system timezone set to America/Bahia_Banderas)
+        assertQuery("SELECT d_date FROM date_dim WHERE d_date_id = 'AAAAAAAAOKJNECAA'", "SELECT DATE '1900-01-02'");
+    }
+
     private Session createSession(String schemaName)
     {
         return testSessionBuilder()
