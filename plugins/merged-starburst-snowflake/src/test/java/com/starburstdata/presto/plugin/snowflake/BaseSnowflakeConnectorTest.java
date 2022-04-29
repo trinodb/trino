@@ -46,7 +46,6 @@ import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 public abstract class BaseSnowflakeConnectorTest
@@ -248,17 +247,6 @@ public abstract class BaseSnowflakeConnectorTest
                 .build();
 
         assertEquals(actualColumns, expectedColumns);
-    }
-
-    @Test
-    public void testDropTable()
-    {
-        String tableName = "test_drop_" + randomTableSuffix();
-        assertUpdate(format("CREATE TABLE %s AS SELECT 1 test_drop", tableName), 1);
-        assertTrue(getQueryRunner().tableExists(getSession(), tableName));
-
-        assertUpdate(format("DROP TABLE %s", tableName));
-        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
     }
 
     @Test

@@ -25,6 +25,8 @@ import java.util.Optional;
 import static com.starburstdata.presto.plugin.sqlserver.StarburstCommonSqlServerSessionProperties.BULK_COPY_FOR_WRITE;
 import static com.starburstdata.presto.plugin.synapse.SynapseQueryRunner.createSynapseQueryRunner;
 import static io.trino.plugin.jdbc.JdbcWriteSessionProperties.NON_TRANSACTIONAL_INSERT;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DELETE;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -239,7 +241,7 @@ public class TestSynapseConnectorTest
     public void testDelete()
     {
         // TODO: Remove override once superclass uses smaller tables to test (because INSERTs to Synapse are slow)
-        skipTestUnlessSupportsDeletes();
+        skipTestUnless(hasBehavior(SUPPORTS_DELETE) && hasBehavior(SUPPORTS_CREATE_TABLE));
 
         String tableName = "test_delete_" + randomTableSuffix();
 

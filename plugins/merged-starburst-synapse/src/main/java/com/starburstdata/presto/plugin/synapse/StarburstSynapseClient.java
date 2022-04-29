@@ -20,7 +20,6 @@ import io.trino.plugin.jdbc.LongWriteFunction;
 import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.WriteMapping;
 import io.trino.plugin.jdbc.mapping.IdentifierMapping;
-import io.trino.plugin.sqlserver.SqlServerConfig;
 import io.trino.spi.StandardErrorCode;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
@@ -66,7 +65,6 @@ public class StarburstSynapseClient
     @Inject
     public StarburstSynapseClient(
             BaseJdbcConfig config,
-            SqlServerConfig sqlServerConfig,
             JdbcStatisticsConfig statisticsConfig,
             TableScanRedirection tableScanRedirection,
             ConnectionFactory connectionFactory,
@@ -75,7 +73,6 @@ public class StarburstSynapseClient
     {
         super(
                 config,
-                sqlServerConfig,
                 statisticsConfig,
                 tableScanRedirection,
                 connectionFactory,

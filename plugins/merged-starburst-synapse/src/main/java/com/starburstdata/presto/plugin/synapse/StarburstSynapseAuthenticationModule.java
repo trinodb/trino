@@ -28,6 +28,8 @@ import io.trino.plugin.jdbc.DriverConnectionFactory;
 import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
 import io.trino.plugin.jdbc.credential.CredentialProviderModule;
+import io.trino.plugin.sqlserver.SqlServerConfig;
+import io.trino.plugin.sqlserver.SqlServerConnectionFactory;
 
 import java.util.Properties;
 
@@ -122,6 +124,7 @@ public class StarburstSynapseAuthenticationModule
         @ForImpersonation
         public ConnectionFactory getConnectionFactory(
                 BaseJdbcConfig baseJdbcConfig,
+                SqlServerConfig sqlServerConfig,
                 CredentialProvider credentialProvider)
         {
             checkState(
@@ -131,11 +134,13 @@ public class StarburstSynapseAuthenticationModule
             Properties properties = new Properties();
             properties.setProperty("authentication", "ActiveDirectoryPassword");
 
-            return new DriverConnectionFactory(
-                    new SQLServerDriver(),
-                    baseJdbcConfig.getConnectionUrl(),
-                    properties,
-                    credentialProvider);
+            return new SqlServerConnectionFactory(
+                    new DriverConnectionFactory(
+                            new SQLServerDriver(),
+                            baseJdbcConfig.getConnectionUrl(),
+                            properties,
+                            credentialProvider),
+                    sqlServerConfig.isSnapshotIsolationDisabled());
         }
     }
 
@@ -150,9 +155,11 @@ public class StarburstSynapseAuthenticationModule
         @Provides
         @Singleton
         @ForImpersonation
-        public ConnectionFactory getConnectionFactory(BaseJdbcConfig baseJdbcConfig, CredentialProvider credentialProvider)
+        public ConnectionFactory getConnectionFactory(BaseJdbcConfig baseJdbcConfig, SqlServerConfig sqlServerConfig, CredentialProvider credentialProvider)
         {
-            return new DriverConnectionFactory(new SQLServerDriver(), baseJdbcConfig, credentialProvider);
+            return new SqlServerConnectionFactory(
+                    new DriverConnectionFactory(new SQLServerDriver(), baseJdbcConfig, credentialProvider),
+                    sqlServerConfig.isSnapshotIsolationDisabled());
         }
     }
 }
