@@ -318,7 +318,8 @@ public class IcebergPageSourceProvider
                 jsonCodec,
                 session,
                 split.getFileFormat(),
-                table.getStorageProperties());
+                table.getStorageProperties(),
+                split.getFileRecordCount());
 
         Supplier<IcebergPageSink> updatedRowPageSinkSupplier = () -> new IcebergPageSink(
                 tableSchema,
