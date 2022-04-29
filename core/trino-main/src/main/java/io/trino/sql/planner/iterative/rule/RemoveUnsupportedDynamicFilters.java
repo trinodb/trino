@@ -50,6 +50,7 @@ import io.trino.sql.tree.ExpressionTreeRewriter;
 import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.SymbolReference;
+import io.trino.transaction.NoOpTransactionManager;
 import io.trino.type.TypeCoercion;
 
 import java.util.HashSet;
@@ -95,6 +96,7 @@ public class RemoveUnsupportedDynamicFilters
                         plannerContext,
                         new SqlParser(),
                         new AllowAllAccessControl(),
+                        new NoOpTransactionManager(),
                         user -> ImmutableSet.of(),
                         new TableProceduresRegistry(),
                         new SessionPropertyManager(),

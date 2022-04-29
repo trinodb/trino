@@ -64,6 +64,7 @@ import io.trino.sql.tree.NotExpression;
 import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.SymbolReference;
+import io.trino.transaction.NoOpTransactionManager;
 import io.trino.type.LikeFunctions;
 import io.trino.type.TypeCoercion;
 
@@ -310,6 +311,7 @@ public final class DomainTranslator
                         plannerContext,
                         new SqlParser(),
                         new AllowAllAccessControl(),
+                        new NoOpTransactionManager(),
                         user -> ImmutableSet.of(),
                         new TableProceduresRegistry(),
                         new SessionPropertyManager(),

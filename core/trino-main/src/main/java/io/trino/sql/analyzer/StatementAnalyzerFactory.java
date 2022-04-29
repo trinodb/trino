@@ -25,6 +25,8 @@ import io.trino.security.AccessControl;
 import io.trino.spi.security.GroupProvider;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.parser.SqlParser;
+import io.trino.transaction.NoOpTransactionManager;
+import io.trino.transaction.TransactionManager;
 
 import javax.inject.Inject;
 
@@ -35,6 +37,7 @@ public class StatementAnalyzerFactory
     private final PlannerContext plannerContext;
     private final SqlParser sqlParser;
     private final AccessControl accessControl;
+    private final TransactionManager transactionManager;
     private final GroupProvider groupProvider;
     private final TableProceduresRegistry tableProceduresRegistry;
     private final SessionPropertyManager sessionPropertyManager;
@@ -47,6 +50,7 @@ public class StatementAnalyzerFactory
             PlannerContext plannerContext,
             SqlParser sqlParser,
             AccessControl accessControl,
+            TransactionManager transactionManager,
             GroupProvider groupProvider,
             TableProceduresRegistry tableProceduresRegistry,
             SessionPropertyManager sessionPropertyManager,
@@ -57,6 +61,7 @@ public class StatementAnalyzerFactory
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
+        this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.groupProvider = requireNonNull(groupProvider, "groupProvider is null");
         this.tableProceduresRegistry = requireNonNull(tableProceduresRegistry, "tableProceduresRegistry is null");
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
@@ -71,6 +76,7 @@ public class StatementAnalyzerFactory
                 plannerContext,
                 sqlParser,
                 accessControl,
+                transactionManager,
                 groupProvider,
                 tableProceduresRegistry,
                 sessionPropertyManager,
@@ -92,6 +98,7 @@ public class StatementAnalyzerFactory
                 sqlParser,
                 groupProvider,
                 accessControl,
+                transactionManager,
                 session,
                 tableProceduresRegistry,
                 sessionPropertyManager,
@@ -112,6 +119,7 @@ public class StatementAnalyzerFactory
                 plannerContext,
                 new SqlParser(),
                 accessControl,
+                new NoOpTransactionManager(),
                 user -> ImmutableSet.of(),
                 new TableProceduresRegistry(),
                 new SessionPropertyManager(),
