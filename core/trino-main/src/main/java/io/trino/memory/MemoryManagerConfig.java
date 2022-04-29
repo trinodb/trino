@@ -47,6 +47,7 @@ public class MemoryManagerConfig
     private double faultTolerantExecutionTaskMemoryEstimationQuantile = 0.9;
     private DataSize faultTolerantExecutionTaskRuntimeMemoryEstimationOverhead = DataSize.of(1, GIGABYTE);
     private LowMemoryQueryKillerPolicy lowMemoryQueryKillerPolicy = LowMemoryQueryKillerPolicy.TOTAL_RESERVATION_ON_BLOCKED_NODES;
+    private LowMemoryTaskKillerPolicy lowMemoryTaskKillerPolicy = LowMemoryTaskKillerPolicy.TOTAL_RESERVATION_ON_BLOCKED_NODES;
     private Duration killOnOutOfMemoryDelay = new Duration(5, MINUTES);
 
     public LowMemoryQueryKillerPolicy getLowMemoryQueryKillerPolicy()
@@ -59,6 +60,18 @@ public class MemoryManagerConfig
     public MemoryManagerConfig setLowMemoryQueryKillerPolicy(LowMemoryQueryKillerPolicy lowMemoryQueryKillerPolicy)
     {
         this.lowMemoryQueryKillerPolicy = lowMemoryQueryKillerPolicy;
+        return this;
+    }
+
+    public LowMemoryTaskKillerPolicy getLowMemoryTaskKillerPolicy()
+    {
+        return lowMemoryTaskKillerPolicy;
+    }
+
+    @Config("query.low-memory-task-killer.policy")
+    public MemoryManagerConfig setLowMemoryTaskKillerPolicy(LowMemoryTaskKillerPolicy lowMemoryTaskKillerPolicy)
+    {
+        this.lowMemoryTaskKillerPolicy = lowMemoryTaskKillerPolicy;
         return this;
     }
 
@@ -178,6 +191,25 @@ public class MemoryManagerConfig
                     return NONE;
                 case "total-reservation":
                     return TOTAL_RESERVATION;
+                case "total-reservation-on-blocked-nodes":
+                    return TOTAL_RESERVATION_ON_BLOCKED_NODES;
+            }
+
+            throw new IllegalArgumentException(format("Unrecognized value: '%s'", value));
+        }
+    }
+
+    public enum LowMemoryTaskKillerPolicy
+    {
+        NONE,
+        TOTAL_RESERVATION_ON_BLOCKED_NODES,
+        /**/;
+
+        public static LowMemoryTaskKillerPolicy fromString(String value)
+        {
+            switch (requireNonNull(value, "value is null").toLowerCase(ENGLISH)) {
+                case "none":
+                    return NONE;
                 case "total-reservation-on-blocked-nodes":
                     return TOTAL_RESERVATION_ON_BLOCKED_NODES;
             }
