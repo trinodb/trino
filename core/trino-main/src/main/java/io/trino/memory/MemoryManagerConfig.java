@@ -203,6 +203,7 @@ public class MemoryManagerConfig
     {
         NONE,
         TOTAL_RESERVATION_ON_BLOCKED_NODES,
+        LEAST_WASTED,
         /**/;
 
         public static LowMemoryTaskKillerPolicy fromString(String value)
@@ -212,6 +213,8 @@ public class MemoryManagerConfig
                     return NONE;
                 case "total-reservation-on-blocked-nodes":
                     return TOTAL_RESERVATION_ON_BLOCKED_NODES;
+                case "least-wasted":
+                    return LEAST_WASTED;
             }
 
             throw new IllegalArgumentException(format("Unrecognized value: '%s'", value));

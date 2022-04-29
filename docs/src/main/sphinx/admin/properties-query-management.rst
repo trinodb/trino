@@ -63,6 +63,10 @@ memory availability. Supports the following values:
 * ``total-reservation-on-blocked-nodes`` - Kill the tasks which are part of the queries
   which has task retries enabled and are currently using the most memory specifically
   on nodes that are now out of memory.
+* ``least-wasted`` - Kill the tasks which are part of the queries
+  which has task retries enabled and use significant amount of memory on nodes
+  which are now out of memory. This policy avoids killing tasks which are already
+  executing for a long time, so significant amount of work is not wasted.
 
 .. note::
 
