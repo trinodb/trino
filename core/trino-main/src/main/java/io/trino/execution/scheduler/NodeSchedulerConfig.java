@@ -19,8 +19,6 @@ import io.airlift.configuration.DefunctConfig;
 import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.Duration;
 
-import javax.validation.constraints.DecimalMax;
-import javax.validation.constraints.DecimalMin;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
@@ -28,7 +26,11 @@ import java.util.concurrent.TimeUnit;
 
 import static java.util.Locale.ENGLISH;
 
-@DefunctConfig({"node-scheduler.location-aware-scheduling-enabled", "node-scheduler.multiple-tasks-per-node-enabled"})
+@DefunctConfig({
+        "node-scheduler.location-aware-scheduling-enabled",
+        "node-scheduler.multiple-tasks-per-node-enabled",
+        "node-scheduler.max-fraction-full-nodes-per-query",
+        "node-scheduler.max-absolute-full-nodes-per-query"})
 public class NodeSchedulerConfig
 {
     public enum NodeSchedulerPolicy
@@ -49,8 +51,6 @@ public class NodeSchedulerConfig
     private boolean optimizedLocalScheduling = true;
     private SplitsBalancingPolicy splitsBalancingPolicy = SplitsBalancingPolicy.STAGE;
     private int maxUnacknowledgedSplitsPerTask = 500;
-    private int maxAbsoluteFullNodesPerQuery = Integer.MAX_VALUE;
-    private double maxFractionFullNodesPerQuery = 0.5;
     private Duration allowedNoMatchingNodePeriod = new Duration(2, TimeUnit.MINUTES);
     private NodeAllocatorType nodeAllocatorType = NodeAllocatorType.BIN_PACKING;
 
@@ -173,32 +173,6 @@ public class NodeSchedulerConfig
         return this;
     }
 
-    @Config("node-scheduler.max-absolute-full-nodes-per-query")
-    public NodeSchedulerConfig setMaxAbsoluteFullNodesPerQuery(int maxAbsoluteFullNodesPerQuery)
-    {
-        this.maxAbsoluteFullNodesPerQuery = maxAbsoluteFullNodesPerQuery;
-        return this;
-    }
-
-    public int getMaxAbsoluteFullNodesPerQuery()
-    {
-        return maxAbsoluteFullNodesPerQuery;
-    }
-
-    @Config("node-scheduler.max-fraction-full-nodes-per-query")
-    public NodeSchedulerConfig setMaxFractionFullNodesPerQuery(double maxFractionFullNodesPerQuery)
-    {
-        this.maxFractionFullNodesPerQuery = maxFractionFullNodesPerQuery;
-        return this;
-    }
-
-    @DecimalMin("0.0")
-    @DecimalMax("1.0")
-    public double getMaxFractionFullNodesPerQuery()
-    {
-        return maxFractionFullNodesPerQuery;
-    }
-
     @Config("node-scheduler.allowed-no-matching-node-period")
     @ConfigDescription("How long scheduler should wait before failing a query for which hard task requirements (e.g. node exposing specific catalog) cannot be satisfied")
     public NodeSchedulerConfig setAllowedNoMatchingNodePeriod(Duration allowedNoMatchingNodePeriod)
@@ -215,7 +189,6 @@ public class NodeSchedulerConfig
     public enum NodeAllocatorType
     {
         FIXED_COUNT,
-        FULL_NODE_CAPABLE,
         BIN_PACKING
     }
 
@@ -237,8 +210,6 @@ public class NodeSchedulerConfig
         switch (nodeAllocatorType.toLowerCase(ENGLISH)) {
             case "fixed_count":
                 return NodeAllocatorType.FIXED_COUNT;
-            case "full_node_capable":
-                return NodeAllocatorType.FULL_NODE_CAPABLE;
             case "bin_packing":
                 return NodeAllocatorType.BIN_PACKING;
         }
