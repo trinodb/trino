@@ -81,9 +81,10 @@ import static org.testng.Assert.fail;
 
 public abstract class AbstractTestQueryFramework
 {
+    private static final SqlParser SQL_PARSER = new SqlParser();
+
     private QueryRunner queryRunner;
     private H2QueryRunner h2QueryRunner;
-    private SqlParser sqlParser;
     private final AutoCloseableCloser afterClassCloser = AutoCloseableCloser.create();
     private io.trino.sql.query.QueryAssertions queryAssertions;
 
@@ -93,7 +94,6 @@ public abstract class AbstractTestQueryFramework
     {
         queryRunner = afterClassCloser.register(createQueryRunner());
         h2QueryRunner = afterClassCloser.register(new H2QueryRunner());
-        sqlParser = new SqlParser();
         queryAssertions = new io.trino.sql.query.QueryAssertions(queryRunner);
     }
 
@@ -110,7 +110,6 @@ public abstract class AbstractTestQueryFramework
         finally {
             queryRunner = null;
             h2QueryRunner = null;
-            sqlParser = null;
             queryAssertions = null;
         }
     }
@@ -493,7 +492,7 @@ public abstract class AbstractTestQueryFramework
 
     protected String formatSqlText(String sql)
     {
-        return formatSql(sqlParser.createStatement(sql, createParsingOptions(getSession())));
+        return formatSql(SQL_PARSER.createStatement(sql, createParsingOptions(getSession())));
     }
 
     //TODO: should WarningCollector be added?
@@ -503,7 +502,7 @@ public abstract class AbstractTestQueryFramework
         return newTransaction()
                 .singleStatement()
                 .execute(getSession(), session -> {
-                    return explainer.getPlan(session, sqlParser.createStatement(query, createParsingOptions(session)), planType, emptyList(), WarningCollector.NOOP);
+                    return explainer.getPlan(session, SQL_PARSER.createStatement(query, createParsingOptions(session)), planType, emptyList(), WarningCollector.NOOP);
                 });
     }
 
@@ -513,7 +512,7 @@ public abstract class AbstractTestQueryFramework
         return newTransaction()
                 .singleStatement()
                 .execute(queryRunner.getDefaultSession(), session -> {
-                    return explainer.getGraphvizPlan(session, sqlParser.createStatement(query, createParsingOptions(session)), planType, emptyList(), WarningCollector.NOOP);
+                    return explainer.getGraphvizPlan(session, SQL_PARSER.createStatement(query, createParsingOptions(session)), planType, emptyList(), WarningCollector.NOOP);
                 });
     }
 
