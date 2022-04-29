@@ -16,7 +16,7 @@ package io.trino.plugin.base.ldap;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
-import io.airlift.configuration.DefunctConfig;
+import io.airlift.configuration.LegacyConfig;
 import io.airlift.configuration.validation.FileExists;
 import io.airlift.units.Duration;
 
@@ -29,7 +29,6 @@ import java.util.Optional;
 
 import static com.google.common.base.Strings.nullToEmpty;
 
-@DefunctConfig("ldap.ssl-trust-certificate")
 public class LdapClientConfig
 {
     private String ldapUrl;
@@ -108,6 +107,7 @@ public class LdapClientConfig
         return Optional.ofNullable(trustStorePath);
     }
 
+    @LegacyConfig("ldap.ssl-trust-certificate")
     @Config("ldap.ssl.truststore.path")
     @ConfigDescription("Path to the PEM or JKS trust store")
     public LdapClientConfig setTrustStorePath(File path)
