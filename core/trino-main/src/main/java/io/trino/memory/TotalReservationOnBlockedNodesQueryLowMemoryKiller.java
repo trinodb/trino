@@ -30,9 +30,9 @@ public class TotalReservationOnBlockedNodesQueryLowMemoryKiller
         implements LowMemoryKiller
 {
     @Override
-    public Optional<KillTarget> chooseTargetToKill(List<QueryMemoryInfo> runningQueries, List<MemoryInfo> nodes)
+    public Optional<KillTarget> chooseTargetToKill(List<RunningQueryInfo> runningQueries, List<MemoryInfo> nodes)
     {
-        Map<QueryId, QueryMemoryInfo> queriesById = Maps.uniqueIndex(runningQueries, QueryMemoryInfo::getQueryId);
+        Map<QueryId, RunningQueryInfo> queriesById = Maps.uniqueIndex(runningQueries, RunningQueryInfo::getQueryId);
         Map<QueryId, Long> memoryReservationOnBlockedNodes = new HashMap<>();
         for (MemoryInfo node : nodes) {
             MemoryPoolInfo memoryPool = node.getPool();
@@ -44,7 +44,7 @@ public class TotalReservationOnBlockedNodesQueryLowMemoryKiller
             }
             Map<QueryId, Long> queryMemoryReservations = memoryPool.getQueryMemoryReservations();
             queryMemoryReservations.forEach((queryId, memoryReservation) -> {
-                QueryMemoryInfo queryMemoryInfo = queriesById.get(queryId);
+                RunningQueryInfo queryMemoryInfo = queriesById.get(queryId);
                 if (queryMemoryInfo != null && queryMemoryInfo.getRetryPolicy() == RetryPolicy.TASK) {
                     // Do not kill whole queries which run with task retries enabled
                     // Most of the time if query with task retries enabled is a root cause of cluster out-of-memory error

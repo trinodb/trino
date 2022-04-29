@@ -32,11 +32,11 @@ public class TotalReservationOnBlockedNodesTaskLowMemoryKiller
         implements LowMemoryKiller
 {
     @Override
-    public Optional<KillTarget> chooseTargetToKill(List<QueryMemoryInfo> runningQueries, List<MemoryInfo> nodes)
+    public Optional<KillTarget> chooseTargetToKill(List<RunningQueryInfo> runningQueries, List<MemoryInfo> nodes)
     {
         Set<QueryId> queriesWithTaskRetryPolicy = runningQueries.stream()
                                                           .filter(query -> query.getRetryPolicy() == RetryPolicy.TASK)
-                                                          .map(QueryMemoryInfo::getQueryId)
+                                                          .map(RunningQueryInfo::getQueryId)
                                                           .collect(toImmutableSet());
 
         if (queriesWithTaskRetryPolicy.isEmpty()) {

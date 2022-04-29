@@ -14,6 +14,9 @@
 
 package io.trino.memory;
 
+import com.google.common.collect.ImmutableMap;
+import io.trino.execution.TaskId;
+import io.trino.execution.TaskInfo;
 import io.trino.operator.RetryPolicy;
 import io.trino.spi.QueryId;
 
@@ -22,6 +25,7 @@ import javax.inject.Qualifier;
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -33,18 +37,25 @@ import static java.util.Objects.requireNonNull;
 
 public interface LowMemoryKiller
 {
-    Optional<KillTarget> chooseTargetToKill(List<QueryMemoryInfo> runningQueries, List<MemoryInfo> nodes);
+    Optional<KillTarget> chooseTargetToKill(List<RunningQueryInfo> runningQueries, List<MemoryInfo> nodes);
 
-    class QueryMemoryInfo
+    class RunningQueryInfo
     {
         private final QueryId queryId;
         private final long memoryReservation;
+        private final Map<TaskId, TaskInfo> taskInfos;
         private final RetryPolicy retryPolicy;
 
-        public QueryMemoryInfo(QueryId queryId, long memoryReservation, RetryPolicy retryPolicy)
+        public RunningQueryInfo(
+                QueryId queryId,
+                long memoryReservation,
+                Map<TaskId, TaskInfo> taskInfos,
+                RetryPolicy retryPolicy)
         {
             this.queryId = requireNonNull(queryId, "queryId is null");
             this.memoryReservation = memoryReservation;
+            requireNonNull(taskInfos, "taskInfos is null");
+            this.taskInfos = ImmutableMap.copyOf(taskInfos);
             this.retryPolicy = requireNonNull(retryPolicy, "retryPolicy is null");
         }
 
@@ -58,6 +69,11 @@ public interface LowMemoryKiller
             return memoryReservation;
         }
 
+        public Map<TaskId, TaskInfo> getTaskInfos()
+        {
+            return taskInfos;
+        }
+
         public RetryPolicy getRetryPolicy()
         {
             return retryPolicy;
@@ -69,6 +85,7 @@ public interface LowMemoryKiller
             return toStringHelper(this)
                     .add("queryId", queryId)
                     .add("memoryReservation", memoryReservation)
+                    .add("taskStats", taskInfos)
                     .add("retryPolicy", retryPolicy)
                     .toString();
         }
