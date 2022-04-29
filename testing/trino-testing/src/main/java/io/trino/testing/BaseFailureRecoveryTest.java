@@ -814,13 +814,15 @@ public abstract class BaseFailureRecoveryTest
         return requireNonNull(statementStats.getRootStage(), "root stage is null");
     }
 
-    protected Session enableDynamicFiltering(boolean enabled)
+    private Session enableDynamicFiltering(boolean enabled)
     {
         Session defaultSession = getQueryRunner().getDefaultSession();
         return Session.builder(defaultSession)
                 .setSystemProperty(ENABLE_DYNAMIC_FILTERING, Boolean.toString(enabled))
                 .setSystemProperty(JOIN_REORDERING_STRATEGY, NONE.name())
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, PARTITIONED.name())
+                // Ensure probe side scan wait until DF is collected
+                .setCatalogSessionProperty(defaultSession.getCatalog().orElseThrow(), "dynamic_filtering_wait_timeout", "1h")
                 .build();
     }
 }
