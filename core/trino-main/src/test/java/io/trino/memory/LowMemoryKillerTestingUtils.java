@@ -97,22 +97,23 @@ public final class LowMemoryKillerTestingUtils
         return new TaskId(new StageId(QueryId.valueOf(query), 0), partition, 0);
     }
 
-    static List<LowMemoryKiller.QueryMemoryInfo> toQueryMemoryInfoList(Map<String, Map<String, Long>> queries)
+    static List<LowMemoryKiller.RunningQueryInfo> toRunningQueryInfoList(Map<String, Map<String, Long>> queries)
     {
-        return toQueryMemoryInfoList(queries, ImmutableSet.of());
+        return toRunningQueryInfoList(queries, ImmutableSet.of());
     }
 
-    static List<LowMemoryKiller.QueryMemoryInfo> toQueryMemoryInfoList(Map<String, Map<String, Long>> queries, Set<String> queriesWithTaskLevelRetries)
+    static List<LowMemoryKiller.RunningQueryInfo> toRunningQueryInfoList(Map<String, Map<String, Long>> queries, Set<String> queriesWithTaskLevelRetries)
     {
-        ImmutableList.Builder<LowMemoryKiller.QueryMemoryInfo> result = ImmutableList.builder();
+        ImmutableList.Builder<LowMemoryKiller.RunningQueryInfo> result = ImmutableList.builder();
         for (Map.Entry<String, Map<String, Long>> entry : queries.entrySet()) {
             String queryId = entry.getKey();
             long totalReservation = entry.getValue().values().stream()
                     .mapToLong(x -> x)
                     .sum();
-            result.add(new LowMemoryKiller.QueryMemoryInfo(
+            result.add(new LowMemoryKiller.RunningQueryInfo(
                     new QueryId(queryId),
                     totalReservation,
+                    ImmutableMap.of(),
                     queriesWithTaskLevelRetries.contains(queryId) ? RetryPolicy.TASK : RetryPolicy.NONE));
         }
         return result.build();
