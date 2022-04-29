@@ -15,6 +15,7 @@ package io.trino.plugin.hive.metastore.thrift;
 
 import com.google.common.annotations.VisibleForTesting;
 import io.trino.plugin.hive.acid.AcidOperation;
+import io.trino.spi.connector.ConnectorSession;
 import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
 import org.apache.hadoop.hive.metastore.api.Database;
 import org.apache.hadoop.hive.metastore.api.EnvironmentContext;
@@ -34,6 +35,7 @@ import org.apache.thrift.TException;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.OptionalLong;
 
 import static java.util.Objects.requireNonNull;
@@ -133,10 +135,10 @@ public class FailureAwareThriftMetastoreClient
     }
 
     @Override
-    public void dropTable(String databaseName, String name, boolean deleteData)
+    public void dropTable(String databaseName, String name, boolean deleteData, Optional<ConnectorSession> session)
             throws TException
     {
-        runWithHandle(() -> delegate.dropTable(databaseName, name, deleteData));
+        runWithHandle(() -> delegate.dropTable(databaseName, name, deleteData, session));
     }
 
     @Override

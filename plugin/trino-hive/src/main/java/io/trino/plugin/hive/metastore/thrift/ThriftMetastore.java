@@ -24,6 +24,7 @@ import io.trino.plugin.hive.metastore.HivePrivilegeInfo;
 import io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege;
 import io.trino.plugin.hive.metastore.PartitionWithStatistics;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.TupleDomain;
@@ -55,7 +56,7 @@ public interface ThriftMetastore
 
     void createTable(HiveIdentity identity, Table table);
 
-    void dropTable(HiveIdentity identity, String databaseName, String tableName, boolean deleteData);
+    void dropTable(HiveIdentity identity, String databaseName, String tableName, boolean deleteData, Optional<ConnectorSession> session);
 
     void alterTable(HiveIdentity identity, String databaseName, String tableName, Table table);
 

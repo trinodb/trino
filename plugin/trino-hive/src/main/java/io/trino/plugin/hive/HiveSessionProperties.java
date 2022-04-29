@@ -112,6 +112,7 @@ public final class HiveSessionProperties
     private static final String DYNAMIC_FILTERING_WAIT_TIMEOUT = "dynamic_filtering_wait_timeout";
     private static final String OPTIMIZE_SYMLINK_LISTING = "optimize_symlink_listing";
     private static final String LEGACY_HIVE_VIEW_TRANSLATION = "legacy_hive_view_translation";
+    public static final String PURGE_TABLE_DATA_ON_DROP = "auto_purge";
     private static final String ICEBERG_CATALOG_NAME = "iceberg_catalog_name";
     public static final String SIZE_BASED_SPLIT_WEIGHTS_ENABLED = "size_based_split_weights_enabled";
     public static final String MINIMUM_ASSIGNED_SPLIT_WEIGHT = "minimum_assigned_split_weight";
@@ -465,6 +466,11 @@ public final class HiveSessionProperties
                         "Use legacy Hive view translation mechanism",
                         hiveConfig.isLegacyHiveViewTranslation(),
                         false),
+                booleanProperty(
+                        PURGE_TABLE_DATA_ON_DROP,
+                        "Skip trash when dropping tables",
+                        hiveConfig.isPurgeTableDataOnDrop(),
+                        false),
                 stringProperty(
                         ICEBERG_CATALOG_NAME,
                         "Catalog to redirect to when an Iceberg table is referenced",
@@ -797,6 +803,11 @@ public final class HiveSessionProperties
     public static boolean isLegacyHiveViewTranslation(ConnectorSession session)
     {
         return session.getProperty(LEGACY_HIVE_VIEW_TRANSLATION, Boolean.class);
+    }
+
+    public static boolean isPurgeTableDataOnDrop(ConnectorSession session)
+    {
+        return session.getProperty(PURGE_TABLE_DATA_ON_DROP, Boolean.class);
     }
 
     public static Optional<String> getIcebergCatalogName(ConnectorSession session)

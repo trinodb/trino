@@ -47,6 +47,7 @@ import io.trino.plugin.hive.metastore.PartitionWithStatistics;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreAuthenticationConfig.ThriftMetastoreAuthenticationType;
 import io.trino.plugin.hive.util.RetryDriver;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
@@ -1091,7 +1092,7 @@ public class ThriftHiveMetastore
     }
 
     @Override
-    public void dropTable(HiveIdentity identity, String databaseName, String tableName, boolean deleteData)
+    public void dropTable(HiveIdentity identity, String databaseName, String tableName, boolean deleteData, Optional<ConnectorSession> session)
     {
         try {
             retry()
@@ -1100,7 +1101,7 @@ public class ThriftHiveMetastore
                     .run("dropTable", stats.getDropTable().wrap(() -> {
                         try (ThriftMetastoreClient client = createMetastoreClient(identity)) {
                             Table table = client.getTable(databaseName, tableName);
-                            client.dropTable(databaseName, tableName, deleteData);
+                            client.dropTable(databaseName, tableName, deleteData, session);
                             String tableLocation = table.getSd().getLocation();
                             if (deleteFilesOnDrop && deleteData && isManagedTable(table) && !isNullOrEmpty(tableLocation)) {
                                 deleteDirRecursive(hdfsContext, hdfsEnvironment, new Path(tableLocation));

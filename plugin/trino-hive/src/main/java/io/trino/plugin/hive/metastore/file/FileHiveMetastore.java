@@ -52,6 +52,7 @@ import io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig.VersionCompat
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnNotFoundException;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
@@ -515,7 +516,7 @@ public class FileHiveMetastore
     }
 
     @Override
-    public synchronized void dropTable(String databaseName, String tableName, boolean deleteData)
+    public synchronized void dropTable(String databaseName, String tableName, boolean deleteData, Optional<ConnectorSession> session)
     {
         requireNonNull(databaseName, "databaseName is null");
         requireNonNull(tableName, "tableName is null");

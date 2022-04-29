@@ -2985,7 +2985,7 @@ public abstract class AbstractTestHive
         }
         finally {
             // Clean up
-            metastoreClient.dropTable(tableName.getSchemaName(), tableName.getTableName(), true);
+            metastoreClient.dropTable(tableName.getSchemaName(), tableName.getTableName(), true, Optional.of(session));
         }
     }
 
@@ -3034,7 +3034,7 @@ public abstract class AbstractTestHive
         }
         finally {
             // Clean up
-            metastoreClient.dropTable(tableName.getSchemaName(), tableName.getTableName(), true);
+            metastoreClient.dropTable(tableName.getSchemaName(), tableName.getTableName(), true, Optional.of(session));
         }
     }
 

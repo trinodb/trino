@@ -569,7 +569,7 @@ public abstract class AbstractTestHiveFileSystem
         }
 
         @Override
-        public void dropTable(String databaseName, String tableName, boolean deleteData)
+        public void dropTable(String databaseName, String tableName, boolean deleteData, Optional<ConnectorSession> session)
         {
             try {
                 Optional<Table> table = getTable(databaseName, tableName);
@@ -585,7 +585,7 @@ public abstract class AbstractTestHiveFileSystem
 
                 // drop table
                 replaceTable(databaseName, tableName, tableBuilder.build(), NO_PRIVILEGES);
-                super.dropTable(databaseName, tableName, false);
+                super.dropTable(databaseName, tableName, false, session);
 
                 // drop data
                 if (deleteData) {

@@ -14,6 +14,7 @@
 package io.trino.plugin.hive.metastore.thrift;
 
 import io.trino.plugin.hive.acid.AcidOperation;
+import io.trino.spi.connector.ConnectorSession;
 import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
 import org.apache.hadoop.hive.metastore.api.Database;
 import org.apache.hadoop.hive.metastore.api.EnvironmentContext;
@@ -34,6 +35,7 @@ import org.apache.thrift.TException;
 import java.io.Closeable;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.OptionalLong;
 
 public interface ThriftMetastoreClient
@@ -69,7 +71,7 @@ public interface ThriftMetastoreClient
     void createTable(Table table)
             throws TException;
 
-    void dropTable(String databaseName, String name, boolean deleteData)
+    void dropTable(String databaseName, String name, boolean deleteData, Optional<ConnectorSession> session)
             throws TException;
 
     void alterTableWithEnvironmentContext(String databaseName, String tableName, Table newTable, EnvironmentContext context)
