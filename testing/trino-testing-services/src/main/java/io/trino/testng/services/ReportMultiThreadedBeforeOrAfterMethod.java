@@ -22,11 +22,16 @@ import org.testng.annotations.Test;
 import org.testng.xml.XmlSuite.ParallelMode;
 import org.testng.xml.XmlTest;
 
+import java.lang.annotation.Retention;
+import java.lang.annotation.Target;
 import java.lang.reflect.Method;
 
 import static com.google.common.base.Throwables.getStackTraceAsString;
 import static io.trino.testng.services.Listeners.reportListenerFailure;
 import static java.lang.String.format;
+import static java.lang.annotation.ElementType.METHOD;
+import static java.lang.annotation.RetentionPolicy.RUNTIME;
+import static java.lang.reflect.Modifier.isSynchronized;
 
 public class ReportMultiThreadedBeforeOrAfterMethod
         implements IClassListener
@@ -70,6 +75,17 @@ public class ReportMultiThreadedBeforeOrAfterMethod
 
         Method[] methods = testClass.getMethods();
         for (Method method : methods) {
+            Suppress suppress = method.getAnnotation(Suppress.class);
+            if (suppress != null) {
+                if (isSynchronized(method.getModifiers()) && suppress.idempotent()) {
+                    continue;
+                }
+                throw new RuntimeException(format(
+                        "Test method %s suppression is not allowed unless it is property synchronized and method results are idempotent. " +
+                                "Otherwise, the test class %s should be annotated as @Test(singleThreaded=true) instead.",
+                        method,
+                        testClass.getName()));
+            }
             if (method.getAnnotation(BeforeMethod.class) != null || method.getAnnotation(AfterMethod.class) != null) {
                 throw new RuntimeException(format(
                         "Test class %s should be annotated as @Test(singleThreaded=true), if it contains mutable state as indicated by %s",
@@ -81,4 +97,11 @@ public class ReportMultiThreadedBeforeOrAfterMethod
 
     @Override
     public void onAfterClass(ITestClass iTestClass) {}
+
+    @Retention(RUNTIME)
+    @Target(METHOD)
+    public @interface Suppress
+    {
+        boolean idempotent() default false;
+    }
 }

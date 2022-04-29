@@ -45,13 +45,14 @@ import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.query.QueryAssertions.QueryAssert;
 import io.trino.sql.tree.ExplainType;
 import io.trino.testing.TestingAccessControlManager.TestingPrivilege;
+import io.trino.testng.services.ReportMultiThreadedBeforeOrAfterMethod;
 import io.trino.transaction.TransactionBuilder;
 import io.trino.util.AutoCloseableCloser;
 import org.assertj.core.api.AssertProvider;
 import org.intellij.lang.annotations.Language;
 import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -83,18 +84,37 @@ public abstract class AbstractTestQueryFramework
 {
     private static final SqlParser SQL_PARSER = new SqlParser();
 
+    private boolean initialized;
     private QueryRunner queryRunner;
     private H2QueryRunner h2QueryRunner;
     private final AutoCloseableCloser afterClassCloser = AutoCloseableCloser.create();
     private io.trino.sql.query.QueryAssertions queryAssertions;
 
-    @BeforeClass
-    public void init()
-            throws Exception
+    // TODO (https://github.com/trinodb/trino/issues/11294) make this back `@BeforeClass public void init()`
+    //   - remove all explicit callers
+    //   - remove synchronization
+    // This is `@BeforeMethod` for the sake of subclasses that rely on side-effects of createQueryRunner (eg additional resources being provisioned)
+    @ReportMultiThreadedBeforeOrAfterMethod.Suppress(idempotent = true)
+    @BeforeMethod
+    public final synchronized void initIfNeeded()
     {
-        queryRunner = afterClassCloser.register(createQueryRunner());
-        h2QueryRunner = afterClassCloser.register(new H2QueryRunner());
-        queryAssertions = new io.trino.sql.query.QueryAssertions(queryRunner);
+        if (initialized) {
+            checkState(queryRunner != null && h2QueryRunner != null && queryAssertions != null, "Previous init failed");
+            return;
+        }
+        initialized = true;
+        try {
+            queryRunner = afterClassCloser.register(createQueryRunner());
+            h2QueryRunner = afterClassCloser.register(new H2QueryRunner());
+            queryAssertions = new io.trino.sql.query.QueryAssertions(queryRunner);
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Interrupted", e);
+        }
+        catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
     protected abstract QueryRunner createQueryRunner()
@@ -530,6 +550,8 @@ public abstract class AbstractTestQueryFramework
 
     protected final QueryRunner getQueryRunner()
     {
+        initIfNeeded();
+        // queryRunner can be null if init was previously attempted and failed
         checkState(queryRunner != null, "queryRunner not set");
         return queryRunner;
     }
@@ -543,11 +565,13 @@ public abstract class AbstractTestQueryFramework
 
     private H2QueryRunner getH2QueryRunner()
     {
+        initIfNeeded();
         return h2QueryRunner;
     }
 
     private io.trino.sql.query.QueryAssertions getQueryAssertions()
     {
+        initIfNeeded();
         return queryAssertions;
     }
 
