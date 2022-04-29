@@ -184,7 +184,7 @@ public class StargateClient
         JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
         this.connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder()
                 .addStandardRules(this::quoted)
-                .add(new RewriteComparison(RewriteComparison.ComparisonOperator.values()))
+                .add(new RewriteComparison(ImmutableSet.copyOf(RewriteComparison.ComparisonOperator.values())))
                 .map("$add(left, right)").to("left + right")
                 .map("$subtract(left, right)").to("left - right")
                 .map("$multiply(left, right)").to("left * right")

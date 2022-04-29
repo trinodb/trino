@@ -63,6 +63,7 @@ public class TestStargateWithHiveConnectorTest
             case SUPPORTS_CREATE_TABLE:
             case SUPPORTS_RENAME_TABLE:
             case SUPPORTS_INSERT:
+            case SUPPORTS_DELETE:
                 // Writes are not enabled
                 return false;
             default:
@@ -347,8 +348,7 @@ public class TestStargateWithHiveConnectorTest
     public void testRegexpLikePredicatePushdown()
     {
         assertThat(query("SELECT nationkey FROM nation WHERE regexp_like(name, '.*[PF].*')"))
-                // TODO (https://github.com/trinodb/trino/pull/12085) fix regexp translation to connector expressions
-                .isNotFullyPushedDown(FilterNode.class);
+                .isFullyPushedDown();
     }
 
     @Test

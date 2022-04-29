@@ -10,7 +10,6 @@
 
 package com.starburstdata.trino.plugin.stargate;
 
-import com.google.common.collect.ImmutableList;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
@@ -23,8 +22,6 @@ import java.util.Optional;
 import static com.starburstdata.trino.plugin.stargate.StargateQueryRunner.createRemoteStarburstQueryRunnerWithMemory;
 import static com.starburstdata.trino.plugin.stargate.StargateQueryRunner.createStargateQueryRunner;
 import static com.starburstdata.trino.plugin.stargate.StargateQueryRunner.stargateConnectionUrl;
-import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE;
-import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DELETE;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -168,19 +165,6 @@ public class TestStargateWithMemoryWritesEnabledConnectorTest
             throw new SkipException("skipped to save time");
         }
         super.testLargeIn(size);
-    }
-
-    @Override
-    protected void skipTestUnlessSupportsDeletes()
-    {
-        // Overridden because we get an error message with "Query failed (<query_id>):" prefixed instead of one expected by superclass
-        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete", "(col varchar(1))", ImmutableList.of("'a'", "'A'"))) {
-            if (!hasBehavior(SUPPORTS_DELETE)) {
-                assertQueryFails("DELETE FROM " + table.getName(), ".*This connector does not support deletes");
-                throw new SkipException("This connector does not support deletes");
-            }
-        }
     }
 
     @Override
