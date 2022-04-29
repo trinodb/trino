@@ -80,7 +80,7 @@ import io.trino.memory.ClusterMemoryManager;
 import io.trino.memory.ForMemoryManager;
 import io.trino.memory.LowMemoryKiller;
 import io.trino.memory.MemoryManagerConfig;
-import io.trino.memory.MemoryManagerConfig.LowMemoryKillerPolicy;
+import io.trino.memory.MemoryManagerConfig.LowMemoryQueryKillerPolicy;
 import io.trino.memory.NoneLowMemoryKiller;
 import io.trino.memory.TotalReservationLowMemoryKiller;
 import io.trino.memory.TotalReservationOnBlockedNodesLowMemoryKiller;
@@ -213,9 +213,10 @@ public class CoordinatorModule
                     config.setIdleTimeout(new Duration(30, SECONDS));
                     config.setRequestTimeout(new Duration(10, SECONDS));
                 });
-        bindLowMemoryKiller(LowMemoryKillerPolicy.NONE, NoneLowMemoryKiller.class);
-        bindLowMemoryKiller(LowMemoryKillerPolicy.TOTAL_RESERVATION, TotalReservationLowMemoryKiller.class);
-        bindLowMemoryKiller(LowMemoryKillerPolicy.TOTAL_RESERVATION_ON_BLOCKED_NODES, TotalReservationOnBlockedNodesLowMemoryKiller.class);
+        bindLowMemoryKiller(LowMemoryQueryKillerPolicy.NONE, NoneLowMemoryKiller.class);
+        bindLowMemoryKiller(LowMemoryQueryKillerPolicy.TOTAL_RESERVATION, TotalReservationLowMemoryKiller.class);
+        bindLowMemoryKiller(LowMemoryQueryKillerPolicy.TOTAL_RESERVATION_ON_BLOCKED_NODES, TotalReservationOnBlockedNodesLowMemoryKiller.class);
+
         newExporter(binder).export(ClusterMemoryManager.class).withGeneratedName();
 
         // node allocator
@@ -397,11 +398,11 @@ public class CoordinatorModule
         return InMemoryTransactionManager.create(config, idleCheckExecutor, catalogManager, versionEmbedder.embedVersion(finishingExecutor));
     }
 
-    private void bindLowMemoryKiller(LowMemoryKillerPolicy policy, Class<? extends LowMemoryKiller> clazz)
+    private void bindLowMemoryKiller(LowMemoryQueryKillerPolicy policy, Class<? extends LowMemoryKiller> clazz)
     {
         install(conditionalModule(
                 MemoryManagerConfig.class,
-                config -> policy == config.getLowMemoryKillerPolicy(),
+                config -> policy == config.getLowMemoryQueryKillerPolicy(),
                 binder -> binder.bind(LowMemoryKiller.class).to(clazz).in(Scopes.SINGLETON)));
     }
 

@@ -25,8 +25,8 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDe
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
-import static io.trino.memory.MemoryManagerConfig.LowMemoryKillerPolicy.NONE;
-import static io.trino.memory.MemoryManagerConfig.LowMemoryKillerPolicy.TOTAL_RESERVATION_ON_BLOCKED_NODES;
+import static io.trino.memory.MemoryManagerConfig.LowMemoryQueryKillerPolicy.NONE;
+import static io.trino.memory.MemoryManagerConfig.LowMemoryQueryKillerPolicy.TOTAL_RESERVATION_ON_BLOCKED_NODES;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -36,7 +36,7 @@ public class TestMemoryManagerConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(MemoryManagerConfig.class)
-                .setLowMemoryKillerPolicy(TOTAL_RESERVATION_ON_BLOCKED_NODES)
+                .setLowMemoryQueryKillerPolicy(TOTAL_RESERVATION_ON_BLOCKED_NODES)
                 .setKillOnOutOfMemoryDelay(new Duration(5, MINUTES))
                 .setMaxQueryMemory(DataSize.of(20, GIGABYTE))
                 .setMaxQueryTotalMemory(DataSize.of(40, GIGABYTE))
@@ -50,7 +50,7 @@ public class TestMemoryManagerConfig
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("query.low-memory-killer.policy", "none")
+                .put("query.low-memory-query-killer.policy", "none")
                 .put("query.low-memory-killer.delay", "20s")
                 .put("query.max-memory", "2GB")
                 .put("query.max-total-memory", "3GB")
@@ -61,7 +61,7 @@ public class TestMemoryManagerConfig
                 .buildOrThrow();
 
         MemoryManagerConfig expected = new MemoryManagerConfig()
-                .setLowMemoryKillerPolicy(NONE)
+                .setLowMemoryQueryKillerPolicy(NONE)
                 .setKillOnOutOfMemoryDelay(new Duration(20, SECONDS))
                 .setMaxQueryMemory(DataSize.of(2, GIGABYTE))
                 .setMaxQueryTotalMemory(DataSize.of(3, GIGABYTE))
