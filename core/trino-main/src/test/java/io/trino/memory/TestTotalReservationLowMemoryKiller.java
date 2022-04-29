@@ -22,7 +22,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static io.trino.memory.LowMemoryKillerTestingUtils.toNodeMemoryInfoList;
-import static io.trino.memory.LowMemoryKillerTestingUtils.toQueryMemoryInfoList;
+import static io.trino.memory.LowMemoryKillerTestingUtils.toRunningQueryInfoList;
 import static io.trino.testing.assertions.Assert.assertEquals;
 
 public class TestTotalReservationLowMemoryKiller
@@ -38,7 +38,7 @@ public class TestTotalReservationLowMemoryKiller
                 .buildOrThrow();
         assertEquals(
                 lowMemoryKiller.chooseTargetToKill(
-                        toQueryMemoryInfoList(queries),
+                        toRunningQueryInfoList(queries),
                         toNodeMemoryInfoList(memoryPool, queries)),
                 Optional.empty());
     }
@@ -56,7 +56,7 @@ public class TestTotalReservationLowMemoryKiller
                 .buildOrThrow();
         assertEquals(
                 lowMemoryKiller.chooseTargetToKill(
-                        toQueryMemoryInfoList(queries),
+                        toRunningQueryInfoList(queries),
                         toNodeMemoryInfoList(memoryPool, queries)),
                 Optional.of(KillTarget.wholeQuery(new QueryId("q_2"))));
     }

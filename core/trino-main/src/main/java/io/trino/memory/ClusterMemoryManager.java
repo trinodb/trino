@@ -16,6 +16,7 @@ package io.trino.memory;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
@@ -28,10 +29,13 @@ import io.airlift.units.Duration;
 import io.trino.execution.LocationFactory;
 import io.trino.execution.QueryExecution;
 import io.trino.execution.QueryIdGenerator;
+import io.trino.execution.QueryInfo;
+import io.trino.execution.StageInfo;
 import io.trino.execution.TaskId;
+import io.trino.execution.TaskInfo;
 import io.trino.memory.LowMemoryKiller.ForQueryLowMemoryKiller;
 import io.trino.memory.LowMemoryKiller.ForTaskLowMemoryKiller;
-import io.trino.memory.LowMemoryKiller.QueryMemoryInfo;
+import io.trino.memory.LowMemoryKiller.RunningQueryInfo;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.InternalNodeManager;
 import io.trino.operator.RetryPolicy;
@@ -251,7 +255,7 @@ public class ClusterMemoryManager
 
     private synchronized void callOomKiller(Iterable<QueryExecution> runningQueries)
     {
-        List<QueryMemoryInfo> queryMemoryInfoList = Streams.stream(runningQueries)
+        List<RunningQueryInfo> runningQueryInfos = Streams.stream(runningQueries)
                 .map(this::createQueryMemoryInfo)
                 .collect(toImmutableList());
 
@@ -263,7 +267,7 @@ public class ClusterMemoryManager
 
         for (LowMemoryKiller lowMemoryKiller : lowMemoryKillers) {
             List<MemoryInfo> nodeMemoryInfos = ImmutableList.copyOf(nodeMemoryInfosByNode.values());
-            Optional<KillTarget> killTarget = lowMemoryKiller.chooseTargetToKill(queryMemoryInfoList, nodeMemoryInfos);
+            Optional<KillTarget> killTarget = lowMemoryKiller.chooseTargetToKill(runningQueryInfos, nodeMemoryInfos);
 
             if (killTarget.isPresent()) {
                 if (killTarget.get().isWholeQuery()) {
@@ -414,12 +418,26 @@ public class ClusterMemoryManager
         return pool.getBlockedNodes() > 0;
     }
 
-    private QueryMemoryInfo createQueryMemoryInfo(QueryExecution query)
+    private RunningQueryInfo createQueryMemoryInfo(QueryExecution query)
     {
-        return new QueryMemoryInfo(
+        QueryInfo queryInfo = query.getQueryInfo();
+        ImmutableMap.Builder<TaskId, TaskInfo> taskInfosBuilder = ImmutableMap.builder();
+        queryInfo.getOutputStage().ifPresent(stage -> getTaskInfos(stage, taskInfosBuilder));
+        return new RunningQueryInfo(
                 query.getQueryId(),
                 query.getTotalMemoryReservation().toBytes(),
+                taskInfosBuilder.buildOrThrow(),
                 getRetryPolicy(query.getSession()));
+    }
+
+    private void getTaskInfos(StageInfo stageInfo, ImmutableMap.Builder<TaskId, TaskInfo> taskInfosBuilder)
+    {
+        for (TaskInfo taskInfo : stageInfo.getTasks()) {
+            taskInfosBuilder.put(taskInfo.getTaskStatus().getTaskId(), taskInfo);
+        }
+        for (StageInfo subStage : stageInfo.getSubStages()) {
+            getTaskInfos(subStage, taskInfosBuilder);
+        }
     }
 
     private long getQueryMemoryReservation(QueryExecution query)

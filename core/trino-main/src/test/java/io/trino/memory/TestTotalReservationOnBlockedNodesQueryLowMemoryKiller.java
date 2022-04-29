@@ -23,7 +23,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static io.trino.memory.LowMemoryKillerTestingUtils.toNodeMemoryInfoList;
-import static io.trino.memory.LowMemoryKillerTestingUtils.toQueryMemoryInfoList;
+import static io.trino.memory.LowMemoryKillerTestingUtils.toRunningQueryInfoList;
 import static io.trino.testing.assertions.Assert.assertEquals;
 
 public class TestTotalReservationOnBlockedNodesQueryLowMemoryKiller
@@ -40,7 +40,7 @@ public class TestTotalReservationOnBlockedNodesQueryLowMemoryKiller
 
         assertEquals(
                 lowMemoryKiller.chooseTargetToKill(
-                        toQueryMemoryInfoList(queries),
+                        toRunningQueryInfoList(queries),
                         toNodeMemoryInfoList(memoryPool, queries)),
                 Optional.empty());
     }
@@ -55,7 +55,7 @@ public class TestTotalReservationOnBlockedNodesQueryLowMemoryKiller
                 .buildOrThrow();
         assertEquals(
                 lowMemoryKiller.chooseTargetToKill(
-                        toQueryMemoryInfoList(queries),
+                        toRunningQueryInfoList(queries),
                         toNodeMemoryInfoList(memoryPool, queries)),
                 Optional.empty());
     }
@@ -73,7 +73,7 @@ public class TestTotalReservationOnBlockedNodesQueryLowMemoryKiller
                 .buildOrThrow();
         assertEquals(
                 lowMemoryKiller.chooseTargetToKill(
-                        toQueryMemoryInfoList(queries),
+                        toRunningQueryInfoList(queries),
                         toNodeMemoryInfoList(memoryPool, queries)),
                 Optional.of(KillTarget.wholeQuery(new QueryId("q_1"))));
     }
@@ -101,7 +101,7 @@ public class TestTotalReservationOnBlockedNodesQueryLowMemoryKiller
 
         assertEquals(
                 lowMemoryKiller.chooseTargetToKill(
-                        toQueryMemoryInfoList(queries, ImmutableSet.of("q_2")),
+                        toRunningQueryInfoList(queries, ImmutableSet.of("q_2")),
                         toNodeMemoryInfoList(memoryPool, queries, tasks)),
                 Optional.of(KillTarget.wholeQuery(new QueryId("q_1"))));
     }
