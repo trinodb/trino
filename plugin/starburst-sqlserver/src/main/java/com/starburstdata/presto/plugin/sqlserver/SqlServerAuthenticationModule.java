@@ -35,6 +35,8 @@ import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
 import io.trino.plugin.jdbc.credential.CredentialProviderModule;
 import io.trino.plugin.jdbc.credential.EmptyCredentialProvider;
+import io.trino.plugin.sqlserver.SqlServerConfig;
+import io.trino.plugin.sqlserver.SqlServerConnectionFactory;
 
 import java.util.Properties;
 
@@ -105,9 +107,9 @@ public class SqlServerAuthenticationModule
         @Provides
         @Singleton
         @ForCatalogOverriding
-        public ConnectionFactory getConnectionFactory(BaseJdbcConfig config, CredentialProvider credentialProvider)
+        public ConnectionFactory getConnectionFactory(BaseJdbcConfig config, SqlServerConfig sqlServerConfig, CredentialProvider credentialProvider)
         {
-            return createBasicConnectionFactory(config, credentialProvider);
+            return createBasicConnectionFactory(config, credentialProvider, sqlServerConfig);
         }
     }
 
@@ -127,9 +129,9 @@ public class SqlServerAuthenticationModule
         @Provides
         @Singleton
         @ForCatalogOverriding
-        public ConnectionFactory getConnectionFactory(BaseJdbcConfig config, CredentialProvider credentialProvider)
+        public ConnectionFactory getConnectionFactory(BaseJdbcConfig config, SqlServerConfig sqlServerConfig, CredentialProvider credentialProvider)
         {
-            return createBasicConnectionFactory(config, credentialProvider);
+            return createBasicConnectionFactory(config, credentialProvider, sqlServerConfig);
         }
     }
 
@@ -184,7 +186,7 @@ public class SqlServerAuthenticationModule
         @Provides
         @Singleton
         @ForCatalogOverriding
-        public static ConnectionFactory getConnectionFactory(BaseJdbcConfig baseJdbcConfig, KerberosManager kerberosManager)
+        public static ConnectionFactory getConnectionFactory(BaseJdbcConfig baseJdbcConfig, SqlServerConfig sqlServerConfig, KerberosManager kerberosManager)
         {
             checkState(
                     !baseJdbcConfig.getConnectionUrl().contains("user="),
@@ -200,7 +202,9 @@ public class SqlServerAuthenticationModule
                     properties,
                     new EmptyCredentialProvider());
 
-            return new PassThroughKerberosConnectionFactory(kerberosManager, connectionFactory);
+            return new PassThroughKerberosConnectionFactory(
+                    kerberosManager,
+                    new SqlServerConnectionFactory(connectionFactory, sqlServerConfig.isSnapshotIsolationDisabled()));
         }
     }
 
@@ -237,9 +241,10 @@ public class SqlServerAuthenticationModule
         public ConnectionFactory getConnectionFactory(
                 BaseJdbcConfig baseJdbcConfig,
                 CredentialProvider credentialProvider,
-                SqlServerTlsConfig sqlServerTlsConfig)
+                SqlServerTlsConfig sqlServerTlsConfig,
+                SqlServerConfig sqlServerConfig)
         {
-            return createNtlmConnectionFactory(baseJdbcConfig, credentialProvider, sqlServerTlsConfig);
+            return createNtlmConnectionFactory(baseJdbcConfig, credentialProvider, sqlServerTlsConfig, sqlServerConfig);
         }
     }
 
@@ -263,18 +268,21 @@ public class SqlServerAuthenticationModule
         public ConnectionFactory getConnectionFactory(
                 BaseJdbcConfig baseJdbcConfig,
                 CredentialProvider credentialProvider,
-                SqlServerTlsConfig sqlServerTlsConfig)
+                SqlServerTlsConfig sqlServerTlsConfig,
+                SqlServerConfig sqlServerConfig)
         {
-            return createNtlmConnectionFactory(baseJdbcConfig, credentialProvider, sqlServerTlsConfig);
+            return createNtlmConnectionFactory(baseJdbcConfig, credentialProvider, sqlServerTlsConfig, sqlServerConfig);
         }
     }
 
-    private static ConnectionFactory createBasicConnectionFactory(BaseJdbcConfig config, CredentialProvider credentialProvider)
+    private static ConnectionFactory createBasicConnectionFactory(BaseJdbcConfig config, CredentialProvider credentialProvider, SqlServerConfig sqlServerConfig)
     {
-        return new DriverConnectionFactory(new SQLServerDriver(), config, credentialProvider);
+        return new SqlServerConnectionFactory(
+                new DriverConnectionFactory(new SQLServerDriver(), config, credentialProvider),
+                sqlServerConfig.isSnapshotIsolationDisabled());
     }
 
-    private static ConnectionFactory createNtlmConnectionFactory(BaseJdbcConfig baseJdbcConfig, CredentialProvider credentialProvider, SqlServerTlsConfig sqlServerTlsConfig)
+    private static ConnectionFactory createNtlmConnectionFactory(BaseJdbcConfig baseJdbcConfig, CredentialProvider credentialProvider, SqlServerTlsConfig sqlServerTlsConfig, SqlServerConfig sqlServerConfig)
     {
         checkState(
                 !baseJdbcConfig.getConnectionUrl().contains("authenticationScheme="),
@@ -294,10 +302,12 @@ public class SqlServerAuthenticationModule
             properties.put("trustStoreType", sqlServerTlsConfig.getTruststoreType());
         }
 
-        return new DriverConnectionFactory(
-                new SQLServerDriver(),
-                baseJdbcConfig.getConnectionUrl(),
-                properties,
-                credentialProvider);
+        return new SqlServerConnectionFactory(
+                new DriverConnectionFactory(
+                        new SQLServerDriver(),
+                        baseJdbcConfig.getConnectionUrl(),
+                        properties,
+                        credentialProvider),
+                sqlServerConfig.isSnapshotIsolationDisabled());
     }
 }

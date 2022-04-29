@@ -21,7 +21,6 @@ import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.RemoteTableName;
 import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.plugin.sqlserver.SqlServerClient;
-import io.trino.plugin.sqlserver.SqlServerConfig;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
@@ -49,14 +48,13 @@ public class StarburstSqlServerClient
     @Inject
     public StarburstSqlServerClient(
             BaseJdbcConfig config,
-            SqlServerConfig sqlServerConfig,
             JdbcStatisticsConfig statisticsConfig,
             TableScanRedirection tableScanRedirection,
             ConnectionFactory connectionFactory,
             QueryBuilder queryBuilder,
             IdentifierMapping identifierMapping)
     {
-        super(config, sqlServerConfig, statisticsConfig, connectionFactory, queryBuilder, identifierMapping);
+        super(config, statisticsConfig, connectionFactory, queryBuilder, identifierMapping);
         this.tableScanRedirection = requireNonNull(tableScanRedirection, "tableScanRedirection is null");
     }
 
