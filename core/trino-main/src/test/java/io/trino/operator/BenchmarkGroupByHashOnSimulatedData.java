@@ -315,12 +315,15 @@ public class BenchmarkGroupByHashOnSimulatedData
 
     public enum WorkType
     {
+        // Only create groups without actually returning the group ids
         ADD,
+        // Create the groups and return group ids
         GET_GROUPS,
     }
 
     public enum AggregationDefinition
     {
+        // Single bigint column
         BIGINT_2_GROUPS(new ChannelDefinition(ColumnType.BIGINT, 2)),
         BIGINT_10_GROUPS(new ChannelDefinition(ColumnType.BIGINT, 10)),
         BIGINT_1K_GROUPS(new ChannelDefinition(ColumnType.BIGINT, 1000)),
@@ -328,13 +331,16 @@ public class BenchmarkGroupByHashOnSimulatedData
         BIGINT_100K_GROUPS(new ChannelDefinition(ColumnType.BIGINT, 100_000)),
         BIGINT_1M_GROUPS(new ChannelDefinition(ColumnType.BIGINT, 1_000_000)),
         BIGINT_10M_GROUPS(new ChannelDefinition(ColumnType.BIGINT, 10_000_000)),
+        // Single bigint dictionary column
         BIGINT_2_GROUPS_1_SMALL_DICTIONARY(new ChannelDefinition(ColumnType.BIGINT, 2, 1, 50)),
         BIGINT_2_GROUPS_1_BIG_DICTIONARY(new ChannelDefinition(ColumnType.BIGINT, 2, 1, 10000)),
         BIGINT_2_GROUPS_MULTIPLE_SMALL_DICTIONARY(new ChannelDefinition(ColumnType.BIGINT, 2, 10, 50)),
         BIGINT_2_GROUPS_MULTIPLE_BIG_DICTIONARY(new ChannelDefinition(ColumnType.BIGINT, 2, 10, 10000)),
         BIGINT_10K_GROUPS_1_DICTIONARY(new ChannelDefinition(ColumnType.BIGINT, 10000, 1, 20000)),
         BIGINT_10K_GROUPS_MULTIPLE_DICTIONARY(new ChannelDefinition(ColumnType.BIGINT, 10000, 20, 20000)),
+        // Single double column
         DOUBLE_10_GROUPS(new ChannelDefinition(ColumnType.DOUBLE, 10)),
+        // Multiple dictionary varchar column
         TWO_TINY_VARCHAR_DICTIONARIES(
                 new ChannelDefinition(ColumnType.CHAR_1, 2, 10),
                 new ChannelDefinition(ColumnType.CHAR_1, 2, 10)),
@@ -351,6 +357,7 @@ public class BenchmarkGroupByHashOnSimulatedData
                 1000,
                 new ChannelDefinition(ColumnType.CHAR_1, 30, 10),
                 new ChannelDefinition(ColumnType.CHAR_1, 30, 10)),
+        // Single varchar column
         VARCHAR_2_GROUPS(new ChannelDefinition(ColumnType.VARCHAR_25, 2)),
         VARCHAR_10_GROUPS(new ChannelDefinition(ColumnType.VARCHAR_25, 10)),
         VARCHAR_1K_GROUPS(new ChannelDefinition(ColumnType.VARCHAR_25, 1000)),
@@ -358,6 +365,7 @@ public class BenchmarkGroupByHashOnSimulatedData
         VARCHAR_100K_GROUPS(new ChannelDefinition(ColumnType.VARCHAR_25, 100_000)),
         VARCHAR_1M_GROUPS(new ChannelDefinition(ColumnType.VARCHAR_25, 1_000_000)),
         VARCHAR_10M_GROUPS(new ChannelDefinition(ColumnType.VARCHAR_25, 10_000_000)),
+        // Single dictionary varchar column
         VARCHAR_2_GROUPS_1_SMALL_DICTIONARY(new ChannelDefinition(ColumnType.VARCHAR_25, 2, 1, 50)),
         VARCHAR_2_GROUPS_1_BIG_DICTIONARY(new ChannelDefinition(ColumnType.VARCHAR_25, 2, 1, 10000)),
         VARCHAR_2_GROUPS_MULTIPLE_SMALL_DICTIONARY(new ChannelDefinition(ColumnType.VARCHAR_25, 2, 10, 50)),
@@ -367,6 +375,7 @@ public class BenchmarkGroupByHashOnSimulatedData
         TINY_CHAR_10_GROUPS(new ChannelDefinition(ColumnType.CHAR_1, 10)),
         BIG_VARCHAR_10_GROUPS(new ChannelDefinition(ColumnType.VARCHAR_117, 10)),
         BIG_VARCHAR_1M_GROUPS(new ChannelDefinition(ColumnType.VARCHAR_117, 1_000_000)),
+        // Multiple columns
         DOUBLE_BIGINT_100_GROUPS(
                 new ChannelDefinition(ColumnType.BIGINT, 10),
                 new ChannelDefinition(ColumnType.BIGINT, 10)),

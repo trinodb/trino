@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.password.jndi;
+package io.trino.plugin.base.jndi;
 
 import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
