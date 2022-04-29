@@ -189,16 +189,17 @@ public abstract class AbstractTestQueryFramework
 
     protected Session getSession()
     {
-        return queryRunner.getDefaultSession();
+        return getQueryRunner().getDefaultSession();
     }
 
     protected final int getNodeCount()
     {
-        return queryRunner.getNodeCount();
+        return getQueryRunner().getNodeCount();
     }
 
     protected TransactionBuilder newTransaction()
     {
+        QueryRunner queryRunner = getQueryRunner();
         return transaction(queryRunner.getTransactionManager(), queryRunner.getAccessControl());
     }
 
@@ -214,7 +215,7 @@ public abstract class AbstractTestQueryFramework
 
     protected MaterializedResult computeActual(Session session, @Language("SQL") String sql)
     {
-        return queryRunner.execute(session, sql).toTestTypes();
+        return getQueryRunner().execute(session, sql).toTestTypes();
     }
 
     protected Object computeScalar(@Language("SQL") String sql)
@@ -234,7 +235,7 @@ public abstract class AbstractTestQueryFramework
 
     protected AssertProvider<QueryAssert> query(Session session, @Language("SQL") String sql)
     {
-        return queryAssertions.query(session, sql);
+        return getQueryAssertions().query(session, sql);
     }
 
     protected void assertQuery(@Language("SQL") String sql)
@@ -244,17 +245,17 @@ public abstract class AbstractTestQueryFramework
 
     protected void assertQuery(Session session, @Language("SQL") String sql)
     {
-        QueryAssertions.assertQuery(queryRunner, session, sql, h2QueryRunner, sql, false, false);
+        QueryAssertions.assertQuery(getQueryRunner(), session, sql, getH2QueryRunner(), sql, false, false);
     }
 
     protected void assertQuery(@Language("SQL") String actual, @Language("SQL") String expected)
     {
-        QueryAssertions.assertQuery(queryRunner, getSession(), actual, h2QueryRunner, expected, false, false);
+        QueryAssertions.assertQuery(getQueryRunner(), getSession(), actual, getH2QueryRunner(), expected, false, false);
     }
 
     protected void assertQuery(Session session, @Language("SQL") String actual, @Language("SQL") String expected)
     {
-        QueryAssertions.assertQuery(queryRunner, session, actual, h2QueryRunner, expected, false, false);
+        QueryAssertions.assertQuery(getQueryRunner(), session, actual, getH2QueryRunner(), expected, false, false);
     }
 
     protected void assertQuery(@Language("SQL") String actual, @Language("SQL") String expected, Consumer<Plan> planAssertion)
@@ -264,13 +265,14 @@ public abstract class AbstractTestQueryFramework
 
     protected void assertQuery(Session session, @Language("SQL") String actual, @Language("SQL") String expected, Consumer<Plan> planAssertion)
     {
+        QueryRunner queryRunner = getQueryRunner();
         checkArgument(queryRunner instanceof DistributedQueryRunner, "pattern assertion is only supported for DistributedQueryRunner");
-        QueryAssertions.assertQuery(queryRunner, session, actual, h2QueryRunner, expected, false, false, planAssertion);
+        QueryAssertions.assertQuery(queryRunner, session, actual, getH2QueryRunner(), expected, false, false, planAssertion);
     }
 
     protected void assertQueryEventually(Session session, @Language("SQL") String actual, @Language("SQL") String expected, Duration timeout)
     {
-        QueryAssertions.assertQueryEventually(queryRunner, session, actual, h2QueryRunner, expected, false, false, Optional.empty(), timeout);
+        QueryAssertions.assertQueryEventually(getQueryRunner(), session, actual, getH2QueryRunner(), expected, false, false, Optional.empty(), timeout);
     }
 
     protected void assertQueryOrdered(@Language("SQL") String sql)
@@ -290,7 +292,7 @@ public abstract class AbstractTestQueryFramework
 
     protected void assertQueryOrdered(Session session, @Language("SQL") String actual, @Language("SQL") String expected)
     {
-        QueryAssertions.assertQuery(queryRunner, session, actual, h2QueryRunner, expected, true, false);
+        QueryAssertions.assertQuery(getQueryRunner(), session, actual, getH2QueryRunner(), expected, true, false);
     }
 
     protected void assertUpdate(@Language("SQL") String actual, @Language("SQL") String expected)
@@ -300,7 +302,7 @@ public abstract class AbstractTestQueryFramework
 
     protected void assertUpdate(Session session, @Language("SQL") String actual, @Language("SQL") String expected)
     {
-        QueryAssertions.assertQuery(queryRunner, session, actual, h2QueryRunner, expected, false, true);
+        QueryAssertions.assertQuery(getQueryRunner(), session, actual, getH2QueryRunner(), expected, false, true);
     }
 
     protected void assertUpdate(@Language("SQL") String sql)
@@ -310,7 +312,7 @@ public abstract class AbstractTestQueryFramework
 
     protected void assertUpdate(Session session, @Language("SQL") String sql)
     {
-        QueryAssertions.assertUpdate(queryRunner, session, sql, OptionalLong.empty(), Optional.empty());
+        QueryAssertions.assertUpdate(getQueryRunner(), session, sql, OptionalLong.empty(), Optional.empty());
     }
 
     protected void assertUpdate(@Language("SQL") String sql, long count)
@@ -320,12 +322,12 @@ public abstract class AbstractTestQueryFramework
 
     protected void assertUpdate(Session session, @Language("SQL") String sql, long count)
     {
-        QueryAssertions.assertUpdate(queryRunner, session, sql, OptionalLong.of(count), Optional.empty());
+        QueryAssertions.assertUpdate(getQueryRunner(), session, sql, OptionalLong.of(count), Optional.empty());
     }
 
     protected void assertUpdate(Session session, @Language("SQL") String sql, long count, Consumer<Plan> planAssertion)
     {
-        QueryAssertions.assertUpdate(queryRunner, session, sql, OptionalLong.of(count), Optional.of(planAssertion));
+        QueryAssertions.assertUpdate(getQueryRunner(), session, sql, OptionalLong.of(count), Optional.of(planAssertion));
     }
 
     protected void assertQuerySucceeds(@Language("SQL") String sql)
@@ -335,22 +337,22 @@ public abstract class AbstractTestQueryFramework
 
     protected void assertQuerySucceeds(Session session, @Language("SQL") String sql)
     {
-        QueryAssertions.assertQuerySucceeds(queryRunner, session, sql);
+        QueryAssertions.assertQuerySucceeds(getQueryRunner(), session, sql);
     }
 
     protected void assertQueryFailsEventually(@Language("SQL") String sql, @Language("RegExp") String expectedMessageRegExp, Duration timeout)
     {
-        QueryAssertions.assertQueryFailsEventually(queryRunner, getSession(), sql, expectedMessageRegExp, timeout);
+        QueryAssertions.assertQueryFailsEventually(getQueryRunner(), getSession(), sql, expectedMessageRegExp, timeout);
     }
 
     protected void assertQueryFails(@Language("SQL") String sql, @Language("RegExp") String expectedMessageRegExp)
     {
-        QueryAssertions.assertQueryFails(queryRunner, getSession(), sql, expectedMessageRegExp);
+        QueryAssertions.assertQueryFails(getQueryRunner(), getSession(), sql, expectedMessageRegExp);
     }
 
     protected void assertQueryFails(Session session, @Language("SQL") String sql, @Language("RegExp") String expectedMessageRegExp)
     {
-        QueryAssertions.assertQueryFails(queryRunner, session, sql, expectedMessageRegExp);
+        QueryAssertions.assertQueryFails(getQueryRunner(), session, sql, expectedMessageRegExp);
     }
 
     protected void assertQueryReturnsEmptyResult(@Language("SQL") String sql)
@@ -377,6 +379,7 @@ public abstract class AbstractTestQueryFramework
 
     private void executeExclusively(Session session, @Language("SQL") String sql, TestingPrivilege[] deniedPrivileges)
     {
+        QueryRunner queryRunner = getQueryRunner();
         executeExclusively(() -> {
             try {
                 queryRunner.getAccessControl().deny(deniedPrivileges);
@@ -476,11 +479,12 @@ public abstract class AbstractTestQueryFramework
 
     protected MaterializedResult computeExpected(@Language("SQL") String sql, List<? extends Type> resultTypes)
     {
-        return h2QueryRunner.execute(getSession(), sql, resultTypes);
+        return getH2QueryRunner().execute(getSession(), sql, resultTypes);
     }
 
     protected void executeExclusively(Runnable executionBlock)
     {
+        QueryRunner queryRunner = getQueryRunner();
         queryRunner.getExclusiveLock().lock();
         try {
             executionBlock.run();
@@ -498,7 +502,7 @@ public abstract class AbstractTestQueryFramework
     //TODO: should WarningCollector be added?
     protected String getExplainPlan(String query, ExplainType.Type planType)
     {
-        QueryExplainer explainer = queryRunner.getQueryExplainer();
+        QueryExplainer explainer = getQueryRunner().getQueryExplainer();
         return newTransaction()
                 .singleStatement()
                 .execute(getSession(), session -> {
@@ -508,6 +512,7 @@ public abstract class AbstractTestQueryFramework
 
     protected String getGraphvizExplainPlan(String query, ExplainType.Type planType)
     {
+        QueryRunner queryRunner = getQueryRunner();
         QueryExplainer explainer = queryRunner.getQueryExplainer();
         return newTransaction()
                 .singleStatement()
@@ -531,9 +536,19 @@ public abstract class AbstractTestQueryFramework
 
     protected final DistributedQueryRunner getDistributedQueryRunner()
     {
-        checkState(queryRunner != null, "queryRunner not set");
+        QueryRunner queryRunner = getQueryRunner();
         checkState(queryRunner instanceof DistributedQueryRunner, "queryRunner is not a DistributedQueryRunner");
         return (DistributedQueryRunner) queryRunner;
+    }
+
+    private H2QueryRunner getH2QueryRunner()
+    {
+        return h2QueryRunner;
+    }
+
+    private io.trino.sql.query.QueryAssertions getQueryAssertions()
+    {
+        return queryAssertions;
     }
 
     protected Session noJoinReordering()
