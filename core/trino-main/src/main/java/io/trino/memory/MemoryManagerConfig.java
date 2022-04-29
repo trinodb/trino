@@ -16,6 +16,7 @@ package io.trino.memory;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
+import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
@@ -45,18 +46,19 @@ public class MemoryManagerConfig
     private double faultTolerantExecutionTaskMemoryGrowthFactor = 3.0;
     private double faultTolerantExecutionTaskMemoryEstimationQuantile = 0.9;
     private DataSize faultTolerantExecutionTaskRuntimeMemoryEstimationOverhead = DataSize.of(1, GIGABYTE);
-    private LowMemoryKillerPolicy lowMemoryKillerPolicy = LowMemoryKillerPolicy.TOTAL_RESERVATION_ON_BLOCKED_NODES;
+    private LowMemoryQueryKillerPolicy lowMemoryQueryKillerPolicy = LowMemoryQueryKillerPolicy.TOTAL_RESERVATION_ON_BLOCKED_NODES;
     private Duration killOnOutOfMemoryDelay = new Duration(5, MINUTES);
 
-    public LowMemoryKillerPolicy getLowMemoryKillerPolicy()
+    public LowMemoryQueryKillerPolicy getLowMemoryQueryKillerPolicy()
     {
-        return lowMemoryKillerPolicy;
+        return lowMemoryQueryKillerPolicy;
     }
 
-    @Config("query.low-memory-killer.policy")
-    public MemoryManagerConfig setLowMemoryKillerPolicy(LowMemoryKillerPolicy lowMemoryKillerPolicy)
+    @LegacyConfig("query.low-memory-killer.policy")
+    @Config("query.low-memory-query-killer.policy")
+    public MemoryManagerConfig setLowMemoryQueryKillerPolicy(LowMemoryQueryKillerPolicy lowMemoryQueryKillerPolicy)
     {
-        this.lowMemoryKillerPolicy = lowMemoryKillerPolicy;
+        this.lowMemoryQueryKillerPolicy = lowMemoryQueryKillerPolicy;
         return this;
     }
 
@@ -162,14 +164,14 @@ public class MemoryManagerConfig
         return this;
     }
 
-    public enum LowMemoryKillerPolicy
+    public enum LowMemoryQueryKillerPolicy
     {
         NONE,
         TOTAL_RESERVATION,
         TOTAL_RESERVATION_ON_BLOCKED_NODES,
         /**/;
 
-        public static LowMemoryKillerPolicy fromString(String value)
+        public static LowMemoryQueryKillerPolicy fromString(String value)
         {
             switch (requireNonNull(value, "value is null").toLowerCase(ENGLISH)) {
                 case "none":

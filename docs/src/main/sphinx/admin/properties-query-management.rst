@@ -32,8 +32,8 @@ stages of a query. You can use the following execution policies:
 The number of partitions to use for processing distributed operations, such as
 joins, aggregations, partitioned window functions and others.
 
-``query.low-memory-killer.policy``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``query.low-memory-query-killer.policy``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 * **Type:** :ref:`prop-type-string`
 * **Default value:** ``total-reservation-on-blocked-nodes``
