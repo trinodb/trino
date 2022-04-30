@@ -45,7 +45,7 @@ To use Iceberg, you need:
 Configuration
 -------------
 
-The connector supports three Iceberg catalog types, you may use either a Hive
+The connector supports several Iceberg catalog types, you may use either a Hive
 metastore service (HMS), AWS Glue or DynamoDB. The catalog type is determined by the
 ``iceberg.catalog.type`` property, it can be set to either ``HIVE_METASTORE``
 , ``GLUE`` or ``DYNAMO_DB``.

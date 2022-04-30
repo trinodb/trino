@@ -24,8 +24,6 @@ import org.testng.annotations.Test;
 
 import java.util.Map;
 
-import static io.trino.plugin.hive.containers.HiveMinioDataLake.ACCESS_KEY;
-import static io.trino.plugin.hive.containers.HiveMinioDataLake.SECRET_KEY;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static org.apache.iceberg.FileFormat.ORC;
@@ -54,8 +52,11 @@ public class TestIcebergMinioDynamoDbConnectorSmokeTest
                                 .put("iceberg.catalog.type", "dynamo_db")
                                 .put("iceberg.dynamodb.catalog-name", "test")
                                 .put("iceberg.dynamodb.connection-url", dynamoServer.getEndpointUrl())
-                                .put("hive.s3.aws-access-key", ACCESS_KEY)
-                                .put("hive.s3.aws-secret-key", SECRET_KEY)
+                                .put("iceberg.dynamodb.aws.region", TestingIcebergDynamoDbServer.REGION)
+                                .put("iceberg.dynamodb.aws.access-key", TestingIcebergDynamoDbServer.ACCESS_KEY)
+                                .put("iceberg.dynamodb.aws.secret-key", TestingIcebergDynamoDbServer.SECRET_KEY)
+                                .put("hive.s3.aws-access-key", HiveMinioDataLake.ACCESS_KEY)
+                                .put("hive.s3.aws-secret-key", HiveMinioDataLake.SECRET_KEY)
                                 .put("hive.s3.endpoint", "http://" + hiveMinioDataLake.getMinio().getMinioApiEndpoint())
                                 .put("hive.s3.path-style-access", "true")
                                 .put("hive.s3.streaming.part-size", "5MB")

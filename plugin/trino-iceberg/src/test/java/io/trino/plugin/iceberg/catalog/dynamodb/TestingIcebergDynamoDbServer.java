@@ -23,6 +23,9 @@ public class TestingIcebergDynamoDbServer
         implements Closeable
 {
     private static final int PORT = 8000;
+    public static final String REGION = "us-east-2";
+    public static final String ACCESS_KEY = "accesskey";
+    public static final String SECRET_KEY = "secretkey";
 
     private final GenericContainer<?> dockerContainer;
 

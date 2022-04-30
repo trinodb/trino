@@ -77,18 +77,22 @@ public class DynamoDbClientFactory
     {
         DynamoDbClientBuilder builder = DynamoDbClient.builder();
         config.getConnectionUrl().ifPresent(url -> builder.endpointOverride(URI.create(url)));
+        builder.region(Region.of(config.getRegion()));
         builder.credentialsProvider(getAwsCredentialsProvider(config));
         return builder.build();
     }
 
     private static AwsCredentialsProvider getAwsCredentialsProvider(DynamoDbIcebergConfig config)
     {
-        AwsCredentialsProvider credentialsProvider = DefaultCredentialsProvider.create();
+        AwsCredentialsProvider credentialsProvider;
 
         if (config.getAccessKey().isPresent() && config.getSecretKey().isPresent()) {
             credentialsProvider = StaticCredentialsProvider.create(AwsBasicCredentials.create(
                     config.getAccessKey().get(),
                     config.getSecretKey().get()));
+        }
+        else {
+            credentialsProvider = DefaultCredentialsProvider.create();
         }
 
         if (config.getIamRole().isPresent()) {
