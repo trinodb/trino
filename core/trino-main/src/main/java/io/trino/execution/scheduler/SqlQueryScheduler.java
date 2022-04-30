@@ -344,7 +344,7 @@ public class SqlQueryScheduler
         if (queryStateMachine.isDone()) {
             return Optional.empty();
         }
-        if (attempt > 0 && retryPolicy == RetryPolicy.QUERY) {
+        if (attempt > 0) {
             dynamicFilterService.registerQueryRetry(queryStateMachine.getQueryId(), attempt);
         }
         DistributedStagesScheduler distributedStagesScheduler;
