@@ -78,6 +78,7 @@ public class TestingPinotCluster
     public static final int BROKER_PORT = 8099;
     public static final int SERVER_ADMIN_PORT = 8097;
     public static final int SERVER_PORT = 8098;
+    public static final int GRPC_PORT = 8090;
 
     private final GenericContainer<?> controller;
     private final GenericContainer<?> broker;
@@ -123,7 +124,7 @@ public class TestingPinotCluster
                 .withEnv("JAVA_OPTS", "-Xmx512m -Dlog4j2.configurationFile=/opt/pinot/conf/pinot-server-log4j2.xml -Dplugins.dir=/opt/pinot/plugins")
                 .withCommand("StartServer", "-clusterName", "pinot", "-zkAddress", getZookeeperInternalHostPort(), "-configFileName", "/var/pinot/server/config/pinot-server.conf")
                 .withNetworkAliases("pinot-server", "localhost")
-                .withExposedPorts(SERVER_PORT, SERVER_ADMIN_PORT);
+                .withExposedPorts(SERVER_PORT, SERVER_ADMIN_PORT, GRPC_PORT);
         closer.register(server::stop);
 
         this.secured = secured;
@@ -162,6 +163,11 @@ public class TestingPinotCluster
     public HostAndPort getServerHostAndPort()
     {
         return HostAndPort.fromParts(server.getContainerIpAddress(), server.getMappedPort(SERVER_PORT));
+    }
+
+    public HostAndPort getServerGrpcHostAndPort()
+    {
+        return HostAndPort.fromParts(server.getContainerIpAddress(), server.getMappedPort(GRPC_PORT));
     }
 
     public void createSchema(InputStream tableSchemaSpec, String tableName)

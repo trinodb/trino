@@ -122,6 +122,11 @@ public abstract class AbstractPinotIntegrationSmokeTest
 
     protected abstract boolean isSecured();
 
+    protected boolean isGrpcEnabled()
+    {
+        return true;
+    }
+
     protected String getPinotImageName()
     {
         return PINOT_PREVIOUS_IMAGE_NAME;
@@ -500,7 +505,7 @@ public abstract class AbstractPinotIntegrationSmokeTest
                 ImmutableMap.of(),
                 pinotProperties(pinot),
                 Optional.of(binder -> newOptionalBinder(binder, PinotHostMapper.class).setBinding()
-                        .toInstance(new TestingPinotHostMapper(pinot.getBrokerHostAndPort(), pinot.getServerHostAndPort()))));
+                        .toInstance(new TestingPinotHostMapper(pinot.getBrokerHostAndPort(), pinot.getServerHostAndPort(), pinot.getServerGrpcHostAndPort()))));
     }
 
     private Map<String, String> pinotProperties(TestingPinotCluster pinot)
@@ -515,6 +520,11 @@ public abstract class AbstractPinotIntegrationSmokeTest
 
     protected Map<String, String> additionalPinotProperties()
     {
+        if (isGrpcEnabled()) {
+            return ImmutableMap.<String, String>builder()
+                    .put("pinot.grpc.enabled", "true")
+                    .buildOrThrow();
+        }
         return ImmutableMap.of();
     }
 
