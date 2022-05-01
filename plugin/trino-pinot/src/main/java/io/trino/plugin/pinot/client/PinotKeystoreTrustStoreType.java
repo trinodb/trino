@@ -13,14 +13,8 @@
  */
 package io.trino.plugin.pinot.client;
 
-import com.google.common.net.HostAndPort;
-import org.apache.pinot.core.transport.ServerInstance;
-
-public interface PinotHostMapper
+public enum PinotKeystoreTrustStoreType
 {
-    String getBrokerHost(String host, String port);
-
-    ServerInstance getServerInstance(String serverHost);
-
-    HostAndPort getServerGrpcHostAndPort(String serverHost, int grpcPort);
+    JKS,
+    PKCS12,
 }

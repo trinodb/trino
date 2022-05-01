@@ -13,14 +13,21 @@
  */
 package io.trino.plugin.pinot.client;
 
-import com.google.common.net.HostAndPort;
-import org.apache.pinot.core.transport.ServerInstance;
+import io.airlift.configuration.Config;
 
-public interface PinotHostMapper
+public class PinotLegacyServerQueryClientConfig
 {
-    String getBrokerHost(String host, String port);
+    private int maxRowsPerSplitForSegmentQueries = 50_000;
 
-    ServerInstance getServerInstance(String serverHost);
+    public int getMaxRowsPerSplitForSegmentQueries()
+    {
+        return maxRowsPerSplitForSegmentQueries;
+    }
 
-    HostAndPort getServerGrpcHostAndPort(String serverHost, int grpcPort);
+    @Config("pinot.max-rows-per-split-for-segment-queries")
+    public PinotLegacyServerQueryClientConfig setMaxRowsPerSplitForSegmentQueries(int maxRowsPerSplitForSegmentQueries)
+    {
+        this.maxRowsPerSplitForSegmentQueries = maxRowsPerSplitForSegmentQueries;
+        return this;
+    }
 }
