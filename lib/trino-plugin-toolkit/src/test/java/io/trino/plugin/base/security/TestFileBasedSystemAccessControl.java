@@ -688,6 +688,50 @@ public class TestFileBasedSystemAccessControl
     }
 
     @Test
+    public void testTableRulesForMixedGroupUsers()
+    {
+        SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-table-mixed-groups.json");
+
+        SystemSecurityContext userGroup1Group2 = new SystemSecurityContext(Identity.forUser("user_1_2")
+                .withGroups(ImmutableSet.of("group1", "group2")).build(), Optional.empty());
+        SystemSecurityContext userGroup2 = new SystemSecurityContext(Identity.forUser("user_2")
+                .withGroups(ImmutableSet.of("group2")).build(), Optional.empty());
+
+        assertEquals(
+                accessControl.getColumnMasks(
+                        userGroup1Group2,
+                        new CatalogSchemaTableName("some-catalog", "my_schema", "my_table"),
+                        "col_a",
+                        VARCHAR),
+                ImmutableList.of());
+
+        assertViewExpressionEquals(
+                accessControl.getColumnMasks(
+                        userGroup2,
+                        new CatalogSchemaTableName("some-catalog", "my_schema", "my_table"),
+                        "col_a",
+                        VARCHAR),
+                new ViewExpression(userGroup2.getIdentity().getUser(), Optional.of("some-catalog"), Optional.of("my_schema"), "'mask_a'"));
+
+        SystemSecurityContext userGroup1Group3 = new SystemSecurityContext(Identity.forUser("user_1_3")
+                .withGroups(ImmutableSet.of("group1", "group3")).build(), Optional.empty());
+        SystemSecurityContext userGroup3 = new SystemSecurityContext(Identity.forUser("user_3")
+                .withGroups(ImmutableSet.of("group3")).build(), Optional.empty());
+
+        assertEquals(
+                accessControl.getRowFilters(
+                        userGroup1Group3,
+                        new CatalogSchemaTableName("some-catalog", "my_schema", "my_table")),
+                ImmutableList.of());
+
+        assertViewExpressionEquals(
+                accessControl.getRowFilters(
+                        userGroup3,
+                        new CatalogSchemaTableName("some-catalog", "my_schema", "my_table")),
+                new ViewExpression(userGroup3.getIdentity().getUser(), Optional.of("some-catalog"), Optional.of("my_schema"), "country='US'"));
+    }
+
+    @Test
     public void testCheckCanSetTableAuthorizationForAdmin()
     {
         SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-table.json");
