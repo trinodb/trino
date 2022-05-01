@@ -11,16 +11,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.pinot.client;
+package io.trino.plugin.pinot;
 
-import com.google.common.net.HostAndPort;
-import org.apache.pinot.core.transport.ServerInstance;
+import static io.trino.plugin.pinot.TestingPinotCluster.PINOT_LATEST_IMAGE_NAME;
 
-public interface PinotHostMapper
+public class TestPinotWithoutAuthenticationIntegrationSmokeTestLatestVersionNoGrpc
+        extends AbstractPinotIntegrationSmokeTest
 {
-    String getBrokerHost(String host, String port);
+    @Override
+    protected boolean isSecured()
+    {
+        return false;
+    }
 
-    ServerInstance getServerInstance(String serverHost);
+    @Override
+    protected String getPinotImageName()
+    {
+        return PINOT_LATEST_IMAGE_NAME;
+    }
 
-    HostAndPort getServerGrpcHostAndPort(String serverHost, int grpcPort);
+    @Override
+    protected boolean isGrpcEnabled()
+    {
+        return false;
+    }
 }

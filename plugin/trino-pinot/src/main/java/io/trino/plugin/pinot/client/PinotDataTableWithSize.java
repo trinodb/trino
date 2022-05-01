@@ -13,14 +13,26 @@
  */
 package io.trino.plugin.pinot.client;
 
-import com.google.common.net.HostAndPort;
-import org.apache.pinot.core.transport.ServerInstance;
+import org.apache.pinot.common.utils.DataTable;
 
-public interface PinotHostMapper
+public class PinotDataTableWithSize
 {
-    String getBrokerHost(String host, String port);
+    private final DataTable dataTable;
+    private final long estimatedSizeInBytes;
 
-    ServerInstance getServerInstance(String serverHost);
+    public PinotDataTableWithSize(DataTable dataTable, long estimatedSizeInBytes)
+    {
+        this.dataTable = dataTable;
+        this.estimatedSizeInBytes = estimatedSizeInBytes;
+    }
 
-    HostAndPort getServerGrpcHostAndPort(String serverHost, int grpcPort);
+    public DataTable getDataTable()
+    {
+        return dataTable;
+    }
+
+    public long getEstimatedSizeInBytes()
+    {
+        return estimatedSizeInBytes;
+    }
 }
