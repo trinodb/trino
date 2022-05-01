@@ -961,9 +961,10 @@ public class FileBasedSystemAccessControl
         return tableRules.stream()
                 .filter(rule -> rule.matches(identity.getUser(), identity.getEnabledRoles(), identity.getGroups(), table))
                 .map(rule -> rule.getFilter(identity.getUser(), table.getCatalogName(), tableName.getSchemaName()))
-                .flatMap(Optional::stream)
                 // we return the first one we find
-                .limit(1)
+                .findFirst()
+                .stream()
+                .flatMap(Optional::stream)
                 .collect(toImmutableList());
     }
 
@@ -979,9 +980,10 @@ public class FileBasedSystemAccessControl
         return tableRules.stream()
                 .filter(rule -> rule.matches(identity.getUser(), identity.getEnabledRoles(), identity.getGroups(), table))
                 .map(rule -> rule.getColumnMask(identity.getUser(), table.getCatalogName(), table.getSchemaTableName().getSchemaName(), columnName))
-                .flatMap(Optional::stream)
                 // we return the first one we find
-                .limit(1)
+                .findFirst()
+                .stream()
+                .flatMap(Optional::stream)
                 .collect(toImmutableList());
     }
 
