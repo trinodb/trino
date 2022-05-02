@@ -63,7 +63,7 @@ public class CassandraClientConfig
     private Duration clientConnectTimeout = new Duration(5_000, MILLISECONDS);
     private Integer clientSoLinger;
     private RetryPolicyType retryPolicy = RetryPolicyType.DEFAULT;
-    private boolean useDCAware;
+    private boolean useDCAware = true;
     private String dcAwareLocalDC;
     private int dcAwareUsedHostsPerRemoteDc;
     private boolean dcAwareAllowRemoteDCsForLocal;
