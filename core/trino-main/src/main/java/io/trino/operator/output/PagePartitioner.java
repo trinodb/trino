@@ -434,9 +434,15 @@ public class PagePartitioner
 
     private IntArrayList[] partitionNotNullPositions(Page page, int startingPosition, IntArrayList[] partitionPositions, IntUnaryOperator partitionFunction)
     {
-        for (int position = startingPosition; position < page.getPositionCount(); position++) {
+        int positionCount = page.getPositionCount();
+        int[] partitionPerPosition = new int[positionCount];
+        for (int position = startingPosition; position < positionCount; position++) {
             int partition = partitionFunction.applyAsInt(position);
-            partitionPositions[partition].add(position);
+            partitionPerPosition[position] = partition;
+        }
+
+        for (int position = startingPosition; position < positionCount; position++) {
+            partitionPositions[partitionPerPosition[position]].add(position);
         }
 
         return partitionPositions;
