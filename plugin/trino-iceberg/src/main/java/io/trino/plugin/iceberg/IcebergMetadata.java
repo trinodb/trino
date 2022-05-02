@@ -215,7 +215,7 @@ public class IcebergMetadata
 {
     private static final Logger log = Logger.get(IcebergMetadata.class);
     private static final Pattern PATH_PATTERN = Pattern.compile("(.*)/[^/]+");
-    private static final int OPTIMIZE_MAX_SUPPORTED_TABLE_VERSION = 1;
+    private static final int OPTIMIZE_MAX_SUPPORTED_TABLE_VERSION = 2;
     private static final int CLEANING_UP_PROCEDURES_MAX_SUPPORTED_TABLE_VERSION = 2;
     private static final String RETENTION_THRESHOLD = "retention_threshold";
     public static final Set<String> UPDATABLE_TABLE_PROPERTIES = ImmutableSet.of(FILE_FORMAT_PROPERTY, FORMAT_VERSION_PROPERTY, PARTITIONING_PROPERTY);
@@ -791,6 +791,7 @@ public class IcebergMetadata
                 tableHandle.getSchemaTableName(),
                 OPTIMIZE,
                 new IcebergOptimizeHandle(
+                        tableHandle.getSnapshotId().orElseThrow(),
                         SchemaParser.toJson(icebergTable.schema()),
                         PartitionSpecParser.toJson(icebergTable.spec()),
                         getColumns(icebergTable.schema(), typeManager),
@@ -875,7 +876,6 @@ public class IcebergMetadata
 
         int tableFormatVersion = ((BaseTable) icebergTable).operations().current().formatVersion();
         if (tableFormatVersion > OPTIMIZE_MAX_SUPPORTED_TABLE_VERSION) {
-            // Currently, Optimize would fail when position deletes files are present in Iceberg table
             throw new TrinoException(NOT_SUPPORTED, format(
                     "%s is not supported for Iceberg table format version > %d. Table %s format version is %s.",
                     OPTIMIZE.name(),
@@ -959,6 +959,9 @@ public class IcebergMetadata
         }
         RewriteFiles rewriteFiles = transaction.newRewrite();
         rewriteFiles.rewriteFiles(scannedFiles, newFiles);
+        // Table.snapshot method returns null if there is no matching snapshot
+        Snapshot snapshot = requireNonNull(icebergTable.snapshot(optimizeHandle.getSnapshotId()), "snapshot is null");
+        rewriteFiles.validateFromSnapshot(snapshot.snapshotId());
         rewriteFiles.commit();
         transaction.commitTransaction();
         transaction = null;
