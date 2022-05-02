@@ -88,21 +88,15 @@ public class HiveMetastoreTableOperations
                         .setParameter(METADATA_LOCATION_PROP, newMetadataLocation)
                         .setParameter(PREVIOUS_METADATA_LOCATION_PROP, currentMetadataLocation)
                         .build();
+
+                // todo privileges should not be replaced for an alter
+                PrincipalPrivileges privileges = table.getOwner().map(MetastoreUtil::buildInitialPrivilegeSet).orElse(NO_PRIVILEGES);
+                metastore.replaceTable(database, tableName, table, privileges);
             }
             catch (RuntimeException e) {
-                try {
-                    io().deleteFile(newMetadataLocation);
-                }
-                catch (RuntimeException ex) {
-                    e.addSuppressed(ex);
-                }
                 // CommitFailedException is handled as a special case in the Iceberg library. This commit will automatically retry
                 throw new CommitFailedException(e, "Failed to commit to table %s.%s", database, tableName);
             }
-
-            // todo privileges should not be replaced for an alter
-            PrincipalPrivileges privileges = table.getOwner().map(MetastoreUtil::buildInitialPrivilegeSet).orElse(NO_PRIVILEGES);
-            metastore.replaceTable(database, tableName, table, privileges);
         }
         finally {
             thriftMetastore.releaseTableLock(identity, lockId);
