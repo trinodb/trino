@@ -77,10 +77,10 @@ import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-public class BigQueryResultPageSource
+public class BigQueryStoragePageSource
         implements ConnectorPageSource
 {
-    private static final Logger log = Logger.get(BigQueryResultPageSource.class);
+    private static final Logger log = Logger.get(BigQueryStoragePageSource.class);
 
     private static final AvroDecimalConverter DECIMAL_CONVERTER = new AvroDecimalConverter();
 
@@ -92,7 +92,7 @@ public class BigQueryResultPageSource
     private final PageBuilder pageBuilder;
     private final Iterator<ReadRowsResponse> responses;
 
-    public BigQueryResultPageSource(
+    public BigQueryStoragePageSource(
             BigQueryReadClient bigQueryReadClient,
             int maxReadRowsRetries,
             BigQuerySplit split,

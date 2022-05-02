@@ -219,6 +219,35 @@ public class BigQueryClient
         }
     }
 
+    public TableResult query(TableId table, List<String> requiredColumns, Optional<String> filter)
+    {
+        String sql = selectSql(table, requiredColumns, filter);
+        log.debug("Execute query: %s", sql);
+        try {
+            return bigQuery.query(QueryJobConfiguration.of(sql));
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new BigQueryException(BaseHttpServiceException.UNKNOWN_CODE, format("Failed to run the query [%s]", sql), e);
+        }
+    }
+
+    private String selectSql(TableId table, List<String> requiredColumns, Optional<String> filter)
+    {
+        String columns = requiredColumns.stream().map(column -> format("`%s`", column)).collect(joining(","));
+        return selectSql(table, columns, filter);
+    }
+
+    private String selectSql(TableId table, String formattedColumns, Optional<String> filter)
+    {
+        String tableName = fullTableName(table);
+        String query = format("SELECT %s FROM `%s`", formattedColumns, tableName);
+        if (filter.isEmpty()) {
+            return query;
+        }
+        return query + " WHERE " + filter.get();
+    }
+
     private String selectSql(TableInfo remoteTable, List<String> requiredColumns)
     {
         String columns = requiredColumns.isEmpty() ? "*" :
