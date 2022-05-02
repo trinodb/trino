@@ -180,6 +180,19 @@ public class TestColumnMask
     }
 
     @Test
+    public void testConditionalMask()
+    {
+        accessControl.reset();
+        accessControl.columnMask(
+                new QualifiedObjectName(CATALOG, "tiny", "orders"),
+                "custkey",
+                USER,
+                new ViewExpression(USER, Optional.empty(), Optional.empty(), "IF (orderkey < 2, null, -custkey)"));
+        assertThat(assertions.query("SELECT custkey FROM orders LIMIT 2"))
+                .matches("VALUES (NULL), CAST('-781' AS BIGINT)");
+    }
+
+    @Test
     public void testMultipleMasksOnSameColumn()
     {
         accessControl.reset();
