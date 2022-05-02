@@ -31,6 +31,7 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Arrays;
@@ -161,7 +162,8 @@ public abstract class BaseMongoConnectorTest
                 ", DATE '1980-05-07' _date" +
                 ", TIMESTAMP '1980-05-07 11:22:33.456' _timestamp" +
                 ", ObjectId('ffffffffffffffffffffffff') _objectid" +
-                ", JSON '{\"name\":\"alice\"}' _json";
+                ", JSON '{\"name\":\"alice\"}' _json" +
+                ", cast(12.3 as decimal(30, 5)) _long_decimal";
 
         assertUpdate(query, 1);
 
@@ -176,6 +178,7 @@ public abstract class BaseMongoConnectorTest
         assertEquals(row.getField(5), LocalDate.of(1980, 5, 7));
         assertEquals(row.getField(6), LocalDateTime.of(1980, 5, 7, 11, 22, 33, 456_000_000));
         assertEquals(row.getField(8), "{\"name\":\"alice\"}");
+        assertEquals(row.getField(9), new BigDecimal("12.30000"));
         assertUpdate("DROP TABLE test_types_table");
 
         assertFalse(getQueryRunner().tableExists(getSession(), "test_types_table"));
