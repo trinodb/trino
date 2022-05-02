@@ -58,6 +58,7 @@ public class FileSystemExchangeManager
     private final int exchangeSinkBuffersPerPartition;
     private final long exchangeSinkMaxFileSizeInBytes;
     private final int exchangeSourceConcurrentReaders;
+    private final int exchangePrefixGroups;
     private final ExecutorService executor;
 
     @Inject
@@ -77,6 +78,7 @@ public class FileSystemExchangeManager
         this.exchangeSinkBuffersPerPartition = fileSystemExchangeConfig.getExchangeSinkBuffersPerPartition();
         this.exchangeSinkMaxFileSizeInBytes = fileSystemExchangeConfig.getExchangeSinkMaxFileSize().toBytes();
         this.exchangeSourceConcurrentReaders = fileSystemExchangeConfig.getExchangeSourceConcurrentReaders();
+        this.exchangePrefixGroups = fileSystemExchangeConfig.getExchangePrefixGroups();
         this.executor = newCachedThreadPool(daemonThreadsNamed("exchange-source-handles-creation-%s"));
     }
 
@@ -98,6 +100,7 @@ public class FileSystemExchangeManager
                 baseDirectories,
                 exchangeStorage,
                 stats,
+                exchangePrefixGroups,
                 context,
                 outputPartitionCount,
                 secretKey,

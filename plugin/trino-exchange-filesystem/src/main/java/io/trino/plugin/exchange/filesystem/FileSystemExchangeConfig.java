@@ -42,6 +42,7 @@ public class FileSystemExchangeConfig
     private int exchangeSinkBuffersPerPartition = 2;
     private DataSize exchangeSinkMaxFileSize = DataSize.of(1, GIGABYTE);
     private int exchangeSourceConcurrentReaders = 4;
+    private int exchangePrefixGroups = 1000;
 
     @NotNull
     @NotEmpty(message = "At least one base directory needs to be configured")
@@ -145,6 +146,20 @@ public class FileSystemExchangeConfig
     public FileSystemExchangeConfig setExchangeSourceConcurrentReaders(int exchangeSourceConcurrentReaders)
     {
         this.exchangeSourceConcurrentReaders = exchangeSourceConcurrentReaders;
+        return this;
+    }
+
+    @Min(1)
+    public int getExchangePrefixGroups()
+    {
+        return exchangePrefixGroups;
+    }
+
+    @Config("exchange.prefix-groups")
+    @ConfigDescription("Number of prefix groups per base directory")
+    public FileSystemExchangeConfig setExchangePrefixGroups(int exchangePrefixGroups)
+    {
+        this.exchangePrefixGroups = exchangePrefixGroups;
         return this;
     }
 }

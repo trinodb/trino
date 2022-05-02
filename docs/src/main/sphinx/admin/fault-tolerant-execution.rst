@@ -311,11 +311,14 @@ for your storage solution.
    * - ``exchange.sink-max-file-size``
      - Max size of files written by exchange sinks.
      - ``1GB``
-   * - ``exchange.source-concurrent-reader``
+   * - ``exchange.source-concurrent-readers``
      - The number of concurrent readers to read from spooling storage. The
        larger the number of concurrent readers, the larger the read parallelism
        and memory usage.
      - ``4``
+   * - ``exchange.prefix-groups``
+     - The number of prefix groups for an exchange spooling directory.
+     - ``1000``
    * - ``exchange.s3.aws-access-key``
      - AWS access key to use. Required for a connection to AWS S3, can be
        ignored for other S3 storage systems.

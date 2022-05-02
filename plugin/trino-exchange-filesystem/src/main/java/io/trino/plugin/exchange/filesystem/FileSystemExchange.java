@@ -43,10 +43,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -73,8 +73,9 @@ public class FileSystemExchange
     private final int outputPartitionCount;
     private final Optional<SecretKey> secretKey;
     private final ExecutorService executor;
+    private final int exchangePrefixGroups;
 
-    private final Map<Integer, String> randomizedPrefixes = new ConcurrentHashMap<>();
+    private final Map<Integer, Integer> prefixGroupIds = new ConcurrentHashMap<>();
 
     @GuardedBy("this")
     private final Set<Integer> allSinks = new HashSet<>();
@@ -91,6 +92,7 @@ public class FileSystemExchange
             List<URI> baseDirectories,
             FileSystemExchangeStorage exchangeStorage,
             FileSystemExchangeStats stats,
+            int exchangePrefixGroups,
             ExchangeContext exchangeContext,
             int outputPartitionCount,
             Optional<SecretKey> secretKey,
@@ -102,6 +104,7 @@ public class FileSystemExchange
         this.baseDirectories = ImmutableList.copyOf(directories);
         this.exchangeStorage = requireNonNull(exchangeStorage, "exchangeStorage is null");
         this.stats = requireNonNull(stats, "stats is null");
+        this.exchangePrefixGroups = exchangePrefixGroups;
         this.exchangeContext = requireNonNull(exchangeContext, "exchangeContext is null");
         this.outputPartitionCount = outputPartitionCount;
         this.secretKey = requireNonNull(secretKey, "secretKey is null");
@@ -251,11 +254,14 @@ public class FileSystemExchange
     private URI getTaskOutputDirectory(int taskPartitionId)
     {
         URI baseDirectory = baseDirectories.get(taskPartitionId % baseDirectories.size());
-        String randomizedPrefix = randomizedPrefixes.computeIfAbsent(taskPartitionId, ignored -> UUID.randomUUID().toString().split("-")[0]);
+        Integer prefixGroupId = prefixGroupIds.computeIfAbsent(taskPartitionId, ignored -> ThreadLocalRandom.current().nextInt(exchangePrefixGroups));
 
-        // Add a randomized prefix to evenly distribute data into different S3 shards
-        // Data output file path format: {randomizedPrefix}.{queryId}.{stageId}.{sinkPartitionId}/{attemptId}/{sourcePartitionId}_{splitId}.data
-        return baseDirectory.resolve(randomizedPrefix + "." + exchangeContext.getQueryId() + "." + exchangeContext.getExchangeId() + "." + taskPartitionId + PATH_SEPARATOR);
+        // Evenly distribute data into different prefix groups
+        // Data output file path format: {prefixGroupId}/{queryId}.{stageId}/{sinkPartitionId}/{attemptId}/{sourcePartitionId}_{splitId}.data
+        return baseDirectory
+                .resolve(prefixGroupId + PATH_SEPARATOR)
+                .resolve(exchangeContext.getQueryId() + "." + exchangeContext.getExchangeId() + PATH_SEPARATOR)
+                .resolve(taskPartitionId + PATH_SEPARATOR);
     }
 
     @Override
