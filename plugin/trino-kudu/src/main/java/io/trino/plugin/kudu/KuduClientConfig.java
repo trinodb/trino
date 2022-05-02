@@ -26,7 +26,6 @@ import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
 
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 import static java.util.concurrent.TimeUnit.MINUTES;
 
@@ -39,8 +38,8 @@ public class KuduClientConfig
     private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
 
     private List<String> masterAddresses = ImmutableList.of();
-    private Duration defaultAdminOperationTimeout = new Duration(30, TimeUnit.SECONDS);
-    private Duration defaultOperationTimeout = new Duration(30, TimeUnit.SECONDS);
+    private Duration defaultAdminOperationTimeout = new Duration(1, MINUTES);
+    private Duration defaultOperationTimeout = new Duration(1, MINUTES);
     private boolean disableStatistics;
     private boolean schemaEmulationEnabled;
     private String schemaEmulationPrefix = "presto::";

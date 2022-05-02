@@ -32,8 +32,8 @@ public class TestKuduClientConfig
     {
         assertRecordedDefaults(recordDefaults(KuduClientConfig.class)
                 .setMasterAddresses("")
-                .setDefaultAdminOperationTimeout(new Duration(30, SECONDS))
-                .setDefaultOperationTimeout(new Duration(30, SECONDS))
+                .setDefaultAdminOperationTimeout(new Duration(1, MINUTES))
+                .setDefaultOperationTimeout(new Duration(1, MINUTES))
                 .setDisableStatistics(false)
                 .setSchemaEmulationEnabled(false)
                 .setSchemaEmulationPrefix("presto::")
@@ -46,8 +46,8 @@ public class TestKuduClientConfig
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("kudu.client.master-addresses", "localhost")
-                .put("kudu.client.default-admin-operation-timeout", "1m")
-                .put("kudu.client.default-operation-timeout", "5m")
+                .put("kudu.client.default-admin-operation-timeout", "30s")
+                .put("kudu.client.default-operation-timeout", "30s")
                 .put("kudu.client.disable-statistics", "true")
                 .put("kudu.schema-emulation.enabled", "true")
                 .put("kudu.schema-emulation.prefix", "trino::")
@@ -57,8 +57,8 @@ public class TestKuduClientConfig
 
         KuduClientConfig expected = new KuduClientConfig()
                 .setMasterAddresses("localhost")
-                .setDefaultAdminOperationTimeout(new Duration(1, MINUTES))
-                .setDefaultOperationTimeout(new Duration(5, MINUTES))
+                .setDefaultAdminOperationTimeout(new Duration(30, SECONDS))
+                .setDefaultOperationTimeout(new Duration(30, SECONDS))
                 .setDisableStatistics(true)
                 .setSchemaEmulationEnabled(true)
                 .setSchemaEmulationPrefix("trino::")
