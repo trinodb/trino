@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.redis;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
@@ -46,12 +45,6 @@ public final class RedisQueryRunner
 
     private static final Logger log = Logger.get(RedisQueryRunner.class);
     private static final String TPCH_SCHEMA = "tpch";
-
-    public static DistributedQueryRunner createRedisQueryRunner(RedisServer redisServer, String dataFormat, TpchTable<?>... tables)
-            throws Exception
-    {
-        return createRedisQueryRunner(redisServer, ImmutableMap.of(), dataFormat, ImmutableList.copyOf(tables));
-    }
 
     public static DistributedQueryRunner createRedisQueryRunner(
             RedisServer redisServer,
