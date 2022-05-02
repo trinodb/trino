@@ -1587,19 +1587,19 @@ public class TestIcebergSparkCompatibility
     }
 
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
-    public void testOptimizeFailsOnV2IcebergTable()
+    public void testOptimizeOnV2IcebergTable()
     {
-        String tableName = format("test_optimize_fails_on_v2_iceberg_table_%s", randomTableSuffix());
+        String tableName = format("test_optimize_on_v2_iceberg_table_%s", randomTableSuffix());
         String sparkTableName = sparkTableName(tableName);
         String trinoTableName = trinoTableName(tableName);
-
         onSpark().executeQuery("CREATE TABLE " + sparkTableName + "(a INT, b INT) " +
                 "USING ICEBERG PARTITIONED BY (b) " +
                 "TBLPROPERTIES ('format-version'='2', 'write.delete.mode'='merge-on-read')");
         onSpark().executeQuery("INSERT INTO " + sparkTableName + " VALUES (1, 2), (2, 2), (3, 2), (11, 12), (12, 12), (13, 12)");
+        onTrino().executeQuery(format("ALTER TABLE %s EXECUTE OPTIMIZE", trinoTableName));
 
-        assertQueryFailure(() -> onTrino().executeQuery(format("ALTER TABLE %s EXECUTE OPTIMIZE", trinoTableName)))
-                .hasMessageContaining("is not supported for Iceberg table format version > 1");
+        assertThat(onSpark().executeQuery("SELECT * FROM " + sparkTableName))
+                .containsOnly(row(1, 2), row(2, 2), row(3, 2), row(11, 12), row(12, 12), row(13, 12));
     }
 
     private static String escapeSparkString(String value)
@@ -1742,15 +1742,15 @@ public class TestIcebergSparkCompatibility
         onTrino().executeQuery("DROP TABLE " + trinoTableName);
     }
 
-    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormats")
-    public void testSparkReadsTrinoTableAfterOptimizeAndCleaningUp(StorageFormat storageFormat)
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormatsWithSpecVersion")
+    public void testSparkReadsTrinoTableAfterOptimizeAndCleaningUp(StorageFormat storageFormat, int specVersion)
     {
         String baseTableName = "test_spark_reads_trino_partitioned_table_after_expiring_snapshots_after_optimize" + storageFormat;
         String trinoTableName = trinoTableName(baseTableName);
         String sparkTableName = sparkTableName(baseTableName);
         onTrino().executeQuery("DROP TABLE IF EXISTS " + trinoTableName);
 
-        onTrino().executeQuery(format("CREATE TABLE %s (_string VARCHAR, _bigint BIGINT) WITH (partitioning = ARRAY['_string'], format = '%s', format_version = 1)", trinoTableName, storageFormat));
+        onTrino().executeQuery(format("CREATE TABLE %s (_string VARCHAR, _bigint BIGINT) WITH (partitioning = ARRAY['_string'], format = '%s', format_version = %s)", trinoTableName, storageFormat, specVersion));
         // separate inserts give us snapshot per insert
         onTrino().executeQuery(format("INSERT INTO %s VALUES ('a', 1001)", trinoTableName));
         onTrino().executeQuery(format("INSERT INTO %s VALUES ('a', 1002)", trinoTableName));
@@ -1786,15 +1786,15 @@ public class TestIcebergSparkCompatibility
         onTrino().executeQuery("DROP TABLE " + trinoTableName);
     }
 
-    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormats")
-    public void testTrinoReadsTrinoTableWithSparkDeletesAfterOptimizeAndCleanUp(StorageFormat storageFormat)
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormatsWithSpecVersion")
+    public void testTrinoReadsTrinoTableWithSparkDeletesAfterOptimizeAndCleanUp(StorageFormat storageFormat, int specVersion)
     {
         String baseTableName = "test_spark_reads_trino_partitioned_table_with_deletes_after_expiring_snapshots_after_optimize" + storageFormat;
         String trinoTableName = trinoTableName(baseTableName);
         String sparkTableName = sparkTableName(baseTableName);
         onTrino().executeQuery("DROP TABLE IF EXISTS " + trinoTableName);
 
-        onTrino().executeQuery(format("CREATE TABLE %s (_string VARCHAR, _bigint BIGINT) WITH (partitioning = ARRAY['_string'], format = '%s', format_version = 1)", trinoTableName, storageFormat));
+        onTrino().executeQuery(format("CREATE TABLE %s (_string VARCHAR, _bigint BIGINT) WITH (partitioning = ARRAY['_string'], format = '%s', format_version = %s)", trinoTableName, storageFormat, specVersion));
         // separate inserts give us snapshot per insert
         onTrino().executeQuery(format("INSERT INTO %s VALUES ('a', 1001)", trinoTableName));
         onTrino().executeQuery(format("INSERT INTO %s VALUES ('a', 1002)", trinoTableName));
