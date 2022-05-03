@@ -251,12 +251,21 @@ The following table properties can be updated after a table is created:
 
 * ``format``
 * ``format_version``
+* ``partitioning``
 
 For example, to update a table from v1 of the Iceberg specification to v2:
 
 .. code-block:: sql
 
     ALTER TABLE table_name SET PROPERTIES format_version = 2;
+
+Or to set the column ``my_new_partition_column`` as a partition column on a table:
+
+.. code-block:: sql
+
+    ALTER TABLE table_name SET PROPERTIES partitioning = ARRAY[<existing partition columns>, 'my_new_partition_column'];
+
+The current values of a table's properties can be shown using :doc:`SHOW CREATE TABLE </sql/show-create-table>`.
 
 .. _iceberg-type-mapping:
 

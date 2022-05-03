@@ -103,8 +103,11 @@ import org.apache.iceberg.Table;
 import org.apache.iceberg.TableProperties;
 import org.apache.iceberg.TableScan;
 import org.apache.iceberg.Transaction;
+import org.apache.iceberg.UpdatePartitionSpec;
 import org.apache.iceberg.UpdateProperties;
 import org.apache.iceberg.exceptions.ValidationException;
+import org.apache.iceberg.expressions.Expressions;
+import org.apache.iceberg.expressions.Term;
 import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types;
@@ -207,6 +210,7 @@ public class IcebergMetadata
     private static final int OPTIMIZE_MAX_SUPPORTED_TABLE_VERSION = 1;
     private static final int CLEANING_UP_PROCEDURES_MAX_SUPPORTED_TABLE_VERSION = 2;
     private static final String RETENTION_THRESHOLD = "retention_threshold";
+    public static final Set<String> UPDATABLE_TABLE_PROPERTIES = ImmutableSet.of(FILE_FORMAT_PROPERTY, FORMAT_VERSION_PROPERTY, PARTITIONING_PROPERTY);
 
     private final TypeManager typeManager;
     private final JsonCodec<CommitTaskData> commitTaskCodec;
@@ -1161,29 +1165,42 @@ public class IcebergMetadata
         IcebergTableHandle table = (IcebergTableHandle) tableHandle;
         BaseTable icebergTable = (BaseTable) catalog.loadTable(session, table.getSchemaTableName());
 
+        Set<String> unsupportedProperties = Sets.difference(properties.keySet(), UPDATABLE_TABLE_PROPERTIES);
+        if (!unsupportedProperties.isEmpty()) {
+            throw new TrinoException(NOT_SUPPORTED, "The following properties cannot be updated: " + String.join(", ", unsupportedProperties));
+        }
+
         transaction = icebergTable.newTransaction();
         UpdateProperties updateProperties = transaction.updateProperties();
 
-        for (Map.Entry<String, Optional<Object>> propertyEntry : properties.entrySet()) {
-            String trinoPropertyName = propertyEntry.getKey();
-            Optional<Object> propertyValue = propertyEntry.getValue();
+        if (properties.containsKey(FILE_FORMAT_PROPERTY)) {
+            IcebergFileFormat fileFormat = (IcebergFileFormat) properties.get(FILE_FORMAT_PROPERTY)
+                    .orElseThrow(() -> new IllegalArgumentException("The format property cannot be empty"));
+            updateProperties.defaultFormat(fileFormat.toIceberg());
+        }
 
-            switch (trinoPropertyName) {
-                case FILE_FORMAT_PROPERTY:
-                    updateProperties.defaultFormat(((IcebergFileFormat) propertyValue.orElseThrow()).toIceberg());
-                    break;
-                case FORMAT_VERSION_PROPERTY:
-                    // UpdateProperties#commit will trigger any necessary metadata updates required for the new spec version
-                    updateProperty(updateProperties, FORMAT_VERSION, propertyValue, formatVersion -> Integer.toString((int) formatVersion));
-                    break;
-                default:
-                    // TODO: Support updating partitioning https://github.com/trinodb/trino/issues/12174
-                    throw new TrinoException(NOT_SUPPORTED, "Updating the " + trinoPropertyName + " property is not supported");
-            }
+        if (properties.containsKey(FORMAT_VERSION_PROPERTY)) {
+            // UpdateProperties#commit will trigger any necessary metadata updates required for the new spec version
+            int formatVersion = (int) properties.get(FORMAT_VERSION_PROPERTY)
+                    .orElseThrow(() -> new IllegalArgumentException("The format_version property cannot be empty"));
+            updateProperties.set(FORMAT_VERSION, Integer.toString((int) formatVersion));
         }
 
         try {
             updateProperties.commit();
+        }
+        catch (RuntimeException e) {
+            throw new TrinoException(ICEBERG_COMMIT_ERROR, "Failed to set new property values", e);
+        }
+
+        if (properties.containsKey(PARTITIONING_PROPERTY)) {
+            @SuppressWarnings("unchecked")
+            List<String> partitionColumns = (List<String>) properties.get(PARTITIONING_PROPERTY)
+                    .orElseThrow(() -> new IllegalArgumentException("The partitioning property cannot be empty"));
+            updatePartitioning(icebergTable, transaction, partitionColumns);
+        }
+
+        try {
             transaction.commitTransaction();
         }
         catch (RuntimeException e) {
@@ -1191,14 +1208,35 @@ public class IcebergMetadata
         }
     }
 
-    private static void updateProperty(UpdateProperties updateProperties, String icebergPropertyName, Optional<Object> value, Function<Object, String> toIcebergString)
+    private static void updatePartitioning(Table icebergTable, Transaction transaction, List<String> partitionColumns)
     {
-        if (value.isPresent()) {
-            updateProperties.set(icebergPropertyName, toIcebergString.apply(value.get()));
+        UpdatePartitionSpec updatePartitionSpec = transaction.updateSpec();
+        Set<PartitionField> existingPartitionFields = icebergTable.spec().fields().stream().collect(toImmutableSet());
+        Schema schema = icebergTable.schema();
+        if (partitionColumns.isEmpty()) {
+            existingPartitionFields.stream()
+                    .map(partitionField -> toIcebergTerm(schema, partitionField))
+                    .forEach(updatePartitionSpec::removeField);
         }
         else {
-            updateProperties.remove(icebergPropertyName);
+            Set<PartitionField> partitionFields = ImmutableSet.copyOf(parsePartitionFields(schema, partitionColumns).fields());
+            Sets.difference(existingPartitionFields, partitionFields).forEach(partitionField -> updatePartitionSpec.removeField(partitionField.name()));
+            Sets.difference(partitionFields, existingPartitionFields).stream()
+                    .map(partitionField -> toIcebergTerm(schema, partitionField))
+                    .forEach(updatePartitionSpec::addField);
         }
+
+        try {
+            updatePartitionSpec.commit();
+        }
+        catch (RuntimeException e) {
+            throw new TrinoException(ICEBERG_COMMIT_ERROR, "Failed to set new partitioning value", e);
+        }
+    }
+
+    private static Term toIcebergTerm(Schema schema, PartitionField partitionField)
+    {
+        return Expressions.transform(schema.findColumnName(partitionField.sourceId()), partitionField.transform());
     }
 
     @Override
