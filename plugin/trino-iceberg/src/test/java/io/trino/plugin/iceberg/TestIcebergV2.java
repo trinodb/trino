@@ -34,11 +34,13 @@ import io.trino.testing.QueryRunner;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.BaseTable;
+import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableOperations;
+import org.apache.iceberg.TableProperties;
 import org.apache.iceberg.data.GenericRecord;
 import org.apache.iceberg.data.Record;
 import org.apache.iceberg.data.parquet.GenericParquetWriter;
@@ -53,6 +55,7 @@ import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.util.List;
 import java.util.UUID;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
@@ -66,6 +69,7 @@ import static io.trino.tpch.TpchTable.NATION;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 public class TestIcebergV2
         extends AbstractTestQueryFramework
@@ -193,7 +197,7 @@ public class TestIcebergV2
         assertUpdate("CREATE TABLE " + tableName + " WITH (format_version = 2) AS SELECT * FROM tpch.tiny.nation", 25);
         assertEquals(loadTable(tableName).operations().current().formatVersion(), 2);
         assertThatThrownBy(() -> query("ALTER TABLE " + tableName + " SET PROPERTIES format_version = 1"))
-                .hasMessage("Failed to commit new table properties")
+                .hasMessage("Failed to set new property values")
                 .getRootCause()
                 .hasMessage("Cannot downgrade v2 table to v1");
     }
@@ -206,6 +210,50 @@ public class TestIcebergV2
         assertEquals(loadTable(tableName).operations().current().formatVersion(), 2);
         assertThatThrownBy(() -> query("ALTER TABLE " + tableName + " SET PROPERTIES format_version = 42"))
                 .hasMessage("Unable to set catalog 'iceberg' table property 'format_version' to [42]: format_version must be between 1 and 2");
+    }
+
+    @Test
+    public void testUpdatingAllTableProperties()
+    {
+        String tableName = "test_updating_all_table_properties_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " WITH (format_version = 1, format = 'ORC') AS SELECT * FROM tpch.tiny.nation", 25);
+        BaseTable table = loadTable(tableName);
+        assertEquals(table.operations().current().formatVersion(), 1);
+        assertTrue(table.properties().get(TableProperties.DEFAULT_FILE_FORMAT).equalsIgnoreCase("ORC"));
+        assertTrue(table.spec().isUnpartitioned());
+
+        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES format_version = 2, partitioning = ARRAY['regionkey'], format = 'PARQUET'");
+        table = loadTable(tableName);
+        assertEquals(table.operations().current().formatVersion(), 2);
+        assertTrue(table.properties().get(TableProperties.DEFAULT_FILE_FORMAT).equalsIgnoreCase("PARQUET"));
+        assertTrue(table.spec().isPartitioned());
+        List<PartitionField> partitionFields = table.spec().fields();
+        assertThat(partitionFields).hasSize(1);
+        assertEquals(partitionFields.get(0).name(), "regionkey");
+        assertTrue(partitionFields.get(0).transform().isIdentity());
+        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation");
+    }
+
+    @Test
+    public void testUnsettingAllTableProperties()
+    {
+        String tableName = "test_unsetting_all_table_properties_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " WITH (format_version = 1, format = 'PARQUET', partitioning = ARRAY['regionkey']) AS SELECT * FROM tpch.tiny.nation", 25);
+        BaseTable table = loadTable(tableName);
+        assertEquals(table.operations().current().formatVersion(), 1);
+        assertTrue(table.properties().get(TableProperties.DEFAULT_FILE_FORMAT).equalsIgnoreCase("PARQUET"));
+        assertTrue(table.spec().isPartitioned());
+        List<PartitionField> partitionFields = table.spec().fields();
+        assertThat(partitionFields).hasSize(1);
+        assertEquals(partitionFields.get(0).name(), "regionkey");
+        assertTrue(partitionFields.get(0).transform().isIdentity());
+
+        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES format_version = DEFAULT, format = DEFAULT, partitioning = DEFAULT");
+        table = loadTable(tableName);
+        assertEquals(table.operations().current().formatVersion(), 2);
+        assertTrue(table.properties().get(TableProperties.DEFAULT_FILE_FORMAT).equalsIgnoreCase("ORC"));
+        assertTrue(table.spec().isUnpartitioned());
+        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation");
     }
 
     private void writeEqualityDeleteToNationTable(Table icebergTable)
