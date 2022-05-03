@@ -43,10 +43,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -65,6 +65,8 @@ public class FileSystemExchange
         implements Exchange
 {
     private static final Pattern PARTITION_FILE_NAME_PATTERN = Pattern.compile("(\\d+)_(\\d+)\\.data");
+    private static final char[] RANDOMIZED_PREFIX_ALPHABET = "abcdefghijklmnopqrstuvwzyz0123456789".toCharArray();
+    private static final int RANDOMIZED_PREFIX_LENGTH = 6;
 
     private final List<URI> baseDirectories;
     private final FileSystemExchangeStorage exchangeStorage;
@@ -251,7 +253,7 @@ public class FileSystemExchange
     private URI getTaskOutputDirectory(int taskPartitionId)
     {
         URI baseDirectory = baseDirectories.get(taskPartitionId % baseDirectories.size());
-        String randomizedPrefix = randomizedPrefixes.computeIfAbsent(taskPartitionId, ignored -> UUID.randomUUID().toString().split("-")[0]);
+        String randomizedPrefix = randomizedPrefixes.computeIfAbsent(taskPartitionId, ignored -> generateRandomizedPrefix());
 
         // Add a randomized prefix to evenly distribute data into different S3 shards
         // Data output file path format: {randomizedPrefix}.{queryId}.{stageId}.{sinkPartitionId}/{attemptId}/{sourcePartitionId}_{splitId}.data
@@ -310,5 +312,14 @@ public class FileSystemExchange
             futures.add(exchangeStorage.deleteRecursively(getTaskOutputDirectory(taskPartitionId)));
         }
         stats.getCloseExchange().record(Futures.allAsList(futures.build()));
+    }
+
+    private static String generateRandomizedPrefix()
+    {
+        char[] value = new char[RANDOMIZED_PREFIX_LENGTH];
+        for (int i = 0; i < value.length; i++) {
+            value[i] = RANDOMIZED_PREFIX_ALPHABET[ThreadLocalRandom.current().nextInt(RANDOMIZED_PREFIX_ALPHABET.length)];
+        }
+        return new String(value);
     }
 }
