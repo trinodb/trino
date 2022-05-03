@@ -260,7 +260,7 @@ public class SqlServerClient
             // 'table lock on bulk load' table option causes the bulk load processes on user-defined tables to obtain a bulk update lock
             // note: this is not a request to lock a table immediately
             String sql = format("EXEC sp_tableoption '%s', 'table lock on bulk load', '1'",
-                    quoted(table.getCatalogName(), table.getSchemaName(), table.getTemporaryTableName()));
+                    quoted(table.getCatalogName(), table.getSchemaName(), table.getTemporaryTableName().orElseGet(table::getTableName)));
             execute(connection, sql);
         }
         catch (SQLException e) {
