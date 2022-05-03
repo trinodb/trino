@@ -42,6 +42,7 @@ public class FileSystemExchangeConfig
     private int exchangeSinkBuffersPerPartition = 2;
     private DataSize exchangeSinkMaxFileSize = DataSize.of(1, GIGABYTE);
     private int exchangeSourceConcurrentReaders = 4;
+    private int maxOutputPartitionCount = 50;
 
     @NotNull
     @NotEmpty(message = "At least one base directory needs to be configured")
@@ -145,6 +146,19 @@ public class FileSystemExchangeConfig
     public FileSystemExchangeConfig setExchangeSourceConcurrentReaders(int exchangeSourceConcurrentReaders)
     {
         this.exchangeSourceConcurrentReaders = exchangeSourceConcurrentReaders;
+        return this;
+    }
+
+    @Min(1)
+    public int getMaxOutputPartitionCount()
+    {
+        return maxOutputPartitionCount;
+    }
+
+    @Config("exchange.max-output-partition-count")
+    public FileSystemExchangeConfig setMaxOutputPartitionCount(int maxOutputPartitionCount)
+    {
+        this.maxOutputPartitionCount = maxOutputPartitionCount;
         return this;
     }
 }

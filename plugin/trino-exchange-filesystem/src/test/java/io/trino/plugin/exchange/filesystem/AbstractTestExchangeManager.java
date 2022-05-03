@@ -41,9 +41,11 @@ import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.trino.plugin.exchange.filesystem.FileSystemExchangeErrorCode.MAX_OUTPUT_PARTITION_COUNT_EXCEEDED;
 import static io.trino.spi.exchange.ExchangeId.createRandomExchangeId;
 import static java.lang.Math.toIntExact;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public abstract class AbstractTestExchangeManager
 {
@@ -223,6 +225,14 @@ public abstract class AbstractTestExchangeManager
                 .containsExactlyInAnyOrder(smallPage, mediumPage, largePage, maxPage);
 
         exchange.close();
+    }
+
+    @Test
+    public void testMaxOutputPartitionCountCheck()
+    {
+        assertThatThrownBy(() -> exchangeManager.createExchange(new ExchangeContext(new QueryId("query"), createRandomExchangeId()), 51))
+                .hasMessageContaining("Max number of output partitions exceeded for exchange")
+                .hasFieldOrPropertyWithValue("errorCode", MAX_OUTPUT_PARTITION_COUNT_EXCEEDED.toErrorCode());
     }
 
     private void writeData(ExchangeSinkInstanceHandle handle, Multimap<Integer, String> data, boolean finish)
