@@ -46,6 +46,16 @@ memory availability. Supports the following values:
 * ``total-reservation-on-blocked-nodes`` - Kill the query currently using the
   most memory specifically on nodes that are now out of memory.
 
+``query.low-memory-killer.delay``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** :ref:`prop-type-duration`
+* **Default value:** ``5m``
+
+The amount of time a query is allowed to recover between running out of memory
+and being killed, if ``query.low-memory-killer.policy`` is set to
+``total-reservation`` or ``total-reservation-on-blocked-nodes``.
+
 ``query.max-execution-time``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -117,6 +127,16 @@ removed based on age.
 The minimal age of a query in the history before it is expired. An expired
 query is removed from the query history buffer and no longer available in
 the :doc:`/admin/web-interface`.
+
+``query.remote-task.max-error-duration``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** :ref:`prop-type-duration`
+* **Default value:** ``5m``
+
+Timeout value for remote tasks that fail to communicate with the
+coordinator. If the coordinator is unable to receive updates from a remote task
+before this value is reached, the coordinator treats the task as failed.
 
 ``retry-policy``
 ^^^^^^^^^^^^^^^^
