@@ -33,6 +33,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.LazyBlock;
 import io.trino.spi.block.LazyBlockLoader;
 import io.trino.spi.block.LongArrayBlock;
+import io.trino.spi.block.RowBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.type.Type;
@@ -288,6 +289,11 @@ public class OrcPageSource
         {
             return new PositionAdaptation();
         }
+
+        static ColumnAdaptation rowColumn(List<ColumnAdaptation> fields)
+        {
+            return new RowColumnAdaptation(fields);
+        }
     }
 
     private static class NullColumn
@@ -509,6 +515,28 @@ public class OrcPageSource
         {
             checkArgument(startRowId.isEmpty(), "startRowId should not be specified when using PositionAdaptation");
             return createRowNumberBlock(0, filePosition, sourcePage.getPositionCount());
+        }
+    }
+
+    private static class RowColumnAdaptation
+            implements ColumnAdaptation
+    {
+        private final List<ColumnAdaptation> fields;
+
+        public RowColumnAdaptation(List<ColumnAdaptation> fields)
+        {
+            this.fields = requireNonNull(fields, "fields is null");
+        }
+
+        @Override
+        public Block block(Page sourcePage, MaskDeletedRowsFunction maskDeletedRowsFunction, long filePosition, OptionalLong startRowId)
+        {
+            return RowBlock.fromFieldBlocks(
+                    sourcePage.getPositionCount(),
+                    Optional.empty(),
+                    fields.stream()
+                            .map(adaptation -> adaptation.block(sourcePage, maskDeletedRowsFunction, filePosition, startRowId))
+                            .toArray(Block[]::new));
         }
     }
 

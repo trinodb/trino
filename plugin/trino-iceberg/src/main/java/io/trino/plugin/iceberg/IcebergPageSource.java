@@ -259,7 +259,7 @@ public class IcebergPageSource
         }
 
         ColumnarRow rowIdColumns = ColumnarRow.toColumnarRow(page.getBlock(rowIdChannel));
-        positionDeleteSink.appendPage(new Page(rowIdColumns.getField(0)));
+        positionDeleteSink.appendPage(new Page(rowIdColumns.getField(1)));
 
         List<Types.NestedField> columns = schema.columns();
         Block[] fullPage = new Block[columns.size()];
@@ -271,7 +271,6 @@ public class IcebergPageSource
                 fullPage[targetChannel] = page.getBlock(columnChannelMapping.get(icebergIdToUpdatedColumnIndex.get(column.fieldId())));
             }
             else {
-                // Plus one because the first field is the row position column
                 fullPage[targetChannel] = rowIdColumns.getField(icebergIdToRowIdColumnIndex.get(column.fieldId()));
             }
         }

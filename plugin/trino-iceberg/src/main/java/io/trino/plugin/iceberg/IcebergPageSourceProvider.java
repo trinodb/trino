@@ -66,6 +66,7 @@ import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.EmptyPageSource;
+import io.trino.spi.connector.UpdatablePageSource;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.ConnectorIdentity;
@@ -82,6 +83,7 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hdfs.BlockMissingException;
 import org.apache.iceberg.FileScanTask;
+import org.apache.iceberg.MetadataColumns;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.Schema;
@@ -161,6 +163,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.UuidType.UUID;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -220,7 +223,7 @@ public class IcebergPageSourceProvider
             List<ColumnHandle> columns,
             DynamicFilter dynamicFilter)
     {
-        IcebergSplit split = (IcebergSplit) connectorSplit;
+        IcebergSplit icebergSplit = (IcebergSplit) connectorSplit;
         IcebergTableHandle table = (IcebergTableHandle) connectorTable;
 
         List<IcebergColumnHandle> icebergColumns = columns.stream()
@@ -229,45 +232,7 @@ public class IcebergPageSourceProvider
 
         HdfsContext hdfsContext = new HdfsContext(session);
         FileIO fileIO = fileIoProvider.createFileIo(hdfsContext, session.getQueryId());
-        FileScanTask dummyFileScanTask = new DummyFileScanTask(split.getPath(), split.getDeletes());
         Schema tableSchema = SchemaParser.fromJson(table.getTableSchemaJson());
-        // Creating a DeleteFilter with no requestedSchema ensures `deleteFilterRequiredSchema` is only columns needed by the filter.
-        List<IcebergColumnHandle> deleteFilterRequiredSchema = getColumns(new TrinoDeleteFilter(
-                        dummyFileScanTask,
-                        tableSchema,
-                        ImmutableList.of(),
-                        fileIO)
-                        .requiredSchema(),
-                typeManager);
-
-        PartitionSpec partitionSpec = PartitionSpecParser.fromJson(tableSchema, split.getPartitionSpecJson());
-        org.apache.iceberg.types.Type[] partitionColumnTypes = partitionSpec.fields().stream()
-                .map(field -> field.transform().getResultType(tableSchema.findType(field.sourceId())))
-                .toArray(org.apache.iceberg.types.Type[]::new);
-        PartitionData partitionData = PartitionData.fromJson(split.getPartitionDataJson(), partitionColumnTypes);
-        Map<Integer, Optional<String>> partitionKeys = getPartitionKeys(partitionData, partitionSpec);
-
-        List<IcebergColumnHandle> requiredColumns = new ArrayList<>(icebergColumns);
-        deleteFilterRequiredSchema.stream()
-                .filter(column -> !icebergColumns.contains(column))
-                .forEach(requiredColumns::add);
-        icebergColumns.stream()
-                .filter(IcebergColumnHandle::isUpdateRowIdColumn)
-                .findFirst().ifPresent(updateRowIdColumn -> {
-                    Set<Integer> alreadyRequiredColumnIds = requiredColumns.stream()
-                            .map(IcebergColumnHandle::getId)
-                            .collect(toImmutableSet());
-                    for (ColumnIdentity requiredColumnIdentity : updateRowIdColumn.getColumnIdentity().getChildren()) {
-                        if (!alreadyRequiredColumnIds.contains(requiredColumnIdentity.getId())) {
-                            if (requiredColumnIdentity.getId() == ROW_POSITION.fieldId()) {
-                                requiredColumns.add(new IcebergColumnHandle(requiredColumnIdentity, BIGINT, ImmutableList.of(), BIGINT, Optional.empty()));
-                            }
-                            else {
-                                requiredColumns.add(getColumnHandle(tableSchema.findField(requiredColumnIdentity.getId()), typeManager));
-                            }
-                        }
-                    }
-                });
 
         TupleDomain<IcebergColumnHandle> effectivePredicate = table.getUnenforcedPredicate()
                 .intersect(dynamicFilter.getCurrentPredicate().transformKeys(IcebergColumnHandle.class::cast))
@@ -276,75 +241,126 @@ public class IcebergPageSourceProvider
             return new EmptyPageSource();
         }
 
-        ReaderPageSource dataPageSource = createDataPageSource(
-                session,
-                hdfsContext,
-                new Path(split.getPath()),
-                split.getStart(),
-                split.getLength(),
-                split.getFileSize(),
-                split.getFileFormat(),
-                requiredColumns,
-                effectivePredicate,
-                table.getNameMappingJson().map(NameMappingParser::fromJson),
-                partitionKeys);
+        if (icebergSplit.getEntries().isEmpty()) {
+            return new EmptyPageSource();
+        }
 
-        Optional<ReaderProjectionsAdapter> projectionsAdapter = dataPageSource.getReaderColumns().map(readerColumns ->
-                new ReaderProjectionsAdapter(
-                        requiredColumns,
-                        readerColumns,
-                        column -> ((IcebergColumnHandle) column).getType(),
-                        IcebergPageSourceProvider::applyProjection));
+        ImmutableMap.Builder<String, UpdatablePageSource> pageSourcesByPath = ImmutableMap.builder();
+        for (IcebergSplit.Entry split : icebergSplit.getEntries()) {
+            FileScanTask dummyFileScanTask = new DummyFileScanTask(split.getPath(), split.getDeletes());
+            // Creating a DeleteFilter with no requestedSchema ensures `deleteFilterRequiredSchema` is only columns needed by the filter.
+            List<IcebergColumnHandle> deleteFilterRequiredSchema = getColumns(new TrinoDeleteFilter(
+                            dummyFileScanTask,
+                            tableSchema,
+                            ImmutableList.of(),
+                            fileIO)
+                            .requiredSchema(),
+                    typeManager);
 
-        List<IcebergColumnHandle> readColumns = dataPageSource.getReaderColumns()
-                .map(readerColumns -> readerColumns.get().stream().map(IcebergColumnHandle.class::cast).collect(toList()))
-                .orElse(requiredColumns);
-        DeleteFilter<TrinoRow> deleteFilter = new TrinoDeleteFilter(
-                dummyFileScanTask,
-                tableSchema,
-                readColumns,
-                fileIO);
+            PartitionSpec partitionSpec = PartitionSpecParser.fromJson(tableSchema, split.getPartitionSpecJson());
+            org.apache.iceberg.types.Type[] partitionColumnTypes = partitionSpec.fields().stream()
+                    .map(field -> field.transform().getResultType(tableSchema.findType(field.sourceId())))
+                    .toArray(org.apache.iceberg.types.Type[]::new);
+            PartitionData partitionData = PartitionData.fromJson(split.getPartitionDataJson(), partitionColumnTypes);
+            Map<Integer, Optional<String>> partitionKeys = getPartitionKeys(partitionData, partitionSpec);
 
-        Optional<PartitionData> partition = partitionSpec.isUnpartitioned() ? Optional.empty() : Optional.of(partitionData);
-        LocationProvider locationProvider = getLocationProvider(table.getSchemaTableName(), table.getTableLocation(), table.getStorageProperties());
-        Supplier<IcebergPositionDeletePageSink> positionDeleteSink = () -> new IcebergPositionDeletePageSink(
-                split.getPath(),
-                partitionSpec,
-                partition,
-                locationProvider,
-                fileWriterFactory,
-                hdfsEnvironment,
-                hdfsContext,
-                jsonCodec,
-                session,
-                split.getFileFormat());
+            List<IcebergColumnHandle> requiredColumns = new ArrayList<>(icebergColumns);
+            deleteFilterRequiredSchema.stream()
+                    .filter(column -> !icebergColumns.contains(column))
+                    .forEach(requiredColumns::add);
+            icebergColumns.stream()
+                    .filter(IcebergColumnHandle::isUpdateRowIdColumn)
+                    .findFirst().ifPresent(updateRowIdColumn -> {
+                        Set<Integer> alreadyRequiredColumnIds = requiredColumns.stream()
+                                .map(IcebergColumnHandle::getId)
+                                .collect(toImmutableSet());
+                        for (ColumnIdentity requiredColumnIdentity : updateRowIdColumn.getColumnIdentity().getChildren()) {
+                            if (!alreadyRequiredColumnIds.contains(requiredColumnIdentity.getId())) {
+                                if (requiredColumnIdentity.getId() == ROW_POSITION.fieldId()) {
+                                    requiredColumns.add(new IcebergColumnHandle(requiredColumnIdentity, BIGINT, ImmutableList.of(), BIGINT, Optional.empty()));
+                                }
+                                else if (requiredColumnIdentity.getId() == MetadataColumns.FILE_PATH.fieldId()) {
+                                    requiredColumns.add(new IcebergColumnHandle(requiredColumnIdentity, VARCHAR, ImmutableList.of(), VARCHAR, Optional.empty()));
+                                }
+                                else {
+                                    requiredColumns.add(getColumnHandle(tableSchema.findField(requiredColumnIdentity.getId()), typeManager));
+                                }
+                            }
+                        }
+                    });
 
-        Supplier<IcebergPageSink> updatedRowPageSinkSupplier = () -> new IcebergPageSink(
-                tableSchema,
-                PartitionSpecParser.fromJson(tableSchema, table.getPartitionSpecJson()),
-                locationProvider,
-                fileWriterFactory,
-                pageIndexerFactory,
-                hdfsEnvironment,
-                hdfsContext,
-                tableSchema.columns().stream().map(column -> getColumnHandle(column, typeManager)).collect(toImmutableList()),
-                jsonCodec,
-                session,
-                split.getFileFormat(),
-                table.getStorageProperties(),
-                maxOpenPartitions);
+            ReaderPageSource dataPageSource = createDataPageSource(
+                    session,
+                    hdfsContext,
+                    new Path(split.getPath()),
+                    split.getStart(),
+                    split.getLength(),
+                    split.getFileSize(),
+                    split.getFileFormat(),
+                    requiredColumns,
+                    effectivePredicate,
+                    table.getNameMappingJson().map(NameMappingParser::fromJson),
+                    partitionKeys);
 
-        return new IcebergPageSource(
-                tableSchema,
-                icebergColumns,
-                requiredColumns,
-                readColumns,
-                dataPageSource.get(),
-                projectionsAdapter,
-                Optional.of(deleteFilter).filter(filter -> filter.hasPosDeletes() || filter.hasEqDeletes()),
-                positionDeleteSink,
-                updatedRowPageSinkSupplier,
-                table.getUpdatedColumns());
+            Optional<ReaderProjectionsAdapter> projectionsAdapter = dataPageSource.getReaderColumns().map(readerColumns ->
+                    new ReaderProjectionsAdapter(
+                            requiredColumns,
+                            readerColumns,
+                            column -> ((IcebergColumnHandle) column).getType(),
+                            IcebergPageSourceProvider::applyProjection));
+
+            List<IcebergColumnHandle> readColumns = dataPageSource.getReaderColumns()
+                    .map(readerColumns -> readerColumns.get().stream().map(IcebergColumnHandle.class::cast).collect(toList()))
+                    .orElse(requiredColumns);
+            DeleteFilter<TrinoRow> deleteFilter = new TrinoDeleteFilter(
+                    dummyFileScanTask,
+                    tableSchema,
+                    readColumns,
+                    fileIO);
+
+            Optional<PartitionData> partition = partitionSpec.isUnpartitioned() ? Optional.empty() : Optional.of(partitionData);
+            LocationProvider locationProvider = getLocationProvider(table.getSchemaTableName(), table.getTableLocation(), table.getStorageProperties());
+            Supplier<IcebergPositionDeletePageSink> positionDeleteSink = () -> new IcebergPositionDeletePageSink(
+                    split.getPath(),
+                    partitionSpec,
+                    partition,
+                    locationProvider,
+                    fileWriterFactory,
+                    hdfsEnvironment,
+                    hdfsContext,
+                    jsonCodec,
+                    session,
+                    split.getFileFormat());
+
+            Supplier<IcebergPageSink> updatedRowPageSinkSupplier = () -> new IcebergPageSink(
+                    tableSchema,
+                    PartitionSpecParser.fromJson(tableSchema, table.getPartitionSpecJson()),
+                    locationProvider,
+                    fileWriterFactory,
+                    pageIndexerFactory,
+                    hdfsEnvironment,
+                    hdfsContext,
+                    tableSchema.columns().stream().map(column -> getColumnHandle(column, typeManager)).collect(toImmutableList()),
+                    jsonCodec,
+                    session,
+                    split.getFileFormat(),
+                    table.getStorageProperties(),
+                    maxOpenPartitions);
+
+            pageSourcesByPath.put(split.getPath(), new IcebergPageSource(
+                    tableSchema,
+                    icebergColumns,
+                    requiredColumns,
+                    readColumns,
+                    dataPageSource.get(),
+                    projectionsAdapter,
+                    Optional.of(deleteFilter).filter(filter -> filter.hasPosDeletes() || filter.hasEqDeletes()),
+                    positionDeleteSink,
+                    updatedRowPageSinkSupplier,
+                    table.getUpdatedColumns()));
+        }
+
+        return new IcebergCombinedPageSource(pageSourcesByPath.buildOrThrow());
     }
 
     private ReaderPageSource createDataPageSource(
@@ -494,6 +510,12 @@ public class IcebergPageSourceProvider
                 else if (column.isUpdateRowIdColumn()) {
                     // $row_id is a composite of multiple physical columns. It is assembled by the IcebergPageSource
                     columnAdaptations.add(ColumnAdaptation.nullColumn(column.getType()));
+                }
+                else if (column.isDeleteRowIdColumn()) {
+                    columnAdaptations.add(ColumnAdaptation.rowColumn(
+                            ImmutableList.of(
+                                    ColumnAdaptation.constantColumn(nativeValueToBlock(FILE_PATH.getType(), utf8Slice(path.toString()))),
+                                    ColumnAdaptation.positionColumn())));
                 }
                 else if (column.isRowPositionColumn()) {
                     columnAdaptations.add(ColumnAdaptation.positionColumn());
@@ -694,7 +716,7 @@ public class IcebergPageSourceProvider
 
             ImmutableMap.Builder<Integer, Map<String, Integer>> mapping = ImmutableMap.builder();
             for (IcebergColumnHandle column : columns) {
-                if (column.isUpdateRowIdColumn()) {
+                if (column.isUpdateRowIdColumn() || column.isDeleteRowIdColumn()) {
                     // The update $row_id column contains fields which should not be accounted for in the mapping.
                     continue;
                 }
@@ -856,6 +878,13 @@ public class IcebergPageSourceProvider
                     internalFields.add(Optional.empty());
                     rowIndexChannels.add(false);
                     constantPopulatingPageSourceBuilder.addDelegateColumn(parquetSourceChannel);
+                    parquetSourceChannel++;
+                }
+                else if (column.isDeleteRowIdColumn()) {
+                    trinoTypes.add(BIGINT);
+                    internalFields.add(Optional.empty());
+                    rowIndexChannels.add(true);
+                    constantPopulatingPageSourceBuilder.addDeleteRowIdColumn(nativeValueToBlock(FILE_PATH.getType(), utf8Slice(path.toString())), parquetSourceChannel);
                     parquetSourceChannel++;
                 }
                 else if (column.isRowPositionColumn()) {

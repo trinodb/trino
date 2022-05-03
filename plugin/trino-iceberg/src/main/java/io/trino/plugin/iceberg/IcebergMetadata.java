@@ -90,6 +90,7 @@ import org.apache.iceberg.FileMetadata;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.IsolationLevel;
 import org.apache.iceberg.ManifestFile;
+import org.apache.iceberg.MetadataColumns;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
@@ -147,6 +148,8 @@ import static io.trino.plugin.hive.HiveApplyProjectionUtil.extractSupportedProje
 import static io.trino.plugin.hive.HiveApplyProjectionUtil.replaceWithNewVariables;
 import static io.trino.plugin.hive.util.HiveUtil.isStructuralType;
 import static io.trino.plugin.iceberg.ExpressionConverter.toIcebergExpression;
+import static io.trino.plugin.iceberg.IcebergColumnHandle.TRINO_DELETE_ROW_ID_COLUMN_ID;
+import static io.trino.plugin.iceberg.IcebergColumnHandle.TRINO_DELETE_ROW_ID_COLUMN_NAME;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.TRINO_UPDATE_ROW_ID_COLUMN_ID;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.TRINO_UPDATE_ROW_ID_COLUMN_NAME;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.pathColumnHandle;
@@ -188,7 +191,6 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.joining;
-import static org.apache.iceberg.MetadataColumns.ROW_POSITION;
 import static org.apache.iceberg.ReachableFileUtil.metadataFileLocations;
 import static org.apache.iceberg.ReachableFileUtil.versionHintLocation;
 import static org.apache.iceberg.SnapshotSummary.DELETED_RECORDS_PROP;
@@ -1291,7 +1293,15 @@ public class IcebergMetadata
     @Override
     public ColumnHandle getDeleteRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        return IcebergUtil.getColumnHandle(ROW_POSITION, typeManager);
+        List<Types.NestedField> fields = ImmutableList.<Types.NestedField>builder()
+                .add(MetadataColumns.FILE_PATH)
+                .add(MetadataColumns.ROW_POSITION)
+                .build();
+        Types.NestedField icebergRowIdField = Types.NestedField.required(
+                TRINO_DELETE_ROW_ID_COLUMN_ID,
+                TRINO_DELETE_ROW_ID_COLUMN_NAME,
+                Types.StructType.of(fields));
+        return getColumnHandle(icebergRowIdField, typeManager);
     }
 
     @Override
@@ -1319,7 +1329,8 @@ public class IcebergMetadata
     public ColumnHandle getUpdateRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> updatedColumns)
     {
         List<Types.NestedField> unmodifiedColumns = new ArrayList<>();
-        unmodifiedColumns.add(ROW_POSITION);
+        unmodifiedColumns.add(MetadataColumns.FILE_PATH);
+        unmodifiedColumns.add(MetadataColumns.ROW_POSITION);
 
         // Include all the non-updated columns. These are needed when writing the new data file with updated column values.
         IcebergTableHandle table = (IcebergTableHandle) tableHandle;

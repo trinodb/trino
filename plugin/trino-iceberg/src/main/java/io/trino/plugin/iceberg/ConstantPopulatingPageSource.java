@@ -16,12 +16,14 @@ package io.trino.plugin.iceberg;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.RowBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.metrics.Metrics;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.concurrent.CompletableFuture;
 
@@ -34,12 +36,14 @@ public class ConstantPopulatingPageSource
     private final ConnectorPageSource delegate;
     private final Block[] constantColumns;
     private final int[] targetChannelToSourceChannel;
+    private final DeleteRowIdColumn[] deleteRowIdColumns;
 
-    private ConstantPopulatingPageSource(ConnectorPageSource delegate, Block[] constantColumns, int[] targetChannelToSourceChannel)
+    private ConstantPopulatingPageSource(ConnectorPageSource delegate, Block[] constantColumns, int[] targetChannelToSourceChannel, DeleteRowIdColumn[] deleteRowIdColumns)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
         this.constantColumns = requireNonNull(constantColumns, "constantColumns is null");
         this.targetChannelToSourceChannel = requireNonNull(targetChannelToSourceChannel, "targetChannelToSourceChannel is null");
+        this.deleteRowIdColumns = requireNonNull(deleteRowIdColumns, "deleteRowIdColumns is null");
     }
 
     @Override
@@ -79,8 +83,15 @@ public class ConstantPopulatingPageSource
         Block[] blocks = new Block[size];
         for (int targetChannel = 0; targetChannel < size; targetChannel++) {
             Block constantValue = constantColumns[targetChannel];
+            DeleteRowIdColumn deleteRowIdColumn = deleteRowIdColumns[targetChannel];
             if (constantValue != null) {
                 blocks[targetChannel] = new RunLengthEncodedBlock(constantValue, delegatePage.getPositionCount());
+            }
+            else if (deleteRowIdColumn != null) {
+                Block[] deleteRowIdFields = new Block[2];
+                deleteRowIdFields[0] = new RunLengthEncodedBlock(deleteRowIdColumn.getFilePathBlock(), delegatePage.getPositionCount());
+                deleteRowIdFields[1] = delegatePage.getBlock(deleteRowIdColumn.getRowNumberSourceChannel());
+                blocks[targetChannel] = RowBlock.fromFieldBlocks(delegatePage.getPositionCount(), Optional.empty(), deleteRowIdFields);
             }
             else {
                 blocks[targetChannel] = delegatePage.getBlock(targetChannelToSourceChannel[targetChannel]);
@@ -139,11 +150,18 @@ public class ConstantPopulatingPageSource
             return this;
         }
 
+        public Builder addDeleteRowIdColumn(Block pathValue, int rowNumberSourceChannel)
+        {
+            columns.add(new DeleteRowIdColumn(pathValue, rowNumberSourceChannel));
+            return this;
+        }
+
         public ConnectorPageSource build(ConnectorPageSource delegate)
         {
             List<ColumnType> columns = this.columns.build();
             Block[] constantValues = new Block[columns.size()];
             int[] delegateIndexes = new int[columns.size()];
+            DeleteRowIdColumn[] deleteRowIdColumns = new DeleteRowIdColumn[columns.size()];
 
             // If no constant columns are added and the delegate columns are in order, nothing to do
             boolean isRequired = false;
@@ -161,6 +179,10 @@ public class ConstantPopulatingPageSource
                         isRequired = true;
                     }
                 }
+                else if (column instanceof DeleteRowIdColumn) {
+                    deleteRowIdColumns[columnChannel] = (DeleteRowIdColumn) column;
+                    isRequired = true;
+                }
                 else {
                     throw new IllegalStateException("Unknown ConstantPopulatingPageSource ColumnType " + column);
                 }
@@ -170,7 +192,7 @@ public class ConstantPopulatingPageSource
                 return delegate;
             }
 
-            return new ConstantPopulatingPageSource(delegate, constantValues, delegateIndexes);
+            return new ConstantPopulatingPageSource(delegate, constantValues, delegateIndexes, deleteRowIdColumns);
         }
     }
 
@@ -206,6 +228,29 @@ public class ConstantPopulatingPageSource
         public int getSourceChannel()
         {
             return sourceChannel;
+        }
+    }
+
+    private static class DeleteRowIdColumn
+            implements ColumnType
+    {
+        private final Block filePathBlock;
+        private final int rowNumberSourceChannel;
+
+        private DeleteRowIdColumn(Block filePathBlock, int rowNumberSourceChannel)
+        {
+            this.filePathBlock = requireNonNull(filePathBlock, "filePathBlock is null");
+            this.rowNumberSourceChannel = rowNumberSourceChannel;
+        }
+
+        public Block getFilePathBlock()
+        {
+            return filePathBlock;
+        }
+
+        public int getRowNumberSourceChannel()
+        {
+            return rowNumberSourceChannel;
         }
     }
 }
