@@ -532,7 +532,7 @@ public abstract class BaseJdbcClient
                     columnNames.build(),
                     columnTypes.build(),
                     Optional.empty(),
-                    remoteTargetTableName);
+                    Optional.of(remoteTargetTableName));
         }
     }
 
@@ -582,7 +582,7 @@ public abstract class BaseJdbcClient
                         columnNames.build(),
                         columnTypes.build(),
                         Optional.of(jdbcColumnTypes.build()),
-                        remoteTable);
+                        Optional.empty());
             }
 
             String remoteTemporaryTableName = identifierMapping.toRemoteTableName(identity, connection, remoteSchema, generateTemporaryTableName());
@@ -595,7 +595,7 @@ public abstract class BaseJdbcClient
                     columnNames.build(),
                     columnTypes.build(),
                     Optional.of(jdbcColumnTypes.build()),
-                    remoteTemporaryTableName);
+                    Optional.of(remoteTemporaryTableName));
         }
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, e);
@@ -626,7 +626,7 @@ public abstract class BaseJdbcClient
                 session,
                 handle.getCatalogName(),
                 handle.getSchemaName(),
-                handle.getTemporaryTableName(),
+                handle.getTemporaryTableName().orElseThrow(() -> new IllegalStateException("Temporary table name missing")),
                 new SchemaTableName(handle.getSchemaName(), handle.getTableName()));
     }
 
@@ -659,14 +659,14 @@ public abstract class BaseJdbcClient
     public void finishInsertTable(ConnectorSession session, JdbcOutputTableHandle handle)
     {
         if (isNonTransactionalInsert(session)) {
-            checkState(handle.getTemporaryTableName().equals(handle.getTableName()), "Unexpected use of temporary table when non transactional inserts are enabled");
+            checkState(handle.getTemporaryTableName().isEmpty(), "Unexpected use of temporary table when non transactional inserts are enabled");
             return;
         }
 
         RemoteTableName temporaryTable = new RemoteTableName(
                 Optional.ofNullable(handle.getCatalogName()),
                 Optional.ofNullable(handle.getSchemaName()),
-                handle.getTemporaryTableName());
+                handle.getTemporaryTableName().orElseThrow());
         RemoteTableName targetTable = new RemoteTableName(
                 Optional.ofNullable(handle.getCatalogName()),
                 Optional.ofNullable(handle.getSchemaName()),
@@ -755,11 +755,13 @@ public abstract class BaseJdbcClient
     @Override
     public void rollbackCreateTable(ConnectorSession session, JdbcOutputTableHandle handle)
     {
-        dropTable(session, new JdbcTableHandle(
-                new SchemaTableName(handle.getSchemaName(), handle.getTemporaryTableName()),
-                handle.getCatalogName(),
-                handle.getSchemaName(),
-                handle.getTemporaryTableName()));
+        if (handle.getTemporaryTableName().isPresent()) {
+            dropTable(session, new JdbcTableHandle(
+                    new SchemaTableName(handle.getSchemaName(), handle.getTemporaryTableName().get()),
+                    handle.getCatalogName(),
+                    handle.getSchemaName(),
+                    handle.getTemporaryTableName().get()));
+        }
     }
 
     @Override
@@ -768,7 +770,7 @@ public abstract class BaseJdbcClient
         checkArgument(handle.getColumnNames().size() == columnWriters.size(), "handle and columnWriters mismatch: %s, %s", handle, columnWriters);
         return format(
                 "INSERT INTO %s (%s) VALUES (%s)",
-                quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTemporaryTableName()),
+                quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTemporaryTableName().orElseGet(handle::getTableName)),
                 handle.getColumnNames().stream()
                         .map(this::quoted)
                         .collect(joining(", ")),
