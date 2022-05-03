@@ -37,7 +37,8 @@ public class TestFileSystemExchangeConfig
                 .setExchangeSinkBufferPoolMinSize(10)
                 .setExchangeSinkBuffersPerPartition(2)
                 .setExchangeSinkMaxFileSize(DataSize.of(1, GIGABYTE))
-                .setExchangeSourceConcurrentReaders(4));
+                .setExchangeSourceConcurrentReaders(4)
+                .setMaxOutputPartitionCount(50));
     }
 
     @Test
@@ -51,6 +52,7 @@ public class TestFileSystemExchangeConfig
                 .put("exchange.sink-buffers-per-partition", "3")
                 .put("exchange.sink-max-file-size", "2GB")
                 .put("exchange.source-concurrent-readers", "10")
+                .put("exchange.max-output-partition-count", "53")
                 .buildOrThrow();
 
         FileSystemExchangeConfig expected = new FileSystemExchangeConfig()
@@ -60,7 +62,8 @@ public class TestFileSystemExchangeConfig
                 .setExchangeSinkBufferPoolMinSize(20)
                 .setExchangeSinkBuffersPerPartition(3)
                 .setExchangeSinkMaxFileSize(DataSize.of(2, GIGABYTE))
-                .setExchangeSourceConcurrentReaders(10);
+                .setExchangeSourceConcurrentReaders(10)
+                .setMaxOutputPartitionCount(53);
 
         assertFullMapping(properties, expected);
     }
