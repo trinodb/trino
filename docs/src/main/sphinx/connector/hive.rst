@@ -456,6 +456,18 @@ with Parquet files performed by the Hive connector.
         ``parquet_use_column_names``.
       - ``true``
 
+OpenX JSON format support
+-------------------------
+
+The connector supports reading and writing data to tables as JSON files, and use
+the OpenX JSON serialization and deserialization (serde) from the Java class
+``org.openx.data.jsonserde.JsonSerDe``.
+
+Existing tables using that serde and all the associated serde properties are
+handled automatically.
+
+The actual serde implementation is a fork of the original OpenX serde. It is
+updated to be compatible with the Hive 3 APIs.
 
 Metastore configuration properties
 ----------------------------------

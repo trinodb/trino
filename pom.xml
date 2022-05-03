@@ -66,6 +66,7 @@
         <dep.docker-java.version>3.2.12</dep.docker-java.version>
         <dep.coral.version>2.0.55</dep.coral.version>
         <dep.confluent.version>5.5.2</dep.confluent.version>
+        <dep.openx-serde.version>1.3.9-e.8</dep.openx-serde.version>
 
         <dep.docker.images.version>56</dep.docker.images.version>
 
@@ -171,6 +172,17 @@
         <module>testing/trino-testing-services</module>
         <module>testing/trino-tests</module>
     </modules>
+
+    <repositories>
+        <repository>
+            <id>Cloudera</id>
+            <name>Cloudera Maven Repo</name>
+            <url>https://repository.cloudera.com/artifactory/cloudera-repos/</url>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+        </repository>
+    </repositories>
 
     <dependencyManagement>
         <dependencies>
@@ -1224,9 +1236,28 @@
             </dependency>
 
             <dependency>
+                <groupId>com.sun.jersey</groupId>
+                <artifactId>jersey-client</artifactId>
+                <version>1.19.4</version>
+            </dependency>
+
+            <dependency>
                 <groupId>com.teradata</groupId>
                 <artifactId>re2j-td</artifactId>
                 <version>1.4</version>
+            </dependency>
+
+
+            <dependency>
+                <groupId>commons-io</groupId>
+                <artifactId>commons-io</artifactId>
+                <version>2.11.0</version>
+            </dependency>
+
+            <dependency>
+                <groupId>commons-logging</groupId>
+                <artifactId>commons-logging</artifactId>
+                <version>1.2</version>
             </dependency>
 
             <dependency>
@@ -1348,6 +1379,12 @@
             </dependency>
 
             <dependency>
+                <groupId>io.dropwizard.metrics</groupId>
+                <artifactId>metrics-core</artifactId>
+                <version>4.1.18</version>
+            </dependency>
+
+            <dependency>
                 <groupId>io.jsonwebtoken</groupId>
                 <artifactId>jjwt-api</artifactId>
                 <version>${dep.jsonwebtoken.version}</version>
@@ -1363,6 +1400,19 @@
                 <groupId>io.jsonwebtoken</groupId>
                 <artifactId>jjwt-jackson</artifactId>
                 <version>${dep.jsonwebtoken.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.starburst.openx.data</groupId>
+                <artifactId>json-serde</artifactId>
+                <version>${dep.openx-serde.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.starburst.openx.data</groupId>
+                <artifactId>json-serde</artifactId>
+                <version>${dep.openx-serde.version}</version>
+                <classifier>jar-with-dependencies</classifier>
             </dependency>
 
             <!-- io.confluent:kafka-avro-serializer uses multiple versions of this transitive dependency -->
@@ -1386,9 +1436,28 @@
             </dependency>
 
             <dependency>
+                <groupId>javax.el</groupId>
+                <artifactId>javax.el-api</artifactId>
+                <version>3.0.0</version>
+                <scope>test</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>javax.servlet</groupId>
+                <artifactId>servlet-api</artifactId>
+                <version>2.5</version>
+            </dependency>
+
+            <dependency>
                 <groupId>javax.xml.bind</groupId>
                 <artifactId>jaxb-api</artifactId>
                 <version>2.3.1</version>
+            </dependency>
+
+            <dependency>
+                <groupId>jline</groupId>
+                <artifactId>jline</artifactId>
+                <version>2.14.3</version>
             </dependency>
 
             <dependency>
@@ -1424,6 +1493,12 @@
             </dependency>
 
             <dependency>
+                <groupId>net.minidev</groupId>
+                <artifactId>json-smart</artifactId>
+                <version>2.4.7</version>
+            </dependency>
+
+            <dependency>
                 <groupId>net.sf.opencsv</groupId>
                 <artifactId>opencsv</artifactId>
                 <version>2.3</version>
@@ -1455,6 +1530,12 @@
 
             <dependency>
                 <groupId>org.antlr</groupId>
+                <artifactId>antlr-runtime</artifactId>
+                <version>3.5.2</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.antlr</groupId>
                 <artifactId>antlr4-runtime</artifactId>
                 <version>${dep.antlr.version}</version>
             </dependency>
@@ -1480,7 +1561,7 @@
             <dependency>
                 <groupId>org.apache.kafka</groupId>
                 <artifactId>kafka-clients</artifactId>
-                <version>2.4.1</version>
+                <version>2.5.1</version>
             </dependency>
 
             <dependency>
@@ -1544,9 +1625,27 @@
             </dependency>
 
             <dependency>
+                <groupId>org.codehaus.jackson</groupId>
+                <artifactId>jackson-core-asl</artifactId>
+                <version>1.9.13-cloudera.4</version>
+            </dependency>
+
+            <dependency>
                 <groupId>org.codehaus.plexus</groupId>
                 <artifactId>plexus-utils</artifactId>
                 <version>3.4.1</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.eclipse.jetty</groupId>
+                <artifactId>jetty-server</artifactId>
+                <version>9.4.44.v20210927</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.eclipse.jetty</groupId>
+                <artifactId>jetty-servlet</artifactId>
+                <version>9.4.44.v20210927</version>
             </dependency>
 
             <dependency>
@@ -1621,6 +1720,18 @@
             </dependency>
 
             <dependency>
+                <groupId>org.osgi</groupId>
+                <artifactId>org.osgi.compendium</artifactId>
+                <version>5.0.0</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.osgi</groupId>
+                <artifactId>org.osgi.core</artifactId>
+                <version>6.0.0</version>
+            </dependency>
+
+            <dependency>
                 <groupId>org.ow2.asm</groupId>
                 <artifactId>asm</artifactId>
                 <version>9.2</version>
@@ -1642,6 +1753,34 @@
                 <groupId>org.sonatype.aether</groupId>
                 <artifactId>aether-api</artifactId>
                 <version>1.13.1</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.springframework</groupId>
+                <artifactId>spring-aop</artifactId>
+                <version>5.3.13</version>
+                <scope>test</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>org.springframework</groupId>
+                <artifactId>spring-beans</artifactId>
+                <version>5.3.13</version>
+                <scope>test</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>org.springframework</groupId>
+                <artifactId>spring-context</artifactId>
+                <version>5.3.13</version>
+                <scope>test</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>org.springframework</groupId>
+                <artifactId>spring-core</artifactId>
+                <version>5.3.13</version>
+                <scope>test</scope>
             </dependency>
 
             <dependency>
