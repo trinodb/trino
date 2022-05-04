@@ -168,6 +168,7 @@ public class LocalFileSystemExchangeStorage
         private static final int INSTANCE_SIZE = ClassLayout.parseClass(LocalExchangeStorageReader.class).instanceSize();
 
         private final Queue<ExchangeSourceFile> sourceFiles;
+
         @GuardedBy("this")
         private InputStreamSliceInput sliceInput;
         @GuardedBy("this")
@@ -185,18 +186,19 @@ public class LocalFileSystemExchangeStorage
             if (closed) {
                 return null;
             }
+
             if (sliceInput != null && sliceInput.isReadable()) {
                 return sliceInput.readSlice(sliceInput.readInt());
             }
+
             ExchangeSourceFile sourceFile = sourceFiles.poll();
-            if (sourceFile != null) {
-                sliceInput = getSliceInput(sourceFile);
-                return sliceInput.readSlice(sliceInput.readInt());
-            }
-            else {
+            if (sourceFile == null) {
                 close();
+                return null;
             }
-            return null;
+
+            sliceInput = getSliceInput(sourceFile);
+            return sliceInput.readSlice(sliceInput.readInt());
         }
 
         @Override
