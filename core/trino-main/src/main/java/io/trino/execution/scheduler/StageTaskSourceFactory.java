@@ -713,8 +713,30 @@ public class StageTaskSourceFactory
 
             List<TaskDescriptor> result = new ArrayList<>();
 
-            while (true) {
-                boolean splitSourceFinished = splitSource.isFinished();
+            boolean splitSourceFinished = false;
+            while (result.isEmpty()) {
+                ListenableFuture<SplitBatch> splitBatchFuture = splitSource.getNextBatch(NOT_PARTITIONED, Lifespan.taskWide(), splitBatchSize);
+
+                long start = System.nanoTime();
+                addSuccessCallback(splitBatchFuture, () -> getSplitTimeRecorder.accept(start));
+
+                SplitBatch splitBatch = getFutureValue(splitBatchFuture);
+                List<Split> splits = splitBatch.getSplits();
+
+                for (Split split : splits) {
+                    if (split.isRemotelyAccessible()) {
+                        remotelyAccessibleSplitBuffer.add(split);
+                    }
+                    else {
+                        List<HostAddress> addresses = split.getAddresses();
+                        checkArgument(!addresses.isEmpty(), "split is not remotely accessible but the list of addresses is empty");
+                        for (HostAddress hostAddress : addresses) {
+                            locallyAccessibleSplitBuffer.computeIfAbsent(hostAddress, key -> newIdentityHashSet()).add(split);
+                        }
+                    }
+                }
+
+                splitSourceFinished = splitSource.isFinished();
 
                 result.addAll(getReadyTasks(
                         remotelyAccessibleSplitBuffer,
@@ -732,32 +754,12 @@ public class StageTaskSourceFactory
                             splitSourceFinished));
                 }
 
-                if (!result.isEmpty() || splitSourceFinished) {
+                if (splitSourceFinished) {
                     break;
-                }
-
-                ListenableFuture<SplitBatch> splitBatchFuture = splitSource.getNextBatch(NOT_PARTITIONED, Lifespan.taskWide(), splitBatchSize);
-
-                long start = System.nanoTime();
-                addSuccessCallback(splitBatchFuture, () -> getSplitTimeRecorder.accept(start));
-
-                List<Split> splits = getFutureValue(splitBatchFuture).getSplits();
-
-                for (Split split : splits) {
-                    if (split.isRemotelyAccessible()) {
-                        remotelyAccessibleSplitBuffer.add(split);
-                    }
-                    else {
-                        List<HostAddress> addresses = split.getAddresses();
-                        checkArgument(!addresses.isEmpty(), "split is not remotely accessible but the list of addresses is empty");
-                        for (HostAddress hostAddress : addresses) {
-                            locallyAccessibleSplitBuffer.computeIfAbsent(hostAddress, key -> newIdentityHashSet()).add(split);
-                        }
-                    }
                 }
             }
 
-            if (splitSource.isFinished()) {
+            if (splitSourceFinished) {
                 Optional<List<Object>> tableExecuteSplitsInfo = splitSource.getTableExecuteSplitsInfo();
 
                 // Here we assume that we can get non-empty tableExecuteSplitsInfo only for queries which facilitate single split source.
