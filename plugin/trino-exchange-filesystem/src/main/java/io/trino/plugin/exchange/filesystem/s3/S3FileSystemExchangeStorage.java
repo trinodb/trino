@@ -188,17 +188,15 @@ public class S3FileSystemExchangeStorage
     }
 
     @Override
-    public ListenableFuture<Void> deleteRecursively(URI uri)
+    public ListenableFuture<Void> deleteRecursively(URI dir)
     {
-        checkArgument(isDirectory(uri), "deleteRecursively called on file uri");
-
         ImmutableList.Builder<String> keys = ImmutableList.builder();
         return stats.getDeleteRecursively().record(transformFuture(Futures.transformAsync(
-                toListenableFuture((listObjectsRecursively(uri).subscribe(listObjectsV2Response ->
+                toListenableFuture((listObjectsRecursively(dir).subscribe(listObjectsV2Response ->
                         listObjectsV2Response.contents().stream().map(S3Object::key).forEach(keys::add)))),
                 ignored -> {
-                    keys.add(keyFromUri(uri) + DIRECTORY_SUFFIX);
-                    return deleteObjects(getBucketName(uri), keys.build());
+                    keys.add(keyFromUri(dir) + DIRECTORY_SUFFIX);
+                    return deleteObjects(getBucketName(dir), keys.build());
                 },
                 directExecutor())));
     }
@@ -293,6 +291,8 @@ public class S3FileSystemExchangeStorage
 
     private ListObjectsV2Iterable listObjects(URI dir)
     {
+        checkArgument(isDirectory(dir), "listObjects called on file uri %s", dir);
+
         String key = keyFromUri(dir);
         if (!key.isEmpty()) {
             key += PATH_SEPARATOR;
@@ -309,6 +309,8 @@ public class S3FileSystemExchangeStorage
 
     private ListObjectsV2Publisher listObjectsRecursively(URI dir)
     {
+        checkArgument(isDirectory(dir), "listObjectsRecursively called on file uri %s", dir);
+
         ListObjectsV2Request request = ListObjectsV2Request.builder()
                 .bucket(getBucketName(dir))
                 .prefix(keyFromUri(dir))
