@@ -447,6 +447,13 @@ public class InjectedConnectorAccessControl
     }
 
     @Override
+    public void checkCanExecuteFunction(ConnectorSecurityContext context, SchemaRoutineName function)
+    {
+        checkArgument(context == null, "context must be null");
+        accessControl.checkCanExecuteFunction(securityContext, new QualifiedObjectName(catalogName, function.getSchemaName(), function.getRoutineName()));
+    }
+
+    @Override
     public List<ViewExpression> getRowFilters(ConnectorSecurityContext context, SchemaTableName tableName)
     {
         checkArgument(context == null, "context must be null");

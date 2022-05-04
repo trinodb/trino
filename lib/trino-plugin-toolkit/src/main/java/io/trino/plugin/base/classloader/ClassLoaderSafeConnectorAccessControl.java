@@ -494,6 +494,14 @@ public class ClassLoaderSafeConnectorAccessControl
     }
 
     @Override
+    public void checkCanExecuteFunction(ConnectorSecurityContext context, SchemaRoutineName function)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            delegate.checkCanExecuteFunction(context, function);
+        }
+    }
+
+    @Override
     public List<ViewExpression> getRowFilters(ConnectorSecurityContext context, SchemaTableName tableName)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
