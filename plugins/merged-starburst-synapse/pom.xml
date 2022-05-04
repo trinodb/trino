@@ -4,9 +4,9 @@
 
     <parent>
         <groupId>com.starburstdata.presto</groupId>
-        <artifactId>starburst-enterprise-root</artifactId>
+        <artifactId>starburst-trino-plugins</artifactId>
         <version>380-e-SNAPSHOT</version>
-        <relativePath>../..</relativePath>
+        <relativePath>../../pom.xml</relativePath>
     </parent>
 
     <artifactId>starburst-synapse</artifactId>
