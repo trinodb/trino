@@ -287,14 +287,24 @@ public class TestDynamicFilter
     @Test
     public void testCrossJoinInequalityWithCastOnTheRight()
     {
+        // "o.comment < l.comment" expression is automatically transformed to "o.comment < CAST(l.comment AS varchar(79))"
+        // with PushInequalityFilterExpressionBelowJoinRuleSet the cast "CAST(l.comment AS varchar(79))" is pushed down and dynamic filters are applied
         assertPlan("SELECT o.comment, l.comment FROM orders o, lineitem l WHERE o.comment < l.comment",
-                anyTree(filter("O_COMMENT < CAST(L_COMMENT AS varchar(79))",
-                        join(
-                                INNER,
-                                ImmutableList.of(),
-                                tableScan("orders", ImmutableMap.of("O_COMMENT", "comment")),
-                                exchange(
-                                        tableScan("lineitem", ImmutableMap.of("L_COMMENT", "comment")))))));
+                anyTree(
+                        project(
+                                filter("O_COMMENT < expr",
+                                        join(
+                                                INNER,
+                                                ImmutableList.of(),
+                                                ImmutableList.of(new DynamicFilterPattern("O_COMMENT", LESS_THAN, "expr")),
+                                                filter(
+                                                        TRUE_LITERAL,
+                                                        tableScan("orders", ImmutableMap.of("O_COMMENT", "comment"))),
+                                                anyTree(
+                                                        project(
+                                                                ImmutableMap.of("expr", expression("CAST(L_COMMENT AS varchar(79))")),
+                                                                tableScan("lineitem",
+                                                                        ImmutableMap.of("L_COMMENT", "comment")))))))));
     }
 
     @Test
@@ -746,6 +756,94 @@ public class TestDynamicFilter
                                                                 tableScan("lineitem", ImmutableMap.of("LINEITEM_PK", "partkey")))),
                                                 anyTree(
                                                         tableScan("part", ImmutableMap.of("PART_PK", "partkey"))))))));
+    }
+
+    @Test
+    public void testExpressionPushedDownToLeftJoinSourceWhenUsingOn()
+    {
+        assertPlan("SELECT o.orderkey FROM orders o JOIN lineitem l ON o.orderkey + 1 < l.orderkey",
+                anyTree(
+                        filter("expr < LINEITEM_OK",
+                                join(
+                                        INNER,
+                                        ImmutableList.of(),
+                                        project(
+                                                ImmutableMap.of("expr", expression("ORDERS_OK + BIGINT '1'")),
+                                                tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))),
+                                        anyTree(
+                                                tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey")))))));
+    }
+
+    @Test
+    public void testExpressionPushedDownToRightJoinSourceWhenUsingOn()
+    {
+        assertPlan("SELECT o.orderkey FROM orders o JOIN lineitem l ON o.orderkey < l.orderkey + 1",
+                anyTree(
+                        filter("ORDERS_OK < expr",
+                                join(
+                                        INNER,
+                                        ImmutableList.of(),
+                                        ImmutableList.of(new DynamicFilterPattern("ORDERS_OK", LESS_THAN, "expr")),
+                                        filter(TRUE_LITERAL,
+                                                tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))),
+                                        anyTree(
+                                                project(
+                                                        ImmutableMap.of("expr", expression("LINEITEM_OK + BIGINT '1'")),
+                                                        tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey"))))))));
+    }
+
+    @Test
+    public void testExpressionNotPushedDownToLeftJoinSource()
+    {
+        assertPlan("SELECT o.orderkey FROM orders o, lineitem l WHERE o.orderkey + 1 < l.orderkey",
+                anyTree(filter("ORDERS_OK + BIGINT '1' < LINEITEM_OK",
+                        join(
+                                INNER,
+                                ImmutableList.of(),
+                                tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey")),
+                                exchange(
+                                        tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey")))))));
+    }
+
+    @Test
+    public void testExpressionPushedDownToRightJoinSource()
+    {
+        assertPlan("SELECT o.orderkey FROM orders o, lineitem l WHERE o.orderkey < l.orderkey + 1",
+                anyTree(
+                        filter("ORDERS_OK < expr",
+                                join(
+                                        INNER,
+                                        ImmutableList.of(),
+                                        ImmutableList.of(new DynamicFilterPattern("ORDERS_OK", LESS_THAN, "expr")),
+                                        filter(
+                                                TRUE_LITERAL,
+                                                tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))),
+                                        anyTree(
+                                                project(
+                                                        ImmutableMap.of("expr", expression("LINEITEM_OK + BIGINT '1'")),
+                                                        tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey"))))))));
+    }
+
+    @Test
+    public void testDynamicFilterAliasDeDuplicated()
+    {
+        assertPlan(
+                "SELECT f.name FROM supplier f, nation d " +
+                        // 'mod' function is used in the join condition to trigger expression push-down by PushInequalityFilterExpressionBelowJoinRuleSet
+                        "WHERE f.nationkey >= mod(d.nationkey, 2) AND f.suppkey >= mod(d.nationkey, 2)",
+                anyTree(
+                        filter("(nationkey >= mod) AND (suppkey >= mod)",
+                                join(INNER,
+                                        ImmutableList.of(),
+                                        ImmutableList.of(
+                                                new DynamicFilterPattern("nationkey", GREATER_THAN_OR_EQUAL, "mod"),
+                                                new DynamicFilterPattern("suppkey", GREATER_THAN_OR_EQUAL, "mod")),
+                                        anyTree(
+                                                tableScan("supplier", ImmutableMap.of("nationkey", "nationkey", "suppkey", "suppkey"))),
+                                        anyTree(
+                                                project(
+                                                        ImmutableMap.of("mod", expression("mod(n_nationkey, BIGINT '2')")),
+                                                        tableScan("nation", ImmutableMap.of("n_nationkey", "nationkey"))))))));
     }
 
     private Matcher numberOfDynamicFilters(int numberOfDynamicFilters)
