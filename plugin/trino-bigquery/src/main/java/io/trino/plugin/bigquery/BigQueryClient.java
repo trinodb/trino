@@ -34,6 +34,7 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.TableNotFoundException;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -56,6 +57,7 @@ import static java.util.UUID.randomUUID;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.stream.Collectors.joining;
 
+@SuppressModernizer
 class BigQueryClient
 {
     private final BigQuery bigQuery;

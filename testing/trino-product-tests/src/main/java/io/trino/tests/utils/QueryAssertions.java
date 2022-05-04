@@ -17,12 +17,14 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.Iterables;
 import io.airlift.units.Duration;
 import io.trino.tempto.query.QueryResult;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.util.function.Supplier;
 
 import static java.lang.String.format;
 import static org.testng.Assert.fail;
 
+@SuppressModernizer
 public final class QueryAssertions
 {
     public static void assertContainsEventually(Supplier<QueryResult> all, QueryResult expectedSubset, Duration timeout)

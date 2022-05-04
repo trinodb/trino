@@ -93,6 +93,7 @@ import io.trino.sql.tree.Window;
 import io.trino.sql.tree.WindowFrame;
 import io.trino.sql.tree.WindowReference;
 import io.trino.sql.tree.WindowSpecification;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
@@ -110,6 +111,7 @@ import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 
+@SuppressModernizer
 public final class ExpressionFormatter
 {
     private static final ThreadLocal<DecimalFormat> doubleFormatter = ThreadLocal.withInitial(

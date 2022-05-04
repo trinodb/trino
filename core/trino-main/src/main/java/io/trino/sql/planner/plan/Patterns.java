@@ -19,6 +19,7 @@ import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.plan.CorrelatedJoinNode.Type;
 import io.trino.sql.tree.Expression;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.util.List;
 import java.util.Optional;
@@ -29,6 +30,7 @@ import static io.trino.matching.Pattern.typeOf;
 import static io.trino.matching.Property.optionalProperty;
 import static io.trino.matching.Property.property;
 
+@SuppressModernizer
 public final class Patterns
 {
     private Patterns() {}

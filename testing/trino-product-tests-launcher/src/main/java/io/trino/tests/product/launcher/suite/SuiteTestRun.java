@@ -21,6 +21,7 @@ import com.google.common.collect.Iterables;
 import io.trino.tests.product.launcher.env.EnvironmentConfig;
 import io.trino.tests.product.launcher.env.EnvironmentProvider;
 import io.trino.tests.product.launcher.env.Environments;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.util.List;
 
@@ -28,6 +29,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.lang.System.getenv;
 import static java.util.Objects.requireNonNull;
 
+@SuppressModernizer
 public class SuiteTestRun
 {
     private static final String SKIP_TEST_ARGUMENT = "DISTRO_SKIP_TEST";

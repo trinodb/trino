@@ -24,11 +24,6 @@
 
         <dependency>
             <groupId>io.trino</groupId>
-            <artifactId>trino-memory</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.trino</groupId>
             <artifactId>trino-parser</artifactId>
         </dependency>
 
@@ -88,6 +83,11 @@
             <artifactId>guava</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>org.gaul</groupId>
+            <artifactId>modernizer-maven-annotations</artifactId>
+        </dependency>
+
         <!-- for benchmark run -->
         <dependency>
             <groupId>io.airlift</groupId>
@@ -108,6 +108,12 @@
         </dependency>
 
         <!-- for testing -->
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-memory</artifactId>
+            <scope>test</scope>
+        </dependency>
+
         <dependency>
             <groupId>org.openjdk.jmh</groupId>
             <artifactId>jmh-core</artifactId>

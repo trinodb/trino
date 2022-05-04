@@ -32,6 +32,7 @@ import io.trino.execution.buffer.OutputBuffers.OutputBufferId;
 import io.trino.execution.buffer.SerializedPage;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.server.security.ResourceSecurity;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
@@ -81,6 +82,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 /**
  * Manages tasks on this worker node
  */
+@SuppressModernizer
 @Path("/v1/task")
 public class TaskResource
 {

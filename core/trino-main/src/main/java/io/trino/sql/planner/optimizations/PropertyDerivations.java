@@ -80,6 +80,7 @@ import io.trino.sql.tree.CoalesceExpression;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.SymbolReference;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.util.Collection;
 import java.util.HashMap;
@@ -109,6 +110,7 @@ import static io.trino.sql.tree.SkipTo.Position.PAST_LAST;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toMap;
 
+@SuppressModernizer
 public final class PropertyDerivations
 {
     private PropertyDerivations() {}

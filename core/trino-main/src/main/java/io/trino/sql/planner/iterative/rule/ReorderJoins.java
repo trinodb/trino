@@ -48,6 +48,7 @@ import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.SymbolReference;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -91,6 +92,7 @@ import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toCollection;
 
+@SuppressModernizer
 public class ReorderJoins
         implements Rule<JoinNode>
 {

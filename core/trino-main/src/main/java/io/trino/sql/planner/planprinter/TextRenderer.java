@@ -20,6 +20,7 @@ import io.trino.cost.PlanNodeStatsAndCostSummary;
 import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.planprinter.NodeRepresentation.TypedSymbol;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.util.Iterator;
 import java.util.List;
@@ -40,6 +41,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 
+@SuppressModernizer
 public class TextRenderer
         implements Renderer<String>
 {

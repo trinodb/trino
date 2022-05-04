@@ -17,6 +17,7 @@ import io.trino.plugin.jdbc.credential.EmptyCredentialProvider;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.SchemaTableName;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 import org.h2.Driver;
 
 import java.sql.Connection;
@@ -32,6 +33,7 @@ import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static java.util.function.Function.identity;
 
+@SuppressModernizer
 final class TestingDatabase
         implements AutoCloseable
 {

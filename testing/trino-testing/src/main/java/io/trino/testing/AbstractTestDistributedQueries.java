@@ -24,6 +24,7 @@ import io.trino.execution.QueryManager;
 import io.trino.server.BasicQueryInfo;
 import io.trino.testing.sql.TestTable;
 import io.trino.testng.services.Flaky;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 import org.intellij.lang.annotations.Language;
 import org.testng.SkipException;
 import org.testng.annotations.DataProvider;
@@ -67,6 +68,7 @@ import static org.testng.Assert.assertTrue;
  * @see BaseConnectorTest
  * @deprecated Extend {@link BaseConnectorTest} instead.
  */
+@SuppressModernizer
 @Deprecated
 public abstract class AbstractTestDistributedQueries
         extends AbstractTestQueries

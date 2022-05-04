@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.RecordSet;
 import io.trino.spi.type.Type;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.util.Iterator;
 import java.util.List;
@@ -26,6 +27,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.transform;
 import static java.util.Objects.requireNonNull;
 
+@SuppressModernizer
 class ConcatRecordSet
         implements RecordSet
 {

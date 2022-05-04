@@ -45,6 +45,7 @@ import org.apache.avro.generic.GenericDatumWriter;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.FileFormat;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
@@ -90,6 +91,7 @@ import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
+@SuppressModernizer
 public abstract class AbstractTestIcebergSmoke
         // TODO extend BaseConnectorTest
         extends AbstractTestIntegrationSmokeTest

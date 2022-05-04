@@ -34,6 +34,7 @@ import io.trino.jdbc.TrinoConnection;
 import io.trino.jdbc.TrinoStatement;
 import io.trino.spi.type.SqlVarbinary;
 import io.trino.verifier.Validator.ChangedRow.Changed;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.math.BigDecimal;
 import java.sql.Array;
@@ -65,6 +66,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newSingleThreadExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
+@SuppressModernizer
 public class Validator
 {
     private static final Logger log = Logger.get(Validator.class);

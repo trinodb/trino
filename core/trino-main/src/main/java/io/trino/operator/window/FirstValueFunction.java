@@ -16,11 +16,13 @@ package io.trino.operator.window;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.ValueWindowFunction;
 import io.trino.spi.function.WindowFunctionSignature;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.util.List;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 
+@SuppressModernizer
 @WindowFunctionSignature(name = "first_value", typeVariable = "T", returnType = "T", argumentTypes = "T")
 public class FirstValueFunction
         extends ValueWindowFunction

@@ -62,6 +62,7 @@ import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.NodeRef;
 import io.trino.testing.LocalQueryRunner;
 import io.trino.transaction.TransactionId;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -94,6 +95,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 /**
  * Abstract template for benchmarks that want to test the performance of an Operator.
  */
+@SuppressModernizer
 public abstract class AbstractOperatorBenchmark
         extends AbstractBenchmark
 {

@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import io.trino.sql.planner.Symbol;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -36,6 +37,7 @@ import static io.trino.util.MoreLists.listOfListsCopy;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toSet;
 
+@SuppressModernizer
 @Immutable
 public class GroupIdNode
         extends PlanNode

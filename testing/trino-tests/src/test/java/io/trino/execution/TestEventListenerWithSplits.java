@@ -33,6 +33,7 @@ import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
@@ -49,6 +50,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
+@SuppressModernizer
 @Test(singleThreaded = true)
 public class TestEventListenerWithSplits
         extends AbstractTestQueryFramework

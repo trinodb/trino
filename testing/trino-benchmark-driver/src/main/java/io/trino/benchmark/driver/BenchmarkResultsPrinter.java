@@ -16,6 +16,7 @@ package io.trino.benchmark.driver;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -31,6 +32,7 @@ import static com.google.common.collect.Iterables.getFirst;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
+@SuppressModernizer
 public class BenchmarkResultsPrinter
         implements BenchmarkResultsStore
 {

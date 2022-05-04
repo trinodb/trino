@@ -34,6 +34,7 @@ import io.trino.testing.assertions.Assert;
 import io.trino.tpch.TpchTable;
 import io.trino.type.SqlIntervalDayTime;
 import io.trino.type.SqlIntervalYearMonth;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -89,6 +90,7 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertTrue;
 
+@SuppressModernizer
 public abstract class AbstractTestEngineOnlyQueries
         extends AbstractTestQueryFramework
 {

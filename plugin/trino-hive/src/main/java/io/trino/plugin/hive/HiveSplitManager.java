@@ -39,6 +39,7 @@ import io.trino.spi.connector.FixedSplitSource;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.type.TypeManager;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
@@ -85,6 +86,7 @@ import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static org.apache.hadoop.hive.ql.io.AcidUtils.isTransactionalTable;
 
+@SuppressModernizer
 public class HiveSplitManager
         implements ConnectorSplitManager
 {

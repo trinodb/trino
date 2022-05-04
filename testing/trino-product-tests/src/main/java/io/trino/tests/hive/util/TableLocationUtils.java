@@ -13,6 +13,8 @@
  */
 package io.trino.tests.hive.util;
 
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
+
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.regex.Matcher;
@@ -22,6 +24,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.tests.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 
+@SuppressModernizer
 public final class TableLocationUtils
 {
     private static final Pattern ACID_LOCATION_PATTERN = Pattern.compile("(.*)/delta_[^/]+");

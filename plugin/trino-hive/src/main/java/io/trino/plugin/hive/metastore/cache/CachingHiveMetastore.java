@@ -51,6 +51,7 @@ import io.trino.spi.security.RoleGrant;
 import io.trino.spi.statistics.ColumnStatisticType;
 import io.trino.spi.type.Type;
 import org.apache.hadoop.hive.metastore.api.DataOperationType;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
@@ -91,6 +92,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 /**
  * Hive Metastore Cache
  */
+@SuppressModernizer
 @ThreadSafe
 public class CachingHiveMetastore
         implements HiveMetastore

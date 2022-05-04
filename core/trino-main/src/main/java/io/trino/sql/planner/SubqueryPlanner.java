@@ -40,6 +40,7 @@ import io.trino.sql.tree.QuantifiedComparisonExpression.Quantifier;
 import io.trino.sql.tree.Query;
 import io.trino.sql.tree.SubqueryExpression;
 import io.trino.type.TypeCoercion;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -62,6 +63,7 @@ import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
+@SuppressModernizer
 class SubqueryPlanner
 {
     private final Analysis analysis;

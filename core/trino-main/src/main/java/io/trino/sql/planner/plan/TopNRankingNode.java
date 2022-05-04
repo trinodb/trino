@@ -20,6 +20,7 @@ import com.google.common.collect.Iterables;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.WindowNode.Specification;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -30,6 +31,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.concat;
 import static java.util.Objects.requireNonNull;
 
+@SuppressModernizer
 @Immutable
 public final class TopNRankingNode
         extends PlanNode

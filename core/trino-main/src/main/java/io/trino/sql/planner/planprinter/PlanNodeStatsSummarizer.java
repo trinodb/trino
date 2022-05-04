@@ -23,6 +23,7 @@ import io.trino.operator.PipelineStats;
 import io.trino.operator.TaskStats;
 import io.trino.operator.WindowInfo;
 import io.trino.sql.planner.plan.PlanNodeId;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -38,6 +39,7 @@ import static io.trino.util.MoreMaps.mergeMaps;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.stream.Collectors.toList;
 
+@SuppressModernizer
 public final class PlanNodeStatsSummarizer
 {
     private PlanNodeStatsSummarizer() {}

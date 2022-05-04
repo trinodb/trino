@@ -19,6 +19,7 @@ import io.trino.operator.aggregation.InternalAggregationFunction;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.TypeSignatureParameter;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.util.List;
 import java.util.Optional;
@@ -28,6 +29,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
 
+@SuppressModernizer
 public abstract class SqlAggregationFunction
         implements SqlFunction
 {

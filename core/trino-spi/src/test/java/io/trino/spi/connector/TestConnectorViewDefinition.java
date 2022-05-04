@@ -23,6 +23,7 @@ import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.TestingTypeDeserializer;
 import io.trino.spi.type.TestingTypeManager;
 import io.trino.spi.type.Type;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 import org.testng.annotations.Test;
 
 import java.util.Comparator;
@@ -111,6 +112,7 @@ public class TestConnectorViewDefinition
                 false));
     }
 
+    @SuppressModernizer
     private static void assertBaseView(ConnectorViewDefinition view)
     {
         assertEquals(view.getOriginalSql(), "SELECT 42 x");

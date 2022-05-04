@@ -14,10 +14,12 @@
 package io.trino.tests.hive.util;
 
 import io.trino.tempto.query.QueryResult;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.tempto.query.QueryExecutor.query;
 
+@SuppressModernizer
 public final class CachingTestUtils
 {
     private CachingTestUtils() {}

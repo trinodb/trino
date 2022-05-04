@@ -15,12 +15,14 @@ package io.trino.plugin.cassandra;
 
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.predicate.TupleDomain;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.util.List;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
 
+@SuppressModernizer
 public class CassandraPartitionResult
 {
     private final List<CassandraPartition> partitions;

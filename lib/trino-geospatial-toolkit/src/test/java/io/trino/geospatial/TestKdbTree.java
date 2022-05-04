@@ -16,6 +16,7 @@ package io.trino.geospatial;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -24,6 +25,7 @@ import java.util.Set;
 import static io.trino.geospatial.KdbTree.buildKdbTree;
 import static org.testng.Assert.assertEquals;
 
+@SuppressModernizer
 public class TestKdbTree
 {
     @Test

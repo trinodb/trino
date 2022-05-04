@@ -18,6 +18,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.trino.operator.window.WindowPartition;
 import io.trino.util.Mergeable;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -27,6 +28,7 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.concat;
 
+@SuppressModernizer
 public class WindowInfo
         implements Mergeable<WindowInfo>, OperatorInfo
 {

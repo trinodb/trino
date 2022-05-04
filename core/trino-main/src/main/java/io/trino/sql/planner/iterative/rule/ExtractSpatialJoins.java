@@ -63,6 +63,7 @@ import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.SymbolReference;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -148,6 +149,7 @@ import static java.util.Objects.requireNonNull;
  * and radius -> '10 / (111.321 * cos(radians(b.lat)))' projections on top of child nodes.
  * </pre>
  */
+@SuppressModernizer
 public class ExtractSpatialJoins
 {
     private static final TypeSignature GEOMETRY_TYPE_SIGNATURE = new TypeSignature("Geometry");

@@ -36,6 +36,7 @@ import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.SymbolReference;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.util.List;
 import java.util.Map;
@@ -55,6 +56,7 @@ import static io.trino.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING;
 import static io.trino.sql.tree.WindowFrame.Type.ROWS;
 import static java.util.Objects.requireNonNull;
 
+@SuppressModernizer
 public class SetOperationNodeTranslator
 {
     private static final String MARKER = "marker";

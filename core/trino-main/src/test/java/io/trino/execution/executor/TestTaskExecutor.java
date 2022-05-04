@@ -21,6 +21,7 @@ import io.airlift.testing.TestingTicker;
 import io.airlift.units.Duration;
 import io.trino.execution.SplitRunner;
 import io.trino.execution.TaskId;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
@@ -43,6 +44,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
+@SuppressModernizer
 public class TestTaskExecutor
 {
     @Test(invocationCount = 100)

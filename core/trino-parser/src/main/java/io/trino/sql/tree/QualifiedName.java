@@ -17,6 +17,7 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.util.List;
 import java.util.Optional;
@@ -45,6 +46,7 @@ public class QualifiedName
         return of(ImmutableList.of(new Identifier(name)));
     }
 
+    @SuppressModernizer
     public static QualifiedName of(Iterable<Identifier> originalParts)
     {
         requireNonNull(originalParts, "originalParts is null");
@@ -100,6 +102,7 @@ public class QualifiedName
         return parts.subList(start, parts.size()).equals(suffix.getParts());
     }
 
+    @SuppressModernizer
     public String getSuffix()
     {
         return Iterables.getLast(parts);

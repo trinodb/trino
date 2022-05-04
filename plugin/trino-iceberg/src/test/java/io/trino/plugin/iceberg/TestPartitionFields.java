@@ -22,6 +22,7 @@ import org.apache.iceberg.types.Types.LongType;
 import org.apache.iceberg.types.Types.NestedField;
 import org.apache.iceberg.types.Types.StringType;
 import org.apache.iceberg.types.Types.TimestampType;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 import org.testng.annotations.Test;
 
 import java.util.function.Consumer;
@@ -32,6 +33,7 @@ import static io.trino.plugin.iceberg.PartitionFields.toPartitionFields;
 import static io.trino.testing.assertions.Assert.assertEquals;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
 
+@SuppressModernizer
 public class TestPartitionFields
 {
     @Test

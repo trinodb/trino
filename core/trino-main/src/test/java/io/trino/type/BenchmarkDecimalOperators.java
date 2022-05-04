@@ -33,6 +33,7 @@ import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.relational.RowExpression;
 import io.trino.sql.relational.SqlToRowExpressionTranslator;
 import io.trino.sql.tree.Expression;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.Fork;
 import org.openjdk.jmh.annotations.Measurement;
@@ -77,6 +78,7 @@ import static org.openjdk.jmh.annotations.Scope.Thread;
  * This benchmark is known to produce non-deterministic results, because of the nature of JIT compiler.
  * Using -Xbatch flag reduces the impact of this flaw while greatly increasing startup time.
  */
+@SuppressModernizer
 @State(Scope.Thread)
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
 @Fork(value = 3, jvmArgsAppend = {

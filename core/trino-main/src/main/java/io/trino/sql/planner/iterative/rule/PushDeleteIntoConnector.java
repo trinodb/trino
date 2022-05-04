@@ -21,6 +21,7 @@ import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.TableDeleteNode;
 import io.trino.sql.planner.plan.TableFinishNode;
 import io.trino.sql.planner.plan.TableScanNode;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.matching.Capture.newCapture;
@@ -30,6 +31,7 @@ import static io.trino.sql.planner.plan.Patterns.tableFinish;
 import static io.trino.sql.planner.plan.Patterns.tableScan;
 import static java.util.Objects.requireNonNull;
 
+@SuppressModernizer
 public class PushDeleteIntoConnector
         implements Rule<TableFinishNode>
 {

@@ -86,6 +86,7 @@ import io.trino.sql.tree.Union;
 import io.trino.sql.tree.Update;
 import io.trino.sql.tree.WindowFrame;
 import io.trino.type.TypeCoercion;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -136,6 +137,7 @@ import static io.trino.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
+@SuppressModernizer
 class QueryPlanner
 {
     private final Analysis analysis;

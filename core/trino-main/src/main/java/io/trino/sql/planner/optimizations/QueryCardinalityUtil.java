@@ -27,6 +27,7 @@ import io.trino.sql.planner.plan.PlanVisitor;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.TopNNode;
 import io.trino.sql.planner.plan.ValuesNode;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.sql.planner.iterative.Lookup.noLookup;
@@ -34,6 +35,7 @@ import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 
+@SuppressModernizer
 public final class QueryCardinalityUtil
 {
     private QueryCardinalityUtil() {}

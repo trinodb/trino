@@ -20,6 +20,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.Type;
 import io.trino.type.TypeTestUtils;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.util.List;
 import java.util.Optional;
@@ -28,6 +29,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.RowPageBuilder.rowPageBuilder;
 import static java.util.Objects.requireNonNull;
 
+@SuppressModernizer
 public class RowPagesBuilder
 {
     public static RowPagesBuilder rowPagesBuilder(Type... types)

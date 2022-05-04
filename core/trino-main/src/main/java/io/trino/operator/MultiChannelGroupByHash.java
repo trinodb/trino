@@ -28,6 +28,7 @@ import io.trino.spi.type.Type;
 import io.trino.sql.gen.JoinCompiler;
 import io.trino.type.BlockTypeOperators;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Arrays;
@@ -52,6 +53,7 @@ import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 // This implementation assumes arrays used in the hash are always a power of 2
+@SuppressModernizer
 public class MultiChannelGroupByHash
         implements GroupByHash
 {

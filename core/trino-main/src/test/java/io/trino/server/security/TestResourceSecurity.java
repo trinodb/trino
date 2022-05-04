@@ -40,6 +40,7 @@ import okhttp3.JavaNetCookieJar;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -85,6 +86,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
+@SuppressModernizer
 @Test
 public class TestResourceSecurity
 {

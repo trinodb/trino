@@ -19,6 +19,7 @@ import io.trino.spi.type.Type;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -33,6 +34,7 @@ import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 
+@SuppressModernizer
 public class DataTypeTest
 {
     private static final Logger log = Logger.get(DataTypeTest.class);

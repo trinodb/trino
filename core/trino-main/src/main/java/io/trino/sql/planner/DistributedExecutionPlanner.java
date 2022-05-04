@@ -65,6 +65,7 @@ import io.trino.sql.planner.plan.UnnestNode;
 import io.trino.sql.planner.plan.UpdateNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.plan.WindowNode;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import javax.inject.Inject;
 
@@ -80,6 +81,7 @@ import static io.trino.spi.connector.DynamicFilter.EMPTY;
 import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static java.util.Objects.requireNonNull;
 
+@SuppressModernizer
 public class DistributedExecutionPlanner
 {
     private static final Logger log = Logger.get(DistributedExecutionPlanner.class);

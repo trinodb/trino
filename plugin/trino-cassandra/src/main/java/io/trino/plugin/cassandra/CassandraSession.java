@@ -52,6 +52,7 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -85,6 +86,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 
+@SuppressModernizer
 public class CassandraSession
 {
     private static final Logger log = Logger.get(CassandraSession.class);

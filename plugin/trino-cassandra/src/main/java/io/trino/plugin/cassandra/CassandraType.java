@@ -35,6 +35,7 @@ import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -59,6 +60,7 @@ import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
 import static java.util.Objects.requireNonNull;
 
+@SuppressModernizer
 public enum CassandraType
 {
     BOOLEAN(BooleanType.BOOLEAN),

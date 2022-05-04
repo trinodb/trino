@@ -17,6 +17,7 @@ import io.trino.testing.AbstractTestDistributedQueries;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 import org.testng.SkipException;
 import org.testng.annotations.Test;
 
@@ -27,6 +28,7 @@ import static io.trino.sql.tree.ExplainType.Type.DISTRIBUTED;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 
+@SuppressModernizer
 public class TestHiveDistributedQueries
         extends AbstractTestDistributedQueries
 {

@@ -121,6 +121,7 @@ import io.trino.sql.tree.WhenClause;
 import io.trino.sql.tree.WindowFrame;
 import io.trino.type.FunctionType;
 import io.trino.type.TypeCoercion;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import javax.annotation.Nullable;
 
@@ -221,6 +222,7 @@ import static java.util.Collections.unmodifiableSet;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
+@SuppressModernizer
 public class ExpressionAnalyzer
 {
     private static final int MAX_NUMBER_GROUPING_ARGUMENTS_BIGINT = 63;

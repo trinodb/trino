@@ -47,6 +47,7 @@ import io.trino.sql.planner.plan.TopNNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.Row;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.util.List;
 import java.util.Map;
@@ -60,6 +61,7 @@ import static java.util.Objects.requireNonNull;
  * Converts cardinality-insensitive aggregations (max, min, "distinct") over partition keys
  * into simple metadata queries
  */
+@SuppressModernizer
 public class MetadataQueryOptimizer
         implements PlanOptimizer
 {

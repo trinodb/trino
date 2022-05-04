@@ -20,6 +20,7 @@ import io.trino.sql.tree.DereferenceExpression;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.LambdaExpression;
 import io.trino.sql.tree.SymbolReference;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.util.Collection;
 import java.util.List;
@@ -33,6 +34,7 @@ import static io.trino.sql.planner.SymbolsExtractor.extractAll;
 /**
  * Provides helper methods to push down dereferences in the query plan.
  */
+@SuppressModernizer
 class DereferencePushdown
 {
     private DereferencePushdown() {}

@@ -45,11 +45,6 @@
 
         <dependency>
             <groupId>io.airlift</groupId>
-            <artifactId>log</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
             <artifactId>stats</artifactId>
         </dependency>
 
@@ -66,11 +61,6 @@
         <dependency>
             <groupId>io.airlift.drift</groupId>
             <artifactId>drift-client</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift.drift</groupId>
-            <artifactId>drift-codec</artifactId>
         </dependency>
 
         <dependency>
@@ -117,10 +107,21 @@
         <!-- used by tests but also needed transitively -->
         <dependency>
             <groupId>io.airlift</groupId>
+            <artifactId>log</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
             <artifactId>log-manager</artifactId>
             <scope>runtime</scope>
         </dependency>
 
+        <dependency>
+            <groupId>io.airlift.drift</groupId>
+            <artifactId>drift-codec</artifactId>
+            <scope>runtime</scope>
+        </dependency>
         <!-- Trino SPI -->
         <dependency>
             <groupId>io.trino</groupId>
@@ -187,6 +188,12 @@
         <dependency>
             <groupId>io.airlift.drift</groupId>
             <artifactId>drift-server</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.gaul</groupId>
+            <artifactId>modernizer-maven-annotations</artifactId>
             <scope>test</scope>
         </dependency>
 

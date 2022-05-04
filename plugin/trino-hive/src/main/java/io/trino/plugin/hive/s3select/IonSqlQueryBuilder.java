@@ -27,6 +27,7 @@ import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.VarcharType;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 import org.joda.time.format.DateTimeFormatter;
 
 import java.util.ArrayList;
@@ -53,6 +54,7 @@ import static org.joda.time.format.ISODateTimeFormat.date;
  * S3 Select uses Ion SQL++ query language. This class is used to construct a valid Ion SQL++ query
  * to be evaluated with S3 Select on an S3 object.
  */
+@SuppressModernizer
 public class IonSqlQueryBuilder
 {
     private static final DateTimeFormatter FORMATTER = date().withChronology(getInstanceUTC());

@@ -27,6 +27,7 @@ import io.trino.sql.planner.plan.SimplePlanRewriter;
 import io.trino.sql.planner.plan.TableDeleteNode;
 import io.trino.sql.planner.plan.TableFinishNode;
 import io.trino.sql.planner.plan.TableScanNode;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.util.List;
 import java.util.Optional;
@@ -45,6 +46,7 @@ import static java.util.Objects.requireNonNull;
  *     TableDelete
  * </pre>
  */
+@SuppressModernizer
 public class TableDeleteOptimizer
         implements PlanOptimizer
 {

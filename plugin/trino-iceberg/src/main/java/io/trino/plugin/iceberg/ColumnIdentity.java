@@ -17,6 +17,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import org.apache.iceberg.types.Types;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.util.List;
 import java.util.Objects;
@@ -31,6 +32,7 @@ import static io.trino.plugin.iceberg.ColumnIdentity.TypeCategory.STRUCT;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
+@SuppressModernizer
 public class ColumnIdentity
 {
     private final int id;

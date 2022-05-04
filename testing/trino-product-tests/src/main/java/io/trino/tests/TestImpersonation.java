@@ -19,6 +19,7 @@ import io.trino.tempto.BeforeTestWithContext;
 import io.trino.tempto.ProductTest;
 import io.trino.tempto.hadoop.hdfs.HdfsClient;
 import io.trino.tempto.query.QueryExecutor;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 import org.testng.annotations.Test;
 
 import java.net.URI;
@@ -32,6 +33,7 @@ import static io.trino.tests.utils.QueryExecutors.connectToPresto;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 
+@SuppressModernizer
 public class TestImpersonation
         extends ProductTest
 {

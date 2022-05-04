@@ -50,6 +50,7 @@ import io.trino.sql.planner.plan.TableWriterNode;
 import io.trino.sql.planner.plan.TopNRankingNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.plan.WindowNode;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import javax.inject.Inject;
 
@@ -85,6 +86,7 @@ import static java.util.Objects.requireNonNull;
 /**
  * Splits a logical plan into fragments that can be shipped and executed on distributed nodes
  */
+@SuppressModernizer
 public class PlanFragmenter
 {
     private static final String TOO_MANY_STAGES_MESSAGE = "" +

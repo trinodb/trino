@@ -23,6 +23,7 @@ import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.OutputNode;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.util.List;
 import java.util.OptionalDouble;
@@ -33,6 +34,7 @@ import static io.trino.transaction.TransactionBuilder.transaction;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 
+@SuppressModernizer
 final class MetricComparator
 {
     private MetricComparator() {}

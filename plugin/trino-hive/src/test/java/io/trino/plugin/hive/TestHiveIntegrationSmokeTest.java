@@ -57,6 +57,7 @@ import io.trino.testing.ResultWithQueryId;
 import io.trino.testing.sql.TestTable;
 import io.trino.type.TypeDeserializer;
 import org.apache.hadoop.fs.Path;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -164,6 +165,7 @@ import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 import static org.testng.FileAssert.assertFile;
 
+@SuppressModernizer
 public class TestHiveIntegrationSmokeTest
         // TODO extend BaseConnectorTest
         extends AbstractTestIntegrationSmokeTest

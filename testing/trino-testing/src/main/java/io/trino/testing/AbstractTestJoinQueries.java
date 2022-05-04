@@ -22,6 +22,7 @@ import io.trino.spi.type.Decimals;
 import io.trino.sql.analyzer.FeaturesConfig;
 import io.trino.testng.services.Flaky;
 import io.trino.tests.QueryTemplate;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
@@ -36,6 +37,7 @@ import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
+@SuppressModernizer
 public abstract class AbstractTestJoinQueries
         extends AbstractTestQueryFramework
 {

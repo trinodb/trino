@@ -26,6 +26,7 @@ import io.trino.spi.type.SqlDecimal;
 import io.trino.spi.type.SqlTimestamp;
 import io.trino.spi.type.SqlTimestampWithTimeZone;
 import io.trino.spi.type.SqlVarbinary;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -68,6 +69,7 @@ import static java.util.Collections.nCopies;
 import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;
 
+@SuppressModernizer
 public abstract class AbstractTestOrcReader
 {
     private static final int CHAR_LENGTH = 10;

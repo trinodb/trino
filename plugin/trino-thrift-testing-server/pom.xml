@@ -114,12 +114,14 @@
         <dependency>
             <groupId>org.assertj</groupId>
             <artifactId>assertj-core</artifactId>
+            <scope>runtime</scope>
         </dependency>
 
         <!-- testng comes as a transitive compile-time dependency from trino-testing even though we  only need tpch index part -->
         <dependency>
             <groupId>org.testng</groupId>
             <artifactId>testng</artifactId>
+            <scope>runtime</scope>
         </dependency>
     </dependencies>
 </project>

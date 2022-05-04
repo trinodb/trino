@@ -24,6 +24,7 @@ import io.trino.sql.planner.plan.IntersectNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanVisitor;
 import io.trino.sql.planner.plan.UnionNode;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -32,6 +33,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.sql.planner.plan.ChildReplacer.replaceChildren;
 import static io.trino.sql.planner.plan.Patterns.aggregation;
 
+@SuppressModernizer
 public class PruneDistinctAggregation
         implements Rule<AggregationNode>
 {

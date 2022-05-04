@@ -29,6 +29,7 @@ import io.trino.sql.tree.GroupingOperation;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.Parameter;
 import io.trino.sql.tree.Statement;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.util.List;
 import java.util.Map;
@@ -41,6 +42,7 @@ import static io.trino.sql.analyzer.ExpressionTreeUtils.extractWindowFunctions;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static java.util.Objects.requireNonNull;
 
+@SuppressModernizer
 public class Analyzer
 {
     private final Metadata metadata;

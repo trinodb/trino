@@ -37,6 +37,7 @@ import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.JavaHiveDecimalObjectInspector;
 import org.apache.hadoop.hive.serde2.typeinfo.DecimalTypeInfo;
 import org.apache.parquet.schema.MessageType;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -109,6 +110,7 @@ import static org.apache.parquet.schema.MessageTypeParser.parseMessageType;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 
+@SuppressModernizer
 public abstract class AbstractTestParquetReader
 {
     private static final int MAX_PRECISION_INT32 = toIntExact(maxPrecision(4));

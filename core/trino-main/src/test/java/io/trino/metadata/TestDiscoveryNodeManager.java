@@ -29,6 +29,7 @@ import io.trino.client.NodeVersion;
 import io.trino.connector.CatalogName;
 import io.trino.failuredetector.NoOpFailureDetector;
 import io.trino.server.InternalCommunicationConfig;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -52,6 +53,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotSame;
 import static org.testng.Assert.assertTrue;
 
+@SuppressModernizer
 @Test(singleThreaded = true)
 public class TestDiscoveryNodeManager
 {

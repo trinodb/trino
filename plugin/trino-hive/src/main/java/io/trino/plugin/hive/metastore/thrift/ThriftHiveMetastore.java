@@ -89,6 +89,7 @@ import org.apache.hadoop.hive.metastore.api.UnknownDBException;
 import org.apache.hadoop.hive.metastore.api.UnknownTableException;
 import org.apache.thrift.TApplicationException;
 import org.apache.thrift.TException;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
 
@@ -156,6 +157,7 @@ import static org.apache.hadoop.hive.metastore.api.HiveObjectType.TABLE;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.HIVE_FILTER_FIELD_PARAMS;
 import static org.apache.thrift.TApplicationException.UNKNOWN_METHOD;
 
+@SuppressModernizer
 @ThreadSafe
 public class ThriftHiveMetastore
         implements ThriftMetastore

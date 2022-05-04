@@ -36,6 +36,7 @@ import io.trino.sql.relational.SpecialForm;
 import io.trino.sql.relational.SpecialForm.Form;
 import io.trino.sql.relational.VariableReferenceExpression;
 import io.trino.sql.tree.Expression;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.util.Comparator;
 import java.util.HashMap;
@@ -56,6 +57,7 @@ import static io.trino.sql.relational.SqlToRowExpressionTranslator.translate;
 import static java.lang.Integer.min;
 import static java.util.Objects.requireNonNull;
 
+@SuppressModernizer
 public class ExpressionEquivalence
 {
     private static final Ordering<RowExpression> ROW_EXPRESSION_ORDERING = Ordering.from(new RowExpressionComparator());

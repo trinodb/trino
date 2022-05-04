@@ -23,6 +23,7 @@ import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AggregationNode.Aggregation;
 import io.trino.sql.tree.Expression;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.util.HashSet;
 import java.util.List;
@@ -60,6 +61,7 @@ import static java.util.Collections.emptyList;
  * <p>
  * Assumes s0, s1, ... are symbol references (i.e., complex expressions have been pre-projected)
  */
+@SuppressModernizer
 public class SingleDistinctAggregationToGroupBy
         implements Rule<AggregationNode>
 {

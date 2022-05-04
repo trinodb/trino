@@ -56,6 +56,7 @@ import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.time.ZoneId;
@@ -107,6 +108,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 
+@SuppressModernizer
 public class OrcWriteValidation
 {
     public enum OrcWriteValidationMode

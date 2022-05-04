@@ -20,6 +20,7 @@ import io.trino.plugin.hive.util.ForwardingRecordCursor;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.type.Type;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.util.List;
 
@@ -29,6 +30,7 @@ import static java.util.Objects.requireNonNull;
 /**
  * Applies projections on delegate fields provided by {@link ChannelMapping} to produce fields expected from this cursor.
  */
+@SuppressModernizer
 public class HiveReaderProjectionsAdaptingRecordCursor
         extends ForwardingRecordCursor
 {

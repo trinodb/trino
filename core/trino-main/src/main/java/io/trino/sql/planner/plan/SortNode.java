@@ -19,11 +19,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.util.List;
 
 import static java.util.Objects.requireNonNull;
 
+@SuppressModernizer
 public class SortNode
         extends PlanNode
 {

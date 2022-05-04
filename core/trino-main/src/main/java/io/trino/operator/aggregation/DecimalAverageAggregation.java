@@ -35,6 +35,7 @@ import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.UnscaledDecimal128Arithmetic;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.lang.invoke.MethodHandle;
 import java.math.BigDecimal;
@@ -58,6 +59,7 @@ import static io.trino.spi.type.UnscaledDecimal128Arithmetic.UNSCALED_DECIMAL_12
 import static io.trino.util.Reflection.methodHandle;
 import static java.math.BigDecimal.ROUND_HALF_UP;
 
+@SuppressModernizer
 public class DecimalAverageAggregation
         extends SqlAggregationFunction
 {

@@ -38,6 +38,7 @@ import io.trino.sql.tree.ExistsPredicate;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.QualifiedName;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.util.Optional;
 
@@ -74,6 +75,7 @@ import static java.util.Objects.requireNonNull;
  * </pre>
  * otherwise
  */
+@SuppressModernizer
 public class TransformExistsApplyToCorrelatedJoin
         implements Rule<ApplyNode>
 {

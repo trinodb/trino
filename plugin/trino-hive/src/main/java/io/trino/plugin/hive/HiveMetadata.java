@@ -112,6 +112,7 @@ import org.apache.hadoop.hive.ql.exec.FileSinkOperator;
 import org.apache.hadoop.hive.serde.serdeConstants;
 import org.apache.hadoop.hive.serde2.OpenCSVSerde;
 import org.apache.hadoop.mapred.JobConf;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.io.File;
 import java.io.IOException;
@@ -280,6 +281,7 @@ import static org.apache.hadoop.hive.ql.io.AcidUtils.deltaSubdir;
 import static org.apache.hadoop.hive.ql.io.AcidUtils.isFullAcidTable;
 import static org.apache.hadoop.hive.ql.io.AcidUtils.isTransactionalTable;
 
+@SuppressModernizer
 public class HiveMetadata
         implements TransactionalMetadata
 {

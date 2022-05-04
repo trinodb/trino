@@ -87,6 +87,7 @@ import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.orc.OrcConf;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 import org.joda.time.DateTimeZone;
 
 import java.io.File;
@@ -179,6 +180,7 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
+@SuppressModernizer
 public class OrcTester
 {
     public static final OrcReaderOptions READER_OPTIONS = new OrcReaderOptions()

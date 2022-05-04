@@ -19,6 +19,7 @@ import io.trino.spi.Page;
 import io.trino.spi.type.TypeOperators;
 import io.trino.type.BlockTypeOperators;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -29,6 +30,7 @@ import static io.trino.operator.SyntheticAddress.encodeSyntheticAddress;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static org.testng.Assert.assertEquals;
 
+@SuppressModernizer
 public class TestPositionLinks
 {
     private static final Page TEST_PAGE = getOnlyElement(RowPagesBuilder.rowPagesBuilder(BIGINT).addSequencePage(20, 0).build());

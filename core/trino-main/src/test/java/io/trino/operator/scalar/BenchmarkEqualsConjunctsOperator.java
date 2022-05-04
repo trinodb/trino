@@ -27,6 +27,7 @@ import io.trino.sql.gen.PageFunctionCompiler;
 import io.trino.sql.relational.RowExpression;
 import io.trino.sql.relational.SpecialForm;
 import io.trino.sql.relational.SpecialForm.Form;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -62,6 +63,7 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.relational.Expressions.call;
 import static io.trino.sql.relational.Expressions.field;
 
+@SuppressModernizer
 @State(Scope.Thread)
 @Fork(3)
 @Warmup(iterations = 5, time = 10)

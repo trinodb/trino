@@ -22,6 +22,7 @@ import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.AssignUniqueId;
 import io.trino.sql.planner.plan.ExchangeNode;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.util.List;
 import java.util.Optional;
@@ -41,6 +42,7 @@ import static io.trino.sql.planner.plan.Patterns.source;
  * partitioned_on(unique) and grouped(unique) properties for the output of
  * the AssignUniqueId.
  */
+@SuppressModernizer
 public final class PushRemoteExchangeThroughAssignUniqueId
         implements Rule<ExchangeNode>
 {

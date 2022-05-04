@@ -26,6 +26,7 @@ import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AggregationNode.Aggregation;
 import io.trino.sql.planner.plan.MarkDistinctNode;
 import io.trino.sql.planner.plan.PlanNode;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -59,6 +60,7 @@ import static java.util.stream.Collectors.toSet;
  *              - X
  * </pre>
  */
+@SuppressModernizer
 public class MultipleDistinctAggregationToMarkDistinct
         implements Rule<AggregationNode>
 {

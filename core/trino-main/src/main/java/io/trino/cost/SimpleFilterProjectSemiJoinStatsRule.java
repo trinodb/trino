@@ -27,6 +27,7 @@ import io.trino.sql.planner.plan.SemiJoinNode;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.NotExpression;
 import io.trino.sql.tree.SymbolReference;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.util.List;
 import java.util.Optional;
@@ -44,6 +45,7 @@ import static java.util.Objects.requireNonNull;
  * It is not yet proven whether this heuristic is any better or worse. Either this rule will be enhanced
  * in the future or it will be dropped altogether.
  */
+@SuppressModernizer
 public class SimpleFilterProjectSemiJoinStatsRule
         extends SimpleStatsRule<FilterNode>
 {

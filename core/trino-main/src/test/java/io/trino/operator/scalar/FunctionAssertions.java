@@ -73,6 +73,7 @@ import io.trino.sql.tree.SymbolReference;
 import io.trino.testing.LocalQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.type.BlockTypeOperators;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.openjdk.jol.info.ClassLayout;
@@ -140,6 +141,7 @@ import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
+@SuppressModernizer
 public final class FunctionAssertions
         implements Closeable
 {

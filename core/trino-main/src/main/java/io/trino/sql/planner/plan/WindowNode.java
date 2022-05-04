@@ -25,6 +25,7 @@ import io.trino.sql.planner.Symbol;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FrameBound;
 import io.trino.sql.tree.WindowFrame;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -42,6 +43,7 @@ import static io.trino.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING;
 import static io.trino.sql.tree.WindowFrame.Type.RANGE;
 import static java.util.Objects.requireNonNull;
 
+@SuppressModernizer
 @Immutable
 public class WindowNode
         extends PlanNode

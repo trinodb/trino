@@ -25,6 +25,7 @@ import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryStringQueryBuilder;
 import org.elasticsearch.index.query.RangeQueryBuilder;
 import org.elasticsearch.index.query.TermQueryBuilder;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -50,6 +51,7 @@ import static java.lang.Math.floorDiv;
 import static java.lang.Math.toIntExact;
 import static java.time.format.DateTimeFormatter.ISO_DATE_TIME;
 
+@SuppressModernizer
 public final class ElasticsearchQueryBuilder
 {
     private ElasticsearchQueryBuilder() {}

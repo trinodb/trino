@@ -40,6 +40,7 @@ import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import javax.annotation.Nullable;
 
@@ -111,6 +112,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.stream.Collectors.joining;
 
+@SuppressModernizer
 public abstract class BaseJdbcClient
         implements JdbcClient
 {

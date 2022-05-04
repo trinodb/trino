@@ -30,6 +30,7 @@ import io.trino.sql.tree.LogicalBinaryExpression;
 import io.trino.sql.tree.LogicalBinaryExpression.Operator;
 import io.trino.sql.tree.RowDataType;
 import io.trino.sql.tree.SymbolReference;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.util.ArrayDeque;
 import java.util.Arrays;
@@ -48,6 +49,7 @@ import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
+@SuppressModernizer
 public final class ExpressionUtils
 {
     private ExpressionUtils() {}

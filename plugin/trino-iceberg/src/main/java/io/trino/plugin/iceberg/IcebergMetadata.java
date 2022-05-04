@@ -89,6 +89,7 @@ import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.TypeUtil;
 import org.apache.iceberg.types.Types;
 import org.apache.iceberg.types.Types.NestedField;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -167,6 +168,7 @@ import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT;
 import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT_DEFAULT;
 import static org.apache.iceberg.Transactions.createTableTransaction;
 
+@SuppressModernizer
 public class IcebergMetadata
         implements ConnectorMetadata
 {

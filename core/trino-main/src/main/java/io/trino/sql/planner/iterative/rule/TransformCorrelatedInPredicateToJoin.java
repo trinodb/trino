@@ -50,6 +50,7 @@ import io.trino.sql.tree.SearchedCaseExpression;
 import io.trino.sql.tree.SymbolReference;
 import io.trino.sql.tree.WhenClause;
 import io.trino.sql.util.AstUtils;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import javax.annotation.Nullable;
 
@@ -91,6 +92,7 @@ import static java.util.Objects.requireNonNull;
  *
  * @see TransformCorrelatedGlobalAggregationWithProjection
  */
+@SuppressModernizer
 public class TransformCorrelatedInPredicateToJoin
         implements Rule<ApplyNode>
 {

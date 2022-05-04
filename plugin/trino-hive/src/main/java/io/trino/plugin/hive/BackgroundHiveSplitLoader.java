@@ -59,6 +59,7 @@ import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.JobConfigurable;
 import org.apache.hadoop.mapred.TextInputFormat;
 import org.apache.hadoop.mapreduce.MRConfig;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -126,6 +127,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.hadoop.fs.Path.getPathWithoutSchemeAndAuthority;
 import static org.apache.hadoop.hive.common.FileUtils.HIDDEN_FILES_PATH_FILTER;
 
+@SuppressModernizer
 public class BackgroundHiveSplitLoader
         implements HiveSplitLoader
 {

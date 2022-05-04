@@ -41,6 +41,7 @@ import io.trino.sql.tree.IfExpression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.QualifiedName;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -72,6 +73,7 @@ import static java.util.Objects.requireNonNull;
  *      GROUP BY a1, a2,..., an, c, group
  *  GROUP BY a1, a2,..., an
  */
+@SuppressModernizer
 public class OptimizeMixedDistinctAggregations
         implements PlanOptimizer
 {

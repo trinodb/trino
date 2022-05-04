@@ -29,6 +29,7 @@ import io.trino.sql.parser.ParsingException;
 import io.trino.sql.planner.Plan;
 import io.trino.testing.QueryRunner.MaterializedResultWithPlan;
 import io.trino.tpch.TpchTable;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 import org.intellij.lang.annotations.Language;
 
 import java.util.List;
@@ -48,6 +49,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.fail;
 
+@SuppressModernizer
 public final class QueryAssertions
 {
     private static final Logger log = Logger.get(QueryAssertions.class);

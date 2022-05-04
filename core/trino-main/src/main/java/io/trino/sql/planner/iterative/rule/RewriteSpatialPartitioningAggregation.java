@@ -31,6 +31,7 @@ import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.QualifiedName;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.util.Map;
 import java.util.Optional;
@@ -57,6 +58,7 @@ import static java.util.Objects.requireNonNull;
  * </pre>
  * , where partition_count is the value of session property hash_partition_count
  */
+@SuppressModernizer
 public class RewriteSpatialPartitioningAggregation
         implements Rule<AggregationNode>
 {

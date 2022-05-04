@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.spi.Plugin;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.testing.TestingConnectorContext;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 import org.testng.annotations.Test;
 
 import javax.management.MBeanInfo;
@@ -32,6 +33,7 @@ import static java.lang.management.ManagementFactory.getPlatformMBeanServer;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertTrue;
 
+@SuppressModernizer
 public class TestJmxStats
 {
     @Test

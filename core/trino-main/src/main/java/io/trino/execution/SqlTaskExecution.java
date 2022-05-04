@@ -39,6 +39,7 @@ import io.trino.operator.StageExecutionDescriptor;
 import io.trino.operator.TaskContext;
 import io.trino.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
 import io.trino.sql.planner.plan.PlanNodeId;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
@@ -79,6 +80,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
 
+@SuppressModernizer
 public class SqlTaskExecution
 {
     // For each driver in a task, it belong to a pipeline and a driver life cycle.

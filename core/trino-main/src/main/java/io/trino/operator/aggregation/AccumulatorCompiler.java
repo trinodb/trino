@@ -42,6 +42,7 @@ import io.trino.spi.type.Type;
 import io.trino.sql.gen.Binding;
 import io.trino.sql.gen.CallSiteBinder;
 import io.trino.sql.gen.CompilerOperations;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
@@ -77,6 +78,7 @@ import static io.trino.util.CompilerUtils.makeClassName;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
+@SuppressModernizer
 public final class AccumulatorCompiler
 {
     private AccumulatorCompiler() {}

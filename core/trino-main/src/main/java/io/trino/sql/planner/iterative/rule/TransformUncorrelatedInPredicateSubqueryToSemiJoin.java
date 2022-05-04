@@ -21,6 +21,7 @@ import io.trino.sql.planner.plan.ApplyNode;
 import io.trino.sql.planner.plan.SemiJoinNode;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.InPredicate;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.util.Optional;
 
@@ -52,6 +53,7 @@ import static io.trino.sql.planner.plan.Patterns.applyNode;
  *     - semiJoinOutput: semijoinresult
  * </pre>
  */
+@SuppressModernizer
 public class TransformUncorrelatedInPredicateSubqueryToSemiJoin
         implements Rule<ApplyNode>
 {

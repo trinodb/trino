@@ -23,6 +23,7 @@ import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingWarningCollector;
 import io.trino.testing.TestingWarningCollectorConfig;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
@@ -38,6 +39,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.testng.Assert.fail;
 
+@SuppressModernizer
 @Test(singleThreaded = true)
 public class TestCompletedEventWarnings
 {

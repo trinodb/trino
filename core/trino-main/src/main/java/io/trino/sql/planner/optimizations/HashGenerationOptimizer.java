@@ -65,6 +65,7 @@ import io.trino.sql.tree.GenericLiteral;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.SymbolReference;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.util.Collection;
 import java.util.HashMap;
@@ -92,6 +93,7 @@ import static io.trino.sql.planner.plan.JoinNode.Type.RIGHT;
 import static io.trino.type.TypeUtils.NULL_HASH_CODE;
 import static java.util.Objects.requireNonNull;
 
+@SuppressModernizer
 public class HashGenerationOptimizer
         implements PlanOptimizer
 {

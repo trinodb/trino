@@ -14,11 +14,13 @@
 package io.trino.plugin.bigquery;
 
 import io.trino.spi.connector.ConnectorFactory;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 import org.testng.annotations.Test;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 
+@SuppressModernizer
 public class TestBigQueryPlugin
 {
     @Test

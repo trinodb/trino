@@ -223,6 +223,7 @@ import io.trino.sql.tree.SortItem.Ordering;
 import io.trino.sql.tree.SymbolReference;
 import io.trino.type.BlockTypeOperators;
 import io.trino.type.FunctionType;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import javax.inject.Inject;
 
@@ -329,6 +330,7 @@ import static io.trino.util.SpatialJoinUtils.extractSupportedSpatialFunctions;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.IntStream.range;
 
+@SuppressModernizer
 public class LocalExecutionPlanner
 {
     private static final Logger log = Logger.get(LocalExecutionPlanner.class);

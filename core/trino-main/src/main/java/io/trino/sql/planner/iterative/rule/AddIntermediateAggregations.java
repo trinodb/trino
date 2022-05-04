@@ -30,6 +30,7 @@ import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.util.Map;
 import java.util.Optional;
@@ -67,6 +68,7 @@ import static io.trino.sql.planner.plan.Patterns.aggregation;
  * </pre>
  * <p>
  */
+@SuppressModernizer
 public class AddIntermediateAggregations
         implements Rule<AggregationNode>
 {

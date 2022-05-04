@@ -24,6 +24,7 @@ import io.trino.sql.planner.optimizations.SymbolMapper;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.TopNNode;
 import io.trino.sql.planner.plan.UnionNode;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.util.Set;
 
@@ -36,6 +37,7 @@ import static io.trino.sql.planner.plan.Patterns.topN;
 import static io.trino.sql.planner.plan.Patterns.union;
 import static io.trino.sql.planner.plan.TopNNode.Step.PARTIAL;
 
+@SuppressModernizer
 public class PushTopNThroughUnion
         implements Rule<TopNNode>
 {

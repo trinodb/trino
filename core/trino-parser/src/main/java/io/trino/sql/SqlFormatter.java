@@ -124,6 +124,7 @@ import io.trino.sql.tree.UpdateAssignment;
 import io.trino.sql.tree.Values;
 import io.trino.sql.tree.With;
 import io.trino.sql.tree.WithQuery;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -145,6 +146,7 @@ import static io.trino.sql.RowPatternFormatter.formatPattern;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 
+@SuppressModernizer
 public final class SqlFormatter
 {
     private static final String INDENT = "   ";

@@ -61,6 +61,7 @@ import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.SymbolReference;
 import io.trino.type.LikeFunctions;
 import io.trino.type.TypeCoercion;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import javax.annotation.Nullable;
 
@@ -101,6 +102,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.collectingAndThen;
 import static java.util.stream.Collectors.toList;
 
+@SuppressModernizer
 public final class DomainTranslator
 {
     private final Metadata metadata;

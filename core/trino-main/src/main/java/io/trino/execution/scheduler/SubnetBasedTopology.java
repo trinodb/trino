@@ -18,6 +18,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
 import com.google.common.net.InetAddresses;
 import io.trino.spi.HostAddress;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import javax.inject.Inject;
 
@@ -32,6 +33,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.execution.scheduler.NetworkLocation.ROOT_LOCATION;
 import static java.util.Objects.requireNonNull;
 
+@SuppressModernizer
 public class SubnetBasedTopology
         implements NetworkTopology
 {

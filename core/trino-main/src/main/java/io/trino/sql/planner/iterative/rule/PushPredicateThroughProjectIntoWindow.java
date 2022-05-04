@@ -37,6 +37,7 @@ import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.QualifiedName;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import javax.annotation.Nullable;
 
@@ -80,6 +81,7 @@ import static java.util.Objects.requireNonNull;
  *             - source (a, b)
  * </pre>
  */
+@SuppressModernizer
 public class PushPredicateThroughProjectIntoWindow
         implements Rule<FilterNode>
 {

@@ -26,6 +26,7 @@ import io.trino.memory.QueryContextVisitor;
 import io.trino.memory.context.MemoryTrackingContext;
 import io.trino.operator.OperationTimer.OperationTiming;
 import io.trino.sql.planner.plan.PlanNodeId;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 import org.joda.time.DateTime;
 
 import java.util.List;
@@ -50,6 +51,7 @@ import static java.util.stream.Collectors.toList;
 /**
  * Only calling getDriverStats is ThreadSafe
  */
+@SuppressModernizer
 public class DriverContext
 {
     private final PipelineContext pipelineContext;

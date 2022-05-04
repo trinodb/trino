@@ -229,6 +229,7 @@ import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.Token;
 import org.antlr.v4.runtime.tree.ParseTree;
 import org.antlr.v4.runtime.tree.TerminalNode;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.util.Iterator;
 import java.util.List;
@@ -258,6 +259,7 @@ import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
+@SuppressModernizer
 class AstBuilder
         extends SqlBaseBaseVisitor<Node>
 {

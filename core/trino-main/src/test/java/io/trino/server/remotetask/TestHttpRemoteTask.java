@@ -75,6 +75,7 @@ import io.trino.sql.tree.SymbolReference;
 import io.trino.testing.TestingHandleResolver;
 import io.trino.testing.TestingSplit;
 import io.trino.type.TypeDeserializer;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 import org.testng.annotations.Test;
 
 import javax.inject.Singleton;
@@ -128,6 +129,7 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertTrue;
 
+@SuppressModernizer
 public class TestHttpRemoteTask
 {
     // This 30 sec per-test timeout should never be reached because the test should fail and do proper cleanup after 20 sec.

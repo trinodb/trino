@@ -28,6 +28,7 @@ import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.PlanVisitor;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.tree.Expression;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.util.Collection;
 import java.util.HashMap;
@@ -47,6 +48,7 @@ import static java.util.Objects.requireNonNull;
  * are PlanNodes that are being joined and edges are all equality join
  * conditions between pair of nodes.
  */
+@SuppressModernizer
 public class JoinGraph
 {
     private final List<Expression> filters;

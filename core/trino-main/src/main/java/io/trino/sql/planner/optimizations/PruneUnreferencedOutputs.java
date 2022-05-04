@@ -75,6 +75,7 @@ import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.Row;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -110,6 +111,7 @@ import static java.util.Objects.requireNonNull;
  * <p>
  * {@code Output[$0] -> Project[$0 := $1 + $2] -> ...}
  */
+@SuppressModernizer
 public class PruneUnreferencedOutputs
         implements PlanOptimizer
 {

@@ -27,6 +27,7 @@ import io.trino.sql.planner.plan.TopNRankingNode;
 import io.trino.sql.planner.plan.TopNRankingNode.RankingType;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.tree.QualifiedName;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.util.Optional;
 
@@ -41,6 +42,7 @@ import static io.trino.sql.planner.plan.TopNRankingNode.RankingType.RANK;
 import static io.trino.sql.planner.plan.TopNRankingNode.RankingType.ROW_NUMBER;
 import static java.lang.Math.toIntExact;
 
+@SuppressModernizer
 public class PushdownLimitIntoWindow
         implements Rule<LimitNode>
 {

@@ -20,6 +20,7 @@ import io.trino.matching.Pattern;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.SemiJoinNode;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.matching.Capture.newCapture;
@@ -30,6 +31,7 @@ import static io.trino.sql.planner.plan.Patterns.semiJoin;
 /**
  * Remove the aggregation node that produces distinct rows from the Filtering source of a Semi join.
  */
+@SuppressModernizer
 public class RemoveAggregationInSemiJoin
         implements Rule<SemiJoinNode>
 {

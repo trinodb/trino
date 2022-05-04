@@ -17,6 +17,7 @@ import com.google.common.collect.Iterables;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -25,6 +26,7 @@ import org.testng.annotations.Test;
 import static io.trino.plugin.atop.LocalAtopQueryRunner.createQueryRunner;
 import static org.testng.Assert.assertEquals;
 
+@SuppressModernizer
 public class TestAtopSmoke
 {
     private QueryRunner queryRunner;

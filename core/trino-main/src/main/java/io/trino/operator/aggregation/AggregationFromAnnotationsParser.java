@@ -27,6 +27,7 @@ import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.RemoveInputFunction;
 import io.trino.spi.type.TypeSignature;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import javax.annotation.Nullable;
 
@@ -46,6 +47,7 @@ import static io.trino.operator.annotations.FunctionsParserHelper.parseDescripti
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
+@SuppressModernizer
 public final class AggregationFromAnnotationsParser
 {
     private AggregationFromAnnotationsParser() {}

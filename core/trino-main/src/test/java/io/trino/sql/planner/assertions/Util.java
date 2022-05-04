@@ -20,6 +20,7 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.assertions.PlanMatchPattern.Ordering;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.util.List;
 import java.util.Map;
@@ -28,6 +29,7 @@ import java.util.function.Predicate;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
+@SuppressModernizer
 final class Util
 {
     private Util() {}

@@ -25,6 +25,7 @@ import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.BasicPrincipal;
 import io.trino.spi.security.PasswordAuthenticator;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import javax.inject.Inject;
 import javax.naming.NamingException;
@@ -41,6 +42,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
+@SuppressModernizer
 public class LdapAuthenticator
         implements PasswordAuthenticator
 {

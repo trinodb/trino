@@ -44,6 +44,7 @@ import io.trino.sql.tree.QuantifiedComparisonExpression;
 import io.trino.sql.tree.SearchedCaseExpression;
 import io.trino.sql.tree.SimpleCaseExpression;
 import io.trino.sql.tree.WhenClause;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.util.EnumSet;
 import java.util.List;
@@ -70,6 +71,7 @@ import static io.trino.sql.tree.QuantifiedComparisonExpression.Quantifier.ALL;
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 
+@SuppressModernizer
 public class TransformQuantifiedComparisonApplyToCorrelatedJoin
         implements PlanOptimizer
 {

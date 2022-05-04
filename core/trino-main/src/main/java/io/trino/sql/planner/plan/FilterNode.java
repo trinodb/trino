@@ -19,11 +19,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.tree.Expression;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 
+@SuppressModernizer
 @Immutable
 public class FilterNode
         extends PlanNode

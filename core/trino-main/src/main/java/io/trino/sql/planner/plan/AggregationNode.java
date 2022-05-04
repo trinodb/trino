@@ -28,6 +28,7 @@ import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.LambdaExpression;
 import io.trino.sql.tree.SymbolReference;
 import io.trino.type.FunctionType;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -42,6 +43,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static java.util.Objects.requireNonNull;
 
+@SuppressModernizer
 @Immutable
 public class AggregationNode
         extends PlanNode

@@ -16,6 +16,7 @@ package io.trino.plugin.tpch.statistics;
 import io.airlift.slice.Slice;
 import io.trino.tpch.TpchColumn;
 import io.trino.tpch.TpchTable;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.util.List;
 import java.util.Map;
@@ -28,6 +29,7 @@ import static io.trino.plugin.tpch.util.Optionals.combine;
 import static io.trino.plugin.tpch.util.Types.checkSameType;
 import static io.trino.plugin.tpch.util.Types.checkType;
 
+@SuppressModernizer
 public class StatisticsEstimator
 {
     private final TableStatisticsDataRepository tableStatisticsDataRepository;

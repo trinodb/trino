@@ -46,6 +46,7 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.CallSiteBinder;
 import io.trino.sql.gen.SqlTypeBytecodeExpression;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.lang.annotation.Annotation;
@@ -94,6 +95,7 @@ import static io.trino.util.CompilerUtils.defineClass;
 import static io.trino.util.CompilerUtils.makeClassName;
 import static java.util.Objects.requireNonNull;
 
+@SuppressModernizer
 public final class StateCompiler
 {
     private StateCompiler() {}

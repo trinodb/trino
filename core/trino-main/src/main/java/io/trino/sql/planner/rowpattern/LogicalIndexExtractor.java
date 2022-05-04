@@ -30,6 +30,7 @@ import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.ProcessingMode;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.SymbolReference;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.util.List;
 import java.util.Map;
@@ -60,6 +61,7 @@ import static java.util.Objects.requireNonNull;
  * Each time the compiled expression will be executed, a single-row input will be prepared with the use of the value accessors,
  * following the symbols layout.
  */
+@SuppressModernizer
 public class LogicalIndexExtractor
 {
     public static ExpressionAndValuePointers rewrite(Expression expression, Map<IrLabel, Set<IrLabel>> subsets, SymbolAllocator symbolAllocator)

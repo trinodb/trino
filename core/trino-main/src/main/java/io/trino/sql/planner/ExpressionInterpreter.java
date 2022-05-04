@@ -97,6 +97,7 @@ import io.trino.type.LikeFunctions;
 import io.trino.type.TypeCoercion;
 import io.trino.util.Failures;
 import io.trino.util.FastutilSetHelper;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
@@ -150,6 +151,7 @@ import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
+@SuppressModernizer
 public class ExpressionInterpreter
 {
     private final Expression expression;

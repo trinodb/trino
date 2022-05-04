@@ -14,6 +14,7 @@
 package io.trino.util;
 
 import com.google.common.collect.Iterables;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 import org.testng.annotations.Test;
 
 import java.util.Collection;
@@ -29,6 +30,7 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertTrue;
 
+@SuppressModernizer
 public class TestDisjointSet
 {
     @Test

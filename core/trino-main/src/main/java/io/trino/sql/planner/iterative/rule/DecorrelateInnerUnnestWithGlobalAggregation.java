@@ -37,6 +37,7 @@ import io.trino.sql.planner.plan.UnnestNode;
 import io.trino.sql.planner.plan.UnnestNode.Mapping;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.IsNotNullPredicate;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.util.List;
 import java.util.Map;
@@ -109,6 +110,7 @@ import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
  *                                    - Input (a, c1, c2)
  * </pre>
  */
+@SuppressModernizer
 public class DecorrelateInnerUnnestWithGlobalAggregation
         implements Rule<CorrelatedJoinNode>
 {

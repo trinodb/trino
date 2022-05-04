@@ -38,6 +38,7 @@ import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.tree.BooleanLiteral;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.QualifiedName;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -56,6 +57,7 @@ import static io.trino.sql.planner.plan.TopNRankingNode.RankingType.RANK;
 import static io.trino.sql.planner.plan.TopNRankingNode.RankingType.ROW_NUMBER;
 import static java.lang.Math.toIntExact;
 
+@SuppressModernizer
 public class PushdownFilterIntoWindow
         implements Rule<FilterNode>
 {

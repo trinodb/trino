@@ -22,11 +22,13 @@ import com.google.common.collect.Iterables;
 import io.trino.metadata.AnalyzeTableHandle;
 import io.trino.metadata.TableHandle;
 import io.trino.sql.planner.Symbol;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.util.List;
 
 import static java.util.Objects.requireNonNull;
 
+@SuppressModernizer
 public class StatisticsWriterNode
         extends PlanNode
 {

@@ -26,6 +26,7 @@ import io.trino.spi.type.DateType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -37,6 +38,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
 
+@SuppressModernizer
 public final class GlueExpressionUtil
 {
     static final String NULL_STRING = "__HIVE_DEFAULT_PARTITION__";

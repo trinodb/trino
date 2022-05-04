@@ -30,6 +30,7 @@ import io.trino.sql.planner.plan.RemoteSourceNode;
 import io.trino.sql.planner.plan.SemiJoinNode;
 import io.trino.sql.planner.plan.SpatialJoinNode;
 import io.trino.sql.planner.plan.UnionNode;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.util.Collection;
 import java.util.Iterator;
@@ -49,6 +50,7 @@ import static io.trino.execution.StageState.SCHEDULED;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 
+@SuppressModernizer
 public class AllAtOnceExecutionSchedule
         implements ExecutionSchedule
 {

@@ -22,12 +22,14 @@ import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.RowNumberNode;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.tree.QualifiedName;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.util.Optional;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.sql.planner.plan.Patterns.window;
 
+@SuppressModernizer
 public class ReplaceWindowWithRowNumber
         implements Rule<WindowNode>
 {

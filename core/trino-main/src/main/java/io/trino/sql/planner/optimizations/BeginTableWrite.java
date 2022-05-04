@@ -43,6 +43,7 @@ import io.trino.sql.planner.plan.TableWriterNode.UpdateTarget;
 import io.trino.sql.planner.plan.TableWriterNode.WriterTarget;
 import io.trino.sql.planner.plan.UnionNode;
 import io.trino.sql.planner.plan.UpdateNode;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.util.Optional;
 import java.util.Set;
@@ -59,6 +60,7 @@ import static java.util.stream.Collectors.toSet;
  * returned by beginCreate/beginInsert should be handed down to tasks in a mapping separate
  * from the plan that links plan nodes to the corresponding token.
  */
+@SuppressModernizer
 public class BeginTableWrite
         implements PlanOptimizer
 {

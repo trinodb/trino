@@ -18,6 +18,7 @@ import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.Envelope;
 import org.locationtech.jts.geom.Geometry;
@@ -40,6 +41,7 @@ import static java.lang.Double.NaN;
 import static java.lang.Double.isNaN;
 import static java.util.Objects.requireNonNull;
 
+@SuppressModernizer
 public final class JtsGeometrySerde
 {
     // TODO: Are we sure this is thread safe?

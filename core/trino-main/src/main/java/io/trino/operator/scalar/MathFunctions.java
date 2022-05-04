@@ -1186,7 +1186,7 @@ public final class MathFunctions
     @Description("Constant representing not-a-number")
     @ScalarFunction("nan")
     @SqlType(StandardTypes.DOUBLE)
-    public static double NaN()
+    public static double nan()
     {
         return Double.NaN;
     }

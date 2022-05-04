@@ -28,6 +28,7 @@ import io.trino.spi.Page;
 import io.trino.spi.connector.UpdatablePageSource;
 import io.trino.sql.planner.LocalExecutionPlanner.OperatorFactoryWithTypes;
 import io.trino.sql.planner.plan.PlanNodeId;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -50,6 +51,7 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
+@SuppressModernizer
 public class TestWorkProcessorPipelineSourceOperator
 {
     private ScheduledExecutorService scheduledExecutor;

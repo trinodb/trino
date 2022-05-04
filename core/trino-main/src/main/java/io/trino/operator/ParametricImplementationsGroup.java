@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.metadata.FunctionArgumentDefinition;
 import io.trino.metadata.Signature;
 import io.trino.spi.type.TypeSignature;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.util.List;
 import java.util.Map;
@@ -34,6 +35,7 @@ import static java.util.Objects.requireNonNull;
  *
  * @param <T> type of implementation details
  */
+@SuppressModernizer
 public class ParametricImplementationsGroup<T extends ParametricImplementation>
 {
     // These are implementations for concrete types (they have no unbound type parameters), and have the highest priority when picking an implementation

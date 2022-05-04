@@ -30,6 +30,7 @@ import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.tree.DereferenceExpression;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.SymbolReference;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.util.List;
 import java.util.Map;
@@ -73,6 +74,7 @@ import static java.util.stream.Collectors.toList;
  * Pushes down dereference projections through JoinNode. Excludes dereferences on symbols being used in join criteria to avoid
  * data replication, since these symbols cannot be pruned.
  */
+@SuppressModernizer
 public class PushDownDereferenceThroughJoin
         implements Rule<ProjectNode>
 {

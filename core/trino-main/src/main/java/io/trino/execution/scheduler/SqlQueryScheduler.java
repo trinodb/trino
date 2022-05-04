@@ -51,6 +51,7 @@ import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.planner.StageExecutionPlan;
 import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNodeId;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.net.URI;
 import java.util.ArrayList;
@@ -109,6 +110,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toCollection;
 
+@SuppressModernizer
 public class SqlQueryScheduler
 {
     private final QueryStateMachine queryStateMachine;

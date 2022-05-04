@@ -25,6 +25,7 @@ import io.trino.spi.type.TestingTypeDeserializer;
 import io.trino.spi.type.TestingTypeManager;
 import io.trino.spi.type.Type;
 import org.assertj.core.api.AssertProvider;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 import org.testng.annotations.Test;
 
 import static io.airlift.slice.Slices.utf8Slice;
@@ -45,6 +46,7 @@ import static org.testng.Assert.assertTrue;
 
 public class TestSortedRangeSet
 {
+    @SuppressModernizer
     @Test
     public void testEmptySet()
     {

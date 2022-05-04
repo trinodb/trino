@@ -90,6 +90,7 @@ import io.trino.sql.tree.Unnest;
 import io.trino.sql.tree.Values;
 import io.trino.sql.tree.VariableDefinition;
 import io.trino.type.TypeCoercion;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -126,6 +127,7 @@ import static java.lang.Boolean.TRUE;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
+@SuppressModernizer
 class RelationPlanner
         extends AstVisitor<RelationPlan, Void>
 {
