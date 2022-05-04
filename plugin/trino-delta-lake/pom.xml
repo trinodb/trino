@@ -298,7 +298,7 @@
         <dependency>
             <groupId>com.azure</groupId>
             <artifactId>azure-core</artifactId>
-            <version>1.13.0</version>
+            <version>1.25.0</version>
             <scope>test</scope>
             <exclusions>
                 <exclusion>
@@ -315,7 +315,7 @@
         <dependency>
             <groupId>com.azure</groupId>
             <artifactId>azure-storage-blob</artifactId>
-            <version>12.10.0</version>
+            <version>12.14.4</version>
             <scope>test</scope>
             <exclusions>
                 <exclusion>
