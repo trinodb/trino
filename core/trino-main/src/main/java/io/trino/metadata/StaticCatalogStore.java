@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Files;
 import io.airlift.log.Logger;
 import io.trino.connector.ConnectorManager;
+import io.trino.util.FileWatcher;
 
 import javax.inject.Inject;
 
@@ -41,19 +42,24 @@ public class StaticCatalogStore
     private final Set<String> disabledCatalogs;
     private final AtomicBoolean catalogsLoading = new AtomicBoolean();
 
+    private final boolean hotReload;
+
     @Inject
     public StaticCatalogStore(ConnectorManager connectorManager, StaticCatalogStoreConfig config)
     {
         this(connectorManager,
                 config.getCatalogConfigurationDir(),
-                firstNonNull(config.getDisabledCatalogs(), ImmutableList.of()));
+                firstNonNull(config.getDisabledCatalogs(),
+                ImmutableList.of()),
+                config.getHotReload());
     }
 
-    public StaticCatalogStore(ConnectorManager connectorManager, File catalogConfigurationDir, List<String> disabledCatalogs)
+    public StaticCatalogStore(ConnectorManager connectorManager, File catalogConfigurationDir, List<String> disabledCatalogs, boolean hotReload)
     {
         this.connectorManager = connectorManager;
         this.catalogConfigurationDir = catalogConfigurationDir;
         this.disabledCatalogs = ImmutableSet.copyOf(disabledCatalogs);
+        this.hotReload = hotReload;
     }
 
     public void loadCatalogs()
@@ -66,11 +72,27 @@ public class StaticCatalogStore
         for (File file : listFiles(catalogConfigurationDir)) {
             if (file.isFile() && file.getName().endsWith(".properties")) {
                 loadCatalog(file);
+                if (this.hotReload) {
+                    FileWatcher.onFileChange(file.toPath(), (f) -> {
+                        try {
+                            this.loadCatalog(f, true);
+                        }
+                        catch (Exception e) {
+                            log.warn("Could not hot reload file %s", file.toPath(), e);
+                        }
+                    });
+                }
             }
         }
     }
 
     private void loadCatalog(File file)
+            throws Exception
+    {
+        loadCatalog(file, false);
+    }
+
+    private void loadCatalog(File file, boolean replaceExisting)
             throws Exception
     {
         String catalogName = Files.getNameWithoutExtension(file.getName());
@@ -85,7 +107,7 @@ public class StaticCatalogStore
         String connectorName = properties.remove("connector.name");
         checkState(connectorName != null, "Catalog configuration %s does not contain connector.name", file.getAbsoluteFile());
 
-        connectorManager.createCatalog(catalogName, connectorName, ImmutableMap.copyOf(properties));
+        connectorManager.createCatalog(catalogName, connectorName, ImmutableMap.copyOf(properties), replaceExisting);
         log.info("-- Added catalog %s using connector %s --", catalogName, connectorName);
     }
 

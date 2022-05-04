@@ -30,6 +30,8 @@ public class StaticCatalogStoreConfig
     private File catalogConfigurationDir = new File("etc/catalog/");
     private List<String> disabledCatalogs;
 
+    private Boolean hotReload;
+
     @NotNull
     public File getCatalogConfigurationDir()
     {
@@ -60,5 +62,18 @@ public class StaticCatalogStoreConfig
     {
         this.disabledCatalogs = (catalogs == null) ? null : ImmutableList.copyOf(catalogs);
         return this;
+    }
+
+    @Config("catalog.hot-reload")
+    public StaticCatalogStoreConfig setHotReload(Boolean hotReload)
+    {
+        this.hotReload = hotReload != null && hotReload;
+        return this;
+    }
+
+    @NotNull
+    public Boolean getHotReload()
+    {
+        return hotReload;
     }
 }

@@ -221,19 +221,33 @@ public class ConnectorManager
 
     public synchronized CatalogName createCatalog(String catalogName, String connectorName, Map<String, String> properties)
     {
+        return createCatalog(catalogName, connectorName, properties, false);
+    }
+
+    public synchronized CatalogName createCatalog(String catalogName, String connectorName, Map<String, String> properties, boolean replaceExistingCatalog)
+    {
         requireNonNull(connectorName, "connectorName is null");
         InternalConnectorFactory connectorFactory = connectorFactories.get(connectorName);
         checkArgument(connectorFactory != null, "No factory for connector '%s'.  Available factories: %s", connectorName, connectorFactories.keySet());
-        return createCatalog(catalogName, connectorName, connectorFactory, properties);
+        return createCatalog(catalogName, connectorName, connectorFactory, properties, replaceExistingCatalog);
     }
 
-    private synchronized CatalogName createCatalog(String catalogName, String connectorName, InternalConnectorFactory connectorFactory, Map<String, String> properties)
+    private synchronized CatalogName createCatalog(String catalogName, String connectorName, InternalConnectorFactory connectorFactory, Map<String, String> properties, boolean replaceExistingCatalog)
     {
         checkState(!stopped.get(), "ConnectorManager is stopped");
         requireNonNull(catalogName, "catalogName is null");
         requireNonNull(properties, "properties is null");
         requireNonNull(connectorFactory, "connectorFactory is null");
-        checkArgument(catalogManager.getCatalog(catalogName).isEmpty(), "Catalog '%s' already exists", catalogName);
+
+        if (replaceExistingCatalog) {
+            // remove any catalog already registered to the name
+            catalogManager.getCatalog(catalogName).ifPresent((c) -> {
+                catalogManager.removeCatalog(c.getCatalogName());
+            });
+        }
+        else {
+            checkArgument(catalogManager.getCatalog(catalogName).isEmpty(), "Catalog '%s' already exists", catalogName);
+        }
 
         CatalogName catalog = new CatalogName(catalogName);
         checkState(!connectors.containsKey(catalog), "Catalog '%s' already exists", catalog);
@@ -241,6 +255,11 @@ public class ConnectorManager
         createCatalog(catalog, connectorName, connectorFactory, properties);
 
         return catalog;
+    }
+
+    private synchronized CatalogName createCatalog(String catalogName, String connectorName, InternalConnectorFactory connectorFactory, Map<String, String> properties)
+    {
+        return createCatalog(catalogName, connectorName, connectorFactory, properties, false);
     }
 
     private synchronized void createCatalog(CatalogName catalogName, String connectorName, InternalConnectorFactory factory, Map<String, String> properties)
