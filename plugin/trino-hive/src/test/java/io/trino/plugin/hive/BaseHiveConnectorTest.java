@@ -1796,6 +1796,7 @@ public abstract class BaseHiveConnectorTest
         // verify the default behavior is one file per node
         Session session = Session.builder(getSession())
                 .setSystemProperty("task_writer_count", "1")
+                .setSystemProperty("scale_writers", "false")
                 .build();
         assertUpdate(session, createTableSql, 1000000);
         assertThat(computeActual(selectFileInfo).getRowCount()).isEqualTo(expectedTableWriters);
@@ -1838,6 +1839,7 @@ public abstract class BaseHiveConnectorTest
         // verify the default behavior is one file per node per partition
         Session session = Session.builder(getSession())
                 .setSystemProperty("task_writer_count", "1")
+                .setSystemProperty("scale_writers", "false")
                 .build();
         assertUpdate(session, createTableSql, 1000000);
         assertThat(computeActual(selectFileInfo).getRowCount()).isEqualTo(expectedTableWriters * 3);

@@ -848,6 +848,18 @@ public class CountingAccessMetadata
     }
 
     @Override
+    public boolean supportsReportingWrittenBytes(Session session, TableHandle tableHandle)
+    {
+        return false;
+    }
+
+    @Override
+    public boolean supportsReportingWrittenBytes(Session session, QualifiedObjectName tableName, Map<String, Object> tableProperties)
+    {
+        return false;
+    }
+
+    @Override
     public Optional<TableHandle> getTableHandle(Session session, QualifiedObjectName tableName, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion)
     {
         return delegate.getTableHandle(session, tableName, startVersion, endVersion);
