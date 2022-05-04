@@ -200,7 +200,7 @@ public class BenchmarkPartitionedOutputOperator
                         () -> createRandomBlockForType(BigintType.BIGINT, positionCount, nullRate),
                         createRandomLongsBlock(positionCount, 2));
             }),
-            DICTIONARY_BIGINT(BigintType.BIGINT, 3000, PageTestUtils::createRandomDictionaryPage),
+            DICTIONARY_BIGINT(BigintType.BIGINT, 5000, PageTestUtils::createRandomDictionaryPage),
             RLE_BIGINT(BigintType.BIGINT, 3000, PageTestUtils::createRandomRlePage),
             BIGINT_PARTITION_CHANNEL_20_PERCENT(BigintType.BIGINT, 3000, (types, positionCount, nullRate) -> {
                 return page(
