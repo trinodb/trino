@@ -449,6 +449,12 @@ public abstract class ForwardingAccessControl
     }
 
     @Override
+    public void checkCanExecuteFunction(SecurityContext context, QualifiedObjectName functionName)
+    {
+        delegate().checkCanExecuteFunction(context, functionName);
+    }
+
+    @Override
     public void checkCanExecuteTableProcedure(SecurityContext context, QualifiedObjectName tableName, String procedureName)
     {
         delegate().checkCanExecuteTableProcedure(context, tableName, procedureName);
