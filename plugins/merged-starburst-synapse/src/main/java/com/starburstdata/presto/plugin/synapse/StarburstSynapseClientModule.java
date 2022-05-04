@@ -12,8 +12,6 @@ package com.starburstdata.presto.plugin.synapse;
 import com.google.inject.Binder;
 import com.google.inject.Key;
 import com.google.inject.Scopes;
-import com.starburstdata.presto.plugin.jdbc.dynamicfiltering.ForDynamicFiltering;
-import com.starburstdata.presto.plugin.jdbc.redirection.JdbcTableScanRedirectionModule;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.JdbcClient;
@@ -50,11 +48,9 @@ public class StarburstSynapseClientModule
 
         bindSessionPropertiesProvider(binder, StarburstSynapseSessionProperties.class);
 
-        binder.bind(ConnectorSplitManager.class).annotatedWith(ForDynamicFiltering.class).to(JdbcSplitManager.class).in(Scopes.SINGLETON);
-        binder.bind(ConnectorRecordSetProvider.class).annotatedWith(ForDynamicFiltering.class).to(JdbcRecordSetProvider.class).in(Scopes.SINGLETON);
+        binder.bind(ConnectorSplitManager.class).annotatedWith(ForBaseJdbc.class).to(JdbcSplitManager.class).in(Scopes.SINGLETON);
+        binder.bind(ConnectorRecordSetProvider.class).annotatedWith(ForBaseJdbc.class).to(JdbcRecordSetProvider.class).in(Scopes.SINGLETON);
 
-        install(new StarburstSynapseAuthenticationModule());
         install(new JdbcJoinPushdownSupportModule());
-        install(new JdbcTableScanRedirectionModule());
     }
 }
