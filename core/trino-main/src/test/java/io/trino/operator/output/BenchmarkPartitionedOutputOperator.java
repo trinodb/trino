@@ -27,6 +27,7 @@ import io.trino.memory.context.LocalMemoryContext;
 import io.trino.memory.context.SimpleLocalMemoryContext;
 import io.trino.operator.BucketPartitionFunction;
 import io.trino.operator.DriverContext;
+import io.trino.operator.PageTestUtils;
 import io.trino.operator.PartitionFunction;
 import io.trino.operator.PrecomputedHashGenerator;
 import io.trino.operator.output.PartitionedOutputOperator.PartitionedOutputFactory;
@@ -87,9 +88,6 @@ import static io.trino.block.BlockAssertions.createRandomLongsBlock;
 import static io.trino.execution.buffer.OutputBuffers.BufferType.PARTITIONED;
 import static io.trino.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.trino.operator.PageTestUtils.createRandomDictionaryPage;
-import static io.trino.operator.PageTestUtils.createRandomPage;
-import static io.trino.operator.PageTestUtils.createRandomRlePage;
 import static io.trino.operator.output.BenchmarkPartitionedOutputOperator.BenchmarkData.TestType;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DecimalType.createDecimalType;
@@ -191,127 +189,73 @@ public class BenchmarkPartitionedOutputOperator
         public enum TestType
         {
             BIGINT(BigintType.BIGINT, 5000),
-            BIGINT_SKEWED_HASH(BigintType.BIGINT, 5000) {
-                @Override
-                public Page createPage(List<Type> types, int positionCount, float nullRate)
-                {
-                    return page(
-                            positionCount,
-                            types.size(),
-                            () -> createRandomBlockForType(BigintType.BIGINT, positionCount, nullRate),
-                            createRandomLongsBlock(positionCount, 2));
-                }
-            },
-            DICTIONARY_BIGINT(BigintType.BIGINT, 3000) {
-                @Override
-                public Page createPage(List<Type> types, int positionCount, float nullRate)
-                {
-                    return createRandomDictionaryPage(types, positionCount, nullRate);
-                }
-            },
-            RLE_BIGINT(BigintType.BIGINT, 3000) {
-                @Override
-                public Page createPage(List<Type> types, int positionCount, float nullRate)
-                {
-                    return createRandomRlePage(types, positionCount, nullRate);
-                }
-            },
-            BIGINT_PARTITION_CHANNEL_20_PERCENT(BigintType.BIGINT, 3000) {
-                @Override
-                public Page createPage(List<Type> types, int positionCount, float nullRate)
-                {
-                    return page(
-                            positionCount,
-                            types.size(),
-                            () -> createRandomBlockForType(BigintType.BIGINT, positionCount, nullRate),
-                            createLongsBlock(LongStream.range(0, positionCount)
-                                    .mapToObj(value -> value % (positionCount / 5))
-                                    .collect(toImmutableList())));
-                }
-            },
-            BIGINT_DICTIONARY_PARTITION_CHANNEL_20_PERCENT(BigintType.BIGINT, 3000) {
-                @Override
-                public Page createPage(List<Type> types, int positionCount, float nullRate)
-                {
-                    return page(
-                            positionCount,
-                            types.size(),
-                            () -> createRandomBlockForType(BigintType.BIGINT, positionCount, nullRate),
-                            createLongDictionaryBlock(0, positionCount, positionCount / 5));
-                }
-            },
-            BIGINT_DICTIONARY_PARTITION_CHANNEL_50_PERCENT(BigintType.BIGINT, 3000) {
-                @Override
-                public Page createPage(List<Type> types, int positionCount, float nullRate)
-                {
-                    return page(
-                            positionCount,
-                            types.size(),
-                            () -> createRandomBlockForType(BigintType.BIGINT, positionCount, nullRate),
-                            createLongDictionaryBlock(0, positionCount, positionCount / 2));
-                }
-            },
-            BIGINT_DICTIONARY_PARTITION_CHANNEL_80_PERCENT(BigintType.BIGINT, 3000) {
-                @Override
-                public Page createPage(List<Type> types, int positionCount, float nullRate)
-                {
-                    return page(
-                            positionCount,
-                            types.size(),
-                            () -> createRandomBlockForType(BigintType.BIGINT, positionCount, nullRate),
-                            createLongDictionaryBlock(0, positionCount, (int) (positionCount * 0.8)));
-                }
-            },
-            BIGINT_DICTIONARY_PARTITION_CHANNEL_100_PERCENT(BigintType.BIGINT, 3000) {
-                @Override
-                public Page createPage(List<Type> types, int positionCount, float nullRate)
-                {
-                    return page(
-                            positionCount,
-                            types.size(),
-                            () -> createRandomBlockForType(BigintType.BIGINT, positionCount, nullRate),
-                            createLongDictionaryBlock(0, positionCount, positionCount));
-                }
-            },
-            BIGINT_DICTIONARY_PARTITION_CHANNEL_100_PERCENT_MINUS_1(BigintType.BIGINT, 3000) {
-                @Override
-                public Page createPage(List<Type> types, int positionCount, float nullRate)
-                {
-                    return page(
-                            positionCount,
-                            types.size(),
-                            () -> createRandomBlockForType(BigintType.BIGINT, positionCount, nullRate),
-                            createLongDictionaryBlock(0, positionCount, positionCount - 1));
-                }
-            },
-            RLE_PARTITION_BIGINT(BigintType.BIGINT, 5000) {
-                @Override
-                public Page createPage(List<Type> types, int positionCount, float nullRate)
-                {
-                    return page(
-                            positionCount,
-                            types.size(),
-                            () -> createRandomBlockForType(BigintType.BIGINT, positionCount, nullRate),
-                            createRLEBlock(42, positionCount));
-                }
-            },
-            RLE_PARTITION_NULL_BIGINT(BigintType.BIGINT, 20) {
-                @Override
-                public Page createPage(List<Type> types, int positionCount, float nullRate)
-                {
-                    return page(
-                            positionCount,
-                            types.size(),
-                            () -> createRandomBlockForType(BigintType.BIGINT, positionCount, nullRate),
-                            new RunLengthEncodedBlock(createLongsBlock((Long) null), positionCount));
-                }
-
-                @Override
-                public OptionalInt getNullChannel()
-                {
-                    return OptionalInt.of(1);
-                }
-            },
+            BIGINT_SKEWED_HASH(BigintType.BIGINT, 5000, (types, positionCount, nullRate) -> {
+                return page(
+                        positionCount,
+                        types.size(),
+                        () -> createRandomBlockForType(BigintType.BIGINT, positionCount, nullRate),
+                        createRandomLongsBlock(positionCount, 2));
+            }),
+            DICTIONARY_BIGINT(BigintType.BIGINT, 3000, PageTestUtils::createRandomDictionaryPage),
+            RLE_BIGINT(BigintType.BIGINT, 3000, PageTestUtils::createRandomRlePage),
+            BIGINT_PARTITION_CHANNEL_20_PERCENT(BigintType.BIGINT, 3000, (types, positionCount, nullRate) -> {
+                return page(
+                        positionCount,
+                        types.size(),
+                        () -> createRandomBlockForType(BigintType.BIGINT, positionCount, nullRate),
+                        createLongsBlock(LongStream.range(0, positionCount)
+                                .mapToObj(value -> value % (positionCount / 5))
+                                .collect(toImmutableList())));
+            }),
+            BIGINT_DICTIONARY_PARTITION_CHANNEL_20_PERCENT(BigintType.BIGINT, 3000, (types, positionCount, nullRate) -> {
+                return page(
+                        positionCount,
+                        types.size(),
+                        () -> createRandomBlockForType(BigintType.BIGINT, positionCount, nullRate),
+                        createLongDictionaryBlock(0, positionCount, positionCount / 5));
+            }),
+            BIGINT_DICTIONARY_PARTITION_CHANNEL_50_PERCENT(BigintType.BIGINT, 3000, (types, positionCount, nullRate) -> {
+                return page(
+                        positionCount,
+                        types.size(),
+                        () -> createRandomBlockForType(BigintType.BIGINT, positionCount, nullRate),
+                        createLongDictionaryBlock(0, positionCount, positionCount / 2));
+            }),
+            BIGINT_DICTIONARY_PARTITION_CHANNEL_80_PERCENT(BigintType.BIGINT, 3000, (types, positionCount, nullRate) -> {
+                return page(
+                        positionCount,
+                        types.size(),
+                        () -> createRandomBlockForType(BigintType.BIGINT, positionCount, nullRate),
+                        createLongDictionaryBlock(0, positionCount, (int) (positionCount * 0.8)));
+            }),
+            BIGINT_DICTIONARY_PARTITION_CHANNEL_100_PERCENT(BigintType.BIGINT, 3000, (types, positionCount, nullRate) -> {
+                return page(
+                        positionCount,
+                        types.size(),
+                        () -> createRandomBlockForType(BigintType.BIGINT, positionCount, nullRate),
+                        createLongDictionaryBlock(0, positionCount, positionCount));
+            }),
+            BIGINT_DICTIONARY_PARTITION_CHANNEL_100_PERCENT_MINUS_1(BigintType.BIGINT, 3000, (types, positionCount, nullRate) -> {
+                return page(
+                        positionCount,
+                        types.size(),
+                        () -> createRandomBlockForType(BigintType.BIGINT, positionCount, nullRate),
+                        createLongDictionaryBlock(0, positionCount, positionCount - 1));
+            }),
+            RLE_PARTITION_BIGINT(BigintType.BIGINT, 5000, (types, positionCount, nullRate) -> {
+                return page(
+                        positionCount,
+                        types.size(),
+                        () -> createRandomBlockForType(BigintType.BIGINT, positionCount, nullRate),
+                        createRLEBlock(42, positionCount));
+            }),
+            RLE_PARTITION_NULL_BIGINT(BigintType.BIGINT, 20, (types, positionCount, nullRate) -> {
+                return page(
+                        positionCount,
+                        types.size(),
+                        () -> createRandomBlockForType(BigintType.BIGINT, positionCount, nullRate),
+                        new RunLengthEncodedBlock(createLongsBlock((Long) null), positionCount));
+            }),
             LONG_DECIMAL(createDecimalType(MAX_SHORT_PRECISION + 1), 5000),
             INTEGER(IntegerType.INTEGER, 5000),
             SMALLINT(SmallintType.SMALLINT, 5000),
@@ -328,15 +272,23 @@ public class BenchmarkPartitionedOutputOperator
             private final Type type;
             private final int pageCount;
 
+            private final PageGenerator pageGenerator;
+
             TestType(Type type, int pageCount)
+            {
+                this(type, pageCount, PageTestUtils::createRandomPage);
+            }
+
+            TestType(Type type, int pageCount, PageGenerator pageGenerator)
             {
                 this.type = requireNonNull(type, "type is null");
                 this.pageCount = pageCount;
+                this.pageGenerator = requireNonNull(pageGenerator, "pageGenerator is null");
             }
 
-            public Page createPage(List<Type> types, int positionCount, float nullRate)
+            public PageGenerator getPageGenerator()
             {
-                return createRandomPage(types, positionCount, nullRate);
+                return pageGenerator;
             }
 
             public int getPageCount()
@@ -352,6 +304,11 @@ public class BenchmarkPartitionedOutputOperator
             public List<Type> getTypes(int channelCount)
             {
                 return nCopies(channelCount, type);
+            }
+
+            interface PageGenerator
+            {
+                Page createPage(List<Type> types, int positionCount, float nullRate);
             }
         }
 
@@ -388,7 +345,7 @@ public class BenchmarkPartitionedOutputOperator
             // and in case of unit test it will be null
             this.blackhole = blackhole;
             types = type.getTypes(channelCount);
-            dataPage = type.createPage(types, positionCount, nullRate);
+            dataPage = type.getPageGenerator().createPage(types, positionCount, nullRate);
             pageCount = type.getPageCount();
             nullChannel = type.getNullChannel();
             types = ImmutableList.<Type>builder()
