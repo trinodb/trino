@@ -19,21 +19,6 @@
 
     <dependencies>
         <dependency>
-            <groupId>com.starburstdata.presto</groupId>
-            <artifactId>starburst-base-jdbc</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.starburstdata.presto</groupId>
-            <artifactId>starburst-license</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.starburstdata.presto</groupId>
-            <artifactId>starburst-plugin-toolkit</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-base-jdbc</artifactId>
         </dependency>
@@ -125,52 +110,6 @@
         </dependency>
 
         <!-- for testing -->
-        <dependency>
-            <groupId>com.starburstdata.presto</groupId>
-            <artifactId>starburst-base-jdbc</artifactId>
-            <type>test-jar</type>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>com.starburstdata.presto</groupId>
-            <artifactId>starburst-license</artifactId>
-            <type>test-jar</type>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>com.starburstdata.presto</groupId>
-            <artifactId>starburst-redirection</artifactId>
-            <type>test-jar</type>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>com.starburstdata.presto</groupId>
-            <artifactId>starburst-server-main</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>com.starburstdata.presto</groupId>
-            <artifactId>starburst-server-main</artifactId>
-            <type>test-jar</type>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>com.starburstdata.presto</groupId>
-            <artifactId>starburst-testing</artifactId>
-            <scope>test</scope>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.projectlombok</groupId>
-                    <artifactId>lombok</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-base-jdbc</artifactId>
