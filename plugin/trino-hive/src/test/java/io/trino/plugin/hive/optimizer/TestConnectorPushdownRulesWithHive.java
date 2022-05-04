@@ -211,7 +211,7 @@ public class TestConnectorPushdownRulesWithHive
                                 TupleDomain.all(),
                                 ImmutableMap.of("struct_of_int#a", partialColumn::equals))));
 
-        metastore.dropTable(SCHEMA_NAME, tableName, true);
+        metastore.dropTable(SCHEMA_NAME, tableName, true, Optional.empty());
     }
 
     @Test
@@ -243,7 +243,7 @@ public class TestConnectorPushdownRulesWithHive
                                 TupleDomain.all(),
                                 ImmutableMap.of("a", column::equals))));
 
-        metastore.dropTable(SCHEMA_NAME, tableName, true);
+        metastore.dropTable(SCHEMA_NAME, tableName, true, Optional.empty());
     }
 
     @Test
@@ -281,7 +281,7 @@ public class TestConnectorPushdownRulesWithHive
                                         TupleDomain.all(),
                                         ImmutableMap.of("COLA", columnA::equals))));
 
-        metastore.dropTable(SCHEMA_NAME, tableName, true);
+        metastore.dropTable(SCHEMA_NAME, tableName, true, Optional.empty());
     }
 
     @Test
@@ -362,7 +362,7 @@ public class TestConnectorPushdownRulesWithHive
                                 TupleDomain.all(),
                                 ImmutableMap.of("struct_of_bigint#a", partialColumn::equals))));
 
-        metastore.dropTable(SCHEMA_NAME, tableName, true);
+        metastore.dropTable(SCHEMA_NAME, tableName, true, Optional.empty());
     }
 
     @AfterClass(alwaysRun = true)

@@ -19,6 +19,7 @@ import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.PartitionStatistics;
 import io.trino.plugin.hive.acid.AcidOperation;
 import io.trino.plugin.hive.acid.AcidTransaction;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.TupleDomain;
@@ -73,7 +74,7 @@ public interface HiveMetastore
 
     void createTable(Table table, PrincipalPrivileges principalPrivileges);
 
-    void dropTable(String databaseName, String tableName, boolean deleteData);
+    void dropTable(String databaseName, String tableName, boolean deleteData, Optional<ConnectorSession> session);
 
     /**
      * This should only be used if the semantic here is drop and add. Trying to

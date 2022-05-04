@@ -26,6 +26,7 @@ import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.PartitionWithStatistics;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.Table;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.TupleDomain;
@@ -166,9 +167,9 @@ public class HiveMetastoreClosure
         delegate.createTable(table, principalPrivileges);
     }
 
-    public void dropTable(String databaseName, String tableName, boolean deleteData)
+    public void dropTable(String databaseName, String tableName, boolean deleteData, Optional<ConnectorSession> session)
     {
-        delegate.dropTable(databaseName, tableName, deleteData);
+        delegate.dropTable(databaseName, tableName, deleteData, session);
     }
 
     public void replaceTable(String databaseName, String tableName, Table newTable, PrincipalPrivileges principalPrivileges)

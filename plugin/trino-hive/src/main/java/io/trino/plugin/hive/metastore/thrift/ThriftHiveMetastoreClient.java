@@ -14,11 +14,13 @@
 package io.trino.plugin.hive.metastore.thrift;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.trino.plugin.base.util.LoggingInvocationHandler;
 import io.trino.plugin.base.util.LoggingInvocationHandler.AirliftParameterNamesProvider;
 import io.trino.plugin.base.util.LoggingInvocationHandler.ParameterNamesProvider;
 import io.trino.plugin.hive.acid.AcidOperation;
+import io.trino.spi.connector.ConnectorSession;
 import org.apache.hadoop.hive.common.ValidTxnList;
 import org.apache.hadoop.hive.metastore.api.AbortTxnRequest;
 import org.apache.hadoop.hive.metastore.api.AddDynamicPartitions;
@@ -72,10 +74,12 @@ import org.apache.thrift.transport.TTransport;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.OptionalLong;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.reflect.Reflection.newProxy;
+import static io.trino.plugin.hive.HiveSessionProperties.isPurgeTableDataOnDrop;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.adjustRowCount;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -177,10 +181,16 @@ public class ThriftHiveMetastoreClient
     }
 
     @Override
-    public void dropTable(String databaseName, String name, boolean deleteData)
+    public void dropTable(String databaseName, String name, boolean deleteData, Optional<ConnectorSession> session)
             throws TException
     {
-        client.drop_table(databaseName, name, deleteData);
+        if (session.isPresent() && isPurgeTableDataOnDrop(session.get())) {
+            EnvironmentContext envContext = new EnvironmentContext(ImmutableMap.of("ifPurge", "true"));
+            client.drop_table_with_environment_context(databaseName, name, deleteData, envContext);
+        }
+        else {
+            client.drop_table(databaseName, name, deleteData);
+        }
     }
 
     @Override

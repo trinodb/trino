@@ -492,7 +492,7 @@ public class SemiTransactionalHiveMetastore
         TableAndMore tableAndMore = new TableAndMore(table, Optional.of(principalPrivileges), currentPath, files, ignoreExisting, statistics, statistics, cleanExtraOutputFilesOnCommit);
         if (oldTableAction == null) {
             HdfsContext hdfsContext = new HdfsContext(session);
-            tableActions.put(table.getSchemaTableName(), new Action<>(ActionType.ADD, tableAndMore, hdfsContext, session.getQueryId()));
+            tableActions.put(table.getSchemaTableName(), new Action<>(ActionType.ADD, tableAndMore, hdfsContext, session.getQueryId(), Optional.empty()));
             return;
         }
         switch (oldTableAction.getType()) {
@@ -501,7 +501,7 @@ public class SemiTransactionalHiveMetastore
                     throw new TrinoException(TRANSACTION_CONFLICT, "Operation on the same table with different user in the same transaction is not supported");
                 }
                 HdfsContext hdfsContext = new HdfsContext(session);
-                tableActions.put(table.getSchemaTableName(), new Action<>(ActionType.ALTER, tableAndMore, hdfsContext, session.getQueryId()));
+                tableActions.put(table.getSchemaTableName(), new Action<>(ActionType.ALTER, tableAndMore, hdfsContext, session.getQueryId(), Optional.empty()));
                 return;
 
             case ADD:
@@ -526,7 +526,7 @@ public class SemiTransactionalHiveMetastore
         Action<TableAndMore> oldTableAction = tableActions.get(schemaTableName);
         if (oldTableAction == null || oldTableAction.getType() == ActionType.ALTER) {
             HdfsContext hdfsContext = new HdfsContext(session);
-            tableActions.put(schemaTableName, new Action<>(ActionType.DROP, null, hdfsContext, session.getQueryId()));
+            tableActions.put(schemaTableName, new Action<>(ActionType.DROP, null, hdfsContext, session.getQueryId(), Optional.empty()));
             return;
         }
         switch (oldTableAction.getType()) {
@@ -629,7 +629,8 @@ public class SemiTransactionalHiveMetastore
                                     statisticsUpdate,
                                     cleanExtraOutputFilesOnCommit),
                             hdfsContext,
-                            session.getQueryId()));
+                            session.getQueryId(),
+                            Optional.empty()));
             return;
         }
 
@@ -709,7 +710,8 @@ public class SemiTransactionalHiveMetastore
                                     Optional.of(currentLocation),
                                     partitionAndStatementIds),
                             hdfsContext,
-                            session.getQueryId()));
+                            session.getQueryId(),
+                            Optional.empty()));
             return;
         }
 
@@ -756,7 +758,8 @@ public class SemiTransactionalHiveMetastore
                                     Optional.of(currentLocation),
                                     partitionAndStatementIds),
                             hdfsContext,
-                            session.getQueryId()));
+                            session.getQueryId(),
+                            Optional.empty()));
             return;
         }
 
@@ -947,7 +950,7 @@ public class SemiTransactionalHiveMetastore
         if (oldPartitionAction == null) {
             partitionActionsOfTable.put(
                     partition.getValues(),
-                    new Action<>(ActionType.ADD, new PartitionAndMore(partition, currentLocation, files, statistics, statistics, cleanExtraOutputFilesOnCommit), hdfsContext, session.getQueryId()));
+                    new Action<>(ActionType.ADD, new PartitionAndMore(partition, currentLocation, files, statistics, statistics, cleanExtraOutputFilesOnCommit), hdfsContext, session.getQueryId(), Optional.empty()));
             return;
         }
         switch (oldPartitionAction.getType()) {
@@ -958,7 +961,7 @@ public class SemiTransactionalHiveMetastore
                 }
                 partitionActionsOfTable.put(
                         partition.getValues(),
-                        new Action<>(ActionType.ALTER, new PartitionAndMore(partition, currentLocation, files, statistics, statistics, cleanExtraOutputFilesOnCommit), hdfsContext, session.getQueryId()));
+                        new Action<>(ActionType.ALTER, new PartitionAndMore(partition, currentLocation, files, statistics, statistics, cleanExtraOutputFilesOnCommit), hdfsContext, session.getQueryId(), Optional.empty()));
                 return;
             case ADD:
             case ALTER:
@@ -978,10 +981,10 @@ public class SemiTransactionalHiveMetastore
         if (oldPartitionAction == null) {
             HdfsContext hdfsContext = new HdfsContext(session);
             if (deleteData) {
-                partitionActionsOfTable.put(partitionValues, new Action<>(ActionType.DROP, null, hdfsContext, session.getQueryId()));
+                partitionActionsOfTable.put(partitionValues, new Action<>(ActionType.DROP, null, hdfsContext, session.getQueryId(), Optional.empty()));
             }
             else {
-                partitionActionsOfTable.put(partitionValues, new Action<>(ActionType.DROP_PRESERVE_DATA, null, hdfsContext, session.getQueryId()));
+                partitionActionsOfTable.put(partitionValues, new Action<>(ActionType.DROP_PRESERVE_DATA, null, hdfsContext, session.getQueryId(), Optional.empty()));
             }
             return;
         }
@@ -1036,7 +1039,8 @@ public class SemiTransactionalHiveMetastore
                                     statisticsUpdate,
                                     cleanExtraOutputFilesOnCommit),
                             context,
-                            session.getQueryId()));
+                            session.getQueryId(),
+                            Optional.empty()));
             return;
         }
 
@@ -1428,7 +1432,7 @@ public class SemiTransactionalHiveMetastore
                 Action<TableAndMore> action = entry.getValue();
                 switch (action.getType()) {
                     case DROP:
-                        committer.prepareDropTable(schemaTableName);
+                        committer.prepareDropTable(schemaTableName, action.getData());
                         break;
                     case ALTER:
                         committer.prepareAlterTable(action.getHdfsContext(), action.getQueryId(), action.getData());
@@ -1585,14 +1589,14 @@ public class SemiTransactionalHiveMetastore
             this.transaction = transaction;
         }
 
-        private void prepareDropTable(SchemaTableName schemaTableName)
+        private void prepareDropTable(SchemaTableName schemaTableName, Optional<ConnectorSession> session)
         {
             metastoreDeleteOperations.add(new IrreversibleMetastoreOperation(
                     format("drop table %s", schemaTableName),
                     () -> {
                         Optional<Table> droppedTable = delegate.getTable(schemaTableName.getSchemaName(), schemaTableName.getTableName());
                         try {
-                            delegate.dropTable(schemaTableName.getSchemaName(), schemaTableName.getTableName(), true);
+                            delegate.dropTable(schemaTableName.getSchemaName(), schemaTableName.getTableName(), true, session);
                         }
                         finally {
                             // perform explicit invalidation for the table in irreversible metastore operation
@@ -2773,8 +2777,9 @@ public class SemiTransactionalHiveMetastore
         private final T data;
         private final HdfsContext hdfsContext;
         private final String queryId;
+        private final Optional<ConnectorSession> session;
 
-        public Action(ActionType type, T data, HdfsContext hdfsContext, String queryId)
+        public Action(ActionType type, T data, HdfsContext hdfsContext, String queryId, Optional<ConnectorSession> session)
         {
             this.type = requireNonNull(type, "type is null");
             if (type == ActionType.DROP || type == ActionType.DROP_PRESERVE_DATA) {
@@ -2786,11 +2791,17 @@ public class SemiTransactionalHiveMetastore
             this.data = data;
             this.hdfsContext = requireNonNull(hdfsContext, "hdfsContext is null");
             this.queryId = requireNonNull(queryId, "queryId is null");
+            this.session = session;
         }
 
         public ActionType getType()
         {
             return type;
+        }
+
+        public Optional<ConnectorSession> getSession()
+        {
+            return session;
         }
 
         public T getData()
@@ -3312,7 +3323,7 @@ public class SemiTransactionalHiveMetastore
             if (!tableCreated) {
                 return;
             }
-            metastore.dropTable(newTable.getDatabaseName(), newTable.getTableName(), false);
+            metastore.dropTable(newTable.getDatabaseName(), newTable.getTableName(), false, Optional.empty());
         }
     }
 

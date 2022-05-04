@@ -136,6 +136,7 @@ public class HiveConfig
 
     private boolean isTemporaryStagingDirectoryEnabled = true;
     private String temporaryStagingDirectoryPath = "/tmp/presto-${USER}";
+    private boolean isPurgeTableDataOnDrop;
     private boolean delegateTransactionalManagedTableLocationToMetastore;
 
     private Duration fileStatusCacheExpireAfterWrite = new Duration(1, MINUTES);
@@ -1140,6 +1141,19 @@ public class HiveConfig
     public boolean isLegacyHiveViewTranslation()
     {
         return this.legacyHiveViewTranslation;
+    }
+
+    public boolean isPurgeTableDataOnDrop()
+    {
+        return isPurgeTableDataOnDrop;
+    }
+
+    @Config("hive.auto-purge")
+    @ConfigDescription("Skip trash when dropping tables in Hive")
+    public HiveConfig setPurgeTableDataOnDrop(boolean purgeTableDataOnDrop)
+    {
+        this.isPurgeTableDataOnDrop = purgeTableDataOnDrop;
+        return this;
     }
 
     public Optional<String> getIcebergCatalogName()

@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import io.trino.plugin.hive.acid.AcidOperation;
+import io.trino.spi.connector.ConnectorSession;
 import org.apache.hadoop.hive.metastore.TableType;
 import org.apache.hadoop.hive.metastore.Warehouse;
 import org.apache.hadoop.hive.metastore.api.ColumnStatisticsData;
@@ -331,7 +332,7 @@ public class MockThriftMetastoreClient
     }
 
     @Override
-    public void dropTable(String databaseName, String name, boolean deleteData)
+    public void dropTable(String databaseName, String name, boolean deleteData, Optional<ConnectorSession> session)
     {
         throw new UnsupportedOperationException();
     }

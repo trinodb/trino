@@ -32,6 +32,7 @@ import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.hive.util.HiveUtil;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
@@ -206,9 +207,9 @@ public class BridgingHiveMetastore
     }
 
     @Override
-    public void dropTable(String databaseName, String tableName, boolean deleteData)
+    public void dropTable(String databaseName, String tableName, boolean deleteData, Optional<ConnectorSession> session)
     {
-        delegate.dropTable(identity, databaseName, tableName, deleteData);
+        delegate.dropTable(identity, databaseName, tableName, deleteData, session);
     }
 
     @Override

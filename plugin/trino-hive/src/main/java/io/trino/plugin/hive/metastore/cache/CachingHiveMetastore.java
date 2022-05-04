@@ -45,6 +45,7 @@ import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.hive.metastore.TablesWithParameterCacheKey;
 import io.trino.plugin.hive.metastore.UserTableKey;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.TupleDomain;
@@ -479,10 +480,10 @@ public class CachingHiveMetastore
     }
 
     @Override
-    public void dropTable(String databaseName, String tableName, boolean deleteData)
+    public void dropTable(String databaseName, String tableName, boolean deleteData, Optional<ConnectorSession> session)
     {
         try {
-            delegate.dropTable(databaseName, tableName, deleteData);
+            delegate.dropTable(databaseName, tableName, deleteData, session);
         }
         finally {
             invalidateTable(databaseName, tableName);

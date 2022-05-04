@@ -26,6 +26,7 @@ import io.trino.plugin.hive.metastore.HivePrivilegeInfo;
 import io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege;
 import io.trino.plugin.hive.metastore.PartitionWithStatistics;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
@@ -211,7 +212,7 @@ public class InMemoryThriftMetastore
     }
 
     @Override
-    public synchronized void dropTable(HiveIdentity identity, String databaseName, String tableName, boolean deleteData)
+    public synchronized void dropTable(HiveIdentity identity, String databaseName, String tableName, boolean deleteData, Optional<ConnectorSession> session)
     {
         List<String> locations = listAllDataPaths(identity, this, databaseName, tableName);
 
