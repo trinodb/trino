@@ -155,6 +155,7 @@ import io.trino.sql.planner.iterative.rule.PushDownDereferencesThroughTopNRankin
 import io.trino.sql.planner.iterative.rule.PushDownDereferencesThroughWindow;
 import io.trino.sql.planner.iterative.rule.PushDownProjectionsFromPatternRecognition;
 import io.trino.sql.planner.iterative.rule.PushFilterThroughCountAggregation;
+import io.trino.sql.planner.iterative.rule.PushInequalityFilterExpressionBelowJoinRuleSet;
 import io.trino.sql.planner.iterative.rule.PushJoinIntoTableScan;
 import io.trino.sql.planner.iterative.rule.PushLimitIntoTableScan;
 import io.trino.sql.planner.iterative.rule.PushLimitThroughMarkDistinct;
@@ -876,6 +877,14 @@ public class PlanOptimizers
                         .add(new RemoveRedundantPredicateAboveTableScan(plannerContext, typeAnalyzer))
                         .build()));
         builder.add(pushProjectionIntoTableScanOptimizer);
+        builder.add(new IterativeOptimizer(
+                plannerContext,
+                ruleStats,
+                statsCalculator,
+                costCalculator,
+                ImmutableSet.<Rule<?>>builder()
+                        .addAll(new PushInequalityFilterExpressionBelowJoinRuleSet(metadata, typeAnalyzer).rules())
+                        .build()));
         // Projection pushdown rules may push reducing projections (e.g. dereferences) below filters for potential
         // pushdown into the connectors. Invoke PredicatePushdown and PushPredicateIntoTableScan after this
         // to leverage predicate pushdown on projected columns.
