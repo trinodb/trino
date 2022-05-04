@@ -72,7 +72,7 @@ public class FeaturesConfig
     private boolean dynamicScheduleForGroupedExecution;
     private int concurrentLifespansPerTask;
     private boolean redistributeWrites = true;
-    private boolean scaleWriters;
+    private boolean scaleWriters = true;
     private DataSize writerMinSize = DataSize.of(32, DataSize.Unit.MEGABYTE);
     private DataIntegrityVerification exchangeDataIntegrityVerification = DataIntegrityVerification.ABORT;
     private boolean exchangeCompressionEnabled;

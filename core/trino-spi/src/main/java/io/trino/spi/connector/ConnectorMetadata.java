@@ -1370,4 +1370,14 @@ public interface ConnectorMetadata
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support versioned tables");
     }
+
+    default boolean supportsReportingWrittenBytes(ConnectorSession session, SchemaTableName schemaTableName, Map<String, Object> tableProperties)
+    {
+        return false;
+    }
+
+    default boolean supportsReportingWrittenBytes(ConnectorSession session, ConnectorTableHandle connectorTableHandle)
+    {
+        return false;
+    }
 }

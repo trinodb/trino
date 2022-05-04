@@ -1925,6 +1925,18 @@ public class DeltaLakeMetadata
         statisticsAccess.updateExtendedStatistics(session, location, mergedExtendedStatistics);
     }
 
+    @Override
+    public boolean supportsReportingWrittenBytes(ConnectorSession session, ConnectorTableHandle connectorTableHandle)
+    {
+        return true;
+    }
+
+    @Override
+    public boolean supportsReportingWrittenBytes(ConnectorSession session, SchemaTableName fullTableName, Map<String, Object> tableProperties)
+    {
+        return true;
+    }
+
     private void cleanExtraOutputFiles(ConnectorSession session, String baseLocation, List<DataFileInfo> validDataFiles)
     {
         Set<String> writtenFilePaths = validDataFiles.stream()
