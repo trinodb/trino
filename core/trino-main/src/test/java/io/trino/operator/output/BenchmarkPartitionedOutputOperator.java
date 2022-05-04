@@ -207,41 +207,16 @@ public class BenchmarkPartitionedOutputOperator
                                 .mapToObj(value -> value % (positionCount / 5))
                                 .collect(toImmutableList())));
             }),
-            BIGINT_DICTIONARY_PARTITION_CHANNEL_20_PERCENT(BigintType.BIGINT, 3000, (types, positionCount, nullRate) -> {
-                return page(
-                        positionCount,
-                        types.size(),
-                        () -> createRandomBlockForType(BigintType.BIGINT, positionCount, nullRate),
-                        createLongDictionaryBlock(0, positionCount, positionCount / 5));
-            }),
-            BIGINT_DICTIONARY_PARTITION_CHANNEL_50_PERCENT(BigintType.BIGINT, 3000, (types, positionCount, nullRate) -> {
-                return page(
-                        positionCount,
-                        types.size(),
-                        () -> createRandomBlockForType(BigintType.BIGINT, positionCount, nullRate),
-                        createLongDictionaryBlock(0, positionCount, positionCount / 2));
-            }),
-            BIGINT_DICTIONARY_PARTITION_CHANNEL_80_PERCENT(BigintType.BIGINT, 3000, (types, positionCount, nullRate) -> {
-                return page(
-                        positionCount,
-                        types.size(),
-                        () -> createRandomBlockForType(BigintType.BIGINT, positionCount, nullRate),
-                        createLongDictionaryBlock(0, positionCount, (int) (positionCount * 0.8)));
-            }),
-            BIGINT_DICTIONARY_PARTITION_CHANNEL_100_PERCENT(BigintType.BIGINT, 3000, (types, positionCount, nullRate) -> {
-                return page(
-                        positionCount,
-                        types.size(),
-                        () -> createRandomBlockForType(BigintType.BIGINT, positionCount, nullRate),
-                        createLongDictionaryBlock(0, positionCount, positionCount));
-            }),
-            BIGINT_DICTIONARY_PARTITION_CHANNEL_100_PERCENT_MINUS_1(BigintType.BIGINT, 3000, (types, positionCount, nullRate) -> {
-                return page(
-                        positionCount,
-                        types.size(),
-                        () -> createRandomBlockForType(BigintType.BIGINT, positionCount, nullRate),
-                        createLongDictionaryBlock(0, positionCount, positionCount - 1));
-            }),
+            BIGINT_DICTIONARY_PARTITION_CHANNEL_20_PERCENT(BigintType.BIGINT, 3000, (types, positionCount, nullRate) ->
+                    createDictionaryPartitionChannelPage(types, positionCount, nullRate, positionCount / 5)),
+            BIGINT_DICTIONARY_PARTITION_CHANNEL_50_PERCENT(BigintType.BIGINT, 3000, (types, positionCount, nullRate) ->
+                    createDictionaryPartitionChannelPage(types, positionCount, nullRate, positionCount / 2)),
+            BIGINT_DICTIONARY_PARTITION_CHANNEL_80_PERCENT(BigintType.BIGINT, 3000, (types, positionCount, nullRate) ->
+                    createDictionaryPartitionChannelPage(types, positionCount, nullRate, (int) (positionCount * 0.8))),
+            BIGINT_DICTIONARY_PARTITION_CHANNEL_100_PERCENT(BigintType.BIGINT, 3000, (types, positionCount, nullRate) ->
+                    createDictionaryPartitionChannelPage(types, positionCount, nullRate, positionCount)),
+            BIGINT_DICTIONARY_PARTITION_CHANNEL_100_PERCENT_MINUS_1(BigintType.BIGINT, 3000, (types, positionCount, nullRate) ->
+                    createDictionaryPartitionChannelPage(types, positionCount, nullRate, positionCount - 1)),
             RLE_PARTITION_BIGINT(BigintType.BIGINT, 5000, (types, positionCount, nullRate) -> {
                 return page(
                         positionCount,
@@ -309,6 +284,15 @@ public class BenchmarkPartitionedOutputOperator
             interface PageGenerator
             {
                 Page createPage(List<Type> types, int positionCount, float nullRate);
+            }
+
+            private static Page createDictionaryPartitionChannelPage(List<Type> types, int positionCount, float nullRate, int dictionarySize)
+            {
+                return page(
+                        positionCount,
+                        types.size(),
+                        () -> createRandomBlockForType(types.get(0), positionCount, nullRate),
+                        createLongDictionaryBlock(0, positionCount, dictionarySize));
             }
         }
 
