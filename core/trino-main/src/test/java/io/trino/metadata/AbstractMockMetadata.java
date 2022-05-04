@@ -865,6 +865,18 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public boolean supportsReportingWrittenBytes(Session session, TableHandle tableHandle)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean supportsReportingWrittenBytes(Session session, QualifiedObjectName tableName, Map<String, Object> tableProperties)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public Optional<TableHandle> getTableHandle(Session session, QualifiedObjectName table, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion)
     {
         throw new UnsupportedOperationException();
