@@ -526,6 +526,13 @@ public interface AccessControl
     void checkCanExecuteFunction(SecurityContext context, String functionName);
 
     /**
+     * Check if identity is allowed to execute function
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanExecuteFunction(SecurityContext context, QualifiedObjectName functionName);
+
+    /**
      * Check if identity is allowed to execute given table procedure on given table
      *
      * @throws AccessDeniedException if not allowed
