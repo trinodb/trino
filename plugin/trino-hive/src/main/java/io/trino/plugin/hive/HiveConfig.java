@@ -144,6 +144,7 @@ public class HiveConfig
     private long perTransactionFileStatusCacheMaximumSize = 1000 * 1000;
 
     private boolean translateHiveViews;
+    private boolean legacyHiveViewTranslation;
 
     private Optional<Duration> hiveTransactionHeartbeatInterval = Optional.empty();
     private int hiveTransactionHeartbeatThreads = 5;
@@ -160,7 +161,6 @@ public class HiveConfig
 
     private boolean optimizeSymlinkListing = true;
 
-    private boolean legacyHiveViewTranslation;
     private Optional<String> icebergCatalogName = Optional.empty();
 
     private DataSize targetMaxFileSize = DataSize.of(1, GIGABYTE);
@@ -776,6 +776,20 @@ public class HiveConfig
         return this;
     }
 
+    public boolean isLegacyHiveViewTranslation()
+    {
+        return this.legacyHiveViewTranslation;
+    }
+
+    @LegacyConfig("hive.legacy-hive-view-translation")
+    @Config("hive.hive-views.legacy-translation")
+    @ConfigDescription("Use legacy Hive view translation mechanism")
+    public HiveConfig setLegacyHiveViewTranslation(boolean legacyHiveViewTranslation)
+    {
+        this.legacyHiveViewTranslation = legacyHiveViewTranslation;
+        return this;
+    }
+
     public long getFileStatusCacheMaxSize()
     {
         return fileStatusCacheMaxSize;
@@ -1127,20 +1141,6 @@ public class HiveConfig
     {
         this.optimizeSymlinkListing = optimizeSymlinkListing;
         return this;
-    }
-
-    @LegacyConfig("hive.legacy-hive-view-translation")
-    @Config("hive.hive-views.legacy-translation")
-    @ConfigDescription("Use legacy Hive view translation mechanism")
-    public HiveConfig setLegacyHiveViewTranslation(boolean legacyHiveViewTranslation)
-    {
-        this.legacyHiveViewTranslation = legacyHiveViewTranslation;
-        return this;
-    }
-
-    public boolean isLegacyHiveViewTranslation()
-    {
-        return this.legacyHiveViewTranslation;
     }
 
     public Optional<String> getIcebergCatalogName()
