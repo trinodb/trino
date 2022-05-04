@@ -50,7 +50,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_VIEW_DATA;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_VIEW_TRANSLATION_ERROR;
 import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
-import static io.trino.plugin.hive.HiveSessionProperties.isLegacyHiveViewTranslation;
+import static io.trino.plugin.hive.HiveSessionProperties.isHiveViewsLegacyTranslation;
 import static io.trino.plugin.hive.HiveStorageFormat.TEXTFILE;
 import static io.trino.plugin.hive.HiveType.toHiveType;
 import static io.trino.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
@@ -83,7 +83,7 @@ public final class ViewReaderUtil
         if (isPrestoView(table)) {
             return new PrestoViewReader();
         }
-        if (isLegacyHiveViewTranslation(session)) {
+        if (isHiveViewsLegacyTranslation(session)) {
             return new LegacyHiveViewReader();
         }
 
