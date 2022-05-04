@@ -396,10 +396,10 @@ public class TestMemoryConnectorTest
         assertDynamicFiltering("SELECT * FROM probe JOIN build ON v >= vmin + 1 AND v <= vmax", session, 1, 1, 2);
         assertDynamicFiltering("SELECT * FROM probe JOIN build ON v >= vmin + 1 AND v <= vmax - 1", session, 0, 0, 2);
 
-        // TODO: support complex inequality join clauses: https://github.com/trinodb/trino/issues/5755
-        assertDynamicFiltering("SELECT * FROM probe, build WHERE v >= vmin AND v <= vmax - 1", session, 1, 3, 2);
-        assertDynamicFiltering("SELECT * FROM probe, build WHERE v >= vmin + 1 AND v <= vmax", session, 1, 3, 2);
-        assertDynamicFiltering("SELECT * FROM probe, build WHERE v >= vmin + 1 AND v <= vmax - 1", session, 0, 5, 2);
+        // complex inequality join clauses
+        assertDynamicFiltering("SELECT * FROM probe, build WHERE v >= vmin AND v <= vmax - 1", session, 1, 1, 2);
+        assertDynamicFiltering("SELECT * FROM probe, build WHERE v >= vmin + 1 AND v <= vmax", session, 1, 1, 2);
+        assertDynamicFiltering("SELECT * FROM probe, build WHERE v >= vmin + 1 AND v <= vmax - 1", session, 0, 0, 2);
 
         assertDynamicFiltering("SELECT * FROM probe WHERE v <= (SELECT max(vmax) FROM build)", session, 3, 3, 2);
 
