@@ -17,6 +17,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.inject.Binder;
 import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.trino.plugin.exchange.filesystem.azure.AzureBlobFileSystemExchangeStorage;
+import io.trino.plugin.exchange.filesystem.azure.ExchangeAzureConfig;
 import io.trino.plugin.exchange.filesystem.local.LocalFileSystemExchangeStorage;
 import io.trino.plugin.exchange.filesystem.s3.ExchangeS3Config;
 import io.trino.plugin.exchange.filesystem.s3.S3FileSystemExchangeStorage;
@@ -56,6 +58,10 @@ public class FileSystemExchangeModule
             newExporter(binder).export(S3FileSystemExchangeStorageStats.class).withGeneratedName();
             binder.bind(FileSystemExchangeStorage.class).to(S3FileSystemExchangeStorage.class).in(Scopes.SINGLETON);
             configBinder(binder).bindConfig(ExchangeS3Config.class);
+        }
+        else if (ImmutableSet.of("abfs", "abfss").contains(scheme)) {
+            binder.bind(FileSystemExchangeStorage.class).to(AzureBlobFileSystemExchangeStorage.class).in(Scopes.SINGLETON);
+            configBinder(binder).bindConfig(ExchangeAzureConfig.class);
         }
         else {
             throw new TrinoException(NOT_SUPPORTED, format("Scheme %s is not supported as exchange spooling storage", scheme));
