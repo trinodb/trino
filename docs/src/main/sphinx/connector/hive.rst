@@ -114,11 +114,11 @@ logic and data encoded in the views is not available in Trino.
 
 A very simple implementation to execute Hive views, and therefore allow read
 access to the data in Trino, can be enabled with
-``hive.translate-hive-views=true`` and
-``hive.legacy-hive-view-translation=true``.
+``hive.hive-views.enabled=true`` and
+``hive.hive-views.legacy-translation=true``.
 
 For temporary usage of the legacy behavior for a specific catalog, you can set
-the ``legacy_hive_view_translation`` :doc:`catalog session property
+the ``hive_views_legacy_translation`` :doc:`catalog session property
 </sql/set-session>` to ``true``.
 
 This legacy behavior interprets any HiveQL query that defines a view as if it
@@ -147,8 +147,8 @@ It supports the following Hive view functionality:
 * ``LATERAL VIEW json_tuple``
 
 You can enable the experimental behavior with
-``hive.translate-hive-views=true``. Remove the
-``hive.legacy-hive-view-translation`` property or set it to ``false`` to make
+``hive.hive-views.enabled=true``. Remove the
+``hive.hive-views.legacy-translation`` property or set it to ``false`` to make
 sure legacy is not enabled.
 
 Keep in mind that numerous features are not yet implemented when experimenting
@@ -373,11 +373,11 @@ Property Name                                      Description                  
                                                    is used for write operations. The ``${USER}`` placeholder
                                                    can be used to use a different location for each user.
 
-``hive.translate-hive-views``                      Enable translation for :ref:`Hive views <hive-views>`.       ``false``
+``hive.hive-views.enabled``                        Enable translation for :ref:`Hive views <hive-views>`.       ``false``
 
-``hive.legacy-hive-view-translation``              Use the legacy algorithm to translate                        ``false``
+``hive.hive-views.legacy-translation``             Use the legacy algorithm to translate                        ``false``
                                                    :ref:`Hive views <hive-views>`. You can use the
-                                                   ``legacy_hive_view_translation`` catalog session property
+                                                   ``hive_views_legacy_translation`` catalog session property
                                                    for temporary, catalog specific use.
 
 ``hive.parallel-partitioned-bucketed-writes``      Improve parallelism of partitioned and bucketed table        ``true``

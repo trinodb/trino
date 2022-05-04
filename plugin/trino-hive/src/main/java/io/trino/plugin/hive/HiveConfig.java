@@ -769,8 +769,8 @@ public class HiveConfig
         return translateHiveViews;
     }
 
-    @LegacyConfig("hive.views-execution.enabled")
-    @Config("hive.translate-hive-views")
+    @LegacyConfig({"hive.views-execution.enabled", "hive.translate-hive-views"})
+    @Config("hive.hive-views.enabled")
     @ConfigDescription("Experimental: Allow translation of Hive views into Trino views")
     public HiveConfig setTranslateHiveViews(boolean translateHiveViews)
     {
@@ -1131,7 +1131,8 @@ public class HiveConfig
         return this;
     }
 
-    @Config("hive.legacy-hive-view-translation")
+    @LegacyConfig("hive.legacy-hive-view-translation")
+    @Config("hive.hive-views.legacy-translation")
     @ConfigDescription("Use legacy Hive view translation mechanism")
     public HiveConfig setLegacyHiveViewTranslation(boolean legacyHiveViewTranslation)
     {
