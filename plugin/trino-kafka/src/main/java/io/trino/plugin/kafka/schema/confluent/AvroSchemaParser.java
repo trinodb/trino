@@ -23,6 +23,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import org.apache.avro.Schema;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import javax.inject.Inject;
 
@@ -35,6 +36,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.plugin.kafka.schema.confluent.ConfluentSessionProperties.getEmptyFieldStrategy;
 import static java.util.Objects.requireNonNull;
 
+@SuppressModernizer
 public class AvroSchemaParser
         implements SchemaParser
 {

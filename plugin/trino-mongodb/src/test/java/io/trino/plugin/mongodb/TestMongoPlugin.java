@@ -18,6 +18,7 @@ import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.spi.type.Type;
 import io.trino.testing.TestingConnectorContext;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -26,6 +27,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.plugin.mongodb.ObjectIdType.OBJECT_ID;
 import static org.testng.Assert.assertEquals;
 
+@SuppressModernizer
 public class TestMongoPlugin
 {
     private MongoServer server;

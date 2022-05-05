@@ -19,6 +19,7 @@ import io.trino.decoder.RowDecoderFactory;
 import io.trino.decoder.dummy.DummyRowDecoderFactory;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericRecord;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import javax.inject.Inject;
 
@@ -29,6 +30,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
+@SuppressModernizer
 public class AvroRowDecoderFactory
         implements RowDecoderFactory
 {

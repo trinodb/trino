@@ -64,6 +64,11 @@
             <version>2.7.2</version>
         </dependency>
 
+        <dependency>
+            <groupId>org.gaul</groupId>
+            <artifactId>modernizer-maven-annotations</artifactId>
+            <scope>runtime</scope>
+        </dependency>
         <!-- Trino SPI -->
         <dependency>
             <groupId>io.trino</groupId>

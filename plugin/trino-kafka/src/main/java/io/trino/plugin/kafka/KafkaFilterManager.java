@@ -33,6 +33,7 @@ import org.apache.kafka.clients.consumer.OffsetAndTimestamp;
 import org.apache.kafka.common.PartitionInfo;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.config.ConfigResource;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import javax.inject.Inject;
 
@@ -57,6 +58,7 @@ import static java.lang.Math.floorDiv;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
+@SuppressModernizer
 public class KafkaFilterManager
 {
     private static final long INVALID_KAFKA_RANGE_INDEX = -1;

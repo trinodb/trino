@@ -28,6 +28,7 @@ import io.trino.plugin.kafka.schema.TableDescriptionSupplier;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import javax.inject.Inject;
 import javax.inject.Provider;
@@ -57,6 +58,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.function.UnaryOperator.identity;
 import static java.util.stream.Collectors.joining;
 
+@SuppressModernizer
 public class ConfluentSchemaRegistryTableDescriptionSupplier
         implements TableDescriptionSupplier
 {

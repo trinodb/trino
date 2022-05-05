@@ -81,9 +81,6 @@
     </properties>
 
     <modules>
-        <module>client/trino-cli</module>
-        <module>client/trino-client</module>
-        <module>client/trino-jdbc</module>
         <module>core/trino-main</module>
         <module>core/trino-parser</module>
         <module>core/trino-server</module>
@@ -130,11 +127,7 @@
         <module>plugin/trino-password-authenticators</module>
         <module>plugin/trino-phoenix</module>
         <module>plugin/trino-phoenix5</module>
-        <module>plugin/trino-pinot</module>
         <module>plugin/trino-postgresql</module>
-        <module>plugin/trino-prometheus</module>
-        <module>plugin/trino-raptor-legacy</module>
-        <module>plugin/trino-redis</module>
         <module>plugin/trino-redshift</module>
         <module>plugin/trino-resource-group-managers</module>
         <module>plugin/trino-session-property-managers</module>

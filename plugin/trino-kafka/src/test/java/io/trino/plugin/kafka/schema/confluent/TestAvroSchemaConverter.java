@@ -24,6 +24,7 @@ import io.trino.spi.type.TypeManager;
 import org.apache.avro.Schema;
 import org.apache.avro.SchemaBuilder;
 import org.apache.avro.generic.GenericRecordBuilder;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
@@ -45,6 +46,7 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 
+@SuppressModernizer
 public class TestAvroSchemaConverter
 {
     private static final String RECORD_NAME = "test";

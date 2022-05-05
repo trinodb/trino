@@ -49,6 +49,10 @@
             <artifactId>guava</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>org.gaul</groupId>
+            <artifactId>modernizer-maven-annotations</artifactId>
+        </dependency>
         <!-- for testing -->
         <dependency>
             <groupId>io.trino</groupId>

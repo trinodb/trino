@@ -26,6 +26,7 @@ import io.trino.testing.MaterializedRow;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
@@ -44,6 +45,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
+@SuppressModernizer
 public abstract class BaseMySqlConnectorTest
         extends BaseJdbcConnectorTest
 {

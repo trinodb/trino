@@ -21,11 +21,13 @@ import io.trino.spi.connector.RecordSet;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.util.List;
 
 import static java.util.Objects.requireNonNull;
 
+@SuppressModernizer
 public class LocalFileRecordSet
         implements RecordSet
 {

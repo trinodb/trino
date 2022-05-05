@@ -715,16 +715,16 @@ public abstract class AbstractTestOracleTypeMapping
     @Test
     public void testDateMapping()
     {
-        DateTests(zone -> trinoCreateAsSelect("nl_date_" + zone));
+        dateTests(zone -> trinoCreateAsSelect("nl_date_" + zone));
     }
 
     @Test
     public void testDateReadMapping()
     {
-        DateTests(zone -> oracleCreateAndInsert("nl_read_date_" + zone));
+        dateTests(zone -> oracleCreateAndInsert("nl_read_date_" + zone));
     }
 
-    private void DateTests(Function<String, DataSetup> dataSetup)
+    private void dateTests(Function<String, DataSetup> dataSetup)
     {
         Map<String, TimeZoneKey> zonesBySqlName = ImmutableMap.of(
                 "UTC", UTC_KEY,
@@ -735,11 +735,11 @@ public abstract class AbstractTestOracleTypeMapping
             runTimestampTestInZone(
                     dataSetup.apply(zone.getKey()),
                     zone.getValue().getId(),
-                    DateTests());
+                    dateTests());
         }
     }
 
-    private DataTypeTest DateTests()
+    private DataTypeTest dateTests()
     {
         // Note: these test cases are duplicates of those for PostgreSQL and MySQL.
 

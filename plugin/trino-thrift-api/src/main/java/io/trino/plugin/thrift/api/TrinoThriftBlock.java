@@ -41,6 +41,7 @@ import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import javax.annotation.Nullable;
 
@@ -55,6 +56,7 @@ import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.StandardTypes.HYPER_LOG_LOG;
 import static io.trino.spi.type.StandardTypes.JSON;
 
+@SuppressModernizer
 @ThriftStruct
 public final class TrinoThriftBlock
 {

@@ -29,6 +29,7 @@ import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 import org.apache.avro.Schema;
 import org.apache.avro.Schema.Field;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.util.List;
 import java.util.Optional;
@@ -56,6 +57,7 @@ import static org.apache.avro.Schema.Type.RECORD;
 import static org.apache.avro.Schema.Type.STRING;
 import static org.apache.avro.Schema.Type.UNION;
 
+@SuppressModernizer
 public class AvroSchemaConverter
 {
     public static final String DUMMY_FIELD_NAME = "dummy";

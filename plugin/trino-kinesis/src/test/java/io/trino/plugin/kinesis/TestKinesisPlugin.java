@@ -20,6 +20,7 @@ import io.trino.spi.connector.ConnectorFactory;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.testing.TestingConnectorContext;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 import org.testng.annotations.Test;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -33,6 +34,7 @@ import static org.testng.Assert.assertTrue;
  * This will not make any calls to AWS, it merely checks that all of the Plug in SPI
  * objects are in place.
  */
+@SuppressModernizer
 public class TestKinesisPlugin
 {
     @Test

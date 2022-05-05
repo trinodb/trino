@@ -26,6 +26,7 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -65,6 +66,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toSet;
 import static java.util.zip.GZIPInputStream.GZIP_MAGIC;
 
+@SuppressModernizer
 public class LocalFileRecordCursor
         implements RecordCursor
 {
