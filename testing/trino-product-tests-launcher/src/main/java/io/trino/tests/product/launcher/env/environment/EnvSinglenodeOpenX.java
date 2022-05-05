@@ -33,7 +33,7 @@ import static org.testcontainers.utility.MountableFile.forHostPath;
 public class EnvSinglenodeOpenX
         extends EnvironmentProvider
 {
-    public static final File OPENX_SERDE = new File("testing/trino-product-tests-launcher/target/json-serde-1.3.9-e.8-jar-with-dependencies.jar");
+    public static final File OPENX_SERDE = new File("testing/trino-product-tests-launcher/target/json-serde-1.3.9-e.10-jar-with-dependencies.jar");
 
     @Inject
     protected EnvSinglenodeOpenX(Standard standard, Hadoop hadoop)

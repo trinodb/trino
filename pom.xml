@@ -66,7 +66,7 @@
         <dep.docker-java.version>3.2.12</dep.docker-java.version>
         <dep.coral.version>2.0.55</dep.coral.version>
         <dep.confluent.version>5.5.2</dep.confluent.version>
-        <dep.openx-serde.version>1.3.9-e.8</dep.openx-serde.version>
+        <dep.openx-serde.version>1.3.9-e.10</dep.openx-serde.version>
 
         <dep.docker.images.version>56</dep.docker.images.version>
 
@@ -172,17 +172,6 @@
         <module>testing/trino-testing-services</module>
         <module>testing/trino-tests</module>
     </modules>
-
-    <repositories>
-        <repository>
-            <id>Cloudera</id>
-            <name>Cloudera Maven Repo</name>
-            <url>https://repository.cloudera.com/artifactory/cloudera-repos/</url>
-            <snapshots>
-                <enabled>false</enabled>
-            </snapshots>
-        </repository>
-    </repositories>
 
     <dependencyManagement>
         <dependencies>
@@ -1123,6 +1112,12 @@
             </dependency>
 
             <dependency>
+                <groupId>com.google.code.gson</groupId>
+                <artifactId>gson</artifactId>
+                <version>2.8.9</version>
+            </dependency>
+
+            <dependency>
                 <groupId>com.google.errorprone</groupId>
                 <artifactId>error_prone_annotations</artifactId>
                 <version>${dep.errorprone.version}</version>
@@ -1242,11 +1237,16 @@
             </dependency>
 
             <dependency>
+                <groupId>com.sun.jersey</groupId>
+                <artifactId>jersey-core</artifactId>
+                <version>1.19.4</version>
+            </dependency>
+
+            <dependency>
                 <groupId>com.teradata</groupId>
                 <artifactId>re2j-td</artifactId>
                 <version>1.4</version>
             </dependency>
-
 
             <dependency>
                 <groupId>commons-io</groupId>
@@ -1403,6 +1403,24 @@
             </dependency>
 
             <dependency>
+                <groupId>io.netty</groupId>
+                <artifactId>netty</artifactId>
+                <version>3.10.5.Final</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.netty</groupId>
+                <artifactId>netty-buffer</artifactId>
+                <version>4.1.72.Final</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.netty</groupId>
+                <artifactId>netty-common</artifactId>
+                <version>4.1.72.Final</version>
+            </dependency>
+
+            <dependency>
                 <groupId>io.starburst.openx.data</groupId>
                 <artifactId>json-serde</artifactId>
                 <version>${dep.openx-serde.version}</version>
@@ -1433,6 +1451,12 @@
                 <groupId>it.unimi.dsi</groupId>
                 <artifactId>fastutil</artifactId>
                 <version>8.3.0</version>
+            </dependency>
+
+            <dependency>
+                <groupId>jakarta.activation</groupId>
+                <artifactId>jakarta.activation-api</artifactId>
+                <version>1.2.2</version>
             </dependency>
 
             <dependency>
@@ -1559,6 +1583,36 @@
             </dependency>
 
             <dependency>
+                <groupId>org.apache.curator</groupId>
+                <artifactId>curator-framework</artifactId>
+                <version>4.2.0</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.hadoop</groupId>
+                <artifactId>hadoop-hdfs</artifactId>
+                <version>2.5.1</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.hadoop</groupId>
+                <artifactId>hadoop-mapreduce-client-common</artifactId>
+                <version>3.1.0</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.hadoop</groupId>
+                <artifactId>hadoop-mapreduce-client-core</artifactId>
+                <version>3.1.0</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.hadoop</groupId>
+                <artifactId>hadoop-yarn-server-common</artifactId>
+                <version>3.1.0</version>
+            </dependency>
+
+            <dependency>
                 <groupId>org.apache.kafka</groupId>
                 <artifactId>kafka-clients</artifactId>
                 <version>2.5.1</version>
@@ -1627,7 +1681,13 @@
             <dependency>
                 <groupId>org.codehaus.jackson</groupId>
                 <artifactId>jackson-core-asl</artifactId>
-                <version>1.9.13-cloudera.4</version>
+                <version>1.9.13</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.codehaus.jackson</groupId>
+                <artifactId>jackson-mapper-asl</artifactId>
+                <version>1.9.13</version>
             </dependency>
 
             <dependency>
