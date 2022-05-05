@@ -9,41 +9,13 @@
  */
 package com.starburstdata.presto.plugin.synapse;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableList;
-import com.google.inject.Module;
-import com.starburstdata.presto.license.LicenceCheckingConnectorFactory;
-import com.starburstdata.presto.license.LicenseManager;
-import com.starburstdata.presto.license.LicenseManagerProvider;
-import com.starburstdata.presto.license.StarburstFeature;
-import com.starburstdata.presto.plugin.jdbc.dynamicfiltering.jdbc.DynamicFilteringJdbcConnectorFactory;
-import io.trino.spi.Plugin;
-import io.trino.spi.connector.ConnectorFactory;
-
-import static io.airlift.configuration.ConfigurationAwareModule.combine;
-import static java.util.Objects.requireNonNull;
+import io.trino.plugin.jdbc.JdbcPlugin;
 
 public class StarburstSynapsePlugin
-        implements Plugin
+        extends JdbcPlugin
 {
-    @Override
-    public Iterable<ConnectorFactory> getConnectorFactories()
+    public StarburstSynapsePlugin()
     {
-        return ImmutableList.of(new LicenceCheckingConnectorFactory(
-                StarburstFeature.SYNAPSE,
-                getConnectorFactory(new LicenseManagerProvider().get(), binder -> {})));
-    }
-
-    @VisibleForTesting
-    ConnectorFactory getConnectorFactory(LicenseManager licenseManager, Module extensions)
-    {
-        requireNonNull(licenseManager, "licenseManager is null");
-        return DynamicFilteringJdbcConnectorFactory.create(
-                "synapse",
-                combine(
-                        binder -> binder.bind(LicenseManager.class).toInstance(licenseManager),
-                        new StarburstSynapseClientModule(),
-                        extensions),
-                licenseManager);
+        super("synapse", new StarburstSynapseClientModule());
     }
 }
