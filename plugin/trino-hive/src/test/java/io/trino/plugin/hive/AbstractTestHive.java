@@ -233,7 +233,6 @@ import static io.trino.plugin.hive.HiveTableProperties.PARTITIONED_BY_PROPERTY;
 import static io.trino.plugin.hive.HiveTableProperties.SORTED_BY_PROPERTY;
 import static io.trino.plugin.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
 import static io.trino.plugin.hive.HiveTableProperties.TRANSACTIONAL;
-import static io.trino.plugin.hive.HiveTableRedirectionsProvider.NO_REDIRECTIONS;
 import static io.trino.plugin.hive.HiveTestUtils.PAGE_SORTER;
 import static io.trino.plugin.hive.HiveTestUtils.SESSION;
 import static io.trino.plugin.hive.HiveTestUtils.arrayType;
@@ -871,7 +870,6 @@ public abstract class AbstractTestHive
                     }
                 },
                 SqlStandardAccessControlMetadata::new,
-                NO_REDIRECTIONS,
                 countingDirectoryLister,
                 1000);
         transactionManager = new HiveTransactionManager(metadataFactory);
