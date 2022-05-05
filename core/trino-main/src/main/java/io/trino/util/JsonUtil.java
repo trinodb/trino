@@ -276,7 +276,7 @@ public final class JsonUtil
                 if (isShortDecimal(type)) {
                     return new ShortDecimalJsonGeneratorWriter((DecimalType) type);
                 }
-                return new LongDeicmalJsonGeneratorWriter((DecimalType) type);
+                return new LongDecimalJsonGeneratorWriter((DecimalType) type);
             }
             if (type instanceof VarcharType) {
                 return new VarcharJsonGeneratorWriter(type);
@@ -426,12 +426,12 @@ public final class JsonUtil
         }
     }
 
-    private static class LongDeicmalJsonGeneratorWriter
+    private static class LongDecimalJsonGeneratorWriter
             implements JsonGeneratorWriter
     {
         private final DecimalType type;
 
-        public LongDeicmalJsonGeneratorWriter(DecimalType type)
+        public LongDecimalJsonGeneratorWriter(DecimalType type)
         {
             this.type = type;
         }

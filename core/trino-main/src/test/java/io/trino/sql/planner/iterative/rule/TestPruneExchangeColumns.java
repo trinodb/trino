@@ -64,7 +64,7 @@ public class TestPruneExchangeColumns
                             p.exchange(e -> e
                                     .addSource(p.values(b))
                                     .addInputsSet(b)
-                                    .fixedHashDistributionParitioningScheme(
+                                    .fixedHashDistributionPartitioningScheme(
                                             ImmutableList.of(a),
                                             ImmutableList.of(a))));
                 })
@@ -85,7 +85,7 @@ public class TestPruneExchangeColumns
                             p.exchange(e -> e
                                     .addSource(p.values(b, h1))
                                     .addInputsSet(b, h1)
-                                    .fixedHashDistributionParitioningScheme(
+                                    .fixedHashDistributionPartitioningScheme(
                                             ImmutableList.of(a, h),
                                             ImmutableList.of(a),
                                             h)));
