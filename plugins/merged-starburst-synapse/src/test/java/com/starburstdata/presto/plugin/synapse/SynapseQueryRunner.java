@@ -11,7 +11,6 @@ package com.starburstdata.presto.plugin.synapse;
 
 import com.google.common.collect.ImmutableMap;
 import com.microsoft.sqlserver.jdbc.SQLServerException;
-import com.starburstdata.presto.testing.StarburstDistributedQueryRunner;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.trino.Session;
@@ -77,9 +76,9 @@ public final class SynapseQueryRunner
             throws Exception
     {
         Session session = createSession(USERNAME, catalogName);
-        DistributedQueryRunner.Builder<?> builder = StarburstDistributedQueryRunner.builder(session);
-        extraProperties.forEach(builder::addExtraProperty);
-        DistributedQueryRunner queryRunner = builder.build();
+        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session)
+                .setExtraProperties(extraProperties)
+                .build();
         try {
             queryRunner.installPlugin(new JmxPlugin());
             queryRunner.createCatalog("jmx", "jmx");
