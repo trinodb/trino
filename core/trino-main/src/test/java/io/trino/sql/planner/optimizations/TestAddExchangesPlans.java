@@ -36,8 +36,10 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static io.trino.SystemSessionProperties.ENABLE_STATS_CALCULATOR;
 import static io.trino.SystemSessionProperties.IGNORE_DOWNSTREAM_PREFERENCES;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
+import static io.trino.SystemSessionProperties.JOIN_PARTITIONED_BUILD_MIN_ROW_COUNT;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.trino.SystemSessionProperties.SPILL_ENABLED;
 import static io.trino.SystemSessionProperties.TASK_CONCURRENCY;
@@ -189,7 +191,7 @@ public class TestAddExchangesPlans
                                 exchange(REMOTE, REPARTITION,
                                         anyTree(
                                                 tableScan("nation", ImmutableMap.of("nationkey", "nationkey")))),
-                                exchange(LOCAL, REPARTITION,
+                                exchange(LOCAL, GATHER,
                                         exchange(REMOTE, REPARTITION,
                                                 anyTree(
                                                         tableScan("region", ImmutableMap.of("regionkey", "regionkey"))))))));
@@ -441,6 +443,81 @@ public class TestAddExchangesPlans
                                 REPARTITION,
                                 values(ImmutableList.of("expr"), ImmutableList.of(ImmutableList.of(new LongLiteral("1")))),
                                 values(ImmutableList.of("expr_0"), ImmutableList.of(ImmutableList.of(new LongLiteral("1")))))));
+    }
+
+    @Test
+    public void testJoinBuildSideLocalExchange()
+    {
+        // build side smaller than threshold, local gathering exchanged expected
+        assertDistributedPlan(
+                "SELECT * FROM nation n join region r on n.nationkey = r.regionkey",
+                noJoinReordering(),
+                anyTree(
+                        join(INNER, ImmutableList.of(equiJoinClause("nationkey", "regionkey")),
+                                anyNot(ExchangeNode.class,
+                                        node(
+                                                FilterNode.class,
+                                                tableScan("nation", ImmutableMap.of("nationkey", "nationkey")))),
+                                exchange(LOCAL, GATHER,
+                                        exchange(REMOTE, REPLICATE,
+                                                anyTree(
+                                                        tableScan("region", ImmutableMap.of("regionkey", "regionkey"))))))));
+
+        // build side bigger than threshold, local partitioned exchanged expected
+        assertDistributedPlan(
+                "SELECT * FROM nation n join region r on n.nationkey = r.regionkey",
+                Session.builder(noJoinReordering())
+                        .setSystemProperty(JOIN_PARTITIONED_BUILD_MIN_ROW_COUNT, "1")
+                        .build(),
+                anyTree(
+                        join(INNER, ImmutableList.of(equiJoinClause("nationkey", "regionkey")),
+                                anyNot(ExchangeNode.class,
+                                        node(
+                                                FilterNode.class,
+                                                tableScan("nation", ImmutableMap.of("nationkey", "nationkey")))),
+                                exchange(LOCAL, REPARTITION,
+                                        exchange(REMOTE, REPLICATE,
+                                                anyTree(
+                                                        tableScan("region", ImmutableMap.of("regionkey", "regionkey"))))))));
+        // build side contains join, local partitioned exchanged expected
+        assertDistributedPlan(
+                "SELECT * FROM nation n join (select r.regionkey from region r join region r2 on r.regionkey = r2.regionkey) j on n.nationkey = j.regionkey ",
+                noJoinReordering(),
+                anyTree(
+                        join(INNER, ImmutableList.of(equiJoinClause("nationkey", "regionkey2")),
+                                anyNot(ExchangeNode.class,
+                                        node(
+                                                FilterNode.class,
+                                                tableScan("nation", ImmutableMap.of("nationkey", "nationkey")))),
+                                exchange(LOCAL, REPARTITION,
+                                        exchange(REMOTE, REPLICATE,
+                                                join(INNER, ImmutableList.of(equiJoinClause("regionkey2", "regionkey1")),
+                                                        anyNot(ExchangeNode.class,
+                                                                node(
+                                                                        FilterNode.class,
+                                                                        tableScan("region", ImmutableMap.of("regionkey2", "regionkey")))),
+                                                        exchange(LOCAL, GATHER,
+
+                                                                exchange(REMOTE, REPLICATE,
+                                                                        anyTree(
+                                                                                tableScan("region", ImmutableMap.of("regionkey1", "regionkey")))))))))));
+
+        // build side smaller than threshold, but stats not available. local partitioned exchanged expected
+        assertDistributedPlan(
+                "SELECT * FROM nation n join region r on n.nationkey = r.regionkey",
+                Session.builder(noJoinReordering())
+                        .setSystemProperty(ENABLE_STATS_CALCULATOR, "false")
+                        .build(),
+                anyTree(
+                        join(INNER, ImmutableList.of(equiJoinClause("nationkey", "regionkey")),
+                                anyNot(ExchangeNode.class,
+                                        node(
+                                                FilterNode.class,
+                                                tableScan("nation", ImmutableMap.of("nationkey", "nationkey")))),
+                                exchange(LOCAL, REPARTITION,
+                                        exchange(REMOTE, REPLICATE,
+                                                anyTree(
+                                                        tableScan("region", ImmutableMap.of("regionkey", "regionkey"))))))));
     }
 
     private Session spillEnabledWithJoinDistributionType(JoinDistributionType joinDistributionType)

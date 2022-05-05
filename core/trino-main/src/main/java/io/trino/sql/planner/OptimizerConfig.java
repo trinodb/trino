@@ -85,6 +85,7 @@ public class OptimizerConfig
     private boolean adaptivePartialAggregationEnabled = true;
     private long adaptivePartialAggregationMinRows = 100_000;
     private double adaptivePartialAggregationUniqueRowsRatioThreshold = 0.8;
+    private long joinPartitionedBuildMinRowCount = 1_000_000L;
 
     public enum JoinReorderingStrategy
     {
@@ -711,6 +712,20 @@ public class OptimizerConfig
     public OptimizerConfig setAdaptivePartialAggregationUniqueRowsRatioThreshold(double adaptivePartialAggregationUniqueRowsRatioThreshold)
     {
         this.adaptivePartialAggregationUniqueRowsRatioThreshold = adaptivePartialAggregationUniqueRowsRatioThreshold;
+        return this;
+    }
+
+    @Min(0)
+    public long getJoinPartitionedBuildMinRowCount()
+    {
+        return joinPartitionedBuildMinRowCount;
+    }
+
+    @Config("optimizer.join-partitioned-build-min-row-count")
+    @ConfigDescription("Minimum number of join build side rows required to use partitioned join lookup")
+    public OptimizerConfig setJoinPartitionedBuildMinRowCount(long joinPartitionedBuildMinRowCount)
+    {
+        this.joinPartitionedBuildMinRowCount = joinPartitionedBuildMinRowCount;
         return this;
     }
 }
