@@ -9,7 +9,11 @@
  */
 package com.starburstdata.presto.plugin.synapse;
 
+import com.google.common.annotations.VisibleForTesting;
+import com.google.inject.Module;
 import io.trino.plugin.jdbc.JdbcPlugin;
+
+import static io.airlift.configuration.ConfigurationAwareModule.combine;
 
 public class StarburstSynapsePlugin
         extends JdbcPlugin
@@ -17,5 +21,11 @@ public class StarburstSynapsePlugin
     public StarburstSynapsePlugin()
     {
         super("synapse", new StarburstSynapseClientModule());
+    }
+
+    @VisibleForTesting
+    StarburstSynapsePlugin(Module testingExtensions)
+    {
+        super("synapse", combine(new StarburstSynapseClientModule(), testingExtensions));
     }
 }

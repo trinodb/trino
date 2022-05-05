@@ -9,17 +9,11 @@
  */
 package com.starburstdata.presto.plugin.synapse;
 
-import com.google.common.collect.ImmutableList;
-import io.trino.spi.connector.ConnectorFactory;
-
-import static com.starburstdata.presto.license.TestingLicenseManager.NOOP_LICENSE_MANAGER;
-
 public class TestingSynapsePlugin
         extends StarburstSynapsePlugin
 {
-    @Override
-    public Iterable<ConnectorFactory> getConnectorFactories()
+    public TestingSynapsePlugin()
     {
-        return ImmutableList.of(getConnectorFactory(NOOP_LICENSE_MANAGER, new TestingSynapseModule()));
+        super(new TestingSynapseModule());
     }
 }
