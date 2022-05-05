@@ -160,7 +160,7 @@ public class TestReadUniontype
             /**
              * The following insertion fails on avro.
              *
-             * hive (default)> INSERT INTO TABLE  u_padesai.test_ut_avro partition (c2 = 5)
+             * hive (default)> INSERT INTO TABLE  u_username.test_ut_avro partition (c2 = 5)
              *               > SELECT 1, create_union(1, named_struct('a', 'ignore', 'b', 'ignore'), named_struct('c', 'c1'));
              *
              * Error: java.lang.RuntimeException: org.apache.hadoop.hive.ql.metadata.HiveException: Hive Runtime Error while processing writable (null)
