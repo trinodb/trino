@@ -235,6 +235,7 @@ import io.trino.sql.planner.iterative.rule.UnwrapCastInComparison;
 import io.trino.sql.planner.iterative.rule.UnwrapRowSubscript;
 import io.trino.sql.planner.iterative.rule.UnwrapSingleColumnRowInApply;
 import io.trino.sql.planner.iterative.rule.UnwrapTimestampToDateCastInComparison;
+import io.trino.sql.planner.iterative.rule.UseNonPartitionedJoinLookupSource;
 import io.trino.sql.planner.optimizations.AddExchanges;
 import io.trino.sql.planner.optimizations.AddLocalExchanges;
 import io.trino.sql.planner.optimizations.BeginTableWrite;
@@ -919,6 +920,13 @@ public class PlanOptimizers
 
         // Optimizers above this don't understand local exchanges, so be careful moving this.
         builder.add(new AddLocalExchanges(plannerContext, typeAnalyzer));
+        // UseNonPartitionedJoinLookupSource needs to run after AddLocalExchanges since it operates on ExchangeNodes added by this optimizer.
+        builder.add(new IterativeOptimizer(
+                plannerContext,
+                ruleStats,
+                statsCalculator,
+                costCalculator,
+                ImmutableSet.of(new UseNonPartitionedJoinLookupSource())));
 
         // Optimizers above this do not need to care about aggregations with the type other than SINGLE
         // This optimizer must be run after all exchange-related optimizers

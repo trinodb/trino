@@ -169,6 +169,7 @@ public final class SystemSessionProperties
     public static final String ADAPTIVE_PARTIAL_AGGREGATION_ENABLED = "adaptive_partial_aggregation_enabled";
     public static final String ADAPTIVE_PARTIAL_AGGREGATION_MIN_ROWS = "adaptive_partial_aggregation_min_rows";
     public static final String ADAPTIVE_PARTIAL_AGGREGATION_UNIQUE_ROWS_RATIO_THRESHOLD = "adaptive_partial_aggregation_unique_rows_ratio_threshold";
+    public static final String JOIN_PARTITIONED_BUILD_MIN_ROW_COUNT = "join_partitioned_build_min_row_count";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -823,6 +824,12 @@ public final class SystemSessionProperties
                         ADAPTIVE_PARTIAL_AGGREGATION_UNIQUE_ROWS_RATIO_THRESHOLD,
                         "Ratio between aggregation output and input rows above which partial aggregation might be adaptively turned off",
                         optimizerConfig.getAdaptivePartialAggregationUniqueRowsRatioThreshold(),
+                        false),
+                longProperty(
+                        JOIN_PARTITIONED_BUILD_MIN_ROW_COUNT,
+                        "Minimum number of join build side rows required to use partitioned join lookup",
+                        optimizerConfig.getJoinPartitionedBuildMinRowCount(),
+                        value -> validateNonNegativeLongValue(value, JOIN_PARTITIONED_BUILD_MIN_ROW_COUNT),
                         false));
     }
 
@@ -1204,6 +1211,13 @@ public final class SystemSessionProperties
         return intValue;
     }
 
+    private static void validateNonNegativeLongValue(Long value, String property)
+    {
+        if (value < 0) {
+            throw new TrinoException(INVALID_SESSION_PROPERTY, format("%s must be equal or greater than 0", property));
+        }
+    }
+
     private static double validateDoubleRange(Object value, String property, double lowerBoundIncluded, double upperBoundIncluded)
     {
         double doubleValue = (double) value;
@@ -1478,5 +1492,10 @@ public final class SystemSessionProperties
     public static double getAdaptivePartialAggregationUniqueRowsRatioThreshold(Session session)
     {
         return session.getSystemProperty(ADAPTIVE_PARTIAL_AGGREGATION_UNIQUE_ROWS_RATIO_THRESHOLD, Double.class);
+    }
+
+    public static long getJoinPartitionedBuildMinRowCount(Session session)
+    {
+        return session.getSystemProperty(JOIN_PARTITIONED_BUILD_MIN_ROW_COUNT, Long.class);
     }
 }
