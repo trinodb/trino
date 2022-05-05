@@ -123,7 +123,7 @@ import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static io.airlift.concurrent.MoreFutures.whenAnyComplete;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.trino.SystemSessionProperties.getConcurrentLifespansPerNode;
-import static io.trino.SystemSessionProperties.getHashPartitionCount;
+import static io.trino.SystemSessionProperties.getFaultTolerantExecutionPartitionCount;
 import static io.trino.SystemSessionProperties.getMaxTasksWaitingForNodePerStage;
 import static io.trino.SystemSessionProperties.getQueryRetryAttempts;
 import static io.trino.SystemSessionProperties.getRetryDelayScaleFactor;
@@ -1783,8 +1783,8 @@ public class SqlQueryScheduler
             DistributedStagesSchedulerStateMachine stateMachine = new DistributedStagesSchedulerStateMachine(queryStateMachine.getQueryId(), scheduledExecutorService);
 
             Session session = queryStateMachine.getSession();
-            int hashPartitionCount = getHashPartitionCount(session);
-            Function<PartitioningHandle, BucketToPartition> bucketToPartitionCache = createBucketToPartitionCache(nodePartitioningManager, session, hashPartitionCount);
+            int partitionCount = getFaultTolerantExecutionPartitionCount(session);
+            Function<PartitioningHandle, BucketToPartition> bucketToPartitionCache = createBucketToPartitionCache(nodePartitioningManager, session, partitionCount);
 
             ImmutableList.Builder<FaultTolerantStageScheduler> schedulers = ImmutableList.builder();
             Map<PlanFragmentId, Exchange> exchanges = new HashMap<>();
@@ -1814,7 +1814,7 @@ public class SqlQueryScheduler
                     else {
                         // create external exchange
                         ExchangeContext context = new ExchangeContext(session.getQueryId(), new ExchangeId("external-exchange-" + stage.getStageId().getId()));
-                        exchange = Optional.of(exchangeManager.createExchange(context, hashPartitionCount));
+                        exchange = Optional.of(exchangeManager.createExchange(context, partitionCount));
                         exchanges.put(fragment.getId(), exchange.get());
                         taskLifecycleListener = TaskLifecycleListener.NO_OP;
                     }
@@ -1901,23 +1901,23 @@ public class SqlQueryScheduler
             }
         }
 
-        private static Function<PartitioningHandle, BucketToPartition> createBucketToPartitionCache(NodePartitioningManager nodePartitioningManager, Session session, int hashPartitionCount)
+        private static Function<PartitioningHandle, BucketToPartition> createBucketToPartitionCache(NodePartitioningManager nodePartitioningManager, Session session, int partitionCount)
         {
             Map<PartitioningHandle, BucketToPartition> cachingMap = new HashMap<>();
             return partitioningHandle ->
                     cachingMap.computeIfAbsent(
                             partitioningHandle,
-                            handle -> createBucketToPartitionMap(session, hashPartitionCount, handle, nodePartitioningManager));
+                            handle -> createBucketToPartitionMap(session, partitionCount, handle, nodePartitioningManager));
         }
 
         private static BucketToPartition createBucketToPartitionMap(
                 Session session,
-                int hashPartitionCount,
+                int partitionCount,
                 PartitioningHandle partitioningHandle,
                 NodePartitioningManager nodePartitioningManager)
         {
             if (partitioningHandle.equals(FIXED_HASH_DISTRIBUTION)) {
-                return new BucketToPartition(Optional.of(IntStream.range(0, hashPartitionCount).toArray()), Optional.empty());
+                return new BucketToPartition(Optional.of(IntStream.range(0, partitionCount).toArray()), Optional.empty());
             }
             else if (partitioningHandle.getConnectorId().isPresent()) {
                 BucketNodeMap bucketNodeMap = nodePartitioningManager.getBucketNodeMap(session, partitioningHandle, true);
@@ -1926,7 +1926,7 @@ public class SqlQueryScheduler
                 if (bucketNodeMap.isDynamic()) {
                     int nextPartitionId = 0;
                     for (int bucket = 0; bucket < bucketCount; bucket++) {
-                        bucketToPartition[bucket] = nextPartitionId++ % hashPartitionCount;
+                        bucketToPartition[bucket] = nextPartitionId++ % partitionCount;
                     }
                 }
                 else {

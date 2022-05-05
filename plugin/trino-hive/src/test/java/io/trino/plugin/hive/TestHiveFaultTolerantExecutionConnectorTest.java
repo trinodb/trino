@@ -19,7 +19,7 @@ import io.trino.testing.QueryRunner;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
-import static io.trino.SystemSessionProperties.HASH_PARTITION_COUNT;
+import static io.trino.SystemSessionProperties.FAULT_TOLERANT_EXECUTION_PARTITION_COUNT;
 import static io.trino.plugin.exchange.filesystem.containers.MinioStorage.getExchangeManagerProperties;
 import static io.trino.testing.FaultTolerantExecutionConnectorTestHelper.getExtraProperties;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
@@ -110,7 +110,7 @@ public class TestHiveFaultTolerantExecutionConnectorTest
     public void testMaxOutputPartitionCountCheck()
     {
         Session session = Session.builder(getSession())
-                .setSystemProperty(HASH_PARTITION_COUNT, "51")
+                .setSystemProperty(FAULT_TOLERANT_EXECUTION_PARTITION_COUNT, "51")
                 .build();
         assertQueryFails(session, "SELECT nationkey, count(*) FROM nation GROUP BY nationkey", "Max number of output partitions exceeded for exchange.*");
     }
