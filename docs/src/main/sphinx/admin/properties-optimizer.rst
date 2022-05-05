@@ -187,3 +187,15 @@ Enables approximation of the output row count of filters whose costs cannot be
 accurately estimated even with complete statistics. This allows the optimizer to
 produce more efficient plans in the presence of filters which were previously
 not estimated.
+
+``optimizer.join-partitioned-build-min-row-count``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** :ref:`prop-type-integer`
+* **Default value:** ``1000000``
+* **Min allowed value:** ``0``
+
+The minimum number of join build side rows required to use partitioned join lookup.
+If the build side of a join is estimated to be smaller than the configured threshold,
+single threaded join lookup is used to improve join performance.
+A value of ``0`` disables this optimization.
