@@ -16,41 +16,14 @@ import io.trino.testing.TestingConnectorContext;
 import org.testng.annotations.Test;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestSynapsePlugin
 {
     @Test
     public void testCreateConnector()
     {
-        Plugin plugin = new TestingSynapsePlugin();
+        Plugin plugin = new StarburstSynapsePlugin();
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
         factory.create("test", ImmutableMap.of("connection-url", "jdbc:sqlserver:test"), new TestingConnectorContext());
-    }
-
-    @Test
-    public void testLicenseRequired()
-    {
-        Plugin plugin = new StarburstSynapsePlugin();
-        ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
-        assertThatThrownBy(() -> factory.create("test", ImmutableMap.of("connection-url", "jdbc:sqlserver:test"), new TestingConnectorContext()))
-                .isInstanceOf(RuntimeException.class)
-                .hasToString("com.starburstdata.presto.license.StarburstLicenseException: Valid license required to use the feature: synapse");
-    }
-
-    @Test
-    public void testLicenseRequiredForImpersonation()
-    {
-        Plugin plugin = new StarburstSynapsePlugin();
-        ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
-
-        assertThatThrownBy(() -> factory.create(
-                "test",
-                ImmutableMap.of(
-                        "connection-url", "jdbc:sqlserver:test",
-                        "synapse.impersonation.enabled", "true"),
-                new TestingConnectorContext()))
-                .isInstanceOf(RuntimeException.class)
-                .hasStackTraceContaining("StarburstLicenseException: Valid license required to use the feature: synapse");
     }
 }
