@@ -35,6 +35,7 @@ import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.mapreduce.InputSplit;
 import org.apache.phoenix.compile.QueryPlan;
+import org.apache.phoenix.execute.AggregatePlan;
 import org.apache.phoenix.jdbc.PhoenixPreparedStatement;
 import org.apache.phoenix.mapreduce.PhoenixInputSplit;
 import org.apache.phoenix.query.KeyRange;
@@ -45,6 +46,7 @@ import java.io.IOException;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
@@ -157,6 +159,9 @@ public class PhoenixSplitManager
                 for (List<Scan> splitScans : Lists.partition(scans, maxScansPerSplit)) {
                     inputSplits.add(new PhoenixInputSplit(splitScans, regionSize, regionLocation));
                 }
+            }
+            if (queryPlan instanceof AggregatePlan) {
+                return Arrays.asList(inputSplits.get(0));
             }
             return inputSplits;
         }
