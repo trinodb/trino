@@ -9,14 +9,15 @@
  */
 package com.starburstdata.presto.plugin.synapse;
 
-import com.starburstdata.presto.testing.DataProviders;
 import io.trino.Session;
 import io.trino.plugin.sqlserver.BaseSqlServerConnectorTest;
 import io.trino.plugin.sqlserver.DataCompression;
+import io.trino.testing.DataProviders;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import org.testng.SkipException;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -25,6 +26,8 @@ import java.util.Optional;
 import static com.starburstdata.presto.plugin.synapse.SynapseQueryRunner.createSynapseQueryRunner;
 import static io.trino.plugin.jdbc.JdbcWriteSessionProperties.NON_TRANSACTIONAL_INSERT;
 import static io.trino.plugin.sqlserver.SqlServerSessionProperties.BULK_COPY_FOR_WRITE;
+import static io.trino.testing.DataProviders.cartesianProduct;
+import static io.trino.testing.DataProviders.trueFalse;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DELETE;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
@@ -216,7 +219,7 @@ public class TestSynapseConnectorTest
         assertUpdate("DROP TABLE " + table);
     }
 
-    @Test(dataProviderClass = DataProviders.class, dataProvider = "doubleTrueFalse")
+    @Test(dataProvider = "doubleTrueFalse")
     public void testInsertWriteBulkiness(boolean nonTransactionalInsert, boolean bulkCopyForWrite)
     {
         String table = "bulk_copy_insert_" + randomTableSuffix();
@@ -293,5 +296,11 @@ public class TestSynapseConnectorTest
     protected String errorMessageForInsertIntoNotNullColumn(String columnName)
     {
         return format("(?s)Cannot insert the value NULL into column '%s'.*", columnName);
+    }
+
+    @DataProvider
+    public static Object[][] doubleTrueFalse()
+    {
+        return cartesianProduct(trueFalse(), trueFalse());
     }
 }
