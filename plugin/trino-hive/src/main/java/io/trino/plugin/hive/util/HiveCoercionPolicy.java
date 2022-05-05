@@ -54,11 +54,8 @@ public final class HiveCoercionPolicy
         Type fromType = typeManager.getType(fromHiveType.getTypeSignature());
         Type toType = typeManager.getType(toHiveType.getTypeSignature());
         if (fromType instanceof VarcharType) {
-            return toType instanceof VarcharType ||
-                    toHiveType.equals(HIVE_BYTE) ||
-                    toHiveType.equals(HIVE_SHORT) ||
-                    toHiveType.equals(HIVE_INT) ||
-                    toHiveType.equals(HIVE_LONG);
+            return toType instanceof VarcharType || toHiveType.equals(HIVE_BYTE) || toHiveType.equals(HIVE_SHORT)
+                    || toHiveType.equals(HIVE_INT) || toHiveType.equals(HIVE_LONG);
         }
         if (toType instanceof VarcharType) {
             return fromHiveType.equals(HIVE_BYTE) || fromHiveType.equals(HIVE_SHORT) || fromHiveType.equals(HIVE_INT) || fromHiveType.equals(HIVE_LONG);
@@ -82,7 +79,20 @@ public final class HiveCoercionPolicy
             return toType instanceof DecimalType || toHiveType.equals(HIVE_FLOAT) || toHiveType.equals(HIVE_DOUBLE);
         }
 
-        return canCoerceForList(fromHiveType, toHiveType) || canCoerceForMap(fromHiveType, toHiveType) || canCoerceForStruct(fromHiveType, toHiveType);
+        return canCoerceForList(fromHiveType, toHiveType) || canCoerceForMap(fromHiveType, toHiveType)
+                || canCoerceForStruct(fromHiveType, toHiveType) || canCoerceForUnionType(fromHiveType, toHiveType);
+    }
+
+    private boolean canCoerceForUnionType(HiveType fromHiveType, HiveType toHiveType)
+    {
+        if (fromHiveType.getCategory() != Category.UNION || toHiveType.getCategory() != Category.UNION) {
+            return false;
+        }
+
+        // Delegate to the struct coercion logic, since Trino sees union types as structs.
+        HiveType fromHiveTypeStruct = HiveType.toHiveType(typeManager.getType(fromHiveType.getTypeSignature()));
+        HiveType toHiveTypeStruct = HiveType.toHiveType(typeManager.getType(fromHiveType.getTypeSignature()));
+        return canCoerceForStruct(fromHiveTypeStruct, toHiveTypeStruct);
     }
 
     private boolean canCoerceForMap(HiveType fromHiveType, HiveType toHiveType)
