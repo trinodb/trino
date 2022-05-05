@@ -14,6 +14,7 @@ import com.starburstdata.presto.plugin.jdbc.dynamicfiltering.AbstractDynamicFilt
 import com.starburstdata.presto.testing.Closer;
 import io.trino.testing.QueryRunner;
 import org.testng.annotations.AfterClass;
+import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.util.Optional;
@@ -41,6 +42,14 @@ public class TestSnowflakeDynamicFiltering
                 .withConnectorProperties(impersonationDisabled())
                 .withTpchTables(ImmutableList.of(ORDERS))
                 .build();
+    }
+
+    // In the distributed SF connector, the page source on worker will accept and use dynamic filter
+    // from the engine even though DFs are not pushed down to Snowflake as part of generated SQL query
+    @Override
+    @Test(enabled = false)
+    public void testDynamicFilteringWithLimit()
+    {
     }
 
     @AfterClass(alwaysRun = true)
