@@ -122,6 +122,10 @@ public class InlineProjections
         for (Map.Entry<Symbol, Expression> assignment : child.getAssignments().entrySet()) {
             if (!targets.contains(assignment.getKey())) {
                 newChildAssignmentsBuilder.put(assignment);
+                // If this is not an identity assignment, remove the symbol from inputs, as we don't want to reset the expression
+                if (!isSymbolReference(assignment.getKey(), assignment.getValue())) {
+                    inputs.remove(assignment.getKey());
+                }
             }
         }
         for (Symbol input : inputs) {
@@ -221,5 +225,10 @@ public class InlineProjections
                 .map(TryExpression.class::cast)
                 .flatMap(tryExpression -> SymbolsExtractor.extractAll(tryExpression).stream())
                 .collect(toSet());
+    }
+
+    private static boolean isSymbolReference(Symbol symbol, Expression expression)
+    {
+        return expression instanceof SymbolReference && ((SymbolReference) expression).getName().equals(symbol.getName());
     }
 }
