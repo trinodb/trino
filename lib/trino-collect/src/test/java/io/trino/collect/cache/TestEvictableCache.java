@@ -393,7 +393,7 @@ public class TestEvictableCache
                         // read through cache
                         long current = cache.get(key, remoteState::get);
                         if (current % prime != 0) {
-                            fail(format("The value read through cache (%s) in thread (%s) is not divisable by (%s)", current, threadNumber, prime));
+                            fail(format("The value read through cache (%s) in thread (%s) is not divisible by (%s)", current, threadNumber, prime));
                         }
 
                         return (Void) null;
