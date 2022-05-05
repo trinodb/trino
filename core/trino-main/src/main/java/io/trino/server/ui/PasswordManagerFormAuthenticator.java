@@ -20,11 +20,11 @@ import io.trino.server.security.SecurityConfig;
 import io.trino.server.security.UserMapping;
 import io.trino.server.security.UserMappingException;
 import io.trino.spi.security.AccessDeniedException;
+import io.trino.spi.security.Identity;
 import io.trino.spi.security.PasswordAuthenticator;
 
 import javax.inject.Inject;
 
-import java.security.Principal;
 import java.util.List;
 import java.util.Optional;
 
@@ -80,8 +80,8 @@ public class PasswordManagerFormAuthenticator
         List<PasswordAuthenticator> authenticators = passwordAuthenticatorManager.getAuthenticators();
         for (PasswordAuthenticator authenticator : authenticators) {
             try {
-                Principal principal = authenticator.createAuthenticatedPrincipal(username, password);
-                String authenticatedUser = userMapping.mapUser(principal.toString());
+                Identity identity = authenticator.createAuthenticatedIdentity(username, password);
+                String authenticatedUser = userMapping.mapUser(identity.getUser());
                 return Optional.of(authenticatedUser);
             }
             catch (AccessDeniedException | UserMappingException e) {

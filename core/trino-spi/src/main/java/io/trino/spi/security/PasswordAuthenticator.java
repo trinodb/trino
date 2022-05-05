@@ -24,4 +24,18 @@ public interface PasswordAuthenticator
      * @throws AccessDeniedException if not allowed
      */
     Principal createAuthenticatedPrincipal(String user, String password);
+
+    /**
+     * Authenticate the provided user and password.
+     *
+     * @return the authenticated {@link Identity}
+     * @throws AccessDeniedException if not allowed
+     */
+    default Identity createAuthenticatedIdentity(String user, String password)
+    {
+        Principal principal = createAuthenticatedPrincipal(user, password);
+        return Identity.forUser(principal.toString())
+                .withPrincipal(principal)
+                .build();
+    }
 }

@@ -22,7 +22,6 @@ import javax.inject.Inject;
 import javax.ws.rs.container.ContainerRequestContext;
 import javax.ws.rs.core.MultivaluedMap;
 
-import java.security.Principal;
 import java.util.Optional;
 
 import static com.google.common.base.Verify.verify;
@@ -62,13 +61,13 @@ public class PasswordAuthenticator
         AuthenticationException exception = null;
         for (io.trino.spi.security.PasswordAuthenticator authenticator : authenticatorManager.getAuthenticators()) {
             try {
-                Principal principal = authenticator.createAuthenticatedPrincipal(user, password);
-                String authenticatedUser = userMapping.mapUser(principal.toString());
+                Identity identity = authenticator.createAuthenticatedIdentity(user, password);
+                String authenticatedUser = userMapping.mapUser(identity.getUser());
 
                 // rewrite the original "unmapped" user header to the mapped user (see method Javadoc for more details)
                 rewriteUserHeaderToMappedUser(basicAuthCredentials, request.getHeaders(), authenticatedUser);
-                return Identity.forUser(authenticatedUser)
-                        .withPrincipal(principal)
+                return Identity.from(identity)
+                        .withUser(authenticatedUser)
                         .build();
             }
             catch (UserMappingException | AccessDeniedException e) {
