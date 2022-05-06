@@ -78,18 +78,20 @@ public final class ViewReaderUtil
             Table table,
             TypeManager typeManager,
             BiFunction<ConnectorSession, SchemaTableName, Optional<CatalogSchemaTableName>> tableRedirectionResolver,
-            MetadataProvider metadataProvider)
+            MetadataProvider metadataProvider,
+            boolean runHiveViewRunAsInvoker)
     {
         if (isPrestoView(table)) {
             return new PrestoViewReader();
         }
         if (isHiveViewsLegacyTranslation(session)) {
-            return new LegacyHiveViewReader();
+            return new LegacyHiveViewReader(runHiveViewRunAsInvoker);
         }
 
         return new HiveViewReader(
                 new CoralSemiTransactionalHiveMSCAdapter(metastore, coralTableRedirectionResolver(session, tableRedirectionResolver, metadataProvider)),
-                typeManager);
+                typeManager,
+                runHiveViewRunAsInvoker);
     }
 
     private static CoralTableRedirectionResolver coralTableRedirectionResolver(
@@ -195,11 +197,13 @@ public final class ViewReaderUtil
     {
         private final HiveMetastoreClient metastoreClient;
         private final TypeManager typeManager;
+        private final boolean hiveViewsRunAsInvoker;
 
-        public HiveViewReader(HiveMetastoreClient hiveMetastoreClient, TypeManager typeManager)
+        public HiveViewReader(HiveMetastoreClient hiveMetastoreClient, TypeManager typeManager, boolean hiveViewsRunAsInvoker)
         {
             this.metastoreClient = requireNonNull(hiveMetastoreClient, "hiveMetastoreClient is null");
             this.typeManager = requireNonNull(typeManager, "typeManager is null");
+            this.hiveViewsRunAsInvoker = hiveViewsRunAsInvoker;
         }
 
         @Override
@@ -223,7 +227,7 @@ public final class ViewReaderUtil
                         columns,
                         Optional.ofNullable(table.getParameters().get(TABLE_COMMENT)),
                         Optional.empty(),
-                        false);
+                        hiveViewsRunAsInvoker);
             }
             catch (RuntimeException e) {
                 throw new TrinoException(HIVE_VIEW_TRANSLATION_ERROR,
