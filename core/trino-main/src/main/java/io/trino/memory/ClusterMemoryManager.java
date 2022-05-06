@@ -258,7 +258,7 @@ public class ClusterMemoryManager
                         entry -> entry.getValue().getInfo().get()));
 
         List<MemoryInfo> nodeMemoryInfos = ImmutableList.copyOf(nodeMemoryInfosByNode.values());
-        Optional<KillTarget> killTarget = lowMemoryKiller.chooseQueryToKill(queryMemoryInfoList, nodeMemoryInfos);
+        Optional<KillTarget> killTarget = lowMemoryKiller.chooseTargetToKill(queryMemoryInfoList, nodeMemoryInfos);
 
         if (killTarget.isPresent()) {
             if (killTarget.get().isWholeQuery()) {
