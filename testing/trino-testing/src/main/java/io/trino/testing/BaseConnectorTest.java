@@ -43,6 +43,7 @@ import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletionService;
 import java.util.concurrent.CountDownLatch;
@@ -2776,6 +2777,74 @@ public abstract class BaseConnectorTest
     {
         // By default, do not expect UPDATE to fail in case of concurrent updates
         throw new AssertionError("Unexpected concurrent update failure", e);
+    }
+
+    // Repeat test with invocationCount for better test coverage, since the tested aspect is inherently non-deterministic.
+    @Test(timeOut = 60_000, invocationCount = 4)
+    public void testInsertRowConcurrently()
+            throws Exception
+    {
+        if (!hasBehavior(SUPPORTS_INSERT)) {
+            // Covered by testInsert
+            return;
+        }
+
+        int threads = 4;
+        CyclicBarrier barrier = new CyclicBarrier(threads);
+        ExecutorService executor = newFixedThreadPool(threads);
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_insert", "(col integer)")) {
+            String tableName = table.getName();
+
+            List<Future<OptionalInt>> futures = IntStream.range(0, threads)
+                    .mapToObj(threadNumber -> executor.submit(() -> {
+                        barrier.await(10, SECONDS);
+                        try {
+                            getQueryRunner().execute("INSERT INTO " + tableName + " VALUES (" + threadNumber + ")");
+                            return OptionalInt.of(threadNumber);
+                        }
+                        catch (Exception e) {
+                            RuntimeException trinoException = getTrinoExceptionCause(e);
+                            try {
+                                verifyConcurrentInsertFailurePermissible(trinoException);
+                            }
+                            catch (Throwable verifyFailure) {
+                                if (trinoException != e && verifyFailure != e) {
+                                    verifyFailure.addSuppressed(e);
+                                }
+                                throw verifyFailure;
+                            }
+                            return OptionalInt.empty();
+                        }
+                    }))
+                    .collect(toImmutableList());
+
+            List<Integer> values = futures.stream()
+                    .map(future -> tryGetFutureValue(future, 10, SECONDS).orElseThrow(() -> new RuntimeException("Wait timed out")))
+                    .filter(OptionalInt::isPresent)
+                    .map(OptionalInt::getAsInt)
+                    .collect(toImmutableList());
+
+            if (values.isEmpty()) {
+                assertQueryReturnsEmptyResult("TABLE " + tableName);
+            }
+            else {
+                // Cast to integer because some connectors (e.g. Oracle) map integer to different types that skippingTypesCheck can't resolve the mismatch.
+                assertThat(query("SELECT CAST(col AS INTEGER) FROM " + tableName))
+                        .matches(values.stream()
+                                .map(value -> format("(%s)", value))
+                                .collect(joining(",", "VALUES ", "")));
+            }
+        }
+        finally {
+            executor.shutdownNow();
+            executor.awaitTermination(10, SECONDS);
+        }
+    }
+
+    protected void verifyConcurrentInsertFailurePermissible(Exception e)
+    {
+        // By default, do not expect INSERT to fail in case of concurrent inserts
+        throw new AssertionError("Unexpected concurrent insert failure", e);
     }
 
     @Test
