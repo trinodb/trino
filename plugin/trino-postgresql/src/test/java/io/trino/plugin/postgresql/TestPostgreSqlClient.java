@@ -37,7 +37,9 @@ import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.ArithmeticUnaryExpression;
+import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.ComparisonExpression;
+import io.trino.sql.tree.DataType;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.InListExpression;
 import io.trino.sql.tree.InPredicate;
@@ -47,6 +49,7 @@ import io.trino.sql.tree.LikePredicate;
 import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.NotExpression;
 import io.trino.sql.tree.NullIfExpression;
+import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.SymbolReference;
 import io.trino.testing.TestingConnectorSession;
@@ -66,6 +69,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.testing.DataProviders.toDataProvider;
@@ -439,6 +443,20 @@ public class TestPostgreSqlClient
                                 Map.of("c_varchar", VARCHAR_COLUMN.getColumnType(), "c_varchar2", VARCHAR_COLUMN2.getColumnType())),
                 Map.of(VARCHAR_COLUMN.getColumnName(), VARCHAR_COLUMN, VARCHAR_COLUMN2.getColumnName(), VARCHAR_COLUMN2)))
                 .hasValue("(\"c_varchar\") IN ('value1', 'value2', \"c_varchar2\")");
+    }
+
+    @Test
+    public void testConvertInWithNulls()
+    {
+        assertThat(JDBC_CLIENT.convertPredicate(
+                SESSION,
+                translateToConnectorExpression(
+                        new InPredicate(
+                                new SymbolReference("c_varchar"),
+                                new InListExpression(List.of(new StringLiteral("value1"), new StringLiteral("value2"), new Cast(new NullLiteral(), toSqlType(VARCHAR_COLUMN.getColumnType())), new SymbolReference("c_varchar2")))),
+                        Map.of("c_varchar", VARCHAR_COLUMN.getColumnType(), "c_varchar2", VARCHAR_COLUMN2.getColumnType())),
+                Map.of(VARCHAR_COLUMN.getColumnName(), VARCHAR_COLUMN, VARCHAR_COLUMN2.getColumnName(), VARCHAR_COLUMN2)))
+                .hasValue("(\"c_varchar\") IN ('value1', 'value2', CAST(NULL AS varchar(10)), \"c_varchar2\")");
     }
 
     private ConnectorExpression translateToConnectorExpression(Expression expression, Map<String, Type> symbolTypes)

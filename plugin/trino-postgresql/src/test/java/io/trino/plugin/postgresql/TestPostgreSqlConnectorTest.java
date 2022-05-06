@@ -835,12 +835,10 @@ public class TestPostgreSqlConnectorTest
                     .isFullyPushedDown();
 
             assertThat(query("SELECT id FROM " + table.getName() + " WHERE id IN ('a', 'B', NULL) OR id2 IN ('C', 'd')"))
-                    // NULL constant value is currently not pushed down
-                    .isNotFullyPushedDown(FilterNode.class);
+                    .isFullyPushedDown();
 
             assertThat(query("SELECT id FROM " + table.getName() + " WHERE id IN ('a', 'B', CAST(NULL AS varchar(1))) OR id2 IN ('C', 'd')"))
-                    // NULL constant value is currently not pushed down
-                    .isNotFullyPushedDown(FilterNode.class);
+                    .isFullyPushedDown();
         }
     }
 

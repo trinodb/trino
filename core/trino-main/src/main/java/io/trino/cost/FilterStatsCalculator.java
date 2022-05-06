@@ -476,6 +476,11 @@ public class FilterStatsCalculator
                     session,
                     new AllowAllAccessControl(),
                     ImmutableMap.of());
+
+            if (literalValue == null) {
+                return OptionalDouble.empty();
+            }
+
             return toStatsRepresentation(type, literalValue);
         }
     }

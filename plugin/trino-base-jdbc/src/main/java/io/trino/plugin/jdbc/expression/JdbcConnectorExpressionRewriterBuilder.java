@@ -16,9 +16,11 @@ package io.trino.plugin.jdbc.expression;
 import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.base.expression.ConnectorExpressionRewriter;
 import io.trino.plugin.base.expression.ConnectorExpressionRule;
+import io.trino.spi.type.Type;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 
@@ -40,8 +42,13 @@ public class JdbcConnectorExpressionRewriterBuilder
 
     public JdbcConnectorExpressionRewriterBuilder addStandardRules(Function<String, String> identifierQuote)
     {
+        return addStandardRules(identifierQuote, type -> Optional.empty());
+    }
+
+    public JdbcConnectorExpressionRewriterBuilder addStandardRules(Function<String, String> identifierQuote, Function<Type, Optional<String>> typeMapping)
+    {
         add(new RewriteVariable(identifierQuote));
-        add(new RewriteVarcharConstant());
+        add(new RewriteVarcharConstant(typeMapping));
         add(new RewriteExactNumericConstant());
         add(new RewriteAnd());
         add(new RewriteOr());

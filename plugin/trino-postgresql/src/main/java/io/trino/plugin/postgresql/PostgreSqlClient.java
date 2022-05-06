@@ -298,7 +298,7 @@ public class PostgreSqlClient
         this.statisticsEnabled = requireNonNull(statisticsConfig, "statisticsConfig is null").isEnabled();
 
         this.connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder()
-                .addStandardRules(this::quoted)
+                .addStandardRules(this::quoted, this::typedCast)
                 // TODO allow all comparison operators for numeric types
                 .add(new RewriteComparison(ImmutableSet.of(RewriteComparison.ComparisonOperator.EQUAL, RewriteComparison.ComparisonOperator.NOT_EQUAL)))
                 .add(new RewriteIn())
@@ -339,6 +339,21 @@ public class PostgreSqlClient
                         .add(new ImplementRegrIntercept())
                         .add(new ImplementRegrSlope())
                         .build());
+    }
+
+    private Optional<String> typedCast(Type type)
+    {
+        if (type instanceof VarcharType) {
+            VarcharType varcharType = (VarcharType) type;
+            return varcharType.getLength().map(length -> format("varchar(%d)", length)).or(() -> Optional.of("varchar"));
+        }
+
+        if (type instanceof CharType) {
+            CharType charType = (CharType) type;
+            return Optional.of(format("char(%d)", charType.getLength()));
+        }
+
+        return Optional.empty();
     }
 
     @Override

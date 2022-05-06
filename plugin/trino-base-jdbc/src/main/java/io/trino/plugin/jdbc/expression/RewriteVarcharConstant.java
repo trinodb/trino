@@ -18,17 +18,27 @@ import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.plugin.base.expression.ConnectorExpressionRule;
 import io.trino.spi.expression.Constant;
+import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 
 import java.util.Optional;
+import java.util.function.Function;
 
 import static io.trino.plugin.base.expression.ConnectorExpressionPatterns.constant;
 import static io.trino.plugin.base.expression.ConnectorExpressionPatterns.type;
+import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 public class RewriteVarcharConstant
         implements ConnectorExpressionRule<Constant, String>
 {
     private static final Pattern<Constant> PATTERN = constant().with(type().matching(VarcharType.class::isInstance));
+    private final Function<Type, Optional<String>> typeMapping;
+
+    public RewriteVarcharConstant(Function<Type, Optional<String>> typeMapping)
+    {
+        this.typeMapping = requireNonNull(typeMapping, "typeMapping is null");
+    }
 
     @Override
     public Pattern<Constant> getPattern()
@@ -41,7 +51,7 @@ public class RewriteVarcharConstant
     {
         Slice slice = (Slice) constant.getValue();
         if (slice == null) {
-            return Optional.empty();
+            return typeMapping.apply(constant.getType()).map(typedCast -> format("CAST(NULL AS %s)", typedCast));
         }
         return Optional.of("'" + slice.toStringUtf8().replace("'", "''") + "'");
     }
