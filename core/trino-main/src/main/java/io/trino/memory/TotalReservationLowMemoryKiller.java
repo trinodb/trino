@@ -23,7 +23,7 @@ public class TotalReservationLowMemoryKiller
         implements LowMemoryKiller
 {
     @Override
-    public Optional<KillTarget> chooseQueryToKill(List<QueryMemoryInfo> runningQueries, List<MemoryInfo> nodes)
+    public Optional<KillTarget> chooseTargetToKill(List<QueryMemoryInfo> runningQueries, List<MemoryInfo> nodes)
     {
         Optional<QueryId> biggestQuery = Optional.empty();
         long maxMemory = 0;

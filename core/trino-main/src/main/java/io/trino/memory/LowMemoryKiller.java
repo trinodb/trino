@@ -25,7 +25,7 @@ import static java.util.Objects.requireNonNull;
 
 public interface LowMemoryKiller
 {
-    Optional<KillTarget> chooseQueryToKill(List<QueryMemoryInfo> runningQueries, List<MemoryInfo> nodes);
+    Optional<KillTarget> chooseTargetToKill(List<QueryMemoryInfo> runningQueries, List<MemoryInfo> nodes);
 
     class QueryMemoryInfo
     {

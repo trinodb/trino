@@ -35,7 +35,7 @@ public class TotalReservationOnBlockedNodesLowMemoryKiller
         implements LowMemoryKiller
 {
     @Override
-    public Optional<KillTarget> chooseQueryToKill(List<QueryMemoryInfo> runningQueries, List<MemoryInfo> nodes)
+    public Optional<KillTarget> chooseTargetToKill(List<QueryMemoryInfo> runningQueries, List<MemoryInfo> nodes)
     {
         Optional<KillTarget> killTarget = chooseTasksToKill(runningQueries, nodes);
         if (killTarget.isEmpty()) {
