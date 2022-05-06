@@ -37,7 +37,7 @@ public class TestTotalReservationLowMemoryKiller
                 .put("q_1", ImmutableMap.of("n1", 0L, "n2", 0L, "n3", 0L, "n4", 0L, "n5", 0L))
                 .buildOrThrow();
         assertEquals(
-                lowMemoryKiller.chooseQueryToKill(
+                lowMemoryKiller.chooseTargetToKill(
                         toQueryMemoryInfoList(queries),
                         toNodeMemoryInfoList(memoryPool, queries)),
                 Optional.empty());
@@ -55,7 +55,7 @@ public class TestTotalReservationLowMemoryKiller
                 .put("q_3", ImmutableMap.of("n1", 0L, "n2", 0L, "n3", 9L, "n4", 0L, "n5", 0L))
                 .buildOrThrow();
         assertEquals(
-                lowMemoryKiller.chooseQueryToKill(
+                lowMemoryKiller.chooseTargetToKill(
                         toQueryMemoryInfoList(queries),
                         toNodeMemoryInfoList(memoryPool, queries)),
                 Optional.of(KillTarget.wholeQuery(new QueryId("q_2"))));
