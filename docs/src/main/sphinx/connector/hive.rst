@@ -105,6 +105,10 @@ modes.
 
 You can configure the behavior in your catalog properties file.
 
+By default, Hive views are executed with the ``RUN AS DEFINER`` security mode.
+Set the  ``hive.hive-views.run-as-invoker`` catalog configuration property to
+``true`` to use ``RUN AS INVOKER`` semantics.
+
 **Disabled**
 
 The default behavior is to ignore Hive views. This means that your business
