@@ -39,7 +39,7 @@ public interface VerifierQueryEventDao
             "  control_teardown_query_ids_json VARCHAR(255) NULL,\n" +
             "  control_cpu_time_seconds DOUBLE NULL,\n" +
             "  control_wall_time_seconds DOUBLE NULL,\n" +
-            "  error_message TEXT NULL,\n" +
+            "  error_message MEDIUMTEXT NULL,\n" +
             "  PRIMARY KEY (id),\n" +
             "  INDEX run_id_name_index(run_id, name)\n" +
             ")")
