@@ -452,6 +452,12 @@ public class TestKafkaConnectorTest
                 .containsExactlyInAnyOrder("Hello", "hello测试􏿿world编码");
     }
 
+    @Override
+    public void testInsertRowConcurrently()
+    {
+        throw new SkipException("TODO Prepare a topic in Kafka and enable this test");
+    }
+
     private static KafkaTopicDescription createDescription(SchemaTableName schemaTableName, KafkaTopicFieldDescription key, List<KafkaTopicFieldDescription> fields)
     {
         return new KafkaTopicDescription(

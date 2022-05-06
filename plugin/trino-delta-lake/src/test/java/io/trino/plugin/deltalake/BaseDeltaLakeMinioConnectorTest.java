@@ -122,6 +122,20 @@ public abstract class BaseDeltaLakeMinioConnectorTest
     }
 
     @Override
+    protected void verifyConcurrentInsertFailurePermissible(Exception e)
+    {
+        assertThat(e)
+                .hasMessage("Failed to write Delta Lake transaction log entry")
+                .getCause()
+                .hasMessageMatching(
+                        "Transaction log locked.*" +
+                                "|.*/_delta_log/\\d+.json already exists" +
+                                "|Conflicting concurrent writes found..*" +
+                                "|Multiple live locks found for:.*" +
+                                "|Target file .* was created during locking");
+    }
+
+    @Override
     protected Optional<DataMappingTestSetup> filterCaseSensitiveDataMappingTestData(DataMappingTestSetup dataMappingTestSetup)
     {
         String typeName = dataMappingTestSetup.getTrinoTypeName();
