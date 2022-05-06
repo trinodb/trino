@@ -229,7 +229,7 @@ public abstract class BaseFailureRecoveryTest
                 .experiencing(TASK_GET_RESULTS_REQUEST_TIMEOUT)
                 // using boundary stage so we observe task failures
                 .at(boundaryDistributedStage())
-                .failsWithoutRetries(failure -> failure.hasMessageFindingMatch("Encountered too many errors talking to a worker node|Error closing remote buffer.*3 failures"))
+                .failsWithoutRetries(failure -> failure.hasMessageFindingMatch("Encountered too many errors talking to a worker node|Error closing remote buffer"))
                 .finishesSuccessfully();
     }
 
@@ -352,7 +352,7 @@ public abstract class BaseFailureRecoveryTest
                     .withCleanupQuery(Optional.of("DROP TABLE <table>"))
                     .experiencing(TASK_GET_RESULTS_REQUEST_TIMEOUT)
                     .at(leafStage())
-                    .failsWithoutRetries(failure -> failure.hasMessageContaining("Encountered too many errors talking to a worker node"))
+                    .failsWithoutRetries(failure -> failure.hasMessageFindingMatch("Encountered too many errors talking to a worker node|Error closing remote buffer"))
                     // get results timeout for leaf stage will not result in accounted task failure if failure recovery is enabled
                     .finishesSuccessfullyWithoutTaskFailures();
         }
@@ -454,7 +454,7 @@ public abstract class BaseFailureRecoveryTest
                 .withCleanupQuery(cleanupQuery)
                 .experiencing(TASK_GET_RESULTS_REQUEST_TIMEOUT)
                 .at(boundaryDistributedStage())
-                .failsWithoutRetries(failure -> failure.hasMessageContaining("Encountered too many errors talking to a worker node"))
+                .failsWithoutRetries(failure -> failure.hasMessageFindingMatch("Encountered too many errors talking to a worker node|Error closing remote buffer"))
                 .finishesSuccessfully();
     }
 
