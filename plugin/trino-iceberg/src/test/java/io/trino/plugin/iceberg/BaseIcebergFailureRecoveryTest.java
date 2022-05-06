@@ -144,7 +144,7 @@ public abstract class BaseIcebergFailureRecoveryTest
                 .withCleanupQuery(cleanupQuery)
                 .experiencing(TASK_GET_RESULTS_REQUEST_TIMEOUT)
                 .at(boundaryDistributedStage())
-                .failsWithoutRetries(failure -> failure.hasMessageContaining("Encountered too many errors talking to a worker node"))
+                .failsWithoutRetries(failure -> failure.hasMessageFindingMatch("Encountered too many errors talking to a worker node|Error closing remote buffer"))
                 .finishesSuccessfully();
     }
 
