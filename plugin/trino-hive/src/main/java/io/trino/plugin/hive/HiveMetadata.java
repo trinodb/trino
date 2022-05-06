@@ -359,6 +359,7 @@ public class HiveMetadata
     private final boolean writesToNonManagedTablesEnabled;
     private final boolean createsOfNonManagedTablesEnabled;
     private final boolean translateHiveViews;
+    private final boolean hiveViewsRunAsInvoker;
     private final boolean hideDeltaLakeTables;
     private final String prestoVersion;
     private final HiveStatisticsProvider hiveStatisticsProvider;
@@ -377,6 +378,7 @@ public class HiveMetadata
             boolean writesToNonManagedTablesEnabled,
             boolean createsOfNonManagedTablesEnabled,
             boolean translateHiveViews,
+            boolean hiveViewsRunAsInvoker,
             boolean hideDeltaLakeTables,
             TypeManager typeManager,
             MetadataProvider metadataProvider,
@@ -402,6 +404,7 @@ public class HiveMetadata
         this.writesToNonManagedTablesEnabled = writesToNonManagedTablesEnabled;
         this.createsOfNonManagedTablesEnabled = createsOfNonManagedTablesEnabled;
         this.translateHiveViews = translateHiveViews;
+        this.hiveViewsRunAsInvoker = hiveViewsRunAsInvoker;
         this.hideDeltaLakeTables = hideDeltaLakeTables;
         this.prestoVersion = requireNonNull(trinoVersion, "trinoVersion is null");
         this.hiveStatisticsProvider = requireNonNull(hiveStatisticsProvider, "hiveStatisticsProvider is null");
@@ -2436,7 +2439,7 @@ public class HiveMetadata
                         throw new HiveViewNotSupportedException(viewName);
                     }
 
-                    ConnectorViewDefinition definition = createViewReader(metastore, session, view, typeManager, this::redirectTable, metadataProvider)
+                    ConnectorViewDefinition definition = createViewReader(metastore, session, view, typeManager, this::redirectTable, metadataProvider, hiveViewsRunAsInvoker)
                             .decodeViewData(view.getViewOriginalText().get(), view, catalogName);
                     // use owner from table metadata if it exists
                     if (view.getOwner().isPresent() && !definition.isRunAsInvoker()) {
