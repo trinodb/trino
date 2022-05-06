@@ -50,6 +50,7 @@ public class HiveMetadataFactory
     private final boolean createsOfNonManagedTablesEnabled;
     private final boolean deleteSchemaLocationsFallback;
     private final boolean translateHiveViews;
+    private final boolean hiveViewsRunAsInvoker;
     private final boolean hideDeltaLakeTables;
     private final long perTransactionCacheMaximumSize;
     private final HiveMetastoreFactory metastoreFactory;
@@ -109,6 +110,7 @@ public class HiveMetadataFactory
                 hiveConfig.getCreatesOfNonManagedTablesEnabled(),
                 hiveConfig.isDeleteSchemaLocationsFallback(),
                 hiveConfig.isTranslateHiveViews(),
+                hiveConfig.isHiveViewsRunAsInvoker(),
                 hiveConfig.getPerTransactionMetastoreCacheMaximumSize(),
                 hiveConfig.getHiveTransactionHeartbeatInterval(),
                 metastoreConfig.isHideDeltaLakeTables(),
@@ -142,6 +144,7 @@ public class HiveMetadataFactory
             boolean createsOfNonManagedTablesEnabled,
             boolean deleteSchemaLocationsFallback,
             boolean translateHiveViews,
+            boolean hiveViewsRunAsInvoker,
             long perTransactionCacheMaximumSize,
             Optional<Duration> hiveTransactionHeartbeatInterval,
             boolean hideDeltaLakeTables,
@@ -167,6 +170,7 @@ public class HiveMetadataFactory
         this.createsOfNonManagedTablesEnabled = createsOfNonManagedTablesEnabled;
         this.deleteSchemaLocationsFallback = deleteSchemaLocationsFallback;
         this.translateHiveViews = translateHiveViews;
+        this.hiveViewsRunAsInvoker = hiveViewsRunAsInvoker;
         this.hideDeltaLakeTables = hideDeltaLakeTables;
         this.perTransactionCacheMaximumSize = perTransactionCacheMaximumSize;
 
@@ -229,6 +233,7 @@ public class HiveMetadataFactory
                 writesToNonManagedTablesEnabled,
                 createsOfNonManagedTablesEnabled,
                 translateHiveViews,
+                hiveViewsRunAsInvoker,
                 hideDeltaLakeTables,
                 typeManager,
                 metadataProvider,

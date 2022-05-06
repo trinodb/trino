@@ -145,6 +145,7 @@ public class HiveConfig
 
     private boolean translateHiveViews;
     private boolean legacyHiveViewTranslation;
+    private boolean hiveViewsRunAsInvoker;
 
     private Optional<Duration> hiveTransactionHeartbeatInterval = Optional.empty();
     private int hiveTransactionHeartbeatThreads = 5;
@@ -789,6 +790,19 @@ public class HiveConfig
     public HiveConfig setLegacyHiveViewTranslation(boolean legacyHiveViewTranslation)
     {
         this.legacyHiveViewTranslation = legacyHiveViewTranslation;
+        return this;
+    }
+
+    public boolean isHiveViewsRunAsInvoker()
+    {
+        return hiveViewsRunAsInvoker;
+    }
+
+    @Config("hive.hive-views.run-as-invoker")
+    @ConfigDescription("Execute Hive views with permissions of invoker")
+    public HiveConfig setHiveViewsRunAsInvoker(boolean hiveViewsRunAsInvoker)
+    {
+        this.hiveViewsRunAsInvoker = hiveViewsRunAsInvoker;
         return this;
     }
 
