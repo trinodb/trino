@@ -39,7 +39,6 @@ import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.ArithmeticUnaryExpression;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.DataType;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.InListExpression;
 import io.trino.sql.tree.InPredicate;
@@ -457,6 +456,30 @@ public class TestPostgreSqlClient
                         Map.of("c_varchar", VARCHAR_COLUMN.getColumnType(), "c_varchar2", VARCHAR_COLUMN2.getColumnType())),
                 Map.of(VARCHAR_COLUMN.getColumnName(), VARCHAR_COLUMN, VARCHAR_COLUMN2.getColumnName(), VARCHAR_COLUMN2)))
                 .hasValue("(\"c_varchar\") IN ('value1', 'value2', CAST(NULL AS varchar(10)), \"c_varchar2\")");
+    }
+
+    @Test
+    public void testConvertCast()
+    {
+        assertThat(JDBC_CLIENT.convertPredicate(
+                SESSION,
+                translateToConnectorExpression(
+                        new Cast(
+                                new SymbolReference("c_varchar"),
+                                toSqlType(BIGINT_COLUMN.getColumnType())),
+                        Map.of("c_varchar", VARCHAR_COLUMN.getColumnType())),
+                Map.of(VARCHAR_COLUMN.getColumnName(), VARCHAR_COLUMN)))
+                .isEmpty();
+
+        assertThat(JDBC_CLIENT.convertPredicate(
+                SESSION,
+                translateToConnectorExpression(
+                        new Cast(
+                                new SymbolReference("c_bigint"),
+                                toSqlType(VARCHAR_COLUMN.getColumnType())),
+                        Map.of("c_bigint", BIGINT_COLUMN.getColumnType())),
+                Map.of(BIGINT_COLUMN.getColumnName(), BIGINT_COLUMN)))
+                .hasValue("CAST(\"c_bigint\" AS varchar(10))");
     }
 
     private ConnectorExpression translateToConnectorExpression(Expression expression, Map<String, Type> symbolTypes)
