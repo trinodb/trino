@@ -19,7 +19,9 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
+import java.util.ArrayDeque;
 import java.util.OptionalDouble;
+import java.util.Queue;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.lang.Math.min;
@@ -197,7 +199,33 @@ public class StatementStats
         if (!scheduled || totalSplits == 0) {
             return OptionalDouble.empty();
         }
-        return OptionalDouble.of(min(100, (completedSplits * 100.0) / totalSplits));
+
+        double percentageSum = 0.0;
+        int scheduledStages = 0;
+        int totalStages = 0;
+        Queue<StageStats> queue = new ArrayDeque<>();
+        queue.add(rootStage);
+        while (!queue.isEmpty()) {
+            StageStats stage = queue.poll();
+            totalStages++;
+            if (stage.isDone() || stage.getState().equals("PENDING") || stage.getState().equals("RUNNING")) {
+                percentageSum += 100.0 * stage.getCompletedSplits() / stage.getTotalSplits();
+                scheduledStages++;
+            }
+            queue.addAll(stage.getSubStages());
+        }
+        if (scheduledStages == totalStages) {
+            return OptionalDouble.of(min(100, (completedSplits * 100.0) / totalSplits));
+        }
+        else {
+            // Unlike pipelined execution, fault tolerant execution doesn't execute stages all at
+            // once and some stages will be in PLANNED state in the middle of execution. Therefore,
+            // we don't know the number of total splits upfront.
+            //
+            // To avoid the confusion of progress bar going back and forth, we calculate the
+            // progress percentage of each stage (0 if not scheduled), and average them.
+            return OptionalDouble.of(min(100, percentageSum / totalStages));
+        }
     }
 
     @JsonProperty

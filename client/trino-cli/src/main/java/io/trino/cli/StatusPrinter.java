@@ -324,10 +324,14 @@ Spilled: 20GB
             int progressWidth = (min(terminalWidth, 100) - 75) + 17; // progress bar is 17-42 characters wide
 
             if (stats.isScheduled()) {
-                String progressBar = formatProgressBar(progressWidth,
-                        stats.getCompletedSplits(),
-                        max(0, stats.getRunningSplits()),
-                        stats.getTotalSplits());
+                int completed = stats.getCompletedSplits();
+                int running = stats.getRunningSplits();
+                int total = stats.getTotalSplits();
+                if (progressPercentage > 0) {
+                    // prevent progress bar from going back and forth for fault tolerant execution
+                    total = max(total, (completed * 100 + progressPercentage - 1) / progressPercentage);
+                }
+                String progressBar = formatProgressBar(progressWidth, completed, running, total);
 
                 // 0:17 [ 103MB,  802K rows] [5.74MB/s, 44.9K rows/s] [=====>>                                   ] 10%
                 String progressLine = format("%s [%5s rows, %6s] [%5s rows/s, %8s] [%s] %d%%",

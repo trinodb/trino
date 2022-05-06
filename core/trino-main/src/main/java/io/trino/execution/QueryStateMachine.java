@@ -618,7 +618,7 @@ public class QueryStateMachine
 
         boolean isScheduled = rootStage.isPresent() && allStages.stream()
                 .map(StageInfo::getState)
-                .allMatch(state -> state == StageState.RUNNING || state == StageState.PENDING || state.isDone());
+                .anyMatch(state -> state == StageState.RUNNING || state == StageState.PENDING || state.isDone());
 
         return new QueryStats(
                 queryStateTimer.getCreateTime(),
