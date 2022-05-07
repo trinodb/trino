@@ -20,14 +20,12 @@ import java.util.List;
 import java.util.Optional;
 
 import static io.trino.spi.StandardErrorCode.PERMISSION_DENIED;
-import static io.trino.spi.session.PropertyMetadata.booleanProperty;
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
 
 public final class StarburstSqlServerSessionProperties
         implements SessionPropertiesProvider
 {
     public static final String OVERRIDE_CATALOG = "override_catalog";
-    public static final String BULK_COPY_FOR_WRITE_LOCK_DESTINATION_TABLE = "bulk_copy_for_write_lock_destination_table";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -44,12 +42,7 @@ public final class StarburstSqlServerSessionProperties
                                 throw new TrinoException(PERMISSION_DENIED, "Catalog override is disabled");
                             }
                         },
-                        true),
-                booleanProperty(
-                        BULK_COPY_FOR_WRITE_LOCK_DESTINATION_TABLE,
-                        "Obtain a Bulk Update lock on destination table on write",
-                        config.isBulkCopyForWriteLockDestinationTable(),
-                        false));
+                        true));
     }
 
     @Override
@@ -61,10 +54,5 @@ public final class StarburstSqlServerSessionProperties
     public static Optional<String> getOverrideCatalog(ConnectorSession session)
     {
         return Optional.ofNullable(session.getProperty(OVERRIDE_CATALOG, String.class));
-    }
-
-    public static boolean isBulkCopyForWriteLockDestinationTable(ConnectorSession session)
-    {
-        return session.getProperty(BULK_COPY_FOR_WRITE_LOCK_DESTINATION_TABLE, Boolean.class);
     }
 }

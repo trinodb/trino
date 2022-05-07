@@ -41,8 +41,6 @@ public class StarburstSqlServerConfig
         NTLM_PASSWORD_PASS_THROUGH
     }
 
-    private boolean bulkCopyForWriteLockDestinationTable;
-
     public boolean isImpersonationEnabled()
     {
         return impersonationEnabled;
@@ -91,19 +89,6 @@ public class StarburstSqlServerConfig
     public StarburstSqlServerConfig setAuthenticationType(SqlServerAuthenticationType authenticationType)
     {
         this.authenticationType = authenticationType;
-        return this;
-    }
-
-    public boolean isBulkCopyForWriteLockDestinationTable()
-    {
-        return bulkCopyForWriteLockDestinationTable;
-    }
-
-    @Config("sqlserver.bulk-copy-for-write.lock-destination-table")
-    @ConfigDescription("Obtain a Bulk Update lock on destination table on write")
-    public StarburstSqlServerConfig setBulkCopyForWriteLockDestinationTable(boolean bulkCopyForWriteLockDestinationTable)
-    {
-        this.bulkCopyForWriteLockDestinationTable = bulkCopyForWriteLockDestinationTable;
         return this;
     }
 

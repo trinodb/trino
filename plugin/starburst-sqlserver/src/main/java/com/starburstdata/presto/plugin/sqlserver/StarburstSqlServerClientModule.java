@@ -21,6 +21,8 @@ import io.trino.plugin.jdbc.JdbcRecordSetProvider;
 import io.trino.plugin.jdbc.JdbcSplitManager;
 import io.trino.plugin.jdbc.JdbcStatisticsConfig;
 import io.trino.plugin.jdbc.MaxDomainCompactionThreshold;
+import io.trino.plugin.sqlserver.SqlServerConfig;
+import io.trino.plugin.sqlserver.SqlServerSessionProperties;
 import io.trino.plugin.sqlserver.SqlServerTableProperties;
 import io.trino.spi.connector.ConnectorRecordSetProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
@@ -38,15 +40,14 @@ public class StarburstSqlServerClientModule
     @Override
     protected void setup(Binder binder)
     {
-        configBinder(binder).bindConfig(io.trino.plugin.sqlserver.SqlServerConfig.class);
-        configBinder(binder).bindConfig(StarburstCommonSqlServerConfig.class);
+        configBinder(binder).bindConfig(SqlServerConfig.class);
 
         binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(StarburstSqlServerClient.class).in(SINGLETON);
         newOptionalBinder(binder, Key.get(int.class, MaxDomainCompactionThreshold.class)).setBinding().toInstance(SQL_SERVER_MAX_LIST_EXPRESSIONS);
 
         configBinder(binder).bindConfig(JdbcStatisticsConfig.class);
 
-        bindSessionPropertiesProvider(binder, StarburstCommonSqlServerSessionProperties.class);
+        bindSessionPropertiesProvider(binder, SqlServerSessionProperties.class);
         bindSessionPropertiesProvider(binder, StarburstSqlServerSessionProperties.class);
 
         bindTablePropertiesProvider(binder, SqlServerTableProperties.class);
