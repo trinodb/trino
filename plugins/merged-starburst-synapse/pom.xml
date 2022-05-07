@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.starburstdata.presto</groupId>
         <artifactId>starburst-enterprise-root</artifactId>
-        <version>376-e-SNAPSHOT</version>
+        <version>380-e-SNAPSHOT</version>
         <relativePath>../..</relativePath>
     </parent>
 
@@ -18,7 +18,6 @@
     </properties>
 
     <dependencies>
-
         <dependency>
             <groupId>com.starburstdata.presto</groupId>
             <artifactId>starburst-base-jdbc</artifactId>
@@ -35,13 +34,13 @@
         </dependency>
 
         <dependency>
-            <groupId>com.starburstdata.presto</groupId>
-            <artifactId>starburst-sqlserver</artifactId>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-base-jdbc</artifactId>
         </dependency>
 
         <dependency>
             <groupId>io.trino</groupId>
-            <artifactId>trino-base-jdbc</artifactId>
+            <artifactId>trino-plugin-toolkit</artifactId>
         </dependency>
 
         <dependency>

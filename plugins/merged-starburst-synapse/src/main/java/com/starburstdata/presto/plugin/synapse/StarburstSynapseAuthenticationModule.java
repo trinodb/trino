@@ -19,7 +19,6 @@ import com.microsoft.sqlserver.jdbc.SQLServerDriver;
 import com.starburstdata.presto.plugin.jdbc.auth.AuthenticationBasedIdentityCacheMappingModule;
 import com.starburstdata.presto.plugin.jdbc.auth.ForImpersonation;
 import com.starburstdata.presto.plugin.jdbc.auth.PasswordPassThroughModule;
-import com.starburstdata.presto.plugin.sqlserver.SqlServerImpersonatingConnectionFactory;
 import com.starburstdata.presto.plugin.toolkit.authtolocal.AuthToLocalModule;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
@@ -107,7 +106,7 @@ public class StarburstSynapseAuthenticationModule
         {
             binder.install(new AuthToLocalModule());
             binder.install(new AuthenticationBasedIdentityCacheMappingModule());
-            binder.bind(ConnectionFactory.class).annotatedWith(ForBaseJdbc.class).to(SqlServerImpersonatingConnectionFactory.class).in(Scopes.SINGLETON);
+            binder.bind(ConnectionFactory.class).annotatedWith(ForBaseJdbc.class).to(SynapseImpersonatingConnectionFactory.class).in(Scopes.SINGLETON);
         }
     }
 

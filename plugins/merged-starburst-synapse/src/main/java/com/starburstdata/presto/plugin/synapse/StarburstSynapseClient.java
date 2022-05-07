@@ -10,20 +10,22 @@
 package com.starburstdata.presto.plugin.synapse;
 
 import com.starburstdata.presto.plugin.jdbc.redirection.TableScanRedirection;
-import com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerClient;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ColumnMapping;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.JdbcStatisticsConfig;
+import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.LongWriteFunction;
 import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.WriteMapping;
 import io.trino.plugin.jdbc.mapping.IdentifierMapping;
+import io.trino.plugin.sqlserver.SqlServerClient;
 import io.trino.spi.StandardErrorCode;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.TimeType;
 import io.trino.spi.type.Type;
@@ -51,16 +53,19 @@ import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_DAY;
 import static io.trino.spi.type.Timestamps.round;
 import static java.lang.Math.min;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
 public class StarburstSynapseClient
-        extends StarburstSqlServerClient
+        extends SqlServerClient
 {
     private static final int MAX_NVARCHAR_LENGTH = 4000;
     private static final int MAX_NCHAR_LENGTH = 4000;
     private static final int MAX_VARBINARY_LENGTH = 8000;
 
     private static final int MAX_SUPPORTED_TEMPORAL_PRECISION = 7;
+
+    private final TableScanRedirection tableScanRedirection;
 
     @Inject
     public StarburstSynapseClient(
@@ -71,13 +76,8 @@ public class StarburstSynapseClient
             QueryBuilder queryBuilder,
             IdentifierMapping identifierMapping)
     {
-        super(
-                config,
-                statisticsConfig,
-                tableScanRedirection,
-                connectionFactory,
-                queryBuilder,
-                identifierMapping);
+        super(config, statisticsConfig, connectionFactory, queryBuilder, identifierMapping);
+        this.tableScanRedirection = requireNonNull(tableScanRedirection, "tableScanRedirection is null");
     }
 
     /**
@@ -223,5 +223,11 @@ public class StarburstSynapseClient
                     .collect(joining(", "));
             return format("SELECT TOP (%d) %s ORDER BY %s", limit, query.substring(start.length()), orderBy);
         });
+    }
+
+    @Override
+    public Optional<TableScanRedirectApplicationResult> getTableScanRedirection(ConnectorSession session, JdbcTableHandle handle)
+    {
+        return tableScanRedirection.getTableScanRedirection(session, handle, this);
     }
 }
