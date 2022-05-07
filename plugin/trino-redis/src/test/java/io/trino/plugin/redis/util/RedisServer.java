@@ -23,6 +23,7 @@ public class RedisServer
         implements Closeable
 {
     public static final String DEFAULT_VERSION = "2.8.9";
+    public static final String LATEST_VERSION = "7.0.0";
     private static final int PORT = 6379;
 
     private final GenericContainer<?> container;
