@@ -13,34 +13,12 @@
  */
 package io.trino.plugin.redis;
 
-import com.google.common.collect.ImmutableMap;
-import io.trino.plugin.redis.util.RedisServer;
 import io.trino.testing.BaseConnectorTest;
-import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
-import org.testng.annotations.AfterClass;
 
-import static io.trino.plugin.redis.RedisQueryRunner.createRedisQueryRunner;
-
-public class TestRedisConnectorTest
+public abstract class BaseRedisConnectorTest
         extends BaseConnectorTest
 {
-    private RedisServer redisServer;
-
-    @Override
-    protected QueryRunner createQueryRunner()
-            throws Exception
-    {
-        redisServer = new RedisServer();
-        return createRedisQueryRunner(redisServer, ImmutableMap.of(), "string", REQUIRED_TPCH_TABLES);
-    }
-
-    @AfterClass(alwaysRun = true)
-    public void destroy()
-    {
-        redisServer.close();
-    }
-
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
