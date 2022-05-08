@@ -67,7 +67,7 @@ public class PinotSegmentPageSource
     private final AtomicLong currentRowCount = new AtomicLong();
     private final int estimatedNonNumericColumnSize;
 
-    private List<Type> columnTypes;
+    private final List<Type> columnTypes;
     // dataTableList stores the dataTable returned from each server. Each dataTable is constructed to a Page, and then destroyed to save memory.
     private LinkedList<PinotDataTableWithSize> dataTableList = new LinkedList<>();
     private long completedBytes;
@@ -93,6 +93,10 @@ public class PinotSegmentPageSource
         this.columnHandles = requireNonNull(columnHandles, "columnHandles is null");
         this.session = requireNonNull(session, "session is null");
         this.query = requireNonNull(query, "query is null");
+        this.columnTypes = columnHandles
+                .stream()
+                .map(columnHandle -> columnHandle.getDataType())
+                .collect(Collectors.toList());
     }
 
     private static void checkExceptions(DataTable dataTable, PinotSplit split, String query)
@@ -196,10 +200,6 @@ public class PinotSegmentPageSource
                         estimatedMemoryUsageInBytes += estimatedTableSizeInBytes;
                     });
 
-            this.columnTypes = columnHandles
-                    .stream()
-                    .map(columnHandle -> columnHandle.getDataType())
-                    .collect(Collectors.toList());
             isPinotDataFetched = true;
         }
         finally {
