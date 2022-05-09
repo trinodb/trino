@@ -16,6 +16,7 @@ package io.trino.plugin.iceberg;
 import io.trino.operator.RetryPolicy;
 import io.trino.plugin.exchange.filesystem.FileSystemExchangePlugin;
 import io.trino.plugin.exchange.filesystem.containers.MinioStorage;
+import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
 import org.testng.annotations.AfterClass;
@@ -37,7 +38,7 @@ public class TestIcebergQueryFailureRecoveryTest
     }
 
     @Override
-    protected QueryRunner createQueryRunner(
+    protected DistributedQueryRunner createQueryRunner(
             List<TpchTable<?>> requiredTpchTables,
             Map<String, String> configProperties,
             Map<String, String> coordinatorProperties)

@@ -20,6 +20,7 @@ import io.trino.plugin.exchange.filesystem.containers.MinioStorage;
 import io.trino.plugin.hive.containers.HiveHadoop;
 import io.trino.plugin.hive.containers.HiveMinioDataLake;
 import io.trino.plugin.hive.s3.S3HiveQueryRunner;
+import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
 import org.testng.annotations.AfterClass;
@@ -42,7 +43,7 @@ public class TestHiveQueryFailureRecoveryTest
     private MinioStorage minioStorage;
 
     @Override
-    protected QueryRunner createQueryRunner(
+    protected DistributedQueryRunner createQueryRunner(
             List<TpchTable<?>> requiredTpchTables,
             Map<String, String> configProperties,
             Map<String, String> coordinatorProperties)

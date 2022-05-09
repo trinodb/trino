@@ -27,6 +27,7 @@ import io.trino.server.DynamicFilterService.DynamicFilterDomainStats;
 import io.trino.server.DynamicFilterService.DynamicFiltersStats;
 import io.trino.spi.ErrorType;
 import io.trino.spi.QueryId;
+import io.trino.sql.planner.OptimizerConfig;
 import io.trino.tpch.TpchTable;
 import org.assertj.core.api.AbstractThrowableAssert;
 import org.intellij.lang.annotations.Language;
@@ -57,10 +58,10 @@ import static io.trino.execution.FailureInjector.InjectedFailureType.TASK_GET_RE
 import static io.trino.execution.FailureInjector.InjectedFailureType.TASK_GET_RESULTS_REQUEST_TIMEOUT;
 import static io.trino.execution.FailureInjector.InjectedFailureType.TASK_MANAGEMENT_REQUEST_FAILURE;
 import static io.trino.execution.FailureInjector.InjectedFailureType.TASK_MANAGEMENT_REQUEST_TIMEOUT;
+import static io.trino.operator.RetryPolicy.NONE;
 import static io.trino.spi.predicate.Domain.singleValue;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.PARTITIONED;
-import static io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy.NONE;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static io.trino.tpch.TpchTable.CUSTOMER;
@@ -86,39 +87,61 @@ public abstract class BaseFailureRecoveryTest
 
     private final RetryPolicy retryPolicy;
 
+    private DistributedQueryRunner queryRunnerNoRetries;
+
     protected BaseFailureRecoveryTest(RetryPolicy retryPolicy)
     {
+        checkArgument(retryPolicy != NONE, "retryPolicy must not be NONE");
         this.retryPolicy = requireNonNull(retryPolicy, "retryPolicy is null");
+    }
+
+    @BeforeClass
+    public void init()
+            throws Exception
+    {
+        super.init();
+        queryRunnerNoRetries = closeAfterClass(createQueryRunner(NONE));
     }
 
     @Override
     protected final QueryRunner createQueryRunner()
             throws Exception
     {
+        return createQueryRunner(retryPolicy);
+    }
+
+    private DistributedQueryRunner createQueryRunner(RetryPolicy retryPolicy)
+            throws Exception
+    {
+        ImmutableMap.Builder<String, String> configProperties = ImmutableMap.<String, String>builder()
+                .put("query.remote-task.max-error-duration", MAX_ERROR_DURATION.toString())
+                .put("exchange.max-error-duration", MAX_ERROR_DURATION.toString())
+                .put("failure-injection.request-timeout", new Duration(REQUEST_TIMEOUT.toMillis() * 2, MILLISECONDS).toString())
+                // making http timeouts shorter so tests which simulate communication timeouts finish in reasonable amount of time
+                .put("exchange.http-client.idle-timeout", REQUEST_TIMEOUT.toString())
+                .put("query.hash-partition-count", "5")
+                .put("retry-policy", retryPolicy.toString());
+
+        if (retryPolicy != NONE) {
+            configProperties
+                    .put("retry-initial-delay", "0s")
+                    .put("query-retry-attempts", "1")
+                    .put("task-retry-attempts-overall", "1")
+                    // to trigger spilling
+                    .put("exchange.deduplication-buffer-size", "1kB")
+                    .put("fault-tolerant-execution-task-memory", "1GB");
+        }
+
         return createQueryRunner(
                 ImmutableList.of(NATION, ORDERS, CUSTOMER, SUPPLIER),
-                ImmutableMap.<String, String>builder()
-                        .put("query.remote-task.max-error-duration", MAX_ERROR_DURATION.toString())
-                        .put("exchange.max-error-duration", MAX_ERROR_DURATION.toString())
-                        .put("retry-policy", retryPolicy.toString())
-                        .put("retry-initial-delay", "0s")
-                        .put("query-retry-attempts", "1")
-                        .put("task-retry-attempts-overall", "1")
-                        .put("failure-injection.request-timeout", new Duration(REQUEST_TIMEOUT.toMillis() * 2, MILLISECONDS).toString())
-                        // making http timeouts shorter so tests which simulate communication timeouts finish in reasonable amount of time
-                        .put("exchange.http-client.idle-timeout", REQUEST_TIMEOUT.toString())
-                        .put("query.hash-partition-count", "5")
-                        // to trigger spilling
-                        .put("exchange.deduplication-buffer-size", "1kB")
-                        .put("fault-tolerant-execution-task-memory", "1GB")
-                        .buildOrThrow(),
+                configProperties.buildOrThrow(),
                 ImmutableMap.<String, String>builder()
                         // making http timeouts shorter so tests which simulate communication timeouts finish in reasonable amount of time
                         .put("scheduler.http-client.idle-timeout", REQUEST_TIMEOUT.toString())
                         .buildOrThrow());
     }
 
-    protected abstract QueryRunner createQueryRunner(
+    protected abstract DistributedQueryRunner createQueryRunner(
             List<TpchTable<?>> requiredTpchTables,
             Map<String, String> configProperties,
             Map<String, String> coordinatorProperties)
@@ -171,7 +194,7 @@ public abstract class BaseFailureRecoveryTest
                             .isEqualTo(1);
                     DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
                     assertThat(domainStats.getSimplifiedDomain())
-                            .isEqualTo(singleValue(BIGINT, 1L).toString(getSession().toConnectorSession()));
+                            .isEqualTo(singleValue(BIGINT, 1L).toString(getQueryRunner().getDefaultSession().toConnectorSession()));
                     OperatorStats probeStats = searchScanFilterAndProjectOperatorStats(queryId, getQualifiedTableName(PARTITIONED_LINEITEM));
                     // Currently, stats from all attempts are combined.
                     // Asserting on multiple of 615L as well in case the probe scan was completed twice
@@ -523,24 +546,24 @@ public abstract class BaseFailureRecoveryTest
 
         private ExecutionResult executeExpected()
         {
-            return execute(noRetries(session), query, Optional.empty());
+            return execute(getQueryRunnerNoRetries(), session, query, Optional.empty());
         }
 
         private ExecutionResult executeActual(OptionalInt failureStageId)
         {
-            return executeActual(session, failureStageId);
+            return executeActual(getDistributedQueryRunner(), session, failureStageId);
         }
 
         private ExecutionResult executeActualNoRetries(OptionalInt failureStageId)
         {
-            return executeActual(noRetries(session), failureStageId);
+            return executeActual(getQueryRunnerNoRetries(), session, failureStageId);
         }
 
-        private ExecutionResult executeActual(Session session, OptionalInt failureStageId)
+        private ExecutionResult executeActual(DistributedQueryRunner queryRunner, Session session, OptionalInt failureStageId)
         {
             String token = UUID.randomUUID().toString();
             if (failureType.isPresent()) {
-                getQueryRunner().injectTaskFailure(
+                queryRunner.injectTaskFailure(
                         token,
                         failureStageId.orElseThrow(() -> new IllegalArgumentException("failure stageId not provided")),
                         0,
@@ -548,21 +571,21 @@ public abstract class BaseFailureRecoveryTest
                         failureType.get(),
                         errorType);
 
-                return execute(session, query, Optional.of(token));
+                return execute(queryRunner, session, query, Optional.of(token));
             }
             // no failure injected
-            return execute(session, query, Optional.of(token));
+            return execute(queryRunner, session, query, Optional.of(token));
         }
 
-        private ExecutionResult execute(Session session, String query, Optional<String> traceToken)
+        private ExecutionResult execute(DistributedQueryRunner queryRunner, Session session, String query, Optional<String> traceToken)
         {
             String tableName = "table_" + randomTableSuffix();
-            setup.ifPresent(sql -> getQueryRunner().execute(noRetries(session), resolveTableName(sql, tableName)));
+            setup.ifPresent(sql -> queryRunner.execute(resolveTableName(sql, tableName)));
 
             ResultWithQueryId<MaterializedResult> resultWithQueryId = null;
             RuntimeException failure = null;
             try {
-                resultWithQueryId = getDistributedQueryRunner().executeWithQueryId(withTraceToken(session, traceToken), resolveTableName(query, tableName));
+                resultWithQueryId = queryRunner.executeWithQueryId(withTraceToken(session, traceToken), resolveTableName(query, tableName));
             }
             catch (RuntimeException e) {
                 failure = e;
@@ -571,16 +594,16 @@ public abstract class BaseFailureRecoveryTest
             MaterializedResult result = resultWithQueryId == null ? null : resultWithQueryId.getResult();
             Optional<MaterializedResult> updatedTableContent = Optional.empty();
             if (result != null && result.getUpdateCount().isPresent()) {
-                updatedTableContent = Optional.of(getQueryRunner().execute(noRetries(session), "SELECT * FROM " + tableName));
+                updatedTableContent = Optional.of(queryRunner.execute(session, "SELECT * FROM " + tableName));
             }
 
             Optional<MaterializedResult> updatedTableStatistics = Optional.empty();
             if (result != null && result.getUpdateType().isPresent() && result.getUpdateType().get().equals("ANALYZE")) {
-                updatedTableStatistics = Optional.of(getQueryRunner().execute(noRetries(session), "SHOW STATS FOR " + tableName));
+                updatedTableStatistics = Optional.of(queryRunner.execute(session, "SHOW STATS FOR " + tableName));
             }
 
             try {
-                cleanup.ifPresent(sql -> getQueryRunner().execute(noRetries(session), resolveTableName(sql, tableName)));
+                cleanup.ifPresent(sql -> queryRunner.execute(session, resolveTableName(sql, tableName)));
             }
             catch (RuntimeException e) {
                 if (failure == null) {
@@ -693,13 +716,6 @@ public abstract class BaseFailureRecoveryTest
         private String resolveTableName(String query, String tableName)
         {
             return query.replaceAll("<table>", tableName);
-        }
-
-        private Session noRetries(Session session)
-        {
-            return Session.builder(session)
-                    .setSystemProperty("retry_policy", "NONE")
-                    .build();
         }
 
         private Session withTraceToken(Session session, Optional<String> traceToken)
@@ -819,8 +835,13 @@ public abstract class BaseFailureRecoveryTest
         Session defaultSession = getQueryRunner().getDefaultSession();
         return Session.builder(defaultSession)
                 .setSystemProperty(ENABLE_DYNAMIC_FILTERING, Boolean.toString(enabled))
-                .setSystemProperty(JOIN_REORDERING_STRATEGY, NONE.name())
+                .setSystemProperty(JOIN_REORDERING_STRATEGY, OptimizerConfig.JoinReorderingStrategy.NONE.name())
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, PARTITIONED.name())
                 .build();
+    }
+
+    protected DistributedQueryRunner getQueryRunnerNoRetries()
+    {
+        return queryRunnerNoRetries;
     }
 }

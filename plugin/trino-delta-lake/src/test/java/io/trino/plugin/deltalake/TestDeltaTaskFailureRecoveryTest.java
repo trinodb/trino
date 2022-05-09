@@ -44,7 +44,7 @@ public class TestDeltaTaskFailureRecoveryTest
     }
 
     @Override
-    protected QueryRunner createQueryRunner(
+    protected DistributedQueryRunner createQueryRunner(
             List<TpchTable<?>> requiredTpchTables,
             Map<String, String> configProperties,
             Map<String, String> coordinatorProperties)
