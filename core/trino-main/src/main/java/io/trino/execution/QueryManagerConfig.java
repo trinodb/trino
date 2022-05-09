@@ -56,7 +56,7 @@ public class QueryManagerConfig
     private Duration minQueryExpireAge = new Duration(15, TimeUnit.MINUTES);
     private int maxQueryHistory = 100;
     private int maxQueryLength = 1_000_000;
-    private int maxStageCount = 100;
+    private int maxStageCount = 150;
     private int stageCountWarningThreshold = 50;
 
     private Duration clientTimeout = new Duration(5, TimeUnit.MINUTES);
