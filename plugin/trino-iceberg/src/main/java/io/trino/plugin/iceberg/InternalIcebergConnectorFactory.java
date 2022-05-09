@@ -118,6 +118,7 @@ public final class InternalIcebergConnectorFactory
             Set<SessionPropertiesProvider> sessionPropertiesProviders = injector.getInstance(Key.get(new TypeLiteral<Set<SessionPropertiesProvider>>() {}));
             IcebergTableProperties icebergTableProperties = injector.getInstance(IcebergTableProperties.class);
             IcebergMaterializedViewAdditionalProperties materializedViewAdditionalProperties = injector.getInstance(IcebergMaterializedViewAdditionalProperties.class);
+            IcebergAnalyzeProperties icebergAnalyzeProperties = injector.getInstance(IcebergAnalyzeProperties.class);
             Set<Procedure> procedures = injector.getInstance(Key.get(new TypeLiteral<Set<Procedure>>() {}));
             Set<TableProcedureMetadata> tableProcedures = injector.getInstance(Key.get(new TypeLiteral<Set<TableProcedureMetadata>>() {}));
             Optional<ConnectorAccessControl> accessControl = injector.getInstance(Key.get(new TypeLiteral<Optional<ConnectorAccessControl>>() {}));
@@ -137,6 +138,7 @@ public final class InternalIcebergConnectorFactory
                     IcebergSchemaProperties.SCHEMA_PROPERTIES,
                     icebergTableProperties.getTableProperties(),
                     materializedViewProperties,
+                    icebergAnalyzeProperties.getAnalyzeProperties(),
                     accessControl,
                     procedures,
                     tableProcedures);

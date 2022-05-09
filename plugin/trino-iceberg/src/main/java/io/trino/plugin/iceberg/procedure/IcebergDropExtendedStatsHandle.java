@@ -13,10 +13,15 @@
  */
 package io.trino.plugin.iceberg.procedure;
 
-public enum IcebergTableProcedureId
+import static com.google.common.base.MoreObjects.toStringHelper;
+
+public class IcebergDropExtendedStatsHandle
+        extends IcebergProcedureHandle
 {
-    OPTIMIZE,
-    DROP_EXTENDED_STATS,
-    EXPIRE_SNAPSHOTS,
-    REMOVE_ORPHAN_FILES,
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .toString();
+    }
 }

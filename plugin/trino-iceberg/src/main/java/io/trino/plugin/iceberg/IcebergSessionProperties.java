@@ -36,6 +36,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.plugin.base.session.PropertyMetadataUtil.dataSizeProperty;
 import static io.trino.plugin.base.session.PropertyMetadataUtil.durationProperty;
+import static io.trino.plugin.iceberg.IcebergConfig.EXTENDED_STATISTICS_DESCRIPTION;
 import static io.trino.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static io.trino.spi.session.PropertyMetadata.booleanProperty;
 import static io.trino.spi.session.PropertyMetadata.doubleProperty;
@@ -70,6 +71,7 @@ public final class IcebergSessionProperties
     private static final String PARQUET_WRITER_BATCH_SIZE = "parquet_writer_batch_size";
     private static final String DYNAMIC_FILTERING_WAIT_TIMEOUT = "dynamic_filtering_wait_timeout";
     private static final String STATISTICS_ENABLED = "statistics_enabled";
+    public static final String EXTENDED_STATISTICS_ENABLED = "experimental_extended_statistics_enabled";
     private static final String PROJECTION_PUSHDOWN_ENABLED = "projection_pushdown_enabled";
     private static final String TARGET_MAX_FILE_SIZE = "target_max_file_size";
     private static final String HIVE_CATALOG_NAME = "hive_catalog_name";
@@ -213,6 +215,11 @@ public final class IcebergSessionProperties
                         STATISTICS_ENABLED,
                         "Expose table statistics",
                         icebergConfig.isTableStatisticsEnabled(),
+                        false))
+                .add(booleanProperty(
+                        EXTENDED_STATISTICS_ENABLED,
+                        EXTENDED_STATISTICS_DESCRIPTION,
+                        icebergConfig.isExtendedStatisticsEnabled(),
                         false))
                 .add(booleanProperty(
                         PROJECTION_PUSHDOWN_ENABLED,
@@ -380,6 +387,11 @@ public final class IcebergSessionProperties
     public static boolean isStatisticsEnabled(ConnectorSession session)
     {
         return session.getProperty(STATISTICS_ENABLED, Boolean.class);
+    }
+
+    public static boolean isExtendedStatisticsEnabled(ConnectorSession session)
+    {
+        return session.getProperty(EXTENDED_STATISTICS_ENABLED, Boolean.class);
     }
 
     public static boolean isProjectionPushdownEnabled(ConnectorSession session)
