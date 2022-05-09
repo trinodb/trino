@@ -184,6 +184,7 @@ import static io.trino.spi.predicate.Range.greaterThanOrEqual;
 import static io.trino.spi.predicate.Range.lessThanOrEqual;
 import static io.trino.spi.predicate.Range.range;
 import static io.trino.spi.predicate.TupleDomain.withColumnDomains;
+import static io.trino.spi.predicate.Utils.blockToNativeValue;
 import static io.trino.spi.predicate.ValueSet.ofRanges;
 import static io.trino.spi.statistics.ColumnStatisticType.MAX_VALUE;
 import static io.trino.spi.statistics.ColumnStatisticType.NUMBER_OF_DISTINCT_VALUES_SUMMARY;
@@ -2047,7 +2048,7 @@ public class DeltaLakeMetadata
                                 return DeltaLakeColumnStatistics.create(HyperLogLog.newInstance(4096)); // empty HLL with number of buckets used by $approx_set
                             }
                             else {
-                                Slice serializedSummary = HyperLogLogType.HYPER_LOG_LOG.getSlice(entry.getValue(), 0);
+                                Slice serializedSummary = (Slice) blockToNativeValue(HyperLogLogType.HYPER_LOG_LOG, entry.getValue());
                                 return DeltaLakeColumnStatistics.create(HyperLogLog.newInstance(serializedSummary));
                             }
                         }));
