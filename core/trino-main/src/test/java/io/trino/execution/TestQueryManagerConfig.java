@@ -42,7 +42,7 @@ public class TestQueryManagerConfig
                 .setMinQueryExpireAge(new Duration(15, MINUTES))
                 .setMaxQueryHistory(100)
                 .setMaxQueryLength(1_000_000)
-                .setMaxStageCount(100)
+                .setMaxStageCount(150)
                 .setStageCountWarningThreshold(50)
                 .setClientTimeout(new Duration(5, MINUTES))
                 .setScheduleSplitBatchSize(1000)

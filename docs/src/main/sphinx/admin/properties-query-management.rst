@@ -85,7 +85,7 @@ query to exist since creation.
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
 * **Type:** :ref:`prop-type-integer`
-* **Default value:** ``100``
+* **Default value:** ``150``
 * **Minimum value:** ``1``
 
 The maximum number of stages allowed to be generated per query. If a query
