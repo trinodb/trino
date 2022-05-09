@@ -364,7 +364,7 @@ public class ElasticsearchMetadata
             ImmutableList.Builder<RowDecoder.NameAndDescriptor> decoderFields = ImmutableList.builder();
             for (IndexMetadata.Field rowField : objectType.getFields()) {
                 String name = rowField.getName();
-                TypeAndDecoder child = toTrino(appendPath(path, name), rowField);
+                TypeAndDecoder child = toTrino(path, rowField);
 
                 if (child != null) {
                     decoderFields.add(new RowDecoder.NameAndDescriptor(name, child.getDecoderDescriptor()));
