@@ -317,18 +317,18 @@ public class PinotSegmentPageSource
         }
     }
 
-    Type getType(int columnIndex)
+    private Type getType(int columnIndex)
     {
         checkArgument(columnIndex < columnHandles.size(), "Invalid field index");
         return columnHandles.get(columnIndex).getDataType();
     }
 
-    boolean getBoolean(int rowIdx, int columnIndex)
+    private boolean getBoolean(int rowIdx, int columnIndex)
     {
         return currentDataTable.getDataTable().getInt(rowIdx, columnIndex) != 0;
     }
 
-    long getLong(int rowIndex, int columnIndex)
+    private long getLong(int rowIndex, int columnIndex)
     {
         DataSchema.ColumnDataType dataType = currentDataTable.getDataTable().getDataSchema().getColumnDataType(columnIndex);
         // Note columnType in the dataTable could be different from the original columnType in the columnHandle.
@@ -348,7 +348,7 @@ public class PinotSegmentPageSource
         }
     }
 
-    double getDouble(int rowIndex, int columnIndex)
+    private double getDouble(int rowIndex, int columnIndex)
     {
         DataSchema.ColumnDataType dataType = currentDataTable.getDataTable().getDataSchema().getColumnDataType(columnIndex);
         if (dataType.equals(ColumnDataType.FLOAT)) {
@@ -359,7 +359,7 @@ public class PinotSegmentPageSource
         }
     }
 
-    Block getArrayBlock(int rowIndex, int columnIndex)
+    private Block getArrayBlock(int rowIndex, int columnIndex)
     {
         Type trinoType = getType(columnIndex);
         Type elementType = trinoType.getTypeParameters().get(0);
@@ -408,7 +408,7 @@ public class PinotSegmentPageSource
         return blockBuilder.build();
     }
 
-    Slice getSlice(int rowIndex, int columnIndex)
+    private Slice getSlice(int rowIndex, int columnIndex)
     {
         Type trinoType = getType(columnIndex);
         if (trinoType instanceof VarcharType) {
@@ -421,7 +421,7 @@ public class PinotSegmentPageSource
         return Slices.EMPTY_SLICE;
     }
 
-    static byte[] toBytes(String stringValue)
+    private static byte[] toBytes(String stringValue)
     {
         try {
             return Hex.decodeHex(stringValue.toCharArray());
@@ -431,7 +431,7 @@ public class PinotSegmentPageSource
         }
     }
 
-    Slice getUtf8Slice(String value)
+    private Slice getUtf8Slice(String value)
     {
         if (isNullOrEmpty(value)) {
             return Slices.EMPTY_SLICE;
