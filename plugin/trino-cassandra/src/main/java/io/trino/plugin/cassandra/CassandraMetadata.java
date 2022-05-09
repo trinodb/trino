@@ -50,7 +50,7 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.stream.Collectors;
 
-import static com.datastax.driver.core.querybuilder.QueryBuilder.truncate;
+import static com.datastax.oss.driver.api.querybuilder.QueryBuilder.truncate;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.MoreCollectors.toOptional;
@@ -59,6 +59,8 @@ import static io.trino.plugin.cassandra.util.CassandraCqlUtils.ID_COLUMN_NAME;
 import static io.trino.plugin.cassandra.util.CassandraCqlUtils.cqlNameToSqlName;
 import static io.trino.plugin.cassandra.util.CassandraCqlUtils.quoteStringLiteral;
 import static io.trino.plugin.cassandra.util.CassandraCqlUtils.validColumnName;
+import static io.trino.plugin.cassandra.util.CassandraCqlUtils.validSchemaName;
+import static io.trino.plugin.cassandra.util.CassandraCqlUtils.validTableName;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.PERMISSION_DENIED;
 import static java.lang.String.format;
@@ -329,7 +331,7 @@ public class CassandraMetadata
     public void truncateTable(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         CassandraTableHandle table = (CassandraTableHandle) tableHandle;
-        cassandraSession.execute(truncate(table.getSchemaName(), table.getTableName()));
+        cassandraSession.execute(truncate(validSchemaName(table.getSchemaName()), validTableName(table.getTableName())).build());
     }
 
     @Override

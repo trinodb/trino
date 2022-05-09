@@ -39,6 +39,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -69,6 +70,7 @@ class StatementClientV1
     private static final String USER_AGENT_VALUE = StatementClientV1.class.getSimpleName() +
             "/" +
             firstNonNull(StatementClientV1.class.getPackage().getImplementationVersion(), "unknown");
+    private static final long MAX_MATERIALIZED_JSON_RESPONSE_SIZE = 128 * 1024;
 
     private final OkHttpClient httpClient;
     private final String query;
@@ -110,7 +112,8 @@ class StatementClientV1
 
         Request request = buildQueryRequest(session, query);
 
-        JsonResponse<QueryResults> response = JsonResponse.execute(QUERY_RESULTS_CODEC, httpClient, request);
+        // Always materialize the first response to avoid losing the response body if the initial response parsing fails
+        JsonResponse<QueryResults> response = JsonResponse.execute(QUERY_RESULTS_CODEC, httpClient, request, OptionalLong.empty());
         if ((response.getStatusCode() != HTTP_OK) || !response.hasValue()) {
             state.compareAndSet(State.RUNNING, State.CLIENT_ERROR);
             throw requestFailedException("starting query", request, response);
@@ -347,13 +350,12 @@ class StatementClientV1
                 return false;
             }
 
-            Duration sinceStart = Duration.nanosSince(start);
-            if (attempts > 0 && sinceStart.compareTo(requestTimeoutNanos) > 0) {
-                state.compareAndSet(State.RUNNING, State.CLIENT_ERROR);
-                throw new RuntimeException(format("Error fetching next (attempts: %s, duration: %s)", attempts, sinceStart), cause);
-            }
-
             if (attempts > 0) {
+                Duration sinceStart = Duration.nanosSince(start);
+                if (sinceStart.compareTo(requestTimeoutNanos) > 0) {
+                    state.compareAndSet(State.RUNNING, State.CLIENT_ERROR);
+                    throw new RuntimeException(format("Error fetching next (attempts: %s, duration: %s)", attempts, sinceStart), cause);
+                }
                 // back-off on retry
                 try {
                     MILLISECONDS.sleep(attempts * 100);
@@ -373,7 +375,7 @@ class StatementClientV1
 
             JsonResponse<QueryResults> response;
             try {
-                response = JsonResponse.execute(QUERY_RESULTS_CODEC, httpClient, request);
+                response = JsonResponse.execute(QUERY_RESULTS_CODEC, httpClient, request, OptionalLong.of(MAX_MATERIALIZED_JSON_RESPONSE_SIZE));
             }
             catch (RuntimeException e) {
                 cause = e;
@@ -447,7 +449,7 @@ class StatementClientV1
                                 .orElse(""));
             }
             return new RuntimeException(
-                    format("Error %s at %s returned an invalid response: %s [Error: %s]", task, request.url(), response, response.getResponseBody()),
+                    format("Error %s at %s returned an invalid response: %s [Error: %s]", task, request.url(), response, response.getResponseBody().orElse("<Response Too Large>")),
                     response.getException());
         }
         return new RuntimeException(format("Error %s at %s returned HTTP %s", task, request.url(), response.getStatusCode()));

@@ -104,6 +104,7 @@ import org.apache.iceberg.Table;
 import org.apache.iceberg.TableProperties;
 import org.apache.iceberg.TableScan;
 import org.apache.iceberg.Transaction;
+import org.apache.iceberg.UpdateProperties;
 import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.types.Type;
 
@@ -146,6 +147,7 @@ import static io.trino.plugin.hive.util.HiveUtil.isStructuralType;
 import static io.trino.plugin.iceberg.ExpressionConverter.toIcebergExpression;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.pathColumnHandle;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.pathColumnMetadata;
+import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_COMMIT_ERROR;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.FILE_PATH;
@@ -190,6 +192,7 @@ import static org.apache.iceberg.SnapshotSummary.REMOVED_EQ_DELETES_PROP;
 import static org.apache.iceberg.SnapshotSummary.REMOVED_POS_DELETES_PROP;
 import static org.apache.iceberg.TableProperties.DELETE_ISOLATION_LEVEL;
 import static org.apache.iceberg.TableProperties.DELETE_ISOLATION_LEVEL_DEFAULT;
+import static org.apache.iceberg.TableProperties.FORMAT_VERSION;
 import static org.apache.iceberg.TableProperties.WRITE_LOCATION_PROVIDER_IMPL;
 
 public class IcebergMetadata
@@ -1147,6 +1150,52 @@ public class IcebergMetadata
     }
 
     @Override
+    public void setTableProperties(ConnectorSession session, ConnectorTableHandle tableHandle, Map<String, Optional<Object>> properties)
+    {
+        IcebergTableHandle table = (IcebergTableHandle) tableHandle;
+        BaseTable icebergTable = (BaseTable) catalog.loadTable(session, table.getSchemaTableName());
+
+        transaction = icebergTable.newTransaction();
+        UpdateProperties updateProperties = transaction.updateProperties();
+
+        for (Map.Entry<String, Optional<Object>> propertyEntry : properties.entrySet()) {
+            String trinoPropertyName = propertyEntry.getKey();
+            Optional<Object> propertyValue = propertyEntry.getValue();
+
+            switch (trinoPropertyName) {
+                case FILE_FORMAT_PROPERTY:
+                    updateProperties.defaultFormat(((IcebergFileFormat) propertyValue.orElseThrow()).toIceberg());
+                    break;
+                case FORMAT_VERSION_PROPERTY:
+                    // UpdateProperties#commit will trigger any necessary metadata updates required for the new spec version
+                    updateProperty(updateProperties, FORMAT_VERSION, propertyValue, formatVersion -> Integer.toString((int) formatVersion));
+                    break;
+                default:
+                    // TODO: Support updating partitioning https://github.com/trinodb/trino/issues/12174
+                    throw new TrinoException(NOT_SUPPORTED, "Updating the " + trinoPropertyName + " property is not supported");
+            }
+        }
+
+        try {
+            updateProperties.commit();
+            transaction.commitTransaction();
+        }
+        catch (RuntimeException e) {
+            throw new TrinoException(ICEBERG_COMMIT_ERROR, "Failed to commit new table properties", e);
+        }
+    }
+
+    private static void updateProperty(UpdateProperties updateProperties, String icebergPropertyName, Optional<Object> value, Function<Object, String> toIcebergString)
+    {
+        if (value.isPresent()) {
+            updateProperties.set(icebergPropertyName, toIcebergString.apply(value.get()));
+        }
+        else {
+            updateProperties.remove(icebergPropertyName);
+        }
+    }
+
+    @Override
     public void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column)
     {
         Table icebergTable = catalog.loadTable(session, ((IcebergTableHandle) tableHandle).getSchemaTableName());
@@ -1760,6 +1809,18 @@ public class IcebergMetadata
             }
         }
         return new MaterializedViewFreshness(true);
+    }
+
+    @Override
+    public boolean supportsReportingWrittenBytes(ConnectorSession session, ConnectorTableHandle connectorTableHandle)
+    {
+        return true;
+    }
+
+    @Override
+    public boolean supportsReportingWrittenBytes(ConnectorSession session, SchemaTableName fullTableName, Map<String, Object> tableProperties)
+    {
+        return true;
     }
 
     @Override

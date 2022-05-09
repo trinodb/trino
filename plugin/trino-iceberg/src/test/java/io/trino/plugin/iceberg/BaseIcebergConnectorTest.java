@@ -80,6 +80,8 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.PREFERRED_WRITE_PARTITIONING_MIN_NUMBER_OF_PARTITIONS;
+import static io.trino.SystemSessionProperties.SCALE_WRITERS;
+import static io.trino.SystemSessionProperties.TASK_WRITER_COUNT;
 import static io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
@@ -94,7 +96,6 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.BROADCAST;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
-import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DELETE;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.assertions.Assert.assertEquals;
 import static io.trino.testing.assertions.Assert.assertEventually;
@@ -2542,26 +2543,33 @@ public abstract class BaseIcebergConnectorTest
     @Test
     public void testLocalDynamicFilteringWithSelectiveBuildSizeJoin()
     {
-        long fullTableScan = (Long) computeActual("SELECT count(*) FROM lineitem").getOnlyValue();
+        // We need to prepare tables for this test. The test is required to use tables that are backed by at lest two files
+        Session session = Session.builder(getSession())
+                .setSystemProperty(TASK_WRITER_COUNT, "2")
+                .build();
+        getQueryRunner().execute(session, format("CREATE TABLE IF NOT EXISTS %s AS SELECT * FROM %s", "linetime_multiple_file_backed", "tpch.tiny.lineitem")).getMaterializedRows();
+        getQueryRunner().execute(session, format("CREATE TABLE IF NOT EXISTS %s AS SELECT * FROM %s", "orders_multiple_file_backed", "tpch.tiny.orders")).getMaterializedRows();
+
+        long fullTableScan = (Long) computeActual("SELECT count(*) FROM linetime_multiple_file_backed").getOnlyValue();
         // Pick a value for totalprice where file level stats will not be able to filter out any data
         // This assumes the totalprice ranges in every file have some overlap, otherwise this test will fail.
-        MaterializedRow range = getOnlyElement(computeActual("SELECT max(lower_bounds[4]), min(upper_bounds[4]) FROM \"orders$files\"").getMaterializedRows());
+        MaterializedRow range = getOnlyElement(computeActual("SELECT max(lower_bounds[4]), min(upper_bounds[4]) FROM \"orders_multiple_file_backed$files\"").getMaterializedRows());
         double totalPrice = (Double) computeActual(format(
-                "SELECT totalprice FROM orders WHERE totalprice > %s AND totalprice < %s LIMIT 1",
+                "SELECT totalprice FROM orders_multiple_file_backed WHERE totalprice > %s AND totalprice < %s LIMIT 1",
                 range.getField(0),
                 range.getField(1)))
                 .getOnlyValue();
 
-        Session session = Session.builder(getSession())
+        session = Session.builder(getSession())
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, BROADCAST.name())
                 .build();
 
         ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(
                 session,
-                "SELECT * FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.totalprice = " + totalPrice);
+                "SELECT * FROM linetime_multiple_file_backed JOIN orders_multiple_file_backed ON linetime_multiple_file_backed.orderkey = orders_multiple_file_backed.orderkey AND orders_multiple_file_backed.totalprice = " + totalPrice);
         OperatorStats probeStats = searchScanFilterAndProjectOperatorStats(
                 result.getQueryId(),
-                new QualifiedObjectName(ICEBERG_CATALOG, "tpch", "lineitem"));
+                new QualifiedObjectName(ICEBERG_CATALOG, "tpch", "linetime_multiple_file_backed"));
 
         // Assert some lineitem rows were filtered out on file level
         assertThat(probeStats.getInputPositions()).isLessThan(fullTableScan);
@@ -2623,6 +2631,7 @@ public abstract class BaseIcebergConnectorTest
                 .build();
         Session sessionRepartitionMany = Session.builder(getSession())
                 .setSystemProperty(PREFERRED_WRITE_PARTITIONING_MIN_NUMBER_OF_PARTITIONS, "5")
+                .setSystemProperty(SCALE_WRITERS, "false")
                 .build();
         // Use DISTINCT to add data redistribution between source table and the writer. This makes it more likely that all writers get some data.
         String sourceRelation = "(SELECT DISTINCT orderkey, custkey, orderstatus FROM tpch.tiny.orders)";
@@ -3437,6 +3446,35 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate("DELETE FROM " + tableName + " WHERE key = 'one'"); // TODO change this when iceberg will guarantee to always return this (https://github.com/apache/iceberg/issues/4647)
         assertUpdate("DELETE FROM " + tableName + " WHERE key = 'three'");
         assertUpdate("DELETE FROM " + tableName + " WHERE key = 'two'", 2);
+    }
+
+    @Test
+    public void testUpdatingFileFormat()
+    {
+        String tableName = "test_updating_file_format_" + randomTableSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName + " WITH (format = 'orc') AS SELECT * FROM nation WHERE nationkey < 10", "SELECT count(*) FROM nation WHERE nationkey < 10");
+        assertQuery("SELECT value FROM \"" + tableName + "$properties\" WHERE key = 'write.format.default'", "VALUES 'ORC'");
+
+        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES format = 'parquet'");
+        assertQuery("SELECT value FROM \"" + tableName + "$properties\" WHERE key = 'write.format.default'", "VALUES 'PARQUET'");
+        assertUpdate("INSERT INTO " + tableName + " SELECT * FROM nation WHERE nationkey >= 10", "SELECT count(*) FROM nation WHERE nationkey >= 10");
+
+        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation");
+        assertQuery("SELECT count(*) FROM \"" + tableName + "$files\" WHERE file_path LIKE '%.orc'", "VALUES 1");
+        assertQuery("SELECT count(*) FROM \"" + tableName + "$files\" WHERE file_path LIKE '%.parquet'", "VALUES 1");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testUpdatingInvalidTableProperty()
+    {
+        String tableName = "test_updating_invalid_table_property_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (a INT, b INT)");
+        assertThatThrownBy(() -> query("ALTER TABLE " + tableName + " SET PROPERTIES not_a_valid_table_property = 'a value'"))
+                .hasMessage("Catalog 'iceberg' table property 'not_a_valid_table_property' does not exist");
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     private Session prepareCleanUpSession()

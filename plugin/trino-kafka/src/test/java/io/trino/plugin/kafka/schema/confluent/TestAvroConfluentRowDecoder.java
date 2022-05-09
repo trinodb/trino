@@ -120,14 +120,14 @@ public class TestAvroConfluentRowDecoder
     private static void testRow(RowDecoder rowDecoder, GenericRecord record, int schemaId)
     {
         byte[] serializedRecord = serializeRecord(record, record.getSchema(), schemaId);
-        Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodedRow = rowDecoder.decodeRow(serializedRecord, null);
+        Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodedRow = rowDecoder.decodeRow(serializedRecord);
         assertRowsAreEqual(decodedRow, record);
     }
 
     private static void testSingleValueRow(RowDecoder rowDecoder, Object value, Schema schema, int schemaId)
     {
         byte[] serializedRecord = serializeRecord(value, schema, schemaId);
-        Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodedRow = rowDecoder.decodeRow(serializedRecord, null);
+        Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodedRow = rowDecoder.decodeRow(serializedRecord);
         checkState(decodedRow.isPresent(), "decodedRow is not present");
         Map.Entry<DecoderColumnHandle, FieldValueProvider> entry = getOnlyElement(decodedRow.get().entrySet());
         assertValuesAreEqual(entry.getValue(), value, schema);

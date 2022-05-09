@@ -249,6 +249,45 @@ The connector supports pushdown for a number of operations:
 
 .. include:: no-pushdown-text-type.fragment
 
+.. _sqlserver-bulk-insert:
+
+Bulk insert
+^^^^^^^^^^^
+
+You can optionally use the `bulk copy API
+<https://docs.microsoft.com/en-us/sql/connect/jdbc/use-bulk-copy-api-batch-insert-operation>`_
+to drastically speed up write operations.
+
+Enable bulk copying and a lock on the destination table to meet `minimal
+logging requirements
+<https://docs.microsoft.com/en-us/sql/relational-databases/import-export/prerequisites-for-minimal-logging-in-bulk-import>`_.
+
+The following table shows the relevant catalog configuration properties and
+their default values:
+
+.. list-table:: Bulk load properties
+  :widths: 30, 60, 10
+  :header-rows: 1
+
+  * - Property name
+    - Description
+    - Default
+  * - ``sqlserver.bulk-copy-for-write.enabled``
+    - Use the SQL Server bulk copy API for writes. The corresponding catalog
+      session property is ``bulk_copy_for_write``.
+    - ``false``
+  * - ``sqlserver.bulk-copy-for-write.lock-destination-table``
+    - Obtain a bulk update lock on the destination table for write operations.
+      The corresponding catalog session property is
+      ``bulk_copy_for_write_lock_destination_table``. Setting is only used when
+      ``bulk-copy-for-write.enabled=true``.
+    - ``false``
+
+Limitations:
+
+* Column names with leading and trailing spaces are not supported.
+
+
 Data compression
 ----------------
 

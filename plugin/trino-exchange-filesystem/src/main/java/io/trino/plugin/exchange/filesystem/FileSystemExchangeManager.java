@@ -37,8 +37,10 @@ import java.util.concurrent.ExecutorService;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.trino.plugin.exchange.filesystem.FileSystemExchangeErrorCode.MAX_OUTPUT_PARTITION_COUNT_EXCEEDED;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.lang.Math.toIntExact;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 
@@ -58,6 +60,7 @@ public class FileSystemExchangeManager
     private final int exchangeSinkBuffersPerPartition;
     private final long exchangeSinkMaxFileSizeInBytes;
     private final int exchangeSourceConcurrentReaders;
+    private final int maxOutputPartitionCount;
     private final ExecutorService executor;
 
     @Inject
@@ -77,12 +80,19 @@ public class FileSystemExchangeManager
         this.exchangeSinkBuffersPerPartition = fileSystemExchangeConfig.getExchangeSinkBuffersPerPartition();
         this.exchangeSinkMaxFileSizeInBytes = fileSystemExchangeConfig.getExchangeSinkMaxFileSize().toBytes();
         this.exchangeSourceConcurrentReaders = fileSystemExchangeConfig.getExchangeSourceConcurrentReaders();
+        this.maxOutputPartitionCount = fileSystemExchangeConfig.getMaxOutputPartitionCount();
         this.executor = newCachedThreadPool(daemonThreadsNamed("exchange-source-handles-creation-%s"));
     }
 
     @Override
     public Exchange createExchange(ExchangeContext context, int outputPartitionCount)
     {
+        if (outputPartitionCount > maxOutputPartitionCount) {
+            throw new TrinoException(
+                    MAX_OUTPUT_PARTITION_COUNT_EXCEEDED,
+                    format("Max number of output partitions exceeded for exchange '%s'. Allowed: %s. Requested: %s.", context.getExchangeId(), maxOutputPartitionCount, outputPartitionCount));
+        }
+
         Optional<SecretKey> secretKey = Optional.empty();
         if (exchangeEncryptionEnabled) {
             try {

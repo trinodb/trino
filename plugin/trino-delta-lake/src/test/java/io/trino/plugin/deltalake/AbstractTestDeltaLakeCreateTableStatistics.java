@@ -16,6 +16,7 @@ package io.trino.plugin.deltalake;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.trino.Session;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointSchemaManager;
@@ -62,6 +63,7 @@ import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.testing.TestingConnectorSession.SESSION;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.Double.NEGATIVE_INFINITY;
@@ -442,10 +444,17 @@ public abstract class AbstractTestDeltaLakeCreateTableStatistics
             throws Exception
     {
         DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle("name", createUnboundedVarcharType(), REGULAR);
+        Session session = testSessionBuilder()
+                .setCatalog(DELTA_CATALOG)
+                .setSystemProperty("scale_writers", "false")
+                .setSchema(SCHEMA)
+                .build();
         try (TestTable table = new TestTable(
                 "test_partitioned_table_",
                 ImmutableList.of(),
-                "SELECT name FROM tpch.tiny.nation UNION select name from tpch.tiny.customer")) {
+                ImmutableList.of(),
+                "SELECT name FROM tpch.tiny.nation UNION select name from tpch.tiny.customer",
+                session)) {
             List<AddFileEntry> addFileEntries = getAddFileEntries(table.getName());
             assertThat(addFileEntries.size()).isGreaterThan(1);
 
@@ -468,10 +477,17 @@ public abstract class AbstractTestDeltaLakeCreateTableStatistics
         assertEventually(() -> {
             String columnName = "orderkey";
             DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(columnName, DoubleType.DOUBLE, REGULAR);
+            Session session = testSessionBuilder()
+                    .setCatalog(DELTA_CATALOG)
+                    .setSchema(SCHEMA)
+                    .setSystemProperty("scale_writers", "false")
+                    .build();
             try (TestTable table = new TestTable(
                     "test_partitioned_table_",
                     ImmutableList.of(columnName),
-                    "SELECT IF(orderkey = 50597, nan(), CAST(orderkey AS double)) FROM tpch.tiny.orders")) {
+                    ImmutableList.of(),
+                    "SELECT IF(orderkey = 50597, nan(), CAST(orderkey AS double)) FROM tpch.tiny.orders",
+                    session)) {
                 List<AddFileEntry> addFileEntries = getAddFileEntries(table.getName());
                 assertThat(addFileEntries.size()).isGreaterThan(1);
 
@@ -495,15 +511,20 @@ public abstract class AbstractTestDeltaLakeCreateTableStatistics
             this(name, columnNames, ImmutableList.of(), values);
         }
 
-        public TestTable(String name, List<String> columnNames, List<String> partitionNames, String values)
+        public TestTable(String name, List<String> columnNames, List<String> partitionNames, String values, Session session)
         {
             this.name = name + randomTableSuffix();
             String columns = columnNames.isEmpty() ? "" :
                     "(" + String.join(",", columnNames) + ")";
             String partitionedBy = partitionNames.isEmpty() ? "" :
                     format(", partitioned_by = ARRAY[%s]", partitionNames.stream().map(partitionName -> "'" + partitionName + "'").collect(Collectors.joining(",")));
-            computeActual(format("CREATE TABLE %s %s WITH (location = 's3://%s/%1$s' %s) AS %s",
+            computeActual(session, format("CREATE TABLE %s %s WITH (location = 's3://%s/%1$s' %s) AS %s",
                     this.name, columns, bucketName, partitionedBy, values));
+        }
+
+        public TestTable(String name, List<String> columnNames, List<String> partitionNames, String values)
+        {
+            this(name, columnNames, partitionNames, values, getSession());
         }
 
         public String getName()

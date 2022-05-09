@@ -1796,6 +1796,7 @@ public abstract class BaseHiveConnectorTest
         // verify the default behavior is one file per node
         Session session = Session.builder(getSession())
                 .setSystemProperty("task_writer_count", "1")
+                .setSystemProperty("scale_writers", "false")
                 .build();
         assertUpdate(session, createTableSql, 1000000);
         assertThat(computeActual(selectFileInfo).getRowCount()).isEqualTo(expectedTableWriters);
@@ -1838,6 +1839,7 @@ public abstract class BaseHiveConnectorTest
         // verify the default behavior is one file per node per partition
         Session session = Session.builder(getSession())
                 .setSystemProperty("task_writer_count", "1")
+                .setSystemProperty("scale_writers", "false")
                 .build();
         assertUpdate(session, createTableSql, 1000000);
         assertThat(computeActual(selectFileInfo).getRowCount()).isEqualTo(expectedTableWriters * 3);
@@ -4621,6 +4623,46 @@ public abstract class BaseHiveConnectorTest
         finally {
             assertUpdate("DROP TABLE test_table_with_char");
         }
+    }
+
+    @Test
+    public void testMismatchedBucketWithBucketPredicate()
+    {
+        assertUpdate("DROP TABLE IF EXISTS test_mismatch_bucketing8");
+        assertUpdate("DROP TABLE IF EXISTS test_mismatch_bucketing32");
+
+        assertUpdate(
+                "CREATE TABLE test_mismatch_bucketing8 " +
+                        "WITH (bucket_count = 8, bucketed_by = ARRAY['key8']) AS " +
+                        "SELECT nationkey key8, comment value8 FROM nation",
+                25);
+        assertUpdate(
+                "CREATE TABLE test_mismatch_bucketing32 " +
+                        "WITH (bucket_count = 32, bucketed_by = ARRAY['key32']) AS " +
+                        "SELECT nationkey key32, comment value32 FROM nation",
+                25);
+
+        Session withMismatchOptimization = Session.builder(getSession())
+                .setCatalogSessionProperty(catalog, "optimize_mismatched_bucket_count", "true")
+                .build();
+        Session withoutMismatchOptimization = Session.builder(getSession())
+                .setCatalogSessionProperty(catalog, "optimize_mismatched_bucket_count", "false")
+                .build();
+
+        @Language("SQL") String query = "SELECT count(*) AS count " +
+                "FROM (" +
+                "  SELECT key32" +
+                "  FROM test_mismatch_bucketing32" +
+                "  WHERE \"$bucket\" between 16 AND 31" +
+                ") a " +
+                "JOIN test_mismatch_bucketing8 b " +
+                "ON a.key32 = b.key8";
+
+        assertQuery(withMismatchOptimization, query, "SELECT 9");
+        assertQuery(withoutMismatchOptimization, query, "SELECT 9");
+
+        assertUpdate("DROP TABLE IF EXISTS test_mismatch_bucketing8");
+        assertUpdate("DROP TABLE IF EXISTS test_mismatch_bucketing32");
     }
 
     @DataProvider

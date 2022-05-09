@@ -389,5 +389,6 @@ statements, the connector supports the following features:
 ALTER TABLE
 ^^^^^^^^^^^
 
-The connector does not support ``ALTER TABLE RENAME`` operations. Other uses of
-``ALTER TABLE`` are supported.
+The connector supports ``ALTER TABLE RENAME TO``, ``ALTER TABLE ADD COLUMN``
+and ``ALTER TABLE DROP COLUMN`` operations.
+Other uses of ``ALTER TABLE`` are not supported.

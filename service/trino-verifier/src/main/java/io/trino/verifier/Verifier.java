@@ -119,7 +119,7 @@ public class Verifier
                             config.isExplainOnly(),
                             config.getDoublePrecision(),
                             isCheckCorrectness(query),
-                            true,
+                            config.isCheckDeterminismEnabled(),
                             config.isVerboseResultsComparison(),
                             config.getControlTeardownRetries(),
                             config.getTestTeardownRetries(),
@@ -243,9 +243,6 @@ public class Verifier
             }
         }
 
-        Stream<QueryResult> controlQueries = concat(Stream.of(control), validator.getControlPreQueryResults().stream(), validator.getControlPostQueryResults().stream());
-        Stream<QueryResult> testQueries = concat(Stream.of(test), validator.getTestPreQueryResults().stream(), validator.getTestPostQueryResults().stream());
-
         return new VerifierQueryEvent(
                 queryPair.getSuite(),
                 config.getRunId(),
@@ -266,8 +263,8 @@ public class Verifier
                         .map(QueryResult::getQueryId)
                         .filter(Objects::nonNull)
                         .collect(toImmutableList()),
-                getTotalDurationInSeconds(testQueries, QueryResult::getCpuTime),
-                getTotalDurationInSeconds(testQueries, QueryResult::getWallTime),
+                getTotalDurationInSeconds(validator.getTestPreQueryResults(), validator.getTestResult(), validator.getTestPostQueryResults(), QueryResult::getCpuTime),
+                getTotalDurationInSeconds(validator.getTestPreQueryResults(), validator.getTestResult(), validator.getTestPostQueryResults(), QueryResult::getWallTime),
                 queryPair.getControl().getCatalog(),
                 queryPair.getControl().getSchema(),
                 queryPair.getControl().getPreQueries(),
@@ -282,15 +279,15 @@ public class Verifier
                         .map(QueryResult::getQueryId)
                         .filter(Objects::nonNull)
                         .collect(toImmutableList()),
-                getTotalDurationInSeconds(controlQueries, QueryResult::getCpuTime),
-                getTotalDurationInSeconds(controlQueries, QueryResult::getWallTime),
+                getTotalDurationInSeconds(validator.getControlPreQueryResults(), validator.getControlResult(), validator.getControlPostQueryResults(), QueryResult::getCpuTime),
+                getTotalDurationInSeconds(validator.getControlPreQueryResults(), validator.getControlResult(), validator.getControlPostQueryResults(), QueryResult::getWallTime),
                 errorMessage);
     }
 
     @Nullable
-    private static Double getTotalDurationInSeconds(Stream<QueryResult> queries, Function<QueryResult, Duration> metric)
+    private static Double getTotalDurationInSeconds(List<QueryResult> preQueries, QueryResult query, List<QueryResult> postQueries, Function<QueryResult, Duration> metric)
     {
-        OptionalDouble result = queries
+        OptionalDouble result = concat(preQueries.stream(), Stream.of(query), postQueries.stream())
                 .map(metric)
                 .filter(Objects::nonNull)
                 .mapToDouble(duration -> duration.getValue(SECONDS))

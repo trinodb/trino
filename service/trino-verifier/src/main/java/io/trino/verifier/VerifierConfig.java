@@ -69,6 +69,7 @@ public class VerifierConfig
     private int queryRepetitions = 1;
     private String skipCorrectnessRegex = "^$";
     private boolean checkCorrectness = true;
+    private boolean checkDeterminism = true;
     private String skipCpuCheckRegex = "(?i)(?s).*LIMIT.*";
     private boolean checkCpu = true;
     private boolean explainOnly;
@@ -364,6 +365,18 @@ public class VerifierConfig
     public VerifierConfig setCheckCorrectnessEnabled(boolean checkCorrectness)
     {
         this.checkCorrectness = checkCorrectness;
+        return this;
+    }
+
+    public boolean isCheckDeterminismEnabled()
+    {
+        return checkDeterminism;
+    }
+
+    @Config("check-determinism")
+    public VerifierConfig setCheckDeterminismEnabled(boolean checkDeterminism)
+    {
+        this.checkDeterminism = checkDeterminism;
         return this;
     }
 

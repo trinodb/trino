@@ -41,6 +41,7 @@ import static io.trino.spi.security.AccessDeniedException.denyDropRole;
 import static io.trino.spi.security.AccessDeniedException.denyDropSchema;
 import static io.trino.spi.security.AccessDeniedException.denyDropTable;
 import static io.trino.spi.security.AccessDeniedException.denyDropView;
+import static io.trino.spi.security.AccessDeniedException.denyExecuteFunction;
 import static io.trino.spi.security.AccessDeniedException.denyExecuteProcedure;
 import static io.trino.spi.security.AccessDeniedException.denyExecuteTableProcedure;
 import static io.trino.spi.security.AccessDeniedException.denyGrantRoles;
@@ -594,6 +595,16 @@ public interface ConnectorAccessControl
     default void checkCanExecuteTableProcedure(ConnectorSecurityContext context, SchemaTableName tableName, String procedure)
     {
         denyExecuteTableProcedure(tableName.toString(), procedure);
+    }
+
+    /**
+     * Check if identity is allowed to execute function.
+     *
+     * @throws io.trino.spi.security.AccessDeniedException if not allowed
+     */
+    default void checkCanExecuteFunction(ConnectorSecurityContext context, SchemaRoutineName function)
+    {
+        denyExecuteFunction(function.toString());
     }
 
     /**

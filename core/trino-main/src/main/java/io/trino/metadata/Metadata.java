@@ -702,6 +702,16 @@ public interface Metadata
     boolean isValidTableVersion(Session session, QualifiedObjectName tableName, TableVersion version);
 
     /**
+     * Returns true if the connector reports number of written bytes for an existing table. Otherwise, it returns false.
+     */
+    boolean supportsReportingWrittenBytes(Session session, TableHandle tableHandle);
+
+    /**
+     * Returns true if the connector reports number of written bytes for a new table. Otherwise, it returns false.
+     */
+    boolean supportsReportingWrittenBytes(Session session, QualifiedObjectName tableName, Map<String, Object> tableProperties);
+
+    /**
      * Returns a table handle for the specified table name with a specified version
      */
     Optional<TableHandle> getTableHandle(Session session, QualifiedObjectName tableName, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion);

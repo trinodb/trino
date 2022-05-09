@@ -13,10 +13,13 @@
  */
 package io.trino.plugin.hive;
 
+import io.trino.Session;
 import io.trino.plugin.exchange.filesystem.containers.MinioStorage;
 import io.trino.testing.QueryRunner;
 import org.testng.annotations.AfterClass;
+import org.testng.annotations.Test;
 
+import static io.trino.SystemSessionProperties.HASH_PARTITION_COUNT;
 import static io.trino.plugin.exchange.filesystem.containers.MinioStorage.getExchangeManagerProperties;
 import static io.trino.testing.FaultTolerantExecutionConnectorTestHelper.getExtraProperties;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
@@ -101,6 +104,15 @@ public class TestHiveFaultTolerantExecutionConnectorTest
     {
         assertThatThrownBy(super::testOptimizeHiveSystemTable)
                 .hasMessageContaining("This connector does not support query retries");
+    }
+
+    @Test
+    public void testMaxOutputPartitionCountCheck()
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(HASH_PARTITION_COUNT, "51")
+                .build();
+        assertQueryFails(session, "SELECT nationkey, count(*) FROM nation GROUP BY nationkey", "Max number of output partitions exceeded for exchange.*");
     }
 
     @AfterClass(alwaysRun = true)

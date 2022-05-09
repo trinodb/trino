@@ -1499,7 +1499,7 @@ public class DeltaLakeMetadata
 
             // TODO: There is a race possibility here(https://github.com/trinodb/trino/issues/12004),
             // which may result in us not writing checkpoints at exactly the planned frequency.
-            // The snapshot obtained above may already be on a version higher than `newVersion` because some other transaction could have just been commited.
+            // The snapshot obtained above may already be on a version higher than `newVersion` because some other transaction could have just been committed.
             // This does not pose correctness issue but may be confusing if someone looks into transaction log.
             // To fix that we should allow for getting snapshot for given version.
             if (snapshot.getVersion() > newVersion) {
@@ -1923,6 +1923,18 @@ public class DeltaLakeMetadata
                 analyzeHandle.getColumns());
 
         statisticsAccess.updateExtendedStatistics(session, location, mergedExtendedStatistics);
+    }
+
+    @Override
+    public boolean supportsReportingWrittenBytes(ConnectorSession session, ConnectorTableHandle connectorTableHandle)
+    {
+        return true;
+    }
+
+    @Override
+    public boolean supportsReportingWrittenBytes(ConnectorSession session, SchemaTableName fullTableName, Map<String, Object> tableProperties)
+    {
+        return true;
     }
 
     private void cleanExtraOutputFiles(ConnectorSession session, String baseLocation, List<DataFileInfo> validDataFiles)

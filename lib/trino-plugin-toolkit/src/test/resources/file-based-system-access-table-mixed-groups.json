@@ -1,0 +1,46 @@
+{
+  "tables": [
+    {
+      "catalog": "some-catalog",
+      "schema": "my_schema",
+      "table": "my_table",
+      "privileges": ["SELECT", "GRANT_SELECT", "OWNERSHIP", "INSERT", "DELETE", "UPDATE"],
+      "group": "group1"
+    },
+    {
+      "catalog": "some-catalog",
+      "schema": "my_schema",
+      "table": "my_table",
+      "columns" : [
+         {
+           "name": "col_a",
+           "mask": "'mask_a'"
+         },
+         {
+           "name": "col_b",
+           "mask": "'mask_b'"
+         }
+      ],
+      "privileges": ["SELECT", "GRANT_SELECT"],
+      "group": "group2"
+    },
+    {
+      "catalog": "some-catalog",
+      "schema": "my_schema",
+      "table": "my_table",
+      "columns" : [
+        {
+          "name": "col_a",
+          "mask": "'mask_a'"
+        },
+        {
+          "name": "col_b",
+          "mask": "'mask_b'"
+        }
+      ],
+      "privileges": ["SELECT", "GRANT_SELECT"],
+      "filter": "country='US'",
+      "group": "group3"
+    }
+  ]
+}

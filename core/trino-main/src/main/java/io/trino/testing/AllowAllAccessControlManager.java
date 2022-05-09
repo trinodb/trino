@@ -243,5 +243,8 @@ public class AllowAllAccessControlManager
     public void checkCanExecuteFunction(SecurityContext context, String functionName) {}
 
     @Override
+    public void checkCanExecuteFunction(SecurityContext context, QualifiedObjectName functionName) {}
+
+    @Override
     public void checkCanExecuteTableProcedure(SecurityContext context, QualifiedObjectName tableName, String procedureName) {}
 }

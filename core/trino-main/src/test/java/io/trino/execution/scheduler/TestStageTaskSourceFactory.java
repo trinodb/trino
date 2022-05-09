@@ -795,23 +795,25 @@ public class TestStageTaskSourceFactory
     @Test
     public void testSourceDistributionTaskSourceLastIncompleteTaskAlwaysCreated()
     {
-        for (int targetSplitsPerTask = 1; targetSplitsPerTask <= 21; targetSplitsPerTask += 5) {
+        for (int targetSplitsPerTask = 1; targetSplitsPerTask <= 21; targetSplitsPerTask++) {
             List<Split> splits = new ArrayList<>();
             for (int i = 0; i < targetSplitsPerTask + 1 /* to make last task incomplete with only a single split */; i++) {
                 splits.add(createWeightedSplit(i, STANDARD_WEIGHT));
             }
             for (int finishDelayIterations = 1; finishDelayIterations < 20; finishDelayIterations++) {
-                TaskSource taskSource = createSourceDistributionTaskSource(
-                        new TestingSplitSource(CATALOG, splits, finishDelayIterations),
-                        ImmutableListMultimap.of(),
-                        1,
-                        targetSplitsPerTask,
-                        STANDARD_WEIGHT * targetSplitsPerTask,
-                        targetSplitsPerTask);
-                List<TaskDescriptor> tasks = readAllTasks(taskSource);
-                assertThat(tasks).hasSize(2);
-                TaskDescriptor lastTask = findLast(tasks.stream()).orElseThrow();
-                assertThat(lastTask.getSplits()).hasSize(1);
+                for (int splitBatchSize = 1; splitBatchSize <= 5; splitBatchSize++) {
+                    TaskSource taskSource = createSourceDistributionTaskSource(
+                            new TestingSplitSource(CATALOG, splits, finishDelayIterations),
+                            ImmutableListMultimap.of(),
+                            splitBatchSize,
+                            targetSplitsPerTask,
+                            STANDARD_WEIGHT * targetSplitsPerTask,
+                            targetSplitsPerTask);
+                    List<TaskDescriptor> tasks = readAllTasks(taskSource);
+                    assertThat(tasks).hasSize(2);
+                    TaskDescriptor lastTask = findLast(tasks.stream()).orElseThrow();
+                    assertThat(lastTask.getSplits()).hasSize(1);
+                }
             }
         }
     }

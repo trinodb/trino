@@ -15,10 +15,12 @@ package io.trino.testing;
 
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.UncheckedTimeoutException;
 import io.airlift.units.Duration;
 import io.trino.Session;
+import io.trino.connector.CatalogName;
 import io.trino.cost.StatsAndCosts;
 import io.trino.dispatcher.DispatchManager;
 import io.trino.execution.QueryInfo;
@@ -101,6 +103,7 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_UPDATE;
 import static io.trino.testing.assertions.Assert.assertEquals;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static io.trino.transaction.TransactionBuilder.transaction;
 import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.lang.Thread.currentThread;
@@ -2399,6 +2402,34 @@ public abstract class BaseConnectorTest
     protected String errorMessageForInsertNegativeDate(String date)
     {
         throw new UnsupportedOperationException("This method should be overridden");
+    }
+
+    protected boolean isReportingWrittenBytesSupported(Session session)
+    {
+        CatalogName catalogName = session.getCatalog()
+                .map(CatalogName::new)
+                .orElseThrow();
+        Metadata metadata = getQueryRunner().getMetadata();
+        metadata.getCatalogHandle(session, catalogName.getCatalogName());
+        QualifiedObjectName fullTableName = new QualifiedObjectName(catalogName.getCatalogName(), "any", "any");
+        return getQueryRunner().getMetadata().supportsReportingWrittenBytes(session, fullTableName, ImmutableMap.of());
+    }
+
+    @Test
+    public void isReportingWrittenBytesSupported()
+    {
+        transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getAccessControl())
+                .singleStatement()
+                .execute(getSession(), (Consumer<Session>) session -> skipTestUnless(isReportingWrittenBytesSupported(session)));
+
+        @Language("SQL")
+        String query = "CREATE TABLE temp AS SELECT * FROM tpch.tiny.nation";
+
+        assertQueryStats(
+                getSession(),
+                query,
+                queryStats -> assertThat(queryStats.getPhysicalWrittenDataSize().toBytes()).isGreaterThan(0L),
+                results -> {});
     }
 
     @Test

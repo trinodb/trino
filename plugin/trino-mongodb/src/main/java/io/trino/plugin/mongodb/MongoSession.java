@@ -23,6 +23,7 @@ import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import com.mongodb.DBRef;
+import com.mongodb.MongoNamespace;
 import com.mongodb.client.FindIterable;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
@@ -251,6 +252,29 @@ public class MongoSession
                 .findOneAndReplace(new Document(TABLE_NAME_KEY, remoteTableName), metadata);
 
         tableCache.invalidate(schemaTableName);
+    }
+
+    public void renameTable(SchemaTableName oldName, SchemaTableName newName)
+    {
+        String oldSchemaName = toRemoteSchemaName(oldName.getSchemaName());
+        String oldTableName = toRemoteTableName(oldSchemaName, oldName.getTableName());
+        String newSchemaName = toRemoteSchemaName(newName.getSchemaName());
+
+        // Schema collection should always have the source table definition
+        MongoCollection<Document> oldSchema = client.getDatabase(oldSchemaName).getCollection(schemaCollection);
+        Document tableDefinition = oldSchema.findOneAndDelete(new Document(TABLE_NAME_KEY, oldTableName));
+        requireNonNull(tableDefinition, "Table definition not found in schema collection: " + oldTableName);
+
+        MongoCollection<Document> newSchema = client.getDatabase(newSchemaName).getCollection(schemaCollection);
+        tableDefinition.append(TABLE_NAME_KEY, newName.getTableName());
+        newSchema.insertOne(tableDefinition);
+
+        // Need to check explicitly because the old collection may not exist when it doesn't have any data
+        if (collectionExists(client.getDatabase(oldSchemaName), oldTableName)) {
+            getCollection(oldName).renameCollection(new MongoNamespace(newSchemaName, newName.getTableName()));
+        }
+
+        tableCache.invalidate(oldName);
     }
 
     public void addColumn(SchemaTableName schemaTableName, ColumnMetadata columnMetadata)

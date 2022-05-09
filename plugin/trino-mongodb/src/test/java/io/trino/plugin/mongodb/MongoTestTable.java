@@ -11,15 +11,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.datastax.driver.core;
+package io.trino.plugin.mongodb;
 
-import java.net.InetSocketAddress;
+import io.trino.testing.sql.SqlExecutor;
+import io.trino.testing.sql.TestTable;
 
-public class TestHost
-        extends Host
+import java.util.List;
+
+import static com.google.common.base.Preconditions.checkArgument;
+
+public class MongoTestTable
+        extends TestTable
 {
-    public TestHost(InetSocketAddress address)
+    public MongoTestTable(SqlExecutor sqlExecutor, String namePrefix)
     {
-        super(address, new ConvictionPolicy.DefaultConvictionPolicy.Factory(), Cluster.builder().addContactPoints("localhost").build().manager);
+        super(sqlExecutor, namePrefix, null);
+    }
+
+    @Override
+    public void createAndInsert(List<String> rowsToInsert)
+    {
+        checkArgument(rowsToInsert.isEmpty(), "rowsToInsert must be empty");
     }
 }

@@ -288,9 +288,7 @@ public class TestSingleStoreConnectorTest
     {
         // TODO (https://github.com/trinodb/trino/issues/10320) SingleStore stores '0000-00-00' when inserted negative dates and it throws an exception during reading the row
         assertThatThrownBy(super::testCreateTableAsSelectNegativeDate)
-                .hasCauseInstanceOf(RuntimeException.class)
-                .hasStackTraceContaining("JDBC_ERROR")
-                .hasStackTraceContaining("JdbcRecordCursor.getLong");
+                .hasStackTraceContaining("TrinoException: Driver returned null LocalDate for a non-null value");
     }
 
     @Test
@@ -299,9 +297,7 @@ public class TestSingleStoreConnectorTest
     {
         // TODO (https://github.com/trinodb/trino/issues/10320) SingleStore stores '0000-00-00' when inserted negative dates and it throws an exception during reading the row
         assertThatThrownBy(super::testInsertNegativeDate)
-                .hasCauseInstanceOf(RuntimeException.class)
-                .hasStackTraceContaining("JDBC_ERROR")
-                .hasStackTraceContaining("JdbcRecordCursor.getLong");
+                .hasStackTraceContaining("TrinoException: Driver returned null LocalDate for a non-null value");
     }
 
     /**
