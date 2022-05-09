@@ -40,7 +40,7 @@ import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.plugin.jdbc.JdbcModule.bindSessionPropertiesProvider;
 import static io.trino.plugin.sqlserver.SqlServerClient.SQL_SERVER_MAX_LIST_EXPRESSIONS;
 
-public class StarburstSynapseClientModule
+public class StarburstSynapseModule
         extends AbstractConfigurationAwareModule
 {
     @Override
