@@ -12,7 +12,6 @@ package com.starburstdata.presto.plugin.sqlserver;
 import com.google.inject.Binder;
 import com.google.inject.Inject;
 import com.google.inject.Key;
-import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
 import com.microsoft.sqlserver.jdbc.SQLServerDriver;
@@ -209,12 +208,12 @@ public class SqlServerAuthenticationModule
     }
 
     private static class ImpersonationModule
-            implements Module
+            extends AbstractConfigurationAwareModule
     {
         @Override
-        public void configure(Binder binder)
+        public void setup(Binder binder)
         {
-            binder.install(new AuthToLocalModule());
+            install(new AuthToLocalModule());
             binder.install(new AuthenticationBasedIdentityCacheMappingModule());
             binder.bind(ConnectionFactory.class).annotatedWith(ForBaseJdbc.class).to(SqlServerImpersonatingConnectionFactory.class).in(SINGLETON);
         }
