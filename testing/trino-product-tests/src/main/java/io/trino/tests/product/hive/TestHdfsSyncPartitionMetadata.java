@@ -15,9 +15,13 @@ package io.trino.tests.product.hive;
 
 import com.google.inject.Inject;
 import com.google.inject.name.Named;
+import io.trino.tempto.fulfillment.table.hive.HiveDataSource;
+import io.trino.tempto.hadoop.hdfs.HdfsClient;
+import io.trino.tempto.internal.hadoop.hdfs.HdfsDataSourceWriter;
 import io.trino.testng.services.Flaky;
 import org.testng.annotations.Test;
 
+import static io.trino.tempto.fulfillment.table.hive.InlineDataSource.createResourceDataSource;
 import static io.trino.tests.product.TestGroups.HIVE_PARTITIONING;
 import static io.trino.tests.product.TestGroups.SMOKE;
 import static io.trino.tests.product.TestGroups.TRINO_JDBC;
@@ -32,6 +36,10 @@ public class TestHdfsSyncPartitionMetadata
     @Inject
     @Named("databases.hive.warehouse_directory_path")
     private String warehouseDirectory;
+    @Inject
+    private HdfsClient hdfsClient;
+    @Inject
+    private HdfsDataSourceWriter hdfsDataSourceWriter;
 
     private final String schema = "test_" + randomTableSuffix();
 
@@ -103,5 +111,24 @@ public class TestHdfsSyncPartitionMetadata
     public void testConflictingMixedCasePartitionNames()
     {
         super.testConflictingMixedCasePartitionNames();
+    }
+
+    @Override
+    protected void removeHdfsDirectory(String path)
+    {
+        hdfsClient.delete(path);
+    }
+
+    @Override
+    protected void makeHdfsDirectory(String path)
+    {
+        hdfsClient.createDirectory(path);
+    }
+
+    @Override
+    protected void copyOrcFileToHdfsDirectory(String tableName, String targetDirectory)
+    {
+        HiveDataSource dataSource = createResourceDataSource(tableName, "io/trino/tests/product/hive/data/single_int_column/data.orc");
+        hdfsDataSourceWriter.ensureDataOnHdfs(targetDirectory, dataSource);
     }
 }
