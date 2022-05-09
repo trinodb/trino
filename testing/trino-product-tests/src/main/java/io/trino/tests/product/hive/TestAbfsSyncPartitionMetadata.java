@@ -16,12 +16,17 @@ package io.trino.tests.product.hive;
 import io.trino.testng.services.Flaky;
 import org.testng.annotations.Test;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.tests.product.TestGroups.AZURE;
 import static io.trino.tests.product.hive.HiveProductTest.ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE;
 import static io.trino.tests.product.hive.HiveProductTest.ERROR_COMMITTING_WRITE_TO_HIVE_MATCH;
 import static io.trino.tests.product.hive.util.TemporaryHiveTable.randomTableSuffix;
+import static io.trino.tests.product.utils.QueryExecutors.onHive;
+import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static org.apache.parquet.Strings.isNullOrEmpty;
 
 public class TestAbfsSyncPartitionMetadata
         extends BaseTestSyncPartitionMetadata
@@ -98,5 +103,34 @@ public class TestAbfsSyncPartitionMetadata
     public void testConflictingMixedCasePartitionNames()
     {
         super.testConflictingMixedCasePartitionNames();
+    }
+
+    @Override
+    protected void removeHdfsDirectory(String path)
+    {
+        checkArgument(!isNullOrEmpty(path) && !path.equals("/"));
+        onHive().executeQuery("dfs -rm -f -r " + path);
+    }
+
+    @Override
+    protected void makeHdfsDirectory(String path)
+    {
+        onHive().executeQuery("dfs -mkdir -p " + path);
+    }
+
+    @Override
+    protected void copyOrcFileToHdfsDirectory(String tableName, String targetDirectory)
+    {
+        String orcFilePath = generateOrcFile();
+        onHive().executeQuery(format("dfs -cp %s %s", orcFilePath, targetDirectory));
+    }
+
+    // Drop and create a table. Then, return single ORC file path
+    private String generateOrcFile()
+    {
+        onTrino().executeQuery("DROP TABLE IF EXISTS single_int_column");
+        onTrino().executeQuery("CREATE TABLE single_int_column (payload bigint) WITH (format = 'ORC')");
+        onTrino().executeQuery("INSERT INTO single_int_column VALUES (42)");
+        return getOnlyElement(onTrino().executeQuery("SELECT \"$path\" FROM single_int_column").row(0)).toString();
     }
 }
