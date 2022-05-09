@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.deltalake.util;
+package io.trino.testing.minio;
 
 import com.google.common.collect.Sets;
 import com.google.common.io.ByteSource;
@@ -50,7 +50,7 @@ import static io.minio.messages.EventType.OBJECT_REMOVED_ANY;
 import static java.util.Objects.requireNonNull;
 import static java.util.regex.Matcher.quoteReplacement;
 
-class MinioClient
+public class MinioClient
         implements AutoCloseable
 {
     private final Logger logger = Logger.get(MinioClient.class);
