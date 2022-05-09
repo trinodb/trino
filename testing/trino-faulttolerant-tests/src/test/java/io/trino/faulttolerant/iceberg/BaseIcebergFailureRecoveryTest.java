@@ -45,13 +45,6 @@ public abstract class BaseIcebergFailureRecoveryTest
     }
 
     @Override
-    public void testAnalyzeStatistics()
-    {
-        assertThatThrownBy(super::testAnalyzeStatistics)
-                .hasMessageContaining("This connector does not support analyze");
-    }
-
-    @Override
     protected void createPartitionedLineitemTable(String tableName, List<String> columns, String partitionColumn)
     {
         String sql = format(

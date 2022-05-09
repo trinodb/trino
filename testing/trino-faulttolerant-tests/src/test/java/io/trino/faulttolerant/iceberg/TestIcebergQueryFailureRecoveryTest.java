@@ -51,6 +51,7 @@ public class TestIcebergQueryFailureRecoveryTest
                 .setInitialTables(requiredTpchTables)
                 .setCoordinatorProperties(coordinatorProperties)
                 .setExtraProperties(configProperties)
+                .setIcebergProperties(Map.of("iceberg.experimental.extended-statistics.enabled", "true"))
                 .setAdditionalSetup(runner -> {
                     runner.installPlugin(new FileSystemExchangePlugin());
                     runner.loadExchangeManager("filesystem", getExchangeManagerProperties(minioStorage));

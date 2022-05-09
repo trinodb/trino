@@ -25,6 +25,7 @@ import io.trino.plugin.hive.orc.OrcReaderConfig;
 import io.trino.plugin.hive.orc.OrcWriterConfig;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.hive.parquet.ParquetWriterConfig;
+import io.trino.plugin.iceberg.procedure.DropExtendedStatsTableProcedure;
 import io.trino.plugin.iceberg.procedure.ExpireSnapshotsTableProcedure;
 import io.trino.plugin.iceberg.procedure.OptimizeTableProcedure;
 import io.trino.plugin.iceberg.procedure.RemoveOrphanFilesTableProcedure;
@@ -54,6 +55,7 @@ public class IcebergModule
         newSetBinder(binder, SessionPropertiesProvider.class).addBinding().to(IcebergSessionProperties.class).in(Scopes.SINGLETON);
         binder.bind(IcebergTableProperties.class).in(Scopes.SINGLETON);
         binder.bind(IcebergMaterializedViewAdditionalProperties.class).in(Scopes.SINGLETON);
+        binder.bind(IcebergAnalyzeProperties.class).in(Scopes.SINGLETON);
 
         binder.bind(ConnectorSplitManager.class).to(IcebergSplitManager.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, ConnectorPageSourceProvider.class).setDefault().to(IcebergPageSourceProvider.class).in(Scopes.SINGLETON);
@@ -81,6 +83,7 @@ public class IcebergModule
 
         Multibinder<TableProcedureMetadata> tableProcedures = newSetBinder(binder, TableProcedureMetadata.class);
         tableProcedures.addBinding().toProvider(OptimizeTableProcedure.class).in(Scopes.SINGLETON);
+        tableProcedures.addBinding().toProvider(DropExtendedStatsTableProcedure.class).in(Scopes.SINGLETON);
         tableProcedures.addBinding().toProvider(ExpireSnapshotsTableProcedure.class).in(Scopes.SINGLETON);
         tableProcedures.addBinding().toProvider(RemoveOrphanFilesTableProcedure.class).in(Scopes.SINGLETON);
     }
