@@ -2840,6 +2840,35 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testBasicAnalyze()
+    {
+        String tableName = "test_analyze";
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.tiny.region", 5);
+
+        assertThat(query("SHOW STATS FOR " + tableName))
+                .skippingTypesCheck()
+                .matches("VALUES " +
+                        // no NDV information
+                        "  ('regionkey', NULL, NULL, 0e0, NULL, '0', '4'), " +
+                        "  ('name', " + (format == PARQUET ? "87e0" : "NULL") + ", NULL, 0e0, NULL, NULL, NULL), " +
+                        "  ('comment', " + (format == PARQUET ? "237e0" : "NULL") + ", NULL, 0e0, NULL, NULL, NULL), " +
+                        "  (NULL, NULL, NULL, NULL, 5e0, NULL, NULL)");
+
+        assertUpdate("ANALYZE " + tableName);
+
+        assertThat(query("SHOW STATS FOR " + tableName))
+                .skippingTypesCheck()
+                .matches("VALUES " +
+                        // NDV information present
+                        "  ('regionkey', NULL, 5e0, 0e0, NULL, '0', '4'), " +
+                        "  ('name', " + (format == PARQUET ? "87e0" : "NULL") + ", 5e0, 0e0, NULL, NULL, NULL), " +
+                        "  ('comment', " + (format == PARQUET ? "237e0" : "NULL") + ", 5e0, 0e0, NULL, NULL, NULL), " +
+                        "  (NULL, NULL, NULL, NULL, 5e0, NULL, NULL)");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
     public void testMultipleColumnTableStatistics()
     {
         String tableName = "test_multiple_table_statistics";

@@ -63,6 +63,7 @@ import static io.trino.spi.security.AccessDeniedException.denyDropTable;
 import static io.trino.spi.security.AccessDeniedException.denyDropView;
 import static io.trino.spi.security.AccessDeniedException.denyExecuteFunction;
 import static io.trino.spi.security.AccessDeniedException.denyExecuteQuery;
+import static io.trino.spi.security.AccessDeniedException.denyExecuteTableProcedure;
 import static io.trino.spi.security.AccessDeniedException.denyGrantExecuteFunctionPrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyImpersonateUser;
 import static io.trino.spi.security.AccessDeniedException.denyInsertTable;
@@ -101,6 +102,7 @@ import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.DROP_VIEW;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.EXECUTE_FUNCTION;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.EXECUTE_QUERY;
+import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.EXECUTE_TABLE_PROCEDURE;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.GRANT_EXECUTE_FUNCTION;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.IMPERSONATE_USER;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.INSERT_TABLE;
@@ -671,6 +673,17 @@ public class TestingAccessControlManager
     }
 
     @Override
+    public void checkCanExecuteTableProcedure(SecurityContext context, QualifiedObjectName table, String procedure)
+    {
+        if (shouldDenyPrivilege(context.getIdentity().getUser(), table + "." + procedure, EXECUTE_TABLE_PROCEDURE)) {
+            denyExecuteTableProcedure(table.toString(), procedure);
+        }
+        if (denyPrivileges.isEmpty()) {
+            super.checkCanExecuteTableProcedure(context, table, procedure);
+        }
+    }
+
+    @Override
     public List<ViewExpression> getRowFilters(SecurityContext context, QualifiedObjectName tableName)
     {
         List<ViewExpression> viewExpressions = rowFilters.get(new RowFilterKey(context.getIdentity().getUser(), tableName));
@@ -709,7 +722,7 @@ public class TestingAccessControlManager
     {
         SET_USER, IMPERSONATE_USER,
         EXECUTE_QUERY, VIEW_QUERY, KILL_QUERY,
-        EXECUTE_FUNCTION,
+        EXECUTE_FUNCTION, EXECUTE_TABLE_PROCEDURE,
         CREATE_SCHEMA, DROP_SCHEMA, RENAME_SCHEMA,
         SHOW_CREATE_TABLE, CREATE_TABLE, DROP_TABLE, RENAME_TABLE, COMMENT_TABLE, COMMENT_VIEW, COMMENT_COLUMN, INSERT_TABLE, DELETE_TABLE, MERGE_TABLE, UPDATE_TABLE, TRUNCATE_TABLE, SET_TABLE_PROPERTIES, SHOW_COLUMNS,
         ADD_COLUMN, DROP_COLUMN, RENAME_COLUMN, SELECT_COLUMN,

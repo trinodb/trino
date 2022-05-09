@@ -29,6 +29,8 @@ public class IcebergMetadataFactory
     private final TypeManager typeManager;
     private final TypeOperators typeOperators;
     private final JsonCodec<CommitTaskData> commitTaskCodec;
+    private final TableStatisticsMaker tableStatisticsMaker;
+    private final StatisticsFileWriter statisticsFileWriter;
     private final TrinoCatalogFactory catalogFactory;
     private final HdfsEnvironment hdfsEnvironment;
 
@@ -36,6 +38,8 @@ public class IcebergMetadataFactory
     public IcebergMetadataFactory(
             TypeManager typeManager,
             JsonCodec<CommitTaskData> commitTaskCodec,
+            TableStatisticsMaker tableStatisticsMaker,
+            StatisticsFileWriter statisticsFileWriter,
             TrinoCatalogFactory catalogFactory,
             HdfsEnvironment hdfsEnvironment)
     {
@@ -43,12 +47,14 @@ public class IcebergMetadataFactory
         // TODO consider providing TypeOperators in ConnectorContext to increase cache reuse
         this.typeOperators = new TypeOperators();
         this.commitTaskCodec = requireNonNull(commitTaskCodec, "commitTaskCodec is null");
+        this.tableStatisticsMaker = requireNonNull(tableStatisticsMaker, "tableStatisticsMaker is null");
+        this.statisticsFileWriter = requireNonNull(statisticsFileWriter, "statisticsFileWriter is null");
         this.catalogFactory = requireNonNull(catalogFactory, "catalogFactory is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
     }
 
     public IcebergMetadata create(ConnectorIdentity identity)
     {
-        return new IcebergMetadata(typeManager, typeOperators, commitTaskCodec, catalogFactory.create(identity), hdfsEnvironment);
+        return new IcebergMetadata(typeManager, typeOperators, commitTaskCodec, tableStatisticsMaker, statisticsFileWriter, catalogFactory.create(identity), hdfsEnvironment);
     }
 }

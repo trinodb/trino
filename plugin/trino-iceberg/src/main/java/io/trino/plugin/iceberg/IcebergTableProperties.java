@@ -24,6 +24,7 @@ import javax.inject.Inject;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.iceberg.IcebergConfig.FORMAT_VERSION_SUPPORT_MAX;
@@ -45,6 +46,11 @@ public class IcebergTableProperties
     public static final String FORMAT_VERSION_PROPERTY = "format_version";
     public static final String ORC_BLOOM_FILTER_COLUMNS = "orc_bloom_filter_columns";
     public static final String ORC_BLOOM_FILTER_FPP = "orc_bloom_filter_fpp";
+    // TODO (https://github.com/trinodb/trino/issues/12312): This property represents the subset of columns to be analyzed. This exists mainly because there is no way
+    //       to pass the column names to ConnectorMetadata#getStatisticsCollectionMetadata; we should consider passing
+    //       ConnectorTableHandle instead of ConnectorTableMetadata as an argument since it makes more information
+    //       available (including the names of the columns to be analyzed)
+    public static final String ANALYZE_COLUMNS_PROPERTY = "$trino.analyze_columns";
 
     private final List<PropertyMetadata<?>> tableProperties;
 
@@ -136,6 +142,7 @@ public class IcebergTableProperties
         }
     }
 
+<<<<<<< HEAD
     public static List<String> getOrcBloomFilterColumns(Map<String, Object> tableProperties)
     {
         List<String> orcBloomFilterColumns = (List<String>) tableProperties.get(ORC_BLOOM_FILTER_COLUMNS);
@@ -152,5 +159,11 @@ public class IcebergTableProperties
         if (fpp < 0.0 || fpp > 1.0) {
             throw new TrinoException(INVALID_TABLE_PROPERTY, "Bloom filter fpp value must be between 0.0 and 1.0");
         }
+=======
+    @SuppressWarnings("unchecked")
+    public static Optional<Set<String>> getAnalyzeColumns(Map<String, Object> tableProperties)
+    {
+        return Optional.ofNullable((Set<String>) tableProperties.get(ANALYZE_COLUMNS_PROPERTY));
+>>>>>>> d8f0d3a504 (Analyze Iceberg tables)
     }
 }
