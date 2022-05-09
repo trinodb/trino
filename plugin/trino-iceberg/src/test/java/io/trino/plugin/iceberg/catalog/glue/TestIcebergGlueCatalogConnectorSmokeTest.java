@@ -56,7 +56,7 @@ public class TestIcebergGlueCatalogConnectorSmokeTest
     {
         super(FileFormat.PARQUET);
         this.bucketName = requireNonNull(bucketName, "bucketName is null");
-        this.schemaName = "iceberg_smoke_test_" + randomTableSuffix();
+        this.schemaName = "test_iceberg_smoke_" + randomTableSuffix();
     }
 
     @Override
