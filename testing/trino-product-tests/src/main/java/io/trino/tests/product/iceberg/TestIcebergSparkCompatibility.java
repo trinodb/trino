@@ -2129,6 +2129,25 @@ public class TestIcebergSparkCompatibility
         Assertions.assertThat(partitions).containsAll(sparkResult);
     }
 
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
+    public void testTrinoAnalyze()
+    {
+        String baseTableName = "test_trino_analyze_" + randomTableSuffix();
+        String trinoTableName = trinoTableName(baseTableName);
+        String sparkTableName = sparkTableName(baseTableName);
+        onTrino().executeQuery("DROP TABLE IF EXISTS " + trinoTableName);
+        onTrino().executeQuery("CREATE TABLE " + trinoTableName + " AS SELECT regionkey, name FROM tpch.tiny.region");
+        onTrino().executeQuery("SET SESSION " + TRINO_CATALOG + ".experimental_extended_statistics_enabled = true");
+        onTrino().executeQuery("ANALYZE " + trinoTableName);
+
+        // We're not verifying results of ANALYZE (covered by non-product tests), but we're verifying table is readable.
+        List<Row> expected = List.of(row(0, "AFRICA"), row(1, "AMERICA"), row(2, "ASIA"), row(3, "EUROPE"), row(4, "MIDDLE EAST"));
+        assertThat(onTrino().executeQuery("SELECT * FROM " + trinoTableName)).containsOnly(expected);
+        assertThat(onSpark().executeQuery("SELECT * FROM " + sparkTableName)).containsOnly(expected);
+
+        onTrino().executeQuery("DROP TABLE " + trinoTableName);
+    }
+
     private int calculateMetadataFilesForPartitionedTable(String tableName)
     {
         String dataFilePath = onTrino().executeQuery(format("SELECT file_path FROM iceberg.default.\"%s$files\" limit 1", tableName)).row(0).get(0).toString();

@@ -39,6 +39,8 @@ public class IcebergConfig
 {
     public static final int FORMAT_VERSION_SUPPORT_MIN = 1;
     public static final int FORMAT_VERSION_SUPPORT_MAX = 2;
+    public static final String EXTENDED_STATISTICS_CONFIG = "iceberg.experimental.extended-statistics.enabled";
+    public static final String EXTENDED_STATISTICS_DESCRIPTION = "Allow ANALYZE and use of extended statistics collected by it. Currently, the statistics are collected in Trino-specific format";
     public static final String EXPIRE_SNAPSHOTS_MIN_RETENTION = "iceberg.expire_snapshots.min-retention";
     public static final String REMOVE_ORPHAN_FILES_MIN_RETENTION = "iceberg.remove_orphan_files.min-retention";
 
@@ -50,6 +52,7 @@ public class IcebergConfig
     private CatalogType catalogType = HIVE_METASTORE;
     private Duration dynamicFilteringWaitTimeout = new Duration(0, SECONDS);
     private boolean tableStatisticsEnabled = true;
+    private boolean extendedStatisticsEnabled;
     private boolean projectionPushdownEnabled = true;
     private Optional<String> hiveCatalogName = Optional.empty();
     private int formatVersion = FORMAT_VERSION_SUPPORT_MAX;
@@ -177,6 +180,19 @@ public class IcebergConfig
     public IcebergConfig setTableStatisticsEnabled(boolean tableStatisticsEnabled)
     {
         this.tableStatisticsEnabled = tableStatisticsEnabled;
+        return this;
+    }
+
+    public boolean isExtendedStatisticsEnabled()
+    {
+        return extendedStatisticsEnabled;
+    }
+
+    @Config(EXTENDED_STATISTICS_CONFIG)
+    @ConfigDescription(EXTENDED_STATISTICS_DESCRIPTION)
+    public IcebergConfig setExtendedStatisticsEnabled(boolean extendedStatisticsEnabled)
+    {
+        this.extendedStatisticsEnabled = extendedStatisticsEnabled;
         return this;
     }
 

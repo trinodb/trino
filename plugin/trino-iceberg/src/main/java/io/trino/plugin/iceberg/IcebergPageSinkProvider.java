@@ -123,6 +123,7 @@ public class IcebergPageSinkProvider
                         optimizeHandle.getFileFormat(),
                         optimizeHandle.getTableStorageProperties(),
                         maxOpenPartitions);
+            case DROP_EXTENDED_STATS:
             case EXPIRE_SNAPSHOTS:
             case REMOVE_ORPHAN_FILES:
                 // handled via ConnectorMetadata.executeTableExecute
