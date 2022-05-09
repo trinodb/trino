@@ -55,7 +55,7 @@ public class PinotPageSourceProvider
         this.clusterInfoFetcher = requireNonNull(clusterInfoFetcher, "clusterInfoFetcher is null");
         this.limitForSegmentQueries = pinotConfig.getMaxRowsPerSplitForSegmentQueries();
         this.limitForBrokerQueries = pinotConfig.getMaxRowsForBrokerQueries();
-        estimatedNonNumericColumnSize = pinotConfig.getEstimatedSizeInBytesForNonNumericColumn();
+        this.estimatedNonNumericColumnSize = pinotConfig.getEstimatedSizeInBytesForNonNumericColumn();
     }
 
     @Override
