@@ -7,7 +7,7 @@
  *
  * Redistribution of this material is strictly prohibited.
  */
-package com.starburstdata.presto.plugin.synapse;
+package com.starburstdata.trino.plugins.synapse;
 
 import com.microsoft.sqlserver.jdbc.SQLServerException;
 import io.airlift.log.Logger;
@@ -20,7 +20,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Locale;
 
-import static com.starburstdata.presto.plugin.synapse.SynapseQueryRunner.TEST_SCHEMA;
+import static com.starburstdata.trino.plugins.synapse.SynapseQueryRunner.TEST_SCHEMA;
 import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.util.function.Predicate.not;

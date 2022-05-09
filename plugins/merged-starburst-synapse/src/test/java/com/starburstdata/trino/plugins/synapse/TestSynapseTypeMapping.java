@@ -7,7 +7,7 @@
  *
  * Redistribution of this material is strictly prohibited.
  */
-package com.starburstdata.presto.plugin.synapse;
+package com.starburstdata.trino.plugins.synapse;
 
 import io.trino.plugin.sqlserver.BaseSqlServerTypeMapping;
 import io.trino.testing.QueryRunner;
@@ -19,7 +19,7 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Map;
 
-import static com.starburstdata.presto.plugin.synapse.SynapseQueryRunner.createSynapseQueryRunner;
+import static com.starburstdata.trino.plugins.synapse.SynapseQueryRunner.createSynapseQueryRunner;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 

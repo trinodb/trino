@@ -7,7 +7,7 @@
  *
  * Redistribution of this material is strictly prohibited.
  */
-package com.starburstdata.presto.plugin.synapse;
+package com.starburstdata.trino.plugins.synapse;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.Plugin;

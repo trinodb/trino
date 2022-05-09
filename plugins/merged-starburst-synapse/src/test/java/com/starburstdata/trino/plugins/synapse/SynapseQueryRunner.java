@@ -7,7 +7,7 @@
  *
  * Redistribution of this material is strictly prohibited.
  */
-package com.starburstdata.presto.plugin.synapse;
+package com.starburstdata.trino.plugins.synapse;
 
 import com.google.common.collect.ImmutableMap;
 import com.microsoft.sqlserver.jdbc.SQLServerException;
@@ -25,9 +25,9 @@ import io.trino.tpch.TpchTable;
 import java.util.HashMap;
 import java.util.Map;
 
-import static com.starburstdata.presto.plugin.synapse.SynapseServer.JDBC_URL;
-import static com.starburstdata.presto.plugin.synapse.SynapseServer.PASSWORD;
-import static com.starburstdata.presto.plugin.synapse.SynapseServer.USERNAME;
+import static com.starburstdata.trino.plugins.synapse.SynapseServer.JDBC_URL;
+import static com.starburstdata.trino.plugins.synapse.SynapseServer.PASSWORD;
+import static com.starburstdata.trino.plugins.synapse.SynapseServer.USERNAME;
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.airlift.units.Duration.nanosSince;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
