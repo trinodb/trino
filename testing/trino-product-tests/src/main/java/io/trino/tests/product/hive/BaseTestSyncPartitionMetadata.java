@@ -19,7 +19,6 @@ import io.trino.tempto.ProductTest;
 import io.trino.tempto.assertions.QueryAssert;
 import io.trino.tempto.query.QueryResult;
 
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
@@ -38,14 +37,14 @@ public abstract class BaseTestSyncPartitionMetadata
     @BeforeTestWithContext
     public void setUp()
     {
-        onHdfs("-rm -f -r " + schemaLocation());
-        onHdfs("-mkdir -p " + schemaLocation());
+        removeHdfsDirectory(schemaLocation());
+        makeHdfsDirectory(schemaLocation());
     }
 
     @AfterTestWithContext
     public void tearDown()
     {
-        onHdfs("-rm -f -r " + schemaLocation());
+        removeHdfsDirectory(schemaLocation());
     }
 
     public void testAddPartition()
@@ -178,12 +177,11 @@ public abstract class BaseTestSyncPartitionMetadata
         prepare(tableName);
         String tableLocation = tableLocation(tableName);
 
-        String dataSource = generateOrcFile();
-        onHdfs(format("-mkdir -p %s/col_x=h/col_Y=11", tableLocation));
-        onHdfs(format("-cp %s %s/col_x=h/col_Y=11", dataSource, tableLocation));
+        makeHdfsDirectory(format("%s/col_x=h/col_Y=11", tableLocation));
+        copyOrcFileToHdfsDirectory(tableName, format("%s/col_x=h/col_Y=11", tableLocation));
 
-        onHdfs(format("-mkdir -p %s/COL_X=UPPER/COL_Y=12", tableLocation));
-        onHdfs(format("-cp %s %s/COL_X=UPPER/COL_Y=12", dataSource, tableLocation));
+        makeHdfsDirectory(format("%s/COL_X=UPPER/COL_Y=12", tableLocation));
+        copyOrcFileToHdfsDirectory(tableName, format("%s/COL_X=UPPER/COL_Y=12", tableLocation));
 
         onTrino().executeQuery("CALL system.sync_partition_metadata('default', '" + tableName + "', 'FULL', false)");
         assertPartitions(tableName, row("UPPER", "12"), row("a", "1"), row("f", "9"), row("g", "10"), row("h", "11"));
@@ -195,10 +193,9 @@ public abstract class BaseTestSyncPartitionMetadata
         String tableName = "test_sync_partition_mixed_case";
         String tableLocation = tableLocation(tableName);
         prepare(tableName);
-        String dataSource = generateOrcFile();
         // this conflicts with a partition that already exits in the metastore
-        onHdfs(format("-mkdir -p %s/COL_X=a/cOl_y=1", tableLocation));
-        onHdfs(format("-cp %s %s/COL_X=a/cOl_y=1", dataSource, tableLocation));
+        makeHdfsDirectory(format("%s/COL_X=a/cOl_y=1", tableLocation));
+        copyOrcFileToHdfsDirectory(tableName, format("%s/COL_X=a/cOl_y=1", tableLocation));
 
         assertThatThrownBy(() -> onTrino().executeQuery("CALL system.sync_partition_metadata('default', '" + tableName + "', 'ADD', false)"))
                 .hasMessageContaining(format("One or more partitions already exist for table 'default.%s'", tableName));
@@ -216,46 +213,36 @@ public abstract class BaseTestSyncPartitionMetadata
     {
         String tableLocation = tableLocation(tableName);
         onTrino().executeQuery("DROP TABLE IF EXISTS " + tableName);
-        onHdfs("-rm -f -r " + tableLocation);
-        onHdfs("-mkdir -p " + tableLocation);
+        removeHdfsDirectory(tableLocation);
+        makeHdfsDirectory(tableLocation);
 
         onHive().executeQuery("CREATE TABLE " + tableName + " (payload bigint) PARTITIONED BY (col_x string, col_y string) STORED AS ORC LOCATION '" + tableLocation + "'");
         onTrino().executeQuery("INSERT INTO " + tableName + " VALUES (1, 'a', '1'), (2, 'b', '2')");
 
-        String filePath = generateOrcFile();
-
         // remove partition col_x=b/col_y=2
-        onHdfs(format("-rm -f -r %s/col_x=b/col_y=2", tableLocation));
+        removeHdfsDirectory(format("%s/col_x=b/col_y=2", tableLocation));
         // add partition directory col_x=f/col_y=9 with single_int_column/data.orc file
-        onHdfs(format("-mkdir -p %s/col_x=f/col_y=9", tableLocation));
-        onHdfs(format("-cp %s %s/col_x=f/col_y=9", filePath, tableLocation));
+        makeHdfsDirectory(format("%s/col_x=f/col_y=9", tableLocation));
+        copyOrcFileToHdfsDirectory(tableName, format("%s/col_x=f/col_y=9", tableLocation));
 
         // should only be picked up when not in case sensitive mode
-        onHdfs(format("-mkdir -p %s/COL_X=g/col_y=10", tableLocation));
-        onHdfs(format("-cp %s %s/COL_X=g/col_y=10", filePath, tableLocation));
+        makeHdfsDirectory(format("%s/COL_X=g/col_y=10", tableLocation));
+        copyOrcFileToHdfsDirectory(tableName, format("%s/COL_X=g/col_y=10", tableLocation));
 
         // add invalid partition path
-        onHdfs(format("-mkdir -p %s/col_x=d", tableLocation));
-        onHdfs(format("-mkdir -p %s/col_y=3/col_x=h", tableLocation));
-        onHdfs(format("-mkdir -p %s/col_y=3", tableLocation));
-        onHdfs(format("-mkdir -p %s/xyz", tableLocation));
+        makeHdfsDirectory(format("%s/col_x=d", tableLocation));
+        makeHdfsDirectory(format("%s/col_y=3/col_x=h", tableLocation));
+        makeHdfsDirectory(format("%s/col_y=3", tableLocation));
+        makeHdfsDirectory(format("%s/xyz", tableLocation));
 
         assertPartitions(tableName, row("a", "1"), row("b", "2"));
     }
 
-    // Drop and create a table. Then, return single ORC file path
-    private String generateOrcFile()
-    {
-        onTrino().executeQuery("DROP TABLE IF EXISTS single_int_column");
-        onTrino().executeQuery("CREATE TABLE single_int_column (payload bigint) WITH (format = 'ORC')");
-        onTrino().executeQuery("INSERT INTO single_int_column VALUES (42)");
-        return getOnlyElement(onTrino().executeQuery("SELECT \"$path\" FROM single_int_column").row(0)).toString();
-    }
+    protected abstract void removeHdfsDirectory(String path);
 
-    private void onHdfs(String command)
-    {
-        onHive().executeQuery("dfs " + command);
-    }
+    protected abstract void makeHdfsDirectory(String path);
+
+    protected abstract void copyOrcFileToHdfsDirectory(String tableName, String targetDirectory);
 
     private static void cleanup(String tableName)
     {
