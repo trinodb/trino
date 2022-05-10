@@ -244,6 +244,12 @@ public class IcebergMetadata
     }
 
     @Override
+    public SchemaTableName getSchemaTableName(ConnectorSession session, ConnectorTableHandle table)
+    {
+        return ((IcebergTableHandle) table).getSchemaTableName();
+    }
+
+    @Override
     public IcebergTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
     {
         IcebergTableName name = IcebergTableName.from(tableName.getTableName());
