@@ -107,6 +107,7 @@ import static io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWN
 import static io.trino.plugin.hive.metastore.MetastoreUtil.buildInitialPrivilegeSet;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.NUM_ROWS;
 import static io.trino.plugin.hive.util.HiveUtil.toPartitionValues;
+import static io.trino.plugin.hive.util.HiveWriteUtils.checkedDelete;
 import static io.trino.plugin.hive.util.HiveWriteUtils.createDirectory;
 import static io.trino.plugin.hive.util.HiveWriteUtils.isFileCreatedByQuery;
 import static io.trino.plugin.hive.util.HiveWriteUtils.pathExists;
@@ -3660,7 +3661,7 @@ public class SemiTransactionalHiveMetastore
             while (filesToDeleteIterator.hasNext()) {
                 String fileName = filesToDeleteIterator.next();
                 log.debug("Deleting failed attempt file %s/%s for query %s", path, fileName, queryId);
-                fileSystem.delete(new Path(path, fileName), false);
+                checkedDelete(fileSystem, new Path(path, fileName), false);
                 deletedFilesBuilder.add(fileName);
                 filesToDeleteIterator.remove();
             }
