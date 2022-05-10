@@ -309,14 +309,16 @@ public class Driver
             try {
                 long start = System.nanoTime();
                 int iterations = 0;
-                do {
+                while (!isFinishedInternal()) {
                     ListenableFuture<Void> future = processInternal(operationTimer);
                     iterations++;
                     if (!future.isDone()) {
                         return updateDriverBlockedFuture(future);
                     }
+                    if (System.nanoTime() - start >= maxRuntimeInNanos || iterations >= maxIterations) {
+                        break;
+                    }
                 }
-                while (System.nanoTime() - start < maxRuntimeInNanos && iterations < maxIterations && !isFinishedInternal());
             }
             catch (Throwable t) {
                 List<StackTraceElement> interrupterStack = exclusiveLock.getInterrupterStack();
