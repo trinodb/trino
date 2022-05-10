@@ -276,6 +276,7 @@ import static io.trino.plugin.hive.util.HiveUtil.isSparkBucketedTable;
 import static io.trino.plugin.hive.util.HiveUtil.toPartitionValues;
 import static io.trino.plugin.hive.util.HiveUtil.verifyPartitionTypeSupported;
 import static io.trino.plugin.hive.util.HiveWriteUtils.checkTableIsWritable;
+import static io.trino.plugin.hive.util.HiveWriteUtils.checkedDelete;
 import static io.trino.plugin.hive.util.HiveWriteUtils.initializeSerializer;
 import static io.trino.plugin.hive.util.HiveWriteUtils.isFileCreatedByQuery;
 import static io.trino.plugin.hive.util.HiveWriteUtils.isS3FileSystem;
@@ -1966,7 +1967,7 @@ public class HiveMetadata
             while (iterator.hasNext()) {
                 Path file = iterator.next().getPath();
                 if (!isFileCreatedByQuery(file.getName(), queryId)) {
-                    fileSystem.delete(file, false);
+                    checkedDelete(fileSystem, file, false);
                 }
             }
         }
@@ -2247,7 +2248,10 @@ public class HiveMetadata
                 if (firstScannedPath.isEmpty()) {
                     firstScannedPath = Optional.of(scannedPath);
                 }
-                retry().run("delete " + scannedPath, () -> fs.delete(scannedPath, false));
+                retry().run("delete " + scannedPath, () -> {
+                    checkedDelete(fs, scannedPath, false);
+                    return null;
+                });
                 someDeleted = true;
                 remainingFilesToDelete.remove(scannedPath);
             }
