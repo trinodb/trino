@@ -378,6 +378,7 @@ public class TableWriterOperator
                 closer.register(pageSink::abort);
             }
         }
+        closer.register(() -> statisticAggregationOperator.getOperatorContext().destroy());
         closer.register(statisticAggregationOperator);
         closer.register(pageSinkMemoryContext::close);
         closer.close();
