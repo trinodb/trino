@@ -41,6 +41,7 @@ public class TestRedisConnectorConfig
                 .setRedisKeyDelimiter(":")
                 .setRedisConnectTimeout("2000ms")
                 .setRedisDataBaseIndex(0)
+                .setRedisUser(null)
                 .setRedisPassword(null)
                 .setRedisScanCount(100)
                 .setRedisMaxKeysPerFetch(100)
@@ -63,6 +64,7 @@ public class TestRedisConnectorConfig
                 .put("redis.hide-internal-columns", "false")
                 .put("redis.connect-timeout", "10s")
                 .put("redis.database-index", "5")
+                .put("redis.user", "test")
                 .put("redis.password", "secret")
                 .buildOrThrow();
 
@@ -77,6 +79,7 @@ public class TestRedisConnectorConfig
                 .setRedisMaxKeysPerFetch(10)
                 .setRedisConnectTimeout("10s")
                 .setRedisDataBaseIndex(5)
+                .setRedisUser("test")
                 .setRedisPassword("secret")
                 .setRedisKeyDelimiter(",")
                 .setKeyPrefixSchemaTable(true);

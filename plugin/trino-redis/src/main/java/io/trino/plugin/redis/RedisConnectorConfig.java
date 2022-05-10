@@ -22,6 +22,7 @@ import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 import io.trino.spi.HostAddress;
 
+import javax.annotation.Nullable;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
@@ -43,6 +44,7 @@ public class RedisConnectorConfig
     private int redisMaxKeysPerFetch = 100;
     private int redisDataBaseIndex;
     private char redisKeyDelimiter = ':';
+    private String redisUser;
     private String redisPassword;
     private Duration redisConnectTimeout = new Duration(2000, MILLISECONDS);
     private String defaultSchema = "default";
@@ -187,6 +189,20 @@ public class RedisConnectorConfig
     public RedisConnectorConfig setRedisKeyDelimiter(String redisKeyDelimiter)
     {
         this.redisKeyDelimiter = redisKeyDelimiter.charAt(0);
+        return this;
+    }
+
+    @Nullable
+    public String getRedisUser()
+    {
+        return redisUser;
+    }
+
+    @Config("redis.user")
+    @ConfigDescription("Username for a Redis server")
+    public RedisConnectorConfig setRedisUser(String redisUser)
+    {
+        this.redisUser = redisUser;
         return this;
     }
 

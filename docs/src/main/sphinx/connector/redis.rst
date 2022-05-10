@@ -64,6 +64,7 @@ Property Name                           Description
 ``redis.table-description-cache-ttl``   The cache time for table description files
 ``redis.hide-internal-columns``         Controls whether internal columns are part of the table schema or not
 ``redis.database-index``                Redis database index
+``redis.user``                          Redis server username
 ``redis.password``                      Redis server password
 ======================================  ==============================================================
 
@@ -171,6 +172,14 @@ This property is optional; the default is ``true``.
 The Redis database to query.
 
 This property is optional; the default is ``0``.
+
+``redis.user``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The username for Redis server.
+
+This property is optional; the default is ``null``.
+
 
 ``redis.password``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
