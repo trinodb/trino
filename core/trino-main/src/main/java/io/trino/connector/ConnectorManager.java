@@ -68,7 +68,6 @@ import io.trino.spi.type.TypeManager;
 import io.trino.split.PageSinkManager;
 import io.trino.split.PageSourceManager;
 import io.trino.split.RecordPageSourceProvider;
-import io.trino.split.SplitManager;
 import io.trino.sql.planner.NodePartitioningManager;
 import io.trino.transaction.TransactionManager;
 
@@ -106,7 +105,6 @@ public class ConnectorManager
     private final Metadata metadata;
     private final CatalogManager catalogManager;
     private final AccessControlManager accessControlManager;
-    private final SplitManager splitManager;
     private final PageSourceManager pageSourceManager;
     private final IndexManager indexManager;
     private final NodePartitioningManager nodePartitioningManager;
@@ -147,7 +145,6 @@ public class ConnectorManager
             Metadata metadata,
             CatalogManager catalogManager,
             AccessControlManager accessControlManager,
-            SplitManager splitManager,
             PageSourceManager pageSourceManager,
             IndexManager indexManager,
             NodePartitioningManager nodePartitioningManager,
@@ -176,7 +173,6 @@ public class ConnectorManager
         this.metadata = metadata;
         this.catalogManager = catalogManager;
         this.accessControlManager = accessControlManager;
-        this.splitManager = splitManager;
         this.pageSourceManager = pageSourceManager;
         this.indexManager = indexManager;
         this.nodePartitioningManager = nodePartitioningManager;
@@ -326,9 +322,6 @@ public class ConnectorManager
         checkState(!connectors.containsKey(catalogName), "Catalog '%s' already exists", catalogName);
         connectors.put(catalogName, connector);
 
-        connector.getSplitManager()
-                .ifPresent(connectorSplitManager -> splitManager.addConnectorSplitManager(catalogName, connectorSplitManager));
-
         connector.getPageSourceProvider()
                 .ifPresent(pageSourceProvider -> pageSourceManager.addConnectorPageSourceProvider(catalogName, pageSourceProvider));
 
@@ -362,7 +355,6 @@ public class ConnectorManager
 
     private synchronized void removeConnectorInternal(CatalogName catalogName)
     {
-        splitManager.removeConnectorSplitManager(catalogName);
         pageSourceManager.removeConnectorPageSourceProvider(catalogName);
         pageSinkManager.removeConnectorPageSinkProvider(catalogName);
         indexManager.removeIndexProvider(catalogName);
