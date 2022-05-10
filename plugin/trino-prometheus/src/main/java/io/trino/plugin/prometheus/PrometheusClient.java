@@ -21,6 +21,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
+import okhttp3.Interceptor;
 import okhttp3.OkHttpClient;
 import okhttp3.OkHttpClient.Builder;
 import okhttp3.Request;
@@ -39,6 +40,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
 
+import static com.google.common.net.HttpHeaders.AUTHORIZATION;
 import static io.trino.plugin.prometheus.PrometheusErrorCode.PROMETHEUS_TABLES_METRICS_RETRIEVE_ERROR;
 import static io.trino.plugin.prometheus.PrometheusErrorCode.PROMETHEUS_UNKNOWN_ERROR;
 import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
@@ -55,7 +57,6 @@ public class PrometheusClient
     static final String METRICS_ENDPOINT = "/api/v1/label/__name__/values";
 
     private final OkHttpClient httpClient;
-    private final Optional<File> bearerTokenFile;
     private final Supplier<Map<String, Object>> tableSupplier;
     private final Type varcharMapType;
 
@@ -66,9 +67,10 @@ public class PrometheusClient
         requireNonNull(metricCodec, "metricCodec is null");
         requireNonNull(typeManager, "typeManager is null");
 
-        httpClient = new Builder().readTimeout(Duration.ofMillis(config.getReadTimeout().toMillis())).build();
+        Builder clientBuilder = new Builder().readTimeout(Duration.ofMillis(config.getReadTimeout().toMillis()));
+        setupTokenAuth(clientBuilder, getBearerAuthInfoFromFile(config.getBearerTokenFile()));
+        this.httpClient = clientBuilder.build();
 
-        bearerTokenFile = config.getBearerTokenFile();
         URI prometheusMetricsUri = getPrometheusMetricsURI(config.getPrometheusURI());
         tableSupplier = Suppliers.memoizeWithExpiration(
                 () -> fetchMetrics(metricCodec, prometheusMetricsUri),
@@ -137,8 +139,6 @@ public class PrometheusClient
     public byte[] fetchUri(URI uri)
     {
         Request.Builder requestBuilder = new Request.Builder().url(uri.toString());
-        getBearerAuthInfoFromFile().ifPresent(bearerToken -> requestBuilder.header("Authorization", "Bearer " + bearerToken));
-
         Response response;
         try {
             response = httpClient.newCall(requestBuilder.build()).execute();
@@ -153,7 +153,7 @@ public class PrometheusClient
         throw new TrinoException(PROMETHEUS_UNKNOWN_ERROR, "Bad response " + response.code() + " " + response.message());
     }
 
-    private Optional<String> getBearerAuthInfoFromFile()
+    private Optional<String> getBearerAuthInfoFromFile(Optional<File> bearerTokenFile)
     {
         return bearerTokenFile.map(tokenFileName -> {
             try {
@@ -163,5 +163,18 @@ public class PrometheusClient
                 throw new TrinoException(PROMETHEUS_UNKNOWN_ERROR, "Failed to read bearer token file: " + tokenFileName, e);
             }
         });
+    }
+
+    private static void setupTokenAuth(OkHttpClient.Builder clientBuilder, Optional<String> accessToken)
+    {
+        accessToken.ifPresent(token -> clientBuilder.addInterceptor(tokenAuth(token)));
+    }
+
+    private static Interceptor tokenAuth(String accessToken)
+    {
+        requireNonNull(accessToken, "accessToken is null");
+        return chain -> chain.proceed(chain.request().newBuilder()
+                .addHeader(AUTHORIZATION, "Bearer " + accessToken)
+                .build());
     }
 }
