@@ -52,6 +52,13 @@ public class NessieIcebergTableOperations
     }
 
     @Override
+    public TableMetadata refresh(boolean invalidateCaches)
+    {
+        nessieClient.refreshReference();
+        return super.refresh(invalidateCaches);
+    }
+
+    @Override
     protected String getRefreshedLocation(boolean invalidateCaches)
     {
         IcebergTable table = nessieClient.loadTable(new SchemaTableName(database, tableName));
