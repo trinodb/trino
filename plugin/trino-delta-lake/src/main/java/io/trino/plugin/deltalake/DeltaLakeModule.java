@@ -36,6 +36,7 @@ import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointSchemaManag
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointWriterManager;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.LastCheckpoint;
 import io.trino.plugin.deltalake.transactionlog.writer.AzureTransactionLogSynchronizer;
+import io.trino.plugin.deltalake.transactionlog.writer.GcsTransactionLogSynchronizer;
 import io.trino.plugin.deltalake.transactionlog.writer.NoIsolationSynchronizer;
 import io.trino.plugin.deltalake.transactionlog.writer.S3TransactionLogSynchronizer;
 import io.trino.plugin.deltalake.transactionlog.writer.TransactionLogSynchronizer;
@@ -140,6 +141,8 @@ public class DeltaLakeModule
         // Azure
         logSynchronizerMapBinder.addBinding("abfs").to(AzureTransactionLogSynchronizer.class).in(Scopes.SINGLETON);
         logSynchronizerMapBinder.addBinding("abfss").to(AzureTransactionLogSynchronizer.class).in(Scopes.SINGLETON);
+        // GCS
+        logSynchronizerMapBinder.addBinding("gs").to(GcsTransactionLogSynchronizer.class).in(Scopes.SINGLETON);
 
         newOptionalBinder(binder, DeltaLakeRedirectionsProvider.class)
                 .setDefault().toInstance(DeltaLakeRedirectionsProvider.NOOP);
