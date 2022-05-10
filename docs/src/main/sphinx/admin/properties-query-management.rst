@@ -2,6 +2,15 @@
 Query management properties
 ===========================
 
+``query.client.timeout``
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** :ref:`prop-type-duration`
+* **Default value:** ``5m``
+
+Configures how long the cluster runs without contact from the client
+application, such as the CLI, before it abandons and cancels its work.
+
 ``query.execution-policy``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
