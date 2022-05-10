@@ -21,6 +21,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
+import okhttp3.Credentials;
 import okhttp3.Interceptor;
 import okhttp3.OkHttpClient;
 import okhttp3.OkHttpClient.Builder;
@@ -43,6 +44,7 @@ import java.util.function.Supplier;
 import static com.google.common.net.HttpHeaders.AUTHORIZATION;
 import static io.trino.plugin.prometheus.PrometheusErrorCode.PROMETHEUS_TABLES_METRICS_RETRIEVE_ERROR;
 import static io.trino.plugin.prometheus.PrometheusErrorCode.PROMETHEUS_UNKNOWN_ERROR;
+import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.trino.spi.type.TypeSignature.mapType;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -68,6 +70,7 @@ public class PrometheusClient
         requireNonNull(typeManager, "typeManager is null");
 
         Builder clientBuilder = new Builder().readTimeout(Duration.ofMillis(config.getReadTimeout().toMillis()));
+        setupBasicAuth(clientBuilder, config.getUser(), config.getPassword());
         setupTokenAuth(clientBuilder, getBearerAuthInfoFromFile(config.getBearerTokenFile()));
         this.httpClient = clientBuilder.build();
 
@@ -165,9 +168,30 @@ public class PrometheusClient
         });
     }
 
+    private static void setupBasicAuth(OkHttpClient.Builder clientBuilder, Optional<String> user, Optional<String> password)
+    {
+        if (user.isPresent() && password.isPresent()) {
+            clientBuilder.addInterceptor(basicAuth(user.get(), password.get()));
+        }
+    }
+
     private static void setupTokenAuth(OkHttpClient.Builder clientBuilder, Optional<String> accessToken)
     {
         accessToken.ifPresent(token -> clientBuilder.addInterceptor(tokenAuth(token)));
+    }
+
+    private static Interceptor basicAuth(String user, String password)
+    {
+        requireNonNull(user, "user is null");
+        requireNonNull(password, "password is null");
+        if (user.contains(":")) {
+            throw new TrinoException(GENERIC_USER_ERROR, "Illegal character ':' found in username");
+        }
+
+        String credential = Credentials.basic(user, password);
+        return chain -> chain.proceed(chain.request().newBuilder()
+                .header(AUTHORIZATION, credential)
+                .build());
     }
 
     private static Interceptor tokenAuth(String accessToken)
