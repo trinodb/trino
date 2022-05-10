@@ -36,6 +36,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.plugin.base.session.PropertyMetadataUtil.dataSizeProperty;
 import static io.trino.plugin.base.session.PropertyMetadataUtil.durationProperty;
+import static io.trino.plugin.iceberg.IcebergConfig.COLLECT_EXTENDED_STATISTICS_ON_WRITE_DESCRIPTION;
 import static io.trino.plugin.iceberg.IcebergConfig.EXTENDED_STATISTICS_DESCRIPTION;
 import static io.trino.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static io.trino.spi.session.PropertyMetadata.booleanProperty;
@@ -77,6 +78,7 @@ public final class IcebergSessionProperties
     public static final String EXTENDED_STATISTICS_ENABLED = "extended_statistics_enabled";
     private static final String PROJECTION_PUSHDOWN_ENABLED = "projection_pushdown_enabled";
     private static final String TARGET_MAX_FILE_SIZE = "target_max_file_size";
+    public static final String COLLECT_EXTENDED_STATISTICS_ON_WRITE = "collect_extended_statistics_on_write";
     private static final String HIVE_CATALOG_NAME = "hive_catalog_name";
     private static final String MINIMUM_ASSIGNED_SPLIT_WEIGHT = "minimum_assigned_split_weight";
     public static final String EXPIRE_SNAPSHOTS_MIN_RETENTION = "expire_snapshots_min_retention";
@@ -256,6 +258,11 @@ public final class IcebergSessionProperties
                         TARGET_MAX_FILE_SIZE,
                         "Target maximum size of written files; the actual size may be larger",
                         icebergConfig.getTargetMaxFileSize(),
+                        false))
+                .add(booleanProperty(
+                        COLLECT_EXTENDED_STATISTICS_ON_WRITE,
+                        COLLECT_EXTENDED_STATISTICS_ON_WRITE_DESCRIPTION,
+                        icebergConfig.isCollectExtendedStatisticsOnWrite(),
                         false))
                 .add(stringProperty(
                         HIVE_CATALOG_NAME,
@@ -438,6 +445,11 @@ public final class IcebergSessionProperties
     public static boolean isExtendedStatisticsEnabled(ConnectorSession session)
     {
         return session.getProperty(EXTENDED_STATISTICS_ENABLED, Boolean.class);
+    }
+
+    public static boolean isCollectExtendedStatisticsOnWrite(ConnectorSession session)
+    {
+        return session.getProperty(COLLECT_EXTENDED_STATISTICS_ON_WRITE, Boolean.class);
     }
 
     public static boolean isProjectionPushdownEnabled(ConnectorSession session)

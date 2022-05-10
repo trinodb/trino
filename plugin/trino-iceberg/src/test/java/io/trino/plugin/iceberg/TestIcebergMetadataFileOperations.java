@@ -38,10 +38,12 @@ import static com.google.inject.util.Modules.EMPTY_MODULE;
 import static io.trino.SystemSessionProperties.MIN_INPUT_SIZE_PER_TASK;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.COLLECT_EXTENDED_STATISTICS_ON_WRITE;
 import static io.trino.plugin.iceberg.TestIcebergMetadataFileOperations.FileType.DATA;
 import static io.trino.plugin.iceberg.TestIcebergMetadataFileOperations.FileType.MANIFEST;
 import static io.trino.plugin.iceberg.TestIcebergMetadataFileOperations.FileType.METADATA_JSON;
 import static io.trino.plugin.iceberg.TestIcebergMetadataFileOperations.FileType.SNAPSHOT;
+import static io.trino.plugin.iceberg.TestIcebergMetadataFileOperations.FileType.STATS;
 import static io.trino.plugin.iceberg.TestIcebergMetadataFileOperations.FileType.fromFilePath;
 import static io.trino.plugin.iceberg.TrackingFileSystemFactory.OperationType.INPUT_FILE_GET_LENGTH;
 import static io.trino.plugin.iceberg.TrackingFileSystemFactory.OperationType.INPUT_FILE_NEW_STREAM;
@@ -120,7 +122,9 @@ public class TestIcebergMetadataFileOperations
     @Test
     public void testCreateTableAsSelect()
     {
-        assertFileSystemAccesses("CREATE TABLE test_create_as_select AS SELECT 1 col_name",
+        assertFileSystemAccesses(
+                withStatsOnWrite(getSession(), false),
+                "CREATE TABLE test_create_as_select AS SELECT 1 col_name",
                 ImmutableMultiset.<FileOperation>builder()
                         .addCopies(new FileOperation(MANIFEST, OUTPUT_FILE_CREATE_OR_OVERWRITE), 1)
                         .addCopies(new FileOperation(MANIFEST, OUTPUT_FILE_LOCATION), 1)
@@ -130,6 +134,22 @@ public class TestIcebergMetadataFileOperations
                         .addCopies(new FileOperation(SNAPSHOT, INPUT_FILE_NEW_STREAM), 1)
                         .addCopies(new FileOperation(SNAPSHOT, OUTPUT_FILE_CREATE_OR_OVERWRITE), 1)
                         .addCopies(new FileOperation(SNAPSHOT, OUTPUT_FILE_LOCATION), 2)
+                        .build());
+
+        assertFileSystemAccesses(
+                withStatsOnWrite(getSession(), true),
+                "CREATE TABLE test_create_as_select_with_stats AS SELECT 1 col_name",
+                ImmutableMultiset.<FileOperation>builder()
+                        .addCopies(new FileOperation(MANIFEST, OUTPUT_FILE_CREATE_OR_OVERWRITE), 1)
+                        .addCopies(new FileOperation(MANIFEST, OUTPUT_FILE_LOCATION), 1)
+                        .addCopies(new FileOperation(METADATA_JSON, INPUT_FILE_NEW_STREAM), 2)
+                        .addCopies(new FileOperation(METADATA_JSON, OUTPUT_FILE_CREATE), 2) // TODO (https://github.com/trinodb/trino/issues/15439): it would be good to publish data and stats in one commit
+                        .addCopies(new FileOperation(METADATA_JSON, OUTPUT_FILE_LOCATION), 2)
+                        .addCopies(new FileOperation(SNAPSHOT, INPUT_FILE_GET_LENGTH), 2)
+                        .addCopies(new FileOperation(SNAPSHOT, INPUT_FILE_NEW_STREAM), 2)
+                        .addCopies(new FileOperation(SNAPSHOT, OUTPUT_FILE_CREATE_OR_OVERWRITE), 1)
+                        .addCopies(new FileOperation(SNAPSHOT, OUTPUT_FILE_LOCATION), 2)
+                        .addCopies(new FileOperation(STATS, OUTPUT_FILE_CREATE), 1)
                         .build());
     }
 
@@ -449,6 +469,14 @@ public class TestIcebergMetadataFileOperations
         return (long) computeScalar(format("SELECT snapshot_id FROM \"%s$snapshots\" ORDER BY committed_at DESC FETCH FIRST 1 ROW WITH TIES", tableName));
     }
 
+    private static Session withStatsOnWrite(Session session, boolean enabled)
+    {
+        String catalog = session.getCatalog().orElseThrow();
+        return Session.builder(session)
+                .setCatalogSessionProperty(catalog, COLLECT_EXTENDED_STATISTICS_ON_WRITE, Boolean.toString(enabled))
+                .build();
+    }
+
     static class FileOperation
     {
         private final FileType fileType;
@@ -505,6 +533,7 @@ public class TestIcebergMetadataFileOperations
         METADATA_JSON,
         MANIFEST,
         SNAPSHOT,
+        STATS,
         DATA,
         /**/;
 
@@ -518,6 +547,9 @@ public class TestIcebergMetadataFileOperations
             }
             if (path.endsWith("-m0.avro")) {
                 return MANIFEST;
+            }
+            if (path.endsWith(".stats")) {
+                return STATS;
             }
             if (path.contains("/data/") && path.endsWith(".orc")) {
                 return DATA;
