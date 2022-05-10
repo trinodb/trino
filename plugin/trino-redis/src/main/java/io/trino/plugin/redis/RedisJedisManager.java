@@ -78,6 +78,7 @@ public class RedisJedisManager
                 host.getHostText(),
                 host.getPort(),
                 toIntExact(redisConnectorConfig.getRedisConnectTimeout().toMillis()),
+                redisConnectorConfig.getRedisUser(),
                 redisConnectorConfig.getRedisPassword(),
                 redisConnectorConfig.getRedisDataBaseIndex());
     }
