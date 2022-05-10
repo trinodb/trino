@@ -26,21 +26,31 @@ public class RedisServer
     public static final String LATEST_VERSION = "7.0.0";
     private static final int PORT = 6379;
 
+    public static final String USER = "test";
+    public static final String PASSWORD = "password";
+
     private final GenericContainer<?> container;
     private final JedisPool jedisPool;
 
     public RedisServer()
     {
-        this(DEFAULT_VERSION);
+        this(DEFAULT_VERSION, false);
     }
 
-    public RedisServer(String version)
+    public RedisServer(String version, boolean setAccessControl)
     {
         container = new GenericContainer<>("redis:" + version)
                 .withExposedPorts(PORT);
-        container.start();
-
-        jedisPool = new JedisPool(container.getContainerIpAddress(), container.getMappedPort(PORT));
+        if (setAccessControl) {
+            container.withCommand("redis-server", "--requirepass", PASSWORD);
+            container.start();
+            jedisPool = new JedisPool(container.getContainerIpAddress(), container.getMappedPort(PORT), null, PASSWORD);
+            jedisPool.getResource().aclSetUser(USER, "on", ">" + PASSWORD, "~*:*", "+@all");
+        }
+        else {
+            container.start();
+            jedisPool = new JedisPool(container.getContainerIpAddress(), container.getMappedPort(PORT));
+        }
     }
 
     public JedisPool getJedisPool()

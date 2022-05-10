@@ -19,6 +19,8 @@ import io.trino.testing.QueryRunner;
 
 import static io.trino.plugin.redis.RedisQueryRunner.createRedisQueryRunner;
 import static io.trino.plugin.redis.util.RedisServer.LATEST_VERSION;
+import static io.trino.plugin.redis.util.RedisServer.PASSWORD;
+import static io.trino.plugin.redis.util.RedisServer.USER;
 
 public class TestRedisLatestConnectorTest
         extends BaseRedisConnectorTest
@@ -31,7 +33,7 @@ public class TestRedisLatestConnectorTest
         return createRedisQueryRunner(
                 redisServer,
                 ImmutableMap.of(),
-                ImmutableMap.of(),
+                ImmutableMap.of("redis.user", USER, "redis.password", PASSWORD),
                 "string",
                 REQUIRED_TPCH_TABLES);
     }
