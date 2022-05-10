@@ -18,12 +18,14 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.cost.ScalarStatsCalculator;
+import io.trino.metadata.InternalFunctionBundle;
 import io.trino.metadata.TableHandle;
 import io.trino.plugin.hive.HiveTransactionHandle;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.iceberg.ColumnIdentity;
 import io.trino.plugin.iceberg.IcebergColumnHandle;
+import io.trino.plugin.iceberg.IcebergPlugin;
 import io.trino.plugin.iceberg.IcebergTableHandle;
 import io.trino.plugin.iceberg.TestingIcebergConnectorFactory;
 import io.trino.plugin.iceberg.catalog.file.TestingIcebergFileMetastoreCatalogModule;
@@ -115,6 +117,10 @@ public class TestConnectorPushdownRulesWithIceberg
 
         HiveMetastore metastore = createTestingFileHiveMetastore(baseDir);
         LocalQueryRunner queryRunner = LocalQueryRunner.create(ICEBERG_SESSION);
+
+        InternalFunctionBundle.InternalFunctionBundleBuilder functions = InternalFunctionBundle.builder();
+        new IcebergPlugin().getFunctions().forEach(functions::functions);
+        queryRunner.addFunctions(functions.build());
 
         queryRunner.createCatalog(
                 TEST_CATALOG_NAME,
