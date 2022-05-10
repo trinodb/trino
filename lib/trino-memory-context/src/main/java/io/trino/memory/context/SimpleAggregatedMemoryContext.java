@@ -34,6 +34,7 @@ class SimpleAggregatedMemoryContext
     @Override
     synchronized boolean tryUpdateBytes(String allocationTag, long delta)
     {
+        checkState(!isClosed(), "SimpleAggregatedMemoryContext is already closed");
         addBytes(delta);
         return true;
     }
