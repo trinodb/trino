@@ -1793,25 +1793,19 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate(insertStart + " VALUES -10", 1);
         assertUpdate(insertStart + " VALUES 100", 1);
 
-        // SHOW STATS returns rows of the form: column_name, data_size, distinct_values_count, nulls_fractions, row_count, low_value, high_value
-
-        MaterializedResult result = computeActual("SHOW STATS FOR " + tableName);
-        MaterializedResult expectedStatistics =
-                resultBuilder(getSession(), VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
-                        .row("col", null, null, 0.0, null, "-10.0", "100.0")
-                        .row(null, null, null, null, 2.0, null, null)
-                        .build();
-        assertEquals(result, expectedStatistics);
+        assertThat(query("SHOW STATS FOR " + tableName))
+                .skippingTypesCheck()
+                .matches("VALUES " +
+                        "  ('col', NULL, NULL, 0e0, NULL, '-10.0', '100.0'), " +
+                        "  (NULL, NULL, NULL, NULL, 2e0, NULL, NULL)");
 
         assertUpdate(insertStart + " VALUES 200", 1);
 
-        result = computeActual("SHOW STATS FOR " + tableName);
-        expectedStatistics =
-                resultBuilder(getSession(), VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
-                        .row("col", null, null, 0.0, null, "-10.0", "200.0")
-                        .row(null, null, null, null, 3.0, null, null)
-                        .build();
-        assertEquals(result, expectedStatistics);
+        assertThat(query("SHOW STATS FOR " + tableName))
+                .skippingTypesCheck()
+                .matches("VALUES " +
+                        "  ('col', NULL, NULL, 0e0, NULL, '-10.0', '200.0'), " +
+                        "  (NULL, NULL, NULL, NULL, 3e0, NULL, NULL)");
 
         dropTable(tableName);
     }
