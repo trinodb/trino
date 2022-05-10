@@ -15,6 +15,7 @@ package io.trino.split;
 
 import io.trino.Session;
 import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogServiceProvider;
 import io.trino.execution.QueryManagerConfig;
 import io.trino.metadata.TableHandle;
 import io.trino.spi.connector.ConnectorSession;
@@ -26,35 +27,19 @@ import io.trino.spi.connector.DynamicFilter;
 
 import javax.inject.Inject;
 
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
-
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
 import static io.trino.SystemSessionProperties.isAllowPushdownIntoConnectors;
 import static java.util.Objects.requireNonNull;
 
 public class SplitManager
 {
-    private final ConcurrentMap<CatalogName, ConnectorSplitManager> splitManagers = new ConcurrentHashMap<>();
+    private final CatalogServiceProvider<ConnectorSplitManager> splitManagerProvider;
     private final int minScheduleSplitBatchSize;
 
     @Inject
-    public SplitManager(QueryManagerConfig config)
+    public SplitManager(CatalogServiceProvider<ConnectorSplitManager> splitManagerProvider, QueryManagerConfig config)
     {
+        this.splitManagerProvider = requireNonNull(splitManagerProvider, "splitManagerProvider is null");
         this.minScheduleSplitBatchSize = config.getMinScheduleSplitBatchSize();
-    }
-
-    public void addConnectorSplitManager(CatalogName catalogName, ConnectorSplitManager connectorSplitManager)
-    {
-        requireNonNull(catalogName, "catalogName is null");
-        requireNonNull(connectorSplitManager, "connectorSplitManager is null");
-        checkState(splitManagers.putIfAbsent(catalogName, connectorSplitManager) == null, "SplitManager for connector '%s' is already registered", catalogName);
-    }
-
-    public void removeConnectorSplitManager(CatalogName catalogName)
-    {
-        splitManagers.remove(catalogName);
     }
 
     public SplitSource getSplits(
@@ -65,7 +50,7 @@ public class SplitManager
             Constraint constraint)
     {
         CatalogName catalogName = table.getCatalogName();
-        ConnectorSplitManager splitManager = getConnectorSplitManager(catalogName);
+        ConnectorSplitManager splitManager = splitManagerProvider.getService(catalogName);
         if (!isAllowPushdownIntoConnectors(session)) {
             dynamicFilter = DynamicFilter.EMPTY;
         }
@@ -85,12 +70,5 @@ public class SplitManager
             splitSource = new BufferingSplitSource(splitSource, minScheduleSplitBatchSize);
         }
         return splitSource;
-    }
-
-    private ConnectorSplitManager getConnectorSplitManager(CatalogName catalogName)
-    {
-        ConnectorSplitManager result = splitManagers.get(catalogName);
-        checkArgument(result != null, "No split manager for connector '%s'", catalogName);
-        return result;
     }
 }

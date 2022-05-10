@@ -15,10 +15,21 @@ package io.trino.connector;
 
 import com.google.inject.Binder;
 import com.google.inject.Module;
+import com.google.inject.Provides;
+import io.trino.spi.connector.ConnectorSplitManager;
+
+import javax.inject.Singleton;
 
 public class CatalogServiceProviderModule
         implements Module
 {
     @Override
     public void configure(Binder binder) {}
+
+    @Provides
+    @Singleton
+    public static CatalogServiceProvider<ConnectorSplitManager> createSplitManagerProvider(ConnectorServicesProvider connectorServicesProvider)
+    {
+        return new ConnectorCatalogServiceProvider<>("split manager", connectorServicesProvider, connector -> connector.getSplitManager().orElse(null));
+    }
 }
