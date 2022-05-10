@@ -63,13 +63,17 @@ public class TableStatisticsMaker
     private TableStatistics makeTableStatistics(IcebergTableHandle tableHandle)
     {
         if (tableHandle.getSnapshotId().isEmpty()) {
-            return TableStatistics.empty();
+            return TableStatistics.builder()
+                    .setRowCount(Estimate.of(0))
+                    .build();
         }
 
         TupleDomain<IcebergColumnHandle> enforcedPredicate = tableHandle.getEnforcedPredicate();
 
         if (enforcedPredicate.isNone()) {
-            return TableStatistics.empty();
+            return TableStatistics.builder()
+                    .setRowCount(Estimate.of(0))
+                    .build();
         }
 
         Schema icebergTableSchema = icebergTable.schema();
@@ -111,7 +115,9 @@ public class TableStatisticsMaker
         IcebergStatistics summary = icebergStatisticsBuilder.build();
 
         if (summary.getFileCount() == 0) {
-            return TableStatistics.empty();
+            return TableStatistics.builder()
+                    .setRowCount(Estimate.of(0))
+                    .build();
         }
 
         ImmutableMap.Builder<ColumnHandle, ColumnStatistics> columnHandleBuilder = ImmutableMap.builder();

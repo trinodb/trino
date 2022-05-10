@@ -1789,6 +1789,13 @@ public abstract class BaseIcebergConnectorTest
     {
         String tableName = "test_basic_table_statistics";
         assertUpdate(format("CREATE TABLE %s (col REAL)", tableName));
+
+        assertThat(query("SHOW STATS FOR " + tableName))
+                .skippingTypesCheck()
+                .matches("VALUES " +
+                        "  ('col', 0e0, 0e0, 1e0, NULL, NULL, NULL), " +
+                        "  (NULL, NULL, NULL, NULL, 0e0, NULL, NULL)");
+
         assertUpdate("INSERT INTO " + tableName + " VALUES -10", 1);
         assertUpdate("INSERT INTO " + tableName + " VALUES 100", 1);
 
