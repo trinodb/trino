@@ -218,6 +218,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.trino.connector.CatalogServiceProviderModule.createSplitManagerProvider;
 import static io.trino.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.GROUPED_SCHEDULING;
 import static io.trino.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
 import static io.trino.spi.connector.Constraint.alwaysTrue;
@@ -371,7 +372,6 @@ public class LocalQueryRunner
                 new JsonQueryFunction(functionManager, metadata, typeManager)));
         typeRegistry.addType(new JsonPath2016Type(new TypeDeserializer(typeManager), blockEncodingSerde));
         this.plannerContext = new PlannerContext(metadata, typeOperators, blockEncodingSerde, typeManager, functionManager);
-        this.splitManager = new SplitManager(new QueryManagerConfig());
         this.planFragmenter = new PlanFragmenter(metadata, functionManager, this.nodePartitioningManager, new QueryManagerConfig());
         this.joinCompiler = new JoinCompiler(typeOperators);
         PageIndexerFactory pageIndexerFactory = new GroupByHashPageIndexerFactory(joinCompiler, blockTypeOperators);
@@ -419,7 +419,6 @@ public class LocalQueryRunner
                 metadata,
                 catalogManager,
                 accessControl,
-                splitManager,
                 pageSourceManager,
                 indexManager,
                 nodePartitioningManager,
@@ -444,6 +443,7 @@ public class LocalQueryRunner
                 analyzePropertyManager,
                 tableProceduresPropertyManager,
                 nodeSchedulerConfig);
+        this.splitManager = new SplitManager(createSplitManagerProvider(connectorManager), new QueryManagerConfig());
 
         GlobalSystemConnectorFactory globalSystemConnectorFactory = new GlobalSystemConnectorFactory(ImmutableSet.of(
                 new NodeSystemTable(nodeManager),
