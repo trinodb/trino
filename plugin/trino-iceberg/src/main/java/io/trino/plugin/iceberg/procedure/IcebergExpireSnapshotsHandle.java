@@ -17,6 +17,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.airlift.units.Duration;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public class IcebergExpireSnapshotsHandle
@@ -39,8 +40,8 @@ public class IcebergExpireSnapshotsHandle
     @Override
     public String toString()
     {
-        return new StringBuilder()
-                .append("retentionThreshold:").append(retentionThreshold)
+        return toStringHelper(this)
+                .add("retentionThreshold", retentionThreshold)
                 .toString();
     }
 }

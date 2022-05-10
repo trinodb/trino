@@ -3295,7 +3295,7 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate("INSERT INTO " + tableName + " VALUES ('two', 2)", 1);
 
         assertExplain("EXPLAIN ALTER TABLE " + tableName + " EXECUTE EXPIRE_SNAPSHOTS (retention_threshold => '0s')",
-                "SimpleTableExecute\\[iceberg:schemaTableName:tpch.test_expiring_snapshots.*\\{retentionThreshold:0\\.00s}.*");
+                "SimpleTableExecute\\[iceberg:schemaTableName:tpch.test_expiring_snapshots.*\\{retentionThreshold=0\\.00s}.*");
     }
 
     @Test
