@@ -38,14 +38,7 @@ public class LdapAuthenticatorClient
     public void validatePassword(String userDistinguishedName, String password)
             throws NamingException
     {
-        ldapClient.executeLdapQuery(
-                userDistinguishedName,
-                password,
-                new LdapQuery.LdapQueryBuilder()
-                        .withSearchBase(userDistinguishedName)
-                        .withSearchFilter(userDistinguishedName)
-                        .build(),
-                searchResults -> null);
+        ldapClient.processLdapContext(userDistinguishedName, password, context -> null);
     }
 
     public boolean isGroupMember(String searchBase, String groupSearch, String contextUserDistinguishedName, String contextPassword)
