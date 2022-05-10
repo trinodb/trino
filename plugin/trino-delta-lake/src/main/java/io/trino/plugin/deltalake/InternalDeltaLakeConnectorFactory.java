@@ -88,6 +88,7 @@ public final class InternalDeltaLakeConnectorFactory
                     new HiveAzureModule(),
                     new DeltaLakeAzureModule(),
                     new HiveGcsModule(),
+                    new DeltaLakeGcsModule(),
                     new HdfsAuthenticationModule(),
                     new HdfsFileSystemModule(),
                     new CatalogNameModule(catalogName),
