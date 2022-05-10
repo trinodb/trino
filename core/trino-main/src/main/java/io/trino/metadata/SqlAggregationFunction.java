@@ -29,7 +29,12 @@ public abstract class SqlAggregationFunction
 
     public static List<SqlAggregationFunction> createFunctionsByAnnotations(Class<?> aggregationDefinition)
     {
-        return ImmutableList.copyOf(AggregationFromAnnotationsParser.parseFunctionDefinitions(aggregationDefinition));
+        try {
+            return ImmutableList.copyOf(AggregationFromAnnotationsParser.parseFunctionDefinitions(aggregationDefinition));
+        }
+        catch (RuntimeException e) {
+            throw new IllegalArgumentException("Invalid aggregation class " + aggregationDefinition.getSimpleName());
+        }
     }
 
     public SqlAggregationFunction(FunctionMetadata functionMetadata, AggregationFunctionMetadata aggregationFunctionMetadata)
