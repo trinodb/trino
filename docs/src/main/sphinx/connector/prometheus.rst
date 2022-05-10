@@ -54,6 +54,8 @@ Property Name                                   Description
 ``prometheus.query.chunk.size.duration`` The duration of each query to Prometheus
 ``prometheus.max.query.range.duration``  Width of overall query to Prometheus, will be divided into query-chunk-size-duration queries
 ``prometheus.cache.ttl``                 How long values from this config file are cached
+``prometheus.auth.user``                 Username for basic authentication
+``prometheus.auth.password``             Password for basic authentication
 ``prometheus.bearer.token.file``         File holding bearer token if needed for access to Prometheus
 ``prometheus.read-timeout``              How much time a query to Prometheus has before timing out
 ======================================== ============================================================================================

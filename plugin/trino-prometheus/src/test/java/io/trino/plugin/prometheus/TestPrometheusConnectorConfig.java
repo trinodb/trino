@@ -42,6 +42,8 @@ public class TestPrometheusConnectorConfig
                 .setMaxQueryRangeDuration(new Duration(21, DAYS))
                 .setCacheDuration(new Duration(30, SECONDS))
                 .setBearerTokenFile(null)
+                .setUser(null)
+                .setPassword(null)
                 .setReadTimeout(new Duration(10, SECONDS)));
     }
 
@@ -54,6 +56,8 @@ public class TestPrometheusConnectorConfig
                 .put("prometheus.max.query.range.duration", "1095d")
                 .put("prometheus.cache.ttl", "60s")
                 .put("prometheus.bearer.token.file", "/tmp/bearer_token.txt")
+                .put("prometheus.auth.user", "admin")
+                .put("prometheus.auth.password", "password")
                 .put("prometheus.read-timeout", "30s")
                 .buildOrThrow();
 
@@ -64,6 +68,8 @@ public class TestPrometheusConnectorConfig
         expected.setMaxQueryRangeDuration(new Duration(1095, DAYS));
         expected.setCacheDuration(new Duration(60, SECONDS));
         expected.setBearerTokenFile(new File("/tmp/bearer_token.txt"));
+        expected.setUser("admin");
+        expected.setPassword("password");
         expected.setReadTimeout(new Duration(30, SECONDS));
 
         assertFullMapping(properties, expected);
@@ -81,5 +87,25 @@ public class TestPrometheusConnectorConfig
         assertThatThrownBy(config::checkConfig)
                 .isInstanceOf(ConfigurationException.class)
                 .hasMessageContaining("prometheus.max.query.range.duration must be greater than prometheus.query.chunk.size.duration");
+    }
+
+    @Test
+    public void testInvalidAuth()
+    {
+        assertThatThrownBy(new PrometheusConnectorConfig().setBearerTokenFile(new File("/tmp/bearer_token.txt")).setUser("test")::checkConfig)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Either on of bearer token file or basic authentication should be used");
+
+        assertThatThrownBy(new PrometheusConnectorConfig().setBearerTokenFile(new File("/tmp/bearer_token.txt")).setPassword("test")::checkConfig)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Either on of bearer token file or basic authentication should be used");
+
+        assertThatThrownBy(new PrometheusConnectorConfig().setUser("test")::checkConfig)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Both username and password must be set when using basic authentication");
+
+        assertThatThrownBy(new PrometheusConnectorConfig().setPassword("test")::checkConfig)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Both username and password must be set when using basic authentication");
     }
 }
