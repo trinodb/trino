@@ -13,37 +13,20 @@
  */
 package io.trino.operator.aggregation.state;
 
-import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AccumulatorStateSerializer;
 import io.trino.spi.type.Type;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static java.util.Objects.requireNonNull;
 
 public class NullableLongStateSerializer
         implements AccumulatorStateSerializer<NullableLongState>
 {
-    private final Type type;
-
-    @UsedByGeneratedCode
-    public NullableLongStateSerializer()
-    {
-        this(BIGINT);
-    }
-
-    public NullableLongStateSerializer(Type type)
-    {
-        this.type = requireNonNull(type, "type is null");
-        checkArgument(type.getJavaType() == long.class, "Type must use long stack type: " + type);
-    }
-
     @Override
     public Type getSerializedType()
     {
-        return type;
+        return BIGINT;
     }
 
     @Override
@@ -53,7 +36,7 @@ public class NullableLongStateSerializer
             out.appendNull();
         }
         else {
-            type.writeLong(out, state.getValue());
+            BIGINT.writeLong(out, state.getValue());
         }
     }
 
@@ -65,7 +48,7 @@ public class NullableLongStateSerializer
         }
         else {
             state.setNull(false);
-            state.setValue(type.getLong(block, index));
+            state.setValue(BIGINT.getLong(block, index));
         }
     }
 }
