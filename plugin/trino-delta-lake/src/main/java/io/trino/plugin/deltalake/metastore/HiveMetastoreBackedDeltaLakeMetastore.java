@@ -32,6 +32,7 @@ import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.TupleDomain;
@@ -186,12 +187,20 @@ public class HiveMetastoreBackedDeltaLakeMetastore
     @Override
     public String getTableLocation(SchemaTableName table, ConnectorSession session)
     {
-        Map<String, String> serdeParameters = getTable(table.getSchemaName(), table.getTableName())
+        String schemaName = table.getSchemaName();
+        Map<String, String> serdeParameters = getTable(schemaName, table.getTableName())
                 .orElseThrow(() -> new TableNotFoundException(table))
                 .getStorage().getSerdeParameters();
         String location = serdeParameters.get(PATH_PROPERTY);
         if (location == null) {
-            throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, format("No %s property defined for table: %s", PATH_PROPERTY, table));
+            Database database = getDatabase(schemaName).orElseThrow(() -> new SchemaNotFoundException(schemaName));
+            if (database.getLocation().isEmpty()) {
+                throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, format("No %s property defined for table: %s", PATH_PROPERTY, table));
+            }
+            else {
+                Path path = new Path(database.getLocation().get(), table.getTableName());
+                return path.toString();
+            }
         }
         return location;
     }
