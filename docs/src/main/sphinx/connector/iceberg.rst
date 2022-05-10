@@ -154,6 +154,7 @@ supports the following features:
 
 * :doc:`/sql/insert`
 * :doc:`/sql/delete`, see also :ref:`iceberg-delete`
+* :doc:`/sql/update`
 * :ref:`sql-schema-table-management`, see also :ref:`iceberg-tables`
 * :ref:`sql-materialized-view-management`, see also
   :ref:`iceberg-materialized-views`
