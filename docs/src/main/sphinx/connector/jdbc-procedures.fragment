@@ -10,3 +10,13 @@ Procedures
 
       USE example.myschema;
       CALL system.flush_metadata_cache();
+
+* ``system.pass_through('statement')``
+
+  Executes a query direclty on the underlying jdbc connection.  
+
+  .. code-block:: sql
+
+      USE example.myschema;
+      CALL system.pass_through(
+        statement => 'ALTER TABLE your_table add CONSTRAINT ACTIVEPROG_FKEY1 FOREIGN KEY(ActiveProgCode) REFERENCES PROGRAM(ActiveProgCode) ON DELETE CASCADE')
