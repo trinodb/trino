@@ -28,6 +28,6 @@ public class TestRedisDistributedHash
             throws Exception
     {
         RedisServer redisServer = closeAfterClass(new RedisServer());
-        return createRedisQueryRunner(redisServer, ImmutableMap.of(), "hash", REQUIRED_TPCH_TABLES);
+        return createRedisQueryRunner(redisServer, ImmutableMap.of(), ImmutableMap.of(), "hash", REQUIRED_TPCH_TABLES);
     }
 }

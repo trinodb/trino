@@ -49,6 +49,7 @@ public final class RedisQueryRunner
     public static DistributedQueryRunner createRedisQueryRunner(
             RedisServer redisServer,
             Map<String, String> extraProperties,
+            Map<String, String> connectorProperties,
             String dataFormat,
             Iterable<TpchTable<?>> tables)
             throws Exception
@@ -64,7 +65,7 @@ public final class RedisQueryRunner
 
             Map<SchemaTableName, RedisTableDescription> tableDescriptions = createTpchTableDescriptions(queryRunner.getCoordinator().getTypeManager(), tables, dataFormat);
 
-            installRedisPlugin(redisServer, queryRunner, tableDescriptions);
+            installRedisPlugin(redisServer, queryRunner, tableDescriptions, connectorProperties);
 
             TestingTrinoClient trinoClient = queryRunner.getClient();
 
@@ -130,6 +131,7 @@ public final class RedisQueryRunner
         DistributedQueryRunner queryRunner = createRedisQueryRunner(
                 new RedisServer(),
                 ImmutableMap.of("http-server.http.port", "8080"),
+                ImmutableMap.of(),
                 "string",
                 TpchTable.getTables());
 
