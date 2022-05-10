@@ -150,7 +150,7 @@ public class PrometheusClient
             throw new TrinoException(PROMETHEUS_UNKNOWN_ERROR, "Error reading metrics", e);
         }
 
-        throw new TrinoException(PROMETHEUS_UNKNOWN_ERROR, "Bad response " + response.code() + response.message());
+        throw new TrinoException(PROMETHEUS_UNKNOWN_ERROR, "Bad response " + response.code() + " " + response.message());
     }
 
     private Optional<String> getBearerAuthInfoFromFile()
