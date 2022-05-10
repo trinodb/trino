@@ -1789,9 +1789,8 @@ public abstract class BaseIcebergConnectorTest
     {
         String tableName = "test_basic_table_statistics";
         assertUpdate(format("CREATE TABLE %s (col REAL)", tableName));
-        String insertStart = format("INSERT INTO %s", tableName);
-        assertUpdate(insertStart + " VALUES -10", 1);
-        assertUpdate(insertStart + " VALUES 100", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES -10", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES 100", 1);
 
         assertThat(query("SHOW STATS FOR " + tableName))
                 .skippingTypesCheck()
@@ -1799,7 +1798,7 @@ public abstract class BaseIcebergConnectorTest
                         "  ('col', NULL, NULL, 0e0, NULL, '-10.0', '100.0'), " +
                         "  (NULL, NULL, NULL, NULL, 2e0, NULL, NULL)");
 
-        assertUpdate(insertStart + " VALUES 200", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES 200", 1);
 
         assertThat(query("SHOW STATS FOR " + tableName))
                 .skippingTypesCheck()
@@ -1815,9 +1814,8 @@ public abstract class BaseIcebergConnectorTest
     {
         String tableName = "test_multiple_table_statistics";
         assertUpdate(format("CREATE TABLE %s (col1 REAL, col2 INTEGER, col3 DATE)", tableName));
-        String insertStart = format("INSERT INTO %s", tableName);
-        assertUpdate(insertStart + " VALUES (-10, -1, DATE '2019-06-28')", 1);
-        assertUpdate(insertStart + " VALUES (100, 10, DATE '2020-01-01')", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (-10, -1, DATE '2019-06-28')", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (100, 10, DATE '2020-01-01')", 1);
 
         MaterializedResult result = computeActual("SHOW STATS FOR " + tableName);
 
@@ -1830,7 +1828,7 @@ public abstract class BaseIcebergConnectorTest
                         .build();
         assertEquals(result, expectedStatistics);
 
-        assertUpdate(insertStart + " VALUES (200, 20, DATE '2020-06-28')", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (200, 20, DATE '2020-06-28')", 1);
         result = computeActual("SHOW STATS FOR " + tableName);
         expectedStatistics =
                 resultBuilder(getSession(), VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
@@ -1841,11 +1839,11 @@ public abstract class BaseIcebergConnectorTest
                         .build();
         assertEquals(result, expectedStatistics);
 
-        assertUpdate(insertStart + " VALUES " + IntStream.rangeClosed(21, 25)
+        assertUpdate("INSERT INTO " + tableName + " VALUES " + IntStream.rangeClosed(21, 25)
                 .mapToObj(i -> format("(200, %d, DATE '2020-07-%d')", i, i))
                 .collect(joining(", ")), 5);
 
-        assertUpdate(insertStart + " VALUES " + IntStream.rangeClosed(26, 30)
+        assertUpdate("INSERT INTO " + tableName + " VALUES " + IntStream.rangeClosed(26, 30)
                 .mapToObj(i -> format("(NULL, %d, DATE '2020-06-%d')", i, i))
                 .collect(joining(", ")), 5);
 
@@ -1868,9 +1866,8 @@ public abstract class BaseIcebergConnectorTest
     {
         assertUpdate("CREATE TABLE iceberg.tpch.test_partitioned_table_statistics (col1 REAL, col2 BIGINT) WITH (partitioning = ARRAY['col2'])");
 
-        String insertStart = "INSERT INTO test_partitioned_table_statistics";
-        assertUpdate(insertStart + " VALUES (-10, -1)", 1);
-        assertUpdate(insertStart + " VALUES (100, 10)", 1);
+        assertUpdate("INSERT INTO test_partitioned_table_statistics VALUES (-10, -1)", 1);
+        assertUpdate("INSERT INTO test_partitioned_table_statistics VALUES (100, 10)", 1);
 
         MaterializedResult result = computeActual("SHOW STATS FOR iceberg.tpch.test_partitioned_table_statistics");
         assertEquals(result.getRowCount(), 3);
@@ -1890,11 +1887,11 @@ public abstract class BaseIcebergConnectorTest
         MaterializedRow row2 = result.getMaterializedRows().get(2);
         assertEquals(row2.getField(4), 2.0);
 
-        assertUpdate(insertStart + " VALUES " + IntStream.rangeClosed(1, 5)
+        assertUpdate("INSERT INTO test_partitioned_table_statistics VALUES " + IntStream.rangeClosed(1, 5)
                 .mapToObj(i -> format("(%d, 10)", i + 100))
                 .collect(joining(", ")), 5);
 
-        assertUpdate(insertStart + " VALUES " + IntStream.rangeClosed(6, 10)
+        assertUpdate("INSERT INTO test_partitioned_table_statistics VALUES " + IntStream.rangeClosed(6, 10)
                 .mapToObj(i -> "(NULL, 10)")
                 .collect(joining(", ")), 5);
 
@@ -1915,7 +1912,7 @@ public abstract class BaseIcebergConnectorTest
         row2 = result.getMaterializedRows().get(2);
         assertEquals(row2.getField(4), 12.0);
 
-        assertUpdate(insertStart + " VALUES " + IntStream.rangeClosed(6, 10)
+        assertUpdate("INSERT INTO test_partitioned_table_statistics VALUES " + IntStream.rangeClosed(6, 10)
                 .mapToObj(i -> "(100, NULL)")
                 .collect(joining(", ")), 5);
 
