@@ -27,7 +27,12 @@ public class TestRedisLatestConnectorTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        RedisServer redisServer = closeAfterClass(new RedisServer(LATEST_VERSION));
-        return createRedisQueryRunner(redisServer, ImmutableMap.of(), "string", REQUIRED_TPCH_TABLES);
+        RedisServer redisServer = closeAfterClass(new RedisServer(LATEST_VERSION, true));
+        return createRedisQueryRunner(
+                redisServer,
+                ImmutableMap.of(),
+                ImmutableMap.of(),
+                "string",
+                REQUIRED_TPCH_TABLES);
     }
 }
