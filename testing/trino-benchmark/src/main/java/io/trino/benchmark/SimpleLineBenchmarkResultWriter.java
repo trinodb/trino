@@ -22,6 +22,7 @@ import java.io.UncheckedIOException;
 import java.io.Writer;
 import java.util.Map;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
 public class SimpleLineBenchmarkResultWriter
@@ -31,7 +32,7 @@ public class SimpleLineBenchmarkResultWriter
 
     public SimpleLineBenchmarkResultWriter(OutputStream outputStream)
     {
-        writer = new OutputStreamWriter(requireNonNull(outputStream, "outputStream is null"));
+        writer = new OutputStreamWriter(requireNonNull(outputStream, "outputStream is null"), UTF_8);
     }
 
     @Override
