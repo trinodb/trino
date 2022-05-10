@@ -26,7 +26,7 @@ import static io.trino.plugin.hive.gcs.GcsAccessTokenProvider.GCS_ACCESS_TOKEN_C
 public class GcsConfigurationProvider
         implements DynamicConfigurationProvider
 {
-    private static final String GCS_OAUTH_KEY = "hive.gcs.oauth";
+    public static final String GCS_OAUTH_KEY = "hive.gcs.oauth";
 
     @Override
     public void updateConfiguration(Configuration configuration, HdfsContext context, URI uri)
