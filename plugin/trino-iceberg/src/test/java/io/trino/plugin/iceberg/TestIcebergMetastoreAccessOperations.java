@@ -37,6 +37,7 @@ import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Methods
 import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Methods.GET_TABLE;
 import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Methods.REPLACE_TABLE;
 import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.COLLECT_EXTENDED_STATISTICS_ON_WRITE;
 import static io.trino.plugin.iceberg.TableType.DATA;
 import static io.trino.plugin.iceberg.TableType.FILES;
 import static io.trino.plugin.iceberg.TableType.HISTORY;
@@ -106,11 +107,23 @@ public class TestIcebergMetastoreAccessOperations
     @Test
     public void testCreateTableAsSelect()
     {
-        assertMetastoreInvocations("CREATE TABLE test_ctas AS SELECT 1 AS age",
+        assertMetastoreInvocations(
+                withStatsOnWrite(getSession(), false),
+                "CREATE TABLE test_ctas AS SELECT 1 AS age",
                 ImmutableMultiset.builder()
                         .add(GET_DATABASE)
                         .add(CREATE_TABLE)
                         .add(GET_TABLE)
+                        .build());
+
+        assertMetastoreInvocations(
+                withStatsOnWrite(getSession(), true),
+                "CREATE TABLE test_ctas_with_stats AS SELECT 1 AS age",
+                ImmutableMultiset.builder()
+                        .add(GET_DATABASE)
+                        .add(CREATE_TABLE)
+                        .addCopies(GET_TABLE, 5)
+                        .add(REPLACE_TABLE)
                         .build());
     }
 
@@ -343,5 +356,13 @@ public class TestIcebergMetastoreAccessOperations
                 .collect(toImmutableList());
 
         fail("Expected: \n\t\t" + join(",\n\t\t", mismatchReport));
+    }
+
+    private static Session withStatsOnWrite(Session session, boolean enabled)
+    {
+        String catalog = session.getCatalog().orElseThrow();
+        return Session.builder(session)
+                .setCatalogSessionProperty(catalog, COLLECT_EXTENDED_STATISTICS_ON_WRITE, Boolean.toString(enabled))
+                .build();
     }
 }

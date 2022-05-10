@@ -15,6 +15,7 @@ package io.trino.plugin.iceberg.catalog.file;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
+import io.trino.metadata.InternalFunctionBundle;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveMetastore;
@@ -23,6 +24,7 @@ import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastore;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig;
+import io.trino.plugin.iceberg.IcebergPlugin;
 import io.trino.plugin.iceberg.TestingIcebergConnectorFactory;
 import io.trino.spi.security.PrincipalType;
 import io.trino.testing.AbstractTestQueryFramework;
@@ -78,6 +80,10 @@ public class TestIcebergFileMetastoreTableOperationsInsertFailure
             }
         };
         LocalQueryRunner queryRunner = LocalQueryRunner.create(session);
+
+        InternalFunctionBundle.InternalFunctionBundleBuilder functions = InternalFunctionBundle.builder();
+        new IcebergPlugin().getFunctions().forEach(functions::functions);
+        queryRunner.addFunctions(functions.build());
 
         queryRunner.createCatalog(
                 ICEBERG_CATALOG,
