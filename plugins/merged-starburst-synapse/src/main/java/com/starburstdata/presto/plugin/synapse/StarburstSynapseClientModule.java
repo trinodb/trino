@@ -51,14 +51,12 @@ public class StarburstSynapseClientModule
         // https://docs.microsoft.com/en-us/sql/t-sql/statements/set-transaction-isolation-level-transact-sql?view=sql-server-ver15) don't explain
         // whether this is the expected behavior.
         configBinder(binder).bindConfigDefaults(SqlServerConfig.class, config -> config.setSnapshotIsolationDisabled(true));
-
+        configBinder(binder).bindConfig(JdbcStatisticsConfig.class);
         newOptionalBinder(binder, Key.get(int.class, MaxDomainCompactionThreshold.class)).setBinding().toInstance(SQL_SERVER_MAX_LIST_EXPRESSIONS);
 
-        configBinder(binder).bindConfig(JdbcStatisticsConfig.class);
+        install(new JdbcJoinPushdownSupportModule());
 
         bindSessionPropertiesProvider(binder, StarburstSynapseSessionProperties.class);
-
-        install(new JdbcJoinPushdownSupportModule());
 
         newOptionalBinder(binder, Key.get(JdbcClient.class, ForBaseJdbc.class))
                 .setDefault()
