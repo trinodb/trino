@@ -143,7 +143,7 @@ public class PluginReader
 
     private static List<String> readTrinoPlugins(File rootPom)
     {
-        try (FileReader fileReader = new FileReader(rootPom)) {
+        try (FileReader fileReader = new FileReader(rootPom, UTF_8)) {
             MavenXpp3Reader reader = new MavenXpp3Reader();
             Model model = reader.read(fileReader);
             return model.getModules().stream()
@@ -161,7 +161,7 @@ public class PluginReader
     private static boolean isTrinoPlugin(String module)
     {
         String modulePom = module + "/pom.xml";
-        try (FileReader fileReader = new FileReader(modulePom)) {
+        try (FileReader fileReader = new FileReader(modulePom, UTF_8)) {
             MavenXpp3Reader reader = new MavenXpp3Reader();
             Model model = reader.read(fileReader);
             return model.getPackaging().equals("trino-plugin");
