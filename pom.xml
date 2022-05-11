@@ -169,6 +169,7 @@
         <module>testing/trino-testing</module>
         <module>testing/trino-testing-containers</module>
         <module>testing/trino-testing-kafka</module>
+        <module>testing/trino-testing-resources</module>
         <module>testing/trino-testing-services</module>
         <module>testing/trino-tests</module>
     </modules>
@@ -534,6 +535,12 @@
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-testing-kafka</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-testing-resources</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
