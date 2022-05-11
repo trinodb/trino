@@ -14,7 +14,6 @@
 package io.trino.plugin.jdbc.procedure;
 
 import com.google.common.collect.ImmutableList;
-import io.airlift.log.Logger;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcSplit;
 import io.trino.spi.TrinoException;
@@ -40,7 +39,6 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 public class PassThroughProcedure
         implements Provider<Procedure>
 {
-    private static final Logger log = Logger.get(PassThroughProcedure.class);
     private final JdbcClient jdbcClient;
 
     @Inject
