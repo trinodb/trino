@@ -28,26 +28,18 @@ import static java.util.Objects.requireNonNull;
  * provided, and they must connect to a database server, for this class to be
  * used.
  */
-class SnowflakeServer
+public class SnowflakeServer
 {
     private static final Logger LOG = Logger.get(SnowflakeServer.class);
 
-    static final String ROLE = requireNonNull(System.getProperty("snowflake.test.server.role"), "snowflake.test.server.role is not set");
+    public static final String ROLE = requireNonNull(System.getProperty("snowflake.test.server.role"), "snowflake.test.server.role is not set");
 
-    static final String JDBC_URL = requireNonNull(System.getProperty("snowflake.test.server.url"), "snowflake.test.server.url is not set");
-    static final String USER = requireNonNull(System.getProperty("snowflake.test.server.user"), "snowflake.test.server.user is not set");
-    static final String PASSWORD = requireNonNull(System.getProperty("snowflake.test.server.password"), "snowflake.test.server.password is not set");
+    public static final String JDBC_URL = requireNonNull(System.getProperty("snowflake.test.server.url"), "snowflake.test.server.url is not set");
+    public static final String USER = requireNonNull(System.getProperty("snowflake.test.server.user"), "snowflake.test.server.user is not set");
+    public static final String PASSWORD = requireNonNull(System.getProperty("snowflake.test.server.password"), "snowflake.test.server.password is not set");
 
-    static final String OKTA_USER = requireNonNull(System.getProperty("snowflake.test.okta.user"), "snowflake.test.okta.user is not set");
-    static final String OKTA_PASSWORD = requireNonNull(System.getProperty("snowflake.test.okta.password"), "snowflake.test.okta.password is not set");
-    static final String OKTA_URL = requireNonNull(System.getProperty("snowflake.test.okta-url"), "snowflake.test.okta-url is not set");
-    static final String ACCOUNT_URL = requireNonNull(System.getProperty("snowflake.test.account-url"), "snowflake.test.account-url is not set");
-    static final String ACCOUNT_NAME = requireNonNull(System.getProperty("snowflake.test.account-name"), "snowflake.test.account-name is not set");
-    static final String CLIENT_ID = requireNonNull(System.getProperty("snowflake.test.client-id"), "snowflake.test.client-id is not set");
-    static final String CLIENT_SECRET = requireNonNull(System.getProperty("snowflake.test.client-secret"), "snowflake.test.client-secret is not set");
-
-    static final String TEST_WAREHOUSE = "TEST_WH";
-    static final String TEST_DATABASE = "TEST_DB";
+    public static final String TEST_WAREHOUSE = "TEST_WH";
+    public static final String TEST_DATABASE = "TEST_DB";
 
     void init()
             throws SQLException
@@ -58,17 +50,17 @@ class SnowflakeServer
         execute("SELECT 1");
     }
 
-    TestDatabase createDatabase(String databaseSuffix)
+    public TestDatabase createDatabase(String databaseSuffix)
     {
         return new TestDatabase(this::safeExecute, databaseSuffix);
     }
 
-    TestDatabase createTestDatabase()
+    public TestDatabase createTestDatabase()
     {
         return createDatabase("TEST");
     }
 
-    void createSchema(String databaseName, String schemaName)
+    public void createSchema(String databaseName, String schemaName)
             throws SQLException
     {
         executeOnDatabase(databaseName, format("CREATE SCHEMA IF NOT EXISTS %s", schemaName));
@@ -80,7 +72,7 @@ class SnowflakeServer
         executeOnDatabase(TEST_DATABASE, sqls);
     }
 
-    void executeOnDatabase(String database, String... sqls)
+    public void executeOnDatabase(String database, String... sqls)
             throws SQLException
     {
         try (Connection conn = getConnection();
@@ -107,7 +99,7 @@ class SnowflakeServer
         }
     }
 
-    void safeExecuteOnDatabase(String database, String... sqls)
+    public void safeExecuteOnDatabase(String database, String... sqls)
     {
         try {
             executeOnDatabase(database, sqls);
@@ -117,7 +109,7 @@ class SnowflakeServer
         }
     }
 
-    protected Connection getConnection()
+    public Connection getConnection()
             throws SQLException
     {
         return DriverManager.getConnection(JDBC_URL, USER, PASSWORD);

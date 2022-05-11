@@ -33,7 +33,6 @@ public class TestDistributedSnowflakeLargeScan
             .withDatabase(Optional.of(TEST_DATABASE))
             .withSchema(Optional.empty())
             .withConnectorProperties(impersonationDisabled())
-            .withConnectionPooling()
             .build();
     }
 

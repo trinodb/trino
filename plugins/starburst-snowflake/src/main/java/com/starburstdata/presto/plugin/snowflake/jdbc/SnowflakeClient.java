@@ -12,8 +12,6 @@ package com.starburstdata.presto.plugin.snowflake.jdbc;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.starburstdata.presto.plugin.jdbc.redirection.TableScanRedirection;
-import com.starburstdata.presto.plugin.toolkit.UtcTimeZoneCalendar;
 import io.trino.plugin.base.aggregation.AggregateFunctionRewriter;
 import io.trino.plugin.base.aggregation.AggregateFunctionRule;
 import io.trino.plugin.base.expression.ConnectorExpressionRewriter;
@@ -61,7 +59,6 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
-import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.statistics.Estimate;
 import io.trino.spi.statistics.TableStatistics;
@@ -211,13 +208,11 @@ public class SnowflakeClient
     private final ConnectorExpressionRewriter<String> connectorExpressionRewriter;
     private final AggregateFunctionRewriter<JdbcExpression, String> aggregateFunctionRewriter;
     private final boolean statisticsEnabled;
-    private final TableScanRedirection tableScanRedirection;
     private final boolean distributedConnector;
 
     public SnowflakeClient(
             BaseJdbcConfig config,
             JdbcStatisticsConfig statisticsConfig,
-            TableScanRedirection tableScanRedirection,
             ConnectionFactory connectionFactory,
             boolean distributedConnector,
             QueryBuilder queryBuilder,
@@ -225,7 +220,6 @@ public class SnowflakeClient
     {
         super(config, IDENTIFIER_QUOTE, connectionFactory, queryBuilder, identifierMapping);
         this.statisticsEnabled = requireNonNull(statisticsConfig, "statisticsConfig is null").isEnabled();
-        this.tableScanRedirection = requireNonNull(tableScanRedirection, "tableScanRedirection is null");
         this.distributedConnector = distributedConnector;
         this.connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder()
                 .addStandardRules(this::quoted)
@@ -282,12 +276,6 @@ public class SnowflakeClient
     public PreparedQuery applyQueryTransformations(JdbcTableHandle tableHandle, PreparedQuery query)
     {
         return super.applyQueryTransformations(tableHandle, query);
-    }
-
-    @Override
-    public Optional<TableScanRedirectApplicationResult> getTableScanRedirection(ConnectorSession session, JdbcTableHandle handle)
-    {
-        return tableScanRedirection.getTableScanRedirection(session, handle, this);
     }
 
     @Override

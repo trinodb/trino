@@ -9,7 +9,7 @@
  */
 package com.starburstdata.presto.plugin.snowflake;
 
-import com.starburstdata.presto.testing.Closer;
+import com.google.common.io.Closer;
 import io.trino.Session;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.TimeZoneKey;

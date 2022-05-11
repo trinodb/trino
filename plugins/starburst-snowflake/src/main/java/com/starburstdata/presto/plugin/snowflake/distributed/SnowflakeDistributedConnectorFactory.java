@@ -10,7 +10,6 @@
 package com.starburstdata.presto.plugin.snowflake.distributed;
 
 import com.google.inject.Injector;
-import com.starburstdata.presto.license.LicenseManager;
 import io.airlift.bootstrap.Bootstrap;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.Connector;
@@ -27,12 +26,10 @@ public class SnowflakeDistributedConnectorFactory
         implements ConnectorFactory
 {
     private final String name;
-    private final LicenseManager licenseManager;
 
-    public SnowflakeDistributedConnectorFactory(String name, LicenseManager licenseManager)
+    public SnowflakeDistributedConnectorFactory(String name)
     {
         this.name = requireNonNull(name, "name is null");
-        this.licenseManager = requireNonNull(licenseManager, "licenseManager is null");
     }
 
     @Override
@@ -48,8 +45,7 @@ public class SnowflakeDistributedConnectorFactory
 
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
             Bootstrap app = new Bootstrap(
-                    new SnowflakeDistributedModule(catalogName, licenseManager),
-                    binder -> binder.bind(LicenseManager.class).toInstance(licenseManager),
+                    new SnowflakeDistributedModule(catalogName),
                     binder -> binder.bind(TypeManager.class).toInstance(context.getTypeManager()));
 
             Injector injector = app

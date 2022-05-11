@@ -9,7 +9,7 @@
  */
 package com.starburstdata.presto.plugin.snowflake;
 
-import com.starburstdata.presto.testing.Closer;
+import com.google.common.io.Closer;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 

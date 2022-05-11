@@ -12,6 +12,7 @@ package com.starburstdata.presto.plugin.snowflake.distributed;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 import io.airlift.units.MaxDataSize;
 import io.airlift.units.MinDataSize;
 import io.trino.plugin.hive.HiveConfig;
@@ -20,6 +21,7 @@ import javax.validation.constraints.NotNull;
 
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class SnowflakeDistributedConfig
 {
@@ -33,6 +35,7 @@ public class SnowflakeDistributedConfig
     private DataSize exportFileMaxSize = DataSize.of(5, GIGABYTE);
     private int maxExportRetries = 3;
     private boolean retryCanceledQueries;
+    private Duration dynamicFilteringWaitTimeout = new Duration(0, SECONDS);
 
     @Config("snowflake.stage-schema")
     @ConfigDescription("Schema to use for data staging")
@@ -141,6 +144,20 @@ public class SnowflakeDistributedConfig
     public SnowflakeDistributedConfig setRetryCanceledQueries(boolean retryCanceledQueries)
     {
         this.retryCanceledQueries = retryCanceledQueries;
+        return this;
+    }
+
+    @NotNull
+    public Duration getDynamicFilteringWaitTimeout()
+    {
+        return dynamicFilteringWaitTimeout;
+    }
+
+    @Config("snowflake.dynamic-filtering.wait-timeout")
+    @ConfigDescription("Duration to wait for completion of dynamic filters during split generation")
+    public SnowflakeDistributedConfig setDynamicFilteringWaitTimeout(Duration dynamicFilteringWaitTimeout)
+    {
+        this.dynamicFilteringWaitTimeout = dynamicFilteringWaitTimeout;
         return this;
     }
 

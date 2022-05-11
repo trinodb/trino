@@ -14,6 +14,7 @@ import com.google.inject.ConfigurationException;
 import com.starburstdata.presto.plugin.snowflake.distributed.SnowflakeDistributedConfig;
 import io.airlift.configuration.ConfigurationFactory;
 import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -25,6 +26,8 @@ import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestSnowflakeDistributedConfig
@@ -40,7 +43,8 @@ public class TestSnowflakeDistributedConfig
                 .setUseColumnIndex(true)
                 .setExportFileMaxSize(DataSize.of(5, GIGABYTE))
                 .setMaxExportRetries(3)
-                .setRetryCanceledQueries(false));
+                .setRetryCanceledQueries(false)
+                .setDynamicFilteringWaitTimeout(new Duration(0, SECONDS)));
     }
 
     @Test
@@ -55,6 +59,7 @@ public class TestSnowflakeDistributedConfig
                 .put("snowflake.export-file-max-size", "333MB")
                 .put("snowflake.max-export-retries", "42")
                 .put("snowflake.retry-canceled-queries", "true")
+                .put("snowflake.dynamic-filtering.wait-timeout", "30m")
                 .buildOrThrow();
 
         SnowflakeDistributedConfig expected = new SnowflakeDistributedConfig()
@@ -65,7 +70,8 @@ public class TestSnowflakeDistributedConfig
                 .setUseColumnIndex(false)
                 .setExportFileMaxSize(DataSize.of(333, MEGABYTE))
                 .setMaxExportRetries(42)
-                .setRetryCanceledQueries(true);
+                .setRetryCanceledQueries(true)
+                .setDynamicFilteringWaitTimeout(new Duration(30, MINUTES));
         assertFullMapping(properties, expected);
     }
 

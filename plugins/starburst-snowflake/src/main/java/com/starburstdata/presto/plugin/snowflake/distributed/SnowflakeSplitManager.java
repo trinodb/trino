@@ -30,7 +30,7 @@ import java.util.List;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
-class SnowflakeSplitManager
+public class SnowflakeSplitManager
         implements ConnectorSplitManager
 {
     private final Provider<Connector> connector;

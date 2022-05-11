@@ -10,7 +10,7 @@
 package com.starburstdata.presto.plugin.snowflake;
 
 import com.google.common.collect.ImmutableList;
-import com.starburstdata.presto.testing.Closer;
+import com.google.common.io.Closer;
 import io.trino.Session;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
@@ -37,7 +37,7 @@ public class TestJdbcSnowflakeWarehouseSwitching
 
     protected final SnowflakeServer server = new SnowflakeServer();
     private final Closer closer = Closer.create();
-    private final TestDatabase testDB = closer.register(server.createTestDatabase());
+    protected final TestDatabase testDB = closer.register(server.createTestDatabase());
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -48,7 +48,6 @@ public class TestJdbcSnowflakeWarehouseSwitching
                 .withDatabase(Optional.of(testDB.getName()))
                 .withSchema(Optional.of(TEST_SCHEMA))
                 .withConnectorProperties(impersonationDisabled())
-                .withConnectionPooling()
                 .withTpchTables(ImmutableList.of(NATION))
                 .build();
     }

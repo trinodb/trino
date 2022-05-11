@@ -9,7 +9,7 @@
  */
 package com.starburstdata.presto.plugin.snowflake;
 
-import com.starburstdata.presto.testing.Closer;
+import com.google.common.io.Closer;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import org.testng.annotations.AfterClass;
@@ -44,7 +44,6 @@ public class TestJdbcSnowflakeWithFixedRole
                 .withConnectorProperties(impersonationDisabled())
                 .withDatabase(Optional.of(testDB.getName()))
                 .withSchema(Optional.of(TEST_SCHEMA))
-                .withConnectionPooling()
                 .withCreateUserContextView()
                 .build();
     }
@@ -60,7 +59,7 @@ public class TestJdbcSnowflakeWithFixedRole
     public void testUsersAreNotImpersonated()
     {
         assertQuery(
-                createSessionForUser(ALICE_USER, false),
+                createSessionForUser(ALICE_USER),
                 "SELECT * FROM public.user_context",
                 format("VALUES ('%s', '%s')", USER.toUpperCase(ENGLISH), ROLE.toUpperCase(ENGLISH)));
     }

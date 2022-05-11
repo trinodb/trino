@@ -16,23 +16,9 @@ import java.util.Optional;
 
 public class SnowflakeConfig
 {
-    private SnowflakeImpersonationType impersonationType = SnowflakeImpersonationType.NONE;
     private Optional<String> warehouse = Optional.empty();
     private Optional<String> database = Optional.empty();
     private Optional<String> role = Optional.empty();
-
-    public SnowflakeImpersonationType getImpersonationType()
-    {
-        return impersonationType;
-    }
-
-    @Config("snowflake.impersonation-type")
-    @ConfigDescription("User impersonation method in Snowflake")
-    public SnowflakeConfig setImpersonationType(SnowflakeImpersonationType impersonationType)
-    {
-        this.impersonationType = impersonationType;
-        return this;
-    }
 
     public Optional<String> getWarehouse()
     {

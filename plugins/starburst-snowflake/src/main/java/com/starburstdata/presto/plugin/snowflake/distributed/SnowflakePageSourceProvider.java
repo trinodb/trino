@@ -45,7 +45,6 @@ import static com.amazonaws.services.s3.internal.crypto.JceEncryptionConstants.S
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static com.starburstdata.presto.plugin.jdbc.dynamicfiltering.DynamicFilteringSessionProperties.dynamicFilteringEnabled;
 import static com.starburstdata.presto.plugin.snowflake.distributed.HiveUtils.getHdfsEnvironment;
 import static com.starburstdata.presto.plugin.snowflake.distributed.HiveUtils.getHiveColumnHandles;
 import static com.starburstdata.presto.plugin.snowflake.distributed.HiveUtils.validateStageType;
@@ -57,7 +56,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 
-class SnowflakePageSourceProvider
+public class SnowflakePageSourceProvider
         implements ConnectorPageSourceProvider
 {
     private final FileFormatDataSourceStats stats;
@@ -154,6 +153,11 @@ class SnowflakePageSourceProvider
         verify(pageSource.getReaderColumns().isEmpty(), "All columns expected to be base columns");
 
         return new TranslatingPageSource(pageSource.get(), hiveColumns);
+    }
+
+    protected boolean dynamicFilteringEnabled(ConnectorSession session)
+    {
+        return false;
     }
 
     // for more information see https://en.wikipedia.org/wiki/Padding_(cryptography)#PKCS%235_and_PKCS%237

@@ -37,7 +37,6 @@ public class TestJdbcSnowflakeConnectorTest
                 .withDatabase(Optional.of(testDatabase.getName()))
                 .withSchema(Optional.of(TEST_SCHEMA))
                 .withConnectorProperties(impersonationDisabled())
-                .withConnectionPooling()
                 .withTpchTables(REQUIRED_TPCH_TABLES)
                 .build();
     }

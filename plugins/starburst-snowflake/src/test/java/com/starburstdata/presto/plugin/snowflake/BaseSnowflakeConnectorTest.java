@@ -10,7 +10,7 @@
 package com.starburstdata.presto.plugin.snowflake;
 
 import com.google.common.collect.ImmutableList;
-import com.starburstdata.presto.testing.Closer;
+import com.google.common.io.Closer;
 import io.trino.Session;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
 import io.trino.spi.type.TimeZoneKey;

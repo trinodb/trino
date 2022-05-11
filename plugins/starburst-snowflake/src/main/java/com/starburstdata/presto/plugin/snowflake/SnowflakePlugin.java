@@ -9,11 +9,7 @@
  */
 package com.starburstdata.presto.plugin.snowflake;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import com.starburstdata.presto.license.LicenceCheckingConnectorFactory;
-import com.starburstdata.presto.license.LicenseManager;
-import com.starburstdata.presto.license.LicenseManagerProvider;
 import com.starburstdata.presto.plugin.snowflake.distributed.SnowflakeDistributedConnectorFactory;
 import com.starburstdata.presto.plugin.snowflake.jdbc.SnowflakeJdbcClientModule;
 import io.trino.plugin.jdbc.JdbcConnectorFactory;
@@ -21,10 +17,6 @@ import io.trino.plugin.jdbc.JdbcConnectorFactory.JdbcModuleProvider;
 import io.trino.spi.Plugin;
 import io.trino.spi.connector.ConnectorFactory;
 
-import java.util.List;
-
-import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.starburstdata.presto.license.StarburstFeature.SNOWFLAKE;
 import static io.airlift.configuration.ConfigurationAwareModule.combine;
 
 public class SnowflakePlugin
@@ -36,20 +28,11 @@ public class SnowflakePlugin
     @Override
     public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        return getConnectorFactoriesWithLicensing(new LicenseManagerProvider().get()).stream()
-                .map(connectorFactory -> new LicenceCheckingConnectorFactory(SNOWFLAKE, connectorFactory))
-                .collect(toImmutableList());
-    }
-
-    @VisibleForTesting
-    List<ConnectorFactory> getConnectorFactoriesWithLicensing(LicenseManager licenseManager)
-    {
         return ImmutableList.of(
                 new JdbcConnectorFactory(
                         SNOWFLAKE_JDBC,
-                        (JdbcModuleProvider) catalogName -> combine(
-                                binder -> binder.bind(LicenseManager.class).toInstance(licenseManager),
-                                new SnowflakeJdbcClientModule(catalogName, false))),
-                new SnowflakeDistributedConnectorFactory(SNOWFLAKE_DISTRIBUTED, licenseManager));
+                        (JdbcModuleProvider) catalogName ->
+                                new SnowflakeJdbcClientModule(catalogName, false)),
+                new SnowflakeDistributedConnectorFactory(SNOWFLAKE_DISTRIBUTED));
     }
 }

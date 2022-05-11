@@ -21,6 +21,7 @@ import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.plugin.base.session.PropertyMetadataUtil.dataSizeProperty;
+import static io.trino.plugin.base.session.PropertyMetadataUtil.durationProperty;
 import static io.trino.spi.session.PropertyMetadata.booleanProperty;
 import static java.util.Objects.requireNonNull;
 
@@ -39,6 +40,7 @@ public class SnowflakeDistributedSessionProperties
     private static final String VALIDATE_BUCKETING = "validate_bucketing";
     private static final String OPTIMIZE_SYMLINK_LISTING = "optimize_symlink_listing";
     private static final String SIZE_BASED_SPLIT_WEIGHTS_ENABLED = "size_based_split_weights_enabled";
+    private static final String DYNAMIC_FILTERING_WAIT_TIMEOUT = "dynamic_filtering_wait_timeout";
 
     private final SnowflakeDistributedConfig snowflakeConfig;
 
@@ -77,6 +79,11 @@ public class SnowflakeDistributedSessionProperties
                         RETRY_CANCELED_QUERIES,
                         "Retry queries that failed due to being canceled",
                         snowflakeConfig.isRetryCanceledQueries(),
+                        false),
+                durationProperty(
+                        DYNAMIC_FILTERING_WAIT_TIMEOUT,
+                        "Duration to wait for completion of dynamic filters",
+                        snowflakeConfig.getDynamicFilteringWaitTimeout(),
                         false),
                 // these properties are irrelevant for Snowflake connector, but are required by Hive connector code
                 booleanProperty(

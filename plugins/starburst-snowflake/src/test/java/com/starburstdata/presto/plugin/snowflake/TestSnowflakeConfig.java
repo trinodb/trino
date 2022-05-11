@@ -14,8 +14,6 @@ import org.testng.annotations.Test;
 
 import java.util.Map;
 
-import static com.starburstdata.presto.plugin.snowflake.SnowflakeImpersonationType.NONE;
-import static com.starburstdata.presto.plugin.snowflake.SnowflakeImpersonationType.ROLE;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
@@ -26,7 +24,6 @@ public class TestSnowflakeConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(SnowflakeConfig.class)
-                .setImpersonationType(NONE)
                 .setWarehouse(null)
                 .setDatabase(null)
                 .setRole(null));
@@ -36,14 +33,12 @@ public class TestSnowflakeConfig
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("snowflake.impersonation-type", "ROLE")
                 .put("snowflake.warehouse", "warehouse")
                 .put("snowflake.database", "database")
                 .put("snowflake.role", "role")
                 .buildOrThrow();
 
         SnowflakeConfig expected = new SnowflakeConfig()
-                .setImpersonationType(ROLE)
                 .setWarehouse("warehouse")
                 .setDatabase("database")
                 .setRole("role");

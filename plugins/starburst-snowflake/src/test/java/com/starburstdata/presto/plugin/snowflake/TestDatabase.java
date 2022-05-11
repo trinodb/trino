@@ -11,6 +11,7 @@ package com.starburstdata.presto.plugin.snowflake;
 
 import io.trino.testing.sql.SqlExecutor;
 
+import java.io.Closeable;
 import java.util.Locale;
 
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
@@ -18,13 +19,13 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class TestDatabase
-        implements AutoCloseable
+        implements Closeable
 {
     private final SqlExecutor sqlExecutor;
     private final String name;
 
-    static final String tmpDatabasePrefix = "TMP_SEP_CICD_";
-    static final String tmpDatabaseComment = "Created by SEP tests";
+    public static final String tmpDatabasePrefix = "TMP_SEP_CICD_";
+    public static final String tmpDatabaseComment = "Created by SEP tests";
 
     public TestDatabase(SqlExecutor sqlExecutor, String namePrefix)
     {

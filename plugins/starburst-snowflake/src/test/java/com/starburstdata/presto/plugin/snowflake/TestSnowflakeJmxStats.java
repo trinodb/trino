@@ -10,7 +10,7 @@
 package com.starburstdata.presto.plugin.snowflake;
 
 import com.google.common.collect.ImmutableList;
-import com.starburstdata.presto.testing.Closer;
+import com.google.common.io.Closer;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
@@ -23,7 +23,7 @@ import java.util.Optional;
 
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.TEST_SCHEMA;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.distributedBuilder;
-import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.oktaImpersonationEnabled;
+import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.impersonationDisabled;
 import static io.trino.tpch.TpchTable.NATION;
 import static io.trino.tpch.TpchTable.ORDERS;
 import static org.testng.Assert.assertEquals;
@@ -43,9 +43,8 @@ public class TestSnowflakeJmxStats
                 .withServer(server)
                 .withDatabase(Optional.of(testDatabase.getName()))
                 .withSchema(Optional.of(TEST_SCHEMA))
+                .withConnectorProperties(impersonationDisabled())
                 // using single worker instance, because workers overwrites their JMX stats
-                .withConnectorProperties(oktaImpersonationEnabled(false))
-                .withOktaCredentials(true)
                 .withNodeCount(1)
                 .withTpchTables(ImmutableList.of(ORDERS, NATION))
                 .build();

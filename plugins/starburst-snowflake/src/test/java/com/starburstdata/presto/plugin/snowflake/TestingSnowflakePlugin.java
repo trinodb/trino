@@ -11,14 +11,12 @@ package com.starburstdata.presto.plugin.snowflake;
 
 import io.trino.spi.connector.ConnectorFactory;
 
-import static com.starburstdata.presto.license.TestingLicenseManager.NOOP_LICENSE_MANAGER;
-
 public class TestingSnowflakePlugin
         extends SnowflakePlugin
 {
     @Override
     public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        return getConnectorFactoriesWithLicensing(NOOP_LICENSE_MANAGER);
+        return super.getConnectorFactories();
     }
 }
