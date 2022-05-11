@@ -43,6 +43,7 @@ and the :doc:`SQL statement and syntax reference</sql>`.
     Set Digest          <functions/setdigest>
     String              <functions/string>
     System              <functions/system>
+    Table               <functions/table>
     Teradata            <functions/teradata>
     T-Digest            <functions/tdigest>
     URL                 <functions/url>

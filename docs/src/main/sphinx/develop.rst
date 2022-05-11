@@ -13,6 +13,7 @@ This guide is intended for Trino contributors and plugin developers.
     develop/delete-and-update
     develop/types
     develop/functions
+    develop/table-functions
     develop/system-access-control
     develop/password-authenticator
     develop/certificate-authenticator
