@@ -68,7 +68,7 @@
         <dep.casandra.version>4.14.0</dep.casandra.version>
         <dep.minio.version>7.1.4</dep.minio.version>
 
-        <dep.docker.images.version>56</dep.docker.images.version>
+        <dep.docker.images.version>57</dep.docker.images.version>
 
         <!--
           America/Bahia_Banderas has:
@@ -1008,6 +1008,12 @@
                         <artifactId>*</artifactId>
                     </exclusion>
                 </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>com.databricks</groupId>
+                <artifactId>databricks-jdbc</artifactId>
+                <version>2.6.25-1</version>
             </dependency>
 
             <dependency>
