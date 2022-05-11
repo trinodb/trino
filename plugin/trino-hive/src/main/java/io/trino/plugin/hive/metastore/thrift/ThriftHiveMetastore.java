@@ -28,7 +28,6 @@ import io.trino.plugin.hive.HiveBasicStatistics;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HivePartition;
 import io.trino.plugin.hive.HiveType;
-import io.trino.plugin.hive.HiveViewNotSupportedException;
 import io.trino.plugin.hive.PartitionNotFoundException;
 import io.trino.plugin.hive.PartitionStatistics;
 import io.trino.plugin.hive.SchemaAlreadyExistsException;
@@ -347,7 +346,7 @@ public class ThriftHiveMetastore
     {
         try {
             return retry()
-                    .stopOn(NoSuchObjectException.class, HiveViewNotSupportedException.class)
+                    .stopOn(NoSuchObjectException.class)
                     .stopOnIllegalExceptions()
                     .run("getTable", stats.getGetTable().wrap(() -> {
                         Table table = getTableFromMetastore(identity, databaseName, tableName);
@@ -397,7 +396,7 @@ public class ThriftHiveMetastore
     {
         try {
             return retry()
-                    .stopOn(NoSuchObjectException.class, HiveViewNotSupportedException.class)
+                    .stopOn(NoSuchObjectException.class)
                     .stopOnIllegalExceptions()
                     .run("getTableColumnStatistics", stats.getGetTableColumnStatistics().wrap(() -> {
                         try (ThriftMetastoreClient client = createMetastoreClient(identity)) {
@@ -492,7 +491,7 @@ public class ThriftHiveMetastore
     {
         try {
             return retry()
-                    .stopOn(NoSuchObjectException.class, HiveViewNotSupportedException.class)
+                    .stopOn(NoSuchObjectException.class)
                     .stopOnIllegalExceptions()
                     .run("getPartitionColumnStatistics", stats.getGetPartitionColumnStatistics().wrap(() -> {
                         try (ThriftMetastoreClient client = createMetastoreClient(identity)) {
