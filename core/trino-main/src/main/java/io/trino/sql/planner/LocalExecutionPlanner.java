@@ -1987,7 +1987,11 @@ public class LocalExecutionPlanner
                 throw e;
             }
             catch (RuntimeException e) {
-                throw new TrinoException(COMPILER_ERROR, "Compiler failed", e);
+                throw new TrinoException(
+                        COMPILER_ERROR,
+                        "Compiler failed. Possible reasons include: the query may have too many or too complex expressions, " +
+                                "or the underlying tables may have too many columns",
+                        e);
             }
         }
 
