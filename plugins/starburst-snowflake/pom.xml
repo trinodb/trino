@@ -3,10 +3,10 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>com.starburstdata.presto</groupId>
-        <artifactId>starburst-enterprise-root</artifactId>
-        <version>380-e-SNAPSHOT</version>
-        <relativePath>../..</relativePath>
+        <groupId>com.starburstdata.trino.plugins</groupId>
+        <artifactId>starburst-trino-plugins</artifactId>
+        <version>392-SNAPSHOT</version>
+        <relativePath>../../pom.xml</relativePath>
     </parent>
 
     <artifactId>starburst-snowflake</artifactId>
@@ -18,37 +18,17 @@
         <air.test.thread-count>8</air.test.thread-count>
         <!-- TODO: Remove jvmsize change when surefire is upgraded in airbase 124: https://github.com/airlift/airbase/commit/15d4bfaac5ecc93ac9019c10a37ca7ada0b65da5 -->
         <air.test.jvmsize>4g</air.test.jvmsize>
+        <!-- This is required for Snowflake JDBC Driver on JDK 17 -->
+        <air.test.jvm.additional-arguments>
+            --add-opens=java.base/sun.nio.ch=ALL-UNNAMED
+            --add-opens=java.base/java.nio=ALL-UNNAMED
+        </air.test.jvm.additional-arguments>
     </properties>
 
     <dependencies>
         <dependency>
-            <groupId>com.starburstdata.presto</groupId>
-            <artifactId>starburst-base-jdbc</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.starburstdata.presto</groupId>
-            <artifactId>starburst-license</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.starburstdata.presto</groupId>
-            <artifactId>starburst-okta</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.starburstdata.presto</groupId>
-            <artifactId>starburst-plugin-toolkit</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-base-jdbc</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-collect</artifactId>
         </dependency>
 
         <dependency>
@@ -118,11 +98,6 @@
         </dependency>
 
         <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-databind</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>com.google.code.findbugs</groupId>
             <artifactId>jsr305</artifactId>
             <optional>true</optional>
@@ -139,23 +114,8 @@
         </dependency>
 
         <dependency>
-            <groupId>com.jayway.jsonpath</groupId>
-            <artifactId>json-path</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>com.microsoft.azure</groupId>
             <artifactId>azure-keyvault-cryptography</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.squareup.okhttp3</groupId>
-            <artifactId>okhttp</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.squareup.okhttp3</groupId>
-            <artifactId>okhttp-urlconnection</artifactId>
         </dependency>
 
         <dependency>
@@ -192,12 +152,6 @@
         <dependency>
             <groupId>org.jdbi</groupId>
             <artifactId>jdbi3-core</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>org.jsoup</groupId>
-            <artifactId>jsoup</artifactId>
-            <version>1.12.1</version>
         </dependency>
 
         <dependency>
@@ -239,64 +193,23 @@
 
         <!-- for testing -->
         <dependency>
-            <groupId>com.starburstdata.presto</groupId>
-            <artifactId>starburst-base-jdbc</artifactId>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-base-jdbc</artifactId>
             <type>test-jar</type>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>com.starburstdata.presto</groupId>
-            <artifactId>starburst-license</artifactId>
-            <type>test-jar</type>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>com.starburstdata.presto</groupId>
-            <artifactId>starburst-redirection</artifactId>
-            <type>test-jar</type>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>com.starburstdata.presto</groupId>
-            <artifactId>starburst-server-main</artifactId>
-            <scope>test</scope>
-            <exclusions>
-                <exclusion>
-                    <!-- provided by org.alluxio:alluxio-shaded-client:2.4.0 -->
-                    <groupId>com.google.protobuf</groupId>
-                    <artifactId>protobuf-java</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-
-        <dependency>
-            <groupId>com.starburstdata.presto</groupId>
-            <artifactId>starburst-server-main</artifactId>
-            <type>test-jar</type>
-            <scope>test</scope>
-            <exclusions>
-                <exclusion>
-                    <!-- provided by org.alluxio:alluxio-shaded-client:2.4.0 -->
-                    <groupId>com.google.protobuf</groupId>
-                    <artifactId>protobuf-java</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-
-        <dependency>
-            <groupId>com.starburstdata.presto</groupId>
-            <artifactId>starburst-testing</artifactId>
             <scope>test</scope>
         </dependency>
 
         <dependency>
             <groupId>io.trino</groupId>
-            <artifactId>trino-base-jdbc</artifactId>
+            <artifactId>trino-hive</artifactId>
             <type>test-jar</type>
             <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.linkedin.calcite</groupId>
+                    <artifactId>calcite-core</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
@@ -321,6 +234,13 @@
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-memory</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-plugin-toolkit</artifactId>
+            <type>test-jar</type>
             <scope>test</scope>
         </dependency>
 
@@ -471,13 +391,9 @@
                         <configuration>
                             <excludes>
                                 <exclude>**/TestJdbcSnowflakeConnectorTest.java</exclude>
-                                <exclude>**/TestJdbcSnowflakeWithImpersonationConnectorSmokeTest.java</exclude>
                                 <exclude>**/TestJdbcSnowflakeTypeMapping.java</exclude>
                                 <exclude>**/TestDistributedSnowflakeConnectorTest.java</exclude>
                                 <exclude>**/TestDistributedSnowflakeLargeScan.java</exclude>
-                                <exclude>**/TestDistributedSnowflakeOktaNoImpersonationPoolingConnectorSmokeTest.java</exclude>
-                                <exclude>**/TestDistributedSnowflakeOktaWithImpresonationConnectorSmokeTest.java</exclude>
-                                <exclude>**/TestDistributedSnowflakeWithImpersonationConnectorSmokeTest.java</exclude>
                                 <exclude>**/TestDistributedSnowflakeTypeMapping.java</exclude>
                                 <exclude>**/TestSnowflakeJmxStats.java</exclude>
                             </excludes>
@@ -496,7 +412,6 @@
                         <configuration>
                             <includes>
                                 <include>**/TestJdbcSnowflakeConnectorTest.java</include>
-                                <include>**/TestJdbcSnowflakeWithImpersonationConnectorSmokeTest.java</include>
                                 <include>**/TestJdbcSnowflakeTypeMapping.java</include>
                             </includes>
                         </configuration>
@@ -515,28 +430,7 @@
                             <includes>
                                 <include>**/TestDistributedSnowflakeConnectorTest.java</include>
                                 <include>**/TestDistributedSnowflakeLargeScan.java</include>
-                                <include>**/TestDistributedSnowflakeWithImpersonationConnectorSmokeTest.java</include>
                                 <include>**/TestDistributedSnowflakeTypeMapping.java</include>
-                            </includes>
-                        </configuration>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
-        <profile>
-            <id>okta-integration-tests</id>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-surefire-plugin</artifactId>
-                        <configuration>
-                            <includes>
-                                <include>**/TestDistributedNoImpresonationOktaPoolingSnowflakeTest.java</include>
-                                <include>**/TestDistributedWithImpresonationOktaSnowflakeConnectorTest.java</include>
-                                <include>**/TestDistributedSnowflakeOktaNoImpersonationPoolingConnectorSmokeTest.java</include>
-                                <include>**/TestDistributedSnowflakeOktaWithImpresonationConnectorSmokeTest.java</include>
-                                <include>**/TestSnowflakeJmxStats.java</include>
                             </includes>
                         </configuration>
                     </plugin>
