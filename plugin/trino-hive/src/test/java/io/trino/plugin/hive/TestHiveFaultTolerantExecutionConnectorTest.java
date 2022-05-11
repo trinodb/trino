@@ -92,20 +92,6 @@ public class TestHiveFaultTolerantExecutionConnectorTest
                 .hasMessageContaining("OPTIMIZE procedure is not supported with query retries enabled");
     }
 
-    @Override
-    public void testOptimizeHiveInformationSchema()
-    {
-        assertThatThrownBy(super::testOptimizeHiveInformationSchema)
-                .hasMessageContaining("This connector does not support query retries");
-    }
-
-    @Override
-    public void testOptimizeHiveSystemTable()
-    {
-        assertThatThrownBy(super::testOptimizeHiveSystemTable)
-                .hasMessageContaining("This connector does not support query retries");
-    }
-
     @Test
     public void testMaxOutputPartitionCountCheck()
     {
