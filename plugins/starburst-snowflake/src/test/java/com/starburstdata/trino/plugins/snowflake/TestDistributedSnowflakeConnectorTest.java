@@ -14,6 +14,7 @@ import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
 import io.trino.tpch.TpchTable;
+import org.testng.SkipException;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -115,6 +116,13 @@ public class TestDistributedSnowflakeConnectorTest
                             "TIMESTAMP '1901-02-03 04:05:06.123'," +
                             "TIMESTAMP '1901-02-03 04:05:06.123')");
         }
+    }
+
+    @Override
+    public void testInsertRowConcurrently()
+    {
+        // TODO: Skip slow Snowflake insert tests (https://starburstdata.atlassian.net/browse/SEP-9214)
+        throw new SkipException("Snowflake INSERTs are slow and the futures sometimes timeout in the test. See https://starburstdata.atlassian.net/browse/SEP-9214.");
     }
 
     @Test
