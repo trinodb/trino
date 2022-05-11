@@ -20,14 +20,13 @@ import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import org.testng.annotations.Test;
 
+import static io.trino.plugin.hive.HiveHadoopQueryRunner.ADMIN_IDENTITY;
 import static io.trino.plugin.hive.HiveHadoopQueryRunner.createHadoopQueryRunner;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-// Redundant over TestHiveConnectorTest, but exists to exercise BaseConnectorSmokeTest
-// Some features like views may be supported by Hive only.
-@Test(singleThreaded = true) // Otherwise, CI hangs on the way
-public class TestHiveConnectorSmokeTest
+@Test
+public class TestHiveHdp3ConnectorSmokeTest
         extends BaseConnectorSmokeTest
 {
     @Override
@@ -38,8 +37,9 @@ public class TestHiveConnectorSmokeTest
         hadoopServer.start();
         return createHadoopQueryRunner(
                 hadoopServer,
+                ADMIN_IDENTITY,
                 ImmutableMap.of(),
-                ImmutableMap.of(),
+                ImmutableMap.of("hive.security", "sql-standard", "hive.metastore-timeout", "30s"),
                 REQUIRED_TPCH_TABLES);
     }
 

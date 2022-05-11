@@ -515,6 +515,18 @@
                             </ignoredResourcePatterns>
                         </configuration>
                     </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <includes>
+                                <include>**/TestHiveHdp3ConnectorSmokeTest.java</include>
+                            </includes>
+                            <systemPropertyVariables>
+                                <HADOOP_USER_NAME>hive</HADOOP_USER_NAME>
+                            </systemPropertyVariables>
+                        </configuration>
+                    </plugin>
                 </plugins>
             </build>
         </profile>

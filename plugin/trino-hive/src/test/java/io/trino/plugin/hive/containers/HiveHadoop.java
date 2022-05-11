@@ -24,9 +24,6 @@ import org.apache.hadoop.net.NetUtils;
 import org.testcontainers.containers.Network;
 import org.testcontainers.containers.wait.strategy.WaitStrategy;
 
-import java.io.UncheckedIOException;
-import java.net.InetAddress;
-import java.net.UnknownHostException;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -42,10 +39,8 @@ public class HiveHadoop
     public static final String HOST_NAME = "hadoop-master";
 
     public static final int HIVE_METASTORE_PORT = 9083;
-    public static final int HDFS_FS_PORT = 9000;
+    public static final int HADOOP_NAMENODE_PORT = 9000;
     public static final int SOCKS_PROXY_PORT = 1180;
-
-    private final String hostAddress;
 
     public static Builder builder()
     {
@@ -71,12 +66,6 @@ public class HiveHadoop
                 network,
                 waitStrategy,
                 startupRetryLimit);
-        try {
-            hostAddress = InetAddress.getLocalHost().getHostAddress();
-        }
-        catch (UnknownHostException e) {
-            throw new UncheckedIOException(e);
-        }
     }
 
     @Override
@@ -96,9 +85,9 @@ public class HiveHadoop
     {
         super.start();
 
-        // Even though Hadoop is accessed by proxy, Hadoop still tries to resolve hadoop-master
+        // HACK: even though Hadoop is accessed by proxy, Hadoop still tries to resolve hadoop-master
         // (e.g: in: NameNodeProxies.createProxy)
-        // This adds a static resolution for hadoop-master to docker container internal ip
+        // This adds a static resolution for hadoop-master to internal container ip address
         NetUtils.addStaticResolution(HOST_NAME, getContainerIpAddress());
 
         log.info("Hive container started with addresses for metastore: %s", getHiveMetastoreEndpoint());
@@ -106,12 +95,17 @@ public class HiveHadoop
 
     public HostAndPort getHiveMetastoreEndpoint()
     {
-        return HostAndPort.fromParts(hostAddress, getMappedPortForExposedPort(HIVE_METASTORE_PORT));
+        return getMappedHostAndPortForExposedPort(HIVE_METASTORE_PORT);
     }
 
-    public HostAndPort getSocksProxyEndpoint()
+    public int getHiveMetastorePort()
     {
-        return HostAndPort.fromParts(hostAddress, getMappedPortForExposedPort(SOCKS_PROXY_PORT));
+        return getMappedPortForExposedPort(HIVE_METASTORE_PORT);
+    }
+
+    public int getSocksProxyPort()
+    {
+        return getMappedPortForExposedPort(SOCKS_PROXY_PORT);
     }
 
     public static class Builder
@@ -121,7 +115,7 @@ public class HiveHadoop
         {
             this.image = DEFAULT_IMAGE;
             this.hostName = HOST_NAME;
-            this.exposePorts = ImmutableSet.of(HIVE_METASTORE_PORT, HDFS_FS_PORT, SOCKS_PROXY_PORT);
+            this.exposePorts = ImmutableSet.of(HIVE_METASTORE_PORT, HADOOP_NAMENODE_PORT, SOCKS_PROXY_PORT);
             this.waitStrategy = Optional.of(new SelectedPortWaitStrategy(exposePorts)); // The default wait strategy sometimes causes "Malformed reply from SOCKS server"
         }
 
