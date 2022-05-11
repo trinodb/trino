@@ -95,22 +95,6 @@ public interface ConnectorMetadata
     /**
      * Create initial handle for execution of table procedure. The handle will be used through planning process. It will be converted to final
      * handle used for execution via @{link {@link ConnectorMetadata#beginTableExecute}
-     *
-     * @deprecated Use {@link #getTableHandleForExecute(ConnectorSession, ConnectorTableHandle, String, Map, RetryMode)} instead.
-     */
-    @Deprecated
-    default Optional<ConnectorTableExecuteHandle> getTableHandleForExecute(
-            ConnectorSession session,
-            ConnectorTableHandle tableHandle,
-            String procedureName,
-            Map<String, Object> executeProperties)
-    {
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support table procedures");
-    }
-
-    /**
-     * Create initial handle for execution of table procedure. The handle will be used through planning process. It will be converted to final
-     * handle used for execution via @{link {@link ConnectorMetadata#beginTableExecute}
      */
     default Optional<ConnectorTableExecuteHandle> getTableHandleForExecute(
             ConnectorSession session,
@@ -119,10 +103,7 @@ public interface ConnectorMetadata
             Map<String, Object> executeProperties,
             RetryMode retryMode)
     {
-        if (retryMode != RetryMode.NO_RETRIES) {
-            throw new TrinoException(NOT_SUPPORTED, "This connector does not support query retries");
-        }
-        return getTableHandleForExecute(session, tableHandle, procedureName, executeProperties);
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support table procedures");
     }
 
     default Optional<ConnectorTableLayout> getLayoutForTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle)
@@ -483,24 +464,10 @@ public interface ConnectorMetadata
 
     /**
      * Begin the atomic creation of a table with data.
-     *
-     * @deprecated Use {@link #beginCreateTable(ConnectorSession, ConnectorTableMetadata, Optional, RetryMode)}
-     */
-    @Deprecated
-    default ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorTableLayout> layout)
-    {
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with data");
-    }
-
-    /**
-     * Begin the atomic creation of a table with data.
      */
     default ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorTableLayout> layout, RetryMode retryMode)
     {
-        if (retryMode != RetryMode.NO_RETRIES) {
-            throw new TrinoException(NOT_SUPPORTED, "This connector does not support query retries");
-        }
-        return beginCreateTable(session, tableMetadata, layout);
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with data");
     }
 
     /**
@@ -524,35 +491,10 @@ public interface ConnectorMetadata
 
     /**
      * Begin insert query.
-     *
-     * @deprecated Use {@link #beginInsert(ConnectorSession, ConnectorTableHandle, List, RetryMode)} instead.
-     */
-    @Deprecated
-    default ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
-    {
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support inserts");
-    }
-
-    /**
-     * Begin insert query.
-     *
-     * @deprecated Use {@link #beginInsert(ConnectorSession, ConnectorTableHandle, List, RetryMode)} instead.
-     */
-    @Deprecated
-    default ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> columns)
-    {
-        return beginInsert(session, tableHandle);
-    }
-
-    /**
-     * Begin insert query.
      */
     default ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> columns, RetryMode retryMode)
     {
-        if (retryMode != RetryMode.NO_RETRIES) {
-            throw new TrinoException(NOT_SUPPORTED, "This connector does not support query retries");
-        }
-        return beginInsert(session, tableHandle, columns);
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support inserts");
     }
 
     /**
@@ -589,24 +531,10 @@ public interface ConnectorMetadata
 
     /**
      * Begin materialized view query.
-     *
-     * @deprecated Use {@link #beginRefreshMaterializedView(ConnectorSession, ConnectorTableHandle, List, RetryMode)} instead.
-     */
-    @Deprecated
-    default ConnectorInsertTableHandle beginRefreshMaterializedView(ConnectorSession session, ConnectorTableHandle tableHandle, List<ConnectorTableHandle> sourceTableHandles)
-    {
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support materialized views");
-    }
-
-    /**
-     * Begin materialized view query.
      */
     default ConnectorInsertTableHandle beginRefreshMaterializedView(ConnectorSession session, ConnectorTableHandle tableHandle, List<ConnectorTableHandle> sourceTableHandles, RetryMode retryMode)
     {
-        if (retryMode != RetryMode.NO_RETRIES) {
-            throw new TrinoException(NOT_SUPPORTED, "This connector does not support query retries");
-        }
-        return beginRefreshMaterializedView(session, tableHandle, sourceTableHandles);
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support materialized views");
     }
 
     /**
@@ -645,24 +573,10 @@ public interface ConnectorMetadata
 
     /**
      * Begin delete query.
-     *
-     * @deprecated Use {@link #beginDelete(ConnectorSession, ConnectorTableHandle, RetryMode)}
-     */
-    @Deprecated
-    default ConnectorTableHandle beginDelete(ConnectorSession session, ConnectorTableHandle tableHandle)
-    {
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support deletes");
-    }
-
-    /**
-     * Begin delete query.
      */
     default ConnectorTableHandle beginDelete(ConnectorSession session, ConnectorTableHandle tableHandle, RetryMode retryMode)
     {
-        if (retryMode != RetryMode.NO_RETRIES) {
-            throw new TrinoException(NOT_SUPPORTED, "This connector does not support query retries");
-        }
-        return beginDelete(session, tableHandle);
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support deletes");
     }
 
     /**
@@ -685,31 +599,10 @@ public interface ConnectorMetadata
      * operation, in table column order.
      * @return a ConnectorTableHandle that will be passed to split generation, and to the
      * {@link #finishUpdate} method.
-     * @deprecated Use {@link #beginUpdate(ConnectorSession, ConnectorTableHandle, List, RetryMode)} instead.
-     */
-    @Deprecated
-    default ConnectorTableHandle beginUpdate(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> updatedColumns)
-    {
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support updates");
-    }
-
-    /**
-     * Do whatever is necessary to start an UPDATE query, returning the {@link ConnectorTableHandle}
-     * instance that will be passed to split generation, and to the {@link #finishUpdate} method.
-     *
-     * @param session The session in which to start the update operation.
-     * @param tableHandle A ConnectorTableHandle for the table to be updated.
-     * @param updatedColumns A list of the ColumnHandles of columns that will be updated by this UPDATE
-     * operation, in table column order.
-     * @return a ConnectorTableHandle that will be passed to split generation, and to the
-     * {@link #finishUpdate} method.
      */
     default ConnectorTableHandle beginUpdate(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> updatedColumns, RetryMode retryMode)
     {
-        if (retryMode != RetryMode.NO_RETRIES) {
-            throw new TrinoException(NOT_SUPPORTED, "This connector does not support query retries");
-        }
-        return beginUpdate(session, tableHandle, updatedColumns);
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support updates");
     }
 
     /**
