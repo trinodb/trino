@@ -61,6 +61,7 @@ import static io.trino.plugin.raptor.legacy.RaptorTableProperties.TEMPORAL_COLUM
 import static io.trino.plugin.raptor.legacy.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static io.trino.plugin.raptor.legacy.metadata.TestDatabaseShardManager.createShardManager;
 import static io.trino.plugin.raptor.legacy.storage.TestRaptorStorageManager.createRaptorStorageManager;
+import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static io.trino.spi.transaction.IsolationLevel.READ_COMMITTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
@@ -132,7 +133,7 @@ public class TestRaptorConnector
         // begin delete for table1
         ConnectorTransactionHandle txn1 = beginTransaction();
         ConnectorTableHandle handle1 = getTableHandle(connector.getMetadata(SESSION, txn1), "test1");
-        connector.getMetadata(SESSION, txn1).beginDelete(SESSION, handle1);
+        connector.getMetadata(SESSION, txn1).beginDelete(SESSION, handle1, NO_RETRIES);
 
         assertTrue(metadataDao.isMaintenanceBlockedLocked(tableId1));
         assertFalse(metadataDao.isMaintenanceBlockedLocked(tableId2));
@@ -140,7 +141,7 @@ public class TestRaptorConnector
         // begin delete for table2
         ConnectorTransactionHandle txn2 = beginTransaction();
         ConnectorTableHandle handle2 = getTableHandle(connector.getMetadata(SESSION, txn2), "test2");
-        connector.getMetadata(SESSION, txn2).beginDelete(SESSION, handle2);
+        connector.getMetadata(SESSION, txn2).beginDelete(SESSION, handle2, NO_RETRIES);
 
         assertTrue(metadataDao.isMaintenanceBlockedLocked(tableId1));
         assertTrue(metadataDao.isMaintenanceBlockedLocked(tableId2));
@@ -148,7 +149,7 @@ public class TestRaptorConnector
         // begin another delete for table1
         ConnectorTransactionHandle txn3 = beginTransaction();
         ConnectorTableHandle handle3 = getTableHandle(connector.getMetadata(SESSION, txn3), "test1");
-        connector.getMetadata(SESSION, txn3).beginDelete(SESSION, handle3);
+        connector.getMetadata(SESSION, txn3).beginDelete(SESSION, handle3, NO_RETRIES);
 
         assertTrue(metadataDao.isMaintenanceBlockedLocked(tableId1));
         assertTrue(metadataDao.isMaintenanceBlockedLocked(tableId2));
@@ -222,7 +223,7 @@ public class TestRaptorConnector
 
         ConnectorTransactionHandle txn1 = beginTransaction();
         ConnectorTableHandle handle1 = getTableHandle(connector.getMetadata(SESSION, txn1), "test");
-        ConnectorInsertTableHandle insertTableHandle = connector.getMetadata(SESSION, txn1).beginInsert(session, handle1);
+        ConnectorInsertTableHandle insertTableHandle = connector.getMetadata(SESSION, txn1).beginInsert(session, handle1, ImmutableList.of(), NO_RETRIES);
         ConnectorPageSink raptorPageSink = connector.getPageSinkProvider().createPageSink(txn1, session, insertTableHandle);
 
         Object timestamp1 = null;
