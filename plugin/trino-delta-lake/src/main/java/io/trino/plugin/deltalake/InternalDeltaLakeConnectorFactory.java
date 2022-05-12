@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.deltalake;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Injector;
 import com.google.inject.Key;
@@ -67,7 +66,6 @@ public final class InternalDeltaLakeConnectorFactory
 {
     private InternalDeltaLakeConnectorFactory() {}
 
-    @VisibleForTesting
     public static Connector createConnector(
             String catalogName,
             Map<String, String> config,
