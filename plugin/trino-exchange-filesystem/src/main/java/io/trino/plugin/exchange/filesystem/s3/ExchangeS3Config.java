@@ -48,6 +48,7 @@ public class ExchangeS3Config
     private int asyncClientConcurrency = 100;
     private int asyncClientMaxPendingConnectionAcquires = 10000;
     private Duration connectionAcquisitionTimeout = new Duration(1, MINUTES);
+    private Optional<String> gcsJsonKeyFilePath = Optional.empty();
 
     public String getS3AwsAccessKey()
     {
@@ -203,6 +204,18 @@ public class ExchangeS3Config
     public ExchangeS3Config setConnectionAcquisitionTimeout(Duration connectionAcquisitionTimeout)
     {
         this.connectionAcquisitionTimeout = connectionAcquisitionTimeout;
+        return this;
+    }
+
+    public Optional<String> getGcsJsonKeyFilePath()
+    {
+        return gcsJsonKeyFilePath;
+    }
+
+    @Config("exchange.gcs.json-key-file-path")
+    public ExchangeS3Config setGcsJsonKeyFilePath(String gcsJsonKeyFilePath)
+    {
+        this.gcsJsonKeyFilePath = Optional.ofNullable(gcsJsonKeyFilePath);
         return this;
     }
 }
