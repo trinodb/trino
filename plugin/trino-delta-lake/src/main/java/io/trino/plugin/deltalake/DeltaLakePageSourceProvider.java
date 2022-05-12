@@ -181,9 +181,7 @@ public class DeltaLakePageSourceProvider
         effectivePredicate.getDomains().get().forEach((columnHandle, domain) -> {
             String baseType = columnHandle.getType().getTypeSignature().getBase();
             // skip looking up predicates for complex types as Parquet only stores stats for primitives
-            if (!baseType.equals(StandardTypes.MAP) && !baseType.equals(StandardTypes.ARRAY) && !baseType.equals(StandardTypes.ROW) &&
-                    // TODO: Remove the next line once timestamp predicate pushdown works in Parquet reader (https://github.com/trinodb/trino/issues/12007)
-                    !baseType.equals(StandardTypes.TIMESTAMP_WITH_TIME_ZONE)) {
+            if (!baseType.equals(StandardTypes.MAP) && !baseType.equals(StandardTypes.ARRAY) && !baseType.equals(StandardTypes.ROW)) {
                 HiveColumnHandle hiveColumnHandle = columnHandle.toHiveColumnHandle();
                 predicate.put(hiveColumnHandle, domain);
             }
