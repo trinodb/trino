@@ -20,6 +20,7 @@ import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 import io.trino.ExceededMemoryLimitException;
 import io.trino.RowPagesBuilder;
 import io.trino.execution.Lifespan;
@@ -78,7 +79,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -111,6 +111,7 @@ import static java.util.Collections.nCopies;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -528,7 +529,7 @@ public class TestHashJoinOperator
             while (!lookupSourceProvider.isDone()) {
                 for (int i = 0; i < buildOperatorCount; i++) {
                     checkErrors(taskStateMachine);
-                    buildDrivers.get(i).process();
+                    buildDrivers.get(i).processForNumberOfIterations(1);
                     HashBuilderOperator buildOperator = buildSideSetup.getBuildOperators().get(i);
                     if (whenSpill.get(i) == WhenSpill.DURING_BUILD && buildOperator.getOperatorContext().getReservedRevocableBytes() > 0) {
                         checkState(!lookupSourceProvider.isDone(), "Too late, LookupSource already done");
@@ -598,9 +599,7 @@ public class TestHashJoinOperator
 
     private static void processRow(Driver joinDriver, TaskStateMachine taskStateMachine)
     {
-        joinDriver.getDriverContext().getYieldSignal().setWithDelay(TimeUnit.SECONDS.toNanos(1), joinDriver.getDriverContext().getYieldExecutor());
-        joinDriver.process();
-        joinDriver.getDriverContext().getYieldSignal().reset();
+        joinDriver.process(new Duration(1, NANOSECONDS), 1);
         checkErrors(taskStateMachine);
     }
 

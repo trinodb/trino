@@ -831,7 +831,7 @@ public class LocalQueryRunner
                     }
 
                     if (!driver.isFinished()) {
-                        driver.process();
+                        driver.processForNumberOfIterations(1);
                         processed = true;
                     }
                 }
