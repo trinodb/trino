@@ -38,5 +38,8 @@ public class HiveHdfsModule
 
         binder.bind(NamenodeStats.class).in(Scopes.SINGLETON);
         newExporter(binder).export(NamenodeStats.class).withGeneratedName();
+
+        binder.bind(FileSystemCacheTracker.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(FileSystemCacheTracker.class).withGeneratedName();
     }
 }
