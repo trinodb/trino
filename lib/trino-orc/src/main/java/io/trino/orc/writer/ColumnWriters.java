@@ -71,7 +71,7 @@ public final class ColumnWriters
                 return new DoubleColumnWriter(columnId, type, compression, bufferSize, () -> new DoubleStatisticsBuilder(bloomFilterBuilder.get()));
 
             case BYTE:
-                return new ByteColumnWriter(columnId, type, compression, bufferSize);
+                return new ByteColumnWriter(columnId, type, compression, bufferSize, () -> new IntegerStatisticsBuilder(bloomFilterBuilder.get()));
 
             case DATE:
                 return new LongColumnWriter(columnId, type, compression, bufferSize, () -> new DateStatisticsBuilder(bloomFilterBuilder.get()));
