@@ -54,6 +54,7 @@ import static io.trino.operator.Operator.NOT_BLOCKED;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.lang.Boolean.TRUE;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 //
 // NOTE:  As a general strategy the methods should "stage" a change and only
@@ -65,6 +66,8 @@ public class Driver
         implements Closeable
 {
     private static final Logger log = Logger.get(Driver.class);
+
+    private static final Duration UNLIMITED_DURATION = new Duration(Long.MAX_VALUE, NANOSECONDS);
 
     private final DriverContext driverContext;
     private final List<Operator> activeOperators;
@@ -268,11 +271,28 @@ public class Driver
         currentSplitAssignment = newAssignment;
     }
 
-    public ListenableFuture<Void> processFor(Duration duration)
+    public ListenableFuture<Void> processForDuration(Duration duration)
+    {
+        return process(duration, Integer.MAX_VALUE);
+    }
+
+    public ListenableFuture<Void> processForNumberOfIterations(int maxIterations)
+    {
+        return process(UNLIMITED_DURATION, maxIterations);
+    }
+
+    public ListenableFuture<Void> processUntilBlocked()
+    {
+        return process(UNLIMITED_DURATION, Integer.MAX_VALUE);
+    }
+
+    @VisibleForTesting
+    public ListenableFuture<Void> process(Duration maxRuntime, int maxIterations)
     {
         checkLockNotHeld("Cannot process for a duration while holding the driver lock");
 
-        requireNonNull(duration, "duration is null");
+        requireNonNull(maxRuntime, "maxRuntime is null");
+        checkArgument(maxIterations > 0, "maxIterations must be greater than zero");
 
         // if the driver is blocked we don't need to continue
         SettableFuture<Void> blockedFuture = driverBlockedFuture.get();
@@ -280,44 +300,29 @@ public class Driver
             return blockedFuture;
         }
 
-        long maxRuntime = duration.roundTo(TimeUnit.NANOSECONDS);
+        long maxRuntimeInNanos = maxRuntime.roundTo(TimeUnit.NANOSECONDS);
 
         Optional<ListenableFuture<Void>> result = tryWithLock(100, TimeUnit.MILLISECONDS, true, () -> {
             OperationTimer operationTimer = createTimer();
             driverContext.startProcessTimer();
-            driverContext.getYieldSignal().setWithDelay(maxRuntime, driverContext.getYieldExecutor());
+            driverContext.getYieldSignal().setWithDelay(maxRuntimeInNanos, driverContext.getYieldExecutor());
             try {
                 long start = System.nanoTime();
+                int iterations = 0;
                 do {
                     ListenableFuture<Void> future = processInternal(operationTimer);
+                    iterations++;
                     if (!future.isDone()) {
                         return updateDriverBlockedFuture(future);
                     }
                 }
-                while (System.nanoTime() - start < maxRuntime && !isFinishedInternal());
+                while (System.nanoTime() - start < maxRuntimeInNanos && iterations < maxIterations && !isFinishedInternal());
             }
             finally {
                 driverContext.getYieldSignal().reset();
                 driverContext.recordProcessed(operationTimer);
             }
             return NOT_BLOCKED;
-        });
-        return result.orElse(NOT_BLOCKED);
-    }
-
-    public ListenableFuture<Void> process()
-    {
-        checkLockNotHeld("Cannot process while holding the driver lock");
-
-        // if the driver is blocked we don't need to continue
-        SettableFuture<Void> blockedFuture = driverBlockedFuture.get();
-        if (!blockedFuture.isDone()) {
-            return blockedFuture;
-        }
-
-        Optional<ListenableFuture<Void>> result = tryWithLock(100, TimeUnit.MILLISECONDS, true, () -> {
-            ListenableFuture<Void> future = processInternal(createTimer());
-            return updateDriverBlockedFuture(future);
         });
         return result.orElse(NOT_BLOCKED);
     }
