@@ -557,7 +557,7 @@ public class TestMemoryConnectorTest
         assertUpdate("CREATE VIEW test_view AS SELECT 123 x");
         assertUpdate("CREATE OR REPLACE VIEW test_view AS " + query);
 
-        assertQueryFails("CREATE TABLE test_view (x date)", "View \\[default.test_view] already exists");
+        assertQueryFails("CREATE TABLE test_view (x date)", ".*Table 'memory.default.test_view' already exists");
         assertQueryFails("CREATE VIEW test_view AS SELECT 123 x", ".*View already exists: 'memory.default.test_view'");
 
         assertQuery("SELECT * FROM test_view", query);

@@ -313,8 +313,8 @@ public class MemoryMetadata
     public synchronized void createView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition definition, boolean replace)
     {
         checkSchemaExists(viewName.getSchemaName());
-        if (tableIds.containsKey(viewName)) {
-            throw new TrinoException(ALREADY_EXISTS, "Table already exists: " + viewName);
+        if (tableIds.containsKey(viewName) && !replace) {
+            throw new TrinoException(ALREADY_EXISTS, "View already exists: " + viewName);
         }
 
         if (replace) {
@@ -323,20 +323,27 @@ public class MemoryMetadata
         else if (views.putIfAbsent(viewName, definition) != null) {
             throw new TrinoException(ALREADY_EXISTS, "View already exists: " + viewName);
         }
+        tableIds.put(viewName, nextTableId.getAndIncrement());
     }
 
     @Override
     public synchronized void renameView(ConnectorSession session, SchemaTableName viewName, SchemaTableName newViewName)
     {
         checkSchemaExists(newViewName.getSchemaName());
+
+        if (!tableIds.containsKey(viewName)) {
+            throw new TrinoException(NOT_FOUND, "View not found: " + viewName);
+        }
+
         if (tableIds.containsKey(newViewName)) {
-            throw new TrinoException(ALREADY_EXISTS, "Table already exists: " + newViewName);
+            throw new TrinoException(ALREADY_EXISTS, "View already exists: " + newViewName);
         }
 
         if (views.containsKey(newViewName)) {
             throw new TrinoException(ALREADY_EXISTS, "View already exists: " + newViewName);
         }
 
+        tableIds.put(newViewName, tableIds.remove(viewName));
         views.put(newViewName, views.remove(viewName));
     }
 
@@ -346,6 +353,7 @@ public class MemoryMetadata
         if (views.remove(viewName) == null) {
             throw new ViewNotFoundException(viewName);
         }
+        tableIds.remove(viewName);
     }
 
     @Override
