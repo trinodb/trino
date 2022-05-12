@@ -21,6 +21,7 @@ import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TestView;
+import org.intellij.lang.annotations.Language;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -582,7 +583,7 @@ public class TestBigQueryConnectorTest
         assertUpdate("DROP TABLE " + tableName);
     }
 
-    private void onBigQuery(String sql)
+    private void onBigQuery(@Language("SQL") String sql)
     {
         bigQuerySqlExecutor.execute(sql);
     }

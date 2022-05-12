@@ -31,6 +31,7 @@ import io.trino.Session;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.sql.SqlExecutor;
+import org.intellij.lang.annotations.Language;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -107,12 +108,12 @@ public final class BigQueryQueryRunner
         }
 
         @Override
-        public void execute(String sql)
+        public void execute(@Language("SQL") String sql)
         {
             executeQuery(sql);
         }
 
-        public TableResult executeQuery(String sql)
+        public TableResult executeQuery(@Language("SQL") String sql)
         {
             try {
                 return bigQuery.query(QueryJobConfiguration.of(sql));
