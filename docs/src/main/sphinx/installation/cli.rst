@@ -143,6 +143,8 @@ mode:
     - Enables display of debug information during CLI usage for
       :ref:`cli-troubleshooting`. Displays more information about query
       processing statistics.
+  * - ``--disable-auto-suggestion``
+    - Disables autocomplete suggestions.
   * - ``--disable-compression``
     - Disables compression of query results.
   * - ``--editing-mode``
@@ -185,8 +187,6 @@ mode:
     - Sets the username for :ref:`cli-username-password-auth`. Defaults to your
       operating system username. You can override the default username,
       if your cluster uses a different username or authentication mechanism.
-  * - ``--disable-autosuggestion``
-    - Disables autosuggestion
 
 .. _cli-tls:
 
@@ -396,6 +396,15 @@ press :kbd:`Enter`.
 By default, you can locate the Trino history file in ``~/.trino_history``.
 Use the ``TRINO_HISTORY_FILE`` environment variable to change the default.
 
+Auto suggestion
+^^^^^^^^^^^^^^^
+
+The CLI generates autocomplete suggestions based on command history.
+
+Press :kbd:`→` to accept the suggestion and replace the current command line
+buffer. Press :kbd:`Ctrl+→` (:kbd:`Option+→` on Mac) to accept only the next
+keyword. Continue typing to reject the suggestion.
+
 Batch mode
 ----------
 
@@ -429,14 +438,6 @@ mode:
       which, for example can be safely redirected to a file.
 
 .. _cli-output-format:
-
-Auto suggestion
----------------
-As you type commands in the CLI , you see offered a suggestion after the cursor
-based on history of commands already entered.
-
-Press :kbd:`→` to accept the suggestion and replace the current command line buffer. 
-To accept the next keyword, press :kbd:`Option+→`. Continue typing to reject the suggestion.
 
 Output formats
 ^^^^^^^^^^^^^^
