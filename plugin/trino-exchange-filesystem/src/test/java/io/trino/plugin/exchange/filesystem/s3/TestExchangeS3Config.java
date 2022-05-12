@@ -45,7 +45,8 @@ public class TestExchangeS3Config
                 .setRetryMode(RetryMode.ADAPTIVE)
                 .setAsyncClientConcurrency(100)
                 .setAsyncClientMaxPendingConnectionAcquires(10000)
-                .setConnectionAcquisitionTimeout(new Duration(1, MINUTES)));
+                .setConnectionAcquisitionTimeout(new Duration(1, MINUTES))
+                .setGcsJsonKeyFilePath(null));
     }
 
     @Test
@@ -64,6 +65,7 @@ public class TestExchangeS3Config
                 .put("exchange.s3.async-client-concurrency", "202")
                 .put("exchange.s3.async-client-max-pending-connection-acquires", "999")
                 .put("exchange.s3.async-client-connection-acquisition-timeout", "5m")
+                .put("exchange.gcs.json-key-file-path", "/path/to/gcs_keyfile.json")
                 .buildOrThrow();
 
         ExchangeS3Config expected = new ExchangeS3Config()
@@ -78,7 +80,8 @@ public class TestExchangeS3Config
                 .setRetryMode(RetryMode.STANDARD)
                 .setAsyncClientConcurrency(202)
                 .setAsyncClientMaxPendingConnectionAcquires(999)
-                .setConnectionAcquisitionTimeout(new Duration(5, MINUTES));
+                .setConnectionAcquisitionTimeout(new Duration(5, MINUTES))
+                .setGcsJsonKeyFilePath("/path/to/gcs_keyfile.json");
 
         assertFullMapping(properties, expected);
     }
