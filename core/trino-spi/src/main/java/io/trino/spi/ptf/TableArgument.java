@@ -102,6 +102,71 @@ public class TableArgument
         return passThroughColumns;
     }
 
+    public static Builder builder()
+    {
+        return new Builder();
+    }
+
+    public static final class Builder
+    {
+        private Optional<QualifiedName> name;
+        private RowType rowType;
+        private List<String> partitionBy = List.of();
+        private List<SortItem> orderBy = List.of();
+        private boolean rowSemantics;
+        private boolean pruneWhenEmpty;
+        private boolean passThroughColumns;
+
+        private Builder() {}
+
+        public Builder name(Optional<QualifiedName> name)
+        {
+            this.name = name;
+            return this;
+        }
+
+        public Builder rowType(RowType rowType)
+        {
+            this.rowType = rowType;
+            return this;
+        }
+
+        public Builder partitionBy(List<String> partitionBy)
+        {
+            this.partitionBy = partitionBy;
+            return this;
+        }
+
+        public Builder orderBy(List<SortItem> orderBy)
+        {
+            this.orderBy = orderBy;
+            return this;
+        }
+
+        public Builder rowSemantics(boolean rowSemantics)
+        {
+            this.rowSemantics = rowSemantics;
+            return this;
+        }
+
+        public Builder pruneWhenEmpty(boolean pruneWhenEmpty)
+        {
+            this.pruneWhenEmpty = pruneWhenEmpty;
+            return this;
+        }
+
+        public Builder passThroughColumns(boolean passThroughColumns)
+        {
+            this.passThroughColumns = passThroughColumns;
+            return this;
+        }
+
+        public TableArgument build()
+        {
+            return new TableArgument(name, rowType, partitionBy, orderBy, rowSemantics, pruneWhenEmpty, passThroughColumns);
+        }
+    }
+
     public static class QualifiedName
     {
         private final String catalogName;
