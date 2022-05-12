@@ -41,6 +41,7 @@ import javax.inject.Inject;
 import java.util.List;
 import java.util.Optional;
 
+import static com.google.cloud.bigquery.TableDefinition.Type.MATERIALIZED_VIEW;
 import static com.google.cloud.bigquery.TableDefinition.Type.TABLE;
 import static com.google.cloud.bigquery.TableDefinition.Type.VIEW;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -115,6 +116,10 @@ public class BigQuerySplitManager
                 .map(column -> ((BigQueryColumnHandle) column).getName())
                 .collect(toImmutableList());
 
+        if (type == MATERIALIZED_VIEW) {
+            // Storage API doesn't support reading materialized views
+            return ImmutableList.of(BigQuerySplit.forViewStream(columns, filter));
+        }
         if (skipViewMaterialization && type == VIEW) {
             return ImmutableList.of(BigQuerySplit.forViewStream(columns, filter));
         }
