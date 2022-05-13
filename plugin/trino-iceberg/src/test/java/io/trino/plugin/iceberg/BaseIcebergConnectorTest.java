@@ -3129,6 +3129,27 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate("DROP TABLE " + tableName);
     }
 
+    @Test
+    public void testOptimizeSkipWhenNewFilesAreFewerThanOrEqualToScannedFiles()
+    {
+        String tableName = "test_optimize_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (key integer) WITH (format_version = 1)");
+
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1)", 1);
+
+        List<String> initialFiles = getActiveFiles(tableName);
+        assertThat(initialFiles).hasSize(1);
+
+        computeActual("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
+
+        List<String> afterFiles = getActiveFiles(tableName);
+        assertThat(afterFiles).hasSize(1);
+
+        assertThat(afterFiles).isEqualTo(initialFiles);
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
     private List<String> getActiveFiles(String tableName)
     {
         return computeActual(format("SELECT file_path FROM \"%s$files\"", tableName)).getOnlyColumn()

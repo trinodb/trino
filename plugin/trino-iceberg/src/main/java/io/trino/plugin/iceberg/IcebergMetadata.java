@@ -928,8 +928,8 @@ public class IcebergMetadata
             newFiles.add(builder.build());
         }
 
-        if (scannedFiles.isEmpty() && newFiles.isEmpty()) {
-            // Table scan turned out to be empty, nothing to commit
+        // Table scan turned out to be empty, or the procedure doesn't reduce file counts, nothing to commit
+        if ((scannedFiles.isEmpty() && newFiles.isEmpty()) || scannedFiles.size() <= newFiles.size()) {
             transaction = null;
             return;
         }
