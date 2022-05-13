@@ -285,13 +285,9 @@ public final class DiscoveryNodeManager
             if (isNodeShuttingDown(node.getNodeIdentifier())) {
                 return SHUTTING_DOWN;
             }
-            else {
-                return ACTIVE;
-            }
+            return ACTIVE;
         }
-        else {
-            return INACTIVE;
-        }
+        return INACTIVE;
     }
 
     private boolean isNodeShuttingDown(String nodeId)
