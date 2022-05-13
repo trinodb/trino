@@ -135,13 +135,13 @@ public class TestSpiBackwardCompatibility
         if (!isPublic(clazz.getModifiers())) {
             return;
         }
-        entities.add("Class: " + clazz.toGenericString());
         for (Class<?> nestedClass : clazz.getDeclaredClasses()) {
             addClassEntities(entities, nestedClass, includeDeprecated);
         }
         if (!includeDeprecated && clazz.isAnnotationPresent(Deprecated.class)) {
             return;
         }
+        entities.add("Class: " + clazz.toGenericString());
         for (Constructor<?> constructor : clazz.getConstructors()) {
             if (!includeDeprecated && constructor.isAnnotationPresent(Deprecated.class)) {
                 continue;
