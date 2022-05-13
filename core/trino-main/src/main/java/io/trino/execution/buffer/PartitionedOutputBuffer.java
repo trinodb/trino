@@ -71,7 +71,7 @@ public class PartitionedOutputBuffer
                 requireNonNull(notificationExecutor, "notificationExecutor is null"));
         this.onPagesReleased = PagesReleasedListener.forOutputBufferMemoryManager(memoryManager);
 
-        ImmutableList.Builder<ClientBuffer> partitions = ImmutableList.builder();
+        ImmutableList.Builder<ClientBuffer> partitions = ImmutableList.builderWithExpectedSize(outputBuffers.getBuffers().keySet().size());
         for (OutputBufferId bufferId : outputBuffers.getBuffers().keySet()) {
             ClientBuffer partition = new ClientBuffer(taskInstanceId, bufferId, onPagesReleased);
             partitions.add(partition);
