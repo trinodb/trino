@@ -433,6 +433,8 @@ Property Name                                      Description                  
                                                    on auto_purge.
 
 ``hive.partition-projection-enabled``              Enables Athena partition projection support                     ``false``
+
+``hive.max-partition-drops-per-query``             Maximum number of partitions to drop in a single query.      100,000
 ================================================== ============================================================ ============
 
 ORC format configuration properties

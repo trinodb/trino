@@ -89,6 +89,7 @@ public class HiveConfig
     private int maxConcurrentFileRenames = 20;
     private int maxConcurrentMetastoreDrops = 20;
     private int maxConcurrentMetastoreUpdates = 20;
+    private int maxPartitionDropsPerQuery = 100_000;
 
     private long perTransactionMetastoreCacheMaximumSize = 1000;
 
@@ -333,6 +334,19 @@ public class HiveConfig
     public HiveConfig setMaxConcurrentMetastoreUpdates(int maxConcurrentMetastoreUpdates)
     {
         this.maxConcurrentMetastoreUpdates = maxConcurrentMetastoreUpdates;
+        return this;
+    }
+
+    @Min(1)
+    public int getMaxPartitionDropsPerQuery()
+    {
+        return maxPartitionDropsPerQuery;
+    }
+
+    @Config("hive.max-partition-drops-per-query")
+    public HiveConfig setMaxPartitionDropsPerQuery(int maxPartitionDropsPerQuery)
+    {
+        this.maxPartitionDropsPerQuery = maxPartitionDropsPerQuery;
         return this;
     }
 
