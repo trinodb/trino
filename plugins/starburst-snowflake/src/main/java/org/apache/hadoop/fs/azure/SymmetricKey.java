@@ -21,7 +21,7 @@ import com.microsoft.azure.keyvault.cryptography.algorithms.Aes256CbcHmacSha512;
 import com.microsoft.azure.keyvault.cryptography.algorithms.AesKw128;
 import com.microsoft.azure.keyvault.cryptography.algorithms.AesKw192;
 import com.microsoft.azure.keyvault.cryptography.algorithms.AesKw256;
-import com.starburstdata.presto.plugin.snowflake.distributed.AesKwPkcs5;
+import com.starburstdata.trino.plugins.snowflake.distributed.AesKwPkcs5;
 import io.trino.hadoop.$internal.com.google.common.util.concurrent.Futures;
 import io.trino.hadoop.$internal.com.google.common.util.concurrent.ListenableFuture;
 import io.trino.hadoop.$internal.com.microsoft.azure.keyvault.core.IKey;
