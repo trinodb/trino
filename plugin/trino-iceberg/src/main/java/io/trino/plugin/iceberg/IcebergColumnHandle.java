@@ -200,7 +200,7 @@ public class IcebergColumnHandle
     public static IcebergColumnHandle pathColumnHandle()
     {
         return new IcebergColumnHandle(
-                columIdentity(FILE_PATH),
+                columnIdentity(FILE_PATH),
                 FILE_PATH.getType(),
                 ImmutableList.of(),
                 FILE_PATH.getType(),
@@ -216,7 +216,7 @@ public class IcebergColumnHandle
                 .build();
     }
 
-    private static ColumnIdentity columIdentity(IcebergMetadataColumn metadata)
+    private static ColumnIdentity columnIdentity(IcebergMetadataColumn metadata)
     {
         return new ColumnIdentity(metadata.getId(), metadata.getColumnName(), metadata.getTypeCategory(), ImmutableList.of());
     }
