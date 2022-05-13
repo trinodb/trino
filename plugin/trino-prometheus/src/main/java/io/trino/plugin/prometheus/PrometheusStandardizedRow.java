@@ -27,7 +27,7 @@ public class PrometheusStandardizedRow
 
     public PrometheusStandardizedRow(Block labels, Instant timestamp, Double value)
     {
-        this.labels = requireNonNull(labels, "labels is null");
+        this.labels = labels;
         this.timestamp = requireNonNull(timestamp, "timestamp is null");
         this.value = requireNonNull(value, "value is null");
     }
