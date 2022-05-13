@@ -821,6 +821,7 @@ public abstract class AbstractTestHive
                 10,
                 10,
                 10,
+                100_000,
                 false,
                 false,
                 false,
