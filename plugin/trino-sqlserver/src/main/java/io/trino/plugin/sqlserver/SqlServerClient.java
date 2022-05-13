@@ -956,7 +956,7 @@ public class SqlServerClient
             }
 
             @Override
-            public void setNull(PreparedStatement statement, int index)
+            public void setNull(PreparedStatement statement, JdbcTypeHandle typeHandle, int index)
                     throws SQLException
             {
                 statement.setBytes(index, null);

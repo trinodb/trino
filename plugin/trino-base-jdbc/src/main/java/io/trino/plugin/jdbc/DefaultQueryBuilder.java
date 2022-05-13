@@ -170,7 +170,7 @@ public class DefaultQueryBuilder
         for (int i = 0; i < parameters.size(); i++) {
             QueryParameter parameter = parameters.get(i);
             int parameterIndex = i + 1;
-            WriteFunction writeFunction = getWriteFunction(client, session, connection, parameter.getJdbcType(), parameter.getType());
+            WriteFunction writeFunction = getWriteFunction(client, session, parameter.getType());
             Class<?> javaType = writeFunction.getJavaType();
             Object value = parameter.getValue()
                     // The value must be present, since DefaultQueryBuilder never creates null parameters. Values coming from Domain's ValueSet are non-null, and
@@ -325,7 +325,7 @@ public class DefaultQueryBuilder
 
         JdbcTypeHandle jdbcType = column.getJdbcTypeHandle();
         Type type = column.getColumnType();
-        WriteFunction writeFunction = getWriteFunction(client, session, connection, jdbcType, type);
+        WriteFunction writeFunction = getWriteFunction(client, session, type);
 
         List<String> disjuncts = new ArrayList<>();
         List<Object> singleValues = new ArrayList<>();
@@ -405,11 +405,9 @@ public class DefaultQueryBuilder
                         .collect(joining(", ", "(", ")"));
     }
 
-    private static WriteFunction getWriteFunction(JdbcClient client, ConnectorSession session, Connection connection, JdbcTypeHandle jdbcType, Type type)
+    private static WriteFunction getWriteFunction(JdbcClient client, ConnectorSession session, Type type)
     {
-        WriteFunction writeFunction = client.toColumnMapping(session, connection, jdbcType)
-                .orElseThrow(() -> new VerifyException(format("Unsupported type %s with handle %s", type, jdbcType)))
-                .getWriteFunction();
+        WriteFunction writeFunction = client.toWriteMapping(session, type).getWriteFunction();
         verify(writeFunction.getJavaType() == type.getJavaType(), "Java type mismatch: %s, %s", writeFunction, type);
         return writeFunction;
     }

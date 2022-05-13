@@ -32,12 +32,10 @@ import java.util.concurrent.CompletableFuture;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Verify.verify;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.base.util.Closables.closeAllSuppress;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_NON_TRANSIENT_ERROR;
 import static io.trino.plugin.jdbc.JdbcWriteSessionProperties.getWriteBatchSize;
-import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 
 public class JdbcPageSink
@@ -47,6 +45,7 @@ public class JdbcPageSink
     private final PreparedStatement statement;
 
     private final List<Type> columnTypes;
+    private final List<JdbcTypeHandle> typeHandles;
     private final List<WriteFunction> columnWriters;
     private final int maxBatchSize;
     private int batchSize;
@@ -61,7 +60,7 @@ public class JdbcPageSink
         }
 
         try {
-            // According to JDBC javaodcs "If a connection is in auto-commit mode, then all its SQL statements will be
+            // According to JDBC javadocs "If a connection is in auto-commit mode, then all its SQL statements will be
             // executed and committed as individual transactions." Notably MySQL and SQL Server respect this which
             // leads to multiple commits when we close the connection leading to slow performance. Explicit commits
             // where needed ensure that all of the submitted statements are committed as a single transaction and
@@ -74,30 +73,13 @@ public class JdbcPageSink
         }
 
         columnTypes = handle.getColumnTypes();
+        typeHandles = handle.getJdbcColumnTypes();
 
-        if (handle.getJdbcColumnTypes().isEmpty()) {
-            columnWriters = columnTypes.stream()
-                    .map(type -> {
-                        WriteMapping writeMapping = jdbcClient.toWriteMapping(session, type);
-                        WriteFunction writeFunction = writeMapping.getWriteFunction();
-                        verify(
-                                type.getJavaType() == writeFunction.getJavaType(),
-                                "Trino type %s is not compatible with write function %s accepting %s",
-                                type,
-                                writeFunction,
-                                writeFunction.getJavaType());
-                        return writeMapping;
-                    })
-                    .map(WriteMapping::getWriteFunction)
-                    .collect(toImmutableList());
+        ImmutableList.Builder<WriteFunction> columnWritersBuilder = ImmutableList.builderWithExpectedSize(typeHandles.size());
+        for (int i = 0; i < typeHandles.size(); i++) {
+            columnWritersBuilder.add(getWriteFunction(jdbcClient, session, columnTypes.get(i)));
         }
-        else {
-            columnWriters = handle.getJdbcColumnTypes().get().stream()
-                    .map(typeHandle -> jdbcClient.toColumnMapping(session, connection, typeHandle)
-                            .orElseThrow(() -> new TrinoException(NOT_SUPPORTED, "Underlying type is not supported for INSERT: " + typeHandle)))
-                    .map(ColumnMapping::getWriteFunction)
-                    .collect(toImmutableList());
-        }
+        columnWriters = columnWritersBuilder.build();
 
         try {
             statement = connection.prepareStatement(jdbcClient.buildInsertSql(handle, columnWriters));
@@ -109,6 +91,21 @@ public class JdbcPageSink
 
         // Making batch size configurable allows performance tuning for insert/write-heavy workloads over multiple connections.
         this.maxBatchSize = getWriteBatchSize(session);
+    }
+
+    private WriteFunction getWriteFunction(JdbcClient client, ConnectorSession session, Type type)
+    {
+        WriteMapping writeMapping = client.toWriteMapping(session, type);
+        WriteFunction writeFunction = writeMapping.getWriteFunction();
+
+        verify(
+                type.getJavaType() == writeFunction.getJavaType(),
+                "Trino type %s is not compatible with write function %s accepting %s",
+                type,
+                writeFunction,
+                writeFunction.getJavaType());
+
+        return writeFunction;
     }
 
     @Override
@@ -145,7 +142,7 @@ public class JdbcPageSink
 
         WriteFunction writeFunction = columnWriters.get(channel);
         if (block.isNull(position)) {
-            writeFunction.setNull(statement, parameterIndex);
+            writeFunction.setNull(statement, typeHandles.get(channel), parameterIndex);
             return;
         }
 

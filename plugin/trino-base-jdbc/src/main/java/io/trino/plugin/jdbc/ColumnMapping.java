@@ -131,6 +131,9 @@ public final class ColumnMapping
         return readFunction;
     }
 
+    @Deprecated
+    // @TODO: we should either remove WriteFunction from ColumnMapping or use jdbcClient.toWriteMapping result
+    // while constructing it as it's now used in one place only.
     public WriteFunction getWriteFunction()
     {
         return writeFunction;

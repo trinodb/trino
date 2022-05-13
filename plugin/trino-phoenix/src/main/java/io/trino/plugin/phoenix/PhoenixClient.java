@@ -32,6 +32,7 @@ import io.trino.plugin.jdbc.ObjectWriteFunction;
 import io.trino.plugin.jdbc.PredicatePushdownController;
 import io.trino.plugin.jdbc.PreparedQuery;
 import io.trino.plugin.jdbc.QueryBuilder;
+import io.trino.plugin.jdbc.RemoteTableName;
 import io.trino.plugin.jdbc.WriteFunction;
 import io.trino.plugin.jdbc.WriteMapping;
 import io.trino.plugin.jdbc.mapping.IdentifierMapping;
@@ -113,6 +114,7 @@ import java.util.function.BiFunction;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.jdbc.DecimalConfig.DecimalMapping.ALLOW_OVERFLOW;
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalDefaultScale;
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalRounding;
@@ -642,7 +644,9 @@ public class PhoenixClient
                     table,
                     columnNames.build(),
                     columnTypes.build(),
-                    Optional.empty(),
+                    getColumns(session, new JdbcTableHandle(schemaTableName, new RemoteTableName(Optional.empty(), Optional.of(schema), table), Optional.empty())).stream()
+                        .map(JdbcColumnHandle::getJdbcTypeHandle)
+                        .collect(toImmutableList()),
                     rowkeyColumn);
         }
         catch (SQLException e) {

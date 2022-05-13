@@ -531,7 +531,9 @@ public abstract class BaseJdbcClient
                     remoteTable,
                     columnNames.build(),
                     columnTypes.build(),
-                    Optional.empty(),
+                    getColumns(session, new JdbcTableHandle(schemaTableName, remoteTableName, Optional.empty())).stream()
+                            .map(JdbcColumnHandle::getJdbcTypeHandle)
+                            .collect(toImmutableList()),
                     Optional.of(remoteTargetTableName));
         }
     }
@@ -581,7 +583,7 @@ public abstract class BaseJdbcClient
                         remoteTable,
                         columnNames.build(),
                         columnTypes.build(),
-                        Optional.of(jdbcColumnTypes.build()),
+                        jdbcColumnTypes.build(),
                         Optional.empty());
             }
 
@@ -594,7 +596,7 @@ public abstract class BaseJdbcClient
                     remoteTable,
                     columnNames.build(),
                     columnTypes.build(),
-                    Optional.of(jdbcColumnTypes.build()),
+                    jdbcColumnTypes.build(),
                     Optional.of(remoteTemporaryTableName));
         }
         catch (SQLException e) {

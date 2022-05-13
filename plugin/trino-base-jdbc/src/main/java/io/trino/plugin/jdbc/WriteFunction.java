@@ -25,9 +25,14 @@ public interface WriteFunction
         return "?";
     }
 
-    default void setNull(PreparedStatement statement, int index)
+    default void setNull(PreparedStatement statement, JdbcTypeHandle typeHandle, int index)
             throws SQLException
     {
-        statement.setObject(index, null);
+        if (typeHandle.getJdbcTypeName().isPresent()) {
+            statement.setNull(index, typeHandle.getJdbcType(), typeHandle.getJdbcTypeName().get());
+        }
+        else {
+            statement.setNull(index, typeHandle.getJdbcType());
+        }
     }
 }

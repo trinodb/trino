@@ -184,7 +184,7 @@ public class PhoenixMetadata
                 handle.getTableName(),
                 columnHandles.stream().map(JdbcColumnHandle::getColumnName).collect(toImmutableList()),
                 columnHandles.stream().map(JdbcColumnHandle::getColumnType).collect(toImmutableList()),
-                Optional.of(columnHandles.stream().map(JdbcColumnHandle::getJdbcTypeHandle).collect(toImmutableList())),
+                columnHandles.stream().map(JdbcColumnHandle::getJdbcTypeHandle).collect(toImmutableList()),
                 rowkeyColumn);
     }
 

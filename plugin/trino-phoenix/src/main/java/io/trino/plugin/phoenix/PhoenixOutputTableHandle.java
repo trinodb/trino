@@ -37,7 +37,7 @@ public class PhoenixOutputTableHandle
             @JsonProperty("tableName") String tableName,
             @JsonProperty("columnNames") List<String> columnNames,
             @JsonProperty("columnTypes") List<Type> columnTypes,
-            @JsonProperty("jdbcColumnTypes") Optional<List<JdbcTypeHandle>> jdbcColumnTypes,
+            @JsonProperty("jdbcColumnTypes") List<JdbcTypeHandle> jdbcColumnTypes,
             @JsonProperty("rowkeyColumn") Optional<String> rowkeyColumn)
     {
         super("", schemaName, tableName, columnNames, columnTypes, jdbcColumnTypes, Optional.empty());
