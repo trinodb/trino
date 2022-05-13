@@ -185,6 +185,8 @@ mode:
     - Sets the username for :ref:`cli-username-password-auth`. Defaults to your
       operating system username. You can override the default username,
       if your cluster uses a different username or authentication mechanism.
+  * - ``--disable-autosuggestion``
+    - Disables autosuggestion
 
 .. _cli-tls:
 
@@ -427,6 +429,14 @@ mode:
       which, for example can be safely redirected to a file.
 
 .. _cli-output-format:
+
+Auto suggestion
+---------------
+As you type commands in the CLI , you see offered a suggestion after the cursor
+based on history of commands already entered.
+
+Press :kbd:`→` to accept the suggestion and replace the current command line buffer. 
+To accept the next keyword, press :kbd:`Option+→`. Continue typing to reject the suggestion.
 
 Output formats
 ^^^^^^^^^^^^^^

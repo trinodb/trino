@@ -72,6 +72,7 @@ import io.trino.sql.planner.plan.StatisticsWriterNode;
 import io.trino.sql.planner.plan.TableDeleteNode;
 import io.trino.sql.planner.plan.TableExecuteNode;
 import io.trino.sql.planner.plan.TableFinishNode;
+import io.trino.sql.planner.plan.TableFunctionNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableWriterNode;
 import io.trino.sql.planner.plan.TopNNode;
@@ -312,6 +313,28 @@ public class UnaliasSymbolReferences
             PatternRecognitionNode rewrittenPatternRecognition = mapper.map(node, rewrittenSource.getRoot());
 
             return new PlanAndMappings(rewrittenPatternRecognition, mapping);
+        }
+
+        @Override
+        public PlanAndMappings visitTableFunction(TableFunctionNode node, UnaliasContext context)
+        {
+            // TODO rewrite sources, tableArgumentProperties, and inputDescriptorMappings when we add support for input tables
+            Map<Symbol, Symbol> mapping = new HashMap<>(context.getCorrelationMapping());
+            SymbolMapper mapper = symbolMapper(mapping);
+
+            List<Symbol> newProperOutputs = mapper.map(node.getProperOutputs());
+
+            return new PlanAndMappings(
+                    new TableFunctionNode(
+                            node.getId(),
+                            node.getName(),
+                            node.getArguments(),
+                            newProperOutputs,
+                            node.getSources(),
+                            node.getTableArgumentProperties(),
+                            node.getInputDescriptorMappings(),
+                            node.getHandle()),
+                    mapping);
         }
 
         @Override

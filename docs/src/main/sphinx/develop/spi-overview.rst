@@ -6,15 +6,15 @@ When you implement a new Trino plugin, you implement interfaces and
 override methods defined by the SPI.
 
 Plugins can provide additional :doc:`connectors`, :doc:`types`,
-:doc:`functions` and :doc:`system-access-control`.
+:doc:`functions`, and :doc:`system-access-control`.
 In particular, connectors are the source of all data for queries in
 Trino: they back each catalog available to Trino.
 
 Code
 ----
 
-The SPI source can be found in the ``trino-spi`` directory in the
-root of the Trino source tree.
+The SPI source can be found in the ``core/trino-spi`` directory in the Trino
+source tree.
 
 Plugin metadata
 ---------------
@@ -77,7 +77,7 @@ to provide isolation and to allow plugins to use a different version
 of a library that Trino uses internally.
 
 For an example ``pom.xml`` file, see the example HTTP connector in the
-``trino-example-http`` directory in the root of the Trino source tree.
+``plugin/trino-example-http`` directory in the Trino source tree.
 
 Deploying a custom plugin
 -------------------------

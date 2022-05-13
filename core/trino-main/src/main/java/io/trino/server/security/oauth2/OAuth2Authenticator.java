@@ -39,15 +39,15 @@ import static java.util.Objects.requireNonNull;
 public class OAuth2Authenticator
         extends AbstractBearerAuthenticator
 {
-    private final OAuth2Service service;
+    private final OAuth2Client client;
     private final String principalField;
     private final Optional<String> groupsField;
     private final UserMapping userMapping;
 
     @Inject
-    public OAuth2Authenticator(OAuth2Service service, OAuth2Config config)
+    public OAuth2Authenticator(OAuth2Client client, OAuth2Config config)
     {
-        this.service = requireNonNull(service, "service is null");
+        this.client = requireNonNull(client, "service is null");
         this.principalField = config.getPrincipalField();
         groupsField = requireNonNull(config.getGroupsField(), "groupsField is null");
         userMapping = createUserMapping(config.getUserMappingPattern(), config.getUserMappingFile());
@@ -57,21 +57,16 @@ public class OAuth2Authenticator
     protected Optional<Identity> createIdentity(String token)
             throws UserMappingException
     {
-        try {
-            Optional<Map<String, Object>> claims = service.convertTokenToClaims(token);
-            if (claims.isEmpty()) {
-                return Optional.empty();
-            }
-            String principal = (String) claims.get().get(principalField);
-            Identity.Builder builder = Identity.forUser(userMapping.mapUser(principal));
-            builder.withPrincipal(new BasicPrincipal(principal));
-            groupsField.flatMap(field -> Optional.ofNullable((List<String>) claims.get().get(field)))
-                    .ifPresent(groups -> builder.withGroups(ImmutableSet.copyOf(groups)));
-            return Optional.of(builder.build());
-        }
-        catch (ChallengeFailedException e) {
+        Optional<Map<String, Object>> claims = client.getClaims(token);
+        if (claims.isEmpty()) {
             return Optional.empty();
         }
+        String principal = (String) claims.get().get(principalField);
+        Identity.Builder builder = Identity.forUser(userMapping.mapUser(principal));
+        builder.withPrincipal(new BasicPrincipal(principal));
+        groupsField.flatMap(field -> Optional.ofNullable((List<String>) claims.get().get(field)))
+                .ifPresent(groups -> builder.withGroups(ImmutableSet.copyOf(groups)));
+        return Optional.of(builder.build());
     }
 
     @Override

@@ -44,16 +44,16 @@ supported databases are MySQL, PostgreSQL, and Oracle.
     resource-groups.config-db-user=username
     resource-groups.config-db-password=password
 
-The resource group configuration must be populated through tables 
+The resource group configuration must be populated through tables
 ``resource_groups_global_properties``, ``resource_groups``, and
 ``selectors``. If any of the tables do not exist when Trino starts, they
 will be created automatically.
 
-The rules in the ``selectors`` table are processed in descending order of the 
+The rules in the ``selectors`` table are processed in descending order of the
 values in the ``priority`` field.
 
 The ``resource_groups`` table also contains an ``environment`` field which is
-matched with the value contained in the ``node.environment`` property in 
+matched with the value contained in the ``node.environment`` property in
 :ref:`node_properties`. This allows the resource group configuration for different
 Trino clusters to be stored in the same database if required.
 
@@ -128,7 +128,7 @@ Resource group properties
   * ``query_priority``: all sub-groups must also be configured with ``query_priority``.
     Queued queries are selected strictly according to their priority.
 
-* ``schedulingWeight`` (optional): weight of this sub-group used in ``weight`` 
+* ``schedulingWeight`` (optional): weight of this sub-group used in ``weight``
   and the ``weighted_fair`` scheduling policy. Defaults to ``1``. See
   :ref:`scheduleweight-example`.
 
@@ -315,8 +315,8 @@ This example is for a MySQL database.
 
     -- get ID of 'bi-${toolname}' group
     SELECT resource_group_id FROM resource_groups WHERE name = 'bi-${toolname}';  -- 6
-    -- create '${USER}' group with 'bi-${toolname}' as parent. This indicates 
-    -- nested group 'global.adhoc.bi-${toolname}.${USER}', and will have a 
+    -- create '${USER}' group with 'bi-${toolname}' as parent. This indicates
+    -- nested group 'global.adhoc.bi-${toolname}.${USER}', and will have a
     -- different ID than 'global.adhoc.other.${USER}' created above.
     INSERT INTO resource_groups (name, soft_memory_limit, hard_concurrency_limit, max_queued,  environment, parent) VALUES ('${USER}', '10%', 3, 10, 'test', 6);
 
@@ -325,7 +325,7 @@ This example is for a MySQL database.
 
     -- get ID of 'pipeline' group
     SELECT resource_group_id FROM resource_groups WHERE name = 'pipeline'; -- 8
-    -- create 'pipeline_${USER}' group with 'pipeline' as parent 
+    -- create 'pipeline_${USER}' group with 'pipeline' as parent
     INSERT INTO resource_groups (name, soft_memory_limit, hard_concurrency_limit, max_queued,  environment, parent) VALUES ('pipeline_${USER}', '50%', 5, 100, 'test', 8);
 
     -- create a root group 'admin' with NULL parent
@@ -347,15 +347,15 @@ This example is for a MySQL database.
     INSERT INTO selectors (resource_group_id, source_regex, priority) VALUES ((SELECT resource_group_id FROM resource_groups WHERE name = 'pipeline_${USER}'), '.*pipeline.*', 3);
 
     -- get ID of 'global.adhoc.bi-${toolname}.${USER}' resource group by disambiguating group name using parent ID
-    SELECT A.resource_group_id self_id, B.resource_group_id parent_id, concat(B.name, '.', A.name) name_with_parent 
+    SELECT A.resource_group_id self_id, B.resource_group_id parent_id, concat(B.name, '.', A.name) name_with_parent
     FROM resource_groups A JOIN resource_groups B ON A.parent = B.resource_group_id
-    WHERE A.name = '${USER}' AND B.name = 'bi-${toolname}'; 
+    WHERE A.name = '${USER}' AND B.name = 'bi-${toolname}';
     --  7 |         6 | bi-${toolname}.${USER}
     INSERT INTO selectors (resource_group_id, source_regex, client_tags, priority) VALUES (7, 'jdbc#(?<toolname>.*)', '["hipri"]', 2);
 
     -- get ID of 'global.adhoc.other.${USER}' resource group for by disambiguating group name using parent ID
-    SELECT A.resource_group_id self_id, B.resource_group_id parent_id, concat(B.name, '.', A.name) name_with_parent 
+    SELECT A.resource_group_id self_id, B.resource_group_id parent_id, concat(B.name, '.', A.name) name_with_parent
     FROM resource_groups A JOIN resource_groups B ON A.parent = B.resource_group_id
     WHERE A.name = '${USER}' AND B.name = 'other';
-    -- |       5 |         4 | other.${USER}    | 
+    -- |       5 |         4 | other.${USER}    |
     INSERT INTO selectors (resource_group_id, priority) VALUES (5, 1);

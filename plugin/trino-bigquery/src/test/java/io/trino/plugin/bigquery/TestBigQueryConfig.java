@@ -37,6 +37,7 @@ public class TestBigQueryConfig
                 .setParentProjectId(null)
                 .setParallelism(null)
                 .setViewExpireDuration(new Duration(24, HOURS))
+                .setSkipViewMaterialization(false)
                 .setViewMaterializationProject(null)
                 .setViewMaterializationDataset(null)
                 .setMaxReadRowsRetries(3)
@@ -55,6 +56,7 @@ public class TestBigQueryConfig
                 .put("bigquery.parallelism", "20")
                 .put("bigquery.views-enabled", "true")
                 .put("bigquery.view-expire-duration", "30m")
+                .put("bigquery.skip-view-materialization", "true")
                 .put("bigquery.view-materialization-project", "vmproject")
                 .put("bigquery.view-materialization-dataset", "vmdataset")
                 .put("bigquery.max-read-rows-retries", "10")
@@ -69,6 +71,7 @@ public class TestBigQueryConfig
                 .setParallelism(20)
                 .setViewsEnabled(true)
                 .setViewExpireDuration(new Duration(30, MINUTES))
+                .setSkipViewMaterialization(true)
                 .setViewMaterializationProject("vmproject")
                 .setViewMaterializationDataset("vmdataset")
                 .setMaxReadRowsRetries(10)
@@ -88,5 +91,12 @@ public class TestBigQueryConfig
                 .validate())
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("View expiration duration must be longer than view cache TTL");
+
+        assertThatThrownBy(() -> new BigQueryConfig()
+                .setSkipViewMaterialization(true)
+                .setViewsEnabled(false)
+                .validate())
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("bigquery.views-enabled config property must be enabled when skipping view materialization");
     }
 }

@@ -21,6 +21,7 @@ import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TestView;
+import org.intellij.lang.annotations.Language;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -582,7 +583,26 @@ public class TestBigQueryConnectorTest
         assertUpdate("DROP TABLE " + tableName);
     }
 
-    private void onBigQuery(String sql)
+    @Test
+    public void testBigQueryMaterializedView()
+    {
+        String materializedView = "test_materialized_view" + randomTableSuffix();
+        try {
+            onBigQuery("CREATE MATERIALIZED VIEW test." + materializedView + " AS SELECT count(1) AS cnt FROM tpch.region");
+            assertQuery("SELECT table_type FROM information_schema.tables WHERE table_schema = 'test' AND table_name = '" + materializedView + "'", "VALUES 'BASE TABLE'");
+
+            assertQuery("DESCRIBE test." + materializedView, "VALUES ('cnt', 'bigint', '', '')");
+            assertQuery("SELECT * FROM test." + materializedView, "VALUES 5");
+
+            assertUpdate("DROP TABLE test." + materializedView);
+            assertQueryReturnsEmptyResult("SELECT * FROM information_schema.tables WHERE table_schema = 'test' AND table_name = '" + materializedView + "'");
+        }
+        finally {
+            onBigQuery("DROP MATERIALIZED VIEW IF EXISTS test." + materializedView);
+        }
+    }
+
+    private void onBigQuery(@Language("SQL") String sql)
     {
         bigQuerySqlExecutor.execute(sql);
     }

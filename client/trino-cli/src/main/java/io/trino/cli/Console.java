@@ -191,7 +191,7 @@ public class Console
                         clientOptions.progress.orElse(false));
             }
 
-            runConsole(queryRunner, exiting, clientOptions.editingMode, clientOptions.progress.orElse(true));
+            runConsole(queryRunner, exiting, clientOptions.editingMode, clientOptions.progress.orElse(true), clientOptions.disableAutoSuggestion);
             return true;
         }
         finally {
@@ -221,10 +221,10 @@ public class Console
         return reader.readLine("Password: ", (char) 0);
     }
 
-    private static void runConsole(QueryRunner queryRunner, AtomicBoolean exiting, ClientOptions.EditingMode editingMode, boolean progress)
+    private static void runConsole(QueryRunner queryRunner, AtomicBoolean exiting, ClientOptions.EditingMode editingMode, boolean progress, boolean disableAutoSuggestion)
     {
         try (TableNameCompleter tableNameCompleter = new TableNameCompleter(queryRunner);
-                InputReader reader = new InputReader(editingMode, getHistoryFile(), commandCompleter(), tableNameCompleter)) {
+                InputReader reader = new InputReader(editingMode, getHistoryFile(), disableAutoSuggestion, commandCompleter(), tableNameCompleter)) {
             tableNameCompleter.populateCache();
             String remaining = "";
             while (!exiting.get()) {

@@ -15,7 +15,6 @@ package io.trino.plugin.redis;
 
 import io.airlift.log.Logger;
 import io.trino.spi.HostAddress;
-import io.trino.spi.NodeManager;
 import redis.clients.jedis.JedisPool;
 import redis.clients.jedis.JedisPoolConfig;
 
@@ -42,9 +41,7 @@ public class RedisJedisManager
     private final JedisPoolConfig jedisPoolConfig;
 
     @Inject
-    RedisJedisManager(
-            RedisConnectorConfig redisConnectorConfig,
-            NodeManager nodeManager)
+    RedisJedisManager(RedisConnectorConfig redisConnectorConfig)
     {
         this.redisConnectorConfig = requireNonNull(redisConnectorConfig, "redisConnectorConfig is null");
         this.jedisPoolConfig = new JedisPoolConfig();
@@ -81,6 +78,7 @@ public class RedisJedisManager
                 host.getHostText(),
                 host.getPort(),
                 toIntExact(redisConnectorConfig.getRedisConnectTimeout().toMillis()),
+                redisConnectorConfig.getRedisUser(),
                 redisConnectorConfig.getRedisPassword(),
                 redisConnectorConfig.getRedisDataBaseIndex());
     }

@@ -19,13 +19,16 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import io.trino.Session;
+import io.trino.metadata.TableFunctionHandle;
 import io.trino.metadata.TableHandle;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.ptf.NameAndPosition;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.ExpressionUtils;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.Analysis;
+import io.trino.sql.analyzer.Analysis.TableFunctionInvocationAnalysis;
 import io.trino.sql.analyzer.Analysis.UnnestAnalysis;
 import io.trino.sql.analyzer.Field;
 import io.trino.sql.analyzer.RelationType;
@@ -42,6 +45,8 @@ import io.trino.sql.planner.plan.PatternRecognitionNode.Measure;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.SampleNode;
+import io.trino.sql.planner.plan.TableFunctionNode;
+import io.trino.sql.planner.plan.TableFunctionNode.TableArgumentProperties;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.UnionNode;
 import io.trino.sql.planner.plan.UnnestNode;
@@ -85,6 +90,7 @@ import io.trino.sql.tree.SortItem;
 import io.trino.sql.tree.SubqueryExpression;
 import io.trino.sql.tree.SubsetDefinition;
 import io.trino.sql.tree.Table;
+import io.trino.sql.tree.TableFunctionInvocation;
 import io.trino.sql.tree.TableSubquery;
 import io.trino.sql.tree.Union;
 import io.trino.sql.tree.Unnest;
@@ -317,6 +323,42 @@ class RelationPlanner
         }
 
         return new RelationPlan(planBuilder.getRoot(), plan.getScope(), plan.getFieldMappings(), outerContext);
+    }
+
+    @Override
+    protected RelationPlan visitTableFunctionInvocation(TableFunctionInvocation node, Void context)
+    {
+        TableFunctionInvocationAnalysis functionAnalysis = analysis.getTableFunctionAnalysis(node);
+
+        // TODO handle input relations:
+        // 1. extract the input relations from node.getArguments() and plan them. Apply relation coercions if requested.
+        // 2. for each input relation, prepare the TableArgumentProperties record, consisting of:
+        //  - row or set semantics (from the actualArgument)
+        //  - prune when empty property  (from the actualArgument)
+        //  - pass through columns property (from the actualArgument)
+        //  - optional Specification: ordering scheme and partitioning (from the node's argument) <- planned upon the source's RelationPlan (or combined RelationPlan from all sources)
+        List<RelationPlan> sources = ImmutableList.of();
+        List<TableArgumentProperties> inputRelationsProperties = ImmutableList.of();
+        // TODO rewrite column references to Symbols upon the source's RelationPlan (or combined RelationPlan from all sources)
+        Map<NameAndPosition, Symbol> inputDescriptorMappings = ImmutableMap.of();
+
+        Scope scope = analysis.getScope(node);
+        // TODO pass columns from input relations, and make sure they have the right qualifier
+        List<Symbol> outputSymbols = scope.getRelationType().getAllFields().stream()
+                .map(symbolAllocator::newSymbol)
+                .collect(toImmutableList());
+
+        PlanNode root = new TableFunctionNode(
+                idAllocator.getNextId(),
+                functionAnalysis.getFunctionName(),
+                functionAnalysis.getArguments(),
+                outputSymbols,
+                sources.stream().map(RelationPlan::getRoot).collect(toImmutableList()),
+                inputRelationsProperties,
+                inputDescriptorMappings,
+                new TableFunctionHandle(functionAnalysis.getCatalogName(), functionAnalysis.getConnectorTableFunctionHandle(), functionAnalysis.getTransactionHandle()));
+
+        return new RelationPlan(root, scope, outputSymbols, outerContext);
     }
 
     @Override

@@ -34,6 +34,10 @@ import static org.apache.iceberg.MetadataColumns.ROW_POSITION;
 public class IcebergColumnHandle
         implements ColumnHandle
 {
+    // Iceberg reserved row ids begin at INTEGER.MAX_VALUE and count down. Starting with MIN_VALUE here to avoid conflicts.
+    public static final int TRINO_UPDATE_ROW_ID_COLUMN_ID = Integer.MIN_VALUE;
+    public static final String TRINO_UPDATE_ROW_ID_COLUMN_NAME = "$row_id";
+
     private final ColumnIdentity baseColumnIdentity;
     private final Type baseType;
     // The list of field ids to indicate the projected part of the top-level column represented by baseColumnIdentity
@@ -147,6 +151,12 @@ public class IcebergColumnHandle
     public boolean isRowPositionColumn()
     {
         return id == ROW_POSITION.fieldId();
+    }
+
+    @JsonIgnore
+    public boolean isUpdateRowIdColumn()
+    {
+        return id == TRINO_UPDATE_ROW_ID_COLUMN_ID;
     }
 
     /**

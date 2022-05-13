@@ -192,6 +192,20 @@ public class TestPostgreSqlConnectorTest
     }
 
     @Test
+    public void testErrorDuringInsert()
+    {
+        onRemoteDatabase().execute("CREATE TABLE test_with_constraint (x bigint primary key)");
+        assertTrue(getQueryRunner().tableExists(getSession(), "test_with_constraint"));
+        Session nonTransactional = Session.builder(getSession())
+                .setCatalogSessionProperty("postgresql", "non_transactional_insert", "true")
+                .build();
+        assertUpdate(nonTransactional, "INSERT INTO test_with_constraint VALUES (1)", 1);
+        assertQueryFails(nonTransactional, "INSERT INTO test_with_constraint VALUES (1)", "[\\s\\S]*ERROR: duplicate key value[\\s\\S]*");
+        assertTrue(getQueryRunner().tableExists(getSession(), "test_with_constraint"));
+        onRemoteDatabase().execute("DROP TABLE test_with_constraint");
+    }
+
+    @Test
     public void testSystemTable()
     {
         assertThat(computeActual("SHOW TABLES FROM pg_catalog").getOnlyColumnAsSet())

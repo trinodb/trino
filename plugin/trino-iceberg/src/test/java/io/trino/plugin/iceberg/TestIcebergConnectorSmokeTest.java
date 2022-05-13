@@ -14,8 +14,6 @@
 package io.trino.plugin.iceberg;
 
 import io.trino.testing.QueryRunner;
-import org.testng.SkipException;
-import org.testng.annotations.Test;
 
 import static org.apache.iceberg.FileFormat.ORC;
 
@@ -36,12 +34,5 @@ public class TestIcebergConnectorSmokeTest
         return IcebergQueryRunner.builder()
                 .setInitialTables(REQUIRED_TPCH_TABLES)
                 .build();
-    }
-
-    @Test
-    @Override
-    public void testDeleteRowsConcurrently()
-    {
-        throw new SkipException("The File Hive Metastore does not have strong concurrency guarantees");
     }
 }

@@ -83,6 +83,12 @@
 
         <dependency>
             <groupId>org.jline</groupId>
+            <artifactId>jline-console</artifactId>
+            <version>${dep.jline.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.jline</groupId>
             <artifactId>jline-reader</artifactId>
             <version>${dep.jline.version}</version>
         </dependency>

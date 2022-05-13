@@ -22,6 +22,7 @@ import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 import io.trino.spi.HostAddress;
 
+import javax.annotation.Nullable;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
@@ -32,6 +33,7 @@ import java.util.stream.StreamSupport;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class RedisConnectorConfig
 {
@@ -42,11 +44,13 @@ public class RedisConnectorConfig
     private int redisMaxKeysPerFetch = 100;
     private int redisDataBaseIndex;
     private char redisKeyDelimiter = ':';
+    private String redisUser;
     private String redisPassword;
     private Duration redisConnectTimeout = new Duration(2000, MILLISECONDS);
     private String defaultSchema = "default";
     private Set<String> tableNames = ImmutableSet.of();
     private File tableDescriptionDir = new File("etc/redis/");
+    private Duration tableDescriptionCacheDuration = new Duration(5, MINUTES);
     private boolean hideInternalColumns = true;
     private boolean keyPrefixSchemaTable;
 
@@ -61,6 +65,21 @@ public class RedisConnectorConfig
     public RedisConnectorConfig setTableDescriptionDir(File tableDescriptionDir)
     {
         this.tableDescriptionDir = tableDescriptionDir;
+        return this;
+    }
+
+    @NotNull
+    @MinDuration("1s")
+    public Duration getTableDescriptionCacheDuration()
+    {
+        return tableDescriptionCacheDuration;
+    }
+
+    @Config("redis.table-description-cache-ttl")
+    @ConfigDescription("The cache time for redis table description files")
+    public RedisConnectorConfig setTableDescriptionCacheDuration(Duration tableDescriptionCacheDuration)
+    {
+        this.tableDescriptionCacheDuration = tableDescriptionCacheDuration;
         return this;
     }
 
@@ -170,6 +189,20 @@ public class RedisConnectorConfig
     public RedisConnectorConfig setRedisKeyDelimiter(String redisKeyDelimiter)
     {
         this.redisKeyDelimiter = redisKeyDelimiter.charAt(0);
+        return this;
+    }
+
+    @Nullable
+    public String getRedisUser()
+    {
+        return redisUser;
+    }
+
+    @Config("redis.user")
+    @ConfigDescription("Username for a Redis server")
+    public RedisConnectorConfig setRedisUser(String redisUser)
+    {
+        this.redisUser = redisUser;
         return this;
     }
 

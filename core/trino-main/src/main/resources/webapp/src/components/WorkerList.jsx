@@ -37,6 +37,17 @@ export class WorkerList extends React.Component {
     refreshLoop() {
         clearTimeout(this.timeoutId);
         $.get('/ui/api/worker', function (workers) {
+            if (workers != null) {
+                workers.sort(function (workerA, workerB) {
+                    if (workerA.coordinator && !workerB.coordinator) {
+                        return -1;
+                    }
+                    if (!workerA.coordinator && workerB.coordinator) {
+                        return 1;
+                    }
+                    return workerA.nodeId.localeCompare(workerB.nodeId);
+                });
+            }
             this.setState({
                 initialized: true,
                 workers: workers

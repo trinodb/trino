@@ -42,7 +42,7 @@ public class TestQueryManagerConfig
                 .setMinQueryExpireAge(new Duration(15, MINUTES))
                 .setMaxQueryHistory(100)
                 .setMaxQueryLength(1_000_000)
-                .setMaxStageCount(100)
+                .setMaxStageCount(150)
                 .setStageCountWarningThreshold(50)
                 .setClientTimeout(new Duration(5, MINUTES))
                 .setScheduleSplitBatchSize(1000)
@@ -74,7 +74,8 @@ public class TestQueryManagerConfig
                 .setFaultTolerantExecutionMinTaskSplitCount(16)
                 .setFaultTolerantExecutionTargetTaskSplitCount(16)
                 .setFaultTolerantExecutionMaxTaskSplitCount(256)
-                .setFaultTolerantExecutionTaskDescriptorStorageMaxMemory(DataSize.ofBytes(Math.round(AVAILABLE_HEAP_MEMORY * 0.15))));
+                .setFaultTolerantExecutionTaskDescriptorStorageMaxMemory(DataSize.ofBytes(Math.round(AVAILABLE_HEAP_MEMORY * 0.15)))
+                .setFaultTolerantExecutionPartitionCount(50));
     }
 
     @Test
@@ -117,6 +118,7 @@ public class TestQueryManagerConfig
                 .put("fault-tolerant-execution-target-task-split-count", "3")
                 .put("fault-tolerant-execution-max-task-split-count", "22")
                 .put("fault-tolerant-execution-task-descriptor-storage-max-memory", "3GB")
+                .put("fault-tolerant-execution-partition-count", "123")
                 .buildOrThrow();
 
         QueryManagerConfig expected = new QueryManagerConfig()
@@ -155,7 +157,8 @@ public class TestQueryManagerConfig
                 .setFaultTolerantExecutionMinTaskSplitCount(2)
                 .setFaultTolerantExecutionTargetTaskSplitCount(3)
                 .setFaultTolerantExecutionMaxTaskSplitCount(22)
-                .setFaultTolerantExecutionTaskDescriptorStorageMaxMemory(DataSize.of(3, GIGABYTE));
+                .setFaultTolerantExecutionTaskDescriptorStorageMaxMemory(DataSize.of(3, GIGABYTE))
+                .setFaultTolerantExecutionPartitionCount(123);
 
         assertFullMapping(properties, expected);
     }

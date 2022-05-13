@@ -129,6 +129,8 @@ Property                                              Description               
 ``bigquery.view-expire-duration``                     Expire duration for the materialized view.                     ``24h``
 ``bigquery.view-materialization-project``             The project where the materialized view is going to be created The view's project
 ``bigquery.view-materialization-dataset``             The dataset where the materialized view is going to be created The view's dataset
+``bigquery.skip-view-materialization``                Use REST API to access views instead of Storage API. BigQuery
+                                                      ``BIGNUMERIC`` and ``TIMESTAMP`` types are unsupported.        ``false``
 ``bigquery.views-cache-ttl``                          Duration for which the materialization of a view will be       ``15m``
                                                       cached and reused. Set to ``0ms`` to disable the cache.
 ``bigquery.max-read-rows-retries``                    The number of retries in case of retryable server issues       ``3``

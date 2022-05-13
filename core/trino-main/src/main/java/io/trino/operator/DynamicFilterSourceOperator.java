@@ -38,6 +38,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static io.trino.operator.aggregation.TypedSet.createUnboundedEqualityTypedSet;
 import static io.trino.spi.predicate.Range.range;
+import static io.trino.spi.predicate.Utils.blockToNativeValue;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.TypeUtils.isFloatingPointNaN;
@@ -377,8 +378,8 @@ public class DynamicFilterSourceOperator
                     domainsBuilder.put(channels.get(channelIndex).filterId, Domain.none(type));
                     continue;
                 }
-                Object min = readNativeValue(type, minValues[channelIndex], 0);
-                Object max = readNativeValue(type, maxValues[channelIndex], 0);
+                Object min = blockToNativeValue(type, minValues[channelIndex]);
+                Object max = blockToNativeValue(type, maxValues[channelIndex]);
                 Domain domain = Domain.create(
                         ValueSet.ofRanges(range(type, min, true, max, true)),
                         false);

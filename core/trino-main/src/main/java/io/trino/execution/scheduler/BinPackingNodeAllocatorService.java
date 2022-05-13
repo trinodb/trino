@@ -451,7 +451,7 @@ public class BinPackingNodeAllocatorService
                 MemoryPoolInfo memoryPoolInfo = nodeMemoryPoolInfos.get(node.getNodeIdentifier());
                 if (memoryPoolInfo == null) {
                     realtimeTasksMemoryPerNode.put(node.getNodeIdentifier(), ImmutableMap.of());
-                    break;
+                    continue;
                 }
                 realtimeTasksMemoryPerNode.put(node.getNodeIdentifier(), memoryPoolInfo.getTaskMemoryReservations());
             }

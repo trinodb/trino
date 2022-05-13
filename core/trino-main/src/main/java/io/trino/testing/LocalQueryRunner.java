@@ -96,6 +96,7 @@ import io.trino.metadata.SessionPropertyManager;
 import io.trino.metadata.Split;
 import io.trino.metadata.SystemFunctionBundle;
 import io.trino.metadata.SystemSecurityMetadata;
+import io.trino.metadata.TableFunctionRegistry;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableProceduresPropertyManager;
 import io.trino.metadata.TableProceduresRegistry;
@@ -382,8 +383,10 @@ public class LocalQueryRunner
                 plannerContext,
                 sqlParser,
                 accessControl,
+                transactionManager,
                 groupProvider,
                 tableProceduresRegistry,
+                new TableFunctionRegistry(),
                 sessionPropertyManager,
                 tablePropertyManager,
                 analyzePropertyManager,
@@ -423,6 +426,7 @@ public class LocalQueryRunner
                 typeManager,
                 new ProcedureRegistry(),
                 tableProceduresRegistry,
+                new TableFunctionRegistry(),
                 sessionPropertyManager,
                 schemaPropertyManager,
                 columnPropertyManager,

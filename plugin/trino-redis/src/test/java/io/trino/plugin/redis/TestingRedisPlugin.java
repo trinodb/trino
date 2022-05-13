@@ -26,7 +26,7 @@ import static java.util.Objects.requireNonNull;
 public class TestingRedisPlugin
         extends RedisPlugin
 {
-    private Map<SchemaTableName, RedisTableDescription> tableDescription;
+    private final Map<SchemaTableName, RedisTableDescription> tableDescription;
 
     public TestingRedisPlugin(Map<SchemaTableName, RedisTableDescription> tableDescription)
     {

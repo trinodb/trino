@@ -904,7 +904,7 @@ public final class ExpressionFormatter
         return "ORDER BY " + formatSortItems(orderBy.getSortItems());
     }
 
-    private static String formatSortItems(List<SortItem> sortItems)
+    public static String formatSortItems(List<SortItem> sortItems)
     {
         return Joiner.on(", ").join(sortItems.stream()
                 .map(sortItemFormatterFunction())

@@ -21,6 +21,7 @@ import org.jline.reader.LineReaderBuilder;
 import org.jline.reader.impl.completer.AggregateCompleter;
 import org.jline.terminal.Terminal;
 import org.jline.utils.AttributedString;
+import org.jline.widget.AutosuggestionWidgets;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -40,7 +41,7 @@ public class InputReader
 {
     private final LineReader reader;
 
-    public InputReader(ClientOptions.EditingMode editingMode, Path historyFile, Completer... completers)
+    public InputReader(ClientOptions.EditingMode editingMode, Path historyFile, boolean disableAutoSuggestion, Completer... completers)
             throws IOException
     {
         reader = LineReaderBuilder.builder()
@@ -55,6 +56,10 @@ public class InputReader
 
         reader.getKeyMaps().put(MAIN, reader.getKeyMaps().get(editingMode.getKeyMap()));
         reader.unsetOpt(HISTORY_TIMESTAMPED);
+        if (!disableAutoSuggestion) {
+            AutosuggestionWidgets autosuggestionWidgets = new AutosuggestionWidgets(reader);
+            autosuggestionWidgets.enable();
+        }
     }
 
     public String readLine(String prompt, String buffer)

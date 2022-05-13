@@ -38,6 +38,8 @@ import io.trino.metadata.RedirectionAwareTableHandle;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.metadata.TableExecuteHandle;
+import io.trino.metadata.TableFunctionMetadata;
+import io.trino.metadata.TableFunctionRegistry;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableLayout;
 import io.trino.metadata.TableMetadata;
@@ -50,6 +52,7 @@ import io.trino.metadata.ViewColumn;
 import io.trino.metadata.ViewDefinition;
 import io.trino.security.AccessControl;
 import io.trino.security.AllowAllAccessControl;
+import io.trino.security.SecurityContext;
 import io.trino.security.ViewAccessControl;
 import io.trino.spi.TrinoException;
 import io.trino.spi.TrinoWarning;
@@ -59,10 +62,21 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ColumnSchema;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.PointerType;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableProcedureMetadata;
 import io.trino.spi.function.OperatorType;
+import io.trino.spi.ptf.Argument;
+import io.trino.spi.ptf.ArgumentSpecification;
+import io.trino.spi.ptf.ConnectorTableFunction;
+import io.trino.spi.ptf.Descriptor;
+import io.trino.spi.ptf.DescriptorArgumentSpecification;
+import io.trino.spi.ptf.ReturnTypeSpecification;
+import io.trino.spi.ptf.ReturnTypeSpecification.DescribedTable;
+import io.trino.spi.ptf.ScalarArgument;
+import io.trino.spi.ptf.ScalarArgumentSpecification;
+import io.trino.spi.ptf.TableArgumentSpecification;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.GroupProvider;
 import io.trino.spi.security.Identity;
@@ -84,6 +98,7 @@ import io.trino.sql.analyzer.Analysis.GroupingSetAnalysis;
 import io.trino.sql.analyzer.Analysis.ResolvedWindow;
 import io.trino.sql.analyzer.Analysis.SelectExpression;
 import io.trino.sql.analyzer.Analysis.SourceColumn;
+import io.trino.sql.analyzer.Analysis.TableFunctionInvocationAnalysis;
 import io.trino.sql.analyzer.Analysis.UnnestAnalysis;
 import io.trino.sql.analyzer.PatternRecognitionAnalyzer.PatternRecognitionAnalysis;
 import io.trino.sql.analyzer.Scope.AsteriskedIdentifierChainBasis;
@@ -114,6 +129,7 @@ import io.trino.sql.tree.Deallocate;
 import io.trino.sql.tree.Delete;
 import io.trino.sql.tree.Deny;
 import io.trino.sql.tree.DereferenceExpression;
+import io.trino.sql.tree.DescriptorArgument;
 import io.trino.sql.tree.DropColumn;
 import io.trino.sql.tree.DropMaterializedView;
 import io.trino.sql.tree.DropSchema;
@@ -190,6 +206,8 @@ import io.trino.sql.tree.SubqueryExpression;
 import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.Table;
 import io.trino.sql.tree.TableExecute;
+import io.trino.sql.tree.TableFunctionArgument;
+import io.trino.sql.tree.TableFunctionInvocation;
 import io.trino.sql.tree.TableSubquery;
 import io.trino.sql.tree.TruncateTable;
 import io.trino.sql.tree.Union;
@@ -207,6 +225,7 @@ import io.trino.sql.tree.WindowReference;
 import io.trino.sql.tree.WindowSpecification;
 import io.trino.sql.tree.With;
 import io.trino.sql.tree.WithQuery;
+import io.trino.transaction.TransactionManager;
 import io.trino.type.TypeCoercion;
 
 import java.util.ArrayList;
@@ -239,6 +258,7 @@ import static io.trino.metadata.FunctionKind.WINDOW;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.trino.metadata.MetadataUtil.getRequiredCatalogHandle;
 import static io.trino.spi.StandardErrorCode.AMBIGUOUS_NAME;
+import static io.trino.spi.StandardErrorCode.AMBIGUOUS_RETURN_TYPE;
 import static io.trino.spi.StandardErrorCode.COLUMN_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.COLUMN_TYPE_UNKNOWN;
 import static io.trino.spi.StandardErrorCode.DUPLICATE_COLUMN_NAME;
@@ -247,6 +267,7 @@ import static io.trino.spi.StandardErrorCode.DUPLICATE_PROPERTY;
 import static io.trino.spi.StandardErrorCode.DUPLICATE_WINDOW_NAME;
 import static io.trino.spi.StandardErrorCode.EXPRESSION_NOT_CONSTANT;
 import static io.trino.spi.StandardErrorCode.EXPRESSION_NOT_IN_DISTINCT;
+import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_WINDOW;
 import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_REFERENCE;
@@ -260,10 +281,12 @@ import static io.trino.spi.StandardErrorCode.INVALID_VIEW;
 import static io.trino.spi.StandardErrorCode.INVALID_WINDOW_FRAME;
 import static io.trino.spi.StandardErrorCode.INVALID_WINDOW_REFERENCE;
 import static io.trino.spi.StandardErrorCode.MISMATCHED_COLUMN_ALIASES;
+import static io.trino.spi.StandardErrorCode.MISSING_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.MISSING_COLUMN_ALIASES;
 import static io.trino.spi.StandardErrorCode.MISSING_COLUMN_NAME;
 import static io.trino.spi.StandardErrorCode.MISSING_GROUP_BY;
 import static io.trino.spi.StandardErrorCode.MISSING_ORDER_BY;
+import static io.trino.spi.StandardErrorCode.MISSING_RETURN_TYPE;
 import static io.trino.spi.StandardErrorCode.NESTED_RECURSIVE;
 import static io.trino.spi.StandardErrorCode.NESTED_ROW_PATTERN_RECOGNITION;
 import static io.trino.spi.StandardErrorCode.NESTED_WINDOW;
@@ -279,6 +302,8 @@ import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.StandardErrorCode.VIEW_IS_RECURSIVE;
 import static io.trino.spi.StandardErrorCode.VIEW_IS_STALE;
 import static io.trino.spi.connector.StandardWarningCode.REDUNDANT_ORDER_BY;
+import static io.trino.spi.ptf.ReturnTypeSpecification.GenericTable.GENERIC_TABLE;
+import static io.trino.spi.ptf.ReturnTypeSpecification.OnlyPassThrough.ONLY_PASS_THROUGH;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -330,7 +355,9 @@ class StatementAnalyzer
     private final SqlParser sqlParser;
     private final GroupProvider groupProvider;
     private final AccessControl accessControl;
+    private final TransactionManager transactionManager;
     private final TableProceduresRegistry tableProceduresRegistry;
+    private final TableFunctionRegistry tableFunctionRegistry;
     private final SessionPropertyManager sessionPropertyManager;
     private final TablePropertyManager tablePropertyManager;
     private final AnalyzePropertyManager analyzePropertyManager;
@@ -346,8 +373,10 @@ class StatementAnalyzer
             SqlParser sqlParser,
             GroupProvider groupProvider,
             AccessControl accessControl,
+            TransactionManager transactionManager,
             Session session,
             TableProceduresRegistry tableProceduresRegistry,
+            TableFunctionRegistry tableFunctionRegistry,
             SessionPropertyManager sessionPropertyManager,
             TablePropertyManager tablePropertyManager,
             AnalyzePropertyManager analyzePropertyManager,
@@ -363,8 +392,10 @@ class StatementAnalyzer
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.groupProvider = requireNonNull(groupProvider, "groupProvider is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
+        this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.session = requireNonNull(session, "session is null");
         this.tableProceduresRegistry = requireNonNull(tableProceduresRegistry, "tableProceduresRegistry is null");
+        this.tableFunctionRegistry = requireNonNull(tableFunctionRegistry, "tableFunctionRegistry is null");
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.tablePropertyManager = requireNonNull(tablePropertyManager, "tablePropertyManager is null");
         this.analyzePropertyManager = requireNonNull(analyzePropertyManager, "analyzePropertyManager is null");
@@ -1435,6 +1466,231 @@ class StatementAnalyzer
             StatementAnalyzer analyzer = statementAnalyzerFactory.createStatementAnalyzer(analysis, session, warningCollector, CorrelationSupport.ALLOWED);
             Scope queryScope = analyzer.analyze(node.getQuery(), scope);
             return createAndAssignScope(node, scope, queryScope.getRelationType());
+        }
+
+        @Override
+        protected Scope visitTableFunctionInvocation(TableFunctionInvocation node, Optional<Scope> scope)
+        {
+            TableFunctionMetadata tableFunctionMetadata = tableFunctionRegistry.resolve(session, node.getName());
+            if (tableFunctionMetadata == null) {
+                throw semanticException(FUNCTION_NOT_FOUND, node, "Table function %s not registered", node.getName());
+            }
+
+            ConnectorTableFunction function = tableFunctionMetadata.getFunction();
+            CatalogName catalogName = tableFunctionMetadata.getCatalogName();
+
+            QualifiedObjectName functionName = new QualifiedObjectName(catalogName.getCatalogName(), function.getSchema(), function.getName());
+            accessControl.checkCanExecuteFunction(SecurityContext.of(session), functionName);
+
+            Map<String, Argument> passedArguments = analyzeArguments(node, function.getArguments(), node.getArguments());
+
+            // a call to getRequiredCatalogHandle() is necessary so that the catalog is recorded by the TransactionManager
+            ConnectorTransactionHandle transactionHandle = transactionManager.getConnectorTransaction(
+                    session.getRequiredTransactionId(),
+                    getRequiredCatalogHandle(metadata, session, node, catalogName.getCatalogName()));
+            ConnectorTableFunction.Analysis functionAnalysis = function.analyze(session.toConnectorSession(catalogName), transactionHandle, passedArguments);
+            analysis.setTableFunctionAnalysis(node, new TableFunctionInvocationAnalysis(catalogName, functionName.toString(), passedArguments, functionAnalysis.getHandle(), transactionHandle));
+
+            // TODO handle the DescriptorMapping descriptorsToTables mapping from the TableFunction.Analysis:
+            // This is a mapping of descriptor arguments to table arguments. It consists of two parts:
+            // - mapping by descriptor field: (arg name of descriptor argument, and position in the descriptor) to (arg name of table argument)
+            // - mapping by descriptor: (arg name of descriptor argument) to (arg name of table argument)
+            // 1. get the DescriptorField from the designated DescriptorArgument (or all fields for mapping by descriptor)
+            // 2. validate there is no DataType specified,
+            // 3. analyze the Identifier in the scope of the designated table (it is recorded, because args were already analyzed). Disable correlation.
+            // 4. at this point, the Identifier should be recorded as a column reference to the appropriate table
+            // 5. record the mapping NameAndPosition -> Identifier
+            // ... later translate Identifier to Symbol in Planner, and eventually translate it to channel before execution
+            if (!functionAnalysis.getDescriptorsToTables().isEmpty()) {
+                throw semanticException(NOT_SUPPORTED, node, "Table arguments are not yet supported for table functions");
+            }
+
+            // TODO process the copartitioning:
+            // 1. validate input table references
+            // 2. the copartitioned tables in each set must be partitioned, and have the same number of partitioning columns
+            // 3. the corresponding columns must be comparable
+            // 4. within a set, determine and record coercions of the corresponding columns to a common supertype
+            // Note that if a table is part of multiple copartitioning sets, it might require a different coercion for a column
+            // per each set. Additionally, there might be another coercion required by the Table Function logic. Also, since
+            // all partitioning columns are passed-through, we also need an un-coerced copy.
+            // See ExpressionAnalyzer.sortKeyCoercionsForFrameBoundCalculation for multiple coercions on a column.
+            if (!node.getCopartitioning().isEmpty()) {
+                throw semanticException(NOT_SUPPORTED, node, "COPARTITION clause is not yet supported for table functions");
+            }
+
+            // determine the result relation type.
+            // The result relation type of a table function consists of:
+            // 1. passed columns from input tables:
+            // - for tables with the "pass through columns" option, these are all columns of the table,
+            // - for tables without the "pass through columns" option, these are the partitioning columns of the table, if any.
+            // 2. columns created by the table function, called the proper columns.
+            ReturnTypeSpecification returnTypeSpecification = function.getReturnTypeSpecification();
+            Optional<Descriptor> analyzedProperColumnsDescriptor = functionAnalysis.getReturnedType();
+            Descriptor properColumnsDescriptor;
+            if (returnTypeSpecification == ONLY_PASS_THROUGH) {
+                // this option is only allowed if there are input tables
+                throw semanticException(NOT_SUPPORTED, node, "Returning only pass through columns is not yet supported for table functions");
+            }
+            if (returnTypeSpecification == GENERIC_TABLE) {
+                properColumnsDescriptor = analyzedProperColumnsDescriptor
+                        .orElseThrow(() -> semanticException(MISSING_RETURN_TYPE, node, "Cannot determine returned relation type for table function " + node.getName()));
+            }
+            else {
+                // returned type is statically declared at function declaration and cannot be overridden
+                if (analyzedProperColumnsDescriptor.isPresent()) {
+                    throw semanticException(AMBIGUOUS_RETURN_TYPE, node, "Returned relation type for table function %s is ambiguous", node.getName());
+                }
+                properColumnsDescriptor = ((DescribedTable) returnTypeSpecification).getDescriptor();
+            }
+
+            // currently we don't support input tables, so the output consists of proper columns only
+            List<Field> fields = properColumnsDescriptor.getFields().stream()
+                    // per spec, field names are mandatory
+                    .map(field -> Field.newUnqualified(field.getName(), field.getType().orElseThrow(() -> new IllegalStateException("missing returned type for proper field"))))
+                    .collect(toImmutableList());
+
+            return createAndAssignScope(node, scope, fields);
+        }
+
+        private Map<String, Argument> analyzeArguments(Node node, List<ArgumentSpecification> argumentSpecifications, List<TableFunctionArgument> arguments)
+        {
+            Node errorLocation = node;
+            if (!arguments.isEmpty()) {
+                errorLocation = arguments.get(0);
+            }
+
+            if (argumentSpecifications.size() < arguments.size()) {
+                throw semanticException(INVALID_ARGUMENTS, errorLocation, "Too many arguments. Expected at most %s arguments, got %s arguments", argumentSpecifications.size(), arguments.size());
+            }
+
+            if (arguments.isEmpty()) {
+                return ImmutableMap.of();
+            }
+
+            boolean argumentsPassedByName = arguments.stream().allMatch(argument -> argument.getName().isPresent());
+            boolean argumentsPassedByPosition = arguments.stream().allMatch(argument -> argument.getName().isEmpty());
+            if (!argumentsPassedByName && !argumentsPassedByPosition) {
+                throw semanticException(INVALID_ARGUMENTS, errorLocation, "All arguments must be passed by name or all must be passed positionally");
+            }
+
+            ImmutableMap.Builder<String, Argument> passedArguments = ImmutableMap.builder();
+            if (argumentsPassedByName) {
+                Map<String, ArgumentSpecification> argumentSpecificationsByName = new HashMap<>();
+                for (ArgumentSpecification argumentSpecification : argumentSpecifications) {
+                    if (argumentSpecificationsByName.put(argumentSpecification.getName(), argumentSpecification) != null) {
+                        throw new IllegalStateException("Duplicate argument specification for name: " + argumentSpecification.getName());
+                    }
+                }
+                Set<String> uniqueArgumentNames = new HashSet<>();
+                for (TableFunctionArgument argument : arguments) {
+                    String argumentName = argument.getName().get().getCanonicalValue();
+                    if (!uniqueArgumentNames.add(argumentName)) {
+                        throw semanticException(INVALID_FUNCTION_ARGUMENT, argument, "Duplicate argument name: ", argumentName);
+                    }
+                    ArgumentSpecification argumentSpecification = argumentSpecificationsByName.remove(argumentName);
+                    if (argumentSpecification == null) {
+                        throw semanticException(INVALID_FUNCTION_ARGUMENT, argument, "Unexpected argument name: ", argumentName);
+                    }
+                    passedArguments.put(argumentSpecification.getName(), analyzeArgument(argumentSpecification, argument));
+                }
+                // apply defaults for not specified arguments
+                for (Map.Entry<String, ArgumentSpecification> entry : argumentSpecificationsByName.entrySet()) {
+                    ArgumentSpecification argumentSpecification = entry.getValue();
+                    passedArguments.put(argumentSpecification.getName(), analyzeDefault(argumentSpecification, errorLocation));
+                }
+            }
+            else {
+                for (int i = 0; i < arguments.size(); i++) {
+                    TableFunctionArgument argument = arguments.get(i);
+                    ArgumentSpecification argumentSpecification = argumentSpecifications.get(i); // TODO args passed positionally - can one only pass some prefix of args?
+                    passedArguments.put(argumentSpecification.getName(), analyzeArgument(argumentSpecification, argument));
+                }
+                // apply defaults for not specified arguments
+                for (int i = arguments.size(); i < argumentSpecifications.size(); i++) {
+                    ArgumentSpecification argumentSpecification = argumentSpecifications.get(i);
+                    passedArguments.put(argumentSpecification.getName(), analyzeDefault(argumentSpecification, errorLocation));
+                }
+            }
+
+            return passedArguments.buildOrThrow();
+        }
+
+        private Argument analyzeArgument(ArgumentSpecification argumentSpecification, TableFunctionArgument argument)
+        {
+            String actualType;
+            if (argument.getValue() instanceof Relation) {
+                actualType = "table";
+            }
+            else if (argument.getValue() instanceof DescriptorArgument) {
+                actualType = "descriptor";
+            }
+            else if (argument.getValue() instanceof Expression) {
+                actualType = "expression";
+            }
+            else {
+                throw semanticException(INVALID_FUNCTION_ARGUMENT, argument, "Unexpected table function argument type: ", argument.getClass().getSimpleName());
+            }
+
+            if (argumentSpecification instanceof TableArgumentSpecification) {
+                if (!(argument.getValue() instanceof Relation)) {
+                    if (argument.getValue() instanceof FunctionCall) {
+                        // probably an attempt to pass a table function call, which is not supported, and was parsed as a function call
+                        throw semanticException(NOT_SUPPORTED, argument, "Invalid table argument %s. Table functions are not allowed as table function arguments", argumentSpecification.getName());
+                    }
+                    throw semanticException(INVALID_FUNCTION_ARGUMENT, argument, "Invalid argument %s. Expected table, got %s", argumentSpecification.getName(), actualType);
+                }
+                // TODO analyze the argument
+                // 1. process the Relation
+                // 2. partitioning and ordering must only apply to tables with set semantics
+                // 3. validate partitioning and ordering using `validateAndGetInputField()`
+                // 4. validate the prune when empty property vs argument specification (forbidden for row semantics; override? -> check spec)
+                // 5. return Argument
+                throw semanticException(NOT_SUPPORTED, argument, "Table arguments are not yet supported for table functions");
+            }
+            if (argumentSpecification instanceof DescriptorArgumentSpecification) {
+                if (!(argument.getValue() instanceof DescriptorArgument)) {
+                    if (argument.getValue() instanceof FunctionCall && ((FunctionCall) argument.getValue()).getName().hasSuffix(QualifiedName.of("descriptor"))) { // function name is always compared case-insensitive
+                        // malformed descriptor which parsed as a function call
+                        throw semanticException(INVALID_FUNCTION_ARGUMENT, argument, "Invalid descriptor argument %s. Descriptors should be formatted as 'DESCRIPTOR(name [type], ...)'", argumentSpecification.getName());
+                    }
+                    throw semanticException(INVALID_FUNCTION_ARGUMENT, argument, "Invalid argument %s. Expected descriptor, got %s", argumentSpecification.getName(), actualType);
+                }
+                throw semanticException(NOT_SUPPORTED, argument, "Descriptor arguments are not yet supported for table functions");
+            }
+            if (argumentSpecification instanceof ScalarArgumentSpecification) {
+                if (!(argument.getValue() instanceof Expression)) {
+                    throw semanticException(INVALID_FUNCTION_ARGUMENT, argument, "Invalid argument %s. Expected expression, got %s", argumentSpecification.getName(), actualType);
+                }
+                Expression expression = (Expression) argument.getValue();
+                // 'descriptor' as a function name is not allowed in this context
+                if (argument.getValue() instanceof FunctionCall && ((FunctionCall) argument.getValue()).getName().hasSuffix(QualifiedName.of("decsriptor"))) { // function name is always compared case-insensitive
+                    throw semanticException(INVALID_FUNCTION_ARGUMENT, argument, "'descriptor' function is not allowed as a table function argument");
+                }
+                Type expectedArgumentType = ((ScalarArgumentSpecification) argumentSpecification).getType();
+                // currently, only constant arguments are supported
+                Object constantValue = ExpressionInterpreter.evaluateConstantExpression(expression, expectedArgumentType, plannerContext, session, accessControl, analysis.getParameters());
+                return new ScalarArgument(expectedArgumentType, constantValue); // TODO test coercion, test parameter
+            }
+
+            throw new IllegalStateException("Unexpected argument specification: " + argumentSpecification.getClass().getSimpleName());
+        }
+
+        private Argument analyzeDefault(ArgumentSpecification argumentSpecification, Node errorLocation)
+        {
+            if (argumentSpecification.isRequired()) {
+                throw semanticException(MISSING_ARGUMENT, errorLocation, "Missing argument: " + argumentSpecification.getName());
+            }
+
+            checkArgument(!(argumentSpecification instanceof TableArgumentSpecification), "invalid table argument specification: default set");
+
+            if (argumentSpecification instanceof DescriptorArgumentSpecification) {
+                throw semanticException(NOT_SUPPORTED, errorLocation, "Descriptor arguments are not yet supported for table functions");
+            }
+            if (argumentSpecification instanceof ScalarArgumentSpecification) {
+                return new ScalarArgument(((ScalarArgumentSpecification) argumentSpecification).getType(), argumentSpecification.getDefaultValue());
+            }
+
+            throw new IllegalStateException("Unexpected argument specification: " + argumentSpecification.getClass().getSimpleName());
         }
 
         private Optional<QualifiedName> getMaterializedViewStorageTableName(MaterializedViewDefinition viewDefinition)
