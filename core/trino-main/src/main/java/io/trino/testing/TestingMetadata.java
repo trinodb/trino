@@ -42,6 +42,7 @@ import io.trino.spi.connector.ViewNotFoundException;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ComputedStatistics;
+import io.trino.spi.statistics.TableStatisticsMetadata;
 import io.trino.spi.type.Type;
 
 import java.util.ArrayList;
@@ -134,6 +135,12 @@ public class TestingMetadata
             tableColumns.put(tableName, columns.build());
         }
         return tableColumns.buildOrThrow();
+    }
+
+    @Override
+    public TableStatisticsMetadata getStatisticsCollectionMetadata(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    {
+        return TableStatisticsMetadata.empty();
     }
 
     @Override

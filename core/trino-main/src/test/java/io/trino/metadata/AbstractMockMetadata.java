@@ -121,12 +121,6 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public Optional<TableHandle> getTableHandleForStatisticsCollection(Session session, QualifiedObjectName tableName, Map<String, Object> analyzeProperties)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public Optional<TableExecuteHandle> getTableHandleForExecute(Session session, TableHandle tableHandle, String procedureName, Map<String, Object> executeProperties)
     {
         throw new UnsupportedOperationException();
@@ -349,7 +343,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public TableStatisticsMetadata getStatisticsCollectionMetadata(Session session, String catalogName, ConnectorTableMetadata tableMetadata)
+    public AnalyzeMetadata getStatisticsCollectionMetadata(Session session, TableHandle tableHandle, Map<String, Object> analyzeProperties)
     {
         throw new UnsupportedOperationException();
     }

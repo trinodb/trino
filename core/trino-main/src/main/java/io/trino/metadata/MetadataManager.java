@@ -39,6 +39,7 @@ import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ConnectorAnalyzeMetadata;
 import io.trino.spi.connector.ConnectorCapabilities;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
@@ -284,28 +285,6 @@ public final class MetadataManager
                             connectorTableHandle,
                             catalogMetadata.getTransactionHandleFor(catalogName)));
         });
-    }
-
-    @Override
-    public Optional<TableHandle> getTableHandleForStatisticsCollection(Session session, QualifiedObjectName table, Map<String, Object> analyzeProperties)
-    {
-        requireNonNull(table, "table is null");
-
-        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, table.getCatalogName());
-        if (catalog.isPresent()) {
-            CatalogMetadata catalogMetadata = catalog.get();
-            CatalogName catalogName = catalogMetadata.getConnectorId(session, table);
-            ConnectorMetadata metadata = catalogMetadata.getMetadataFor(session, catalogName);
-
-            ConnectorTableHandle tableHandle = metadata.getTableHandleForStatisticsCollection(session.toConnectorSession(catalogName), table.asSchemaTableName(), analyzeProperties);
-            if (tableHandle != null) {
-                return Optional.of(new TableHandle(
-                        catalogName,
-                        tableHandle,
-                        catalogMetadata.getTransactionHandleFor(catalogName)));
-            }
-        }
-        return Optional.empty();
     }
 
     @Override
@@ -791,12 +770,14 @@ public final class MetadataManager
     }
 
     @Override
-    public TableStatisticsMetadata getStatisticsCollectionMetadata(Session session, String catalogName, ConnectorTableMetadata tableMetadata)
+    public AnalyzeMetadata getStatisticsCollectionMetadata(Session session, TableHandle tableHandle, Map<String, Object> analyzeProperties)
     {
+        CatalogName catalogName = tableHandle.getCatalogName();
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogName);
         ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
-        CatalogName catalog = catalogMetadata.getCatalogName();
-        return metadata.getStatisticsCollectionMetadata(session.toConnectorSession(catalog), tableMetadata);
+
+        ConnectorAnalyzeMetadata analyze = metadata.getStatisticsCollectionMetadata(session.toConnectorSession(catalogName), tableHandle.getConnectorHandle(), analyzeProperties);
+        return new AnalyzeMetadata(analyze.getStatisticsMetadata(), new TableHandle(catalogName, analyze.getTableHandle(), tableHandle.getTransaction()));
     }
 
     @Override
