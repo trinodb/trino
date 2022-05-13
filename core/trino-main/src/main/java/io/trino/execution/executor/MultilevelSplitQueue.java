@@ -66,7 +66,7 @@ public class MultilevelSplitQueue
     {
         this.levelMinPriority = new AtomicLong[LEVEL_THRESHOLD_SECONDS.length];
         this.levelWaitingSplits = new ArrayList<>(LEVEL_THRESHOLD_SECONDS.length);
-        ImmutableList.Builder<CounterStat> counters = ImmutableList.builder();
+        ImmutableList.Builder<CounterStat> counters = ImmutableList.builderWithExpectedSize(LEVEL_THRESHOLD_SECONDS.length);
 
         for (int i = 0; i < LEVEL_THRESHOLD_SECONDS.length; i++) {
             levelScheduledTime[i] = new AtomicLong();
