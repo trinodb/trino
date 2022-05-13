@@ -24,6 +24,7 @@ import com.google.common.collect.Multimap;
 import com.google.common.collect.Multiset;
 import com.google.common.collect.Streams;
 import io.trino.connector.CatalogName;
+import io.trino.metadata.AnalyzeMetadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TableExecuteHandle;
@@ -217,7 +218,7 @@ public class Analysis
     private Optional<Insert> insert = Optional.empty();
     private Optional<RefreshMaterializedViewAnalysis> refreshMaterializedView = Optional.empty();
     private Optional<QualifiedObjectName> delegatedRefreshMaterializedView = Optional.empty();
-    private Optional<TableHandle> analyzeTarget = Optional.empty();
+    private Optional<AnalyzeMetadata> analyzeMetadata = Optional.empty();
     private Optional<List<ColumnSchema>> updatedColumns = Optional.empty();
 
     private final QueryType queryType;
@@ -728,14 +729,14 @@ public class Analysis
         return columns.get(field);
     }
 
-    public Optional<TableHandle> getAnalyzeTarget()
+    public Optional<AnalyzeMetadata> getAnalyzeMetadata()
     {
-        return analyzeTarget;
+        return analyzeMetadata;
     }
 
-    public void setAnalyzeTarget(TableHandle analyzeTarget)
+    public void setAnalyzeMetadata(AnalyzeMetadata analyzeMetadata)
     {
-        this.analyzeTarget = Optional.of(analyzeTarget);
+        this.analyzeMetadata = Optional.of(analyzeMetadata);
     }
 
     public void setCreate(Create create)
