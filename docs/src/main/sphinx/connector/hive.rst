@@ -612,6 +612,8 @@ Property Name                                        Description
                                                      defaults to ``5``.
 ==================================================== ============================================================
 
+.. _hive-google-cloud-storage-configuration:
+
 Google Cloud Storage configuration
 ----------------------------------
 
