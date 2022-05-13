@@ -784,10 +784,12 @@ class StatementAnalyzer
             analysis.setUpdateType("ANALYZE");
             analysis.setUpdateTarget(tableName, Optional.empty(), Optional.empty());
 
-            // verify the target table exists and it's not a view
             if (metadata.isView(session, tableName)) {
                 throw semanticException(NOT_SUPPORTED, node, "Analyzing views is not supported");
             }
+
+            TableHandle tableHandle = metadata.getTableHandle(session, tableName)
+                    .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, node, "Table '%s' does not exist", tableName));
 
             validateProperties(node.getProperties(), scope);
             CatalogName catalogName = getRequiredCatalogHandle(metadata, session, node, tableName.getCatalogName());
@@ -800,8 +802,8 @@ class StatementAnalyzer
                     accessControl,
                     analysis.getParameters(),
                     true);
-            TableHandle tableHandle = metadata.getTableHandleForStatisticsCollection(session, tableName, analyzeProperties)
-                    .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, node, "Table '%s' does not exist", tableName));
+
+            analysis.setAnalyzeMetadata(metadata.getStatisticsCollectionMetadata(session, tableHandle, analyzeProperties));
 
             // user must have read and insert permission in order to analyze stats of a table
             analysis.addTableColumnReferences(
@@ -817,7 +819,6 @@ class StatementAnalyzer
                 throw new AccessDeniedException(format("Cannot ANALYZE (missing insert privilege) table %s", tableName));
             }
 
-            analysis.setAnalyzeTarget(tableHandle);
             return createAndAssignScope(node, scope, Field.newUnqualified("rows", BIGINT));
         }
 

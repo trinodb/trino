@@ -85,7 +85,10 @@ public interface ConnectorMetadata
     /**
      * Returns a table handle for the specified table name, or null if the connector does not contain the table.
      * The returned table handle can contain information in analyzeProperties.
+     *
+     * @deprecated use {@link #getStatisticsCollectionMetadata(ConnectorSession, ConnectorTableHandle, Map)}
      */
+    @Deprecated
     @Nullable
     default ConnectorTableHandle getTableHandleForStatisticsCollection(ConnectorSession session, SchemaTableName tableName, Map<String, Object> analyzeProperties)
     {
@@ -437,10 +440,24 @@ public interface ConnectorMetadata
 
     /**
      * Describe statistics that must be collected during a statistics collection
+     *
+     * @deprecated use {@link #getStatisticsCollectionMetadata(ConnectorSession, ConnectorTableHandle, Map)}
      */
+    @Deprecated
     default TableStatisticsMetadata getStatisticsCollectionMetadata(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
         throw new TrinoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata getTableHandleForStatisticsCollection() is implemented without getStatisticsCollectionMetadata()");
+    }
+
+    /**
+     * Describe statistics that must be collected during a statistics collection
+     */
+    default ConnectorAnalyzeMetadata getStatisticsCollectionMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, Map<String, Object> analyzeProperties)
+    {
+        SchemaTableName tableName = getTableMetadata(session, tableHandle).getTable();
+        ConnectorTableHandle analyzeHandle = getTableHandleForStatisticsCollection(session, tableName, analyzeProperties);
+        TableStatisticsMetadata statisticsMetadata = getStatisticsCollectionMetadata(session, getTableMetadata(session, analyzeHandle));
+        return new ConnectorAnalyzeMetadata(analyzeHandle, statisticsMetadata);
     }
 
     /**

@@ -133,12 +133,6 @@ public class CountingAccessMetadata
     }
 
     @Override
-    public Optional<TableHandle> getTableHandleForStatisticsCollection(Session session, QualifiedObjectName tableName, Map<String, Object> analyzeProperties)
-    {
-        return delegate.getTableHandleForStatisticsCollection(session, tableName, analyzeProperties);
-    }
-
-    @Override
     public Optional<TableExecuteHandle> getTableHandleForExecute(Session session, TableHandle tableHandle, String procedureName, Map<String, Object> executeProperties)
     {
         return delegate.getTableHandleForExecute(session, tableHandle, procedureName, executeProperties);
@@ -356,9 +350,9 @@ public class CountingAccessMetadata
     }
 
     @Override
-    public TableStatisticsMetadata getStatisticsCollectionMetadata(Session session, String catalogName, ConnectorTableMetadata tableMetadata)
+    public AnalyzeMetadata getStatisticsCollectionMetadata(Session session, TableHandle tableHandle, Map<String, Object> analyzeProperties)
     {
-        return delegate.getStatisticsCollectionMetadata(session, catalogName, tableMetadata);
+        return delegate.getStatisticsCollectionMetadata(session, tableHandle, analyzeProperties);
     }
 
     @Override

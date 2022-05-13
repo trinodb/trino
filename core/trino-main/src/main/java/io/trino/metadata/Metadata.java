@@ -87,8 +87,6 @@ public interface Metadata
 
     Optional<SystemTable> getSystemTable(Session session, QualifiedObjectName tableName);
 
-    Optional<TableHandle> getTableHandleForStatisticsCollection(Session session, QualifiedObjectName tableName, Map<String, Object> analyzeProperties);
-
     Optional<TableExecuteHandle> getTableHandleForExecute(
             Session session,
             TableHandle tableHandle,
@@ -273,7 +271,7 @@ public interface Metadata
     /**
      * Describe statistics that must be collected during a statistics collection
      */
-    TableStatisticsMetadata getStatisticsCollectionMetadata(Session session, String catalogName, ConnectorTableMetadata tableMetadata);
+    AnalyzeMetadata getStatisticsCollectionMetadata(Session session, TableHandle tableHandle, Map<String, Object> analyzeProperties);
 
     /**
      * Begin statistics collection
