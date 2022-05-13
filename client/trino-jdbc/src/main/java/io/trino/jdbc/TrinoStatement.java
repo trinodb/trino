@@ -284,7 +284,7 @@ public class TrinoStatement
             throw new SQLException(e.getMessage(), e);
         }
         catch (RuntimeException e) {
-            throw new SQLException("Error executing query", e);
+            throw new SQLException("Error executing query: " + e.getMessage(), e);
         }
         finally {
             executingClient.set(null);
