@@ -612,13 +612,13 @@ public class PostgreSqlClient
             }
             return baseElementMapping
                     .map(elementMapping -> {
-                        ArrayType prestoArrayType = new ArrayType(elementMapping.getType());
-                        ColumnMapping arrayColumnMapping = arrayColumnMapping(session, prestoArrayType, elementMapping, baseElementTypeName);
+                        ArrayType trinoArrayType = new ArrayType(elementMapping.getType());
+                        ColumnMapping arrayColumnMapping = arrayColumnMapping(session, trinoArrayType, elementMapping, baseElementTypeName);
 
                         int arrayDimensions = typeHandle.getArrayDimensions().get();
                         for (int i = 1; i < arrayDimensions; i++) {
-                            prestoArrayType = new ArrayType(prestoArrayType);
-                            arrayColumnMapping = arrayColumnMapping(session, prestoArrayType, arrayColumnMapping, baseElementTypeName);
+                            trinoArrayType = new ArrayType(trinoArrayType);
+                            arrayColumnMapping = arrayColumnMapping(session, trinoArrayType, arrayColumnMapping, baseElementTypeName);
                         }
                         return arrayColumnMapping;
                     });
@@ -1116,15 +1116,15 @@ public class PostgreSqlClient
     {
         // PostgreSQL supports timestamptz precision up to microseconds
         checkArgument(precision <= POSTGRESQL_MAX_SUPPORTED_TIMESTAMP_PRECISION, "unsupported precision value %s", precision);
-        TimestampWithTimeZoneType prestoType = createTimestampWithTimeZoneType(precision);
+        TimestampWithTimeZoneType trinoType = createTimestampWithTimeZoneType(precision);
         if (precision <= TimestampWithTimeZoneType.MAX_SHORT_PRECISION) {
             return ColumnMapping.longMapping(
-                    prestoType,
+                    trinoType,
                     shortTimestampWithTimeZoneReadFunction(),
                     shortTimestampWithTimeZoneWriteFunction());
         }
         return ColumnMapping.objectMapping(
-                prestoType,
+                trinoType,
                 longTimestampWithTimeZoneReadFunction(),
                 longTimestampWithTimeZoneWriteFunction());
     }
