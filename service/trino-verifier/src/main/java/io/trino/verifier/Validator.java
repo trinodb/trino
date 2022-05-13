@@ -545,7 +545,7 @@ public class Validator
         }
         catch (SQLException e) {
             Exception exception = e;
-            if (("Error executing query".equals(e.getMessage()) || "Error fetching results".equals(e.getMessage())) &&
+            if ((e.getMessage().startsWith("Error executing query") || "Error fetching results".equals(e.getMessage())) &&
                     (e.getCause() instanceof Exception)) {
                 exception = (Exception) e.getCause();
             }
