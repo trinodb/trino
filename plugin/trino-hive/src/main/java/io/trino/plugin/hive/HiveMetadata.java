@@ -2055,7 +2055,7 @@ public class HiveMetadata
 
     private Optional<ConnectorTableExecuteHandle> getTableHandleForOptimize(ConnectorSession session, ConnectorTableHandle tableHandle, Map<String, Object> executeProperties, RetryMode retryMode)
     {
-        // TODO lots of that is copied from beginInsert; rafactoring opportunity
+        // TODO lots of that is copied from beginInsert; refactoring opportunity
         if (!isNonTransactionalOptimizeEnabled(session)) {
             // OPTIMIZE procedure is disabled by default; even though code is written in a way to avoid data loss, calling procedure is inherently
             // unsafe due to non transactional nature of committing changes done to Hive table. If Trino looses connectivity to HDFS cluster while deleting
@@ -2168,7 +2168,7 @@ public class HiveMetadata
 
     private void finishOptimize(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle, Collection<Slice> fragments, List<Object> splitSourceInfo)
     {
-        // TODO lots of that is copied from finishInsert; rafactoring opportunity
+        // TODO lots of that is copied from finishInsert; refactoring opportunity
 
         HiveTableExecuteHandle handle = (HiveTableExecuteHandle) tableExecuteHandle;
         checkArgument(handle.getWriteDeclarationId().isPresent(), "no write declaration id present in tableExecuteHandle");

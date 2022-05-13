@@ -250,9 +250,9 @@ public final class DynamicTableBuilder
                 .build();
         DataSchema preAggregationSchema = getPreAggregationDataSchema(queryContext);
         PostAggregationHandler postAggregationHandler = new PostAggregationHandler(queryContext, preAggregationSchema);
-        DataSchema postAggregtionSchema = postAggregationHandler.getResultDataSchema();
+        DataSchema postAggregationSchema = postAggregationHandler.getResultDataSchema();
         ImmutableMap.Builder<String, PinotColumnNameAndTrinoType> aggregationTypesBuilder = ImmutableMap.builder();
-        for (int index = 0; index < postAggregtionSchema.size(); index++) {
+        for (int index = 0; index < postAggregationSchema.size(); index++) {
             aggregationTypesBuilder.put(
                     // ExpressionContext#toString performs quoting of literals
                     // Quoting of identifiers is not done to match the corresponding column name in the ResultTable returned from Pinot. Quoting will be done by `DynamicTablePqlExtractor`.
@@ -260,8 +260,8 @@ public final class DynamicTableBuilder
                             aggregateColumnExpressions.get(index),
                             columnHandles).toString(),
                     new PinotColumnNameAndTrinoType(
-                            postAggregtionSchema.getColumnName(index),
-                            toTrinoType(postAggregtionSchema.getColumnDataType(index))));
+                            postAggregationSchema.getColumnName(index),
+                            toTrinoType(postAggregationSchema.getColumnDataType(index))));
         }
         return aggregationTypesBuilder.buildOrThrow();
     }
