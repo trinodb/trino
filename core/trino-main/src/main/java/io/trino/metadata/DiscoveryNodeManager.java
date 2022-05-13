@@ -348,7 +348,7 @@ public final class DiscoveryNodeManager
     }
 
     @Override
-    public NodesSnapshot getActiveNodesSnapshot()
+    public synchronized NodesSnapshot getActiveNodesSnapshot()
     {
         return new NodesSnapshot(allNodes.getActiveNodes(), activeNodesByCatalogName);
     }
