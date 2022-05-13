@@ -15,6 +15,8 @@ package io.trino.plugin.prometheus;
 
 import io.trino.spi.block.Block;
 
+import javax.annotation.Nullable;
+
 import java.time.Instant;
 
 import static java.util.Objects.requireNonNull;
@@ -25,13 +27,14 @@ public class PrometheusStandardizedRow
     private final Instant timestamp;
     private final Double value;
 
-    public PrometheusStandardizedRow(Block labels, Instant timestamp, Double value)
+    public PrometheusStandardizedRow(@Nullable Block labels, Instant timestamp, Double value)
     {
-        this.labels = requireNonNull(labels, "labels is null");
+        this.labels = labels;
         this.timestamp = requireNonNull(timestamp, "timestamp is null");
         this.value = requireNonNull(value, "value is null");
     }
 
+    @Nullable
     public Block getLabels()
     {
         return labels;
