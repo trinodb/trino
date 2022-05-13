@@ -602,6 +602,25 @@ public class TestBigQueryConnectorTest
         }
     }
 
+    @Test
+    public void testBigQuerySnapshotTable()
+    {
+        String snapshotTable = "test_snapshot" + randomTableSuffix();
+        try {
+            onBigQuery("CREATE SNAPSHOT TABLE test." + snapshotTable + " CLONE tpch.region");
+            assertQuery("SELECT table_type FROM information_schema.tables WHERE table_schema = 'test' AND table_name = '" + snapshotTable + "'", "VALUES 'BASE TABLE'");
+
+            assertThat(query("DESCRIBE test." + snapshotTable)).matches("DESCRIBE tpch.region");
+            assertThat(query("SELECT * FROM test." + snapshotTable)).matches("SELECT * FROM tpch.region");
+
+            assertUpdate("DROP TABLE test." + snapshotTable);
+            assertQueryReturnsEmptyResult("SELECT * FROM information_schema.tables WHERE table_schema = 'test' AND table_name = '" + snapshotTable + "'");
+        }
+        finally {
+            onBigQuery("DROP SNAPSHOT TABLE IF EXISTS test." + snapshotTable);
+        }
+    }
+
     private void onBigQuery(@Language("SQL") String sql)
     {
         bigQuerySqlExecutor.execute(sql);
