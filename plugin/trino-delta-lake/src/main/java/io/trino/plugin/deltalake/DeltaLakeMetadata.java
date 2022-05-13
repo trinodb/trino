@@ -64,6 +64,7 @@ import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ConnectorAnalyzeMetadata;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorOutputMetadata;
@@ -149,7 +150,6 @@ import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_BAD_WRITE;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_SCHEMA;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isExtendedStatisticsEnabled;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isTableStatisticsEnabled;
-import static io.trino.plugin.deltalake.DeltaLakeTableProperties.ANALYZE_COLUMNS_PROPERTY;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.CHECKPOINT_INTERVAL_PROPERTY;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.LOCATION_PROPERTY;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.PARTITIONED_BY_PROPERTY;
@@ -399,10 +399,6 @@ public class DeltaLakeMetadata
 
         Optional<Long> checkpointInterval = tableHandle.getMetadataEntry().getCheckpointInterval();
         checkpointInterval.ifPresent(value -> properties.put(CHECKPOINT_INTERVAL_PROPERTY, value));
-
-        tableHandle.getAnalyzeHandle().flatMap(AnalyzeHandle::getColumns).ifPresent(
-                // we use table properties as a vehicle to pass to the analyzer the subset of columns to be analyzed
-                analyzeColumns -> properties.put(ANALYZE_COLUMNS_PROPERTY, analyzeColumns));
 
         return new ConnectorTableMetadata(
                 tableHandle.getSchemaTableName(),
@@ -1854,27 +1850,21 @@ public class DeltaLakeMetadata
         return deltaLakeRedirectionsProvider.getTableScanRedirection(session, (DeltaLakeTableHandle) tableHandle);
     }
 
-    @Nullable
     @Override
-    public ConnectorTableHandle getTableHandleForStatisticsCollection(ConnectorSession session, SchemaTableName tableName, Map<String, Object> analyzeProperties)
+    public ConnectorAnalyzeMetadata getStatisticsCollectionMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, Map<String, Object> analyzeProperties)
     {
-        Optional<Table> table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName());
-        if (table.isEmpty()) {
-            return null;
-        }
-
         if (!isExtendedStatisticsEnabled(session)) {
             throw new TrinoException(
                     NOT_SUPPORTED,
                     "ANALYZE not supported if extended statistics are disabled. Enable via delta.extended-statistics.enabled config property or extended_statistics_enabled session property.");
         }
 
-        Optional<Instant> filesModifiedAfterFromProperties = DeltaLakeAnalyzeProperties.getFilesModifiedAfterProperty(analyzeProperties);
-        TableSnapshot tableSnapshot = metastore.getSnapshot(tableName, session);
-        long version = tableSnapshot.getVersion();
+        DeltaLakeTableHandle handle = (DeltaLakeTableHandle) tableHandle;
+        MetadataEntry metadata = handle.getMetadataEntry();
 
-        String tableLocation = metastore.getTableLocation(tableName, session);
-        Optional<ExtendedStatistics> statistics = statisticsAccess.readExtendedStatistics(session, tableLocation);
+        Optional<Instant> filesModifiedAfterFromProperties = DeltaLakeAnalyzeProperties.getFilesModifiedAfterProperty(analyzeProperties);
+
+        Optional<ExtendedStatistics> statistics = statisticsAccess.readExtendedStatistics(session, handle.getLocation());
 
         Optional<Instant> alreadyAnalyzedModifiedTimeMax = statistics.map(ExtendedStatistics::getAlreadyAnalyzedModifiedTimeMax);
 
@@ -1885,9 +1875,6 @@ public class DeltaLakeMetadata
                     filesModifiedAfterFromProperties.orElse(Instant.ofEpochMilli(0)),
                     alreadyAnalyzedModifiedTimeMax.orElse(Instant.ofEpochMilli(0))));
         }
-
-        MetadataEntry metadata = metastore.getMetadata(tableSnapshot, session)
-                .orElseThrow(() -> new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Metadata not found in transaction log for " + table));
 
         Optional<Set<String>> analyzeColumnNames = DeltaLakeAnalyzeProperties.getColumnNames(analyzeProperties);
         if (analyzeColumnNames.isPresent()) {
@@ -1916,11 +1903,11 @@ public class DeltaLakeMetadata
             }
         }
 
-        AnalyzeHandle analyzeHandle = new AnalyzeHandle(version, statistics.isEmpty(), filesModifiedAfter, analyzeColumnNames);
-        return new DeltaLakeTableHandle(
-                tableName.getSchemaName(),
-                tableName.getTableName(),
-                tableLocation,
+        AnalyzeHandle analyzeHandle = new AnalyzeHandle(statistics.isEmpty(), filesModifiedAfter, analyzeColumnNames);
+        DeltaLakeTableHandle newHandle = new DeltaLakeTableHandle(
+                handle.getSchemaTableName().getSchemaName(),
+                handle.getSchemaTableName().getTableName(),
+                handle.getLocation(),
                 Optional.of(metadata),
                 TupleDomain.all(),
                 TupleDomain.all(),
@@ -1929,16 +1916,11 @@ public class DeltaLakeMetadata
                 Optional.empty(),
                 Optional.empty(),
                 Optional.of(analyzeHandle),
-                version,
+                handle.getReadVersion(),
                 false);
-    }
 
-    @Override
-    public TableStatisticsMetadata getStatisticsCollectionMetadata(ConnectorSession session, ConnectorTableMetadata tableMetadata)
-    {
         ImmutableSet.Builder<ColumnStatisticMetadata> columnStatistics = ImmutableSet.builder();
-        Optional<Set<String>> analyzeColumnNames = DeltaLakeTableProperties.getAnalyzeColumns(tableMetadata.getProperties());
-        tableMetadata.getColumns().stream()
+        extractSchema(metadata, typeManager).stream()
                 .filter(DeltaLakeMetadata::shouldCollectExtendedStatistics)
                 .filter(columnMetadata ->
                         analyzeColumnNames
@@ -1950,10 +1932,12 @@ public class DeltaLakeMetadata
         // collect max(file modification time) for sake of incremental ANALYZE
         columnStatistics.add(new ColumnStatisticMetadata(FILE_MODIFIED_TIME_COLUMN_NAME, MAX_VALUE));
 
-        return new TableStatisticsMetadata(
+        TableStatisticsMetadata statisticsMetadata = new TableStatisticsMetadata(
                 columnStatistics.build(),
                 ImmutableSet.of(),
                 ImmutableList.of());
+
+        return new ConnectorAnalyzeMetadata(newHandle, statisticsMetadata);
     }
 
     private static boolean shouldCollectExtendedStatistics(ColumnMetadata columnMetadata)

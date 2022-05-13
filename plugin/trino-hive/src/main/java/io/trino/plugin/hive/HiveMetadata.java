@@ -62,6 +62,7 @@ import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ConnectorAnalyzeMetadata;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorOutputMetadata;
@@ -199,7 +200,6 @@ import static io.trino.plugin.hive.HiveSessionProperties.isQueryPartitionFilterR
 import static io.trino.plugin.hive.HiveSessionProperties.isRespectTableFormat;
 import static io.trino.plugin.hive.HiveSessionProperties.isSortedWritingEnabled;
 import static io.trino.plugin.hive.HiveSessionProperties.isStatisticsEnabled;
-import static io.trino.plugin.hive.HiveTableProperties.ANALYZE_COLUMNS_PROPERTY;
 import static io.trino.plugin.hive.HiveTableProperties.AUTO_PURGE;
 import static io.trino.plugin.hive.HiveTableProperties.AVRO_SCHEMA_URL;
 import static io.trino.plugin.hive.HiveTableProperties.BUCKETED_BY_PROPERTY;
@@ -218,7 +218,6 @@ import static io.trino.plugin.hive.HiveTableProperties.SORTED_BY_PROPERTY;
 import static io.trino.plugin.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
 import static io.trino.plugin.hive.HiveTableProperties.TEXTFILE_FIELD_SEPARATOR;
 import static io.trino.plugin.hive.HiveTableProperties.TEXTFILE_FIELD_SEPARATOR_ESCAPE;
-import static io.trino.plugin.hive.HiveTableProperties.getAnalyzeColumns;
 import static io.trino.plugin.hive.HiveTableProperties.getAvroSchemaUrl;
 import static io.trino.plugin.hive.HiveTableProperties.getBucketProperty;
 import static io.trino.plugin.hive.HiveTableProperties.getExternalLocation;
@@ -470,17 +469,15 @@ public class HiveMetadata
     }
 
     @Override
-    public ConnectorTableHandle getTableHandleForStatisticsCollection(ConnectorSession session, SchemaTableName tableName, Map<String, Object> analyzeProperties)
+    public ConnectorAnalyzeMetadata getStatisticsCollectionMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, Map<String, Object> analyzeProperties)
     {
-        HiveTableHandle handle = getTableHandle(session, tableName);
-        if (handle == null) {
-            return null;
-        }
+        HiveTableHandle handle = (HiveTableHandle) tableHandle;
         Optional<List<List<String>>> partitionValuesList = getPartitionList(analyzeProperties);
         Optional<Set<String>> analyzeColumnNames = getColumnNames(analyzeProperties);
-        ConnectorTableMetadata tableMetadata = getTableMetadata(session, handle.getSchemaTableName());
 
-        List<String> partitionedBy = getPartitionedBy(tableMetadata.getProperties());
+        List<String> partitionedBy = handle.getPartitionColumns().stream()
+                .map(HiveColumnHandle::getName)
+                .collect(toImmutableList());
 
         if (partitionValuesList.isPresent()) {
             List<List<String>> list = partitionValuesList.get();
@@ -501,19 +498,26 @@ public class HiveMetadata
 
         if (analyzeColumnNames.isPresent()) {
             Set<String> columnNames = analyzeColumnNames.get();
-            Set<String> allColumnNames = tableMetadata.getColumns().stream()
-                    .map(ColumnMetadata::getName)
-                    .collect(toImmutableSet());
+            Set<String> allColumnNames = ImmutableSet.<String>builder()
+                    .addAll(handle.getDataColumns().stream()
+                            .map(HiveColumnHandle::getName)
+                            .collect(toImmutableSet()))
+                    .addAll(partitionedBy)
+                    .build();
             if (!allColumnNames.containsAll(columnNames)) {
                 throw new TrinoException(
                         INVALID_ANALYZE_PROPERTY,
                         format("Invalid columns specified for analysis: %s", Sets.difference(columnNames, allColumnNames)));
             }
-
-            handle = handle.withAnalyzeColumnNames(columnNames);
         }
 
-        return handle;
+        List<ColumnMetadata> columns = handle.getDataColumns().stream()
+                .map(HiveColumnHandle::getColumnMetadata)
+                .collect(toImmutableList());
+
+        TableStatisticsMetadata metadata = getStatisticsCollectionMetadata(columns, partitionedBy, analyzeColumnNames, true);
+
+        return new ConnectorAnalyzeMetadata(handle, metadata);
     }
 
     @Override
@@ -532,20 +536,7 @@ public class HiveMetadata
     @Override
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        HiveTableHandle hiveTableHandle = (HiveTableHandle) tableHandle;
-        ConnectorTableMetadata tableMetadata = getTableMetadata(session, hiveTableHandle.getSchemaTableName());
-
-        return hiveTableHandle.getAnalyzeColumnNames()
-                .map(columnNames -> new ConnectorTableMetadata(
-                        tableMetadata.getTable(),
-                        tableMetadata.getColumns(),
-                        ImmutableMap.<String, Object>builder()
-                                .putAll(tableMetadata.getProperties())
-                                // we use table properties as a vehicle to pass to the analyzer the subset of columns to be analyzed
-                                .put(ANALYZE_COLUMNS_PROPERTY, columnNames)
-                                .buildOrThrow(),
-                        tableMetadata.getComment()))
-                .orElse(tableMetadata);
+        return getTableMetadata(session, ((HiveTableHandle) tableHandle).getSchemaTableName());
     }
 
     private ConnectorTableMetadata getTableMetadata(ConnectorSession session, SchemaTableName tableName)
@@ -2935,7 +2926,6 @@ public class HiveMetadata
                         bucketHandle.getSortedBy())),
                 hiveTable.getBucketFilter(),
                 hiveTable.getAnalyzePartitionValues(),
-                hiveTable.getAnalyzeColumnNames(),
                 ImmutableSet.of(),
                 ImmutableSet.of(), // Projected columns is used only during optimization phase of planning
                 hiveTable.getTransaction(),
@@ -3110,13 +3100,6 @@ public class HiveMetadata
         }
         List<String> partitionedBy = firstNonNull(getPartitionedBy(tableMetadata.getProperties()), ImmutableList.of());
         return getStatisticsCollectionMetadata(tableMetadata.getColumns(), partitionedBy, Optional.empty(), false);
-    }
-
-    @Override
-    public TableStatisticsMetadata getStatisticsCollectionMetadata(ConnectorSession session, ConnectorTableMetadata tableMetadata)
-    {
-        List<String> partitionedBy = firstNonNull(getPartitionedBy(tableMetadata.getProperties()), ImmutableList.of());
-        return getStatisticsCollectionMetadata(tableMetadata.getColumns(), partitionedBy, getAnalyzeColumns(tableMetadata.getProperties()), true);
     }
 
     private TableStatisticsMetadata getStatisticsCollectionMetadata(List<ColumnMetadata> columns, List<String> partitionedBy, Optional<Set<String>> analyzeColumns, boolean includeRowCount)
