@@ -27,7 +27,6 @@ import javax.inject.Inject;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
@@ -51,11 +50,6 @@ public class HiveTableProperties
     public static final String BUCKETING_VERSION = "bucketing_version";
     public static final String BUCKET_COUNT_PROPERTY = "bucket_count";
     public static final String SORTED_BY_PROPERTY = "sorted_by";
-    // TODO: This property represents the subset of columns to be analyzed. This exists mainly because there is no way
-    //       to pass the column names to ConnectorMetadata#getStatisticsCollectionMetadata; we should consider passing
-    //       ConnectorTableHandle instead of ConnectorTableMetadata as an argument since it makes more information
-    //       available (including the names of the columns to be analyzed)
-    public static final String ANALYZE_COLUMNS_PROPERTY = "presto.analyze_columns";
     public static final String ORC_BLOOM_FILTER_COLUMNS = "orc_bloom_filter_columns";
     public static final String ORC_BLOOM_FILTER_FPP = "orc_bloom_filter_fpp";
     public static final String AVRO_SCHEMA_URL = "avro_schema_url";
@@ -198,12 +192,6 @@ public class HiveTableProperties
     {
         List<String> partitionedBy = (List<String>) tableProperties.get(PARTITIONED_BY_PROPERTY);
         return partitionedBy == null ? ImmutableList.of() : ImmutableList.copyOf(partitionedBy);
-    }
-
-    @SuppressWarnings("unchecked")
-    public static Optional<Set<String>> getAnalyzeColumns(Map<String, Object> tableProperties)
-    {
-        return Optional.ofNullable((Set<String>) tableProperties.get(ANALYZE_COLUMNS_PROPERTY));
     }
 
     public static Optional<HiveBucketProperty> getBucketProperty(Map<String, Object> tableProperties)
