@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.jdbc;
 
+import com.google.common.base.Strings;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -521,7 +522,7 @@ public abstract class BaseJdbcClient
                 columnList.add(getColumnDefinitionSql(session, column, columnName));
             }
 
-            RemoteTableName remoteTableName = new RemoteTableName(Optional.ofNullable(catalog), Optional.ofNullable(remoteSchema), remoteTargetTableName);
+            RemoteTableName remoteTableName = new RemoteTableName(Optional.ofNullable(emptyToNull(catalog)), Optional.ofNullable(remoteSchema), remoteTargetTableName);
             String sql = createTableSql(remoteTableName, columnList.build(), tableMetadata);
             execute(connection, sql);
 
@@ -1059,10 +1060,17 @@ public abstract class BaseJdbcClient
     private static RemoteTableName getRemoteTable(ResultSet resultSet)
             throws SQLException
     {
-        return new RemoteTableName(
-                Optional.ofNullable(resultSet.getString("TABLE_CAT")),
-                Optional.ofNullable(resultSet.getString("TABLE_SCHEM")),
-                resultSet.getString("TABLE_NAME"));
+        Optional<String> catalog = Optional.ofNullable(resultSet.getString("TABLE_CAT"));
+        Optional<String> schema = Optional.ofNullable(resultSet.getString("TABLE_SCHEM"));
+        String tableName = resultSet.getString("TABLE_NAME");
+
+        // MySQL and other RDBMS follow the same broken semantics of TABLE_CAT and TABLE_SCHEM,
+        // if TABLE_SCHEM is empty but TABLE_CAT is present, TABLE_CAT represents schema actually
+        if (catalog.isPresent() && schema.isEmpty()) {
+            return new RemoteTableName(Optional.empty(), catalog, tableName);
+        }
+
+        return new RemoteTableName(catalog, schema, tableName);
     }
 
     @FunctionalInterface

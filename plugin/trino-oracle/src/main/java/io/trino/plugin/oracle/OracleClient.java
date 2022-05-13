@@ -93,7 +93,6 @@ import static io.trino.plugin.jdbc.PredicatePushdownController.FULL_PUSHDOWN;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.charReadFunction;
-import static io.trino.plugin.jdbc.StandardColumnMappings.charWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.integerWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.longDecimalReadFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.longDecimalWriteFunction;
@@ -626,7 +625,7 @@ public class OracleClient
             else {
                 dataType = "char(" + ((CharType) type).getLength() + " CHAR)";
             }
-            return WriteMapping.sliceMapping(dataType, charWriteFunction());
+            return WriteMapping.sliceMapping(dataType, oracleCharWriteFunction());
         }
         if (type instanceof DecimalType) {
             String dataType = format("number(%s, %s)", ((DecimalType) type).getPrecision(), ((DecimalType) type).getScale());

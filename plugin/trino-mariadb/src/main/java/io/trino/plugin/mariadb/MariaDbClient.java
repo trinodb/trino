@@ -240,6 +240,18 @@ public class MariaDbClient
                 getTableTypes().map(types -> types.toArray(String[]::new)).orElse(null));
     }
 
+    protected ResultSet getColumns(JdbcTableHandle tableHandle, DatabaseMetaData metadata)
+            throws SQLException
+    {
+        RemoteTableName remoteTableName = tableHandle.getRequiredNamedRelation().getRemoteTableName();
+        // MariaDB maps their "database" to SQL catalogs and does not have schemas
+        return metadata.getColumns(
+                remoteTableName.getSchemaName().orElse(null),
+                null,
+                escapeNamePattern(Optional.of(remoteTableName.getTableName()), metadata.getSearchStringEscape()).orElse(null),
+                null);
+    }
+
     @Override
     protected String getTableSchemaName(ResultSet resultSet)
             throws SQLException
