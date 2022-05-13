@@ -18,7 +18,6 @@ following services:
 
 * ``ConnectorMetadata``
 * ``ConnectorSplitManager``
-* ``ConnectorHandleResolver``
 * ``ConnectorRecordSetProvider``
 
 ConnectorMetadata
