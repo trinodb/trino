@@ -57,7 +57,7 @@ public class JdbcRecordSetProvider
         jdbcTable.getColumns()
                 .ifPresent(tableColumns -> verify(ImmutableSet.copyOf(tableColumns).containsAll(columns)));
 
-        ImmutableList.Builder<JdbcColumnHandle> handles = ImmutableList.builder();
+        ImmutableList.Builder<JdbcColumnHandle> handles = ImmutableList.builderWithExpectedSize(columns.size());
         for (ColumnHandle handle : columns) {
             handles.add((JdbcColumnHandle) handle);
         }
