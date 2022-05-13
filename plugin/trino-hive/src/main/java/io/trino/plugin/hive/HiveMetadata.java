@@ -371,6 +371,7 @@ public class HiveMetadata
     private final DirectoryLister directoryLister;
     private final PartitionProjectionService partitionProjectionService;
     private final boolean allowTableRename;
+    private final long maxPartitionDropsPerQuery;
 
     public HiveMetadata(
             CatalogName catalogName,
@@ -395,7 +396,8 @@ public class HiveMetadata
             AccessControlMetadata accessControlMetadata,
             DirectoryLister directoryLister,
             PartitionProjectionService partitionProjectionService,
-            boolean allowTableRename)
+            boolean allowTableRename,
+            long maxPartitionDropsPerQuery)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.metastore = requireNonNull(metastore, "metastore is null");
@@ -420,6 +422,7 @@ public class HiveMetadata
         this.directoryLister = requireNonNull(directoryLister, "directoryLister is null");
         this.partitionProjectionService = requireNonNull(partitionProjectionService, "partitionProjectionService is null");
         this.allowTableRename = allowTableRename;
+        this.maxPartitionDropsPerQuery = maxPartitionDropsPerQuery;
     }
 
     @Override
@@ -2721,7 +2724,16 @@ public class HiveMetadata
             metastore.truncateUnpartitionedTable(session, handle.getSchemaName(), handle.getTableName());
         }
         else {
-            for (HivePartition hivePartition : partitionManager.getOrLoadPartitions(metastore, handle)) {
+            List<HivePartition> partitionsToBeDropped = partitionManager.getOrLoadPartitions(metastore, handle);
+            if (partitionsToBeDropped.size() > maxPartitionDropsPerQuery) {
+                throw new TrinoException(
+                        NOT_SUPPORTED,
+                        format(
+                                "Failed to drop partitions. The number of partitions to be dropped (%s) is greater than the maximum allowed partitions (%s).",
+                                partitionsToBeDropped.size(),
+                                maxPartitionDropsPerQuery));
+            }
+            for (HivePartition hivePartition : partitionsToBeDropped) {
                 metastore.dropPartition(session, handle.getSchemaName(), handle.getTableName(), toPartitionValues(hivePartition.getPartitionId()), true);
             }
         }
