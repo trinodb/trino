@@ -31,13 +31,13 @@ public enum KinesisErrorCode
     KINESIS_METADATA_EXCEPTION(2, INTERNAL_ERROR);
 
     // Connectors can use error codes starting at EXTERNAL
-    public static final int StartingErrorCode = 0x0200_0000;
+    public static final int STARTING_ERROR_CODE = 0x0200_0000;
 
     private final ErrorCode errorCode;
 
     KinesisErrorCode(int code, ErrorType errorType)
     {
-        errorCode = new ErrorCode(code + StartingErrorCode, name(), errorType);
+        errorCode = new ErrorCode(code + STARTING_ERROR_CODE, name(), errorType);
     }
 
     @Override

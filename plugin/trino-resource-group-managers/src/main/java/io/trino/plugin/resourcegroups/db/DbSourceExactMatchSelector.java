@@ -33,7 +33,7 @@ public class DbSourceExactMatchSelector
         implements ResourceGroupSelector
 {
     private static final Logger log = Logger.get(DbSourceExactMatchSelector.class);
-    private static final JsonCodec<ResourceGroupId> resourceGroupIdCodec = JsonCodec.jsonCodec(ResourceGroupId.class);
+    private static final JsonCodec<ResourceGroupId> RESOURCE_GROUP_ID_CODEC = JsonCodec.jsonCodec(ResourceGroupId.class);
     private final ResourceGroupsDao dao;
     private final String environment;
     private final AtomicReference<Long> daoOfflineStart = new AtomicReference<>();
@@ -64,7 +64,7 @@ public class DbSourceExactMatchSelector
 
             ResourceGroupId groupId;
             try {
-                groupId = resourceGroupIdCodec.fromJson(resourceGroupId);
+                groupId = RESOURCE_GROUP_ID_CODEC.fromJson(resourceGroupId);
             }
             catch (IllegalArgumentException e) {
                 log.warn("Failed to decode resource group from DB: %s", resourceGroupId);

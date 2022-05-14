@@ -26,13 +26,13 @@ import static com.google.common.base.Preconditions.checkState;
 public class TerminalUtils
 {
     private static final Terminal TERMINAL_INSTANCE = createTerminal();
-    private static final AtomicBoolean closed = new AtomicBoolean(false);
+    private static final AtomicBoolean CLOSED = new AtomicBoolean(false);
 
     private TerminalUtils() {}
 
     public static Terminal getTerminal()
     {
-        checkState(!closed.get(), "Terminal is already closed");
+        checkState(!CLOSED.get(), "Terminal is already closed");
         return TERMINAL_INSTANCE;
     }
 
@@ -74,7 +74,7 @@ public class TerminalUtils
         Terminal terminal = getTerminal();
 
         try {
-            if (closed.compareAndSet(false, true)) {
+            if (CLOSED.compareAndSet(false, true)) {
                 terminal.close();
             }
         }

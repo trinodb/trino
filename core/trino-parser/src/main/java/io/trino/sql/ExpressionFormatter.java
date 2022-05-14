@@ -121,7 +121,7 @@ import static java.util.stream.Collectors.toList;
 
 public final class ExpressionFormatter
 {
-    private static final ThreadLocal<DecimalFormat> doubleFormatter = ThreadLocal.withInitial(
+    private static final ThreadLocal<DecimalFormat> DOUBLE_FORMATTER = ThreadLocal.withInitial(
             () -> new DecimalFormat("0.###################E0###", new DecimalFormatSymbols(Locale.US)));
 
     private ExpressionFormatter() {}
@@ -291,7 +291,7 @@ public final class ExpressionFormatter
         @Override
         protected String visitDoubleLiteral(DoubleLiteral node, Void context)
         {
-            return doubleFormatter.get().format(node.getValue());
+            return DOUBLE_FORMATTER.get().format(node.getValue());
         }
 
         @Override

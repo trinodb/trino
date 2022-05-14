@@ -41,9 +41,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestRevokeOnSchema
 {
-    private static final Session admin = sessionOf("admin");
-    private static final Session userWithAllPrivileges = sessionOf(randomUsername());
-    private static final Session userWithSelect = sessionOf(randomUsername());
+    private static final Session ADMIN = sessionOf("admin");
+    private static final Session USER_WITH_ALL_PRIVILEGES = sessionOf(randomUsername());
+    private static final Session USER_WITH_SELECT = sessionOf(randomUsername());
     private DistributedQueryRunner queryRunner;
     private QueryAssertions assertions;
 
@@ -51,11 +51,11 @@ public class TestRevokeOnSchema
     public void initClass()
             throws Exception
     {
-        queryRunner = DistributedQueryRunner.builder(userWithAllPrivileges).build();
+        queryRunner = DistributedQueryRunner.builder(USER_WITH_ALL_PRIVILEGES).build();
         Grants<String> schemaGrants = new MutableGrants<>();
-        schemaGrants.grant(new TrinoPrincipal(USER, admin.getUser()), "default", EnumSet.allOf(Privilege.class), true);
-        schemaGrants.grant(new TrinoPrincipal(USER, userWithAllPrivileges.getUser()), "default", EnumSet.allOf(Privilege.class), true);
-        schemaGrants.grant(new TrinoPrincipal(USER, userWithSelect.getUser()), "default", ImmutableSet.of(Privilege.SELECT), true);
+        schemaGrants.grant(new TrinoPrincipal(USER, ADMIN.getUser()), "default", EnumSet.allOf(Privilege.class), true);
+        schemaGrants.grant(new TrinoPrincipal(USER, USER_WITH_ALL_PRIVILEGES.getUser()), "default", EnumSet.allOf(Privilege.class), true);
+        schemaGrants.grant(new TrinoPrincipal(USER, USER_WITH_SELECT.getUser()), "default", ImmutableSet.of(Privilege.SELECT), true);
         MockConnectorFactory connectorFactory = MockConnectorFactory.builder()
                 .withListSchemaNames(session -> ImmutableList.of("information_schema", "default"))
                 .withSchemaGrants(schemaGrants)
@@ -77,7 +77,7 @@ public class TestRevokeOnSchema
     {
         assertThat(assertions.query(user, "SHOW SCHEMAS FROM local")).matches("VALUES (VARCHAR 'information_schema'), (VARCHAR 'default')");
 
-        queryRunner.execute(admin, format("REVOKE %s ON SCHEMA default FROM %s", privilege, user.getUser()));
+        queryRunner.execute(ADMIN, format("REVOKE %s ON SCHEMA default FROM %s", privilege, user.getUser()));
 
         assertThat(assertions.query(user, "SHOW SCHEMAS FROM local")).matches("VALUES (VARCHAR 'information_schema')");
     }
@@ -85,14 +85,14 @@ public class TestRevokeOnSchema
     @Test(dataProvider = "privilegesAndUsers")
     public void testRevokeOnNonExistingCatalog(String privilege, Session user)
     {
-        assertThatThrownBy(() -> queryRunner.execute(admin, format("REVOKE %s ON SCHEMA missing_catalog.missing_schema FROM %s", privilege, user.getUser())))
+        assertThatThrownBy(() -> queryRunner.execute(ADMIN, format("REVOKE %s ON SCHEMA missing_catalog.missing_schema FROM %s", privilege, user.getUser())))
                 .hasMessageContaining("Schema 'missing_catalog.missing_schema' does not exist");
     }
 
     @Test(dataProvider = "privilegesAndUsers")
     public void testRevokeOnNonExistingSchema(String privilege, Session user)
     {
-        assertThatThrownBy(() -> queryRunner.execute(admin, format("REVOKE %s ON SCHEMA missing_schema FROM %s", privilege, user.getUser())))
+        assertThatThrownBy(() -> queryRunner.execute(ADMIN, format("REVOKE %s ON SCHEMA missing_schema FROM %s", privilege, user.getUser())))
                 .hasMessageContaining("Schema 'local.missing_schema' does not exist");
     }
 
@@ -109,8 +109,8 @@ public class TestRevokeOnSchema
     public static Object[][] privilegesAndUsers()
     {
         return new Object[][] {
-                {"SELECT", userWithSelect},
-                {"ALL PRIVILEGES", userWithAllPrivileges}
+                {"SELECT", USER_WITH_SELECT},
+                {"ALL PRIVILEGES", USER_WITH_ALL_PRIVILEGES}
         };
     }
 

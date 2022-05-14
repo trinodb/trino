@@ -254,7 +254,7 @@ public class TestPrometheusSplit
         PrometheusTableHandle prometheusTableHandle = new PrometheusTableHandle("schemaName", "tableName");
         List<String> splitTimes = PrometheusSplitManager.generateTimesForSplits(now, maxQueryRangeDuration, queryChunkSizeDuration, prometheusTableHandle);
         List<String> promTimesReturned = mockPrometheusResponseToChunkedQueries(queryChunkSizeDuration, splitTimes);
-        assertEquals(promTimesReturned, convertMockTimesToStrings(promTimeValuesMock));
+        assertEquals(promTimesReturned, convertMockTimesToStrings(PROM_TIME_VALUES_MOCK));
     }
 
     @Test
@@ -267,7 +267,7 @@ public class TestPrometheusSplit
         PrometheusTableHandle prometheusTableHandle = new PrometheusTableHandle("schemaName", "tableName");
         List<String> splitTimes = PrometheusSplitManager.generateTimesForSplits(now, maxQueryRangeDuration, queryChunkSizeDuration, prometheusTableHandle);
         List<String> promTimesReturned = mockPrometheusResponseToChunkedQueries(queryChunkSizeDuration, splitTimes);
-        assertEquals(promTimesReturned, convertMockTimesToStrings(promTimeValuesMock));
+        assertEquals(promTimesReturned, convertMockTimesToStrings(PROM_TIME_VALUES_MOCK));
     }
 
     @Test
@@ -446,7 +446,7 @@ public class TestPrometheusSplit
     {
         Double endTime = Double.valueOf(endTimeStr);
         Double duration = queryChunkDuration.getValue(TimeUnit.SECONDS);
-        return promTimeValuesMock.stream()
+        return PROM_TIME_VALUES_MOCK.stream()
                 .filter(promTimeValue -> ((endTime - duration) <= promTimeValue) && (promTimeValue <= endTime))
                 .collect(Collectors.toList());
     }
@@ -475,7 +475,7 @@ public class TestPrometheusSplit
      * $ curl "http://127.0.0.1:9090/api/v1/query?query=up[120s]&time=1568638172"
      * Just the time items from the "values" section of the response
      */
-    private static final ImmutableList<Double> promTimeValuesMock = ImmutableList.<Double>builder()
+    private static final ImmutableList<Double> PROM_TIME_VALUES_MOCK = ImmutableList.<Double>builder()
             .add(1568638066.999)
             .add(1568638081.996)
             .add(1568638097.0)

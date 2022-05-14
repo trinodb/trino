@@ -17,7 +17,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class Capture<T>
 {
-    private static final AtomicInteger sequenceCounter = new AtomicInteger();
+    private static final AtomicInteger SEQUENCE_COUNTER = new AtomicInteger();
 
     private final String description;
 
@@ -28,7 +28,7 @@ public class Capture<T>
 
     public static <T> Capture<T> newCapture(String description)
     {
-        return new Capture<>(description + "@" + sequenceCounter.incrementAndGet());
+        return new Capture<>(description + "@" + SEQUENCE_COUNTER.incrementAndGet());
     }
 
     private Capture(String description)

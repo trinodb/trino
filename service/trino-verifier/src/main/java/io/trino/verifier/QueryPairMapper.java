@@ -27,8 +27,8 @@ import java.util.Map;
 public class QueryPairMapper
         implements RowMapper<QueryPair>
 {
-    private static final JsonCodec<Map<String, String>> propertiesJsonCodec = JsonCodec.mapJsonCodec(String.class, String.class);
-    private static final JsonCodec<List<String>> queriesJsonCodec = JsonCodec.listJsonCodec(String.class);
+    private static final JsonCodec<Map<String, String>> PROPERTIES_JSON_CODEC = JsonCodec.mapJsonCodec(String.class, String.class);
+    private static final JsonCodec<List<String>> QUERIES_JSON_CODEC = JsonCodec.listJsonCodec(String.class);
 
     @Override
     public QueryPair map(ResultSet resultSet, StatementContext context)
@@ -37,13 +37,13 @@ public class QueryPairMapper
         Map<String, String> testSessionProperties = ImmutableMap.of();
         String testSessionPropertiesJson = resultSet.getString("test_session_properties_json");
         if (testSessionPropertiesJson != null) {
-            testSessionProperties = propertiesJsonCodec.fromJson(testSessionPropertiesJson);
+            testSessionProperties = PROPERTIES_JSON_CODEC.fromJson(testSessionPropertiesJson);
         }
 
         Map<String, String> controlSessionProperties = ImmutableMap.of();
         String controlSessionPropertiesJson = resultSet.getString("control_session_properties_json");
         if (controlSessionPropertiesJson != null) {
-            controlSessionProperties = propertiesJsonCodec.fromJson(controlSessionPropertiesJson);
+            controlSessionProperties = PROPERTIES_JSON_CODEC.fromJson(controlSessionPropertiesJson);
         }
 
         return new QueryPair(
@@ -71,6 +71,6 @@ public class QueryPairMapper
 
     private static List<String> fromJsonString(String jsonString)
     {
-        return jsonString == null ? ImmutableList.of() : queriesJsonCodec.fromJson(jsonString);
+        return jsonString == null ? ImmutableList.of() : QUERIES_JSON_CODEC.fromJson(jsonString);
     }
 }

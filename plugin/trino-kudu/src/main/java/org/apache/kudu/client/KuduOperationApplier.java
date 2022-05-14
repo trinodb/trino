@@ -34,13 +34,13 @@ import static org.apache.kudu.client.SessionConfiguration.FlushMode.MANUAL_FLUSH
  * - correctness of not flushing in the background and hoping operations succeed
  * The buffer is flushed when:
  * - The KuduOperationApplier is closed
- * - Or if the KuduOperationApplier reaches the bufferMaxOperations
+ * - Or if the KuduOperationApplier reaches the BUFFER_MAX_OPERATIONS
  * Note: Operation.getChangeType() is package private
  */
 public final class KuduOperationApplier
         implements AutoCloseable
 {
-    private static final int bufferMaxOperations = 1000;
+    private static final int BUFFER_MAX_OPERATIONS = 1000;
 
     private int currentOperationsInBuffer;
     private final KuduSession kuduSession;
@@ -48,7 +48,7 @@ public final class KuduOperationApplier
     private KuduOperationApplier(KuduSession kuduSession)
     {
         kuduSession.setFlushMode(MANUAL_FLUSH);
-        kuduSession.setMutationBufferSpace(bufferMaxOperations);
+        kuduSession.setMutationBufferSpace(BUFFER_MAX_OPERATIONS);
         this.kuduSession = kuduSession;
         currentOperationsInBuffer = 0;
     }
@@ -74,7 +74,7 @@ public final class KuduOperationApplier
     public void applyOperationAsync(Operation operation)
             throws KuduException
     {
-        if (currentOperationsInBuffer >= bufferMaxOperations) {
+        if (currentOperationsInBuffer >= BUFFER_MAX_OPERATIONS) {
             List<OperationResponse> operationResponses = kuduSession.flush();
             verifyNoErrors(operationResponses);
         }

@@ -43,13 +43,13 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestRevokeOnTable
 {
-    private static final Session admin = sessionOf("admin");
-    private static final Session userWithAllPrivileges = sessionOf(randomUsername());
-    private static final Session userWithCreate = sessionOf(randomUsername());
-    private static final Session userWithSelect = sessionOf(randomUsername());
-    private static final Session userWithInsert = sessionOf(randomUsername());
-    private static final Session userWithUpdate = sessionOf(randomUsername());
-    private static final Session userWithDelete = sessionOf(randomUsername());
+    private static final Session ADMIN = sessionOf("admin");
+    private static final Session USER_WITH_ALL_PRIVILEGES = sessionOf(randomUsername());
+    private static final Session USER_WITH_CREATE = sessionOf(randomUsername());
+    private static final Session USER_WITH_SELECT = sessionOf(randomUsername());
+    private static final Session USER_WITH_INSERT = sessionOf(randomUsername());
+    private static final Session USER_WITH_UPDATE = sessionOf(randomUsername());
+    private static final Session USER_WITH_DELETE = sessionOf(randomUsername());
     private DistributedQueryRunner queryRunner;
     private QueryAssertions assertions;
 
@@ -58,15 +58,15 @@ public class TestRevokeOnTable
             throws Exception
     {
         SchemaTableName table = new SchemaTableName("default", "table_one");
-        queryRunner = DistributedQueryRunner.builder(userWithAllPrivileges).build();
+        queryRunner = DistributedQueryRunner.builder(USER_WITH_ALL_PRIVILEGES).build();
         Grants<SchemaTableName> tableGrants = new MutableGrants<>();
-        tableGrants.grant(new TrinoPrincipal(USER, admin.getUser()), table, EnumSet.allOf(Privilege.class), true);
-        tableGrants.grant(new TrinoPrincipal(USER, userWithAllPrivileges.getUser()), table, EnumSet.allOf(Privilege.class), true);
-        tableGrants.grant(new TrinoPrincipal(USER, userWithCreate.getUser()), table, ImmutableSet.of(Privilege.CREATE), true);
-        tableGrants.grant(new TrinoPrincipal(USER, userWithSelect.getUser()), table, ImmutableSet.of(Privilege.SELECT), true);
-        tableGrants.grant(new TrinoPrincipal(USER, userWithInsert.getUser()), table, ImmutableSet.of(Privilege.INSERT), true);
-        tableGrants.grant(new TrinoPrincipal(USER, userWithUpdate.getUser()), table, ImmutableSet.of(Privilege.UPDATE), true);
-        tableGrants.grant(new TrinoPrincipal(USER, userWithDelete.getUser()), table, ImmutableSet.of(Privilege.DELETE), true);
+        tableGrants.grant(new TrinoPrincipal(USER, ADMIN.getUser()), table, EnumSet.allOf(Privilege.class), true);
+        tableGrants.grant(new TrinoPrincipal(USER, USER_WITH_ALL_PRIVILEGES.getUser()), table, EnumSet.allOf(Privilege.class), true);
+        tableGrants.grant(new TrinoPrincipal(USER, USER_WITH_CREATE.getUser()), table, ImmutableSet.of(Privilege.CREATE), true);
+        tableGrants.grant(new TrinoPrincipal(USER, USER_WITH_SELECT.getUser()), table, ImmutableSet.of(Privilege.SELECT), true);
+        tableGrants.grant(new TrinoPrincipal(USER, USER_WITH_INSERT.getUser()), table, ImmutableSet.of(Privilege.INSERT), true);
+        tableGrants.grant(new TrinoPrincipal(USER, USER_WITH_UPDATE.getUser()), table, ImmutableSet.of(Privilege.UPDATE), true);
+        tableGrants.grant(new TrinoPrincipal(USER, USER_WITH_DELETE.getUser()), table, ImmutableSet.of(Privilege.DELETE), true);
         MockConnectorFactory connectorFactory = MockConnectorFactory.builder()
                 .withListSchemaNames(session -> ImmutableList.of("default"))
                 .withListTables((session, schemaName) -> "default".equalsIgnoreCase(schemaName) ? ImmutableList.of(table) : ImmutableList.of())
@@ -91,7 +91,7 @@ public class TestRevokeOnTable
     {
         assertThat(assertions.query(user, "SHOW TABLES FROM default")).matches("VALUES (VARCHAR 'table_one')");
 
-        queryRunner.execute(admin, format("REVOKE %s ON TABLE table_one FROM %s", privilege, user.getUser()));
+        queryRunner.execute(ADMIN, format("REVOKE %s ON TABLE table_one FROM %s", privilege, user.getUser()));
 
         assertThat(assertions.query(user, "SHOW TABLES FROM default")).returnsEmptyResult();
     }
@@ -99,21 +99,21 @@ public class TestRevokeOnTable
     @Test(dataProvider = "privilegesAndUsers")
     public void testRevokeOnNonExistingCatalog(String privilege, Session user)
     {
-        assertThatThrownBy(() -> queryRunner.execute(admin, format("REVOKE %s ON TABLE missing_catalog.missing_schema.missing_table FROM %s", privilege, user.getUser())))
+        assertThatThrownBy(() -> queryRunner.execute(ADMIN, format("REVOKE %s ON TABLE missing_catalog.missing_schema.missing_table FROM %s", privilege, user.getUser())))
                 .hasMessageContaining("Table 'missing_catalog.missing_schema.missing_table' does not exist");
     }
 
     @Test(dataProvider = "privilegesAndUsers")
     public void testRevokeOnNonExistingSchema(String privilege, Session user)
     {
-        assertThatThrownBy(() -> queryRunner.execute(admin, format("REVOKE %s ON TABLE missing_schema.missing_table FROM %s", privilege, user.getUser())))
+        assertThatThrownBy(() -> queryRunner.execute(ADMIN, format("REVOKE %s ON TABLE missing_schema.missing_table FROM %s", privilege, user.getUser())))
                 .hasMessageContaining("Table 'local.missing_schema.missing_table' does not exist");
     }
 
     @Test(dataProvider = "privilegesAndUsers")
     public void testRevokeOnNonExistingTable(String privilege, Session user)
     {
-        assertThatThrownBy(() -> queryRunner.execute(admin, format("REVOKE %s ON TABLE default.missing_table FROM %s", privilege, user.getUser())))
+        assertThatThrownBy(() -> queryRunner.execute(ADMIN, format("REVOKE %s ON TABLE default.missing_table FROM %s", privilege, user.getUser())))
                 .hasMessageContaining("Table 'local.default.missing_table' does not exist");
     }
 
@@ -130,12 +130,12 @@ public class TestRevokeOnTable
     public static Object[][] privilegesAndUsers()
     {
         return new Object[][] {
-                {"CREATE", userWithCreate},
-                {"SELECT", userWithSelect},
-                {"INSERT", userWithInsert},
-                {"UPDATE", userWithUpdate},
-                {"DELETE", userWithDelete},
-                {"ALL PRIVILEGES", userWithAllPrivileges}
+                {"CREATE", USER_WITH_CREATE},
+                {"SELECT", USER_WITH_SELECT},
+                {"INSERT", USER_WITH_INSERT},
+                {"UPDATE", USER_WITH_UPDATE},
+                {"DELETE", USER_WITH_DELETE},
+                {"ALL PRIVILEGES", USER_WITH_ALL_PRIVILEGES}
         };
     }
 

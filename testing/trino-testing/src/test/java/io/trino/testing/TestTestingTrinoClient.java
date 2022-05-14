@@ -43,11 +43,11 @@ public class TestTestingTrinoClient
 {
     private static final String TEST_USER = "test_user";
     private static final String PASSWORD = "password";
-    private static final QueryIdGenerator queryIdGenerator = new QueryIdGenerator();
-    private static final SessionPropertyManager sessionManager = new SessionPropertyManager();
-    private static final Session session = Session.builder(sessionManager)
+    private static final QueryIdGenerator QUERY_ID_GENERATOR = new QueryIdGenerator();
+    private static final SessionPropertyManager SESSION_MANAGER = new SessionPropertyManager();
+    private static final Session SESSION = Session.builder(SESSION_MANAGER)
             .setIdentity(Identity.forUser(TEST_USER).build())
-            .setQueryId(queryIdGenerator.createNextQueryId())
+            .setQueryId(QUERY_ID_GENERATOR.createNextQueryId())
             .build();
 
     private TestingTrinoServer server;
@@ -93,7 +93,7 @@ public class TestTestingTrinoClient
                 .addInterceptor(httpsForwarded())
                 .build();
 
-        try (TestingTrinoClient client = new TestingTrinoClient(server, session, httpClient)) {
+        try (TestingTrinoClient client = new TestingTrinoClient(server, SESSION, httpClient)) {
             MaterializedResult result = client.execute("SELECT 123").getResult();
             assertEquals(result.getOnlyValue(), 123);
         }
@@ -106,7 +106,7 @@ public class TestTestingTrinoClient
                 .addInterceptor(OkHttpUtil.basicAuth(TEST_USER, PASSWORD))
                 .build();
 
-        try (TestingTrinoClient client = new TestingTrinoClient(server, session, httpClient)) {
+        try (TestingTrinoClient client = new TestingTrinoClient(server, SESSION, httpClient)) {
             assertThatThrownBy(() -> client.execute("SELECT 123"))
                     .isInstanceOf(RuntimeException.class)
                     .hasMessageContaining("Error 403 Forbidden");

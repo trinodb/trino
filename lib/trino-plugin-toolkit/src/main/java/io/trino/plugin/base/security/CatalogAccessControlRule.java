@@ -75,7 +75,7 @@ public class CatalogAccessControlRule
         READ_ONLY("read-only"),
         NONE("none");
 
-        private static final Map<String, AccessMode> modeByName = Maps.uniqueIndex(ImmutableList.copyOf(AccessMode.values()), AccessMode::toString);
+        private static final Map<String, AccessMode> MODE_BY_NAME = Maps.uniqueIndex(ImmutableList.copyOf(AccessMode.values()), AccessMode::toString);
 
         private final String stringValue;
 
@@ -101,7 +101,7 @@ public class CatalogAccessControlRule
                 return NONE;
             }
             if (value instanceof String) {
-                AccessMode accessMode = modeByName.get(((String) value).toLowerCase(Locale.US));
+                AccessMode accessMode = MODE_BY_NAME.get(((String) value).toLowerCase(Locale.US));
                 if (accessMode != null) {
                     return accessMode;
                 }

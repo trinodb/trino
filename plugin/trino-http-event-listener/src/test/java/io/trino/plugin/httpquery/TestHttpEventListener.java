@@ -82,23 +82,23 @@ public class TestHttpEventListener
     private static JsonCodec<QueryCreatedEvent> queryCreateEventJsonCodec = jsonCodec(QueryCreatedEvent.class);
     private static JsonCodec<SplitCompletedEvent> splitCompleteEventJsonCodec = jsonCodec(SplitCompletedEvent.class);
 
-    private static final QueryIOMetadata queryIOMetadata;
-    private static final QueryContext queryContext;
-    private static final QueryMetadata queryMetadata;
-    private static final SplitStatistics splitStatistics;
-    private static final QueryStatistics queryStatistics;
-    private static final SplitCompletedEvent splitCompleteEvent;
-    private static final QueryCreatedEvent queryCreatedEvent;
-    private static final QueryCompletedEvent queryCompleteEvent;
+    private static final QueryIOMetadata QUERY_IO_METADATA;
+    private static final QueryContext QUERY_CONTEXT;
+    private static final QueryMetadata QUERY_METADATA;
+    private static final SplitStatistics SPLIT_STATISTICS;
+    private static final QueryStatistics QUERY_STATISTICS;
+    private static final SplitCompletedEvent SPLIT_COMPLETE_EVENT;
+    private static final QueryCreatedEvent QUERY_CREATED_EVENT;
+    private static final QueryCompletedEvent QUERY_COMPLETE_EVENT;
 
-    private static final String queryCreatedEventJson;
-    private static final String queryCompleteEventJson;
-    private static final String splitCompleteEventJson;
+    private static final String QUERY_CREATED_EVENT_JSON;
+    private static final String QUERY_COMPLETE_EVENT_JSON;
+    private static final String SPLIT_COMPLETE_EVENT_JSON;
 
     static {
-        queryIOMetadata = new QueryIOMetadata(Collections.emptyList(), Optional.empty());
+        QUERY_IO_METADATA = new QueryIOMetadata(Collections.emptyList(), Optional.empty());
 
-        queryContext = new QueryContext(
+        QUERY_CONTEXT = new QueryContext(
                 "user",
                 Optional.of("principal"),
                 Set.of(), // groups
@@ -117,7 +117,7 @@ public class TestHttpEventListener
                 "serverAddress", "serverVersion", "environment",
                 Optional.of(QueryType.SELECT));
 
-        queryMetadata = new QueryMetadata(
+        QUERY_METADATA = new QueryMetadata(
                 "queryId",
                 Optional.empty(),
                 "query",
@@ -129,7 +129,7 @@ public class TestHttpEventListener
                 URI.create("http://localhost"),
                 Optional.empty(), Optional.empty());
 
-        splitStatistics = new SplitStatistics(
+        SPLIT_STATISTICS = new SplitStatistics(
                 ofMillis(1000),
                 ofMillis(2000),
                 ofMillis(3000),
@@ -139,7 +139,7 @@ public class TestHttpEventListener
                 Optional.of(Duration.ofMillis(100)),
                 Optional.of(Duration.ofMillis(200)));
 
-        queryStatistics = new QueryStatistics(
+        QUERY_STATISTICS = new QueryStatistics(
                 ofMillis(1000),
                 ofMillis(1000),
                 ofMillis(1000),
@@ -178,7 +178,7 @@ public class TestHttpEventListener
                 Collections.emptyList(),
                 Optional.empty());
 
-        splitCompleteEvent = new SplitCompletedEvent(
+        SPLIT_COMPLETE_EVENT = new SplitCompletedEvent(
                 "queryId",
                 "stageId",
                 "taskId",
@@ -186,29 +186,29 @@ public class TestHttpEventListener
                 Instant.now(),
                 Optional.of(Instant.now()),
                 Optional.of(Instant.now()),
-                splitStatistics,
+            SPLIT_STATISTICS,
                 Optional.empty(),
                 "payload");
 
-        queryCreatedEvent = new QueryCreatedEvent(
+        QUERY_CREATED_EVENT = new QueryCreatedEvent(
                 Instant.now(),
-                queryContext,
-                queryMetadata);
+            QUERY_CONTEXT,
+            QUERY_METADATA);
 
-        queryCompleteEvent = new QueryCompletedEvent(
-                queryMetadata,
-                queryStatistics,
-                queryContext,
-                queryIOMetadata,
+        QUERY_COMPLETE_EVENT = new QueryCompletedEvent(
+            QUERY_METADATA,
+            QUERY_STATISTICS,
+            QUERY_CONTEXT,
+            QUERY_IO_METADATA,
                 Optional.empty(),
                 Collections.emptyList(),
                 Instant.now(),
                 Instant.now(),
                 Instant.now());
 
-        queryCompleteEventJson = queryCompleteEventJsonCodec.toJson(queryCompleteEvent);
-        queryCreatedEventJson = queryCreateEventJsonCodec.toJson(queryCreatedEvent);
-        splitCompleteEventJson = splitCompleteEventJsonCodec.toJson(splitCompleteEvent);
+        QUERY_COMPLETE_EVENT_JSON = queryCompleteEventJsonCodec.toJson(QUERY_COMPLETE_EVENT);
+        QUERY_CREATED_EVENT_JSON = queryCreateEventJsonCodec.toJson(QUERY_CREATED_EVENT);
+        SPLIT_COMPLETE_EVENT_JSON = splitCompleteEventJsonCodec.toJson(SPLIT_COMPLETE_EVENT);
     }
 
     @BeforeMethod
@@ -264,14 +264,14 @@ public class TestHttpEventListener
         server.enqueue(new MockResponse().setResponseCode(200));
         server.enqueue(new MockResponse().setResponseCode(200));
 
-        eventListener.queryCreated(queryCreatedEvent);
-        checkRequest(server.takeRequest(5, TimeUnit.SECONDS), queryCreatedEventJson);
+        eventListener.queryCreated(QUERY_CREATED_EVENT);
+        checkRequest(server.takeRequest(5, TimeUnit.SECONDS), QUERY_CREATED_EVENT_JSON);
 
-        eventListener.queryCompleted(queryCompleteEvent);
-        checkRequest(server.takeRequest(5, TimeUnit.SECONDS), queryCompleteEventJson);
+        eventListener.queryCompleted(QUERY_COMPLETE_EVENT);
+        checkRequest(server.takeRequest(5, TimeUnit.SECONDS), QUERY_COMPLETE_EVENT_JSON);
 
-        eventListener.splitCompleted(splitCompleteEvent);
-        checkRequest(server.takeRequest(5, TimeUnit.SECONDS), splitCompleteEventJson);
+        eventListener.splitCompleted(SPLIT_COMPLETE_EVENT);
+        checkRequest(server.takeRequest(5, TimeUnit.SECONDS), SPLIT_COMPLETE_EVENT_JSON);
     }
 
     @Test
@@ -284,7 +284,7 @@ public class TestHttpEventListener
 
         server.enqueue(new MockResponse().setResponseCode(200));
 
-        eventListener.queryCompleted(queryCompleteEvent);
+        eventListener.queryCompleted(QUERY_COMPLETE_EVENT);
 
         assertEquals(server.takeRequest(5, TimeUnit.SECONDS).getHeader("Content-Type"), "application/json; charset=utf-8");
     }
@@ -300,11 +300,11 @@ public class TestHttpEventListener
 
         server.enqueue(new MockResponse().setResponseCode(200));
 
-        eventListener.queryCompleted(queryCompleteEvent);
+        eventListener.queryCompleted(QUERY_COMPLETE_EVENT);
 
         checkRequest(server.takeRequest(5, TimeUnit.SECONDS), Map.of(
                 "Authorization", "Trust Me!",
-                "Cache-Control", "no-cache"), queryCompleteEventJson);
+                "Cache-Control", "no-cache"), QUERY_COMPLETE_EVENT_JSON);
     }
 
     @Test
@@ -319,14 +319,14 @@ public class TestHttpEventListener
                 "http-event-listener.log-completed", "true",
                 "http-event-listener.http-client.key-store-path", "src/test/resources/trino-httpquery-test.p12",
                 "http-event-listener.http-client.key-store-password", "testing-ssl"));
-        eventListener.queryCompleted(queryCompleteEvent);
+        eventListener.queryCompleted(QUERY_COMPLETE_EVENT);
 
         RecordedRequest recordedRequest = server.takeRequest(5, TimeUnit.SECONDS);
 
         assertNotNull(recordedRequest, "Handshake probably failed");
         assertEquals(recordedRequest.getTlsVersion().javaName(), "TLSv1.3");
 
-        checkRequest(recordedRequest, queryCompleteEventJson);
+        checkRequest(recordedRequest, QUERY_COMPLETE_EVENT_JSON);
     }
 
     @Test
@@ -341,7 +341,7 @@ public class TestHttpEventListener
                 "http-event-listener.log-completed", "true",
                 "http-event-listener.http-client.key-store-path", "src/test/resources/trino-httpquery-test2.p12",
                 "http-event-listener.http-client.key-store-password", "testing-ssl"));
-        eventListener.queryCompleted(queryCompleteEvent);
+        eventListener.queryCompleted(QUERY_COMPLETE_EVENT);
 
         RecordedRequest recordedRequest = server.takeRequest(5, TimeUnit.SECONDS);
 
@@ -359,7 +359,7 @@ public class TestHttpEventListener
                 "http-event-listener.log-completed", "true",
                 "http-event-listener.http-client.key-store-path", "src/test/resources/trino-httpquery-test.p12",
                 "http-event-listener.http-client.key-store-password", "testing-ssl"));
-        eventListener.queryCompleted(queryCompleteEvent);
+        eventListener.queryCompleted(QUERY_COMPLETE_EVENT);
 
         RecordedRequest recordedRequest = server.takeRequest(5, TimeUnit.SECONDS);
 
@@ -384,10 +384,10 @@ public class TestHttpEventListener
         server.enqueue(new MockResponse().setResponseCode(responseCode));
         server.enqueue(new MockResponse().setResponseCode(200));
 
-        eventListener.queryCompleted(queryCompleteEvent);
+        eventListener.queryCompleted(QUERY_COMPLETE_EVENT);
 
         assertNotNull(server.takeRequest(5, TimeUnit.SECONDS));
-        checkRequest(server.takeRequest(5, TimeUnit.SECONDS), queryCompleteEventJson);
+        checkRequest(server.takeRequest(5, TimeUnit.SECONDS), QUERY_COMPLETE_EVENT_JSON);
     }
 
     @Test
@@ -404,10 +404,10 @@ public class TestHttpEventListener
         server.enqueue(new MockResponse().setSocketPolicy(SocketPolicy.DISCONNECT_DURING_REQUEST_BODY));
         server.enqueue(new MockResponse().setResponseCode(200));
 
-        eventListener.queryCompleted(queryCompleteEvent);
+        eventListener.queryCompleted(QUERY_COMPLETE_EVENT);
 
         assertNotNull(server.takeRequest(5, TimeUnit.SECONDS)); // First request, causes exception
-        checkRequest(server.takeRequest(5, TimeUnit.SECONDS), queryCompleteEventJson);
+        checkRequest(server.takeRequest(5, TimeUnit.SECONDS), QUERY_COMPLETE_EVENT_JSON);
     }
 
     @Test
@@ -421,13 +421,13 @@ public class TestHttpEventListener
         server.enqueue(new MockResponse().setResponseCode(200).setHeadersDelay(5, TimeUnit.SECONDS));
 
         long startTime = System.nanoTime();
-        eventListener.queryCompleted(queryCompleteEvent);
+        eventListener.queryCompleted(QUERY_COMPLETE_EVENT);
         long endTime = System.nanoTime();
 
         assertTrue(Duration.of(endTime - startTime, ChronoUnit.NANOS).compareTo(Duration.of(1, ChronoUnit.SECONDS)) < 0,
                 "Server delay is blocking main thread");
 
-        checkRequest(server.takeRequest(5, TimeUnit.SECONDS), queryCompleteEventJson);
+        checkRequest(server.takeRequest(5, TimeUnit.SECONDS), QUERY_COMPLETE_EVENT_JSON);
     }
 
     private void checkRequest(RecordedRequest recordedRequest, String eventJson)

@@ -81,7 +81,7 @@ import static java.util.stream.Collectors.toList;
 public class TestingTrinoClient
         extends AbstractTestingTrinoClient<MaterializedResult>
 {
-    private static final DateTimeFormatter timeWithZoneOffsetFormat = new DateTimeFormatterBuilder()
+    private static final DateTimeFormatter TIME_WITH_ZONE_OFFSET_FORMAT = new DateTimeFormatterBuilder()
             .appendPattern("HH:mm:ss")
             .optionalStart()
             .appendFraction(NANO_OF_SECOND, 0, 9, true)
@@ -89,15 +89,15 @@ public class TestingTrinoClient
             .appendPattern("XXX")
             .toFormatter();
 
-    private static final DateTimeFormatter timestampFormat = new DateTimeFormatterBuilder()
+    private static final DateTimeFormatter TIMESTAMP_FORMAT = new DateTimeFormatterBuilder()
             .appendPattern("uuuu-MM-dd HH:mm:ss")
             .optionalStart()
             .appendFraction(NANO_OF_SECOND, 0, 9, true)
             .optionalEnd()
             .toFormatter();
 
-    private static final DateTimeFormatter timestampWithTimeZoneFormat = new DateTimeFormatterBuilder()
-            .append(timestampFormat)
+    private static final DateTimeFormatter TIMESTAMP_WITH_TIME_ZONE_FORMAT = new DateTimeFormatterBuilder()
+            .append(TIMESTAMP_FORMAT)
             .appendPattern(" VV")
             .toFormatter();
 
@@ -253,21 +253,21 @@ public class TestingTrinoClient
                 // String representation is not as nice as java.time, but it's currently the best available for picoseconds precision
                 return (String) value;
             }
-            return timeWithZoneOffsetFormat.parse(((String) value), OffsetTime::from);
+            return TIME_WITH_ZONE_OFFSET_FORMAT.parse(((String) value), OffsetTime::from);
         }
         if (type instanceof TimestampType) {
             if (((TimestampType) type).getPrecision() > 9) {
                 // String representation is not as nice as java.time, but it's currently the best available for picoseconds precision
                 return (String) value;
             }
-            return timestampFormat.parse((String) value, LocalDateTime::from);
+            return TIMESTAMP_FORMAT.parse((String) value, LocalDateTime::from);
         }
         if (type instanceof TimestampWithTimeZoneType) {
             if (((TimestampWithTimeZoneType) type).getPrecision() > 9) {
                 // String representation is not as nice as java.time, but it's currently the best available for picoseconds precision
                 return (String) value;
             }
-            return timestampWithTimeZoneFormat.parse((String) value, ZonedDateTime::from);
+            return TIMESTAMP_WITH_TIME_ZONE_FORMAT.parse((String) value, ZonedDateTime::from);
         }
         if (INTERVAL_DAY_TIME.equals(type)) {
             return new SqlIntervalDayTime(IntervalDayTime.parseMillis(String.valueOf(value)));

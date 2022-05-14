@@ -60,7 +60,7 @@ public class TestSystemConnector
 {
     private static final SchemaTableName SCHEMA_TABLE_NAME = new SchemaTableName("default", "test_table");
     private static final Function<SchemaTableName, List<ColumnMetadata>> DEFAULT_GET_COLUMNS = table -> ImmutableList.of(new ColumnMetadata("c", VARCHAR));
-    private static final AtomicLong counter = new AtomicLong();
+    private static final AtomicLong COUNTER = new AtomicLong();
 
     private static Function<SchemaTableName, List<ColumnMetadata>> getColumns = DEFAULT_GET_COLUMNS;
 
@@ -194,7 +194,7 @@ public class TestSystemConnector
     @Test
     public void testFinishedQueryIsCaptured()
     {
-        String testQueryId = "test_query_id_" + counter.incrementAndGet();
+        String testQueryId = "test_query_id_" + COUNTER.incrementAndGet();
         getQueryRunner().execute(format("EXPLAIN SELECT 1 AS %s FROM test_table", testQueryId));
 
         assertQuery(
@@ -214,7 +214,7 @@ public class TestSystemConnector
                 throw new RuntimeException(e);
             }
         };
-        String testQueryId = "test_query_id_" + counter.incrementAndGet();
+        String testQueryId = "test_query_id_" + COUNTER.incrementAndGet();
         Future<?> queryFuture = executor.submit(() -> {
             getQueryRunner().execute(format("EXPLAIN SELECT 1 AS %s FROM test_table", testQueryId));
         });
@@ -255,7 +255,7 @@ public class TestSystemConnector
                 throw new RuntimeException(e);
             }
         };
-        String testQueryId = "test_query_id_" + counter.incrementAndGet();
+        String testQueryId = "test_query_id_" + COUNTER.incrementAndGet();
         Future<?> queryFuture = executor.submit(() -> {
             getQueryRunner().execute(format("EXPLAIN SELECT 1 AS %s FROM test_table", testQueryId));
         });

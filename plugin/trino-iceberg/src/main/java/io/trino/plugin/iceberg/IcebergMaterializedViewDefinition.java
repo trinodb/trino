@@ -39,7 +39,7 @@ public class IcebergMaterializedViewDefinition
     private static final String MATERIALIZED_VIEW_PREFIX = "/* Presto Materialized View: ";
     private static final String MATERIALIZED_VIEW_SUFFIX = " */";
 
-    private static final JsonCodec<IcebergMaterializedViewDefinition> materializedViewCodec =
+    private static final JsonCodec<IcebergMaterializedViewDefinition> MATERIALIZED_VIEW_CODEC =
             new JsonCodecFactory(new ObjectMapperProvider()).jsonCodec(IcebergMaterializedViewDefinition.class);
 
     private final String originalSql;
@@ -50,7 +50,7 @@ public class IcebergMaterializedViewDefinition
 
     public static String encodeMaterializedViewData(IcebergMaterializedViewDefinition definition)
     {
-        byte[] bytes = materializedViewCodec.toJsonBytes(definition);
+        byte[] bytes = MATERIALIZED_VIEW_CODEC.toJsonBytes(definition);
         String data = Base64.getEncoder().encodeToString(bytes);
         return MATERIALIZED_VIEW_PREFIX + data + MATERIALIZED_VIEW_SUFFIX;
     }
@@ -62,7 +62,7 @@ public class IcebergMaterializedViewDefinition
         data = data.substring(MATERIALIZED_VIEW_PREFIX.length());
         data = data.substring(0, data.length() - MATERIALIZED_VIEW_SUFFIX.length());
         byte[] bytes = Base64.getDecoder().decode(data);
-        return materializedViewCodec.fromJson(bytes);
+        return MATERIALIZED_VIEW_CODEC.fromJson(bytes);
     }
 
     public static IcebergMaterializedViewDefinition fromConnectorMaterializedViewDefinition(ConnectorMaterializedViewDefinition definition)

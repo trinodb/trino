@@ -110,7 +110,7 @@ public class TestTableRedirection
                             i -> schemaTableName(SCHEMA_THREE, REDIRECTION_CHAIN.get(i + 1)))))
             .buildOrThrow();
 
-    private static final Map<String, List<ColumnMetadata>> columnMetadatas = ImmutableMap.of(
+    private static final Map<String, List<ColumnMetadata>> COLUMN_METADATAS = ImmutableMap.of(
             SCHEMA_ONE,
             ImmutableList.of(
                     new ColumnMetadata(C0, BIGINT),
@@ -122,8 +122,8 @@ public class TestTableRedirection
             SCHEMA_THREE,
             ImmutableList.of(new ColumnMetadata(C4, BIGINT)));
 
-    private static final Function<SchemaTableName, List<ColumnMetadata>> columnsGetter = table -> {
-        List<ColumnMetadata> columns = columnMetadatas.get(table.getSchemaName());
+    private static final Function<SchemaTableName, List<ColumnMetadata>> COLUMNS_GETTER = table -> {
+        List<ColumnMetadata> columns = COLUMN_METADATAS.get(table.getSchemaName());
         if (columns != null) {
             return columns;
         }
@@ -158,7 +158,7 @@ public class TestTableRedirection
                                 if (REDIRECTIONS.containsKey(schemaTableName)) {
                                     return TableColumnsMetadata.forRedirectedTable(schemaTableName);
                                 }
-                                return TableColumnsMetadata.forTable(schemaTableName, columnsGetter.apply(schemaTableName));
+                                return TableColumnsMetadata.forTable(schemaTableName, COLUMNS_GETTER.apply(schemaTableName));
                             })
                             .collect(toImmutableList());
 
@@ -186,7 +186,7 @@ public class TestTableRedirection
                 .withGetViews(((connectorSession, prefix) -> ImmutableMap.of()))
                 .withGetColumns(schemaTableName -> {
                     if (!REDIRECTIONS.containsKey(schemaTableName)) {
-                        return columnsGetter.apply(schemaTableName);
+                        return COLUMNS_GETTER.apply(schemaTableName);
                     }
 
                     throw new RuntimeException("Columns do not exist for: " + schemaTableName);

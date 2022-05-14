@@ -30,7 +30,7 @@ import static java.lang.String.join;
 public class TestTable
         implements AutoCloseable
 {
-    private static final SecureRandom random = new SecureRandom();
+    private static final SecureRandom RANDOM = new SecureRandom();
     // The suffix needs to be long enough to "prevent" collisions in practice. The length of 5 was proven not to be long enough
     private static final int RANDOM_SUFFIX_LENGTH = 10;
 
@@ -131,7 +131,7 @@ public class TestTable
 
     public static String randomTableSuffix()
     {
-        String randomSuffix = Long.toString(abs(random.nextLong()), MAX_RADIX);
+        String randomSuffix = Long.toString(abs(RANDOM.nextLong()), MAX_RADIX);
         return randomSuffix.substring(0, min(RANDOM_SUFFIX_LENGTH, randomSuffix.length()));
     }
 }

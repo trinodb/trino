@@ -29,7 +29,7 @@ public class AvroBytesDeserializer<T>
 {
     public static final String NAME = "bytes";
 
-    private static final ThreadLocal<BinaryDecoder> reuseDecoder = ThreadLocal.withInitial(() -> null);
+    private static final ThreadLocal<BinaryDecoder> REUSE_DECODER = ThreadLocal.withInitial(() -> null);
 
     private final AvroReaderSupplier<T> avroReaderSupplier;
 
@@ -43,8 +43,8 @@ public class AvroBytesDeserializer<T>
     {
         ByteBuffer buffer = ByteBuffer.wrap(data);
         DatumReader<T> avroReader = avroReaderSupplier.get(buffer);
-        BinaryDecoder decoder = DecoderFactory.get().binaryDecoder(data, buffer.position(), data.length - buffer.position(), reuseDecoder.get());
-        reuseDecoder.set(decoder);
+        BinaryDecoder decoder = DecoderFactory.get().binaryDecoder(data, buffer.position(), data.length - buffer.position(), REUSE_DECODER.get());
+        REUSE_DECODER.set(decoder);
 
         try {
             return avroReader.read(null, decoder);

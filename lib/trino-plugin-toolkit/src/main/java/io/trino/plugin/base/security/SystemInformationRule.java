@@ -72,7 +72,7 @@ public class SystemInformationRule
         READ("read"),
         WRITE("write");
 
-        private static final Map<String, AccessMode> modeByName = stream(values()).collect(toImmutableMap(AccessMode::toString, identity()));
+        private static final Map<String, AccessMode> MODE_BY_NAME = stream(values()).collect(toImmutableMap(AccessMode::toString, identity()));
 
         private final String stringValue;
 
@@ -92,7 +92,7 @@ public class SystemInformationRule
         public static AccessMode fromJson(Object value)
         {
             if (value instanceof String) {
-                AccessMode accessMode = modeByName.get(((String) value).toLowerCase(Locale.US));
+                AccessMode accessMode = MODE_BY_NAME.get(((String) value).toLowerCase(Locale.US));
                 if (accessMode != null) {
                     return accessMode;
                 }

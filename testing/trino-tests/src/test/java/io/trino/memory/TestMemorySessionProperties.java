@@ -25,7 +25,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 public class TestMemorySessionProperties
         extends AbstractTestQueryFramework
 {
-    public static final String sql = "SELECT COUNT(*), clerk FROM orders GROUP BY clerk";
+    public static final String SQL = "SELECT COUNT(*), clerk FROM orders GROUP BY clerk";
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -37,11 +37,11 @@ public class TestMemorySessionProperties
     @Test(timeOut = 240_000)
     public void testSessionQueryMemoryPerNodeLimit()
     {
-        assertQuery(sql);
+        assertQuery(SQL);
         Session session = Session.builder(getSession())
                 .setSystemProperty(QUERY_MAX_MEMORY_PER_NODE, "1kB")
                 .build();
-        assertThatThrownBy(() -> getQueryRunner().execute(session, sql))
+        assertThatThrownBy(() -> getQueryRunner().execute(session, SQL))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessageStartingWith("Query exceeded per-node memory limit of ");
     }

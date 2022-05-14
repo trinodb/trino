@@ -87,7 +87,7 @@ public class QueryAccessRule
         VIEW("view"),
         KILL("kill");
 
-        private static final Map<String, AccessMode> modeByName = stream(AccessMode.values()).collect(toImmutableMap(AccessMode::toString, identity()));
+        private static final Map<String, AccessMode> MODE_BY_NAME = stream(AccessMode.values()).collect(toImmutableMap(AccessMode::toString, identity()));
 
         private final String stringValue;
 
@@ -107,7 +107,7 @@ public class QueryAccessRule
         public static AccessMode fromJson(Object value)
         {
             if (value instanceof String) {
-                AccessMode accessMode = modeByName.get(((String) value).toLowerCase(Locale.US));
+                AccessMode accessMode = MODE_BY_NAME.get(((String) value).toLowerCase(Locale.US));
                 if (accessMode != null) {
                     return accessMode;
                 }
