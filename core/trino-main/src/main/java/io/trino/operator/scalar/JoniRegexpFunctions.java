@@ -39,6 +39,7 @@ import io.trino.type.JoniRegexpType;
 import java.nio.charset.StandardCharsets;
 
 import static io.airlift.slice.SliceUtf8.lengthOfCodePointFromStartByte;
+import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Math.toIntExact;
@@ -64,7 +65,7 @@ public final class JoniRegexpFunctions
             offset = 0;
             matcher = pattern.matcher(source.getBytes());
         }
-        return matcher.search(offset, offset + source.length(), Option.DEFAULT) != -1;
+        return getSearchingOffset(matcher, offset, offset + source.length()) != -1;
     }
 
     private static int getNextStart(Slice source, Matcher matcher)
@@ -110,7 +111,7 @@ public final class JoniRegexpFunctions
         int lastEnd = 0;
         int nextStart = 0; // nextStart is the same as lastEnd, unless the last match was zero-width. In such case, nextStart is lastEnd + 1.
         while (true) {
-            int offset = matcher.search(nextStart, source.length(), Option.DEFAULT);
+            int offset = getSearchingOffset(matcher, nextStart, source.length());
             if (offset == -1) {
                 break;
             }
@@ -227,7 +228,7 @@ public final class JoniRegexpFunctions
 
         int nextStart = 0;
         while (true) {
-            int offset = matcher.search(nextStart, source.length(), Option.DEFAULT);
+            int offset = getSearchingOffset(matcher, nextStart, source.length());
             if (offset == -1) {
                 break;
             }
@@ -267,7 +268,7 @@ public final class JoniRegexpFunctions
         validateGroup(groupIndex, matcher.getEagerRegion());
         int group = toIntExact(groupIndex);
 
-        int offset = matcher.search(0, source.length(), Option.DEFAULT);
+        int offset = getSearchingOffset(matcher, 0, source.length());
         if (offset == -1) {
             return null;
         }
@@ -294,7 +295,7 @@ public final class JoniRegexpFunctions
         int lastEnd = 0;
         int nextStart = 0;
         while (true) {
-            int offset = matcher.search(nextStart, source.length(), Option.DEFAULT);
+            int offset = getSearchingOffset(matcher, nextStart, source.length());
             if (offset == -1) {
                 break;
             }
@@ -368,8 +369,8 @@ public final class JoniRegexpFunctions
         // subtract 1 because codePointCount starts from zero
         int nextStart = SliceUtf8.offsetOfCodePoint(source, (int) start - 1);
         while (true) {
-            int offset = matcher.search(nextStart, source.length(), Option.DEFAULT);
-            // Check whether offset is negative, offset is -1 if no pattern was found or -2 if process was interrupted
+            int offset = getSearchingOffset(matcher, nextStart, source.length());
+            // Check whether offset is negative, offset is -1 if no pattern was found
             if (offset < 0) {
                 return -1;
             }
@@ -395,9 +396,9 @@ public final class JoniRegexpFunctions
         // Start from zero, implies the first byte
         int nextStart = 0;
         while (true) {
-            // mather.search returns `source.length` if `nextStart` equals `source.length - 1`.
+            // getSearchingOffset returns `source.length` if `nextStart` equals `source.length - 1`.
             // It should return -1 if `nextStart` is greater than `source.length - 1`.
-            int offset = matcher.search(nextStart, source.length(), Option.DEFAULT);
+            int offset = getSearchingOffset(matcher, nextStart, source.length());
             if (offset < 0) {
                 break;
             }
@@ -407,5 +408,21 @@ public final class JoniRegexpFunctions
         }
 
         return count;
+    }
+
+    public static int getSearchingOffset(Matcher matcher, int at, int range)
+    {
+        try {
+            return matcher.searchInterruptible(at, range, Option.DEFAULT);
+        }
+        catch (InterruptedException interruptedException) {
+            // The JONI library is compliant with the InterruptedException contract. They reset the interrupted flag before throwing an exception.
+            // Since the InterruptedException is being caught the interrupt flag must either be recovered or the thread must be terminated.
+            // Since we are simply throwing a different exception, the interrupt flag must be recovered to propagate the interrupted status to the upper level code.
+            Thread.currentThread().interrupt();
+            throw new TrinoException(GENERIC_USER_ERROR, "" +
+                    "Regular expression matching was interrupted, likely because it took too long. " +
+                    "Regular expression in the worst case can have a catastrophic amount of backtracking and having exponential time complexity");
+        }
     }
 }
