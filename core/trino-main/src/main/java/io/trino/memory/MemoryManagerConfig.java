@@ -16,7 +16,6 @@ package io.trino.memory;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
-import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
@@ -55,8 +54,7 @@ public class MemoryManagerConfig
         return lowMemoryQueryKillerPolicy;
     }
 
-    @LegacyConfig("query.low-memory-killer.policy")
-    @Config("query.low-memory-query-killer.policy")
+    @Config("query.low-memory-killer.policy")
     public MemoryManagerConfig setLowMemoryQueryKillerPolicy(LowMemoryQueryKillerPolicy lowMemoryQueryKillerPolicy)
     {
         this.lowMemoryQueryKillerPolicy = lowMemoryQueryKillerPolicy;
@@ -68,7 +66,7 @@ public class MemoryManagerConfig
         return lowMemoryTaskKillerPolicy;
     }
 
-    @Config("query.low-memory-task-killer.policy")
+    @Config("task.low-memory-killer.policy")
     public MemoryManagerConfig setLowMemoryTaskKillerPolicy(LowMemoryTaskKillerPolicy lowMemoryTaskKillerPolicy)
     {
         this.lowMemoryTaskKillerPolicy = lowMemoryTaskKillerPolicy;
