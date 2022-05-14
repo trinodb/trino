@@ -13,19 +13,24 @@
  */
 package io.trino.sql;
 
+import com.google.common.io.Resources;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.operator.scalar.AbstractTestFunctions;
+import io.trino.spi.ErrorType;
 import io.trino.spi.TrinoException;
 import io.trino.spi.expression.StandardFunctions;
 import io.trino.type.JoniRegexp;
 import io.trino.type.LikeFunctions;
 import org.testng.annotations.Test;
 
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.Optional;
 
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.operator.scalar.JoniRegexpCasts.joniRegexp;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.type.LikeFunctions.isLikePattern;
 import static io.trino.type.LikeFunctions.likeChar;
@@ -41,6 +46,8 @@ import static org.testng.Assert.assertTrue;
 public class TestLikeFunctions
         extends AbstractTestFunctions
 {
+    private static final String EXTRA_LONG_SOURCE_PATH = Resources.getResource("regularExpressionExtraLongSource.txt").getPath();
+
     private static Slice offsetHeapSlice(String value)
     {
         Slice source = Slices.utf8Slice(value);
@@ -253,5 +260,52 @@ public class TestLikeFunctions
         assertEquals(unescapeLiteralLikePattern(utf8Slice("abc#_"), Optional.of(utf8Slice("#"))), utf8Slice("abc_"));
         assertEquals(unescapeLiteralLikePattern(utf8Slice("a##bc#_"), Optional.of(utf8Slice("#"))), utf8Slice("a#bc_"));
         assertEquals(unescapeLiteralLikePattern(utf8Slice("a###_bc"), Optional.of(utf8Slice("#"))), utf8Slice("a#_bc"));
+    }
+
+    @Test
+    public void testRegexInterruptible()
+            throws Exception
+    {
+        String pattern = "\\((.*,)+(.*\\))";
+        String source = Files.readString(Paths.get(EXTRA_LONG_SOURCE_PATH));
+
+        LikeVarCharRunnable likeVarCharRunnable = new LikeVarCharRunnable(source, pattern);
+        Thread searchChildThread = new Thread(likeVarCharRunnable);
+
+        searchChildThread.start();
+
+        // wait for the child thread to make some progress
+        searchChildThread.join(1000);
+        searchChildThread.interrupt();
+
+        // wait for child thread to get in to terminated state
+        searchChildThread.join();
+        assertEquals(likeVarCharRunnable.exceptionClause.getErrorCode().getType(), ErrorType.USER_ERROR);
+        assertEquals(likeVarCharRunnable.exceptionClause.getErrorCode().getName(), "GENERIC_USER_ERROR");
+    }
+
+    private static class LikeVarCharRunnable
+            implements Runnable
+    {
+        private TrinoException exceptionClause;
+        private final String source;
+        private final String pattern;
+
+        public LikeVarCharRunnable(String source, String pattern)
+        {
+            this.source = source;
+            this.pattern = pattern;
+        }
+
+        @Override
+        public void run()
+        {
+            try {
+                likeVarchar(utf8Slice(source), joniRegexp(utf8Slice(pattern)));
+            }
+            catch (TrinoException ex) {
+                exceptionClause = ex;
+            }
+        }
     }
 }

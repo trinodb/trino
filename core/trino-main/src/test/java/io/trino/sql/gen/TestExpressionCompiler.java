@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ObjectArrays;
 import com.google.common.collect.Sets;
+import com.google.common.io.Resources;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
@@ -42,6 +43,8 @@ import io.trino.operator.scalar.timestamp.ExtractSecond;
 import io.trino.operator.scalar.timestamp.ExtractWeekOfYear;
 import io.trino.operator.scalar.timestamp.ExtractYear;
 import io.trino.operator.scalar.timestamp.ExtractYearOfWeek;
+import io.trino.spi.ErrorType;
+import io.trino.spi.TrinoException;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.SqlDecimal;
 import io.trino.spi.type.SqlTimestampWithTimeZone;
@@ -62,6 +65,8 @@ import org.testng.annotations.Test;
 import java.lang.reflect.Method;
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.text.DecimalFormat;
 import java.text.NumberFormat;
 import java.util.ArrayList;
@@ -81,6 +86,7 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.testing.Closeables.closeAllRuntimeException;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.operator.scalar.JoniRegexpCasts.joniRegexp;
+import static io.trino.operator.scalar.JoniRegexpFunctions.regexpReplace;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DecimalType.createDecimalType;
@@ -109,6 +115,7 @@ import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
 import static org.joda.time.DateTimeZone.UTC;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
@@ -158,6 +165,7 @@ public class TestExpressionCompiler
             null
     };
 
+    private static final String EXTRA_LONG_SOURCE_PATH = Resources.getResource("regularExpressionExtraLongSource.txt").getPath();
     private static final Logger log = Logger.get(TestExpressionCompiler.class);
     private static final boolean PARALLEL = false;
 
@@ -1466,7 +1474,7 @@ public class TestExpressionCompiler
                         value == null || pattern == null ? null : JoniRegexpFunctions.regexpLike(utf8Slice(value), joniRegexp(utf8Slice(pattern))));
                 assertExecute(generateExpression("regexp_replace(%s, %s)", value, pattern),
                         value == null ? VARCHAR : createVarcharType(value.length()),
-                        value == null || pattern == null ? null : JoniRegexpFunctions.regexpReplace(utf8Slice(value), joniRegexp(utf8Slice(pattern))));
+                        value == null || pattern == null ? null : regexpReplace(utf8Slice(value), joniRegexp(utf8Slice(pattern))));
                 assertExecute(generateExpression("regexp_extract(%s, %s)", value, pattern),
                         value == null ? VARCHAR : createVarcharType(value.length()),
                         value == null || pattern == null ? null : JoniRegexpFunctions.regexpExtract(utf8Slice(value), joniRegexp(utf8Slice(pattern))));
@@ -1474,6 +1482,27 @@ public class TestExpressionCompiler
         }
 
         Futures.allAsList(futures).get();
+    }
+
+    @Test
+    public void testSearchInterruptible()
+            throws Exception
+    {
+        String pattern = "\\((.*,)+(.*\\))";
+        String source = Files.readString(Paths.get(EXTRA_LONG_SOURCE_PATH));
+        RegularExpressionRunnable regularExpressionRunnable = new RegularExpressionRunnable(source, pattern);
+        Thread searchChildThread = new Thread(regularExpressionRunnable);
+
+        searchChildThread.start();
+
+        // wait for the child thread to make some progress
+        searchChildThread.join(1000);
+        searchChildThread.interrupt();
+
+        // wait for child thread to get in to terminated state
+        searchChildThread.join();
+        assertEquals(regularExpressionRunnable.exceptionClause.getErrorCode().getType(), ErrorType.USER_ERROR);
+        assertEquals(regularExpressionRunnable.exceptionClause.getErrorCode().getName(), "GENERIC_USER_ERROR");
     }
 
     @Test
@@ -1989,6 +2018,31 @@ public class TestExpressionCompiler
             }
             catch (Throwable e) {
                 throw new RuntimeException("Error processing " + expression, e);
+            }
+        }
+    }
+
+    private static class RegularExpressionRunnable
+            implements Runnable
+    {
+        private TrinoException exceptionClause;
+        private final String source;
+        private final String pattern;
+
+        public RegularExpressionRunnable(String source, String pattern)
+        {
+            this.source = source;
+            this.pattern = pattern;
+        }
+
+        @Override
+        public void run()
+        {
+            try {
+                regexpReplace(utf8Slice(source), joniRegexp(utf8Slice(pattern)));
+            }
+            catch (TrinoException ex) {
+                exceptionClause = ex;
             }
         }
     }
