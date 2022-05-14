@@ -66,7 +66,10 @@ public class TestTaskManagerConfig
                 .setTaskYieldThreads(3)
                 .setLevelTimeMultiplier(new BigDecimal("2"))
                 .setStatisticsCpuTimerEnabled(true)
-                .setLongRunningSplitWarningThreshold(new Duration(10, TimeUnit.MINUTES)));
+                .setLongRunningSplitWarningThreshold(new Duration(10, TimeUnit.MINUTES))
+                .setEnableInterruptStuckSplits(true)
+                .setInterruptStuckSplitsTimeout(new Duration(10, TimeUnit.MINUTES))
+                .setStuckSplitDetectionInterval(new Duration(1, TimeUnit.MINUTES)));
     }
 
     @Test
@@ -103,6 +106,9 @@ public class TestTaskManagerConfig
                 .put("task.level-time-multiplier", "2.1")
                 .put("task.statistics-cpu-timer-enabled", "false")
                 .put("task.long-running-split-warning-threshold", "9m")
+                .put("task.enable-interrupt-stuck-splits", "false")
+                .put("task.interrupt-stuck-splits-timeout", "9m")
+                .put("task.stuck-split-detection-interval", "1s")
                 .buildOrThrow();
 
         TaskManagerConfig expected = new TaskManagerConfig()
@@ -134,7 +140,10 @@ public class TestTaskManagerConfig
                 .setTaskYieldThreads(8)
                 .setLevelTimeMultiplier(new BigDecimal("2.1"))
                 .setStatisticsCpuTimerEnabled(false)
-                .setLongRunningSplitWarningThreshold(new Duration(9, TimeUnit.MINUTES));
+                .setLongRunningSplitWarningThreshold(new Duration(9, TimeUnit.MINUTES))
+                .setEnableInterruptStuckSplits(false)
+                .setInterruptStuckSplitsTimeout(new Duration(9, TimeUnit.MINUTES))
+                .setStuckSplitDetectionInterval(new Duration(1, TimeUnit.SECONDS));
 
         assertFullMapping(properties, expected);
     }

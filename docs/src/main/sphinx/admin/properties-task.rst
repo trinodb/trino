@@ -134,3 +134,13 @@ a per-query basis using the ``task_writer_count`` session property.
 
 When split runs longer than this threshold, we can get the call stack via
 ``/v1/stuckSplits`` endpoint on coordinator.
+
+``task.interrupt-stuck-splits-timeout``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** :ref:`prop-type-duration`
+* **Minimum value:** ``1s``
+* **Default value:** ``10m``
+
+The length of time Trino waits for a blocked split processing thread before interrupting the thread.
+Only applies to threads that are blocked by the third-party Joni regular expression library.

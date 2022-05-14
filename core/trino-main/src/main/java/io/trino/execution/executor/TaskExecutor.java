@@ -27,6 +27,8 @@ import io.airlift.units.Duration;
 import io.trino.execution.SplitRunner;
 import io.trino.execution.TaskId;
 import io.trino.execution.TaskManagerConfig;
+import io.trino.operator.scalar.JoniRegexpFunctions;
+import io.trino.operator.scalar.JoniRegexpReplaceLambdaFunction;
 import io.trino.spi.TrinoException;
 import io.trino.spi.VersionEmbedder;
 import org.weakref.jmx.Managed;
@@ -44,6 +46,7 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
 import java.util.SortedSet;
@@ -56,7 +59,9 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicLongArray;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.DoubleSupplier;
+import java.util.function.Predicate;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -65,20 +70,27 @@ import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.trino.execution.executor.MultilevelSplitQueue.computeLevel;
+import static io.trino.execution.executor.PrioritizedSplitRunner.SPLIT_RUN_QUANTA;
 import static io.trino.version.EmbedVersion.testingVersionEmbedder;
 import static java.lang.Math.min;
 import static java.lang.String.format;
+import static java.lang.System.lineSeparator;
+import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.MICROSECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
+import static java.util.stream.Collectors.joining;
 
 @ThreadSafe
 public class TaskExecutor
 {
     private static final Logger log = Logger.get(TaskExecutor.class);
 
+    private static final Predicate<List<StackTraceElement>> POTENTIALLY_STUCK_SPLIT_PREDICATE =
+            elements -> elements.stream().anyMatch(TaskExecutor::usedJoniRegexpFunctions);
     private static final AtomicLong NEXT_RUNNER_ID = new AtomicLong();
 
     private final ExecutorService executor;
@@ -92,6 +104,8 @@ public class TaskExecutor
     private final VersionEmbedder versionEmbedder;
 
     private final Ticker ticker;
+
+    private final Optional<StuckSplitInterrupter> stuckSplitInterrupter;
 
     private final ScheduledExecutorService splitMonitorExecutor = newSingleThreadScheduledExecutor(daemonThreadsNamed("TaskExecutor"));
     private final SortedSet<RunningSplitInfo> runningSplitInfos = new ConcurrentSkipListSet<>();
@@ -161,21 +175,15 @@ public class TaskExecutor
                 config.getMinDriversPerTask(),
                 config.getMaxDriversPerTask(),
                 config.getLongRunningSplitWarningThreshold(),
+                createStuckSplitInterrupter(
+                        config.getLongRunningSplitWarningThreshold(),
+                        config.isEnableInterruptStuckSplits(),
+                        config.getInterruptStuckSplitsTimeout(),
+                        config.getStuckSplitDetectionInterval(),
+                        POTENTIALLY_STUCK_SPLIT_PREDICATE),
                 versionEmbedder,
                 splitQueue,
                 Ticker.systemTicker());
-    }
-
-    @VisibleForTesting
-    public TaskExecutor(int runnerThreads, int minDrivers, int guaranteedNumberOfDriversPerTask, int maximumNumberOfDriversPerTask, Duration longRunningSplitWarningThreshold, Ticker ticker)
-    {
-        this(runnerThreads, minDrivers, guaranteedNumberOfDriversPerTask, maximumNumberOfDriversPerTask, longRunningSplitWarningThreshold, testingVersionEmbedder(), new MultilevelSplitQueue(2), ticker);
-    }
-
-    @VisibleForTesting
-    public TaskExecutor(int runnerThreads, int minDrivers, int guaranteedNumberOfDriversPerTask, int maximumNumberOfDriversPerTask, Duration longRunningSplitWarningThreshold, MultilevelSplitQueue splitQueue, Ticker ticker)
-    {
-        this(runnerThreads, minDrivers, guaranteedNumberOfDriversPerTask, maximumNumberOfDriversPerTask, longRunningSplitWarningThreshold, testingVersionEmbedder(), splitQueue, ticker);
     }
 
     @VisibleForTesting
@@ -185,6 +193,50 @@ public class TaskExecutor
             int guaranteedNumberOfDriversPerTask,
             int maximumNumberOfDriversPerTask,
             Duration longRunningSplitWarningThreshold,
+            Optional<StuckSplitInterrupter> stuckSplitInterrupter,
+            Ticker ticker)
+    {
+        this(runnerThreads,
+                minDrivers,
+                guaranteedNumberOfDriversPerTask,
+                maximumNumberOfDriversPerTask,
+                longRunningSplitWarningThreshold,
+                stuckSplitInterrupter,
+                testingVersionEmbedder(),
+                new MultilevelSplitQueue(2),
+                ticker);
+    }
+
+    @VisibleForTesting
+    public TaskExecutor(
+            int runnerThreads,
+            int minDrivers,
+            int guaranteedNumberOfDriversPerTask,
+            int maximumNumberOfDriversPerTask,
+            Duration longRunningSplitWarningThreshold,
+            Optional<StuckSplitInterrupter> stuckSplitInterrupter,
+            MultilevelSplitQueue splitQueue,
+            Ticker ticker)
+    {
+        this(runnerThreads,
+                minDrivers,
+                guaranteedNumberOfDriversPerTask,
+                maximumNumberOfDriversPerTask,
+                longRunningSplitWarningThreshold,
+                stuckSplitInterrupter,
+                testingVersionEmbedder(),
+                splitQueue,
+                ticker);
+    }
+
+    @VisibleForTesting
+    public TaskExecutor(
+            int runnerThreads,
+            int minDrivers,
+            int guaranteedNumberOfDriversPerTask,
+            int maximumNumberOfDriversPerTask,
+            Duration longRunningSplitWarningThreshold,
+            Optional<StuckSplitInterrupter> stuckSplitInterrupter,
             VersionEmbedder versionEmbedder,
             MultilevelSplitQueue splitQueue,
             Ticker ticker)
@@ -198,14 +250,17 @@ public class TaskExecutor
         this.executor = newCachedThreadPool(threadsNamed("task-processor-%s"));
         this.executorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) executor);
         this.runnerThreads = runnerThreads;
+
         this.versionEmbedder = requireNonNull(versionEmbedder, "versionEmbedder is null");
+
+        this.stuckSplitInterrupter = requireNonNull(stuckSplitInterrupter, "stuckSplitInterrupter is null");
 
         this.ticker = requireNonNull(ticker, "ticker is null");
 
         this.minimumNumberOfDrivers = minDrivers;
         this.guaranteedNumberOfDriversPerTask = guaranteedNumberOfDriversPerTask;
         this.maximumNumberOfDriversPerTask = maximumNumberOfDriversPerTask;
-        this.longRunningSplitWarningThreshold = requireNonNull(longRunningSplitWarningThreshold, "longRunningSplitWarningThreshold is null");
+        this.longRunningSplitWarningThreshold = longRunningSplitWarningThreshold;
         this.waitingSplits = requireNonNull(splitQueue, "splitQueue is null");
         this.tasks = new LinkedList<>();
     }
@@ -217,6 +272,10 @@ public class TaskExecutor
         for (int i = 0; i < runnerThreads; i++) {
             addRunnerThread();
         }
+        stuckSplitInterrupter.ifPresent(interrupter -> {
+            long intervalSeconds = (long) interrupter.getStuckSplitDetectionInterval().getValue(SECONDS);
+            splitMonitorExecutor.scheduleAtFixedRate(() -> interrupter.interruptStuckSplits(runningSplitInfos, ticker), intervalSeconds, intervalSeconds, SECONDS);
+        });
     }
 
     @PreDestroy
@@ -457,10 +516,90 @@ public class TaskExecutor
         return null;
     }
 
+    private static String toStackString(List<StackTraceElement> stackTraceElements)
+    {
+        String stackString = stackTraceElements.stream()
+                .map(Object::toString)
+                .collect(joining(lineSeparator()));
+
+        return stackString;
+    }
+
+    private static boolean usedJoniRegexpFunctions(StackTraceElement stackTraceElement)
+    {
+        String className = stackTraceElement.getClassName();
+        return JoniRegexpFunctions.class.getName().equals(className)
+                || JoniRegexpReplaceLambdaFunction.class.getName().equals(className);
+    }
+
+    public static Optional<StuckSplitInterrupter> createStuckSplitInterrupter(
+            Duration longRunningSplitWarningThreshold,
+            boolean enableInterruptStuckSplits,
+            Duration interruptStuckSplitsTimeout,
+            Duration stuckSplitDetectionInterval,
+            Predicate<List<StackTraceElement>> potentiallyStuckSplitPredicate)
+    {
+        if (!enableInterruptStuckSplits) {
+            return Optional.empty();
+        }
+
+        return Optional.of(new StuckSplitInterrupter(longRunningSplitWarningThreshold, interruptStuckSplitsTimeout, stuckSplitDetectionInterval, potentiallyStuckSplitPredicate));
+    }
+
+    private static class StuckSplitInterrupter
+    {
+        private final Duration interruptStuckSplitsTimeout;
+        private final Duration stuckSplitDetectionInterval;
+        private final Predicate<List<StackTraceElement>> potentiallyStuckSplitPredicate;
+
+        public StuckSplitInterrupter(Duration longRunningSplitWarningThreshold, Duration interruptStuckSplitsTimeout, Duration stuckSplitDetectionInterval, Predicate<List<StackTraceElement>> potentiallyStuckSplitPredicate)
+        {
+            requireNonNull(longRunningSplitWarningThreshold, "longRunningSplitWarningThreshold is null");
+            requireNonNull(interruptStuckSplitsTimeout, "interruptStuckSplitsTimeout is null");
+            requireNonNull(stuckSplitDetectionInterval, "stuckSplitDetectionInterval is null");
+            requireNonNull(potentiallyStuckSplitPredicate, "potentiallyStuckSplitPredicate is null");
+            checkArgument(interruptStuckSplitsTimeout.compareTo(SPLIT_RUN_QUANTA) >= 0, "interruptStuckSplitsTimeout must be at least %s", SPLIT_RUN_QUANTA);
+            checkArgument(longRunningSplitWarningThreshold.compareTo(interruptStuckSplitsTimeout) <= 0, "longRunningSplitWarningThreshold cannot be greater than interruptStuckSplitsTimeout");
+
+            this.interruptStuckSplitsTimeout = interruptStuckSplitsTimeout;
+            this.stuckSplitDetectionInterval = stuckSplitDetectionInterval;
+            this.potentiallyStuckSplitPredicate = potentiallyStuckSplitPredicate;
+        }
+
+        public Duration getStuckSplitDetectionInterval()
+        {
+            return stuckSplitDetectionInterval;
+        }
+
+        private void interruptStuckSplits(SortedSet<RunningSplitInfo> runningSplitInfos, Ticker ticker)
+        {
+            for (RunningSplitInfo splitInfo : runningSplitInfos) {
+                Duration duration = Duration.succinctNanos(ticker.read() - splitInfo.getStartTime());
+
+                if (duration.compareTo(interruptStuckSplitsTimeout) > 0) {
+                    List<StackTraceElement> stackTraceElements = asList(splitInfo.getThread().getStackTrace());
+
+                    if (!splitInfo.isPrinted()) {
+                        splitInfo.setPrinted();
+
+                        log.warn("Split %s has been long running %n%s", splitInfo.getSplitInfo(), toStackString(stackTraceElements));
+                    }
+
+                    if (potentiallyStuckSplitPredicate.test(stackTraceElements)) {
+                        log.warn("Potentially interrupting stuck split matching the predicate %s", splitInfo.getSplitInfo());
+
+                        splitInfo.getTaskRunner().interruptSplit(splitInfo);
+                    }
+                }
+            }
+        }
+    }
+
     private class TaskRunner
             implements Runnable
     {
         private final long runnerId = NEXT_RUNNER_ID.getAndIncrement();
+        private final AtomicReference<RunningSplitInfo> currentThreadSplit = new AtomicReference<>();
 
         @Override
         public void run()
@@ -478,10 +617,15 @@ public class TaskExecutor
                     }
 
                     String threadId = split.getTaskHandle().getTaskId() + "-" + split.getSplitId();
+
                     try (SetThreadName splitName = new SetThreadName(threadId)) {
-                        RunningSplitInfo splitInfo = new RunningSplitInfo(ticker.read(), threadId, Thread.currentThread());
-                        runningSplitInfos.add(splitInfo);
+                        RunningSplitInfo splitInfo = new RunningSplitInfo(ticker.read(), threadId, Thread.currentThread(), split, this);
+
+                        synchronized (this) {
+                            currentThreadSplit.set(splitInfo);
+                        }
                         runningSplits.add(split);
+                        runningSplitInfos.add(splitInfo);
 
                         ListenableFuture<Void> blocked;
                         try {
@@ -524,6 +668,11 @@ public class TaskExecutor
                         }
                         splitFinished(split);
                     }
+                    finally {
+                        synchronized (this) {
+                            currentThreadSplit.set(null);
+                        }
+                    }
                 }
             }
             finally {
@@ -531,6 +680,14 @@ public class TaskExecutor
                 if (!closed) {
                     addRunnerThread();
                 }
+            }
+        }
+
+        private synchronized void interruptSplit(RunningSplitInfo stuckSplit)
+        {
+            RunningSplitInfo runningSplit = stuckSplit.getTaskRunner().currentThreadSplit.get();
+            if (runningSplit == stuckSplit) {
+                stuckSplit.getThread().interrupt();
             }
         }
     }
@@ -840,14 +997,23 @@ public class TaskExecutor
         private final long startTime;
         private final String threadId;
         private final Thread thread;
+        private final PrioritizedSplitRunner split;
         private boolean printed;
+        private final TaskRunner taskRunner;
 
-        public RunningSplitInfo(long startTime, String threadId, Thread thread)
+        public RunningSplitInfo(long startTime, String threadId, Thread thread, PrioritizedSplitRunner split, TaskRunner taskRunner)
         {
             this.startTime = startTime;
             this.threadId = threadId;
             this.thread = thread;
+            this.split = split;
             this.printed = false;
+            this.taskRunner = taskRunner;
+        }
+
+        public TaskRunner getTaskRunner()
+        {
+            return taskRunner;
         }
 
         public long getStartTime()
@@ -873,6 +1039,11 @@ public class TaskExecutor
         public void setPrinted()
         {
             printed = true;
+        }
+
+        public String getSplitInfo()
+        {
+            return split.getInfo();
         }
 
         @Override

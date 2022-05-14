@@ -88,7 +88,7 @@ public class TestSqlTask
 
     public TestSqlTask()
     {
-        taskExecutor = new TaskExecutor(8, 16, 3, 4, new Duration(10, MINUTES), Ticker.systemTicker());
+        taskExecutor = new TaskExecutor(8, 16, 3, 4, new Duration(10, MINUTES), Optional.empty(), Ticker.systemTicker());
         taskExecutor.start();
 
         taskNotificationExecutor = newScheduledThreadPool(10, threadsNamed("task-notification-%s"));

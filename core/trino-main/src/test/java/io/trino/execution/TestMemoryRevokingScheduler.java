@@ -45,6 +45,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ScheduledExecutorService;
@@ -86,7 +87,7 @@ public class TestMemoryRevokingScheduler
     {
         memoryPool = new MemoryPool(DataSize.ofBytes(10));
 
-        TaskExecutor taskExecutor = new TaskExecutor(8, 16, 3, 4, new Duration(10, MINUTES), Ticker.systemTicker());
+        TaskExecutor taskExecutor = new TaskExecutor(8, 16, 3, 4, new Duration(10, MINUTES), Optional.empty(), Ticker.systemTicker());
         taskExecutor.start();
 
         // Must be single threaded

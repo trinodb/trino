@@ -82,6 +82,9 @@ public class TaskManagerConfig
     private BigDecimal levelTimeMultiplier = new BigDecimal(2.0);
 
     private Duration longRunningSplitWarningThreshold = new Duration(10, TimeUnit.MINUTES);
+    private boolean enableInterruptStuckSplits = true;
+    private Duration interruptStuckSplitsTimeout = new Duration(10, TimeUnit.MINUTES);
+    private Duration stuckSplitDetectionInterval = new Duration(1, TimeUnit.MINUTES);
 
     @MinDuration("1ms")
     @MaxDuration("10s")
@@ -477,6 +480,46 @@ public class TaskManagerConfig
     public TaskManagerConfig setLongRunningSplitWarningThreshold(Duration longRunningSplitWarningThreshold)
     {
         this.longRunningSplitWarningThreshold = longRunningSplitWarningThreshold;
+        return this;
+    }
+
+    public boolean isEnableInterruptStuckSplits()
+    {
+        return enableInterruptStuckSplits;
+    }
+
+    @Config("task.enable-interrupt-stuck-splits")
+    public TaskManagerConfig setEnableInterruptStuckSplits(boolean enableInterruptStuckSplits)
+    {
+        this.enableInterruptStuckSplits = enableInterruptStuckSplits;
+        return this;
+    }
+
+    @MinDuration("1s")
+    public Duration getInterruptStuckSplitsTimeout()
+    {
+        return interruptStuckSplitsTimeout;
+    }
+
+    @Config("task.interrupt-stuck-splits-timeout")
+    @ConfigDescription("Interrupt task processing thread after this timeout if the thread is stuck in certain external libraries used by Trino functions")
+    public TaskManagerConfig setInterruptStuckSplitsTimeout(Duration interruptStuckSplitsTimeout)
+    {
+        this.interruptStuckSplitsTimeout = interruptStuckSplitsTimeout;
+        return this;
+    }
+
+    @MinDuration("1ms")
+    public Duration getStuckSplitDetectionInterval()
+    {
+        return stuckSplitDetectionInterval;
+    }
+
+    @Config("task.stuck-split-detection-interval")
+    @ConfigDescription("Interval between detecting stuck split")
+    public TaskManagerConfig setStuckSplitDetectionInterval(Duration stuckSplitDetectionInterval)
+    {
+        this.stuckSplitDetectionInterval = stuckSplitDetectionInterval;
         return this;
     }
 }
