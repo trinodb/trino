@@ -51,8 +51,8 @@ import static java.util.Collections.emptyList;
  * <pre>
  * - Aggregation
  *          GROUP BY (k)
- *          F1(x)
- *          F2(x)
+ *          F1(s0, s1, ...)
+ *          F2(s0, s1, ...)
  *      - Aggregation
  *             GROUP BY (k, s0, s1, ...)
  *          - X
@@ -67,6 +67,7 @@ public class SingleDistinctAggregationToGroupBy
             .matching(SingleDistinctAggregationToGroupBy::hasSingleDistinctInput)
             .matching(SingleDistinctAggregationToGroupBy::allDistinctAggregates)
             .matching(SingleDistinctAggregationToGroupBy::noFilters)
+            .matching(SingleDistinctAggregationToGroupBy::noOrdering)
             .matching(SingleDistinctAggregationToGroupBy::noMasks);
 
     private static boolean hasSingleDistinctInput(AggregationNode aggregationNode)
@@ -87,6 +88,13 @@ public class SingleDistinctAggregationToGroupBy
         return aggregationNode.getAggregations()
                 .values().stream()
                 .noneMatch(aggregation -> aggregation.getFilter().isPresent());
+    }
+
+    private static boolean noOrdering(AggregationNode aggregationNode)
+    {
+        return aggregationNode.getAggregations()
+                .values().stream()
+                .noneMatch(aggregation -> aggregation.getOrderingScheme().isPresent());
     }
 
     private static boolean noMasks(AggregationNode aggregationNode)
