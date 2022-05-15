@@ -28,6 +28,9 @@ public interface WriteFunction
     default void setNull(PreparedStatement statement, int index)
             throws SQLException
     {
+        // This method of setting null for parameter could be suboptimal for some databases.
+        // In Oracle, lack of type on NULL value will invalidate prepared statement cache
+        // on every INSERT statement, which drastically degrades write performance.
         statement.setObject(index, null);
     }
 }

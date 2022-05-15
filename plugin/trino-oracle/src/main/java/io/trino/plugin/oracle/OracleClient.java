@@ -21,6 +21,7 @@ import io.trino.plugin.base.aggregation.AggregateFunctionRule;
 import io.trino.plugin.base.expression.ConnectorExpressionRewriter;
 import io.trino.plugin.jdbc.BaseJdbcClient;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
+import io.trino.plugin.jdbc.BooleanWriteFunction;
 import io.trino.plugin.jdbc.ColumnMapping;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.DoubleWriteFunction;
@@ -496,6 +497,13 @@ public class OracleClient
                 LocalDateTime date = LocalDateTime.from(Instant.ofEpochMilli(utcMillis).atZone(ZoneOffset.UTC));
                 statement.setString(index, DATE_FORMATTER.format(date));
             }
+
+            @Override
+            public void setNull(PreparedStatement statement, int index)
+                    throws SQLException
+            {
+                statement.setNull(index, Types.VARCHAR);
+            }
         };
     }
 
@@ -520,6 +528,13 @@ public class OracleClient
                 LocalDateTime localDateTime = LocalDateTime.ofEpochSecond(epochSecond, 0, ZoneOffset.UTC);
                 statement.setString(index, TIMESTAMP_SECONDS_FORMATTER.format(localDateTime));
             }
+
+            @Override
+            public void setNull(PreparedStatement statement, int index)
+                    throws SQLException
+            {
+                statement.setNull(index, Types.VARCHAR);
+            }
         };
     }
 
@@ -541,6 +556,13 @@ public class OracleClient
                 int nanoFraction = floorMod(utcMillis, MICROSECONDS_PER_SECOND) * NANOSECONDS_PER_MICROSECOND;
                 LocalDateTime localDateTime = LocalDateTime.ofEpochSecond(epochSecond, nanoFraction, ZoneOffset.UTC);
                 statement.setString(index, TIMESTAMP_MILLIS_FORMATTER.format(localDateTime));
+            }
+
+            @Override
+            public void setNull(PreparedStatement statement, int index)
+                    throws SQLException
+            {
+                statement.setNull(index, Types.VARCHAR);
             }
         };
     }
@@ -573,34 +595,38 @@ public class OracleClient
 
     public static LongWriteFunction oracleTimestampWithTimeZoneWriteFunction()
     {
-        return (statement, index, encodedTimeWithZone) -> {
+        return LongWriteFunction.of(OracleTypes.TIMESTAMPTZ, (statement, index, encodedTimeWithZone) -> {
             Instant time = Instant.ofEpochMilli(unpackMillisUtc(encodedTimeWithZone));
             ZoneId zone = ZoneId.of(unpackZoneKey(encodedTimeWithZone).getId());
             statement.setObject(index, time.atZone(zone));
-        };
+        });
     }
 
     private static WriteMapping oracleBooleanWriteMapping()
     {
-        return WriteMapping.booleanMapping("number(1)", (statement, index, value) -> {
-            statement.setInt(index, value ? 1 : 0);
-        });
+        return WriteMapping.booleanMapping("number(1)", oracleBooleanWriteFunction());
+    }
+
+    private static BooleanWriteFunction oracleBooleanWriteFunction()
+    {
+        return BooleanWriteFunction.of(Types.TINYINT, (statement, index, value) -> statement.setInt(index, value ? 1 : 0));
     }
 
     public static LongWriteFunction oracleRealWriteFunction()
     {
-        return (statement, index, value) -> ((OraclePreparedStatement) statement).setBinaryFloat(index, intBitsToFloat(toIntExact(value)));
+        return LongWriteFunction.of(Types.REAL, (statement, index, value) ->
+                ((OraclePreparedStatement) statement).setBinaryFloat(index, intBitsToFloat(toIntExact(value))));
     }
 
     public static DoubleWriteFunction oracleDoubleWriteFunction()
     {
-        return ((statement, index, value) -> ((OraclePreparedStatement) statement).setBinaryDouble(index, value));
+        return DoubleWriteFunction.of(Types.DOUBLE, (statement, index, value) ->
+                ((OraclePreparedStatement) statement).setBinaryDouble(index, value));
     }
 
     private SliceWriteFunction oracleCharWriteFunction()
     {
-        return (statement, index, value) ->
-                ((OraclePreparedStatement) statement).setFixedCHAR(index, value.toStringUtf8());
+        return SliceWriteFunction.of(Types.NCHAR, (statement, index, value) -> ((OraclePreparedStatement) statement).setFixedCHAR(index, value.toStringUtf8()));
     }
 
     @Override
