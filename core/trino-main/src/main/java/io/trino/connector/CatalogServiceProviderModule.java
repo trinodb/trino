@@ -18,6 +18,7 @@ import com.google.inject.Module;
 import com.google.inject.Provides;
 import io.trino.connector.ConnectorManager.ConnectorServices;
 import io.trino.metadata.CatalogProcedures;
+import io.trino.metadata.CatalogTableFunctions;
 import io.trino.metadata.CatalogTableProcedures;
 import io.trino.spi.connector.ConnectorIndexProvider;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
@@ -80,5 +81,12 @@ public class CatalogServiceProviderModule
     public static CatalogServiceProvider<CatalogTableProcedures> createTableProceduresProvider(ConnectorServicesProvider connectorServicesProvider)
     {
         return new ConnectorCatalogServiceProvider<>("table procedures", connectorServicesProvider, ConnectorServices::getTableProcedures);
+    }
+
+    @Provides
+    @Singleton
+    public static CatalogServiceProvider<CatalogTableFunctions> createTableFunctionProvider(ConnectorServicesProvider connectorServicesProvider)
+    {
+        return new ConnectorCatalogServiceProvider<>("table functions", connectorServicesProvider, ConnectorServices::getTableFunctions);
     }
 }

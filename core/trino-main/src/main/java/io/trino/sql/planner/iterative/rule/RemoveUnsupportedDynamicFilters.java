@@ -101,7 +101,7 @@ public class RemoveUnsupportedDynamicFilters
                         new NoOpTransactionManager(),
                         user -> ImmutableSet.of(),
                         new TableProceduresRegistry(CatalogServiceProvider.fail("procedures are not supported in testing analyzer")),
-                        new TableFunctionRegistry(),
+                        new TableFunctionRegistry(CatalogServiceProvider.fail("table functions are not supported in testing analyzer")),
                         new SessionPropertyManager(),
                         new TablePropertyManager(),
                         new AnalyzePropertyManager(),
