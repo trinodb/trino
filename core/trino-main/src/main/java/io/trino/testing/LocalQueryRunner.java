@@ -222,6 +222,7 @@ import static io.trino.connector.CatalogServiceProviderModule.createNodePartitio
 import static io.trino.connector.CatalogServiceProviderModule.createPageSinkProvider;
 import static io.trino.connector.CatalogServiceProviderModule.createPageSourceProvider;
 import static io.trino.connector.CatalogServiceProviderModule.createSplitManagerProvider;
+import static io.trino.connector.CatalogServiceProviderModule.createTableFunctionProvider;
 import static io.trino.connector.CatalogServiceProviderModule.createTableProceduresProvider;
 import static io.trino.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.GROUPED_SCHEDULING;
 import static io.trino.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
@@ -406,7 +407,6 @@ public class LocalQueryRunner
                 transactionManager,
                 eventListenerManager,
                 typeManager,
-                new TableFunctionRegistry(),
                 sessionPropertyManager,
                 schemaPropertyManager,
                 columnPropertyManager,
@@ -422,6 +422,7 @@ public class LocalQueryRunner
         NodeScheduler nodeScheduler = new NodeScheduler(new UniformNodeSelectorFactory(nodeManager, nodeSchedulerConfig, new NodeTaskMap(finalizerService)));
         this.nodePartitioningManager = new NodePartitioningManager(nodeScheduler, blockTypeOperators, createNodePartitioningProvider(connectorManager));
         TableProceduresRegistry tableProceduresRegistry = new TableProceduresRegistry(createTableProceduresProvider(connectorManager));
+        TableFunctionRegistry tableFunctionRegistry = new TableFunctionRegistry(createTableFunctionProvider(connectorManager));
 
         this.statementAnalyzerFactory = new StatementAnalyzerFactory(
                 plannerContext,
@@ -430,7 +431,7 @@ public class LocalQueryRunner
                 transactionManager,
                 groupProvider,
                 tableProceduresRegistry,
-                new TableFunctionRegistry(),
+                tableFunctionRegistry,
                 sessionPropertyManager,
                 tablePropertyManager,
                 analyzePropertyManager,

@@ -31,6 +31,7 @@ import io.trino.connector.CatalogName;
 import io.trino.execution.Column;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.AnalyzePropertyManager;
+import io.trino.metadata.CatalogSchemaFunctionName;
 import io.trino.metadata.MaterializedViewDefinition;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.OperatorNotFoundException;
@@ -262,6 +263,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.SystemSessionProperties.getMaxGroupingSets;
+import static io.trino.metadata.FunctionResolver.toPath;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.trino.metadata.MetadataUtil.getRequiredCatalogHandle;
 import static io.trino.spi.StandardErrorCode.AMBIGUOUS_NAME;
@@ -1484,25 +1486,18 @@ class StatementAnalyzer
         @Override
         protected Scope visitTableFunctionInvocation(TableFunctionInvocation node, Optional<Scope> scope)
         {
-            TableFunctionMetadata tableFunctionMetadata = tableFunctionRegistry.resolve(session, node.getName());
-            if (tableFunctionMetadata == null) {
-                throw semanticException(FUNCTION_NOT_FOUND, node, "Table function %s not registered", node.getName());
-            }
+            TableFunctionMetadata tableFunctionMetadata = resolveTableFunction(node)
+                    .orElseThrow(() -> semanticException(FUNCTION_NOT_FOUND, node, "Table function %s not registered", node.getName()));
 
             ConnectorTableFunction function = tableFunctionMetadata.getFunction();
             CatalogName catalogName = tableFunctionMetadata.getCatalogName();
 
-            QualifiedObjectName functionName = new QualifiedObjectName(catalogName.getCatalogName(), function.getSchema(), function.getName());
-            accessControl.checkCanExecuteFunction(SecurityContext.of(session), FunctionKind.TABLE, functionName);
-
             Map<String, Argument> passedArguments = analyzeArguments(node, function.getArguments(), node.getArguments());
 
             // a call to getRequiredCatalogHandle() is necessary so that the catalog is recorded by the TransactionManager
-            ConnectorTransactionHandle transactionHandle = transactionManager.getConnectorTransaction(
-                    session.getRequiredTransactionId(),
-                    getRequiredCatalogHandle(metadata, session, node, catalogName.getCatalogName()));
+            ConnectorTransactionHandle transactionHandle = transactionManager.getConnectorTransaction(session.getRequiredTransactionId(), catalogName);
             TableFunctionAnalysis functionAnalysis = function.analyze(session.toConnectorSession(catalogName), transactionHandle, passedArguments);
-            analysis.setTableFunctionAnalysis(node, new TableFunctionInvocationAnalysis(catalogName, functionName.toString(), passedArguments, functionAnalysis.getHandle(), transactionHandle));
+            analysis.setTableFunctionAnalysis(node, new TableFunctionInvocationAnalysis(catalogName, function.getName(), passedArguments, functionAnalysis.getHandle(), transactionHandle));
 
             // TODO handle the DescriptorMapping descriptorsToTables mapping from the TableFunction.Analysis:
             // This is a mapping of descriptor arguments to table arguments. It consists of two parts:
@@ -1563,6 +1558,21 @@ class StatementAnalyzer
                     .collect(toImmutableList());
 
             return createAndAssignScope(node, scope, fields);
+        }
+
+        private Optional<TableFunctionMetadata> resolveTableFunction(TableFunctionInvocation node)
+        {
+            for (CatalogSchemaFunctionName name : toPath(session, node.getName())) {
+                CatalogName catalogName = new CatalogName(name.getCatalogName());
+                Optional<ConnectorTableFunction> resolved = tableFunctionRegistry.resolve(catalogName, name.getSchemaFunctionName());
+                if (resolved.isPresent()) {
+                    accessControl.checkCanExecuteFunction(SecurityContext.of(session), FunctionKind.TABLE, new QualifiedObjectName(
+                            name.getCatalogName(),
+                            name.getSchemaFunctionName().getSchemaName(),
+                            name.getSchemaFunctionName().getFunctionName()));
+                    return Optional.of(new TableFunctionMetadata(catalogName, resolved.get()));
+                }
+            } return Optional.empty();
         }
 
         private Map<String, Argument> analyzeArguments(Node node, List<ArgumentSpecification> argumentSpecifications, List<TableFunctionArgument> arguments)
