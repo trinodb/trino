@@ -20,20 +20,27 @@ import io.airlift.log.Logger;
 import io.trino.metadata.Signature;
 import io.trino.operator.ParametricImplementationsGroup;
 import io.trino.operator.annotations.FunctionsParserHelper;
+import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AccumulatorState;
 import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.CombineFunction;
+import io.trino.spi.function.FunctionDependency;
 import io.trino.spi.function.InputFunction;
+import io.trino.spi.function.LiteralParameter;
+import io.trino.spi.function.OperatorDependency;
 import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.RemoveInputFunction;
+import io.trino.spi.function.TypeParameter;
 import io.trino.spi.type.TypeSignature;
 
+import java.lang.annotation.Annotation;
 import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.emptyToNull;
@@ -41,6 +48,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.operator.aggregation.AggregationImplementation.Parser.parseImplementation;
 import static io.trino.operator.annotations.FunctionsParserHelper.parseDescription;
+import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 
 public final class AggregationFromAnnotationsParser
@@ -174,36 +182,68 @@ public final class AggregationFromAnnotationsParser
 
     private static Optional<Method> getCombineFunction(Class<?> clazz, Class<?> stateClass)
     {
-        // Only include methods that match this state class
-        List<Method> combineFunctions = FunctionsParserHelper.findPublicStaticMethodsWithAnnotation(clazz, CombineFunction.class).stream()
-                .filter(method -> method.getParameterTypes()[AggregationImplementation.Parser.findAggregationStateParamId(method, 0)] == stateClass)
-                .filter(method -> method.getParameterTypes()[AggregationImplementation.Parser.findAggregationStateParamId(method, 1)] == stateClass)
-                .collect(toImmutableList());
-
+        List<Method> combineFunctions = FunctionsParserHelper.findPublicStaticMethodsWithAnnotation(clazz, CombineFunction.class);
+        for (Method combineFunction : combineFunctions) {
+            // verify parameter types
+            List<Class<?>> parameterTypes = getNonDependencyParameterTypes(combineFunction);
+            List<Class<?>> expectedParameterTypes = nCopies(2, stateClass);
+            checkArgument(parameterTypes.equals(expectedParameterTypes), "Expected combine function non-dependency parameters to be %s: %s", expectedParameterTypes, combineFunction);
+        }
         checkArgument(combineFunctions.size() <= 1, "There must be only one @CombineFunction in class %s for the @AggregationState %s", clazz.toGenericString(), stateClass.toGenericString());
         return combineFunctions.stream().findFirst();
     }
 
     private static List<Method> getOutputFunctions(Class<?> clazz, Class<?> stateClass)
     {
-        // Only include methods that match this state class
-        List<Method> outputFunctions = FunctionsParserHelper.findPublicStaticMethodsWithAnnotation(clazz, OutputFunction.class).stream()
-                .filter(method -> method.getParameterTypes()[AggregationImplementation.Parser.findAggregationStateParamId(method)] == stateClass)
-                .collect(toImmutableList());
-
+        List<Method> outputFunctions = FunctionsParserHelper.findPublicStaticMethodsWithAnnotation(clazz, OutputFunction.class);
+        for (Method outputFunction : outputFunctions) {
+            // verify parameter types
+            List<Class<?>> parameterTypes = getNonDependencyParameterTypes(outputFunction);
+            List<Class<?>> expectedParameterTypes = ImmutableList.<Class<?>>builder()
+                    .add(stateClass)
+                    .add(BlockBuilder.class)
+                    .build();
+            checkArgument(parameterTypes.equals(expectedParameterTypes),
+                    "Expected output function non-dependency parameters to be %s: %s",
+                    expectedParameterTypes.stream().map(Class::getSimpleName).collect(toImmutableList()),
+                    outputFunction);
+        }
         checkArgument(!outputFunctions.isEmpty(), "Aggregation has no output functions");
         return outputFunctions;
     }
 
     private static List<Method> getInputFunctions(Class<?> clazz, Class<?> stateClass)
     {
-        // Only include methods that match this state class
-        List<Method> inputFunctions = FunctionsParserHelper.findPublicStaticMethodsWithAnnotation(clazz, InputFunction.class).stream()
-                .filter(method -> (method.getParameterTypes()[AggregationImplementation.Parser.findAggregationStateParamId(method)] == stateClass))
-                .collect(toImmutableList());
+        List<Method> inputFunctions = FunctionsParserHelper.findPublicStaticMethodsWithAnnotation(clazz, InputFunction.class);
+        for (Method inputFunction : inputFunctions) {
+            // verify state parameter is first non-dependency parameter
+            Class<?> actualStateType = getNonDependencyParameterTypes(inputFunction).get(0);
+            checkArgument(stateClass.equals(actualStateType),
+                    "Expected input function non-dependency parameters to begin with state type %s: %s",
+                    stateClass.getSimpleName(),
+                    inputFunction);
+        }
 
         checkArgument(!inputFunctions.isEmpty(), "Aggregation has no input functions");
         return inputFunctions;
+    }
+
+    private static IntStream getNonDependencyParameters(Method function)
+    {
+        Annotation[][] parameterAnnotations = function.getParameterAnnotations();
+        return IntStream.range(0, function.getParameterCount())
+                .filter(i -> Arrays.stream(parameterAnnotations[i]).noneMatch(TypeParameter.class::isInstance))
+                .filter(i -> Arrays.stream(parameterAnnotations[i]).noneMatch(LiteralParameter.class::isInstance))
+                .filter(i -> Arrays.stream(parameterAnnotations[i]).noneMatch(OperatorDependency.class::isInstance))
+                .filter(i -> Arrays.stream(parameterAnnotations[i]).noneMatch(FunctionDependency.class::isInstance));
+    }
+
+    private static List<Class<?>> getNonDependencyParameterTypes(Method function)
+    {
+        Class<?>[] parameterTypes = function.getParameterTypes();
+        return getNonDependencyParameters(function)
+                .mapToObj(index -> parameterTypes[index])
+                .collect(toImmutableList());
     }
 
     private static Optional<Method> getRemoveInputFunction(Class<?> clazz, Method inputFunction)
