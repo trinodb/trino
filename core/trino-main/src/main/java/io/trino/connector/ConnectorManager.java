@@ -29,6 +29,7 @@ import io.trino.metadata.Catalog;
 import io.trino.metadata.CatalogManager;
 import io.trino.metadata.CatalogMetadata.SecurityManagement;
 import io.trino.metadata.CatalogProcedures;
+import io.trino.metadata.CatalogTableFunctions;
 import io.trino.metadata.CatalogTableProcedures;
 import io.trino.metadata.ColumnPropertyManager;
 import io.trino.metadata.HandleResolver;
@@ -37,7 +38,6 @@ import io.trino.metadata.MaterializedViewPropertyManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.SchemaPropertyManager;
 import io.trino.metadata.SessionPropertyManager;
-import io.trino.metadata.TableFunctionRegistry;
 import io.trino.metadata.TableProceduresPropertyManager;
 import io.trino.metadata.TablePropertyManager;
 import io.trino.security.AccessControlManager;
@@ -61,7 +61,9 @@ import io.trino.spi.connector.SystemTable;
 import io.trino.spi.connector.TableProcedureMetadata;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.procedure.Procedure;
+import io.trino.spi.ptf.ArgumentSpecification;
 import io.trino.spi.ptf.ConnectorTableFunction;
+import io.trino.spi.ptf.TableArgumentSpecification;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.type.TypeManager;
 import io.trino.split.RecordPageSourceProvider;
@@ -72,6 +74,7 @@ import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -111,7 +114,6 @@ public class ConnectorManager
     private final TransactionManager transactionManager;
     private final EventListenerManager eventListenerManager;
     private final TypeManager typeManager;
-    private final TableFunctionRegistry tableFunctionRegistry;
     private final SessionPropertyManager sessionPropertyManager;
     private final SchemaPropertyManager schemaPropertyManager;
     private final ColumnPropertyManager columnPropertyManager;
@@ -144,7 +146,6 @@ public class ConnectorManager
             TransactionManager transactionManager,
             EventListenerManager eventListenerManager,
             TypeManager typeManager,
-            TableFunctionRegistry tableFunctionRegistry,
             SessionPropertyManager sessionPropertyManager,
             SchemaPropertyManager schemaPropertyManager,
             ColumnPropertyManager columnPropertyManager,
@@ -166,7 +167,6 @@ public class ConnectorManager
         this.transactionManager = transactionManager;
         this.eventListenerManager = eventListenerManager;
         this.typeManager = typeManager;
-        this.tableFunctionRegistry = tableFunctionRegistry;
         this.sessionPropertyManager = sessionPropertyManager;
         this.schemaPropertyManager = schemaPropertyManager;
         this.columnPropertyManager = columnPropertyManager;
@@ -300,8 +300,6 @@ public class ConnectorManager
         checkState(!connectors.containsKey(catalogName), "Catalog '%s' already exists", catalogName);
         connectors.put(catalogName, connector);
 
-        tableFunctionRegistry.addTableFunctions(catalogName, connector.getTableFunctions());
-
         connector.getAccessControl()
                 .ifPresent(accessControl -> accessControlManager.addCatalogAccessControl(catalogName, accessControl));
 
@@ -318,7 +316,6 @@ public class ConnectorManager
 
     private synchronized void removeConnectorInternal(CatalogName catalogName)
     {
-        tableFunctionRegistry.removeTableFunctions(catalogName);
         accessControlManager.removeCatalogAccessControl(catalogName);
         tablePropertyManager.removeProperties(catalogName);
         materializedViewPropertyManager.removeProperties(catalogName);
@@ -445,7 +442,7 @@ public class ConnectorManager
         private final Set<SystemTable> systemTables;
         private final CatalogProcedures procedures;
         private final CatalogTableProcedures tableProcedures;
-        private final Set<ConnectorTableFunction> connectorTableFunctions;
+        private final CatalogTableFunctions tableFunctions;
         private final Optional<ConnectorSplitManager> splitManager;
         private final Optional<ConnectorPageSourceProvider> pageSourceProvider;
         private final Optional<ConnectorPageSinkProvider> pageSinkProvider;
@@ -479,9 +476,11 @@ public class ConnectorManager
             requireNonNull(tableProcedures, format("Connector '%s' returned a null table procedures set", catalogName));
             this.tableProcedures = new CatalogTableProcedures(tableProcedures);
 
-            Set<ConnectorTableFunction> connectorTableFunctions = connector.getTableFunctions();
-            requireNonNull(connectorTableFunctions, format("Connector '%s' returned a null table functions set", catalogName));
-            this.connectorTableFunctions = ImmutableSet.copyOf(connectorTableFunctions);
+            Set<ConnectorTableFunction> tableFunctions = connector.getTableFunctions();
+            requireNonNull(tableFunctions, format("Connector '%s' returned a null table functions set", catalogName));
+            // TODO ConnectorTableFunction should be converted to a metadata class (and a separate analysis interface) which performs this validation in the constructor
+            this.tableFunctions = new CatalogTableFunctions(tableFunctions);
+            tableFunctions.forEach(ConnectorServices::validateTableFunction);
 
             ConnectorSplitManager splitManager = null;
             try {
@@ -602,9 +601,9 @@ public class ConnectorManager
             return tableProcedures;
         }
 
-        public Set<ConnectorTableFunction> getTableFunctions()
+        public CatalogTableFunctions getTableFunctions()
         {
-            return connectorTableFunctions;
+            return tableFunctions;
         }
 
         public Optional<ConnectorSplitManager> getSplitManager()
@@ -693,6 +692,31 @@ public class ConnectorManager
             finally {
                 afterShutdown.run();
             }
+        }
+
+        private static void validateTableFunction(ConnectorTableFunction tableFunction)
+        {
+            requireNonNull(tableFunction, "tableFunction is null");
+            requireNonNull(tableFunction.getName(), "table function name is null");
+            requireNonNull(tableFunction.getSchema(), "table function schema name is null");
+            requireNonNull(tableFunction.getArguments(), "table function arguments is null");
+            requireNonNull(tableFunction.getReturnTypeSpecification(), "table function returnTypeSpecification is null");
+
+            checkArgument(!tableFunction.getName().isEmpty(), "table function name is empty");
+            checkArgument(!tableFunction.getSchema().isEmpty(), "table function schema name is empty");
+
+            Set<String> argumentNames = new HashSet<>();
+            for (ArgumentSpecification specification : tableFunction.getArguments()) {
+                if (!argumentNames.add(specification.getName())) {
+                    throw new IllegalArgumentException("duplicate argument name: " + specification.getName());
+                }
+            }
+            long tableArgumentsWithRowSemantics = tableFunction.getArguments().stream()
+                    .filter(TableArgumentSpecification.class::isInstance)
+                    .map(TableArgumentSpecification.class::cast)
+                    .filter(TableArgumentSpecification::isRowSemantics)
+                    .count();
+            checkArgument(tableArgumentsWithRowSemantics <= 1, "more than one table argument with row semantics");
         }
     }
 }
