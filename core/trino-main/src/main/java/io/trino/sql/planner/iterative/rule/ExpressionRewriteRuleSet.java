@@ -16,6 +16,7 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.trino.Session;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.sql.planner.OrderingScheme;
@@ -79,6 +80,11 @@ public class ExpressionRewriteRuleSet
         this.rewriter = requireNonNull(rewriter, "rewriter is null");
     }
 
+    public boolean isRewriterEnabled(Session session)
+    {
+        return true;
+    }
+
     public Set<Rule<?>> rules()
     {
         return ImmutableSet.of(
@@ -120,7 +126,7 @@ public class ExpressionRewriteRuleSet
         return new PatternRecognitionExpressionRewrite(rewriter);
     }
 
-    private static final class ProjectExpressionRewrite
+    private final class ProjectExpressionRewrite
             implements Rule<ProjectNode>
     {
         private final ExpressionRewriter rewriter;
@@ -128,6 +134,12 @@ public class ExpressionRewriteRuleSet
         ProjectExpressionRewrite(ExpressionRewriter rewriter)
         {
             this.rewriter = rewriter;
+        }
+
+        @Override
+        public boolean isEnabled(Session session)
+        {
+            return isRewriterEnabled(session);
         }
 
         @Override
@@ -153,7 +165,7 @@ public class ExpressionRewriteRuleSet
         }
     }
 
-    private static final class AggregationExpressionRewrite
+    private final class AggregationExpressionRewrite
             implements Rule<AggregationNode>
     {
         private final ExpressionRewriter rewriter;
@@ -161,6 +173,12 @@ public class ExpressionRewriteRuleSet
         AggregationExpressionRewrite(ExpressionRewriter rewriter)
         {
             this.rewriter = rewriter;
+        }
+
+        @Override
+        public boolean isEnabled(Session session)
+        {
+            return isRewriterEnabled(session);
         }
 
         @Override
@@ -223,7 +241,7 @@ public class ExpressionRewriteRuleSet
         }
     }
 
-    private static final class FilterExpressionRewrite
+    private final class FilterExpressionRewrite
             implements Rule<FilterNode>
     {
         private final ExpressionRewriter rewriter;
@@ -231,6 +249,12 @@ public class ExpressionRewriteRuleSet
         FilterExpressionRewrite(ExpressionRewriter rewriter)
         {
             this.rewriter = rewriter;
+        }
+
+        @Override
+        public boolean isEnabled(Session session)
+        {
+            return isRewriterEnabled(session);
         }
 
         @Override
@@ -256,7 +280,7 @@ public class ExpressionRewriteRuleSet
         }
     }
 
-    private static final class JoinExpressionRewrite
+    private final class JoinExpressionRewrite
             implements Rule<JoinNode>
     {
         private final ExpressionRewriter rewriter;
@@ -264,6 +288,12 @@ public class ExpressionRewriteRuleSet
         JoinExpressionRewrite(ExpressionRewriter rewriter)
         {
             this.rewriter = rewriter;
+        }
+
+        @Override
+        public boolean isEnabled(Session session)
+        {
+            return isRewriterEnabled(session);
         }
 
         @Override
@@ -304,7 +334,7 @@ public class ExpressionRewriteRuleSet
         }
     }
 
-    private static final class ValuesExpressionRewrite
+    private final class ValuesExpressionRewrite
             implements Rule<ValuesNode>
     {
         private final ExpressionRewriter rewriter;
@@ -312,6 +342,12 @@ public class ExpressionRewriteRuleSet
         ValuesExpressionRewrite(ExpressionRewriter rewriter)
         {
             this.rewriter = rewriter;
+        }
+
+        @Override
+        public boolean isEnabled(Session session)
+        {
+            return isRewriterEnabled(session);
         }
 
         @Override
@@ -358,7 +394,7 @@ public class ExpressionRewriteRuleSet
         }
     }
 
-    private static final class PatternRecognitionExpressionRewrite
+    private final class PatternRecognitionExpressionRewrite
             implements Rule<PatternRecognitionNode>
     {
         private final ExpressionRewriter rewriter;
@@ -366,6 +402,12 @@ public class ExpressionRewriteRuleSet
         PatternRecognitionExpressionRewrite(ExpressionRewriter rewriter)
         {
             this.rewriter = rewriter;
+        }
+
+        @Override
+        public boolean isEnabled(Session session)
+        {
+            return isRewriterEnabled(session);
         }
 
         @Override
