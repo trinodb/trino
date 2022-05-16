@@ -49,7 +49,7 @@ public class LegacyHiveViewReader
                         .map(column -> new ConnectorViewDefinition.ViewColumn(column.getName(), TypeId.of(column.getType().getTypeSignature().toString())))
                         .collect(toImmutableList()),
                 Optional.ofNullable(table.getParameters().get(TABLE_COMMENT)),
-                table.getOwner(),
+                hiveViewsRunAsInvoker ? Optional.empty() : table.getOwner(),
                 hiveViewsRunAsInvoker);
     }
 }
