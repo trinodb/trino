@@ -15,6 +15,7 @@ package io.trino.plugin.bigquery;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.Session;
 import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
@@ -618,6 +619,35 @@ public class TestBigQueryConnectorTest
         }
         finally {
             onBigQuery("DROP SNAPSHOT TABLE IF EXISTS test." + snapshotTable);
+        }
+    }
+
+    @Test
+    public void testQueryCache()
+    {
+        Session queryResultsCacheSession = Session.builder(getSession())
+                .setCatalogSessionProperty("bigquery", "query_results_cache_enabled", "true")
+                .build();
+        Session createNeverDisposition = Session.builder(getSession())
+                .setCatalogSessionProperty("bigquery", "query_results_cache_enabled", "true")
+                .setCatalogSessionProperty("bigquery", "create_disposition_type", "create_never")
+                .build();
+
+        String materializedView = "test_materialized_view" + randomTableSuffix();
+        try {
+            onBigQuery("CREATE MATERIALIZED VIEW test." + materializedView + " AS SELECT count(1) AS cnt FROM tpch.region");
+
+            // Verify query cache is empty
+            assertThatThrownBy(() -> query(createNeverDisposition, "SELECT * FROM test." + materializedView))
+                    .hasMessageContaining("Not found");
+            // Populate cache and verify it
+            assertQuery(queryResultsCacheSession, "SELECT * FROM test." + materializedView, "VALUES 5");
+            assertQuery(createNeverDisposition, "SELECT * FROM test." + materializedView, "VALUES 5");
+
+            assertUpdate("DROP TABLE test." + materializedView);
+        }
+        finally {
+            onBigQuery("DROP MATERIALIZED VIEW IF EXISTS test." + materializedView);
         }
     }
 
