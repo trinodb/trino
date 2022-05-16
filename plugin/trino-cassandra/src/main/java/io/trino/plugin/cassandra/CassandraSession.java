@@ -489,7 +489,7 @@ public class CassandraSession
 
             log.debug("Execute cql for partition keys with multiple queries: %s", partitionKeys);
             List<Row> resultRows = execute(partitionKeys.build()).all();
-            if (resultRows != null && !resultRows.isEmpty()) {
+            if (!resultRows.isEmpty()) {
                 rowList.addAll(resultRows);
             }
         }
