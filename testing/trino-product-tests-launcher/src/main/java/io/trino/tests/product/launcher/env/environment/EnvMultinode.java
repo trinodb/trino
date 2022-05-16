@@ -26,9 +26,11 @@ import javax.inject.Inject;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.WORKER;
 import static io.trino.tests.product.launcher.env.common.Hadoop.CONTAINER_PRESTO_HIVE_PROPERTIES;
+import static io.trino.tests.product.launcher.env.common.Hadoop.CONTAINER_PRESTO_HIVE_RUN_VIEW_AS_INVOKER;
 import static io.trino.tests.product.launcher.env.common.Hadoop.CONTAINER_PRESTO_HIVE_TIMESTAMP_NANOS;
 import static io.trino.tests.product.launcher.env.common.Hadoop.CONTAINER_PRESTO_HIVE_WITH_EXTERNAL_WRITES_PROPERTIES;
 import static io.trino.tests.product.launcher.env.common.Hadoop.CONTAINER_PRESTO_ICEBERG_PROPERTIES;
+import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
 import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_JVM_CONFIG;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
@@ -37,6 +39,8 @@ import static org.testcontainers.utility.MountableFile.forHostPath;
 public final class EnvMultinode
         extends EnvironmentProvider
 {
+    public static final String CONTAINER_PRESTO_HIVE_ACCESS_CONTROL = CONTAINER_PRESTO_ETC + "/catalog/hive.properties";
+
     private final DockerFiles dockerFiles;
     private final DockerFiles.ResourceProvider configDir;
 
@@ -59,6 +63,7 @@ public final class EnvMultinode
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/hadoop/hive.properties")), CONTAINER_PRESTO_HIVE_PROPERTIES)
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/hadoop/hive_with_external_writes.properties")), CONTAINER_PRESTO_HIVE_WITH_EXTERNAL_WRITES_PROPERTIES)
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/hadoop/hive_timestamp_nanos.properties")), CONTAINER_PRESTO_HIVE_TIMESTAMP_NANOS)
+                .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/hadoop/hive_with_run_view_as_invoker.properties")), CONTAINER_PRESTO_HIVE_RUN_VIEW_AS_INVOKER)
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/hadoop/iceberg.properties")), CONTAINER_PRESTO_ICEBERG_PROPERTIES));
     }
 }

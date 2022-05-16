@@ -40,6 +40,7 @@ public final class Hadoop
     public static final String CONTAINER_PRESTO_HIVE_PROPERTIES = CONTAINER_PRESTO_ETC + "/catalog/hive.properties";
     public static final String CONTAINER_PRESTO_HIVE_WITH_EXTERNAL_WRITES_PROPERTIES = CONTAINER_PRESTO_ETC + "/catalog/hive_with_external_writes.properties";
     public static final String CONTAINER_PRESTO_HIVE_TIMESTAMP_NANOS = CONTAINER_PRESTO_ETC + "/catalog/hive_timestamp_nanos.properties";
+    public static final String CONTAINER_PRESTO_HIVE_RUN_VIEW_AS_INVOKER = CONTAINER_PRESTO_ETC + "/catalog/hive_with_run_view_as_invoker.properties";
     public static final String CONTAINER_PRESTO_ICEBERG_PROPERTIES = CONTAINER_PRESTO_ETC + "/catalog/iceberg.properties";
 
     private final DockerFiles dockerFiles;
@@ -68,6 +69,7 @@ public final class Hadoop
         builder.addConnector("hive", forHostPath(dockerFiles.getDockerFilesHostPath("common/hadoop/hive.properties")), CONTAINER_PRESTO_HIVE_PROPERTIES);
         builder.addConnector("hive", forHostPath(dockerFiles.getDockerFilesHostPath("common/hadoop/hive_with_external_writes.properties")), CONTAINER_PRESTO_HIVE_WITH_EXTERNAL_WRITES_PROPERTIES);
         builder.addConnector("hive", forHostPath(dockerFiles.getDockerFilesHostPath("common/hadoop/hive_timestamp_nanos.properties")), CONTAINER_PRESTO_HIVE_TIMESTAMP_NANOS);
+        builder.addConnector("hive", forHostPath(dockerFiles.getDockerFilesHostPath("common/hadoop/hive_with_run_view_as_invoker.properties")), CONTAINER_PRESTO_HIVE_RUN_VIEW_AS_INVOKER);
         builder.addConnector("iceberg", forHostPath(dockerFiles.getDockerFilesHostPath("common/hadoop/iceberg.properties")), CONTAINER_PRESTO_ICEBERG_PROPERTIES);
     }
 
