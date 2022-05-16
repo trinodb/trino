@@ -473,7 +473,7 @@ public class TrinoHiveCatalog
                 .setViewExpandedText(Optional.of("/* " + ICEBERG_MATERIALIZED_VIEW_COMMENT + " */"));
         io.trino.plugin.hive.metastore.Table table = tableBuilder.build();
         PrincipalPrivileges principalPrivileges = isUsingSystemSecurity ? NO_PRIVILEGES : buildInitialPrivilegeSet(session.getUser());
-        if (existing.isPresent() && replace) {
+        if (existing.isPresent()) {
             // drop the current storage table
             String oldStorageTable = existing.get().getParameters().get(STORAGE_TABLE);
             if (oldStorageTable != null) {
