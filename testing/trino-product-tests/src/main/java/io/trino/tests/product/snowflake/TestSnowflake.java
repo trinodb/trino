@@ -21,6 +21,7 @@ import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.TestGroups.SNOWFLAKE;
+import static io.trino.tests.product.hive.util.TemporaryHiveTable.randomTableSuffix;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 
 public class TestSnowflake
@@ -29,15 +30,17 @@ public class TestSnowflake
     @Test(groups = {SNOWFLAKE, PROFILE_SPECIFIC_TESTS})
     public void testCreateTableAsSelect()
     {
-        onTrino().executeQuery("DROP TABLE IF EXISTS snowflake.test.nation");
-        QueryResult result = onTrino().executeQuery("CREATE TABLE snowflake.test.nation AS SELECT * FROM tpch.tiny.nation");
+        String tableName = "snowflake.test.nation_" + randomTableSuffix();
+
+        onTrino().executeQuery("DROP TABLE IF EXISTS " + tableName);
+        QueryResult result = onTrino().executeQuery("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.tiny.nation");
         try {
             assertThat(result).updatedRowsCountIsEqualTo(25);
-            assertThat(onTrino().executeQuery("SELECT COUNT(*) FROM snowflake.test.nation"))
+            assertThat(onTrino().executeQuery("SELECT COUNT(*) FROM " + tableName))
                     .containsOnly(row(25));
         }
         finally {
-            onTrino().executeQuery("DROP TABLE snowflake.test.nation");
+            onTrino().executeQuery("DROP TABLE " + tableName);
         }
     }
 }
