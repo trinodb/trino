@@ -29,6 +29,7 @@ import java.util.List;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.trino.spi.StandardErrorCode.CATALOG_NOT_FOUND;
+import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TABLE_ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
@@ -85,8 +86,14 @@ public class RenameViewTask
         if (metadata.getCatalogHandle(session, target.getCatalogName()).isEmpty()) {
             throw semanticException(CATALOG_NOT_FOUND, statement, "Target catalog '%s' does not exist", target.getCatalogName());
         }
+        if (metadata.isMaterializedView(session, target)) {
+            throw semanticException(GENERIC_USER_ERROR, statement, "Target view '%s' does not exist, but a materialized view with that name exists.", target);
+        }
         if (metadata.isView(session, target)) {
-            throw semanticException(TABLE_ALREADY_EXISTS, statement, "Target view '%s' already exists", target);
+            throw semanticException(GENERIC_USER_ERROR, statement, "Target view '%s' already exists", target);
+        }
+        if (metadata.getTableHandle(session, target).isPresent()) {
+            throw semanticException(TABLE_ALREADY_EXISTS, statement, "Target view '%s' does not exist, but a table with that name exists.", target);
         }
         if (!viewName.getCatalogName().equals(target.getCatalogName())) {
             throw semanticException(NOT_SUPPORTED, statement, "View rename across catalogs is not supported");
