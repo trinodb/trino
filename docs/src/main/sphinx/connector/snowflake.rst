@@ -43,9 +43,9 @@ Type mapping
 
 Trino supports the following Snowflake data types:
 
-==================================  ===============================  =============================================================================================================
-Snowflake Type                      Trino Type                       Notes
-==================================  ===============================  =============================================================================================================
+==================================  ===============================
+Snowflake Type                      Trino Type
+==================================  ===============================
 ``boolean``                         ``boolean``
 ``tinyint``                         ``bigint``
 ``smallint``                        ``bigint``
@@ -56,13 +56,13 @@ Snowflake Type                      Trino Type                       Notes
 ``float``                           ``real``
 ``real``                            ``real``
 ``double``                          ``double``
-``decimal``                         ``decimal(P,S)``                 Max precision is 38, max scale is 37.
-``varchar(n)``                      ``varchar(n)``                   The default is the maximum allowed length (16,777,216(16MB)).
+``decimal``                         ``decimal(P,S)``
+``varchar(n)``                      ``varchar(n)``
 ``char(n)``                         ``varchar(n)``
 ``binary(n)``                       ``varbinary``
 ``varbinary``                       ``varbinary``
 ``date``                            ``date``
-==================================  ===============================  =============================================================================================================
+==================================  ===============================
 
 Complete list of `Snowflake data types
 <https://docs.snowflake.com/en/sql-reference/intro-summary-data-types.html>`_.
