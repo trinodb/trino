@@ -91,6 +91,7 @@ import java.util.UUID;
 import java.util.function.BiFunction;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -188,6 +189,9 @@ public class ClickHouseClient
     private static final long MIN_SUPPORTED_TIMESTAMP_EPOCH = MIN_SUPPORTED_TIMESTAMP.toEpochSecond(UTC);
     private static final long MAX_SUPPORTED_TIMESTAMP_EPOCH = MAX_SUPPORTED_TIMESTAMP.toEpochSecond(UTC);
 
+    // An empty character means that the table doesn't have a comment in ClickHouse
+    private static final String NO_COMMENT = "";
+
     private final ConnectorExpressionRewriter<String> connectorExpressionRewriter;
     private final AggregateFunctionRewriter<JdbcExpression, String> aggregateFunctionRewriter;
     private final Type uuidType;
@@ -266,9 +270,10 @@ public class ClickHouseClient
 
     @Override
     public Optional<String> getTableComment(ResultSet resultSet)
+            throws SQLException
     {
-        // Don't return a comment until the connector supports creating tables with comment
-        return Optional.empty();
+        // Empty remarks means that the table doesn't have a comment in ClickHouse
+        return Optional.ofNullable(emptyToNull(resultSet.getString("REMARKS")));
     }
 
     @Override
@@ -287,6 +292,7 @@ public class ClickHouseClient
         formatProperty(ClickHouseTableProperties.getPrimaryKey(tableProperties)).ifPresent(value -> tableOptions.add("PRIMARY KEY " + value));
         formatProperty(ClickHouseTableProperties.getPartitionBy(tableProperties)).ifPresent(value -> tableOptions.add("PARTITION BY " + value));
         ClickHouseTableProperties.getSampleBy(tableProperties).ifPresent(value -> tableOptions.add("SAMPLE BY " + value));
+        tableMetadata.getComment().ifPresent(comment -> tableOptions.add(format("COMMENT '%s'", comment)));
 
         return format("CREATE TABLE %s (%s) %s", quoted(remoteTableName), join(", ", columns), join(" ", tableOptions.build()));
     }
@@ -431,6 +437,16 @@ public class ClickHouseClient
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, e);
         }
+    }
+
+    @Override
+    public void setTableComment(ConnectorSession session, JdbcTableHandle handle, Optional<String> comment)
+    {
+        String sql = format(
+                "ALTER TABLE %s MODIFY COMMENT '%s'",
+                quoted(handle.asPlainTable().getRemoteTableName()),
+                comment.orElse(NO_COMMENT));
+        execute(session, sql);
     }
 
     @Override

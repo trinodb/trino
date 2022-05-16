@@ -63,9 +63,6 @@ public abstract class BaseClickHouseConnectorTest
             case SUPPORTS_TOPN_PUSHDOWN:
                 return false;
 
-            case SUPPORTS_COMMENT_ON_TABLE:
-                return false;
-
             case SUPPORTS_ARRAY:
             case SUPPORTS_ROW_TYPE:
                 return false;
