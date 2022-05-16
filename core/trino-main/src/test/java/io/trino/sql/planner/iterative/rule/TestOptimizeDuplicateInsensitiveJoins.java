@@ -21,6 +21,7 @@ import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.tree.QualifiedName;
+import io.trino.util.JoinParamUtil;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -94,9 +95,9 @@ public class TestOptimizeDuplicateInsensitiveJoins
                 })
                 .matches(
                         aggregation(ImmutableMap.of(),
-                                join(INNER, ImmutableList.of(),
+                                join(new JoinParamUtil.JoinParamBuilder(INNER, ImmutableList.of(),
                                         values("A"),
-                                        values("B"))
+                                        values("B")).build())
                                         .with(JoinNode.class, JoinNode::isMaySkipOutputDuplicates)));
     }
 
@@ -122,14 +123,14 @@ public class TestOptimizeDuplicateInsensitiveJoins
                 })
                 .matches(
                         aggregation(ImmutableMap.of(),
-                                join(INNER, ImmutableList.of(),
+                                join(new JoinParamUtil.JoinParamBuilder(INNER, ImmutableList.of(),
                                         values("A"),
                                         project(
                                                 filter("B > 10",
-                                                        join(INNER, ImmutableList.of(), Optional.empty(),
+                                                        join(new JoinParamUtil.JoinParamBuilder(INNER, ImmutableList.of(),
                                                                 values("B"),
-                                                                values("C"))
-                                                                .with(JoinNode.class, JoinNode::isMaySkipOutputDuplicates))))
+                                                                values("C")).build())
+                                                                .with(JoinNode.class, JoinNode::isMaySkipOutputDuplicates)))).build())
                                         .with(JoinNode.class, JoinNode::isMaySkipOutputDuplicates)));
     }
 
@@ -154,13 +155,15 @@ public class TestOptimizeDuplicateInsensitiveJoins
                 })
                 .matches(
                         aggregation(ImmutableMap.of(),
-                                join(INNER, ImmutableList.of(), Optional.of("B > rand()"),
+                                join(new JoinParamUtil.JoinParamBuilder(INNER, ImmutableList.of(),
                                         values("A"),
-                                        join(INNER, ImmutableList.of(),
+                                        join(new JoinParamUtil.JoinParamBuilder(INNER, ImmutableList.of(),
                                                 values("B"),
-                                                values("C"))
+                                                values("C")).build())
                                                 .with(JoinNode.class, not(JoinNode::isMaySkipOutputDuplicates)))
-                                        .with(JoinNode.class, JoinNode::isMaySkipOutputDuplicates)));
+                                        .expectedFilter(Optional.of("B > rand()"))
+                                        .build()
+                                ).with(JoinNode.class, JoinNode::isMaySkipOutputDuplicates)));
     }
 
     @Test
@@ -233,9 +236,9 @@ public class TestOptimizeDuplicateInsensitiveJoins
                 })
                 .matches(
                         aggregation(ImmutableMap.of(), union(
-                                join(INNER, ImmutableList.of(), values("A"), values("B"))
+                                join(new JoinParamUtil.JoinParamBuilder(INNER, ImmutableList.of(), values("A"), values("B")).build())
                                         .with(JoinNode.class, JoinNode::isMaySkipOutputDuplicates),
-                                join(INNER, ImmutableList.of(), values("C"), values("D"))
+                                join(new JoinParamUtil.JoinParamBuilder(INNER, ImmutableList.of(), values("C"), values("D")).build())
                                         .with(JoinNode.class, JoinNode::isMaySkipOutputDuplicates))));
     }
 }

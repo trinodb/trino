@@ -16,6 +16,7 @@ package io.trino.sql.query;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.sql.planner.plan.JoinNode;
+import io.trino.util.JoinParamUtil;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -205,10 +206,10 @@ public class TestJoin
                         aggregation(
                                 ImmutableMap.of("COUNT", functionCall("count", ImmutableList.of())),
                                 anyTree(
-                                        join(INNER, ImmutableList.of(),
+                                        join(new JoinParamUtil.JoinParamBuilder(INNER, ImmutableList.of(),
                                                 anyTree(
                                                         values("y")),
-                                                values())
+                                                values()).build())
                                                 .with(JoinNode.class, not(JoinNode::isMaySkipOutputDuplicates))))));
 
         assertions.assertQueryAndPlan(
@@ -219,10 +220,10 @@ public class TestJoin
                                 ImmutableMap.of(),
                                 FINAL,
                                 anyTree(
-                                        join(INNER, ImmutableList.of(),
+                                        join(new JoinParamUtil.JoinParamBuilder(INNER, ImmutableList.of(),
                                                 anyTree(
                                                         values("y")),
-                                                values())
+                                                values()).build())
                                                 .with(JoinNode.class, JoinNode::isMaySkipOutputDuplicates)))));
     }
 }

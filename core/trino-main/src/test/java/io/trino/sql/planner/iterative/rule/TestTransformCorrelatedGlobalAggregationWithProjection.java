@@ -19,6 +19,7 @@ import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.JoinNode;
+import io.trino.util.JoinParamUtil;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -130,12 +131,12 @@ public class TestTransformCorrelatedGlobalAggregationWithProjection
                 .matches(
                         project(ImmutableMap.of("corr", expression("corr"), "expr", expression("(\"sum_1\" + 1)")),
                                 aggregation(ImmutableMap.of("sum_1", functionCall("sum", ImmutableList.of("a"))),
-                                        join(JoinNode.Type.LEFT,
+                                        join(new JoinParamUtil.JoinParamBuilder(JoinNode.Type.LEFT,
                                                 ImmutableList.of(),
                                                 assignUniqueId("unique",
                                                         values(ImmutableMap.of("corr", 0))),
                                                 project(ImmutableMap.of("non_null", expression("true")),
-                                                        values(ImmutableMap.of("a", 0, "b", 1)))))));
+                                                        values(ImmutableMap.of("a", 0, "b", 1)))).build()))));
     }
 
     @Test
@@ -207,11 +208,11 @@ public class TestTransformCorrelatedGlobalAggregationWithProjection
                                         SINGLE,
                                         project(
                                                 ImmutableMap.of("new_mask", expression("mask AND non_null")),
-                                                join(JoinNode.Type.LEFT,
+                                                join(new JoinParamUtil.JoinParamBuilder(JoinNode.Type.LEFT,
                                                         ImmutableList.of(),
                                                         assignUniqueId("unique",
                                                                 values(ImmutableMap.of("corr", 0))),
                                                         project(ImmutableMap.of("non_null", expression("true")),
-                                                                values(ImmutableMap.of("a", 0, "mask", 1))))))));
+                                                                values(ImmutableMap.of("a", 0, "mask", 1)))).build())))));
     }
 }

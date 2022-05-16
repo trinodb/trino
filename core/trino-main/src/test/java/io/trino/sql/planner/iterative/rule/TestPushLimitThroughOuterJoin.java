@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.JoinNode.EquiJoinClause;
+import io.trino.util.JoinParamUtil;
 import org.testng.annotations.Test;
 
 import static io.trino.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
@@ -46,11 +47,11 @@ public class TestPushLimitThroughOuterJoin
                 })
                 .matches(
                         limit(1,
-                                join(
+                                join(new JoinParamUtil.JoinParamBuilder(
                                         LEFT,
                                         ImmutableList.of(equiJoinClause("leftKey", "rightKey")),
                                         limit(1, ImmutableList.of(), true, values("leftKey")),
-                                        values("rightKey"))));
+                                        values("rightKey")).build())));
     }
 
     @Test
@@ -69,11 +70,11 @@ public class TestPushLimitThroughOuterJoin
                 })
                 .matches(
                         limit(1,
-                                join(
+                                join(new JoinParamUtil.JoinParamBuilder(
                                         RIGHT,
                                         ImmutableList.of(equiJoinClause("leftKey", "rightKey")),
                                         values("leftKey"),
-                                        limit(1, ImmutableList.of(), true, values("rightKey")))));
+                                        limit(1, ImmutableList.of(), true, values("rightKey"))).build())));
     }
 
     @Test
@@ -164,11 +165,11 @@ public class TestPushLimitThroughOuterJoin
                 })
                 .matches(
                         limit(1, ImmutableList.of(), false, ImmutableList.of("leftKey"),
-                                join(
+                                join(new JoinParamUtil.JoinParamBuilder(
                                         LEFT,
                                         ImmutableList.of(equiJoinClause("leftKey", "rightKey")),
                                         limit(1, ImmutableList.of(), true, ImmutableList.of("leftKey"), values("leftKey")),
-                                        values("rightKey"))));
+                                        values("rightKey")).build())));
     }
 
     @Test
@@ -206,10 +207,10 @@ public class TestPushLimitThroughOuterJoin
                 })
                 .matches(
                         limit(1, ImmutableList.of(), false, ImmutableList.of("rightKey"),
-                                join(
+                                join(new JoinParamUtil.JoinParamBuilder(
                                         RIGHT,
                                         ImmutableList.of(equiJoinClause("leftKey", "rightKey")),
                                         values("leftKey"),
-                                        limit(1, ImmutableList.of(), true, ImmutableList.of("rightKey"), values("rightKey")))));
+                                        limit(1, ImmutableList.of(), true, ImmutableList.of("rightKey"), values("rightKey"))).build())));
     }
 }

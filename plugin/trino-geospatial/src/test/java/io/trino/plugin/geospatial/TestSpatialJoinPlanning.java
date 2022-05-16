@@ -32,6 +32,7 @@ import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.testing.LocalQueryRunner;
+import io.trino.util.JoinParamUtil;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -360,10 +361,11 @@ public class TestSpatialJoinPlanning
                         "WHERE NOT ST_Contains(ST_GeometryFromText(wkt), ST_Point(lng, lat))",
                 anyTree(
                         filter("NOT ST_Contains(ST_GeometryFromText(cast(wkt as varchar)), ST_Point(lng, lat))",
-                                join(JoinNode.Type.INNER, emptyList(),
+                                join(new JoinParamUtil.JoinParamBuilder(JoinNode.Type.INNER,
+                                        emptyList(),
                                         tableScan("points", ImmutableMap.of("lng", "lng", "lat", "lat", "name_a", "name")),
-                                        anyTree(
-                                                tableScan("polygons", ImmutableMap.of("wkt", "wkt", "name_b", "name")))))));
+                                        anyTree(tableScan("polygons", ImmutableMap.of("wkt", "wkt", "name_b", "name"))))
+                                        .build()))));
     }
 
     @Test
@@ -377,13 +379,14 @@ public class TestSpatialJoinPlanning
                 anyTree(
                         filter(
                                 "NOT ST_Intersects(ST_GeometryFromText(cast(wkt_a as varchar)), ST_GeometryFromText(cast(wkt_b as varchar)))",
-                                join(JoinNode.Type.INNER, emptyList(),
+                                join(new JoinParamUtil.JoinParamBuilder(JoinNode.Type.INNER,
+                                        emptyList(),
                                         project(
                                                 ImmutableMap.of("wkt_a", expression("(CASE WHEN (rand() >= 0E0) THEN 'POLYGON ((30 10, 40 40, 20 40, 10 20, 30 10))' END)"), "name_a", expression("'a'")),
                                                 singleRow()),
                                         any(project(
                                                 ImmutableMap.of("wkt_b", expression("(CASE WHEN (rand() >= 0E0) THEN 'POLYGON ((30 10, 40 40, 20 40, 10 20, 30 10))' END)"), "name_b", expression("'a'")),
-                                                singleRow()))))));
+                                                singleRow()))).build()))));
     }
 
     @Test
@@ -393,12 +396,14 @@ public class TestSpatialJoinPlanning
                         "FROM points a, polygons b " +
                         "WHERE a.name = b.name AND ST_Contains(ST_GeometryFromText(wkt), ST_Point(lng, lat))",
                 anyTree(
-                        join(JoinNode.Type.INNER, ImmutableList.of(equiJoinClause("name_a", "name_b")),
-                                Optional.of("ST_Contains(ST_GeometryFromText(cast(wkt as varchar)), ST_Point(lng, lat))"),
+                        join(new JoinParamUtil.JoinParamBuilder(JoinNode.Type.INNER, ImmutableList.of(equiJoinClause("name_a", "name_b")),
                                 anyTree(
                                         tableScan("points", ImmutableMap.of("lng", "lng", "lat", "lat", "name_a", "name"))),
                                 anyTree(
-                                        tableScan("polygons", ImmutableMap.of("wkt", "wkt", "name_b", "name"))))));
+                                        tableScan("polygons", ImmutableMap.of("wkt", "wkt", "name_b", "name"))))
+                                .expectedFilter(Optional.of("ST_Contains(ST_GeometryFromText(cast(wkt as varchar)), ST_Point(lng, lat))"))
+                                .build()
+                        )));
     }
 
     @Test
@@ -408,12 +413,14 @@ public class TestSpatialJoinPlanning
                         "FROM polygons a, polygons b " +
                         "WHERE a.name = b.name AND ST_Intersects(ST_GeometryFromText(a.wkt), ST_GeometryFromText(b.wkt))",
                 anyTree(
-                        join(JoinNode.Type.INNER, ImmutableList.of(equiJoinClause("name_a", "name_b")),
-                                Optional.of("ST_Intersects(ST_GeometryFromText(cast(wkt_a as varchar)), ST_GeometryFromText(cast(wkt_b as varchar)))"),
+                        join(new JoinParamUtil.JoinParamBuilder(JoinNode.Type.INNER, ImmutableList.of(equiJoinClause("name_a", "name_b")),
                                 anyTree(
                                         tableScan("polygons", ImmutableMap.of("wkt_a", "wkt", "name_a", "name"))),
                                 anyTree(
-                                        tableScan("polygons", ImmutableMap.of("wkt_b", "wkt", "name_b", "name"))))));
+                                        tableScan("polygons", ImmutableMap.of("wkt_b", "wkt", "name_b", "name"))))
+                                .expectedFilter(Optional.of("ST_Intersects(ST_GeometryFromText(cast(wkt_a as varchar)), ST_GeometryFromText(cast(wkt_b as varchar)))"))
+                                .build()
+                        )));
     }
 
     @Test

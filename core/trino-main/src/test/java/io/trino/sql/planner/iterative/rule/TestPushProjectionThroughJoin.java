@@ -27,6 +27,7 @@ import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.ArithmeticUnaryExpression;
+import io.trino.util.JoinParamUtil;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -98,7 +99,7 @@ public class TestPushProjectionThroughJoin
                 createTestingFunctionManager(),
                 node -> unknown(),
                 new Plan(rewritten.get(), p.getTypes(), empty()), noLookup(),
-                join(
+                join(new JoinParamUtil.JoinParamBuilder(
                         INNER,
                         ImmutableList.of(aliases -> new JoinNode.EquiJoinClause(new Symbol("a1"), new Symbol("b1"))),
                         strictProject(ImmutableMap.of(
@@ -111,7 +112,7 @@ public class TestPushProjectionThroughJoin
                         strictProject(ImmutableMap.of(
                                 "b2", expression("+b1"),
                                 "b1", expression("b1")),
-                                PlanMatchPattern.values("b0", "b1")))
+                                PlanMatchPattern.values("b0", "b1"))).build())
                         .withExactOutputs("a3", "b2"));
     }
 

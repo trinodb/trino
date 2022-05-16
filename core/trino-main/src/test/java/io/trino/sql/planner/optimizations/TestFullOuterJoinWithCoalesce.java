@@ -16,6 +16,7 @@ package io.trino.sql.planner.optimizations;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.sql.planner.assertions.BasePlanTest;
+import io.trino.util.JoinParamUtil;
 import org.testng.annotations.Test;
 
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
@@ -50,18 +51,18 @@ public class TestFullOuterJoinWithCoalesce
                 anyTree(
                         project(
                                 ImmutableMap.of("expr", expression("coalesce(ts, r)")),
-                                join(
+                                join(new JoinParamUtil.JoinParamBuilder(
                                         FULL,
                                         ImmutableList.of(equiJoinClause("ts", "r")),
                                         anyTree(
                                                 project(
                                                         ImmutableMap.of("ts", expression("coalesce(t, s)")),
-                                                        join(
+                                                        join(new JoinParamUtil.JoinParamBuilder(
                                                                 FULL,
                                                                 ImmutableList.of(equiJoinClause("t", "s")),
                                                                 exchange(REMOTE, REPARTITION, anyTree(values(ImmutableList.of("t")))),
-                                                                exchange(LOCAL, GATHER, anyTree(values(ImmutableList.of("s"))))))),
-                                        exchange(LOCAL, GATHER, anyTree(values(ImmutableList.of("r"))))))));
+                                                                exchange(LOCAL, GATHER, anyTree(values(ImmutableList.of("s"))))).build()))),
+                                        exchange(LOCAL, GATHER, anyTree(values(ImmutableList.of("r"))))).build()))));
     }
 
     @Test(enabled = false) // TODO: re-enable once FULL join property derivations are re-introduced
@@ -85,11 +86,11 @@ public class TestFullOuterJoinWithCoalesce
                                         anyTree(
                                                 project(
                                                         ImmutableMap.of("expr", expression("coalesce(l, r)")),
-                                                        join(
+                                                        join(new JoinParamUtil.JoinParamBuilder(
                                                                 FULL,
                                                                 ImmutableList.of(equiJoinClause("l", "r")),
                                                                 anyTree(values(ImmutableList.of("l"))),
-                                                                anyTree(values(ImmutableList.of("r"))))))))));
+                                                                anyTree(values(ImmutableList.of("r")))).build())))))));
 
         assertDistributedPlan(
                 "SELECT coalesce(r.a, l.a) " +
@@ -106,11 +107,11 @@ public class TestFullOuterJoinWithCoalesce
                                         anyTree(
                                                 project(
                                                         ImmutableMap.of("expr", expression("coalesce(r, l)")),
-                                                        join(
+                                                        join(new JoinParamUtil.JoinParamBuilder(
                                                                 FULL,
                                                                 ImmutableList.of(equiJoinClause("l", "r")),
                                                                 anyTree(values(ImmutableList.of("l"))),
-                                                                anyTree(values(ImmutableList.of("r"))))))))));
+                                                                anyTree(values(ImmutableList.of("r")))).build())))))));
     }
 
     @Test
@@ -135,16 +136,16 @@ public class TestFullOuterJoinWithCoalesce
                                         anyTree(
                                                 project(
                                                         ImmutableMap.of("expr", expression("coalesce(l, m, r)")),
-                                                        join(
+                                                        join(new JoinParamUtil.JoinParamBuilder(
                                                                 FULL,
                                                                 ImmutableList.of(equiJoinClause("l", "r")),
                                                                 anyTree(
-                                                                        join(
+                                                                        join(new JoinParamUtil.JoinParamBuilder(
                                                                                 FULL,
                                                                                 ImmutableList.of(equiJoinClause("l", "m")),
                                                                                 anyTree(values(ImmutableList.of("l"))),
-                                                                                anyTree(values(ImmutableList.of("m"))))),
-                                                                anyTree(values(ImmutableList.of("r"))))))))));
+                                                                                anyTree(values(ImmutableList.of("m")))).build())),
+                                                                anyTree(values(ImmutableList.of("r")))).build())))))));
     }
 
     @Test
@@ -166,15 +167,15 @@ public class TestFullOuterJoinWithCoalesce
                                         anyTree(
                                                 project(
                                                         ImmutableMap.of("expr", expression("coalesce(l, m + 1, r)")),
-                                                        join(
+                                                        join(new JoinParamUtil.JoinParamBuilder(
                                                                 FULL,
                                                                 ImmutableList.of(equiJoinClause("l", "r")),
                                                                 anyTree(
-                                                                        join(
+                                                                        join(new JoinParamUtil.JoinParamBuilder(
                                                                                 FULL,
                                                                                 ImmutableList.of(equiJoinClause("l", "m")),
                                                                                 anyTree(values(ImmutableList.of("l"))),
-                                                                                anyTree(values(ImmutableList.of("m"))))),
-                                                                anyTree(values(ImmutableList.of("r"))))))))));
+                                                                                anyTree(values(ImmutableList.of("m")))).build())),
+                                                                anyTree(values(ImmutableList.of("r")))).build())))))));
     }
 }

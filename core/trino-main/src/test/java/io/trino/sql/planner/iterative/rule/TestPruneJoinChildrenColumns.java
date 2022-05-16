@@ -22,6 +22,7 @@ import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.PlanNode;
+import io.trino.util.JoinParamUtil;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -44,16 +45,18 @@ public class TestPruneJoinChildrenColumns
         tester().assertThat(new PruneJoinChildrenColumns())
                 .on(p -> buildJoin(p, symbol -> symbol.getName().equals("leftValue")))
                 .matches(
-                        join(
+                        join(new JoinParamUtil.JoinParamBuilder(
                                 JoinNode.Type.INNER,
                                 ImmutableList.of(equiJoinClause("leftKey", "rightKey")),
-                                Optional.of("leftValue > 5"),
                                 values("leftKey", "leftKeyHash", "leftValue"),
                                 strictProject(
                                         ImmutableMap.of(
                                                 "rightKey", PlanMatchPattern.expression("rightKey"),
                                                 "rightKeyHash", PlanMatchPattern.expression("rightKeyHash")),
-                                        values("rightKey", "rightKeyHash", "rightValue"))));
+                                        values("rightKey", "rightKeyHash", "rightValue")))
+                                .expectedFilter(Optional.of("leftValue > 5"))
+                                .build()
+                        ));
     }
 
     @Test
@@ -83,14 +86,13 @@ public class TestPruneJoinChildrenColumns
                             Optional.empty());
                 })
                 .matches(
-                        join(
+                        join(new JoinParamUtil.JoinParamBuilder(
                                 JoinNode.Type.INNER,
                                 ImmutableList.of(),
-                                Optional.empty(),
                                 values("leftValue"),
                                 strictProject(
                                         ImmutableMap.of(),
-                                        values("rightValue"))));
+                                        values("rightValue"))).build()));
     }
 
     private static PlanNode buildJoin(PlanBuilder p, Predicate<Symbol> joinOutputFilter)

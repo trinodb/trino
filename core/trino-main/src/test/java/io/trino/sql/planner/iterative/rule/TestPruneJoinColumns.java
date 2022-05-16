@@ -23,6 +23,7 @@ import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.PlanNode;
+import io.trino.util.JoinParamUtil;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -46,12 +47,11 @@ public class TestPruneJoinColumns
                 .matches(
                         strictProject(
                                 ImmutableMap.of("rightValue", PlanMatchPattern.expression("rightValue")),
-                                join(
+                                join(new JoinParamUtil.JoinParamBuilder(
                                         JoinNode.Type.INNER,
                                         ImmutableList.of(equiJoinClause("leftKey", "rightKey")),
-                                        Optional.empty(),
                                         values(ImmutableList.of("leftKey", "leftValue")),
-                                        values(ImmutableList.of("rightKey", "rightValue")))
+                                        values(ImmutableList.of("rightKey", "rightValue"))).build())
                                         .withExactOutputs("rightValue")));
     }
 
@@ -86,12 +86,11 @@ public class TestPruneJoinColumns
                 .matches(
                         strictProject(
                                 ImmutableMap.of(),
-                                join(
+                                join(new JoinParamUtil.JoinParamBuilder(
                                         JoinNode.Type.INNER,
                                         ImmutableList.of(),
-                                        Optional.empty(),
                                         values(ImmutableList.of("leftValue")),
-                                        values(ImmutableList.of("rightValue")))
+                                        values(ImmutableList.of("rightValue"))).build())
                                         .withExactOutputs()));
     }
 

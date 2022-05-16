@@ -32,6 +32,7 @@ import io.trino.sql.planner.plan.MarkDistinctNode;
 import io.trino.sql.tree.GenericLiteral;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.testing.LocalQueryRunner;
+import io.trino.util.JoinParamUtil;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -134,7 +135,7 @@ public class TestAddExchangesPlans
         assertDistributedPlan("SELECT * FROM (SELECT nationkey FROM nation UNION ALL select nationkey from nation) n join region r on n.nationkey = r.regionkey",
                 session,
                 anyTree(
-                        join(INNER, ImmutableList.of(equiJoinClause("nationkey", "regionkey")),
+                        join(new JoinParamUtil.JoinParamBuilder(INNER, ImmutableList.of(equiJoinClause("nationkey", "regionkey")),
                                 anyTree(
                                         exchange(REMOTE, REPARTITION,
                                                 anyTree(
@@ -145,12 +146,12 @@ public class TestAddExchangesPlans
                                 anyTree(
                                         exchange(REMOTE, REPARTITION,
                                                 anyTree(
-                                                        tableScan("region", ImmutableMap.of("regionkey", "regionkey"))))))));
+                                                        tableScan("region", ImmutableMap.of("regionkey", "regionkey")))))).build())));
 
         assertDistributedPlan("SELECT * FROM (SELECT nationkey FROM nation UNION ALL select 1) n join region r on n.nationkey = r.regionkey",
                 session,
                 anyTree(
-                        join(INNER, ImmutableList.of(equiJoinClause("nationkey", "regionkey")),
+                        join(new JoinParamUtil.JoinParamBuilder(INNER, ImmutableList.of(equiJoinClause("nationkey", "regionkey")),
                                 anyTree(
                                         exchange(REMOTE, REPARTITION,
                                                 anyTree(
@@ -161,7 +162,7 @@ public class TestAddExchangesPlans
                                 anyTree(
                                         exchange(REMOTE, REPARTITION,
                                                 anyTree(
-                                                        tableScan("region", ImmutableMap.of("regionkey", "regionkey"))))))));
+                                                        tableScan("region", ImmutableMap.of("regionkey", "regionkey")))))).build())));
     }
 
     @Test

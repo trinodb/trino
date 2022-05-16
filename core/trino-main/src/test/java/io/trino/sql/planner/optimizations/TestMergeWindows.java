@@ -29,6 +29,7 @@ import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.tree.FrameBound;
 import io.trino.sql.tree.WindowFrame;
+import io.trino.util.JoinParamUtil;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
@@ -469,7 +470,7 @@ public class TestMergeWindows
         assertUnitPlan(sql,
                 anyTree(
                         filter("SUM = AVG",
-                                join(JoinNode.Type.INNER, ImmutableList.of(),
+                                join(new JoinParamUtil.JoinParamBuilder(JoinNode.Type.INNER, ImmutableList.of(),
                                         any(
                                                 window(windowMatcherBuilder -> windowMatcherBuilder
                                                                 .specification(leftSpecification)
@@ -481,7 +482,7 @@ public class TestMergeWindows
                                                                 .specification(rightSpecification)
                                                                 .addFunction("AVG", functionCall("avg", COMMON_FRAME, ImmutableList.of(rQuantityAlias))),
                                                         any(
-                                                                rightTableScan)))))));
+                                                                rightTableScan)))).build()))));
     }
 
     @Test

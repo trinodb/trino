@@ -22,6 +22,7 @@ import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.JoinNode.EquiJoinClause;
+import io.trino.util.JoinParamUtil;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -69,21 +70,21 @@ public class TestPushAggregationThroughOuterJoin
                         project(ImmutableMap.of(
                                 "COL1", expression("COL1"),
                                 "COALESCE", expression("coalesce(AVG, AVG_NULL)")),
-                                join(INNER, ImmutableList.of(),
-                                        join(LEFT, ImmutableList.of(equiJoinClause("COL1", "COL2")),
+                                join(new JoinParamUtil.JoinParamBuilder(INNER, ImmutableList.of(),
+                                        join(new JoinParamUtil.JoinParamBuilder(LEFT, ImmutableList.of(equiJoinClause("COL1", "COL2")),
                                                 values(ImmutableMap.of("COL1", 0)),
                                                 aggregation(
                                                         singleGroupingSet("COL2"),
                                                         ImmutableMap.of(Optional.of("AVG"), functionCall("avg", ImmutableList.of("COL2"))),
                                                         Optional.empty(),
                                                         SINGLE,
-                                                        values(ImmutableMap.of("COL2", 0)))),
+                                                        values(ImmutableMap.of("COL2", 0)))).build()),
                                         aggregation(
                                                 globalAggregation(),
                                                 ImmutableMap.of(Optional.of("AVG_NULL"), functionCall("avg", ImmutableList.of("null_literal"))),
                                                 Optional.empty(),
                                                 SINGLE,
-                                                values(ImmutableMap.of("null_literal", 0))))));
+                                                values(ImmutableMap.of("null_literal", 0)))).build())));
     }
 
     @Test
@@ -107,22 +108,22 @@ public class TestPushAggregationThroughOuterJoin
                         project(ImmutableMap.of(
                                 "COALESCE", expression("coalesce(AVG, AVG_NULL)"),
                                 "COL1", expression("COL1")),
-                                join(INNER, ImmutableList.of(),
-                                        join(RIGHT, ImmutableList.of(equiJoinClause("COL2", "COL1")),
+                                join(new JoinParamUtil.JoinParamBuilder(INNER, ImmutableList.of(),
+                                        join(new JoinParamUtil.JoinParamBuilder(RIGHT, ImmutableList.of(equiJoinClause("COL2", "COL1")),
                                                 aggregation(
                                                         singleGroupingSet("COL2"),
                                                         ImmutableMap.of(Optional.of("AVG"), functionCall("avg", ImmutableList.of("COL2"))),
                                                         Optional.empty(),
                                                         SINGLE,
                                                         values(ImmutableMap.of("COL2", 0))),
-                                                values(ImmutableMap.of("COL1", 0))),
+                                                values(ImmutableMap.of("COL1", 0))).build()),
                                         aggregation(
                                                 globalAggregation(),
                                                 ImmutableMap.of(
                                                         Optional.of("AVG_NULL"), functionCall("avg", ImmutableList.of("null_literal"))),
                                                 Optional.empty(),
                                                 SINGLE,
-                                                values(ImmutableMap.of("null_literal", 0))))));
+                                                values(ImmutableMap.of("null_literal", 0)))).build())));
     }
 
     @Test
@@ -151,8 +152,8 @@ public class TestPushAggregationThroughOuterJoin
                         project(ImmutableMap.of(
                                 "COL1", expression("COL1"),
                                 "COALESCE", expression("coalesce(AVG, AVG_NULL)")),
-                                join(INNER, ImmutableList.of(),
-                                        join(LEFT, ImmutableList.of(equiJoinClause("COL1", "COL2")),
+                                join(new JoinParamUtil.JoinParamBuilder(INNER, ImmutableList.of(),
+                                        join(new JoinParamUtil.JoinParamBuilder(LEFT, ImmutableList.of(equiJoinClause("COL1", "COL2")),
                                                 values(ImmutableMap.of("COL1", 0)),
                                                 aggregation(
                                                         singleGroupingSet("COL2"),
@@ -161,7 +162,7 @@ public class TestPushAggregationThroughOuterJoin
                                                         ImmutableList.of("MASK"),
                                                         Optional.empty(),
                                                         SINGLE,
-                                                        values(ImmutableMap.of("COL2", 0, "MASK", 1)))),
+                                                        values(ImmutableMap.of("COL2", 0, "MASK", 1)))).build()),
                                         aggregation(
                                                 globalAggregation(),
                                                 ImmutableMap.of(Optional.of("AVG_NULL"), functionCall("avg", ImmutableList.of("null_literal"))),
@@ -169,7 +170,7 @@ public class TestPushAggregationThroughOuterJoin
                                                 ImmutableList.of("MASK_NULL"),
                                                 Optional.empty(),
                                                 SINGLE,
-                                                values(ImmutableMap.of("null_literal", 0, "MASK_NULL", 1))))));
+                                                values(ImmutableMap.of("null_literal", 0, "MASK_NULL", 1)))).build())));
     }
 
     @Test
@@ -194,21 +195,21 @@ public class TestPushAggregationThroughOuterJoin
                         project(ImmutableMap.of(
                                 "COL1", expression("COL1"),
                                 "COALESCE", expression("coalesce(COUNT, COUNT_NULL)")),
-                                join(INNER, ImmutableList.of(),
-                                        join(LEFT, ImmutableList.of(equiJoinClause("COL1", "COL2")),
+                                join(new JoinParamUtil.JoinParamBuilder(INNER, ImmutableList.of(),
+                                        join(new JoinParamUtil.JoinParamBuilder(LEFT, ImmutableList.of(equiJoinClause("COL1", "COL2")),
                                                 values(ImmutableMap.of("COL1", 0)),
                                                 aggregation(
                                                         singleGroupingSet("COL2"),
                                                         ImmutableMap.of(Optional.of("COUNT"), functionCall("count", ImmutableList.of())),
                                                         Optional.empty(),
                                                         SINGLE,
-                                                        values(ImmutableMap.of("COL2", 0)))),
+                                                        values(ImmutableMap.of("COL2", 0)))).build()),
                                         aggregation(
                                                 globalAggregation(),
                                                 ImmutableMap.of(Optional.of("COUNT_NULL"), functionCall("count", ImmutableList.of())),
                                                 Optional.empty(),
                                                 SINGLE,
-                                                values(ImmutableMap.of("null_literal", 0))))));
+                                                values(ImmutableMap.of("null_literal", 0)))).build())));
     }
 
     @Test

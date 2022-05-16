@@ -36,6 +36,7 @@ import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.SortItem;
 import io.trino.sql.tree.WindowFrame;
 import io.trino.testing.TestingTransactionHandle;
+import io.trino.util.JoinParamUtil;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -158,7 +159,7 @@ public class TestPushDownDereferencesRules
                                         .put("right_y", PlanMatchPattern.expression("y"))
                                         .put("z", PlanMatchPattern.expression("z"))
                                         .buildOrThrow(),
-                                join(INNER, ImmutableList.of(),
+                                join(new JoinParamUtil.JoinParamBuilder(INNER, ImmutableList.of(),
                                         strictProject(
                                                 ImmutableMap.of(
                                                         "x", PlanMatchPattern.expression("msg1[1]"),
@@ -171,7 +172,7 @@ public class TestPushDownDereferencesRules
                                                         .put("z", PlanMatchPattern.expression("z"))
                                                         .put("msg2", PlanMatchPattern.expression("msg2"))
                                                         .buildOrThrow(),
-                                                values("msg2", "z")))));
+                                                values("msg2", "z"))).build())));
 
         // Verify pushdown for filters
         tester().assertThat(new PushDownDereferenceThroughJoin(tester().getTypeAnalyzer()))
@@ -189,13 +190,16 @@ public class TestPushDownDereferencesRules
                                 ImmutableMap.of(
                                         "expr", PlanMatchPattern.expression("msg1_x"),
                                         "expr_2", PlanMatchPattern.expression("msg2")),
-                                join(INNER, ImmutableList.of(), Optional.of("msg1_x + msg2[2] > BIGINT '10'"),
+                                join(new JoinParamUtil.JoinParamBuilder(INNER, ImmutableList.of(),
                                         strictProject(
                                                 ImmutableMap.of(
                                                         "msg1_x", PlanMatchPattern.expression("msg1[1]"),
                                                         "msg1", PlanMatchPattern.expression("msg1")),
                                                 values("msg1")),
-                                        values("msg2"))));
+                                        values("msg2"))
+                                        .expectedFilter(Optional.of("msg1_x + msg2[2] > BIGINT '10'"))
+                                        .build()
+                                )));
     }
 
     @Test

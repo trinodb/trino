@@ -41,6 +41,7 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.PrincipalType;
 import io.trino.sql.planner.assertions.BasePushdownPlanTest;
 import io.trino.testing.LocalQueryRunner;
+import io.trino.util.JoinParamUtil;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -206,8 +207,7 @@ public class TestHiveProjectionPushdownIntoTableScan
                                         "expr_0_x", expression("expr_0[1]"),
                                         "expr_0", expression("expr_0"),
                                         "expr_0_y", expression("expr_0[2]")),
-                                join(
-                                        INNER,
+                                join(new JoinParamUtil.JoinParamBuilder(INNER,
                                         ImmutableList.of(equiJoinClause("t_expr_1", "s_expr_1")),
                                         anyTree(
                                                 filter(
@@ -222,7 +222,7 @@ public class TestHiveProjectionPushdownIntoTableScan
                                                         ((HiveTableHandle) tableHandle.get().getConnectorHandle())
                                                                 .withProjectedColumns(ImmutableSet.of(column1Handle))::equals,
                                                         TupleDomain.all(),
-                                                        ImmutableMap.of("s_expr_1", column1Handle::equals)))))));
+                                                        ImmutableMap.of("s_expr_1", column1Handle::equals)))).build()))));
     }
 
     @AfterClass(alwaysRun = true)

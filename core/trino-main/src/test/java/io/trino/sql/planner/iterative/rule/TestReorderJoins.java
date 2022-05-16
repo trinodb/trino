@@ -32,6 +32,7 @@ import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.tree.ArithmeticUnaryExpression;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.QualifiedName;
+import io.trino.util.JoinParamUtil;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -394,15 +395,15 @@ public class TestReorderJoins
                         .addSymbolStatistics(ImmutableMap.of(new Symbol("C1"), new SymbolStatsEstimate(0, 100, 0, 100, 100)))
                         .build())
                 .matches(
-                        join(
+                        join(new JoinParamUtil.JoinParamBuilder(
                                 INNER,
                                 ImmutableList.of(equiJoinClause("C1", "B2")),
                                 values("C1"),
-                                join(
+                                join(new JoinParamUtil.JoinParamBuilder(
                                         INNER,
                                         ImmutableList.of(equiJoinClause("A1", "B1")),
                                         values("A1"),
-                                        values("B1", "B2"))));
+                                        values("B1", "B2")).build())).build()));
     }
 
     @Test
@@ -443,11 +444,11 @@ public class TestReorderJoins
                         .addSymbolStatistics(ImmutableMap.of(new Symbol("C1"), new SymbolStatsEstimate(0, 100, 0, 100, 100)))
                         .build())
                 .matches(
-                        join(
+                        join(new JoinParamUtil.JoinParamBuilder(
                                 INNER,
                                 ImmutableList.of(equiJoinClause("C1", "P1")),
                                 values("C1"),
-                                join(
+                                join(new JoinParamUtil.JoinParamBuilder(
                                         INNER,
                                         ImmutableList.of(equiJoinClause("P2", "P1")),
                                         strictProject(
@@ -455,7 +456,7 @@ public class TestReorderJoins
                                                 values("A1")),
                                         strictProject(
                                                 ImmutableMap.of("P1", expression("-(B1)")),
-                                                values("B1")))));
+                                                values("B1"))).build())).build()));
     }
 
     @Test
@@ -495,17 +496,17 @@ public class TestReorderJoins
                         .addSymbolStatistics(ImmutableMap.of(new Symbol("C1"), new SymbolStatsEstimate(0, 100, 0, 100, 100)))
                         .build())
                 .matches(
-                        join(
+                        join(new JoinParamUtil.JoinParamBuilder(
                                 INNER,
                                 ImmutableList.of(equiJoinClause("C1", "P1")),
                                 values("C1"),
                                 strictProject(
                                         ImmutableMap.of("P1", expression("-(B1)")),
-                                        join(
+                                        join(new JoinParamUtil.JoinParamBuilder(
                                                 INNER,
                                                 ImmutableList.of(equiJoinClause("A1", "B1")),
                                                 values("A1"),
-                                                values("B1")))));
+                                                values("B1")).build()))).build()));
     }
 
     @Test
@@ -544,15 +545,15 @@ public class TestReorderJoins
                         .addSymbolStatistics(ImmutableMap.of(new Symbol("C1"), new SymbolStatsEstimate(99, 199, 0, 100, 100)))
                         .build())
                 .matches(
-                        join(
+                        join(new JoinParamUtil.JoinParamBuilder(
                                 INNER,
                                 ImmutableList.of(equiJoinClause("A1", "B1")),
                                 values("A1"),
-                                join(
+                                join(new JoinParamUtil.JoinParamBuilder(
                                         INNER,
                                         ImmutableList.of(equiJoinClause("C1", "B2")),
                                         values("C1"),
-                                        values("B1", "B2"))));
+                                        values("B1", "B2")).build())).build()));
     }
 
     @Test

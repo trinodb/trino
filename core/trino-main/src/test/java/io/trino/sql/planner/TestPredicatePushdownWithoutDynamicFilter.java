@@ -15,6 +15,7 @@ package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.util.JoinParamUtil;
 import org.testng.annotations.Test;
 
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
@@ -49,7 +50,7 @@ public class TestPredicatePushdownWithoutDynamicFilter
                         "FROM t JOIN u ON t.k = u.k AND t.v = u.v " +
                         "WHERE t.v = 'x'",
                 anyTree(
-                        join(INNER, ImmutableList.of(equiJoinClause("t_k", "u_k")),
+                        join(new JoinParamUtil.JoinParamBuilder(INNER, ImmutableList.of(equiJoinClause("t_k", "u_k")),
                                 project(
                                         filter(
                                                 "CAST('x' AS varchar(4)) = CAST(t_v AS varchar(4))",
@@ -58,7 +59,7 @@ public class TestPredicatePushdownWithoutDynamicFilter
                                         project(
                                                 filter(
                                                         "CAST('x' AS varchar(4)) = CAST(u_v AS varchar(4))",
-                                                        tableScan("nation", ImmutableMap.of("u_k", "nationkey", "u_v", "name"))))))));
+                                                        tableScan("nation", ImmutableMap.of("u_k", "nationkey", "u_v", "name")))))).build())));
 
         // values have different types (varchar(4) vs varchar(5)) in each table
         assertPlan(
@@ -69,7 +70,7 @@ public class TestPredicatePushdownWithoutDynamicFilter
                         "FROM t JOIN u ON t.k = u.k AND t.v = u.v " +
                         "WHERE t.v = 'x'",
                 anyTree(
-                        join(INNER, ImmutableList.of(equiJoinClause("t_k", "u_k")),
+                        join(new JoinParamUtil.JoinParamBuilder(INNER, ImmutableList.of(equiJoinClause("t_k", "u_k")),
                                 project(
                                         filter(
                                                 "CAST('x' AS varchar(4)) = CAST(t_v AS varchar(4))",
@@ -78,6 +79,6 @@ public class TestPredicatePushdownWithoutDynamicFilter
                                         project(
                                                 filter(
                                                         "CAST('x' AS varchar(5)) = CAST(u_v AS varchar(5))",
-                                                        tableScan("nation", ImmutableMap.of("u_k", "nationkey", "u_v", "name"))))))));
+                                                        tableScan("nation", ImmutableMap.of("u_k", "nationkey", "u_v", "name")))))).build())));
     }
 }

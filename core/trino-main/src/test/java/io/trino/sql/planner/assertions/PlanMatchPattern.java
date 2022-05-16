@@ -72,6 +72,7 @@ import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.Row;
 import io.trino.sql.tree.SortItem;
 import io.trino.sql.tree.WindowFrame;
+import io.trino.util.JoinParamUtil;
 import org.intellij.lang.annotations.Language;
 
 import java.util.ArrayList;
@@ -498,6 +499,17 @@ public final class PlanMatchPattern
     public static PlanMatchPattern semiJoin(String sourceSymbolAlias, String filteringSymbolAlias, String outputAlias, Optional<SemiJoinNode.DistributionType> distributionType, Optional<Boolean> hasDynamicFilter, PlanMatchPattern source, PlanMatchPattern filtering)
     {
         return node(SemiJoinNode.class, source, filtering).with(new SemiJoinMatcher(sourceSymbolAlias, filteringSymbolAlias, outputAlias, distributionType, hasDynamicFilter));
+    }
+
+    public static PlanMatchPattern join(JoinParamUtil joinParamUtil) {
+        return node(JoinNode.class, joinParamUtil.getLeft(), joinParamUtil.getRight()).with(
+                new JoinMatcher(
+                        joinParamUtil.getJoinType(),
+                        joinParamUtil.getExpectedEquiCriteria(),
+                        joinParamUtil.getExpectedFilter().map(predicate -> PlanBuilder.expression(predicate)),
+                        joinParamUtil.getExpectedDistributionType(),
+                        joinParamUtil.getExpectedSpillable(),
+                        joinParamUtil.getExpectedDynamicFilter()));
     }
 
     public static PlanMatchPattern join(JoinNode.Type joinType, List<ExpectedValueProvider<JoinNode.EquiJoinClause>> expectedEquiCriteria, PlanMatchPattern left, PlanMatchPattern right)

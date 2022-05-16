@@ -21,6 +21,7 @@ import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.GenericLiteral;
+import io.trino.util.JoinParamUtil;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -176,13 +177,13 @@ public class TestPushInequalityFilterExpressionBelowJoinRuleSet
                 .matches(
                         project(
                                 filter("expr < a",
-                                        join(
+                                        join(new JoinParamUtil.JoinParamBuilder(
                                                 INNER,
                                                 ImmutableList.of(),
                                                 values("a"),
                                                 project(
                                                         ImmutableMap.of("expr", expression("b + BIGINT '1'")),
-                                                        values("b"))))));
+                                                        values("b"))).build()))));
     }
 
     @Test
@@ -204,7 +205,7 @@ public class TestPushInequalityFilterExpressionBelowJoinRuleSet
                 .matches(
                         project(
                                 filter("expr_less < a and expr_greater > a",
-                                        join(
+                                        join(new JoinParamUtil.JoinParamBuilder(
                                                 INNER,
                                                 ImmutableList.of(),
                                                 values("a"),
@@ -212,7 +213,7 @@ public class TestPushInequalityFilterExpressionBelowJoinRuleSet
                                                         ImmutableMap.of(
                                                                 "expr_less", expression("b + BIGINT '1'"),
                                                                 "expr_greater", expression("b + BIGINT '10'")),
-                                                        values("b"))))));
+                                                        values("b"))).build()))));
     }
 
     @Test

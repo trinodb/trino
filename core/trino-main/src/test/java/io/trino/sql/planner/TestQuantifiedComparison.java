@@ -19,6 +19,7 @@ import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.ValuesNode;
+import io.trino.util.JoinParamUtil;
 import org.testng.annotations.Test;
 
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
@@ -40,11 +41,11 @@ public class TestQuantifiedComparison
     {
         String query = "SELECT orderkey, custkey FROM orders WHERE orderkey = ANY (VALUES ROW(CAST(5 as BIGINT)), ROW(CAST(3 as BIGINT)))";
         assertPlan(query, anyTree(
-                join(
+                join(new JoinParamUtil.JoinParamBuilder(
                         INNER,
                         ImmutableList.of(equiJoinClause("Y", "X")),
                         anyTree(values(ImmutableMap.of("Y", 0))),
-                        anyTree(tableScan("orders", ImmutableMap.of("X", "orderkey"))))));
+                        anyTree(tableScan("orders", ImmutableMap.of("X", "orderkey")))).build())));
     }
 
     @Test

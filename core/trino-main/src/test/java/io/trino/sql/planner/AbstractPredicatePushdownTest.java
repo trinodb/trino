@@ -23,6 +23,7 @@ import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.WindowNode;
+import io.trino.util.JoinParamUtil;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -66,14 +67,15 @@ public abstract class AbstractPredicatePushdownTest
         assertPlan(
                 "SELECT * FROM orders JOIN lineitem ON orders.orderkey = lineitem.orderkey AND cast(lineitem.linenumber AS varchar) = '2'",
                 anyTree(
-                        join(INNER, ImmutableList.of(equiJoinClause("ORDERS_OK", "LINEITEM_OK")),
+                        join(new JoinParamUtil.JoinParamBuilder(INNER,
+                                ImmutableList.of(equiJoinClause("ORDERS_OK", "LINEITEM_OK")),
                                 anyTree(
                                         tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))),
                                 anyTree(
                                         filter("cast(LINEITEM_LINENUMBER as varchar) = VARCHAR '2'",
                                                 tableScan("lineitem", ImmutableMap.of(
                                                         "LINEITEM_OK", "orderkey",
-                                                        "LINEITEM_LINENUMBER", "linenumber")))))));
+                                                        "LINEITEM_LINENUMBER", "linenumber"))))).build())));
     }
 
     @Test
@@ -287,11 +289,10 @@ public abstract class AbstractPredicatePushdownTest
                 "SELECT (SELECT a FROM (VALUES 1, 2, 3) t(a) WHERE a = b) FROM (VALUES 0, 1) p(b) WHERE b = 1",
                 // TODO this could be optimized to VALUES with values from partitions
                 anyTree(
-                        join(
-                                LEFT,
+                        join(new JoinParamUtil.JoinParamBuilder(LEFT,
                                 ImmutableList.of(equiJoinClause("A", "B")),
                                 project(assignUniqueId("unique", filter("A = 1", values("A")))),
-                                project(filter("1 = B", values("B"))))));
+                                project(filter("1 = B", values("B")))).build())));
     }
 
     @Test
@@ -464,14 +465,13 @@ public abstract class AbstractPredicatePushdownTest
                         "WHERE customer.name IS NOT NULL",
                 disableJoinReordering,
                 anyTree(
-                        join(
-                                INNER,
+                        join(new JoinParamUtil.JoinParamBuilder(INNER,
                                 ImmutableList.of(equiJoinClause("o_custkey", "c_custkey")),
                                 anyTree(tableScan("orders", ImmutableMap.of("o_orderdate", "orderdate", "o_custkey", "custkey"))),
                                 anyTree(
                                         filter(
                                                 "NOT (c_name IS NULL)",
-                                                tableScan("customer", ImmutableMap.of("c_custkey", "custkey", "c_name", "name")))))));
+                                                tableScan("customer", ImmutableMap.of("c_custkey", "custkey", "c_name", "name"))))).build())));
 
         // nested joins
         assertPlan(
@@ -482,19 +482,17 @@ public abstract class AbstractPredicatePushdownTest
                         "WHERE customer.name IS NOT NULL",
                 disableJoinReordering,
                 anyTree(
-                        join(
-                                INNER,
+                        join(new JoinParamUtil.JoinParamBuilder(INNER,
                                 ImmutableList.of(equiJoinClause("o_custkey", "c_custkey")),
                                 anyTree(
-                                        join(
-                                                enableDynamicFiltering ? INNER : LEFT, // TODO (https://github.com/trinodb/trino/issues/2392) this should be INNER also when dynamic filtering is off
+                                        join(new JoinParamUtil.JoinParamBuilder(enableDynamicFiltering ? INNER : LEFT, // TODO (https://github.com/trinodb/trino/issues/2392) this should be INNER also when dynamic filtering is off
                                                 ImmutableList.of(equiJoinClause("l_orderkey", "o_orderkey")),
                                                 anyTree(tableScan("lineitem", ImmutableMap.of("l_orderkey", "orderkey"))),
-                                                anyTree(tableScan("orders", ImmutableMap.of("o_orderkey", "orderkey", "o_custkey", "custkey"))))),
+                                                anyTree(tableScan("orders", ImmutableMap.of("o_orderkey", "orderkey", "o_custkey", "custkey")))).build())),
                                 anyTree(
                                         filter(
                                                 "NOT (c_name IS NULL)",
-                                                tableScan("customer", ImmutableMap.of("c_custkey", "custkey", "c_name", "name")))))));
+                                                tableScan("customer", ImmutableMap.of("c_custkey", "custkey", "c_name", "name"))))).build())));
     }
 
     @Test

@@ -21,6 +21,7 @@ import io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.plan.OutputNode;
 import io.trino.sql.planner.plan.TableScanNode;
+import io.trino.util.JoinParamUtil;
 import org.testng.annotations.Test;
 
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
@@ -149,11 +150,11 @@ public class TestPlanMatchingFramework
                 "SELECT o.orderkey FROM orders o, lineitem l WHERE l.orderkey = o.orderkey",
                 noJoinReordering(),
                 anyTree(
-                        join(INNER, ImmutableList.of(equiJoinClause("ORDERS_OK", "LINEITEM_OK")),
+                        join(new JoinParamUtil.JoinParamBuilder(INNER, ImmutableList.of(equiJoinClause("ORDERS_OK", "LINEITEM_OK")),
                                 anyTree(
                                         tableScan("orders").withAlias("ORDERS_OK", columnReference("orders", "orderkey"))),
                                 anyTree(
-                                        tableScan("lineitem").withAlias("LINEITEM_OK", columnReference("lineitem", "orderkey"))))));
+                                        tableScan("lineitem").withAlias("LINEITEM_OK", columnReference("lineitem", "orderkey")))).build())));
     }
 
     @Test
@@ -161,11 +162,11 @@ public class TestPlanMatchingFramework
     {
         assertPlan("SELECT l.orderkey FROM orders l, orders r WHERE l.orderkey = r.orderkey",
                 anyTree(
-                        join(INNER, ImmutableList.of(equiJoinClause("L_ORDERS_OK", "R_ORDERS_OK")),
+                        join(new JoinParamUtil.JoinParamBuilder(INNER, ImmutableList.of(equiJoinClause("L_ORDERS_OK", "R_ORDERS_OK")),
                                 anyTree(
                                         tableScan("orders").withAlias("L_ORDERS_OK", columnReference("orders", "orderkey"))),
                                 anyTree(
-                                        tableScan("orders").withAlias("R_ORDERS_OK", columnReference("orders", "orderkey"))))));
+                                        tableScan("orders").withAlias("R_ORDERS_OK", columnReference("orders", "orderkey")))).build())));
     }
 
     @Test
@@ -244,11 +245,11 @@ public class TestPlanMatchingFramework
                 "SELECT o.orderkey FROM orders o, lineitem l WHERE l.orderkey = o.orderkey",
                 noJoinReordering(),
                 anyTree(
-                        join(INNER, ImmutableList.of(equiJoinClause("LINEITEM_OK", "ORDERS_OK")),
+                        join(new JoinParamUtil.JoinParamBuilder(INNER, ImmutableList.of(equiJoinClause("LINEITEM_OK", "ORDERS_OK")),
                                 anyTree(
                                         tableScan("orders").withAlias("ORDERS_OK", columnReference("orders", "orderkey"))),
                                 anyTree(
-                                        tableScan("lineitem").withAlias("ORDERS_OK", columnReference("lineitem", "orderkey")))))))
+                                        tableScan("lineitem").withAlias("ORDERS_OK", columnReference("lineitem", "orderkey")))).build()))))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageMatching(".*already bound to expression.*");
     }

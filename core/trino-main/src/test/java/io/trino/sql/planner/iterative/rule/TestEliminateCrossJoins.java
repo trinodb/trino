@@ -34,6 +34,7 @@ import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.ArithmeticUnaryExpression;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.SymbolReference;
+import io.trino.util.JoinParamUtil;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
@@ -73,13 +74,13 @@ public class TestEliminateCrossJoins
                 .setSystemProperty(JOIN_REORDERING_STRATEGY, "ELIMINATE_CROSS_JOINS")
                 .on(crossJoinAndJoin(INNER))
                 .matches(
-                        join(INNER,
+                        join(new JoinParamUtil.JoinParamBuilder(INNER,
                                 ImmutableList.of(aliases -> new EquiJoinClause(new Symbol("cySymbol"), new Symbol("bySymbol"))),
-                                join(INNER,
+                                join(new JoinParamUtil.JoinParamBuilder(INNER,
                                         ImmutableList.of(aliases -> new EquiJoinClause(new Symbol("axSymbol"), new Symbol("cxSymbol"))),
                                         any(),
-                                        any()),
-                                any()));
+                                        any()).build()),
+                                any()).build()));
     }
 
     @Test
@@ -266,13 +267,13 @@ public class TestEliminateCrossJoins
                 })
                 .matches(
                         node(ProjectNode.class,
-                                join(
+                                join(new JoinParamUtil.JoinParamBuilder(
                                         INNER,
                                         ImmutableList.of(aliases -> new EquiJoinClause(new Symbol("d"), new Symbol("f"))),
-                                        join(
+                                        join(new JoinParamUtil.JoinParamBuilder(
                                                 INNER,
                                                 ImmutableList.of(aliases -> new EquiJoinClause(new Symbol("a2"), new Symbol("c"))),
-                                                join(INNER,
+                                                join(new JoinParamUtil.JoinParamBuilder(INNER,
                                                         ImmutableList.of(aliases -> new EquiJoinClause(new Symbol("a1"), new Symbol("e"))),
                                                         strictProject(
                                                                 ImmutableMap.of(
@@ -282,11 +283,11 @@ public class TestEliminateCrossJoins
                                                         strictProject(
                                                                 ImmutableMap.of(
                                                                         "e", expression("e")),
-                                                                PlanMatchPattern.values("e"))),
-                                                any()),
+                                                                PlanMatchPattern.values("e"))).build()),
+                                                any()).build()),
                                         strictProject(
                                                 ImmutableMap.of("f", expression("-b")),
-                                                PlanMatchPattern.values("b")))));
+                                                PlanMatchPattern.values("b"))).build())));
     }
 
     @Test

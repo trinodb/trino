@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.JoinNode;
+import io.trino.util.JoinParamUtil;
 import org.testng.annotations.Test;
 
 import static io.trino.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
@@ -53,11 +54,11 @@ public class TestPushTopNThroughOuterJoin
                                     new JoinNode.EquiJoinClause(leftKey, rightKey)));
                 })
                 .matches(
-                        join(
+                        join(new JoinParamUtil.JoinParamBuilder(
                                 LEFT,
                                 ImmutableList.of(equiJoinClause("leftKey", "rightKey")),
                                 topN(1, ImmutableList.of(sort("leftKey", ASCENDING, FIRST)), PARTIAL, values("leftKey")),
-                                values("rightKey")));
+                                values("rightKey")).build()));
     }
 
     @Test
@@ -78,11 +79,11 @@ public class TestPushTopNThroughOuterJoin
                                     new JoinNode.EquiJoinClause(leftKey, rightKey)));
                 })
                 .matches(
-                        join(
+                        join(new JoinParamUtil.JoinParamBuilder(
                                 RIGHT,
                                 ImmutableList.of(equiJoinClause("leftKey", "rightKey")),
                                 values("leftKey"),
-                                topN(1, ImmutableList.of(sort("rightKey", ASCENDING, FIRST)), PARTIAL, values("rightKey"))));
+                                topN(1, ImmutableList.of(sort("rightKey", ASCENDING, FIRST)), PARTIAL, values("rightKey"))).build()));
     }
 
     @Test

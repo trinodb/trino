@@ -36,6 +36,7 @@ import io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.testing.LocalQueryRunner;
 import io.trino.testing.QueryRunner;
+import io.trino.util.JoinParamUtil;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -166,7 +167,8 @@ public class TestHivePlans
                 noJoinReordering(),
                 output(
                         exchange(REMOTE, GATHER,
-                                join(INNER, List.of(equiJoinClause("L_STR_PART", "R_STR_COL")),
+                                join(new JoinParamUtil.JoinParamBuilder(INNER,
+                                        List.of(equiJoinClause("L_STR_PART", "R_STR_COL")),
                                         exchange(REMOTE, REPARTITION,
                                                 project(
                                                         filter("\"like\"(L_STR_PART, \"$like_pattern\"('t%'))",
@@ -175,7 +177,7 @@ public class TestHivePlans
                                                 exchange(REMOTE, REPARTITION,
                                                         project(
                                                                 filter("R_STR_COL IN ('three', CAST('two' AS varchar(5))) AND \"like\"(R_STR_COL, \"$like_pattern\"('t%'))",
-                                                                        tableScan("table_unpartitioned", Map.of("R_STR_COL", "str_col", "R_INT_COL", "int_col"))))))))));
+                                                                        tableScan("table_unpartitioned", Map.of("R_STR_COL", "str_col", "R_INT_COL", "int_col"))))))).build()))));
     }
 
     @Test
@@ -189,7 +191,8 @@ public class TestHivePlans
                 noJoinReordering(),
                 output(
                         exchange(REMOTE, GATHER,
-                                join(INNER, List.of(equiJoinClause("L_INT_PART", "R_INT_COL")),
+                                join(new JoinParamUtil.JoinParamBuilder(INNER,
+                                        List.of(equiJoinClause("L_INT_PART", "R_INT_COL")),
                                         exchange(REMOTE, REPARTITION,
                                                 project(
                                                         filter("true", // dynamic filter
@@ -198,7 +201,7 @@ public class TestHivePlans
                                                 exchange(REMOTE, REPARTITION,
                                                         project(
                                                                 filter("R_INT_COL IN (2, 3, 4)",
-                                                                        tableScan("table_unpartitioned", Map.of("R_STR_COL", "str_col", "R_INT_COL", "int_col"))))))))));
+                                                                        tableScan("table_unpartitioned", Map.of("R_STR_COL", "str_col", "R_INT_COL", "int_col"))))))).build()))));
     }
 
     @Test
@@ -213,7 +216,8 @@ public class TestHivePlans
                 noJoinReordering(),
                 output(
                         exchange(REMOTE, GATHER,
-                                join(INNER, List.of(equiJoinClause("L_INT_PART", "R_INT_COL")),
+                                join(new JoinParamUtil.JoinParamBuilder(INNER,
+                                        List.of(equiJoinClause("L_INT_PART", "R_INT_COL")),
                                         exchange(REMOTE, REPARTITION,
                                                 project(
                                                         filter("L_STR_COL != 'three'",
@@ -222,7 +226,7 @@ public class TestHivePlans
                                                 exchange(REMOTE, REPARTITION,
                                                         project(
                                                                 filter("R_INT_COL IN (2, 3, 4) AND R_INT_COL BETWEEN 2 AND 4", // TODO: R_INT_COL BETWEEN 2 AND 4 is redundant
-                                                                        tableScan("table_unpartitioned", Map.of("R_STR_COL", "str_col", "R_INT_COL", "int_col"))))))))));
+                                                                        tableScan("table_unpartitioned", Map.of("R_STR_COL", "str_col", "R_INT_COL", "int_col"))))))).build()))));
     }
 
     @Test
@@ -237,7 +241,8 @@ public class TestHivePlans
                 noJoinReordering(),
                 output(
                         exchange(REMOTE, GATHER,
-                                join(INNER, List.of(equiJoinClause("L_INT_PART", "R_INT_COL")),
+                                join(new JoinParamUtil.JoinParamBuilder(INNER,
+                                        List.of(equiJoinClause("L_INT_PART", "R_INT_COL")),
                                         exchange(REMOTE, REPARTITION,
                                                 project(
                                                         filter("substring(L_STR_COL, BIGINT '2') != CAST('hree' AS varchar(5))",
@@ -246,7 +251,7 @@ public class TestHivePlans
                                                 exchange(REMOTE, REPARTITION,
                                                         project(
                                                                 filter("R_INT_COL IN (2, 3, 4) AND R_INT_COL BETWEEN 2 AND 4", // TODO: R_INT_COL BETWEEN 2 AND 4 is redundant
-                                                                        tableScan("table_unpartitioned", Map.of("R_STR_COL", "str_col", "R_INT_COL", "int_col"))))))))));
+                                                                        tableScan("table_unpartitioned", Map.of("R_STR_COL", "str_col", "R_INT_COL", "int_col"))))))).build()))));
     }
 
     @Test
@@ -261,7 +266,8 @@ public class TestHivePlans
                 noJoinReordering(),
                 output(
                         exchange(REMOTE, GATHER,
-                                join(INNER, List.of(equiJoinClause("L_INT_PART", "R_INT_COL")),
+                                join(new JoinParamUtil.JoinParamBuilder(INNER,
+                                        List.of(equiJoinClause("L_INT_PART", "R_INT_COL")),
                                         exchange(REMOTE, REPARTITION,
                                                 project(
                                                         filter("L_INT_PART % 2 = 0",
@@ -270,7 +276,7 @@ public class TestHivePlans
                                                 exchange(REMOTE, REPARTITION,
                                                         project(
                                                                 filter("R_INT_COL IN (2, 4) AND R_INT_COL % 2 = 0",
-                                                                        tableScan("table_unpartitioned", Map.of("R_STR_COL", "str_col", "R_INT_COL", "int_col"))))))))));
+                                                                        tableScan("table_unpartitioned", Map.of("R_STR_COL", "str_col", "R_INT_COL", "int_col"))))))).build()))));
     }
 
     @Test
@@ -282,7 +288,8 @@ public class TestHivePlans
                 noJoinReordering(),
                 output(
                         exchange(REMOTE, GATHER,
-                                join(INNER, List.of(equiJoinClause("L_INT_PART", "R_INT_COL")),
+                                join(new JoinParamUtil.JoinParamBuilder(INNER,
+                                        List.of(equiJoinClause("L_INT_PART", "R_INT_COL")),
                                         exchange(REMOTE, REPARTITION,
                                                 project(
                                                         filter("true", //dynamic filter
@@ -291,7 +298,7 @@ public class TestHivePlans
                                                 exchange(REMOTE, REPARTITION,
                                                         project(
                                                                 filter("R_INT_COL IN (1, 2, 3, 4, 5)",
-                                                                        tableScan("table_unpartitioned", Map.of("R_STR_COL", "str_col", "R_INT_COL", "int_col"))))))))));
+                                                                        tableScan("table_unpartitioned", Map.of("R_STR_COL", "str_col", "R_INT_COL", "int_col"))))))).build()))));
     }
 
     @Test
@@ -302,14 +309,15 @@ public class TestHivePlans
                 query,
                 output(
                         exchange(REMOTE, GATHER,
-                                join(INNER, List.of(equiJoinClause("L_INT_PART", "R_INT_COL")),
+                                join(new JoinParamUtil.JoinParamBuilder(INNER,
+                                        List.of(equiJoinClause("L_INT_PART", "R_INT_COL")),
                                         project(
                                                 filter("true", //dynamic filter
                                                         tableScan("table_int_with_too_many_partitions", Map.of("L_INT_PART", "int_part", "L_STR_COL", "str_col")))),
                                         exchange(LOCAL,
                                                 exchange(REMOTE, REPLICATE,
                                                         project(
-                                                                tableScan("table_unpartitioned", Map.of("R_STR_COL", "str_col", "R_INT_COL", "int_col")))))))));
+                                                                tableScan("table_unpartitioned", Map.of("R_STR_COL", "str_col", "R_INT_COL", "int_col")))))).build()))));
 
         // The partitions will be loaded during split creation, so it fails during execution.
         assertThatThrownBy(() -> getQueryRunner().execute(query))
