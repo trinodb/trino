@@ -84,7 +84,8 @@ public class TestSnowflakeTypeMapping
                 .addRoundTrip("boolean", "false", BOOLEAN, "BOOLEAN '0'")
                 .addRoundTrip("boolean", "NULL", BOOLEAN, "CAST(NULL AS BOOLEAN)")
                 .execute(getQueryRunner(), snowflakeCreateAndInsert("tpch.test_boolean"))
-                .execute(getQueryRunner(), trinoCreateAsSelect("tpch.test_boolean"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("tpch.test_boolean"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("tpch.test_boolean"));
     }
 
     @Test(dataProvider = "snowflakeIntegerTypeProvider")
@@ -139,7 +140,8 @@ public class TestSnowflakeTypeMapping
 //                .addRoundTrip("decimal(38, 0)", "CAST('-27182818284590452353602874713526624977' AS decimal(38, 0))", BIGINT, "CAST('-27182818284590452353602874713526624977' AS BIGINT)")
                 .addRoundTrip("decimal(38, 0)", "CAST(NULL AS decimal(38, 0))", BIGINT, "CAST(NULL AS BIGINT)")
                 .execute(getQueryRunner(), snowflakeCreateAndInsert("tpch.test_decimal"))
-                .execute(getQueryRunner(), trinoCreateAsSelect("test_decimal"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_decimal"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_decimal"));
     }
 
     @Test
@@ -153,7 +155,8 @@ public class TestSnowflakeTypeMapping
                 .addRoundTrip("real", "CAST('NaN' AS DOUBLE)", DOUBLE, "nan()")
                 .addRoundTrip("real", "CAST('Infinity' AS DOUBLE)", DOUBLE, "+infinity()")
                 .addRoundTrip("real", "CAST('-Infinity' AS DOUBLE)", DOUBLE, "-infinity()")
-                .execute(getQueryRunner(), trinoCreateAsSelect("tpch.test_real"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("tpch.test_real"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("tpch.test_real"));
 
         SqlDataTypeTest.create()
                 .addRoundTrip("float", "3.14", DOUBLE, "DOUBLE '3.14'")
@@ -177,6 +180,7 @@ public class TestSnowflakeTypeMapping
                 .addRoundTrip("double", "CAST('Infinity' AS DOUBLE)", DOUBLE, "+infinity()")
                 .addRoundTrip("double", "CAST('-Infinity' AS DOUBLE)", DOUBLE, "-infinity()")
                 .execute(getQueryRunner(), trinoCreateAsSelect("trino_test_double"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("trino_test_double"))
                 .execute(getQueryRunner(), snowflakeCreateAndInsert("tpch.test_double"));
     }
 
@@ -214,6 +218,7 @@ public class TestSnowflakeTypeMapping
                 .addRoundTrip("char(8)", "'abc'", createVarcharType(8), "CAST('abc' AS varchar(8))")
                 .addRoundTrip("char(8)", "'12345678'", createVarcharType(8), "CAST('12345678' AS varchar(8))")
                 .execute(getQueryRunner(), trinoCreateAsSelect("snowflake_test_parameterized_char"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("snowflake_test_parameterized_char"))
                 .execute(getQueryRunner(), snowflakeCreateAndInsert("tpch.snowflake_test_parameterized_char"));
     }
 
@@ -255,6 +260,7 @@ public class TestSnowflakeTypeMapping
                 .addRoundTrip("varbinary", "X'0001020304050607080DF9367AA7000000'", VARBINARY, "X'0001020304050607080DF9367AA7000000'") // non-text
                 .addRoundTrip("varbinary", "X'000000000000'", VARBINARY, "X'000000000000'")
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_varbinary"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_varbinary"))
                 .execute(getQueryRunner(), snowflakeCreateAndInsert("tpch.test_varbinary"));
     }
 
@@ -279,6 +285,7 @@ public class TestSnowflakeTypeMapping
                 .addRoundTrip("date", "DATE '99999-12-31'", DATE, "DATE '99999-12-31'")
                 .addRoundTrip("date", "'5881580-07-11'", DATE, "DATE '5881580-07-11'") // max value in Trino
                 .execute(getQueryRunner(), session, trinoCreateAsSelect("test_date"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert("test_date"))
                 .execute(getQueryRunner(), session, snowflakeCreateAndInsert("tpch.test_date"));
     }
 
@@ -302,6 +309,16 @@ public class TestSnowflakeTypeMapping
     private DataSetup trinoCreateAsSelect(Session session, String tableNamePrefix)
     {
         return new CreateAsSelectDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
+    }
+
+    private DataSetup trinoCreateAndInsert(String tableNamePrefix)
+    {
+        return trinoCreateAndInsert(getSession(), tableNamePrefix);
+    }
+
+    private DataSetup trinoCreateAndInsert(Session session, String tableNamePrefix)
+    {
+        return new CreateAndInsertDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
     }
 
     private DataSetup snowflakeCreateAndInsert(String tableNamePrefix)
