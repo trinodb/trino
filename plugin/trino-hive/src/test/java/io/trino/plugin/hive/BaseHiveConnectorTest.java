@@ -8328,6 +8328,30 @@ public abstract class BaseHiveConnectorTest
         assertUpdate("DROP TABLE " + tableName);
     }
 
+    @Test(dataProvider = "hiddenColumnNames")
+    public void testHiddenColumnNameConflict(String columnName)
+    {
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_hidden_column_name_conflict",
+                format("(\"%s\" int, _bucket int, _partition int) WITH (partitioned_by = ARRAY['_partition'], bucketed_by = ARRAY['_bucket'], bucket_count = 10)", columnName))) {
+            assertThatThrownBy(() -> query("SELECT * FROM " + table.getName()))
+                    .hasMessageContaining("Multiple entries with same key: " + columnName);
+        }
+    }
+
+    @DataProvider
+    public Object[][] hiddenColumnNames()
+    {
+        return new Object[][] {
+                {"$path"},
+                {"$bucket"},
+                {"$file_size"},
+                {"$file_modified_time"},
+                {"$partition"},
+        };
+    }
+
     @Test(dataProvider = "legalUseColumnNamesProvider")
     public void testUseColumnAddDrop(HiveStorageFormat format, boolean formatUseColumnNames)
     {
