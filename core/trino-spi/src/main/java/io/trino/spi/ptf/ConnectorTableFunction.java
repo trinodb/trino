@@ -87,10 +87,7 @@ public abstract class ConnectorTableFunction
      *
      * @param arguments actual invocation arguments, mapped by argument names
      */
-    public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
-    {
-        throw new UnsupportedOperationException("analyze method not implemented for Table Function " + name);
-    }
+    public abstract TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments);
 
     static String checkNotNullOrEmpty(String value, String name)
     {
