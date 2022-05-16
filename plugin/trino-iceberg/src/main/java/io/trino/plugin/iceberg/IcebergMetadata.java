@@ -666,6 +666,14 @@ public class IcebergMetadata
     @Override
     public Optional<ConnectorOutputMetadata> finishCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
+        if (fragments.isEmpty()) {
+            // Commit the transaction if the table is being created without data
+            transaction.newFastAppend().commit();
+            transaction.commitTransaction();
+            transaction = null;
+            return Optional.empty();
+        }
+
         return finishInsert(session, (IcebergWritableTableHandle) tableHandle, fragments, computedStatistics);
     }
 
@@ -727,13 +735,17 @@ public class IcebergMetadata
     @Override
     public Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
-        IcebergWritableTableHandle table = (IcebergWritableTableHandle) insertHandle;
-        Table icebergTable = transaction.table();
-
         List<CommitTaskData> commitTasks = fragments.stream()
                 .map(slice -> commitTaskCodec.fromJson(slice.getBytes()))
                 .collect(toImmutableList());
 
+        if (commitTasks.isEmpty()) {
+            transaction = null;
+            return Optional.empty();
+        }
+
+        IcebergWritableTableHandle table = (IcebergWritableTableHandle) insertHandle;
+        Table icebergTable = transaction.table();
         Type[] partitionColumnTypes = icebergTable.spec().fields().stream()
                 .map(field -> field.transform().getResultType(
                         icebergTable.schema().findType(field.sourceId())))
@@ -1476,6 +1488,12 @@ public class IcebergMetadata
         List<CommitTaskData> commitTasks = fragments.stream()
                 .map(slice -> commitTaskCodec.fromJson(slice.getBytes()))
                 .collect(toImmutableList());
+
+        if (commitTasks.isEmpty()) {
+            // Avoid recording "empty" write operation
+            transaction = null;
+            return;
+        }
 
         Schema schema = SchemaParser.fromJson(table.getTableSchemaJson());
 
