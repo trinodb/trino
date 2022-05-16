@@ -60,7 +60,7 @@ public class PostgreSqlClientModule
     public ConnectionFactory getConnectionFactory(BaseJdbcConfig config, CredentialProvider credentialProvider)
     {
         Properties connectionProperties = new Properties();
-        connectionProperties.put(REWRITE_BATCHED_INSERTS.name(), "true");
+        connectionProperties.put(REWRITE_BATCHED_INSERTS.getName(), "true");
         return new DriverConnectionFactory(new Driver(), config.getConnectionUrl(), connectionProperties, credentialProvider);
     }
 }
