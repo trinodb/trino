@@ -83,6 +83,7 @@ public class OptimizerConfig
     private boolean mergeProjectWithValues = true;
     private boolean forceSingleNodeOutput;
     private boolean useExactPartitioning;
+    private boolean optimizeCaseExpressionPredicate;
     // adaptive partial aggregation
     private boolean adaptivePartialAggregationEnabled = true;
     private long adaptivePartialAggregationMinRows = 100_000;
@@ -689,6 +690,18 @@ public class OptimizerConfig
     public OptimizerConfig setForceSingleNodeOutput(boolean value)
     {
         this.forceSingleNodeOutput = value;
+        return this;
+    }
+
+    public boolean isOptimizeCaseExpressionPredicate()
+    {
+        return optimizeCaseExpressionPredicate;
+    }
+
+    @Config("optimizer.optimize-case-expression-predicate")
+    public OptimizerConfig setOptimizeCaseExpressionPredicate(boolean optimizeCaseExpressionPredicate)
+    {
+        this.optimizeCaseExpressionPredicate = optimizeCaseExpressionPredicate;
         return this;
     }
 

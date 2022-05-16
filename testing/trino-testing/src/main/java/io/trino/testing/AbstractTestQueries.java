@@ -15,6 +15,7 @@ package io.trino.testing;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.trino.Session;
 import io.trino.metadata.FunctionBundle;
 import io.trino.metadata.InternalFunctionBundle;
 import io.trino.tpch.TpchTable;
@@ -27,6 +28,7 @@ import java.util.Set;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.SystemSessionProperties.OPTIMIZE_CASE_EXPRESSION_PREDICATE;
 import static io.trino.connector.informationschema.InformationSchemaTable.INFORMATION_SCHEMA;
 import static io.trino.operator.scalar.ApplyFunction.APPLY_FUNCTION;
 import static io.trino.operator.scalar.InvokeFunction.INVOKE_FUNCTION;
@@ -501,5 +503,56 @@ public abstract class AbstractTestQueries
     {
         assertQuery("SELECT * FROM (SELECT count(*) FROM orders) WHERE 0=1");
         assertQuery("SELECT * FROM (SELECT count(*) FROM orders) WHERE null");
+    }
+
+    @Test
+    public void testCasePredicateRewrite()
+    {
+        Session caseExpressionRewriteEnabled = Session.builder(getSession())
+                .setSystemProperty(OPTIMIZE_CASE_EXPRESSION_PREDICATE, "true")
+                .build();
+
+        assertQuery(
+                caseExpressionRewriteEnabled,
+                "SELECT nationkey FROM NATION WHERE (CASE WHEN regionkey <= 1 THEN 'SMALL' WHEN (regionkey > 1 AND regionkey <= 3) THEN 'MEDIUM' ELSE 'LARGE' END) = 'SMALL'");
+
+        assertQuery(
+                caseExpressionRewriteEnabled,
+                "SELECT nationkey FROM NATION WHERE 'MEDIUM' = (CASE WHEN regionkey <= 1 THEN 'SMALL' WHEN (regionkey > 1 AND regionkey <= 3) THEN 'MEDIUM' ELSE 'LARGE' END)");
+
+        assertQuery(
+                caseExpressionRewriteEnabled,
+                "SELECT nationkey FROM NATION WHERE (CASE WHEN regionkey <= 1 THEN 'SMALL' WHEN (regionkey > 1 AND regionkey <= 3) THEN 'MEDIUM' ELSE 'LARGE' END) = 'LARGE'");
+
+        assertQuery(
+                caseExpressionRewriteEnabled,
+                "SELECT nationkey FROM NATION WHERE (CASE name WHEN 'PERU' THEN 1 WHEN 'CHINA' THEN 2 WHEN 'P' THEN 3 ELSE -1 END) = 2");
+
+        assertQuery(
+                caseExpressionRewriteEnabled,
+                "SELECT nationkey FROM NATION WHERE 1 < (CASE name WHEN 'PERU' THEN 1 WHEN 'CHINA' THEN 2 WHEN 'P' THEN 3 ELSE -1 END)");
+
+        assertQuery(
+                caseExpressionRewriteEnabled,
+                "SELECT nationkey FROM NATION WHERE (CASE name WHEN 'FRANCE' THEN 1 WHEN 'KENYA' THEN 2 WHEN 'P' THEN 3 ELSE 2 END) = 2");
+
+        assertQuery(
+                caseExpressionRewriteEnabled,
+                "SELECT nationkey FROM NATION WHERE (CASE WHEN regionkey=1 THEN 1 WHEN (CASE WHEN name = 'FRANCE' THEN true ELSE false END) THEN 2 WHEN regionkey=2 THEN 3 ELSE -1 END) > 1");
+
+        assertQuery(caseExpressionRewriteEnabled,
+                "SELECT (CASE WHEN col = 1 THEN 'a' WHEN col = 2 THEN 'b' ELSE 'c' END) = 'a' FROM (VALUES NULL, 1, 2, 3) t(col)");
+
+        assertQuery(caseExpressionRewriteEnabled,
+                "SELECT (CASE WHEN col = 1 THEN 'a' WHEN col = 2 THEN 'b' ELSE 'c' END) = 'b' FROM (VALUES NULL, 1, 2, 3) t(col)");
+
+        assertQuery(caseExpressionRewriteEnabled,
+                "SELECT (CASE WHEN col = 1 THEN 'a' WHEN col = 2 THEN 'b' ELSE 'c' END) = 'c' FROM (VALUES NULL, 1, 2, 3) t(col)");
+
+        assertQuery(caseExpressionRewriteEnabled,
+                "SELECT (CASE WHEN col = NULL THEN 'a' WHEN col = 1 THEN 'b' ELSE 'c' END) = 'a' FROM (VALUES NULL, 1, 2, 3) t(col)");
+
+        assertQuery(caseExpressionRewriteEnabled,
+                "SELECT (CASE WHEN col = 1 THEN 'a' WHEN col = 2 THEN 'b' END) = NULL FROM (VALUES NULL, 1, 2, 3) t(col)");
     }
 }

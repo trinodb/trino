@@ -99,6 +99,7 @@ public final class SystemSessionProperties
     public static final String QUERY_PRIORITY = "query_priority";
     public static final String SPILL_ENABLED = "spill_enabled";
     public static final String AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT = "aggregation_operator_unspill_memory_limit";
+    public static final String OPTIMIZE_CASE_EXPRESSION_PREDICATE = "optimize_case_expression_predicate";
     public static final String OPTIMIZE_DISTINCT_AGGREGATIONS = "optimize_mixed_distinct_aggregations";
     public static final String ITERATIVE_OPTIMIZER_TIMEOUT = "iterative_optimizer_timeout";
     public static final String ENABLE_FORCED_EXCHANGE_BELOW_GROUP_ID = "enable_forced_exchange_below_group_id";
@@ -447,6 +448,11 @@ public final class SystemSessionProperties
                         AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT,
                         "How much memory should be allocated per aggregation operator in unspilling process",
                         featuresConfig.getAggregationOperatorUnspillMemoryLimit(),
+                        false),
+                booleanProperty(
+                        OPTIMIZE_CASE_EXPRESSION_PREDICATE,
+                        "Optimize case expression predicates",
+                        optimizerConfig.isOptimizeCaseExpressionPredicate(),
                         false),
                 booleanProperty(
                         OPTIMIZE_DISTINCT_AGGREGATIONS,
@@ -1110,6 +1116,11 @@ public final class SystemSessionProperties
         DataSize memoryLimitForMerge = session.getSystemProperty(AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT, DataSize.class);
         checkArgument(memoryLimitForMerge.toBytes() >= 0, "%s must be positive", AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT);
         return memoryLimitForMerge;
+    }
+
+    public static boolean isOptimizeCaseExpressionPredicate(Session session)
+    {
+        return session.getSystemProperty(OPTIMIZE_CASE_EXPRESSION_PREDICATE, Boolean.class);
     }
 
     public static boolean isOptimizeDistinctAggregationEnabled(Session session)
