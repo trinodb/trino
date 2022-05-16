@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.testing.MaterializedResult;
-import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
@@ -34,7 +33,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static io.trino.plugin.clickhouse.ClickHouseQueryRunner.createClickHouseQueryRunner;
 import static io.trino.plugin.clickhouse.ClickHouseTableProperties.ENGINE_PROPERTY;
 import static io.trino.plugin.clickhouse.ClickHouseTableProperties.ORDER_BY_PROPERTY;
 import static io.trino.plugin.clickhouse.ClickHouseTableProperties.PARTITION_BY_PROPERTY;
@@ -51,24 +49,10 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
-public class TestClickHouseConnectorTest
+public abstract class BaseClickHouseConnectorTest
         extends BaseJdbcConnectorTest
 {
-    private TestingClickHouseServer clickhouseServer;
-
-    @Override
-    protected QueryRunner createQueryRunner()
-            throws Exception
-    {
-        this.clickhouseServer = closeAfterClass(new TestingClickHouseServer());
-        return createClickHouseQueryRunner(
-                clickhouseServer,
-                ImmutableMap.of(),
-                ImmutableMap.<String, String>builder()
-                        .put("clickhouse.map-string-as-varchar", "true")
-                        .buildOrThrow(),
-                REQUIRED_TPCH_TABLES);
-    }
+    protected TestingClickHouseServer clickhouseServer;
 
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
