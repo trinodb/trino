@@ -3541,6 +3541,78 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate("DROP TABLE " + tableName);
     }
 
+    @Test
+    public void testEmptyCreateTableAsSelect()
+    {
+        String tableName = "test_empty_ctas_" + randomTableSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM nation WHERE false", 0);
+        List<Long> initialTableSnapshots = getSnapshotIds(tableName);
+        assertThat(initialTableSnapshots.size())
+                .withFailMessage("CTAS operations must create Iceberg snapshot independently whether the selection is empty or not")
+                .isEqualTo(1);
+        assertQueryReturnsEmptyResult("SELECT * FROM " + tableName);
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testEmptyInsert()
+    {
+        String tableName = "test_empty_insert_" + randomTableSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM nation", "SELECT count(*) FROM nation");
+        List<Long> initialTableSnapshots = getSnapshotIds(tableName);
+
+        assertUpdate("INSERT INTO " + tableName + " SELECT * FROM nation WHERE false", 0);
+        List<Long> updatedTableSnapshots = getSnapshotIds(tableName);
+
+        assertThat(initialTableSnapshots)
+                .withFailMessage("INSERT operations that are not changing the state of the table must not cause the creation of a new Iceberg snapshot")
+                .hasSize(1)
+                .isEqualTo(updatedTableSnapshots);
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testEmptyUpdate()
+    {
+        String tableName = "test_empty_update_" + randomTableSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM nation", "SELECT count(*) FROM nation");
+        List<Long> initialTableSnapshots = getSnapshotIds(tableName);
+
+        assertUpdate("UPDATE " + tableName + " SET comment = 'new comment' WHERE nationkey IS NULL", 0);
+        List<Long> updatedTableSnapshots = getSnapshotIds(tableName);
+
+        assertThat(initialTableSnapshots)
+                .withFailMessage("UPDATE operations that are not changing the state of the table must not cause the creation of a new Iceberg snapshot")
+                .hasSize(1)
+                .isEqualTo(updatedTableSnapshots);
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testEmptyDelete()
+    {
+        String tableName = "test_empty_delete_" + randomTableSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName + " WITH (format = '" + format.name() + "') AS SELECT * FROM nation", "SELECT count(*) FROM nation");
+        List<Long> initialTableSnapshots = getSnapshotIds(tableName);
+
+        assertUpdate("DELETE FROM " + tableName + " WHERE nationkey IS NULL", 0);
+        List<Long> updatedTableSnapshots = getSnapshotIds(tableName);
+
+        assertThat(initialTableSnapshots)
+                .withFailMessage("DELETE operations that are not changing the state of the table must not cause the creation of a new Iceberg snapshot")
+                .hasSize(1)
+                .isEqualTo(updatedTableSnapshots);
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
     private Session prepareCleanUpSession()
     {
         return Session.builder(getSession())
