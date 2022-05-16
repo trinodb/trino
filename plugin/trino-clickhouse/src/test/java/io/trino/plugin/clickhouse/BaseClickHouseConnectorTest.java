@@ -118,8 +118,8 @@ public abstract class BaseClickHouseConnectorTest
         // the columns are referenced by order_by/order_by property can not be dropped
         assertUpdate("CREATE TABLE " + tableName + "(x int NOT NULL, y int, a int NOT NULL) WITH " +
                 "(engine = 'MergeTree', order_by = ARRAY['x'], partition_by = ARRAY['a'])");
-        assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN x", "Code: 47,.* Missing columns: 'x' while processing query: 'x', required columns: 'x' 'x' .*\\n.*");
-        assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN a", "Code: 47,.* Missing columns: 'a' while processing query: 'a', required columns: 'a' 'a' .*\\n.*");
+        assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN x", "(?s).* Missing columns: 'x' while processing query: 'x', required columns: 'x' 'x'.*");
+        assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN a", "(?s).* Missing columns: 'a' while processing query: 'a', required columns: 'a' 'a'.*");
     }
 
     @Override
@@ -379,12 +379,12 @@ public abstract class BaseClickHouseConnectorTest
                         ")", tableName));
         assertUpdate("DROP TABLE " + tableName);
 
-        assertUpdate("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR NOT NULL, y VARCHAR NOT NULL) WITH (engine = 'MergeTree', order_by = ARRAY['id', 'x'], primary_key = ARRAY['id','x'], sample_by = 'x' )");
+        assertUpdate("CREATE TABLE " + tableName + " (id int NOT NULL, x BOOLEAN NOT NULL, y VARCHAR NOT NULL) WITH (engine = 'MergeTree', order_by = ARRAY['id', 'x'], primary_key = ARRAY['id','x'], sample_by = 'x' )");
         assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName))
                 .isEqualTo(format("" +
                         "CREATE TABLE clickhouse.tpch.%s (\n" +
                         "   id integer NOT NULL,\n" +
-                        "   x varchar NOT NULL,\n" +
+                        "   x smallint NOT NULL,\n" +
                         "   y varchar NOT NULL\n" +
                         ")\n" +
                         "WITH (\n" +
@@ -413,7 +413,7 @@ public abstract class BaseClickHouseConnectorTest
         assertUpdate("DROP TABLE " + tableName);
 
         // Primary key must be a prefix of the sorting key,
-        assertQueryFails("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR NOT NULL, y VARCHAR NOT NULL) WITH (engine = 'MergeTree', order_by = ARRAY['id'], sample_by = ARRAY['x', 'y'])",
+        assertQueryFails("CREATE TABLE " + tableName + " (id int NOT NULL, x boolean NOT NULL, y boolean NOT NULL) WITH (engine = 'MergeTree', order_by = ARRAY['id'], sample_by = ARRAY['x', 'y'])",
                 "Invalid value for catalog 'clickhouse' table property 'sample_by': .*");
 
         // wrong property type
@@ -432,7 +432,7 @@ public abstract class BaseClickHouseConnectorTest
         try (TestTable table = new TestTable(
                 getQueryRunner()::execute,
                 "test_alter_table_properties",
-                "(p1 int NOT NULL, p2 int NOT NULL, x VARCHAR) WITH (engine = 'MergeTree', order_by = ARRAY['p1', 'p2'], primary_key = ARRAY['p1', 'p2'])")) {
+                "(p1 int NOT NULL, p2 boolean NOT NULL, x VARCHAR) WITH (engine = 'MergeTree', order_by = ARRAY['p1', 'p2'], primary_key = ARRAY['p1', 'p2'])")) {
             assertThat(getTableProperties("tpch", table.getName()))
                     .containsExactlyEntriesOf(ImmutableMap.of(
                             "engine", "MergeTree",
