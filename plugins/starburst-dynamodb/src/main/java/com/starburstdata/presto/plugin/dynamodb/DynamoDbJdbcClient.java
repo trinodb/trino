@@ -262,7 +262,7 @@ public class DynamoDbJdbcClient
                 tableMetadata.getColumns().stream().map(ColumnMetadata::getName).collect(Collectors.toList()),
                 tableMetadata.getColumns().stream().map(ColumnMetadata::getType).collect(Collectors.toList()),
                 Optional.empty(),
-                tableName);
+                Optional.of(tableName));
     }
 
     @Override
@@ -392,7 +392,7 @@ public class DynamoDbJdbcClient
                     columnNames.build(),
                     columnTypes.build(),
                     Optional.of(jdbcColumnTypes.build()),
-                    schemaTableName.getTableName());
+                    Optional.of(schemaTableName.getTableName()));
         }
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, e);
