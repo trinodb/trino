@@ -118,7 +118,6 @@ public final class TestingPlannerContext
             Metadata metadata = this.metadata;
             if (metadata == null) {
                 TestMetadataManagerBuilder builder = MetadataManager.testMetadataManagerBuilder()
-                        .withFeaturesConfig(featuresConfig)
                         .withTypeManager(typeManager)
                         .withGlobalFunctionCatalog(globalFunctionCatalog);
                 if (transactionManager != null) {

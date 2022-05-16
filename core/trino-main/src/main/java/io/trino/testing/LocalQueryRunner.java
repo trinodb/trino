@@ -356,7 +356,6 @@ public class LocalQueryRunner
         globalFunctionCatalog.addFunctions(SystemFunctionBundle.create(featuresConfig, typeOperators, blockTypeOperators, nodeManager.getCurrentNode().getNodeVersion()));
         this.functionManager = new FunctionManager(globalFunctionCatalog);
         Metadata metadata = metadataProvider.getMetadata(
-                featuresConfig,
                 new DisabledSystemSecurityMetadata(),
                 transactionManager,
                 globalFunctionCatalog,
@@ -1148,7 +1147,6 @@ public class LocalQueryRunner
     public interface MetadataProvider
     {
         Metadata getMetadata(
-                FeaturesConfig featuresConfig,
                 SystemSecurityMetadata systemSecurityMetadata,
                 TransactionManager transactionManager,
                 GlobalFunctionCatalog globalFunctionCatalog,
