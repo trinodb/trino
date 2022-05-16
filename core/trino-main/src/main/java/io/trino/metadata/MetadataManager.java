@@ -178,7 +178,6 @@ public final class MetadataManager
 
     @Inject
     public MetadataManager(
-            FeaturesConfig featuresConfig,
             SystemSecurityMetadata systemSecurityMetadata,
             TransactionManager transactionManager,
             GlobalFunctionCatalog globalFunctionCatalog,
@@ -2544,7 +2543,6 @@ public final class MetadataManager
 
     public static class TestMetadataManagerBuilder
     {
-        private FeaturesConfig featuresConfig;
         private TransactionManager transactionManager;
         private TypeManager typeManager = TESTING_TYPE_MANAGER;
         private GlobalFunctionCatalog globalFunctionCatalog;
@@ -2554,12 +2552,6 @@ public final class MetadataManager
         public TestMetadataManagerBuilder withCatalogManager(CatalogManager catalogManager)
         {
             this.transactionManager = createTestTransactionManager(catalogManager);
-            return this;
-        }
-
-        public TestMetadataManagerBuilder withFeaturesConfig(FeaturesConfig featuresConfig)
-        {
-            this.featuresConfig = featuresConfig;
             return this;
         }
 
@@ -2583,11 +2575,6 @@ public final class MetadataManager
 
         public MetadataManager build()
         {
-            FeaturesConfig featuresConfig = this.featuresConfig;
-            if (featuresConfig == null) {
-                featuresConfig = new FeaturesConfig();
-            }
-
             TransactionManager transactionManager = this.transactionManager;
             if (transactionManager == null) {
                 transactionManager = createTestTransactionManager();
@@ -2597,12 +2584,11 @@ public final class MetadataManager
             if (globalFunctionCatalog == null) {
                 globalFunctionCatalog = new GlobalFunctionCatalog();
                 TypeOperators typeOperators = new TypeOperators();
-                globalFunctionCatalog.addFunctions(SystemFunctionBundle.create(featuresConfig, typeOperators, new BlockTypeOperators(typeOperators), UNKNOWN));
+                globalFunctionCatalog.addFunctions(SystemFunctionBundle.create(new FeaturesConfig(), typeOperators, new BlockTypeOperators(typeOperators), UNKNOWN));
                 globalFunctionCatalog.addFunctions(new InternalFunctionBundle(new LiteralFunction(new InternalBlockEncodingSerde(new BlockEncodingManager(), typeManager))));
             }
 
             return new MetadataManager(
-                    featuresConfig,
                     new DisabledSystemSecurityMetadata(),
                     transactionManager,
                     globalFunctionCatalog,
