@@ -46,6 +46,8 @@ import static com.google.cloud.bigquery.TableDefinition.Type.TABLE;
 import static com.google.cloud.bigquery.TableDefinition.Type.VIEW;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_FAILED_TO_EXECUTE_QUERY;
+import static io.trino.plugin.bigquery.BigQuerySessionProperties.createDisposition;
+import static io.trino.plugin.bigquery.BigQuerySessionProperties.isQueryResultsCacheEnabled;
 import static io.trino.plugin.bigquery.BigQuerySessionProperties.isSkipViewMaterialization;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.util.Objects.requireNonNull;
@@ -139,7 +141,7 @@ public class BigQuerySplitManager
             if (filter.isPresent()) {
                 // count the rows based on the filter
                 String sql = client.selectSql(remoteTableId, "COUNT(*)");
-                TableResult result = client.query(sql);
+                TableResult result = client.query(sql, isQueryResultsCacheEnabled(session), createDisposition(session));
                 numberOfRows = result.iterateAll().iterator().next().get(0).getLongValue();
             }
             else {
@@ -151,7 +153,7 @@ public class BigQuerySplitManager
                 }
                 else if (tableInfo.getDefinition().getType() == VIEW) {
                     String sql = client.selectSql(remoteTableId, "COUNT(*)");
-                    TableResult result = client.query(sql);
+                    TableResult result = client.query(sql, isQueryResultsCacheEnabled(session), createDisposition(session));
                     numberOfRows = result.iterateAll().iterator().next().get(0).getLongValue();
                 }
                 else {
