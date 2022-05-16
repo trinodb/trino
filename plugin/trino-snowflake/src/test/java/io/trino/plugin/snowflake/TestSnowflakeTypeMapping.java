@@ -304,11 +304,6 @@ public class TestSnowflakeTypeMapping
         return new CreateAsSelectDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
     }
 
-    private DataSetup trinoCreateAndInsert(Session session, String tableNamePrefix)
-    {
-        return new CreateAndInsertDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
-    }
-
     private DataSetup snowflakeCreateAndInsert(String tableNamePrefix)
     {
         return new CreateAndInsertDataSetup(snowflakeServer::execute, tableNamePrefix);
