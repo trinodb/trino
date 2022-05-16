@@ -36,7 +36,6 @@ import java.util.Properties;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.plugin.jdbc.JdbcModule.bindSessionPropertiesProvider;
-import static java.lang.Boolean.TRUE;
 import static org.postgresql.PGProperty.REWRITE_BATCHED_INSERTS;
 
 public class PostgreSqlClientModule
@@ -61,7 +60,7 @@ public class PostgreSqlClientModule
     public ConnectionFactory getConnectionFactory(BaseJdbcConfig config, CredentialProvider credentialProvider)
     {
         Properties connectionProperties = new Properties();
-        connectionProperties.put(REWRITE_BATCHED_INSERTS.name(), TRUE.toString());
+        connectionProperties.put(REWRITE_BATCHED_INSERTS.name(), "true");
         return new DriverConnectionFactory(new Driver(), config.getConnectionUrl(), connectionProperties, credentialProvider);
     }
 }
