@@ -24,6 +24,7 @@ import io.trino.tpch.TpchTable;
 import java.util.HashMap;
 import java.util.Map;
 
+import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -62,6 +63,7 @@ public final class SnowflakeQueryRunner
             return queryRunner;
         }
         catch (Throwable e) {
+            closeAllSuppress(e, queryRunner);
             throw e;
         }
     }
