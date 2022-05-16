@@ -25,7 +25,7 @@ import static java.util.Objects.requireNonNull;
 public class InListExpression
         extends Expression
 {
-    private final List<Expression> values;
+    private List<Expression> values;
 
     public InListExpression(List<Expression> values)
     {
@@ -48,6 +48,11 @@ public class InListExpression
     public List<Expression> getValues()
     {
         return values;
+    }
+
+    public void setValues(List<Expression> values)
+    {
+        this.values = values;
     }
 
     @Override

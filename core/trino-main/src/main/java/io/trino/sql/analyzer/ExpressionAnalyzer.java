@@ -37,11 +37,14 @@ import io.trino.spi.ErrorCodeSupplier;
 import io.trino.spi.TrinoException;
 import io.trino.spi.TrinoWarning;
 import io.trino.spi.function.OperatorType;
+import io.trino.spi.type.BigintType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalParseResult;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
+import io.trino.spi.type.DoubleType;
+import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimeWithTimeZoneType;
@@ -86,6 +89,7 @@ import io.trino.sql.tree.FieldReference;
 import io.trino.sql.tree.Format;
 import io.trino.sql.tree.FrameBound;
 import io.trino.sql.tree.FunctionCall;
+import io.trino.sql.tree.GenericDataType;
 import io.trino.sql.tree.GenericLiteral;
 import io.trino.sql.tree.GroupingOperation;
 import io.trino.sql.tree.Identifier;
@@ -102,6 +106,7 @@ import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.MeasureDefinition;
 import io.trino.sql.tree.Node;
+import io.trino.sql.tree.NodeLocation;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.NotExpression;
 import io.trino.sql.tree.NullIfExpression;
@@ -758,6 +763,9 @@ public class ExpressionAnalyzer
                 default:
                     throw new UnsupportedOperationException("Unsupported comparison operator: " + node.getOperator());
             }
+            Optional<String> convertedDataType = getConvertedDateType(node.getLeft(), node.getRight(), context);
+            Optional<Expression> convertedExpression = getConvertedExpression(node.getRight(), convertedDataType);
+            convertedExpression.ifPresent(exp -> node.setRight(exp));
             return getOperator(context, node, operatorType, node.getLeft(), node.getRight());
         }
 
@@ -920,6 +928,9 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitArithmeticBinary(ArithmeticBinaryExpression node, StackableAstVisitorContext<Context> context)
         {
+            Optional<String> convertedDataType = getConvertedDateType(node.getLeft(), node.getRight(), context);
+            Optional<Expression> convertedExpression = getConvertedExpression(node.getRight(), convertedDataType);
+            convertedExpression.ifPresent(exp -> node.setRight(exp));
             return getOperator(context, node, OperatorType.valueOf(node.getOperator().name()), node.getLeft(), node.getRight());
         }
 
@@ -2129,6 +2140,10 @@ public class ExpressionAnalyzer
         protected Type visitBetweenPredicate(BetweenPredicate node, StackableAstVisitorContext<Context> context)
         {
             Type valueType = process(node.getValue(), context);
+            Optional<Expression> convertedMinExpression = getConvertedExpression(node.getMin(), getConvertedDateType(node.getValue(), node.getMin(), context));
+            convertedMinExpression.ifPresent(exp -> node.setMin(exp));
+            Optional<Expression> convertedMaxExpression = getConvertedExpression(node.getMax(), getConvertedDateType(node.getValue(), node.getMax(), context));
+            convertedMaxExpression.ifPresent(exp -> node.setMax(exp));
             Type minType = process(node.getMin(), context);
             Type maxType = process(node.getMax(), context);
 
@@ -2234,6 +2249,12 @@ public class ExpressionAnalyzer
 
             if (valueList instanceof InListExpression) {
                 InListExpression inListExpression = (InListExpression) valueList;
+                List<Expression> replacedValueList = new ArrayList<>();
+                for (Expression listValue : inListExpression.getValues()) {
+                    final Optional<Expression> convertedExpression = getConvertedExpression(listValue, getConvertedDateType(value, listValue, context));
+                    convertedExpression.ifPresentOrElse(exp -> replacedValueList.add(exp), () -> replacedValueList.add(listValue));
+                }
+                inListExpression.setValues(replacedValueList);
                 Type type = coerceToSingleType(context,
                         "IN value and list items must be the same type: %s",
                         ImmutableList.<Expression>builder().add(value).addAll(inListExpression.getValues()).build());
@@ -2494,6 +2515,71 @@ public class ExpressionAnalyzer
             else {
                 return setExpressionType(node, BIGINT);
             }
+        }
+
+        private Optional<Expression> getConvertedExpression(Expression expression, Optional<String> dataType)
+        {
+            if (dataType.isPresent()) {
+                return Optional.of(new TryExpression(new Cast(expression, new GenericDataType(new NodeLocation(1, 1), new Identifier(dataType.get()), new ArrayList<>()))));
+            }
+            else {
+                return Optional.ofNullable(null);
+            }
+        }
+
+        private Optional<String> getConvertedDateType(Expression left, Expression right, StackableAstVisitorContext<Context> context)
+        {
+            Type leftType = process(left, context);
+            Type rightType = process(right, context);
+            if (leftType == rightType) {
+                return Optional.ofNullable(null);
+            }
+            Optional<String> typeIntAndVarchar = getDataTypeIntAndVarchar(leftType, rightType);
+            if (typeIntAndVarchar.isPresent()) {
+                return typeIntAndVarchar;
+            }
+            Optional<String> typeBigintAndVarchar = getDataTypeBigintAndVarchar(leftType, rightType);
+            if (typeBigintAndVarchar.isPresent()) {
+                return typeBigintAndVarchar;
+            }
+            Optional<String> typeDoubleAndVarchar = getDataTypeDoubleAndVarchar(leftType, rightType);
+            if (typeDoubleAndVarchar.isPresent()) {
+                return typeDoubleAndVarchar;
+            }
+            return Optional.ofNullable(null);
+        }
+
+        private Optional<String> getDataTypeBigintAndVarchar(Type leftType, Type rightType)
+        {
+            if (leftType instanceof BigintType && rightType instanceof VarcharType) {
+                return Optional.of("bigint");
+            }
+            if (leftType instanceof VarcharType && rightType instanceof BigintType) {
+                return Optional.of("varchar");
+            }
+            return Optional.ofNullable(null);
+        }
+
+        private Optional<String> getDataTypeIntAndVarchar(Type leftType, Type rightType)
+        {
+            if (leftType instanceof IntegerType && rightType instanceof VarcharType) {
+                return Optional.of("integer");
+            }
+            if (leftType instanceof VarcharType && rightType instanceof IntegerType) {
+                return Optional.of("varchar");
+            }
+            return Optional.ofNullable(null);
+        }
+
+        private Optional<String> getDataTypeDoubleAndVarchar(Type leftType, Type rightType)
+        {
+            if (leftType instanceof DoubleType && rightType instanceof VarcharType) {
+                return Optional.of("double");
+            }
+            if (leftType instanceof VarcharType && rightType instanceof DoubleType) {
+                return Optional.of("varchar");
+            }
+            return Optional.ofNullable(null);
         }
 
         private Type getOperator(StackableAstVisitorContext<Context> context, Expression node, OperatorType operatorType, Expression... arguments)

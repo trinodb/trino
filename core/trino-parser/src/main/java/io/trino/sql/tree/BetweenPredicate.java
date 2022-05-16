@@ -25,8 +25,8 @@ public class BetweenPredicate
         extends Expression
 {
     private final Expression value;
-    private final Expression min;
-    private final Expression max;
+    private Expression min;
+    private Expression max;
 
     public BetweenPredicate(Expression value, Expression min, Expression max)
     {
@@ -60,9 +60,19 @@ public class BetweenPredicate
         return min;
     }
 
+    public void setMin(Expression min)
+    {
+        this.min = min;
+    }
+
     public Expression getMax()
     {
         return max;
+    }
+
+    public void setMax(Expression max)
+    {
+        this.max = max;
     }
 
     @Override
