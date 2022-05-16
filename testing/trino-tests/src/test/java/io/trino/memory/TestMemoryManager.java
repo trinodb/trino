@@ -116,7 +116,7 @@ public class TestMemoryManager
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("query.low-memory-killer.delay", "5s")
-                .put("query.low-memory-query-killer.policy", "total-reservation")
+                .put("query.low-memory-killer.policy", "total-reservation")
                 .buildOrThrow();
 
         try (DistributedQueryRunner queryRunner = createQueryRunner(TINY_SESSION, properties)) {

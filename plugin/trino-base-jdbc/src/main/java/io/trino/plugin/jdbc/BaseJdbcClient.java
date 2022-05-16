@@ -511,10 +511,12 @@ public abstract class BaseJdbcClient
             String remoteTargetTableName = identifierMapping.toRemoteTableName(identity, connection, remoteSchema, targetTableName);
             String catalog = connection.getCatalog();
 
-            ImmutableList.Builder<String> columnNames = ImmutableList.builder();
-            ImmutableList.Builder<Type> columnTypes = ImmutableList.builder();
-            ImmutableList.Builder<String> columnList = ImmutableList.builder();
-            for (ColumnMetadata column : tableMetadata.getColumns()) {
+            List<ColumnMetadata> columns = tableMetadata.getColumns();
+            ImmutableList.Builder<String> columnNames = ImmutableList.builderWithExpectedSize(columns.size());
+            ImmutableList.Builder<Type> columnTypes = ImmutableList.builderWithExpectedSize(columns.size());
+            ImmutableList.Builder<String> columnList = ImmutableList.builderWithExpectedSize(columns.size());
+
+            for (ColumnMetadata column : columns) {
                 String columnName = identifierMapping.toRemoteColumnName(connection, column.getName());
                 columnNames.add(columnName);
                 columnTypes.add(column.getType());

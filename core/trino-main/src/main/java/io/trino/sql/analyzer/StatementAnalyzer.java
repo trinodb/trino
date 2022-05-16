@@ -77,6 +77,7 @@ import io.trino.spi.ptf.ReturnTypeSpecification.DescribedTable;
 import io.trino.spi.ptf.ScalarArgument;
 import io.trino.spi.ptf.ScalarArgumentSpecification;
 import io.trino.spi.ptf.TableArgumentSpecification;
+import io.trino.spi.ptf.TableFunctionAnalysis;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.GroupProvider;
 import io.trino.spi.security.Identity;
@@ -1488,7 +1489,7 @@ class StatementAnalyzer
             ConnectorTransactionHandle transactionHandle = transactionManager.getConnectorTransaction(
                     session.getRequiredTransactionId(),
                     getRequiredCatalogHandle(metadata, session, node, catalogName.getCatalogName()));
-            ConnectorTableFunction.Analysis functionAnalysis = function.analyze(session.toConnectorSession(catalogName), transactionHandle, passedArguments);
+            TableFunctionAnalysis functionAnalysis = function.analyze(session.toConnectorSession(catalogName), transactionHandle, passedArguments);
             analysis.setTableFunctionAnalysis(node, new TableFunctionInvocationAnalysis(catalogName, functionName.toString(), passedArguments, functionAnalysis.getHandle(), transactionHandle));
 
             // TODO handle the DescriptorMapping descriptorsToTables mapping from the TableFunction.Analysis:
@@ -1501,7 +1502,7 @@ class StatementAnalyzer
             // 4. at this point, the Identifier should be recorded as a column reference to the appropriate table
             // 5. record the mapping NameAndPosition -> Identifier
             // ... later translate Identifier to Symbol in Planner, and eventually translate it to channel before execution
-            if (!functionAnalysis.getDescriptorsToTables().isEmpty()) {
+            if (!functionAnalysis.getDescriptorMapping().isEmpty()) {
                 throw semanticException(NOT_SUPPORTED, node, "Table arguments are not yet supported for table functions");
             }
 
