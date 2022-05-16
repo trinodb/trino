@@ -688,6 +688,26 @@ public abstract class AbstractTestHiveViews
         onHive().executeQuery("DROP VIEW test_namesake_column_names_view");
     }
 
+    @Test(groups = HIVE_VIEWS)
+    public void testRunAsInvoker()
+    {
+        onTrino().executeQuery("DROP TABLE IF EXISTS run_as_invoker");
+        onTrino().executeQuery("DROP VIEW IF EXISTS run_as_invoker_view");
+
+        onTrino().executeQuery("CREATE TABLE run_as_invoker (a INTEGER)");
+        onHive().executeQuery("CREATE VIEW run_as_invoker_view AS SELECT * FROM run_as_invoker");
+        onTrino().executeQuery("GRANT SELECT ON hive_with_run_view_as_invoker.default.run_as_invoker_view TO hive");
+
+        String definerQuery = "SELECT * FROM hive.default.run_as_invoker_view";
+        String invokerQuery = "SELECT * FROM hive_with_run_view_as_invoker.default.run_as_invoker_view";
+        assertThat(connectToTrino("alice@presto").executeQuery(definerQuery)).hasNoRows(); // Allowed
+        assertThatThrownBy(() -> connectToTrino("alice@presto").executeQuery(invokerQuery))
+                .hasMessageContaining("Access Denied");
+
+        onHive().executeQuery("DROP VIEW run_as_invoker_view");
+        onTrino().executeQuery("DROP TABLE run_as_invoker");
+    }
+
     protected static void assertViewQuery(String query, Consumer<QueryAssert> assertion)
     {
         // Ensure Hive and Presto view compatibility by comparing the results
