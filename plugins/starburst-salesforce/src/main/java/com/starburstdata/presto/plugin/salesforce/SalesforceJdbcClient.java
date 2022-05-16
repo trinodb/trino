@@ -233,8 +233,8 @@ public class SalesforceJdbcClient
         // For CTAS the table name and columns do not end with __c and we must append it to make Salesforce happy
         // For normal INSERTs the names already have __c
         String tableName;
-        if (handle.getTemporaryTableName().endsWith("__c")) {
-            tableName = quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTemporaryTableName());
+        if (handle.getTemporaryTableName().orElseGet(handle::getTableName).endsWith("__c")) {
+            tableName = quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTemporaryTableName().orElseGet(handle::getTableName));
         }
         else {
             tableName = quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTemporaryTableName() + "__c");
