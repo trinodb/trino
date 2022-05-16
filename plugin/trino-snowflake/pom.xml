@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>375-SNAPSHOT</version>
+        <version>381-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -15,8 +15,6 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <dep.log4j.version>2.17.0</dep.log4j.version>
-        <maven.gitcommitid.skip>true</maven.gitcommitid.skip>
     </properties>
 
     <dependencies>
