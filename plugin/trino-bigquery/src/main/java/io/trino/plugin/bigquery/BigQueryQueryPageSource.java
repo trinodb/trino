@@ -15,6 +15,7 @@ package io.trino.plugin.bigquery;
 
 import com.google.cloud.bigquery.FieldValue;
 import com.google.cloud.bigquery.FieldValueList;
+import com.google.cloud.bigquery.JobInfo.CreateDisposition;
 import com.google.cloud.bigquery.TableId;
 import com.google.cloud.bigquery.TableResult;
 import com.google.common.collect.ImmutableList;
@@ -83,7 +84,9 @@ public class BigQueryQueryPageSource
             BigQueryTableHandle table,
             List<String> columnNames,
             List<Type> columnTypes,
-            Optional<String> filter)
+            Optional<String> filter,
+            boolean useQueryResultsCache,
+            CreateDisposition createDisposition)
     {
         requireNonNull(client, "client is null");
         requireNonNull(table, "table is null");
@@ -94,7 +97,7 @@ public class BigQueryQueryPageSource
         this.columnTypes = ImmutableList.copyOf(columnTypes);
         this.pageBuilder = new PageBuilder(columnTypes);
         TableId tableId = TableId.of(client.getProjectId(), table.getRemoteTableName().getDatasetName(), table.getRemoteTableName().getTableName());
-        this.tableResult = client.query(tableId, ImmutableList.copyOf(columnNames), filter);
+        this.tableResult = client.query(tableId, ImmutableList.copyOf(columnNames), filter, useQueryResultsCache, createDisposition);
     }
 
     @Override

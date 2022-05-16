@@ -20,6 +20,7 @@ import com.google.cloud.bigquery.DatasetId;
 import com.google.cloud.bigquery.DatasetInfo;
 import com.google.cloud.bigquery.Job;
 import com.google.cloud.bigquery.JobInfo;
+import com.google.cloud.bigquery.JobInfo.CreateDisposition;
 import com.google.cloud.bigquery.QueryJobConfiguration;
 import com.google.cloud.bigquery.Schema;
 import com.google.cloud.bigquery.Table;
@@ -208,10 +209,13 @@ public class BigQueryClient
         return bigQuery.create(jobInfo);
     }
 
-    public TableResult query(String sql)
+    public TableResult query(String sql, boolean useQueryResultsCache, CreateDisposition createDisposition)
     {
         try {
-            return bigQuery.query(QueryJobConfiguration.of(sql));
+            return bigQuery.query(QueryJobConfiguration.newBuilder(sql)
+                    .setUseQueryCache(useQueryResultsCache)
+                    .setCreateDisposition(createDisposition)
+                    .build());
         }
         catch (InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -219,12 +223,15 @@ public class BigQueryClient
         }
     }
 
-    public TableResult query(TableId table, List<String> requiredColumns, Optional<String> filter)
+    public TableResult query(TableId table, List<String> requiredColumns, Optional<String> filter, boolean useQueryResultsCache, CreateDisposition createDisposition)
     {
         String sql = selectSql(table, requiredColumns, filter);
         log.debug("Execute query: %s", sql);
         try {
-            return bigQuery.query(QueryJobConfiguration.of(sql));
+            return bigQuery.query(QueryJobConfiguration.newBuilder(sql)
+                    .setUseQueryCache(useQueryResultsCache)
+                    .setCreateDisposition(createDisposition)
+                    .build());
         }
         catch (InterruptedException e) {
             Thread.currentThread().interrupt();
