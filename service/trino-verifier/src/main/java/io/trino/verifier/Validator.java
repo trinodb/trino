@@ -716,7 +716,7 @@ public class Validator
             if (a.getClass() != b.getClass()) {
                 throw new TypesDoNotMatchException(format("item types do not match: %s vs %s", a.getClass().getName(), b.getClass().getName()));
             }
-            if ((a.getClass().isArray() && b.getClass().isArray())) {
+            if (a.getClass().isArray()) {
                 Object[] aArray = (Object[]) a;
                 Object[] bArray = (Object[]) b;
 
