@@ -25,8 +25,10 @@ import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.FileSystemCache;
 import org.apache.hadoop.fs.FilterFileSystem;
+import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Options;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.RemoteIterator;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.security.UserGroupInformation.AuthenticationMethod;
@@ -374,6 +376,14 @@ public class TrinoFileSystemCache
                 throws IOException
         {
             return fs.getFileBlockLocations(p, start, len);
+        }
+
+        // missing in FilterFileSystem
+        @Override
+        public RemoteIterator<LocatedFileStatus> listFiles(Path path, boolean recursive)
+                throws IOException
+        {
+            return fs.listFiles(path, recursive);
         }
     }
 

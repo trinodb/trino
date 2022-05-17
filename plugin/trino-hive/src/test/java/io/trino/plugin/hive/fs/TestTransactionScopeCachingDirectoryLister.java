@@ -187,6 +187,14 @@ public class TestTransactionScopeCachingDirectoryLister
             return throwingRemoteIterator(requireNonNull(fileStatuses.get(path)), throwException);
         }
 
+        @Override
+        public RemoteIterator<LocatedFileStatus> listFilesRecursively(FileSystem fs, Table table, Path path)
+                throws IOException
+        {
+            // No specific recursive files-only listing implementation
+            return list(fs, table, path);
+        }
+
         public void setThrowException(boolean throwException)
         {
             this.throwException = throwException;
