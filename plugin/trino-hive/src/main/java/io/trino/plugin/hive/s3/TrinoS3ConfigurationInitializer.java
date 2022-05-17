@@ -29,6 +29,7 @@ import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_CONNECT_TIMEOUT;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_ENCRYPTION_MATERIALS_PROVIDER;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_ENDPOINT;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_EXTERNAL_ID;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_HTTP_HEADERS_USER_IDENTITY_ENABLED;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_IAM_ROLE;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_KMS_KEY_ID;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_MAX_BACKOFF_TIME;
@@ -63,7 +64,6 @@ import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_STREAMING_UPLOAD_ENAB
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_STREAMING_UPLOAD_PART_SIZE;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_STS_ENDPOINT;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_STS_REGION;
-import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_HTTP_HEADERS_USER_IDENTITY_ENABLED;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_USER_AGENT_PREFIX;
 import static java.util.stream.Collectors.joining;
 
