@@ -27,4 +27,7 @@ public interface DirectoryLister
 {
     RemoteIterator<LocatedFileStatus> list(FileSystem fs, Table table, Path path)
             throws IOException;
+
+    RemoteIterator<LocatedFileStatus> listFilesRecursively(FileSystem fs, Table table, Path path)
+            throws IOException;
 }
