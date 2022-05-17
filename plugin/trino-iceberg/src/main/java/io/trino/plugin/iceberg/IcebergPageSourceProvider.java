@@ -220,7 +220,6 @@ public class IcebergPageSourceProvider
             List<ColumnHandle> columns,
             DynamicFilter dynamicFilter)
     {
-        IcebergSplit split = (IcebergSplit) connectorSplit;
         IcebergTableHandle table = (IcebergTableHandle) connectorTable;
 
         List<IcebergColumnHandle> icebergColumns = columns.stream()
@@ -229,8 +228,43 @@ public class IcebergPageSourceProvider
 
         HdfsContext hdfsContext = new HdfsContext(session);
         FileIO fileIO = fileIoProvider.createFileIo(hdfsContext, session.getQueryId());
-        FileScanTask dummyFileScanTask = new DummyFileScanTask(split.getPath(), split.getDeletes());
         Schema tableSchema = SchemaParser.fromJson(table.getTableSchemaJson());
+        Optional<NameMapping> nameMapping = table.getNameMappingJson().map(NameMappingParser::fromJson);
+
+        TupleDomain<IcebergColumnHandle> effectivePredicate = table.getUnenforcedPredicate()
+                .intersect(dynamicFilter.getCurrentPredicate().transformKeys(IcebergColumnHandle.class::cast))
+                .simplify(ICEBERG_DOMAIN_COMPACTION_THRESHOLD);
+        if (effectivePredicate.isNone()) {
+            return new EmptyPageSource();
+        }
+
+        if (connectorSplit instanceof CombinedIcebergSplit) {
+            CombinedIcebergSplit icebergSplit = (CombinedIcebergSplit) connectorSplit;
+            return new IcebergCombinedPageSource(
+                    icebergSplit.getEntries().stream()
+                            .map(entry -> createIcebergPageSource(session, table, entry, tableSchema, hdfsContext, fileIO, icebergColumns, nameMapping, effectivePredicate))
+                            .collect(toImmutableList()));
+        }
+        else if (connectorSplit instanceof IcebergSplit) {
+            return createIcebergPageSource(session, table, (IcebergSplit) connectorSplit, tableSchema, hdfsContext, fileIO, icebergColumns, nameMapping, effectivePredicate);
+        }
+        else {
+            throw new IllegalStateException("Unknown ConnectorSplit type passed to IcebergPageSourceProvider: " + connectorSplit);
+        }
+    }
+
+    private IcebergPageSource createIcebergPageSource(
+            ConnectorSession session,
+            IcebergTableHandle table,
+            IcebergSplit split,
+            Schema tableSchema,
+            HdfsContext hdfsContext,
+            FileIO fileIO,
+            List<IcebergColumnHandle> columns,
+            Optional<NameMapping> nameMapping,
+            TupleDomain<IcebergColumnHandle> effectivePredicate)
+    {
+        FileScanTask dummyFileScanTask = new DummyFileScanTask(split.getPath(), split.getDeletes());
         // Creating a DeleteFilter with no requestedSchema ensures `deleteFilterRequiredSchema` is only columns needed by the filter.
         List<IcebergColumnHandle> deleteFilterRequiredSchema = getColumns(new TrinoDeleteFilter(
                         dummyFileScanTask,
@@ -247,11 +281,11 @@ public class IcebergPageSourceProvider
         PartitionData partitionData = PartitionData.fromJson(split.getPartitionDataJson(), partitionColumnTypes);
         Map<Integer, Optional<String>> partitionKeys = getPartitionKeys(partitionData, partitionSpec);
 
-        List<IcebergColumnHandle> requiredColumns = new ArrayList<>(icebergColumns);
+        List<IcebergColumnHandle> requiredColumns = new ArrayList<>(columns);
         deleteFilterRequiredSchema.stream()
-                .filter(column -> !icebergColumns.contains(column))
+                .filter(column -> !columns.contains(column))
                 .forEach(requiredColumns::add);
-        icebergColumns.stream()
+        columns.stream()
                 .filter(IcebergColumnHandle::isUpdateRowIdColumn)
                 .findFirst().ifPresent(updateRowIdColumn -> {
                     Set<Integer> alreadyRequiredColumnIds = requiredColumns.stream()
@@ -269,13 +303,6 @@ public class IcebergPageSourceProvider
                     }
                 });
 
-        TupleDomain<IcebergColumnHandle> effectivePredicate = table.getUnenforcedPredicate()
-                .intersect(dynamicFilter.getCurrentPredicate().transformKeys(IcebergColumnHandle.class::cast))
-                .simplify(ICEBERG_DOMAIN_COMPACTION_THRESHOLD);
-        if (effectivePredicate.isNone()) {
-            return new EmptyPageSource();
-        }
-
         ReaderPageSource dataPageSource = createDataPageSource(
                 session,
                 hdfsContext,
@@ -286,7 +313,7 @@ public class IcebergPageSourceProvider
                 split.getFileFormat(),
                 requiredColumns,
                 effectivePredicate,
-                table.getNameMappingJson().map(NameMappingParser::fromJson),
+                nameMapping,
                 partitionKeys);
 
         Optional<ReaderProjectionsAdapter> projectionsAdapter = dataPageSource.getReaderColumns().map(readerColumns ->
@@ -338,7 +365,7 @@ public class IcebergPageSourceProvider
 
         return new IcebergPageSource(
                 tableSchema,
-                icebergColumns,
+                columns,
                 requiredColumns,
                 readColumns,
                 dataPageSource.get(),

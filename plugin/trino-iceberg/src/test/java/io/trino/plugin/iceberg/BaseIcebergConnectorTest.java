@@ -2368,12 +2368,12 @@ public abstract class BaseIcebergConnectorTest
         // sanity check that table contains exactly 5 files
         assertThat(query("SELECT count(*) FROM \"" + tableName + "$files\"")).matches("VALUES CAST(5 AS BIGINT)");
 
-        verifySplitCount("SELECT * FROM " + tableName, 5);
-        verifySplitCount("SELECT * FROM " + tableName + " WHERE regionkey = 3", 1);
-        verifySplitCount("SELECT * FROM " + tableName + " WHERE regionkey < 2", 2);
-        verifySplitCount("SELECT * FROM " + tableName + " WHERE regionkey < 0", 0);
-        verifySplitCount("SELECT * FROM " + tableName + " WHERE regionkey > 1 AND regionkey < 4", 2);
-        verifySplitCount("SELECT * FROM " + tableName + " WHERE regionkey % 5 = 3", 1);
+        verifyInputRowCount("SELECT * FROM " + tableName, 25);
+        verifyInputRowCount("SELECT * FROM " + tableName + " WHERE regionkey = 3", "SELECT count(*) FROM nation WHERE regionkey = 3");
+        verifyInputRowCount("SELECT * FROM " + tableName + " WHERE regionkey < 2", "SELECT count(*) FROM nation WHERE regionkey < 2");
+        verifyInputRowCount("SELECT * FROM " + tableName + " WHERE regionkey < 0", "SELECT count(*) FROM nation WHERE regionkey < 0");
+        verifyInputRowCount("SELECT * FROM " + tableName + " WHERE regionkey > 1 AND regionkey < 4", "SELECT count(*) FROM nation WHERE regionkey > 1 AND regionkey < 4");
+        verifyInputRowCount("SELECT * FROM " + tableName + " WHERE regionkey % 5 = 3", "SELECT count(*) FROM nation WHERE regionkey % 5 = 3");
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -2719,17 +2719,17 @@ public abstract class BaseIcebergConnectorTest
             assertUpdate("INSERT INTO " + tableName + " VALUES (2, " + highValue + ")", 1);
             assertQuery("select count(*) from \"" + tableName + "$files\"", "VALUES 2");
 
-            int expectedSplitCount = supportsIcebergFileStatistics(testSetup.getTrinoTypeName()) ? 1 : 2;
-            verifySplitCount("SELECT row_id FROM " + tableName, 2);
-            verifySplitCount("SELECT row_id FROM " + tableName + " WHERE col = " + sampleValue, expectedSplitCount);
-            verifySplitCount("SELECT row_id FROM " + tableName + " WHERE col = " + highValue, expectedSplitCount);
+            if (supportsIcebergFileStatistics(testSetup.getTrinoTypeName())) {
+                verifyFilteringOccurs("SELECT row_id FROM " + tableName + " WHERE col = " + sampleValue);
+                verifyFilteringOccurs("SELECT row_id FROM " + tableName + " WHERE col = " + highValue);
 
-            // ORC max timestamp statistics are truncated to millisecond precision and then appended with 999 microseconds.
-            // Therefore, sampleValue and highValue are within the max timestamp & there will be 2 splits.
-            verifySplitCount("SELECT row_id FROM " + tableName + " WHERE col > " + sampleValue,
-                    (format == ORC && testSetup.getTrinoTypeName().contains("timestamp") ? 2 : expectedSplitCount));
-            verifySplitCount("SELECT row_id FROM " + tableName + " WHERE col < " + highValue,
-                    (format == ORC && testSetup.getTrinoTypeName().contains("timestamp") ? 2 : expectedSplitCount));
+                if (format != ORC || !testSetup.getTrinoTypeName().contains("timestamp")) {
+                    // ORC max timestamp statistics are truncated to millisecond precision and then appended with 999 microseconds.
+                    // Therefore, sampleValue and highValue are within the max timestamp & there will be 2 splits.
+                    verifyFilteringOccurs("SELECT row_id FROM " + tableName + " WHERE col > " + sampleValue);
+                    verifyFilteringOccurs("SELECT row_id FROM " + tableName + " WHERE col < " + highValue);
+                }
+            }
         }
     }
 
@@ -2773,11 +2773,26 @@ public abstract class BaseIcebergConnectorTest
 
     protected abstract boolean supportsRowGroupStatistics(String typeName);
 
-    private void verifySplitCount(String query, int expectedSplitCount)
+    private void verifyFilteringOccurs(String query)
     {
         ResultWithQueryId<MaterializedResult> selectAllPartitionsResult = getDistributedQueryRunner().executeWithQueryId(getSession(), query);
-        assertEqualsIgnoreOrder(selectAllPartitionsResult.getResult().getMaterializedRows(), computeActual(withoutPredicatePushdown(getSession()), query).getMaterializedRows());
-        verifySplitCount(selectAllPartitionsResult.getQueryId(), expectedSplitCount);
+        ResultWithQueryId<MaterializedResult> withoutPushdown = getDistributedQueryRunner().executeWithQueryId(withoutPredicatePushdown(getSession()), query);
+        assertEqualsIgnoreOrder(selectAllPartitionsResult.getResult().getMaterializedRows(), withoutPushdown.getResult().getMaterializedRows());
+        assertThat(getOperatorStats(selectAllPartitionsResult.getQueryId()).getPhysicalInputPositions())
+                .isLessThan(getOperatorStats(withoutPushdown.getQueryId()).getPhysicalInputPositions());
+    }
+
+    private void verifyInputRowCount(String query, String expectedRowsReadQuery)
+    {
+        verifyInputRowCount(query, (Long) computeActual(expectedRowsReadQuery).getOnlyValue());
+    }
+
+    private void verifyInputRowCount(String query, long expectedRowsRead)
+    {
+        ResultWithQueryId<MaterializedResult> selectAllPartitionsResult = getDistributedQueryRunner().executeWithQueryId(getSession(), query);
+        ResultWithQueryId<MaterializedResult> withoutPushdown = getDistributedQueryRunner().executeWithQueryId(withoutPredicatePushdown(getSession()), query);
+        assertEqualsIgnoreOrder(selectAllPartitionsResult.getResult().getMaterializedRows(), withoutPushdown.getResult().getMaterializedRows());
+        assertThat(getOperatorStats(selectAllPartitionsResult.getQueryId()).getPhysicalInputPositions()).isEqualTo(expectedRowsRead);
     }
 
     private void verifyPredicatePushdownDataRead(@Language("SQL") String query, boolean supportsPushdown)
@@ -2802,21 +2817,6 @@ public abstract class BaseIcebergConnectorTest
         return Session.builder(session)
                 .setSystemProperty("allow_pushdown_into_connectors", "false")
                 .build();
-    }
-
-    private void verifySplitCount(QueryId queryId, long expectedSplitCount)
-    {
-        checkArgument(expectedSplitCount >= 0);
-        OperatorStats operatorStats = getOperatorStats(queryId);
-        if (expectedSplitCount > 0) {
-            assertThat(operatorStats.getTotalDrivers()).isEqualTo(expectedSplitCount);
-            assertThat(operatorStats.getPhysicalInputPositions()).isGreaterThan(0);
-        }
-        else {
-            // expectedSplitCount == 0
-            assertThat(operatorStats.getTotalDrivers()).isEqualTo(1);
-            assertThat(operatorStats.getPhysicalInputPositions()).isEqualTo(0);
-        }
     }
 
     private OperatorStats getOperatorStats(QueryId queryId)

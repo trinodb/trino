@@ -153,7 +153,7 @@ public class TestIcebergNodeLocalDynamicSplitPruning
 
     private static ConnectorPageSource createTestingPageSource(HiveTransactionHandle transaction, IcebergConfig icebergConfig, HiveConfig hiveConfig, File outputFile, DynamicFilter dynamicFilter)
     {
-        IcebergSplit split = new IcebergSplit(
+        CombinedIcebergSplit split = new CombinedIcebergSplit(ImmutableList.of(new IcebergSplit(
                 "file:///" + outputFile.getAbsolutePath(),
                 0,
                 outputFile.length(),
@@ -163,7 +163,7 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                 ImmutableList.of(),
                 PartitionSpecParser.toJson(PartitionSpec.unpartitioned()),
                 PartitionData.toJson(new PartitionData(new Object[] {})),
-                ImmutableList.of());
+                ImmutableList.of())));
 
         TableHandle tableHandle = new TableHandle(
                 new CatalogName(ICEBERG_CATALOG_NAME),
@@ -182,6 +182,7 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                         outputFile.getParentFile().getAbsolutePath(),
                         ImmutableMap.of(),
                         RetryMode.NO_RETRIES,
+                        false,
                         ImmutableList.of()),
                 transaction);
 

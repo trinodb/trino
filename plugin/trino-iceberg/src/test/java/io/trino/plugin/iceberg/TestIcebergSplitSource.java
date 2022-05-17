@@ -137,6 +137,7 @@ public class TestIcebergSplitSource
                 nationTable.location(),
                 nationTable.properties(),
                 NO_RETRIES,
+                false,
                 ImmutableList.of());
 
         IcebergSplitSource splitSource = new IcebergSplitSource(
@@ -192,7 +193,8 @@ public class TestIcebergSplitSource
             splitSource.getNextBatch(null, 100).get()
                     .getSplits()
                     .stream()
-                    .map(IcebergSplit.class::cast)
+                    .map(CombinedIcebergSplit.class::cast)
+                    .flatMap(split -> split.getEntries().stream())
                     .forEach(splits::add);
         }
         assertThat(splits.build().size()).isGreaterThan(0);

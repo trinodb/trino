@@ -47,6 +47,7 @@ public class IcebergTableHandle
     private final String tableLocation;
     private final Map<String, String> storageProperties;
     private final RetryMode retryMode;
+    private final boolean isUpdateOrDelete;
 
     // UPDATE only
     private final List<IcebergColumnHandle> updatedColumns;
@@ -80,6 +81,7 @@ public class IcebergTableHandle
             @JsonProperty("tableLocation") String tableLocation,
             @JsonProperty("storageProperties") Map<String, String> storageProperties,
             @JsonProperty("retryMode") RetryMode retryMode,
+            @JsonProperty("isUpdateOrDelete") boolean isUpdateOrDelete,
             @JsonProperty("updatedColumns") List<IcebergColumnHandle> updatedColumns)
     {
         this(
@@ -97,6 +99,7 @@ public class IcebergTableHandle
                 tableLocation,
                 storageProperties,
                 retryMode,
+                isUpdateOrDelete,
                 updatedColumns,
                 false,
                 Optional.empty());
@@ -117,6 +120,7 @@ public class IcebergTableHandle
             String tableLocation,
             Map<String, String> storageProperties,
             RetryMode retryMode,
+            boolean isUpdateOrDelete,
             List<IcebergColumnHandle> updatedColumns,
             boolean recordScannedFiles,
             Optional<DataSize> maxScannedFileSize)
@@ -135,6 +139,7 @@ public class IcebergTableHandle
         this.tableLocation = requireNonNull(tableLocation, "tableLocation is null");
         this.storageProperties = ImmutableMap.copyOf(requireNonNull(storageProperties, "storageProperties is null"));
         this.retryMode = requireNonNull(retryMode, "retryMode is null");
+        this.isUpdateOrDelete = isUpdateOrDelete;
         this.updatedColumns = ImmutableList.copyOf(requireNonNull(updatedColumns, "updatedColumns is null"));
         this.recordScannedFiles = recordScannedFiles;
         this.maxScannedFileSize = requireNonNull(maxScannedFileSize, "maxScannedFileSize is null");
@@ -225,6 +230,12 @@ public class IcebergTableHandle
     }
 
     @JsonProperty
+    public boolean isUpdateOrDelete()
+    {
+        return isUpdateOrDelete;
+    }
+
+    @JsonProperty
     public List<IcebergColumnHandle> getUpdatedColumns()
     {
         return updatedColumns;
@@ -269,6 +280,7 @@ public class IcebergTableHandle
                 tableLocation,
                 storageProperties,
                 retryMode,
+                isUpdateOrDelete,
                 updatedColumns,
                 recordScannedFiles,
                 maxScannedFileSize);
@@ -291,6 +303,7 @@ public class IcebergTableHandle
                 tableLocation,
                 storageProperties,
                 retryMode,
+                isUpdateOrDelete,
                 updatedColumns,
                 recordScannedFiles,
                 maxScannedFileSize);
@@ -313,6 +326,7 @@ public class IcebergTableHandle
                 tableLocation,
                 storageProperties,
                 retryMode,
+                isUpdateOrDelete,
                 updatedColumns,
                 recordScannedFiles,
                 maxScannedFileSize);
@@ -335,9 +349,33 @@ public class IcebergTableHandle
                 tableLocation,
                 storageProperties,
                 retryMode,
+                isUpdateOrDelete,
                 updatedColumns,
                 recordScannedFiles,
                 Optional.of(maxScannedFileSize));
+    }
+
+    public IcebergTableHandle forUpdateOrDelete()
+    {
+        return new IcebergTableHandle(
+                schemaName,
+                tableName,
+                tableType,
+                snapshotId,
+                tableSchemaJson,
+                partitionSpecJson,
+                formatVersion,
+                unenforcedPredicate,
+                enforcedPredicate,
+                projectedColumns,
+                nameMappingJson,
+                tableLocation,
+                storageProperties,
+                retryMode,
+                true,
+                updatedColumns,
+                recordScannedFiles,
+                maxScannedFileSize);
     }
 
     @Override
@@ -365,6 +403,7 @@ public class IcebergTableHandle
                 Objects.equals(nameMappingJson, that.nameMappingJson) &&
                 Objects.equals(tableLocation, that.tableLocation) &&
                 Objects.equals(retryMode, that.retryMode) &&
+                isUpdateOrDelete == that.isUpdateOrDelete &&
                 Objects.equals(updatedColumns, that.updatedColumns) &&
                 Objects.equals(storageProperties, that.storageProperties) &&
                 Objects.equals(maxScannedFileSize, that.maxScannedFileSize);
@@ -374,7 +413,7 @@ public class IcebergTableHandle
     public int hashCode()
     {
         return Objects.hash(schemaName, tableName, tableType, snapshotId, tableSchemaJson, partitionSpecJson, formatVersion, unenforcedPredicate, enforcedPredicate,
-                projectedColumns, nameMappingJson, tableLocation, storageProperties, retryMode, updatedColumns, recordScannedFiles, maxScannedFileSize);
+                projectedColumns, nameMappingJson, tableLocation, storageProperties, retryMode, isUpdateOrDelete, updatedColumns, recordScannedFiles, maxScannedFileSize);
     }
 
     @Override

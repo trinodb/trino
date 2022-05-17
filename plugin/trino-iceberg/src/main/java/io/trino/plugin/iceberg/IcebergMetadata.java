@@ -297,6 +297,7 @@ public class IcebergMetadata
                 table.location(),
                 table.properties(),
                 NO_RETRIES,
+                false,
                 ImmutableList.of());
     }
 
@@ -1338,7 +1339,7 @@ public class IcebergMetadata
         }
         verify(transaction == null, "transaction already set");
         transaction = catalog.loadTable(session, table.getSchemaTableName()).newTransaction();
-        return table.withRetryMode(retryMode);
+        return table.withRetryMode(retryMode).forUpdateOrDelete();
     }
 
     @Override
@@ -1363,6 +1364,7 @@ public class IcebergMetadata
         verify(transaction == null, "transaction already set");
         transaction = catalog.loadTable(session, table.getSchemaTableName()).newTransaction();
         return table.withRetryMode(retryMode)
+                .forUpdateOrDelete()
                 .withUpdatedColumns(updatedColumns.stream()
                         .map(IcebergColumnHandle.class::cast)
                         .collect(toImmutableList()));
@@ -1660,6 +1662,7 @@ public class IcebergMetadata
                         table.getTableLocation(),
                         table.getStorageProperties(),
                         table.getRetryMode(),
+                        table.isUpdateOrDelete(),
                         table.getUpdatedColumns()),
                 remainingConstraint.transformKeys(ColumnHandle.class::cast),
                 false));
