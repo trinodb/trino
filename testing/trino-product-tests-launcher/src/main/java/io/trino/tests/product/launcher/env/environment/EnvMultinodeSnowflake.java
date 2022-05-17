@@ -25,16 +25,16 @@ import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
 @TestsEnvironment
-public class EnvSinglenodeSnowflake
+public class EnvMultinodeSnowflake
         extends EnvironmentProvider
 {
     private final DockerFiles.ResourceProvider configDir;
 
     @Inject
-    public EnvSinglenodeSnowflake(DockerFiles dockerFiles, Standard standard)
+    public EnvMultinodeSnowflake(DockerFiles dockerFiles, Standard standard)
     {
         super(standard);
-        configDir = requireNonNull(dockerFiles, "dockerFiles is null").getDockerFilesHostDirectory("conf/environment/singlenode-snowflake");
+        configDir = requireNonNull(dockerFiles, "dockerFiles is null").getDockerFilesHostDirectory("conf/environment/multinode-snowflake");
     }
 
     @Override
