@@ -248,6 +248,9 @@ configure processing of Parquet files.
     * - ``parquet_writer_page_size``
       - The maximum page size created by the Parquet writer.
       - ``1MB``
+    * - ``parquet_writer_batch_size``
+      - Maximum number of rows processed by the parquet writer in a batch.
+      - ``10000``
 
 .. _delta-lake-authorization:
 
