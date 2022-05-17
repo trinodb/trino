@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hive.fs;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.AbstractIterator;
 import io.airlift.stats.TimeStat;
 import io.trino.plugin.hive.NamenodeStats;
@@ -25,14 +26,15 @@ import org.apache.hadoop.fs.RemoteIterator;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.util.ArrayDeque;
-import java.util.Deque;
 import java.util.Iterator;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_FILE_NOT_FOUND;
+import static io.trino.plugin.hive.fs.HiveFileIterator.NestedDirectoryPolicy.RECURSE;
 import static java.util.Collections.emptyIterator;
 import static java.util.Objects.requireNonNull;
+import static org.apache.hadoop.fs.Path.SEPARATOR_CHAR;
 
 public class HiveFileIterator
         extends AbstractIterator<LocatedFileStatus>
@@ -44,15 +46,14 @@ public class HiveFileIterator
         FAIL
     }
 
-    private final Deque<Path> paths = new ArrayDeque<>();
+    private final String pathPrefix;
     private final Table table;
     private final FileSystem fileSystem;
     private final DirectoryLister directoryLister;
     private final NamenodeStats namenodeStats;
     private final NestedDirectoryPolicy nestedDirectoryPolicy;
     private final boolean ignoreAbsentPartitions;
-
-    private Iterator<LocatedFileStatus> remoteIterator = emptyIterator();
+    private final Iterator<LocatedFileStatus> remoteIterator;
 
     public HiveFileIterator(
             Table table,
@@ -63,48 +64,48 @@ public class HiveFileIterator
             NestedDirectoryPolicy nestedDirectoryPolicy,
             boolean ignoreAbsentPartitions)
     {
-        paths.addLast(requireNonNull(path, "path is null"));
+        this.pathPrefix = requireNonNull(path, "path is null").toUri().getPath();
         this.table = requireNonNull(table, "table is null");
         this.fileSystem = requireNonNull(fileSystem, "fileSystem is null");
         this.directoryLister = requireNonNull(directoryLister, "directoryLister is null");
         this.namenodeStats = requireNonNull(namenodeStats, "namenodeStats is null");
         this.nestedDirectoryPolicy = requireNonNull(nestedDirectoryPolicy, "nestedDirectoryPolicy is null");
         this.ignoreAbsentPartitions = ignoreAbsentPartitions;
+        this.remoteIterator = getLocatedFileStatusRemoteIterator(path);
     }
 
     @Override
     protected LocatedFileStatus computeNext()
     {
-        while (true) {
-            while (remoteIterator.hasNext()) {
-                LocatedFileStatus status = getLocatedFileStatus(remoteIterator);
+        while (remoteIterator.hasNext()) {
+            LocatedFileStatus status = getLocatedFileStatus(remoteIterator);
 
-                // Ignore hidden files and directories. Hive ignores files starting with _ and . as well.
-                String fileName = status.getPath().getName();
-                if (fileName.startsWith("_") || fileName.startsWith(".")) {
+            // Ignore hidden files and directories
+            if (nestedDirectoryPolicy == RECURSE) {
+                // Search the full sub-path under the listed prefix for hidden directories
+                if (isHiddenOrWithinHiddenParentDirectory(status.getPath(), pathPrefix)) {
                     continue;
                 }
+            }
+            else if (isHiddenFileOrDirectory(status.getPath())) {
+                continue;
+            }
 
-                if (status.isDirectory()) {
-                    switch (nestedDirectoryPolicy) {
-                        case IGNORED:
-                            continue;
-                        case RECURSE:
-                            paths.add(status.getPath());
-                            continue;
-                        case FAIL:
-                            throw new NestedDirectoryNotAllowedException(status.getPath());
-                    }
+            if (status.isDirectory()) {
+                switch (nestedDirectoryPolicy) {
+                    case IGNORED:
+                        continue;
+                    case RECURSE:
+                        // Recursive listings call listFiles which should not return directories, this is a contract violation
+                        // and can be handled the same way as the FAIL case
+                    case FAIL:
+                        throw new NestedDirectoryNotAllowedException(status.getPath());
                 }
-
-                return status;
             }
-
-            if (paths.isEmpty()) {
-                return endOfData();
-            }
-            remoteIterator = getLocatedFileStatusRemoteIterator(paths.removeFirst());
+            return status;
         }
+
+        return endOfData();
     }
 
     private Iterator<LocatedFileStatus> getLocatedFileStatusRemoteIterator(Path path)
@@ -113,7 +114,7 @@ public class HiveFileIterator
             if (ignoreAbsentPartitions && !exists(path)) {
                 return emptyIterator();
             }
-            return new FileStatusIterator(table, path, fileSystem, directoryLister, namenodeStats);
+            return new FileStatusIterator(table, path, fileSystem, directoryLister, namenodeStats, nestedDirectoryPolicy == RECURSE);
         }
     }
 
@@ -134,6 +135,41 @@ public class HiveFileIterator
         }
     }
 
+    @VisibleForTesting
+    static boolean isHiddenFileOrDirectory(Path path)
+    {
+        // Only looks for the last part of the path
+        String pathString = path.toUri().getPath();
+        int lastSeparator = pathString.lastIndexOf(SEPARATOR_CHAR);
+        return containsHiddenPathPartAfterIndex(pathString, lastSeparator + 1);
+    }
+
+    @VisibleForTesting
+    static boolean isHiddenOrWithinHiddenParentDirectory(Path path, String prefix)
+    {
+        String pathString = path.toUri().getPath();
+        checkArgument(pathString.startsWith(prefix), "path %s does not start with prefix %s", pathString, prefix);
+        return containsHiddenPathPartAfterIndex(pathString, prefix.length() + 1);
+    }
+
+    @VisibleForTesting
+    static boolean containsHiddenPathPartAfterIndex(String pathString, int startFromIndex)
+    {
+        // Ignore hidden files and directories. Hive ignores files starting with _ and . as well.
+        while (startFromIndex < pathString.length()) {
+            char firstNameChar = pathString.charAt(startFromIndex);
+            if (firstNameChar == '.' || firstNameChar == '_') {
+                return true;
+            }
+            int nextSeparator = pathString.indexOf(SEPARATOR_CHAR, startFromIndex);
+            if (nextSeparator < 0) {
+                break;
+            }
+            startFromIndex = nextSeparator + 1;
+        }
+        return false;
+    }
+
     private static class FileStatusIterator
             implements Iterator<LocatedFileStatus>
     {
@@ -141,12 +177,17 @@ public class HiveFileIterator
         private final NamenodeStats namenodeStats;
         private final RemoteIterator<LocatedFileStatus> fileStatusIterator;
 
-        private FileStatusIterator(Table table, Path path, FileSystem fileSystem, DirectoryLister directoryLister, NamenodeStats namenodeStats)
+        private FileStatusIterator(Table table, Path path, FileSystem fileSystem, DirectoryLister directoryLister, NamenodeStats namenodeStats, boolean recursive)
         {
             this.path = path;
             this.namenodeStats = namenodeStats;
             try {
-                this.fileStatusIterator = directoryLister.list(fileSystem, table, path);
+                if (recursive) {
+                    this.fileStatusIterator = directoryLister.listFilesRecursively(fileSystem, table, path);
+                }
+                else {
+                    this.fileStatusIterator = directoryLister.list(fileSystem, table, path);
+                }
             }
             catch (IOException e) {
                 throw processException(e);
