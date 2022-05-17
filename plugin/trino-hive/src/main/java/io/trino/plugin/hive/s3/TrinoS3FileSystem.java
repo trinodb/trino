@@ -224,6 +224,7 @@ public class TrinoS3FileSystem
     private static final Set<String> GLACIER_STORAGE_CLASSES = ImmutableSet.of(Glacier.toString(), DeepArchive.toString());
     private static final MediaType DIRECTORY_MEDIA_TYPE = MediaType.create("application", "x-directory");
     private static final String S3_DEFAULT_ROLE_SESSION_NAME = "trino-session";
+    public static final String TRINO_HEADER_SESSION_NAME = "x-trino-session-name";
     public static final String S3_HTTP_HEADERS_USER_IDENTITY_ENABLED = "trino.s3.http.headers.user.identity.enabled";
 
     private URI uri;
@@ -1181,7 +1182,7 @@ public class TrinoS3FileSystem
                                         .withRange(position, (position + length) - 1)
                                         .withRequesterPays(requesterPaysEnabled);
                                 if (s3HttpHeadersUserIdentityEnabled) {
-                                    request.putCustomRequestHeader("x-trino-session-name", s3RoleSessionName);
+                                    request.putCustomRequestHeader(TRINO_HEADER_SESSION_NAME, s3RoleSessionName);
                                 }
                                 stream = s3.getObject(request).getObjectContent();
                             }
@@ -1358,7 +1359,7 @@ public class TrinoS3FileSystem
                                         .withRange(start)
                                         .withRequesterPays(requesterPaysEnabled);
                                 if (s3HttpHeadersUserIdentityEnabled) {
-                                    request.putCustomRequestHeader("x-trino-session-name", s3RoleSessionName);
+                                    request.putCustomRequestHeader(TRINO_HEADER_SESSION_NAME, s3RoleSessionName);
                                 }
                                 return s3.getObject(request).getObjectContent();
                             }
@@ -1507,7 +1508,7 @@ public class TrinoS3FileSystem
 
                 PutObjectRequest request = new PutObjectRequest(bucket, key, tempFile);
                 if (s3HttpHeadersUserIdentityEnabled) {
-                    request.putCustomRequestHeader("x-trino-session-name", s3RoleSessionName);
+                    request.putCustomRequestHeader(TRINO_HEADER_SESSION_NAME, s3RoleSessionName);
                 }
                 requestCustomizer.accept(request);
 
@@ -1692,7 +1693,7 @@ public class TrinoS3FileSystem
 
                 PutObjectRequest request = new PutObjectRequest(bucketName, key, in, metadata);
                 if (s3HttpHeadersUserIdentityEnabled) {
-                    request.putCustomRequestHeader("x-trino-session-name", s3RoleSessionName);
+                    request.putCustomRequestHeader(TRINO_HEADER_SESSION_NAME, s3RoleSessionName);
                 }
                 requestCustomizer.accept(request);
 
