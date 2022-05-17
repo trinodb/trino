@@ -692,14 +692,17 @@ public class TestBinPackingNodeAllocator
 
     private static void assertEventually(ThrowingRunnable assertion)
     {
-        Assert.assertEventually(() -> {
-            try {
-                assertion.run();
-            }
-            catch (Exception e) {
-                throw new RuntimeException(e);
-            }
-        });
+        Assert.assertEventually(
+                new io.airlift.units.Duration(TEST_TIMEOUT, TimeUnit.MILLISECONDS),
+                new io.airlift.units.Duration(10, TimeUnit.MILLISECONDS),
+                () -> {
+                    try {
+                        assertion.run();
+                    }
+                    catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                });
     }
 
     interface ThrowingRunnable
