@@ -15,6 +15,7 @@ package io.trino.plugin.bigquery;
 
 import com.google.cloud.bigquery.BigQueryError;
 import com.google.cloud.bigquery.BigQueryException;
+import com.google.cloud.bigquery.TableDefinition;
 import com.google.common.collect.ImmutableSet;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
@@ -23,6 +24,7 @@ import java.util.Arrays;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.google.cloud.bigquery.TableDefinition.Type.TABLE;
 import static com.google.cloud.http.BaseHttpServiceException.UNKNOWN_CODE;
 import static com.google.common.base.Throwables.getCausalChain;
 
@@ -65,5 +67,10 @@ public final class BigQueryUtil
             return pseudoColumn.get().getBigqueryColumnName();
         }
         return columnName;
+    }
+
+    public static boolean isWildcardTable(TableDefinition.Type type, String tableName)
+    {
+        return type == TABLE && tableName.contains("*");
     }
 }
