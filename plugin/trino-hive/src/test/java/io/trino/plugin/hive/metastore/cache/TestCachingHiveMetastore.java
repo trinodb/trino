@@ -57,6 +57,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -84,6 +85,7 @@ import static io.trino.plugin.hive.metastore.thrift.MockThriftMetastoreClient.PA
 import static io.trino.plugin.hive.metastore.thrift.MockThriftMetastoreClient.TEST_COLUMN;
 import static io.trino.plugin.hive.metastore.thrift.MockThriftMetastoreClient.TEST_DATABASE;
 import static io.trino.plugin.hive.metastore.thrift.MockThriftMetastoreClient.TEST_PARTITION1;
+import static io.trino.plugin.hive.metastore.thrift.MockThriftMetastoreClient.TEST_PARTITION1_VALUE;
 import static io.trino.plugin.hive.metastore.thrift.MockThriftMetastoreClient.TEST_PARTITION2;
 import static io.trino.plugin.hive.metastore.thrift.MockThriftMetastoreClient.TEST_PARTITION_VALUES1;
 import static io.trino.plugin.hive.metastore.thrift.MockThriftMetastoreClient.TEST_ROLES;
@@ -248,6 +250,71 @@ public class TestCachingHiveMetastore
 
         assertEquals(metastore.getPartitionNamesByFilter(TEST_DATABASE, TEST_TABLE, PARTITION_COLUMN_NAMES, TupleDomain.all()).get(), expectedPartitions);
         assertEquals(mockClient.getAccessCount(), 2);
+    }
+
+    /**
+     * Test {@link CachingHiveMetastore#getPartition(Table, List)} followed by
+     * {@link CachingHiveMetastore#getPartitionsByNames(Table, List)}.
+     * <p>
+     * At the moment of writing, CachingHiveMetastore uses HivePartitionName for keys in partition cache.
+     * HivePartitionName has a peculiar, semi- value-based equality. HivePartitionName may or may not be missing
+     * a name and it matters for bulk load, but it doesn't matter for single-partition load.
+     * Because of equality semantics, the cache keys may gets mixed during bulk load.
+     */
+    @Test
+    public void testGetPartitionThenGetPartitions()
+    {
+        Table table = metastore.getTable(TEST_DATABASE, TEST_TABLE).orElseThrow();
+        Optional<Partition> firstRead = metastore.getPartition(table, List.of(TEST_PARTITION1_VALUE));
+        assertThat(firstRead).isPresent();
+        assertThat(firstRead.get().getValues()).isEqualTo(List.of(TEST_PARTITION1_VALUE));
+
+        Map<String, Optional<Partition>> byName = metastore.getPartitionsByNames(table, List.of(TEST_PARTITION1));
+        assertThat(byName).containsOnlyKeys(TEST_PARTITION1);
+        Optional<Partition> secondRead = byName.get(TEST_PARTITION1);
+        assertThat(secondRead).isPresent();
+        assertThat(secondRead.get().getValues()).isEqualTo(List.of(TEST_PARTITION1_VALUE));
+    }
+
+    /**
+     * A variant of {@link #testGetPartitionThenGetPartitions} where the second get happens concurrently with eviction,
+     * here simulated with an explicit invalidation.
+     */
+    // Repeat test with invocationCount for better test coverage, since the tested aspect is inherently non-deterministic.
+    @Test(timeOut = 60_000, invocationCount = 20)
+    public void testGetPartitionThenGetPartitionsRacingWithInvalidation()
+            throws Exception
+    {
+        Table table = metastore.getTable(TEST_DATABASE, TEST_TABLE).orElseThrow();
+        Optional<Partition> firstRead = metastore.getPartition(table, List.of(TEST_PARTITION1_VALUE));
+        assertThat(firstRead).isPresent();
+        assertThat(firstRead.get().getValues()).isEqualTo(List.of(TEST_PARTITION1_VALUE));
+
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        try {
+            CyclicBarrier barrier = new CyclicBarrier(2);
+            Future<?> invalidation = executor.submit(() -> {
+                barrier.await(10, SECONDS);
+                metastore.flushCache();
+                return null;
+            });
+
+            Future<Map<String, Optional<Partition>>> read = executor.submit(() -> {
+                barrier.await(10, SECONDS);
+                return metastore.getPartitionsByNames(table, List.of(TEST_PARTITION1));
+            });
+
+            Map<String, Optional<Partition>> byName = read.get();
+            assertThat(byName).containsOnlyKeys(TEST_PARTITION1);
+            Optional<Partition> secondRead = byName.get(TEST_PARTITION1);
+            assertThat(secondRead).isPresent();
+            assertThat(secondRead.get().getValues()).isEqualTo(List.of(TEST_PARTITION1_VALUE));
+
+            invalidation.get(); // no exception raised
+        }
+        finally {
+            executor.shutdownNow();
+        }
     }
 
     @Test
