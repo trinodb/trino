@@ -81,6 +81,7 @@ public class HiveS3Config
     private boolean s3preemptiveBasicProxyAuth;
     private String s3StsEndpoint;
     private String s3StsRegion;
+    private boolean s3HttpHeaderUserIdentityEnabled;
 
     public String getS3AwsAccessKey()
     {
@@ -614,6 +615,19 @@ public class HiveS3Config
     public HiveS3Config setS3StsRegion(String s3StsRegion)
     {
         this.s3StsRegion = s3StsRegion;
+        return this;
+    }
+
+    public boolean isS3HttpHeadersUserIdentityEnabled()
+    {
+        return s3HttpHeaderUserIdentityEnabled;
+    }
+
+    @Config("hive.s3.http-headers.user-identity.enabled")
+    @ConfigDescription("User identity for S3 access will be added to http custom headers.")
+    public HiveS3Config setS3HttpHeadersUserIdentityEnabled(boolean s3HttpHeaderUserIdentityEnabled)
+    {
+        this.s3HttpHeaderUserIdentityEnabled = s3HttpHeaderUserIdentityEnabled;
         return this;
     }
 }
