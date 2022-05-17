@@ -399,8 +399,8 @@ public class BinPackingNodeAllocatorService
                 node.cancel(true);
                 if (node.isDone() && !node.isCancelled()) {
                     deallocateMemory(getFutureValue(node));
-                    wakeupProcessPendingAcquires();
                     checkState(fulfilledAcquires.remove(this), "node lease %s not found in fulfilledAcquires %s", this, fulfilledAcquires);
+                    wakeupProcessPendingAcquires();
                 }
             }
             else {
