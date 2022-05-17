@@ -31,9 +31,12 @@ import io.trino.plugin.jdbc.RemoteQueryCancellationModule;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
 import org.postgresql.Driver;
 
+import java.util.Properties;
+
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.plugin.jdbc.JdbcModule.bindSessionPropertiesProvider;
+import static org.postgresql.PGProperty.REWRITE_BATCHED_INSERTS;
 
 public class PostgreSqlClientModule
         extends AbstractConfigurationAwareModule
@@ -56,6 +59,8 @@ public class PostgreSqlClientModule
     @ForBaseJdbc
     public ConnectionFactory getConnectionFactory(BaseJdbcConfig config, CredentialProvider credentialProvider)
     {
-        return new DriverConnectionFactory(new Driver(), config, credentialProvider);
+        Properties connectionProperties = new Properties();
+        connectionProperties.put(REWRITE_BATCHED_INSERTS.getName(), "true");
+        return new DriverConnectionFactory(new Driver(), config.getConnectionUrl(), connectionProperties, credentialProvider);
     }
 }
