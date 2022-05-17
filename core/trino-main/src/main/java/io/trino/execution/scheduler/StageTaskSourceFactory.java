@@ -214,6 +214,9 @@ public class StageTaskSourceFactory
         @Override
         public ListenableFuture<List<TaskDescriptor>> getMoreTasks()
         {
+            if (finished) {
+                return immediateFuture(ImmutableList.of());
+            }
             List<TaskDescriptor> result = ImmutableList.of(new TaskDescriptor(
                     0,
                     ImmutableListMultimap.of(),
@@ -291,6 +294,9 @@ public class StageTaskSourceFactory
         @Override
         public ListenableFuture<List<TaskDescriptor>> getMoreTasks()
         {
+            if (finished) {
+                return immediateFuture(ImmutableList.of());
+            }
             NodeRequirements nodeRequirements = new NodeRequirements(Optional.empty(), ImmutableSet.of(), taskMemory);
 
             ImmutableList.Builder<TaskDescriptor> result = ImmutableList.builder();
