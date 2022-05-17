@@ -21,8 +21,6 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.CacheStats;
 import com.google.common.cache.LoadingCache;
 import com.google.common.cache.RemovalCause;
-import com.google.common.collect.BiMap;
-import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -32,6 +30,8 @@ import javax.annotation.CheckForNull;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -41,7 +41,6 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -144,41 +143,49 @@ class EvictableCache<K, V>
             throws ExecutionException
     {
         List<Token<K>> newTokens = new ArrayList<>();
+        List<Token<K>> temporaryTokens = new ArrayList<>();
         try {
-            BiMap<K, Token<K>> keyToToken = HashBiMap.create();
+            Map<K, V> result = new LinkedHashMap<>();
             for (K key : keys) {
+                if (result.containsKey(key)) {
+                    continue;
+                }
                 // This is not bulk, but is fast local operation
                 Token<K> newToken = new Token<>(key);
-                Token<K> token = tokens.computeIfAbsent(key, ignored -> newToken);
-                keyToToken.put(key, token);
-                if (token == newToken) {
-                    newTokens.add(newToken);
+                Token<K> oldToken = tokens.putIfAbsent(key, newToken);
+                if (oldToken != null) {
+                    // Token exists but a data may not exist (e.g. due to concurrent eviction)
+                    V value = dataCache.getIfPresent(oldToken);
+                    if (value != null) {
+                        result.put(key, value);
+                        continue;
+                    }
+                    // Old token exists but value wasn't found. This can happen when there is concurrent eviction/invalidation
+                    // or when the value is still being loaded. The new token is not registered in tokens, so won't be used
+                    // by subsequent invocations.
+                    temporaryTokens.add(newToken);
                 }
+                newTokens.add(newToken);
             }
 
-            Map<Token<K>, V> values = dataCache.getAll(keyToToken.values());
-
-            BiMap<Token<K>, K> tokenToKey = keyToToken.inverse();
-            ImmutableMap.Builder<K, V> result = ImmutableMap.builder();
+            Map<Token<K>, V> values = dataCache.getAll(newTokens);
             for (Map.Entry<Token<K>, V> entry : values.entrySet()) {
-                Token<K> token = entry.getKey();
-
-                // While token.getKey() returns equal key, a caller may expect us to maintain key identity, in case equal keys are still distinguishable.
-                K key = tokenToKey.get(token);
-                checkState(key != null, "No key found for %s in %s when loading %s", token, tokenToKey, keys);
-
-                result.put(key, entry.getValue());
+                Token<K> newToken = entry.getKey();
+                result.put(newToken.getKey(), entry.getValue());
             }
-            return result.buildOrThrow();
+            return ImmutableMap.copyOf(result);
         }
         catch (Throwable e) {
             for (Token<K> token : newTokens) {
-                // Failed to load and it was our new token persisted in tokens map.
+                // Failed to load and it was our new token (potentially) persisted in tokens map.
                 // No cache entry exists for the token (unless concurrent load happened),
                 // so we need to remove it.
                 tokens.remove(token.getKey(), token);
             }
             throw e;
+        }
+        finally {
+            dataCache.invalidateAll(temporaryTokens);
         }
     }
 
@@ -224,6 +231,16 @@ class EvictableCache<K, V>
     {
         dataCache.invalidateAll();
         tokens.clear();
+    }
+
+    // Not thread safe, test only.
+    @VisibleForTesting
+    void clearDataCacheOnly()
+    {
+        Map<K, Token<K>> tokensCopy = new HashMap<>(tokens);
+        dataCache.asMap().clear();
+        verify(tokens.isEmpty(), "Clearing dataCache should trigger tokens eviction");
+        tokens.putAll(tokensCopy);
     }
 
     @Override
@@ -406,7 +423,17 @@ class EvictableCache<K, V>
             for (Token<K> token : tokenList) {
                 keys.add(token.getKey());
             }
-            Map<? super K, V> values = delegate.loadAll(keys);
+            Map<? super K, V> values;
+            try {
+                values = delegate.loadAll(keys);
+            }
+            catch (UnsupportedLoadingOperationException e) {
+                // Guava uses UnsupportedLoadingOperationException in LoadingCache.loadAll to fall back from bulk loading (without load sharing)
+                // to loading individual values (with load sharing). EvictableCache implementation does not currently support the fallback mechanism,
+                // so the individual values would be loaded without load sharing. This would be an unintentional and non-obvious behavioral
+                // discrepancy between EvictableCache and Guava Caches, so the mechanism is disabled.
+                throw new UnsupportedOperationException("LoadingCache.getAll() is not supported by EvictableCache when CacheLoader.loadAll is not implemented", e);
+            }
 
             ImmutableMap.Builder<Token<K>, V> result = ImmutableMap.builder();
             for (int i = 0; i < tokenList.size(); i++) {
