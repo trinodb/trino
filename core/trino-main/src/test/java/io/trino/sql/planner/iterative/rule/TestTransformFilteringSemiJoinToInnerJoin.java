@@ -19,6 +19,7 @@ import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.Assignments;
+import io.trino.util.JoinParamUtil;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -58,17 +59,16 @@ public class TestTransformFilteringSemiJoinToInnerJoin
                 })
                 .matches(project(
                         ImmutableMap.of("a", PlanMatchPattern.expression("a"), "a_in_b", PlanMatchPattern.expression("true")),
-                        join(
+                        join(new JoinParamUtil.JoinParamBuilder(
                                 INNER,
                                 ImmutableList.of(equiJoinClause("a", "b")),
-                                Optional.of("a > 5"),
                                 values("a"),
                                 aggregation(
                                         singleGroupingSet("b"),
                                         ImmutableMap.of(),
                                         Optional.empty(),
                                         SINGLE,
-                                        values("b")))));
+                                        values("b"))).expectedFilter(Optional.of("a > 5")).build())));
     }
 
     @Test
@@ -93,17 +93,16 @@ public class TestTransformFilteringSemiJoinToInnerJoin
                 })
                 .matches(project(
                         ImmutableMap.of("a", PlanMatchPattern.expression("a"), "a_in_b", PlanMatchPattern.expression("true")),
-                        join(
+                        join(new JoinParamUtil.JoinParamBuilder(
                                 INNER,
                                 ImmutableList.of(equiJoinClause("a", "b")),
-                                Optional.empty(),
                                 values("a"),
                                 aggregation(
                                         singleGroupingSet("b"),
                                         ImmutableMap.of(),
                                         Optional.empty(),
                                         SINGLE,
-                                        values("b")))));
+                                        values("b"))).build())));
     }
 
     @Test

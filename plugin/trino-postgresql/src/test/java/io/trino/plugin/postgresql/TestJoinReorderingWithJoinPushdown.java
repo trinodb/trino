@@ -19,6 +19,7 @@ import io.trino.sql.planner.plan.JoinNode;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
+import io.trino.util.JoinParamUtil;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -81,15 +82,17 @@ public class TestJoinReorderingWithJoinPushdown
 
         PlanMatchPattern joinWithoutFilter =
                 anyTree(
-                        join(INNER, List.of(equiJoinClause("o_custkey", "c_custkey")), Optional.empty(), Optional.of(PARTITIONED),
+                        join(new JoinParamUtil.JoinParamBuilder(INNER, List.of(equiJoinClause("o_custkey", "c_custkey")),
                                 anyTree(
                                         tableScan("orders", Map.of("o_custkey", "custkey"))),
                                 anyTree(
-                                        join(INNER, List.of(equiJoinClause("c_nationkey", "n_nationkey")), Optional.empty(), Optional.of(PARTITIONED),
+                                        join(new JoinParamUtil.JoinParamBuilder(INNER, List.of(equiJoinClause("c_nationkey", "n_nationkey")),
                                                 anyTree(
                                                         tableScan("customer", Map.of("c_custkey", "custkey", "c_nationkey", "nationkey"))),
                                                 anyTree(
-                                                        tableScan("nation", Map.of("n_nationkey", "nationkey")))))));
+                                                        tableScan("nation", Map.of("n_nationkey", "nationkey"))))
+                                                .expectedDistributionType(Optional.of(PARTITIONED)).build())))
+                                .expectedDistributionType(Optional.of(PARTITIONED)).build()));
 
         PlanMatchPattern joinWithoutFilterPushedDown =
                 anyTree(
@@ -107,15 +110,17 @@ public class TestJoinReorderingWithJoinPushdown
 
         PlanMatchPattern joinWithSelectiveFilterReordered =
                 anyTree(
-                        join(INNER, List.of(equiJoinClause("n_nationkey", "c_nationkey")), Optional.empty(), Optional.of(PARTITIONED),
+                        join(new JoinParamUtil.JoinParamBuilder(INNER, List.of(equiJoinClause("n_nationkey", "c_nationkey")),
                                 anyTree(
                                         tableScan("nation", Map.of("n_nationkey", "nationkey"))),
                                 anyTree(
-                                        join(INNER, List.of(equiJoinClause("c_custkey", "o_custkey")), Optional.empty(), Optional.of(PARTITIONED),
+                                        join(new JoinParamUtil.JoinParamBuilder(INNER, List.of(equiJoinClause("c_custkey", "o_custkey")),
                                                 anyTree(
                                                         tableScan("customer", Map.of("c_custkey", "custkey", "c_nationkey", "nationkey"))),
                                                 anyTree(
-                                                        tableScan("orders", Map.of("o_custkey", "custkey")))))));
+                                                        tableScan("orders", Map.of("o_custkey", "custkey"))))
+                                                .expectedDistributionType(Optional.of(PARTITIONED)).build())))
+                                .expectedDistributionType(Optional.of(PARTITIONED)).build()));
 
         // join with a highly selective filter on orders causes reordering (and prevents pushdown)
         assertThat(query(session, sql + " WHERE o.orderkey = 1")).isNotFullyPushedDown(joinWithSelectiveFilterReordered);
@@ -123,15 +128,17 @@ public class TestJoinReorderingWithJoinPushdown
 
         PlanMatchPattern joinWithFilterReordered =
                 anyTree(
-                        join(INNER, List.of(equiJoinClause("c_nationkey", "n_nationkey")), Optional.empty(), Optional.of(PARTITIONED),
+                        join(new JoinParamUtil.JoinParamBuilder(INNER, List.of(equiJoinClause("c_nationkey", "n_nationkey")),
                                 anyTree(
-                                        join(INNER, List.of(equiJoinClause("c_custkey", "o_custkey")), Optional.empty(), Optional.of(PARTITIONED),
+                                        join(new JoinParamUtil.JoinParamBuilder(INNER, List.of(equiJoinClause("c_custkey", "o_custkey")),
                                                 anyTree(
                                                         tableScan("customer", Map.of("c_custkey", "custkey", "c_nationkey", "nationkey"))),
                                                 anyTree(
-                                                        tableScan("orders", Map.of("o_custkey", "custkey"))))),
+                                                        tableScan("orders", Map.of("o_custkey", "custkey"))))
+                                                .expectedDistributionType(Optional.of(PARTITIONED)).build())),
                                 anyTree(
-                                        tableScan("nation", Map.of("n_nationkey", "nationkey")))));
+                                        tableScan("nation", Map.of("n_nationkey", "nationkey"))))
+                                .expectedDistributionType(Optional.of(PARTITIONED)).build()));
 
         // join with a filter on orders causes reordering (and prevents pushdown)
         assertThat(query(session, sql + " WHERE o.orderkey < 500")).isNotFullyPushedDown(joinWithFilterReordered);

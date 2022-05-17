@@ -106,13 +106,11 @@ public class TestReorderJoins
                         .setOutputRowCount(10000)
                         .addSymbolStatistics(ImmutableMap.of(new Symbol("B1"), new SymbolStatsEstimate(0, 100, 0, 100, 100)))
                         .build())
-                .matches(join(
+                .matches(join(new JoinParamUtil.JoinParamBuilder(
                         INNER,
                         ImmutableList.of(equiJoinClause("A1", "B1")),
-                        Optional.empty(),
-                        Optional.of(PARTITIONED),
                         values(ImmutableMap.of("A1", 0, "A2", 1)),
-                        values(ImmutableMap.of("B1", 0)))
+                        values(ImmutableMap.of("B1", 0))).expectedDistributionType(Optional.of(PARTITIONED)).build())
                         .withExactOutputs("A2"));
     }
 
@@ -142,13 +140,11 @@ public class TestReorderJoins
                         .setOutputRowCount(10000)
                         .addSymbolStatistics(ImmutableMap.of(new Symbol("B1"), new SymbolStatsEstimate(0, 100, 0, 640000, 100)))
                         .build())
-                .matches(join(
+                .matches(join(new JoinParamUtil.JoinParamBuilder(
                         INNER,
                         ImmutableList.of(equiJoinClause("B1", "A1")),
-                        Optional.empty(),
-                        Optional.of(REPLICATED),
                         values(ImmutableMap.of("B1", 0)),
-                        values(ImmutableMap.of("A1", 0))));
+                        values(ImmutableMap.of("A1", 0))).expectedDistributionType(Optional.of(REPLICATED)).build()));
     }
 
     @Test
@@ -177,13 +173,11 @@ public class TestReorderJoins
                         .setOutputRowCount(10000)
                         .addSymbolStatistics(ImmutableMap.of(new Symbol("B1"), new SymbolStatsEstimate(0, 100, 0, 640000, 100)))
                         .build())
-                .matches(join(
+                .matches(join(new JoinParamUtil.JoinParamBuilder(
                         INNER,
                         ImmutableList.of(equiJoinClause("B1", "A1")),
-                        Optional.empty(),
-                        Optional.of(PARTITIONED),
                         values(ImmutableMap.of("B1", 0)),
-                        values(ImmutableMap.of("A1", 0))));
+                        values(ImmutableMap.of("A1", 0))).expectedDistributionType(Optional.of(PARTITIONED)).build()));
     }
 
     @Test
@@ -207,13 +201,11 @@ public class TestReorderJoins
                         .setOutputRowCount(10000)
                         .addSymbolStatistics(ImmutableMap.of(new Symbol("B1"), new SymbolStatsEstimate(0, 100, 0, 640000, 100)))
                         .build())
-                .matches(join(
+                .matches(join(new JoinParamUtil.JoinParamBuilder(
                         INNER,
                         ImmutableList.of(equiJoinClause("A1", "B1")),
-                        Optional.empty(),
-                        Optional.of(PARTITIONED),
                         values(ImmutableMap.of("A1", 0)),
-                        values(ImmutableMap.of("B1", 0))));
+                        values(ImmutableMap.of("B1", 0))).expectedDistributionType(Optional.of(PARTITIONED)).build()));
     }
 
     @Test
@@ -239,25 +231,21 @@ public class TestReorderJoins
                         .setOutputRowCount(10000)
                         .addSymbolStatistics(ImmutableMap.of(new Symbol("B1"), new SymbolStatsEstimate(0, 100, 0, 640000, 100)))
                         .build())
-                .matches(join(
+                .matches(join(new JoinParamUtil.JoinParamBuilder(
                         INNER,
                         ImmutableList.of(equiJoinClause("A1", "B1")),
-                        Optional.empty(),
-                        Optional.of(REPLICATED),
                         values(ImmutableMap.of("A1", 0)),
-                        values(ImmutableMap.of("B1", 0))));
+                        values(ImmutableMap.of("B1", 0))).expectedDistributionType(Optional.of(REPLICATED)).build()));
     }
 
     @Test
     public void testReplicatedScalarJoinEvenWhereSessionRequiresRepartitioned()
     {
-        PlanMatchPattern expectedPlan = join(
+        PlanMatchPattern expectedPlan = join(new JoinParamUtil.JoinParamBuilder(
                 INNER,
                 ImmutableList.of(equiJoinClause("A1", "B1")),
-                Optional.empty(),
-                Optional.of(REPLICATED),
                 values(ImmutableMap.of("A1", 0)),
-                values(ImmutableMap.of("B1", 0)));
+                values(ImmutableMap.of("B1", 0))).expectedDistributionType(Optional.of(REPLICATED)).build());
 
         PlanNodeStatsEstimate valuesA = PlanNodeStatsEstimate.builder()
                 .setOutputRowCount(10000)
@@ -590,13 +578,11 @@ public class TestReorderJoins
                 })
                 .overrideStats("valuesA", probeSideStatsEstimate)
                 .overrideStats("valuesB", buildSideStatsEstimate)
-                .matches(join(
+                .matches(join(new JoinParamUtil.JoinParamBuilder(
                         INNER,
                         ImmutableList.of(equiJoinClause("A1", "B1")),
-                        Optional.empty(),
-                        Optional.of(REPLICATED),
                         values(ImmutableMap.of("A1", 0)),
-                        values(ImmutableMap.of("B1", 0))));
+                        values(ImmutableMap.of("B1", 0))).expectedDistributionType(Optional.of(REPLICATED)).build()));
 
         probeSideStatsEstimate = PlanNodeStatsEstimate.builder()
                 .setOutputRowCount(aRows)
@@ -625,13 +611,11 @@ public class TestReorderJoins
                 })
                 .overrideStats("valuesA", probeSideStatsEstimate)
                 .overrideStats("valuesB", buildSideStatsEstimate)
-                .matches(join(
+                .matches(join(new JoinParamUtil.JoinParamBuilder(
                         INNER,
                         ImmutableList.of(equiJoinClause("A1", "B1")),
-                        Optional.empty(),
-                        Optional.of(PARTITIONED),
                         values(ImmutableMap.of("A1", 0)),
-                        values(ImmutableMap.of("B1", 0))));
+                        values(ImmutableMap.of("B1", 0))).expectedDistributionType(Optional.of(PARTITIONED)).build()));
     }
 
     @Test
@@ -669,13 +653,11 @@ public class TestReorderJoins
                 })
                 .overrideStats("valuesA", probeSideStatsEstimate)
                 .overrideStats("valuesB", buildSideStatsEstimate)
-                .matches(join(
+                .matches(join(new JoinParamUtil.JoinParamBuilder(
                         INNER,
                         ImmutableList.of(equiJoinClause("B1", "A1")),
-                        Optional.empty(),
-                        Optional.of(REPLICATED),
                         values(ImmutableMap.of("B1", 0)),
-                        values(ImmutableMap.of("A1", 0))));
+                        values(ImmutableMap.of("A1", 0))).expectedDistributionType(Optional.of(REPLICATED)).build()));
     }
 
     private RuleAssert assertReorderJoins()

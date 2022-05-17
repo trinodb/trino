@@ -40,6 +40,7 @@ import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.tree.Expression;
 import io.trino.testing.LocalQueryRunner;
 import io.trino.testing.TestingTransactionHandle;
+import io.trino.util.JoinParamUtil;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -100,10 +101,9 @@ public class TestUnaliasSymbolReferences
                             Optional.empty(),
                             ImmutableMap.of(dynamicFilterId1, buildAlias1, dynamicFilterId2, buildAlias2));
                 },
-                join(
+                join(new JoinParamUtil.JoinParamBuilder(
                         INNER,
                         ImmutableList.of(),
-                        ImmutableMap.of("probeColumn1", "column", "probeColumn2", "column"),
                         filter(
                                 TRUE_LITERAL,
                                 filter(
@@ -111,7 +111,8 @@ public class TestUnaliasSymbolReferences
                                         tableScan(
                                                 probeTable,
                                                 ImmutableMap.of("probeColumn1", "suppkey", "probeColumn2", "nationkey")))),
-                        project(tableScan(buildTable, ImmutableMap.of("column", "nationkey")))));
+                        project(tableScan(buildTable, ImmutableMap.of("column", "nationkey"))))
+                        .expectedDynamicFilter(ImmutableMap.of("probeColumn1", "column", "probeColumn2", "column")).build()));
     }
 
     private void assertOptimizedPlan(PlanOptimizer optimizer, PlanCreator planCreator, PlanMatchPattern pattern)

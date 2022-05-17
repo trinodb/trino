@@ -118,17 +118,16 @@ public class TestEliminateCrossJoins
                 anyTree(
                         join(new JoinParamUtil.JoinParamBuilder(INNER, ImmutableList.of(equiJoinClause("L_ORDERKEY", "O_ORDERKEY")),
                                 anyTree(
-                                        join(
+                                        join(new JoinParamUtil.JoinParamBuilder(
                                                 INNER,
                                                 ImmutableList.of(equiJoinClause("P_PARTKEY", "L_PARTKEY")),
-                                                Optional.of("P_NAME < expr"),
                                                 anyTree(PART_WITH_NAME_TABLESCAN),
                                                 anyTree(
                                                         project(
                                                                 ImmutableMap.of("expr", expression("cast(L_COMMENT AS varchar(55))")),
                                                                 filter(
                                                                         "L_PARTKEY <> L_ORDERKEY",
-                                                                        LINEITEM_WITH_COMMENT_TABLESCAN))))),
+                                                                        LINEITEM_WITH_COMMENT_TABLESCAN)))).expectedFilter(Optional.of("P_NAME < expr")).build())),
                                 anyTree(ORDERS_TABLESCAN)).build())));
     }
 

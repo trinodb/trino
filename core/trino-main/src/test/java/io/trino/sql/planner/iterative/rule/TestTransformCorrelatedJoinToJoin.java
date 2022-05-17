@@ -19,6 +19,7 @@ import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.LongLiteral;
+import io.trino.util.JoinParamUtil;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -53,14 +54,13 @@ public class TestTransformCorrelatedJoinToJoin
                                     p.values(b)));
                 })
                 .matches(
-                        join(
+                        join(new JoinParamUtil.JoinParamBuilder(
                                 JoinNode.Type.INNER,
                                 ImmutableList.of(),
-                                Optional.of("b > a"),
                                 values("a"),
                                 filter(
                                         TRUE_LITERAL,
-                                        values("b"))));
+                                        values("b"))).expectedFilter(Optional.of("b > a")).build()));
 
         tester().assertThat(new TransformCorrelatedJoinToJoin(tester().getPlannerContext()))
                 .on(p -> {
@@ -82,14 +82,13 @@ public class TestTransformCorrelatedJoinToJoin
                                     p.values(b)));
                 })
                 .matches(
-                        join(
+                        join(new JoinParamUtil.JoinParamBuilder(
                                 JoinNode.Type.INNER,
                                 ImmutableList.of(),
-                                Optional.of("b > a AND b < 3"),
                                 values("a"),
                                 filter(
                                         TRUE_LITERAL,
-                                        values("b"))));
+                                        values("b"))).expectedFilter(Optional.of("b > a AND b < 3")).build()));
     }
 
     @Test
@@ -112,14 +111,13 @@ public class TestTransformCorrelatedJoinToJoin
                                     p.values(b)));
                 })
                 .matches(
-                        join(
+                        join(new JoinParamUtil.JoinParamBuilder(
                                 JoinNode.Type.LEFT,
                                 ImmutableList.of(),
-                                Optional.of("b > a"),
                                 values("a"),
                                 filter(
                                         TRUE_LITERAL,
-                                        values("b"))));
+                                        values("b"))).expectedFilter(Optional.of("b > a")).build()));
 
         tester().assertThat(new TransformCorrelatedJoinToJoin(tester().getPlannerContext()))
                 .on(p -> {
@@ -141,14 +139,13 @@ public class TestTransformCorrelatedJoinToJoin
                                     p.values(b)));
                 })
                 .matches(
-                        join(
+                        join(new JoinParamUtil.JoinParamBuilder(
                                 JoinNode.Type.LEFT,
                                 ImmutableList.of(),
-                                Optional.of("b > a AND b < 3"),
                                 values("a"),
                                 filter(
                                         TRUE_LITERAL,
-                                        values("b"))));
+                                        values("b"))).expectedFilter(Optional.of("b > a AND b < 3")).build()));
     }
 
     @Test

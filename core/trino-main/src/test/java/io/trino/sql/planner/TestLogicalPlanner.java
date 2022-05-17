@@ -336,12 +336,14 @@ public class TestLogicalPlanner
                         node(DistinctLimitNode.class,
                                 anyTree(
                                         filter("O_ORDERKEY < L_ORDERKEY",
-                                                join(INNER,
+                                                join(new JoinParamUtil.JoinParamBuilder(
+                                                        INNER,
                                                         ImmutableList.of(),
-                                                        ImmutableList.of(new DynamicFilterPattern("O_ORDERKEY", LESS_THAN, "L_ORDERKEY")),
                                                         filter(TRUE_LITERAL,
                                                                 tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey"))),
                                                         any(tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey"))))
+                                                        .expectedDynamicFilter(ImmutableList.of(new DynamicFilterPattern("O_ORDERKEY", LESS_THAN, "L_ORDERKEY")))
+                                                        .build())
                                                         .withExactOutputs(ImmutableList.of("O_ORDERKEY", "L_ORDERKEY")))))));
 
         assertPlan(
@@ -383,12 +385,14 @@ public class TestLogicalPlanner
         assertPlan("SELECT 1 FROM orders o JOIN lineitem l ON o.orderkey < l.orderkey",
                 anyTree(
                         filter("O_ORDERKEY < L_ORDERKEY",
-                                join(INNER,
+                                join(new JoinParamUtil.JoinParamBuilder(
+                                        INNER,
                                         ImmutableList.of(),
-                                        ImmutableList.of(new DynamicFilterPattern("O_ORDERKEY", LESS_THAN, "L_ORDERKEY")),
                                         filter(TRUE_LITERAL,
                                                 tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey"))),
-                                        any(tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey")))))));
+                                        any(tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey"))))
+                                        .expectedDynamicFilter(ImmutableList.of(new DynamicFilterPattern("O_ORDERKEY", LESS_THAN, "L_ORDERKEY")))
+                                        .build()))));
     }
 
     @Test
@@ -397,14 +401,8 @@ public class TestLogicalPlanner
         assertPlan("SELECT 1 FROM orders o JOIN lineitem l ON o.shippriority = l.linenumber AND o.orderkey < l.orderkey",
                 anyTree(
                         anyNot(FilterNode.class,
-                                join(INNER,
+                                join(new JoinParamUtil.JoinParamBuilder(INNER,
                                         ImmutableList.of(equiJoinClause("O_SHIPPRIORITY", "L_LINENUMBER")),
-                                        Optional.of("O_ORDERKEY < L_ORDERKEY"),
-                                        Optional.of(ImmutableList.of(
-                                                new DynamicFilterPattern("O_SHIPPRIORITY", EQUAL, "L_LINENUMBER"),
-                                                new DynamicFilterPattern("O_ORDERKEY", LESS_THAN, "L_ORDERKEY"))),
-                                        Optional.empty(),
-                                        Optional.empty(),
                                         project(
                                                 filter(TRUE_LITERAL,
                                                         tableScan("orders", ImmutableMap.of(
@@ -412,7 +410,12 @@ public class TestLogicalPlanner
                                                                 "O_ORDERKEY", "orderkey")))),
                                         anyTree(tableScan("lineitem", ImmutableMap.of(
                                                 "L_LINENUMBER", "linenumber",
-                                                "L_ORDERKEY", "orderkey")))))));
+                                                "L_ORDERKEY", "orderkey"))))
+                                        .expectedFilter(Optional.of("O_ORDERKEY < L_ORDERKEY"))
+                                        .expectedDynamicFilter(Optional.of(ImmutableList.of(
+                                                new DynamicFilterPattern("O_SHIPPRIORITY", EQUAL, "L_LINENUMBER"),
+                                                new DynamicFilterPattern("O_ORDERKEY", LESS_THAN, "L_ORDERKEY"))))
+                                        .build()))));
     }
 
     @Test
@@ -1115,7 +1118,7 @@ public class TestLogicalPlanner
                 broadcastJoin,
                 false,
                 anyTree(
-                        join(INNER, ImmutableList.of(equiJoinClause("LEFT_REGIONKEY", "RIGHT_REGIONKEY")), Optional.empty(), Optional.of(PARTITIONED),
+                        join(new JoinParamUtil.JoinParamBuilder(INNER, ImmutableList.of(equiJoinClause("LEFT_REGIONKEY", "RIGHT_REGIONKEY")),
                                 // the only remote exchange in probe side should be below aggregation
                                 aggregation(ImmutableMap.of(),
                                         anyTree(
@@ -1124,7 +1127,8 @@ public class TestLogicalPlanner
                                                                 tableScan("region", ImmutableMap.of("LEFT_REGIONKEY", "regionkey")))))),
                                 anyTree(
                                         exchange(REMOTE, REPARTITION,
-                                                tableScan("region", ImmutableMap.of("RIGHT_REGIONKEY", "regionkey")))))),
+                                                tableScan("region", ImmutableMap.of("RIGHT_REGIONKEY", "regionkey")))))
+                                .expectedDistributionType(Optional.of(PARTITIONED)).build())),
                 plan -> // make sure there are only two remote exchanges (one in probe and one in build side)
                         assertEquals(
                                 countOfMatchingNodes(
@@ -1151,12 +1155,12 @@ public class TestLogicalPlanner
                 broadcastJoin,
                 false,
                 anyTree(
-                        join(INNER, ImmutableList.of(), Optional.empty(), Optional.of(REPLICATED),
+                        join(new JoinParamUtil.JoinParamBuilder(INNER, ImmutableList.of(),
                                 anyTree(
                                         node(TableScanNode.class)),
                                 anyTree(
                                         exchange(REMOTE, REPLICATE,
-                                                node(TableScanNode.class))))));
+                                                node(TableScanNode.class)))).expectedDistributionType(Optional.of(REPLICATED)).build())));
     }
 
     @Test
@@ -1235,10 +1239,9 @@ public class TestLogicalPlanner
                                                         "unique", expression("unique")),
                                                 filter(
                                                         "(region_regionkey IS NULL OR region_regionkey = nation_regionkey OR nation_regionkey IS NULL) AND nation_name < region_name",
-                                                        join(
+                                                        join(new JoinParamUtil.JoinParamBuilder(
                                                                 INNER,
                                                                 ImmutableList.of(),
-                                                                ImmutableList.of(new PlanMatchPattern.DynamicFilterPattern("region_name", GREATER_THAN, "nation_name")),
                                                                 assignUniqueId(
                                                                         "unique",
                                                                         filter(
@@ -1251,7 +1254,9 @@ public class TestLogicalPlanner
                                                                                 "NOT (nation_regionkey IS NULL)",
                                                                                 tableScan("nation", ImmutableMap.of(
                                                                                         "nation_name", "name",
-                                                                                        "nation_regionkey", "regionkey")))))))))));
+                                                                                        "nation_regionkey", "regionkey")))))
+                                                                .expectedDynamicFilter(ImmutableList.of(new PlanMatchPattern.DynamicFilterPattern("region_name", GREATER_THAN, "nation_name")))
+                                                                .build())))))));
     }
 
     @Test
@@ -1269,10 +1274,9 @@ public class TestLogicalPlanner
                                         project(
                                                 filter(
                                                         "nation_name < region_name",
-                                                        join(
+                                                        join(new JoinParamUtil.JoinParamBuilder(
                                                                 INNER,
                                                                 ImmutableList.of(),
-                                                                ImmutableList.of(new PlanMatchPattern.DynamicFilterPattern("region_name", GREATER_THAN, "nation_name")),
                                                                 assignUniqueId(
                                                                         "unique",
                                                                         filter(
@@ -1281,7 +1285,9 @@ public class TestLogicalPlanner
                                                                                         "region_regionkey", "regionkey",
                                                                                         "region_name", "name")))),
                                                                 any(
-                                                                        tableScan("nation", ImmutableMap.of("nation_name", "name"))))))))));
+                                                                        tableScan("nation", ImmutableMap.of("nation_name", "name"))))
+                                                                .expectedDynamicFilter(ImmutableList.of(new PlanMatchPattern.DynamicFilterPattern("region_name", GREATER_THAN, "nation_name")))
+                                                                .build())))))));
     }
 
     @Test
@@ -1782,11 +1788,11 @@ public class TestLogicalPlanner
                 automaticJoinDistribution(),
                 output(
                         anyTree(
-                                join(INNER, ImmutableList.of(equiJoinClause("CUSTKEY", "T_A")), Optional.empty(), Optional.of(REPLICATED),
+                                join(new JoinParamUtil.JoinParamBuilder(INNER, ImmutableList.of(equiJoinClause("CUSTKEY", "T_A")),
                                         anyTree(
                                                 tableScan("orders", ImmutableMap.of("CUSTKEY", "custkey"))),
                                         anyTree(
-                                                values("T_A"))))));
+                                                values("T_A"))).expectedDistributionType(Optional.of(REPLICATED)).build()))));
     }
 
     @Test

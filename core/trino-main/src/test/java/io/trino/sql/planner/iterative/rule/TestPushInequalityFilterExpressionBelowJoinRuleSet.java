@@ -81,14 +81,13 @@ public class TestPushInequalityFilterExpressionBelowJoinRuleSet
                             comparison(LESS_THAN, add(b, 1), a.toSymbolReference()));
                 })
                 .matches(
-                        join(
+                        join(new JoinParamUtil.JoinParamBuilder(
                                 INNER,
                                 ImmutableList.of(),
-                                Optional.of("expr < a"),
                                 values("a"),
                                 project(
                                         ImmutableMap.of("expr", expression("b + BIGINT '1'")),
-                                        values("b"))));
+                                        values("b"))).expectedFilter(Optional.of("expr < a")).build()));
     }
 
     @Test
@@ -107,16 +106,15 @@ public class TestPushInequalityFilterExpressionBelowJoinRuleSet
                                     comparison(GREATER_THAN, add(b, 10), a.toSymbolReference())));
                 })
                 .matches(
-                        join(
+                        join(new JoinParamUtil.JoinParamBuilder(
                                 INNER,
                                 ImmutableList.of(),
-                                Optional.of("expr_less < a and expr_greater > a"),
                                 values("a"),
                                 project(
                                         ImmutableMap.of(
                                                 "expr_less", expression("b + BIGINT '1'"),
                                                 "expr_greater", expression("b + BIGINT '10'")),
-                                        values("b"))));
+                                        values("b"))).expectedFilter(Optional.of("expr_less < a and expr_greater > a")).build()));
     }
 
     @Test
@@ -133,14 +131,13 @@ public class TestPushInequalityFilterExpressionBelowJoinRuleSet
                             comparison(LESS_THAN, add(b, 1), add(a, 2)));
                 })
                 .matches(
-                        join(
+                        join(new JoinParamUtil.JoinParamBuilder(
                                 INNER,
                                 ImmutableList.of(),
-                                Optional.of("expr < a + BIGINT '2'"),
                                 values("a"),
                                 project(
                                         ImmutableMap.of("expr", expression("b + BIGINT '1'")),
-                                        values("b"))));
+                                        values("b"))).expectedFilter(Optional.of("expr < a + BIGINT '2'")).build()));
     }
 
     @Test
@@ -234,16 +231,15 @@ public class TestPushInequalityFilterExpressionBelowJoinRuleSet
                 .matches(
                         project(
                                 filter("parent_expression < a",
-                                        join(
+                                        join(new JoinParamUtil.JoinParamBuilder(
                                                 INNER,
                                                 ImmutableList.of(),
-                                                Optional.of("join_expression < a"),
                                                 values("a"),
                                                 project(
                                                         ImmutableMap.of(
                                                                 "join_expression", expression("b + BIGINT '2'"),
                                                                 "parent_expression", expression("b + BIGINT '1'")),
-                                                        values("b")))
+                                                        values("b"))).expectedFilter(Optional.of("join_expression < a")).build())
                                                 .withExactOutputs("a", "b", "parent_expression"))));
     }
 

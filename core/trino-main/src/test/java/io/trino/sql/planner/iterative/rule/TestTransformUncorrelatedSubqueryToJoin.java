@@ -20,6 +20,7 @@ import io.trino.sql.planner.assertions.ExpressionMatcher;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.tree.ComparisonExpression;
+import io.trino.util.JoinParamUtil;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -56,12 +57,11 @@ public class TestTransformUncorrelatedSubqueryToJoin
                             p.values(b));
                 })
                 .matches(
-                        join(
+                        join(new JoinParamUtil.JoinParamBuilder(
                                 JoinNode.Type.INNER,
                                 ImmutableList.of(),
-                                Optional.of("b > a"),
                                 values("a"),
-                                values("b")));
+                                values("b")).expectedFilter(Optional.of("b > a")).build()));
     }
 
     @Test
@@ -82,12 +82,11 @@ public class TestTransformUncorrelatedSubqueryToJoin
                             p.values(b));
                 })
                 .matches(
-                        join(
+                        join(new JoinParamUtil.JoinParamBuilder(
                                 JoinNode.Type.LEFT,
                                 ImmutableList.of(),
-                                Optional.of("b > a"),
                                 values("a"),
-                                values("b")));
+                                values("b")).expectedFilter(Optional.of("b > a")).build()));
     }
 
     @Test
@@ -105,12 +104,11 @@ public class TestTransformUncorrelatedSubqueryToJoin
                             p.values(b));
                 })
                 .matches(
-                        join(
+                        join(new JoinParamUtil.JoinParamBuilder(
                                 JoinNode.Type.INNER,
                                 ImmutableList.of(),
-                                Optional.empty(),
                                 values("a"),
-                                values("b")));
+                                values("b")).build()));
 
         tester().assertThat(new TransformUncorrelatedSubqueryToJoin())
                 .on(p -> {
@@ -131,12 +129,11 @@ public class TestTransformUncorrelatedSubqueryToJoin
                                 ImmutableMap.of(
                                         "a", new ExpressionMatcher("if(b > a, a, null)"),
                                         "b", new ExpressionMatcher("b")),
-                                join(
+                                join(new JoinParamUtil.JoinParamBuilder(
                                         JoinNode.Type.INNER,
                                         ImmutableList.of(),
-                                        Optional.empty(),
                                         values("a"),
-                                        values("b"))));
+                                        values("b")).build())));
     }
 
     @Test
@@ -154,12 +151,11 @@ public class TestTransformUncorrelatedSubqueryToJoin
                             p.values(b));
                 })
                 .matches(
-                        join(
+                        join(new JoinParamUtil.JoinParamBuilder(
                                 JoinNode.Type.LEFT,
                                 ImmutableList.of(),
-                                Optional.empty(),
                                 values("a"),
-                                values("b")));
+                                values("b")).build()));
 
         tester().assertThat(new TransformUncorrelatedSubqueryToJoin())
                 .on(p -> {

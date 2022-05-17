@@ -172,7 +172,7 @@ public class TestAddExchangesPlans
                 "SELECT * FROM nation n join region r on n.nationkey = r.regionkey",
                 noJoinReordering(),
                 anyTree(
-                        join(INNER, ImmutableList.of(equiJoinClause("nationkey", "regionkey")), Optional.empty(), Optional.of(REPLICATED), Optional.of(false),
+                        join(new JoinParamUtil.JoinParamBuilder(INNER, ImmutableList.of(equiJoinClause("nationkey", "regionkey")),
                                 anyNot(ExchangeNode.class,
                                         node(
                                                 FilterNode.class,
@@ -180,20 +180,21 @@ public class TestAddExchangesPlans
                                 anyTree(
                                         exchange(REMOTE, REPLICATE,
                                                 anyTree(
-                                                        tableScan("region", ImmutableMap.of("regionkey", "regionkey"))))))));
+                                                        tableScan("region", ImmutableMap.of("regionkey", "regionkey"))))))
+                                .expectedDistributionType(Optional.of(REPLICATED)).expectedSpillable(Optional.of(false)).build())));
 
         assertDistributedPlan(
                 "SELECT * FROM nation n join region r on n.nationkey = r.regionkey",
                 spillEnabledWithJoinDistributionType(PARTITIONED),
                 anyTree(
-                        join(INNER, ImmutableList.of(equiJoinClause("nationkey", "regionkey")), Optional.empty(), Optional.of(DistributionType.PARTITIONED), Optional.empty(),
+                        join(new JoinParamUtil.JoinParamBuilder(INNER, ImmutableList.of(equiJoinClause("nationkey", "regionkey")),
                                 exchange(REMOTE, REPARTITION,
                                         anyTree(
                                                 tableScan("nation", ImmutableMap.of("nationkey", "nationkey")))),
                                 exchange(LOCAL, REPARTITION,
                                         exchange(REMOTE, REPARTITION,
                                                 anyTree(
-                                                        tableScan("region", ImmutableMap.of("regionkey", "regionkey"))))))));
+                                                        tableScan("region", ImmutableMap.of("regionkey", "regionkey")))))).expectedDistributionType(Optional.of(DistributionType.PARTITIONED)).build())));
     }
 
     @Test

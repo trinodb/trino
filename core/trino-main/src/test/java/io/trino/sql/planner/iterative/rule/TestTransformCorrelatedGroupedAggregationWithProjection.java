@@ -19,6 +19,7 @@ import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.JoinNode;
+import io.trino.util.JoinParamUtil;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -91,16 +92,15 @@ public class TestTransformCorrelatedGroupedAggregationWithProjection
                                         ImmutableMap.of(Optional.of("sum_agg"), functionCall("sum", ImmutableList.of("a")), Optional.of("count_agg"), functionCall("count", ImmutableList.of())),
                                         Optional.empty(),
                                         SINGLE,
-                                        join(
+                                        join(new JoinParamUtil.JoinParamBuilder(
                                                 JoinNode.Type.INNER,
                                                 ImmutableList.of(),
-                                                Optional.of("b > corr"),
                                                 assignUniqueId(
                                                         "unique",
                                                         values("corr")),
                                                 filter(
                                                         "true",
-                                                        values("a", "b"))))));
+                                                        values("a", "b"))).expectedFilter(Optional.of("b > corr")).build()))));
     }
 
     @Test
@@ -135,15 +135,14 @@ public class TestTransformCorrelatedGroupedAggregationWithProjection
                                                 ImmutableMap.of(),
                                                 Optional.empty(),
                                                 SINGLE,
-                                                join(
+                                                join(new JoinParamUtil.JoinParamBuilder(
                                                         JoinNode.Type.INNER,
                                                         ImmutableList.of(),
-                                                        Optional.of("b > corr"),
                                                         assignUniqueId(
                                                                 "unique",
                                                                 values("corr")),
                                                         filter(
                                                                 "true",
-                                                                values("a", "b")))))));
+                                                                values("a", "b"))).expectedFilter(Optional.of("b > corr")).build())))));
     }
 }

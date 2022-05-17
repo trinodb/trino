@@ -194,10 +194,9 @@ public class TestTransformCorrelatedGlobalAggregationWithoutProjection
                                                 ImmutableMap.of(),
                                                 Optional.empty(),
                                                 SINGLE,
-                                                join(
+                                                join(new JoinParamUtil.JoinParamBuilder(
                                                         LEFT,
                                                         ImmutableList.of(),
-                                                        Optional.of("b > corr"),
                                                         assignUniqueId(
                                                                 "unique",
                                                                 values("corr")),
@@ -205,7 +204,7 @@ public class TestTransformCorrelatedGlobalAggregationWithoutProjection
                                                                 ImmutableMap.of("non_null", expression("true")),
                                                                 filter(
                                                                         "true",
-                                                                        values("a", "b"))))))));
+                                                                        values("a", "b")))).expectedFilter(Optional.of("b > corr")).build())))));
     }
 
     @Test

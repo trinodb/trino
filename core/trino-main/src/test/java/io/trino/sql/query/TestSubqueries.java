@@ -19,6 +19,7 @@ import io.trino.Session;
 import io.trino.plugin.tpch.TpchConnectorFactory;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.testing.LocalQueryRunner;
+import io.trino.util.JoinParamUtil;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -205,12 +206,9 @@ public class TestSubqueries
                 "SELECT (SELECT t.a FROM (VALUES 1, 2, 3) t(a) WHERE t.a = t2.b ORDER BY a LIMIT 1) FROM (VALUES 1.0, 2.0) t2(b)",
                 "VALUES 1, 2",
                 output(
-                        join(
+                        join(new JoinParamUtil.JoinParamBuilder(
                                 INNER,
                                 ImmutableList.of(equiJoinClause("cast_b", "cast_a")),
-                                Optional.empty(),
-                                Optional.empty(),
-                                Optional.empty(),
                                 any(
                                         project(
                                                 ImmutableMap.of("cast_b", expression("CAST(b AS decimal(11, 1))")),
@@ -225,19 +223,16 @@ public class TestSubqueries
                                                                         .maxRowCountPerPartition(Optional.of(1))
                                                                         .partitionBy(ImmutableList.of("a")),
                                                                 anyTree(
-                                                                        values("a")))))))));
+                                                                        values("a"))))))).build())));
 
         // subquery symbol is equal to constant expression
         assertions.assertQueryAndPlan(
                 "SELECT (SELECT t.a FROM (VALUES 1, 2, 3, 4, 5) t(a) WHERE t.a = t2.b * t2.c - 1 ORDER BY a LIMIT 1) FROM (VALUES (1, 2), (2, 3)) t2(b, c)",
                 "VALUES 1, 5",
                 output(
-                        join(
+                        join(new JoinParamUtil.JoinParamBuilder(
                                 INNER,
                                 ImmutableList.of(equiJoinClause("expr", "a")),
-                                Optional.empty(),
-                                Optional.empty(),
-                                Optional.empty(),
                                 any(
                                         project(
                                                 ImmutableMap.of("expr", expression("b * c - 1")),
@@ -249,7 +244,7 @@ public class TestSubqueries
                                                         .maxRowCountPerPartition(Optional.of(1))
                                                         .partitionBy(ImmutableList.of("a")),
                                                 anyTree(
-                                                        values("a")))))));
+                                                        values("a"))))).build())));
 
         // non-injective coercion bigint -> double
         assertThatThrownBy(() -> assertions.query(
