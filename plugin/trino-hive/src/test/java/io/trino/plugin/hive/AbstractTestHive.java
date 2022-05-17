@@ -6168,6 +6168,14 @@ public abstract class AbstractTestHive
             return fs.listLocatedStatus(path);
         }
 
+        @Override
+        public RemoteIterator<LocatedFileStatus> listFilesRecursively(FileSystem fs, Table table, Path path)
+                throws IOException
+        {
+            listCount.incrementAndGet();
+            return fs.listFiles(path, true);
+        }
+
         public int getListCount()
         {
             return listCount.get();
