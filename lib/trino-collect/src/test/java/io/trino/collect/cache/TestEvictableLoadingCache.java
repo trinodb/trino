@@ -18,6 +18,7 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.CacheStats;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 import org.testng.annotations.DataProvider;
@@ -51,6 +52,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNotSame;
 import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
@@ -224,6 +226,99 @@ public class TestEvictableLoadingCache
         assertEquals(entry.getKey(), second);
         assertNotSame(entry.getKey(), first);
         assertSame(entry.getKey(), second);
+    }
+
+    /**
+     * Test that they keys provided to {@link LoadingCache#get(Object)} are not necessarily the ones provided to
+     * {@link CacheLoader#load(Object)}. While guarantying this would be obviously desirable (as in
+     * {@link #testGetAllMaintainsKeyIdentityForBulkLoader}), it seems not feasible to do this while
+     * also maintain load sharing (see {@link #testConcurrentGetShareLoad()}).
+     */
+    @Test(timeOut = TEST_TIMEOUT_MILLIS)
+    public void testGetDoesNotMaintainKeyIdentityForLoader()
+            throws Exception
+    {
+        AtomicInteger loadCounter = new AtomicInteger();
+        int firstAdditionalField = 1;
+        int secondAdditionalField = 123456789;
+
+        LoadingCache<ClassWithPartialEquals, Integer> cache = EvictableCacheBuilder.newBuilder()
+                .maximumSize(10_000)
+                .build(CacheLoader.from((ClassWithPartialEquals key) -> {
+                    loadCounter.incrementAndGet();
+                    assertEquals(key.getAdditionalField(), firstAdditionalField); // not secondAdditionalField because get() reuses existing token
+                    return key.getValue();
+                }));
+
+        ClassWithPartialEquals keyA = new ClassWithPartialEquals(42, firstAdditionalField);
+        ClassWithPartialEquals keyB = new ClassWithPartialEquals(42, secondAdditionalField);
+        // sanity check: objects are equal despite having different observed state
+        assertEquals(keyA, keyB);
+        assertNotEquals(keyA.getAdditionalField(), keyB.getAdditionalField());
+
+        // Populate the cache
+        assertEquals((int) cache.get(keyA, () -> 317), 317);
+        assertEquals(loadCounter.get(), 0);
+
+        // invalidate dataCache but keep tokens -- simulate concurrent implicit or explicit eviction
+        ((EvictableCache<?, ?>) cache).clearDataCacheOnly();
+        assertEquals((int) cache.get(keyB), 42);
+        assertEquals(loadCounter.get(), 1);
+    }
+
+    /**
+     * Test that they keys provided to {@link LoadingCache#getAll(Iterable)} are the ones provided to {@link CacheLoader#loadAll(Iterable)}.
+     * It is possible that {@link CacheLoader#loadAll(Iterable)} requires keys to have some special characteristics and some
+     * other, equal keys, derived from {@code EvictableCache.tokens}, may not have that characteristics.
+     * This can happen only when cache keys are not fully value-based. While discouraged, this situation is possible.
+     * Guava Cache also exhibits the behavior tested here.
+     */
+    @Test(timeOut = TEST_TIMEOUT_MILLIS)
+    public void testGetAllMaintainsKeyIdentityForBulkLoader()
+            throws Exception
+    {
+        AtomicInteger loadAllCounter = new AtomicInteger();
+        int expectedAdditionalField = 123456789;
+
+        LoadingCache<ClassWithPartialEquals, Integer> cache = EvictableCacheBuilder.newBuilder()
+                .maximumSize(10_000)
+                .build(new CacheLoader<ClassWithPartialEquals, Integer>()
+                {
+                    @Override
+                    public Integer load(ClassWithPartialEquals key)
+                    {
+                        throw new UnsupportedOperationException();
+                    }
+
+                    @Override
+                    public Map<ClassWithPartialEquals, Integer> loadAll(Iterable<? extends ClassWithPartialEquals> keys)
+                    {
+                        loadAllCounter.incrementAndGet();
+                        // For the sake of simplicity, the test currently leverages that getAll() with singleton list will
+                        // end up calling loadAll() even though load() could be used.
+                        ClassWithPartialEquals key = getOnlyElement(keys);
+                        assertEquals(key.getAdditionalField(), expectedAdditionalField);
+                        return ImmutableMap.of(key, key.getValue());
+                    }
+                });
+
+        ClassWithPartialEquals keyA = new ClassWithPartialEquals(42, 1);
+        ClassWithPartialEquals keyB = new ClassWithPartialEquals(42, expectedAdditionalField);
+        // sanity check: objects are equal despite having different observed state
+        assertEquals(keyA, keyB);
+        assertNotEquals(keyA.getAdditionalField(), keyB.getAdditionalField());
+
+        // Populate the cache
+        assertEquals((int) cache.get(keyA, () -> 317), 317);
+        assertEquals(loadAllCounter.get(), 0);
+
+        // invalidate dataCache but keep tokens -- simulate concurrent implicit or explicit eviction
+        ((EvictableCache<?, ?>) cache).clearDataCacheOnly();
+        Map<ClassWithPartialEquals, Integer> map = cache.getAll(ImmutableList.of(keyB));
+        assertThat(map).hasSize(1);
+        assertSame(getOnlyElement(map.keySet()), keyB);
+        assertEquals((int) getOnlyElement(map.values()), 42);
+        assertEquals(loadAllCounter.get(), 1);
     }
 
     /**
@@ -485,6 +580,46 @@ public class TestEvictableLoadingCache
         finally {
             executor.shutdownNow();
             executor.awaitTermination(10, SECONDS);
+        }
+    }
+
+    /**
+     * A class implementing value-based equality taking into account some fields, but not all.
+     * This is definitely discouraged, but still may happen in practice.
+     */
+    private static class ClassWithPartialEquals
+    {
+        private final int value;
+        private final int additionalField; // not part of equals
+
+        public ClassWithPartialEquals(int value, int additionalField)
+        {
+            this.value = value;
+            this.additionalField = additionalField;
+        }
+
+        public int getValue()
+        {
+            return value;
+        }
+
+        public int getAdditionalField()
+        {
+            return additionalField;
+        }
+
+        @Override
+        public boolean equals(Object other)
+        {
+            return other != null &&
+                    this.getClass() == other.getClass() &&
+                    this.value == ((ClassWithPartialEquals) other).value;
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return value;
         }
     }
 }
