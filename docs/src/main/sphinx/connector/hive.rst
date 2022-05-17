@@ -500,7 +500,15 @@ with Parquet files performed by the Hive connector.
         The equivalent catalog session property is ``parquet_optimized_writer_validation_percentage``.
         Validation can be turned off by setting this property to ``0``.
       - ``5``
-
+    * - ``parquet.writer.page-size``
+      - Maximum page size for the Parquet writer.
+      - ``1 MB``
+    * - ``parquet.writer.block-size``
+      - Maximum row group size for the Parquet writer.
+      - ``128 MB``
+    * - ``parquet.writer.batch-size``
+      - Maximum number of rows processed by the parquet writer in a batch.
+      - ``10000``
 
 Metastore configuration properties
 ----------------------------------
