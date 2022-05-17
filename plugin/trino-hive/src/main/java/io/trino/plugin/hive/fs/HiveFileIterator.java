@@ -111,20 +111,22 @@ public class HiveFileIterator
     private Iterator<LocatedFileStatus> getLocatedFileStatusRemoteIterator(Path path)
     {
         try (TimeStat.BlockTimer ignored = namenodeStats.getListLocatedStatus().time()) {
-            if (ignoreAbsentPartitions && !exists(path)) {
-                return emptyIterator();
-            }
             return new FileStatusIterator(table, path, fileSystem, directoryLister, namenodeStats, nestedDirectoryPolicy == RECURSE);
         }
-    }
-
-    private boolean exists(Path path)
-    {
-        try {
-            return fileSystem.exists(path);
-        }
-        catch (IOException e) {
-            throw new TrinoException(HIVE_FILESYSTEM_ERROR, "Failed to check if path exists: " + path, e);
+        catch (TrinoException e) {
+            if (ignoreAbsentPartitions) {
+                try {
+                    if (!fileSystem.exists(path)) {
+                        return emptyIterator();
+                    }
+                }
+                catch (Exception ee) {
+                    TrinoException trinoException = new TrinoException(HIVE_FILESYSTEM_ERROR, "Failed to check if path exists: " + path, ee);
+                    trinoException.addSuppressed(e);
+                    throw trinoException;
+                }
+            }
+            throw e;
         }
     }
 
