@@ -224,6 +224,8 @@ public class TrinoS3FileSystem
     private static final Set<String> GLACIER_STORAGE_CLASSES = ImmutableSet.of(Glacier.toString(), DeepArchive.toString());
     private static final MediaType DIRECTORY_MEDIA_TYPE = MediaType.create("application", "x-directory");
     private static final String S3_DEFAULT_ROLE_SESSION_NAME = "trino-session";
+    public static final String TRINO_HEADER_SESSION_NAME = "X-Trino-Session-Name";
+    public static final String S3_HTTP_HEADERS_USER_IDENTITY_ENABLED = "trino.s3.http.headers.user.identity.enabled";
 
     private URI uri;
     private Path workingDirectory;
@@ -249,6 +251,7 @@ public class TrinoS3FileSystem
     private int streamingUploadPartSize;
     private TrinoS3StorageClass s3StorageClass;
     private String s3RoleSessionName;
+    private boolean s3HttpHeadersUserIdentityEnabled;
 
     private final ExecutorService uploadExecutor = newCachedThreadPool(threadsNamed("s3-upload-%s"));
 
@@ -298,6 +301,7 @@ public class TrinoS3FileSystem
         this.streamingUploadPartSize = toIntExact(conf.getLong(S3_STREAMING_UPLOAD_PART_SIZE, defaults.getS3StreamingPartSize().toBytes()));
         this.s3StorageClass = conf.getEnum(S3_STORAGE_CLASS, defaults.getS3StorageClass());
         this.s3RoleSessionName = conf.get(S3_ROLE_SESSION_NAME, S3_DEFAULT_ROLE_SESSION_NAME);
+        this.s3HttpHeadersUserIdentityEnabled = conf.getBoolean(S3_HTTP_HEADERS_USER_IDENTITY_ENABLED, defaults.isS3HttpHeadersUserIdentityEnabled());
 
         ClientConfiguration configuration = new ClientConfiguration()
                 .withMaxErrorRetry(maxErrorRetries)
@@ -499,7 +503,7 @@ public class TrinoS3FileSystem
     {
         return new FSDataInputStream(
                 new BufferedFSInputStream(
-                        new TrinoS3InputStream(s3, getBucketName(uri), path, requesterPaysEnabled, maxAttempts, maxBackoffTime, maxRetryTime),
+                        new TrinoS3InputStream(s3, getBucketName(uri), path, requesterPaysEnabled, maxAttempts, maxBackoffTime, maxRetryTime, s3HttpHeadersUserIdentityEnabled, s3RoleSessionName),
                         bufferSize));
     }
 
@@ -520,7 +524,7 @@ public class TrinoS3FileSystem
 
         if (streamingUploadEnabled) {
             Supplier<String> uploadIdFactory = () -> initMultipartUpload(bucketName, key).getUploadId();
-            return new TrinoS3StreamingOutputStream(s3, bucketName, key, this::customizePutObjectRequest, uploadIdFactory, uploadExecutor, streamingUploadPartSize);
+            return new TrinoS3StreamingOutputStream(s3, bucketName, key, this::customizePutObjectRequest, uploadIdFactory, uploadExecutor, streamingUploadPartSize, s3HttpHeadersUserIdentityEnabled, s3RoleSessionName);
         }
 
         if (!stagingDirectory.exists()) {
@@ -530,7 +534,7 @@ public class TrinoS3FileSystem
             throw new IOException("Configured staging path is not a directory: " + stagingDirectory);
         }
         File tempFile = createTempFile(stagingDirectory.toPath(), "trino-s3-", ".tmp").toFile();
-        return new TrinoS3StagingOutputStream(s3, bucketName, key, tempFile, this::customizePutObjectRequest, multiPartUploadMinFileSize, multiPartUploadMinPartSize);
+        return new TrinoS3StagingOutputStream(s3, bucketName, key, tempFile, this::customizePutObjectRequest, multiPartUploadMinFileSize, multiPartUploadMinPartSize, s3HttpHeadersUserIdentityEnabled, s3RoleSessionName);
     }
 
     @Override
@@ -1121,6 +1125,8 @@ public class TrinoS3FileSystem
         private final int maxAttempts;
         private final Duration maxBackoffTime;
         private final Duration maxRetryTime;
+        private final boolean s3HttpHeadersUserIdentityEnabled;
+        private final String s3RoleSessionName;
 
         private final AtomicBoolean closed = new AtomicBoolean();
 
@@ -1128,7 +1134,7 @@ public class TrinoS3FileSystem
         private long streamPosition;
         private long nextReadPosition;
 
-        public TrinoS3InputStream(AmazonS3 s3, String bucket, Path path, boolean requesterPaysEnabled, int maxAttempts, Duration maxBackoffTime, Duration maxRetryTime)
+        public TrinoS3InputStream(AmazonS3 s3, String bucket, Path path, boolean requesterPaysEnabled, int maxAttempts, Duration maxBackoffTime, Duration maxRetryTime, boolean s3HttpHeadersUserIdentityEnabled, String s3RoleSessionName)
         {
             this.s3 = requireNonNull(s3, "s3 is null");
             this.bucket = requireNonNull(bucket, "bucket is null");
@@ -1139,6 +1145,8 @@ public class TrinoS3FileSystem
             this.maxAttempts = maxAttempts;
             this.maxBackoffTime = requireNonNull(maxBackoffTime, "maxBackoffTime is null");
             this.maxRetryTime = requireNonNull(maxRetryTime, "maxRetryTime is null");
+            this.s3HttpHeadersUserIdentityEnabled = s3HttpHeadersUserIdentityEnabled;
+            this.s3RoleSessionName = s3RoleSessionName;
         }
 
         @Override
@@ -1173,6 +1181,9 @@ public class TrinoS3FileSystem
                                 GetObjectRequest request = new GetObjectRequest(bucket, keyFromPath(path))
                                         .withRange(position, (position + length) - 1)
                                         .withRequesterPays(requesterPaysEnabled);
+                                if (s3HttpHeadersUserIdentityEnabled) {
+                                    request.putCustomRequestHeader(TRINO_HEADER_SESSION_NAME, s3RoleSessionName);
+                                }
                                 stream = s3.getObject(request).getObjectContent();
                             }
                             catch (RuntimeException e) {
@@ -1347,6 +1358,9 @@ public class TrinoS3FileSystem
                                 GetObjectRequest request = new GetObjectRequest(bucket, keyFromPath(path))
                                         .withRange(start)
                                         .withRequesterPays(requesterPaysEnabled);
+                                if (s3HttpHeadersUserIdentityEnabled) {
+                                    request.putCustomRequestHeader(TRINO_HEADER_SESSION_NAME, s3RoleSessionName);
+                                }
                                 return s3.getObject(request).getObjectContent();
                             }
                             catch (RuntimeException e) {
@@ -1429,6 +1443,8 @@ public class TrinoS3FileSystem
         private final String key;
         private final File tempFile;
         private final Consumer<PutObjectRequest> requestCustomizer;
+        private final boolean s3HttpHeadersUserIdentityEnabled;
+        private final String s3RoleSessionName;
 
         private boolean closed;
 
@@ -1439,7 +1455,9 @@ public class TrinoS3FileSystem
                 File tempFile,
                 Consumer<PutObjectRequest> requestCustomizer,
                 long multiPartUploadMinFileSize,
-                long multiPartUploadMinPartSize)
+                long multiPartUploadMinPartSize,
+                boolean s3HttpHeadersUserIdentityEnabled,
+                String s3RoleSessionName)
                 throws IOException
         {
             super(new BufferedOutputStream(new FileOutputStream(requireNonNull(tempFile, "tempFile is null"))));
@@ -1453,6 +1471,8 @@ public class TrinoS3FileSystem
             this.key = requireNonNull(key, "key is null");
             this.tempFile = tempFile;
             this.requestCustomizer = requireNonNull(requestCustomizer, "requestCustomizer is null");
+            this.s3HttpHeadersUserIdentityEnabled = s3HttpHeadersUserIdentityEnabled;
+            this.s3RoleSessionName = s3RoleSessionName;
 
             log.debug("OutputStream for key '%s' using file: %s", key, tempFile);
         }
@@ -1487,6 +1507,9 @@ public class TrinoS3FileSystem
                 STATS.uploadStarted();
 
                 PutObjectRequest request = new PutObjectRequest(bucket, key, tempFile);
+                if (s3HttpHeadersUserIdentityEnabled) {
+                    request.putCustomRequestHeader(TRINO_HEADER_SESSION_NAME, s3RoleSessionName);
+                }
                 requestCustomizer.accept(request);
 
                 Upload upload = transferManager.upload(request);
@@ -1545,6 +1568,8 @@ public class TrinoS3FileSystem
         private final Consumer<PutObjectRequest> requestCustomizer;
         private final Supplier<String> uploadIdFactory;
         private final ExecutorService uploadExecutor;
+        private final boolean s3HttpHeadersUserIdentityEnabled;
+        private final String s3RoleSessionName;
 
         private int currentPartNumber;
         private byte[] buffer;
@@ -1567,7 +1592,9 @@ public class TrinoS3FileSystem
                 Consumer<PutObjectRequest> requestCustomizer,
                 Supplier<String> uploadIdFactory,
                 ExecutorService uploadExecutor,
-                int partSize)
+                int partSize,
+                boolean s3HttpHeadersUserIdentityEnabled,
+                String s3RoleSessionName)
         {
             STATS.uploadStarted();
 
@@ -1580,6 +1607,8 @@ public class TrinoS3FileSystem
             this.requestCustomizer = requireNonNull(requestCustomizer, "requestCustomizer is null");
             this.uploadIdFactory = requireNonNull(uploadIdFactory, "uploadIdFactory is null");
             this.uploadExecutor = requireNonNull(uploadExecutor, "uploadExecutor is null");
+            this.s3HttpHeadersUserIdentityEnabled = s3HttpHeadersUserIdentityEnabled;
+            this.s3RoleSessionName = s3RoleSessionName;
         }
 
         @Override
@@ -1663,6 +1692,9 @@ public class TrinoS3FileSystem
                 metadata.setContentMD5(getMd5AsBase64(buffer, 0, bufferSize));
 
                 PutObjectRequest request = new PutObjectRequest(bucketName, key, in, metadata);
+                if (s3HttpHeadersUserIdentityEnabled) {
+                    request.putCustomRequestHeader(TRINO_HEADER_SESSION_NAME, s3RoleSessionName);
+                }
                 requestCustomizer.accept(request);
 
                 try {

@@ -29,6 +29,7 @@ import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_CONNECT_TIMEOUT;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_ENCRYPTION_MATERIALS_PROVIDER;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_ENDPOINT;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_EXTERNAL_ID;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_HTTP_HEADERS_USER_IDENTITY_ENABLED;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_IAM_ROLE;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_KMS_KEY_ID;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_MAX_BACKOFF_TIME;
@@ -110,6 +111,7 @@ public class TrinoS3ConfigurationInitializer
     private final boolean s3preemptiveBasicProxyAuth;
     private final String s3StsEndpoint;
     private final String s3StsRegion;
+    private final boolean httpHeadersUserIdentityEnabled;
 
     @Inject
     public TrinoS3ConfigurationInitializer(HiveS3Config config)
@@ -155,6 +157,7 @@ public class TrinoS3ConfigurationInitializer
         this.s3preemptiveBasicProxyAuth = config.getS3PreemptiveBasicProxyAuth();
         this.s3StsEndpoint = config.getS3StsEndpoint();
         this.s3StsRegion = config.getS3StsRegion();
+        this.httpHeadersUserIdentityEnabled = config.isS3HttpHeadersUserIdentityEnabled();
     }
 
     @Override
@@ -217,6 +220,7 @@ public class TrinoS3ConfigurationInitializer
         config.setBoolean(S3_REQUESTER_PAYS_ENABLED, requesterPaysEnabled);
         config.setBoolean(S3_STREAMING_UPLOAD_ENABLED, s3StreamingUploadEnabled);
         config.setLong(S3_STREAMING_UPLOAD_PART_SIZE, streamingPartSize.toBytes());
+        config.setBoolean(S3_HTTP_HEADERS_USER_IDENTITY_ENABLED, httpHeadersUserIdentityEnabled);
         if (s3proxyHost != null) {
             config.set(S3_PROXY_HOST, s3proxyHost);
         }
