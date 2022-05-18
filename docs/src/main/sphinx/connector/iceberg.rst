@@ -10,7 +10,7 @@ Apache Iceberg is an open table format for huge analytic datasets.
 The Iceberg connector allows querying data stored in
 files written in Iceberg format, as defined in the
 `Iceberg Table Spec <https://iceberg.apache.org/spec/>`_. It supports Apache
-Iceberg table spec version 1.
+Iceberg table spec version 1 and 2.
 
 The Iceberg table state is maintained in metadata files. All changes to table state
 create a new metadata file and replace the old metadata with an atomic swap.
