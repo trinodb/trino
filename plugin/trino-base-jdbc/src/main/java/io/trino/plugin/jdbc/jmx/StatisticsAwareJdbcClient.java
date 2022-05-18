@@ -113,7 +113,7 @@ public final class StatisticsAwareJdbcClient
     @Override
     public Optional<ColumnMapping> toColumnMapping(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
     {
-        return stats.getToPrestoType().wrap(() -> delegate().toColumnMapping(session, connection, typeHandle));
+        return stats.getToTrinoType().wrap(() -> delegate().toColumnMapping(session, connection, typeHandle));
     }
 
     @Override
