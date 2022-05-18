@@ -231,15 +231,6 @@ public abstract class BaseClickHouseConnectorTest
                         "col_required2 Int64) ENGINE=Log");
     }
 
-    @Test
-    public void testCreateTableWithColumnComment()
-    {
-        // TODO (https://github.com/trinodb/trino/issues/11162) Merge into BaseConnectorTest
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_column_comment", "(col integer COMMENT 'column comment')")) {
-            assertEquals(getColumnComment(table.getName(), "col"), "column comment");
-        }
-    }
-
     @Override
     public void testCharVarcharComparison()
     {

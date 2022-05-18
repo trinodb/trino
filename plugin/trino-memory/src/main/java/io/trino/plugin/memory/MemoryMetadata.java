@@ -248,6 +248,9 @@ public class MemoryMetadata
         ImmutableList.Builder<ColumnInfo> columns = ImmutableList.builder();
         for (int i = 0; i < tableMetadata.getColumns().size(); i++) {
             ColumnMetadata column = tableMetadata.getColumns().get(i);
+            if (column.getComment() != null) {
+                throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with column comment");
+            }
             columns.add(new ColumnInfo(new MemoryColumnHandle(i), column.getName(), column.getType()));
         }
 

@@ -96,6 +96,7 @@ public class TestCassandraConnectorTest
                 return false;
 
             case SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT:
+            case SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT:
                 return false;
 
             case SUPPORTS_RENAME_TABLE:

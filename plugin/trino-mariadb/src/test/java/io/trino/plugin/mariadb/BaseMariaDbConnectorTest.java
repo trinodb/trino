@@ -43,6 +43,7 @@ public abstract class BaseMariaDbConnectorTest
             case SUPPORTS_AGGREGATION_PUSHDOWN_STDDEV:
             case SUPPORTS_AGGREGATION_PUSHDOWN_VARIANCE:
                 return true;
+            case SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT:
             case SUPPORTS_ADD_COLUMN_WITH_COMMENT:
             case SUPPORTS_JOIN_PUSHDOWN_WITH_FULL_JOIN:
             case SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM:

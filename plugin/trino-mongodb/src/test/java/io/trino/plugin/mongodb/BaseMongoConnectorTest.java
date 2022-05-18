@@ -136,18 +136,6 @@ public abstract class BaseMongoConnectorTest
     }
 
     @Test
-    public void testCreateTableWithColumnComment()
-    {
-        // TODO (https://github.com/trinodb/trino/issues/11162) Merge into io.trino.testing.BaseConnectorTest#testCommentColumn
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_column_comment", "(col integer COMMENT 'test')")) {
-            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
-                    .isEqualTo(format("CREATE TABLE %s.%s.%s (\n" +
-                            "   col integer COMMENT 'test'\n" +
-                            ")", getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow(), table.getName()));
-        }
-    }
-
-    @Test
     public void createTableWithEveryType()
     {
         String query = "" +
