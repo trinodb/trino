@@ -50,7 +50,7 @@ public class TestIcebergConfig
                 .setHiveCatalogName(null)
                 .setFormatVersion(2)
                 .setExpireSnapshotsMinRetention(new Duration(7, DAYS))
-                .setDeleteOrphanFilesMinRetention(new Duration(7, DAYS)));
+                .setRemoveOrphanFilesMinRetention(new Duration(7, DAYS)));
     }
 
     @Test
@@ -69,7 +69,7 @@ public class TestIcebergConfig
                 .put("iceberg.hive-catalog-name", "hive")
                 .put("iceberg.format-version", "1")
                 .put("iceberg.expire_snapshots.min-retention", "13h")
-                .put("iceberg.delete_orphan_files.min-retention", "14h")
+                .put("iceberg.remove_orphan_files.min-retention", "14h")
                 .buildOrThrow();
 
         IcebergConfig expected = new IcebergConfig()
@@ -85,7 +85,7 @@ public class TestIcebergConfig
                 .setHiveCatalogName("hive")
                 .setFormatVersion(1)
                 .setExpireSnapshotsMinRetention(new Duration(13, HOURS))
-                .setDeleteOrphanFilesMinRetention(new Duration(14, HOURS));
+                .setRemoveOrphanFilesMinRetention(new Duration(14, HOURS));
 
         assertFullMapping(properties, expected);
     }

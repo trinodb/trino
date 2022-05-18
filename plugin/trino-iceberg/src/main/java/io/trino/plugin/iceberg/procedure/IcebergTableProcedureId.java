@@ -17,5 +17,5 @@ public enum IcebergTableProcedureId
 {
     OPTIMIZE,
     EXPIRE_SNAPSHOTS,
-    DELETE_ORPHAN_FILES,
+    REMOVE_ORPHAN_FILES,
 }

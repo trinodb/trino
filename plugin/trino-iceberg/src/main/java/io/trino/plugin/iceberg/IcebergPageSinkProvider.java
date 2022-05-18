@@ -125,7 +125,7 @@ public class IcebergPageSinkProvider
                         optimizeHandle.getTableStorageProperties(),
                         maxOpenPartitions);
             case EXPIRE_SNAPSHOTS:
-            case DELETE_ORPHAN_FILES:
+            case REMOVE_ORPHAN_FILES:
                 // handled via ConnectorMetadata.executeTableExecute
         }
         throw new IllegalArgumentException("Unknown procedure: " + executeHandle.getProcedureId());

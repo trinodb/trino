@@ -35,7 +35,7 @@ public class IcebergConfig
     public static final int FORMAT_VERSION_SUPPORT_MIN = 1;
     public static final int FORMAT_VERSION_SUPPORT_MAX = 2;
     public static final String EXPIRE_SNAPSHOTS_MIN_RETENTION = "iceberg.expire_snapshots.min-retention";
-    public static final String DELETE_ORPHAN_FILES_MIN_RETENTION = "iceberg.delete_orphan_files.min-retention";
+    public static final String REMOVE_ORPHAN_FILES_MIN_RETENTION = "iceberg.remove_orphan_files.min-retention";
 
     private IcebergFileFormat fileFormat = ORC;
     private HiveCompressionCodec compressionCodec = ZSTD;
@@ -49,7 +49,7 @@ public class IcebergConfig
     private Optional<String> hiveCatalogName = Optional.empty();
     private int formatVersion = FORMAT_VERSION_SUPPORT_MAX;
     private Duration expireSnapshotsMinRetention = new Duration(7, DAYS);
-    private Duration deleteOrphanFilesMinRetention = new Duration(7, DAYS);
+    private Duration removeOrphanFilesMinRetention = new Duration(7, DAYS);
 
     public CatalogType getCatalogType()
     {
@@ -223,16 +223,16 @@ public class IcebergConfig
     }
 
     @NotNull
-    public Duration getDeleteOrphanFilesMinRetention()
+    public Duration getRemoveOrphanFilesMinRetention()
     {
-        return deleteOrphanFilesMinRetention;
+        return removeOrphanFilesMinRetention;
     }
 
-    @Config(DELETE_ORPHAN_FILES_MIN_RETENTION)
-    @ConfigDescription("Minimal retention period for delete_orphan_files procedure")
-    public IcebergConfig setDeleteOrphanFilesMinRetention(Duration deleteOrphanFilesMinRetention)
+    @Config(REMOVE_ORPHAN_FILES_MIN_RETENTION)
+    @ConfigDescription("Minimal retention period for remove_orphan_files procedure")
+    public IcebergConfig setRemoveOrphanFilesMinRetention(Duration removeOrphanFilesMinRetention)
     {
-        this.deleteOrphanFilesMinRetention = deleteOrphanFilesMinRetention;
+        this.removeOrphanFilesMinRetention = removeOrphanFilesMinRetention;
         return this;
     }
 }

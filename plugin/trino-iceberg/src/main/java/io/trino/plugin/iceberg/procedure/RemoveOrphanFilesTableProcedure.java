@@ -20,17 +20,17 @@ import io.trino.spi.connector.TableProcedureMetadata;
 import javax.inject.Provider;
 
 import static io.trino.plugin.base.session.PropertyMetadataUtil.durationProperty;
-import static io.trino.plugin.iceberg.procedure.IcebergTableProcedureId.DELETE_ORPHAN_FILES;
+import static io.trino.plugin.iceberg.procedure.IcebergTableProcedureId.REMOVE_ORPHAN_FILES;
 import static io.trino.spi.connector.TableProcedureExecutionMode.coordinatorOnly;
 
-public class DeleteOrphanFilesTableProcedure
+public class RemoveOrphanFilesTableProcedure
         implements Provider<TableProcedureMetadata>
 {
     @Override
     public TableProcedureMetadata get()
     {
         return new TableProcedureMetadata(
-                DELETE_ORPHAN_FILES.name(),
+                REMOVE_ORPHAN_FILES.name(),
                 coordinatorOnly(),
                 ImmutableList.of(
                         durationProperty(
