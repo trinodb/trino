@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.exchange.filesystem;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -203,7 +204,7 @@ public class FileSystemExchangeSink
 
         return stats.getExchangeSinkAbort().record(toCompletableFuture(Futures.transformAsync(
                 abortFuture,
-                ignored -> exchangeStorage.deleteRecursively(outputDirectory),
+                ignored -> exchangeStorage.deleteRecursively(ImmutableList.of(outputDirectory)),
                 directExecutor())));
     }
 

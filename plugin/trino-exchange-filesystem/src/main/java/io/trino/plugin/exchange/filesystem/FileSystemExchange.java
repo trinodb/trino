@@ -17,8 +17,6 @@ import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimap;
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.spi.exchange.Exchange;
 import io.trino.spi.exchange.ExchangeContext;
 import io.trino.spi.exchange.ExchangeSinkHandle;
@@ -307,11 +305,7 @@ public class FileSystemExchange
     @Override
     public void close()
     {
-        ImmutableList.Builder<ListenableFuture<Void>> futures = ImmutableList.builder();
-        for (Integer taskPartitionId : allSinks) {
-            futures.add(exchangeStorage.deleteRecursively(getTaskOutputDirectory(taskPartitionId)));
-        }
-        stats.getCloseExchange().record(Futures.allAsList(futures.build()));
+        stats.getCloseExchange().record(exchangeStorage.deleteRecursively(allSinks.stream().map(this::getTaskOutputDirectory).collect(toImmutableList())));
     }
 
     private static String generateRandomizedPrefix()
