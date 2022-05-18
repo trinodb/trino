@@ -15,6 +15,7 @@ package io.trino.tests.product.deltalake;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.tempto.assertions.QueryAssert;
+import io.trino.tempto.query.QueryResult;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -27,6 +28,7 @@ import static io.trino.tests.product.hive.util.TemporaryHiveTable.randomTableSuf
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
+import static org.testng.Assert.assertEquals;
 
 public class TestDeltaLakeDatabricksCreateTableCompatibility
         extends BaseTestDeltaLakeS3Storage
@@ -170,5 +172,36 @@ public class TestDeltaLakeDatabricksCreateTableCompatibility
 
         assertThat(onTrino().executeQuery("SELECT integer, string, to_iso8601(timetz) FROM delta.default." + tableName))
                 .containsOnly(expected.build());
+    }
+
+    @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
+    public void testCreateTableWithTableComment()
+    {
+        String tableName = "test_dl_create_table_comment_" + randomTableSuffix();
+        String tableDirectory = "databricks-compatibility-test-" + tableName;
+
+        onTrino().executeQuery(format("CREATE TABLE delta.default.%s (col INT) COMMENT 'test comment' WITH (location = 's3://%s/%s')",
+                tableName,
+                bucketName,
+                tableDirectory));
+
+        try {
+            assertThat(onTrino().executeQuery("SELECT comment FROM system.metadata.table_comments WHERE catalog_name = 'delta' AND schema_name = 'default' AND table_name = '" + tableName + "'"))
+                    .containsOnly(row("test comment"));
+
+            assertEquals(getTableCommentOnDelta("default", tableName), "test comment");
+        }
+        finally {
+            onTrino().executeQuery("DROP TABLE delta.default." + tableName);
+        }
+    }
+
+    private static String getTableCommentOnDelta(String schemaName, String tableName)
+    {
+        QueryResult result = onDelta().executeQuery(format("DESCRIBE EXTENDED %s.%s", schemaName, tableName));
+        return (String) result.rows().stream()
+                .filter(row -> row.get(0).equals("Comment"))
+                .map(row -> row.get(1))
+                .findFirst().orElseThrow();
     }
 }

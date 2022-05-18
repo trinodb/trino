@@ -164,7 +164,8 @@ public class TestDeltaLakePageSink
                 getColumnHandles(),
                 outputPath.toString(),
                 Optional.of(deltaLakeConfig.getDefaultCheckpointWritingInterval()),
-                true);
+                true,
+                Optional.empty());
 
         DeltaLakePageSinkProvider provider = new DeltaLakePageSinkProvider(
                 new GroupByHashPageIndexerFactory(new JoinCompiler(new TypeOperators()), new BlockTypeOperators()),

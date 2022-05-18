@@ -35,6 +35,7 @@ public class DeltaLakeOutputTableHandle
     private final String location;
     private final Optional<Long> checkpointInterval;
     private final boolean external;
+    private final Optional<String> comment;
 
     @JsonCreator
     public DeltaLakeOutputTableHandle(
@@ -43,7 +44,8 @@ public class DeltaLakeOutputTableHandle
             @JsonProperty("inputColumns") List<DeltaLakeColumnHandle> inputColumns,
             @JsonProperty("location") String location,
             @JsonProperty("checkpointInterval") Optional<Long> checkpointInterval,
-            @JsonProperty("external") boolean external)
+            @JsonProperty("external") boolean external,
+            @JsonProperty("comment") Optional<String> comment)
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
@@ -51,6 +53,7 @@ public class DeltaLakeOutputTableHandle
         this.location = requireNonNull(location, "location is null");
         this.checkpointInterval = checkpointInterval;
         this.external = external;
+        this.comment = requireNonNull(comment, "comment is null");
     }
 
     @JsonProperty
@@ -96,5 +99,11 @@ public class DeltaLakeOutputTableHandle
     public boolean isExternal()
     {
         return external;
+    }
+
+    @JsonProperty
+    public Optional<String> getComment()
+    {
+        return comment;
     }
 }
