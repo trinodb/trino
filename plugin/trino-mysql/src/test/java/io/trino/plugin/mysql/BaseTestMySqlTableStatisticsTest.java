@@ -19,7 +19,6 @@ import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
-import io.trino.testng.services.Flaky;
 import org.assertj.core.api.AbstractDoubleAssert;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
@@ -82,10 +81,6 @@ public abstract class BaseTestMySqlTableStatisticsTest
 
     @Override
     @Test
-    @Flaky(
-            // TODO replace @Flaky with assertEventually or @Flaky-like annotation for same purpose
-            issue = "TODO",
-            match = "Expecting.*to be close to|ComparisonFailure.*NDV for")
     public void testNotAnalyzed()
     {
         String tableName = "test_not_analyzed_" + randomTableSuffix();
