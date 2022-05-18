@@ -285,7 +285,6 @@ public class TestSnowflakeTypeMapping
                 .addRoundTrip("date", "DATE '99999-12-31'", DATE, "DATE '99999-12-31'")
                 .addRoundTrip("date", "'5881580-07-11'", DATE, "DATE '5881580-07-11'") // max value in Trino
                 .execute(getQueryRunner(), session, trinoCreateAsSelect("test_date"))
-                .execute(getQueryRunner(), session, trinoCreateAndInsert("test_date"))
                 .execute(getQueryRunner(), session, snowflakeCreateAndInsert("tpch.test_date"));
     }
 
