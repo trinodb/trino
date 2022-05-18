@@ -1721,9 +1721,9 @@ public class TestIcebergSparkCompatibility
         int initialNumberOfMetadataFiles = calculateMetadataFilesForPartitionedTable(baseTableName);
 
         onTrino().executeQuery("SET SESSION iceberg.expire_snapshots_min_retention = '0s'");
-        onTrino().executeQuery("SET SESSION iceberg.delete_orphan_files_min_retention = '0s'");
+        onTrino().executeQuery("SET SESSION iceberg.remove_orphan_files_min_retention = '0s'");
         onTrino().executeQuery(format("ALTER TABLE %s EXECUTE EXPIRE_SNAPSHOTS (retention_threshold => '0s')", trinoTableName));
-        onTrino().executeQuery(format("ALTER TABLE %s EXECUTE DELETE_ORPHAN_FILES (retention_threshold => '0s')", trinoTableName));
+        onTrino().executeQuery(format("ALTER TABLE %s EXECUTE REMOVE_ORPHAN_FILES (retention_threshold => '0s')", trinoTableName));
 
         int updatedNumberOfMetadataFiles = calculateMetadataFilesForPartitionedTable(baseTableName);
         Assertions.assertThat(updatedNumberOfMetadataFiles).isLessThan(initialNumberOfMetadataFiles);
@@ -1763,9 +1763,9 @@ public class TestIcebergSparkCompatibility
 
         onTrino().executeQuery(format("ALTER TABLE %s EXECUTE OPTIMIZE", trinoTableName));
         onTrino().executeQuery("SET SESSION iceberg.expire_snapshots_min_retention = '0s'");
-        onTrino().executeQuery("SET SESSION iceberg.delete_orphan_files_min_retention = '0s'");
+        onTrino().executeQuery("SET SESSION iceberg.remove_orphan_files_min_retention = '0s'");
         onTrino().executeQuery(format("ALTER TABLE %s EXECUTE EXPIRE_SNAPSHOTS (retention_threshold => '0s')", trinoTableName));
-        onTrino().executeQuery(format("ALTER TABLE %s EXECUTE DELETE_ORPHAN_FILES (retention_threshold => '0s')", trinoTableName));
+        onTrino().executeQuery(format("ALTER TABLE %s EXECUTE REMOVE_ORPHAN_FILES (retention_threshold => '0s')", trinoTableName));
 
         int updatedNumberOfFiles = onTrino().executeQuery(format("SELECT * FROM iceberg.default.\"%s$files\"", baseTableName)).getRowsCount();
         Assertions.assertThat(updatedNumberOfFiles).isLessThan(initialNumberOfFiles);
@@ -1800,9 +1800,9 @@ public class TestIcebergSparkCompatibility
 
         onTrino().executeQuery(format("ALTER TABLE %s EXECUTE OPTIMIZE", trinoTableName));
         onTrino().executeQuery("SET SESSION iceberg.expire_snapshots_min_retention = '0s'");
-        onTrino().executeQuery("SET SESSION iceberg.delete_orphan_files_min_retention = '0s'");
+        onTrino().executeQuery("SET SESSION iceberg.remove_orphan_files_min_retention = '0s'");
         onTrino().executeQuery(format("ALTER TABLE %s EXECUTE EXPIRE_SNAPSHOTS (retention_threshold => '0s')", trinoTableName));
-        onTrino().executeQuery(format("ALTER TABLE %s EXECUTE DELETE_ORPHAN_FILES (retention_threshold => '0s')", trinoTableName));
+        onTrino().executeQuery(format("ALTER TABLE %s EXECUTE REMOVE_ORPHAN_FILES (retention_threshold => '0s')", trinoTableName));
 
         Row row = row(3008);
         String selectByString = "SELECT SUM(_bigint) FROM %s WHERE _string = 'a'";
@@ -1842,8 +1842,8 @@ public class TestIcebergSparkCompatibility
 
         onTrino().executeQuery("SET SESSION iceberg.expire_snapshots_min_retention = '0s'");
         onTrino().executeQuery(format("ALTER TABLE %s EXECUTE EXPIRE_SNAPSHOTS (retention_threshold => '0s')", trinoTableName));
-        onTrino().executeQuery("SET SESSION iceberg.delete_orphan_files_min_retention = '0s'");
-        onTrino().executeQuery(format("ALTER TABLE %s EXECUTE DELETE_ORPHAN_FILES (retention_threshold => '0s')", trinoTableName));
+        onTrino().executeQuery("SET SESSION iceberg.remove_orphan_files_min_retention = '0s'");
+        onTrino().executeQuery(format("ALTER TABLE %s EXECUTE REMOVE_ORPHAN_FILES (retention_threshold => '0s')", trinoTableName));
 
         assertThat(onTrino().executeQuery(format(selectByString, trinoTableName)))
                 .containsOnly(row);

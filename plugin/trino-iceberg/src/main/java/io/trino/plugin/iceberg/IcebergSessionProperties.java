@@ -75,7 +75,7 @@ public final class IcebergSessionProperties
     private static final String TARGET_MAX_FILE_SIZE = "target_max_file_size";
     private static final String HIVE_CATALOG_NAME = "hive_catalog_name";
     public static final String EXPIRE_SNAPSHOTS_MIN_RETENTION = "expire_snapshots_min_retention";
-    public static final String DELETE_ORPHAN_FILES_MIN_RETENTION = "delete_orphan_files_min_retention";
+    public static final String REMOVE_ORPHAN_FILES_MIN_RETENTION = "remove_orphan_files_min_retention";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -237,9 +237,9 @@ public final class IcebergSessionProperties
                         icebergConfig.getExpireSnapshotsMinRetention(),
                         false))
                 .add(durationProperty(
-                        DELETE_ORPHAN_FILES_MIN_RETENTION,
-                        "Minimal retention period for delete_orphan_files procedure",
-                        icebergConfig.getDeleteOrphanFilesMinRetention(),
+                        REMOVE_ORPHAN_FILES_MIN_RETENTION,
+                        "Minimal retention period for remove_orphan_files procedure",
+                        icebergConfig.getRemoveOrphanFilesMinRetention(),
                         false))
                 .build();
     }
@@ -392,8 +392,8 @@ public final class IcebergSessionProperties
         return session.getProperty(EXPIRE_SNAPSHOTS_MIN_RETENTION, Duration.class);
     }
 
-    public static Duration getDeleteOrphanFilesMinRetention(ConnectorSession session)
+    public static Duration getRemoveOrphanFilesMinRetention(ConnectorSession session)
     {
-        return session.getProperty(DELETE_ORPHAN_FILES_MIN_RETENTION, Duration.class);
+        return session.getProperty(REMOVE_ORPHAN_FILES_MIN_RETENTION, Duration.class);
     }
 }

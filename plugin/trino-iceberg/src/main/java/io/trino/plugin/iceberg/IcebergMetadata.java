@@ -33,9 +33,9 @@ import io.trino.plugin.hive.HiveApplyProjectionUtil;
 import io.trino.plugin.hive.HiveApplyProjectionUtil.ProjectedColumnRepresentation;
 import io.trino.plugin.hive.HiveWrittenPartitions;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
-import io.trino.plugin.iceberg.procedure.IcebergDeleteOrphanFilesHandle;
 import io.trino.plugin.iceberg.procedure.IcebergExpireSnapshotsHandle;
 import io.trino.plugin.iceberg.procedure.IcebergOptimizeHandle;
+import io.trino.plugin.iceberg.procedure.IcebergRemoveOrphanFilesHandle;
 import io.trino.plugin.iceberg.procedure.IcebergTableExecuteHandle;
 import io.trino.plugin.iceberg.procedure.IcebergTableProcedureId;
 import io.trino.spi.TrinoException;
@@ -156,8 +156,8 @@ import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.FILE_PATH;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.isMetadataColumnId;
-import static io.trino.plugin.iceberg.IcebergSessionProperties.getDeleteOrphanFilesMinRetention;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getExpireSnapshotMinRetention;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.getRemoveOrphanFilesMinRetention;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isProjectionPushdownEnabled;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isStatisticsEnabled;
 import static io.trino.plugin.iceberg.IcebergTableProperties.FILE_FORMAT_PROPERTY;
@@ -179,9 +179,9 @@ import static io.trino.plugin.iceberg.TableType.DATA;
 import static io.trino.plugin.iceberg.TypeConverter.toIcebergType;
 import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
 import static io.trino.plugin.iceberg.catalog.hms.TrinoHiveCatalog.DEPENDS_ON_TABLES;
-import static io.trino.plugin.iceberg.procedure.IcebergTableProcedureId.DELETE_ORPHAN_FILES;
 import static io.trino.plugin.iceberg.procedure.IcebergTableProcedureId.EXPIRE_SNAPSHOTS;
 import static io.trino.plugin.iceberg.procedure.IcebergTableProcedureId.OPTIMIZE;
+import static io.trino.plugin.iceberg.procedure.IcebergTableProcedureId.REMOVE_ORPHAN_FILES;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static java.lang.String.format;
@@ -760,8 +760,8 @@ public class IcebergMetadata
                 return getTableHandleForOptimize(session, tableHandle, executeProperties, retryMode);
             case EXPIRE_SNAPSHOTS:
                 return getTableHandleForExpireSnapshots(session, tableHandle, executeProperties);
-            case DELETE_ORPHAN_FILES:
-                return getTableHandleForDeleteOrphanFiles(session, tableHandle, executeProperties);
+            case REMOVE_ORPHAN_FILES:
+                return getTableHandleForRemoveOrphanFiles(session, tableHandle, executeProperties);
         }
 
         throw new IllegalArgumentException("Unknown procedure: " + procedureId);
@@ -798,15 +798,15 @@ public class IcebergMetadata
                 icebergTable.location()));
     }
 
-    private Optional<ConnectorTableExecuteHandle> getTableHandleForDeleteOrphanFiles(ConnectorSession session, IcebergTableHandle tableHandle, Map<String, Object> executeProperties)
+    private Optional<ConnectorTableExecuteHandle> getTableHandleForRemoveOrphanFiles(ConnectorSession session, IcebergTableHandle tableHandle, Map<String, Object> executeProperties)
     {
         Duration retentionThreshold = (Duration) executeProperties.get(RETENTION_THRESHOLD);
         Table icebergTable = catalog.loadTable(session, tableHandle.getSchemaTableName());
 
         return Optional.of(new IcebergTableExecuteHandle(
                 tableHandle.getSchemaTableName(),
-                DELETE_ORPHAN_FILES,
-                new IcebergDeleteOrphanFilesHandle(retentionThreshold),
+                REMOVE_ORPHAN_FILES,
+                new IcebergRemoveOrphanFilesHandle(retentionThreshold),
                 icebergTable.location()));
     }
 
@@ -818,7 +818,7 @@ public class IcebergMetadata
             case OPTIMIZE:
                 return getLayoutForOptimize(session, executeHandle);
             case EXPIRE_SNAPSHOTS:
-            case DELETE_ORPHAN_FILES:
+            case REMOVE_ORPHAN_FILES:
                 // handled via executeTableExecute
         }
         throw new IllegalArgumentException("Unknown procedure '" + executeHandle.getProcedureId() + "'");
@@ -844,7 +844,7 @@ public class IcebergMetadata
             case OPTIMIZE:
                 return beginOptimize(session, executeHandle, table);
             case EXPIRE_SNAPSHOTS:
-            case DELETE_ORPHAN_FILES:
+            case REMOVE_ORPHAN_FILES:
                 // handled via executeTableExecute
         }
         throw new IllegalArgumentException("Unknown procedure '" + executeHandle.getProcedureId() + "'");
@@ -886,7 +886,7 @@ public class IcebergMetadata
                 finishOptimize(session, executeHandle, fragments, splitSourceInfo);
                 return;
             case EXPIRE_SNAPSHOTS:
-            case DELETE_ORPHAN_FILES:
+            case REMOVE_ORPHAN_FILES:
                 // handled via executeTableExecute
         }
         throw new IllegalArgumentException("Unknown procedure '" + executeHandle.getProcedureId() + "'");
@@ -957,8 +957,8 @@ public class IcebergMetadata
             case EXPIRE_SNAPSHOTS:
                 executeExpireSnapshots(session, executeHandle);
                 return;
-            case DELETE_ORPHAN_FILES:
-                executeDeleteOrphanFiles(session, executeHandle);
+            case REMOVE_ORPHAN_FILES:
+                executeRemoveOrphanFiles(session, executeHandle);
                 return;
             default:
                 throw new IllegalArgumentException("Unknown procedure '" + executeHandle.getProcedureId() + "'");
@@ -1059,27 +1059,27 @@ public class IcebergMetadata
                 .collect(toImmutableSet());
     }
 
-    public void executeDeleteOrphanFiles(ConnectorSession session, IcebergTableExecuteHandle executeHandle)
+    public void executeRemoveOrphanFiles(ConnectorSession session, IcebergTableExecuteHandle executeHandle)
     {
-        IcebergDeleteOrphanFilesHandle deleteOrphanFilesHandle = (IcebergDeleteOrphanFilesHandle) executeHandle.getProcedureHandle();
+        IcebergRemoveOrphanFilesHandle removeOrphanFilesHandle = (IcebergRemoveOrphanFilesHandle) executeHandle.getProcedureHandle();
 
         Table table = catalog.loadTable(session, executeHandle.getSchemaTableName());
-        Duration retention = requireNonNull(deleteOrphanFilesHandle.getRetentionThreshold(), "retention is null");
+        Duration retention = requireNonNull(removeOrphanFilesHandle.getRetentionThreshold(), "retention is null");
         validateTableExecuteParameters(
                 table,
                 executeHandle.getSchemaTableName(),
-                DELETE_ORPHAN_FILES.name(),
+                REMOVE_ORPHAN_FILES.name(),
                 retention,
-                getDeleteOrphanFilesMinRetention(session),
-                IcebergConfig.DELETE_ORPHAN_FILES_MIN_RETENTION,
-                IcebergSessionProperties.DELETE_ORPHAN_FILES_MIN_RETENTION);
+                getRemoveOrphanFilesMinRetention(session),
+                IcebergConfig.REMOVE_ORPHAN_FILES_MIN_RETENTION,
+                IcebergSessionProperties.REMOVE_ORPHAN_FILES_MIN_RETENTION);
 
         long expireTimestampMillis = session.getStart().toEpochMilli() - retention.toMillis();
-        deleteOrphanFiles(table, session, executeHandle.getSchemaTableName(), expireTimestampMillis);
-        deleteOrphanMetadataFiles(table, session, executeHandle.getSchemaTableName(), expireTimestampMillis);
+        removeOrphanFiles(table, session, executeHandle.getSchemaTableName(), expireTimestampMillis);
+        removeOrphanMetadataFiles(table, session, executeHandle.getSchemaTableName(), expireTimestampMillis);
     }
 
-    private void deleteOrphanFiles(Table table, ConnectorSession session, SchemaTableName schemaTableName, long expireTimestamp)
+    private void removeOrphanFiles(Table table, ConnectorSession session, SchemaTableName schemaTableName, long expireTimestamp)
     {
         Set<String> validDataFilePaths = stream(table.snapshots())
                 .map(Snapshot::snapshotId)
@@ -1095,7 +1095,7 @@ public class IcebergMetadata
         scanAndDeleteInvalidFiles(table, session, schemaTableName, expireTimestamp, union(validDataFilePaths, validDeleteFilePaths), "/data");
     }
 
-    private void deleteOrphanMetadataFiles(Table table, ConnectorSession session, SchemaTableName schemaTableName, long expireTimestamp)
+    private void removeOrphanMetadataFiles(Table table, ConnectorSession session, SchemaTableName schemaTableName, long expireTimestamp)
     {
         ImmutableSet<String> manifests = stream(table.snapshots())
                 .flatMap(snapshot -> snapshot.allManifests().stream())
